@@ -1,0 +1,40 @@
+{
+  "name": "td_19.02_v.-all_v16",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "node server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "@react-pdf/renderer": "latest",
+    "@supabase/supabase-js": "^2.97.0",
+    "clsx": "latest",
+    "docx": "latest",
+    "express": "^5.2.1",
+    "file-saver": "latest",
+    "lucide-react": "0.344.0",
+    "qrcode": "latest",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-qr-code": "2.0.12",
+    "tailwind-merge": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "eslint": "^9.0.0",
+    "tailwindcss": "^4.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "vite-plugin-node-polyfills": "^0.25.0"
+  }
+}

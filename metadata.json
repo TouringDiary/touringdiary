@@ -1,0 +1,8 @@
+{
+  "name": "Remix: TD_05.03_v. ALL_v.3",
+  "description": "Versione evoluta con database cloud PostgreSQL e persistenza multi-dispositivo.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}
