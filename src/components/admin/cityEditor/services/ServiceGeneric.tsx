@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plus, MinusCircle, Save, Loader2, Eye } from 'lucide-react';
-import { useCityEditor } from '../../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { getCityServices, saveCityService, deleteCityService } from '../../../../services/cityService';
 import { getServicesConfig, SERVICE_TYPE_MAPPING, getBoxIdForType } from '../../../../constants/services';
 import { getSafeServiceType } from '../../../../utils/common';

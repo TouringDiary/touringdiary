@@ -4,7 +4,7 @@ import { Award, Star, Check, Plus } from 'lucide-react';
 import { PointOfInterest } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { StarRating } from '../common/StarRating';
-import { useItinerary } from '../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 
 interface BottegaSponsorCardProps {
     poi: PointOfInterest;

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CalendarDays, Eye, Plus, Save, MinusCircle, Loader2, Wand2 } from 'lucide-react';
-import { useCityEditor } from '../../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { getCityEvents, saveCityEvent, deleteCityEvent } from '../../../../services/cityService';
 import { suggestCityItems } from '../../../../services/ai';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';

@@ -31,7 +31,6 @@ interface CuratedGridSectionProps {
 
 export const CuratedGridSection = ({ onCityClick, onExplore, cityManifest }: CuratedGridSectionProps) => {
     
-    // RILEVAMENTO MOBILE PER TITOLI CATEGORIA
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
     const catTitleStyle = useDynamicStyles('inspiration_title', isMobile);
@@ -79,7 +78,6 @@ export const CuratedGridSection = ({ onCityClick, onExplore, cityManifest }: Cur
 
     return (
         <div className="flex flex-col gap-6">
-            {/* FULL WIDTH TOP DESTINATIONS BOX */}
             <div className={`bg-slate-900/50 rounded-xl border border-slate-800 p-4 hover:border-slate-700 transition-colors w-full`}>
                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
                     <div className="flex items-center gap-2">
@@ -96,14 +94,13 @@ export const CuratedGridSection = ({ onCityClick, onExplore, cityManifest }: Cur
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
                     {topDestItems.map((city, cIdx) => (
-                         <div key={`${topDestCategory.badge}-${city.id}-${cIdx}`} className={`${cIdx >= 4 ? 'hidden md:block' : ''} ${cIdx >= 8 ? 'hidden lg:block' : ''}`}>
+                         <div key={`${topDestCategory.badge}-${city.id}-${city.imageUrl || cIdx}`} className={`${cIdx >= 4 ? 'hidden md:block' : ''} ${cIdx >= 8 ? 'hidden lg:block' : ''}`}>
                             <MiniCityCard city={city} onClick={onCityClick} priority={cIdx < 4} />
                          </div>
                     ))}
                 </div>
             </div>
 
-            {/* EXISTING 4 CATEGORIES GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {categories.map((cat, idx) => (
                     <div key={idx} className={`bg-slate-900/50 rounded-xl border border-slate-800 p-4 hover:border-slate-700 transition-colors`}>
@@ -122,7 +119,7 @@ export const CuratedGridSection = ({ onCityClick, onExplore, cityManifest }: Cur
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             {getDisplayItems(cat.badge).map((city, cIdx) => (
-                                <MiniCityCard key={`${cat.badge}-${city.id}-${cIdx}`} city={city} onClick={onCityClick} priority={false} />
+                                <MiniCityCard key={`${cat.badge}-${city.id}-${city.imageUrl || cIdx}`} city={city} onClick={onCityClick} priority={true} />
                             ))}
                         </div>
                     </div>

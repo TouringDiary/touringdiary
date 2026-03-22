@@ -6,10 +6,10 @@ import {
     // Nuove icone per diversificazione
     StickyNote, Plane, Train, Car, Bus, Anchor, Coffee, Camera, Trees, Footprints
 } from 'lucide-react';
-import { ItineraryItem, PointOfInterest, PoiCategory } from '../../../types/index';
-import { calculateDistance } from '../../../services/geo';
-import { openMap } from '../../../utils/common';
-import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
+import { ItineraryItem, PointOfInterest, PoiCategory } from '@/types';
+import { calculateDistance } from '@/services/geo';
+import { openMap } from '@/utils/common';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 // COSTANTE ALTEZZA RIGA (h-7 di Tailwind = 1.75rem)
 const ROW_HEIGHT_REM = 1.75;

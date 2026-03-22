@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { BarChart3, Eye, Loader2, RefreshCw } from 'lucide-react';
-import { useCityEditor } from '../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { generateCitySection } from '../../../services/ai';
 import { AiFieldHelper } from '../AiFieldHelper';
 import { saveCityDetails } from '../../../services/cityService';

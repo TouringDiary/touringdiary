@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { ArrowRight, Flower, Sun, Leaf, Snowflake, Info, X, Quote } from 'lucide-react';
-import { CityDetails } from '../../../types/index';
+import { CityDetails } from '@/types';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { formatVisitors } from '../../../utils/common';
 

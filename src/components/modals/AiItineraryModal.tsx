@@ -1,13 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, Sparkles, AlertTriangle, Lock, MapPinOff, AlertCircle, LogIn, Crown } from 'lucide-react';
-import { useAiPlanner } from '../../context/AiPlannerContext'; 
+import { useAiPlanner } from '@/context/AiPlannerContext'; 
 import { User } from '../../types/index';
 import { AiLoadingScreen, GenerationLoader } from '../aiPlanner/AiLoadingScreen';
 import { AiPlannerForm } from '../aiPlanner/AiPlannerForm';
 import { AiPlannerTimeline } from '../aiPlanner/AiPlannerTimeline';
 import { useAiGeneration } from '../../hooks/useAiGeneration';
-import { useModal } from '../../context/ModalContext'; 
+import { useModal } from '@/context/ModalContext'; 
 import { useSystemMessage } from '../../hooks/useSystemMessage'; 
 import { useDynamicStyles } from '../../hooks/useDynamicStyles'; // NEW IMPORT
 

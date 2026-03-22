@@ -1,18 +1,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, LogIn, Lock, X, Menu, Info, Send, ShieldCheck, BookOpen, MapPin, CloudSun, Loader2, User as UserIcon, PanelLeftOpen, PanelLeftClose, Sparkles, LogOut, AlertTriangle } from 'lucide-react';
-import { getUnreadCount } from '../../services/notificationService'; 
-import { useModal } from '../../context/ModalContext';
-import { useDynamicStyles } from '../../hooks/useDynamicStyles';
-import { checkAiQuota } from '../../services/aiUsageService'; 
+import { getUnreadCount } from '@/services/notificationService'; 
+import { useModal } from '@/context/ModalContext';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+// import { checkAiQuota } from '../../services/aiUsageService'; 
 import { BrandLogo } from '../common/BrandLogo';
 import { NarrativeCompass } from './NarrativeCompass';
 
 // CONTEXT CONSUMER
-import { useUser } from '../../context/UserContext';
-import { useGps } from '../../context/GpsContext';
-import { useUI } from '../../context/UIContext';
-import { useNavigation } from '../../context/NavigationContext';
+import { useUser } from '@/context/UserContext';
+import { useGps } from '@/context/GpsContext';
+import { useUI } from '@/context/UIContext';
+import { useNavigation } from '@/context/NavigationContext';
 
 export interface HeaderProps {
     // Props residue solo se strettamente UI/locali
@@ -75,20 +75,20 @@ export const Header = ({
         }
     };
     
-    const fetchQuota = async () => {
-        const q = await checkAiQuota(user);
-        setAiQuota({ count: q.count, limit: q.limit });
-    };
+    // const fetchQuota = async () => {
+    //     const q = await checkAiQuota(user);
+    //     setAiQuota({ count: q.count, limit: q.limit });
+    // };
 
     checkNotifications();
-    fetchQuota();
+    // fetchQuota();
     
     const interval = setInterval(checkNotifications, 3000); 
-    const intervalQuota = setInterval(fetchQuota, 30000); 
+    // const intervalQuota = setInterval(fetchQuota, 30000); 
 
     return () => {
         clearInterval(interval);
-        clearInterval(intervalQuota);
+        // clearInterval(intervalQuota);
     };
   }, [user]);
 
@@ -331,3 +331,4 @@ export const Header = ({
     </header>
   );
 };
+export default Header;

@@ -23,14 +23,14 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
         setIsAiChecking(true);
         setLocalError(null);
         try {
-            const aiClient = getAiClient();
+            const ai = getAiClient();
             const prompt = `Sei un verificatore di dati turistici per Touring Diary.
             Verifica: "${editData.title}" a ${suggestion.cityName}.
             Indirizzo: "${editData.address}".
 
             RISPONDI SOLO JSON: { "found": true, "title": "...", "category": "...", "address": "...", "openingHours": "...", "description": "...", "lat": 0.0, "lng": 0.0 }`;
 
-            const response = await aiClient.models.generateContent({ model: 'gemini-3.1-pro-preview', contents: prompt });
+            const response = await ai.models.generateContent({ model: 'gemini-3.1-pro-preview', contents: prompt });
             const result = JSON.parse(cleanJsonOutput(response.text || "{}"));
             
             if (result.found === false) {

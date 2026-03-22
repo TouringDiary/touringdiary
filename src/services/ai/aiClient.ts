@@ -1,13 +1,21 @@
-
 import { GoogleGenAI } from "@google/genai";
-import { CONFIG } from '../../config/env';
 
-// Flag pubblico per la UI (ora gestito lato server, assumiamo true per il client)
-export const hasValidKey = true;
+// 🔑 legge la key UNA volta
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+// ✅ flag reale
+export const hasValidKey = !!apiKey;
 
 /**
- * Restituisce l'istanza GoogleGenAI.
+ * Factory per ottenere il client AI
  */
 export const getAiClient = () => {
-    return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    if (!apiKey) {
+        console.error("❌ GEMINI API KEY MISSING", import.meta.env);
+        throw new Error("[TouringDiary] VITE_GEMINI_API_KEY mancante");
+    }
+
+    return new GoogleGenAI({
+        apiKey: apiKey
+    });
 };

@@ -67,7 +67,7 @@ export const AiFieldHelper = ({ contextLabel, onApply, mode = 'text', min, max, 
         setLoading(true);
         setError(null);
         try {
-            const aiClient = getAiClient();
+            const ai = getAiClient();
             const combinedPrompt = selectedPrompts.join('\n- ');
             
             let systemInstruction = "Agisci come editor turistico esperto della Campania. Rispondi in italiano.";
@@ -83,7 +83,7 @@ export const AiFieldHelper = ({ contextLabel, onApply, mode = 'text', min, max, 
                 RISULTATO FINALE (Solo testo, niente spiegazioni):
             `;
 
-            const response = await aiClient.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: 'gemini-3.1-pro-preview',
                 contents: `${systemInstruction}\n\n${finalPrompt}`,
             });

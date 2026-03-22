@@ -1,32 +1,29 @@
-
 import { StyleSheet } from '@react-pdf/renderer';
 
-// PALETTE COLORI (PDF SAFE)
 export const COLORS = {
   black: '#000000',
   darkGrey: '#333333',
   lightGrey: '#666666',
   white: '#ffffff',
-  accent: '#d97706',    // Amber-600
-  redLine: '#ef4444',   // Red-500
-  noteBg: '#fef3c7',    // Amber-100 (Sfondo Note)
-  noteText: '#92400e',  // Amber-800
-  distanceBg: '#fee2e2',// Red-100
-  distanceText: '#dc2626' // Red-600
+  accent: '#d97706',
+  redLine: '#ef4444',
+  noteBg: '#fef3c7',
+  noteText: '#92400e',
+  distanceBg: '#fee2e2',
+  distanceText: '#dc2626'
 };
 
 export const styles = StyleSheet.create({
-  // LAYOUT PAGINA (A4 BIANCO)
+
   page: {
-    paddingTop: 80, 
+    paddingTop: 80,
     paddingBottom: 40,
-    paddingHorizontal: 40, // Margini più ampi per stampa
+    paddingHorizontal: 40,
     fontFamily: 'Helvetica',
-    backgroundColor: '#ffffff', // BIANCO PURO
-    color: COLORS.black,
+    backgroundColor: '#ffffff',
+    color: COLORS.black
   },
-  
-  // HEADER FISSO
+
   headerFixed: {
     position: 'absolute',
     top: 25,
@@ -37,218 +34,210 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb', // slate-200
+    borderBottomColor: '#e5e7eb'
   },
-  // LOGO: Usiamo un'immagine rasterizzata per fedeltà assoluta
+
   headerLogoImage: {
-    width: 150, 
-    height: 38,
-    objectFit: 'contain'
+    width: 150,
+    height: 26
   },
+
   headerLink: {
     fontSize: 9,
     color: '#94a3b8',
     textDecoration: 'none',
-    fontFamily: 'Helvetica',
+    fontFamily: 'Helvetica'
   },
 
-  // COPERTINA
   coverContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
+
   coverTitle: {
-    fontFamily: 'Times-Bold', // Serif per eleganza
+    fontFamily: 'Times-Bold',
     fontSize: 36,
     marginBottom: 10,
-    color: '#1e293b', // Slate-800
+    color: '#1e293b',
     textTransform: 'uppercase',
-    letterSpacing: 2,
-    textAlign: 'center',
+    textAlign: 'center'
   },
+
   coverSubtitle: {
     fontFamily: 'Helvetica',
     fontSize: 14,
-    color: '#64748b', // Slate-500
+    color: '#64748b',
     textAlign: 'center',
     marginBottom: 30,
-    lineHeight: 1.5,
+    lineHeight: 1.5
   },
-  coverDates: {
-    fontSize: 16,
-    fontFamily: 'Helvetica-Bold',
-    color: COLORS.accent,
-    marginBottom: 40,
-  },
+
   coverImageMain: {
     width: '100%',
     height: 300,
-    borderRadius: 4,
-    marginBottom: 20,
-    objectFit: 'cover',
-  },
-  coverImagesGrid: {
-      width: '100%',
-      height: 300,
-      marginBottom: 20,
-      flexDirection: 'column',
-      gap: 4
+    marginBottom: 20
   },
 
-  // SEZIONE GIORNO
+  coverImagesGrid: {
+    width: '100%',
+    height: 300,
+    marginBottom: 20,
+    flexDirection: 'column'
+  },
+
   dayHeaderContainer: {
     marginTop: 25,
     marginBottom: 20,
     borderBottomWidth: 2,
     borderBottomColor: COLORS.accent,
-    paddingBottom: 5,
+    paddingBottom: 5
   },
+
   dayTitle: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 16,
     color: COLORS.accent,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    textTransform: 'uppercase'
   },
 
-  // TIMELINE LAYOUT (SCHEMATICO)
   timelineItem: {
     flexDirection: 'row',
     minHeight: 60,
-    position: 'relative',
-    marginBottom: 0,
+    position: 'relative'
   },
-  
-  // COL 1: ORA (Sx)
+
   colTime: {
     width: 60,
     alignItems: 'flex-end',
     paddingTop: 2,
-    paddingRight: 10,
+    paddingRight: 10
   },
+
   timeText: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 11,
-    color: '#334155', // Slate-700
+    color: '#334155'
   },
 
-  // COL 2: LINEA (Centro)
   colLine: {
     width: 20,
     alignItems: 'center',
-    position: 'relative',
+    position: 'relative'
   },
+
   verticalLine: {
     position: 'absolute',
     top: 14,
     bottom: -10,
-    width: 1, // Linea sottile
+    width: 1,
     borderLeftWidth: 1,
-    borderLeftColor: COLORS.redLine,
-    borderLeftStyle: 'dashed',
-    zIndex: 1,
+    borderLeftColor: COLORS.redLine
   },
+
   timelineDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: '#475569', // Slate-600
-    zIndex: 2,
-    marginTop: 4,
+    borderColor: '#475569',
+    marginTop: 4
   },
-  // Badge KM (Rosso)
+
   distanceBadge: {
     position: 'absolute',
-    top: '50%',
-    backgroundColor: '#fee2e2', // Red-100
+    top: 20,
+    backgroundColor: '#fee2e2',
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 4,
-    zIndex: 3,
-    transform: 'translateY(-50%)',
     borderWidth: 0.5,
     borderColor: '#fca5a5'
   },
+
   distanceText: {
     fontSize: 6,
     fontFamily: 'Helvetica-Bold',
-    color: '#dc2626', // Red-600
-    textTransform: 'uppercase',
+    color: '#dc2626',
+    textTransform: 'uppercase'
   },
 
-  // COL 3: CONTENUTO (Dx) - PULITO, NO BOX
   colContent: {
     flex: 1,
     paddingLeft: 10,
-    paddingBottom: 20,
+    paddingBottom: 20
   },
-  // Niente background, niente border
+
   poiCategory: {
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
-    color: '#94a3b8', // Slate-400
+    color: '#94a3b8',
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: 2
   },
+
   poiName: {
     fontSize: 13,
-    fontFamily: 'Helvetica-Bold', // O Times-Bold per eleganza
-    color: '#0f172a', // Slate-900
-    marginBottom: 2,
+    fontFamily: 'Helvetica-Bold',
+    color: '#0f172a',
+    marginBottom: 2
   },
+
   poiDuration: {
     fontSize: 9,
     fontFamily: 'Helvetica',
     color: '#64748b',
-    marginBottom: 2,
-    marginTop: -2
+    marginBottom: 2
   },
+
   poiAddress: {
     fontSize: 9,
     fontFamily: 'Helvetica-Oblique',
     color: '#64748b',
-    marginBottom: 4,
+    marginBottom: 4
   },
+
   poiDescription: {
     fontSize: 9,
     fontFamily: 'Helvetica',
     color: '#334155',
     lineHeight: 1.4,
-    marginBottom: 6,
+    marginBottom: 6
   },
-  
-  // IMMAGINE (Opzionale)
+
   inlineImage: {
     width: 100,
     height: 60,
-    borderRadius: 4,
-    objectFit: 'cover',
-    marginBottom: 6,
+    marginBottom: 6
   },
 
-  // BOX NOTE GIALLO (Post-it style)
-  noteBox: {
-    backgroundColor: '#fffbeb', // Amber-50
+  notesBox: {
+    backgroundColor: '#fffbeb',
     padding: 8,
-    borderRadius: 0, // Quadrato come post-it
     borderLeftWidth: 3,
-    borderLeftColor: '#f59e0b', // Amber-500
-    marginTop: 4,
-  },
-  noteText: {
-    fontSize: 9,
-    color: '#92400e', // Amber-800
-    fontStyle: 'italic',
-    fontFamily: 'Times-Italic'
+    borderLeftColor: '#f59e0b',
+    marginTop: 4
   },
 
-  // QR CODE (Nel layout Time)
+  notesTitle: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: '#92400e',
+    marginBottom: 2
+  },
+
+  notesText: {
+    fontSize: 8,
+    lineHeight: 1.2,
+    color: '#92400e',
+    fontFamily: 'Helvetica'
+  },
+
   qrImageSmall: {
-      width: 35,
-      height: 35,
-      marginTop: 4
+    width: 35,
+    height: 35,
+    marginTop: 4
   }
+
 });

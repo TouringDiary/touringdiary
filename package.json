@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "vite",
     "start": "node server.ts",
     "build": "vite build",
     "preview": "vite preview",
@@ -12,18 +12,24 @@
   },
   "dependencies": {
     "@google/genai": "latest",
+    "@hookform/resolvers": "^5.2.2",
     "@react-pdf/renderer": "latest",
     "@supabase/supabase-js": "^2.97.0",
     "clsx": "latest",
     "docx": "latest",
+    "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "file-saver": "latest",
     "lucide-react": "0.344.0",
     "qrcode": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.71.2",
+    "react-modal": "^3.16.3",
     "react-qr-code": "2.0.12",
-    "tailwind-merge": "latest"
+    "react-router-dom": "^7.13.1",
+    "tailwind-merge": "latest",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",

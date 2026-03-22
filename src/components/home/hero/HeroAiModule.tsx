@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, ChevronUp, ChevronDown, Loader2, MessageCircle, Send } from 'lucide-react';
 import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
-import { getGlobalImage } from '../../../services/settingsService';
+import { getCachedSetting } from '../../../services/settingsService';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { generateCitySuggestion } from '../../../services/ai';
 
@@ -33,7 +33,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
     }, []);
     
     // Load AI Background from centralized service
-    const bgImage = getGlobalImage('ai_box');
+    const bgImage = getCachedSetting('ai_box');
 
     const aiTitleStyle = useDynamicStyles('ai_title', isMobile);
 

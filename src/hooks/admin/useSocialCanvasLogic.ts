@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { SocialTemplate, SocialLayoutConfig } from '../../types/index';
-import { getGlobalImage } from '../../services/settingsService';
+import { useConfig } from '@/context/ConfigContext';
+import { SETTINGS_KEYS } from '../../services/settingsService';
 
 const DEFAULT_LAYOUT: SocialLayoutConfig = {
     userName: { x: 200, y: 100, fontSize: 24, color: '#ffffff', fontFamily: 'sans', textAlign: 'center', shadowColor: '#000000', shadowBlur: 10 },
@@ -9,13 +10,21 @@ const DEFAULT_LAYOUT: SocialLayoutConfig = {
 };
 
 export const useSocialCanvasLogic = () => {
-    // Load default from centralized service
-    const defaultBg = getGlobalImage('social_bg');
+    const { configs } = useConfig();
+    
+    const defaultBg = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG] || '';
 
     // Canvas State
     const [editorBg, setEditorBg] = useState<string>(defaultBg);
     const [editorLayout, setEditorLayout] = useState<SocialLayoutConfig>(DEFAULT_LAYOUT);
     const [templateName, setTemplateName] = useState('Nuovo Template');
+
+    useEffect(() => {
+        const bgFromConfig = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG];
+        if (bgFromConfig) {
+            setEditorBg(bgFromConfig);
+        }
+    }, [configs]);
 
     // Load existing template into editor
     const loadFromTemplate = (t: SocialTemplate) => {
@@ -24,9 +33,10 @@ export const useSocialCanvasLogic = () => {
         setTemplateName(t.name);
     };
 
-    // Reset to default state
+    // Reset to default state, which is derived from the global config
     const resetToDefault = () => {
-        setEditorBg(defaultBg);
+        const bgFromConfig = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG] || '';
+        setEditorBg(bgFromConfig);
         setEditorLayout(DEFAULT_LAYOUT);
         setTemplateName('Nuovo Template');
     };

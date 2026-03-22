@@ -1,11 +1,12 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, ShieldCheck, Zap } from 'lucide-react';
 import { User } from '../../../types/users';
+import { MarketingConfig, AiLimitsConfig } from '../../../types';
 import { AdminUserManager } from '../AdminUserManager';
 import { AdminRoleManager } from '../AdminRoleManager';
-import { AiLimitsTab } from '../userManager/AiLimitsTab';
+import AiLimitsTab from '../userManager/AiLimitsTab';
 import { useAdminStyles } from '../../../hooks/useAdminStyles';
+import { getCachedSetting, SETTINGS_KEYS, saveSetting } from '../../../services/settingsService';
 
 interface UserManagementViewProps {
     currentUser: User;
@@ -13,8 +14,29 @@ interface UserManagementViewProps {
 }
 
 export const UserManagementView = ({ currentUser, onUserUpdate }: UserManagementViewProps) => {
+    console.log("USER MANAGEMENT VIEW MOUNTED");
     const [activeTab, setActiveTab] = useState<'list' | 'roles' | 'limits'>('list');
+    const [marketingConfig, setMarketingConfig] = useState<MarketingConfig | null>(null);
     const { styles } = useAdminStyles();
+
+    useEffect(() => {
+        console.log("USER MANAGEMENT VIEW useEffect");
+        const config = getCachedSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES_V2);
+        setMarketingConfig(config);
+    }, []);
+
+    const handleAiLimitsUpdate = async (newAiLimits: AiLimitsConfig) => {
+        if (!marketingConfig) return;
+
+        const updatedConfig = {
+            ...marketingConfig,
+            aiLimits: newAiLimits
+        };
+        
+        setMarketingConfig(updatedConfig);
+        await saveSetting(SETTINGS_KEYS.MARKETING_PRICES_V2, updatedConfig);
+        // Optionally, add some user feedback (e.g., a toast notification)
+    };
 
     return (
         <div className="flex flex-col h-full gap-6 animate-in fade-in">
@@ -52,7 +74,12 @@ export const UserManagementView = ({ currentUser, onUserUpdate }: UserManagement
             <div className="flex-1 min-h-0 bg-slate-900/50 rounded-2xl border border-slate-800/50 p-1 overflow-hidden">
                 {activeTab === 'list' && <AdminUserManager currentUser={currentUser} />}
                 {activeTab === 'roles' && <AdminRoleManager currentUser={currentUser} />}
-                {activeTab === 'limits' && <AiLimitsTab />}
+                {activeTab === 'limits' && (
+                    <AiLimitsTab 
+                        config={marketingConfig?.aiLimits} 
+                        onUpdate={handleAiLimitsUpdate} 
+                    />
+                )}
             </div>
         </div>
     );

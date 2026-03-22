@@ -6,7 +6,7 @@ import { ImageWithFallback } from '../common/ImageWithFallback';
 import { calculateDistance } from '../../services/geo';
 import { openMap, open3DView, getPoiColorStyle, getSubCategoryLabel } from '../../utils/common';
 import { StarRating } from '../common/StarRating';
-import { useInteraction } from '../../context/InteractionContext';
+import { useInteraction } from '../../../context/InteractionContext';
 import { useVirtualWindow } from '../../hooks/useVirtualWindow';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles'; 
 import { UniversalCard } from './ShowcaseCards';

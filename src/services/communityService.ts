@@ -267,14 +267,62 @@ export const deleteLiveSnap = async (id: string): Promise<void> => {
 };
 
 export const toggleLiveSnapLike = async (snapId: string, userId: string): Promise<{ liked: boolean, count: number }> => {
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return { liked: false, count: 0 };
+    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) {
+        return { liked: false, count: 0 };
+    }
+
     try {
-        const { data, error } = await supabase.rpc('toggle_live_snap_like', { 
-            p_snap_id: snapId, 
-            p_user_id: userId 
-        });
-        if (error) throw error;
-        return { liked: data.liked, count: data.count };
+        // check se esiste già
+        const { data: existing } = await supabase
+            .from('user_interactions')
+            .select('id')
+            .match({
+                user_id: userId,
+                target_id: snapId,
+                target_type: 'live_snap',
+                interaction_type: 'like'
+            })
+            .maybeSingle();
+
+        let liked = false;
+
+        if (existing) {
+            // unlike
+            await supabase
+                .from('user_interactions')
+                .delete()
+                .match({
+                    user_id: userId,
+                    target_id: snapId,
+                    target_type: 'live_snap',
+                    interaction_type: 'like'
+                });
+        } else {
+            // like
+            await supabase
+                .from('user_interactions')
+                .insert({
+                    user_id: userId,
+                    target_id: snapId,
+                    target_type: 'live_snap',
+                    interaction_type: 'like'
+                });
+
+            liked = true;
+        }
+
+        // conteggio aggiornato
+        const { count } = await supabase
+            .from('user_interactions')
+            .select('*', { count: 'exact', head: true })
+            .match({
+                target_id: snapId,
+                target_type: 'live_snap',
+                interaction_type: 'like'
+            });
+
+        return { liked, count: count || 0 };
+
     } catch (e) {
         console.error("Errore toggle like live snap:", e);
         return { liked: false, count: 0 };
@@ -284,8 +332,15 @@ export const toggleLiveSnapLike = async (snapId: string, userId: string): Promis
 export const getUserLiveLikes = async (userId: string): Promise<string[]> => {
     if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return [];
     try {
-        const { data } = await supabase.from('live_snap_likes').select('snap_id').eq('user_id', userId);
-        return (data || []).map((row: any) => row.snap_id);
+        const { data } = await supabase
+            .from('user_interactions')
+            .select('target_id')
+            .match({
+                user_id: userId,
+                target_type: 'live_snap',
+                interaction_type: 'like'
+  });
+        return (data || []).map((row: any) => row.target_id);
     } catch (e) {
         return [];
     }
@@ -354,14 +409,58 @@ export const addCommunityPostAsync = async (post: CommunityPost): Promise<Commun
 };
 
 export const togglePostLike = async (postId: string, userId: string): Promise<{ liked: boolean, count: number }> => {
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return { liked: false, count: 0 };
+    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) {
+        return { liked: false, count: 0 };
+    }
+
     try {
-        const { data, error } = await supabase.rpc('toggle_community_post_like', { 
-            p_post_id: postId, 
-            p_user_id: userId 
-        });
-        if (error) throw error;
-        return { liked: data.liked, count: data.count };
+        const { data: existing } = await supabase
+            .from('user_interactions')
+            .select('id')
+            .match({
+                user_id: userId,
+                target_id: postId,
+                target_type: 'community_post',
+                interaction_type: 'like'
+            })
+            .maybeSingle();
+
+        let liked = false;
+
+        if (existing) {
+            await supabase
+                .from('user_interactions')
+                .delete()
+                .match({
+                    user_id: userId,
+                    target_id: postId,
+                    target_type: 'community_post',
+                    interaction_type: 'like'
+                });
+        } else {
+            await supabase
+                .from('user_interactions')
+                .insert({
+                    user_id: userId,
+                    target_id: postId,
+                    target_type: 'community_post',
+                    interaction_type: 'like'
+                });
+
+            liked = true;
+        }
+
+        const { count } = await supabase
+            .from('user_interactions')
+            .select('*', { count: 'exact', head: true })
+            .match({
+                target_id: postId,
+                target_type: 'community_post',
+                interaction_type: 'like'
+            });
+
+        return { liked, count: count || 0 };
+
     } catch (e) {
         console.error("Errore toggle like community post:", e);
         return { liked: false, count: 0 };
@@ -371,8 +470,15 @@ export const togglePostLike = async (postId: string, userId: string): Promise<{ 
 export const getUserPostLikes = async (userId: string): Promise<string[]> => {
     if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return [];
     try {
-        const { data } = await supabase.from('community_post_likes').select('post_id').eq('user_id', userId);
-        return (data || []).map((row: any) => row.post_id);
+        const { data } = await supabase
+            .from('user_interactions')
+            .select('target_id')
+            .match({
+                user_id: userId,
+                target_type: 'community_post',
+                interaction_type: 'like'
+  });
+        return (data || []).map((row: any) => row.target_id);
     } catch (e) {
         return [];
     }
@@ -708,24 +814,75 @@ export const deletePremadeItinerary = async (id: string): Promise<void> => {
 export const getUserItineraryLikes = async (userId: string): Promise<string[]> => {
     if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return [];
     try {
-        const { data } = await supabase.from('itinerary_likes').select('itinerary_id').eq('user_id', userId);
-        return (data || []).map((row: any) => row.itinerary_id);
+        const { data } = await supabase
+            .from('user_interactions')
+            .select('target_id')
+            .match({
+                user_id: userId,
+                target_type: 'itinerary',
+                interaction_type: 'like'
+  });   
+        return (data || []).map((row: any) => row.target_id);
     } catch (e) {
         return [];
     }
 };
 
 export const toggleItineraryLike = async (itineraryId: string, userId: string): Promise<{ liked: boolean, count: number }> => {
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return { liked: false, count: 0 };
+    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) {
+        return { liked: false, count: 0 };
+    }
+
     try {
-        const { data, error } = await supabase.rpc('toggle_itinerary_like', { 
-            p_itinerary_id: itineraryId, 
-            p_user_id: userId 
-        });
-        if (error) throw error;
-        return { liked: data.liked, count: data.count };
+        const { data: existing } = await supabase
+            .from('user_interactions')
+            .select('id')
+            .match({
+                user_id: userId,
+                target_id: itineraryId,
+                target_type: 'itinerary',
+                interaction_type: 'like'
+            })
+            .maybeSingle();
+
+        let liked = false;
+
+        if (existing) {
+            await supabase
+                .from('user_interactions')
+                .delete()
+                .match({
+                    user_id: userId,
+                    target_id: itineraryId,
+                    target_type: 'itinerary',
+                    interaction_type: 'like'
+                });
+        } else {
+            await supabase
+                .from('user_interactions')
+                .insert({
+                    user_id: userId,
+                    target_id: itineraryId,
+                    target_type: 'itinerary',
+                    interaction_type: 'like'
+                });
+
+            liked = true;
+        }
+
+        const { count } = await supabase
+            .from('user_interactions')
+            .select('*', { count: 'exact', head: true })
+            .match({
+                target_id: itineraryId,
+                target_type: 'itinerary',
+                interaction_type: 'like'
+            });
+
+        return { liked, count: count || 0 };
+
     } catch (e) {
-        console.error("Errore incremento like itinerario:", e);
+        console.error("Errore like itinerario:", e);
         return { liked: false, count: 0 };
     }
 };

@@ -1,7 +1,7 @@
 
 import React, { useMemo, useRef } from 'react';
 import { Camera, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
-import { CityDetails } from '../../../types/index';
+import { CityDetails } from '@/types';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
 

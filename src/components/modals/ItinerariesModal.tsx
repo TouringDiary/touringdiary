@@ -5,7 +5,7 @@ import { PremadeItinerary, PointOfInterest, User as UserType } from '../../types
 import { ItinerariesList } from '../itineraries/ItinerariesList';
 import { ItineraryDetail } from '../itineraries/ItineraryDetail';
 import { ItineraryReviews } from '../itineraries/ItineraryReviews';
-import { useItinerary } from '../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 import { getFilteredCommunityItinerariesAsync, getCommunityItinerariesMetadataAsync } from '../../services/communityService'; // NEW ASYNC
 
 interface ItinerariesModalProps {

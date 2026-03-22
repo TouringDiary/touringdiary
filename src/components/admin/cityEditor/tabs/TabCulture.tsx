@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { BookOpen, RefreshCw, Loader2 } from 'lucide-react';
-import { useCityEditor } from '../../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { generateCitySection, suggestCityPeople } from '../../../../services/ai';
 import { generateHistoricalPortrait } from '../../../../services/ai/aiVision'; // IMPORT
 import { getCityPeople, deleteCityPerson, saveCityDetails, saveCityPerson } from '../../../../services/cityService';

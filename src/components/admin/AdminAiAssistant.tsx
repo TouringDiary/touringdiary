@@ -43,14 +43,14 @@ export const AdminPageAiAssistant = ({ section }: Props) => {
         setLoading(true);
 
         try {
-            const aiClient = getAiClient();
+            const ai = getAiClient();
             const prompt = `Sei un assistente senior amministrativo per l'app "Touring Diary". 
             L'utente si trova nella sezione admin: "${section}".
             Aiutalo a gestire i dati, capire le metriche o risolvere problemi in modo professionale.
             
             Domanda Utente: ${userMsg}`;
 
-            const response = await aiClient.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: 'gemini-3.1-pro-preview', 
                 contents: prompt,
             });

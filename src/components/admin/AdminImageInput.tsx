@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Link, AlertTriangle, CheckCircle, Info, Image as ImageIcon, ShieldAlert, Loader2, Sparkles, Maximize, RefreshCw, X, Layers } from 'lucide-react';
 import { compressImage, compressImageHighQuality, dataURLtoFile, getPoiCategoryLabel } from '../../utils/common';
 import { uploadPublicMedia } from '../../services/mediaService';
-import { getCachedPlaceholder } from '../../services/settingsService';
+import { getCachedSetting } from '../../services/settingsService';
 import { getAiClient } from '../../services/ai/aiClient';
 
 interface AdminImageInputProps {
@@ -26,7 +26,7 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Placeholder Logic
-    const placeholderUrl = getCachedPlaceholder(category);
+    const placeholderUrl = category ? getCachedSetting(category) : null;
     const hasPlaceholder = !!placeholderUrl;
 
     useEffect(() => {

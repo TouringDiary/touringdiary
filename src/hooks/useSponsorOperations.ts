@@ -4,7 +4,9 @@ import {
     deleteSponsor, 
     deleteSponsorsBulk, 
     updateSponsorStatus, 
-    activateSponsor, 
+    getSponsorById,
+    createSponsorFromRequest,
+    approveSponsorWithSubscription,
     rejectSponsor, 
     cancelSponsor,
     updateSponsorExpiration,
@@ -85,19 +87,43 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
 
     // 2. Attivazione (Waiting -> Approved)
     const confirmActivation = async () => { 
-        const { id, startDate, duration, amount, invoiceNumber } = modalState.activationData || {};
-        if (id && startDate && duration && amount && invoiceNumber) { 
-            try {
-                await activateSponsor(id, startDate, duration, amount, invoiceNumber); 
-                showToast(`Sponsor attivato con successo!`, 'success');
-                modalActions.closeActivation(); 
-                setTimeout(() => refreshData(), 300);
-            } catch (e: any) {
-                console.error(e);
-                showToast(`Errore attivazione: ${e.message}`, 'error');
+        // Recupera solo l'ID della richiesta dal modale.
+        const { id: requestId } = modalState.activationData || {};
+
+        if (!requestId) {
+            showToast("ID richiesta non specificato.", 'error');
+            return;
+        }
+
+        try {
+            // 1. Recupera i dati completi della richiesta originale
+            const requestData = await getSponsorById(requestId);
+            if (!requestData) {
+                throw new Error(`Dati della richiesta sponsor con ID ${requestId} non trovati.`);
             }
-        } else {
-            showToast("Dati mancanti per l'attivazione.", 'error');
+            
+            // Validazione: assicurarsi che il tier (plan_key) esista sui dati della richiesta
+            if (!requestData.tier) {
+                throw new Error(`'tier' (plan_key) è mancante nei dati della richiesta, impossibile chiamare la RPC.`);
+            }
+
+            // 2. Crea il record nella tabella 'sponsors'
+            const newSponsor = await createSponsorFromRequest(requestData);
+            if (!newSponsor?.id) {
+                throw new Error("Creazione del record sponsor fallita. L'ID non è stato restituito.");
+            }
+
+            // 3. Chiama la RPC usando l'ID del nuovo sponsor e il TIER dalla richiesta
+            await approveSponsorWithSubscription(newSponsor.id, requestData.tier);
+
+            // 4. Successo: mostra feedback e aggiorna l'interfaccia
+            showToast(`Sponsor "${newSponsor.company_name}" attivato con successo!`, 'success');
+            modalActions.closeActivation(); 
+            setTimeout(() => refreshData(), 300);
+
+        } catch (e: any) {
+            console.error("Errore nel processo di attivazione sponsor:", e);
+            showToast(`Errore di attivazione: ${e.message}`, 'error');
         }
     };
 

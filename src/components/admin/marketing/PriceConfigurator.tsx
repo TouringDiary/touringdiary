@@ -1,82 +1,127 @@
+import React from 'react';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { MarketingConfig, MarketingTierConfig } from '../../../types';
 
-import React, { useState } from 'react';
-import { DollarSign, Plus, User, Store } from 'lucide-react';
-import { MarketingConfig, TierPricingConfig } from '../../../types/index';
-import { SponsorPlanCard } from '../../marketing/SponsorPlanCard';
+// Zod Schema per la validazione di un singolo tier
+const tierSchema = z.object({
+    basePrice: z.number().min(0, "Il prezzo base non può essere negativo"),
+    promoPrice: z.number().min(0, "Il prezzo promo non può essere negativo").nullable(),
+    promoLabel: z.string().max(100, "L'etichetta promo è troppo lunga").nullable(),
+    promoActive: z.boolean(),
+});
+
+// Zod Schema per l'intero form di configurazione marketing
+const marketingConfigSchema = z.object({
+    // Qui replichiamo le chiavi principali che ci aspettiamo
+    silver: tierSchema,
+    gold: tierSchema,
+    guide: tierSchema,
+    shop: tierSchema,
+    tourOperator: tierSchema,
+    premiumUser: tierSchema,
+    premiumUserPlus: tierSchema,
+});
+
+type MarketingFormData = z.infer<typeof marketingConfigSchema>;
 
 interface PriceConfiguratorProps {
-    prices: MarketingConfig;
-    promoTypes: { id: string, label: string }[];
-    onUpdate: (key: keyof MarketingConfig, config: TierPricingConfig) => void;
-    onOpenPromoModal: () => void;
+    config: MarketingConfig;
+    onUpdate: (newConfig: Partial<MarketingConfig>) => void;
 }
 
-export const PriceConfigurator = ({ prices, promoTypes, onUpdate, onOpenPromoModal }: PriceConfiguratorProps) => {
-    const [viewMode, setViewMode] = useState<'b2b' | 'b2c'>('b2b');
+const PriceConfigurator: React.FC<PriceConfiguratorProps> = ({ config, onUpdate }) => {
+
+    const { control, register, handleSubmit, formState: { errors, isDirty } } = useForm<MarketingFormData>({
+        resolver: zodResolver(marketingConfigSchema),
+        defaultValues: {
+            silver: config.silver,
+            gold: config.gold,
+            guide: config.guide,
+            shop: config.shop,
+            tourOperator: config.tourOperator,
+            premiumUser: config.premiumUser,
+            premiumUserPlus: config.premiumUserPlus,
+        }
+    });
+
+    const onSubmit = (data: MarketingFormData) => {
+        onUpdate(data);
+    };
+    
+    const tierKeys = Object.keys(config).filter(k => typeof config[k as keyof MarketingConfig] === 'object' && 'basePrice' in config[k as keyof MarketingConfig]) as (keyof MarketingFormData)[];
 
     return (
-        <div>
-             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-800 pb-4">
-                 <div>
-                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                         <DollarSign className="w-6 h-6 text-emerald-500"/> Listini & Promozioni Attive
-                     </h3>
-                     <p className="text-xs text-slate-400 mt-1">Configura prezzi e feature per ogni livello.</p>
-                 </div>
-                 
-                 <div className="flex gap-2">
-                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
-                         <button 
-                            onClick={() => setViewMode('b2b')}
-                            className={`px-4 py-2 rounded-md text-xs font-bold uppercase transition-all flex items-center gap-2 ${viewMode === 'b2b' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
-                        >
-                            <Store className="w-3.5 h-3.5"/> Business
-                        </button>
-                        <button 
-                            onClick={() => setViewMode('b2c')}
-                            className={`px-4 py-2 rounded-md text-xs font-bold uppercase transition-all flex items-center gap-2 ${viewMode === 'b2c' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
-                        >
-                            <User className="w-3.5 h-3.5"/> Viaggiatori
-                        </button>
-                     </div>
-                     <button onClick={onOpenPromoModal} className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-bold border border-slate-700 flex items-center gap-2 transition-colors">
-                         <Plus className="w-3.5 h-3.5"/> Etichetta Promo
-                     </button>
-                 </div>
-             </div>
-             
-             {viewMode === 'b2b' ? (
-                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in">
-                     {/* BUSINESS PLANS */}
-                     <SponsorPlanCard type="silver" config={prices.silver} isEditable={true} onUpdateConfig={(c) => onUpdate('silver', c)} promoTypes={promoTypes} />
-                     <SponsorPlanCard type="gold" config={prices.gold} isEditable={true} onUpdateConfig={(c) => onUpdate('gold', c)} promoTypes={promoTypes} />
-                     <SponsorPlanCard type="shop" config={prices.shop} isEditable={true} onUpdateConfig={(c) => onUpdate('shop', c)} promoTypes={promoTypes} />
-                     <SponsorPlanCard type="tourOperator" config={prices.tourOperator || { basePrice: 150, promoActive: false }} isEditable={true} onUpdateConfig={(c) => onUpdate('tourOperator', c)} promoTypes={promoTypes} />
-                     <SponsorPlanCard type="guide" config={prices.guide} isEditable={true} onUpdateConfig={(c) => onUpdate('guide', c)} promoTypes={promoTypes} />
-                 </div>
-             ) : (
-                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in">
-                     {/* USER PLANS */}
-                     <SponsorPlanCard 
-                        type="premiumUser" 
-                        config={prices.premiumUser || { basePrice: 4.99, promoActive: false }} 
-                        isEditable={true} 
-                        onUpdateConfig={(c) => onUpdate('premiumUser', c)} 
-                        promoTypes={promoTypes} 
-                    />
-                     <SponsorPlanCard 
-                        type="premiumUserPlus" 
-                        config={prices.premiumUserPlus || { basePrice: 9.99, promoActive: false }} 
-                        isEditable={true} 
-                        onUpdateConfig={(c) => onUpdate('premiumUserPlus', c)} 
-                        promoTypes={promoTypes} 
-                    />
-                     
-                     <div className="flex flex-col justify-center items-center text-center p-8 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
-                         <p className="text-slate-500 text-sm font-medium italic">Il piano "Free" non è configurabile qui. <br/>È attivo di default per tutti i registrati.</p>
-                     </div>
-                 </div>
-             )}
+        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+            <h2 className="text-2xl font-bold text-amber-400 mb-6">Configurazione Prezzi Piani</h2>
+            <p className="text-gray-400 mb-8">
+                Modifica i prezzi e le promozioni per ciascun piano di abbonamento. Le modifiche avranno effetto immediato per i nuovi utenti.
+            </p>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {tierKeys.map(tierName => (
+                        <div key={tierName} className="bg-gray-700 p-5 rounded-lg">
+                            <h3 className="text-lg font-bold text-white capitalize mb-4 border-b border-gray-600 pb-2">{tierName.replace('User', ' User')}</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label htmlFor={`${tierName}.basePrice`} className="block text-sm font-medium text-gray-300 mb-1">Prezzo Base (€)</label>
+                                    <Controller
+                                        name={`${tierName}.basePrice`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <input {...field} type="number" step="0.01" className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" onChange={e => field.onChange(parseFloat(e.target.value))} />
+                                        )}
+                                    />
+                                    {errors[tierName]?.basePrice && <p className="text-red-500 text-xs mt-1">{errors[tierName]?.basePrice?.message}</p>}
+                                </div>
+
+                                <div>
+                                    <label htmlFor={`${tierName}.promoPrice`} className="block text-sm font-medium text-gray-300 mb-1">Prezzo Promo (€)</label>
+                                     <Controller
+                                        name={`${tierName}.promoPrice`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <input {...field} value={field.value ?? ''} type="number" step="0.01" className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+                                        )}
+                                    />
+                                    {errors[tierName]?.promoPrice && <p className="text-red-500 text-xs mt-1">{errors[tierName]?.promoPrice?.message}</p>}
+                                </div>
+
+                                <div>
+                                    <label htmlFor={`${tierName}.promoLabel`} className="block text-sm font-medium text-gray-300 mb-1">Etichetta Promo</label>
+                                    <input {...register(`${tierName}.promoLabel`)} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" />
+                                    {errors[tierName]?.promoLabel && <p className="text-red-500 text-xs mt-1">{errors[tierName]?.promoLabel?.message}</p>}
+                                </div>
+                                
+                                <div className="flex items-center pt-2">
+                                    <Controller
+                                        name={`${tierName}.promoActive`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <input {...field} type="checkbox" checked={field.value} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-amber-600 focus:ring-amber-500" />
+                                        )}
+                                    />
+                                    <label htmlFor={`${tierName}.promoActive`} className="ml-2 block text-sm text-gray-300">Promozione Attiva</label>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex justify-end pt-4">
+                    <button
+                        type="submit"
+                        disabled={!isDirty}
+                        className="bg-amber-600 hover:bg-amber-700 disabled:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition duration-300 shadow-md disabled:cursor-not-allowed"
+                    >
+                        Salva Prezzi
+                    </button>
+                </div>
+            </form>
         </div>
     );
 };
+
+export default PriceConfigurator;

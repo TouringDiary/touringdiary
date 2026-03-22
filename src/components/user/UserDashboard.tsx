@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Briefcase, User, ArrowLeft, Loader2, Zap } from 'lucide-react';
 import { User as UserType, CitySummary } from '../../types/index';
-import { useItinerary } from '../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 import { BusinessShopManager } from './BusinessShopManager';
 import { getCurrentLevel, getNextLevelProgress } from '../../services/gamificationService';
 import { useUserDashboardData } from '../../hooks/useUserDashboardData';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '@/context/ModalContext';
 
 // Sub-components
 import { UserSidebar } from './dashboard/UserSidebar';
@@ -50,7 +50,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
     } = useUserDashboardData(user);
 
     // Calc unread messages
-    const unreadMessages = sponsorRequests.reduce((sum, req) => sum + (req.partnerLogs?.filter(l => l.direction === 'outbound' && l.isUnread).length || 0), 0);
+    const unreadMessages = (sponsorRequests ?? []).reduce((sum, req) => sum + (req.partnerLogs?.filter(l => l.direction === 'outbound' && l.isUnread).length || 0), 0);
 
     // GAMIFICATION CALCULATIONS
     const currentXP = user.xp || 0;
@@ -160,7 +160,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
                             unreadCount={unreadCount} 
                             onLogout={() => { if(onLogout) onLogout(); onClose(); }}
                             onClose={onClose}
-                            hasActiveRequests={sponsorRequests.length > 0}
+                            hasActiveRequests={(sponsorRequests ?? []).length > 0}
                             unreadMessagesCount={unreadMessages}
                         />
                     </div>

@@ -11,7 +11,7 @@ interface SponsorTableProps {
     manifest: CitySummary[];
     onInitialApproval: (id: string) => void;
     onReject: (id: string) => void;
-    onActivate: (id: string, amount: number) => void;
+    onActivate: (id: string, pricingVersionId?: string) => void;
     onOpenCrm: (vatNumber: string) => void;
     onPreview: (req: SponsorRequest) => void;
     onExtend: (id: string) => void;
@@ -28,15 +28,6 @@ interface SponsorTableProps {
     selectedIds?: Set<string>;
     onToggleSelection?: (id: string) => void;
 }
-
-const getPriceForRequest = (req: SponsorRequest) => {
-    if (req.amount && req.amount > 0) return req.amount;
-    if (req.type === 'shop') return 80;
-    if (req.type === 'guide') return 45;
-    if (req.tier === 'gold') return 120;
-    if (req.tier === 'silver') return 50;
-    return 0;
-};
 
 export const SponsorTable = ({ 
     requests, 
@@ -228,7 +219,7 @@ export const SponsorTable = ({
                                             </>
                                         )}
                                         {req.status === 'waiting_payment' && (
-                                            <button onClick={() => onActivate(req.id, getPriceForRequest(req))} className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-sm font-bold uppercase flex items-center gap-1 transition-colors shadow-lg animate-pulse"><CheckCircle className="w-4 h-4"/> Registra Incasso</button>
+                                            <button onClick={() => onActivate(req.id, req.pricingVersionId)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-sm font-bold uppercase flex items-center gap-1 transition-colors shadow-lg animate-pulse"><CheckCircle className="w-4 h-4"/> Registra Incasso</button>
                                         )}
                                         {req.status === 'approved' && (
                                             <>
@@ -261,11 +252,11 @@ export const SponsorTable = ({
             </div>
             
             <PaginationControls 
-                currentPage={currentPage} 
-                maxPage={maxPage} 
-                onNext={onNext} 
-                onPrev={onPrev} 
-                totalItems={totalItems} 
+                currentPage={currentPage}
+                maxPage={maxPage}
+                onNext={onNext}
+                onPrev={onPrev}
+                totalItems={totalItems}
             />
         </div>
     );

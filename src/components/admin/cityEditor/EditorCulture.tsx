@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Users, Eye, Plus, Trash2, Award, Sparkles, Loader2, Wand2, X, RefreshCw, ChevronDown, ChevronUp, Calendar, Check, ScrollText, FileText, Save, CheckCircle, AlertCircle } from 'lucide-react';
-import { useCityEditor } from '../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { suggestCityItems, generateCitySection } from '../../../services/ai';
-import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { AiFieldHelper } from '../AiFieldHelper'; 
 import { getCityPeople, saveCityPerson, deleteCityPerson, saveCityDetails } from '../../../services/cityService';
 import { FamousPerson } from '../../../types/index';

@@ -1,11 +1,7 @@
 
 import React, { useState } from 'react';
 import { Loader2, RefreshCw, CheckCircle, Bot, Sparkles, Database, X } from 'lucide-react';
-import { useCityEditor } from '../../../../context/CityEditorContext';
-import { suggestCityItems, refineServiceData } from '../../../../services/ai';
-import { getCityEvents, saveCityEvent, deleteCityEvent, getCityServices, saveCityService, deleteCityService, getCityGuides, saveCityGuide, deleteCityGuide } from '../../../../services/cityService';
-import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
-import { getSafeServiceType } from '../../../../utils/common';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { useSystemMessage } from '../../../../hooks/useSystemMessage'; 
 import { AdminTaxonomyManager } from '../../AdminTaxonomyManager'; 
 import { User } from '../../../../types/users';

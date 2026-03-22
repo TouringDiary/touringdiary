@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Bus, ChevronRight, Phone, Mail, Check, Plus, MessageSquare, PenTool, Globe, Star, ShieldCheck, Flag } from 'lucide-react';
-import { CityDetails, User as UserType, PointOfInterest } from '../../../types/index';
+import { CityDetails, User as UserType, PointOfInterest } from '@/types/index';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
-import { useItinerary } from '../../../context/ItineraryContext';
-import { getCachedPlaceholder } from '../../../services/settingsService'; // NEW
+import { useItinerary } from '@/context/ItineraryContext';
 
 interface Props {
     city: CityDetails;
@@ -27,9 +26,6 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
 
     const getOperatorsList = () => {
         const services = city.details.services || [];
-        // CLEANUP: Rimozione URL hardcoded e uso getCachedPlaceholder
-        const placeholder = getCachedPlaceholder('tour_operator');
-        
         return services.filter(s => 
             s.type === 'tour_operator' || 
             s.type === 'agency' || 
@@ -37,7 +33,6 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
             s.category?.toLowerCase().includes('agenzia')
         ).map(s => ({
             ...s,
-            imageUrl: placeholder || '', 
             rating: 4.8, 
             reviews: [],
             languages: ['IT', 'EN'], 
@@ -96,7 +91,6 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                 votes: reviews.length,
                 address: operator.address || operator.contact,
                 
-                // IMPORTANT: Identifica come risorsa
                 resourceType: 'operator',
                 contactInfo: {
                     phone: operator.contact,
@@ -110,7 +104,13 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
             <div className="h-full overflow-y-auto custom-scrollbar p-6 md:p-10 animate-in fade-in bg-[#020617] flex flex-col">
                 <div className="flex flex-col md:flex-row gap-8 mb-10">
                     <div className="w-32 h-32 md:w-56 md:h-56 rounded-2xl overflow-hidden border-4 border-slate-800 shadow-2xl shrink-0 mx-auto md:mx-0 bg-slate-900 flex items-center justify-center relative group">
-                         <ImageWithFallback src={operator.imageUrl} className="w-full h-full object-cover" alt={operator.name} category="tour_operator" />
+                         {/* --- MODIFICA APPLICATA --- */}
+                         <ImageWithFallback 
+                             src={operator.imageUrl} 
+                             className="w-full h-full object-cover" 
+                             alt={operator.name} 
+                             category={operator.type || 'tour_operator'} // Usa il tipo reale del servizio
+                         />
                          <div className="absolute inset-0 bg-indigo-900/20 mix-blend-overlay"></div>
                     </div>
                     <div className="flex-1 text-center md:text-left">
@@ -173,7 +173,6 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                     </div>
                 </div>
 
-                {/* LEGAL DISCLAIMER FOOTER */}
                 <div className="mt-auto pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-500">
                     <div className="text-[10px] max-w-sm flex items-start gap-2 leading-snug">
                         <ShieldCheck className="w-4 h-4 shrink-0 opacity-50"/>

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { 
     fetchCommunityPhotos, 
     updatePhotoStatusInDb, 
-    updatePhotoDataInDb, 
+    updatePhotoData, 
     uploadCommunityPhoto, 
     deletePhotoSubmissionInDb
 } from '../../services/photoService';

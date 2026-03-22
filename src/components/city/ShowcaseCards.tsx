@@ -5,10 +5,11 @@ import { PointOfInterest } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { getPoiCategoryLabel, getSubCategoryLabel, isPoiNew, getPoiColorStyle } from '../../utils/common';
 import { StarRating } from '../common/StarRating';
-import { useItinerary } from '../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 import { calculateDistance } from '../../services/geo';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { AdPlaceholder } from '../common/AdPlaceholder';
+import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService'; // IMPORT CORRETTO
 
 // --- TYPES ---
 interface UniversalCardProps {
@@ -94,6 +95,10 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
         : null;
     const showDistance = distanceRel !== null;
 
+    // LOGICA FALLBACK IMMAGINE
+    const placeholders = getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
+    const imageUrl = poi.imageUrl || (placeholders ? placeholders[poi.category] : undefined);
+
     // --- LAYOUT: HORIZONTAL (Top 5 Lists) ---
     if (variant === 'horizontal') {
         return (
@@ -104,7 +109,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
                 className={`group relative h-36 md:h-44 w-full rounded-xl overflow-hidden border transition-all bg-slate-900 shadow-md hover:shadow-xl cursor-pointer ${!isMobile ? 'cursor-grab active:cursor-grabbing' : ''} ${poi.tier==='gold'?'border-amber-500':poi.tier==='silver'?'border-slate-300':'border-slate-800'}`}
             >
                 <ImageWithFallback 
-                    src={poi.imageUrl} 
+                    src={imageUrl} // IMMAGINE AGGIORNATA
                     alt={poi.name} 
                     category={poi.category}
                     size="medium" 
@@ -163,7 +168,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
             {/* IMMAGINE */}
             <div className={`relative ${imageContainerClasses} overflow-hidden bg-black shrink-0`}>
                 <ImageWithFallback 
-                    src={poi.imageUrl} 
+                    src={imageUrl} // IMMAGINE AGGIORNATA
                     alt={poi.name} 
                     category={poi.category}
                     size="small" 

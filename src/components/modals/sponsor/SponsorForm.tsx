@@ -190,6 +190,17 @@ export const SponsorForm = ({
                     <InputGroup label={activeType === 'guide' ? "Nome Pubblico" : activeType === 'tour_operator' ? "Nome Agenzia" : "Nome Insegna (Pubblico)"} required>
                         <input type="text" placeholder={activeType === 'guide' ? "Es. Guida Mario" : "Es. Ristorante Bella Napoli"} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm font-bold" value={formData.publicName} onChange={e => setFormData({...formData, publicName: e.target.value})} required/>
                     </InputGroup>
+
+                    <InputGroup label="Comune" required>
+                        <input 
+                            type="text" 
+                            placeholder="Es. Firenze" 
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm" 
+                            value={formData.cityId} 
+                            onChange={e => setFormData({...formData, cityId: e.target.value})} 
+                            required
+                        />
+                    </InputGroup>
                     
                     {activeType !== 'guide' && activeType !== 'tour_operator' ? (
                         <InputGroup label="Categoria Principale" required>

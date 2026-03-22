@@ -10,84 +10,38 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      pois_staging: {
+      ai_configs: {
         Row: {
-          id: string
-          city_id: string | null
-          osm_id: string
-          name: string
-          raw_category: string | null
-          coords_lat: number
-          coords_lng: number
-          address: string | null
-          ai_rating: 'low' | 'medium' | 'high' | 'service' | null
-          processing_status: 'new' | 'ready' | 'imported' | 'discarded'
-          orphan_city_tag: string | null
-          created_at: string
-          updated_at: string
+          key: string
+          prompts: string[] | null
+          selected: string[] | null
+          presets: Json | null
+          updated_at: string | null
         }
         Insert: {
-          id?: string
-          city_id?: string | null
-          osm_id: string
-          name: string
-          raw_category?: string | null
-          coords_lat: number
-          coords_lng: number
-          address?: string | null
-          ai_rating?: 'low' | 'medium' | 'high' | 'service' | null
-          processing_status?: 'new' | 'ready' | 'imported' | 'discarded'
-          orphan_city_tag?: string | null
-          created_at?: string
-          updated_at?: string
+          key: string
+          prompts?: string[] | null
+          selected?: string[] | null
+          presets?: Json | null
+          updated_at?: string | null
         }
         Update: {
-          id?: string
-          city_id?: string | null
-          osm_id?: string
-          name?: string
-          raw_category?: string | null
-          coords_lat?: number
-          coords_lng?: number
-          address?: string | null
-          ai_rating?: 'low' | 'medium' | 'high' | 'service' | null
-          processing_status?: 'new' | 'ready' | 'imported' | 'discarded'
-          orphan_city_tag?: string | null
-          created_at?: string
-          updated_at?: string
+          key?: string
+          prompts?: string[] | null
+          selected?: string[] | null
+          presets?: Json | null
+          updated_at?: string | null
         }
       }
-      notifications: {
-        Row: {
-          id: string
-          user_id: string
-          type: string
-          title: string
-          message: string
-          date: string
-          is_read: boolean
-          link_data: Json | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          type: string
-          title: string
-          message: string
-          date?: string
-          is_read?: boolean
-          link_data?: Json | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          type?: string
-          title?: string
-          message?: string
-          date?: string
-          is_read?: boolean
-          link_data?: Json | null
-        }
+      analytics_events: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      badges: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
       }
       cities: {
         Row: {
@@ -180,6 +134,446 @@ export interface Database {
           published_at?: string | null
           home_order?: number | null
         }
+      }
+      city_events: {
+        Row: {
+          id: string
+          city_id: string
+          name: string
+          date: string
+          category: string
+          description: string | null
+          location: string | null
+          coords_lat: number | null
+          coords_lng: number | null
+          image_url: string | null
+          metadata: Json | null
+          order_index: number | null
+        }
+        Insert: {
+          id: string
+          city_id: string
+          name: string
+          date: string
+          category: string
+          description?: string | null
+          location?: string | null
+          coords_lat?: number | null
+          coords_lng?: number | null
+          image_url?: string | null
+          metadata?: Json | null
+          order_index?: number | null
+        }
+        Update: {
+          id?: string
+          city_id?: string
+          name?: string
+          date?: string
+          category?: string
+          description?: string | null
+          location?: string | null
+          coords_lat?: number | null
+          coords_lng?: number | null
+          image_url?: string | null
+          metadata?: Json | null
+          order_index?: number | null
+        }
+      }
+      city_guides: {
+        Row: {
+          id: string
+          city_id: string
+          name: string
+          is_official: boolean
+          languages: string[] | null
+          specialties: string[] | null
+          email: string | null
+          phone: string | null
+          website: string | null
+          image_url: string | null
+          rating: number | null
+          reviews: Json | null
+          order_index: number | null
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      city_people: {
+        Row: {
+          id: string
+          city_id: string | null
+          name: string
+          role: string
+          bio: string
+          full_bio: string | null
+          image_url: string | null
+          quote: string | null
+          lifespan: string | null
+          famous_works: string[] | null
+          awards: string[] | null
+          private_life: string | null
+          related_places: Json | null
+          career_stats: Json | null
+          status: string | null
+          order_index: number | null
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      city_services: {
+        Row: {
+          id: string
+          city_id: string
+          type: string
+          name: string
+          contact: string | null
+          description: string | null
+          url: string | null
+          address: string | null
+          category: string | null
+          order_index: number | null
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      city_tour_operators: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      communication_logs: {
+        Row: {
+          id: string
+          created_at: string
+          sender: string
+          target_group: string
+          subject: string
+          body: string
+          status: string
+          type: string
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      community_posts: {
+        Row: {
+          id: string
+          author_id: string
+          author_name: string
+          author_role: string | null
+          author_avatar: string | null
+          text: string
+          city_id: string
+          city_name: string
+          created_at: string
+          likes: number
+          replies_count: number
+          replies: Json | null
+        }
+        Insert: {
+          id: string
+          author_id: string
+          author_name: string
+          author_role?: string | null
+          author_avatar?: string | null
+          text: string
+          city_id: string
+          city_name: string
+          created_at?: string
+          likes?: number
+          replies_count?: number
+          replies?: Json | null
+        }
+        Update: {
+          id?: string
+          author_id?: string
+          author_name?: string
+          author_role?: string | null
+          author_avatar?: string | null
+          text?: string
+          city_id?: string
+          city_name?: string
+          created_at?: string
+          likes?: number
+          replies_count?: number
+          replies?: Json | null
+        }
+      }
+      design_system_rules: {
+        Row: {
+          id: string
+          section: string
+          element_name: string
+          component_key: string | null
+          font_family: string
+          text_size: string | null
+          font_weight: string | null
+          text_transform: string | null
+          tracking: string | null
+          color_class: string | null
+          effect_class: string | null
+          css_class: string | null
+          preview_text: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      dev_sync_messages: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      gamification_levels: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      global_settings: {
+        Row: {
+          key: string
+          value: Json
+          updated_at: string | null
+        }
+        Insert: {
+          key: string
+          value: Json
+          updated_at?: string | null
+        }
+        Update: {
+          key?: string
+          value?: Json
+          updated_at?: string | null
+        }
+      }
+      itineraries: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          duration_days: number
+          cover_image: string
+          tags: string[] | null
+          difficulty: string
+          type: string
+          status: string
+          author_name: string | null
+          user_id: string | null
+          rating: number
+          votes: number
+          continent: string | null
+          nation: string | null
+          region: string | null
+          zone: string | null
+          main_city: string
+          items_json: Json
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      live_snaps: {
+        Row: {
+          id: string
+          url: string
+          user_id: string
+          user_name: string
+          city_id: string | null
+          caption: string | null
+          created_at: string
+          likes: number
+          status: string | null
+        }
+        Insert: {
+          id: string
+          url: string
+          user_id: string
+          user_name: string
+          city_id?: string | null
+          caption?: string | null
+          created_at?: string
+          likes?: number
+          status?: string | null
+        }
+        Update: {
+          id?: string
+          url?: string
+          user_id?: string
+          user_name?: string
+          city_id?: string | null
+          caption?: string | null
+          created_at?: string
+          likes?: number
+          status?: string | null
+        }
+      }
+      loading_tips: {
+        Row: {
+          id: string
+          text: string
+          active: boolean
+          image_url: string | null
+          order_index: number | null
+          type: string | null
+          created_at: string
+        }
+        Insert: {
+          id: string
+          text: string
+          active?: boolean
+          image_url?: string | null
+          order_index?: number | null
+          type?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          text?: string
+          active?: boolean
+          image_url?: string | null
+          order_index?: number | null
+          type?: string | null
+          created_at?: string
+        }
+      }
+      news_ticker: {
+        Row: {
+          id: string
+          text: string
+          icon: string
+          active: boolean
+          created_at: string
+          order_index: number | null
+        }
+        Insert: {
+          id: string
+          text: string
+          icon: string
+          active: boolean
+          created_at?: string
+          order_index?: number | null
+        }
+        Update: {
+          id?: string
+          text?: string
+          icon?: string
+          active?: boolean
+          created_at?: string
+          order_index?: number | null
+        }
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          type: string
+          title: string
+          message: string
+          date: string
+          is_read: boolean
+          link_data: Json | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type: string
+          title: string
+          message: string
+          date?: string
+          is_read?: boolean
+          link_data?: Json | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: string
+          title?: string
+          message?: string
+          date?: string
+          is_read?: boolean
+          link_data?: Json | null
+        }
+      }
+      obs_city_quality_metrics: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      obs_poi_anomalies: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      packing_list_items: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      packing_lists: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      photo_likes: {
+        Row: {
+          id: string
+          user_id: string
+          photo_id: string
+          created_at: string
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      photo_submissions: {
+        Row: {
+          id: string
+          user_id: string
+          user_name: string
+          location_name: string
+          description: string | null
+          image_url: string
+          status: string
+          likes: number | null
+          city_id: string | null
+          created_at: string
+          updated_at: string | null
+          published_at: string | null
+        }
+        Insert: {
+          id: string
+          user_id: string
+          user_name: string
+          location_name: string
+          description?: string | null
+          image_url: string
+          status?: string
+          likes?: number | null
+          city_id?: string | null
+          created_at?: string
+          updated_at?: string | null
+          published_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          user_name?: string
+          location_name?: string
+          description?: string | null
+          image_url?: string
+          status?: string
+          likes?: number | null
+          city_id?: string | null
+          created_at?: string
+          updated_at?: string | null
+          published_at?: string | null
+        }
+      }
+      poi_quality_analysis: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
       }
       pois: {
         Row: {
@@ -276,75 +670,51 @@ export interface Database {
           updated_by?: string | null
         }
       }
-      sponsors: {
+      pois_staging: {
         Row: {
           id: string
           city_id: string | null
-          contact_name: string
-          company_name: string
-          vat_number: string
-          email: string
-          phone: string
+          osm_id: string
+          name: string
+          raw_category: string | null
+          coords_lat: number
+          coords_lng: number
           address: string | null
-          status: string
-          tier: string | null
-          type: string | null
-          amount: number | null
-          start_date: string | null
-          end_date: string | null
-          plan: string | null
-          invoice_number: string | null
-          admin_notes: string | null
-          rejection_reason: string | null
-          partner_logs: Json | null
+          ai_rating: 'low' | 'medium' | 'high' | 'service' | null
+          processing_status: 'new' | 'ready' | 'imported' | 'discarded'
+          orphan_city_tag: string | null
           created_at: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          id: string
+          id?: string
           city_id?: string | null
-          contact_name: string
-          company_name: string
-          vat_number: string
-          email: string
-          phone: string
+          osm_id: string
+          name: string
+          raw_category?: string | null
+          coords_lat: number
+          coords_lng: number
           address?: string | null
-          status: string
-          tier?: string | null
-          type?: string | null
-          amount?: number | null
-          start_date?: string | null
-          end_date?: string | null
-          plan?: string | null
-          invoice_number?: string | null
-          admin_notes?: string | null
-          rejection_reason?: string | null
-          partner_logs?: Json | null
+          ai_rating?: 'low' | 'medium' | 'high' | 'service' | null
+          processing_status?: 'new' | 'ready' | 'imported' | 'discarded'
+          orphan_city_tag?: string | null
           created_at?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           id?: string
           city_id?: string | null
-          contact_name?: string
-          company_name?: string
-          vat_number?: string
-          email?: string
-          phone?: string
+          osm_id?: string
+          name?: string
+          raw_category?: string | null
+          coords_lat?: number
+          coords_lng?: number
           address?: string | null
-          status?: string
-          tier?: string | null
-          type?: string | null
-          amount?: number | null
-          start_date?: string | null
-          end_date?: string | null
-          plan?: string | null
-          invoice_number?: string | null
-          admin_notes?: string | null
-          rejection_reason?: string | null
-          partner_logs?: Json | null
+          ai_rating?: 'low' | 'medium' | 'high' | 'service' | null
+          processing_status?: 'new' | 'ready' | 'imported' | 'discarded'
+          orphan_city_tag?: string | null
           created_at?: string
-          updated_at?: string | null
+          updated_at?: string
         }
       }
       profiles: {
@@ -424,6 +794,51 @@ export interface Database {
           last_monthly_reset?: string | null
         }
       }
+      reviews: {
+        Row: {
+          id: string
+          author_name: string
+          author_id: string | null
+          rating: number
+          comment: string
+          status: string
+          poi_id: string | null
+          itinerary_id: string | null
+          created_at: string
+          approved_at: string | null
+          criteria: Json | null
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      rewards_catalog: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          required_level: number
+          icon: string
+          type: string
+          category: string
+          active: boolean
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      shop_products: {
+        Row: {
+          id: string
+          shop_id: string
+          name: string
+          description: string
+          image_url: string
+          price: number
+          status: string
+          shipping_mode: string
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
       shops: {
         Row: {
           id: string
@@ -454,721 +869,9 @@ export interface Database {
           reviews: Json | null
           updated_at: string | null
         }
-        Insert: {
-           id: string
-           city_id?: string | null
-           name: string
-           category: string
-           // ... others optional
-        }
-        Update: {
-           id?: string
-           // ... all optional
-        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
       }
-      shop_products: {
-        Row: {
-          id: string
-          shop_id: string
-          name: string
-          description: string
-          image_url: string
-          price: number
-          status: string
-          shipping_mode: string
-        }
-        Insert: {
-          id: string
-          shop_id: string
-          name: string
-          description: string
-          image_url: string
-          price: number
-          status?: string
-          shipping_mode?: string
-        }
-        Update: {
-           id?: string
-           // ... optional
-        }
-      }
-      news_ticker: {
-        Row: {
-          id: string
-          text: string
-          icon: string
-          active: boolean
-          created_at: string
-          order_index: number | null
-        }
-        Insert: {
-          id: string
-          text: string
-          icon: string
-          active: boolean
-          created_at?: string
-          order_index?: number | null
-        }
-        Update: {
-          id?: string
-          text?: string
-          icon?: string
-          active?: boolean
-          created_at?: string
-          order_index?: number | null
-        }
-      }
-      loading_tips: {
-        Row: {
-          id: string
-          text: string
-          active: boolean
-          image_url: string | null
-          order_index: number | null
-          type: string | null
-          created_at: string
-        }
-        Insert: {
-          id: string
-          text: string
-          active?: boolean
-          image_url?: string | null
-          order_index?: number | null
-          type?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          text?: string
-          active?: boolean
-          image_url?: string | null
-          order_index?: number | null
-          type?: string | null
-          created_at?: string
-        }
-      }
-      static_pages: {
-        Row: {
-          slug: string
-          title: string
-          content_html: string
-          updated_at: string | null
-        }
-        Insert: {
-          slug: string
-          title: string
-          content_html: string
-          updated_at?: string | null
-        }
-        Update: {
-          slug?: string
-          title?: string
-          content_html?: string
-          updated_at?: string | null
-        }
-      }
-      ai_configs: {
-        Row: {
-          key: string
-          prompts: string[] | null
-          selected: string[] | null
-          presets: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          key: string
-          prompts?: string[] | null
-          selected?: string[] | null
-          presets?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          key?: string
-          prompts?: string[] | null
-          selected?: string[] | null
-          presets?: Json | null
-          updated_at?: string | null
-        }
-      }
-      photo_submissions: {
-        Row: {
-          id: string
-          user_id: string
-          user_name: string
-          location_name: string
-          description: string | null
-          image_url: string
-          status: string
-          likes: number | null
-          city_id: string | null
-          created_at: string
-          updated_at: string | null
-          published_at: string | null
-        }
-        Insert: {
-          id: string
-          user_id: string
-          user_name: string
-          location_name: string
-          description?: string | null
-          image_url: string
-          status?: string
-          likes?: number | null
-          city_id?: string | null
-          created_at?: string
-          updated_at?: string | null
-          published_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          user_name?: string
-          location_name?: string
-          description?: string | null
-          image_url?: string
-          status?: string
-          likes?: number | null
-          city_id?: string | null
-          created_at?: string
-          updated_at?: string | null
-          published_at?: string | null
-        }
-      }
-      live_snaps: {
-        Row: {
-          id: string
-          url: string
-          user_id: string
-          user_name: string
-          city_id: string | null
-          caption: string | null
-          created_at: string
-          likes: number
-          status: string | null
-        }
-        Insert: {
-          id: string
-          url: string
-          user_id: string
-          user_name: string
-          city_id?: string | null
-          caption?: string | null
-          created_at?: string
-          likes?: number
-          status?: string | null
-        }
-        Update: {
-          id?: string
-          url?: string
-          user_id?: string
-          user_name?: string
-          city_id?: string | null
-          caption?: string | null
-          created_at?: string
-          likes?: number
-          status?: string | null
-        }
-      }
-      community_posts: {
-        Row: {
-          id: string
-          author_id: string
-          author_name: string
-          author_role: string | null
-          author_avatar: string | null
-          text: string
-          city_id: string
-          city_name: string
-          created_at: string
-          likes: number
-          replies_count: number
-          replies: Json | null
-        }
-        Insert: {
-          id: string
-          author_id: string
-          author_name: string
-          author_role?: string | null
-          author_avatar?: string | null
-          text: string
-          city_id: string
-          city_name: string
-          created_at?: string
-          likes?: number
-          replies_count?: number
-          replies?: Json | null
-        }
-        Update: {
-          id?: string
-          author_id?: string
-          author_name?: string
-          author_role?: string | null
-          author_avatar?: string | null
-          text?: string
-          city_id?: string
-          city_name?: string
-          created_at?: string
-          likes?: number
-          replies_count?: number
-          replies?: Json | null
-        }
-      }
-      global_settings: {
-        Row: {
-          key: string
-          value: Json
-          updated_at: string | null
-        }
-        Insert: {
-          key: string
-          value: Json
-          updated_at?: string | null
-        }
-        Update: {
-          key?: string
-          value?: Json
-          updated_at?: string | null
-        }
-      }
-      city_events: {
-        Row: {
-          id: string
-          city_id: string
-          name: string
-          date: string
-          category: string
-          description: string | null
-          location: string | null
-          coords_lat: number | null
-          coords_lng: number | null
-          image_url: string | null
-          metadata: Json | null
-          order_index: number | null
-        }
-        Insert: {
-          id: string
-          city_id: string
-          name: string
-          date: string
-          category: string
-          description?: string | null
-          location?: string | null
-          coords_lat?: number | null
-          coords_lng?: number | null
-          image_url?: string | null
-          metadata?: Json | null
-          order_index?: number | null
-        }
-        Update: {
-          id?: string
-          city_id?: string
-          name?: string
-          date?: string
-          category?: string
-          description?: string | null
-          location?: string | null
-          coords_lat?: number | null
-          coords_lng?: number | null
-          image_url?: string | null
-          metadata?: Json | null
-          order_index?: number | null
-        }
-      }
-      city_services: {
-        Row: {
-          id: string
-          city_id: string
-          type: string
-          name: string
-          contact: string | null
-          description: string | null
-          url: string | null
-          address: string | null
-          category: string | null
-          order_index: number | null
-        }
-        Insert: {
-          id: string
-          city_id: string
-          type: string
-          name: string
-          contact?: string | null
-          description?: string | null
-          url?: string | null
-          address?: string | null
-          category?: string | null
-          order_index?: number | null
-        }
-        Update: {
-           id?: string
-           // ...
-        }
-      }
-      city_guides: {
-        Row: {
-          id: string
-          city_id: string
-          name: string
-          is_official: boolean
-          languages: string[] | null
-          specialties: string[] | null
-          email: string | null
-          phone: string | null
-          website: string | null
-          image_url: string | null
-          rating: number | null
-          reviews: Json | null
-          order_index: number | null
-        }
-        Insert: {
-          id: string
-          city_id: string
-          name: string
-          is_official: boolean
-          languages?: string[] | null
-          specialties?: string[] | null
-          email?: string | null
-          phone?: string | null
-          website?: string | null
-          image_url?: string | null
-          rating?: number | null
-          reviews?: Json | null
-          order_index?: number | null
-        }
-        Update: {
-          id?: string
-          // ...
-        }
-      }
-      city_people: {
-        Row: {
-          id: string
-          city_id: string | null
-          name: string
-          role: string
-          bio: string
-          full_bio: string | null
-          image_url: string | null
-          quote: string | null
-          lifespan: string | null
-          famous_works: string[] | null
-          awards: string[] | null
-          private_life: string | null
-          related_places: Json | null
-          career_stats: Json | null
-          status: string | null
-          order_index: number | null
-        }
-        Insert: {
-          id: string
-          city_id?: string | null
-          name: string
-          role: string
-          bio: string
-          full_bio?: string | null
-          image_url?: string | null
-          quote?: string | null
-          lifespan?: string | null
-          famous_works?: string[] | null
-          awards?: string[] | null
-          private_life?: string | null
-          related_places?: Json | null
-          career_stats?: Json | null
-          status?: string | null
-          order_index?: number | null
-        }
-        Update: {
-          id?: string
-          // ...
-        }
-      }
-      rewards_catalog: {
-        Row: {
-          id: string
-          title: string
-          description: string
-          required_level: number
-          icon: string
-          type: string
-          category: string
-          active: boolean
-        }
-        Insert: {
-           id: string
-           title: string
-           description: string
-           required_level: number
-           icon: string
-           type: string
-           category: string
-           active?: boolean
-        }
-        Update: {
-           id?: string
-           // ...
-        }
-      }
-      xp_actions: {
-        Row: {
-          action_key: string
-          label: string
-          xp_amount: number
-          icon: string
-          description: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          action_key: string
-          label: string
-          xp_amount: number
-          icon: string
-          description?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          action_key?: string
-          // ...
-        }
-      }
-      user_rewards: {
-        Row: {
-          instance_id: string
-          reward_id: string
-          user_id: string
-          code: string
-          reward_title: string | null
-          reward_category: string | null
-          date_claimed: string
-          status: string
-          date_used: string | null
-        }
-        Insert: {
-           instance_id: string
-           reward_id: string
-           user_id: string
-           code: string
-           reward_title?: string | null
-           reward_category?: string | null
-           date_claimed?: string
-           status?: string
-           date_used?: string | null
-        }
-        Update: {
-           instance_id?: string
-           status?: string
-           date_used?: string | null
-        }
-      }
-      communication_logs: {
-        Row: {
-          id: string
-          created_at: string
-          sender: string
-          target_group: string
-          subject: string
-          body: string
-          status: string
-          type: string
-        }
-        Insert: {
-          // ...
-        }
-        Update: {
-          // ...
-        }
-      }
-      system_messages: {
-        Row: {
-          key: string
-          type: string
-          label: string
-          title_template: string | null
-          body_template: string
-          variables: string[] | null
-          ui_config: Json | null
-          device_target: string | null
-          updated_at: string | null
-        }
-        Insert: {
-           key: string
-           type: string
-           label: string
-           title_template?: string | null
-           body_template: string
-           variables?: string[] | null
-           ui_config?: Json | null
-           device_target?: string | null
-           updated_at?: string | null
-        }
-        Update: {
-           key?: string
-           // ...
-        }
-      }
-      suggestions: {
-        Row: {
-          id: string
-          user_id: string
-          user_name: string
-          city_id: string
-          city_name: string
-          poi_id: string | null
-          type: string
-          status: string
-          details_json: Json
-          admin_notes: string | null
-          created_at: string
-        }
-        Insert: {
-           id: string
-           user_id: string
-           user_name: string
-           city_id: string
-           city_name: string
-           poi_id?: string | null
-           type: string
-           status?: string
-           details_json: Json
-           admin_notes?: string | null
-           created_at?: string
-        }
-        Update: {
-           id?: string
-           status?: string
-           admin_notes?: string | null
-        }
-      }
-      reviews: {
-          Row: {
-              id: string
-              author_name: string
-              author_id: string | null
-              rating: number
-              comment: string
-              status: string
-              poi_id: string | null
-              itinerary_id: string | null
-              created_at: string
-              approved_at: string | null
-              criteria: Json | null
-          }
-          Insert: {
-              id?: string
-              author_name: string
-              author_id?: string | null
-              rating: number
-              comment: string
-              status?: string
-              poi_id?: string | null
-              itinerary_id?: string | null
-              created_at?: string
-              approved_at?: string | null
-              criteria?: Json | null
-          }
-          Update: {
-              id?: string
-              // ...
-          }
-      }
-      itineraries: {
-          Row: {
-              id: string
-              title: string
-              description: string
-              duration_days: number
-              cover_image: string
-              tags: string[] | null
-              difficulty: string
-              type: string
-              status: string
-              author_name: string | null
-              user_id: string | null
-              rating: number
-              votes: number
-              continent: string | null
-              nation: string | null
-              region: string | null
-              zone: string | null
-              main_city: string
-              items_json: Json
-              created_at: string
-              updated_at: string | null
-          }
-          Insert: {
-              // ...
-          }
-          Update: {
-              // ...
-          }
-      }
-      photo_likes: {
-          Row: {
-              id: string
-              user_id: string
-              photo_id: string
-              created_at: string
-          }
-          Insert: {
-              user_id: string
-              photo_id: string
-          }
-          Update: {
-             // ...
-          }
-      }
-      design_system_rules: {
-        Row: {
-          id: string
-          section: string
-          element_name: string
-          component_key: string | null
-          font_family: string
-          text_size: string | null
-          font_weight: string | null
-          text_transform: string | null
-          tracking: string | null
-          color_class: string | null
-          effect_class: string | null
-          css_class: string | null
-          preview_text: string
-          notes: string | null
-          updated_at: string
-        }
-        Insert: {
-          // ...
-        }
-        Update: {
-          // ...
-        }
-      }
-      taxonomy_mappings: {
-        Row: {
-          id: string
-          input_term: string
-          target_category: string
-          target_subcategory: string
-          target_tab: string | null
-          context: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          input_term: string
-          target_category: string
-          target_subcategory: string
-          target_tab?: string | null
-          context?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          input_term?: string
-          target_category?: string
-          target_subcategory?: string
-          target_tab?: string | null
-          created_at?: string
-        }
-      },
       social_templates: {
         Row: {
           id: string
@@ -1200,7 +903,158 @@ export interface Database {
           created_at?: string
           updated_at?: string | null
         }
-      },
+      }
+      sponsors: {
+        Row: {
+          id: string
+          city_id: string | null
+          contact_name: string
+          company_name: string
+          vat_number: string
+          email: string
+          phone: string
+          address: string | null
+          status: string
+          tier: string | null
+          type: string | null
+          amount: number | null
+          start_date: string | null
+          end_date: string | null
+          plan: string | null
+          invoice_number: string | null
+          admin_notes: string | null
+          rejection_reason: string | null
+          partner_logs: Json | null
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          city_id?: string | null
+          contact_name: string
+          company_name: string
+          vat_number: string
+          email: string
+          phone: string
+          address?: string | null
+          status: string
+          tier?: string | null
+          type?: string | null
+          amount?: number | null
+          start_date?: string | null
+          end_date?: string | null
+          plan?: string | null
+          invoice_number?: string | null
+          admin_notes?: string | null
+          rejection_reason?: string | null
+          partner_logs?: Json | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          city_id?: string | null
+          contact_name?: string
+          company_name?: string
+          vat_number?: string
+          email?: string
+          phone?: string
+          address?: string | null
+          status?: string
+          tier?: string | null
+          type?: string | null
+          amount?: number | null
+          start_date?: string | null
+          end_date?: string | null
+          plan?: string | null
+          invoice_number?: string | null
+          admin_notes?: string | null
+          rejection_reason?: string | null
+          partner_logs?: Json | null
+          created_at?: string
+          updated_at?: string | null
+        }
+      }
+      static_pages: {
+        Row: {
+          slug: string
+          title: string
+          content_html: string
+          updated_at: string | null
+        }
+        Insert: {
+          slug: string
+          title: string
+          content_html: string
+          updated_at?: string | null
+        }
+        Update: {
+          slug?: string
+          title?: string
+          content_html?: string
+          updated_at?: string | null
+        }
+      }
+      suggestions: {
+        Row: {
+          id: string
+          user_id: string
+          user_name: string
+          city_id: string
+          city_name: string
+          poi_id: string | null
+          type: string
+          status: string
+          details_json: Json
+          admin_notes: string | null
+          created_at: string
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      system_messages: {
+        Row: {
+          key: string
+          type: string
+          label: string
+          title_template: string | null
+          body_template: string
+          variables: string[] | null
+          ui_config: Json | null
+          device_target: string | null
+          updated_at: string | null
+        }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      taxonomy_mappings: {
+        Row: {
+          id: string
+          input_term: string
+          target_category: string
+          target_subcategory: string
+          target_tab: string | null
+          context: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          input_term: string
+          target_category: string
+          target_subcategory: string
+          target_tab?: string | null
+          context?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          input_term?: string
+          target_category?: string
+          target_subcategory?: string
+          target_tab?: string | null
+          created_at?: string
+        }
+      }
       tourist_zones: {
         Row: {
           id: string
@@ -1210,16 +1064,45 @@ export interface Database {
           ai_suggestions: Json | null
           created_at: string
         }
-        Insert: {
-          name: string
-          admin_region: string
-          description?: string | null
-          ai_suggestions?: Json | null
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      user_interactions: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      user_notifications: {
+        Row: { [key: string]: any } 
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      user_rewards: {
+        Row: {
+          instance_id: string
+          reward_id: string
+          user_id: string
+          code: string
+          reward_title: string | null
+          reward_category: string | null
+          date_claimed: string
+          status: string
+          date_used: string | null
         }
-        Update: {
-           id?: string
-           // ...
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
+      }
+      xp_actions: {
+        Row: {
+          action_key: string
+          label: string
+          xp_amount: number
+          icon: string
+          description: string | null
+          updated_at: string | null
         }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
       }
     }
     Views: {

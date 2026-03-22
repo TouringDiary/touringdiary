@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Itinerary, ItineraryItem, PointOfInterest, CitySummary } from '../../../types/index';
+import { Itinerary, ItineraryItem, PointOfInterest, CitySummary } from '@/types';
 import { DiaryDay } from './DiaryDay';
 
 export interface DiaryTimelineProps {

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Filter, X, ArrowDownAZ, ArrowUpAZ, Star, Plus, Crosshair, Search, SlidersHorizontal, ChevronDown, PenTool, Award, MapPin, TrendingUp, Heart, ArrowUp, ArrowDown, Coins } from 'lucide-react';
 import { PointOfInterest, SuggestionType, User as UserType } from '../../../types/index';
 import { CityGuide } from './CityGuide';
-import { useItinerary } from '../../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 import { SmartFilterDrawer } from '../../common/SmartFilterDrawer';
 import { useInteraction } from '../../../context/InteractionContext';
 import { calculateDistance } from '../../../services/geo';

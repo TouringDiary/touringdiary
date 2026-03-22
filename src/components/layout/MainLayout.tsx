@@ -12,11 +12,11 @@ import { ModalManager } from './ModalManager';
 import { OnboardingWizard } from './OnboardingWizard';
 
 // CONTEXT CONSUMER
-import { useUser } from '../../context/UserContext';
-import { useUI } from '../../context/UIContext';
-import { useModal } from '../../context/ModalContext';
-import { useNavigation } from '../../context/NavigationContext';
-import { useDiaryInteractionsContext } from '../../context/DiaryInteractionContext'; // NEW IMPORT
+import { useUser } from '@/context/UserContext';
+import { useUI } from '@/context/UIContext';
+import { useModal } from '@/context/ModalContext';
+import { useNavigation } from '@/context/NavigationContext';
+import { useDiaryInteractionsContext } from '@/context/DiaryInteractionContext'; // NEW IMPORT
 
 export interface MainLayoutProps {
     helpFlash?: boolean;

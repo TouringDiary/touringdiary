@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Image as ImageIcon, Loader2 } from 'lucide-react';
 import { getOptimizedImageUrl, ImageSize } from '../../utils/imageOptimizer';
-import { getCachedPlaceholder } from '../../services/settingsService';
+import { getCachedSetting } from '../../services/settingsService';
+import { SETTINGS_KEYS } from '../../services/settingsService';
 
 interface Props {
   src?: string;
@@ -15,98 +16,77 @@ interface Props {
   onClick?: () => void;
 }
 
-export const ImageWithFallback = ({ src, alt, className, draggable, size = 'medium', priority = false, category = 'discovery', onClick }: Props) => {
-  const [currentSrc, setCurrentSrc] = useState<string | null>(null);
-  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
-  
-  // 1. Logica di caricamento nativa (Bypassa React img tag lifecycle)
+const ErrorBox = ({ className }: { className?: string }) => (
+  <div className={`bg-slate-900 border border-slate-800 flex flex-col items-center justify-center text-slate-600 ${className} overflow-hidden select-none`}>
+    <div className="flex flex-col items-center gap-1 opacity-50 scale-75">
+      <ImageIcon className="w-6 h-6" />
+      <span className="text-[9px] font-bold uppercase tracking-wider">No Image</span>
+    </div>
+  </div>
+);
+
+const Spinner = () => (
+  <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900/50 backdrop-blur-sm">
+    <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
+  </div>
+);
+
+export const ImageWithFallback = ({
+  src,
+  alt,
+  className,
+  draggable,
+  size = 'medium',
+  priority = false,
+  category = 'discovery',
+  onClick,
+}: Props) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
   useEffect(() => {
-      // Reset stato iniziale
-      setStatus('loading');
-      setCurrentSrc(null);
+    setIsLoaded(false);
+    setHasError(false);
+  }, [src]);
 
-      const targetUrl = src ? getOptimizedImageUrl(src, size) : null;
-      
-      if (!targetUrl) {
-          handleFallback();
-          return;
-      }
+  // --- MODIFICA ARCHITETTURALE --- 
+  const fallbackSrc = useMemo(() => {
+    const placeholders = getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
+    if (!placeholders || typeof placeholders !== 'object') return '';
+    return placeholders[category] || '';
+  }, [category]);
 
-      // Preloader nativo JS
-      const img = new Image();
-      img.src = targetUrl;
+  // Se non c'è una 'src', usa direttamente il fallback. Altrimenti, ottimizza la 'src'.
+  const primarySrc = src ? getOptimizedImageUrl(src, size) : fallbackSrc;
+  // --- FINE MODIFICA ---
 
-      // Gestori eventi nativi (più affidabili di React onLoad in liste virtualizzate)
-      img.onload = () => {
-          setCurrentSrc(targetUrl);
-          setStatus('loaded');
-      };
+  const sourceToUse = hasError ? fallbackSrc : primarySrc;
 
-      img.onerror = () => {
-          // Silent fail: Non logghiamo in console per evitare spam, il fallback gestirà la UI
-          handleFallback();
-      };
+  // Mostra errore finale solo se TUTTE le sorgenti (src e fallback) hanno fallito o sono assenti
+  const showFinalError = (hasError && !fallbackSrc) || !sourceToUse;
 
-      // Cleanup: se il componente viene smontato prima del caricamento
-      return () => {
-          img.onload = null;
-          img.onerror = null;
-      };
-  }, [src, size]);
-
-  const handleFallback = () => {
-      // Tenta di caricare il placeholder di categoria
-      const fallbackUrl = getCachedPlaceholder(category);
-      if (fallbackUrl && fallbackUrl !== src) {
-          // Se abbiamo un fallback, proviamo a caricarlo
-          const fallbackImg = new Image();
-          fallbackImg.src = fallbackUrl;
-          fallbackImg.onload = () => {
-              setCurrentSrc(fallbackUrl);
-              setStatus('loaded'); // Consideriamo loaded anche se è un fallback
-          };
-          fallbackImg.onerror = () => {
-              setStatus('error');
-          };
-      } else {
-          setStatus('error');
-      }
-  };
-
-  if (status === 'error') {
-      return (
-        <div 
-            className={`bg-slate-900 border border-slate-800 flex flex-col items-center justify-center text-slate-600 ${className} overflow-hidden select-none`}
-            onClick={onClick}
-        >
-          <div className="flex flex-col items-center gap-1 opacity-50 scale-75">
-             <ImageIcon className="w-6 h-6" />
-             <span className="text-[9px] font-bold uppercase tracking-wider">No Image</span>
-          </div>
-        </div>
-      );
+  if (showFinalError) {
+    return <ErrorBox className={className} />;
   }
 
   return (
     <div className={`relative overflow-hidden bg-slate-950 ${className}`} onClick={onClick}>
-        {/* Spinner sempre visibile finché non è 'loaded' */}
-        {status === 'loading' && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900/50 backdrop-blur-sm">
-                <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
-            </div>
-        )}
-        
-        {/* Immagine visibile solo quando pronta */}
-        {currentSrc && (
-            <img 
-                src={currentSrc}
-                alt={alt}
-                className={`w-full h-full object-cover transition-opacity duration-500 ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`}
-                draggable={draggable}
-                loading={priority ? "eager" : "lazy"}
-                decoding="async"
-            />
-        )}
+      {!isLoaded && <Spinner />}
+      <img
+        key={sourceToUse} // Usa sourceToUse per forzare il re-render se cambia
+        src={sourceToUse}
+        alt={alt}
+        className={`w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setIsLoaded(true)}
+        onError={() => {
+          if (!hasError) {
+            setHasError(true);
+          }
+        }}
+        draggable={draggable}
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
+      />
     </div>
   );
 };

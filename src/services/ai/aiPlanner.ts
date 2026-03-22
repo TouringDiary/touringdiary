@@ -1,4 +1,3 @@
-
 import { generateStructuredResponse } from './aiUtils';
 import { RoadbookDay } from '../../types/models/Itinerary'; 
 import { getAiPrompt } from '../aiConfigService';
@@ -113,11 +112,23 @@ export const generateItineraryPlan = async (
 
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
-        return generateStructuredResponse<AiItineraryItem[]>(
+        const result = await generateStructuredResponse<AiItineraryItem[]>(
             'gemini-3.1-pro-preview',
             fullPrompt,
             ITINERARY_SCHEMA
         );
+
+        // ✅ FIX: protezione parsing / struttura risposta
+        try {
+            if (!Array.isArray(result)) {
+                console.error("❌ AI returned non-array result:", result);
+                return [];
+            }
+            return result;
+        } catch (e) {
+            console.error("❌ AI parsing error (generateItineraryPlan):", result);
+            return [];
+        }
     };
 
     return new Promise<AiItineraryItem[]>((resolve, reject) => {

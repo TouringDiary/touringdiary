@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Sparkles, ShieldCheck, Flag, Clock, Ticket, Globe, RotateCw, CheckCircle, XCircle, Share2, Utensils, AlertTriangle, Info, Check } from 'lucide-react';
-import { PointOfInterest } from '../../../types/index';
+import { PointOfInterest } from '@/types';
 import { enrichAffiliateUrl } from '../../../utils/affiliateNetwork';
 import { trackAffiliateClick } from '../../../services/trackingService';
 import { useShare } from '../../../hooks/useShare';

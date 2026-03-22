@@ -1,17 +1,18 @@
 
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, Trophy } from 'lucide-react';
-import { ItineraryItem, PointOfInterest, User, CitySummary } from '../../../types/index';
-import { getDaysArray } from '../../../utils/common';
-import { useItinerary } from '../../../context/ItineraryContext';
+import { ItineraryItem, PointOfInterest, User, CitySummary } from '@/types';
+import { getDaysArray } from '@/utils/common';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useModal } from '@/context/ModalContext'; // IMPORTA useModal
 import { DateChangeWarningModal } from '../../modals/DateChangeWarningModal';
 import { SaveAsModal } from '../../modals/SaveAsModal';
 import { ConfirmClearModal } from '../../modals/ConfirmClearModal';
 import { MobileMoveModal } from '../../modals/MobileMoveModal'; 
-import { publishUserItinerary } from '../../../services/dataService';
+import { publishUserItinerary } from '@/services/dataService';
 
 // Logic Hook
-import { useDiaryLogic } from '../../../hooks/useDiaryLogic';
+import { useDiaryLogic } from '@/hooks/useDiaryLogic';
 
 // Modular Components
 import { DiaryHeader } from './DiaryHeader';
@@ -29,7 +30,7 @@ interface TravelDiaryProps {
     onOpenAiPlanner?: () => void;
     onUserUpdate?: (user: User) => void;
     onOpenRoadbook?: () => void;
-    cityManifest?: CitySummary[]; // RIPRISTINATO
+    cityManifest?: CitySummary[];
 }
 
 export const TravelDiary = ({ 
@@ -43,6 +44,8 @@ export const TravelDiary = ({
         state, setters, actions 
     } = useDiaryLogic({ user, onUserUpdate, onDayDropProp: onDayDrop });
 
+    const { openModal } = useModal(); // CHIAMA useModal
+
     // --- VIEW REFS (UI ONLY) ---
     const dayRefs = useRef<{[key: number]: HTMLDivElement | null}>({});
     const itemRefs = useRef<{[key: string]: HTMLDivElement | null}>({}); 
@@ -54,6 +57,13 @@ export const TravelDiary = ({
         if (!itinerary.startDate || !itinerary.endDate) return [];
         return getDaysArray(itinerary.startDate, itinerary.endDate);
     }, [itinerary.startDate, itinerary.endDate]);
+
+    // Funzione per aprire il modale della packing list
+    const handleOpenPackingList = () => {
+        if (itinerary.id) {
+            openModal('packingList', { itineraryId: itinerary.id });
+        }
+    };
 
     return (
         <div ref={containerRef} className="h-full flex flex-col rounded-sm shadow-xl overflow-hidden border border-slate-600 relative group/diary bg-[#e7e5e4] select-none">
@@ -103,7 +113,9 @@ export const TravelDiary = ({
                 onPublish={actions.handlePublish} 
                 onOpenAiPlanner={onOpenAiPlanner}
                 onOpenRoadbook={onOpenRoadbook}
+                onOpenPackingList={handleOpenPackingList} // COLLEGA LA FUNZIONE
                 setActiveTab={setters.setActiveTab}
+                onDeleteProject={actions.deleteProject} // Assicura che onDeleteProject sia passato
             />
 
             <div 
@@ -142,7 +154,7 @@ export const TravelDiary = ({
                         onItemDrop={(e, idx, time) => actions.handleDayDrop(e, idx, time)} 
                         onMobileMoveClick={setters.setItemToMove}
                         cityManifest={cityManifest}
-                        onToggleItemType={actions.toggleItemType} // NEW ACTION PASSED
+                        onToggleItemType={actions.toggleItemType} 
                     />
                 ) : (
                     <div 

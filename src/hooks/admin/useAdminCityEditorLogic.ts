@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useCityEditor } from '../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { useSystemMessage } from '../useSystemMessage';
 
 export const useAdminCityEditorLogic = () => {

@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
 import { StickyNote, Palette, PlusCircle, Briefcase } from 'lucide-react';
-import { ItineraryItem, PointOfInterest } from '../../../types/index';
-import { calculateDistance } from '../../../services/geo';
-import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
+import { ItineraryItem, PointOfInterest } from '@/types';
+import { calculateDistance } from '@/services/geo';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { ItineraryItemCard } from './ItineraryItemCard';
 import { DiaryResourceCard } from './DiaryResourceCard';
 import { DiaryMemoCard } from './DiaryMemoCard';
@@ -65,6 +65,8 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     
     // Connessione corretta allo stile configurato
     const dayLabelStyle = useDynamicStyles('diary_day_label', isMobile);
+    const dayIcon = useDynamicStyles('diary_day_icon');
+    const dayIconButton = useDynamicStyles('diary_day_icon_button');
     const dayStyle = DAY_COLORS.find(c => c.class === dayStyleClass) || DAY_COLORS[0];
 
     // Stato locale per evidenziare la Drop Zone specifica
@@ -140,24 +142,23 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     return (
         <div 
             ref={(el) => { if(dayRefs.current) dayRefs.current[dayIndex] = el; }} 
-            className={`relative pb-0 mb-7 transition-all rounded-xl overflow-hidden ${hasOpenPicker ? 'z-[60]' : 'z-0'}`}
-        >
+            className={`relative pb-0 mb-7 transition-all rounded-xl overflow-hidden ${hasOpenPicker ? 'z-[60]' : 'z-0'}`}>
             {/* HEADER GIORNO: Altezza fissa h-7 (1 RIGA esatta) */}
             <div className={`flex items-center justify-center gap-2 ${ROW_H} border-b w-full box-border rounded-t-xl transition-colors border-stone-300 bg-[#e7e5e4]`}>
-                <button onClick={() => onAddNote(dayIndex)} className="p-1 hover:bg-stone-300/50 rounded-full text-stone-500 transition-colors" title="Aggiungi Nota">
-                    <StickyNote className="w-3 h-3"/>
+                <button onClick={() => onAddNote(dayIndex)} className={dayIconButton} title="Aggiungi Nota">
+                    <StickyNote className={dayIcon}/>
                 </button>
                 
                 {/* Etichetta Giorno Compatta */}
                 <div className={`px-4 h-[1.25rem] rounded-full shadow-sm flex items-center justify-center gap-2 ${dayStyle.class}`}>
-                    <span className={`${dayLabelStyle} leading-none pt-0.5 whitespace-nowrap text-[10px]`}>
+                    <span className={`${dayLabelStyle} leading-none pt-0.5 whitespace-nowrap`}>
                         {day.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' })} • Giorno {dayIndex + 1}
                     </span>
                 </div>
                 
                 <div className="relative">
-                    <button onClick={() => onColorPickerToggle(colorPickerOpen === dayIndex ? null : dayIndex)} className="p-1 hover:bg-stone-300/50 rounded-full text-stone-500 transition-colors" title="Cambia Colore">
-                        <Palette className="w-3 h-3"/>
+                    <button onClick={() => onColorPickerToggle(colorPickerOpen === dayIndex ? null : dayIndex)} className={dayIconButton} title="Cambia Colore">
+                        <Palette className={dayIcon}/>
                     </button>
                     {colorPickerOpen === dayIndex && (
                         <div className="absolute top-full right-0 mt-1 bg-white border border-stone-200 shadow-xl rounded-lg p-2 flex gap-1 z-[100] animate-in zoom-in-95 origin-top-right">
@@ -237,14 +238,12 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
                     w-full flex items-center justify-center transition-all duration-300 ${ROW_H} border-2 border-dashed
                     ${isOverDropZone 
                         ? 'border-indigo-600 bg-indigo-200 text-indigo-900 shadow-inner scale-[1.01]' 
-                        : 'border-indigo-400/70 bg-indigo-100/50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-500'
-                    }
+                        : 'border-indigo-400/70 bg-indigo-100/50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-500'}
                 `}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }} 
                 onDragEnter={handleDropZoneEnter}
                 onDragLeave={handleDropZoneLeave}
-                onDrop={handleDropZoneDrop}
-            >
+                onDrop={handleDropZoneDrop}>
                 <div className="flex items-center gap-2 pointer-events-none select-none">
                     <PlusCircle className={`w-3.5 h-3.5 ${isOverDropZone ? 'animate-bounce' : ''}`}/>
                     <span className="text-[9px] font-black uppercase tracking-widest">

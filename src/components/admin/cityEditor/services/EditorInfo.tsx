@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Loader2, RefreshCw, CheckCircle, Bot, Sparkles, Database, X } from 'lucide-react';
-import { useCityEditor } from '../../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
 import { useSystemMessage } from '../../../../hooks/useSystemMessage'; 
 import { User } from '../../../../types/users';

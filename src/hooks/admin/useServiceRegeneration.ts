@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useCityEditor } from '../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { suggestCityItems, refineServiceData } from '../../services/ai';
 import { 
     getCityEvents, saveCityEvent, deleteCityEvent, 

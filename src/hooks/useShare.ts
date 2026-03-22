@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useSystemMessage } from './useSystemMessage';
-import { useModal } from '../context/ModalContext';
+import { useModal } from '@/context/ModalContext';
 
 interface ShareConfig {
     title: string;

@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useMemo } from 'react';
-import { useModal } from '../context/ModalContext';
-import { useItinerary } from '../context/ItineraryContext'; // Importato per verificare items
+import { useModal } from '@/context/ModalContext';
+import { useItinerary } from '@/context/ItineraryContext'; // Importato per verificare items
 import { JourneyPhase } from '../types/index';
 
 /**

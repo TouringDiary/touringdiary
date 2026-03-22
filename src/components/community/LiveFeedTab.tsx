@@ -7,7 +7,7 @@ import { ImageWithFallback } from '../common/ImageWithFallback';
 import { getLiveSnapsAsync, addLiveSnapAsync, toggleLiveSnapLike, getUserLiveLikes, deleteLiveSnap } from '../../services/communityService';
 import { analyzeImageSafety, generateImageCaption } from '../../services/ai/aiVision';
 import { getFullManifestAsync } from '../../services/cityService';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '@/context/ModalContext';
 import { UserPhotoEditor } from './UserPhotoEditor';
 import { GalleryLightbox, LightboxData } from '../city/gallery/GalleryLightbox'; // IMPORT CONDIVISO
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
