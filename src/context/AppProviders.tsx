@@ -1,54 +1,56 @@
-
-import React, { ReactNode } from 'react';
-
-// Importazione dei singoli Provider
-import { AiPlannerProvider } from './AiPlannerContext'; 
-import { ItineraryProvider } from './ItineraryContext';
-import { ModalProvider } from './ModalContext'; 
-import { InteractionProvider } from './InteractionContext';
+import React from 'react';
 import { UserProvider } from './UserContext';
-import { GpsProvider } from './GpsContext';
 import { UIProvider } from './UIContext';
+import { ModalProvider } from './ModalContext';
+import { ItineraryProvider } from './ItineraryContext';
 import { NavigationProvider } from './NavigationContext';
+import { GpsProvider } from './GpsContext';
+import { InteractionProvider } from './InteractionContext';
+import { ConfigProvider } from './ConfigContext';
 import { DiaryInteractionProvider } from './DiaryInteractionContext';
+import { AiPlannerProvider } from './AiPlannerContext';
 
-import { GlobalAlert } from '../components/common/GlobalAlert';
+import { AppCoordinator } from '../components/layout/AppCoordinator';
+
+interface AppProvidersProps {
+    children?: React.ReactNode;
+}
 
 /**
  * AppProviders
  * Componente "Wrapper" unico che gestisce tutta la logica di stato globale.
  * 
  * ORDINE DI INIEZIONE (CRITICO):
- * 1. Base Logic (User, UI, AI) - Indipendenti o quasi
- * 2. Modal - UI Layer (Deve avvolgere GPS e Interaction che lo usano)
- * 3. Gps - Dipende da Modal (per errori)
- * 4. Interaction - Dipende da Modal (per auth/review) e User
- * 5. Navigation - Dipende da User (Manifest), Modal, Gps e AiPlanner (FIX CRASH)
- * 6. Itinerary - Dipende da User (Save/Load)
- * 7. DiaryInteraction - Dipende da Navigation e Itinerary
+ * UserProvider deve essere il wrapper più esterno.
  */
-
-export function AppProviders({ children }: { children?: ReactNode }) {
+export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
     return (
         <UserProvider>
-            <UIProvider>
-                <AiPlannerProvider>
-                    <ModalProvider>
-                        <GpsProvider>
-                            <InteractionProvider>
+            <ConfigProvider>
+                <UIProvider>
+                    <AiPlannerProvider>
+                        <ModalProvider>
+                            <GpsProvider>
+
                                 <NavigationProvider>
-                                    <ItineraryProvider>
-                                        <DiaryInteractionProvider>
-                                            <GlobalAlert />
-                                            {children}
-                                        </DiaryInteractionProvider>
-                                    </ItineraryProvider>
+                                    <InteractionProvider> {/* 🔥 SPOSTATO QUI */}
+                                        <ItineraryProvider>
+
+                                            <DiaryInteractionProvider>
+                                                {/* ✅ TUTTO dentro */}
+                                                <AppCoordinator />
+                                                {children}
+                                            </DiaryInteractionProvider>
+
+                                        </ItineraryProvider>
+                                    </InteractionProvider>
                                 </NavigationProvider>
-                            </InteractionProvider>
-                        </GpsProvider>
-                    </ModalProvider>
-                </AiPlannerProvider>
-            </UIProvider>
+
+                            </GpsProvider>
+                        </ModalProvider>
+                    </AiPlannerProvider>
+                </UIProvider>
+            </ConfigProvider>
         </UserProvider>
     );
 };

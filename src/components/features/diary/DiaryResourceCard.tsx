@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Phone, Eye, Trash2, Pin, Globe, Mail } from 'lucide-react';
-import { ItineraryItem } from '../../../types/index';
-import { ImageWithFallback } from '../../common/ImageWithFallback';
-import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
+import { ItineraryItem } from '@/types';
+import { ImageWithFallback } from '@/components/common/ImageWithFallback';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface DiaryResourceCardProps {
     item: ItineraryItem;

@@ -1,8 +1,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAppRouter } from '../useAppRouter';
-import { useModal } from '../../context/ModalContext';
-import { useAiPlanner } from '../../context/AiPlannerContext';
+import { useModal } from '@/context/ModalContext';
+import { useAiPlanner } from '@/context/AiPlannerContext';
 import { CityDetails, CitySummary } from '../../types/index';
 import { buildVirtualCity } from '../../services/cityService';
 import { GEO_CONFIG } from '../../constants/geoConfig';

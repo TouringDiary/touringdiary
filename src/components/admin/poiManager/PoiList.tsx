@@ -5,7 +5,7 @@ import { PointOfInterest } from '../../../types/index';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { getPoiCategoryLabel, getSubCategoryLabel } from '../../../utils/common';
 import { PaginationControls } from '../../common/PaginationControls';
-import { getCachedPlaceholder } from '../../../services/settingsService'; 
+import { getCachedSetting } from '../../../services/settingsService'; 
 
 interface PoiListProps {
     pois: PointOfInterest[];
@@ -46,7 +46,7 @@ export const PoiList: React.FC<PoiListProps> = ({
         const editorName = poi.updatedBy || poi.createdBy || 'Sistema';
         
         const hasSpecific = !!poi.imageUrl;
-        const hasPlaceholder = !!getCachedPlaceholder(poi.category);
+        const hasPlaceholder = poi.category ? !!getCachedSetting(poi.category) : false;
         const isAssetMissing = !hasSpecific && !hasPlaceholder;
         
         // RELIABILITY BADGE

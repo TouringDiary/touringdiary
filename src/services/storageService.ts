@@ -1,8 +1,10 @@
 
 // Memoria volatile di fallback (RAM)
-// Usata quando il browser blocca l'accesso a localStorage/sessionStorage (es. Iframe, Incognito, Tracking Prevention)
 const memoryStore: Record<string, string> = {};
 const sessionMemoryStore: Record<string, string> = {};
+
+// Durata della cache in millisecondi (12 ore)
+const CACHE_TTL = 12 * 60 * 60 * 1000; 
 
 export const DB_KEYS = {
     MANIFEST: 'touring_data_manifest',
@@ -11,78 +13,118 @@ export const DB_KEYS = {
     SHOPS: 'touring_data_shops',
     PHOTOS: 'touring_data_photos',
     TICKER: 'touring_data_ticker',
-    DISMISSED_ALERTS: 'touring_data_dismissed_alerts',
+    DISMISSED_ALERTS: 'touring_data_dismissed_alerts', // Questa chiave non scade
     AI_PROMPTS: 'touring_data_ai_prompts',
-    GLOBAL_SETTINGS: 'touring_data_global_settings'
 };
 
-export interface GlobalSettings {
-    heroImage?: string;
-    heroImageCredit?: string;
-    defaultPatronImage?: string;
-    themeColor?: string;
+interface CacheItem<T> {
+  data: T;
+  timestamp: number;
 }
 
 // --- LOCAL STORAGE HELPERS (Persistent) ---
 
 export const getStorageItem = <T>(key: string, defaultValue: T): T => {
-    // 1. Prova RAM (Priorità: se abbiamo scritto in RAM per fallback, leggiamo da lì)
-    if (Object.prototype.hasOwnProperty.call(memoryStore, key)) {
+    const readFromStorage = (storage: Storage | Record<string, string>, storageKey: string): string | null => {
+        if (storage instanceof Storage) {
+            return storage.getItem(storageKey);
+        }
+        return storage[storageKey] || null;
+    };
+
+    const parseAndValidate = (itemStr: string | null): T => {
+        if (!itemStr) return defaultValue;
+
         try {
-            return JSON.parse(memoryStore[key]);
-        } catch {
+            const item: CacheItem<T> | T = JSON.parse(itemStr);
+
+            // Retrocompatibilità: se non è un oggetto con `data` e `timestamp` o è una chiave da ignorare,
+            // lo gestiamo in modo diverso.
+            if (typeof item !== 'object' || item === null || !('timestamp' in item) || !('data' in item)) {
+                if (key === DB_KEYS.DISMISSED_ALERTS) {
+                    return item as T; // Restituisci il dato vecchio, non scade
+                }
+                // Invalida la vecchia struttura della cache eliminandola
+                removeStorageItem(key);
+                return defaultValue;
+            }
+
+            // La chiave `DISMISSED_ALERTS` non deve scadere
+            if (key === DB_KEYS.DISMISSED_ALERTS) {
+                return item.data;
+            }
+            
+            const now = Date.now();
+            if (now - item.timestamp > CACHE_TTL) {
+                // Cache scaduta
+                removeStorageItem(key);
+                return defaultValue;
+            }
+            
+            return item.data;
+
+        } catch (e) {
+            // Errore di parsing, il dato non è JSON valido, trattalo come scaduto
+            removeStorageItem(key);
             return defaultValue;
         }
+    };
+
+    // 1. Prova RAM (Priorità)
+    if (Object.prototype.hasOwnProperty.call(memoryStore, key)) {
+        return parseAndValidate(memoryStore[key]);
     }
 
-    // 2. Prova Local Storage Reale (Protected Access)
+    // 2. Prova Local Storage Reale
     try {
-        if (typeof window !== 'undefined') {
-            // Accesso protetto alla proprietà (alcuni browser lanciano eccezione solo leggendo .localStorage)
-            const storage = window.localStorage;
-            if (storage) {
-                const item = storage.getItem(key);
-                return item ? JSON.parse(item) : defaultValue;
-            }
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const itemStr = window.localStorage.getItem(key);
+            return parseAndValidate(itemStr);
         }
     } catch (e) {
-        // Accesso negato (Tracking Prevention / Cookie Blocked)
-        // Silenzioso fallback
+        // Accesso negato, fallback alla memoria volatile
     }
+
     return defaultValue;
 };
 
 export const setStorageItem = <T>(key: string, value: T): boolean => {
-    const stringValue = JSON.stringify(value);
+    let itemToStore;
     
-    // Scrivi sempre in RAM per coerenza nella sessione corrente
-    memoryStore[key] = stringValue;
+    // La chiave `DISMISSED_ALERTS` viene salvata senza TTL
+    if (key === DB_KEYS.DISMISSED_ALERTS) {
+        itemToStore = value;
+    } else {
+        const cacheEntry: CacheItem<T> = {
+            data: value,
+            timestamp: Date.now()
+        };
+        itemToStore = cacheEntry;
+    }
+
+    const stringValue = JSON.stringify(itemToStore);
+    
+    memoryStore[key] = stringValue; // Scrivi sempre in RAM per coerenza
 
     try {
-        if (typeof window !== 'undefined') {
-            const storage = window.localStorage;
-            if (storage) {
-                storage.setItem(key, stringValue);
-                return true;
-            }
+        if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(key, stringValue);
+            return true;
         }
     } catch (e) {
-        // Accesso negato: Fallback su RAM (già fatto sopra)
         return false;
     }
     return true;
 };
 
+
 export const removeStorageItem = (key: string): void => {
     delete memoryStore[key];
     try {
-        if (typeof window !== 'undefined') {
-            const storage = window.localStorage;
-            if(storage) storage.removeItem(key);
+        if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem(key);
         }
-    } catch (e) {
-        // Ignore
-    }
+    } catch (e) { /* Ignore */ }
 };
 
 // --- SESSION STORAGE HELPERS (Tab Session) ---
@@ -92,38 +134,29 @@ export const getSessionItem = (key: string): string | null => {
         return sessionMemoryStore[key];
     }
     try {
-        if (typeof window !== 'undefined') {
-            const storage = window.sessionStorage;
-            if(storage) return storage.getItem(key);
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+            return window.sessionStorage.getItem(key);
         }
-    } catch (e) {
-        // Ignore
-    }
+    } catch (e) { /* Ignore */ }
     return null;
 };
 
 export const setSessionItem = (key: string, value: string): void => {
     sessionMemoryStore[key] = value;
     try {
-        if (typeof window !== 'undefined') {
-            const storage = window.sessionStorage;
-            if(storage) storage.setItem(key, value);
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.setItem(key, value);
         }
-    } catch (e) {
-        // Ignore
-    }
+    } catch (e) { /* Ignore */ }
 };
 
 export const removeSessionItem = (key: string): void => {
     delete sessionMemoryStore[key];
     try {
-        if (typeof window !== 'undefined') {
-            const storage = window.sessionStorage;
-            if(storage) storage.removeItem(key);
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.removeItem(key);
         }
-    } catch (e) {
-        // Ignore
-    }
+    } catch (e) { /* Ignore */ }
 };
 
 export const clearStorage = (key?: string) => {
@@ -131,25 +164,10 @@ export const clearStorage = (key?: string) => {
         if (key) {
             removeStorageItem(key);
         } else {
-            // Clear All
             for (const k in memoryStore) delete memoryStore[k];
-            if (typeof window !== 'undefined') {
-                const storage = window.localStorage;
-                if(storage) storage.clear();
+            if (typeof window !== 'undefined' && window.localStorage) {
+                window.localStorage.clear();
             }
         }
-    } catch (e) {
-        // Ignore
-    }
-};
-
-// --- GLOBAL SETTINGS HELPERS ---
-
-export const getGlobalSettings = (): GlobalSettings => {
-    return getStorageItem<GlobalSettings>(DB_KEYS.GLOBAL_SETTINGS, {});
-};
-
-export const saveGlobalSettings = (settings: GlobalSettings): void => {
-    const current = getGlobalSettings();
-    setStorageItem(DB_KEYS.GLOBAL_SETTINGS, { ...current, ...settings });
+    } catch (e) { /* Ignore */ }
 };

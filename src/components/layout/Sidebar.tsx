@@ -1,25 +1,25 @@
 
 import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import { Map, Users, ArrowUpRight, Sun, Star, Snowflake, Waves, Mountain, Droplets, Wind, Castle, Bot, Sparkles, Leaf, Flower, Award, GripHorizontal, Plus, Check, BookOpen, ChevronDown, CloudSun, X, MapPin, Loader2 } from 'lucide-react';
-import { PointOfInterest, SponsorRequest } from '../../types/index';
-import { AdPlaceholder } from '../common/AdPlaceholder';
-import { formatVisitors } from '../../utils/common';
-import { WeatherWidget } from '../city/WeatherWidget';
-import { useItinerary } from '../../context/ItineraryContext';
-import { useModal } from '../../context/ModalContext'; 
-import { getSponsorsAsync, convertSponsorToPoi } from '../../services/sponsorService'; 
-import { ImageWithFallback } from '../common/ImageWithFallback';
-import { StarRating } from '../common/StarRating';
+import { PointOfInterest, SponsorRequest } from '@/types';
+import { AdPlaceholder } from '@/components/common/AdPlaceholder';
+import { formatVisitors } from '@/utils/common';
+import { WeatherWidget } from '@/components/city/WeatherWidget';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useModal } from '@/context/ModalContext'; 
+import { getSponsorsAsync, convertSponsorToPoi } from '@/services/sponsorService'; 
+import { ImageWithFallback } from '@/components/common/ImageWithFallback';
+import { StarRating } from '@/components/common/StarRating';
 
 // CONTEXT CONSUMER
-import { useUser } from '../../context/UserContext';
-import { useGps } from '../../context/GpsContext';
-import { useUI } from '../../context/UIContext';
-import { useNavigation } from '../../context/NavigationContext';
-import { useDiaryInteractionsContext } from '../../context/DiaryInteractionContext';
+import { useUser } from '@/context/UserContext';
+import { useGps } from '@/context/GpsContext';
+import { useUI } from '@/context/UIContext';
+import { useNavigation } from '@/context/NavigationContext';
+import { useDiaryInteractionsContext } from '@/context/DiaryInteractionContext';
 
 // --- LAZY IMPORT DEL DIARIO ---
-const TravelDiary = React.lazy(() => import('../features/TravelDiary').then(module => ({ default: module.TravelDiary })));
+const TravelDiary = React.lazy(() => import('@/components/features/diary/TravelDiary').then(module => ({ default: module.TravelDiary })));
 
 const DiarySkeleton = () => (
     <div className="h-full flex flex-col bg-[#e7e5e4] p-4 animate-pulse rounded-sm border border-slate-600">

@@ -1,8 +1,8 @@
 
 import React, { useMemo } from 'react';
 import { Terminal, CheckCircle, AlertTriangle, Timer, ShieldAlert } from 'lucide-react';
-import { useCityEditor } from '../../../../context/CityEditorContext';
-import { ProcessLogModal } from '../../cities/ProcessLogModal';
+import { useCityEditor } from '@/context/CityEditorContext';
+import { ProcessLogModal } from '../../../cities/ProcessLogModal';
 
 // Helper parser locale
 const parseLogsToReport = (logs: string[]) => {

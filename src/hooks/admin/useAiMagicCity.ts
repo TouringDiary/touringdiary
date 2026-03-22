@@ -10,7 +10,7 @@ import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
 import { ensureZoneExists, getTouristZones } from '../../services/zoneService';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { GEO_CONFIG } from '../../constants/geoConfig';
-import { getGlobalImage } from '../../services/settingsService'; // NEW
+import { useConfig } from '@/context/ConfigContext';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -20,9 +20,10 @@ export const useAiMagicCity = (
 ) => {
     // Usiamo il runner passato dal parent, così i log sono visibili nell'UI principale
     const { performStep, addLog, resetRunner, stopRunner, getAccumulatedLogs } = runner;
+    const { configs } = useConfig();
 
     // Recupera l'immagine default una volta sola (fuori dal loop)
-    const defaultHero = getGlobalImage('hero');
+    const defaultHero = configs.HERO_IMAGE;
 
     const executeMagicAdd = async (rawCityName: string, poiCount: number = 10, user?: User, existingCityId?: string) => {
         const cityName = toTitleCase(rawCityName);

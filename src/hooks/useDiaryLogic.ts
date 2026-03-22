@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useItinerary } from '../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 import { publishUserItinerary } from '../services/dataService';
 import { User, ItineraryItem } from '../types/index';
 

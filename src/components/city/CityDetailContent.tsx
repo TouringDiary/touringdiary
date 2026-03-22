@@ -12,11 +12,12 @@ import { HistoryModal } from '../modals/HistoryModal';
 import { SuggestionModal } from '../modals/SuggestionModal'; 
 import { isPoiNew } from '../../utils/common';
 import { fetchSponsorsByCityAsync } from '../../services/sponsorService'; 
-import { useModal } from '../../context/ModalContext'; 
+import { useModal } from '@/context/ModalContext'; 
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { useUser } from '../../context/UserContext'; 
-import { useGps } from '../../context/GpsContext'; 
-import { useUI } from '../../context/UIContext'; // IMPORT UI CONTEXT
+import { useUser } from '@/context/UserContext'; 
+import { useGps } from '@/context/GpsContext'; 
+import { useUI } from '@/context/UIContext';
+import AffiliateCTA from '../common/AffiliateCTA';
 
 // --- LAZY IMPORTS ---
 const CityGallery = React.lazy(() => import('./tabs/CityGallery').then(m => ({ default: m.CityGallery })));
@@ -114,21 +115,27 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
     const sourceList = useMemo(() => {
         if (!city) return [];
-
+    
         const mixWithSponsors = (category: string) => {
-            // Filtra sponsor per categoria
-            const sponsored = activeSponsors.filter(s => s.category === category);
-            
+            // Ordina gli sponsor per tier: gold prima, silver dopo
+            const sortedSponsors = activeSponsors
+                .filter(s => s.category === category)
+                .sort((a, b) => {
+                    const tierA = a.tier === 'gold' ? 1 : (a.tier === 'silver' ? 2 : 3);
+                    const tierB = b.tier === 'gold' ? 1 : (b.tier === 'silver' ? 2 : 3);
+                    return tierA - tierB;
+                });
+    
             // Filtra POI editoriali
             const editorial = visibleAllPois.filter(p => p.category === category);
             
             // Rimuovi duplicati (se uno sponsor è anche editoriale, usa lo sponsor)
             const uniqueEditorial = editorial.filter(ep => 
-                !sponsored.some(sp => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim())
+                !sortedSponsors.some(sp => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim())
             );
-            return [...sponsored, ...uniqueEditorial];
+            return [...sortedSponsors, ...uniqueEditorial];
         };
-
+    
         switch (activeTab) {
             case 'destinazioni': return mixWithSponsors('monument');
             case 'natura': return mixWithSponsors('nature');
@@ -137,11 +144,20 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
             case 'shopping': return mixWithSponsors('shop');
             case 'svago': return mixWithSponsors('leisure');
             case 'novita': {
+                // Logica 'novita' mantenuta ma con ordinamento sponsor
+                const newsSponsors = activeSponsors
+                    .filter(s => isPoiNew(s))
+                    .sort((a, b) => {
+                        const tierA = a.tier === 'gold' ? 1 : (a.tier === 'silver' ? 2 : 3);
+                        const tierB = b.tier === 'gold' ? 1 : (b.tier === 'silver' ? 2 : 3);
+                        return tierA - tierB;
+                    });
+    
                 const newsEditorial = visibleAllPois.filter(p => isPoiNew(p));
                 const uniqueEditorial = newsEditorial.filter(ep => 
-                    !activeSponsors.some(sp => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim())
+                    !newsSponsors.some(sp => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim())
                 );
-                return [...activeSponsors.filter(s => isPoiNew(s)), ...uniqueEditorial];
+                return [...newsSponsors, ...uniqueEditorial];
             }
             default: return [];
         }
@@ -210,6 +226,14 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
             <div className="shrink-0 z-10 relative">
                 <CityHeader city={city} onOpenInfo={(t) => setActiveModal(t)} onOpenPatron={() => setActiveModal('patron')} onOpenSurroundings={() => setActiveModal('province')} onOpenCulture={() => setActiveModal('culture')} onOpenShop={() => onOpenShop()} onOpenSponsor={() => onOpenSponsor()} onOpenHistory={() => setActiveModal('history')} onToggleLocation={onToggleLocation} isLocationActive={!!userLocation} />
             </div>
+
+            {/* Affiliate CTA Section */}
+            {!isVirtual && (
+                <div className="px-4 py-3 flex items-center justify-center gap-4 border-b border-slate-800 bg-slate-900/50">
+                    <AffiliateCTA capability="accommodation" context={{ city: city.name }} />
+                    <AffiliateCTA capability="tours" context={{ city: city.name }} />
+                </div>
+            )}
 
             {/* 2. TAB NAVIGATION - NOT STICKY ON MOBILE */}
             <div className="relative md:sticky md:top-0 z-[40] bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl shrink-0">

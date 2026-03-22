@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ImageIcon, Crop, Plus, RefreshCw, Loader2, Trash2, LayoutTemplate, Square, Info } from 'lucide-react';
-import { useCityEditor } from '../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { AdminImageInput } from '../AdminImageInput';
 import { AdminPhotoInspector } from '../AdminPhotoInspector';
 import { generateCitySection } from '../../../services/ai';

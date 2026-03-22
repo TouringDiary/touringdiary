@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, FileText, BarChart3, ImageIcon, MapPin, Eye, EyeOff, BookOpen, Info, Loader2, CheckCircle, AlertTriangle, X, Terminal, Save } from 'lucide-react';
 import { User } from '../../types/users';
-import { CityEditorProvider, useCityEditor } from '../../context/CityEditorContext';
+import { CityEditorProvider, useCityEditor } from '@/context/CityEditorContext';
 import { useAdminCityEditorLogic } from '../../hooks/admin/useAdminCityEditorLogic';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
 

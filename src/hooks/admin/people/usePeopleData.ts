@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FamousPerson } from '../../../types/index';
 import { getCityPeople, saveCityPerson, deleteCityPerson } from '../../../services/cityService';
-import { useCityEditor } from '../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 
 export const usePeopleData = (cityId: string) => {
     const { reloadCurrentCity } = useCityEditor();

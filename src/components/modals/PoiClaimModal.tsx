@@ -30,7 +30,7 @@ export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps
     // 3. Load Marketing Config
     useEffect(() => {
         if (isOpen) {
-            getSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES).then(p => { 
+            getSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES_V2).then(p => { 
                 if(p) setMarketingConfig(p); 
             });
         }

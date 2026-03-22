@@ -1,22 +1,23 @@
-
 import React, { useMemo, Suspense } from 'react';
+import { Route, Routes } from 'react-router-dom'; // Import Route and Routes
 import { Loader2 } from 'lucide-react';
 import { PointOfInterest } from '../../types/index';
 import { HomeContent } from '../home/HomeContent';
 import { getShopByVat } from '../../services/shopService';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '@/context/ModalContext';
+import { StaticPage } from './StaticPage'; // IMPORT AGGIUNTO
 
 // CONTEXT CONSUMER
-import { useUser } from '../../context/UserContext';
-import { useGps } from '../../context/GpsContext';
-import { useNavigation } from '../../context/NavigationContext';
-import { useUI } from '../../context/UIContext';
-import { useDiaryInteractionsContext } from '../../context/DiaryInteractionContext'; // NEW IMPORT
+import { useUser } from '@/context/UserContext';
+import { useGps } from '@/context/GpsContext';
+import { useNavigation } from '@/context/NavigationContext';
+import { useUI } from '@/context/UIContext';
+import { useDiaryInteractionsContext } from '@/context/DiaryInteractionContext'; // NEW IMPORT
 
 // --- LAZY IMPORTS ---
 const CityDetailContent = React.lazy(() => import('../city/CityDetailContent').then(module => ({ default: module.CityDetailContent })));
 const ShopPage = React.lazy(() => import('../shop/ShopPage').then(module => ({ default: module.ShopPage })));
-const TravelDiary = React.lazy(() => import('../features/TravelDiary').then(module => ({ default: module.TravelDiary }))); // Imported for Side Planner
+const TravelDiary = React.lazy(() => import('../features/diary/TravelDiary').then(module => ({ default: module.TravelDiary }))); // Imported for Side Planner
 
 const PageLoader = () => (
     <div className="h-full w-full flex flex-col items-center justify-center gap-4 min-h-[50vh]">
@@ -27,7 +28,7 @@ const PageLoader = () => (
     </div>
 );
 
-export const AppRouter: React.FC = () => {
+const MainContent: React.FC = () => {
     // Context Consumption
     const { user, cityManifest, isLoadingManifest } = useUser();
     const { userLocation } = useGps();
@@ -37,7 +38,8 @@ export const AppRouter: React.FC = () => {
         currentCityTab, activeCategories, selectedZone,
         setActiveCategories, setSelectedZone, 
         navigateToCity, goBack, goHome, handleAroundMeTrigger,
-        openShopFromPoi, handleNavigateGlobal, targetShopVat, setActivePreview
+        openShopFromPoi, handleNavigateGlobal, targetShopVat, setActivePreview,
+        activeSection // << Aggiunto per leggere lo stato di navigazione
     } = useNavigation();
     
     const { openModal } = useModal();
@@ -46,7 +48,10 @@ export const AppRouter: React.FC = () => {
     const { handleSmartDrop } = useDiaryInteractionsContext();
 
     // --- FILTRO VISIBILITÀ (SOLO PUBBLICATI) ---
-    const publicManifest = useMemo(() => cityManifest.filter(c => c.status === 'published'), [cityManifest]);
+    const publicManifest = useMemo(
+        () => (cityManifest || []).filter(c => c.status === 'published'),
+        [cityManifest]
+      );
     const publicFeatured = useMemo(() => publicManifest.filter(c => c.isFeatured), [publicManifest]);
     const publicMostVisited = useMemo(() => [...publicManifest].sort((a,b) => b.visitors - a.visitors).slice(0,10), [publicManifest]);
     const publicDestinations = useMemo(() => publicManifest.filter(c => c.specialBadge === 'destination'), [publicManifest]);
@@ -72,6 +77,13 @@ export const AppRouter: React.FC = () => {
         }
         openModal('poiDetail', { poi });
     };
+
+    // ======== BLOCCO AGGIUNTO PER PAGINE STATICHE ========
+    const staticPages = ['chi-siamo', 'contatti', 'privacy', 'termini', 'support'];
+    if (staticPages.includes(activeSection)) {
+        return <StaticPage pageKey={activeSection} />;
+    }
+    // ========================================================
 
     if (isLoadingManifest || isBuildingVirtual) {
         return (
@@ -174,3 +186,11 @@ export const AppRouter: React.FC = () => {
         />
     );
 };
+
+export const AppRouter: React.FC = () => (
+    <Suspense fallback={<PageLoader />}>
+        <Routes>
+            <Route path="/*" element={<MainContent />} />
+        </Routes>
+    </Suspense>
+);

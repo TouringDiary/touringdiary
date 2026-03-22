@@ -4,7 +4,7 @@ import { Users, Eye, Plus, Sparkles, Loader2, Wand2, Check, X, ChevronUp, Chevro
 import { FamousPerson, User } from '../../../../types/index';
 import { AiFieldHelper } from '../../AiFieldHelper';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
-import { useCityEditor } from '../../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { CultureCornerModal } from '../../../modals/CultureCornerModal';
 import { usePeopleManager } from '../../../../hooks/admin/usePeopleManager';
 import { ImageWithFallback } from '../../../common/ImageWithFallback';

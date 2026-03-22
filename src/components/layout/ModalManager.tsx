@@ -1,11 +1,11 @@
 
 import React, { Suspense, useCallback } from 'react';
-import { useModal } from '../../context/ModalContext';
-import { useUser } from '../../context/UserContext';
-import { useItinerary } from '../../context/ItineraryContext';
-import { useGps } from '../../context/GpsContext';
-import { useNavigation } from '../../context/NavigationContext';
-import { useDiaryInteractionsContext } from '../../context/DiaryInteractionContext';
+import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useGps } from '@/context/GpsContext';
+import { useNavigation } from '@/context/NavigationContext';
+import { useDiaryInteractionsContext } from '@/context/DiaryInteractionContext';
 import { useCityData } from '../../hooks/useCityData';
 
 import { PointOfInterest, ItineraryItem, User, CitySummary } from '../../types/index';

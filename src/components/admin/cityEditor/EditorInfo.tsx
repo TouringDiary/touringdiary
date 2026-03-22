@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserCheck, Phone, CalendarDays, Eye, Plus, MinusCircle, Check, X, Wand2, Loader2, Bus, Save, CheckCircle, RefreshCw, Sparkles, AlertTriangle } from 'lucide-react';
-import { useCityEditor } from '../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { suggestCityItems, refineServiceData } from '../../../services/ai';
 import { getCityEvents, saveCityEvent, deleteCityEvent, getCityServices, saveCityService, deleteCityService, getCityGuides, saveCityGuide, deleteCityGuide } from '../../../services/cityService';
 import { getServicesConfig, SERVICE_TYPE_MAPPING, getBoxIdForType } from '../../../constants/services';

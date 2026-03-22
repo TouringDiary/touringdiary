@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, Gift, Zap, ArrowRight, Loader2, Award, AlertTriangle, Share2, Facebook, Linkedin, Twitter, Instagram, Users, ExternalLink, ShieldCheck, Coins, Plus, Wallet } from 'lucide-react';
-import { getReferrals, redeemReferralCode, refreshUsersCache, getUserById, getReferrerDetails } from '../../../services/userService';
+import { refreshUsersCache, getAllUsers, getUserById } from '../../../services/userService';
 import { getActiveSocialTemplates } from '../../../services/socialMarketingService';
 import { addNotification } from '../../../services/notificationService';
 import { User as UserType, SocialTemplate } from '../../../types/index';
@@ -68,16 +68,17 @@ export const UserReferralTab = ({ user, onUpdateUser, onSwitchToOverview }: Prop
 
         setIsLoading(true);
         try {
-            const [list, socialTpls] = await Promise.all([
-                getReferrals(user.id),
-                getActiveSocialTemplates()
-            ]);
+            await refreshUsersCache();
+            const allUsers = getAllUsers();
+            const list = allUsers.filter(u => u.referredBy === user.id);
+            const socialTpls = await getActiveSocialTemplates();
+            
             setReferrals(list);
             setTemplates(socialTpls);
             
             if (user.referredBy) {
-                const guide = await getReferrerDetails(user.referredBy);
-                setReferrer(guide);
+                const guide = getUserById(user.referredBy);
+                setReferrer(guide || null);
             }
         } catch (e) {
             console.error("Errore caricamento referral", e);
@@ -120,27 +121,28 @@ export const UserReferralTab = ({ user, onUpdateUser, onSwitchToOverview }: Prop
     };
 
     const handleRedeem = async () => {
-        if (!codeToRedeem.trim()) return;
-        setIsRedeeming(true);
-        setRedeemResult(null);
+        alert("La funzione di riscatto codice è temporaneamente disabilitata.");
+        // if (!codeToRedeem.trim()) return;
+        // setIsRedeeming(true);
+        // setRedeemResult(null);
 
-        const result = await redeemReferralCode(user.id, codeToRedeem);
-        setRedeemResult({ success: result.success, msg: result.message });
+        // const result = await redeemReferralCode(user.id, codeToRedeem);
+        // setRedeemResult({ success: result.success, msg: result.message });
         
-        if (result.success) {
-            await refreshUsersCache();
-            const updatedUser = getUserById(user.id);
-            if (updatedUser && onUpdateUser) onUpdateUser(updatedUser); 
-            addNotification(
-                user.id,
-                'reward_unlocked',
-                'Codice Riscattato!',
-                'Hai ottenuto +20 Crediti AI Extra.',
-                { section: 'profile' }
-            );
-            loadData();
-        }
-        setIsRedeeming(false);
+        // if (result.success) {
+        //     await refreshUsersCache();
+        //     const updatedUser = getUserById(user.id);
+        //     if (updatedUser && onUpdateUser) onUpdateUser(updatedUser); 
+        //     addNotification(
+        //         user.id,
+        //         'reward_unlocked',
+        //         'Codice Riscattato!',
+        //         'Hai ottenuto +20 Crediti AI Extra.',
+        //         { section: 'profile' }
+        //     );
+        //     loadData();
+        // }
+        // setIsRedeeming(false);
     };
 
     // CALCOLO CREDITI TOTALI

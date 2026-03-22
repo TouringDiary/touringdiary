@@ -39,7 +39,9 @@ export const getCityServices = async (cityId: string): Promise<CityService[]> =>
     const { data } = await supabase.from('city_services').select('*').eq('city_id', cityId).order('order_index', { ascending: true }); 
     return (data as DatabaseCityService[] || []).map(s => ({ 
         id: s.id, type: s.type as any, name: s.name, contact: s.contact, 
-        description: s.description, url: s.url, address: s.address, category: s.category, orderIndex: s.order_index 
+        description: s.description, url: s.url, address: s.address, category: s.category, 
+        imageUrl: s.image_url, // MODIFICA 2: Aggiunto imageUrl al mapping
+        orderIndex: s.order_index 
     })); 
 };
 
@@ -49,7 +51,8 @@ export const saveCityService = async (cityId: string, service: any) => {
     const payload: any = { 
         city_id: cityId, type: service.type, name: service.name, contact: service.contact, 
         description: service.description, url: service.url, address: service.address, category: service.category,
-        order_index: service.orderIndex || 0
+        order_index: service.orderIndex || 0,
+        image_url: service.imageUrl // Assicuriamoci che venga salvato anche l'URL dell'immagine
     }; 
     if (!isNew) payload.id = service.id; 
     const { data, error } = await supabase.from('city_services').upsert(payload).select().single(); 
@@ -68,7 +71,8 @@ export const getCityGuides = async (cityId: string): Promise<CityGuide[]> => {
     return (data as DatabaseCityGuide[] || []).map(g => ({ 
         id: g.id, name: g.name, isOfficial: g.is_official, languages: g.languages, 
         specialties: g.specialties, email: g.email, phone: g.phone, website: g.website, 
-        imageUrl: g.image_url, rating: g.rating, reviews: g.reviews as any, orderIndex: g.order_index 
+        imageUrl: g.image_url, // MODIFICA 1: Usato direttamente l'URL dal DB
+        rating: g.rating, reviews: g.reviews as any, orderIndex: g.order_index 
     })); 
 };
 

@@ -1,6 +1,6 @@
 
-import { useItinerary } from '../../context/ItineraryContext';
-import { useModal } from '../../context/ModalContext';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useModal } from '@/context/ModalContext';
 import { PointOfInterest, ItineraryItem } from '../../types/index';
 
 export const useDiaryInteractions = (

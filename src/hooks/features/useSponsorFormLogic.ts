@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { submitSponsorRequest } from '../../services/sponsorService';
 import { compressImage, dataURLtoFile } from '../../utils/common';
@@ -18,8 +17,8 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
     // Form State
     const [step, setStep] = useState<'form' | 'success'>('form');
     const [activeType, setActiveType] = useState<'activity' | 'shop' | 'tour_operator' | 'guide'>(initialType || 'activity');
-    // Default tier is gold ('Attività Regionali') unless specified otherwise
-    const [selectedPlan, setSelectedPlan] = useState<'silver' | 'gold' | 'guide_pro' | 'shop_basic' | 'agency_pro'>(initialTier || 'gold');
+    
+    const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
     
     const [formData, setFormData] = useState({
         companyName: user?.companyName || '',
@@ -29,6 +28,7 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
         adminPhone: '',
         publicName: user?.companyName || '',
         address: user?.city ? `${user.city}, Italia` : '',
+        cityId: '',   // NUOVO CAMPO
         description: '',
         website: '',
         openingHours: '',
@@ -51,23 +51,19 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
 
     const handleTypeChange = (type: 'activity' | 'shop' | 'tour_operator' | 'guide') => {
         setActiveType(type);
-        // Reset plan based on type
-        if (type === 'activity') setSelectedPlan('gold'); // Default to Gold on tab switch
-        else if (type === 'shop') setSelectedPlan('shop_basic'); // Mapped to shop in pricing
-        else if (type === 'guide') setSelectedPlan('guide_pro'); // Mapped to guide in pricing
-        else setSelectedPlan('agency_pro'); // Mapped to tourOperator in pricing
+        setSelectedPlan(null); // Resetta la selezione del piano quando il tipo cambia
     };
 
     const handleMagicRewrite = async () => {
         if (!formData.description?.trim()) return null;
         
         try {
-            const aiClient = getAiClient();
+            const ai = getAiClient();
             const prompt = `Sei un copywriter turistico d'élite. Riscrivi questa descrizione per una vetrina su "Touring Diary". 
             Rendila accattivante, professionale e persuasiva. Max 500 caratteri.
             Testo originale: "${formData.description}"`;
             
-            const response = await aiClient.models.generateContent({ 
+            const response = await ai.models.generateContent({ 
                 model: 'gemini-3.1-pro-preview', 
                 contents: prompt 
             });
@@ -89,6 +85,7 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
             adminPhone: '',
             publicName: user?.companyName || '',
             address: user?.city ? `${user.city}, Italia` : '',
+            cityId: '',
             description: '',
             website: '',
             openingHours: '',
@@ -115,6 +112,11 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
             return;
         }
 
+        if (!selectedPlan) { // Aggiunto controllo
+            setErrorMsg("Devi selezionare un piano e una durata.");
+            return;
+        }
+
         if (isGuest) {
              if (formData.password.length < 6) {
                  setErrorMsg("La password deve essere di almeno 6 caratteri.");
@@ -128,19 +130,9 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
 
         setIsSubmitting(true);
         try {
-            // Mappa 'selectedPlan' ai valori supportati dal service
-            const tierMap: any = { 
-                'silver': 'silver', 
-                'gold': 'gold', 
-                'shop_basic': 'standard', 
-                'guide_pro': 'standard',
-                'agency_pro': 'standard'
-            };
-            const tier = tierMap[selectedPlan] || 'standard';
-
             const success = await submitSponsorRequest({
                  ...formData,
-                 tier,
+                 pricing_version_id: selectedPlan,
                  coverImage: coverImage
             }, activeType, selectedPlan);
 

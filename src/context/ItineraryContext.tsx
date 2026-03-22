@@ -72,7 +72,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         }
         
         prevUserIdRef.current = currentId;
-    }, [user.id, clearItinerary]);
+    }, [user?.id, clearItinerary]);
 
     // Sync manuale
     const syncCloudDrafts = useCallback(async (userId: string) => {

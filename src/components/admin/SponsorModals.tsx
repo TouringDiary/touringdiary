@@ -5,7 +5,7 @@ import { PartnerDetailModal } from './PartnerDetailModal';
 import { useSponsorModals } from '../../hooks/useSponsorModals';
 import { getSponsorRating } from '../../services/sponsorService';
 import { SponsorRequest, User } from '../../types/index';
-import { getGuestUser } from '../../services/userService';
+import { getGuestUser } from '../../utils/userUtils';
 
 interface SponsorModalsProps {
     state: ReturnType<typeof useSponsorModals>['state'];

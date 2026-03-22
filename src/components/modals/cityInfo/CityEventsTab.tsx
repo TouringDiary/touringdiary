@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { Filter, LayoutGrid, ChevronRight, Calendar, Plus, Check, ChevronUp, ChevronDown, MapPin } from 'lucide-react';
-import { CityDetails, PointOfInterest } from '../../../types/index';
-import { useItinerary } from '../../../context/ItineraryContext';
+import { CityDetails, PointOfInterest } from '@/types';
+import { useItinerary } from '@/context/ItineraryContext';
 
 interface Props {
     city: CityDetails;

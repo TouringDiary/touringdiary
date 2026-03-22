@@ -6,9 +6,9 @@ import { ImageWithFallback } from '../common/ImageWithFallback';
 import { StarRating } from '../common/StarRating';
 import { calculateDistance } from '../../services/geo';
 import { getCityDetails } from '../../services/cityService';
-import { useItinerary } from '../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 import { PoiDetailModal } from '../modals/PoiDetailModal';
-import { getGuestUser } from '../../services/userService';
+import { useUser } from '@/context/UserContext';
 
 const prettify = (str: string) => str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
@@ -22,6 +22,7 @@ interface Props {
 }
 
 export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocation, user, onOpenAuth }: Props) => {
+    const { guestUser } = useUser();
     const [isFlipped, setIsFlipped] = useState(false);
     const [customStays, setCustomStays] = useState<any>({});
     const [resolvedItems, setResolvedItems] = useState<any[]>([]);
@@ -312,7 +313,7 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
                     onOpenReview={() => {}} 
                     /* Fix: removed redundant hasVoted prop */
                     userLocation={userLocation || null}
-                    user={user || getGuestUser()}
+                    user={user || guestUser}
                     onOpenAuth={onOpenAuth || (() => {})}
                 />
             )}

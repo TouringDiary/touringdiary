@@ -5,9 +5,9 @@ import { User, Reward, RewardCategory } from '../../../types/index';
 import { LevelInfo } from '../../../services/gamificationService';
 import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
 import { getRoleLabel } from '../../../services/userService';
-import { useUser } from '../../../context/UserContext';
+import { useUser } from '@/context/UserContext';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
-import { useItinerary } from '../../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 
 interface Props {
     user: User;

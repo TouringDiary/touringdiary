@@ -1,35 +1,29 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { MapPin, Navigation, Star, ThumbsUp, Plus, Crosshair, Award, GripHorizontal, Check, Box, ShoppingCart, Edit3, Loader2, TrendingUp, Coins } from 'lucide-react';
-import { PointOfInterest, User } from '../../../types/index';
-import { ImageWithFallback } from '../../common/ImageWithFallback';
-import { calculateDistance } from '../../../services/geo';
-import { openMap, open3DView, getPoiColorStyle, getSubCategoryLabel } from '../../../utils/common';
-import { StarRating } from '../../common/StarRating';
+import { PointOfInterest, User } from '@/types';
+import { ImageWithFallback } from '@/components/common/ImageWithFallback';
+import { calculateDistance } from '@/services/geo';
+import { openMap, open3DView, getPoiColorStyle, getSubCategoryLabel } from '@/utils/common';
+import { StarRating } from '@/components/common/StarRating';
 import { useInteraction } from '../../../context/InteractionContext';
-import { useVirtualWindow } from '../../../hooks/useVirtualWindow';
-import { useDynamicStyles } from '../../../hooks/useDynamicStyles'; 
+import { useVirtualWindow } from '@/hooks/useVirtualWindow';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles'; 
+import { getCachedSetting, SETTINGS_KEYS } from '@/services/settingsService';
 
-// NEW: Standard Price Level Indicator (5 Euro Symbols)
 const PriceLevelIndicator = ({ level }: { level?: number }) => {
-    // Standard always shows 5 slots
     const MAX_LEVEL = 5;
-    // Default level if missing is 0 (all gray)
     const activeLevel = level || 0;
 
     return (
         <div className="flex gap-0.5 items-center justify-center h-full" title={`Livello Prezzo: ${activeLevel}/${MAX_LEVEL}`}>
             {[...Array(MAX_LEVEL)].map((_, index) => {
                 const isActive = index < activeLevel;
-                
-                // UNIFORMATO COLORE A QUELLO INTERNO (AMBER/ORANGE) SU RICHIESTA UTENTE
                 const activeClass = 'text-amber-500'; 
-
                 return (
                     <span 
                         key={index} 
-                        className={`text-[10px] font-black leading-none ${isActive ? activeClass : 'text-slate-800'}`}
-                    >
+                        className={`text-[10px] font-black leading-none ${isActive ? activeClass : 'text-slate-800'}`}>
                         €
                     </span>
                 );
@@ -41,7 +35,6 @@ const PriceLevelIndicator = ({ level }: { level?: number }) => {
 const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemInItinerary, referencePoint, userLocation, onSetReference, isMobile, onOpenAuth, onOpenReview, user, onAdminEdit }: any) => {
     const { hasUserVoted, toggleVote } = useInteraction();
     
-    // DYNAMIC STYLES
     const titleStyle = useDynamicStyles('poi_card_title', isMobile);
     const descStyle = useDynamicStyles('poi_card_desc', isMobile);
     const distanceBadgeStyle = useDynamicStyles('poi_distance_badge', isMobile);
@@ -50,7 +43,6 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
     const inItinerary = isItemInItinerary(poi.id);
     const isAdmin = user && (user.role === 'admin_all' || user.role === 'admin_limited');
     
-    // Stato Riferimento - Usa l'ID per confronto preciso
     const isRef = referencePoint && (referencePoint.id === poi.id || referencePoint.name === poi.name);
     const isGlobalRefActive = !!referencePoint;
     
@@ -58,7 +50,6 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
     const [localVotes, setLocalVotes] = useState(poi.votes);
     const uiStyle = getPoiColorStyle(poi.category);
 
-    // CALCOLO DISTANZE
     const distFromUser = (userLocation && poi.coords.lat !== 0) 
         ? calculateDistance(userLocation.lat, userLocation.lng, poi.coords.lat, poi.coords.lng) 
         : null;
@@ -83,24 +74,24 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
         onOpenReview(poi);
     };
 
+    // MODIFICA 2: Logica di fallback corretta
+    const placeholders = getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
+    const imageUrl = poi.imageUrl || (placeholders ? placeholders[poi.category] : undefined);
+
     const sideBtnClass = "flex-1 flex flex-col items-center justify-center gap-1 transition-colors";
     const sideIconClass = "w-4 h-4 md:w-5 md:h-5";
     const sideLabelClass = "text-[7px] font-black uppercase";
 
-    // PREMIUM METALS INTEREST BADGE
     let interestColor = "text-slate-500 border-slate-700 bg-slate-800/50";
     let interestLabel = "N/C";
     
     if (poi.tourismInterest === 'high') {
-        // GOLD - TOP
         interestColor = "text-yellow-400 border-yellow-500/40 bg-yellow-950/20 shadow-[0_0_10px_rgba(250,204,21,0.1)]";
         interestLabel = "TOP";
     } else if (poi.tourismInterest === 'medium') {
-        // SILVER - MED
         interestColor = "text-slate-300 border-slate-400/40 bg-slate-800/60";
         interestLabel = "MED";
     } else if (poi.tourismInterest === 'low') {
-        // BRONZE - LOW (Dark orange/brown mix)
         interestColor = "text-orange-400 border-orange-800/60 bg-orange-950/20";
         interestLabel = "LOW";
     }
@@ -112,7 +103,6 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
             onClick={() => onOpenDetail(poi)}
             className={`bg-slate-900 rounded-2xl overflow-hidden flex h-36 md:h-44 group transition-all relative border ${poi.tier === 'gold' ? 'border-amber-500 shadow-amber-900/20' : 'border-slate-800 hover:border-slate-600 shadow-md'} cursor-pointer`}
         >
-            {/* BARRA SX */}
             <div className="w-12 md:w-16 bg-[#0f172a] border-r border-slate-800 flex flex-col shrink-0">
                 <button onClick={e => { e.stopPropagation(); openMap(poi.coords.lat, poi.coords.lng, poi.name, poi.address); }} className={`${sideBtnClass} hover:bg-slate-800 text-slate-500 hover:text-amber-400 border-b border-slate-800`} title="Mappa">
                     <MapPin className={sideIconClass}/>
@@ -123,7 +113,6 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                     <span className={sideLabelClass}>3D</span>
                 </button>
                 
-                {/* TASTO DA QUI / DISTANZA */}
                 <button 
                     onClick={e => { 
                         e.stopPropagation(); 
@@ -132,10 +121,10 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                     className={`
                         ${sideBtnClass}
                         ${isRef 
-                            ? 'bg-blue-600 text-white border-blue-500' // Attivo
+                            ? 'bg-blue-600 text-white border-blue-500' 
                             : isGlobalRefActive && distFromRef !== null
-                                ? 'bg-cyan-900/20 text-cyan-400 border-cyan-500/30' // Mostra Distanza
-                                : 'hover:bg-slate-800 text-slate-500 hover:text-blue-400' // Inattivo
+                                ? 'bg-cyan-900/20 text-cyan-400 border-cyan-500/30' 
+                                : 'hover:bg-slate-800 text-slate-500 hover:text-blue-400' 
                         }
                     `} 
                     title={isRef ? "Riferimento Attivo" : "Imposta come Riferimento"}
@@ -159,11 +148,10 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                 </button>
             </div>
 
-            {/* CENTRO */}
             <div className="flex-1 flex overflow-hidden">
                 <div className="w-24 md:w-40 relative shrink-0 border-r border-slate-800/50">
                     <ImageWithFallback 
-                        src={poi.imageUrl} 
+                        src={imageUrl} // MODIFICA 3: src aggiornato
                         alt={poi.name} 
                         category={poi.category} 
                         size="small" 
@@ -195,10 +183,7 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                              <div className="h-px w-full bg-gradient-to-r from-slate-800/0 via-slate-800 to-slate-800/0 mt-1 mb-2"></div>
                         </div>
                         
-                        {/* RIGHT HEADER ACTIONS: Interest Badge & Buttons */}
                         <div className="flex items-center gap-2 shrink-0">
-                             
-                             {/* INTEREST BADGE (COMPACT h-5 matching footer style) */}
                              <div className={`hidden md:flex items-center gap-1.5 px-2 h-5 rounded border ${interestColor}`}>
                                  <TrendingUp className="w-3 h-3"/>
                                  <span className="text-[9px] font-black uppercase tracking-wider leading-none">{interestLabel}</span>
@@ -217,7 +202,6 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                         </div>
                     </div>
                     
-                    {/* DYNAMIC DESCRIPTION STYLE APPLIED HERE */}
                     <p className={`${descStyle || 'text-[11px] md:text-sm text-slate-400 leading-relaxed italic'} line-clamp-2 mb-2`}>
                         "{poi.description || 'Nessuna descrizione.'}"
                     </p>
@@ -225,10 +209,7 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                     <div className="mt-auto">
                         <div className="h-px w-full bg-gradient-to-r from-slate-800/0 via-slate-800 to-slate-800/0 mb-2"></div>
                         <div className="flex items-center justify-between">
-                            
-                            {/* LEFT SIDE: PRICE INDICATOR + SUB-CATEGORY BADGE */}
                             <div className="flex items-center gap-2 h-5">
-                                {/* STANDARD PRICE INDICATOR (€€€€€) - UPDATED GOLD BORDER */}
                                 <div className="bg-slate-950/50 border border-amber-500/50 rounded px-2 h-full flex items-center">
                                     <PriceLevelIndicator level={poi.priceLevel} />
                                 </div>
@@ -239,7 +220,6 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                             </div>
 
                             <div className="hidden lg:flex items-center gap-3">
-                                {/* MOBILE INTEREST BADGE (If needed on small screens layout, though hidden lg) */}
                                 <div className={`md:hidden flex items-center gap-1.5 px-2 h-5 rounded border ${interestColor}`}>
                                      <span className="text-[8px] font-black uppercase leading-none">{interestLabel}</span>
                                 </div>
@@ -253,7 +233,6 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                 </div>
             </div>
 
-            {/* BARRA DX */}
             <div className="w-12 md:w-16 bg-[#0f172a] border-l border-slate-800 flex flex-col shrink-0">
                 <button onClick={e => { e.stopPropagation(); onAddToItinerary(poi); }} className={`${sideBtnClass} border-b border-slate-800 ${inItinerary ? 'bg-emerald-900/20 text-emerald-500' : 'hover:bg-slate-800 text-slate-500 hover:text-emerald-400'}`} title="Aggiungi">
                     {inItinerary ? <Check className="w-4 h-4 md:w-5 md:h-5"/> : <Plus className="w-4 h-4 md:w-5 md:h-5"/>}
@@ -312,7 +291,6 @@ export const CityGuide = ({
     const visiblePois = pois; 
 
     return (
-        // RIDOTTO PADDING ORIZZONTALE SU MOBILE per allargare le card
         <div className="px-0 md:px-2 py-4 md:p-8">
              <div className="flex flex-col gap-6">
                 {visiblePois.map(poi => (

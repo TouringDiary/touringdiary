@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import { DatabasePoiStaging, DatabasePoiInsert } from '../types/database'; // Usa Insert type per scrittura
 import { RatedPoiResult } from './ai/generators/qualityGenerator';
 import { enrichStagingPoi } from './ai/generators/poiGenerator';
-import { getCachedPlaceholder } from './settingsService';
+import { getCachedSetting } from './settingsService';
 import { calculateDistance } from '../services/geo';
 import { getSimilarity } from '../utils/stringUtils';
 
@@ -388,7 +388,7 @@ export const promoteToLive = async (stagingItem: DatabasePoiStaging, cityName: s
         
         // 2. Determinazione Placeholder
         const category = enriched.category || 'discovery';
-        const placeholderImg = getCachedPlaceholder(category);
+        const placeholderImg = category ? getCachedSetting(category) : null;
 
         // 3. Costruzione Oggetto POI Finale (Type Safe)
         const finalAddress = enriched.address || stagingItem.address || `${cityName}, Italia`;

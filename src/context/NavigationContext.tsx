@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { useAppRouter } from '../hooks/useAppRouter';
 import { useModal } from './ModalContext';
@@ -53,6 +52,8 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
     const modalContext = useModal();
     const aiPlannerContext = useAiPlanner();
     const userContext = useUser();
+    const cityManifest = userContext?.cityManifest ?? [];
+    const isLoadingManifest = userContext?.isLoadingManifest ?? true;
     const gpsContext = useGps();
 
     // Virtual Mode State
@@ -71,8 +72,8 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
 
     // --- DEEP LINK LOGIC (Encapsulated) ---
     useEffect(() => {
-        if (userContext.isLoadingManifest) return;
-        if (!userContext.cityManifest || userContext.cityManifest.length === 0) return;
+        if (isLoadingManifest) return;
+        if (!cityManifest || cityManifest.length === 0) return;
 
         if (router.deepLinkParams) {
             const { cityId, poiId, shopVat } = router.deepLinkParams;
@@ -82,7 +83,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
 
                 // A. Navigazione Città
                 if (cityId) {
-                    const cityExists = userContext.cityManifest.some(c => c.id === cityId);
+                    const cityExists = cityManifest.some(c => c.id === cityId);
                     if (cityExists) {
                         router.navigateToCity(cityId);
                         navigationSuccess = true;
@@ -131,7 +132,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
 
             processLink();
         }
-    }, [userContext.isLoadingManifest, router.deepLinkParams, userContext.cityManifest, modalContext]);
+    }, [isLoadingManifest, router.deepLinkParams, cityManifest, modalContext, router]);
 
     // --- NAVIGATION ACTIONS ---
 
@@ -142,11 +143,11 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
         if (config.type === 'gps' && gpsContext.userLocation) {
              centerCoords = gpsContext.userLocation;
         } else if (config.type === 'manual' && config.cityId) {
-            const targetCity = userContext.cityManifest.find(c => c.id === config.cityId);
+            const targetCity = cityManifest.find(c => c.id === config.cityId);
             if (targetCity) centerCoords = targetCity.coords;
         }
 
-        const virtual = await buildVirtualCity(centerCoords, config.radius, userContext.cityManifest.filter(c => c.status === 'published'));
+        const virtual = await buildVirtualCity(centerCoords, config.radius, cityManifest.filter(c => c.status === 'published'));
         
         if (isMounted.current) {
             setVirtualCity(virtual);

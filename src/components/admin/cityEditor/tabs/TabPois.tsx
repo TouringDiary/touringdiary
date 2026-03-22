@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AdminPoiManager } from '../../AdminPoiManager';
-import { useCityEditor } from '../../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { User } from '../../../../types/users';
 
 // Wrapper pulito per mantenere la struttura a tab

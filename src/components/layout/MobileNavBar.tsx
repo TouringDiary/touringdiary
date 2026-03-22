@@ -2,7 +2,7 @@
 import React from 'react';
 import { Map, Users, BookOpen, Radar, Store } from 'lucide-react';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
-import { useUI } from '../../context/UIContext';
+import { useUI } from '@/context/UIContext';
 
 interface MobileNavBarProps {
     activeSection: string | null;

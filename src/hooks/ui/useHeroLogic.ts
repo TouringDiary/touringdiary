@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CitySummary } from '../../types/index';
-import { generateCitySuggestion } from '../../services/ai';
+import { generateChatReply } from '../../services/ai/aiText';
 import { getSetting, getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService';
 import { FALLBACK_CONTINENTS, FALLBACK_NATIONS, FALLBACK_REGIONS, FALLBACK_CATEGORIES } from '../../data/ui/heroConstants';
 
@@ -76,12 +75,10 @@ export const useHeroLogic = ({
     // --- EFFECT: Load Settings & Suggestions ---
     useEffect(() => {
         const loadSettings = async () => {
-            // 1. Load Design
-            const settings = await getSetting<{heroImage: string, ai_consultant_bg?: string}>(SETTINGS_KEYS.SITE_DESIGN);
-            if (settings) {
-                if (settings.heroImage) setHeroImage(settings.heroImage);
-                if (settings.ai_consultant_bg) setAiBgImage(settings.ai_consultant_bg);
-            }
+
+            // ✅ FIX: niente più SITE_DESIGN → nessuna immagine dinamica
+            setHeroImage('');
+            setAiBgImage(null);
 
             // 2. Load Typing Suggestions
             const suggestions = await getSetting<string[]>(SETTINGS_KEYS.AI_TYPING_SUGGESTIONS);
@@ -92,7 +89,7 @@ export const useHeroLogic = ({
             }
             
             // 3. Load Geo Options from DB
-            const geoDb = await getSetting<any>(SETTINGS_KEYS.GEO_OPTIONS);
+            const geoDb = await getSetting<any>(SETTINGS_KEYS.GEO_OPTIONS || 'geo_options');
             if (geoDb) {
                 setGeoOptions({
                     continents: geoDb.continents || FALLBACK_CONTINENTS,
@@ -206,18 +203,22 @@ export const useHeroLogic = ({
 
     // --- HANDLERS: AI ---
     const handleAiSubmit = async (queryOverride?: string) => {
-        const queryToUse = queryOverride || aiQuery;
-        if (!queryToUse.trim()) return;
-        if (queryOverride) setAiQuery(queryOverride);
+        const userInput = queryOverride || aiQuery;
+        if (!userInput.trim()) return;
 
+        if (queryOverride) {
+            setAiQuery(userInput);
+        }
+        
         setIsAiLoading(true);
+        setAiResponse('');
         setIsAiExpanded(true); 
+
         try {
-            const availableCityNames = cityManifest.map(c => c.name);
-            const response = await generateCitySuggestion(queryToUse, availableCityNames);
-            setAiResponse(response);
-        } catch (error) {
-            setAiResponse("Mi dispiace, al momento non riesco a rispondere. Riprova più tardi.");
+            const aiResponseText = await generateChatReply(userInput);
+            setAiResponse(aiResponseText);
+        } catch (err: any) {
+            setAiResponse('Spiacenti, il nostro consulente non è disponibile al momento. Riprova più tardi.');
         } finally {
             setIsAiLoading(false);
         }
@@ -252,7 +253,6 @@ export const useHeroLogic = ({
         handleSeasonClick,
         handleManualCitySelect,
         handleAiSubmit,
-        // EXPOSE GEO OPTIONS FROM DB
         geoOptions
     };
 };

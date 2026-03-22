@@ -3,20 +3,20 @@
 
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { Star, TrendingUp, Grid, ZoomIn, ChevronLeft, ChevronRight, Award, Plus, Check, GripHorizontal, AlertTriangle } from 'lucide-react';
-import { CitySummary, SponsorRequest, PointOfInterest } from '../../types/index';
-import { HeroSection } from './HeroSection'; 
-import { CuratedGridSection } from './CuratedGridSection';
-import { CityCard } from '../city/CityCard';
-import { DraggableSlider, DraggableSliderHandle } from '../common/DraggableSlider';
-import { getSponsorsAsync, convertSponsorToPoi } from '../../services/sponsorService';
-import { ImageWithFallback } from '../common/ImageWithFallback';
-import { useItinerary } from '../../context/ItineraryContext';
-import { StarRating } from '../common/StarRating';
-import { AdPlaceholder } from '../common/AdPlaceholder';
-import { useDynamicStyles } from '../../hooks/useDynamicStyles';
-import { useDynamicContent } from '../../hooks/useDynamicContent'; 
-import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { useGps } from '../../context/GpsContext';
+import { CitySummary, SponsorRequest, PointOfInterest } from '@/types';
+import { HeroSection } from '@/components/home/HeroSection'; 
+import { CuratedGridSection } from '@/components/home/CuratedGridSection';
+import { CityCard } from '@/components/city/CityCard';
+import { DraggableSlider, DraggableSliderHandle } from '@/components/common/DraggableSlider';
+import { getSponsorsAsync, convertSponsorToPoi } from '@/services/sponsorService';
+import { ImageWithFallback } from '@/components/common/ImageWithFallback';
+import { useItinerary } from '@/context/ItineraryContext';
+import { StarRating } from '@/components/common/StarRating';
+import { AdPlaceholder } from '@/components/common/AdPlaceholder';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useDynamicContent } from '@/hooks/useDynamicContent'; 
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useGps } from '@/context/GpsContext';
 
 interface HeroSectionProps {
     activeCategories: string[];

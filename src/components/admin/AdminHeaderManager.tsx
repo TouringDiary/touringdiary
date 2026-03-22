@@ -1,17 +1,23 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Monitor, Upload, ShieldCheck, Crop, Loader2, RefreshCw, Save, Image as ImageIcon, Plus, CheckCircle, AlertTriangle, X, Award, MessageSquare, Type, Lock, Share2, Bot, Trash2 } from 'lucide-react';
 import { ImageWithFallback } from '../common/ImageWithFallback';
-import { saveGlobalSettings, getGlobalSettings, saveSetting, getSetting, GLOBAL_ASSET_DEFAULTS, SETTINGS_KEYS } from '../../services/settingsService';
+import { SETTINGS_KEYS, getSetting, saveSetting } from '../../services/settingsService';
+import { useConfig } from '@/context/ConfigContext';
 import { uploadPublicMedia } from '../../services/mediaService';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
 import { compressImage, dataURLtoFile } from '../../utils/common';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; 
+import { useAdminStyles } from '../../hooks/useAdminStyles';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-
-// Imported Sub-components
 import { SafeArtPanel } from './design/SafeArtPanel';
 import { PlaceholderGrid } from './design/PlaceholderGrid';
+
+const GLOBAL_ASSET_DEFAULTS = {
+    hero: 'https://images.unsplash.com/photo-1554797589-72413632cb75?w=1280&h=720&fit=crop',
+    patron: 'https://images.unsplash.com/photo-1580834835824-839735a26622?w=150&h=150&fit=crop',
+    auth_bg: 'https://images.unsplash.com/photo-1560440317-ac278253a693?w=1920&h=1080&fit=crop',
+    social_bg: 'https://images.unsplash.com/photo-1554189097-90d3b64ea373?w=1080&h=1920&fit=crop',
+    ai_box: ''
+};
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
     <div className={`fixed top-6 right-6 z-[4000] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
@@ -22,12 +28,12 @@ const AdminToast = ({ message, type, onClose }: { message: string, type: 'succes
 );
 
 export const AdminHeaderManager = () => {
-    // STATE - Initialized with Defaults from Service
+    const { configs, isLoading, updateSetting, refreshConfig } = useConfig();
+
+    // STATE
     const [currentImage, setCurrentImage] = useState(GLOBAL_ASSET_DEFAULTS.hero);
     const [patronImage, setPatronImage] = useState(GLOBAL_ASSET_DEFAULTS.patron);
     const [placeholders, setPlaceholders] = useState<Record<string, string>>({});
-    
-    // ASSET EXTRA (NEW)
     const [authBg, setAuthBg] = useState(GLOBAL_ASSET_DEFAULTS.auth_bg);
     const [socialBg, setSocialBg] = useState(GLOBAL_ASSET_DEFAULTS.social_bg);
     const [aiBg, setAiBg] = useState(GLOBAL_ASSET_DEFAULTS.ai_box);
@@ -38,9 +44,7 @@ export const AdminHeaderManager = () => {
     const [isSavingHero, setIsSavingHero] = useState(false);
     const [isSavingPatron, setIsSavingPatron] = useState(false);
     const [isSavingExtra, setIsSavingExtra] = useState(false);
-    
     const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
-    
     const [inspectorOpen, setInspectorOpen] = useState(false);
     const [imageToEdit, setImageToEdit] = useState('');
     const [editTarget, setEditTarget] = useState<'hero' | 'patron' | 'placeholder' | 'auth' | 'social' | 'ai_bg'>('hero');
@@ -50,9 +54,9 @@ export const AdminHeaderManager = () => {
     // DELETE CONFIRMATION STATE
     const [showDeleteHeroConfirm, setShowDeleteHeroConfirm] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
-    // NEW: State for resetting functional assets
     const [deleteAssetTarget, setDeleteAssetTarget] = useState<'auth' | 'social' | 'ai_bg' | null>(null);
 
+    // REFS
     const fileInputRef = useRef<HTMLInputElement>(null);
     const patronInputRef = useRef<HTMLInputElement>(null);
     const placeholderInputRef = useRef<HTMLInputElement>(null);
@@ -60,36 +64,27 @@ export const AdminHeaderManager = () => {
     const socialInputRef = useRef<HTMLInputElement>(null);
     const aiBgInputRef = useRef<HTMLInputElement>(null);
     
-    const { styles } = useAdminStyles(); 
+    const { styles } = useAdminStyles();
 
-    // Initial Load
+    // Initial Load from ConfigContext
     useEffect(() => {
-        const load = async () => {
-            const settings = await getGlobalSettings();
-            if (settings) {
-                // Prioritize DB settings over Defaults
-                if (settings.heroImage !== undefined) {
-                    setCurrentImage(settings.heroImage || GLOBAL_ASSET_DEFAULTS.hero);
-                    setPreviewImage(settings.heroImage || GLOBAL_ASSET_DEFAULTS.hero);
-                } else {
-                    setCurrentImage(GLOBAL_ASSET_DEFAULTS.hero);
-                    setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
-                }
+        if (!isLoading && configs) {
+            const heroImage = configs[SETTINGS_KEYS.HERO_IMAGE];
+            const patron = configs[SETTINGS_KEYS.DEFAULT_PATRON_IMAGE];
+            const auth = configs[SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE];
+            const social = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG];
+            const ai = configs[SETTINGS_KEYS.AI_CONSULTANT_BG];
+            const ph = configs[SETTINGS_KEYS.CATEGORY_PLACEHOLDERS];
 
-                if (settings.defaultPatronImage) setPatronImage(settings.defaultPatronImage);
-                if (settings.auth_background_image) setAuthBg(settings.auth_background_image);
-                if (settings.social_canvas_bg) setSocialBg(settings.social_canvas_bg);
-                
-                // Gestione specifica per AI Box: Accetta stringa vuota
-                if (settings.ai_consultant_bg !== undefined) {
-                    setAiBg(settings.ai_consultant_bg);
-                }
-            }
-            const phs = await getSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
-            setPlaceholders(phs || {});
-        };
-        load();
-    }, []);
+            setCurrentImage(heroImage || GLOBAL_ASSET_DEFAULTS.hero);
+            setPreviewImage(heroImage || GLOBAL_ASSET_DEFAULTS.hero);
+            setPatronImage(patron || GLOBAL_ASSET_DEFAULTS.patron);
+            setAuthBg(auth || GLOBAL_ASSET_DEFAULTS.auth_bg);
+            setSocialBg(social || GLOBAL_ASSET_DEFAULTS.social_bg);
+            setAiBg(ai !== undefined ? ai : GLOBAL_ASSET_DEFAULTS.ai_box);
+            setPlaceholders(ph || {});
+        }
+    }, [configs, isLoading]);
 
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
@@ -106,19 +101,13 @@ export const AdminHeaderManager = () => {
             const publicUrl = await uploadPublicMedia(compressedFile, 'admin_assets');
 
             if (publicUrl) {
-                if (target === 'hero') {
-                    setPreviewImage(publicUrl);
-                } else if (target === 'patron') {
-                    setPatronImage(publicUrl);
-                } else if (target === 'auth') {
-                    setAuthBg(publicUrl);
-                } else if (target === 'social') {
-                    setSocialBg(publicUrl);
-                } else if (target === 'ai_bg') {
-                    setAiBg(publicUrl);
-                } else if (target === 'placeholder' && phCat) {
-                    await handleSavePlaceholder(phCat, publicUrl);
-                }
+                if (target === 'hero') setPreviewImage(publicUrl);
+                else if (target === 'patron') setPatronImage(publicUrl);
+                else if (target === 'auth') setAuthBg(publicUrl);
+                else if (target === 'social') setSocialBg(publicUrl);
+                else if (target === 'ai_bg') setAiBg(publicUrl);
+                else if (target === 'placeholder' && phCat) await handleSavePlaceholder(phCat, publicUrl);
+                
                 showToast("Immagine caricata con successo!", 'success');
             } else {
                 showToast("Errore upload cloud.", 'error');
@@ -127,7 +116,6 @@ export const AdminHeaderManager = () => {
             console.error(err);
             showToast("Errore elaborazione file.", 'error');
         } finally {
-             // Reset all inputs
              if (fileInputRef.current) fileInputRef.current.value = '';
              if (patronInputRef.current) patronInputRef.current.value = '';
              if (placeholderInputRef.current) placeholderInputRef.current.value = '';
@@ -140,15 +128,13 @@ export const AdminHeaderManager = () => {
     const handleSaveHero = async () => {
         setIsSavingHero(true);
         const valToSave = previewImage === GLOBAL_ASSET_DEFAULTS.hero ? '' : previewImage;
-        await saveGlobalSettings({ heroImage: valToSave });
+        await updateSetting(SETTINGS_KEYS.HERO_IMAGE, valToSave);
         setCurrentImage(previewImage || GLOBAL_ASSET_DEFAULTS.hero);
         setIsSavingHero(false);
         showToast("Header salvato!", 'success');
     };
     
-    const handleRemoveHeroRequest = () => {
-        setShowDeleteHeroConfirm(true);
-    };
+    const handleRemoveHeroRequest = () => setShowDeleteHeroConfirm(true);
 
     const confirmRemoveHero = () => {
         setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero); 
@@ -156,71 +142,71 @@ export const AdminHeaderManager = () => {
         showToast("Immagine rimossa dall'anteprima. Clicca 'Applica' per salvare il default.", 'success');
     };
 
-    // --- NEW: LOGICA RIMOZIONE ASSET FUNZIONALI ---
-    const handleRemoveAssetRequest = (target: 'auth' | 'social' | 'ai_bg') => {
-        setDeleteAssetTarget(target);
-    };
+    const handleRemoveAssetRequest = (target: 'auth' | 'social' | 'ai_bg') => setDeleteAssetTarget(target);
 
     const confirmRemoveAsset = () => {
         if (deleteAssetTarget === 'auth') setAuthBg(GLOBAL_ASSET_DEFAULTS.auth_bg);
         else if (deleteAssetTarget === 'social') setSocialBg(GLOBAL_ASSET_DEFAULTS.social_bg);
-        else if (deleteAssetTarget === 'ai_bg') {
-            // Per AI Box, permettiamo la cancellazione totale (stringa vuota)
-            // che attiverà lo stile di fallback (slate-900) nel componente
-            setAiBg(''); 
-        }
+        else if (deleteAssetTarget === 'ai_bg') setAiBg('');
         
         setDeleteAssetTarget(null);
         showToast("Asset rimosso/ripristinato. Clicca 'Salva Asset' per confermare.", 'success');
     };
-    // ---------------------------------------------
 
     const handleSavePatron = async () => {
         setIsSavingPatron(true);
         const valToSave = patronImage === GLOBAL_ASSET_DEFAULTS.patron ? '' : patronImage;
-        await saveGlobalSettings({ defaultPatronImage: valToSave });
+        await updateSetting(SETTINGS_KEYS.DEFAULT_PATRON_IMAGE, valToSave);
         setIsSavingPatron(false);
         showToast("Patrono master aggiornato!", 'success');
     };
     
     const handleSaveExtraAssets = async () => {
         setIsSavingExtra(true);
-        // Salviamo esattamente ciò che c'è nello stato, inclusa stringa vuota per AI Box
-        await saveGlobalSettings({ 
-            auth_background_image: authBg === GLOBAL_ASSET_DEFAULTS.auth_bg ? '' : authBg,
-            social_canvas_bg: socialBg === GLOBAL_ASSET_DEFAULTS.social_bg ? '' : socialBg,
-            ai_consultant_bg: aiBg // Può essere ''
-        });
-        setIsSavingExtra(false);
-        showToast("Asset funzionali salvati!", 'success');
+        try {
+            const newAssetData = {
+                'auth_background_image': authBg === GLOBAL_ASSET_DEFAULTS.auth_bg ? '' : authBg,
+                'social_canvas_bg': socialBg === GLOBAL_ASSET_DEFAULTS.social_bg ? '' : socialBg,
+                'ai_consultant_bg': aiBg,
+            };
+
+            await updateSetting(SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE, newAssetData.auth_background_image);
+            await updateSetting(SETTINGS_KEYS.SOCIAL_CANVAS_BG, newAssetData.social_canvas_bg);
+            await updateSetting(SETTINGS_KEYS.AI_CONSULTANT_BG, newAssetData.ai_consultant_bg);
+            await refreshConfig();
+
+            showToast("Asset funzionali salvati in 'design_system'!", 'success');
+        } catch (err) {
+            console.error("Errore durante il salvataggio degli asset:", err);
+            showToast("Errore imprevisto durante il salvataggio.", 'error');
+        } finally {
+            setIsSavingExtra(false);
+        }
     };
     
-    const handleReset = () => {
-        setShowResetConfirm(true);
-    };
+    const handleReset = () => setShowResetConfirm(true);
 
     const executeReset = async () => {
         setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
         setCurrentImage(GLOBAL_ASSET_DEFAULTS.hero);
-        await saveGlobalSettings({ heroImage: '' }); 
+        await updateSetting(SETTINGS_KEYS.HERO_IMAGE, ''); 
         showToast("Reset completato.", 'success');
         setShowResetConfirm(false);
     };
 
     const handleResetPatronGlobal = async () => {
         setPatronImage(GLOBAL_ASSET_DEFAULTS.patron);
-        await saveGlobalSettings({ defaultPatronImage: '' });
+        await updateSetting(SETTINGS_KEYS.DEFAULT_PATRON_IMAGE, '');
         showToast("Patrono reset.", 'success');
     };
 
     const handleSavePlaceholder = async (cat: string, url: string) => {
         const updated = { ...placeholders, [cat]: url };
         setPlaceholders(updated);
-        await saveSetting(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS, updated);
+        await updateSetting(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS, updated);
         showToast(`Placeholder per ${cat} aggiornato!`, 'success');
     };
 
-    // Editor Logic
     const openEditor = (url: string, target: 'hero' | 'patron' | 'placeholder' | 'auth' | 'social' | 'ai_bg', cat?: string) => {
         if (!url) return;
         setImageToEdit(url);
@@ -230,19 +216,20 @@ export const AdminHeaderManager = () => {
     };
 
     const handleEditorSave = async (data: { image: string }) => {
+        const newImageUrl = data.image;
         if (editTarget === 'hero') {
-            setPreviewImage(data.image);
+            setPreviewImage(newImageUrl);
             setHeroNote("Immagine modificata pronta per il salvataggio.");
         } else if (editTarget === 'patron') {
-            setPatronImage(data.image);
+            setPatronImage(newImageUrl);
         } else if (editTarget === 'auth') {
-            setAuthBg(data.image);
+            setAuthBg(newImageUrl);
         } else if (editTarget === 'social') {
-            setSocialBg(data.image);
+            setSocialBg(newImageUrl);
         } else if (editTarget === 'ai_bg') {
-            setAiBg(data.image);
+            setAiBg(newImageUrl);
         } else if (editTarget === 'placeholder' && editPlaceholderCat) {
-            await handleSavePlaceholder(editPlaceholderCat, data.image);
+            await handleSavePlaceholder(editPlaceholderCat, newImageUrl);
         }
         setInspectorOpen(false);
     };
@@ -264,7 +251,6 @@ export const AdminHeaderManager = () => {
             
             {toast && <AdminToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-            {/* CONFIRM MODAL FOR HERO REMOVAL */}
             <DeleteConfirmationModal
                 isOpen={showDeleteHeroConfirm}
                 onClose={() => setShowDeleteHeroConfirm(false)}
@@ -276,7 +262,6 @@ export const AdminHeaderManager = () => {
                 icon={<Trash2 className="w-8 h-8 text-red-500 animate-pulse"/>}
             />
 
-            {/* NEW: CONFIRM MODAL FOR FUNCTIONAL ASSETS RESET */}
             <DeleteConfirmationModal
                 isOpen={!!deleteAssetTarget}
                 onClose={() => setDeleteAssetTarget(null)}
@@ -301,7 +286,6 @@ export const AdminHeaderManager = () => {
                 variant="info"
             />
             
-            {/* HEADER CLEAN DESIGN */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-indigo-600 rounded-xl shadow-lg">
@@ -314,7 +298,6 @@ export const AdminHeaderManager = () => {
                 </div>
             </div>
 
-            {/* HERO SECTION MANAGER */}
             <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-lg overflow-hidden relative z-10">
                  <div className="flex justify-end items-center p-4 border-b border-slate-800 bg-slate-950/50">
                     <button onClick={handleReset} className="bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-colors">
@@ -323,9 +306,7 @@ export const AdminHeaderManager = () => {
                 </div>
 
                 <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* LEFT: PREVIEW & TOOLS */}
                     <div className="flex flex-col gap-6">
-                        {/* MODE SWITCHER */}
                         <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
                             <button onClick={() => setMode('upload')} className={`flex-1 py-2 text-xs font-bold uppercase rounded-md flex items-center justify-center gap-2 transition-all ${mode === 'upload' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}>
                                 <Upload className="w-4 h-4"/> Carica / URL
@@ -335,7 +316,6 @@ export const AdminHeaderManager = () => {
                             </button>
                         </div>
 
-                        {/* PREVIEW BOX */}
                         <div className="relative aspect-video rounded-xl overflow-hidden border-2 border-slate-700 bg-black group shadow-lg">
                             <ImageWithFallback 
                                 src={previewImage || GLOBAL_ASSET_DEFAULTS.hero} 
@@ -353,7 +333,6 @@ export const AdminHeaderManager = () => {
                              </div>
                         </div>
                         
-                        {/* CONTROLS */}
                         {mode === 'upload' ? (
                             <div className="flex gap-3">
                                 <button onClick={() => fileInputRef.current?.click()} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl font-bold text-sm border border-slate-700 transition-colors flex items-center justify-center gap-2">
@@ -374,10 +353,7 @@ export const AdminHeaderManager = () => {
                         </button>
                     </div>
 
-                    {/* RIGHT: PATRON & PLACEHOLDERS */}
                     <div className="flex flex-col gap-6">
-                        
-                        {/* PATRON MASTER */}
                         <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 flex flex-col gap-4">
                             <div className="flex items-center gap-3 mb-2 justify-between">
                                 <div className="flex items-center gap-3">
@@ -409,7 +385,6 @@ export const AdminHeaderManager = () => {
                             </div>
                         </div>
 
-                        {/* CATEGORY PLACEHOLDERS */}
                         <PlaceholderGrid 
                             placeholders={placeholders} 
                             onUploadClick={triggerPlaceholderUpload} 
@@ -421,7 +396,6 @@ export const AdminHeaderManager = () => {
                 </div>
             </div>
             
-            {/* SEZIONE ASSET FUNZIONALI (Login & Social & AI) */}
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-lg mt-8">
                  <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
                      <div>
@@ -436,7 +410,6 @@ export const AdminHeaderManager = () => {
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                     {/* AUTH BG */}
                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col gap-4">
                          <div className="flex items-center justify-between mb-1">
                              <div className="flex items-center gap-2">
@@ -458,7 +431,6 @@ export const AdminHeaderManager = () => {
                          </div>
                      </div>
 
-                     {/* SOCIAL BG */}
                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col gap-4">
                          <div className="flex items-center justify-between mb-1">
                              <div className="flex items-center gap-2">
@@ -480,7 +452,6 @@ export const AdminHeaderManager = () => {
                          </div>
                      </div>
                      
-                     {/* AI CONSULTANT BG */}
                      <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col gap-4">
                          <div className="flex items-center justify-between mb-1">
                              <div className="flex items-center gap-2">
@@ -490,11 +461,9 @@ export const AdminHeaderManager = () => {
                                      <p className="text-[10px] text-slate-500 uppercase">Home Page</p>
                                  </div>
                              </div>
-                             {/* UPDATED DELETE BUTTON - CANCELLA ANCHE FOTO */}
                              <button onClick={() => handleRemoveAssetRequest('ai_bg')} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 rounded transition-colors"><Trash2 className="w-4 h-4"/></button>
                          </div>
                          
-                         {/* PREVIEW CON LOGICA "NO FOTO" */}
                          <div className="aspect-video bg-black rounded-lg overflow-hidden relative group border border-slate-700">
                              {aiBg ? (
                                 <img src={aiBg} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt="AI BG"/>
@@ -514,7 +483,6 @@ export const AdminHeaderManager = () => {
                  </div>
             </div>
 
-            {/* HERO CAPTION DISPLAY (IF GENERATED) */}
             {heroNote && (
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 animate-in fade-in">
                     <h4 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
@@ -524,12 +492,10 @@ export const AdminHeaderManager = () => {
                 </div>
             )}
             
-            {/* INSPECTOR MODAL */}
             {inspectorOpen && (
                 <AdminPhotoInspector 
                     isOpen={true}
                     imageUrl={imageToEdit}
-                    // Passiamo il target mode per adattare l'interfaccia dell'editor
                     mode={editTarget === 'patron' ? 'card' : 'hero'}
                     initialData={{ locationName: 'Design Asset', user: 'Admin', description: `Ottimizzazione ${editTarget}` }}
                     onClose={() => setInspectorOpen(false)}

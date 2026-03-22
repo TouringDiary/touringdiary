@@ -1,11 +1,11 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { PenTool, FolderOpen, Save, FilePlus2, Printer, Share2, Facebook, Twitter, Copy, Trash2, Globe, Sparkles, ChevronLeft, ChevronRight, RefreshCw, Map, AlertTriangle } from 'lucide-react';
-import { Itinerary, User } from '../../../types/index';
-import { useItinerary } from '../../../context/ItineraryContext';
-import { useDynamicContent } from '../../../hooks/useDynamicContent'; 
-import { useModal } from '../../../context/ModalContext';
-import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
+import { Briefcase, PenTool, FolderOpen, Save, FilePlus2, Printer, Share2, Facebook, Twitter, Copy, Trash2, Globe, Sparkles, ChevronLeft, ChevronRight, RefreshCw, Map, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Itinerary, User } from '@/types';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useDynamicContent } from '@/hooks/useDynamicContent'; 
+import { useModal } from '@/context/ModalContext';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 
 interface DiaryHeaderProps {
     itinerary: Itinerary;
@@ -25,13 +25,24 @@ interface DiaryHeaderProps {
     onPublish: () => void;
     onOpenAiPlanner?: () => void;
     onOpenRoadbook?: () => void;
+    onOpenPackingList?: () => void;
     setActiveTab: (tab: 'all' | number) => void;
     onDeleteProject: (id: string) => void;
 }
 
+const formatDateForDisplay = (dateString: string | null): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
 export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     itinerary, user, savedProjects, highlightDates, activeTab, days, minDateStr,
-    onSetName, onDateChange, onLoadProject, onSaveAction, onSaveAs, onPrint, onClear, onPublish, onOpenAiPlanner, onOpenRoadbook, setActiveTab, onDeleteProject
+    onSetName, onDateChange, onLoadProject, onSaveAction, onSaveAs, onPrint, onClear, onPublish, onOpenAiPlanner, onOpenRoadbook, onOpenPackingList, setActiveTab, onDeleteProject
 }) => {
     const { refreshItineraryData, syncCloudDrafts } = useItinerary(); 
     const { openModal } = useModal(); 
@@ -43,11 +54,9 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     const [isSyncing, setIsSyncing] = useState(false); 
     const [shouldFlashRoadbook, setShouldFlashRoadbook] = useState(false);
     
-    // DELETE STATE
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     
-    // Rilevamento Mobile
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 1024);
@@ -56,13 +65,50 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
         return () => window.removeEventListener('resize', check);
     }, []);
 
-    // HOOK DINAMICO (Recupera Stile + Testo dal DB)
     const titleConfig = useDynamicContent('diary_title', isMobile);
     
     const tabsContainerRef = useRef<HTMLDivElement>(null);
     const saveMenuRef = useRef<HTMLDivElement>(null);
     const loadMenuRef = useRef<HTMLDivElement>(null);
     const shareMenuRef = useRef<HTMLDivElement>(null);
+
+    // --- LOCAL STATE FOR DATE DISPLAY ---
+    const [displayStartDate, setDisplayStartDate] = useState(formatDateForDisplay(itinerary.startDate));
+    const [displayEndDate, setDisplayEndDate] = useState(formatDateForDisplay(itinerary.endDate));
+
+    useEffect(() => {
+        setDisplayStartDate(formatDateForDisplay(itinerary.startDate));
+    }, [itinerary.startDate]);
+
+    useEffect(() => {
+        setDisplayEndDate(formatDateForDisplay(itinerary.endDate));
+    }, [itinerary.endDate]);
+    
+    const handleDateBlur = (e: React.FocusEvent<HTMLInputElement>, type: 'startDate' | 'endDate') => {
+        const displayValue = e.target.value;
+        if (!displayValue) {
+            // Handle case where user clears the field, if necessary
+            return;
+        }
+        const parts = displayValue.split('/');
+
+        if (parts.length === 3 && parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
+            const [day, month, year] = parts;
+            const newDateStr = `${year}-${month}-${day}`;
+            const newDate = new Date(newDateStr);
+            if (!isNaN(newDate.getTime()) && newDate.getDate() === parseInt(day, 10)) {
+                onDateChange(type, newDateStr);
+                return;
+            }
+        }
+        // If format is invalid, revert to the last valid value from props
+        if (type === 'startDate') {
+            setDisplayStartDate(formatDateForDisplay(itinerary.startDate));
+        } else {
+            setDisplayEndDate(formatDateForDisplay(itinerary.endDate));
+        }
+    };
+
 
     useEffect(() => {
         if (itinerary.items.length > 0) {
@@ -93,7 +139,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
         setLoadMenuOpen(false);
     };
 
-    // TRIGGER SYNC ON MENU OPEN
     const handleLoadMenuOpen = () => {
         const newState = !loadMenuOpen;
         setLoadMenuOpen(newState);
@@ -106,13 +151,11 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
         }
     };
 
-    // Handler Apertura Modale Cancellazione
     const handleDeleteClick = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         setDeleteTargetId(id);
     };
 
-    // Handler Conferma Cancellazione
     const confirmDelete = async () => {
         if (!deleteTargetId) return;
         setIsDeleting(true);
@@ -160,13 +203,12 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     return (
         <div className="p-3 border-b border-stone-300 z-50 bg-slate-900 shadow-sm relative no-print-bg flex-shrink-0 transition-all">
             
-            {/* DELETE MODAL */}
             <DeleteConfirmationModal 
                 isOpen={!!deleteTargetId}
                 onClose={() => setDeleteTargetId(null)}
                 onConfirm={confirmDelete}
                 title="Eliminare Diario?"
-                message={`Stai per cancellare definitivamente "${targetProjectName}".\nL'azione è irreversibile.`}
+                message={`Stai per cancellare definitivamente "${targetProjectName}". L'azione è irreversibile.`}
                 isDeleting={isDeleting}
                 variant="danger"
                 icon={<Trash2 className="w-8 h-8 text-red-500 animate-pulse"/>}
@@ -174,7 +216,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 
             <div className="flex flex-col gap-2">
                 
-                {/* RIGA 1: TITOLO + STRUMENTI SMART (AI, Roadbook, Community) */}
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         <PenTool className="w-[16.5px] h-[16.5px] text-amber-500" />
@@ -183,8 +224,12 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                         </h3>
                     </div>
                     
-                    {/* SMART CONTROLS (Destra) */}
                     <div className="flex items-center gap-1 shrink-0">
+                        {onOpenPackingList && (
+                             <button onClick={onOpenPackingList} className="text-white bg-indigo-600 hover:bg-indigo-500 p-1.5 rounded-lg shadow-md" title="Lista Bagaglio">
+                                 <Briefcase className="w-5 h-5" />
+                             </button>
+                        )}
                         {onOpenRoadbook && itinerary.items.length > 0 && (
                             <button onClick={onOpenRoadbook} className={`text-white p-1.5 rounded-lg transition-all shadow-md ${shouldFlashRoadbook ? 'bg-amber-500 animate-pulse ring-2 ring-amber-300' : 'bg-indigo-600 hover:bg-indigo-500'}`} title="Roadbook">
                                 <Map className="w-5 h-5" />
@@ -206,10 +251,8 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                     </div>
                 </div>
 
-                {/* RIGA 2: NOME PROGETTO + FILE OPERATIONS (Open, Save, Print...) */}
                 <div className="flex gap-2 items-center h-8">
                     
-                    {/* NAME INPUT */}
                     <div className="bg-slate-800/50 p-1 rounded border border-slate-700/50 flex items-center flex-1 min-w-0">
                         <div className="px-2 w-full truncate">
                             <input 
@@ -222,9 +265,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                         </div>
                     </div>
 
-                    {/* FILE CONTROLS - Alla destra del nome */}
                     <div className="flex items-center gap-1.5 shrink-0">
-                        {/* OPEN / LOAD */}
                         <div className="relative" ref={loadMenuRef}>
                             <button onClick={handleLoadMenuOpen} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${loadMenuOpen ? 'bg-slate-800 text-white' : ''}`} title="Apri/Carica">
                                 <FolderOpen className="w-[16.5px] h-[16.5px]" />
@@ -263,7 +304,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                             )}
                         </div>
                         
-                        {/* SAVE */}
                         <div className="relative" ref={saveMenuRef}>
                             <button onClick={() => {
                                  if (isGuest) openModal('auth');
@@ -283,12 +323,10 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                             )}
                         </div>
 
-                        {/* PRINT / EXPORT */}
                         <button onClick={handleExportClick} className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 p-1.5 rounded-full transition-colors" title="Esporta / Stampa">
                             <Printer className="w-[16.5px] h-[16.5px]" />
                         </button>
                         
-                        {/* SHARE */}
                         <div className="relative" ref={shareMenuRef}>
                             <button onClick={() => setShareMenuOpen(!shareMenuOpen)} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${shareMenuOpen ? 'bg-slate-800 text-white' : ''}`}>
                                 <Share2 className="w-[16.5px] h-[16.5px]" />
@@ -307,30 +345,47 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
                         
-                        {/* TRASH */}
                         <button onClick={onClear} className="text-slate-400 hover:text-red-400 hover:bg-slate-800 p-1.5 rounded-full transition-colors">
                             <Trash2 className="w-[16.5px] h-[16.5px]" />
                         </button>
                     </div>
                 </div>
 
-                {/* RIGA 3: DATE SELECTOR */}
                 <div className="flex items-center gap-3">
                     <div className={`flex-1 flex items-center bg-slate-800 rounded border h-9 overflow-hidden ${highlightDates ? 'border-red-500 ring-2 ring-red-500 animate-pulse' : 'border-slate-700'}`}>
                         <div className="h-full w-10 flex items-center justify-center border-r border-slate-600/50 bg-slate-900/30 shrink-0">
                              <span className="text-[10px] font-bold text-amber-500 uppercase leading-none">Dal</span>
                         </div>
-                        <input type="date" min={minDateStr} className="flex-1 bg-transparent text-sm font-bold text-center text-white focus:outline-none font-mono w-full h-full" value={itinerary.startDate || ''} onChange={(e) => onDateChange('startDate', e.target.value)} />
+                        <div className="relative flex-1 h-full">
+                            <input 
+                                type="text"
+                                placeholder="GG/MM/AAAA"
+                                className="w-full h-full bg-transparent text-sm font-bold text-center text-white focus:outline-none font-mono" 
+                                value={displayStartDate} 
+                                onChange={(e) => setDisplayStartDate(e.target.value)}
+                                onBlur={(e) => handleDateBlur(e, 'startDate')}
+                            />
+                            <CalendarDays className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 text-white opacity-90 pointer-events-none" />
+                        </div>
                     </div>
                     <div className={`flex-1 flex items-center bg-slate-800 rounded border h-9 overflow-hidden ${highlightDates ? 'border-red-500 ring-2 ring-red-500 animate-pulse' : 'border-slate-700'}`}>
                         <div className="h-full w-10 flex items-center justify-center border-r border-slate-600/50 bg-slate-900/30 shrink-0">
                             <span className="text-[10px] font-bold text-amber-500 uppercase leading-none">Al</span>
                         </div>
-                        <input type="date" min={itinerary.startDate || minDateStr} className="flex-1 bg-transparent text-sm font-bold text-center text-white focus:outline-none font-mono w-full h-full" value={itinerary.endDate || ''} onChange={(e) => onDateChange('endDate', e.target.value)} />
+                        <div className="relative flex-1 h-full">
+                            <input 
+                                type="text"
+                                placeholder="GG/MM/AAAA"
+                                className="w-full h-full bg-transparent text-sm font-bold text-center text-white focus:outline-none font-mono" 
+                                value={displayEndDate} 
+                                onChange={(e) => setDisplayEndDate(e.target.value)}
+                                onBlur={(e) => handleDateBlur(e, 'endDate')}
+                            />
+                            <CalendarDays className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 text-white opacity-90 pointer-events-none" />
+                        </div>
                     </div>
                 </div>
                 
-                {/* RIGA 4: DAY TABS */}
                 {days.length > 0 && (
                     <div className="flex items-center gap-1 mt-1 pt-1 border-t border-slate-800/50">
                         <button onClick={() => setActiveTab('all')} className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors border ${activeTab === 'all' ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>ALL</button>

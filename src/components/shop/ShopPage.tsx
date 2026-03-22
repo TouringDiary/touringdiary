@@ -2,17 +2,17 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { X, Map, Loader2 } from 'lucide-react';
 import { ShopPartner, ShopCategory, PointOfInterest, User } from '../../types/index';
-import { useItinerary } from '../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 import { AddToItineraryModal } from '../modals/AddToItineraryModal';
-import { TravelDiary } from '../features/TravelDiary';
+import { TravelDiary } from '../features/diary/TravelDiary';
 import { useShopNavigation } from '../../hooks/features/useShopNavigation';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { ShopHeader } from './ShopHeader';
 import { Utensils, Wine, Hammer, Scissors } from 'lucide-react';
-import { useUser } from '../../context/UserContext';
-import { useGps } from '../../context/GpsContext';
-import { useUI } from '../../context/UIContext';
-import { useDiaryInteractionsContext } from '../../context/DiaryInteractionContext'; // NEW IMPORT
+import { useUser } from '@/context/UserContext';
+import { useGps } from '@/context/GpsContext';
+import { useUI } from '@/context/UIContext';
+import { useDiaryInteractionsContext } from '@/context/DiaryInteractionContext'; // NEW IMPORT
 
 // --- LAZY IMPORTS ---
 const ShopDetailView = React.lazy(() => import('./ShopDetailView').then(m => ({ default: m.ShopDetailView })));

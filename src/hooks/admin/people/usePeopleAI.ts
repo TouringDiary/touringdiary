@@ -6,7 +6,7 @@ import { suggestCityPeople, enrichPersonData } from '../../../services/ai';
 import { generateHistoricalPortrait } from '../../../services/ai/aiVision';
 import { findExistingPortrait } from '../../../services/mediaService'; 
 import { incrementAiUsage } from '../../../services/aiUsageService';
-import { useCityEditor } from '../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 
 interface UsePeopleAIProps {
     cityId: string;

@@ -26,7 +26,7 @@ export const AiChatAssistant = ({ currentContext, onApply, onClose }: { currentC
         setIsLoading(true);
 
         try {
-            const aiClient = getAiClient();
+            const ai = getAiClient();
             
             const systemPrompt = `Sei un esperto copywriter per app turistiche.
             CONTESTO ATTUALE:
@@ -38,7 +38,7 @@ export const AiChatAssistant = ({ currentContext, onApply, onClose }: { currentC
 
             const fullPrompt = `${systemPrompt}\n\nRICHIESTA UTENTE: ${userMsg}`;
 
-            const response = await aiClient.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: 'gemini-3.1-pro-preview',
                 contents: fullPrompt,
             });

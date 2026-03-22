@@ -1,48 +1,65 @@
-
 import React from 'react';
-import { MarketingConfig } from '../../../types/models/Sponsor';
-import { SponsorPlanCard } from '../../marketing/SponsorPlanCard';
+import { useConfig } from '../@/context/ConfigContext';
+import { MarketingConfig } from '@/types';
+import SponsorPlanCard from '../../marketing/SponsorPlanCard';
 
 interface SponsorPricingProps {
+    onPlanSelect: (planKey: string) => void;
     activeType: 'activity' | 'shop' | 'tour_operator' | 'guide';
-    marketingConfig: MarketingConfig;
-    selectedPlan: string;
-    onSelectPlan: (plan: 'silver' | 'gold' | 'guide_pro' | 'shop_basic' | 'agency_pro') => void;
+    selectedPlan: string | null;
 }
 
-export const SponsorPricing = ({ activeType, marketingConfig, selectedPlan, onSelectPlan }: SponsorPricingProps) => {
-    if (activeType === 'activity') {
-        return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                <SponsorPlanCard type="silver" config={marketingConfig.silver} selected={selectedPlan === 'silver'} onClick={() => onSelectPlan('silver')} />
-                <SponsorPlanCard type="gold" config={marketingConfig.gold} selected={selectedPlan === 'gold'} onClick={() => onSelectPlan('gold')} />
-            </div>
-        );
+const SponsorPricing: React.FC<SponsorPricingProps> = ({ onPlanSelect, activeType, selectedPlan }) => {
+    const { configs, isLoading } = useConfig();
+    const marketingConfig = configs.marketing_prices_v2 as MarketingConfig;
+
+    const getPlansForType = (type: string): (keyof MarketingConfig)[] => {
+        switch (type) {
+            case 'activity':
+                return ['silver', 'gold'];
+            case 'shop':
+                return ['shop'];
+            case 'tour_operator':
+                return ['tourOperator'];
+            case 'guide':
+                return ['guide'];
+            default:
+                return [];
+        }
+    };
+
+    const plansToShow = getPlansForType(activeType);
+
+    if (isLoading) {
+        return <div className="text-center py-10">Caricamento dei piani...</div>;
     }
 
-    if (activeType === 'shop') {
-        return (
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-10 max-w-sm mx-auto">
-                <SponsorPlanCard type="shop" config={marketingConfig.shop} selected={true} />
-            </div>
-        );
+    if (!marketingConfig) {
+        return <div className="text-center py-10 text-red-500">Errore: Impossibile caricare le configurazioni di prezzo.</div>;
     }
 
-    if (activeType === 'guide') {
-        return (
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-10 max-w-sm mx-auto">
-                <SponsorPlanCard type="guide" config={marketingConfig.guide} selected={true} />
-            </div>
-        );
-    }
+    return (
+        <div className="w-full">
+            <h3 className="text-2xl font-bold text-center text-amber-400 mb-8">Scegli il Piano Adatto a Te</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                {plansToShow.map(planKey => {
+                    const planConfig = marketingConfig[planKey];
+                    if (typeof planConfig !== 'object' || !('basePrice' in planConfig)) return null;
 
-    if (activeType === 'tour_operator') {
-        return (
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-10 max-w-sm mx-auto">
-                <SponsorPlanCard type="tourOperator" config={marketingConfig.tourOperator || { basePrice: 150, promoActive: false }} selected={true} />
+                    return (
+                        <SponsorPlanCard
+                            key={planKey}
+                            planKey={planKey as string}
+                            config={planConfig}
+                            isRecommended={planKey === 'gold'}
+                            selected={selectedPlan === planKey}
+                            onSelect={() => onPlanSelect(planKey as string)}
+                        />
+                    );
+                })}
             </div>
-        );
-    }
-
-    return null;
+        </div>
+    );
 };
+
+export default SponsorPricing;

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
 import { useGpsManager } from '../hooks/core/useGpsManager';
 import { useModal } from './ModalContext';
+import { useConfig } from '@/context/ConfigContext';
 
 interface GpsContextType {
     userLocation: { lat: number; lng: number } | null;
@@ -13,13 +14,15 @@ interface GpsContextType {
 const GpsContext = createContext<GpsContextType | undefined>(undefined);
 
 export const GpsProvider = ({ children }: { children?: ReactNode }) => {
+    const { configs } = useConfig();
+
     const { 
         userLocation, 
         isLocating, 
         error, 
         requestPosition, 
         clearPosition 
-    } = useGpsManager();
+    } = useGpsManager(configs);
 
     const modalContext = useModal();
 

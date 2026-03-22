@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { getFullManifestAsync } from '../../services/cityService';
-import { refreshUsersCache, getGuestUser, getUserById } from '../../services/userService';
+import { refreshUsersCache, getUserById } from '../../services/userService';
+import { getGuestUser } from '../../utils/userUtils';
 import { loadGlobalCache, getSetting } from '../../services/settingsService';
 import { getCurrentLevel, fetchLevelsAsync } from '../../services/gamificationService'; // UPDATED
 import { usePersistedState } from '../usePersistedState';
@@ -38,7 +39,8 @@ export const useAppInitialization = (viewMode: string) => {
             
             if (session?.user) {
                 const currentUser = allUsers.find(u => u.id === session.user.id);
-                if (currentUser) {
+                // --- FIX: setUser viene chiamato solo se l'utente è cambiato ---
+                if (currentUser && currentUser.id !== user.id) {
                     console.log("[AppInit] Sessione ripristinata per:", currentUser.name);
                     setUser(currentUser);
                 }

@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Check, Plus, MessageSquare, Star, ArrowUpLeft, Pencil } from 'lucide-react';
-import { PointOfInterest, User } from '../../../types/index';
+import { PointOfInterest, User } from '@/types';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { getUnifiedReviews } from '../../../services/communityService';
+import { getCachedSetting, SETTINGS_KEYS } from '../../../services/settingsService'; // IMPORT CORRETTO
 
 interface PoiImageSectionProps {
     poi: PointOfInterest;
@@ -25,7 +26,16 @@ export const PoiImageSection = ({
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [allReviews, setAllReviews] = useState<any[]>([]);
 
-    const images = useMemo(() => poi.gallery && poi.gallery.length > 0 ? poi.gallery : [poi.imageUrl], [poi]);
+    // LOGICA IMMAGINE CON FALLBACK
+    const placeholders = getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
+    const mainImageUrl = poi.imageUrl || (placeholders ? placeholders[poi.category] : undefined);
+
+    const images = useMemo(() => {
+        if (poi.gallery && poi.gallery.length > 0) {
+            return poi.gallery;
+        }
+        return mainImageUrl ? [mainImageUrl] : [];
+    }, [poi.gallery, mainImageUrl]);
 
     useEffect(() => {
         const loadDynamicReviews = async () => {
@@ -40,6 +50,15 @@ export const PoiImageSection = ({
     // Safety rating check
     const displayRating = (poi.rating || 0).toFixed(1);
 
+    // Se non ci sono immagini (neanche il placeholder), mostra un background di default
+    if (images.length === 0) {
+        return (
+            <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+                <p className="text-slate-500 italic">Nessuna immagine disponibile</p>
+            </div>
+        );
+    }
+
     return (
         <div className="relative w-full h-full perspective-1000 bg-black">
             <div className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
@@ -47,7 +66,7 @@ export const PoiImageSection = ({
                 {/* FRONT: IMAGE & MAIN ACTIONS */}
                 <div className="absolute inset-0 backface-hidden">
                     <ImageWithFallback 
-                        src={images[currentImageIndex]} 
+                        src={images[currentImageIndex]} // SRC AGGIORNATO
                         alt={poi.name} 
                         category={poi.category} 
                         className="w-full h-full object-cover opacity-90"

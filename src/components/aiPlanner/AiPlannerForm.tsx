@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { MapPin, ChevronUp, ChevronDown, Coffee, Lightbulb, Sparkles, Route, AlertTriangle, Loader2, Clock, Calendar, Hash, Flag, Navigation, Zap, Lock, Gift, Crown } from 'lucide-react';
-import { useAiPlanner } from '../../context/AiPlannerContext';
+import { useAiPlanner } from '@/context/AiPlannerContext';
 import { DailyLogistics } from '../../services/ai/aiPlanner';
-import { checkAiQuota } from '../../services/aiUsageService';
+// import { checkAiQuota } from '../../services/aiUsageService';
 import { getGuestUser } from '../../services/userService';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '@/context/ModalContext';
 import { User } from '../../types/index';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService';
@@ -56,14 +56,14 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error, user }: Props) => 
     useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
     const textStyle = useDynamicStyles('planner_text', isMobile);
 
-    useEffect(() => {
-        const check = async () => {
-            const targetUser = user || getGuestUser();
-            const q = await checkAiQuota(targetUser);
-            setQuota(q);
-        };
-        check();
-    }, [isLoading, user]); 
+    // useEffect(() => {
+    //     const check = async () => {
+    //         const targetUser = user || getGuestUser();
+    //         const q = await checkAiQuota(targetUser);
+    //         setQuota(q);
+    //     };
+    //     check();
+    // }, [isLoading, user]); 
 
     useEffect(() => {
         if (showDailyLogistics && aiSession.dailyLogistics.length === 0) {

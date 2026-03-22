@@ -32,13 +32,16 @@ export const AdminStatsDashboard = () => {
     }, []);
 
     const stats = useMemo(() => {
-        const approved = sponsors.filter(s => s.status === 'approved' || s.status === 'expired');
-        const pipeline = sponsors.filter(s => s.status === 'waiting_payment' || s.status === 'pending');
+        const safeSponsors = sponsors ?? [];
+        const safeLiveManifest = liveManifest ?? [];
+
+        const approved = safeSponsors.filter(s => s.status === 'approved' || s.status === 'expired');
+        const pipeline = safeSponsors.filter(s => s.status === 'waiting_payment' || s.status === 'pending');
         const totalRevenue = approved.reduce((sum, s) => sum + (s.amount || 0), 0);
         const totalPipeline = pipeline.reduce((sum, s) => sum + (s.amount || 50), 0);
 
         const cityStats: Record<string, any> = {};
-        liveManifest.forEach(c => {
+        safeLiveManifest.forEach(c => {
             cityStats[c.id] = { id: c.id, name: c.name, zone: c.zone, revenue: 0, contracts: 0, guidesCount: 0, categories: { GUI: 0, FOO: 0, HOT: 0, SHO: 0, LEI: 0, NAT: 0, MON: 0, DIS: 0 } };
         });
 
@@ -74,37 +77,34 @@ export const AdminStatsDashboard = () => {
             catRevenue[label] += (s.amount || 0);
         });
 
-        // NEW: Zone Revenue
         const zoneRevenue: Record<string, number> = {};
         approved.forEach(s => {
-            const city = liveManifest.find(c => c.id === s.cityId);
+            const city = safeLiveManifest.find(c => c.id === s.cityId);
             if (city && city.zone) {
                 if (!zoneRevenue[city.zone]) zoneRevenue[city.zone] = 0;
                 zoneRevenue[city.zone] += (s.amount || 0);
             }
         });
 
-        // Rejected count from FULL dataset (not limited)
-        const rejectedCount = sponsors.filter(s => s.status === 'rejected').length;
+        const rejectedCount = safeSponsors.filter(s => s.status === 'rejected').length;
 
         return {
             totalRevenue, totalPipeline, totalContracts: approved.length,
-            activeCitiesCount, totalCities: liveManifest.length,
+            activeCitiesCount, totalCities: safeLiveManifest.length,
             uncoveredCities, catRevenue, zoneRevenue, guideList,
-            rejectedCount, // Added for verification
+            rejectedCount,
             matrix: Object.values(cityStats).sort((a: any, b: any) => b.revenue - a.revenue)
         };
     }, [liveManifest, sponsors]);
 
     if (loading) return <div className="h-full flex flex-col items-center justify-center gap-4 text-slate-500"><Loader2 className="w-12 h-12 animate-spin text-indigo-500"/><p className="font-bold uppercase tracking-widest text-[11px]">Caricamento Dati Cloud...</p></div>;
 
-    const totalGuides = stats.guideList.length;
-    const citiesWithoutGuides = liveManifest.length - stats.matrix.filter((c:any) => c.guidesCount > 0).length;
+    const totalGuides = (stats.guideList ?? []).length;
+    const citiesWithoutGuides = (liveManifest ?? []).length - (stats.matrix ?? []).filter((c:any) => c.guidesCount > 0).length;
 
     return (
         <div className="flex flex-col h-full space-y-6">
             
-            {/* HEADER STILE MARKETING */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-blue-600 rounded-xl shadow-lg">
@@ -127,7 +127,6 @@ export const AdminStatsDashboard = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-16">
-                {/* TAB: FOCUS GUIDE (RESTORED) */}
                 {activeTab === 'guides' && (
                     <div className="space-y-6 animate-in fade-in">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -148,7 +147,7 @@ export const AdminStatsDashboard = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {stats.matrix.map((c: any) => {
+                            {(stats.matrix ?? []).map((c: any) => {
                                 const count = c.guidesCount;
                                 const statusColor = count >= 3 ? 'text-emerald-500' : count > 0 ? 'text-amber-500' : 'text-red-500';
                                 const dotColor = count >= 3 ? 'bg-emerald-500' : count > 0 ? 'bg-amber-500' : 'bg-red-500';
@@ -170,48 +169,44 @@ export const AdminStatsDashboard = () => {
                     </div>
                 )}
 
-                {/* TAB: FINANCIAL (RESTORED) */}
                 {activeTab === 'financial' && (
                      <div className="space-y-6 animate-in fade-in">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                             {/* Revenue per Category */}
                              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
                                  <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3"><PieChart className="w-6 h-6 text-emerald-500"/> Ricavi per Categoria</h3>
                                  <div className="space-y-5">
-                                     {Object.entries(stats.catRevenue).sort((a:any, b:any) => b[1] - a[1]).map(([cat, val]: [string, any]) => (
+                                     {Object.entries(stats.catRevenue ?? {}).sort((a:any, b:any) => b[1] - a[1]).map(([cat, val]: [string, any]) => (
                                          <div key={cat}>
                                              <div className="flex justify-between items-end mb-1">
                                                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{cat}</span>
                                                  <div className="text-sm font-mono font-bold text-white">
-                                                     {formatCurrency(val)} <span className="text-slate-600 text-[10px]">({Math.round((val / stats.totalRevenue) * 100) || 0}%)</span>
+                                                     {formatCurrency(val)} <span className="text-slate-600 text-[10px]">({Math.round((val / (stats.totalRevenue || 1)) * 100) || 0}%)</span>
                                                  </div>
                                              </div>
                                              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(val / stats.totalRevenue) * 100}%` }}></div>
+                                                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(val / (stats.totalRevenue || 1)) * 100}%` }}></div>
                                              </div>
                                          </div>
                                      ))}
                                  </div>
                              </div>
 
-                             {/* Revenue per Zone */}
                              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
                                  <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3"><BarChart className="w-6 h-6 text-blue-500"/> Ricavi per Zona</h3>
                                  <div className="space-y-3">
-                                     {Object.entries(stats.zoneRevenue).sort((a:any, b:any) => b[1] - a[1]).map(([zone, val]: [string, any]) => (
+                                     {Object.entries(stats.zoneRevenue ?? {}).sort((a:any, b:any) => b[1] - a[1]).map(([zone, val]: [string, any]) => (
                                          <div key={zone} className="flex justify-between items-center p-3 bg-slate-950/50 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors">
                                              <span className="text-xs font-bold text-slate-300 uppercase">{zone}</span>
                                              <span className="text-sm font-mono font-bold text-blue-400">{formatCurrency(val)}</span>
                                          </div>
                                      ))}
-                                      {Object.keys(stats.zoneRevenue).length === 0 && <div className="text-center text-slate-500 italic py-10">Nessun dato di zona disponibile.</div>}
+                                      {Object.keys(stats.zoneRevenue ?? {}).length === 0 && <div className="text-center text-slate-500 italic py-10">Nessun dato di zona disponibile.</div>}
                                  </div>
                              </div>
                         </div>
                     </div>
                 )}
 
-                {/* TAB: OVERVIEW (EXISTING) */}
                 {activeTab === 'overview' && (
                     <div className="space-y-8 animate-in fade-in">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -235,7 +230,6 @@ export const AdminStatsDashboard = () => {
                     </div>
                 )}
                 
-                {/* TAB: MATRIX (EXISTING) */}
                 {activeTab === 'matrix' && (
                      <div className="space-y-6 animate-in fade-in">
                         <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
@@ -257,7 +251,7 @@ export const AdminStatsDashboard = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
-                                        {stats.matrix.map((c: any) => (
+                                        {(stats.matrix ?? []).map((c: any) => (
                                             <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
                                                 <td className="p-4">
                                                     <div className="font-bold text-white text-sm">{c.name}</div>

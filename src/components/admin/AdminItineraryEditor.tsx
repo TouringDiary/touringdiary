@@ -430,6 +430,7 @@ export const AdminItineraryEditor = ({ itineraryId, onBack }: Props) => {
                                     imageUrl={formData.coverImage} 
                                     imageCredit={formData.imageCredit}
                                     imageLicense={formData.imageLicense}
+                                    category={'discovery'}
                                     onChange={(data) => {
                                         setFormData(prev => ({
                                             ...prev,

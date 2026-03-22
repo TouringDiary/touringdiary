@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Plus, Info, MapPin, ArrowLeft, Phone, Globe, Check, Box, Lightbulb, Pencil, Ban, Flame, Shield, ShieldAlert, HeartPulse, TrainFront, LandPlot } from 'lucide-react';
-import { CityService, SuggestionType } from '../../../types/index';
+import { CityService, SuggestionType } from '@/types';
 import { getServicesConfig } from '../../../constants/services';
 
 interface ServicesCategoryListProps {

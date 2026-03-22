@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, ChevronRight, Phone, Mail, Check, Plus, MessageSquare, PenTool, Bot, ShieldCheck, Flag } from 'lucide-react';
-import { CityDetails, User as UserType, PointOfInterest } from '../../../types/index';
+import { CityDetails, User as UserType, PointOfInterest } from '@/types';
 import { getActiveGuideSponsors } from '../../../services/sponsorService';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
-import { useItinerary } from '../../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 
 interface Props {
     city: CityDetails;
@@ -24,14 +24,26 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
     const [selectedGuide, setSelectedGuide] = useState<any>(null);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [localReviews, setLocalReviews] = useState<any[]>([]);
+    const [guidesList, setGuidesList] = useState<any[]>([]);
 
-    const getGuidesList = () => {
-        const activeSponsors = getActiveGuideSponsors(city.id);
-        const staticGuides = city.details.guides || [];
-        return [...activeSponsors, ...staticGuides];
-    };
+    useEffect(() => {
+        let isMounted = true;
 
-    const guidesList = getGuidesList();
+        const loadGuides = async () => {
+            const sponsors = await getActiveGuideSponsors(city.id);
+            const staticGuides = city.details.guides || [];
+    
+            if (isMounted) {
+                setGuidesList([...sponsors, ...staticGuides]);
+            }
+        };
+    
+        loadGuides();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [city.id]);
 
     // Auto-select first guide ONLY on desktop
     useEffect(() => {
@@ -39,7 +51,7 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
         if (isDesktop && guidesList.length > 0 && !selectedGuide) {
             setSelectedGuide(guidesList[0]);
         }
-    }, []);
+    }, [guidesList]); // Dependency on guidesList ensures this runs after data is loaded
 
     const isItemInItinerary = (id: string) => itinerary.items.some(i => i.poi.id === id);
 
@@ -102,7 +114,7 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
                             <div className="w-full h-full bg-indigo-600 flex items-center justify-center"><Bot className="w-24 h-24 text-white animate-pulse"/></div>
                         ) : (
                             <ImageWithFallback 
-                                src={guide.imageUrl} 
+                                src={guide.imageUrl || `/assets/guides/${guide.id}.jpg`}
                                 className="w-full h-full object-cover" 
                                 alt={guide.name} 
                                 category="guide" 
@@ -185,8 +197,7 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
                     {!guide.isSponsored && onSuggestEdit && (
                         <button 
                             onClick={() => onSuggestEdit(guide.name)}
-                            className="flex items-center gap-2 text-[10px] font-bold uppercase text-indigo-400 hover:text-white transition-colors border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-900/20"
-                        >
+                            className="flex items-center gap-2 text-[10px] font-bold uppercase text-indigo-400 hover:text-white transition-colors border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-900/20">
                             <Flag className="w-3 h-3"/> Sei tu? Rivendica Profilo
                         </button>
                     )}
@@ -205,12 +216,11 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
                             <button 
                                 key={guide.id}
                                 onClick={() => { setSelectedGuide(guide); setMobileView('content'); }}
-                                className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all ${selectedGuide?.id === guide.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}
-                            >
+                                className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all ${selectedGuide?.id === guide.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}>
                                 <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 shrink-0 bg-slate-900 flex items-center justify-center">
                                     {guide.id === 'guide-official-ai' ? <Bot className="w-6 h-6 text-indigo-400"/> : (
                                         <ImageWithFallback 
-                                            src={guide.imageUrl} 
+                                            src={guide.imageUrl || `/assets/guides/${guide.id}.jpg`}
                                             className="w-full h-full object-cover" 
                                             alt={guide.name} 
                                             category="guide" 

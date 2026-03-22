@@ -3,7 +3,7 @@ import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { User } from '../../types/users';
 import { getPendingSuggestionCount, getPendingReviewCount } from '../../services/communityService';
-import { getSponsorStats, getPendingSponsorsCount } from '../../services/sponsorService'; // Update import
+import { getSponsorStats } from '../../services/sponsorService';
 import { getPendingPhotoCount } from '../../services/photoService';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'; 
 
@@ -30,7 +30,8 @@ const AdminCommunications = React.lazy(() => import('./AdminCommunications').the
 const SuggestionManager = React.lazy(() => import('./SuggestionManager').then(m => ({ default: m.SuggestionManager })));
 const AdminGamification = React.lazy(() => import('./AdminGamification').then(m => ({ default: m.AdminGamification })));
 const GlobalEventsManager = React.lazy(() => import('./GlobalEventsManager').then(m => ({ default: m.GlobalEventsManager })));
-const AdminDesignSystem = React.lazy(() => import('./AdminDesignSystem').then(m => ({ default: m.AdminDesignSystem })));
+// const AdminDesignSystem = React.lazy(() => import('./AdminDesignSystem').then(m => ({ default: m.AdminDesignSystem }))); // VECCHIO COMPONENTE
+const SettingsPage = React.lazy(() => import('./settings/SettingsPage').then(m => ({ default: m.SettingsPage }))); // NUOVO COMPONENTE
 const AdminSocialStudio = React.lazy(() => import('./AdminSocialStudio').then(m => ({ default: m.AdminSocialStudio })));
 const AdminAssetLibrary = React.lazy(() => import('./AdminAssetLibrary').then(m => ({ default: m.AdminAssetLibrary })));
 
@@ -51,7 +52,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     useDocumentTitle('Admin Panel');
 
     // STATE PRINCIPALE DI NAVIGAZIONE
-    const [view, setView] = useState<'dashboard' | 'cities' | 'osm_import' | 'events_global' | 'users' | 'sponsors' | 'photos' | 'ticker' | 'tips' | 'marketing' | 'itineraries' | 'design_assets' | 'design_system' | 'comms' | 'suggestions' | 'gamification' | 'social_studio' | 'assets'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'cities' | 'osm_import' | 'events_global' | 'users' | 'sponsors' | 'photos' | 'ticker' | 'tips' | 'marketing' | 'itineraries' | 'design_assets' | 'settings' | 'comms' | 'suggestions' | 'gamification' | 'social_studio' | 'assets'>('dashboard');
     const [editingCityId, setEditingCityId] = useState<string | null>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     
@@ -60,19 +61,13 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     
     const refreshCounts = useCallback(async () => {
         try {
-            // FIX: Usiamo getSponsorStats per avere il conteggio REALE dei messaggi non letti + richieste pendenti
             const sponsorStats = await getSponsorStats();
-            
             const [suggestions, reviews, photos] = await Promise.all([
                 getPendingSuggestionCount(), 
                 getPendingReviewCount(), 
                 getPendingPhotoCount()
             ]);
-            
-            // Il badge sponsor mostra la somma di "Richieste Pendenti" + "Messaggi Non Letti"
-            // Questo garantisce che l'admin veda subito se c'è attività
-            const totalSponsorActionItems = sponsorStats.pending + sponsorStats.unreadMessages;
-
+            const totalSponsorActionItems = (sponsorStats?.pending ?? 0) + (sponsorStats?.unreadMessages ?? 0);
             setCounts({ sponsors: totalSponsorActionItems, suggestions, reviews, photos });
         } catch (e) {
             console.error("Error refreshing dashboard counts", e);
@@ -81,15 +76,15 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
 
     useEffect(() => {
         refreshCounts();
-        const interval = setInterval(refreshCounts, 60000); // Refresh ogni minuto per non stressare
+        const interval = setInterval(refreshCounts, 60000);
         return () => clearInterval(interval);
     }, [refreshCounts]);
 
     const sectionNames: Record<string, string> = {
-        dashboard: 'Dashboard', cities: 'Manager POI', osm_import: 'Import OSM', events_global: 'Eventi Globali', users: 'Utenti', sponsors: 'Sponsor', photos: 'Foto', ticker: 'News Ticker', tips: 'Loading Tips', marketing: 'Marketing', itineraries: 'Itinerari', design_assets: 'Asset Globali', design_system: 'Design System', comms: 'Comunicazioni', suggestions: 'Segnalazioni', gamification: 'Gamification', social_studio: 'Social Studio', assets: 'Libreria'
+        dashboard: 'Dashboard', cities: 'Manager POI', osm_import: 'Import OSM', events_global: 'Eventi Globali', users: 'Utenti', sponsors: 'Sponsor', photos: 'Foto', ticker: 'News Ticker', tips: 'Loading Tips', marketing: 'Marketing', itineraries: 'Itinerari', design_assets: 'Asset Globali', settings: 'Impostazioni Globali', comms: 'Comunicazioni', suggestions: 'Segnalazioni', gamification: 'Gamification', social_studio: 'Social Studio', assets: 'Libreria'
     };
 
-    const handleNavClick = (newView: typeof view) => {
+    const handleNavClick = (newView: any) => {
         if (editingCityId) setEditingCityId(null);
         setView(newView);
         setIsMobileMenuOpen(false);
@@ -116,7 +111,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
             case 'ticker': return <NewsTickerManager />;
             case 'tips': return <LoadingTipsManager />;
             case 'design_assets': return <AdminHeaderManager />;
-            case 'design_system': return <AdminDesignSystem currentUser={currentUser} />;
+            case 'settings': return <SettingsPage />;
             default: return <AdminStatsDashboard />;
         }
     };

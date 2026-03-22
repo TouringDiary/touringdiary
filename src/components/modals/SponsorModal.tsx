@@ -1,10 +1,9 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { X, Store, Loader2 } from 'lucide-react';
 import { User as UserType, MarketingConfig } from '../../types/index';
 import { getSetting, SETTINGS_KEYS } from '../../services/settingsService';
 import { SponsorTypeSelector } from './sponsor/SponsorTypeSelector';
-import { SponsorPricing } from './sponsor/SponsorPricing';
+import { SponsorPricingSelector } from './sponsor/SponsorPricingSelector'; // Import aggiornato
 import { SponsorForm } from './sponsor/SponsorForm';
 import { SponsorSuccess } from './sponsor/SponsorSuccess';
 import { useSponsorFormLogic } from '../../hooks/features/useSponsorFormLogic';
@@ -18,26 +17,26 @@ interface SponsorModalProps {
 }
 
 export const SponsorModal = ({ isOpen, onClose, user, initialTier, initialType }: SponsorModalProps) => {
-    // Caricamento configurazione marketing (Prezzi)
+    // Caricamento configurazione marketing (Prezzi) - NON MODIFICATO
     const [marketingConfig, setMarketingConfig] = useState<MarketingConfig | null>(null);
     const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
     useEffect(() => {
         if (isOpen) {
             setIsLoadingConfig(true);
-            getSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES).then(p => {
+            getSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES_V2).then(p => {
                 if(p) setMarketingConfig(p);
                 setIsLoadingConfig(false);
             });
         }
     }, [isOpen]);
 
-    // Hook Logica Form
+    // Hook Logica Form - NON MODIFICATO
     const {
         step, activeType, selectedPlan, formData, isSubmitting, errorMsg,
         termsAccepted, privacyAccepted, coverImage, isGuest,
         setFormData, setTermsAccepted, setPrivacyAccepted, setCoverImage, setErrorMsg, setSelectedPlan,
-        handleTypeChange, handleSubmit, resetForm, handleMagicRewrite // Destructure magic rewrite
+        handleTypeChange, handleSubmit, resetForm, handleMagicRewrite
     } = useSponsorFormLogic({ 
         user, 
         initialType, 
@@ -45,14 +44,18 @@ export const SponsorModal = ({ isOpen, onClose, user, initialTier, initialType }
         marketingConfig 
     });
 
-    // Reset quando si riapre
+    const handlePricingSelection = useCallback((id: string | null) => {
+        setSelectedPlan(id as any);
+    }, []);
+
+    // Reset quando si riapre - NON MODIFICATO
     useEffect(() => {
         if (isOpen && step === 'success') {
             resetForm();
         }
     }, [isOpen]);
 
-    // Key Handler
+    // Key Handler - NON MODIFICATO
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -73,7 +76,6 @@ export const SponsorModal = ({ isOpen, onClose, user, initialTier, initialType }
                         <div className="bg-amber-600 p-2.5 rounded-xl shadow-lg shadow-amber-900/20"><Store className="w-6 h-6 text-white"/></div>
                         <div><h2 className="text-2xl font-display font-bold text-white leading-none">Diventa Partner</h2><p className="text-xs text-slate-400 mt-1 font-medium">Entra nel network di Touring Diary</p></div>
                     </div>
-                    {/* STANDARD RED CLOSE BUTTON */}
                     <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"><X className="w-6 h-6"/></button>
                 </div>
 
@@ -96,12 +98,12 @@ export const SponsorModal = ({ isOpen, onClose, user, initialTier, initialType }
                                 
                                 <SponsorTypeSelector activeType={activeType} onChange={handleTypeChange} />
 
-                                <SponsorPricing 
+                                {/* --- BLOCCO SOSTITUITO --- */}
+                                <SponsorPricingSelector
                                     activeType={activeType}
-                                    marketingConfig={marketingConfig}
-                                    selectedPlan={selectedPlan}
-                                    onSelectPlan={(plan) => setSelectedPlan(plan as any)}
+                                    onSelectionChange={handlePricingSelection}
                                 />
+                                {/* --- FINE BLOCCO SOSTITUITO --- */}
                                 
                                 <SponsorForm 
                                     formData={formData} 
@@ -118,7 +120,7 @@ export const SponsorModal = ({ isOpen, onClose, user, initialTier, initialType }
                                     setTermsAccepted={setTermsAccepted}
                                     privacyAccepted={privacyAccepted}
                                     setPrivacyAccepted={setPrivacyAccepted}
-                                    handleMagicRewrite={handleMagicRewrite} // Pass the handler
+                                    handleMagicRewrite={handleMagicRewrite}
                                 />
                             </div>
                         )}

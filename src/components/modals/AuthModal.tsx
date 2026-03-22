@@ -5,7 +5,7 @@ import { authenticateUser, registerUser, refreshUsersCache } from '../../service
 import { addNotification } from '../../services/notificationService'; 
 import { User as UserType } from '../../types/users';
 import { getSessionItem, removeSessionItem } from '../../services/storageService';
-import { getGlobalImage } from '../../services/settingsService';
+import { useConfig } from '@/context/ConfigContext';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
 
 interface AuthModalProps {
@@ -19,8 +19,8 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
-    // Load dynamic background from centralized service
-    const authBg = getGlobalImage('auth_bg');
+    const { configs } = useConfig();
+    const authBg = configs.AUTH_BACKGROUND_IMAGE || configs.auth_background_image;
 
     // Form States
     const [email, setEmail] = useState('');
@@ -212,18 +212,18 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
             <div className="relative w-full max-w-4xl bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex animate-in zoom-in-95 max-h-[90vh]">
                 
                 {/* LEFT SIDE: VISUAL (Hidden on Mobile) */}
-                <div className="hidden md:flex w-1/2 relative bg-slate-800 flex-col items-center justify-center p-12 text-center overflow-hidden">
+                <div className="hidden md:flex w-1/2 relative flex-col items-center justify-center p-12 text-center overflow-hidden">
                     <div className="absolute inset-0">
-                        {authBg && <img src={authBg} alt="Auth Background" className="w-full h-full object-cover opacity-40"/>}
+                        {authBg && <img src={authBg} alt="Auth Background" className="w-full h-full object-cover opacity-30"/>}
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-950/50 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/80 to-transparent"></div>
                     
                     <div className="relative z-10">
                         <h2 className="text-4xl font-display font-bold text-white mb-4 shadow-black drop-shadow-lg whitespace-pre-line">
-                            {welcomeMsg.title}
+                            {welcomeMsg.title?.replace(/\\n/g, '\n')}
                         </h2>
-                        <p className="text-slate-300 text-lg leading-relaxed mb-8 font-light">
-                            {welcomeMsg.body}
+                        <p className="text-slate-300 text-lg leading-relaxed mb-8 font-light whitespace-pre-line">
+                            {welcomeMsg.body?.replace(/\\n/g, '\n')}
                         </p>
                         
                         <div className="flex gap-2 justify-center">

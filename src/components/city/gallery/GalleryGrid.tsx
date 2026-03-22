@@ -1,82 +1,28 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Camera, ChevronLeft, ChevronRight, Grid, Heart, Plus, User, Loader2, Maximize2 } from 'lucide-react';
 import { PhotoSubmission } from '../../../types/index';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
 import { LightboxData } from './GalleryLightbox';
+// CORREZIONE: Usa il percorso relativo per garantire una singola istanza del context
 import { useInteraction } from '../../../context/InteractionContext';
-
-interface GalleryGridProps {
-    photos: PhotoSubmission[];
-    visiblePhotos: PhotoSubmission[];
-    topGallerySlots: (PhotoSubmission | null)[];
-    pagination: {
-        currentPage: number;
-        totalPages: number;
-        goToPage: (p: number) => void;
-    };
-    isUploading: boolean;
-    onAddClick: () => void;
-    onOpenLightbox: (data: LightboxData) => void;
-    onOpenAuth: () => void;
-    onLikeUpdate: (id: string, count: number) => void;
-}
 
 interface PhotoCardProps {
     photo: PhotoSubmission;
     onOpenLightbox: (d: LightboxData) => void;
     onOpenAuth: () => void;
-    onLikeUpdate: (id: string, count: number) => void;
     variant?: 'grid' | 'slider'; 
 }
 
-const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onOpenLightbox, onOpenAuth, onLikeUpdate, variant = 'grid' }) => {
-    const { hasUserLikedPhoto, togglePhotoHeart, isGuest } = useInteraction();
-    
-    // Stato Like Locale
-    const [isLiked, setIsLiked] = useState(false);
-    const [localLikes, setLocalLikes] = useState(photo.likes || 0);
-    const [isVoting, setIsVoting] = useState(false);
+const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onOpenLightbox, onOpenAuth, variant = 'grid' }) => {
+    const { getPhotoStatus, togglePhotoHeart, isGuest } = useInteraction();
+    const { isLiked, count, isLoading } = getPhotoStatus(photo);
 
-    useEffect(() => {
-        setLocalLikes(photo.likes || 0);
-    }, [photo.likes]);
-
-    useEffect(() => {
-        setIsLiked(hasUserLikedPhoto(photo.id));
-    }, [photo.id, hasUserLikedPhoto]);
-
-    const handleLike = async (e: React.MouseEvent) => {
+    const handleLikeClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        
         if (isGuest) { onOpenAuth(); return; }
-        if (isVoting) return;
-        
-        setIsVoting(true);
-        
-        const nextIsLiked = !isLiked;
-        const nextCount = Math.max(0, localLikes + (nextIsLiked ? 1 : -1));
-        
-        setIsLiked(nextIsLiked);
-        setLocalLikes(nextCount);
-        
-        onLikeUpdate(photo.id, nextCount);
-
-        try {
-            const serverCount = await togglePhotoHeart(photo.id);
-            if (serverCount !== undefined) {
-                setLocalLikes(serverCount);
-                onLikeUpdate(photo.id, serverCount);
-            }
-        } catch (error) {
-            setIsLiked(!nextIsLiked);
-            const rolledBackCount = Math.max(0, localLikes + (nextIsLiked ? -1 : 1));
-            setLocalLikes(rolledBackCount);
-            onLikeUpdate(photo.id, rolledBackCount);
-        } finally {
-            setIsVoting(false);
-        }
+        togglePhotoHeart(photo.id);
     };
 
     const dimensionClass = variant === 'slider' ? 'h-full w-full' : 'aspect-square';
@@ -87,7 +33,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onOpenLightbox, onOpenAuth
                 id: photo.id, 
                 url: photo.url, 
                 user: photo.user, 
-                likes: localLikes, 
+                likes: count, 
                 caption: photo.description, 
                 date: photo.date
             })} 
@@ -100,20 +46,19 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onOpenLightbox, onOpenAuth
                 draggable={false} 
             />
             
-            {/* LIKE BUTTON INTERATTIVO */}
             <div className="absolute top-2 right-2 z-20">
                  <button 
-                    onClick={handleLike}
+                    onClick={handleLikeClick}
                     className={`flex items-center gap-1 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] font-bold border transition-colors bg-black/40 border-white/10 hover:bg-black/60 cursor-pointer`}
                     title="Mi Piace"
                 >
-                    {isVoting ? (
+                    {isLoading ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-white"/>
                     ) : (
                         <Heart className={`w-3.5 h-3.5 transition-colors ${isLiked ? 'fill-rose-500 text-rose-500' : 'text-white group-hover:text-rose-400'}`}/>
                     )}
                     <span className={isLiked ? 'text-rose-500' : 'text-white'}>
-                        {localLikes}
+                        {count}
                     </span>
                 </button>
             </div>
@@ -131,13 +76,28 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onOpenLightbox, onOpenAuth
     );
 };
 
+interface GalleryGridProps {
+    photos: PhotoSubmission[];
+    visiblePhotos: PhotoSubmission[];
+    topGallerySlots: (PhotoSubmission | null)[];
+    pagination: {
+        currentPage: number;
+        totalPages: number;
+        goToPage: (p: number) => void;
+    };
+    isUploading: boolean;
+    onAddClick: () => void;
+    onOpenLightbox: (data: LightboxData) => void;
+    onOpenAuth: () => void;
+}
+
+
 export const GalleryGrid = ({ 
     photos, visiblePhotos, topGallerySlots, pagination, 
-    isUploading, onAddClick, onOpenLightbox, onOpenAuth, onLikeUpdate 
+    isUploading, onAddClick, onOpenLightbox, onOpenAuth 
 }: GalleryGridProps) => {
     
     const sliderRef = useRef<DraggableSliderHandle>(null);
-    const bottomSliderRef = useRef<DraggableSliderHandle>(null);
 
     const scrollSlider = (direction: 'left' | 'right') => {
         if (sliderRef.current) {
@@ -147,7 +107,7 @@ export const GalleryGrid = ({
 
     return (
         <div className="flex flex-col bg-[#020617] gap-4 w-full">
-             {/* TOP 10 CURATED SLIDER */}
+             {/* TOP 10 CURATED SLIDER - INVARIATO */}
              <div className="relative group/slider shrink-0 pt-2 pb-2 bg-[#020617] z-10 px-4 md:px-8">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-display font-bold text-white flex items-center gap-2"><Camera className="w-4 h-4 text-amber-500"/> TOP 10</h3>
@@ -171,14 +131,14 @@ export const GalleryGrid = ({
 
                         return (
                              <div key={photo.id} className="snap-center flex-shrink-0 w-[50vw] md:w-[280px] h-[150px]">
-                                <PhotoCard photo={photo} onOpenLightbox={onOpenLightbox} onOpenAuth={onOpenAuth} onLikeUpdate={onLikeUpdate} variant="slider" />
+                                <PhotoCard photo={photo} onOpenLightbox={onOpenLightbox} onOpenAuth={onOpenAuth} variant="slider" />
                              </div>
                         );
                     })}
                 </DraggableSlider>
             </div>
 
-            {/* COMMUNITY GRID (MASONRY-LIKE) */}
+            {/* COMMUNITY GRID (MASONRY-LIKE) - INVARIATO */}
             <div className="w-full px-4 md:px-8 pb-10">
                 <div className="flex items-center justify-between py-2 border-b border-slate-800 mb-4">
                     <div className="flex items-center gap-2">
@@ -188,7 +148,6 @@ export const GalleryGrid = ({
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                     {/* ADD BUTTON */}
                      <div onClick={onAddClick} className={`aspect-square rounded-xl border-2 border-dashed border-slate-800 bg-slate-900/20 flex flex-col items-center justify-center cursor-pointer group transition-all relative overflow-hidden ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:border-emerald-500 hover:bg-slate-900'}`}>
                         {isUploading ? (
                             <div className="flex flex-col items-center gap-2"><Loader2 className="w-8 h-8 text-emerald-500 animate-spin"/><span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Upload...</span></div>
@@ -199,12 +158,12 @@ export const GalleryGrid = ({
 
                     {visiblePhotos.map((photo) => (
                         <div key={photo.id}>
-                             <PhotoCard photo={photo} onOpenLightbox={onOpenLightbox} onOpenAuth={onOpenAuth} onLikeUpdate={onLikeUpdate} variant="grid" />
+                             <PhotoCard photo={photo} onOpenLightbox={onOpenLightbox} onOpenAuth={onOpenAuth} variant="grid" />
                         </div>
                     ))}
                 </div>
 
-                {/* PAGINAZIONE */}
+                {/* PAGINAZIONE - INVARIATO */}
                 {pagination.totalPages > 1 && (
                      <div className="flex justify-center gap-2 mt-8">
                          <button disabled={pagination.currentPage === 1} onClick={() => pagination.goToPage(pagination.currentPage - 1)} className="p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-400 disabled:opacity-50"><ChevronLeft className="w-4 h-4"/></button>

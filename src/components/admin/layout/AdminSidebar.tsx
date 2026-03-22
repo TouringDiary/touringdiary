@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Lock, LayoutDashboard, Globe, CalendarDays, Map, Store, TrendingUp, Type, Palette, Lightbulb, FileText, Trophy, Camera, Newspaper, Megaphone, Users, ArrowLeft, Brush, Image as ImageIcon, Microscope, Database, Download } from 'lucide-react';
+import { Lock, LayoutDashboard, Settings, CalendarDays, Map, Store, TrendingUp, Type, Palette, Lightbulb, FileText, Trophy, Camera, Newspaper, Megaphone, Users, ArrowLeft, Brush, Image as ImageIcon, Microscope, Database, Download } from 'lucide-react';
 import { User } from '../../../types/users';
 import { getRoleLabel } from '../../../services/userService';
 import { useAdminStyles } from '../../../hooks/useAdminStyles';
@@ -42,7 +42,6 @@ export const AdminSidebar = ({
     editingCityId 
 }: AdminSidebarProps) => {
     
-    // HOOK STILI DINAMICI
     const { styles } = useAdminStyles();
     
     const displayName = currentUser.name;
@@ -69,7 +68,6 @@ export const AdminSidebar = ({
 
     return (
         <>
-             {/* MOBILE OVERLAY */}
              {isOpen && (
                 <div 
                     className="fixed inset-0 bg-black/80 z-30 backdrop-blur-sm md:hidden animate-in fade-in"
@@ -82,7 +80,6 @@ export const AdminSidebar = ({
                 md:relative md:translate-x-0
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
-                {/* HEADER PROFILO */}
                 <div className="p-4 border-b border-slate-800 bg-[#020617] shrink-0">
                     <div className="flex items-center gap-2.5 mb-4 select-none">
                         <div className="p-1.5 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg shadow-lg">
@@ -122,7 +119,7 @@ export const AdminSidebar = ({
 
                     <NavGroup title="Sistema">
                         {isSuperAdmin && (
-                            <NavItem id="design_system" label="Design System" icon={Type} active={activeView === 'design_system' && !editingCityId} />
+                            <NavItem id="settings" label="Impostazioni Globali" icon={Settings} active={activeView === 'settings' && !editingCityId} />
                         )}
                         <NavItem id="design_assets" label="Asset Globali" icon={Palette} active={activeView === 'design_assets' && !editingCityId} />
                         <NavItem id="tips" label="Loading Tips" icon={Lightbulb} active={activeView === 'tips' && !editingCityId} />

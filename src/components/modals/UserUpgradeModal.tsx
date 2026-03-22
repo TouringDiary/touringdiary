@@ -1,110 +1,100 @@
+import React, { useState } from 'react';
+import Modal from 'react-modal';
+import { useConfig } from '@/context/ConfigContext';
+import SponsorPlanCard from '../marketing/SponsorPlanCard';
+import { MarketingConfig } from '../../types';
 
-import React, { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
-import { User } from '../../types/users';
-import { getSetting, SETTINGS_KEYS } from '../../services/settingsService';
-import { MarketingConfig } from '../../types/models/Sponsor';
-import { SponsorPlanCard } from '../marketing/SponsorPlanCard';
-
-interface Props {
+interface UserUpgradeModalProps {
     isOpen: boolean;
     onClose: () => void;
-    user: User;
-    onSuccess: () => void;
 }
 
-export const UserUpgradeModal = ({ isOpen, onClose, user, onSuccess }: Props) => {
-    const [isUpgrading, setIsUpgrading] = useState(false);
-    const [selectedTier, setSelectedTier] = useState<'premiumUser' | 'premiumUserPlus'>('premiumUserPlus');
-    const [config, setConfig] = useState<MarketingConfig | null>(null);
-    
-    // Load Config
-    useEffect(() => {
-        if(isOpen) {
-            getSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES).then(c => {
-                if(c) setConfig(c);
-            });
-        }
-    }, [isOpen]);
+// Definisci qui quali piani mostrare per l'upgrade dell'utente
+const USER_UPGRADE_PLANS: (keyof MarketingConfig)[] = ['premiumUser', 'premiumUserPlus'];
 
-    // Gestione Tasto ESC
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+const UserUpgradeModal: React.FC<UserUpgradeModalProps> = ({ isOpen, onClose }) => {
+    const { configs, isLoading } = useConfig();
+    const [selectedPlan, setSelectedPlan] = useState<keyof MarketingConfig | null>(null);
 
-    const handleUpgrade = async () => {
-        setIsUpgrading(true);
-        // SIMULAZIONE PAGAMENTO
-        await new Promise(r => setTimeout(r, 2000));
-        
-        try {
-            alert(`Upgrade a ${selectedTier === 'premiumUser' ? 'TRAVELER PRO' : 'TRAVELER PRO PLUS'} completato con successo!`);
-            onSuccess();
-            onClose();
-        } catch (e) {
-            alert("Errore durante l'attivazione.");
-        } finally {
-            setIsUpgrading(false);
+    const marketingConfig = configs.marketing_prices_v2 as MarketingConfig;
+
+    const handleSelectPlan = (planKey: keyof MarketingConfig) => {
+        setSelectedPlan(planKey);
+        // Qui andrebbe la logica per iniziare il checkout con Stripe o un altro provider
+        console.log(`Piano selezionato per l'upgrade: ${planKey}`);
+        // Esempio: redirectToCheckout(planKey);
+    };
+
+    const customStyles: Modal.Styles = {
+        content: {
+            top: '50%',
+            left: '50%',
+            right: 'auto',
+            bottom: 'auto',
+            marginRight: '-50%',
+            transform: 'translate(-50%, -50%)',
+            background: '#1a202c', // Grigio scuro
+            border: '1px solid #4a5568', // Grigio più chiaro
+            borderRadius: '0.5rem',
+            padding: '2rem',
+            maxWidth: '90vw',
+            width: '600px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        },
+        overlay: {
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 1000
         }
     };
 
-    if (!isOpen) return null;
-
-    // Fallback config if loading
-    const proConfig = config?.premiumUser || { basePrice: 4.99, promoActive: false, features: { photos: 9999, speed: 1 } };
-    const plusConfig = config?.premiumUserPlus || { basePrice: 9.99, promoActive: false, features: { photos: 9999, speed: 1 } };
-
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-            <div className="bg-[#0b0f1a] w-full max-w-4xl rounded-[2rem] border border-indigo-500/30 shadow-[0_0_50px_rgba(79,70,229,0.2)] relative overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[90vh]">
-                
-                <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full transition-colors z-50">
-                    <X className="w-5 h-5"/>
-                </button>
-
-                <div className="p-8 text-center border-b border-slate-800 bg-slate-900/50">
-                    <h2 className="text-3xl font-display font-black text-white mb-2 uppercase tracking-wide">Sblocca il Potenziale</h2>
-                    <p className="text-slate-400 text-sm">Scegli il livello di intelligenza adatto al tuo viaggio.</p>
-                </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto h-full">
-                        
-                        {/* REUSE SPONSOR PLAN CARD FOR 100% CONSISTENCY */}
-                        <SponsorPlanCard 
-                            type="premiumUser" 
-                            config={proConfig} 
-                            selected={selectedTier === 'premiumUser'} 
-                            onClick={() => setSelectedTier('premiumUser')} 
-                        />
-                        
-                        <SponsorPlanCard 
-                            type="premiumUserPlus" 
-                            config={plusConfig} 
-                            selected={selectedTier === 'premiumUserPlus'} 
-                            onClick={() => setSelectedTier('premiumUserPlus')} 
-                        />
-                        
-                    </div>
-                </div>
-
-                <div className="p-6 border-t border-slate-800 bg-[#020617] flex flex-col items-center">
-                    <button 
-                        onClick={handleUpgrade}
-                        disabled={isUpgrading}
-                        className={`w-full max-w-md py-4 rounded-xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 transition-all transform active:scale-95 text-sm ${selectedTier === 'premiumUserPlus' ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:to-orange-500 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
-                    >
-                        {isUpgrading ? <Loader2 className="w-5 h-5 animate-spin"/> : null}
-                        {isUpgrading ? 'Attivazione in corso...' : `Attiva ${selectedTier === 'premiumUserPlus' ? 'Pro Plus' : 'Pro'} Ora`}
+        <Modal
+            isOpen={isOpen}
+            onRequestClose={onClose}
+            style={customStyles}
+            contentLabel="Upgrade Your Plan"
+            ariaHideApp={false} // Necessario per ambienti di test
+        >
+            <div className="text-white">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-3xl font-bold text-amber-400">Passa a Premium</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors duration-200">
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
-                    <p className="text-xs text-slate-500 mt-4">Disdici in qualsiasi momento. Pagamento sicuro SSL.</p>
                 </div>
+                
+                <p className="text-gray-400 mb-8">
+                    Sblocca funzionalità potenti e ottieni più crediti AI per pianificare i tuoi viaggi come mai prima d'ora.
+                </p>
+
+                {isLoading ? (
+                    <div className="text-center">Caricamento piani...</div>
+                ) : marketingConfig ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {USER_UPGRADE_PLANS.map(planKey => {
+                             const planConfig = marketingConfig[planKey];
+                             // Assicuriamoci che planConfig sia del tipo giusto e non un'altra proprietà
+                             if (typeof planConfig !== 'object' || !('basePrice' in planConfig)) return null;
+
+                            return (
+                                <SponsorPlanCard
+                                    key={planKey}
+                                    planKey={planKey as string} // Passiamo la chiave come stringa
+                                    config={planConfig}
+                                    isRecommended={planKey === 'premiumUserPlus'} // Esempio: raccomanda il piano Plus
+                                    onSelect={() => handleSelectPlan(planKey)}
+                                />
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="text-center text-red-500">Errore nel caricamento delle configurazioni di marketing.</div>
+                )}
             </div>
-        </div>
+        </Modal>
     );
 };
+
+export default UserUpgradeModal;

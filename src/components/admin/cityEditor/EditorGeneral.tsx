@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Globe, FileText, MapPin, Eye, Link, Sparkles, Loader2, RefreshCw, Award, Wand2, Search, ExternalLink, Type } from 'lucide-react';
-import { useCityEditor } from '../../../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { generateSingleField, generateCitySection } from '../../../services/ai';
 import { saveCityDetails } from '../../../services/cityService';
 import { AiFieldHelper } from '../AiFieldHelper';

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Paperclip, Link2, Trash2 } from 'lucide-react';
-import { ItineraryItem } from '../../../types/index';
+import { ItineraryItem } from '@/types';
 
 interface DiaryMemoCardProps {
     item: ItineraryItem;

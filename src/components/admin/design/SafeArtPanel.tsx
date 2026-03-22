@@ -28,11 +28,11 @@ export const SafeArtPanel = ({ onImageGenerated, onError }: { onImageGenerated: 
         setIsGenerating(true);
         
         try {
-            const aiClient = getAiClient();
+            const ai = getAiClient();
             
             const fullPrompt = `Genera un'immagine. Soggetto: ${genPrompt}. STILE: ${currentInstruction}. NO TESTO.`;
 
-            const response = await aiClient.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image',
                 contents: { parts: [{ text: fullPrompt }] },
                  config: { imageConfig: { aspectRatio: "16:9" } }

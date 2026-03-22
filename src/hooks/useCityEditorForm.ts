@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from 'react';
-import { useCityEditor } from '../context/CityEditorContext';
+import { useCityEditor } from '@/context/CityEditorContext';
 import { useSystemMessage } from './useSystemMessage';
 
 type EditorTab = 'general' | 'ratings' | 'culture' | 'info' | 'media' | 'pois' | 'logs';

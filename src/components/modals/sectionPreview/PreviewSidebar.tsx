@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Bookmark, Star } from 'lucide-react';
-import { CitySummary } from '../../../types/index';
+import { CitySummary } from '@/types';
 import { formatVisitors } from '../../../utils/common';
 
 export interface CategoryConfig {

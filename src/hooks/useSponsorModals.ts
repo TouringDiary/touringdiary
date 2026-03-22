@@ -1,13 +1,10 @@
 
 import { useState } from 'react';
-import { SponsorDuration, PointOfInterest } from '../types/index';
+import { PointOfInterest } from '../types/index';
 
 export interface ActivationData {
     id: string | null;
-    startDate: string;
-    duration: SponsorDuration;
-    amount: number;
-    invoiceNumber: string;
+    pricingVersionId: string | null;
 }
 
 export interface RejectData {
@@ -49,13 +46,10 @@ export const useSponsorModals = () => {
     // --- ACTIONS ---
 
     // Activation
-    const openActivation = (id: string, amount: number = 0) => {
+    const openActivation = (id: string, pricingVersionId: string) => {
         setActivationData({
             id,
-            startDate: new Date().toISOString().split('T')[0],
-            duration: '12_months',
-            amount: amount,
-            invoiceNumber: ''
+            pricingVersionId
         });
     };
     const closeActivation = () => setActivationData(null);

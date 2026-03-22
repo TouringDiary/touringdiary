@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { CityDetails, CityService, PointOfInterest, SuggestionType, User } from '../../../types/index';
-import { useItinerary } from '../../../context/ItineraryContext';
+import { CityDetails, CityService, PointOfInterest, SuggestionType, User } from '@/types';
+import { useItinerary } from '@/context/ItineraryContext';
 import { SERVICES_CATEGORIES } from '../../../constants/services';
-import { getCachedPlaceholder } from '../../../services/settingsService'; // NEW
+import { getCachedSetting } from '../../../services/settingsService'; // NEW
 
 // Componenti Locali
 import { ServiceSidebar } from './ServiceSidebar';
@@ -107,7 +107,7 @@ export const CityServicesTab = ({
         const activeCatInfo = SERVICES_CATEGORIES.find(c => c.id === activeServiceCategory);
         
         // CLEANUP: Usa stringa vuota o placeholder dalla cache, NO HARDCODED URL
-        const placeholder = getCachedPlaceholder('service') || '';
+        const placeholder = getCachedSetting('service') || '';
 
         const poi: PointOfInterest = {
             id: service.id || `svc-${Date.now()}-${Math.random()}`,

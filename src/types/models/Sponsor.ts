@@ -1,4 +1,3 @@
-
 import { PoiCategory, PoiSubCategory, Review } from '../shared';
 
 export type SponsorTier = 'gold' | 'silver' | 'standard';
@@ -34,6 +33,7 @@ export interface SponsorRequest {
     endDate?: string;
     tier?: SponsorTier;
     plan?: SponsorDuration;
+    pricingVersionId?: string;
     amount?: number;
     invoiceNumber?: string;
     adminNotes?: string;
@@ -91,56 +91,6 @@ export interface ShopPartner {
     isTipico?: boolean;
 }
 
-// --- NEW PRICING TYPES ---
-
-export interface TierPricingConfig {
-    basePrice: number;       // Prezzo pieno
-    promoPrice?: number;     // Prezzo scontato
-    promoLabel?: string;     // Es. "Black Friday"
-    promoActive: boolean;    // Switch on/off
-    validFrom?: string;      // ISO Date YYYY-MM-DD
-    validTo?: string;        // ISO Date YYYY-MM-DD
-    features?: { photos: number, speed?: number, products?: number }; // Limiti tecnici
-    
-    // NEW: Testi personalizzabili per le 3 feature visualizzate nella card
-    customFeatureLabels?: [string, string, string]; 
-}
-
-export interface PriceHistoryEntry {
-    id: string;
-    periodLabel: string; // Es. "Listino 2024"
-    validFrom: string;
-    validTo: string;
-    silverPrice: number;
-    goldPrice: number;
-    shopPrice: number;
-    guidePrice: number;
-    promoName?: string;  // Se era una promo
-    archivedAt: string;
-}
-
-// CONFIGURAZIONE LIMITI AI (Admin Controllable)
-// Definizione rigorosa dei ruoli per la gestione quote
-export interface AiLimitsConfig {
-    guest: number;          // Ospite (Non registrato)
-    registered: number;     // Utente Registrato (Free)
-    premium: number;        // Utente Premium (Traveler Pro)
-    premium_plus: number;   // NEW: Utente Premium Plus (Traveler Pro+)
-    sponsor: number;        // Sponsor (Silver/Gold Activity)
-    pro: number;            // Professionisti (Guide / Tour Operator)
-    shop: number;           // Negozianti (Shop Partner)
-}
-
-export interface MarketingConfig {
-    silver: TierPricingConfig;
-    gold: TierPricingConfig;
-    guide: TierPricingConfig;
-    shop: TierPricingConfig;
-    tourOperator: TierPricingConfig;
-    // Piani Utente
-    premiumUser?: TierPricingConfig;
-    premiumUserPlus?: TierPricingConfig; // NEW: Piano Superiore
-    
-    novitaDuration: number;
-    aiLimits?: AiLimitsConfig; 
-}
+// Le definizioni duplicate relative a marketing e pricing (es. TierPricingConfig, MarketingConfig) 
+// sono state rimosse. La fonte di verità per questi tipi è ora 'src/types/marketing.ts'.
+// Il tipo 'PriceHistoryEntry' è stato rimosso in quanto obsoleto.

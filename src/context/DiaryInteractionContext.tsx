@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useDiaryInteractions } from '../hooks/features/useDiaryInteractions';
 import { useUI } from './UIContext';
@@ -19,6 +18,7 @@ export const DiaryInteractionProvider = ({ children }: { children?: ReactNode })
     const navigationContext = useNavigation();
     const uiContext = useUI();
 
+    // ✅ hook chiamato correttamente
     const interactions = useDiaryInteractions(
         navigationContext.activeCityId,
         uiContext.setMobileDiaryFullScreen

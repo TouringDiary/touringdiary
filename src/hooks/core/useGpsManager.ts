@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 
 interface GpsResult {
@@ -8,7 +7,8 @@ interface GpsResult {
     isCriticalError?: boolean;
 }
 
-export const useGpsManager = () => {
+// ✅ FIX: riceve configs dall'esterno (NO useConfig qui dentro)
+export const useGpsManager = (configs: any) => {
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [isLocating, setIsLocating] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -19,15 +19,17 @@ export const useGpsManager = () => {
     }, []);
 
     // Funzione interna promisificata per getCurrentPosition
-    const getPositionPromise = (highAccuracy: boolean): Promise<GeolocationPosition> => {
+    const getPositionPromise = useCallback((highAccuracy: boolean): Promise<GeolocationPosition> => {
         return new Promise((resolve, reject) => {
+            const geoOptions = configs?.geo_options || {};
+
             navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: highAccuracy,
-                timeout: 8000, 
-                maximumAge: 0
+                enableHighAccuracy: geoOptions.enableHighAccuracy ?? highAccuracy,
+                timeout: geoOptions.timeout ?? 8000,
+                maximumAge: geoOptions.maximumAge ?? 0
             });
         });
-    };
+    }, [configs]); // ✅ FIX: dipendenza corretta
 
     const requestPosition = useCallback(async (): Promise<GpsResult> => {
         setIsLocating(true);
@@ -79,7 +81,6 @@ export const useGpsManager = () => {
                     if (!window.isSecureContext) {
                         msg = "Il GPS richiede una connessione sicura (HTTPS).";
                     } else {
-                        // Tentiamo di capire se è blocco browser o OS
                         try {
                             const perm = await navigator.permissions.query({ name: 'geolocation' });
                             if (perm.state === 'denied') {
@@ -106,7 +107,7 @@ export const useGpsManager = () => {
             setError(msg);
             return { success: false, error: msg, isCriticalError: isCritical };
         }
-    }, []);
+    }, [getPositionPromise]); // ✅ FIX CRITICO
 
     return {
         userLocation,

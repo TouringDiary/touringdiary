@@ -1,120 +1,75 @@
-
 import { useState, useEffect } from 'react';
-import { getSetting, saveSetting, SETTINGS_KEYS } from '../services/settingsService';
-import { MarketingConfig, PriceHistoryEntry, TierPricingConfig } from '../types/index';
+import { saveSetting, SETTINGS_KEYS } from '../services/settingsService';
+import { useConfig } from '@/context/ConfigContext';
+// I tipi vengono ora importati tramite l'index barrel file
+import { MarketingConfig, MarketingTierConfig, MarketingPromoType } from '../types';
 
-interface PromoType {
-    id: string;
-    label: string;
-}
+export type MarketingTierKey =
+  | "silver"
+  | "gold"
+  | "guide"
+  | "shop"
+  | "tourOperator"
+  | "premiumUser"
+  | "premiumUserPlus";
 
 export const useMarketingLogic = () => {
+    // CORREZIONE: L'hook useConfig non restituisce più refetch. Rimuoviamolo dalla destrutturazione.
+    const { configs, isLoading: isConfigLoading } = useConfig();
+
     const [prices, setPrices] = useState<MarketingConfig | null>(null);
-    const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
-    const [affiliateIds, setAffiliateIds] = useState<any>({});
-    const [promoTypes, setPromoTypes] = useState<PromoType[]>([]);
+    const [promoTypes, setPromoTypes] = useState<MarketingPromoType[]>([]);
     
-    const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Initial Load
+    const isLoading = isConfigLoading;
+
     useEffect(() => {
-        const load = async () => {
-            setIsLoading(true);
+        if (!isConfigLoading && configs) {
             try {
-                const [loadedPrices, loadedHistory, loadedAffiliates, loadedPromos] = await Promise.all([
-                    getSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES),
-                    getSetting<PriceHistoryEntry[]>(SETTINGS_KEYS.PRICE_HISTORY),
-                    getSetting(SETTINGS_KEYS.AFFILIATE_CONFIG),
-                    getSetting<PromoType[]>(SETTINGS_KEYS.MARKETING_PROMO_TYPES)
-                ]);
-                
+                const loadedPrices = configs[SETTINGS_KEYS.MARKETING_PRICES_V2] as MarketingConfig | null;
+                const loadedPromos = configs[SETTINGS_KEYS.MARKETING_PROMO_TYPES] as MarketingPromoType[] | null;
+
                 setPrices(loadedPrices);
-                setHistory(loadedHistory || []);
-                setAffiliateIds(loadedAffiliates);
                 setPromoTypes(loadedPromos || []);
+                setError(null);
             } catch (err) {
-                console.error("Error loading marketing settings", err);
-                setError("Errore caricamento dati.");
-            } finally {
-                setIsLoading(false);
+                 console.error("Error processing marketing settings from context", err);
+                 setError("Errore durante la lettura della configurazione.");
             }
-        };
-        load();
-    }, []);
+        }
+    }, [isConfigLoading, configs]);
 
-    // Actions
-    const updatePriceConfig = (key: keyof MarketingConfig, newConfig: TierPricingConfig) => {
+    const updateTierPrice = (tierId: MarketingTierKey, newConfig: MarketingTierConfig) => {
         if (!prices) return;
-        // @ts-ignore
-        setPrices({ ...prices, [key]: newConfig });
+        
+        const updatedPrices = { ...prices, [tierId]: newConfig };
+        setPrices(updatedPrices);
     };
 
-    // UPDATED: More generic update function
-    const updateGlobalRule = (key: string, value: any) => {
-        if (!prices) return;
-        setPrices(prev => prev ? ({ ...prev, [key]: value }) : null);
-    };
-
-    const addPromoType = (name: string) => {
-        const newType: PromoType = {
-            id: `promo_${Date.now()}`,
-            label: name.trim()
-        };
-        setPromoTypes(prev => [...prev, newType]);
-    };
-
-    const deletePromoType = (id: string) => {
-        setPromoTypes(prev => prev.filter(p => p.id !== id));
-    };
-
-    const addHistoryEntry = (entry: PriceHistoryEntry) => {
-        setHistory(prev => [entry, ...prev]);
-    };
-
-    const deleteHistoryEntry = (id: string) => {
-        setHistory(prev => prev.filter(h => h.id !== id));
-    };
-
-    const saveAllSettings = async (): Promise<boolean> => {
-        if (!prices) return false;
+    const savePrices = async (newPrices: MarketingConfig) => {
         setIsSaving(true);
+        setError(null);
         try {
-            await Promise.all([
-                saveSetting(SETTINGS_KEYS.MARKETING_PRICES, prices),
-                saveSetting(SETTINGS_KEYS.PRICE_HISTORY, history),
-                saveSetting(SETTINGS_KEYS.AFFILIATE_CONFIG, affiliateIds),
-                saveSetting(SETTINGS_KEYS.MARKETING_PROMO_TYPES, promoTypes)
-            ]);
-            return true;
+            await saveSetting(SETTINGS_KEYS.MARKETING_PRICES_V2, newPrices);
+            // CORREZIONE: La chiamata a refetch() è stata rimossa perché non più disponibile.
+            // La logica di aggiornamento della UI si affiderà al refresh della pagina o alla gestione dello stato locale.
         } catch (err) {
-            console.error("Save error", err);
-            setError("Errore salvataggio.");
-            return false;
+            console.error("Error saving marketing prices", err);
+            setError("Errore during the saving of the prices.");
         } finally {
             setIsSaving(false);
         }
     };
 
     return {
-        // State
         prices,
-        history,
-        affiliateIds,
         promoTypes,
         isLoading,
         isSaving,
         error,
-
-        // Methods
-        updatePriceConfig,
-        updateGlobalRule, 
-        addPromoType,
-        deletePromoType,
-        addHistoryEntry,
-        deleteHistoryEntry,
-        saveAllSettings,
-        setError
+        updateTierPrice,
+        savePrices,
     };
 };

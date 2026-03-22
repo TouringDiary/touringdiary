@@ -1,89 +1,191 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { getFullManifestAsync } from '../services/cityService';
-import { CitySummary } from '../types/index';
-import { useSponsorData } from './admin/useSponsorData';
-import { useSponsorStats } from './admin/useSponsorStats';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import * as sponsorService from '../services/sponsorService';
+import { usePersistedState } from './usePersistedState';
+import { SortConfig } from '../types/core';
+import { SponsorRequest, SponsorStats, SponsorManifest } from '../types/sponsors';
+import { GeoFilters, GeoOptions } from '../types/geo';
+import * as geoService from '../services/geo';
 
-/**
- * useSponsorLogic - THE BRAIN
- * Gestisce ESCLUSIVAMENTE la lettura dei dati, i filtri e lo stato della visualizzazione.
- * Non esegue scritture o mutazioni dirette.
- */
+// 1. TIPI CORRETTI
+// Tipizzazione delle tab della UI
+type SponsorTab = 'dashboard' | 'pending' | 'waiting' | 'approved' | 'rejected' | 'cancelled';
+// Tipizzazione degli status reali del database
+type SponsorStatus = 'pending' | 'waiting_payment' | 'approved' | 'rejected' | 'cancelled';
+
+// 2. MAPPATURA CORRETTA
+// Oggetto per mappare le tab della UI agli status del DB
+const tabToStatusMap: Record<SponsorTab, SponsorStatus | null> = {
+    dashboard: null, // La dashboard non esegue query di lista
+    pending: 'pending',
+    waiting: 'waiting_payment',
+    approved: 'approved',
+    rejected: 'rejected',
+    cancelled: 'cancelled',
+};
+
 export const useSponsorLogic = () => {
-    const [manifest, setManifest] = useState<CitySummary[]>([]);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'pending' | 'waiting' | 'approved' | 'rejected' | 'cancelled'>('dashboard');
-    const [isManifestLoading, setIsManifestLoading] = useState(true);
+    const [requests, setRequests] = useState<SponsorRequest[]>([]);
+    const [manifest, setManifest] = useState<SponsorManifest[]>([]);
+    const [stats, setStats] = useState<Partial<SponsorStats>>({});
+    const [activeTab, setActiveTab] = usePersistedState<SponsorTab>('sponsor-active-tab', 'dashboard');
+    const [isLoading, setIsLoading] = useState(false);
 
-    // 1. Initial Manifest Load (Una tantum)
-    useEffect(() => { 
-        setIsManifestLoading(true);
-        getFullManifestAsync()
-            .then(data => {
-                setManifest(data);
-                setIsManifestLoading(false);
-            })
-            .catch(err => {
-                console.error("Critical: Failed to load city manifest for sponsors", err);
-                setIsManifestLoading(false);
-            });
+    // Filtri & Paginazione
+    const [filters, setFilters] = useState<GeoFilters>({});
+    const [sortConfig, setSortConfig] = useState<SortConfig<SponsorRequest>>({ key: 'createdAt', direction: 'desc' });
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = usePersistedState('sponsor-page-size', 10);
+    const [totalItems, setTotalItems] = useState(0);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [onlyUnread, setOnlyUnread] = useState(false);
+    
+    // Opzioni per i filtri geografici
+    const [options, setOptions] = useState<GeoOptions>({ continents: [], nations: [], adminRegions: [], zones: [], cities: [], tiers: [] });
+
+    const fetchGeoOptions = useCallback(async () => {
+        const continents = await geoService.getContinents();
+        const tiers = await sponsorService.getSponsorTiers();
+        setOptions(prev => ({ ...prev, continents, tiers }));
     }, []);
 
-    // 2. Init Sub-Hooks (Delegated Logic)
-    const dataLogic = useSponsorData(activeTab, manifest);
-    const statsLogic = useSponsorStats();
+    const handleContinentChange = async (continentId: string) => {
+        setFilters({ continent: continentId, nation: undefined, adminRegion: undefined, zone: undefined, city: undefined });
+        const nations = continentId ? await geoService.getNations(continentId) : [];
+        setOptions(prev => ({ ...prev, nations, adminRegions: [], zones: [], cities: [] }));
+    };
 
-    // 3. Centralized Refresh (Atomic)
-    // Ricarica sia le statistiche (header) che i dati della tabella corrente.
-    const refreshData = useCallback(async () => {
-        try {
-            await Promise.all([
-                dataLogic.fetchData(),
-                statsLogic.fetchStats(activeTab === 'dashboard')
-            ]);
-        } catch (e) {
-            console.error("Refresh cycle failed", e);
+    const handleNationChange = async (nationId: string) => {
+        setFilters(prev => ({ ...prev, nation: nationId, adminRegion: undefined, zone: undefined, city: undefined }));
+        const adminRegions = nationId ? await geoService.getAdminRegions(nationId) : [];
+        setOptions(prev => ({ ...prev, adminRegions, zones: [], cities: [] }));
+    };
+    
+    const handleAdminRegionChange = async (adminRegionId: string) => {
+        setFilters(prev => ({ ...prev, adminRegion: adminRegionId, zone: undefined, city: undefined }));
+        const zones = adminRegionId ? await geoService.getZones(adminRegionId) : [];
+        setOptions(prev => ({ ...prev, zones, cities: [] }));
+    };
+
+    const handleZoneChange = async (zoneId: string) => {
+        setFilters(prev => ({ ...prev, zone: zoneId, city: undefined }));
+        const cities = zoneId ? await geoService.getCitiesByZone(zoneId) : [];
+        setOptions(prev => ({...prev, cities}));
+    };
+
+    const handleCityChange = (cityId: string | undefined) => {
+        setFilters(prev => ({ ...prev, city: cityId }));
+    };
+
+    const handleTierChange = (tier: string | undefined) => {
+        setFilters(prev => ({ ...prev, tier }));
+    };
+    
+    const handlePageChange = (newPage: number) => {
+        if (newPage > 0 && newPage <= Math.ceil(totalItems / pageSize)) {
+            setPage(newPage);
         }
-    }, [activeTab, dataLogic.fetchData, statsLogic.fetchStats]);
+    };
 
-    // 4. Auto-Refresh on Context Change
-    // Se cambiano i filtri o la tab, ricarica i dati pertinenti.
+    const appliedFilters = useMemo(() => ({
+        ...filters,
+        onlyUnread,
+    }), [filters, onlyUnread]);
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        const queryStatus = tabToStatusMap[activeTab];
+        if (!queryStatus) {
+            setRequests([]);
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            const { data, count, manifest: sponsorManifest } = await sponsorService.getSponsorsPaginated(
+                page,
+                pageSize,
+                queryStatus,
+                appliedFilters,
+                sortConfig,
+                searchTerm
+            );
+            
+            setRequests(data || []);
+            setTotalItems(count || 0);
+            if (sponsorManifest) {
+                setManifest(sponsorManifest);
+            }
+
+        } catch (error) {
+            console.error("Errore nel recuperare gli sponsor:", error);
+            setRequests([]);
+            setTotalItems(0);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [activeTab, page, pageSize, appliedFilters, sortConfig, searchTerm]);
+
+    const fetchStats = useCallback(async () => {
+       const statsData = await sponsorService.getSponsorStats(appliedFilters);
+       setStats(statsData);
+    }, [appliedFilters]);
+
+    const refreshData = useCallback(() => {
+        fetchData();
+        fetchStats();
+    }, [fetchData, fetchStats]);
+
     useEffect(() => {
-        // Debounce opzionale se la ricerca è rapida, ma per ora diretto per reattività
+        fetchGeoOptions();
+    }, [fetchGeoOptions]);
+    
+    // --- MODIFICA ---
+    // 1. useEffect per il FETCH dei dati.
+    // Si attiva al mount e quando i parametri di paginazione o i filtri incapsulati cambiano.
+    useEffect(() => {
         refreshData();
-    }, [
-        activeTab, 
-        dataLogic.page, 
-        dataLogic.pageSize, // Aggiunto per gestire cambio righe per pagina
-        dataLogic.searchTerm, 
-        dataLogic.filters.city, 
-        dataLogic.filters.tier,
-        dataLogic.filters.onlyUnread, // Aggiunto trigger su filtro non letti
-        dataLogic.sortConfig.key,     // Aggiunto trigger su ordinamento
-        dataLogic.sortConfig.direction
-    ]);
+    }, [page, pageSize, sortConfig, appliedFilters, searchTerm, activeTab]);
 
-    // 5. Data Combination for Dashboard
-    // Se siamo nella dashboard, i dati "requests" devono essere quelli aggregati (per la matrice).
-    // Se siamo in una tab specifica, sono quelli paginati della tabella.
-    const effectiveRequests = activeTab === 'dashboard' ? statsLogic.dashboardRequests : dataLogic.requests;
-    const effectiveLoading = isManifestLoading || (activeTab === 'dashboard' ? statsLogic.loadingStats : dataLogic.isLoading);
+    // 2. useEffect per il RESET della pagina.
+    // Si attiva SOLO quando i filtri principali cambiano (tab, ricerca, etc).
+    // NON richiama il fetch, ma scatena l'useEffect precedente cambiando `page`.
+    useEffect(() => {
+        if (page !== 1) {
+            setPage(1);
+        }
+    }, [activeTab, appliedFilters, searchTerm]);
+    // --- FINE MODIFICA ---
 
     return {
-        // Data Source
-        requests: effectiveRequests,
+        requests,
         manifest,
-        stats: statsLogic.stats,
-        
-        // UI State
-        activeTab, 
+        stats,
+        activeTab,
         setActiveTab,
-        isLoading: effectiveLoading,
-
-        // Filters & Pagination (Delegated to dataLogic but exposed here)
-        ...dataLogic,
+        isLoading,
         
-        // Actions
+        // Filtri & Paginazione
+        filters: appliedFilters,
+        sortConfig,
+        page, pageSize, totalItems,
+        searchTerm,
+        options,
+        
+        // Setters
+        setSortConfig,
+        setSearchTerm,
+        setOnlyUnread,
+        handleContinentChange,
+        handleNationChange,
+        handleAdminRegionChange,
+        handleZoneChange,
+        handleCityChange,
+        handleTierChange,
+        setPageSize,
+        handlePageChange,
+        
+        // Refresh Action
         refreshData
     };
 };

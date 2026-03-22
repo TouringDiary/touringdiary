@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Trash2, Bot, Send, Loader2, CheckCircle, Navigation, Landmark, Utensils, Bed, ShoppingBag, Sun, Scan, Music, MapPin } from 'lucide-react';
-import { useAiPlanner } from '../../context/AiPlannerContext';
+import { useAiPlanner } from '@/context/AiPlannerContext';
 import { calculateDistance } from '../../services/geo';
 import { modifyItinerary } from '../../services/ai/aiPlanner';
 import { getCityDetails, getFullManifestAsync } from '../../services/cityService';

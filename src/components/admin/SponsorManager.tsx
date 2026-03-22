@@ -142,9 +142,9 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                     <div>
                         <div className="flex items-center gap-3">
                             <h2 className={styles.admin_page_title}>Attività & Sponsor</h2>
-                            {stats.pending > 0 && (
+                            {(stats?.pending ?? 0) > 0 && (
                                 <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                                    {stats.pending} DA GESTIRE
+                                    {stats?.pending} DA GESTIRE
                                 </span>
                             )}
                         </div>
@@ -205,11 +205,11 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                 <div className="flex gap-1 w-full min-w-max">
                     {[ 
                         { id: 'dashboard', label: 'Dashboard', count: null, color: 'indigo' }, 
-                        { id: 'pending', label: 'NUOVE RICHIESTE', count: stats.pending, color: 'amber' }, 
-                        { id: 'waiting', label: 'ATTESA PAGAMENTI', count: stats.waiting, color: 'blue' }, 
-                        { id: 'approved', label: 'SPONSOR ATTIVI', count: stats.approved, color: 'emerald' }, 
-                        { id: 'rejected', label: 'SPONSOR RIFIUTATI', count: stats.rejected, color: 'slate' }, 
-                        { id: 'cancelled', label: 'SPONSOR ANNULLATI', count: stats.cancelled, color: 'slate' } 
+                        { id: 'pending', label: 'NUOVE RICHIESTE', count: stats?.pending ?? null, color: 'amber' }, 
+                        { id: 'waiting', label: 'ATTESA PAGAMENTI', count: stats?.waiting ?? null, color: 'blue' }, 
+                        { id: 'approved', label: 'SPONSOR ATTIVI', count: stats?.approved ?? null, color: 'emerald' }, 
+                        { id: 'rejected', label: 'SPONSOR RIFIUTATI', count: stats?.rejected ?? null, color: 'slate' }, 
+                        { id: 'cancelled', label: 'SPONSOR ANNULLATI', count: stats?.cancelled ?? null, color: 'slate' } 
                     ].map(tab => (
                         <button 
                             key={tab.id} 

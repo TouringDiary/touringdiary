@@ -1,34 +1,35 @@
-
 import React from 'react';
 import { useInteraction } from '../../../context/InteractionContext';
 import { ModalManagerExternalProps } from '../ModalManagerTypes';
-import { PointOfInterest } from '../../../types/index';
+import { PointOfInterest } from '@/types';
 
 // Lazy Imports
-const PoiDetailModal = React.lazy(() => import('../../modals/PoiDetailModal').then(module => ({ default: module.PoiDetailModal })));
-// Removed BusinessCardModal as it is now integrated into PoiDetailModal
-const ReviewModal = React.lazy(() => import('../../modals/ReviewModal').then(module => ({ default: module.ReviewModal })));
-const AddToItineraryModal = React.lazy(() => import('../../modals/AddToItineraryModal').then(module => ({ default: module.AddToItineraryModal })));
-const TimeConflictModal = React.lazy(() => import('../../modals/TimeConflictModal').then(module => ({ default: module.TimeConflictModal })));
-const DuplicateResolutionModal = React.lazy(() => import('../../modals/DuplicateResolutionModal').then(module => ({ default: module.DuplicateResolutionModal })));
-const RemoveItemModal = React.lazy(() => import('../../modals/RemoveItemModal').then(module => ({ default: module.RemoveItemModal })));
-const CityInfoModal = React.lazy(() => import('../../modals/CityInfoModal').then(module => ({ default: module.CityInfoModal })));
-const ProvinceModal = React.lazy(() => import('../../modals/ProvinceModal').then(module => ({ default: module.ProvinceModal })));
-const LevelUpModal = React.lazy(() => import('../../modals/LevelUpModal').then(module => ({ default: module.LevelUpModal })));
-const UserDashboard = React.lazy(() => import('../../user/UserDashboard').then(module => ({ default: module.UserDashboard })));
-const AiItineraryModal = React.lazy(() => import('../../modals/AiItineraryModal').then(module => ({ default: module.AiItineraryModal })));
-const RoadbookModal = React.lazy(() => import('../../modals/RoadbookModal').then(module => ({ default: module.RoadbookModal })));
-const SectionPreviewModal = React.lazy(() => import('../../modals/SectionPreviewModal').then(module => ({ default: module.SectionPreviewModal })));
-const SuggestionModal = React.lazy(() => import('../../modals/SuggestionModal').then(module => ({ default: module.SuggestionModal })));
-const ItinerariesModal = React.lazy(() => import('../../modals/ItinerariesModal').then(module => ({ default: module.ItinerariesModal })));
-const UserUpgradeModal = React.lazy(() => import('../../modals/UserUpgradeModal').then(module => ({ default: module.UserUpgradeModal })));
-const FullRankingsModal = React.lazy(() => import('../../modals/FullRankingsModal').then(module => ({ default: module.FullRankingsModal })));
-const GlobalSectionView = React.lazy(() => import('../../modals/GlobalSectionView').then(module => ({ default: module.GlobalSectionView })));
-const AroundMeWizard = React.lazy(() => import('../../modals/AroundMeWizard').then(module => ({ default: module.AroundMeWizard })));
-const PoiClaimModal = React.lazy(() => import('../../modals/PoiClaimModal').then(module => ({ default: module.PoiClaimModal })));
-const ExportModal = React.lazy(() => import('../../modals/ExportModal').then(module => ({ default: module.ExportModal })));
-const EmptyDiaryModal = React.lazy(() => import('../../modals/EmptyDiaryModal').then(module => ({ default: module.EmptyDiaryModal })));
-const ShareModal = React.lazy(() => import('../../modals/ShareModal').then(module => ({ default: module.ShareModal })));
+const PoiDetailModal = React.lazy(() => import('@/components/modals/PoiDetailModal').then(module => ({ default: module.PoiDetailModal })));
+// --- NUOVO MODALE --- 
+const PackingListModal = React.lazy(() => import('@/components/features/diary/packing_list/PackingListModal').then(module => ({ default: module.PackingListModal })));
+// ---------------------
+const ReviewModal = React.lazy(() => import('@/components/modals/ReviewModal').then(module => ({ default: module.ReviewModal })));
+const AddToItineraryModal = React.lazy(() => import('@/components/modals/AddToItineraryModal').then(module => ({ default: module.AddToItineraryModal })));
+const TimeConflictModal = React.lazy(() => import('@/components/modals/TimeConflictModal').then(module => ({ default: module.TimeConflictModal })));
+const DuplicateResolutionModal = React.lazy(() => import('@/components/modals/DuplicateResolutionModal').then(module => ({ default: module.DuplicateResolutionModal })));
+const RemoveItemModal = React.lazy(() => import('@/components/modals/RemoveItemModal').then(module => ({ default: module.RemoveItemModal })));
+const CityInfoModal = React.lazy(() => import('@/components/modals/CityInfoModal').then(module => ({ default: module.CityInfoModal })));
+const ProvinceModal = React.lazy(() => import('@/components/modals/ProvinceModal').then(module => ({ default: module.ProvinceModal })));
+const LevelUpModal = React.lazy(() => import('@/components/modals/LevelUpModal').then(module => ({ default: module.LevelUpModal })));
+const UserDashboard = React.lazy(() => import('@/components/user/UserDashboard').then(module => ({ default: module.UserDashboard })));
+const AiItineraryModal = React.lazy(() => import('@/components/modals/AiItineraryModal').then(module => ({ default: module.AiItineraryModal })));
+const RoadbookModal = React.lazy(() => import('@/components/modals/RoadbookModal').then(module => ({ default: module.RoadbookModal })));
+const SectionPreviewModal = React.lazy(() => import('@/components/modals/SectionPreviewModal').then(module => ({ default: module.SectionPreviewModal })));
+const SuggestionModal = React.lazy(() => import('@/components/modals/SuggestionModal').then(module => ({ default: module.SuggestionModal })));
+const ItinerariesModal = React.lazy(() => import('@/components/modals/ItinerariesModal').then(module => ({ default: module.ItinerariesModal })));
+const UserUpgradeModal = React.lazy(() => import('@/components/modals/UserUpgradeModal').then(module => ({ default: module.UserUpgradeModal })));
+const FullRankingsModal = React.lazy(() => import('@/components/modals/FullRankingsModal').then(module => ({ default: module.FullRankingsModal })));
+const GlobalSectionView = React.lazy(() => import('@/components/modals/GlobalSectionView').then(module => ({ default: module.GlobalSectionView })));
+const AroundMeWizard = React.lazy(() => import('@/components/modals/AroundMeWizard').then(module => ({ default: module.AroundMeWizard })));
+const PoiClaimModal = React.lazy(() => import('@/components/modals/PoiClaimModal').then(module => ({ default: module.PoiClaimModal })));
+const ExportModal = React.lazy(() => import('@/components/modals/ExportModal').then(module => ({ default: module.ExportModal })));
+const EmptyDiaryModal = React.lazy(() => import('@/components/modals/EmptyDiaryModal').then(module => ({ default: module.EmptyDiaryModal })));
+const ShareModal = React.lazy(() => import('@/components/modals/ShareModal').then(module => ({ default: module.ShareModal })));
 
 interface FeatureModalsProps extends ModalManagerExternalProps {
     activeModal: string | null;
@@ -73,6 +74,14 @@ export const FeatureModals = (props: FeatureModalsProps) => {
 
     return (
         <>
+            {/* --- ITINERARY & PLANNER --- */}
+            {activeModal === 'packingList' && modalProps.itineraryId && (
+                <PackingListModal 
+                    isOpen={true} 
+                    onClose={closeModal} 
+                    itineraryId={modalProps.itineraryId} 
+                />
+            )}
             {/* --- USER DASHBOARD & GAMIFICATION --- */}
             {activeModal === 'userDashboard' && (
                 <UserDashboard isOpen={true} onClose={closeModal} user={user} onNavigate={props.onNavigateGlobal} initialTab={modalProps.tab} onLogout={props.onLogout} />

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileText, Image as ImageIcon, Printer, Download, LayoutList, ExternalLink, AlertTriangle, Loader2, Sparkles, CheckSquare, Square, QrCode, Edit3, Link } from 'lucide-react';
-import { useItinerary } from '../../context/ItineraryContext';
+import { useItinerary } from '@/context/ItineraryContext';
 import { pdf } from '@react-pdf/renderer';
 import FileSaver from 'file-saver';
 import { TravelDocument } from '../pdf/TravelDocument';
 import { prepareItineraryForPdf, PreparedItinerary, CityVisualInfo } from '../../utils/pdfUtils'; 
 import { generateWordDocument, generateTextFile } from '../../utils/exportGenerators'; 
 import { useLogoRasterizer } from '../../hooks/useLogoRasterizer';
+import { ExportLogo } from '../export/ExportLogo'; // Importa il nuovo logo
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -17,7 +18,8 @@ type ExportFormat = 'pdf' | 'docx' | 'txt';
 
 export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
     const { itinerary } = useItinerary();
-    const logoBase64 = useLogoRasterizer(); 
+    // Usa ExportLogo con dimensioni appropriate per la rasterizzazione
+    const logoBase64 = useLogoRasterizer(ExportLogo, 300, 52);
     
     // STATO OPZIONI
     const [format, setFormat] = useState<ExportFormat>('pdf');
@@ -116,12 +118,13 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
 
     const handleDownload = async () => {
         if (format === 'pdf') {
-            if (!preparedDoc || !logoBase64) return;
+            if (!preparedDoc) return;
             setIsGeneratingPdf(true);
             try {
-                const blob = await pdf(<TravelDocument itinerary={preparedDoc} logoBase64={logoBase64} options={options} />).toBlob();
+                const blob = await pdf(<TravelDocument itinerary={preparedDoc} logoBase64={logoBase64 || ''} options={options} />).toBlob();
                 FileSaver.saveAs(blob, buildFilename('pdf'));
             } catch (e: any) {
+                console.error("PDF GENERATION ERROR:", e);
                 setGenError("Errore salvataggio PDF.");
             } finally {
                 setIsGeneratingPdf(false);
@@ -318,7 +321,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                                 <div className="h-1 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }}></div></div>
                             </div>
                         )}
-                        <button onClick={handleDownload} disabled={isPreparing || isGeneratingPdf || (format !== 'txt' && !preparedDoc) || !logoBase64} className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 py-4 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3">
+                        <button onClick={handleDownload} disabled={isPreparing || isGeneratingPdf || (format !== 'txt' && !preparedDoc)} className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 py-4 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3">
                             {isGeneratingPdf || isPreparing ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-5 h-5"/>} 
                             {(isGeneratingPdf || isPreparing) ? 'Elaborazione...' : `Scarica ${format.toUpperCase()}`}
                         </button>
@@ -351,7 +354,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
 const OptionRow = ({ label, icon: Icon, active, onClick, desc, disabled }: any) => (
     <div 
         onClick={!disabled ? onClick : undefined}
-        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${disabled ? 'opacity-40 cursor-not-allowed border-slate-800' : 'cursor-pointer hover:bg-slate-800 hover:border-slate-600 border-slate-800'}`}
+        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${disabled ? 'opacity-40 cursor-not-allowed border-slate-800' : 'cursor-not-allowed hover:bg-slate-800 hover:border-slate-600 border-slate-800'}`}
     >
         <div className="flex items-center gap-3">
             <div className={`p-1.5 rounded-lg ${active && !disabled ? 'bg-indigo-600 text-white' : 'bg-slate-950 text-slate-500'}`}>

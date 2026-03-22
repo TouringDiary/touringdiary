@@ -39,23 +39,24 @@ export const getDaysArray = (start: string, end: string) => {
     return days;
 };
 
+// --- PATCH APPLICATA ---
 export const openMap = (lat: number, lng: number, name?: string, address?: string) => {
-    if (name) {
-        const query = encodeURIComponent(`${name} ${address || ''}`.trim());
-        window.open(`https://www.google.com/maps/search/?api=1&query=${query}&z=19`, '_blank');
-    } else {
-        window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}&z=19`, '_blank');
-    }
+    if (lat == 0 && lng == 0) return;
+
+    const query = name && address ? `${name}, ${address}` : `${lat},${lng}`;
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
 };
 
-export const open3DView = (lat: number, lng: number, name?: string, address?: string) => {
-    if (name) {
-         const query = encodeURIComponent(`${name} ${address || ''}`.trim());
-         window.open(`https://earth.google.com/web/search/${query}`, '_blank');
-    } else {
-         window.open(`https://earth.google.com/web/@${lat},${lng},100a,500d,35y,0h,0t,0r`, '_blank');
-    }
+export const open3DView = (lat: number, lng: number, name?: string) => {
+    if (lat == 0 && lng == 0) return;
+
+    const url = `https://www.google.com/maps/@?api=1&map_action=map&center=${lat},${lng}&zoom=19&tilt=75&heading=0`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
 };
+// --- FINE PATCH ---
 
 // --- CENTRALIZED POI UI HELPERS ---
 
@@ -118,7 +119,7 @@ export const getSubCategoryLabel = (subCat: string): string => {
         case 'church': return 'Chiesa / Luogo Sacro';
         case 'castle': return 'Castello / Fortezza';
         case 'museum': return 'Museo';
-        case 'gallery': return 'Galleria d\'Arte';
+        case 'gallery': return "Galleria d'Arte";
         case 'square': return 'Piazza'; // Already present
         case 'archaeology': return 'Sito Archeologico';
         case 'palace': return 'Palazzo Storico';

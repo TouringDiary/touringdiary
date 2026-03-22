@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useAppInitialization } from '../hooks/core/useAppInitialization';
-import { getGuestUser } from '../services/userService';
+import { getGuestUser } from '../utils/userUtils';
 import type { User, CitySummary } from '../types/index';
 
 interface UserContextType {
