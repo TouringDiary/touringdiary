@@ -11,9 +11,10 @@ import { PointOfInterest, User } from '../types/index';
 import { votePoiAsync } from '../services/cityService';
 import { saveUnifiedReview } from '../services/communityService';
 import {
-    togglePhotoLikeInDb,
-    fetchUserPhotoLikes
+    togglePhotoLikeRPC,
+    fetchUserPhotoLikes,
 } from '../services/photoService';
+import { updatePhotoScore } from '../services/rankingService';
 
 import { useModal } from './ModalContext';
 import { getStorageItem, setStorageItem } from '../services/storageService';
@@ -27,13 +28,16 @@ interface PhotoLikeStatus {
 interface InteractionContextType {
     votedPois: string[];
     likedPois: string[];
-    likedPhotos: string[];
 
     hasUserVoted: (poiId: string) => boolean;
     hasUserLiked: (poiId: string) => boolean;
     hasUserLikedPhoto: (photoId: string) => boolean;
 
-    getPhotoStatus: (photo: { id: string; likes?: number }) => PhotoLikeStatus;
+    getPhotoStatus: (photo: { id: string; likes?: number; likedByUser?: boolean }) => PhotoLikeStatus;
+
+    // Nuovi per Community Live Snaps
+    getLiveSnapStatus: (snap: { id: string; likes?: number }) => PhotoLikeStatus;
+    toggleLiveSnapHeart: (snapId: string) => Promise<number | undefined>;
 
     submitReview: (
         poi: PointOfInterest,
@@ -66,9 +70,8 @@ export const InteractionProvider = ({
 
     const [votedPois, setVotedPois] = useState<string[]>([]);
     const [likedPois, setLikedPois] = useState<string[]>([]);
-    const [likedPhotos, setLikedPhotos] = useState<string[]>([]);
 
-    // 🔥 SINGLE SOURCE OF TRUTH LIKE FOTO
+    // 🔥 SINGLE SOURCE OF TRUTH LIKE FOTO (Unified for both City Gallery & Live Feed)
     const [photoStatus, setPhotoStatus] = useState<
         Record<string, PhotoLikeStatus>
     >({});
@@ -87,11 +90,13 @@ export const InteractionProvider = ({
             setLikedPois(getStorageItem<string[]>(likesKey, []));
 
             if (!isGuest) {
-                const photoLikes =
-                    await fetchUserPhotoLikes(currentUserId);
-                setLikedPhotos(photoLikes);
-            } else {
-                setLikedPhotos([]);
+                const photoLikes = await fetchUserPhotoLikes(currentUserId);
+                // Initialize initial liked state in photoStatus if needed
+                const initialStatus: Record<string, PhotoLikeStatus> = {};
+                photoLikes.forEach(id => {
+                    initialStatus[id] = { isLiked: true, count: 0, isLoading: false };
+                });
+                setPhotoStatus(prev => ({ ...prev, ...initialStatus }));
             }
         };
 
@@ -118,37 +123,51 @@ export const InteractionProvider = ({
 
     const hasUserLikedPhoto = useCallback(
         (photoId: string) =>
-            photoStatus[photoId]?.isLiked ??
-            likedPhotos.includes(photoId),
-        [photoStatus, likedPhotos]
+            photoStatus[photoId]?.isLiked ?? false,
+        [photoStatus]
     );
 
     const getPhotoStatus = useCallback(
-        (photo: { id: string; likes: number }): PhotoLikeStatus => {
+        (photo: { id: string; likes?: number; likedByUser?: boolean }): PhotoLikeStatus => {
             return (
                 photoStatus[photo.id] ?? {
-                    isLiked: likedPhotos.includes(photo.id),
-                    count: photo.likes ?? photoStatus[photo.id]?.count ?? 0,
+                    isLiked: photo.likedByUser ?? false,
+                    count: photo.likes ?? 0,
                     isLoading: false
                 }
             );
         },
-        [photoStatus, likedPhotos]
+        [photoStatus]
+    );
+
+    const getLiveSnapStatus = useCallback(
+        (snap: { id: string; likes?: number }): PhotoLikeStatus => {
+            return (
+                photoStatus[snap.id] ?? {
+                    isLiked: false,
+                    count: snap.likes ?? 0,
+                    isLoading: false
+                }
+            );
+        },
+        [photoStatus]
     );
 
     // 🔥 TOGGLE LIKE FOTO (NUOVA VERSIONE CENTRALIZZATA)
     const togglePhotoHeart = async (
         photoId: string
     ): Promise<number | undefined> => {
-        if (isGuest) return;
+        if (isGuest) {
+            modalContext.openModal('auth');
+            return;
+        }
         const current = photoStatus[photoId];
 
         if (current?.isLoading) return;
 
         const fallback = {
             isLiked:
-                current?.isLiked ??
-                likedPhotos.includes(photoId),
+                current?.isLiked ?? false,
             count:
                 current?.count ??
                 photoStatus[photoId]?.count ??
@@ -169,7 +188,10 @@ export const InteractionProvider = ({
 
         try {
             const result =
-                await togglePhotoLikeInDb(photoId);
+                await togglePhotoLikeRPC(photoId);
+
+            // 2. Aggiornamento Punteggio Ranking asincrono (fire-and-forget)
+            updatePhotoScore(photoId, result.liked).catch(console.error);
 
             setPhotoStatus((prev) => ({
                 ...prev,
@@ -180,15 +202,11 @@ export const InteractionProvider = ({
                 }
             }));
 
-            setLikedPhotos((prev) =>
-                result.liked
-                    ? [...new Set([...prev, photoId])]
-                    : prev.filter((id) => id !== photoId)
-            );
+            // likedPhotos legacy: non più utilizzato
 
             return result.count;
         } catch (e) {
-            console.error('Errore like foto', e);
+            console.error('Errore critico like foto RPC (Triggering Rollback):', e);
 
             setPhotoStatus((prev) => ({
                 ...prev,
@@ -198,6 +216,9 @@ export const InteractionProvider = ({
             return undefined;
         }
     };
+
+    // Redirect legacy function to unified RPC-based logic
+    const toggleLiveSnapHeart = togglePhotoHeart;
 
     const toggleVote = async (
         poiId: string
@@ -277,15 +298,16 @@ export const InteractionProvider = ({
             value={{
                 votedPois,
                 likedPois,
-                likedPhotos,
                 hasUserVoted,
                 hasUserLiked,
                 hasUserLikedPhoto,
                 getPhotoStatus,
+                getLiveSnapStatus,
                 submitReview,
                 toggleVote,
                 toggleLike,
                 togglePhotoHeart,
+                toggleLiveSnapHeart,
                 setInteractionUser,
                 isGuest
             }}

@@ -38,7 +38,6 @@ export type DbReview = Row<'reviews'>;
 export type DbSuggestion = Row<'suggestions'>;
 export type DbCommunityPost = Row<'community_posts'>;
 export type DbPhotoSubmission = Row<'photo_submissions'> & { city_id?: string | null }; // Keep safe extend for now
-export type DbLiveSnap = Row<'live_snaps'>;
 export type DbPhotoLike = Row<'photo_likes'>;
 export type DbItinerary = Row<'itineraries'>;
 

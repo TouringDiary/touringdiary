@@ -30,6 +30,7 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
         isLoading,
         filterStatus, setFilterStatus,
         filterCity, setFilterCity,
+        filterOrigin, setFilterOrigin,
         sortDir, setSortDir,
         cityOptions,
         
@@ -134,6 +135,8 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
                 setFilterStatus={setFilterStatus}
                 filterCity={filterCity}
                 setFilterCity={setFilterCity}
+                filterOrigin={filterOrigin}
+                setFilterOrigin={setFilterOrigin}
                 cityOptions={cityOptions}
                 sortDir={sortDir}
                 setSortDir={setSortDir}

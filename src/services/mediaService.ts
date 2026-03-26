@@ -129,8 +129,24 @@ export const flagPhotosAsCityDeleted = async (cityName: string): Promise<void> =
     }
 };
 
-export const uploadCommunityPhoto = async (file: File, userId: string, userName: string, locationName: string, description: string): Promise<PhotoSubmission | null> => {
+export const uploadCommunityPhoto = async (file: File, userId: string, userName: string, locationName: string, description: string, cityId?: string): Promise<PhotoSubmission | null> => {
     try {
+        // Resolve cityId if not provided
+        let resolvedCityId = cityId;
+        if (!resolvedCityId && locationName) {
+            const { data: cityData } = await supabase
+                .from('cities')
+                .select('id')
+                .ilike('name', locationName.trim())
+                .maybeSingle();
+            if (cityData) resolvedCityId = cityData.id;
+        }
+
+        // CRITICAL: city_id must be mandatory for SSoT
+        if (!resolvedCityId) {
+            throw new Error("City not found for upload. Photos must be linked to a valid city.");
+        }
+
         const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
         const fileName = `${userId}_${Date.now()}_${safeName}`;
         const filePath = `${locationName}/${fileName}`; 
@@ -146,7 +162,8 @@ export const uploadCommunityPhoto = async (file: File, userId: string, userName:
             description: description,
             image_url: publicUrl,
             status: initialStatus,
-            likes: 0
+            likes: 0,
+            city_id: resolvedCityId
         };
         const { data, error: dbError } = await supabase.from('photo_submissions').insert(newRecord).select().single();
         if (dbError) throw dbError;
@@ -214,65 +231,7 @@ export const deletePhotoSubmissionInDb = async (id: string): Promise<void> => {
 
 // --- FIX LIKE LOGIC: ABSOLUTE COUNT RECALCULATION ---
 
-export const togglePhotoLikeInDb = async (photoId: string, userId: string): Promise<{ liked: boolean, count: number }> => {
-    // SECURITY FIX: UUID CHECK
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return { liked: false, count: 0 };
-    
-    try {
-        // 1. Controlla lo stato del like esistente (ID Only per velocità)
-        const { data: existing } = await supabase
-            .from('photo_likes')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('photo_id', photoId)
-            .maybeSingle(); 
-
-        let liked = false;
-
-        if (existing) {
-            // UNLIKE: Rimuovi
-            await supabase.from('photo_likes').delete().eq('id', existing.id);
-            liked = false;
-        } else {
-            // LIKE: Aggiungi
-            await supabase.from('photo_likes').insert({ user_id: userId, photo_id: photoId });
-            liked = true;
-        }
-
-        // 2. RE-COUNT TOTALE REALE (Source of Truth)
-        // Invece di fare +1/-1 su un valore potenzialmente vecchio, contiamo le righe.
-        const { count } = await supabase
-            .from('photo_likes')
-            .select('*', { count: 'exact', head: true })
-            .eq('photo_id', photoId);
-        
-        const realCount = count || 0;
-
-        // 3. Aggiorna la cache denormalizzata su photo_submissions
-        await supabase
-            .from('photo_submissions')
-            .update({ likes: realCount })
-            .eq('id', photoId);
-
-        return { liked, count: realCount };
-
-    } catch (e) {
-        console.error("Error toggling photo like:", e);
-        return { liked: false, count: 0 };
-    }
-};
-
-export const fetchUserPhotoLikes = async (userId: string): Promise<string[]> => {
-    // SECURITY FIX: UUID CHECK
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return [];
-    
-    try {
-        const { data } = await supabase.from('photo_likes').select('photo_id').eq('user_id', userId);
-        return (data || []).map((row: any) => row.photo_id);
-    } catch (e) {
-        return [];
-    }
-};
+// FUNZIONI DI LIKE RIMOSSE -> SPOSTATE IN photoService.ts ED ESEGUITE VIA RPC
 
 /**
  * Cerca un ritratto esistente per una persona famosa (es. recupero dopo cancellazione)

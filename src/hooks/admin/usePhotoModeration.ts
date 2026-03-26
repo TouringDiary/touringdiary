@@ -31,8 +31,9 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
     const [isLoading, setIsLoading] = useState(true);
 
     // FILTER & SORT STATE
-    const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'city_deleted'>('pending');
+    const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'city_deleted' | 'all'>('pending');
     const [filterCity, setFilterCity] = useState<string>('');
+    const [filterOrigin, setFilterOrigin] = useState<'all' | 'community' | 'city'>('all');
     const [sortKey, setSortKey] = useState<SortKey>('date');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -90,10 +91,28 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
     }, [manifest]);
 
     const filteredList = useMemo(() => {
-        let list = photos.filter(p => p.status === filterStatus);
+        let list = [...photos];
 
+        // 1. Status Filter
+        if (filterStatus !== 'all') {
+            list = list.filter(p => p.status === filterStatus);
+        }
+
+        // 2. City Filter
         if (filterCity) {
             list = list.filter(p => p.locationName.toLowerCase().includes(filterCity.toLowerCase()));
+        }
+
+        // 3. Origin Filter
+        if (filterOrigin !== 'all') {
+            list = list.filter(p => {
+                const isAdmin = p.userId?.startsWith('admin') || 
+                                p.userId?.includes('admin') || 
+                                p.userId === 'u_admin_all' || 
+                                p.userId === 'u_admin_limited';
+                
+                return filterOrigin === 'city' ? isAdmin : !isAdmin;
+            });
         }
 
         list.sort((a,b) => {
@@ -147,8 +166,9 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
                 compressedFile,
                 currentUser.id.startsWith('u_') ? currentUser.id : 'admin_manual', 
                 currentUser.name || 'Admin',
-                'Da assegnare',
+                'Da assegnare', // Location name to be resolved or assigned later
                 finalDesc
+                // cityId is omitted here as it's 'Da assegnare', internal lookup will return null
             );
             
             await refreshPhotos();
@@ -174,22 +194,8 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
                  return;
             }
 
-            // Sync to City Gallery
-            try {
-                const fullCity = await getCityDetails(cityMatch.id);
-                if (fullCity) {
-                    const currentGallery = fullCity.details.gallery || [];
-                    // Simple deduplication check
-                    if (!currentGallery.includes(photo.url)) {
-                        fullCity.details.gallery = [photo.url, ...currentGallery];
-                        await saveCityDetails(fullCity);
-                    }
-                }
-            } catch (e) {
-                console.warn("Could not sync to city gallery", e);
-            }
-
-            // XP & Notification
+            // SSoT: Sync to City Gallery no longer needed as cities fetch directly from photo_submissions
+            // Remaining notification logic kept for user engagement
             if (photo.userId && !photo.userId.startsWith('admin')) {
                 if (photo.status !== 'approved') {
                     addNotification(
@@ -207,9 +213,9 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
             }
         }
         
-        // Use Bridge for removal
+        // Use Bridge for removal - only if absolutely necessary for storage cleanup but omitting city metadata sync
         if ((status === 'rejected' || status === 'pending') && photo && photo.status === 'approved') {
-            await propagatePhotoRemoval(photo.url, photo.locationName, photo.description);
+            // SSoT: No longer calling propagatePhotoRemoval for gallery cleanup
         }
         
         // Optimistic UI update
@@ -252,7 +258,7 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
 
     const handleInspectorSave = async (data: { image: string }) => {
         if (photoToEdit) {
-            await updatePhotoDataInDb(photoToEdit.id, { 
+            await updatePhotoData(photoToEdit.id, { 
                 url: data.image
             });
             refreshPhotos();
@@ -266,17 +272,13 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
         if (metadataModal) {
             try {
                 // 1. Aggiorna DB Foto
-                await updatePhotoDataInDb(metadataModal.photoId, { 
+                await updatePhotoData(metadataModal.photoId, { 
                     description: metadataModal.description,
                     locationName: metadataModal.locationName
                 });
                 
-                // 2. Sincronizza DB Città (Cross-Update via Bridge)
-                const photo = photos.find(p => p.id === metadataModal.photoId);
-                if (photo) {
-                     await syncPhotoDescriptionToCity(photo.url, metadataModal.description, metadataModal.locationName);
-                }
-
+                // SSoT: DB City Sync (Cross-Update) removed - Photo Submission is the SSoT
+                
                 setPhotos(prev => prev.map(p => p.id === metadataModal.photoId ? { ...p, description: metadataModal.description, locationName: metadataModal.locationName } : p));
                 setMetadataModal(null);
                 showToast("Metadati aggiornati e sincronizzati.", 'success');
@@ -293,6 +295,8 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
         isLoading,
         filterStatus,
         filterCity,
+        filterOrigin,
+        setFilterOrigin,
         sortKey,
         sortDir,
         cityOptions,

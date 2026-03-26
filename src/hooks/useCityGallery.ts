@@ -1,8 +1,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { PhotoSubmission, User, CityDetails, LiveSnap } from '../types/index';
+import { PhotoSubmission, User, CityDetails } from '../types/index';
 import { fetchCommunityPhotos, uploadCommunityPhoto } from '../services/photoService';
-import { addLiveSnapAsync } from '../services/communityService';
 
 export const useCityGallery = (city: CityDetails, user: User) => {
     const [photos, setPhotos] = useState<PhotoSubmission[]>([]);
@@ -53,43 +52,12 @@ export const useCityGallery = (city: CityDetails, user: User) => {
                 return isCityMatch && (isApproved || isMyPending);
             });
 
-            // B. Recupera foto Ufficiali (Dal DB city details gallery array - Solo URL)
-            const officialPhotos: PhotoSubmission[] = (city.details.gallery || []).map((url, index) => ({
-                id: `official-${city.id}-${index}`, 
-                url: url,
-                userId: 'admin',
-                user: "Ufficiale",
-                locationName: city.name,
-                description: "Foto ufficiale della città",
-                date: city.updatedAt || new Date().toISOString(),
-                status: 'approved',
-                likes: 0,
-                publishedAt: city.updatedAt,
-                cityId: city.id
-            }));
-
-            // C. DEDUPLICAZIONE "SMART"
-            const seenMap = new Set<string>();
-            const finalPhotos: PhotoSubmission[] = [];
-
-            // 1. Prima inseriamo le foto Community (le migliori)
-            communityCityPhotos.forEach(p => {
-                const key = normalizeKey(p.url);
-                if (!seenMap.has(key)) {
-                    seenMap.add(key);
-                    finalPhotos.push(p);
-                }
-            });
-
-            // 2. Poi inseriamo le foto Ufficiali SOLO se non abbiamo già visto quell'immagine
-            officialPhotos.forEach(op => {
-                const key = normalizeKey(op.url);
-                // Se l'abbiamo già vista (era tra quelle community), la ignoriamo
-                if (!seenMap.has(key)) {
-                    seenMap.add(key);
-                    finalPhotos.push(op);
-                }
-            });
+            // B. RECUPERA FOTO UFFICIALI (Spostate nel DB submissions via migrazione)
+            // Non leggiamo più direttamente da city.details.gallery per garantire integrità del sistema Like.
+            const finalPhotos = communityCityPhotos;
+            
+            // Ordina per data (più recenti prima)
+            finalPhotos.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             
             // Ordina per data (più recenti prima)
             finalPhotos.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -183,35 +151,21 @@ export const useCityGallery = (city: CityDetails, user: User) => {
                 user.id,
                 user.name,
                 city.name,
-                description || city.name
+                description || city.name,
+                city.id // PASSING CITY ID
             );
 
             if (uploadedPhoto) {
                 // Ensure cityID is set on returned object for local state
                 uploadedPhoto.cityId = city.id;
                 
-                if (shareToLive) {
-                    const newSnapId = crypto.randomUUID();
-                    await addLiveSnapAsync({
-                        id: newSnapId, 
-                        url: uploadedPhoto.url,
-                        userId: user.id,
-                        userName: user.name,
-                        cityId: city.id,
-                        caption: description || `Uno scatto da ${city.name}`,
-                        likes: 0,
-                        timestamp: new Date().toISOString(),
-                        status: 'pending'
-                    });
-                }
-
                 if (user.role !== 'guest') {
                     // XP is now handled by Supabase trigger
                 }
 
                 // Aggiungi alla lista locale (La deduplicazione al prossimo refresh pulirà eventuali conflitti)
                 setPhotos(prev => [uploadedPhoto, ...prev]);
-                return updatedUser || user; 
+                return updatedUser || user;
             } else {
                 throw new Error("Upload fallito");
             }

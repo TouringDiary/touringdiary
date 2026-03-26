@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient';
-import { PremadeItinerary, Itinerary, SuggestionRequest, Review, LiveSnap, CommunityPost } from '../types/index';
+import { PremadeItinerary, Itinerary, SuggestionRequest, Review, CommunityPost } from '../types/index';
 import { User } from '../types/users';
-import { DatabaseLiveSnap, DatabaseCommunityPost } from '../types/database';
+import { DatabaseCommunityPost } from '../types/database';
 
 // Helper Regex UUID
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -196,155 +196,91 @@ export const deleteUserDraft = async (itineraryId: string, explicitUserId?: stri
     }
 };
 
-export const getLiveSnapsAsync = async (): Promise<LiveSnap[]> => {
-    try {
-        const { data, error } = await supabase.from('live_snaps').select('*').order('created_at', { ascending: false }).limit(50);
-        if (error) throw error;
-        return (data as DatabaseLiveSnap[]).map(s => ({ 
-            id: s.id, 
-            url: s.url, 
-            userId: s.user_id, 
-            userName: s.user_name, 
-            cityId: s.city_id, 
-            caption: s.caption || undefined, 
-            timestamp: s.created_at, 
-            likes: s.likes, 
-            status: s.status as any || 'approved' 
-        }));
-    } catch (e) {
-        console.error("Errore fetch live snaps:", e);
-        return [];
-    }
-};
+/** @deprecated Table live_snaps is retired. Use photoService instead. */
+// export const getLiveSnapsAsync = ...
+// export const addLiveSnapAsync = ...
+// export const deleteLiveSnap = ...
 
-export const addLiveSnapAsync = async (snap: LiveSnap): Promise<LiveSnap | null> => {
-    try {
-        const isAdmin = snap.userId.startsWith('admin') || snap.userId.includes('admin') || snap.userId === 'u_admin_all';
-        const initialStatus = snap.status || (isAdmin ? 'approved' : 'pending');
+/** @deprecated interaction logic for live_snaps is retired. */
+// export const toggleLiveSnapLike = async (snapId: string, userId: string): Promise<{ liked: boolean, count: number }> => {
+//     if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) {
+//         return { liked: false, count: 0 };
+//     }
 
-        const payload = { 
-            id: snap.id, 
-            user_id: snap.userId, 
-            user_name: snap.userName, 
-            city_id: snap.cityId, 
-            url: snap.url, 
-            caption: snap.caption, 
-            likes: 0, 
-            status: initialStatus, 
-            created_at: new Date().toISOString() 
-        };
-        const { data, error } = await supabase.from('live_snaps').insert(payload).select().single();
-        if (error) throw error;
-        return { 
-            id: data.id, 
-            userId: data.user_id, 
-            userName: data.user_name, 
-            cityId: data.city_id, 
-            url: data.url, 
-            caption: data.caption || undefined, 
-            likes: data.likes, 
-            timestamp: data.created_at, 
-            status: data.status as any
-        };
-    } catch (e) {
-        console.error("Errore caricamento live snap:", e);
-        return null;
-    }
-};
+//     try {
+//         // check se esiste già
+//         const { data: existing } = await supabase
+//             .from('user_interactions')
+//             .select('id')
+//             .match({
+//                 user_id: userId,
+//                 target_id: snapId,
+//                 target_type: 'live_snap',
+//                 interaction_type: 'like'
+//             })
+//             .maybeSingle();
 
-export const deleteLiveSnap = async (id: string): Promise<void> => {
-    try {
-        const { error, count } = await supabase
-            .from('live_snaps')
-            .delete({ count: 'exact' })
-            .eq('id', id);
-            
-        if (error) throw error;
-    } catch (e) {
-        console.error("Errore cancellazione live snap:", e);
-        throw e;
-    }
-};
+//         let liked = false;
 
-export const toggleLiveSnapLike = async (snapId: string, userId: string): Promise<{ liked: boolean, count: number }> => {
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) {
-        return { liked: false, count: 0 };
-    }
+//         if (existing) {
+//             // unlike
+//             await supabase
+//                 .from('user_interactions')
+//                 .delete()
+//                 .match({
+//                     user_id: userId,
+//                     target_id: snapId,
+//                     target_type: 'live_snap',
+//                     interaction_type: 'like'
+//                 });
+//         } else {
+//             // like
+//             await supabase
+//                 .from('user_interactions')
+//                 .insert({
+//                     user_id: userId,
+//                     target_id: snapId,
+//                     target_type: 'live_snap',
+//                     interaction_type: 'like'
+//                 });
 
-    try {
-        // check se esiste già
-        const { data: existing } = await supabase
-            .from('user_interactions')
-            .select('id')
-            .match({
-                user_id: userId,
-                target_id: snapId,
-                target_type: 'live_snap',
-                interaction_type: 'like'
-            })
-            .maybeSingle();
+//             liked = true;
+//         }
 
-        let liked = false;
+//         // conteggio aggiornato
+//         const { count } = await supabase
+//             .from('user_interactions')
+//             .select('*', { count: 'exact', head: true })
+//             .match({
+//                 target_id: snapId,
+//                 target_type: 'live_snap',
+//                 interaction_type: 'like'
+//             });
 
-        if (existing) {
-            // unlike
-            await supabase
-                .from('user_interactions')
-                .delete()
-                .match({
-                    user_id: userId,
-                    target_id: snapId,
-                    target_type: 'live_snap',
-                    interaction_type: 'like'
-                });
-        } else {
-            // like
-            await supabase
-                .from('user_interactions')
-                .insert({
-                    user_id: userId,
-                    target_id: snapId,
-                    target_type: 'live_snap',
-                    interaction_type: 'like'
-                });
+//         return { liked, count: count || 0 };
 
-            liked = true;
-        }
+//     } catch (e) {
+//         console.error("Errore toggle like live snap:", e);
+//         return { liked: false, count: 0 };
+//     }
+// };
 
-        // conteggio aggiornato
-        const { count } = await supabase
-            .from('user_interactions')
-            .select('*', { count: 'exact', head: true })
-            .match({
-                target_id: snapId,
-                target_type: 'live_snap',
-                interaction_type: 'like'
-            });
-
-        return { liked, count: count || 0 };
-
-    } catch (e) {
-        console.error("Errore toggle like live snap:", e);
-        return { liked: false, count: 0 };
-    }
-};
-
-export const getUserLiveLikes = async (userId: string): Promise<string[]> => {
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return [];
-    try {
-        const { data } = await supabase
-            .from('user_interactions')
-            .select('target_id')
-            .match({
-                user_id: userId,
-                target_type: 'live_snap',
-                interaction_type: 'like'
-  });
-        return (data || []).map((row: any) => row.target_id);
-    } catch (e) {
-        return [];
-    }
-};
+// export const getUserLiveLikes = async (userId: string): Promise<string[]> => {
+//     if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return [];
+//     try {
+//         const { data } = await supabase
+//             .from('user_interactions')
+//             .select('target_id')
+//             .match({
+//                 user_id: userId,
+//                 target_type: 'live_snap',
+//                 interaction_type: 'like'
+//   });
+//         return (data || []).map((row: any) => row.target_id);
+//     } catch (e) {
+//         return [];
+//     }
+// };
 
 export const getCommunityPostsAsync = async (): Promise<CommunityPost[]> => {
     try {

@@ -3,10 +3,12 @@ import React from 'react';
 import { Camera, Upload, Loader2, ArrowUpDown } from 'lucide-react';
 
 interface PhotoFiltersProps {
-    filterStatus: 'pending' | 'approved' | 'rejected' | 'city_deleted';
-    setFilterStatus: (status: 'pending' | 'approved' | 'rejected' | 'city_deleted') => void;
+    filterStatus: 'pending' | 'approved' | 'rejected' | 'city_deleted' | 'all';
+    setFilterStatus: (status: 'pending' | 'approved' | 'rejected' | 'city_deleted' | 'all') => void;
     filterCity: string;
     setFilterCity: (city: string) => void;
+    filterOrigin: 'all' | 'community' | 'city';
+    setFilterOrigin: (origin: 'all' | 'community' | 'city') => void;
     cityOptions: { id: string, name: string }[];
     sortDir: 'asc' | 'desc';
     setSortDir: (dir: 'asc' | 'desc') => void;
@@ -22,6 +24,7 @@ interface PhotoFiltersProps {
 export const PhotoFilters = ({
     filterStatus, setFilterStatus,
     filterCity, setFilterCity,
+    filterOrigin, setFilterOrigin,
     cityOptions,
     sortDir, setSortDir,
     onUploadClick, fileInputRef, isUploading, uploadStep, onFileChange
@@ -43,7 +46,8 @@ export const PhotoFilters = ({
                         { id: 'pending', label: 'DA RIVEDERE', color: 'text-amber-500' },
                         { id: 'approved', label: 'OK', color: 'text-emerald-500' },
                         { id: 'rejected', label: 'KO', color: 'text-red-500' },
-                        { id: 'city_deleted', label: 'CITTÀ CANCELLATA', color: 'text-slate-400' }
+                        { id: 'all', label: 'CITTÀ / COMMUNITY', color: 'text-indigo-400' },
+                        { id: 'city_deleted', label: 'ORFANE', color: 'text-slate-400' }
                     ].map((s) => (
                         <button key={s.id} onClick={() => setFilterStatus(s.id as any)} className={`px-4 py-1.5 rounded text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterStatus === s.id ? 'bg-slate-800 text-white shadow-xl ring-1 ring-white/10' : 'text-slate-500 hover:text-slate-300'}`}>
                             {s.label}
@@ -53,6 +57,12 @@ export const PhotoFilters = ({
             </div>
 
             <div className="flex gap-2 items-center flex-1 justify-end">
+                 <select value={filterOrigin} onChange={e => setFilterOrigin(e.target.value as any)} className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none w-full md:w-32">
+                    <option value="all">Origine: Tutte</option>
+                    <option value="community">Community</option>
+                    <option value="city">Città</option>
+                </select>
+
                  <select value={filterCity} onChange={e => setFilterCity(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none w-full md:w-48">
                     <option value="">Tutte le Città</option>
                     {cityOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}

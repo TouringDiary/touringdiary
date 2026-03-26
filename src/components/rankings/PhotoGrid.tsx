@@ -21,12 +21,12 @@ const PhotoGridItem: React.FC<{
     const handleLikeClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!isGuest) {
-            togglePhotoHeart(photo.id);
+            togglePhotoHeart(photo.submissionId);
         }
     };
 
     return (
-        <div onClick={() => onClick(photo.url)} className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer border border-slate-800 hover:border-indigo-500 transition-all shadow-lg">
+        <div onClick={() => onClick(photo)} className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer border border-slate-800 hover:border-indigo-500 transition-all shadow-lg">
             <ImageWithFallback src={photo.url} alt={photo.description || 'Foto'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
             <div className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full text-white font-black text-xs border border-white/10 z-10">
                 #{rank}
@@ -44,11 +44,10 @@ const PhotoGridItem: React.FC<{
                     <span className="text-xs font-bold truncate pr-2">{photo.user}</span>
                     <button
                         onClick={handleLikeClick}
-                        className={`flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded transition-colors ${
-                            status.isLiked
-                                ? 'text-rose-400 bg-rose-900/20'
-                                : 'text-slate-300 bg-black/20 hover:bg-black/40'
-                        } ${status.isLoading ? 'animate-pulse' : ''}`}
+                        className={`flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded transition-colors ${status.isLiked
+                            ? 'text-rose-400 bg-rose-900/20'
+                            : 'text-slate-300 bg-black/20 hover:bg-black/40'
+                            } ${status.isLoading ? 'animate-pulse' : ''}`}
                         disabled={status.isLoading || isGuest}
                     >
                         <Heart className={`w-3 h-3 ${status.isLiked ? 'fill-current' : ''}`} />
