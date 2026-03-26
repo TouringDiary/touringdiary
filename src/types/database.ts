@@ -49,7 +49,6 @@ export type DatabaseCityPerson = Domain.DbCityPerson;
 
 // 7. COMMUNITY
 export type DatabasePhotoSubmission = Domain.DbPhotoSubmission;
-export type DatabaseLiveSnap = Domain.DbLiveSnap;
 export type DatabaseCommunityPost = Domain.DbCommunityPost;
 
 // Helper Type per Join (Query composte specifiche)

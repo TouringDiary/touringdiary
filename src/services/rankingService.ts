@@ -6,7 +6,7 @@ import { mapDbPoiToApp } from './city/poiService';
 import { GEO_CONFIG } from '../constants/geoConfig';
 
 // Helper per costruire la stringa gerarchica elegante
-const buildHierarchy = (c: { continent?: string|null, nation?: string|null, admin_region?: string|null, zone?: string, name?: string }) => {
+const buildHierarchy = (c: { continent?: string | null, nation?: string | null, admin_region?: string | null, zone?: string, name?: string }) => {
     const parts = [
         c.continent || GEO_CONFIG.DEFAULT_CONTINENT,
         c.nation || GEO_CONFIG.DEFAULT_NATION,
@@ -72,7 +72,7 @@ export const getRankedCities = async ({ sortType, page, pageSize, search = '', z
         const totalCount = data && data.length > 0 ? Number(data[0].total_count) : 0;
 
         return { data: cities, totalCount };
-        
+
     } catch (e) {
         console.error("Error fetching ranked cities (RPC):", e);
         return { data: [], totalCount: 0 };
@@ -87,6 +87,7 @@ export const getTopCommunityPhotos = async (limit: number = 50): Promise<(PhotoS
             .from('photo_submissions')
             .select(`
                 *,
+                photo_likes!left(user_id),
                 cities (
                     name,
                     zone,
@@ -96,19 +97,24 @@ export const getTopCommunityPhotos = async (limit: number = 50): Promise<(PhotoS
                 )
             `)
             .eq('status', 'approved')
-            .order('likes', { ascending: false }) 
+            .order('likes', { ascending: false })
             .limit(limit);
 
         if (error) throw error;
 
+        const userId = (await supabase.auth.getUser()).data.user?.id;
+
         return (data as any[]).map((p, idx) => {
             const city = p.cities;
-            const hierarchy = city 
-                ? buildHierarchy(city) 
+
+            const hierarchy = city
+                ? buildHierarchy(city)
                 : `${GEO_CONFIG.DEFAULT_REGION} • ${p.location_name}`;
 
             return {
                 id: p.id,
+                submissionId: p.id ?? null,
+
                 userId: p.user_id,
                 user: p.user_name,
                 locationName: p.location_name,
@@ -118,12 +124,18 @@ export const getTopCommunityPhotos = async (limit: number = 50): Promise<(PhotoS
                 date: p.created_at,
                 likes: p.likes,
                 updatedAt: p.updated_at,
+
+                // ✅ FIX DEFINITIVO
+                likedByUser: Boolean(
+                    p.photo_likes?.some((l: any) => l.user_id === userId)
+                ),
+
                 hierarchy: hierarchy,
                 originalRank: idx + 1
             };
         });
+
     } catch (e) {
-        console.error("Error fetching top photos:", e);
         return [];
     }
 };
@@ -145,7 +157,7 @@ export const getTopCommunityPois = async (limit: number = 50, category?: string)
                 )
             `)
             .eq('status', 'published')
-            .order('votes', { ascending: false }) 
+            .order('votes', { ascending: false })
             .limit(limit);
 
         if (category && category !== 'all') {
@@ -157,8 +169,8 @@ export const getTopCommunityPois = async (limit: number = 50, category?: string)
 
         return (data as any[]).map((db, idx) => {
             const poi = mapDbPoiToApp(db);
-            const city = db.cities; 
-            
+            const city = db.cities;
+
             return {
                 ...poi,
                 originalRank: idx + 1,
@@ -168,5 +180,16 @@ export const getTopCommunityPois = async (limit: number = 50, category?: string)
     } catch (e) {
         console.error("Error fetching top POIs:", e);
         return [];
+    }
+};
+
+// --- RANKING SCORE UPDATE (Fire and Forget) ---
+export const updatePhotoScore = async (photoId: string, isLiked: boolean): Promise<void> => {
+    try {
+        // Segnaposto per algortimo futuro avanzato (es: +x punti per like)
+        console.log(`[RankingService] Predisposto aggiornamento per photo ${photoId}. Like state: ${isLiked}`);
+        // In futuro: await supabase.rpc('update_photo_ranking_score', { p_photo_id: photoId, p_like: isLiked });
+    } catch (e) {
+        console.error("Errore aggiornamento score foto (RankingService):", e);
     }
 };

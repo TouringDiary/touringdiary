@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Save, X, RotateCw, ZoomIn, Sun, Droplets, Contrast, Wand2, Check, Eye } from 'lucide-react';
 import { dataURLtoFile } from '../../utils/common';
 
@@ -12,7 +13,7 @@ interface UserPhotoEditorProps {
 export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [image, setImage] = useState<HTMLImageElement | null>(null);
-    
+
     // Edit State
     const [scale, setScale] = useState(1);
     const [rotation, setRotation] = useState(0);
@@ -52,19 +53,19 @@ export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps
 
         ctx.clearRect(0, 0, cw, ch);
         ctx.save();
-        
+
         // Center pivot
         ctx.translate(cw / 2, ch / 2);
         ctx.rotate((rotation * Math.PI) / 180);
         ctx.scale(scale, scale);
-        ctx.translate(pos.x, pos.y); 
-        
+        ctx.translate(pos.x, pos.y);
+
         // Filters
         ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
-        
+
         // Draw centered
         ctx.drawImage(image, -image.width / 2, -image.height / 2);
-        
+
         ctx.restore();
     };
 
@@ -80,9 +81,9 @@ export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!isDragging) return;
-        const dx = (e.clientX - dragStart.x) / scale; 
+        const dx = (e.clientX - dragStart.x) / scale;
         const dy = (e.clientY - dragStart.y) / scale;
-        
+
         setPos(prev => ({ x: prev.x + dx, y: prev.y + dy }));
         setDragStart({ x: e.clientX, y: e.clientY });
     };
@@ -92,10 +93,21 @@ export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps
     };
 
     const handleSave = () => {
-        if (!canvasRef.current) return;
+        console.log("EDITOR SAVE CLICKED");
+
+        if (!canvasRef.current) {
+            console.log("canvasRef missing");
+            return;
+        }
+
         const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.9);
+        console.log("dataUrl created");
+
         const editedFile = dataURLtoFile(dataUrl, `edited_${file.name}`);
+        console.log("editedFile created");
+
         onSave(editedFile, dataUrl);
+        console.log("onSave called");
     };
 
     const applyMagicFix = () => {
@@ -104,21 +116,32 @@ export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps
         setSaturation(120);
     };
 
-    return (
-        <div className="fixed inset-0 z-[3000] bg-slate-950 flex flex-col animate-in fade-in">
-            {/* HEADER */}
-            <div className="flex justify-between items-center p-3 border-b border-slate-800 bg-[#020617] shrink-0">
-                <button onClick={onCancel} className="p-2 text-slate-400 hover:text-white"><X className="w-6 h-6"/></button>
+    return typeof document !== 'undefined'
+        ? createPortal(
+            <div className="fixed top-header-mob md:top-header inset-x-0 bottom-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
+                <div className="w-full max-w-5xl h-[85vh] bg-slate-950 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+                    {/* HEADER */}
+                <div className="flex justify-between items-center p-3 border-b border-slate-800 bg-[#020617] shrink-0">
+                    <button onClick={onCancel} className="p-2 text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
                 <h3 className="text-white font-bold uppercase tracking-widest text-xs md:text-sm">Modifica Scatto</h3>
-                <button onClick={handleSave} className="text-emerald-500 font-bold uppercase text-xs flex items-center gap-1 bg-emerald-900/20 px-4 py-2 rounded-full border border-emerald-500/50">
-                    <Check className="w-4 h-4"/> Fatto
-                </button>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setShowPreviewMode(!showPreviewMode)} className={`p-2 rounded-full transition-all ${showPreviewMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`} title="Anteprima Feed">
+                        <Eye className="w-5 h-5" />
+                    </button>
+                    <button onClick={applyMagicFix} className="p-2 text-amber-500 hover:text-amber-400 transition-colors" title="Magic Fix">
+                        <Wand2 className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => { console.log("FATTO CLICK"); handleSave(); }}
+                        className="ml-2 text-emerald-500 font-bold uppercase text-xs flex items-center gap-1 bg-emerald-900/20 px-4 py-2 rounded-full border border-emerald-500/50">
+                        <Check className="w-4 h-4" /> Fatto
+                    </button>
+                </div>
             </div>
 
             {/* CANVAS AREA - FLEXIBLE & CONTAINED */}
             <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-4">
                 <div className={`relative ${showPreviewMode ? 'scale-90 shadow-2xl border-4 border-white/10 rounded-xl overflow-hidden' : ''} transition-all duration-300 max-h-full`}>
-                    <canvas 
+                    <canvas
                         ref={canvasRef}
                         width={500} // Reduced base width
                         height={625} // Reduced base height (4:5 ratio preserved)
@@ -129,7 +152,7 @@ export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
                     />
-                    
+
                     {/* FEED CARD MOCKUP OVERLAY */}
                     {showPreviewMode && (
                         <div className="absolute inset-0 pointer-events-none border border-slate-800 rounded-xl z-20">
@@ -141,43 +164,36 @@ export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps
                         </div>
                     )}
                 </div>
-                
-                <div className="absolute top-4 right-4 flex flex-col gap-2">
-                     <button onClick={() => setShowPreviewMode(!showPreviewMode)} className={`p-3 rounded-full shadow-lg border transition-all ${showPreviewMode ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`} title="Anteprima Feed">
-                        <Eye className="w-5 h-5"/>
-                    </button>
-                    <button onClick={applyMagicFix} className="p-3 bg-slate-800 border-slate-700 text-amber-500 rounded-full shadow-lg hover:text-white border hover:border-amber-500 transition-colors" title="Magic Fix">
-                        <Wand2 className="w-5 h-5"/>
-                    </button>
-                </div>
             </div>
 
             {/* TOOLS PANEL - COMPACT */}
-            <div className="bg-[#0f172a] border-t border-slate-800 p-4 pb-safe shrink-0">
+            <div className="bg-[#0f172a] border-t border-slate-800 p-4 pb-10 md:pb-6 shrink-0 mt-auto">
                 <div className="grid grid-cols-4 gap-4 mb-3">
-                     <div className="flex flex-col items-center gap-1">
-                        <ZoomIn className="w-4 h-4 text-slate-400"/>
-                        <input type="range" min="0.5" max="3" step="0.1" value={scale} onChange={e => setScale(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"/>
+                    <div className="flex flex-col items-center gap-1">
+                        <ZoomIn className="w-4 h-4 text-slate-400" />
+                        <input type="range" min="0.5" max="3" step="0.1" value={scale} onChange={e => setScale(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
                     </div>
                     <div className="flex flex-col items-center gap-1">
-                        <Sun className="w-4 h-4 text-slate-400"/>
-                        <input type="range" min="50" max="150" value={brightness} onChange={e => setBrightness(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500"/>
+                        <Sun className="w-4 h-4 text-slate-400" />
+                        <input type="range" min="50" max="150" value={brightness} onChange={e => setBrightness(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                     </div>
                     <div className="flex flex-col items-center gap-1">
-                        <Contrast className="w-4 h-4 text-slate-400"/>
-                        <input type="range" min="50" max="150" value={contrast} onChange={e => setContrast(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-slate-400"/>
+                        <Contrast className="w-4 h-4 text-slate-400" />
+                        <input type="range" min="50" max="150" value={contrast} onChange={e => setContrast(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-slate-400" />
                     </div>
-                     <div className="flex flex-col items-center gap-1">
-                        <Droplets className="w-4 h-4 text-slate-400"/>
-                        <input type="range" min="0" max="200" value={saturation} onChange={e => setSaturation(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/>
+                    <div className="flex flex-col items-center gap-1">
+                        <Droplets className="w-4 h-4 text-slate-400" />
+                        <input type="range" min="0" max="200" value={saturation} onChange={e => setSaturation(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
                     </div>
                 </div>
-                
+
                 <div className="flex justify-center gap-4">
-                    <button onClick={() => setRotation(r => r - 90)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><RotateCw className="w-5 h-5 -scale-x-100"/></button>
-                    <button onClick={() => setRotation(r => r + 90)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><RotateCw className="w-5 h-5"/></button>
+                    <button onClick={() => setRotation(r => r - 90)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><RotateCw className="w-5 h-5 -scale-x-100" /></button>
+                    <button onClick={() => setRotation(r => r + 90)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><RotateCw className="w-5 h-5" /></button>
                 </div>
             </div>
-        </div>
-    );
+            </div>
+        </div>,
+        document.body
+    ) : null;
 };

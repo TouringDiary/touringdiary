@@ -24,17 +24,6 @@ export interface NewsTickerItem {
     order?: number; // ADDED
 }
 
-export interface LiveSnap {
-    id: string;
-    url: string;
-    userId: string;
-    userName: string;
-    cityId: string;
-    timestamp: string;
-    likes: number;
-    caption?: string;
-    status?: 'pending' | 'approved' | 'rejected'; // NEW: Status Moderazione
-}
 
 export interface CommunityReply {
     id: string;

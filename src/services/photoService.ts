@@ -3,8 +3,6 @@ import { PhotoSubmission } from '../types/index';
 import { DatabasePhotoSubmission } from '../types/database';
 
 // FIX: Import diretti per evitare cicli
-import { getFullManifestAsync, getCityDetails } from './city/cityReadService';
-import { saveCityDetails } from './city/cityWriteService';
 
 import { dataURLtoFile } from '../utils/common';
 
@@ -116,67 +114,6 @@ export const uploadBase64PublicMedia = async (
 
 
 // --------------------------------------------------
-// HERO IMAGE CREDIT SYNC
-// --------------------------------------------------
-
-const syncPhotoDescriptionToCity = async (
-    photoUrl: string,
-    newDescription: string,
-    locationName: string
-) => {
-
-    try {
-
-        const manifest =
-            await getFullManifestAsync();
-
-        const citySummary = manifest.find(
-            c =>
-                locationName
-                    .toLowerCase()
-                    .trim()
-                    .includes(
-                        c.name.toLowerCase().trim()
-                    ) ||
-                c.name
-                    .toLowerCase()
-                    .trim()
-                    .includes(
-                        locationName
-                            .toLowerCase()
-                            .trim()
-                    )
-        );
-
-        if (!citySummary) return;
-
-        const city =
-            await getCityDetails(citySummary.id);
-
-        if (!city) return;
-
-        let changed = false;
-
-        if (
-            city.details.heroImage === photoUrl ||
-            city.imageUrl === photoUrl
-        ) {
-
-            city.imageCredit = newDescription;
-
-            changed = true;
-        }
-
-        if (changed) {
-
-            await saveCityDetails(city);
-        }
-
-    } catch {}
-};
-
-
-// --------------------------------------------------
 // PROPAGATE PHOTO REMOVAL
 // --------------------------------------------------
 
@@ -185,109 +122,10 @@ export const propagatePhotoRemoval = async (
     locationName: string,
     description?: string
 ): Promise<boolean> => {
-
-    try {
-
-        const manifest =
-            await getFullManifestAsync();
-
-        let targetCities = manifest;
-
-        if (locationName) {
-
-            const matched =
-                manifest.filter(c =>
-                    c.name
-                        .toLowerCase()
-                        .includes(
-                            locationName
-                                .toLowerCase()
-                                .trim()
-                        ) ||
-                    locationName
-                        .toLowerCase()
-                        .trim()
-                        .includes(
-                            c.name
-                                .toLowerCase()
-                                .trim()
-                        )
-                );
-
-            if (matched.length > 0) {
-
-                targetCities = matched;
-            }
-        }
-        let globalChanged = false;
-
-        const isHeroContext =
-            description?.includes('[HERO]');
-
-        for (const summary of targetCities) {
-
-            const city =
-                await getCityDetails(summary.id);
-
-            if (!city) continue;
-
-            let changed = false;
-
-            if (
-                isHeroContext ||
-                city.details.heroImage === photoUrl ||
-                city.imageUrl === photoUrl
-            ) {
-
-                city.details.heroImage =
-                    'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1000';
-
-                city.imageUrl =
-                    city.details.heroImage;
-
-                city.imageCredit = '';
-
-                changed = true;
-            }
-
-            if (
-                city.details.patronDetails
-                    ?.imageUrl === photoUrl
-            ) {
-
-                city.details.patronDetails.imageUrl =
-                    '';
-
-                changed = true;
-            }
-
-            if (
-                city.details.gallery &&
-                city.details.gallery.includes(photoUrl)
-            ) {
-
-                city.details.gallery =
-                    city.details.gallery.filter(
-                        url => url !== photoUrl
-                    );
-
-                changed = true;
-            }
-
-            if (changed) {
-
-                await saveCityDetails(city);
-
-                globalChanged = true;
-            }
-        }
-
-        return globalChanged;
-
-    } catch {
-
-        return false;
-    }
+    // SSoT: This function is now a no-op for city metadata sync as photo_submissions is the SSoT.
+    // In a future phase, this could handle storage cleanup (deleting the file from the bucket).
+    console.log(`[SSoT] Skipping legacy sync for ${photoUrl} from ${locationName}`);
+    return true;
 };
 
 
@@ -337,10 +175,28 @@ export const uploadCommunityPhoto =
         userId: string,
         userName: string,
         locationName: string,
-        description: string
+        description: string,
+        cityId?: string,
+        forceStatus?: 'pending' | 'approved' | 'rejected'
     ): Promise<PhotoSubmission | null> => {
 
         try {
+            // 1. Resolve cityId if not provided (Lookup DB by name)
+            let resolvedCityId = cityId;
+            if (!resolvedCityId && locationName) {
+                const { data: cityData } = await supabase
+                    .from('cities')
+                    .select('id')
+                    .ilike('name', locationName.trim())
+                    .maybeSingle();
+
+                if (cityData) resolvedCityId = cityData.id;
+            }
+
+            // CRITICAL: city_id must be mandatory for SSoT
+            if (!resolvedCityId) {
+                throw new Error("City not found for upload. Photos must be linked to a valid city.");
+            }
 
             const safeName =
                 file.name.replace(
@@ -375,21 +231,20 @@ export const uploadCommunityPhoto =
                 userId === 'u_admin_limited';
 
             const initialStatus =
-                isAdmin
-                    ? 'approved'
-                    : 'pending';
+                forceStatus || (isAdmin ? 'approved' : 'pending');
 
             const newRecord:
                 Partial<DatabasePhotoSubmission> =
-                {
-                    user_id: userId,
-                    user_name: userName,
-                    location_name: locationName,
-                    description,
-                    image_url: publicUrl,
-                    status: initialStatus,
-                    likes: 0
-                };
+            {
+                user_id: userId,
+                user_name: userName,
+                location_name: locationName,
+                description,
+                image_url: publicUrl,
+                status: initialStatus,
+                likes: 0,
+                city_id: resolvedCityId // ADDED
+            };
 
             const {
                 data,
@@ -417,12 +272,13 @@ export const uploadCommunityPhoto =
                 url: dbPhoto.image_url,
                 status:
                     dbPhoto.status as
-                        | 'pending'
-                        | 'approved'
-                        | 'rejected'
-                        | 'city_deleted',
+                    | 'pending'
+                    | 'approved'
+                    | 'rejected'
+                    | 'city_deleted',
                 date: dbPhoto.created_at,
-                likes: dbPhoto.likes
+                likes: dbPhoto.likes,
+                cityId: dbPhoto.city_id || undefined // ADDED MAPPING
             };
 
         } catch {
@@ -446,7 +302,7 @@ export const fetchCommunityPhotos =
             const { data, error } =
                 await supabase
                     .from('photo_submissions')
-                    .select('*')
+                    .select('*, photo_likes(photo_id)')
                     .order(
                         'created_at',
                         {
@@ -474,7 +330,10 @@ export const fetchCommunityPhotos =
                         p.updated_at ||
                         p.created_at,
                     publishedAt:
-                        p.published_at
+                        p.published_at,
+                    likedByUser:
+                        p.photo_likes &&
+                        p.photo_likes.length > 0
                 })
             );
 
@@ -518,6 +377,44 @@ export const updatePhotoStatusInDb =
 
 
 // --------------------------------------------------
+// UPDATE PHOTO DATA
+// --------------------------------------------------
+
+export const updatePhotoData =
+    async (
+        id: string,
+        data: Partial<PhotoSubmission>
+    ): Promise<void> => {
+
+        const payload: any = {
+            updated_at:
+                new Date().toISOString()
+        };
+
+        if (data.locationName)
+            payload.location_name =
+                data.locationName;
+
+        if (data.user)
+            payload.user_name =
+                data.user;
+
+        if (data.description)
+            payload.description =
+                data.description;
+
+        if (data.url)
+            payload.image_url =
+                data.url;
+
+        await supabase
+            .from('photo_submissions')
+            .update(payload)
+            .eq('id', id);
+    };
+
+
+// --------------------------------------------------
 // DELETE PHOTO SUBMISSION
 // --------------------------------------------------
 
@@ -537,7 +434,7 @@ export const deletePhotoSubmissionInDb =
 // TOGGLE PHOTO LIKE (FIX DEFINITIVO)
 // --------------------------------------------------
 
-export const togglePhotoLikeInDb =
+export const togglePhotoLikeRPC =
     async (
         photoId: string
     ): Promise<{
@@ -545,109 +442,34 @@ export const togglePhotoLikeInDb =
         count: number;
     }> => {
 
-        try {
-
-            if (
-                !photoId ||
-                !UUID_REGEX.test(photoId)
-            ) {
-
-                return {
-                    liked: false,
-                    count: 0
-                };
-            }
-
-            const {
-                data: { user }
-            } =
-                await supabase.auth.getUser();
-
-            if (!user)
-                throw new Error(
-                    'User not authenticated'
-                );
-
-            const userId = user.id;
-
-            const {
-                data: existingRows,
-                error: selectError
-            } = await supabase
-                .from('photo_likes')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('photo_id', photoId);
-
-            if (selectError) throw selectError;
-
-            const alreadyLiked =
-                Array.isArray(existingRows) &&
-                existingRows.length > 0;
-
-            if (alreadyLiked) {
-
-                await supabase
-                    .from('photo_likes')
-                    .delete()
-                    .eq(
-                        'user_id',
-                        userId
-                    )
-                    .eq(
-                        'photo_id',
-                        photoId
-                    );
-
-            } else {
-
-                await supabase
-                    .from('photo_likes')
-                    .insert({
-                        user_id: userId,
-                        photo_id: photoId
-                    });
-            }
-
-            const { count } =
-                await supabase
-                    .from('photo_likes')
-                    .select('*', {
-                        count: 'exact',
-                        head: true
-                    })
-                    .eq(
-                        'photo_id',
-                        photoId
-                    );
-
-            const realCount =
-                count || 0;
-
-            await supabase
-                .from('photo_submissions')
-                .update({
-                    likes: realCount
-                })
-                .eq('id', photoId);
-
-            return {
-                liked:
-                    !alreadyLiked,
-                count: realCount
-            };
-
-        } catch (e) {
-
-            console.error(
-                'Error toggling photo like:',
-                e
-            );
-
+        if (
+            !photoId ||
+            !UUID_REGEX.test(photoId)
+        ) {
             return {
                 liked: false,
                 count: 0
             };
+        }
+
+        try {
+            const { data, error } = await supabase.rpc('toggle_photo_like', {
+                p_photo_id: photoId
+            });
+
+            if (error) throw error;
+
+            return {
+                liked: data.is_liked,
+                count: data.likes_count
+            };
+
+        } catch (e) {
+            console.error(
+                'Critical: Error toggling photo like via RPC:',
+                e
+            );
+            throw e;
         }
     };
 

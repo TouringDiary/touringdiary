@@ -7,6 +7,7 @@ export const SETTINGS_KEYS = {
   AI_ENABLED: 'ai_enabled',
   PROMPT_CITY_AUDIT: 'prompt_city_audit',
   PROMPT_PEOPLE_SUGGEST: 'prompt_people_suggest',
+  AI_TYPING_SUGGESTIONS: 'ai_typing_suggestions',
 
   // Marketing & Pricing
   MARKETING_PRICES_V2: 'marketing_prices_v2',
@@ -35,6 +36,9 @@ export const SETTINGS_KEYS = {
   SERVICES_TYPE_MAPPING: 'services_type_mapping',
   GEO_OPTIONS: 'geo_options',
   PARTNER_INTEGRATIONS: 'partner_integrations',
+
+  // Onboarding & UX Flow
+  ONBOARDING_CONFIG: 'onboarding_config',
 };
 
 // --- CACHE IN MEMORIA ---
