@@ -24,8 +24,15 @@ export const ModalProvider = ({ children }: { children?: ReactNode }) => {
         setModalProps({});
     }, []);
 
+    const value = React.useMemo(() => ({
+        activeModal,
+        modalProps,
+        openModal,
+        closeModal
+    }), [activeModal, modalProps, openModal, closeModal]);
+
     return (
-        <ModalContext.Provider value={{ activeModal, modalProps, openModal, closeModal }}>
+        <ModalContext.Provider value={value}>
             {children}
         </ModalContext.Provider>
     );

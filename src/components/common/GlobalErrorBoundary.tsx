@@ -123,7 +123,7 @@ class GlobalErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
       const errorMsg = String(this.state.error);
 
       return (
-        <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans z-[9999] relative">
+        <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans z-floating-panel relative">
           <div className="max-w-md w-full bg-slate-900 border border-red-900/50 p-8 rounded-3xl text-center shadow-2xl flex flex-col items-center">
             <div className="w-20 h-20 bg-red-900/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
                <AlertTriangle className="w-10 h-10 text-red-500" />

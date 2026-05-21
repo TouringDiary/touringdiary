@@ -44,7 +44,7 @@ export const ItinerariesList = ({ user, itineraries, onSelect, selectedId, onUpd
                         <div className="h-32 relative overflow-hidden">
                             <ImageWithFallback src={itinerary.coverImage} alt={itinerary.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
-                            <div className="absolute top-2 left-2 z-20">
+                            <div className="absolute top-2 left-2 z-dropdown">
                                 <span className={`text-[9px] font-black text-white px-2 py-0.5 rounded backdrop-blur-sm border uppercase tracking-wide flex items-center gap-1 ${itinerary.type === 'official' ? 'bg-amber-600/90 border-amber-500' : itinerary.type === 'community' ? 'bg-blue-600/90 border-blue-500' : 'bg-purple-600/90 border-purple-500'}`}>
                                     {itinerary.type === 'official' && <Award className="w-2.5 h-2.5"/>}
                                     {itinerary.type === 'community' && <User className="w-2.5 h-2.5"/>}
@@ -52,7 +52,7 @@ export const ItinerariesList = ({ user, itineraries, onSelect, selectedId, onUpd
                                     {itinerary.type === 'official' ? 'TOURING DIARY' : itinerary.type === 'community' ? 'COMMUNITY' : 'SMART TRENDS'}
                                 </span>
                             </div>
-                            <div className="absolute top-2 right-2 z-20">
+                            <div className="absolute top-2 right-2 z-dropdown">
                                 <button onClick={(e) => handleLike(e, itinerary.id)} className="p-1.5 bg-black/40 backdrop-blur rounded-full text-white hover:bg-black/60 transition-colors group/heart">
                                     <Heart className={`w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : 'text-white group-hover/heart:text-rose-400'}`}/>
                                 </button>

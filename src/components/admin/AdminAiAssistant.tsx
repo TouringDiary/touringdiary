@@ -1,7 +1,8 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, X, Send, Bot } from 'lucide-react';
-import { getAiClient } from '../../services/ai/aiClient';
+
 
 interface Props {
     section: string;
@@ -43,15 +44,15 @@ export const AdminPageAiAssistant = ({ section }: Props) => {
         setLoading(true);
 
         try {
-            const ai = getAiClient();
+            
             const prompt = `Sei un assistente senior amministrativo per l'app "Touring Diary". 
             L'utente si trova nella sezione admin: "${section}".
             Aiutalo a gestire i dati, capire le metriche o risolvere problemi in modo professionale.
             
             Domanda Utente: ${userMsg}`;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-3.1-pro-preview', 
+            const response = await aiGateway.generateLegacy({
+                model: 'gemini-2.0-pro', 
                 contents: prompt,
             });
 
@@ -80,7 +81,7 @@ export const AdminPageAiAssistant = ({ section }: Props) => {
             </button>
 
             {isOpen && (
-                <div className="absolute top-14 left-0 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-80 md:w-96 h-[400px] flex flex-col overflow-hidden animate-in zoom-in-95 origin-top-left">
+                <div className="absolute top-14 left-0 z-admin-modal bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-80 md:w-96 h-[400px] flex flex-col overflow-hidden animate-in zoom-in-95 origin-top-left">
                     <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-3 flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-2 text-white">
                             <Bot className="w-5 h-5"/>

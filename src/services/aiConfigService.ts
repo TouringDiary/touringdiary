@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { DatabaseAiConfig } from '../types/database';
+import { DatabaseAiConfig, DatabaseAiConfigInsert } from '../types/database';
 
 // Cache in memoria per evitare troppe chiamate al DB durante il loop
 const promptCache: Record<string, string> = {};
@@ -83,7 +83,7 @@ export const getAiConfig = async (key: string): Promise<{ prompts: string[], sel
 
 export const saveAiConfig = async (key: string, prompts: string[], selected: string[], presets?: AiPreset[]): Promise<void> => {
     try {
-        const payload: any = {
+        const payload: DatabaseAiConfigInsert = {
             key,
             prompts,
             selected,
@@ -91,7 +91,7 @@ export const saveAiConfig = async (key: string, prompts: string[], selected: str
         };
 
         if (presets) {
-            payload.presets = presets;
+            payload.presets = presets.map(p => ({ ...p }));
         }
 
         const { error } = await supabase

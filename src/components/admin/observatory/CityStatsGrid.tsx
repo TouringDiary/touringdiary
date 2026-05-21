@@ -208,7 +208,7 @@ export const CityStatsGrid = ({
             {/* TABLE */}
             <div className="flex-1 overflow-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse min-w-[3500px]">
-                    <thead className="bg-[#0f172a] sticky top-0 z-10 shadow-sm border-b border-slate-800">
+                    <thead className="bg-[#0f172a] sticky top-0 z-floating-panel shadow-sm border-b border-slate-800">
                         <tr className="text-[9px] font-black uppercase tracking-widest text-slate-500">
                             {/* GEO */}
                             <Th label="Continente" k="continent" w="w-32"/>

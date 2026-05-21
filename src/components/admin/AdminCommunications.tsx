@@ -1,16 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { Megaphone, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Megaphone, CheckCircle, AlertTriangle } from 'lucide-react';
 import { getCommunicationLogsAsync, getSystemMessagesAsync, saveSystemMessageAsync, deleteSystemMessageAsync, AdminMessageLog, SystemMessageTemplate } from '../../services/communicationService';
 import { CommsComposer } from './communications/CommsComposer';
 import { CommsHistory } from './communications/CommsHistory';
 import { CommsTemplates } from './communications/CommsTemplates';
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-    <div className={`fixed top-6 right-6 z-[2000] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
+    <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
         {type === 'success' ? <CheckCircle className="w-6 h-6 shrink-0"/> : <AlertTriangle className="w-6 h-6 shrink-0"/>}
         <div className="font-bold text-sm">{message}</div>
-        <button onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full"><X className="w-4 h-4"/></button>
+        <CloseButton onClose={onClose} variant="primary" />
+
     </div>
 );
 
@@ -28,6 +30,7 @@ export const AdminCommunications = () => {
     }, []);
 
     const refreshData = async () => {
+        console.log("[SystemMessages] called from: AdminCommunications.tsx");
         const [l, t] = await Promise.all([getCommunicationLogsAsync(), getSystemMessagesAsync()]);
         setLogs(l);
         setTemplates(t);

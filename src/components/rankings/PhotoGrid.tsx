@@ -28,7 +28,7 @@ const PhotoGridItem: React.FC<{
     return (
         <div onClick={() => onClick(photo)} className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer border border-slate-800 hover:border-indigo-500 transition-all shadow-lg">
             <ImageWithFallback src={photo.url} alt={photo.description || 'Foto'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-            <div className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full text-white font-black text-xs border border-white/10 z-10">
+            <div className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full text-white font-black text-xs border border-white/10 z-floating-panel">
                 #{rank}
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-90 transition-opacity"></div>

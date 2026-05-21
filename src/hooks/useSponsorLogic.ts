@@ -2,16 +2,18 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as sponsorService from '../services/sponsorService';
 import { usePersistedState } from './usePersistedState';
-import { SortConfig } from '../types/core';
-import { SponsorRequest, SponsorStats, SponsorManifest } from '../types/sponsors';
-import { GeoFilters, GeoOptions } from '../types/geo';
+import { SponsorRequest, SponsorStats, GeoFilters, GeoOptions, SortConfig } from '../types/models/Sponsor';
+import { SponsorLifecycleStatus } from '../types/shared/SponsorStatus';
+import { CitySummary } from '../types/index';
 import * as geoService from '../services/geo';
+import { getFullManifestAsync } from '../services/cityService';
 
 // 1. TIPI CORRETTI
 // Tipizzazione delle tab della UI
-type SponsorTab = 'dashboard' | 'pending' | 'waiting' | 'approved' | 'rejected' | 'cancelled';
-// Tipizzazione degli status reali del database
-type SponsorStatus = 'pending' | 'waiting_payment' | 'approved' | 'rejected' | 'cancelled';
+// Tipizzazione delle tab della UI
+type SponsorTab = 'dashboard' | 'pending' | 'waiting' | 'approved' | 'expired' | 'rejected' | 'cancelled';
+// Tipizzazione degli status reali del database (con l'aggiunta di 'converted')
+type SponsorStatus = SponsorLifecycleStatus;
 
 // 2. MAPPATURA CORRETTA
 // Oggetto per mappare le tab della UI agli status del DB
@@ -20,20 +22,30 @@ const tabToStatusMap: Record<SponsorTab, SponsorStatus | null> = {
     pending: 'pending',
     waiting: 'waiting_payment',
     approved: 'approved',
+    expired: 'expired', // Mappato a 'expired' (il service gestirà la logica runtime)
     rejected: 'rejected',
     cancelled: 'cancelled',
 };
 
 export const useSponsorLogic = () => {
     const [requests, setRequests] = useState<SponsorRequest[]>([]);
-    const [manifest, setManifest] = useState<SponsorManifest[]>([]);
-    const [stats, setStats] = useState<Partial<SponsorStats>>({});
-    const [activeTab, setActiveTab] = usePersistedState<SponsorTab>('sponsor-active-tab', 'dashboard');
+    const [manifest, setManifest] = useState<CitySummary[]>([]);
+    const [stats, setStats] = useState<SponsorStats>({ 
+        pending: 0, 
+        waiting: 0, 
+        approved: 0, 
+        expired: 0, 
+        rejected: 0, 
+        cancelled: 0,
+        converted: 0,
+        unreadMessages: 0
+    });
+    const [activeTab, setActiveTab] = useState<SponsorTab>('dashboard');
     const [isLoading, setIsLoading] = useState(false);
 
     // Filtri & Paginazione
     const [filters, setFilters] = useState<GeoFilters>({});
-    const [sortConfig, setSortConfig] = useState<SortConfig<SponsorRequest>>({ key: 'createdAt', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState<SortConfig<SponsorRequest>>({ key: 'date', direction: 'desc' });
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = usePersistedState('sponsor-page-size', 10);
     const [totalItems, setTotalItems] = useState(0);
@@ -50,31 +62,31 @@ export const useSponsorLogic = () => {
     }, []);
 
     const handleContinentChange = async (continentId: string) => {
-        setFilters({ continent: continentId, nation: undefined, adminRegion: undefined, zone: undefined, city: undefined });
+        setFilters({ continent: continentId, nation: undefined, adminRegion: undefined, zone: undefined, cityId: undefined });
         const nations = continentId ? await geoService.getNations(continentId) : [];
         setOptions(prev => ({ ...prev, nations, adminRegions: [], zones: [], cities: [] }));
     };
 
     const handleNationChange = async (nationId: string) => {
-        setFilters(prev => ({ ...prev, nation: nationId, adminRegion: undefined, zone: undefined, city: undefined }));
+        setFilters(prev => ({ ...prev, nation: nationId, adminRegion: undefined, zone: undefined, cityId: undefined }));
         const adminRegions = nationId ? await geoService.getAdminRegions(nationId) : [];
         setOptions(prev => ({ ...prev, adminRegions, zones: [], cities: [] }));
     };
     
     const handleAdminRegionChange = async (adminRegionId: string) => {
-        setFilters(prev => ({ ...prev, adminRegion: adminRegionId, zone: undefined, city: undefined }));
+        setFilters(prev => ({ ...prev, adminRegion: adminRegionId, zone: undefined, cityId: undefined }));
         const zones = adminRegionId ? await geoService.getZones(adminRegionId) : [];
         setOptions(prev => ({ ...prev, zones, cities: [] }));
     };
 
     const handleZoneChange = async (zoneId: string) => {
-        setFilters(prev => ({ ...prev, zone: zoneId, city: undefined }));
+        setFilters(prev => ({ ...prev, zone: zoneId, cityId: undefined }));
         const cities = zoneId ? await geoService.getCitiesByZone(zoneId) : [];
         setOptions(prev => ({...prev, cities}));
     };
 
     const handleCityChange = (cityId: string | undefined) => {
-        setFilters(prev => ({ ...prev, city: cityId }));
+        setFilters(prev => ({ ...prev, cityId: cityId }));
     };
 
     const handleTierChange = (tier: string | undefined) => {
@@ -95,27 +107,49 @@ export const useSponsorLogic = () => {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         const queryStatus = tabToStatusMap[activeTab];
+        
+        // Reset requests when switching from/to dashboard or between tabs 
+        // to prevent temporary data contamination (Problem 1)
+        setRequests([]);
+
+        console.log(`[FetchData] 🚀 START | Tab: ${activeTab} | Status: ${queryStatus} | Page: ${page} | Filters:`, appliedFilters);
+
+        // Se siamo in dashboard, carichiamo dati aggregati per le statistiche città
+        if (activeTab === 'dashboard') {
+            try {
+                const data = await sponsorService.getSponsorsDashboardAsync();
+                console.log(`[FetchData] 📊 Dashboard Data Loaded: ${data.length} records`);
+                setRequests(data);
+                setTotalItems(data.length);
+            } catch (error) {
+                console.error("Errore nel caricamento dati dashboard:", error);
+                setRequests([]);
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
         if (!queryStatus) {
+            console.log(`[FetchData] ⚠️ No query status for tab: ${activeTab}. Clearing requests.`);
             setRequests([]);
             setIsLoading(false);
             return;
         }
 
         try {
-            const { data, count, manifest: sponsorManifest } = await sponsorService.getSponsorsPaginated(
+            const { data, count } = await sponsorService.getSponsorsPaginated({
                 page,
                 pageSize,
-                queryStatus,
-                appliedFilters,
+                status: queryStatus,
+                filters: appliedFilters,
                 sortConfig,
                 searchTerm
-            );
+            });
             
+            console.log(`[FetchData] ✅ Success | Status: ${queryStatus} | Retreived: ${data?.length || 0}/${count || 0}`);
             setRequests(data || []);
             setTotalItems(count || 0);
-            if (sponsorManifest) {
-                setManifest(sponsorManifest);
-            }
 
         } catch (error) {
             console.error("Errore nel recuperare gli sponsor:", error);
@@ -127,9 +161,9 @@ export const useSponsorLogic = () => {
     }, [activeTab, page, pageSize, appliedFilters, sortConfig, searchTerm]);
 
     const fetchStats = useCallback(async () => {
-       const statsData = await sponsorService.getSponsorStats(appliedFilters);
+       const statsData = await sponsorService.getSponsorStats();
        setStats(statsData);
-    }, [appliedFilters]);
+    }, []);
 
     const refreshData = useCallback(() => {
         fetchData();
@@ -139,23 +173,32 @@ export const useSponsorLogic = () => {
     useEffect(() => {
         fetchGeoOptions();
     }, [fetchGeoOptions]);
-    
-    // --- MODIFICA ---
-    // 1. useEffect per il FETCH dei dati.
-    // Si attiva al mount e quando i parametri di paginazione o i filtri incapsulati cambiano.
-    useEffect(() => {
-        refreshData();
-    }, [page, pageSize, sortConfig, appliedFilters, searchTerm, activeTab]);
 
-    // 2. useEffect per il RESET della pagina.
-    // Si attiva SOLO quando i filtri principali cambiano (tab, ricerca, etc).
-    // NON richiama il fetch, ma scatena l'useEffect precedente cambiando `page`.
+    useEffect(() => {
+        getFullManifestAsync().then(setManifest);
+    }, []);
+    
+    // --- MODIFICA STABILIZZAZIONE FETCH ---
+    // 1. useEffect per i parametri che NON resettano la pagina (paginazione, ordinamento)
+    useEffect(() => {
+        // Se siamo già alla pagina 1, refreshData verrà chiamato dall'effetto sotto
+        // al cambio di tab/filtri. Se non siamo alla 1, refreshData viene chiamato qui.
+        refreshData();
+    }, [page, pageSize, sortConfig]);
+
+    // 2. useEffect per i parametri che RESETTANO la pagina (tab, filtri, ricerca)
     useEffect(() => {
         if (page !== 1) {
             setPage(1);
+            // Non chiamiamo refreshData() qui perché setPage(1) 
+            // scatenerà l'effetto sopra (visto che page cambia).
+        } else {
+            // Se eravamo già alla pagina 1, il primo effetto non vedrebbe
+            // cambiamenti, quindi forziamo il refresh qui.
+            refreshData();
         }
     }, [activeTab, appliedFilters, searchTerm]);
-    // --- FINE MODIFICA ---
+    // --- FINE MODIFICA STABILIZZAZIONE ---
 
     return {
         requests,

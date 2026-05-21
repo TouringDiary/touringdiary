@@ -10,7 +10,7 @@ export const useAdminData = () => {
     const refreshManifest = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await CityService.getFullManifestAsync();
+            const data = await CityService.getFullManifestAsync(false);
             setCities(data);
         } catch (e) {
             console.error("Failed to refresh manifest from cloud", e);

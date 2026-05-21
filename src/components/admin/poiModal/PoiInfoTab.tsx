@@ -2,12 +2,13 @@
 import React, { useMemo } from 'react';
 import { AlertCircle, TrendingUp } from 'lucide-react';
 import { PointOfInterest } from '../../../types/index';
+import { PoiFormData } from '../../../types/write/poiForm';
 import { AiFieldHelper } from '../AiFieldHelper';
 import { getCachedSetting, SETTINGS_KEYS } from '../../../services/settingsService';
 
 export interface PoiInfoTabProps {
-    formData: PointOfInterest;
-    updateField: (field: keyof PointOfInterest, value: any) => void;
+    formData: PoiFormData;
+    updateField: <K extends keyof PoiFormData>(field: K, value: PoiFormData[K]) => void;
 }
 
 export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
@@ -30,8 +31,14 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
     };
 
     // CALCOLO REATTIVO CATEGORIE DA CACHE DB
-    const categories = useMemo(() => {
-        return getCachedSetting<any[]>(SETTINGS_KEYS.POI_CATEGORIES_CONFIG) || [
+    interface Option {
+        value: string;
+        label: string;
+        id?: string;
+    }
+
+    const categories = useMemo<Option[]>(() => {
+        return getCachedSetting<Option[]>(SETTINGS_KEYS.POI_CATEGORIES_CONFIG) || [
             { value: 'monument', label: 'Destinazioni' },
             { value: 'food', label: 'Cibo' },
             { value: 'hotel', label: 'Hotel' },
@@ -43,21 +50,18 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
     }, []);
 
     // CALCOLO REATTIVO SOTTOCATEGORIE DA CACHE DB
-    const availableSubCats = useMemo(() => {
+    const availableSubCats = useMemo<Option[]>(() => {
         const catKey = (formData.category || 'discovery').toLowerCase();
         // Lettura dinamica dalla cache caricata all'avvio
-        const structure = getCachedSetting<Record<string, { value: string, label: string }[]>>(SETTINGS_KEYS.POI_STRUCTURE);
-        // Usa una struttura flat per il mapping semplice valore->label se la struttura complessa non matcha
-        // Qui assumiamo che structure sia già un array di oggetti {value, label} per semplicità, o adattiamo.
-        // Nel DB, la struttura è complessa { label: "...", items: [...] }. Dobbiamo appiattirla.
+        const structure = getCachedSetting<Record<string, Option[]>>(SETTINGS_KEYS.POI_STRUCTURE);
         
         const advancedStructure = getCachedSetting<Record<string, any[]>>(SETTINGS_KEYS.POI_ADVANCED_STRUCTURE);
         if (advancedStructure && advancedStructure[catKey]) {
             // Appiattisci i gruppi per ottenere una lista semplice di opzioni
-            const flatOptions: {value: string, label: string}[] = [];
+            const flatOptions: Option[] = [];
             advancedStructure[catKey].forEach(group => {
                 group.items.forEach((item: string) => {
-                    flatOptions.push({ value: item, label: item.replace(/_/g, ' ') }); // Fallback label semplice
+                    flatOptions.push({ value: item, label: item.replace(/_/g, ' ') }); 
                 });
             });
             return flatOptions;
@@ -79,6 +83,12 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
         );
     };
 
+    // Type Guard per PoiCategory
+    const isValidCategory = (val: string): val is PointOfInterest['category'] => {
+        const validCategories: string[] = ['monument' , 'food' , 'hotel' , 'nature' , 'discovery' , 'leisure' , 'shop' , 'all'];
+        return validCategories.includes(val);
+    };
+
     return (
         <div className="space-y-6 max-w-3xl mx-auto">
             <div className="grid grid-cols-2 gap-6">
@@ -95,11 +105,17 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Categoria</label>
                     <select 
                         value={formData.category} 
-                        onChange={e => { updateField('category', e.target.value); updateField('subCategory', ''); }} 
+                        onChange={e => { 
+                            const val = e.target.value;
+                            if (isValidCategory(val)) {
+                                updateField('category', val); 
+                                updateField('subCategory', ''); 
+                            }
+                        }} 
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none"
                     >
                         <option value="">Seleziona...</option>
-                        {categories.map((c: any) => <option key={c.id || c.value} value={c.id || c.value}>{c.label}</option>)}
+                        {categories.map((c) => <option key={c.id || c.value} value={c.id || c.value}>{c.label}</option>)}
                     </select>
                 </div>
             </div>
@@ -139,7 +155,7 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
                 
                 {availableSubCats.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
-                        {availableSubCats.map((sub: any) => (
+                        {availableSubCats.map((sub) => (
                             <button 
                                 key={sub.value} 
                                 onClick={() => updateField('subCategory', sub.value)} 

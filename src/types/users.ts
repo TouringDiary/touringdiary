@@ -26,6 +26,7 @@ export type PermissionCode =
 export interface User {
     id: string;
     name: string;
+    slug?: string;
     email: string;
     role: UserRole;
     status: UserStatus;
@@ -40,14 +41,6 @@ export interface User {
     lastAccess: string;       // ISO Date
     avatar?: string;
     
-    // Stats (Added for Admin View)
-    // Deprecato: usa aiUsageFlash e aiUsagePro
-    aiUsage?: { count: number, date: string }; 
-    
-    // NEW: Detailed usage
-    aiUsageFlash?: { count: number, date: string };
-    aiUsagePro?: { count: number, date: string };
-
     // Auth Simulation (Frontend Only)
     password?: string; 
     
@@ -66,5 +59,5 @@ export interface User {
     referralCode?: string;
     referredBy?: string;
     extraQuota?: number;
-    lastMonthlyReset?: string;
+    extraQuotaExpiresAt?: string; // ISO Date
 }

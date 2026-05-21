@@ -9,15 +9,17 @@ import { ProvinceModal } from '../modals/ProvinceModal';
 import { CultureCornerModal } from '../modals/CultureCornerModal';
 import { PatronSaintModal } from '../modals/PatronSaintModal';
 import { HistoryModal } from '../modals/HistoryModal';
-import { SuggestionModal } from '../modals/SuggestionModal'; 
+import { SuggestionModal } from '../modals/SuggestionModal';
 import { isPoiNew } from '../../utils/common';
-import { fetchSponsorsByCityAsync } from '../../services/sponsorService'; 
-import { useModal } from '@/context/ModalContext'; 
+import { fetchSponsorsByCityAsync } from '../../services/sponsorService';
+import { useModal } from '@/context/ModalContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { useUser } from '@/context/UserContext'; 
-import { useGps } from '@/context/GpsContext'; 
+import { useUser } from '@/context/UserContext';
+import { useGps } from '@/context/GpsContext';
 import { useUI } from '@/context/UIContext';
 import AffiliateCTA from '../common/AffiliateCTA';
+import { NearbyCitiesRow } from './components/NearbyCitiesRow';
+import { updateCityMetadata, injectJsonLd } from '../../utils/seo';
 
 // --- LAZY IMPORTS ---
 const CityGallery = React.lazy(() => import('./tabs/CityGallery').then(m => ({ default: m.CityGallery })));
@@ -27,28 +29,28 @@ const CityCategoryTab = React.lazy(() => import('./tabs/CityCategoryTab').then(m
 type CityTab = 'vetrina' | 'destinazioni' | 'natura' | 'sapori' | 'alloggi' | 'shopping' | 'svago' | 'novita' | 'galleria';
 
 interface CityDetailContentProps {
-  cityId: string;
-  onBack: () => void;
-  onToggleLocation: () => void;
-  onAddToItinerary: (poi: PointOfInterest) => void;
-  onRemoveFromItinerary: (poiId: string) => void;
-  onOpenPoiDetail: (poi: PointOfInterest) => void;
-  onOpenReview: (poi: PointOfInterest) => void;
-  onSwitchCity: (cityId: string) => void;
-  onOpenSponsor: (tier?: 'gold' | 'silver') => void;
-  initialTab?: string;
-  onTabChange?: (tab: string) => void;
-  onOpenShop: (poi?: PointOfInterest) => void; 
-  onOpenAuth: () => void;
-  cityManifest: CitySummary[]; 
-  isSidebarOpen?: boolean;
-  preloadedCity?: CityDetails | null;
-  isUiVisible?: boolean; 
+    cityId: string;
+    onBack: () => void;
+    onToggleLocation: () => void;
+    onAddToItinerary: (poi: PointOfInterest) => void;
+    onRemoveFromItinerary: (poiId: string) => void;
+    onOpenPoiDetail: (poi: PointOfInterest) => void;
+    onOpenReview: (poi: PointOfInterest) => void;
+    onSwitchCity: (cityId: string) => void;
+    onOpenSponsor: (tier?: 'gold' | 'silver') => void;
+    initialTab?: string;
+    onTabChange?: (tab: string) => void;
+    onOpenShop: (poi?: PointOfInterest) => void;
+    onOpenAuth: () => void;
+    cityManifest: CitySummary[];
+    isSidebarOpen?: boolean;
+    preloadedCity?: CityDetails | null;
+    isUiVisible?: boolean;
 }
 
 const TabLoader = () => (
     <div className="flex flex-col items-center justify-center py-20 w-full text-slate-500 gap-4 min-h-[300px]">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-500"/>
+        <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
         <p className="font-bold uppercase tracking-widest text-xs">Caricamento Sezione...</p>
     </div>
 );
@@ -66,43 +68,72 @@ const getCategoryFromTab = (tab: CityTab): string => {
     }
 };
 
-export const CityDetailContent: React.FC<CityDetailContentProps> = ({ 
-    cityId, onBack, onToggleLocation, onAddToItinerary, 
-    onRemoveFromItinerary, onOpenPoiDetail, onOpenReview, onSwitchCity, 
-    onOpenSponsor, initialTab = 'vetrina', onTabChange, 
+export const CityDetailContent: React.FC<CityDetailContentProps> = ({
+    cityId, onBack, onToggleLocation, onAddToItinerary,
+    onRemoveFromItinerary, onOpenPoiDetail, onOpenReview, onSwitchCity,
+    onOpenSponsor, initialTab = 'vetrina', onTabChange,
     onOpenShop, onOpenAuth, cityManifest, isSidebarOpen, preloadedCity,
     isUiVisible = true
 }) => {
-    
+
     // --- CONTEXT HOOKS ---
     const { user } = useUser();
     const { userLocation } = useGps();
     const { handleMainScroll } = useUI(); // SCROLL HANDLER
 
     const hookData = useCityData(preloadedCity ? null : cityId);
-    
-    const city = preloadedCity || hookData.city;
-    const loading = preloadedCity ? false : hookData.loading;
-    
+
+    // [SAFETY SYNC] Priorità a preloadedCity solo se coerente con l'ID corrente (cityId).
+    // Questo previene visualizzazioni stale dopo navigazione back/forward se virtualCity non fosse ancora resettata.
+    const hasValidPreloadedCity =
+        preloadedCity &&
+        preloadedCity.id === cityId &&
+        preloadedCity.coords;
+
+    const city = hasValidPreloadedCity
+        ? preloadedCity
+        : hookData.city;
+    const loading = hasValidPreloadedCity
+        ? false
+        : hookData.loading;
+
     useDocumentTitle(city?.name || 'Caricamento...');
 
     const [activeTab, setActiveTab] = useState<CityTab>((initialTab as CityTab) || 'vetrina');
     const [activeModal, setActiveModal] = useState<'none' | 'guides' | 'services' | 'events' | 'province' | 'culture' | 'patron' | 'history' | 'tour_operators'>('none');
     const [suggestionModal, setSuggestionModal] = useState<{ isOpen: boolean; type: SuggestionType; prefilledName?: string }>({ isOpen: false, type: 'new_place' });
-    
+
     const [referencePoint, setReferencePoint] = useState<PointOfInterest | null>(null);
     const [activeSponsors, setActiveSponsors] = useState<PointOfInterest[]>([]);
-    
-    const { openModal } = useModal(); 
-    
+
+    const { openModal } = useModal();
+
     // Gestione Scroll Reset al cambio Tab
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        if (!city || loading) return;
+
+        // 1. Sincronizzazione Metadati (Title, Description, Canonical)
+        const routeSeo = (city as any).details?.route_seo || null;
+        const canonicalUrl = updateCityMetadata(city, routeSeo);
+
+        // 2. Iniezione Structured Data (JSON-LD)
+        let cleanupJson: (() => void) | undefined;
+        if (canonicalUrl) {
+            cleanupJson = injectJsonLd(city, canonicalUrl);
+        }
+
+        return () => {
+            if (cleanupJson) cleanupJson();
+        };
+    }, [city, loading]);
+
+    useEffect(() => {
         if (!preloadedCity) {
-             fetchSponsorsByCityAsync(cityId).then(setActiveSponsors);
+            fetchSponsorsByCityAsync(cityId).then(setActiveSponsors);
         } else {
-            setActiveSponsors([]); 
+            setActiveSponsors([]);
         }
     }, [cityId, preloadedCity]);
 
@@ -115,7 +146,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
     const sourceList = useMemo(() => {
         if (!city) return [];
-    
+
         const mixWithSponsors = (category: string) => {
             // Ordina gli sponsor per tier: gold prima, silver dopo
             const sortedSponsors = activeSponsors
@@ -125,17 +156,17 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                     const tierB = b.tier === 'gold' ? 1 : (b.tier === 'silver' ? 2 : 3);
                     return tierA - tierB;
                 });
-    
+
             // Filtra POI editoriali
             const editorial = visibleAllPois.filter(p => p.category === category);
-            
+
             // Rimuovi duplicati (se uno sponsor è anche editoriale, usa lo sponsor)
-            const uniqueEditorial = editorial.filter(ep => 
+            const uniqueEditorial = editorial.filter(ep =>
                 !sortedSponsors.some(sp => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim())
             );
             return [...sortedSponsors, ...uniqueEditorial];
         };
-    
+
         switch (activeTab) {
             case 'destinazioni': return mixWithSponsors('monument');
             case 'natura': return mixWithSponsors('nature');
@@ -152,9 +183,9 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                         const tierB = b.tier === 'gold' ? 1 : (b.tier === 'silver' ? 2 : 3);
                         return tierA - tierB;
                     });
-    
+
                 const newsEditorial = visibleAllPois.filter(p => isPoiNew(p));
-                const uniqueEditorial = newsEditorial.filter(ep => 
+                const uniqueEditorial = newsEditorial.filter(ep =>
                     !newsSponsors.some(sp => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim())
                 );
                 return [...newsSponsors, ...uniqueEditorial];
@@ -169,26 +200,26 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         // Scroll leggero verso l'alto ma sotto l'header (UX)
         if (scrollContainerRef.current && window.innerWidth < 768) {
             // Su mobile scrolliamo un po' per mostrare il contenuto
-            const headerHeight = 300; 
+            const headerHeight = 300;
             if (scrollContainerRef.current.scrollTop > headerHeight) {
                 scrollContainerRef.current.scrollTo({ top: headerHeight, behavior: 'smooth' });
             }
         }
     };
-    
+
     const handleMergeTrigger = (isActive: boolean, radius: number) => {
         if (isActive) {
-             const event = new CustomEvent('trigger-merge-mode', { detail: { cityId: city?.id, radius } });
-             window.dispatchEvent(event);
+            const event = new CustomEvent('trigger-merge-mode', { detail: { cityId: city?.id, radius } });
+            window.dispatchEvent(event);
         } else {
-             if (onSwitchCity && city) onSwitchCity(city.id);
+            if (onSwitchCity && city) onSwitchCity(city.id);
         }
         setActiveModal('none');
     };
-    
+
     const handleAdminEdit = (poi: PointOfInterest) => {
         if (isAdmin) {
-             openModal('adminEditPoi', { poi });
+            openModal('adminEditPoi', { poi });
         }
     };
 
@@ -204,7 +235,12 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         { id: 'galleria', label: 'Galleria', icon: Camera },
     ];
 
-    if (loading || !city) return (
+    // 3.5 STRICT DB-DRIVEN HERO
+    const displayCity = useMemo(() => {
+        return city || null;
+    }, [city]);
+
+    if (loading || !city || !displayCity) return (
         <div className="h-[600px] flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
                 <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
@@ -216,59 +252,63 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
     const isVirtual = city.id === 'around-me-virtual' || (preloadedCity && preloadedCity.id === city.id);
 
     return (
-        <div 
+        <div
             ref={scrollContainerRef}
             onScroll={handleMainScroll}
-            className="flex flex-col w-full bg-[#020617] relative custom-scrollbar scrollbar-hide-mobile scroll-smooth h-full overflow-y-auto"
+            className="flex flex-col w-full bg-[#020617] relative custom-scrollbar scrollbar-hide-mobile scroll-smooth h-full overflow-y-auto lg:overflow-hidden pt-[var(--header-height,0px)]"
         >
-            
+
             {/* 1. HEADER CITTÀ (IMMAGINE HERO) */}
-            <div className="shrink-0 z-10 relative">
-                <CityHeader city={city} onOpenInfo={(t) => setActiveModal(t)} onOpenPatron={() => setActiveModal('patron')} onOpenSurroundings={() => setActiveModal('province')} onOpenCulture={() => setActiveModal('culture')} onOpenShop={() => onOpenShop()} onOpenSponsor={() => onOpenSponsor()} onOpenHistory={() => setActiveModal('history')} onToggleLocation={onToggleLocation} isLocationActive={!!userLocation} />
+            <div className="shrink-0 z-floating-panel relative">
+                <CityHeader city={displayCity} onOpenInfo={(t) => setActiveModal(t)} onOpenPatron={() => setActiveModal('patron')} onOpenSurroundings={() => setActiveModal('province')} onOpenCulture={() => setActiveModal('culture')} onOpenShop={() => onOpenShop()} onOpenSponsor={() => onOpenSponsor()} onOpenHistory={() => setActiveModal('history')} onToggleLocation={onToggleLocation} isLocationActive={!!userLocation} />
             </div>
 
-            {/* Affiliate CTA Section */}
+            {/* 1.5 RIGA SEO / INTERNAL LINKING GEOGRAFICO */}
             {!isVirtual && (
-                <div className="px-4 py-3 flex items-center justify-center gap-4 border-b border-slate-800 bg-slate-900/50">
-                    <AffiliateCTA capability="accommodation" context={{ city: city.name }} />
-                    <AffiliateCTA capability="tours" context={{ city: city.name }} />
-                </div>
+                <>
+                    <NearbyCitiesRow
+                        currentCity={city}
+                        allCities={cityManifest}
+                        onExploreAround={() => setActiveModal('province')}
+                        onSwitchCity={onSwitchCity}
+                    />
+                </>
             )}
 
             {/* 2. TAB NAVIGATION - NOT STICKY ON MOBILE */}
-            <div className="relative md:sticky md:top-0 z-[40] bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl shrink-0">
+            <div className="sticky top-[var(--header-height,0px)] z-dropdown bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl shrink-0">
                 {/* DESKTOP TABS */}
                 <div className="hidden md:flex flex-nowrap justify-center gap-0 overflow-x-auto no-scrollbar px-1 w-full">
                     {tabs.map((tab) => (
                         <React.Fragment key={tab.id}>
-                            <button onClick={() => handleTabChange(tab.id as any)} className={`flex-shrink-0 py-3 px-3 text-sm font-bold uppercase tracking-wider transition-all relative group whitespace-nowrap ${activeTab === tab.id ? 'text-orange-500' : 'text-yellow-400 hover:text-orange-500'}`}><span className="flex items-center gap-1.5 relative z-10">{/*@ts-ignore*/}<tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-orange-500' : 'text-yellow-400 group-hover:text-orange-500'}`}/> {tab.label}</span></button>
+                            <button onClick={() => handleTabChange(tab.id as any)} className={`flex-shrink-0 py-3 px-3 text-sm font-bold uppercase tracking-wider transition-all relative group whitespace-nowrap ${activeTab === tab.id ? 'text-orange-500' : 'text-yellow-400 hover:text-orange-500'}`}><span className="flex items-center gap-1.5 relative z-floating-panel">{/*@ts-ignore*/}<tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-orange-500' : 'text-yellow-400 group-hover:text-orange-500'}`} /> {tab.label}</span></button>
                             <div className="w-px h-3 bg-slate-800 flex-shrink-0 opacity-50 mx-1 self-center"></div>
                         </React.Fragment>
                     ))}
                 </div>
-                
+
                 {/* MOBILE TABS (GRID 2 ROWS) */}
                 <div className="md:hidden grid grid-cols-5 grid-rows-2 gap-1 p-2 bg-slate-900">
                     {tabs.filter(t => t.id !== 'galleria').map((tab) => (
-                        <button 
-                            key={tab.id} 
-                            onClick={() => handleTabChange(tab.id as any)} 
+                        <button
+                            key={tab.id}
+                            onClick={() => handleTabChange(tab.id as any)}
                             className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all h-10 ${activeTab === tab.id ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-orange-500'}`}
                         >
                             {/* @ts-ignore */}
-                            <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-orange-500' : 'text-slate-500'}`}/>
+                            <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-orange-500' : 'text-slate-500'}`} />
                             <span className="text-[7px] font-bold uppercase text-center leading-none mt-0.5 w-full truncate px-0.5">{tab.label}</span>
                         </button>
                     ))}
 
                     {tabs.filter(t => t.id === 'galleria').map((tab) => (
-                        <button 
-                            key={tab.id} 
-                            onClick={() => handleTabChange(tab.id as any)} 
+                        <button
+                            key={tab.id}
+                            onClick={() => handleTabChange(tab.id as any)}
                             className={`col-start-5 row-start-1 row-span-2 flex flex-col items-center justify-center rounded-xl border transition-all shadow-md active:scale-95 ${activeTab === tab.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
                         >
                             {/* @ts-ignore */}
-                            <tab.icon className={`w-5 h-5 mb-0.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-400'}`}/>
+                            <tab.icon className={`w-5 h-5 mb-0.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-400'}`} />
                             <span className="text-[8px] font-black uppercase text-center leading-none">FOTO</span>
                         </button>
                     ))}
@@ -276,13 +316,13 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
             </div>
 
             {/* 3. CONTENUTO - MD: FLEX-1 MIN-H-0 */}
-            <div className="w-full bg-[#020617] relative z-0 md:flex-1 md:min-h-0 md:overflow-hidden">
+            <div className="w-full bg-[#020617] relative z-0 lg:flex-1 lg:min-h-0 lg:overflow-hidden">
                 <div key={activeTab} className="w-full h-full animate-in fade-in duration-500">
                     <Suspense fallback={<TabLoader />}>
                         {activeTab === 'galleria' ? (
                             <CityGallery city={city} user={user} onOpenAuth={onOpenAuth} />
                         ) : activeTab === 'vetrina' ? (
-                            <CityShowcaseTab 
+                            <CityShowcaseTab
                                 city={city} visibleAllPois={visibleAllPois} activeSponsors={activeSponsors}
                                 onOpenPoiDetail={onOpenPoiDetail} onAddToItinerary={onAddToItinerary}
                                 onOpenSponsor={onOpenSponsor} onOpenSuggestion={() => setSuggestionModal({ isOpen: true, type: 'new_place' })}
@@ -291,54 +331,54 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                                 userLocation={userLocation}
                             />
                         ) : (
-                            <CityCategoryTab 
-                                sourceList={sourceList} 
-                                activeSponsors={activeSponsors} 
+                            <CityCategoryTab
+                                sourceList={sourceList}
+                                activeSponsors={activeSponsors}
                                 userLocation={userLocation}
-                                onToggleLocation={onToggleLocation} 
+                                onToggleLocation={onToggleLocation}
                                 onAddToItinerary={onAddToItinerary}
-                                onOpenPoiDetail={onOpenPoiDetail} 
-                                onOpenReview={onOpenReview} 
+                                onOpenPoiDetail={onOpenPoiDetail}
+                                onOpenReview={onOpenReview}
                                 onOpenSponsor={() => onOpenSponsor()}
-                                referencePoint={referencePoint} 
+                                referencePoint={referencePoint}
                                 setReferencePoint={setReferencePoint}
                                 onOpenSuggestion={(type) => setSuggestionModal({ isOpen: true, type })}
-                                isSidebarOpen={isSidebarOpen} 
-                                onOpenShopFromPoi={onOpenShop} 
+                                isSidebarOpen={isSidebarOpen}
+                                onOpenShopFromPoi={onOpenShop}
                                 user={user}
                                 onOpenAuth={onOpenAuth}
-                                isUiVisible={isUiVisible} 
+                                isUiVisible={isUiVisible}
                                 onAdminEdit={handleAdminEdit}
                                 onTabChange={(t) => handleTabChange(t as CityTab)}
-                                currentCategory={getCategoryFromTab(activeTab)} 
+                                currentCategory={getCategoryFromTab(activeTab)}
                             />
                         )}
                     </Suspense>
                 </div>
             </div>
-            
+
             {/* SPAZIO EXTRA PER MOBILE NAV (Solo mobile) */}
             <div className="h-24 md:hidden w-full shrink-0"></div>
 
             {/* MODALI */}
             {['guides', 'services', 'events', 'tour_operators'].includes(activeModal) && (
-                <CityInfoModal 
-                    isOpen={true} 
-                    onClose={() => setActiveModal('none')} 
-                    city={city} 
-                    initialTab={activeModal as any} 
-                    onAddToItinerary={onAddToItinerary} 
-                    user={user} 
-                    onOpenAuth={onOpenAuth} 
+                <CityInfoModal
+                    isOpen={true}
+                    onClose={() => setActiveModal('none')}
+                    city={city}
+                    initialTab={activeModal as any}
+                    onAddToItinerary={onAddToItinerary}
+                    user={user}
+                    onOpenAuth={onOpenAuth}
                     onSuggestEdit={(name) => setSuggestionModal({ isOpen: true, type: 'edit_info', prefilledName: name })}
                 />
             )}
-            <ProvinceModal 
-                isOpen={activeModal === 'province'} 
-                onClose={() => setActiveModal('none')} 
-                currentCity={city} 
-                onSelectCity={(id) => onSwitchCity && onSwitchCity(id)} 
-                liveManifest={cityManifest} 
+            <ProvinceModal
+                isOpen={activeModal === 'province'}
+                onClose={() => setActiveModal('none')}
+                currentCity={city}
+                onSelectCity={(id) => onSwitchCity && onSwitchCity(id)}
+                liveManifest={cityManifest}
                 onToggleMerge={handleMergeTrigger}
                 isMergeActive={isVirtual}
             />

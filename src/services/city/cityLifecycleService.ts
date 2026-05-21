@@ -5,6 +5,7 @@ import { DatabaseCity } from '../../types/database';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
 import { ensureZoneExists } from '../zoneService';
 import { orphanCityStaging, reclaimStagingByCityName } from '../stagingService';
+import { resolveCanonicalCityId } from './cityIdService';
 
 export const reclaimOrphanedItems = async (cityId: string, cityName: string) => {
     // 0. RECLAIM STAGING OSM
@@ -23,12 +24,6 @@ export const reclaimOrphanedItems = async (cityId: string, cityName: string) => 
         .ilike('location_name', `%${cityName}%`) // Cerca match parziale
         .select('id');
 
-    // 2. RECLAIM LIVE SNAPS
-    await supabase
-        .from('live_snaps')
-        .update({ city_id: cityId })
-        .is('city_id', null)
-        .ilike('caption', `%${cityName}%`);
 
     // 3. RECLAIM SHOPS
     await supabase
@@ -71,13 +66,8 @@ export const deleteCity = async (cityId: string, options: CityDeleteOptions, cit
                 .update({ city_id: null, status: 'city_deleted', updated_at: new Date().toISOString() })
                 .eq('city_id', cityId);
             
-            await supabase
-                .from('live_snaps')
-                .update({ city_id: null })
-                .eq('city_id', cityId);
         } else {
             await supabase.from('photo_submissions').delete().eq('city_id', cityId);
-            await supabase.from('live_snaps').delete().eq('city_id', cityId);
         }
     } catch (e) {}
 
@@ -206,7 +196,14 @@ export const importRegionalData = async (
                         createdItems.push({ id: existing.id, name: city.name });
 
                     } else {
-                        const newId = `city_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
+                        // RISOLUZIONE ID CANONICO (Strict Registry Requirement)
+                        let newId: string;
+                        try {
+                            newId = await resolveCanonicalCityId(city.name, adminRegion);
+                        } catch (err: any) {
+                            logs.push(`[Skip] La città ${city.name} è stata saltata: non presente in cities_registry.`);
+                            continue; // Salta questa città se non è nel registro
+                        }
                         
                         const payload: Partial<DatabaseCity> = {
                             id: newId,

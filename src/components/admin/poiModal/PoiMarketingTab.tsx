@@ -1,13 +1,19 @@
 
 import React from 'react';
 import { PointOfInterest } from '../../../types/index';
+import { PoiFormData } from '../../../types/write/poiForm';
 
 interface PoiMarketingTabProps {
-    formData: PointOfInterest;
-    updateField: (field: keyof PointOfInterest, value: any) => void;
+    formData: PoiFormData;
+    updateField: <K extends keyof PoiFormData>(field: K, value: PoiFormData[K]) => void;
 }
 
 export const PoiMarketingTab = ({ formData, updateField }: PoiMarketingTabProps) => {
+    // Type Guard per SponsorTier
+    const isValidTier = (val: string): val is PoiFormData['tier'] => {
+        return ['gold', 'silver', 'standard', ''].includes(val);
+    };
+
     return (
         <div className="space-y-6 max-w-3xl mx-auto">
             <div className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-slate-700">
@@ -32,7 +38,10 @@ export const PoiMarketingTab = ({ formData, updateField }: PoiMarketingTabProps)
                         <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Livello Sponsor</label>
                         <select 
                             value={formData.tier} 
-                            onChange={e => updateField('tier', e.target.value)} 
+                            onChange={e => {
+                                const val = e.target.value;
+                                if (isValidTier(val)) updateField('tier', val);
+                            }} 
                             className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white"
                         >
                             <option value="standard">Standard</option>

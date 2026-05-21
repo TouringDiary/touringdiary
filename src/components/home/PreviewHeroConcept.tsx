@@ -54,7 +54,7 @@ export const PreviewHeroConcept = () => {
             </div>
 
             {/* 2. CONTENUTO GRIGLIA */}
-            <div className="absolute inset-0 z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 md:p-8 items-center">
+            <div className="absolute inset-0 z-floating-panel grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 md:p-8 items-center">
                 
                 {/* SINISTRA: Logo Dinamico + Titolo Dinamico */}
                 <div className="lg:col-span-7 flex flex-col justify-center h-full space-y-6">

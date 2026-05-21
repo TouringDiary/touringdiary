@@ -1,5 +1,5 @@
-
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { generateItineraryPlan } from '../services/ai';
 import { getFullManifestAsync, getPoisByCityIds } from '../services/cityService';
 import { calculateDistance } from '../services/geo';
@@ -16,7 +16,8 @@ interface UseAiGenerationProps {
 }
 
 export const useAiGeneration = ({ user, onClose }: UseAiGenerationProps) => {
-    const { aiSession, updateAiSession } = useAiPlanner();
+    const { city: citySlug } = useParams<{ city: string }>();
+    const { aiSession, updateAiSession, resetAiSession } = useAiPlanner();
     const { setItinerary, clearItinerary } = useItinerary();
     const { getText: getQuotaError } = useSystemMessage('ai_quota_exceeded');
 
@@ -35,23 +36,10 @@ export const useAiGeneration = ({ user, onClose }: UseAiGenerationProps) => {
 
     // REFS
     const confirmResolver = useRef<((value: boolean) => void) | null>(null);
+    const prevCitySlugRef = useRef<string | undefined>(citySlug);
     
     // Ref per gestire l'interruzione
     const abortControllerRef = useRef<AbortController | null>(null);
-
-    useEffect(() => {
-        getFullManifestAsync().then(setManifest);
-    }, []);
-
-    // Cleanup: Se il componente si smonta (es. chiudo modale), abortisco tutto.
-    useEffect(() => {
-        return () => {
-            if (abortControllerRef.current) {
-                // Catch any error during cleanup abort
-                try { abortControllerRef.current.abort(); } catch(e) {}
-            }
-        };
-    }, []);
 
     const waitForConfirmation = (): Promise<boolean> => {
         return new Promise((resolve) => {
@@ -74,6 +62,33 @@ export const useAiGeneration = ({ user, onClose }: UseAiGenerationProps) => {
             try { abortControllerRef.current.abort(); } catch(e) {}
         }
         setLoading(false);
+    }, []);
+
+    useEffect(() => {
+        getFullManifestAsync().then(setManifest);
+    }, []);
+
+    // ISOLAMENTO CONTESTO: Al cambio città, resettiamo tutto per evitare context bleeding
+    // Utilizziamo un controllo sul ref per assicurarci che il reset avvenga SOLO al cambio slug reale
+    useEffect(() => {
+        if (citySlug !== prevCitySlugRef.current) {
+            console.log(`[AIContextReset] City change detected: ${prevCitySlugRef.current} -> ${citySlug}. Resetting session.`);
+            if (loading) {
+                cancelGeneration();
+            }
+            resetAiSession();
+            prevCitySlugRef.current = citySlug;
+        }
+    }, [citySlug, loading, cancelGeneration, resetAiSession]);
+
+    // Cleanup: Se il componente si smonta (es. chiudo modale), abortisco tutto.
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                // Catch any error during cleanup abort
+                try { abortControllerRef.current.abort(); } catch(e) {}
+            }
+        };
     }, []);
 
     const generatePlan = async () => {

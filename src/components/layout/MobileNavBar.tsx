@@ -22,7 +22,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
             {/* FULL BAR MODE - Navigazione Completa */}
             <div 
                 id="tour-mobile-nav"
-                className={`md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#020617]/95 backdrop-blur-xl border-t border-slate-800 grid grid-cols-5 items-end z-[1100] pb-1 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out will-change-transform ${isUiVisible ? 'translate-y-0' : 'translate-y-[200%]'}`}
+                className={`md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#020617]/95 backdrop-blur-xl border-t border-slate-800 grid grid-cols-5 items-end z-dropdown pb-1 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out will-change-transform ${isUiVisible ? 'translate-y-0' : 'translate-y-[200%]'}`}
             >
                 {/* 1. ITINERARI */}
                 <button 
@@ -47,7 +47,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
                     <button 
                         id="tour-mobile-diary-btn"
                         onClick={onOpenDiary}
-                        className="absolute -top-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30 border-4 border-[#020617] active:scale-95 transition-transform z-10"
+                        className="absolute -top-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30 border-4 border-[#020617] active:scale-95 transition-transform z-floating-panel"
                     >
                         <BookOpen className="w-6 h-6 text-[#020617] fill-[#020617]"/>
                     </button>
@@ -76,7 +76,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
             {/* COMPRESSED FAB MODE - Tasto Giallo Rotondo DIARIO */}
             {/* Appare quando la barra scompare, posizione bottom-right per ergonomia */}
             <div 
-                className={`md:hidden fixed bottom-6 right-6 z-[1200] transition-all duration-300 ease-out transform ${!isUiVisible ? 'translate-y-0 opacity-100 scale-100 pointer-events-auto' : 'translate-y-20 opacity-0 scale-50 pointer-events-none'}`}
+                className={`md:hidden fixed bottom-6 right-6 z-dropdown transition-all duration-300 ease-out transform ${!isUiVisible ? 'translate-y-0 opacity-100 scale-100 pointer-events-auto' : 'translate-y-20 opacity-0 scale-50 pointer-events-none'}`}
             >
                 <button 
                     onClick={() => setIsUiVisible(true)}

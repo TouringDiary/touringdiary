@@ -1,3 +1,4 @@
+import { Z_ADMIN_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -252,7 +253,11 @@ export const AdminPhotoInspector = ({ imageUrl, initialData, isOpen, onClose, on
     };
 
     return createPortal(
-        <div className="fixed top-0 left-0 h-screen w-screen z-[99999] bg-[#020617] flex flex-col animate-in fade-in overflow-hidden select-none">
+        // admin-super-layer modal | intentionally rendered above global modal stack (z-13000)
+        <div 
+            className="fixed inset-0 bg-[#020617] flex flex-col animate-in fade-in overflow-hidden select-none pointer-events-auto"
+            style={{ zIndex: Z_ADMIN_MODAL }}
+        >
              
              {/* TOP BAR */}
              <div className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 shadow-lg">
@@ -274,7 +279,7 @@ export const AdminPhotoInspector = ({ imageUrl, initialData, isOpen, onClose, on
              <div className="flex-1 flex overflow-hidden relative">
                  
                  {/* LEFT TOOLS */}
-                 <div className="w-20 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-6 gap-4 z-10 shadow-xl">
+                 <div className="w-20 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-6 gap-4 z-floating-panel shadow-xl">
                      <button onClick={() => setActiveTool('move')} className={`p-3 rounded-xl transition-all ${activeTool === 'move' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`} title="Sposta/Zoom"><MousePointer2 className="w-6 h-6"/></button>
                      <button onClick={() => setActiveTool('crop')} className={`p-3 rounded-xl transition-all ${activeTool === 'crop' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`} title="Ritaglia (Preset)"><Crop className="w-6 h-6"/></button>
                      <button onClick={() => setActiveTool('adjust')} className={`p-3 rounded-xl transition-all ${activeTool === 'adjust' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`} title="Regola Colori"><Sliders className="w-6 h-6"/></button>
@@ -294,7 +299,7 @@ export const AdminPhotoInspector = ({ imageUrl, initialData, isOpen, onClose, on
                  </div>
 
                  {/* RIGHT PANEL (CONTEXTUAL) */}
-                 <div className="w-72 bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 z-10 shadow-xl overflow-y-auto custom-scrollbar">
+                 <div className="w-72 bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 z-floating-panel shadow-xl overflow-y-auto custom-scrollbar">
                      
                      {activeTool === 'move' && (
                          <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
@@ -335,3 +340,6 @@ export const AdminPhotoInspector = ({ imageUrl, initialData, isOpen, onClose, on
         document.body
     );
 };
+
+
+

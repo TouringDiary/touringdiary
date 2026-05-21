@@ -1,3 +1,4 @@
+import type { Review } from '@/types/index';
 
 import { supabase } from './supabaseClient';
 import { ObservatoryStats, AnomalyRecord, CityQualityStats, PointOfInterest } from '../types/index';

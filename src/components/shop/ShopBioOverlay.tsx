@@ -1,7 +1,10 @@
-
-import React, { useEffect, useRef } from 'react';
-import { X, History, Quote, Award } from 'lucide-react';
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { History, Quote, Award } from 'lucide-react';
 import { ShopPartner } from '../../types/index';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 
 interface ShopBioOverlayProps {
     shop: ShopPartner;
@@ -10,31 +13,22 @@ interface ShopBioOverlayProps {
 
 export const ShopBioOverlay: React.FC<ShopBioOverlayProps> = ({ shop, onClose }) => {
     
-    // Pattern useRef per stabilizzare il listener
-    const onCloseRef = useRef(onClose);
-    useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+    useGlobalModalEscape(!!shop, onClose);
 
-    useEffect(() => {
-        const handleEsc = (e: KeyboardEvent) => { 
-            if (e.key === 'Escape') {
-                onCloseRef.current(); 
-            }
-        };
-        window.addEventListener('keydown', handleEsc);
-        return () => window.removeEventListener('keydown', handleEsc);
-    }, []);
-
-    return (
-        <div className="absolute inset-0 z-[50] bg-[#020617] flex flex-col animate-in slide-in-from-bottom-5 duration-500 overflow-hidden">
+    return createPortal(
+        <div className="td-modal-overlay bg-[#020617]/95 backdrop-blur-md animate-in fade-in duration-300 pointer-events-auto" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
+            <div 
+                className="relative bg-[#020617] w-full max-w-5xl h-full md:h-[90vh] md:rounded-3xl border-0 md:border border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-500 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={e => e.stopPropagation()}
+            >
             <div className="flex justify-between items-center px-8 py-4 border-b border-slate-800 bg-[#0f172a] shrink-0">
                 <div className="flex items-center gap-3">
                     <History className="w-5 h-5 text-amber-500"/>
                     <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-300">L'Eredità di {shop.name}</h3>
                 </div>
-                {/* STANDARD RED CLOSE BUTTON */}
-                <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                    <X className="w-6 h-6"/>
-                </button>
+                <CloseButton onClose={onClose} variant="primary" />
+
             </div>
 
             <div className="flex-1 overflow-y-auto pt-2 pb-20 px-6 md:px-12 custom-scrollbar relative">
@@ -42,7 +36,7 @@ export const ShopBioOverlay: React.FC<ShopBioOverlayProps> = ({ shop, onClose })
                     <Quote className="w-64 h-64 md:w-96 md:h-96 text-amber-500 transform rotate-180"/>
                 </div>
 
-                <div className="max-w-4xl mx-auto space-y-4 relative z-10 mt-2">
+                <div className="max-w-4xl mx-auto space-y-4 relative z-floating-panel mt-2">
                     <div className="space-y-2">
                         <span className="text-amber-500 font-serif italic text-2xl md:text-3xl block leading-tight">
                             "Custodiamo il tempo per regalarvi l'autenticità di una terra senza eguali."
@@ -89,6 +83,11 @@ export const ShopBioOverlay: React.FC<ShopBioOverlayProps> = ({ shop, onClose })
                     Torna alla Bottega
                 </button>
             </div>
-        </div>
+            </div>
+        </div>,
+        document.body
     );
 };
+
+
+

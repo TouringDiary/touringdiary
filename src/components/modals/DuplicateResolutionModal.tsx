@@ -1,6 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Copy, RefreshCw, X, AlertCircle } from 'lucide-react';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { ItineraryItem, PointOfInterest } from '../../types/index';
 
 interface DuplicateResolutionModalProps {
@@ -16,22 +20,18 @@ interface DuplicateResolutionModalProps {
 
 export const DuplicateResolutionModal = ({ isOpen, onClose, onAddDuplicate, onReplace, newItemPoi, existingItem, targetDayIndex, targetTime }: DuplicateResolutionModalProps) => {
     
-    // ESC Key Listener
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // ESC Handling
+    useGlobalModalEscape(isOpen, onClose);
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-amber-600/50 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6">
+    return createPortal(
+        <div className="td-modal-overlay !p-4 bg-black/90 backdrop-blur-sm animate-in fade-in" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
+            <div 
+                className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-amber-600/50 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex items-start gap-4">
@@ -48,8 +48,10 @@ export const DuplicateResolutionModal = ({ isOpen, onClose, onAddDuplicate, onRe
                             </div>
                         </div>
                     </div>
-                    {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"><X className="w-5 h-5"/></button>
+                    <CloseButton 
+                        onClose={onClose}
+                        variant="primary"
+                    />
                 </div>
 
                 <div className="space-y-3">
@@ -85,6 +87,10 @@ export const DuplicateResolutionModal = ({ isOpen, onClose, onAddDuplicate, onRe
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

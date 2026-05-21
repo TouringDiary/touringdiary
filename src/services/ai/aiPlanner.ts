@@ -113,7 +113,7 @@ export const generateItineraryPlan = async (
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
         const result = await generateStructuredResponse<AiItineraryItem[]>(
-            'gemini-3.1-pro-preview',
+            'gemini-2.0-pro',
             fullPrompt,
             ITINERARY_SCHEMA
         );
@@ -150,8 +150,22 @@ export const generateItineraryPlan = async (
     });
 };
 
-export const generateRoadbook = async (itineraryItems: any[], cityName: string): Promise<RoadbookDay[]> => {
+export const generateRoadbook = async (
+    itineraryItems: any[], 
+    cityName: string, 
+    forcedModel?: 'flash' | 'pro'
+): Promise<RoadbookDay[]> => {
     if (!itineraryItems || itineraryItems.length === 0) return [];
+
+    // 1. Calcolo giorni per routing automatico
+    const dayIndices = itineraryItems.map(item => item.dayIndex);
+    const uniqueDays = [...new Set(dayIndices)];
+    const daysCount = uniqueDays.length;
+
+    // 2. Selezione Modello: 1-2gg -> Flash, 3+ gg -> Pro (se non forzato)
+    let selectedModel = forcedModel || (daysCount <= 2 ? 'gemini-2.0-flash' : 'gemini-2.0-pro');
+    if (selectedModel === 'flash') selectedModel = 'gemini-2.0-flash';
+    if (selectedModel === 'pro') selectedModel = 'gemini-2.0-pro';
 
     const simplifiedSchedule = itineraryItems.map((item: any) => ({
         d: item.dayIndex,
@@ -165,7 +179,7 @@ export const generateRoadbook = async (itineraryItems: any[], cityName: string):
     const fullPrompt = `${dbPrompt}\n\n${buildPlannerRoadbookPrompt(cityName, JSON.stringify(simplifiedSchedule))}`;
 
     const data = await generateStructuredResponse<RoadbookDay[]>(
-        'gemini-3.1-pro-preview',
+        selectedModel,
         fullPrompt,
         ROADBOOK_SCHEMA
     );
@@ -189,7 +203,7 @@ export const modifyItinerary = async (currentPlan: AiItineraryItem[], userReques
     const prompt = buildPlannerModifyPrompt(destination, JSON.stringify(planSummary), userRequest, dbAlternatives);
 
     return generateStructuredResponse<{ updatedPlan: AiItineraryItem[], chatReply: string }>(
-        'gemini-3.1-pro-preview',
+        'gemini-2.0-pro',
         prompt
     ).then(result => ({
         updatedPlan: result.updatedPlan || currentPlan,

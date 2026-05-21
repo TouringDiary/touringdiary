@@ -1,8 +1,9 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
 import { supabase } from './supabaseClient';
-import { SocialTemplate } from '../types/index';
-import { DatabaseSocialTemplate } from '../types/database';
-import { getAiClient } from './ai/aiClient';
+import { SocialTemplate, SocialLayoutConfig } from '../types/index';
+import { DatabaseSocialTemplate, DatabaseSocialTemplateInsert, Json } from '../types/database';
+
 import { withRetry } from './ai/aiUtils';
 
 // --- CRUD OPERATIONS ---
@@ -20,7 +21,7 @@ export const getSocialTemplates = async (): Promise<SocialTemplate[]> => {
             id: t.id,
             name: t.name,
             bgUrl: t.bg_url,
-            layoutConfig: t.layout_config as any,
+            layoutConfig: t.layout_config as unknown as SocialLayoutConfig,
             theme: t.theme,
             isActive: t.is_active,
             createdAt: t.created_at
@@ -45,7 +46,7 @@ export const getActiveSocialTemplates = async (): Promise<SocialTemplate[]> => {
             id: t.id,
             name: t.name,
             bgUrl: t.bg_url,
-            layoutConfig: t.layout_config as any,
+            layoutConfig: t.layout_config as unknown as SocialLayoutConfig,
             theme: t.theme,
             isActive: t.is_active,
             createdAt: t.created_at
@@ -58,11 +59,11 @@ export const getActiveSocialTemplates = async (): Promise<SocialTemplate[]> => {
 
 export const saveSocialTemplate = async (template: SocialTemplate): Promise<{ success: boolean; data?: SocialTemplate; error?: string }> => {
     try {
-        const payload: Partial<DatabaseSocialTemplate> = {
+        const payload: DatabaseSocialTemplateInsert = {
             id: template.id,
             name: template.name,
             bg_url: template.bgUrl,
-            layout_config: template.layoutConfig as any, // Cast to any to fix TS Json error
+            layout_config: template.layoutConfig as unknown as Json,
             theme: template.theme,
             is_active: template.isActive,
             updated_at: new Date().toISOString()
@@ -83,7 +84,7 @@ export const saveSocialTemplate = async (template: SocialTemplate): Promise<{ su
                 id: saved.id,
                 name: saved.name,
                 bgUrl: saved.bg_url,
-                layoutConfig: saved.layout_config as any,
+                layoutConfig: saved.layout_config as unknown as SocialLayoutConfig,
                 theme: saved.theme,
                 isActive: saved.is_active,
                 createdAt: saved.created_at
@@ -120,8 +121,8 @@ export const generateSocialBackground = async (prompt: string): Promise<string |
         Formato: Verticale o Quadrato.
         Nessun testo nell'immagine generata.`;
 
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
+        
+        const response = await aiGateway.generateLegacy({
             model: 'gemini-2.5-flash-image',
             contents: { parts: [{ text: fullPrompt }] },
             config: {

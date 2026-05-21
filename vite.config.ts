@@ -11,7 +11,13 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5200,
       strictPort: true,
-      host: true
+      host: true,
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:3000',
+          changeOrigin: true
+        }
+      }
     },
 
     plugins: [

@@ -188,7 +188,7 @@ export const AdminTaxonomyManager = () => {
             <div className="flex-1 bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden flex flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
                     <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-950 text-slate-500 text-[10px] uppercase font-bold sticky top-0 z-10 border-b border-slate-800">
+                        <thead className="bg-slate-950 text-slate-500 text-[10px] uppercase font-bold sticky top-0 z-floating-panel border-b border-slate-800">
                             <tr><th className="p-4 w-1/4">Termine Originale (AI)</th><th className="p-4 w-1/5">Macro Cat. (DB)</th><th className="p-4 w-1/5">Sottocategoria (DB)</th><th className="p-4 w-1/5">Tab Destinazione (UI)</th><th className="p-4 text-right">Azioni</th></tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800 text-sm">

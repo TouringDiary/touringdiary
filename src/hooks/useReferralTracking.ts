@@ -1,13 +1,16 @@
-
 import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { setSessionItem } from '../services/storageService'; // IMPORT SAFE HELPER
 
 export const useReferralTracking = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+
     useEffect(() => {
         // Esegui solo lato client
         if (typeof window === 'undefined') return;
 
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(location.search);
         const refCode = params.get('ref');
         
         if (refCode) {
@@ -16,15 +19,9 @@ export const useReferralTracking = () => {
             setSessionItem('pending_referral_code', cleanCode);
             console.log(`[Referral System] Codice invito catturato: ${cleanCode}`);
             
-            // Pulisci l'URL per estetica (rimuove query params senza ricaricare)
-            try {
-                if (window.location.protocol === 'blob:' || window.location.protocol === 'about:') return;
-                
-                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-                window.history.replaceState({ path: newUrl }, '', newUrl);
-            } catch (e) {
-                // Ignora errori di sicurezza su replaceState
-            }
+            // Pulisci l'URL per estetica tramite il router (Single Source of Truth)
+            // Sostituisce il vecchio window.history.replaceState
+            navigate(location.pathname, { replace: true });
         }
-    }, []);
+    }, [location.search, location.pathname, navigate]);
 };

@@ -1,3 +1,4 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React from 'react';
 import { Trophy, X } from 'lucide-react';
@@ -15,7 +16,6 @@ interface CoreModalsProps {
     onConfirmGps: () => void;
     onAuthSuccess: (user: any) => void;
     onCloseAuth: () => void;
-    activeStaticPage: any; // Router hook logic passed down if needed, but static pages handle internal nav often
 }
 
 export const CoreModals = ({ 
@@ -53,8 +53,12 @@ export const CoreModals = ({
             )}
 
             {activeModal === 'reviewSuccess' && (
-                <div className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
-                    <div className="bg-slate-900 border border-emerald-500/50 p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center relative overflow-hidden">
+                <div className="td-modal-overlay bg-black/90 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95" style={{ zIndex: Z_OVERLAY }}>
+                    <div 
+                        className="relative bg-slate-900 border border-emerald-500/50 p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center overflow-hidden animate-in zoom-in-95"
+                        style={{ zIndex: Z_MODAL }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600"></div>
                         <button onClick={closeModal} className="absolute top-4 right-4 text-slate-500 hover:text-white p-2"><X className="w-5 h-5"/></button>
                         <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
@@ -66,6 +70,16 @@ export const CoreModals = ({
                     </div>
                 </div>
             )}
+
+            {activeModal === 'static' && (
+                <StaticPage 
+                    type={modalProps.page} 
+                    onBack={closeModal}
+                />
+            )}
         </>
     );
 };
+
+
+

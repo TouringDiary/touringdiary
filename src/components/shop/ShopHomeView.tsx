@@ -50,7 +50,7 @@ export const ShopHomeView: React.FC<ShopHomeViewProps> = ({
                             premiumShops.map((shop, idx) => (
                             <div 
                                 key={shop.id || `shop-${idx}`} 
-                                className={`absolute inset-0 transition-all duration-1000 ease-in-out ${idx === activeIndex ? 'opacity-100 scale-100 z-10' : 'opacity-0 scale-105 pointer-events-none z-0'}`}
+                                className={`absolute inset-0 transition-all duration-1000 ease-in-out ${idx === activeIndex ? 'opacity-100 scale-100 z-floating-panel' : 'opacity-0 scale-105 pointer-events-none z-0'}`}
                             >
                                 <ImageWithFallback 
                                     src={shop.imageUrl} 

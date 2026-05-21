@@ -27,7 +27,7 @@ export const DeleteCityOptionsModal = ({ isOpen, onClose, onConfirm, cityName }:
     };
 
     return (
-        <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
             <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-red-500/30 shadow-2xl flex flex-col overflow-hidden relative">
                 
                 {/* HEADER */}

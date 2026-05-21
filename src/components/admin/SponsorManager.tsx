@@ -98,7 +98,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
             
             {/* --- FEEDBACK TOAST --- */}
             {toast && (
-                <div className={`fixed top-6 right-6 z-[3000] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${toast.type === 'success' ? 'bg-emerald-600 border-emerald-400' : toast.type === 'error' ? 'bg-red-600 border-red-400' : 'bg-blue-600 border-blue-400'} text-white`}>
+                <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${toast.type === 'success' ? 'bg-emerald-600 border-emerald-400' : toast.type === 'error' ? 'bg-red-600 border-red-400' : 'bg-blue-600 border-blue-400'} text-white`}>
                     {toast.type === 'success' ? <CheckCircle className="w-6 h-6"/> : toast.type === 'error' ? <AlertTriangle className="w-6 h-6"/> : <Info className="w-6 h-6"/>}
                     <div className="font-bold text-sm">{toast.message}</div>
                 </div>
@@ -185,7 +185,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                         nation: filters.nation, 
                         adminRegion: filters.adminRegion, 
                         zone: filters.zone, 
-                        city: filters.city, 
+                        cityId: filters.cityId, 
                         tier: filters.tier 
                     }} 
                     options={options} 
@@ -208,6 +208,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                         { id: 'pending', label: 'NUOVE RICHIESTE', count: stats?.pending ?? null, color: 'amber' }, 
                         { id: 'waiting', label: 'ATTESA PAGAMENTI', count: stats?.waiting ?? null, color: 'blue' }, 
                         { id: 'approved', label: 'SPONSOR ATTIVI', count: stats?.approved ?? null, color: 'emerald' }, 
+                        { id: 'expired', label: 'SPONSOR SCADUTI', count: stats?.expired ?? null, color: 'rose' }, 
                         { id: 'rejected', label: 'SPONSOR RIFIUTATI', count: stats?.rejected ?? null, color: 'slate' }, 
                         { id: 'cancelled', label: 'SPONSOR ANNULLATI', count: stats?.cancelled ?? null, color: 'slate' } 
                     ].map(tab => (
@@ -254,17 +255,26 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                 )}
             </div>
 
+            {/* --- INFORMATIVE NOTES --- */}
+            {activeTab === 'expired' && (
+                <div className="mt-4 p-4 bg-rose-900/10 border border-rose-500/20 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+                    <Info className="w-5 h-5 text-rose-400" />
+                    <p className="text-xs font-bold text-rose-300 uppercase tracking-widest">
+                        Nota: In questa sezione sono mostrati solo sponsor senza contratto attivo corrente.
+                    </p>
+                </div>
+            )}
+
             {/* --- CENTRALIZED MODAL MANAGER (ATOMICO) --- */}
             <SponsorModals 
                 state={modalState} 
                 actions={modalActions} 
+                requests={requests}
                 onConfirmActivation={confirmActivation} 
                 onConfirmReject={confirmRejection} 
                 onConfirmCancel={confirmCancellation} 
                 onConfirmExtension={confirmExtension} 
-                onDataChange={refreshData} 
-                sponsorsList={requests}
-                user={currentUser}
+                currentUser={currentUser}
             />
         </div>
     );

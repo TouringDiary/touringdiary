@@ -1,6 +1,9 @@
-
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useState, useEffect } from 'react';
-import { X, Send, MapPin, AlertTriangle, CheckCircle, Loader2, Trophy, Rocket, LogIn, Tag, Utensils, Sparkles, Pencil, CheckSquare, Square, Plus, Briefcase } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Send, MapPin, AlertTriangle, CheckCircle, Loader2, Trophy, Rocket, LogIn, Pencil, CheckSquare, Square, Plus, AlertCircle } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { SuggestionType, PointOfInterest, User as UserType } from '../../types/index';
 import { addSuggestion } from '../../services/communityService';
 
@@ -56,22 +59,6 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
         ? "Dettagli Modifica" 
         : (isServiceContext ? 'Dettagli Servizio' : 'Descrizione / Note sulla Modifica');
 
-    // GESTIONE PRIORITARIA TASTO ESC (Simile ad AuthModal)
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                onClose();
-            }
-        };
-        // Usa { capture: true } per intercettare l'evento PRIMA che raggiunga il modale sottostante.
-        window.addEventListener('keydown', handleEsc, { capture: true });
-        return () => window.removeEventListener('keydown', handleEsc, { capture: true });
-    }, [isOpen, onClose]);
-
     useEffect(() => {
         if (isOpen) {
             setActiveType(initialType);
@@ -89,6 +76,9 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
             setMatchedPoiName(null);
         }
     }, [isOpen, initialType, prefilledName, existingPois]);
+
+    useGlobalModalEscape(isOpen, onClose);
+
 
     const toggleErrorType = (key: keyof typeof errorTypes) => {
         setErrorTypes(prev => ({ ...prev, [key]: !prev[key] }));
@@ -168,15 +158,17 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
 
     const cleanFirstName = user.name.split(' ')[0].replace(/\(.*?\)/g, '').trim();
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-0 md:p-4 pt-28 pb-10">
-            <div className="absolute inset-0 bg-black/95 backdrop-blur-sm" onClick={onClose}></div>
-            
-            <div className="relative bg-slate-900 w-full max-w-lg h-full md:h-auto md:max-h-full md:rounded-[2.5rem] border-0 md:border border-slate-700 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 flex flex-col">
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
+            <div 
+                className="relative bg-slate-900 w-full max-w-lg h-full md:h-auto md:max-h-full md:rounded-[2.5rem] border-0 md:border border-slate-700 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 flex flex-col pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 <div className="p-5 md:px-8 md:py-6 border-b border-slate-800 bg-gradient-to-br from-[#0f172a] to-slate-900 shrink-0 relative">
                     <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12"><Rocket className="w-16 h-16 text-indigo-500"/></div>
-                    <div className="relative z-10">
+                    <div className="relative z-floating-panel">
                         <h3 className="text-xl md:text-2xl font-display font-bold text-white leading-tight">
                             {isServiceContext ? 'Segnala Servizio' : 'Migliora la Guida'}
                         </h3>
@@ -185,13 +177,7 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
                         </p>
                     </div>
                     
-                    <button 
-                        onClick={onClose} 
-                        className="absolute top-5 right-6 p-2.5 bg-red-600 hover:bg-red-700 rounded-full text-white transition-all shadow-2xl z-50 group scale-100"
-                        title="Chiudi (ESC)"
-                    >
-                        <X className="w-5 h-5 group-hover:rotate-90 transition-transform"/>
-                    </button>
+                    <CloseButton onClose={onClose} variant="primary" />
                 </div>
 
                 {isGuest ? (
@@ -319,6 +305,7 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
                                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">
                                     {labelDescription} *
                                 </label>
+                                {/* TODO: Sostituire con componente Rich per editor testo quando disponibile */}
                                 <textarea 
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-indigo-500 outline-none h-20 resize-none leading-relaxed text-sm" 
                                     value={formData.description} 
@@ -328,7 +315,7 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
                                 />
                             </div>
 
-                            {formError && <div className="p-2.5 bg-red-900/20 border border-red-500/50 rounded-lg text-red-400 text-[10px] flex items-center gap-2 animate-pulse font-bold uppercase tracking-tight"><X className="w-3.5 h-3.5"/> {formError}</div>}
+                            {formError && <div className="p-2.5 bg-red-900/20 border border-red-500/50 rounded-lg text-red-400 text-[10px] flex items-center gap-2 animate-pulse font-bold uppercase tracking-tight"><AlertCircle className="w-3.5 h-3.5"/> {formError}</div>}
 
                             <div className="pt-2">
                                 <button type="submit" disabled={isSubmitting} className={`w-full font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all transform active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[11px] ${duplicateWarningActive && activeType === 'new_place' ? 'bg-amber-600 hover:bg-amber-500 text-black' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
@@ -340,6 +327,10 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

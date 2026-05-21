@@ -142,3 +142,10 @@ export interface CityDeleteOptions {
     keepPeople: boolean;        // Mantieni personaggi famosi
     keepPOIs: boolean;          // Mantieni i Punti di Interesse (Sconsigliato ma possibile)
 }
+
+// --- GLOBAL SETTINGS ---
+export interface GlobalSetting {
+    key: string;
+    value: any;
+}
+

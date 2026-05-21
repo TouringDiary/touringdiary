@@ -1,112 +1,138 @@
+import type { PoiCategory, PoiSubCategory, OpeningHours, Review, AffiliateLinks, LinkMetadata, ContactInfo } from '../shared';
+export type { PoiCategory, PoiSubCategory, OpeningHours, Review, AffiliateLinks, LinkMetadata, ContactInfo };
+import { MediaStatus, MediaAsset } from './Media';
+import type { PlanType, SponsorTier, RuntimeTier } from '../../constants/planTypes';
 
-import { PoiCategory, PoiSubCategory, OpeningHours, Review, AffiliateLinks, LinkMetadata } from '../shared';
-import { SponsorTier } from './Sponsor';
+import { CITY_STATUS_VALUES, CITY_BADGE_VALUES, POI_STATUS_VALUES } from '../../constants/governance';
+
+// --- IDENTITY TYPES ---
+export interface CityIdentity {
+    id: string;
+    slug: string;
+    name: string;
+}
 
 // --- GEOGRAPHICAL TYPES ---
 
 export interface PointOfInterest {
-  id: string;
-  name: string;
-  description: string;
-  fullDescription?: string;
-  imageUrl: string;
-  // Copyright Metadata
-  imageCredit?: string; 
-  imageLicense?: 'own' | 'cc' | 'public' | 'copyright';
-  
-  gallery?: string[]; 
-  category: PoiCategory;
-  subCategory?: PoiSubCategory; 
-  rating: number;
-  votes: number;
-  coords: { lat: number; lng: number };
-  priceLevel?: 1 | 2 | 3 | 4;
-  tips?: string;
-  address?: string;
-  visitDuration?: string; 
-  suggestedBy?: string; 
-  openingHours?: OpeningHours;
-  reviews?: Review[];
-  tags?: string[]; 
+    id: string;
+    name: string;
+    description: string;
+    fullDescription?: string;
+    imageUrl: string;
+    image_status?: MediaStatus;
+    imageAsset?: MediaAsset;
 
-  // Advanced Taxonomy Fields
-  isSponsored?: boolean; 
-  tier?: SponsorTier; 
-  showcaseExpiry?: string; 
-  dateAdded?: string; 
-  
-  // METADATA TRACKING
-  createdAt?: string;
-  createdBy?: string;
-  updatedAt?: string; 
-  updatedBy?: string;
-  
-  // VALIDATION METADATA
-  lastVerified?: string; 
-  
-  listExpiry?: string; 
-  specialtyProduct?: string; 
-  
-  // Status Visibilità
-  status?: 'published' | 'draft' | 'needs_check' | 'restored'; 
-  
-  // AI Self-Assessment (UPDATED WITH + VARIANTS)
-  // Standard (Flash): high, medium, low
-  // Bonificati (Pro): high+, medium+, low+
-  aiReliability?: 'high' | 'medium' | 'low' | 'high+' | 'medium+' | 'low+' | 'duplicate' | 'invalidated'; 
-  
-  // Livello Interesse Turistico
-  tourismInterest?: 'high' | 'medium' | 'low';
+    // Copyright Metadata
+    imageCredit?: string;
+    imageLicense?: 'own' | 'cc' | 'public' | 'copyright';
 
-  // Monetization & Affiliate
-  affiliate?: AffiliateLinks; 
-  
-  // Metadata per la gestione AI dei link
-  linkMetadata?: Record<string, LinkMetadata>; 
+    gallery?: MediaAsset[];
+    category: PoiCategory;
+    subCategory?: PoiSubCategory;
+    rating: number;
+    votes: number;
+    coords: { lat: number; lng: number };
+    priceLevel?: 1 | 2 | 3 | 4;
+    tips?: string;
+    address?: string;
+    visitDuration?: string;
+    suggestedBy?: string;
+    openingHours?: OpeningHours | null;
+    reviews?: Review[] | null;
+    tags?: string[];
 
-  // Context
-  cityId?: string;
+    // Advanced Taxonomy Fields
+    isSponsored?: boolean;
+    tier?: SponsorTier;
+    planType?: PlanType;
+    showcaseExpiry?: string;
+    dateAdded?: string;
 
-  // Business Linking
-  vatNumber?: string; 
-  
-  // Geo-Spatial
-  distance?: number;
+    // METADATA TRACKING
+    createdAt?: string;
+    createdBy?: string;
+    updatedAt?: string;
+    updatedBy?: string;
 
-  // --- DIARY 2.0 RESOURCES ---
-  resourceType?: 'guide' | 'operator' | 'service';
-  contactInfo?: {
-      phone?: string;
-      email?: string;
-      whatsapp?: string;
-      website?: string;
-  };
+    // VALIDATION METADATA
+    lastVerified?: string;
+
+    listExpiry?: string;
+    specialtyProduct?: string;
+
+    // Status Visibilità
+    status?: typeof POI_STATUS_VALUES[number];
+
+    // AI Self-Assessment (UPDATED WITH + VARIANTS)
+    aiReliability?: 'high' | 'medium' | 'low' | 'high+' | 'medium+' | 'low+' | 'duplicate' | 'invalidated';
+
+    // Livello Interesse Turistico
+    tourismInterest?: 'high' | 'medium' | 'low';
+
+    // Monetization & Affiliate
+    affiliate?: AffiliateLinks | null;
+
+    // Metadata per la gestione AI dei link
+    linkMetadata?: Record<string, LinkMetadata> | null;
+
+    // Context
+    cityId?: string;
+
+    // Business Linking
+    vatNumber?: string;
+
+    // Geo-Spatial
+    distance?: number;
+
+    // --- DIARY 2.0 RESOURCES ---
+    resourceType?: 'guide' | 'operator' | 'service';
+    contactInfo?: ContactInfo | null;
 }
 
-export type BadgeType = 'event' | 'trend' | 'season' | 'editor' | 'destination';
+export type BadgeType = typeof CITY_BADGE_VALUES[number];
 
 export interface CitySummary {
     id: string;
+    slug: string;
     name: string;
     continent: string;
     nation: string;
+    region_id?: string;
     adminRegion: string;
+    tourist_zone_id?: string;
     zone: string;
     description: string;
     imageUrl: string;
+    image_status?: MediaStatus;
+    imageAsset?: MediaAsset;
+    imageCredit?: string;
+    imageLicense?: 'own' | 'cc' | 'public' | 'copyright';
+
     heroImage?: string;
+    hero_status?: MediaStatus;
+    heroAsset?: MediaAsset;
+
     rating: number;
     visitors: number;
     isFeatured: boolean;
     specialBadge?: BadgeType;
-    homeOrder?: number; 
+    homeOrder?: number;
     coords: { lat: number; lng: number };
-    status: 'published' | 'draft' | 'needs_check' | 'restored';
+    status: typeof CITY_STATUS_VALUES[number];
     createdAt?: string;
     updatedAt?: string;
     publishedAt?: string;
     tags?: string[];
-    hasGeneratedContent?: boolean; 
+    cityTypes?: string[];
+    classificationExplainability?: Record<string, number>;
+    hasGeneratedContent?: boolean;
+
+    // SEO Slugs (Geografici)
+    continent_slug?: string;
+    nation_slug?: string;
+    region_slug?: string;
+    zone_slug?: string;
 }
 
 export interface PatronDetails {
@@ -114,6 +140,8 @@ export interface PatronDetails {
     date: string;
     history: string;
     imageUrl: string;
+    image_status: MediaStatus;
+    imageAsset: MediaAsset;
 }
 
 export interface FamousPerson {
@@ -122,6 +150,8 @@ export interface FamousPerson {
     role: string;
     bio: string;
     imageUrl: string;
+    image_status?: MediaStatus;
+    imageAsset?: MediaAsset;
     fullBio?: string;
     quote?: string;
     lifespan?: string;
@@ -130,14 +160,14 @@ export interface FamousPerson {
     privateLife?: string;
     collaborations?: string[];
     careerStats?: { label: string; value: string }[];
-    relatedPlaces?: { 
-        id: string; 
-        name: string; 
-        address: string; 
-        coords: { lat: number; lng: number }; 
-        notes?: string; 
+    relatedPlaces?: {
+        id: string;
+        name: string;
+        address: string;
+        coords: { lat: number; lng: number };
+        notes?: string;
         visitDuration?: string;
-        priceLevel?: 1 | 2 | 3 | 4; 
+        priceLevel?: 1 | 2 | 3 | 4;
     }[];
     status?: 'published' | 'draft';
     orderIndex?: number;
@@ -152,6 +182,8 @@ export interface CityEvent {
     location: string;
     coords: { lat: number; lng: number };
     imageUrl?: string;
+    image_status?: MediaStatus;
+    imageAsset?: MediaAsset;
     cityId?: string;
     cityName?: string;
     cityBadge?: string;
@@ -164,16 +196,20 @@ export interface CityService {
     type: 'airport' | 'train' | 'bus' | 'taxi' | 'maritime' | 'emergency' | 'pharmacy' | 'other' | 'tour_operator' | 'agency' | 'transport' | 'info' | 'hospital' | 'police' | 'fire' | 'atm' | 'post' | 'luggage' | 'water' | 'consulate';
     name: string;
     contact: string;
-    category?: string; 
+    category?: string;
     description?: string;
     url?: string;
     address?: string;
+    imageUrl?: string;
+    image_status?: MediaStatus;
+    imageAsset?: MediaAsset;
     orderIndex?: number;
 }
 
 export interface CityGuide {
     id: string;
     name: string;
+    slug?: string;
     isOfficial: boolean;
     languages: string[];
     specialties: string[];
@@ -188,17 +224,17 @@ export interface CityGuide {
 }
 
 export interface CityDetails extends CitySummary {
-    imageCredit?: string; 
-    imageLicense?: 'own' | 'cc' | 'public' | 'copyright'; 
     details: {
         subtitle: string;
         heroImage: string;
+        hero_status?: MediaStatus;
+        heroAsset?: MediaAsset;
         historySnippet: string;
         historyFull: string;
-        historySections?: any[]; 
-        historyGallery?: string[];
-        
-        officialWebsite?: string; 
+        historySections?: any[];
+        historyGallery?: MediaAsset[];
+
+        officialWebsite?: string;
 
         patron: string;
         patronDetails?: PatronDetails;
@@ -211,25 +247,25 @@ export interface CityDetails extends CitySummary {
         };
 
         famousPeople: FamousPerson[];
-        
-        allPois: PointOfInterest[]; 
-        
+
+        allPois: PointOfInterest[];
+
         // Filtered lists (derived usually)
         topAttractions: PointOfInterest[];
         foodSpots: PointOfInterest[];
         hotels: PointOfInterest[];
         newDiscoveries: PointOfInterest[];
         leisureSpots: PointOfInterest[];
-        
-        gallery: string[];
-        
+
+        gallery: MediaAsset[];
+
         services: CityService[];
         events: CityEvent[];
         guides: CityGuide[];
-        
+
         seasonalVisitors?: { spring: number, summer: number, autumn: number, winter: number };
         generationLogs?: string[];
-        
+
         idealFor?: string[];
     };
 }

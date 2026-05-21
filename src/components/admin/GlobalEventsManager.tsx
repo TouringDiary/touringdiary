@@ -206,7 +206,7 @@ export const GlobalEventsManager = () => {
                 <div className="overflow-x-auto flex-1 custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
-                            <tr className="bg-slate-950 text-slate-500 text-[9px] uppercase tracking-wider font-bold sticky top-0 z-10 border-b border-slate-800 backdrop-blur-md">
+                            <tr className="bg-slate-950 text-slate-500 text-[9px] uppercase tracking-wider font-bold sticky top-0 z-floating-panel border-b border-slate-800 backdrop-blur-md">
                                 <th className="px-3 py-3 w-10 text-center"><button onClick={toggleAllPage} className="opacity-70 hover:opacity-100">{allSelected ? <CheckSquare className="w-3.5 h-3.5 text-indigo-500"/> : <Square className="w-3.5 h-3.5"/>}</button></th>
                                 <th className="px-3 py-3 w-64 text-left"><SortHeader label="Evento" colKey="name"/></th>
                                 <th className="px-3 py-3 w-32 text-center border-l border-slate-800"><SortHeader label="Categoria" colKey="category"/></th>

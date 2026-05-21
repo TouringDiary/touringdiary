@@ -157,7 +157,7 @@ export const UserReferralTab = ({ user, onUpdateUser, onSwitchToOverview }: Prop
             <div className="relative bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-8 overflow-hidden shadow-2xl border border-indigo-400/30">
                 <div className="absolute top-0 right-0 p-12 bg-white/5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
                 
-                <div className="relative z-10 flex flex-col items-center text-center gap-6">
+                <div className="relative z-floating-panel flex flex-col items-center text-center gap-6">
                     <div>
                         <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest mb-4 border border-white/20 shadow-lg">
                             <Gift className="w-3.5 h-3.5"/> Programma Referral

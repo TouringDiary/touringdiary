@@ -1,5 +1,7 @@
-
 import { createClient } from '@supabase/supabase-js';
+import { Database, Json } from '../types/supabase';
+
+export type { Json };
 
 /**
  * ------------------------------------------------------------------
@@ -7,83 +9,105 @@ import { createClient } from '@supabase/supabase-js';
  * Credenziali Demo. In produzione usare variabili d'ambiente.
  * ------------------------------------------------------------------
  */
-const SUPABASE_URL = 'https://iyncirtysrjrmqwfmkbm.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5bmNpcnR5c3Jqcm1xd2Zta2JtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyODEyMTAsImV4cCI6MjA4MTg1NzIxMH0.jUb0olX8fe-vC_XUpX_QRcA-zorVIcbFBbkWM-DXPFg';
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ||
+  'https://iyncirtysrjrmqwfmkbm.supabase.co';
 
-// SAFE HYBRID STORAGE ADAPTER
-// Tenta di usare localStorage per la persistenza.
-// Se fallisce (es. Iframe, Privacy Mode), usa la RAM come fallback trasparente.
-class SafeStorageAdapter {
-  private memoryStore: Map<string, string>;
+const SUPABASE_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  'sb_publishable_12o2VzkveewDpHKYRUPiaQ_ZzkI3cyl';
 
-  constructor() {
-    this.memoryStore = new Map();
-  }
+console.log("SUPABASE URL:", import.meta.env.VITE_SUPABASE_URL);
+console.log("SUPABASE KEY:", import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) + "...");
 
-  getItem(key: string): string | null {
-    // 1. Prova LocalStorage
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(key);
-      }
-    } catch (e) {
-      // Ignora errore accesso
-    }
-    // 2. Fallback Memoria
-    return this.memoryStore.get(key) || null;
-  }
+// Chiave storage FISSA per lo sviluppo: evita che la sessione si perda
+// quando si passa tra localhost, 127.0.0.1 o IP di rete.
+const STORAGE_KEY = `td_auth_dev_v1`;
+console.log("[Supabase] Using storage key:", STORAGE_KEY);
 
-  setItem(key: string, value: string): void {
-    // 1. Prova LocalStorage
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(key, value);
-      }
-    } catch (e) {
-      // Ignora errore accesso
-    }
-    // 2. Scrivi sempre anche in memoria per coerenza sessione corrente
-    this.memoryStore.set(key, value);
-  }
-
-  removeItem(key: string): void {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem(key);
-      }
-    } catch (e) {
-      // Ignora
-    }
-    this.memoryStore.delete(key);
-  }
-}
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
-    storage: new SafeStorageAdapter(), // Usa l'adapter ibrido
-    persistSession: true, // ABILITA LA PERSISTENZA (Cruciale!)
+    persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
-  },
-  global: {
-    fetch: async (url, options) => {
-      try {
-        return await fetch(url, options);
-      } catch (e: any) {
-        // Intercetta l'errore di rete prima che diventi un'eccezione non gestita
-        // e restituisce una risposta "finta" 503 (Service Unavailable).
-        // In questo modo Supabase gestirà l'errore in modo pulito senza far
-        // comparire "TypeError: Failed to fetch" in rosso nella console.
-        return new Response(JSON.stringify({ error: "Database irraggiungibile (Offline Mode)" }), {
-          status: 503,
-          statusText: "Service Unavailable",
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    }
+    detectSessionInUrl: true,
+    storageKey: STORAGE_KEY,
   }
 });
 
 export const isSupabaseConfigured = () => {
-    return !!SUPABASE_URL && SUPABASE_KEY.length > 20;
+  return !!SUPABASE_URL && SUPABASE_KEY.length > 20;
+};
+
+/**
+ * ------------------------------------------------------------------
+ * 🔒 AUTH CONCURRENCY CONTROL
+ * In ambiente dev, operazioni concorrenti su Auth (es. setSession + getSession)
+ * possono causare lock contention ("Lock not released", "Lock broken").
+ * Questo flag segnala quando un'operazione manuale è in corso.
+ * ------------------------------------------------------------------
+ */
+export let isAuthOperationInProgress = false;
+let authLockTimeout: any = null;
+
+export const setAuthOperationInProgress = (value: boolean) => {
+  isAuthOperationInProgress = value;
+
+  if (authLockTimeout) {
+    clearTimeout(authLockTimeout);
+    authLockTimeout = null;
+  }
+
+  if (value) {
+    console.log(`[SupabaseClient] 🔒 Auth internal lock ACTIVE`);
+    // Safety timeout: reset flag dopo 10 secondi per evitare blocchi permanenti
+    authLockTimeout = setTimeout(() => {
+      if (isAuthOperationInProgress) {
+        console.warn("[SupabaseClient] ⚠️ Auth lock safety timeout reached. Auto-resetting flag.");
+        isAuthOperationInProgress = false;
+      }
+    }, 10000);
+  } else {
+    console.log(`[SupabaseClient] 🔓 Auth internal lock RELEASED`);
+  }
+};
+
+/**
+ * Valida la sessione corrente. 
+ * Orchestrazione reale: se un'operazione auth è in corso, attende lo sblocco 
+ * invece di falsificare il risultato.
+ */
+export const validateSession = async (): Promise<boolean> => {
+  // Attesa attiva (polling) se un'operazione critica è in corso
+  let retryCount = 0;
+  while (isAuthOperationInProgress && retryCount < 10) {
+    console.log(`[SupabaseClient] validateSession waiting for auth lock... (${retryCount + 1}/10)`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    retryCount++;
+  }
+
+  if (isAuthOperationInProgress) {
+    console.error("[SupabaseClient] validateSession ABORTED: Auth lock did not release in time.");
+    return false; // Non mentiamo più: se è bloccato, la validazione è fallita/indeterminata
+  }
+
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) return false;
+
+    // Verifica che il token non sia scaduto
+    const expiresAt = session.expires_at;
+    if (!expiresAt) return false;
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const isValid = expiresAt > nowSec;
+
+    if (!isValid) {
+      console.warn("[Supabase] Sessione scaduta (token exp:", new Date(expiresAt * 1000).toISOString(), ")");
+    }
+
+    return isValid;
+  } catch (e) {
+    console.error("[Supabase] validateSession error:", e);
+    return false;
+  }
 };

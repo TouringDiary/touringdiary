@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
-import { ImageIcon, Crop, Plus, RefreshCw, Loader2, Trash2, LayoutTemplate, Square, Info } from 'lucide-react';
+import { MediaStatus, MediaAsset, CityDetails } from '@/types';
+
+import { ImageIcon, Crop, Plus, RefreshCw, Loader2, Trash2, LayoutTemplate, Square } from 'lucide-react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { AdminImageInput } from '../../AdminImageInput';
 import { AdminPhotoInspector } from '../../AdminPhotoInspector';
@@ -37,9 +39,9 @@ export const TabMedia = () => {
         
         try {
             if (deleteTarget.type === 'hero') {
-                updateHeroState('', '', 'public');
+                updateHeroState('', '', 'public', 'missing');
             } else if (deleteTarget.type === 'card') {
-                updateCardState('');
+                updateCardState('', 'missing');
             } else if (deleteTarget.type === 'gallery' && typeof deleteTarget.index === 'number') {
                 const currentGallery = [...(city.details.gallery || [])];
                 currentGallery.splice(deleteTarget.index, 1);
@@ -78,10 +80,17 @@ export const TabMedia = () => {
             const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Media (in 0s)`;
             newDetails.generationLogs = [...(newDetails.generationLogs || []), newLog];
 
-            const updatedCity = { 
+            const updatedCity: CityDetails = { 
                 ...city, 
                 imageUrl: newHero,
-                details: newDetails 
+                image_status: 'real',
+                hero_status: 'real',
+                details: {
+                    ...newDetails,
+                    heroImage: newHero,
+                    hero_status: 'real',
+                    gallery: []
+                }
             };
             
             await saveCityDetails(updatedCity);
@@ -90,58 +99,69 @@ export const TabMedia = () => {
             
             alert("Media rigenerati. La galleria è stata svuotata e l'immagine Hero aggiornata.");
 
-        } catch (e: any) {
+        } catch (e: unknown) {
              console.error(e);
-             alert(`Errore rigenerazione: ${e.message}`);
+             const msg = e instanceof Error ? e.message : "Errore tecnico durante la rigenerazione.";
+             alert(`Errore rigenerazione: ${msg}`);
         } finally {
             setGenerating(false);
         }
     };
 
-    const getUniqueGallery = (newImages: string[]) => {
+    const getUniqueGallery = (newAssets: MediaAsset[]) => {
         const uniqueSet = new Set();
-        return newImages.filter(url => {
-            if (!url) return false;
-            const cleanUrl = url.split('?')[0].trim();
+        return newAssets.filter(asset => {
+            if (!asset.url) return false;
+            const cleanUrl = asset.url.split('?')[0].trim();
             if (uniqueSet.has(cleanUrl)) return false;
             uniqueSet.add(cleanUrl);
             return true;
         });
     };
 
-    const updateHeroState = (url: string, credit: string, license: string) => {
+    const updateHeroState = (url: string, credit: string, license: string, status: MediaStatus) => {
+        // Sincronizzazione atomica tra root e details per la Hero
+        updateField('heroImage', url);
+        updateField('hero_status', status);
         updateDetailField('heroImage', url);
+        updateDetailField('hero_status', status);
+        
+        // Metadata editoriali
         updateField('imageCredit', credit);
         updateField('imageLicense', license);
     };
 
-    const updateCardState = (url: string) => {
+    const updateCardState = (url: string, status: MediaStatus) => {
+        // Sincronizzazione Card (Lista/Preview) - Indipendente dalla Hero
         updateField('imageUrl', url);
+        updateField('image_status', status);
     };
 
-    const handleHeroUpload = (data: { imageUrl: string, imageCredit: string, imageLicense: 'own' | 'cc' | 'public' | 'copyright', fileName?: string }) => {
-        updateHeroState(data.imageUrl, data.imageCredit, data.imageLicense);
-        if (!city.imageUrl) {
-            updateCardState(data.imageUrl);
-        }
+    const handleHeroUpload = (data: { imageUrl: string, imageCredit: string, imageLicense: 'own' | 'cc' | 'public' | 'copyright', fileName?: string, image_status: MediaStatus }) => {
+        updateHeroState(data.imageUrl, data.imageCredit, data.imageLicense, data.image_status);
     };
 
-    const handleCardUpload = (data: { imageUrl: string }) => {
-        updateCardState(data.imageUrl);
+    const handleCardUpload = (data: { imageUrl: string, image_status: MediaStatus }) => {
+        updateCardState(data.imageUrl, data.image_status);
     };
 
     const handleInspectorSave = (data: { image: string }) => {
         if (editingTarget === 'hero') {
-            updateHeroState(data.image, city.imageCredit || '', city.imageLicense || 'public');
+            updateHeroState(data.image, city.imageCredit || '', city.imageLicense || 'public', data.image ? 'real' : 'missing');
         } else if (editingTarget === 'card') {
-            updateCardState(data.image);
+            updateCardState(data.image, data.image ? 'real' : 'missing');
+
         } else if (editingTarget === 'patron') {
              const currentDetails = city.details.patronDetails || { name: '', date: '', history: '', imageUrl: '' };
              updateDetailField('patronDetails', { ...currentDetails, imageUrl: data.image });
         } else if (editingTarget === 'gallery') {
             const currentGallery = [...(city.details.gallery || [])];
             if (imageToEdit.index !== null && imageToEdit.index >= 0 && imageToEdit.index < currentGallery.length) {
-                currentGallery[imageToEdit.index] = data.image;
+                currentGallery[imageToEdit.index] = {
+                    ...currentGallery[imageToEdit.index],
+                    url: data.image,
+                    mediaStatus: data.image ? 'real' : 'missing'
+                };
                 updateDetailField('gallery', getUniqueGallery(currentGallery));
             }
         }
@@ -163,7 +183,7 @@ export const TabMedia = () => {
                  return;
              }
              const currentGallery = city.details.gallery || [];
-             const newGallery = [...currentGallery, url];
+             const newGallery: MediaAsset[] = [...currentGallery, { url, mediaStatus: 'real' }];
              updateDetailField('gallery', getUniqueGallery(newGallery));
         }
     };
@@ -292,13 +312,13 @@ export const TabMedia = () => {
                     <ImageIcon className="w-5 h-5 text-indigo-500"/> Galleria Fotografica
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {city.details.gallery?.map((img, i) => (
+                    {city.details.gallery?.map((asset, i) => (
                         <div key={i} className="aspect-square relative group rounded-xl overflow-hidden border border-slate-700 shadow-md">
-                            <img src={img} className="w-full h-full object-cover" alt="Gallery item"/>
+                            <img src={asset.url} className="w-full h-full object-cover" alt="Gallery item"/>
                             
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                 <button 
-                                    onClick={() => openInspector(img, 'gallery', i)} 
+                                    onClick={() => openInspector(asset.url, 'gallery', i)} 
                                     className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-full shadow-lg transition-transform hover:scale-110"
                                     title="Modifica / Ritaglia"
                                 >

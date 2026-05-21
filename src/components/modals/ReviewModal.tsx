@@ -1,6 +1,9 @@
-
+import { Z_OVERLAY, Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Star, Send, PenTool, AlertCircle, Trophy } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { PointOfInterest, Review } from '../../types/index';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles'; // NEW HOOK
 
@@ -60,39 +63,41 @@ export const ReviewModal = ({ isOpen, onClose, poi, onSubmit, existingReview }: 
     const isDirty = JSON.stringify({ comment, ratings: criteriaRatings }) !== JSON.stringify(initialState);
     const handleCloseAttempt = () => { if (isDirty) setShowConfirmClose(true); else onClose(); };
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.stopPropagation();
-                if (showConfirmClose) setShowConfirmClose(false);
-                else handleCloseAttempt();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, showConfirmClose, isDirty]);
+    useGlobalModalEscape(isOpen, handleCloseAttempt);
+
+
 
     const handleRatingChange = (key: string, value: number) => { setCriteriaRatings(prev => ({ ...prev, [key]: value })); };
     const handleSubmit = () => { const values: number[] = Object.values(criteriaRatings); const sum = values.reduce((a, b) => a + b, 0); const avg = sum / (values.length || 1); onSubmit(avg, criteriaRatings, comment); onClose(); };
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed top-24 bottom-0 left-0 right-0 z-[3000] flex items-center justify-center p-0 md:p-4">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleCloseAttempt}></div>
+    return createPortal(
+        <div className="td-modal-overlay bg-black/80 backdrop-blur-sm !p-0 md:!p-4 animate-in fade-in pointer-events-auto" onClick={handleCloseAttempt} style={{ zIndex: Z_OVERLAY }}>
              {showConfirmClose && (
-                <div className="absolute inset-0 z-[3050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-2xl max-w-sm w-full">
+                <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }}>
+                    <div 
+                        className="relative bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-2xl max-w-sm w-full pointer-events-auto"
+                        style={{ zIndex: Z_MODAL_NESTED }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex flex-col items-center text-center gap-4">
                             <AlertCircle className="w-8 h-8 text-amber-500"/>
                             <div><h3 className="text-lg font-bold text-white mb-1">Dati non salvati</h3><p className="text-sm text-slate-400">Vuoi uscire senza pubblicare?</p></div>
-                            <div className="flex gap-3 w-full"><button onClick={() => onClose()} className="flex-1 py-2 bg-red-900/30 text-red-400 border border-red-900/50 rounded-lg font-bold text-xs uppercase">Esci</button><button onClick={() => setShowConfirmClose(false)} className="flex-1 py-2 bg-slate-800 text-white rounded-lg font-bold text-xs uppercase">Resta</button></div>
+                            <div className="flex gap-3 w-full">
+                                <button onClick={() => onClose()} className="flex-1 py-2 bg-red-900/30 text-red-400 border border-red-900/50 rounded-lg font-bold text-xs uppercase">Esci</button>
+                                <button onClick={() => setShowConfirmClose(false)} className="flex-1 py-2 bg-slate-800 text-white rounded-lg font-bold text-xs uppercase">Resta</button>
+                            </div>
+                            <CloseButton onClose={() => setShowConfirmClose(false)} variant="primary" position="absolute" className="top-4 right-4" />
                         </div>
                     </div>
                 </div>
             )}
-            <div className="relative bg-slate-900 w-full max-w-md md:rounded-2xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 p-6">
+            <div 
+                className="relative bg-slate-900 w-full max-w-md md:rounded-2xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 p-6 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         {/* DYNAMIC TITLE */}
@@ -102,8 +107,10 @@ export const ReviewModal = ({ isOpen, onClose, poi, onSubmit, existingReview }: 
                         </h3>
                         <p className="text-xs text-slate-400">{poi.name}</p>
                     </div>
-                    {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={handleCloseAttempt} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"><X className="w-5 h-5"/></button>
+                    <CloseButton 
+                        onClose={handleCloseAttempt}
+                        variant="primary"
+                    />
                 </div>
                 
                 {/* XP INFO BOX */}
@@ -123,6 +130,10 @@ export const ReviewModal = ({ isOpen, onClose, poi, onSubmit, existingReview }: 
                     <button onClick={handleSubmit} disabled={Object.values(criteriaRatings).some(v => v === 0)} className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-colors"><Send className="w-4 h-4" /> {existingReview ? 'Aggiorna' : 'Pubblica'}</button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

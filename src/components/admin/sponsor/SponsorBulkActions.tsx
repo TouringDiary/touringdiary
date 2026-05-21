@@ -21,7 +21,7 @@ export const SponsorBulkActions = ({
     if (!isVisible || selectedCount === 0) return null;
 
     return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900 border border-indigo-500/50 rounded-2xl shadow-2xl p-2 flex items-center gap-2 animate-in slide-in-from-bottom-10">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-toast bg-slate-900 border border-indigo-500/50 rounded-2xl shadow-2xl p-2 flex items-center gap-2 animate-in slide-in-from-bottom-10">
             <div className="bg-indigo-600 px-3 py-1.5 rounded-xl text-white font-bold text-xs flex items-center gap-2 mr-2">
                 <CheckSquare className="w-4 h-4"/> {selectedCount}
             </div>

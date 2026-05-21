@@ -11,6 +11,7 @@ import { ensureZoneExists, getTouristZones } from '../../services/zoneService';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { GEO_CONFIG } from '../../constants/geoConfig';
 import { useConfig } from '@/context/ConfigContext';
+import { resolveCanonicalCityId } from '../../services/city/cityIdService';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -25,7 +26,7 @@ export const useAiMagicCity = (
     // Recupera l'immagine default una volta sola (fuori dal loop)
     const defaultHero = configs.HERO_IMAGE;
 
-    const executeMagicAdd = async (rawCityName: string, poiCount: number = 10, user?: User, existingCityId?: string) => {
+    const executeMagicAdd = async (rawCityName: string, poiCount: number = 10, user?: User, existingCityId?: string, adminRegion?: string) => {
         const cityName = toTitleCase(rawCityName);
         const isUpdateMode = !!existingCityId;
         
@@ -87,7 +88,27 @@ export const useAiMagicCity = (
             
             // STEP 1: ANALISI E POPOLAMENTO
             await performStep(isUpdateMode ? 'Analisi & Popolamento (Arricchimento)' : 'Analisi & Creazione Città', async () => {
-                if (!cityId) cityId = `city_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
+                let currentRegion = adminRegion;
+                
+                if (isUpdateMode && !currentRegion) {
+                    try {
+                        const existingData = await getCityDetails(cityId);
+                        if (existingData) currentRegion = existingData.adminRegion;
+                    } catch (e) {
+                         console.warn("Could not fetch existing region for disambiguation", e);
+                    }
+                }
+
+                if (!cityId) {
+                    try {
+                        // Risolviamo l'ID canonico PRIMA di procedere con la regione (se disponibile)
+                        cityId = await resolveCanonicalCityId(cityName, currentRegion);
+                        addLog(`📍 ID Canonico risolto: ${cityId} ${currentRegion ? `(${currentRegion})` : ''}`);
+                    } catch (err: any) {
+                        addLog(`❌ ERRORE: La città "${cityName}" ${currentRegion ? `in ${currentRegion}` : ''} non è presente nel registro ufficiale (cities_registry).`);
+                        throw new Error("CITY_NOT_IN_REGISTRY");
+                    }
+                }
                 const servicesQuery = 'stazione ferroviaria, metro, porto, traghetti, ospedale, farmacia, polizia, carabinieri, trasporti pubblici';
 
                 // CONTEGGIO COSTO API ESATTO (REQUESTS):

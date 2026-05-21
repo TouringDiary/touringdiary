@@ -55,7 +55,7 @@ export const ShopProducts: React.FC<ShopProductsProps> = ({ shop, onSelectProduc
                                         </div>
                                     </div>
 
-                                    <div className="flex-1 p-5 flex flex-col justify-between bg-slate-900 relative z-10">
+                                    <div className="flex-1 p-5 flex flex-col justify-between bg-slate-900 relative z-floating-panel">
                                         <div>
                                             {/* Font aumentato: text-xl (era text-lg) per richiesta utente */}
                                             <h5 className="text-xl font-bold text-white font-display leading-tight mb-2 group-hover:text-amber-400 transition-colors line-clamp-2">{product.name}</h5>

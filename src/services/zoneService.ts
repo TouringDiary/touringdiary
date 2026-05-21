@@ -1,5 +1,5 @@
 
-import { supabase } from './supabaseClient';
+import { supabase, Json } from './supabaseClient';
 import { TouristZone, AiCitySuggestion } from '../types/index';
 import { clearCacheKey } from './city/cityCache';
 
@@ -17,12 +17,12 @@ export const getTouristZones = async (region?: string): Promise<TouristZone[]> =
         return [];
     }
     
-    return data.map((z: any) => ({
+    return (data || []).map((z) => ({
         id: z.id,
         name: z.name,
         adminRegion: z.admin_region,
         description: z.description,
-        aiSuggestions: z.ai_suggestions || [] // Map JSONB to internal type
+        aiSuggestions: (z.ai_suggestions as unknown as AiCitySuggestion[]) || []
     }));
 };
 
@@ -123,7 +123,7 @@ export const saveZoneSuggestions = async (zoneName: string, suggestions: AiCityS
     // 2. Update JSONB column
     const { error } = await supabase
         .from('tourist_zones')
-        .update({ ai_suggestions: suggestions })
+        .update({ ai_suggestions: suggestions as unknown as Json })
         .eq('name', zoneName)
         .eq('admin_region', regionName);
 
@@ -144,7 +144,7 @@ export const removeZoneSuggestion = async (zoneName: string, suggestionName: str
         if (!data || !data.ai_suggestions) return;
 
         // 2. Filtra via il suggerimento indesiderato
-        const currentSuggestions = data.ai_suggestions as AiCitySuggestion[];
+        const currentSuggestions = (data.ai_suggestions as unknown as AiCitySuggestion[]) || [];
         const updatedSuggestions = currentSuggestions.filter(s => s.name !== suggestionName);
 
         // 3. Salva la lista aggiornata

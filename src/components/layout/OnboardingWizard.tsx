@@ -1,6 +1,8 @@
+import { Z_OVERLAY } from '@/constants/zIndex';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, ArrowRight, Loader2, Power } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { ArrowRight, Loader2, Power } from 'lucide-react';
 import { getSystemMessagesAsync, SystemMessageTemplate, BubbleArrowDirection } from '../../services/communicationService';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles'; 
 import { MascotSvg } from '../common/MascotSvg';
@@ -55,6 +57,7 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
     
     // Refs
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const alreadyLoadedRef = useRef(false);
     
     // Dynamic Styles
     const titleStyle = useDynamicStyles('onboarding_title', isMobile);
@@ -63,7 +66,11 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
     // --- 1. CARICAMENTO DATI DINAMICO (DB DRIVEN) ---
     useEffect(() => {
         const loadSteps = async () => {
+            if (alreadyLoadedRef.current) return;
+            alreadyLoadedRef.current = true;
+
             setIsLoading(true);
+            console.log("[SystemMessages] called from: OnboardingWizard.tsx");
             try {
                 // Fetch di TUTTI i messaggi (aggira la cache del singolo hook)
                 const allMessages = await getSystemMessagesAsync();
@@ -237,7 +244,8 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
 
     return (
         <div 
-            className={`fixed inset-0 z-[99999] overflow-hidden font-sans transition-opacity duration-700 ${isExiting ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+            className={`fixed inset-0 overflow-hidden font-sans transition-opacity duration-700 ${isExiting ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+            style={{ zIndex: Z_OVERLAY }}
             onClick={(e) => { if(e.target === e.currentTarget && !isExiting) triggerExitSequence(); }}
         >
             {/* BACKDROP - Sparisce subito all'uscita */}
@@ -246,7 +254,7 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
             {/* HIGHLIGHT BOX */}
             {targetRect && isStepReady && !isExiting && (
                 <div 
-                    className="absolute border-4 border-amber-400 rounded-xl shadow-[0_0_100px_rgba(251,191,36,0.6)] transition-all duration-500 pointer-events-none animate-pulse z-10"
+                    className="absolute border-4 border-amber-400 rounded-xl shadow-[0_0_100px_rgba(251,191,36,0.6)] transition-all duration-500 pointer-events-none animate-pulse z-floating-panel"
                     style={{ 
                         // FIX: OFFSET AUMENTATO ( -10px ) per farlo salire visivamente come richiesto
                         top: targetRect.top - 10, 
@@ -262,7 +270,7 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
                 
                 {/* MASCOTTE */}
                 <div 
-                    className={`absolute pointer-events-auto cursor-pointer hover:scale-110 z-30 transition-all duration-700 ease-in-out`}
+                    className={`absolute pointer-events-auto cursor-pointer hover:scale-110 z-dropdown transition-all duration-700 ease-in-out`}
                     style={{ 
                         top: `${mascotPos.y}%`, 
                         left: `${mascotPos.x}%`, 
@@ -278,7 +286,7 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
 
                 {/* FUMETTO */}
                 <div 
-                    className={`absolute transition-all duration-700 ease-in-out pointer-events-auto z-40 cursor-default`}
+                    className={`absolute transition-all duration-700 ease-in-out pointer-events-auto z-dropdown cursor-default`}
                     style={{ 
                         top: `${bubblePos.y}%`, 
                         left: `${bubblePos.x}%`, 
@@ -305,10 +313,11 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
 
                         <div className={`absolute w-6 h-6 bg-white border-l border-t border-slate-100 ${getBubbleArrowClass(bubbleArrow)}`}></div>
 
-                        <div className="relative z-10">
+                        <div className="relative z-floating-panel">
                             <div className="flex justify-between items-start mb-3">
                                 <h3 className={`${titleStyle || 'font-display font-black text-indigo-600 text-2xl'}`}>{parsedTitle}</h3>
-                                <button onClick={triggerExitSequence} className="p-1.5 bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-500 rounded-full transition-colors"><X className="w-4 h-4"/></button>
+                                <CloseButton onClose={triggerExitSequence} variant="primary" />
+
                             </div>
                             
                             <p className={`${textStyle || 'text-slate-600 text-sm font-medium leading-relaxed mb-6'}`}>{parsedBody}</p>
@@ -330,3 +339,6 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
         </div>
     );
 };
+
+
+

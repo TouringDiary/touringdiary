@@ -37,6 +37,8 @@ export interface PositionConfig {
 export interface UiConfig {
     desktop?: PositionConfig;
     mobile?: PositionConfig;
+    confirmLabel?: string;
+    cancelLabel?: string;
     // Legacy support (opzionale, mantenuto per compatibilità)
     mascot?: { x: number, y: number };
     bubble?: { x: number, y: number };
@@ -101,33 +103,79 @@ export const logCommunicationAsync = async (logData: Omit<AdminMessageLog, 'id' 
 
 // --- TEMPLATES ---
 
+let systemMessagesCache: SystemMessageTemplate[] | null = null;
+let pendingMessagesPromise: Promise<SystemMessageTemplate[]> | null = null;
+
 export const getSystemMessagesAsync = async (): Promise<SystemMessageTemplate[]> => {
-    try {
-        const { data, error } = await supabase
-            .from('system_messages')
-            .select('*')
-            .order('label', { ascending: true });
+    // 1. Se abbiamo il dato in cache, lo restituiamo subito
+    if (systemMessagesCache) return systemMessagesCache;
 
-        if (error) throw error;
+    // 2. Se c'è già una richiesta in corso, attendiamo quella
+    if (pendingMessagesPromise) return pendingMessagesPromise;
 
-        return (data as DatabaseSystemMessage[]).map(msg => ({
-            key: msg.key,
-            type: msg.type as 'internal' | 'external' | 'onboarding',
-            label: msg.label,
-            titleTemplate: msg.title_template || undefined,
-            bodyTemplate: msg.body_template,
-            variables: msg.variables || undefined,
-            uiConfig: msg.ui_config as UiConfig || undefined,
-            deviceTarget: (msg.device_target as 'all'|'desktop'|'mobile') || 'all'
-        }));
-    } catch (e: any) {
-        if (e?.message === 'TypeError: Failed to fetch' || e?.message?.includes('fetch')) {
-            console.warn("System Messages offline: Database non raggiungibile. Uso fallback.");
-        } else {
-            console.error("Fetch system messages failed", e);
+    // 3. Altrimenti creiamo una nuova promise (Singleton Promise Pattern)
+    pendingMessagesPromise = (async () => {
+        try {
+            // Tenta tramite API locale
+            try {
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bootstrap/messages`);
+                if (response.ok) {
+                    const apiRes = await response.json();
+                    if (apiRes.success && apiRes.data) {
+                        console.log("[CommunicationService] System messages caricati da API locale");
+                        const result = (apiRes.data as any[]).map(msg => ({
+                            key: msg.key,
+                            type: msg.type as 'internal' | 'external' | 'onboarding',
+                            label: msg.label,
+                            titleTemplate: msg.title_template || undefined,
+                            bodyTemplate: msg.body_template,
+                            variables: msg.variables || undefined,
+                            uiConfig: msg.ui_config as UiConfig || undefined,
+                            deviceTarget: (msg.device_target as 'all'|'desktop'|'mobile') || 'all'
+                        }));
+                        systemMessagesCache = result;
+                        return result;
+                    }
+                }
+            } catch (apiError) {
+                console.warn("[CommunicationService] API locale fallita, uso fallback Supabase", apiError);
+            }
+
+            // Fallback Supabase
+            const { data, error } = await supabase
+                .from('system_messages')
+                .select('*')
+                .order('label', { ascending: true });
+
+            if (error) throw error;
+
+            const result = (data as any[]).map(msg => ({
+                key: msg.key,
+                type: msg.type as 'internal' | 'external' | 'onboarding',
+                label: msg.label,
+                titleTemplate: msg.title_template || undefined,
+                bodyTemplate: msg.body_template,
+                variables: msg.variables || undefined,
+                uiConfig: msg.ui_config as UiConfig || undefined,
+                deviceTarget: (msg.device_target as 'all'|'desktop'|'mobile') || 'all'
+            }));
+            
+            systemMessagesCache = result;
+            return result;
+        } catch (e: any) {
+            if (e?.message === 'TypeError: Failed to fetch' || e?.message?.includes('fetch')) {
+                console.warn("System Messages offline: Database non raggiungibile. Uso fallback.");
+            } else {
+                console.error("Fetch system messages failed", e);
+            }
+            return [];
+        } finally {
+            // Una volta finito (bene o male), puliamo il riferimento alla promise pendente
+            pendingMessagesPromise = null;
         }
-        return [];
-    }
+    })();
+
+    return pendingMessagesPromise;
 };
 
 export const saveSystemMessageAsync = async (msg: SystemMessageTemplate): Promise<boolean> => {
@@ -146,6 +194,10 @@ export const saveSystemMessageAsync = async (msg: SystemMessageTemplate): Promis
 
         const { error } = await supabase.from('system_messages').upsert(payload);
         if (error) throw error;
+        
+        // Invalidazione Cache
+        systemMessagesCache = null;
+        
         return true;
     } catch (e) {
         console.error("Save system message failed", e);
@@ -157,6 +209,10 @@ export const deleteSystemMessageAsync = async (key: string): Promise<boolean> =>
     try {
         const { error } = await supabase.from('system_messages').delete().eq('key', key);
         if (error) throw error;
+        
+        // Invalidazione Cache
+        systemMessagesCache = null;
+
         return true;
     } catch (e) {
         console.error("Delete system message failed", e);

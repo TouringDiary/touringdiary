@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { ArrowLeft, Award, MapPin, Box, Check, Plus, MessageCircle, ShoppingCart, X, Briefcase, Share2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { ArrowLeft, Award, MapPin, Box, Check, Plus, MessageCircle, ShoppingCart, Briefcase, Share2 } from 'lucide-react';
 import { ShopPartner, PointOfInterest, ShopCategory } from '../../types/index';
 import { openMap, open3DView } from '../../utils/common';
 import { useShare } from '../../hooks/useShare';
@@ -55,7 +56,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
              share({
                 title: 'Shopping Touring Diary',
                 text: `Scopri le migliori botteghe e prodotti tipici a ${cityName}.`,
-                params: { city: 'napoli', tab: 'shopping' } // Fallback generic
+                params: { city: cityName.toLowerCase(), tab: 'shopping' } // Fallback generic
             });
         }
     };
@@ -64,7 +65,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
     const CategoryIcon = activeCategoryData?.icon;
 
     return (
-        <div className="flex justify-between items-center px-4 py-4 md:px-10 md:py-6 shrink-0 z-50 bg-[#020617] border-b border-slate-800">
+        <div className="flex justify-between items-center px-4 py-4 md:px-10 md:py-6 shrink-0 z-dropdown bg-[#020617] border-b border-slate-800">
             <div className="flex items-center gap-4 md:gap-6 min-w-0">
                 {(selectedCategory || shop) ? (
                     <button 
@@ -124,19 +125,6 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                 )}
 
                 {/* TASTO SPONSOR (AGGIORNATO STILE) */}
-                 {/* CSS Keyframe for shine identical to CityHeader */}
-                 <style>{`
-                    @keyframes metal-shine {
-                        0% { background-position: 0% 50%; }
-                        50% { background-position: 100% 50%; }
-                        100% { background-position: 0% 50%; }
-                    }
-                    .animate-metal {
-                        background: linear-gradient(270deg, #cbd5e1, #e2e8f0, #fcd34d, #f59e0b, #e2e8f0, #cbd5e1);
-                        background-size: 400% 400%;
-                        animation: metal-shine 6s ease infinite;
-                    }
-                `}</style>
                 <button 
                     onClick={() => onOpenSponsor('shop')}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-slate-900 transition-all transform hover:-translate-y-0.5 active:scale-95 border border-white/50 animate-metal"
@@ -163,9 +151,7 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                 )}
                 
                 {/* STANDARD RED CLOSE BUTTON - RESIZED TO MATCH OTHER MODALS */}
-                <button onClick={onBack} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                    <X className="w-6 h-6"/>
-                </button>
+                <CloseButton onClose={onBack} variant="primary" />
             </div>
         </div>
     );

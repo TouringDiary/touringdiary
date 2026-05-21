@@ -1,18 +1,23 @@
+import { Z_DROPDOWN } from '@/constants/zIndex';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, LogIn, Lock, X, Menu, Info, Send, ShieldCheck, BookOpen, MapPin, CloudSun, Loader2, User as UserIcon, PanelLeftOpen, PanelLeftClose, Sparkles, LogOut, AlertTriangle } from 'lucide-react';
 import { getUnreadCount } from '@/services/notificationService'; 
 import { useModal } from '@/context/ModalContext';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
-// import { checkAiQuota } from '../../services/aiUsageService'; 
 import { BrandLogo } from '../common/BrandLogo';
 import { NarrativeCompass } from './NarrativeCompass';
+import { HeaderCreditsIndicator } from './HeaderCreditsIndicator';
+import { useNavigate } from 'react-router-dom';
+
 
 // CONTEXT CONSUMER
 import { useUser } from '@/context/UserContext';
 import { useGps } from '@/context/GpsContext';
 import { useUI } from '@/context/UIContext';
-import { useNavigation } from '@/context/NavigationContext';
+import { useNavigation } from '@/context/useNavigation';
+import { useAppRouter } from '@/hooks/useAppRouter';
 
 export interface HeaderProps {
     // Props residue solo se strettamente UI/locali
@@ -47,15 +52,13 @@ export const Header = ({
   const { userLocation, isLocating, toggleGps } = useGps();
   const { isMobile, mobileShowWeather, toggleMobileWeather, isSidebarOpen, toggleSidebar } = useUI();
   const { openModal } = useModal();
-  // Navigazione consumata qui solo se necessario logica interna, ma props passate dal MainLayout sono ok per ora
-  // In futuro si può pulire del tutto.
+  const { buildDashboardPath } = useAppRouter();
+  const navigate = useNavigate();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
-  
-  const [aiQuota, setAiQuota] = useState({ count: 0, limit: 20 });
-  const [showQuotaTooltip, setShowQuotaTooltip] = useState(false);
+  const portalRef = useRef<HTMLDivElement>(null);
   
   // Hook Stili Dinamici
   const diaryBtnStyle = useDynamicStyles('header_diary_btn', isMobile);
@@ -75,31 +78,27 @@ export const Header = ({
         }
     };
     
-    // const fetchQuota = async () => {
-    //     const q = await checkAiQuota(user);
-    //     setAiQuota({ count: q.count, limit: q.limit });
-    // };
-
     checkNotifications();
-    // fetchQuota();
-    
     const interval = setInterval(checkNotifications, 3000); 
-    // const intervalQuota = setInterval(fetchQuota, 30000); 
 
     return () => {
         clearInterval(interval);
-        // clearInterval(intervalQuota);
     };
   }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        const target = event.target as Node;
+        const isClickInsideTrigger = menuRef.current?.contains(target);
+        const isClickInsidePortal = portalRef.current?.contains(target);
+        const isModalOverlay = (target as HTMLElement).classList?.contains('td-modal-overlay') || (target as HTMLElement).closest?.('.td-modal-overlay');
+
+        if (menuRef.current && !isClickInsideTrigger && !isClickInsidePortal && !isModalOverlay) {
             setIsMenuOpen(false);
         }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const STATIC_MENU_ITEMS = [
@@ -118,14 +117,13 @@ export const Header = ({
   const amberBtnClass = "bg-amber-600 border-amber-500 text-white shadow-amber-900/20";
   const skyBtnClass = "bg-sky-900/30 border-sky-500/50 text-sky-400";
   
-  const remaining = Math.max(0, aiQuota.limit - aiQuota.count);
-
   // Helper per aprire profilo
   const handleProfileClick = () => {
       if (user.role === 'guest') {
-          openModal('auth');
+          openModal('auth', { returnTo: 'dashboard' });
       } else {
-          openModal('userDashboard', { tab: 'overview' });
+          // NAVIGAZIONE URL-DRIVEN (FASE 3 DEFINITIVA - NAMESPACE OWNER)
+          navigate(buildDashboardPath(user.slug));
       }
       setIsMenuOpen(false);
   };
@@ -139,7 +137,7 @@ export const Header = ({
           <NarrativeCompass activeCityId={activeCityId} />
       </div>
 
-      <div className="flex items-center gap-2 shrink min-w-0 mr-1 z-10 relative">
+      <div className="flex items-center gap-2 shrink min-w-0 mr-1 z-floating-panel relative">
         <div 
              id="tour-home-btn" 
              onClick={onGoHome} 
@@ -163,34 +161,10 @@ export const Header = ({
         )}
       </div>
 
-      <div className="flex items-center gap-0.5 md:gap-3 ml-auto shrink-0 justify-end z-20 relative">
+      <div className="flex items-center gap-0.5 md:gap-3 ml-auto shrink-0 justify-end z-floating-panel relative">
         
-        <div 
-             className="relative hidden md:flex items-center mr-2 cursor-help"
-             onMouseEnter={() => setShowQuotaTooltip(true)}
-             onMouseLeave={() => setShowQuotaTooltip(false)}
-        >
-             <div className="flex flex-col items-center justify-center bg-indigo-950/50 border border-indigo-500/30 px-2 py-1 rounded-xl shadow-sm hover:bg-indigo-900/50 transition-colors min-w-[56px]">
-                 <div className="flex items-center gap-1">
-                     <Sparkles className="w-3 h-3 text-indigo-400 animate-pulse"/>
-                     <span className="text-sm font-black text-indigo-100 leading-none">{remaining}</span>
-                 </div>
-                 <span className="text-[8px] font-bold text-indigo-400/80 uppercase tracking-widest leading-none mt-0.5">Crediti</span>
-             </div>
-             
-             {showQuotaTooltip && (
-                 <div className="absolute top-full right-0 mt-2 bg-slate-900 border border-indigo-500/50 p-3 rounded-xl shadow-2xl w-48 z-[100] animate-in fade-in zoom-in-95">
-                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Capacità AI Mensile</p>
-                     <div className="flex justify-between items-center text-sm text-white font-mono font-bold mb-2">
-                         <span>{aiQuota.count} / {aiQuota.limit}</span>
-                         <span className={remaining > 0 ? "text-emerald-400" : "text-red-500"}>{Math.round((aiQuota.count/aiQuota.limit)*100)}% Usato</span>
-                     </div>
-                     <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-2">
-                         <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500" style={{ width: `${(aiQuota.count/aiQuota.limit)*100}%` }}></div>
-                     </div>
-                     <p className="text-[10px] text-slate-500 italic">Include: Base Livello + Bonus Referral</p>
-                 </div>
-             )}
+        <div className="hidden md:flex items-center mr-2">
+             <HeaderCreditsIndicator />
         </div>
 
         {showBack && (
@@ -233,15 +207,15 @@ export const Header = ({
         
         <div id="tour-profile-btn" className="relative group hidden md:block">
             {user.role === 'guest' ? (
-                <button onClick={() => openModal('auth')} className={`${squareBtnClass} ${inactiveBtnClass}`} title="Accedi"><LogIn className={iconSize} /></button>
+                <button onClick={handleProfileClick} className={`${squareBtnClass} ${inactiveBtnClass}`} title="Accedi"><LogIn className={iconSize} /></button>
             ) : (
-                <button onClick={() => openModal('userDashboard', { tab: 'overview' })} className={`${squareBtnClass} bg-slate-800 border-slate-600 overflow-hidden hover:border-slate-400 transition-colors`} title="Profilo">
+                <button onClick={() => navigate(buildDashboardPath(user.slug))} className={`${squareBtnClass} bg-slate-800 border-slate-600 overflow-hidden hover:border-slate-400 transition-colors`} title="Profilo">
                     {user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} alt={user.name} className="w-full h-full object-cover"/> : <span className="text-sm font-bold text-white">{user.name.charAt(0)}</span>}
                 </button>
             )}
             
             {unreadCount > 0 && (
-                <div className="absolute -top-2 -right-2 min-w-[20px] h-[20px] bg-rose-600 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-slate-950 pointer-events-none animate-in zoom-in px-1 leading-none shadow-sm z-10">
+                <div className="absolute -top-2 -right-2 min-w-[20px] h-[20px] bg-rose-600 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-slate-950 pointer-events-none animate-in zoom-in px-1 leading-none shadow-sm z-floating-panel">
                     {unreadCount > 9 ? '9+' : unreadCount}
                 </div>
             )}
@@ -266,66 +240,78 @@ export const Header = ({
                 )}
             </button>
 
-            {isMenuOpen && (
-                <div className="absolute top-12 right-0 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-top-2 z-[5000]">
-                    <nav className="flex flex-col p-2">
-                        
-                        <div className="md:hidden border-b border-slate-800 pb-2 mb-2">
-                             <button 
-                                onClick={handleProfileClick}
-                                className="flex items-center gap-3 w-full px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors group"
-                            >
-                                <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center overflow-hidden shrink-0 shadow-sm group-hover:border-indigo-400 transition-colors">
-                                    {user.role === 'guest' ? (
-                                        <LogIn className="w-4 h-4 text-slate-400"/>
-                                    ) : user.avatar && !user.avatar.includes('ui-avatars') ? (
-                                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover"/>
-                                    ) : (
-                                        <span className="text-sm font-bold text-white">{user.name.charAt(0)}</span>
-                                    )}
-                                </div>
-                                <div className="flex-1 text-left min-w-0">
-                                    <span className={`text-sm font-bold block truncate ${user.role === 'guest' ? 'text-slate-300' : 'text-white'}`}>
-                                        {user.role === 'guest' ? 'Accedi o Registrati' : user.name}
-                                    </span>
-                                    {user.role !== 'guest' && <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-indigo-400 transition-colors">Vedi Profilo</span>}
-                                </div>
-                                {unreadCount > 0 && (
-                                    <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-                                        {unreadCount > 9 ? '9+' : unreadCount}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-                        
-                        {isAdmin && (
-                            <button onClick={() => { onAdmin(); setIsMenuOpen(false); }} className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold flex items-center gap-3 group transition-colors text-left w-full mb-2 shadow-lg">
-                                <Lock className="w-4 h-4" /> Pannello Admin
-                            </button>
-                        )}
+            {isMenuOpen && (() => {
+                if (typeof document === 'undefined') return null;
 
-                        <div className="border-b border-slate-800 pb-2 mb-2">
-                            <button 
-                                onClick={() => { handleRestartTour(); setIsMenuOpen(false); }} 
-                                className="px-4 py-3 hover:bg-slate-800 rounded-lg text-sm text-indigo-400 font-bold flex items-center gap-3 w-full bg-slate-900 shadow-sm border border-slate-800"
-                            >
-                                <div className="w-5 h-5 flex items-center justify-center">{MASCOT_ICON}</div> 
-                                Guida all'uso
-                            </button>
-                        </div>
-                        
-                        {STATIC_MENU_ITEMS.map((item, index) => (
-                            item.divider ? <div key={`div-${index}`} className="h-px bg-slate-800 my-1"></div> : <button key={item.id} onClick={() => {onOpenStaticPage(item.id as any); setIsMenuOpen(false);}} className="px-4 py-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 flex items-center gap-3 group transition-colors text-left w-full">{/* @ts-ignore */}<item.Icon className="w-4 h-4 text-slate-500 group-hover:text-amber-500 transition-colors" /><span className="font-bold group-hover:text-white transition-colors">{item.label}</span></button>
-                        ))}
-                        
-                        {user.role !== 'guest' && (
-                             <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="md:hidden px-4 py-3 hover:bg-red-900/20 text-red-400 rounded-lg text-sm font-bold flex items-center gap-3 w-full mt-2 border-t border-slate-800">
-                                <LogOut className="w-4 h-4"/> Esci
-                             </button>
-                        )}
-                    </nav>
-                </div>
-            )}
+                return createPortal(
+                    <div 
+                        ref={portalRef}
+                        className="fixed right-3 md:right-6 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-top-2 pointer-events-auto"
+                        style={{ 
+                            top: 'calc(var(--header-height) + 4px)',
+                            zIndex: Z_DROPDOWN
+                        }}
+                    >
+                        <nav className="flex flex-col p-2">
+                            
+                            <div className="md:hidden border-b border-slate-800 pb-2 mb-2">
+                                <button 
+                                    onClick={handleProfileClick}
+                                    className="flex items-center gap-3 w-full px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors group"
+                                >
+                                    <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center overflow-hidden shrink-0 shadow-sm group-hover:border-indigo-400 transition-colors">
+                                        {user.role === 'guest' ? (
+                                            <LogIn className="w-4 h-4 text-slate-400"/>
+                                        ) : user.avatar && !user.avatar.includes('ui-avatars') ? (
+                                            <img src={user.avatar} alt={user.name} className="w-full h-full object-cover"/>
+                                        ) : (
+                                            <span className="text-sm font-bold text-white">{user.name.charAt(0)}</span>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 text-left min-w-0">
+                                        <span className={`text-sm font-bold block truncate ${user.role === 'guest' ? 'text-slate-300' : 'text-white'}`}>
+                                            {user.role === 'guest' ? 'Accedi o Registrati' : user.name}
+                                        </span>
+                                        {user.role !== 'guest' && <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-indigo-400 transition-colors">Vedi Profilo</span>}
+                                    </div>
+                                    {unreadCount > 0 && (
+                                        <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                                            {unreadCount > 9 ? '9+' : unreadCount}
+                                        </span>
+                                    )}
+                                </button>
+                            </div>
+                            
+                            {isAdmin && (
+                                <button onClick={() => { onAdmin(); setIsMenuOpen(false); }} className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold flex items-center gap-3 group transition-colors text-left w-full mb-2 shadow-lg">
+                                    <Lock className="w-4 h-4" /> Pannello Admin
+                                </button>
+                            )}
+
+                            <div className="border-b border-slate-800 pb-2 mb-2">
+                                <button 
+                                    onClick={() => { handleRestartTour(); setIsMenuOpen(false); }} 
+                                    className="px-4 py-3 hover:bg-slate-800 rounded-lg text-sm text-indigo-400 font-bold flex items-center gap-3 w-full bg-slate-900 shadow-sm border border-slate-800"
+                                >
+                                    <div className="w-5 h-5 flex items-center justify-center">{MASCOT_ICON}</div> 
+                                    Guida all'uso
+                                </button>
+                            </div>
+                            
+                            {STATIC_MENU_ITEMS.map((item, index) => (
+                                item.divider ? <div key={`div-${index}`} className="h-px bg-slate-800 my-1"></div> : <button key={item.id} onClick={() => {onOpenStaticPage(item.id as any); setIsMenuOpen(false);}} className="px-4 py-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 flex items-center gap-3 group transition-colors text-left w-full">{/* @ts-ignore */}<item.Icon className="w-4 h-4 text-slate-500 group-hover:text-amber-500 transition-colors" /><span className="font-bold group-hover:text-white transition-colors">{item.label}</span></button>
+                            ))}
+                            
+                            {user.role !== 'guest' && (
+                                <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="md:hidden px-4 py-3 hover:bg-red-900/20 text-red-400 rounded-lg text-sm font-bold flex items-center gap-3 w-full mt-2 border-t border-slate-800">
+                                    <LogOut className="w-4 h-4"/> Esci
+                                </button>
+                            )}
+                        </nav>
+                    </div>,
+                    document.body
+                );
+            })()}
         </div>
       </div>
     </header>

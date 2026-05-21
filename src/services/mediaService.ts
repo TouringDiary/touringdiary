@@ -1,8 +1,9 @@
 import { supabase } from './supabaseClient';
 import { PhotoSubmission } from '../types/index';
-import { DatabasePhotoSubmission } from '../types/database';
+import { Database, DatabasePhotoSubmission } from '../types/database';
+import { SmartInsert } from '../types/domain/index';
 // FIX: Import diretti per evitare cicli
-import { getFullManifestAsync, getCityDetails } from './city/cityReadService';
+import { getFullManifestAsync, getCityDetails, fetchGlobalCityMediaInfo, resolveCityIdentity } from './city/cityReadService';
 import { saveCityDetails } from './city/cityWriteService';
 import { dataURLtoFile } from '../utils/common';
 
@@ -11,6 +12,29 @@ const PUBLIC_BUCKET = 'public-media';
 
 // Helper Regex UUID
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Mapper autoritativo per PhotoSubmission.
+ * Centralizza il boundary tra DB e Dominio Media.
+ */
+export const mapDbPhotoSubmission = (p: any): PhotoSubmission => {
+    return {
+        id: p.id,
+        userId: p.user_id,
+        user: p.user_name,
+        locationName: p.location_name,
+        description: p.description || undefined,
+        url: p.image_url,
+        status: p.status as 'pending' | 'approved' | 'rejected' | 'city_deleted',
+        date: p.created_at,
+        likes: p.likes || 0,
+        updatedAt: p.updated_at || p.created_at,
+        publishedAt: p.published_at,
+        cityId: p.city_id || undefined,
+        isOfficial: p.is_official ?? (p.user_id === '00000000-0000-0000-0000-000000000000'),
+        mediaStatus: p.media_status ?? (p.image_url ? 'real' : 'missing')
+    };
+};
 
 // --- (Keep existing upload/delete functions unchanged) ---
 export const getPendingPhotoCount = async (): Promise<number> => {
@@ -51,183 +75,8 @@ export const uploadBase64PublicMedia = async (base64Data: string, folder: string
     }
 };
 
-const syncPhotoDescriptionToCity = async (photoUrl: string, newDescription: string, locationName: string) => {
-    try {
-        const manifest = await getFullManifestAsync();
-        const citySummary = manifest.find(c => 
-            locationName.toLowerCase().trim().includes(c.name.toLowerCase().trim()) ||
-            c.name.toLowerCase().trim().includes(locationName.toLowerCase().trim())
-        );
-        if (!citySummary) return;
-        const city = await getCityDetails(citySummary.id);
-        if (!city) return;
-        let changed = false;
-        if (city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {
-             city.imageCredit = newDescription;
-             changed = true;
-        }
-        if (changed) await saveCityDetails(city);
-    } catch (e) {}
-};
 
-export const propagatePhotoRemoval = async (photoUrl: string, locationName: string, description?: string): Promise<boolean> => {
-    try {
-        const manifest = await getFullManifestAsync();
-        let targetCities = manifest;
-        if (locationName) {
-             const matched = manifest.filter(c => 
-                c.name.toLowerCase().includes(locationName.toLowerCase().trim()) || 
-                locationName.toLowerCase().trim().includes(c.name.toLowerCase().trim())
-             );
-             if (matched.length > 0) targetCities = matched;
-        }
-        let globalChanged = false;
-        const isHeroContext = description?.includes('[HERO]');
 
-        for (const summary of targetCities) {
-            const city = await getCityDetails(summary.id);
-            if (!city) continue;
-            let changed = false;
-            if (isHeroContext || city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {
-                city.details.heroImage = 'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1000'; 
-                city.imageUrl = city.details.heroImage;
-                city.imageCredit = ''; 
-                changed = true;
-            }
-            if (city.details.patronDetails?.imageUrl === photoUrl) {
-                city.details.patronDetails.imageUrl = '';
-                changed = true;
-            }
-            if (city.details.gallery && city.details.gallery.includes(photoUrl)) {
-                city.details.gallery = city.details.gallery.filter(url => url !== photoUrl);
-                changed = true;
-            }
-            if (changed) {
-                await saveCityDetails(city);
-                globalChanged = true;
-            }
-        }
-        return globalChanged;
-    } catch (e) {
-        return false;
-    }
-};
-
-// NUOVA FUNZIONE: Sposta le foto in "city_deleted"
-export const flagPhotosAsCityDeleted = async (cityName: string): Promise<void> => {
-    try {
-        // Usa ILIKE per match case-insensitive
-        const { error } = await supabase
-            .from('photo_submissions')
-            .update({ status: 'city_deleted', updated_at: new Date().toISOString() })
-            .ilike('location_name', cityName);
-
-        if (error) throw error;
-        console.log(`[PhotoService] Foto di ${cityName} spostate in city_deleted.`);
-    } catch (e) {
-        console.error("Error flagging photos as deleted:", e);
-    }
-};
-
-export const uploadCommunityPhoto = async (file: File, userId: string, userName: string, locationName: string, description: string, cityId?: string): Promise<PhotoSubmission | null> => {
-    try {
-        // Resolve cityId if not provided
-        let resolvedCityId = cityId;
-        if (!resolvedCityId && locationName) {
-            const { data: cityData } = await supabase
-                .from('cities')
-                .select('id')
-                .ilike('name', locationName.trim())
-                .maybeSingle();
-            if (cityData) resolvedCityId = cityData.id;
-        }
-
-        // CRITICAL: city_id must be mandatory for SSoT
-        if (!resolvedCityId) {
-            throw new Error("City not found for upload. Photos must be linked to a valid city.");
-        }
-
-        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
-        const fileName = `${userId}_${Date.now()}_${safeName}`;
-        const filePath = `${locationName}/${fileName}`; 
-        const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
-        const isAdmin = userId.startsWith('admin') || userId.includes('admin') || userId === 'u_admin_all' || userId === 'u_admin_limited';
-        const initialStatus = isAdmin ? 'approved' : 'pending';
-        const newRecord: Partial<DatabasePhotoSubmission> = {
-            user_id: userId,
-            user_name: userName,
-            location_name: locationName,
-            description: description,
-            image_url: publicUrl,
-            status: initialStatus,
-            likes: 0,
-            city_id: resolvedCityId
-        };
-        const { data, error: dbError } = await supabase.from('photo_submissions').insert(newRecord).select().single();
-        if (dbError) throw dbError;
-        const dbPhoto = data as DatabasePhotoSubmission;
-        return {
-            id: dbPhoto.id,
-            userId: dbPhoto.user_id,
-            user: dbPhoto.user_name,
-            locationName: dbPhoto.location_name,
-            description: dbPhoto.description,
-            url: dbPhoto.image_url,
-            status: dbPhoto.status as 'pending' | 'approved' | 'rejected' | 'city_deleted',
-            date: dbPhoto.created_at,
-            likes: dbPhoto.likes,
-            cityId: dbPhoto.city_id || undefined // FIX MAPPING
-        };
-    } catch (e) {
-        return null;
-    }
-};
-
-export const fetchCommunityPhotos = async (cityFilter?: string): Promise<PhotoSubmission[]> => {
-    try {
-        let query = supabase.from('photo_submissions').select('*').order('created_at', { ascending: false });
-        const { data, error } = await query;
-        if (error) throw error;
-        return (data as any[]).map(p => ({
-            id: p.id,
-            userId: p.user_id,
-            user: p.user_name,
-            locationName: p.location_name,
-            description: p.description,
-            url: p.image_url,
-            status: p.status as 'pending' | 'approved' | 'rejected' | 'city_deleted',
-            date: p.created_at,
-            likes: p.likes,
-            updatedAt: p.updated_at || p.created_at,
-            publishedAt: p.published_at,
-            cityId: p.city_id || undefined // FIX MAPPING
-        }));
-    } catch (e) {
-        return [];
-    }
-};
-
-export const updatePhotoStatusInDb = async (id: string, status: 'approved' | 'rejected' | 'pending'): Promise<void> => {
-    const updates: any = { status, updated_at: new Date().toISOString() };
-    if (status === 'approved') updates.published_at = new Date().toISOString();
-    await supabase.from('photo_submissions').update(updates).eq('id', id);
-};
-
-export const updatePhotoDataInDb = async (id: string, data: Partial<PhotoSubmission>): Promise<void> => {
-    const payload: any = { updated_at: new Date().toISOString() };
-    if (data.locationName) payload.location_name = data.locationName;
-    if (data.user) payload.user_name = data.user;
-    if (data.description) payload.description = data.description;
-    if (data.url) payload.image_url = data.url;
-    await supabase.from('photo_submissions').update(payload).eq('id', id);
-    if (data.description && data.locationName && data.url) await syncPhotoDescriptionToCity(data.url, data.description, data.locationName);
-};
-
-export const deletePhotoSubmissionInDb = async (id: string): Promise<void> => {
-    await supabase.from('photo_submissions').delete().eq('id', id);
-};
 
 // --- FIX LIKE LOGIC: ABSOLUTE COUNT RECALCULATION ---
 
@@ -277,12 +126,12 @@ export const getAssetUsageMap = async (): Promise<Record<string, string[]>> => {
     };
 
     try {
-        // 1. Cities (Hero, Card, Gallery)
-        const { data: cities } = await supabase.from('cities').select('name, image_url, hero_image, gallery');
-        cities?.forEach(c => {
-            addToMap(c.image_url, `City Card: ${c.name}`);
-            addToMap(c.hero_image, `City Hero: ${c.name}`);
-            c.gallery?.forEach((g: string) => addToMap(g, `City Gallery: ${c.name}`));
+        // 1. Cities (Hero, Card, Gallery) - BOUNDARY RECOVERY
+        const cityMediaInfos = await fetchGlobalCityMediaInfo();
+        cityMediaInfos.forEach(info => {
+            addToMap(info.imageUrl, `City Card: ${info.name}`);
+            addToMap(info.heroImage, `City Hero: ${info.name}`);
+            info.gallery.forEach(asset => addToMap(asset.url, `City Gallery: ${info.name}`));
         });
 
         // 2. POIs

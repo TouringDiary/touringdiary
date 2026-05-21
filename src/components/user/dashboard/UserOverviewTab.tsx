@@ -1,13 +1,16 @@
 
 import React, { useRef, useState } from 'react';
-import { Medal, Trophy, Map, ChevronRight, FileText, Utensils, Landmark, ShoppingBag, Monitor, Star, Shield, Lock, ArrowUp, Zap, Plus, Minus, Trash2 } from 'lucide-react';
-import { User, Reward, RewardCategory } from '../../../types/index';
+import { Medal, Trophy, Map, ChevronRight, FileText, Utensils, Landmark, ShoppingBag, Monitor, Star, Shield, Lock, ArrowUp, Zap, Plus, Minus, Trash2, Briefcase } from 'lucide-react';
+import { User, Reward, RewardCategory, Itinerary, SuggestionRequest } from '../../../types/index';
+import { Suitcase } from '@/types/suitcase';
 import { LevelInfo } from '../../../services/gamificationService';
 import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
 import { getRoleLabel } from '../../../services/userService';
 import { useUser } from '@/context/UserContext';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import { useItinerary } from '@/context/ItineraryContext';
+import { safeArray } from '../../../utils/safeTypes';
+import { useUserTemplates } from '@/hooks/useSuitcaseSystem';
 
 interface Props {
     user: User;
@@ -17,15 +20,16 @@ interface Props {
     catalogRewards: Reward[];
     myRewards: any[];
     onClaimReward: (reward: Reward, isUnlocked: boolean) => void;
-    savedProjects: any[];
-    onLoadProject: (p: any) => void;
-    suggestions: any[];
+    savedProjects: Itinerary[];
+    onLoadProject: (p: Itinerary) => void;
+    userSuitcases?: Suitcase[];
+    suggestions: SuggestionRequest[];
     onExpandSection: (sec: 'trips' | 'reports') => void;
     onClose: () => void;
 }
 
 const getCategoryTheme = (cat: RewardCategory) => {
-    switch(cat) {
+    switch (cat) {
         case 'food': return { text: 'text-amber-500' };
         case 'culture': return { text: 'text-purple-500' };
         case 'shopping': return { text: 'text-emerald-500' };
@@ -34,35 +38,38 @@ const getCategoryTheme = (cat: RewardCategory) => {
     }
 };
 
-export const UserOverviewTab = ({ 
+export const UserOverviewTab = ({
     user, currentLevel, currentXP, progress, catalogRewards, myRewards, onClaimReward,
-    savedProjects, onLoadProject, suggestions, onExpandSection, onClose 
+    savedProjects, onLoadProject, userSuitcases: propSuitcases, suggestions, onExpandSection, onClose
 }: Props) => {
-    
+    // SECURITY FIX: Fetch suitcases if not passed as props (FeatureModals fix)
+    const { templates: hookSuitcases } = useUserTemplates(user.id);
+    const userSuitcases = safeArray<Suitcase>(propSuitcases && propSuitcases.length > 0 ? propSuitcases : hookSuitcases);
+
     const { setUser } = useUser();
     const { deleteProject } = useItinerary();
-    
+
     // Sliders Refs
     const unlockedSliderRef = useRef<DraggableSliderHandle>(null);
     const lockedSliderRef = useRef<DraggableSliderHandle>(null);
-    
+
     // Delete State
-    const [projectToDelete, setProjectToDelete] = useState<{id: string, name: string} | null>(null);
+    const [projectToDelete, setProjectToDelete] = useState<{ id: string, name: string } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    
+
     const displayName = user.name.replace(/\s*\(.*?\)\s*/g, '').trim();
 
     // SPLIT LOGIC
     const unlockedRewards = catalogRewards.filter(r => currentLevel.level >= r.requiredLevel);
-    const lockedRewards = catalogRewards.filter(r => currentLevel.level < r.requiredLevel).sort((a,b) => a.requiredLevel - b.requiredLevel);
+    const lockedRewards = catalogRewards.filter(r => currentLevel.level < r.requiredLevel).sort((a, b) => a.requiredLevel - b.requiredLevel);
 
     const isAdminAll = user.role === 'admin_all';
-    
+
     const handleDeleteClick = (e: React.MouseEvent, proj: any) => {
         e.stopPropagation();
         setProjectToDelete({ id: proj.id, name: proj.name });
     };
-    
+
     const confirmDeleteProject = async () => {
         if (!projectToDelete) return;
         setIsDeleting(true);
@@ -84,19 +91,19 @@ export const UserOverviewTab = ({
         const isActiveInWallet = myRewards.some(r => r.rewardId === reward.id && r.status === 'active');
 
         return (
-             <div 
-                key={reward.id} 
+            <div
+                key={reward.id}
                 className={`
                     w-52 h-72 flex-shrink-0 rounded-xl border flex flex-col overflow-hidden relative transition-all duration-300 snap-center
-                    ${isUnlocked 
-                        ? `opacity-100 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 shadow-xl hover:-translate-y-1` 
+                    ${isUnlocked
+                        ? `opacity-100 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 shadow-xl hover:-translate-y-1`
                         : `opacity-100 bg-slate-950 border-slate-800 border-dashed`
                     }
                 `}
             >
                 <div className="p-4 flex justify-between items-start">
                     <div className={`p-2 rounded-lg bg-slate-800 ${isUnlocked ? theme.text : 'text-slate-400'}`}>
-                        <Icon className="w-6 h-6"/>
+                        <Icon className="w-6 h-6" />
                     </div>
                     <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-wide border ${isUnlocked ? 'bg-emerald-900/20 text-emerald-500 border-emerald-500/30' : 'bg-slate-900 text-slate-500 border-slate-700'}`}>
                         LIVELLO {reward.requiredLevel}
@@ -107,12 +114,12 @@ export const UserOverviewTab = ({
                     <p className={`text-xs line-clamp-3 leading-relaxed ${isUnlocked ? 'text-slate-500' : 'text-slate-400'}`}>{reward.description}</p>
                 </div>
                 <div className="p-4 border-t border-slate-800/50 mt-auto">
-                    <button 
+                    <button
                         onClick={() => onClaimReward(reward, isUnlocked)}
                         disabled={!isUnlocked}
                         className={`w-full py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${isUnlocked ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg' : 'bg-slate-900 text-slate-500 cursor-not-allowed border border-slate-800'}`}
                     >
-                        {isUnlocked ? (isActiveInWallet ? 'Nel Wallet' : 'Riscatta') : <><Lock className="w-3 h-3"/> Bloccato</>}
+                        {isUnlocked ? (isActiveInWallet ? 'Nel Wallet' : 'Riscatta') : <><Lock className="w-3 h-3" /> Bloccato</>}
                     </button>
                 </div>
             </div>
@@ -121,7 +128,7 @@ export const UserOverviewTab = ({
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-10 relative">
-            
+
             {/* DELETE MODAL */}
             <DeleteConfirmationModal
                 isOpen={!!projectToDelete}
@@ -135,27 +142,27 @@ export const UserOverviewTab = ({
 
             {/* 1. HEADER PROFILO & XP BAR */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-2xl border border-slate-700 relative overflow-hidden shadow-xl">
-                <div className="relative z-10 w-full">
+                <div className="relative z-floating-panel w-full">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-4">
                             <div className="relative">
-                                <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-2xl font-bold text-white shadow-2xl border-4 border-slate-800 overflow-hidden">{user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} className="w-full h-full object-cover"/> : user.name.charAt(0)}</div>
+                                <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-2xl font-bold text-white shadow-2xl border-4 border-slate-800 overflow-hidden">{user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} className="w-full h-full object-cover" /> : user.name.charAt(0)}</div>
                                 <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-slate-900 text-xl border-2 border-slate-700 rounded-full flex items-center justify-center shadow-lg">{currentLevel.icon}</div>
                             </div>
                             <div>
                                 <h2 className="text-2xl md:text-3xl font-display font-bold text-white leading-tight">{displayName}</h2>
                                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                                     {/* BADGE RUOLO SISTEMA */}
-                                     {user.role !== 'user' && (
-                                         <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase flex items-center gap-1 ${user.role === 'admin_all' ? 'bg-purple-900/30 text-purple-300 border-purple-500/30' : 'bg-blue-900/30 text-blue-300 border-blue-500/30'}`}>
-                                             <Shield className="w-3 h-3"/> {getRoleLabel(user.role)}
-                                         </span>
-                                     )}
-                                     {/* BADGE LIVELLO GIOCO */}
-                                     <div className="flex items-center gap-1 bg-slate-950/50 px-2 py-0.5 rounded border border-slate-600/50">
-                                         <Medal className={`w-3 h-3 ${currentLevel.color}`}/>
-                                         <span className="text-[9px] font-black text-slate-300 uppercase tracking-wide">{currentLevel.name} (Liv. {currentLevel.level})</span>
-                                     </div>
+                                    {/* BADGE RUOLO SISTEMA */}
+                                    {user.role !== 'user' && (
+                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase flex items-center gap-1 ${user.role === 'admin_all' ? 'bg-purple-900/30 text-purple-300 border-purple-500/30' : 'bg-blue-900/30 text-blue-300 border-blue-500/30'}`}>
+                                            <Shield className="w-3 h-3" /> {getRoleLabel(user.role)}
+                                        </span>
+                                    )}
+                                    {/* BADGE LIVELLO GIOCO */}
+                                    <div className="flex items-center gap-1 bg-slate-950/50 px-2 py-0.5 rounded border border-slate-600/50">
+                                        <Medal className={`w-3 h-3 ${currentLevel.color}`} />
+                                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-wide">{currentLevel.name} (Liv. {currentLevel.level})</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -167,7 +174,7 @@ export const UserOverviewTab = ({
                     <div className="mt-2">
                         <div className="relative h-5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 shadow-inner">
                             <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-500 to-red-600 transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(245,158,11,0.5)]" style={{ width: `${progress.progressPercent}%` }}></div>
-                            <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white drop-shadow-md z-10 tracking-widest uppercase">
+                            <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white drop-shadow-md z-floating-panel tracking-widest uppercase">
                                 {progress.nextLevel ? `${currentXP} / ${progress.nextLevel.minXp} XP` : `LIVELLO MASSIMO`}
                             </div>
                         </div>
@@ -178,8 +185,8 @@ export const UserOverviewTab = ({
             {/* 2. RICOMPENSE SBLOCCATE */}
             {unlockedRewards.length > 0 && (
                 <div>
-                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-4 flex items-center gap-2">
-                        <Trophy className="w-3.5 h-3.5"/> Ricompense Sbloccate
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-4 flex items-center gap-2">
+                        <Trophy className="w-3.5 h-3.5" /> Ricompense Sbloccate
                     </h3>
                     <DraggableSlider ref={unlockedSliderRef} className="pb-4 gap-4">
                         {unlockedRewards.map(reward => renderRewardCard(reward, true))}
@@ -187,24 +194,24 @@ export const UserOverviewTab = ({
                 </div>
             )}
 
-             {/* 3. RICOMPENSE DA SBLOCCARE (CON SEPARATORI) */}
-             <div>
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4 flex items-center gap-2">
-                    <Lock className="w-3.5 h-3.5"/> Prossimi Obiettivi
+            {/* 3. RICOMPENSE DA SBLOCCARE (CON SEPARATORI) */}
+            <div>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4 flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5" /> Prossimi Obiettivi
                 </h3>
                 <DraggableSlider ref={lockedSliderRef} className="pb-4 gap-4">
                     {lockedRewards.map((reward, idx) => {
                         const prevReward = idx > 0 ? lockedRewards[idx - 1] : null;
                         const showSeparator = idx === 0 || (prevReward && prevReward.requiredLevel !== reward.requiredLevel);
-                        
+
                         return (
                             <React.Fragment key={reward.id}>
                                 {showSeparator && (
                                     <div className="flex flex-col justify-center items-center h-72 mx-2">
                                         <div className="h-full w-px bg-slate-800 border-l border-dashed border-slate-700/50 relative">
-                                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900 border border-slate-700 px-2 py-4 rounded-full flex flex-col items-center gap-1 shadow-lg z-10">
-                                                <ArrowUp className="w-3 h-3 text-slate-500"/>
-                                                <span className="text-[9px] font-black text-white uppercase vertical-rl" style={{writingMode: 'vertical-rl'}}>LIV {reward.requiredLevel}</span>
+                                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900 border border-slate-700 px-2 py-4 rounded-full flex flex-col items-center gap-1 shadow-lg z-floating-panel">
+                                                <ArrowUp className="w-3 h-3 text-slate-500" />
+                                                <span className="text-[9px] font-black text-white uppercase vertical-rl" style={{ writingMode: 'vertical-rl' }}>LIV {reward.requiredLevel}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -217,51 +224,90 @@ export const UserOverviewTab = ({
                 </DraggableSlider>
             </div>
 
-            {/* ALTRE SEZIONI - I MIEI VIAGGI ESPANSO */}
-            <div className="grid grid-cols-1 gap-6">
+            {/* 4. I MIEI VIAGGI + LE MIE VALIGIE — 50/50 on desktop, stacked on mobile */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* ── I Miei Viaggi (left) ── */}
                 <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl overflow-hidden group relative">
-                    <div className="flex justify-between items-center mb-4 relative z-10">
+                    <div className="flex justify-between items-center mb-4 relative z-floating-panel">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-900/20 rounded-lg text-indigo-400"><Map className="w-6 h-6"/></div>
+                            <div className="p-2 bg-indigo-900/20 rounded-lg text-indigo-400"><Map className="w-6 h-6" /></div>
                             <div>
                                 <h3 className="text-xl font-bold text-white">I Miei Viaggi</h3>
-                                <p className="text-slate-400 text-sm">{savedProjects.length} itinerari salvati</p>
+                                <p className="text-slate-400 text-sm">{safeArray<Itinerary>(savedProjects).length} itinerari salvati</p>
                             </div>
                         </div>
                     </div>
-                    
+
                     {/* LISTA VIAGGI CON DELETE */}
-                    <div className="space-y-3 relative z-10 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                        {savedProjects.length > 0 ? savedProjects.map(proj => (
-                            <div key={proj.id} className="flex justify-between items-center p-4 bg-slate-950/50 rounded-xl border border-slate-800 hover:border-indigo-500/50 transition-all cursor-pointer group/row" onClick={() => { onLoadProject(proj); onClose(); }}>
-                                <div>
-                                    <h4 className="font-bold text-white text-base group-hover/row:text-indigo-300 transition-colors">{proj.name || 'Senza Nome'}</h4>
-                                    <div className="text-xs text-slate-500 mt-1">{new Date(proj.createdAt).toLocaleDateString()} • {proj.items?.length || 0} tappe</div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={(e) => handleDeleteClick(e, proj)}
-                                        className="p-2 text-slate-600 hover:text-red-500 hover:bg-slate-900 rounded-lg transition-colors opacity-0 group-hover/row:opacity-100"
-                                        title="Elimina"
-                                    >
-                                        <Trash2 className="w-4 h-4"/>
-                                    </button>
-                                    <ChevronRight className="w-5 h-5 text-slate-600 group-hover/row:text-white transition-colors"/>
-                                </div>
+                    <div className="space-y-3 relative z-floating-panel max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                        {savedProjects.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-floating-panel">
+                                {savedProjects.slice(0, 4).map(proj => (
+                                    <div key={proj.id} className="p-4 bg-slate-950/50 rounded-xl border border-slate-800 hover:border-amber-500/30 transition-all flex justify-between items-center group/item">
+                                        <div className="cursor-pointer" onClick={() => onLoadProject(proj)}>
+                                            <div className="text-sm font-bold text-white mb-1 group-hover/item:text-amber-400 transition-colors line-clamp-1">{proj.name || 'Senza Nome'}</div>
+                                            <div className="text-[10px] text-slate-500 flex items-center gap-2">
+                                                <span>{new Date(proj.createdAt).toLocaleDateString()}</span>
+                                                <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
+                                                <span>{proj.items.length} tappe</span>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={(e) => handleDeleteClick(e, proj)}
+                                            className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover/item:opacity-100"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
-                        )) : (
-                            <div className="text-center py-10 text-slate-500 italic text-sm">
-                                Nessun viaggio salvato. Inizia a pianificare!
+                        ) : (
+                            <div className="text-center py-10 bg-slate-950/30 rounded-xl border border-slate-800 border-dashed relative z-floating-panel">
+                                <Map className="w-10 h-10 text-slate-700 mx-auto mb-2 opacity-50" />
+                                <p className="text-slate-500 text-xs italic">Ancora nessun viaggio salvato nel tuo diario.</p>
                             </div>
                         )}
                     </div>
                 </div>
-                
-                <div onClick={() => onExpandSection('reports')} className="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-indigo-500/50 cursor-pointer transition-all group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><FileText className="w-24 h-24"/></div>
-                    <h3 className="text-xl font-bold text-white mb-2 relative z-10">Le Mie Segnalazioni</h3>
-                    <p className="text-slate-400 text-sm relative z-10 mb-4">{suggestions.length} contributi inviati alla community.</p>
-                    <div className="flex items-center text-indigo-400 text-xs font-bold uppercase tracking-wider relative z-10 group-hover:translate-x-1 transition-transform">Visualizza stato <ChevronRight className="w-4 h-4"/></div>
+
+                {/* ── Le Mie Valigie (right) ── */}
+                <div className="bg-gradient-to-br from-indigo-900/20 to-slate-900 p-6 rounded-2xl border border-indigo-500/20 shadow-xl group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Briefcase className="w-24 h-24 text-indigo-400" /></div>
+                    <div className="flex justify-between items-center mb-6 relative z-floating-panel">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400"><Briefcase className="w-6 h-6" /></div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Le Mie Valigie</h3>
+                                <p className="text-slate-400 text-sm">Gestisci i tuoi modelli di viaggio.</p>
+                            </div>
+                        </div>
+                        <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold py-1.5 px-3 rounded-lg uppercase tracking-wider transition-all shadow-lg">Gestisci tutto</button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-floating-panel">
+                        {userSuitcases.length > 0 ? userSuitcases.slice(0, 4).map(s => (
+                            <div key={s.id} className="p-3 bg-slate-950/50 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition-all flex items-center gap-3">
+                                <span className="text-2xl">{s.icon}</span>
+                                <div>
+                                    <div className="text-sm font-bold text-white line-clamp-1">{s.title}</div>
+                                    <div className="text-[10px] text-slate-500">{s.suitcase_items?.length || 0} oggetti</div>
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="col-span-2 text-center py-10 bg-slate-950/30 rounded-xl border border-slate-800 border-dashed">
+                                <Briefcase className="w-10 h-10 text-slate-700 mx-auto mb-2 opacity-50" />
+                                <p className="text-slate-500 text-xs italic">Nessun modello di valigia salvato.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── Le Mie Segnalazioni (full width below) ── */}
+                <div onClick={() => onExpandSection('reports')} className="md:col-span-2 bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-indigo-500/50 cursor-pointer transition-all group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><FileText className="w-24 h-24" /></div>
+                    <h3 className="text-xl font-bold text-white mb-2 relative z-floating-panel">Le Mie Segnalazioni</h3>
+                    <p className="text-slate-400 text-sm relative z-floating-panel mb-4">{safeArray<SuggestionRequest>(suggestions).length} contributi inviati alla community.</p>
+                    <div className="flex items-center text-indigo-400 text-xs font-bold uppercase tracking-wider relative z-floating-panel group-hover:translate-x-1 transition-transform">Visualizza stato <ChevronRight className="w-4 h-4" /></div>
                 </div>
             </div>
         </div>

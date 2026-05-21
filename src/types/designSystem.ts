@@ -1,19 +1,17 @@
 export interface StyleRule {
-    section?: string;
-    component_key?: string;
+    component_key: string;
+    element_name?: string;
+    section?: string | null;
+    css_class?: string | null;
+    font_family?: string | null;
+    text_size?: string | null;
+    font_weight?: string | null;
+    text_transform?: string | null;
+    tracking?: string | null;
+    color_class?: string | null;
+    effect_class?: string | null;
+    preview_text?: string | null;
 
-    base?: any;
-    hover?: any;
-
-    font_family: string;
-    text_size: string;
-    font_weight: string;
-    text_transform: string;
-    tracking: string;
-    color_class: string;
-    effect_class: string;
-    preview_text: string;
-    css_class?: string;
 
     // --- Editor & Preview Enhancements ---
     /** 

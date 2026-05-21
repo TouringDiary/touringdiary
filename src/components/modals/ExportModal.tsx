@@ -1,5 +1,9 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useState, useEffect } from 'react';
-import { X, FileText, Image as ImageIcon, Printer, Download, LayoutList, ExternalLink, AlertTriangle, Loader2, Sparkles, CheckSquare, Square, QrCode, Edit3, Link } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { FileText, Image as ImageIcon, Printer, Download, LayoutList, ExternalLink, AlertTriangle, Loader2, Sparkles, CheckSquare, Square, QrCode, Edit3, Link } from 'lucide-react';
 import { useItinerary } from '@/context/ItineraryContext';
 import { pdf } from '@react-pdf/renderer';
 import FileSaver from 'file-saver';
@@ -19,7 +23,7 @@ type ExportFormat = 'pdf' | 'docx' | 'txt';
 export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
     const { itinerary } = useItinerary();
     // Usa ExportLogo con dimensioni appropriate per la rasterizzazione
-    const logoBase64 = useLogoRasterizer(ExportLogo, 300, 52);
+    const logoBase64 = useLogoRasterizer();
     
     // STATO OPZIONI
     const [format, setFormat] = useState<ExportFormat>('pdf');
@@ -40,16 +44,6 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
     
     const [cityNamesMap, setCityNamesMap] = useState<Record<string, string>>({});
 
-    // ESC key listener
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && isOpen) {
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
 
     // RESET & INIT
     useEffect(() => {
@@ -62,6 +56,9 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
             startPdfPreparation(true); 
         }
     }, [isOpen]);
+
+    useGlobalModalEscape(isOpen, onClose);
+
 
     // UPDATE MAPPA NOMI CITTÀ
     useEffect(() => {
@@ -187,7 +184,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                 )}
                 
                 {/* Timeline */}
-                {Array.from(new Set(preparedDoc.items.filter(i => !i.isResource).map(i => i.dayIndex))).sort().map(dayIndex => (
+                {Array.from(new Set(preparedDoc.items.filter(i => !i.isResource).map(i => i.dayIndex))).sort((a: any, b: any) => a - b).map((dayIndex: any) => (
                     <div key={dayIndex} className="mb-8">
                         <h2 className="text-2xl font-bold text-amber-600 border-b-2 border-amber-600 pb-2 mb-6">GIORNO {dayIndex + 1}</h2>
                         <div className="space-y-6">
@@ -264,13 +261,17 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
         );
     };
 
-    return (
-        <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-6xl h-[90vh] rounded-3xl border border-slate-700 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
+    if (!isOpen) return null;
+
+    return createPortal(
+        <div className="td-modal-overlay !p-4 bg-black/90 backdrop-blur-sm animate-in fade-in" style={{ zIndex: Z_OVERLAY }}>
+            <div 
+                className="relative bg-slate-900 w-full max-w-6xl h-[90vh] rounded-3xl border border-slate-700 shadow-2xl flex flex-col md:flex-row overflow-hidden pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-lg z-50">
-                    <X className="w-5 h-5"/>
-                </button>
+                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
 
                 {/* COLONNA SINISTRA */}
                 <div className="w-full md:w-1/3 border-r border-slate-800 bg-[#0f172a] p-6 flex flex-col overflow-y-auto custom-scrollbar">
@@ -330,7 +331,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
 
                 {/* COLONNA DESTRA: PREVIEW */}
                 <div className="flex-1 bg-[#2d3032] relative flex flex-col h-full overflow-hidden">
-                    <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg flex items-center gap-2">
+                    <div className="absolute top-4 left-4 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg flex items-center gap-2">
                         <Sparkles className="w-3 h-3 text-amber-500"/> Anteprima {format.toUpperCase()}
                     </div>
 
@@ -347,7 +348,8 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -372,3 +374,6 @@ const OptionRow = ({ label, icon: Icon, active, onClick, desc, disabled }: any) 
         )}
     </div>
 );
+
+
+

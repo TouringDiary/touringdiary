@@ -5,24 +5,20 @@ import { PointOfInterest } from '@/types';
 
 // Lazy Imports
 const PoiDetailModal = React.lazy(() => import('@/components/modals/PoiDetailModal').then(module => ({ default: module.PoiDetailModal })));
-// --- NUOVO MODALE --- 
-const PackingListModal = React.lazy(() => import('@/components/features/diary/packing_list/PackingListModal').then(module => ({ default: module.PackingListModal })));
-// ---------------------
+const SuitcaseFloatingPanel = React.lazy(() => import('@/components/features/diary/packing_list/SuitcaseFloatingPanel').then(module => ({ default: module.SuitcaseFloatingPanel })));
 const ReviewModal = React.lazy(() => import('@/components/modals/ReviewModal').then(module => ({ default: module.ReviewModal })));
 const AddToItineraryModal = React.lazy(() => import('@/components/modals/AddToItineraryModal').then(module => ({ default: module.AddToItineraryModal })));
 const TimeConflictModal = React.lazy(() => import('@/components/modals/TimeConflictModal').then(module => ({ default: module.TimeConflictModal })));
 const DuplicateResolutionModal = React.lazy(() => import('@/components/modals/DuplicateResolutionModal').then(module => ({ default: module.DuplicateResolutionModal })));
-const RemoveItemModal = React.lazy(() => import('@/components/modals/RemoveItemModal').then(module => ({ default: module.RemoveItemModal })));
 const CityInfoModal = React.lazy(() => import('@/components/modals/CityInfoModal').then(module => ({ default: module.CityInfoModal })));
 const ProvinceModal = React.lazy(() => import('@/components/modals/ProvinceModal').then(module => ({ default: module.ProvinceModal })));
 const LevelUpModal = React.lazy(() => import('@/components/modals/LevelUpModal').then(module => ({ default: module.LevelUpModal })));
-const UserDashboard = React.lazy(() => import('@/components/user/UserDashboard').then(module => ({ default: module.UserDashboard })));
 const AiItineraryModal = React.lazy(() => import('@/components/modals/AiItineraryModal').then(module => ({ default: module.AiItineraryModal })));
 const RoadbookModal = React.lazy(() => import('@/components/modals/RoadbookModal').then(module => ({ default: module.RoadbookModal })));
 const SectionPreviewModal = React.lazy(() => import('@/components/modals/SectionPreviewModal').then(module => ({ default: module.SectionPreviewModal })));
 const SuggestionModal = React.lazy(() => import('@/components/modals/SuggestionModal').then(module => ({ default: module.SuggestionModal })));
 const ItinerariesModal = React.lazy(() => import('@/components/modals/ItinerariesModal').then(module => ({ default: module.ItinerariesModal })));
-const UserUpgradeModal = React.lazy(() => import('@/components/modals/UserUpgradeModal').then(module => ({ default: module.UserUpgradeModal })));
+const UserUpgradeModal = React.lazy(() => import('@/components/modals/UserUpgradeModal').then(module => ({ default: module.default })));
 const FullRankingsModal = React.lazy(() => import('@/components/modals/FullRankingsModal').then(module => ({ default: module.FullRankingsModal })));
 const GlobalSectionView = React.lazy(() => import('@/components/modals/GlobalSectionView').then(module => ({ default: module.GlobalSectionView })));
 const AroundMeWizard = React.lazy(() => import('@/components/modals/AroundMeWizard').then(module => ({ default: module.AroundMeWizard })));
@@ -30,6 +26,8 @@ const PoiClaimModal = React.lazy(() => import('@/components/modals/PoiClaimModal
 const ExportModal = React.lazy(() => import('@/components/modals/ExportModal').then(module => ({ default: module.ExportModal })));
 const EmptyDiaryModal = React.lazy(() => import('@/components/modals/EmptyDiaryModal').then(module => ({ default: module.EmptyDiaryModal })));
 const ShareModal = React.lazy(() => import('@/components/modals/ShareModal').then(module => ({ default: module.ShareModal })));
+const BuyCreditsModal = React.lazy(() => import('@/components/modals/BuyCreditsModal').then(module => ({ default: module.BuyCreditsModal })));
+const QuotaExceededModal = React.lazy(() => import('@/components/modals/QuotaExceededModal').then(module => ({ default: module.QuotaExceededModal })));
 
 interface FeatureModalsProps extends ModalManagerExternalProps {
     activeModal: string | null;
@@ -48,7 +46,11 @@ export const FeatureModals = (props: FeatureModalsProps) => {
         if(exists) { 
             const items = itinerary.items.filter((i: any) => i.poi.id === poi.id); 
             if (items.length === 1) props.onRemoveItem(items[0].id);
-            else openModal('removeSelection', { items }); 
+            else openModal('removeSelection', { 
+                items,
+                onRemoveSingle: async (id: string) => { await props.onRemoveItem(id); closeModal(); },
+                onRemoveAll: async () => { await props.onRemoveAll(items); }
+            }); 
         } else { 
             openModal('add', { poi }); 
         }
@@ -75,22 +77,13 @@ export const FeatureModals = (props: FeatureModalsProps) => {
     return (
         <>
             {/* --- ITINERARY & PLANNER --- */}
-            {activeModal === 'packingList' && modalProps.itineraryId && (
-                <PackingListModal 
-                    isOpen={true} 
-                    onClose={closeModal} 
-                    itineraryId={modalProps.itineraryId} 
-                />
-            )}
+            {activeModal === 'packingList' && null}
             {/* --- USER DASHBOARD & GAMIFICATION --- */}
-            {activeModal === 'userDashboard' && (
-                <UserDashboard isOpen={true} onClose={closeModal} user={user} onNavigate={props.onNavigateGlobal} initialTab={modalProps.tab} onLogout={props.onLogout} />
-            )}
             {activeModal === 'levelUp' && (
                 <LevelUpModal isOpen={true} onClose={() => { closeModal(); props.onCloseLevelUp(); }} xp={user.xp || 0} onOpenRewards={() => { closeModal(); props.onNavigateGlobal('rewards'); }} />
             )}
             {activeModal === 'upgrade' && (
-                <UserUpgradeModal isOpen={true} onClose={closeModal} user={user} onSuccess={() => { closeModal(); }} />
+                <UserUpgradeModal isOpen={true} onClose={closeModal} />
             )}
 
             {/* --- ITINERARY & PLANNER --- */}
@@ -98,7 +91,7 @@ export const FeatureModals = (props: FeatureModalsProps) => {
                 <AiItineraryModal isOpen={true} onClose={closeModal} defaultCity={props.activeCitySummary?.name || ''} user={user} />
             )}
             {activeModal === 'roadbook' && (
-                <RoadbookModal isOpen={true} onClose={closeModal} itinerary={itinerary} activeCityName={props.activeCitySummary?.name || 'Campania'} />
+                <RoadbookModal isOpen={true} onClose={closeModal} />
             )}
             {activeModal === 'exportOptions' && (
                 <ExportModal isOpen={true} onClose={closeModal} />
@@ -117,9 +110,6 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             )}
             {activeModal === 'duplicate' && modalProps.duplicate && (
                 <DuplicateResolutionModal isOpen={true} onClose={closeModal} newItemPoi={modalProps.duplicate.poi} existingItem={modalProps.duplicate.existingItem} targetDayIndex={modalProps.duplicate.dayIndex} targetTime={modalProps.duplicate.timeSlotStr} onAddDuplicate={() => props.onResolveDuplicate(modalProps.duplicate.poi, modalProps.duplicate.dayIndex, modalProps.duplicate.timeSlotStr, modalProps.duplicate.existingItem, 'add')} onReplace={() => props.onResolveDuplicate(modalProps.duplicate.poi, modalProps.duplicate.dayIndex, modalProps.duplicate.timeSlotStr, modalProps.duplicate.existingItem, 'replace')} />
-            )}
-            {activeModal === 'removeSelection' && modalProps.items && (
-                <RemoveItemModal isOpen={true} onClose={closeModal} items={modalProps.items} onRemoveSingle={props.onRemoveSingle} onRemoveAll={() => props.onRemoveAll(modalProps.items)} />
             )}
 
             {/* --- POI & REVIEWS (UNIFIED MODAL) --- */}
@@ -152,23 +142,24 @@ export const FeatureModals = (props: FeatureModalsProps) => {
                 <ShareModal isOpen={true} onClose={closeModal} title={modalProps.title} text={modalProps.text} url={modalProps.url} />
             )}
             {activeModal === 'global' && (
-                <GlobalSectionView section={modalProps.section} initialTab={modalProps.tab} initialSelectedPostId={modalProps.id} onClose={closeModal} user={user} onUserUpdate={props.onUserUpdate} onOpenAuth={() => openModal('auth', { returnTo: 'global', returnProps: modalProps })} />
+                <GlobalSectionView isOpen={true} section={modalProps.section} initialTab={modalProps.tab} initialSelectedPostId={modalProps.id} onClose={closeModal} user={user} onUserUpdate={props.onUserUpdate} onOpenAuth={() => openModal('auth', { returnTo: 'global', returnProps: modalProps })} />
             )}
             {activeModal === 'suggestion' && (
-                 <SuggestionModal isOpen={true} onClose={closeModal} cityId={props.activeCityId || 'napoli'} cityName={props.activeCitySummary?.name || 'Campania'} user={user} onOpenAuth={() => openModal('auth', { returnTo: 'suggestion', returnProps: modalProps })} initialType={modalProps.type} prefilledName={modalProps.prefilledName} existingPois={props.visibleAllPois} />
+                <SuggestionModal isOpen={true} onClose={closeModal} cityId={props.activeCityId || 'napoli'} cityName={props.activeCitySummary?.name || 'Campania'} user={user} onOpenAuth={() => openModal('auth', { returnTo: 'suggestion', returnProps: modalProps })} initialType={modalProps.type} prefilledName={modalProps.prefilledName} existingPois={props.visibleAllPois} />
             )}
             {activeModal === 'aroundMe' && (
-                <AroundMeWizard onClose={closeModal} cityManifest={props.cityManifest} onConfirm={(config) => { props.onAroundMeTrigger(config); closeModal(); }} />
+                <AroundMeWizard isOpen={true} onClose={closeModal} cityManifest={props.cityManifest} onConfirm={(config) => { props.onAroundMeTrigger(config); closeModal(); }} />
             )}
             {activeModal === 'fullRankings' && (
                 <FullRankingsModal 
+                    isOpen={true}
                     onClose={closeModal}
                     onNavigateToCity={(cityId) => { closeModal(); props.onNavigateToCity(cityId); }}
                     onOpenPoi={handleOpenPoiDetailFromRanking}
                 />
             )}
             {props.activePreview.isOpen && (
-                <SectionPreviewModal cities={props.activePreview.cities} title={props.activePreview.title} icon={props.activePreview.icon} categories={props.activePreview.categories} initialSelectedId={props.activePreview.selectedId || props.activeCityId} onClose={props.onClosePreview} onCitySelect={props.onNavigateToCity} />
+                <SectionPreviewModal isOpen={true} cities={props.activePreview.cities} title={props.activePreview.title} icon={props.activePreview.icon} categories={props.activePreview.categories} initialSelectedId={props.activePreview.selectedId || props.activeCityId} onClose={props.onClosePreview} onCitySelect={props.onNavigateToCity} />
             )}
 
             {/* --- CITY INFO TABS --- */}
@@ -177,6 +168,19 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             )}
             {activeModal === 'province' && props.activeCityDetails && (
                 <ProvinceModal isOpen={true} onClose={closeModal} currentCity={props.activeCityDetails} onSelectCity={(id) => props.onNavigateToCity(id)} liveManifest={props.cityManifest} onToggleMerge={(isActive, radius) => {}} />
+            )}
+
+            {/* --- AI QUOTA & CREDITS (v4) --- */}
+            {activeModal === 'buyCredits' && (
+                <BuyCreditsModal isOpen={true} onClose={closeModal} />
+            )}
+            {activeModal === 'quotaExceeded' && (
+                <QuotaExceededModal 
+                    isOpen={true} 
+                    onClose={closeModal} 
+                    onBuyCredits={() => openModal('buyCredits')} 
+                    reason={modalProps.reason} 
+                />
             )}
         </>
     );

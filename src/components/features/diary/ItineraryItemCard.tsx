@@ -1,8 +1,9 @@
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
     MapPin, Navigation, Landmark, Utensils, Bed, ShoppingBag, Sun, Scan, Music, 
-    MessageSquare, ArrowRightLeft, Trash2, Clock,
+    MessageSquare, ArrowRightLeft, Trash2, Clock, X,
     // Nuove icone per diversificazione
     StickyNote, Plane, Train, Car, Bus, Anchor, Coffee, Camera, Trees, Footprints
 } from 'lucide-react';
@@ -10,6 +11,9 @@ import { ItineraryItem, PointOfInterest, PoiCategory } from '@/types';
 import { calculateDistance } from '@/services/geo';
 import { openMap } from '@/utils/common';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useSystemMessage } from '@/hooks/useSystemMessage';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+
 
 // COSTANTE ALTEZZA RIGA (h-7 di Tailwind = 1.75rem)
 const ROW_HEIGHT_REM = 1.75;
@@ -99,6 +103,8 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
 }) => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [isEditingNote, setIsEditingNote] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const { getText: getDeleteText } = useSystemMessage('confirm_delete_diary_item');
 
     // --- HOOKS STILI DINAMICI ---
     const timeSlotStyle = useDynamicStyles('diary_time_slot', isMobile);
@@ -123,7 +129,30 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
     const handleDrop = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); onItemDrop(e, dayIndex, item.timeSlotStr || '09:00'); };
     const handleNoteKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); setIsEditingNote(false); } };
 
-    const rowHeightClass = "h-7"; 
+    const pickerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (iconPickerOpen === item.id && pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+                onIconClick(null as any);
+            }
+        };
+        const handleEsc = (e: KeyboardEvent) => {
+            if (iconPickerOpen === item.id && e.key === 'Escape') {
+                onIconClick(null as any);
+            }
+        };
+        if (iconPickerOpen === item.id) {
+            window.addEventListener('mousedown', handleClickOutside);
+            window.addEventListener('keydown', handleEsc);
+        }
+        return () => {
+            window.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('keydown', handleEsc);
+        };
+    }, [iconPickerOpen, item.id, onIconClick]);
+
+    const rowHeightClass = "h-[1.75rem]"; 
     const showSecondRow = !!(item.poi.address || !item.isCustom || item.poi.visitDuration);
     
     // POSIZIONE ORIZZONTALE UNIFICATA (Linea + Badge)
@@ -156,12 +185,12 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
 
     const renderCustomIcon = () => {
         const Icon = CUSTOM_ICONS[item.customIcon || 'note'] || StickyNote;
-        return <Icon className="w-5 h-5 text-stone-600"/>;
+        return <Icon className="w-4 h-4 text-stone-600"/>;
     };
     
     const renderInfoBox = () => {
         return (
-            <span className={`${durationStyle} leading-none text-center flex items-center justify-center gap-0.5`}>
+            <span className={`${durationStyle} leading-[1.75rem] text-center flex items-center justify-center gap-0.5 h-full`}>
                     <Clock className="w-2.5 h-2.5 opacity-60"/>
                 {item.poi.visitDuration ? formatDurationCompact(item.poi.visitDuration) : '--'}
             </span>
@@ -176,10 +205,10 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop} 
-            className={`group/item relative transition-all flex 
+            className={`group group/item relative transition-all flex 
                 ${!isMobile ? 'cursor-grab active:cursor-grabbing hover:bg-black/5' : ''} 
-                ${iconPickerOpen === item.id ? 'z-50' : 'z-0'} 
-                ${isDragOver ? 'bg-indigo-100 ring-2 ring-indigo-500 scale-[1.02] z-10 shadow-lg' : ''}
+                ${iconPickerOpen === item.id ? 'z-modal' : 'z-0'} 
+                ${isDragOver ? 'bg-indigo-100 ring-2 ring-indigo-500 scale-[1.02] z-floating-panel shadow-lg' : ''}
             `}
         >
             {/* FIX: HIGHLIGHT OVERLAY ABSOLUTE (FULL WIDTH) */}
@@ -190,12 +219,12 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                     <div className="absolute -left-2 -right-2 top-0 bottom-0 bg-amber-100/60 pointer-events-none z-0"></div>
                     
                     {/* Border Layer (Solo Top e Bottom, niente verticali) */}
-                    <div className="absolute -left-2 -right-2 top-0 bottom-0 border-y-[1px] border-amber-500/80 pointer-events-none z-20 shadow-[inset_0_0_6px_rgba(245,158,11,0.1)]"></div>
+                    <div className="absolute -left-2 -right-2 top-0 bottom-0 border-y-[1px] border-amber-500/80 pointer-events-none z-dropdown shadow-[inset_0_0_6px_rgba(245,158,11,0.1)]"></div>
                 </>
             )}
 
             {/* COLUMN 1: LINEA ROSSA, BADGE DISTANZA E DIVISORE LATERALE */}
-            <div className="w-14 shrink-0 bg-stone-300/20 relative overflow-visible z-10">
+            <div className="w-14 shrink-0 bg-stone-300/20 relative overflow-visible z-floating-panel">
                 <div className="absolute right-0 top-0 bottom-0 w-px bg-blue-600 z-0"></div>
                 
                 {/* LINEA ROSSA TRATTEGGIATA */}
@@ -204,7 +233,7 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                 {/* BADGE DISTANZA - POSIZIONATO SULLA STESSA VERTICALE DELLA LINEA */}
                 {distanceFromPrev !== null && (
                     <div 
-                        className="absolute z-50 pointer-events-none" 
+                        className="absolute z-modal pointer-events-none" 
                         style={{ 
                             top: '0', 
                             left: horizontalPosition, // USO VARIABILE UNIFICATA: Segue sempre la linea
@@ -214,7 +243,7 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                         <div className={`
                             bg-[#e7e5e4] border border-red-500 text-red-600
                             px-1 py-0.5 rounded-sm shadow-sm flex items-center justify-center 
-                            leading-none whitespace-nowrap z-50
+                            leading-none whitespace-nowrap z-modal
                             ${distanceStyle} 
                             ${distanceFromPrev > 50 ? 'bg-orange-100 text-orange-600 border-orange-500' : ''}
                         `}>
@@ -225,27 +254,42 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
             </div>
             
             {/* COLUMN 2: ICON + CONTENT */}
-            <div className="flex-1 min-w-0 flex pointer-events-none z-10">
+            <div className="flex-1 min-w-0 flex pointer-events-none z-floating-panel">
                 
                 {/* 2A. ICONA */}
-                <div className="w-10 flex items-center justify-center relative z-20 pointer-events-auto border-r border-stone-300/30 shrink-0 bg-[#e7e5e4]/50 backdrop-blur-[1px]">
+                <div className="w-10 flex items-center justify-center relative z-dropdown pointer-events-auto border-r border-stone-300/30 shrink-0 bg-[#e7e5e4]/50 backdrop-blur-[1px] h-full">
                      {item.isCustom ? (
                         <div className="relative">
-                            <button onClick={() => onIconClick(item.id)} className="hover:text-amber-700 transition-colors text-stone-700 flex items-center justify-center bg-[#e7e5e4] rounded-full p-1.5 border border-stone-300 shadow-sm">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onIconClick(iconPickerOpen === item.id ? null as any : item.id); }} 
+                                className="hover:text-amber-700 transition-colors text-stone-700 flex items-center justify-center bg-[#e7e5e4] rounded-full p-1 border border-stone-300 shadow-sm"
+                            >
                                 {renderCustomIcon()}
                             </button>
                             {iconPickerOpen === item.id && (
-                                <div className="absolute top-full left-0 mt-1 bg-[#f5f5f4] border border-stone-300 shadow-xl rounded-lg p-2 grid grid-cols-5 gap-2 z-[60] w-56">
-                                    {Object.entries(CUSTOM_ICONS).map(([key, Icon]) => (
-                                        <button key={key} onClick={() => onIconSelect(item.id, key)} className="p-2 hover:bg-stone-200 rounded text-stone-700 flex justify-center transition-colors items-center" title={key}>
-                                            <Icon className="w-6 h-6"/>
+                                <div className="absolute top-full left-0 mt-1 bg-[#f5f5f4] border border-stone-300 shadow-xl rounded-lg p-2 w-56 pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} ref={pickerRef}>
+                                    <div className="flex justify-between items-center mb-2 px-1 border-b border-stone-200 pb-1">
+                                        <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Icona Nota</span>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onIconClick(null as any); }}
+                                            className="p-1 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
+                                            title="Chiudi"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
                                         </button>
-                                    ))}
+                                    </div>
+                                    <div className="grid grid-cols-5 gap-2">
+                                        {Object.entries(CUSTOM_ICONS).map(([key, Icon]) => (
+                                            <button key={key} onClick={() => onIconSelect(item.id, key)} className="p-2 hover:bg-stone-200 rounded text-stone-700 flex justify-center transition-colors items-center" title={key}>
+                                                <Icon className="w-5 h-5"/>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div className={`flex items-center justify-center bg-[#e7e5e4] rounded-full p-1.5 border border-stone-300 shadow-sm ${item.completed ? 'text-emerald-700' : 'text-stone-700'}`}>
+                        <div className={`flex items-center justify-center bg-[#e7e5e4] rounded-full p-1 border border-stone-300 shadow-sm ${item.completed ? 'text-emerald-700' : 'text-stone-700'}`}>
                             {getCategoryIcon(item.poi.category)}
                         </div>
                     )}
@@ -253,26 +297,26 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
 
                 {/* 2B. CONTENT ROWS - SFONDO TRASPARENTE */}
                 <div className="flex-1 flex flex-col min-w-0 bg-transparent">
-                    <div className={`${rowHeightClass} flex items-center relative z-10 w-full`}>
+                    <div className={`${rowHeightClass} flex items-center relative z-floating-panel w-full`}>
                         
                         {/* TIME SLOT */}
-                        <div className="w-12 flex flex-col items-center justify-center shrink-0 h-full z-10 relative pointer-events-auto leading-none border-r border-stone-300/30">
+                        <div className="w-12 flex flex-col items-center justify-center shrink-0 h-full z-floating-panel relative pointer-events-auto leading-[1.75rem] border-r border-stone-300/30">
                             {editingTimeId === item.id ? (
-                                <select autoFocus className={`w-full bg-transparent text-stone-900 border-b border-stone-500 focus:outline-none p-0 h-full leading-none appearance-none text-center ${timeSlotStyle}`} value={item.timeSlotStr} onChange={(e) => { onTimeChange(item.id, e.target.value, dayIndex); onSetEditingTime(null); }} onBlur={() => onSetEditingTime(null)}><option value="" disabled>--:--</option>{TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                                <select autoFocus className={`w-full bg-transparent text-stone-900 border-b border-stone-500 focus:outline-none p-0 h-full leading-[1.75rem] appearance-none text-center ${timeSlotStyle}`} value={item.timeSlotStr} onChange={(e) => { onTimeChange(item.id, e.target.value, dayIndex); onSetEditingTime(null); }} onBlur={() => onSetEditingTime(null)}><option value="" disabled>--:--</option>{TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}</select>
                             ) : (
-                                <button onClick={() => onSetEditingTime(item.id)} className={`${timeSlotStyle} leading-none flex items-center justify-center w-full hover:text-amber-700`}>
+                                <button onClick={() => onSetEditingTime(item.id)} className={`${timeSlotStyle} leading-[1.75rem] flex items-center justify-center w-full h-full hover:text-amber-700`}>
                                     {item.timeSlotStr || <span className="text-stone-400 font-mono text-xs">--:--</span>}
                                 </button>
                             )}
                         </div>
 
                         {/* POI NAME */}
-                        <div className="flex-1 flex items-center min-w-0 pl-2 h-full relative overflow-hidden z-10 pointer-events-auto">
+                        <div className="flex-1 flex items-center min-w-0 pl-2 h-full relative overflow-hidden z-floating-panel pointer-events-auto">
                             {item.isCustom ? (
                                 isEditingNote ? (
                                     <input 
                                         autoFocus
-                                        className={`flex-1 bg-transparent text-stone-900 placeholder-stone-500 focus:outline-none leading-none border-b border-stone-400 h-full truncate ${poiNameStyle}`} 
+                                        className={`flex-1 bg-transparent text-stone-900 placeholder-stone-500 focus:outline-none leading-[1.75rem] border-b border-stone-400 h-full truncate ${poiNameStyle}`} 
                                         placeholder="Scrivi nota..." 
                                         value={item.poi.description} 
                                         onChange={(e) => onNoteChange(item.id, e.target.value)} 
@@ -282,27 +326,33 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                                 ) : (
                                     <div 
                                         onClick={() => setIsEditingNote(true)}
-                                        className={`flex-1 leading-none h-full flex items-center cursor-text truncate hover:text-stone-700 ${poiNameStyle}`}
+                                        className={`flex-1 leading-[1.75rem] h-full flex items-center cursor-text truncate hover:text-stone-700 ${poiNameStyle}`}
                                     >
                                         {item.poi.description || <span className="text-stone-400 italic">Clicca per scrivere...</span>}
                                     </div>
                                 )
                             ) : (
-                                <h4 onClick={() => onViewDetail(item.poi)} className={`${poiNameStyle} truncate leading-none cursor-pointer hover:text-amber-700 transition-colors w-full`}>
+                                <h4 onClick={() => onViewDetail(item.poi)} className={`${poiNameStyle} truncate leading-[1.75rem] h-full flex items-center cursor-pointer hover:text-amber-700 transition-colors w-full`}>
                                     {item.poi.name}
                                 </h4>
                             )}
                         </div>
                         
-                        <div className="flex items-center justify-end z-20 gap-1 shrink-0 pl-1 pr-1 pointer-events-auto">
+                        <div className="flex items-center justify-end z-dropdown gap-1 shrink-0 pl-1 pr-1 pointer-events-auto">
                             {userDist && (<div className="flex items-center gap-0.5 text-[8px] md:text-[10px] font-bold text-emerald-600 bg-emerald-100/50 px-1 rounded border border-emerald-500/30 whitespace-nowrap shrink-0"><Navigation className="w-2.5 h-2.5 fill-current transform rotate-45"/> {userDist}km</div>)}
                             {isMobile && (<button onClick={() => onMobileMoveClick(item)} className="p-1 text-indigo-500 hover:text-indigo-700 transition-colors w-8 flex justify-center border-r border-stone-300/50"><ArrowRightLeft className="w-3.5 h-3.5" /></button>)}
-                            <button onClick={() => onRemove(item.id)} className="p-1 text-stone-400 hover:text-red-600 transition-colors w-8 flex justify-center"><Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" /></button>
+                            <button 
+                                onClick={() => setShowDeleteConfirm(true)} 
+                                className={`${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-all duration-150 p-1 text-stone-400 hover:text-red-500 cursor-pointer w-8 flex justify-center items-center pointer-events-auto`} 
+                                title="Elimina Tappa"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
                         </div>
                     </div>
                     
                     {showSecondRow && (
-                        <div className={`${rowHeightClass} flex items-center border-b border-stone-300/30 relative z-10 w-full`}>
+                        <div className={`${rowHeightClass} flex items-center border-b border-stone-300/30 relative z-floating-panel w-full h-[1.75rem]`}>
                             <div className="w-12 shrink-0 flex items-center justify-center h-full pointer-events-auto border-r border-stone-300/30 bg-[#e7e5e4]/50">
                                 {renderInfoBox()}
                             </div>
@@ -311,18 +361,45 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                                 {item.poi.address ? (
                                     <button 
                                         onClick={() => openMap(item.poi.coords.lat, item.poi.coords.lng)} 
-                                        className="text-[10px] text-stone-500 text-left hover:text-amber-700 truncate leading-none w-full font-medium"
+                                        className="text-[10px] text-stone-500 text-left hover:text-amber-700 truncate leading-[1.75rem] h-full w-full font-medium"
                                     >
                                         {item.poi.address}
                                     </button>
                                 ) : (
-                                    <span className="text-[9px] text-stone-400 italic">Nessun indirizzo</span>
+                                    <span className="text-[9px] text-stone-400 italic leading-[1.75rem] h-full flex items-center">Nessun indirizzo</span>
                                 )}
                             </div>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* MODALE CONFERMA ELIMINAZIONE (DARK GLASS DESIGN) */}
+            {(() => {
+                const msgData = getDeleteText({ 
+                    poiName: item.poi.name, 
+                    timeSlot: item.timeSlotStr ? `delle ${item.timeSlotStr}` : '' 
+                });
+                return (
+                    <DeleteConfirmationModal
+                        isOpen={showDeleteConfirm}
+                        onClose={() => setShowDeleteConfirm(false)}
+                        onConfirm={() => {
+                            onRemove(item.id);
+                            setShowDeleteConfirm(false);
+                        }}
+                        title={msgData.title}
+                        message={msgData.body}
+                        confirmLabel={msgData.confirmLabel}
+                        cancelLabel={msgData.cancelLabel}
+                        variant="danger"
+                        icon={<Trash2 className="w-8 h-8 text-red-500"/>}
+                    />
+                );
+            })()}
         </div>
     );
 };
+
+
+

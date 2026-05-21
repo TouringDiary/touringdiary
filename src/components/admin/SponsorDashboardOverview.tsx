@@ -14,6 +14,7 @@ export const SponsorDashboardOverview = ({ requests, onNavigate }: DashboardProp
     const [sortKey, setSortKey] = useState<string>('pending');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [filterText, setFilterText] = useState('');
+    const [sponsorFilter, setSponsorFilter] = useState<'all' | 'with' | 'without'>('all');
 
     useEffect(() => {
         getFullManifestAsync().then(manifest => {
@@ -29,10 +30,12 @@ export const SponsorDashboardOverview = ({ requests, onNavigate }: DashboardProp
                     pendingUnread: countUnread(cityReqs.filter(r => r.status === 'pending')),
                     waiting: cityReqs.filter(r => r.status === 'waiting_payment').length,
                     waitingUnread: countUnread(cityReqs.filter(r => r.status === 'waiting_payment')),
-                    active: cityReqs.filter(r => r.status === 'approved' || r.status === 'expired').length,
-                    activeUnread: countUnread(cityReqs.filter(r => r.status === 'approved' || r.status === 'expired')),
+                    active: cityReqs.filter(r => r.status === 'approved' && !r.isExpired).length,
+                    activeUnread: countUnread(cityReqs.filter(r => r.status === 'approved' && !r.isExpired)),
                     rejected: cityReqs.filter(r => r.status === 'rejected').length,
                     rejectedUnread: countUnread(cityReqs.filter(r => r.status === 'rejected')),
+                    cancelled: cityReqs.filter(r => r.status === 'cancelled').length,
+                    cancelledUnread: countUnread(cityReqs.filter(r => r.status === 'cancelled')),
                     total: cityReqs.length
                 };
             });
@@ -42,17 +45,27 @@ export const SponsorDashboardOverview = ({ requests, onNavigate }: DashboardProp
 
     const sortedAndFilteredStats = useMemo(() => {
         let filtered = cities;
+        
+        // 1. Filtro testuale
         if (filterText) {
             const lowerFilter = filterText.toLowerCase();
             filtered = filtered.filter(c => c.name.toLowerCase().includes(lowerFilter));
         }
+
+        // 2. Filtro Sponsor (Decisione UI)
+        if (sponsorFilter === 'with') {
+            filtered = filtered.filter(c => c.total > 0);
+        } else if (sponsorFilter === 'without') {
+            filtered = filtered.filter(c => c.total === 0);
+        }
+
         return [...filtered].sort((a, b) => {
             const valA = a[sortKey];
             const valB = b[sortKey];
             if (typeof valA === 'string') return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
             return sortDir === 'asc' ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
         });
-    }, [cities, sortKey, sortDir, filterText]);
+    }, [cities, sortKey, sortDir, filterText, sponsorFilter]);
 
     const handleSort = (key: string) => {
         if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -69,18 +82,39 @@ export const SponsorDashboardOverview = ({ requests, onNavigate }: DashboardProp
     return (
         <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
             <div className="p-4 border-b border-slate-800 bg-slate-950/50 flex flex-col md:flex-row justify-between items-center gap-4">
-                <h3 className="font-bold text-white flex items-center gap-2"><BarChart2 className="w-5 h-5 text-indigo-500"/> Panoramica Partner per Città</h3>
+                <div className="flex items-center gap-6">
+                    <h3 className="font-bold text-white flex items-center gap-2 whitespace-nowrap"><BarChart2 className="w-5 h-5 text-indigo-500"/> Partner per Città</h3>
+                    
+                    {/* Filtro Sponsor Toggle */}
+                    <div className="flex bg-slate-900 border border-slate-700 p-1 rounded-xl">
+                        {[
+                            { id: 'all', label: 'Tutte' },
+                            { id: 'with', label: 'Con Sponsor' },
+                            { id: 'without', label: 'Senza' }
+                        ].map(f => (
+                            <button
+                                key={f.id}
+                                onClick={() => setSponsorFilter(f.id as any)}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${sponsorFilter === f.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="relative w-full md:w-64"><Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5"/><input type="text" placeholder="Filtra città..." value={filterText} onChange={e => setFilterText(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:outline-none"/></div>
             </div>
             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1000px]">
+                <table className="w-full text-left border-collapse min-w-[1100px]">
                     <thead>
                         <tr className="bg-slate-950/50 text-slate-500 text-[10px] uppercase font-bold">
                             <th className="p-4 border-b border-slate-800 cursor-pointer" onClick={() => handleSort('name')}>Città</th>
-                            <th className="p-4 border-b border-slate-800 text-center w-32" onClick={() => handleSort('pending')}>Nuove</th>
-                            <th className="p-4 border-b border-slate-800 text-center w-32" onClick={() => handleSort('waiting')}>Attesa Pag.</th>
-                            <th className="p-4 border-b border-slate-800 text-center w-32" onClick={() => handleSort('active')}>Attivi</th>
-                            <th className="p-4 border-b border-slate-800 text-center w-32" onClick={() => handleSort('rejected')}>Rifiutati</th>
+                            <th className="p-4 border-b border-slate-800 text-center w-28" onClick={() => handleSort('pending')}>Nuove</th>
+                            <th className="p-4 border-b border-slate-800 text-center w-28" onClick={() => handleSort('waiting')}>Attesa Pag.</th>
+                            <th className="p-4 border-b border-slate-800 text-center w-28" onClick={() => handleSort('active')}>Attivi</th>
+                            <th className="p-4 border-b border-slate-800 text-center w-28" onClick={() => handleSort('rejected')}>Rifiutati</th>
+                            <th className="p-4 border-b border-slate-800 text-center w-28" onClick={() => handleSort('cancelled')}>Annullati</th>
                             <th className="p-4 border-b border-slate-800 text-center" onClick={() => handleSort('total')}>Tot</th>
                         </tr>
                     </thead>
@@ -92,6 +126,7 @@ export const SponsorDashboardOverview = ({ requests, onNavigate }: DashboardProp
                                 <td className="p-2 text-center"><StatusCell count={stat.waiting} unread={stat.waitingUnread} status="waiting" cityId={stat.id} colorText="text-blue-500" /></td>
                                 <td className="p-2 text-center bg-slate-900/50"><StatusCell count={stat.active} unread={stat.activeUnread} status="approved" cityId={stat.id} colorText="text-emerald-500" /></td>
                                 <td className="p-2 text-center"><StatusCell count={stat.rejected} unread={stat.rejectedUnread} status="rejected" cityId={stat.id} colorText="text-slate-400" /></td>
+                                <td className="p-2 text-center bg-slate-900/50"><StatusCell count={stat.cancelled} unread={stat.cancelledUnread} status="cancelled" cityId={stat.id} colorText="text-slate-500" /></td>
                                 <td className={`p-4 text-center font-mono font-bold border-l border-slate-800 ${stat.total > 0 ? 'text-white' : 'text-slate-600'}`}>{stat.total}</td>
                             </tr>
                         ))}

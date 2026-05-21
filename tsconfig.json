@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "traceResolution": false,
     "target": "ES2022",
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
@@ -16,14 +17,21 @@
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
-    "allowJs": true,
-    "jsx": "react-jsx",
+    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./*"
+        "src/*"
       ]
     },
+    "allowJs": true,
+    "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "supabase/functions"
+  ],
+  "include": [
+    "src"
+  ]
 }

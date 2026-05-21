@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Check, X, Undo2, RefreshCw, Edit3, Crop, Trash2, AlertTriangle, Link } from 'lucide-react';
+import { Check, X, Undo2, RefreshCw, Edit3, Crop, Trash2, AlertTriangle, Link, Trophy } from 'lucide-react';
 import { PhotoSubmission, CitySummary } from '../../../types/index';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 
@@ -13,6 +13,7 @@ interface PhotoRowProps {
         onDeleteRequest: (photo: PhotoSubmission) => void;
         onOpenInspector: (photo: PhotoSubmission) => void;
         onOpenMetadata: (photo: PhotoSubmission) => void;
+        onToggleOfficial: (id: string, currentStatus: boolean) => void;
     };
 }
 
@@ -128,6 +129,11 @@ export const PhotoRow: React.FC<PhotoRowProps> = ({ photo, manifest, isSuperAdmi
                         'bg-amber-900/20 text-amber-500 border-amber-500/30'
                     }`}>
                     {photo.status === 'approved' ? 'PUBBLICATO' : photo.status === 'rejected' ? 'RIFIUTATO' : photo.status === 'city_deleted' ? 'ORFANO' : 'IN REVISIONE'}
+                    {photo.isOfficial && (
+                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight bg-amber-500/20 text-amber-500 border border-amber-500/30 ml-1">
+                            OFFICIAL
+                        </span>
+                    )}
                 </span>
             </td>
 
@@ -154,6 +160,14 @@ export const PhotoRow: React.FC<PhotoRowProps> = ({ photo, manifest, isSuperAdmi
                     
                     <button onClick={() => actions.onOpenMetadata(photo)} className="p-1.5 hover:bg-indigo-900/30 text-slate-500 hover:text-indigo-400 rounded transition-colors" title="Modifica Dati"><Edit3 className="w-3.5 h-3.5"/></button>
                     <button onClick={() => actions.onOpenInspector(photo)} className="p-1.5 hover:bg-indigo-900/30 text-slate-500 hover:text-indigo-400 rounded transition-colors" title="Ritaglia"><Crop className="w-3.5 h-3.5"/></button>
+                    
+                    <button 
+                        onClick={() => actions.onToggleOfficial(photo.id, !!photo.isOfficial)} 
+                        className={`p-1.5 rounded transition-all active:scale-95 ${photo.isOfficial ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30' : 'hover:bg-slate-800 text-slate-500 hover:text-slate-300'}`}
+                        title={photo.isOfficial ? "Rendi Community" : "Promuovi a Official"}
+                    >
+                        <Trophy className={`w-3.5 h-3.5 ${photo.isOfficial ? 'fill-amber-500' : ''}`} />
+                    </button>
 
                     {isSuperAdmin && (
                         <button onClick={() => actions.onDeleteRequest(photo)} className="p-1.5 hover:bg-red-900/20 text-slate-600 hover:text-red-500 rounded transition-colors" title="Elimina Definitivamente"><Trash2 className="w-3.5 h-3.5"/></button>

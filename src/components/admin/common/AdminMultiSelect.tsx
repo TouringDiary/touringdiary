@@ -1,6 +1,8 @@
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, X, CheckSquare, Square, Filter } from 'lucide-react';
+
 
 interface Option {
     value: string;
@@ -28,8 +30,8 @@ export const AdminMultiSelect = ({ label, icon, options, selectedValues, onChang
                 setIsOpen(false);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        window.addEventListener('mousedown', handleClickOutside);
+        return () => window.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const toggleOption = (val: string) => {
@@ -74,7 +76,10 @@ export const AdminMultiSelect = ({ label, icon, options, selectedValues, onChang
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-[100] overflow-hidden flex flex-col animate-in zoom-in-95 origin-top-left">
+                <div 
+                    className="absolute top-full left-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 origin-top-left"
+                    style={{ zIndex: Z_MODAL_NESTED }}
+                >
                     <div className="p-3 border-b border-slate-800 bg-slate-950/50 flex justify-between items-center">
                         <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{placeholder}</span>
                         {badgeCount > 0 && (
@@ -114,3 +119,6 @@ export const AdminMultiSelect = ({ label, icon, options, selectedValues, onChang
         </div>
     );
 };
+
+
+

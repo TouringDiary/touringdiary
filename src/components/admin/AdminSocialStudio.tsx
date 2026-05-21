@@ -1,5 +1,6 @@
-
+import { Z_ADMIN_MODAL_TOP, Z_ADMIN_MODAL_NESTED, Z_ADMIN_MODAL } from '@/constants/zIndex';
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Layout, Plus, Save, Trash2, Palette, CheckCircle, Share2, MessageCircle, Wand2, Loader2, Type } from 'lucide-react';
 import { SocialCanvas } from './social/SocialCanvas';
 import { AiBackgroundPanel } from './social/AiBackgroundPanel';
@@ -7,6 +8,7 @@ import { SocialPreviewConfig } from './social/SocialPreviewConfig';
 import { CommsTemplates } from './communications/CommsTemplates'; 
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
+
 
 // Custom Hooks
 import { useSocialCanvasLogic } from '../../hooks/admin/useSocialCanvasLogic';
@@ -62,17 +64,26 @@ export const AdminSocialStudio = () => {
                     title="Eliminare Template?"
                     message={`Stai per eliminare definitivamente il template "${templateLogic.deleteTarget.name}".`}
                     isDeleting={templateLogic.isDeleting}
+                    zIndex={Z_ADMIN_MODAL_NESTED}
                 />
             )}
-            {templateLogic.showSuccessModal && (
-                <div className="fixed inset-0 z-[6000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 max-w-sm w-full text-center relative overflow-hidden">
+            {templateLogic.showSuccessModal && createPortal(
+                /* admin-super-layer modal | intentionally rendered above global modal stack */
+                <div 
+                    className="td-modal-overlay p-4 bg-black/80 backdrop-blur-sm animate-in fade-in flex items-center justify-center fixed inset-0"
+                    style={{ zIndex: Z_ADMIN_MODAL }}
+                >
+                    <div 
+                        className="bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 max-w-sm w-full text-center relative overflow-hidden"
+                        style={{ zIndex: Z_ADMIN_MODAL_TOP }}
+                    >
                         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600"></div>
                         <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]"><CheckCircle className="w-10 h-10 text-emerald-500" /></div>
                         <div><h3 className="text-2xl font-bold text-white mb-1">Salvato!</h3><p className="text-slate-400 text-sm">Operazione completata.</p></div>
                         <button onClick={templateLogic.closeModals} className="mt-2 w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold uppercase text-xs transition-colors border border-slate-700 hover:border-slate-600">Chiudi</button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* HEADER CLEAN DESIGN */}
@@ -160,7 +171,7 @@ export const AdminSocialStudio = () => {
 
                     {/* MAIN: CANVAS EDITOR */}
                     <div className="flex-1 bg-slate-950 rounded-3xl border border-slate-800 flex flex-col items-center justify-center p-8 relative shadow-inner overflow-hidden">
-                        <div className="absolute top-4 left-4 z-10">
+                        <div className="absolute top-4 left-4 z-floating-panel">
                             <input 
                                 value={canvasLogic.templateName} 
                                 onChange={e => canvasLogic.setTemplateName(e.target.value)} 
@@ -217,3 +228,7 @@ export const AdminSocialStudio = () => {
         </div>
     );
 };
+
+
+
+

@@ -1,63 +1,209 @@
-# 🧠 AI BOOT DOCUMENT — TouringDiary
+# 🧠 AI BOOT DOCUMENT — TouringDiary (v45.0 — CERTIFIED ARCHITECTURE ENTRY POINT)
 
-Questo documento è il punto di ingresso per qualsiasi AI che lavori sul progetto TouringDiary.
+Questo documento è il punto di ingresso ufficiale per qualsiasi AI che lavori sul progetto TouringDiary.
 
-Il suo scopo è permettere di comprendere rapidamente:
+Serve per:
 
-• architettura del progetto
-• regole operative
-• workflow di sviluppo
+• comprendere architettura reale sistema
+• leggere correttamente la documentazione tecnica
+• evitare regressioni
+• mantenere coerenza tra codice e documentazione
+
 
 ---
 
 # ORDINE DI LETTURA OBBLIGATORIO
 
-Prima di analizzare il codice del progetto, l'AI deve leggere questi documenti nell'ordine indicato.
+Prima di analizzare il codice leggere:
 
-1️⃣ AI_CONTEXT/00_AI_RULES.md
-2️⃣ AI_CONTEXT/01_PROJECT_MAP.md
-3️⃣ AI_CONTEXT/02_PROJECT_TECH_MAP.md
-4️⃣ AI_CONTEXT/03_PROJECT_LOGIC_MAP.md
-5️⃣ AI_CONTEXT/05_CRITICAL_FILES_MAP.md
-6️⃣ AI_CONTEXT/06_CHANGE_IMPACT_RULES.md
-7️⃣ AI_CONTEXT/07_AI_WORKFLOW.md
+AI_CONTEXT/00_AI_RULES.md  
+AI_CONTEXT/01_PROJECT_MAP.md  
+AI_CONTEXT/02_PROJECT_TECH_MAP.md  
+AI_CONTEXT/03_PROJECT_LOGIC_MAP.md
+AI_CONTEXT/04_PROJECT_PRICING_MAP.md  
+AI_CONTEXT/05_CRITICAL_FILES_MAP.md  
+AI_CONTEXT/06_CHANGE_IMPACT_RULES.md  
+AI_CONTEXT/07_AI_WORKFLOW.md  
 
-Solo dopo questa lettura è possibile procedere con l'analisi del codice.
-
----
-
-# SCOPO DELLA DOCUMENTAZIONE
-
-La documentazione AI_CONTEXT esiste per:
-
-• fornire contesto architetturale alle AI
-• ridurre errori nelle modifiche al codice
-• evitare regressioni nel sistema
-• mantenere coerenza nello sviluppo
 
 ---
 
-# REGOLE OPERATIVE
+# REGOLA EVIDENZA DOCUMENTALE
 
-Durante il lavoro sul progetto:
+AI_CONTEXT può essere aggiornato solo con evidenze verificabili da:
 
-• non modificare file senza analisi dell'impatto
-• rispettare il workflow definito in `07_AI_WORKFLOW.md`
-• prestare particolare attenzione ai file indicati in `05_CRITICAL_FILES_MAP.md`
+• file codice
+• Edge Functions
+• schema Supabase
+• RPC database
+• types Supabase
+• services runtime
+
+
+DESCRIZIONE SEMPLICE
+
+Se qualcosa non è dimostrato dal codice, non deve entrare nella documentazione.
+
+
+---
+
+# ARCHITETTURA GENERALE SISTEMA
+
+TouringDiary utilizza:
+
+Frontend:
+
+React  
+Vite  
+TypeScript  
+
+
+Backend:
+
+Supabase
+
+Include:
+
+PostgreSQL  
+Auth  
+Storage  
+Edge Functions  
+
+
+AI Engine:
+
+Gemini tramite Edge Functions
+
+
+Credit Engine:
+
+user_ai_credits  
+credit_transactions  
+ai_global_usage  
+extra_credit_packages  
+
+
+RPC AI:
+
+consume_ai_credits  
+log_ai_usage_tokens  
+
+
+Pagamenti:
+
+Stripe  
+purchase-extra-credits  
+stripe-webhook  
+
+
+Sponsor Engine:
+
+sponsor_requests  
+sponsors  
+subscriptions  
+sponsorActivationService  
+
+
+Gamification Engine:
+
+gamificationService  
+xp_actions  
+badges  
+rewards_catalog  
+
+
+Community Engine:
+
+photoService  
+community_posts  
+live_snaps  
+photo_likes  
+
+
+Ranking Engine:
+
+rankingService  
+useRankingsLogic  
+
+
+Staging Import Engine:
+
+importService  
+stagingService  
+pois_staging  
+
+
+PDF Engine:
+
+RoadbookDocument.tsx
+
 
 ---
 
-# NOTE
+# PIPELINE PRINCIPALI SISTEMA
 
-TouringDiary è un'applicazione React + Vite con integrazione Supabase e funzionalità AI.
 
-Il progetto contiene diverse dipendenze tra:
+AI pipeline
 
-• UI components
-• stato globale (context)
-• servizi backend
-• sistemi AI
+Frontend  
+→ Edge Function  
+→ RPC consume_ai_credits  
+→ Gemini  
+→ RPC log_ai_usage_tokens  
 
-Per questo motivo ogni modifica deve essere eseguita con attenzione.
+
+credit purchase pipeline
+
+utente paga  
+→ purchase-extra-credits  
+→ Stripe  
+→ stripe-webhook  
+→ credit_transactions  
+→ user_ai_credits  
+
+
+sponsor activation pipeline
+
+richiesta sponsor  
+→ approvazione admin  
+→ sponsorActivationService  
+→ subscriptions  
+→ sponsor attivo  
+
+
+staging import pipeline
+
+importService  
+→ pois_staging  
+→ stagingService  
+→ POI definitivi  
+
+
+roadbook pipeline
+
+TravelDiary  
+→ RoadbookDocument.tsx  
+→ export PDF
+
 
 ---
+
+# REGOLA MODIFICHE SICURE
+
+Prima di modificare codice:
+
+analizzare impatto  
+verificare types Supabase  
+verificare policy RLS  
+consultare PROJECT_LOGIC_MAP.md  
+consultare CHANGE_IMPACT_RULES.md  
+
+
+---
+
+# OBIETTIVO DOCUMENTAZIONE AI_CONTEXT
+
+fornire contesto alle AI  
+ridurre regressioni  
+mantenere allineamento codice-documentazione  
+supportare evoluzione controllata del sistema

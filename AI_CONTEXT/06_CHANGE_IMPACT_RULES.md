@@ -1,111 +1,320 @@
-
-# 🧠 CHANGE IMPACT RULES — TouringDiary
+# 🧠 CHANGE IMPACT RULES — TouringDiary (v45.0 — CERTIFIED SAFE MODIFICATION PROTOCOL)
 
 Questo documento definisce il processo obbligatorio da seguire prima di effettuare qualsiasi modifica al codice del progetto TouringDiary.
 
-Lo scopo è evitare modifiche isolate che possano generare bug in altre parti del sistema.
+Serve per:
+
+• evitare regressioni
+• proteggere il sistema crediti AI
+• proteggere pipeline Stripe
+• proteggere sponsor lifecycle
+• mantenere coerenza architetturale
+
 
 ---
 
-## REGOLA FONDAMENTALE
+# REGOLA FONDAMENTALE
 
-Nessuna modifica al codice deve essere effettuata senza prima eseguire una **analisi dell'impatto delle modifiche**.
+Nessuna modifica al codice deve essere effettuata senza:
 
-L'analisi deve essere discussa con ChatGPT prima dell'applicazione delle modifiche.
+analisi impatto tecnica  
+verifica pipeline coinvolte  
+allineamento tra:
 
----
+Utente  
+ChatGPT  
+Gemini
 
-## PROCESSO OBBLIGATORIO
 
-Prima di modificare qualsiasi file del progetto, devono essere dichiarati i seguenti punti.
+DESCRIZIONE SEMPLICE
 
-### 1 — PROBLEMA
+Prima si analizza.
 
-Descrizione chiara del problema o della modifica richiesta.
+Poi si decide.
 
-Esempio:
+Solo dopo si modifica.
 
-• bug UI
-• errore runtime
-• nuova funzionalità
-• refactoring
-
----
-
-### 2 — FILE POTENZIALMENTE IMPATTATI
-
-Elencare i file che potrebbero essere coinvolti nella modifica.
-
-Devono essere considerati:
-
-• componenti React
-• hooks
-• context
-• services
-• types
-• utilità condivise
 
 ---
 
-### 3 — RISCHI
+# REGOLA EVIDENZA DOCUMENTALE
 
-Identificare i possibili effetti collaterali della modifica.
+AI_CONTEXT può essere aggiornato solo con evidenze verificabili da:
+
+• file codice
+• Edge Functions
+• schema Supabase
+• RPC database
+• types Supabase
+• services runtime
+
+
+DESCRIZIONE SEMPLICE
+
+Se non è dimostrato dal codice, non entra nella documentazione.
+
+
+---
+
+# PROCESSO OBBLIGATORIO
+
+Prima di modificare qualsiasi file devono essere dichiarati:
+
+
+## 1 — PROBLEMA
+
+Descrizione chiara della modifica richiesta.
 
 Esempi:
 
-• rottura layout
-• errori di stato globale
-• problemi di routing
-• regressioni nel diario di viaggio
-• errori nelle chiamate Supabase
-• problemi AI planner
+bug UI  
+errore runtime  
+refactoring  
+nuova feature  
+ottimizzazione performance  
+miglioria architetturale
+
 
 ---
 
-### 4 — STRATEGIA DI MODIFICA
+## 2 — FILE POTENZIALMENTE IMPATTATI
 
-Descrivere il piano tecnico per risolvere il problema.
+Devono essere identificati:
 
-La strategia deve specificare:
+componenti React  
+hooks  
+context  
+services  
+types  
+Edge Functions  
+RPC Supabase  
+tabelle database
 
-• quali file verranno modificati
-• perché vengono modificati
-• quale approccio verrà utilizzato
-
----
-
-### 5 — VALIDAZIONE
-
-Le modifiche ai file possono essere effettuate **solo dopo conferma dell'utente**.
-
----
-## VERIFICHE OBBLIGATORIE
-Prima di ogni modifica, è fondamentale eseguire i seguenti controlli:
-
-1.  **Analisi del Codice**: Analizza i componenti, gli hook e i servizi coinvolti.
-2.  **Verifica dei Tipi**: Controlla i tipi (es. `src/types/supabase.ts`) per capire le strutture dati.
-3.  **Analisi delle Policy RLS**: Verifica sempre le policy di Row-Level Security su Supabase per le tabelle coinvolte. L'assenza di una policy per un ruolo specifico (`authenticated`, `anon`) risulta in un blocco (DENY by default). Questo è un controllo di sicurezza critico.
-4.  **Impatto sulla UI**: Valuta come la modifica influenzerà l'interfaccia utente.
-5.  **Coerenza con la Documentazione**: Assicurati che il cambiamento sia coerente con `PROJECT_LOGIC_MAP.md`.
 
 ---
 
-## OBIETTIVO
+## 3 — RISCHI
+
+Possibili effetti collaterali:
+
+rottura layout  
+rottura routing  
+rottura sincronizzazione itinerario  
+errori crediti AI  
+errori Stripe  
+errori sponsor activation  
+errori gamification  
+errori ranking  
+errori community media
+
+
+---
+
+## 4 — STRATEGIA DI MODIFICA
+
+Deve indicare:
+
+quali file cambiano  
+perché cambiano  
+pipeline coinvolte  
+tabelle coinvolte  
+Edge Functions coinvolte  
+RPC coinvolte
+
+
+---
+
+## 5 — VALIDAZIONE
+
+Le modifiche possono essere applicate solo dopo conferma:
+
+Utente  
+ChatGPT  
+Gemini
+
+
+---
+
+# VERIFICHE OBBLIGATORIE STANDARD
+
+Prima di ogni modifica verificare:
+
+
+### 1 — Analisi codice
+
+Analizzare:
+
+componenti  
+hooks  
+services  
+context
+
+
+---
+
+### 2 — Verifica Types Supabase
+
+Controllare:
+
+src/types/supabase.ts
+
+
+Serve per evitare mismatch schema.
+
+
+---
+
+### 3 — Analisi policy RLS
+
+Verificare sempre:
+
+authenticated  
+anon
+
+
+DESCRIZIONE SEMPLICE
+
+Se manca una policy, Supabase blocca la query.
+
+
+---
+
+### 4 — Impatto UI
+
+Verificare:
+
+layout  
+routing  
+modali  
+dashboard  
+diario
+
+
+---
+
+### 5 — Coerenza documentazione
+
+Verificare compatibilità con:
+
+PROJECT_MAP.md  
+PROJECT_TECH_MAP.md  
+PROJECT_LOGIC_MAP.md  
+CRITICAL_FILES_MAP.md
+
+
+---
+
+# VERIFICHE OBBLIGATORIE EDGE FUNCTIONS + CREDIT ENGINE
+
+Prima di modificare:
+
+AI planner  
+Gemini chat  
+Stripe  
+credit packs  
+sponsor activation
+
+
+verificare sempre:
+
+
+### Edge Functions coinvolte
+
+cartella:
+
+supabase/functions/
+
+
+Funzioni critiche:
+
+gemini-chat  
+gemini-task  
+purchase-extra-credits  
+stripe-webhook
+
+
+---
+
+### RPC coinvolte
+
+consume_ai_credits  
+log_ai_usage_tokens
+
+
+---
+
+### Tabelle coinvolte
+
+user_ai_credits  
+credit_transactions  
+ai_global_usage  
+extra_credit_packages  
+subscriptions  
+pricing_versions
+
+
+---
+
+# VERIFICHE OBBLIGATORIE SPONSOR SYSTEM
+
+Prima di modificare sponsor verificare:
+
+sponsor_requests  
+sponsors  
+subscriptions  
+sponsorActivationService
+
+
+---
+
+# VERIFICHE OBBLIGATORIE GAMIFICATION SYSTEM
+
+Verificare:
+
+gamificationService  
+xp_actions  
+badges  
+rewards_catalog
+
+
+---
+
+# VERIFICHE OBBLIGATORIE COMMUNITY SYSTEM
+
+Verificare:
+
+photoService  
+community_posts  
+live_snaps  
+photo_likes
+
+
+---
+
+# VERIFICHE OBBLIGATORIE STAGING IMPORT SYSTEM
+
+Verificare:
+
+importService  
+stagingService  
+pois_staging
+
+
+---
+
+# OBIETTIVO
 
 Ridurre:
 
-• regressioni
-• bug non intenzionali
-• modifiche pericolose al core dell'app
+bug non intenzionali  
+regressioni architetturali  
+rotture pipeline economiche  
+rotture AI pipeline  
+rotture sponsor lifecycle
 
-Garantire che ogni modifica sia **consapevole dell'architettura completa del progetto**.
 
----
+Garantire:
 
-## AMBITO DI APPLICAZIONE
-
-Questa regola si applica in particolare ai file indicati in:
-
-AI_CONTEXT/05_CRITICAL_FILES_MAP.md
-
----
+modifiche consapevoli  
+coerenza sistemica  
+stabilità evolutiva piattaforma

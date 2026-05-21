@@ -20,7 +20,7 @@ export const CommsHistory = ({ logs }: CommsHistoryProps) => {
     return (
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
             <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-950/80 backdrop-blur-md text-slate-500 text-[10px] uppercase font-bold sticky top-0 z-10 border-b border-slate-800 shadow-sm">
+                <thead className="bg-slate-950/80 backdrop-blur-md text-slate-500 text-[10px] uppercase font-bold sticky top-0 z-floating-panel border-b border-slate-800 shadow-sm">
                     <tr>
                         <th className="p-4 w-40">Data</th>
                         <th className="p-4 w-32">Tipo</th>

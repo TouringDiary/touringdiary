@@ -1,7 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, MapPin, Trash2, Calendar, CheckCircle, Edit2, Briefcase } from 'lucide-react';
+import { MapPin, Trash2, Calendar, CheckCircle, Edit2, Briefcase } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { PointOfInterest, ItineraryItem } from '../../types/index';
 import { getDaysArray } from '../../utils/common';
 import { ImageWithFallback } from '../common/ImageWithFallback';
@@ -28,6 +31,10 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [selectedTime, setSelectedTime] = useState<string>('09:00');
     const [isRemoving, setIsRemoving] = useState(false);
+
+    // ESC Handling
+    useGlobalModalEscape(isOpen, onClose);
+
     
     // NEW: Gestione manuale della vista date
     const [isEditingDates, setIsEditingDates] = useState(false);
@@ -75,15 +82,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
         }
     }, [isOpen, startDate, endDate, days.length]); 
 
-    // ESC Key Listener
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+
 
     if (!isOpen || !poi) return null;
 
@@ -143,12 +142,19 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
 
     // --- RENDER CONTENT ---
     const modalContent = (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={days.length > 0 ? onClose : undefined}></div>
+        <div 
+            className="td-modal-overlay !p-4 bg-black/90 backdrop-blur-sm animate-in fade-in"
+            onClick={days.length > 0 ? onClose : undefined}
+            style={{ zIndex: Z_OVERLAY }}
+        >
             
             {/* VIEW 1: DATE CONFIGURATION */}
             {(isEditingDates || days.length === 0) ? (
-                <div className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6">
+                <div 
+                    className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6 pointer-events-auto"
+                    style={{ zIndex: Z_MODAL }}
+                    onClick={(e) => e.stopPropagation()}
+                >
                     
                     <div className="text-center mb-6">
                         <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -207,7 +213,11 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                 </div>
             ) : (
                 // VIEW 2: STANDARD ADD TO ITINERARY (With Dates Pre-set)
-                <div className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6">
+                <div 
+                    className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6 pointer-events-auto"
+                    style={{ zIndex: Z_MODAL }}
+                    onClick={(e) => e.stopPropagation()}
+                >
                     
                     <div className="flex justify-between items-start mb-6 border-b border-slate-800 pb-4">
                         <div>
@@ -232,8 +242,10 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                                 }
                             </p>
                         </div>
-                        {/* STANDARD RED CLOSE BUTTON */}
-                        <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"><X className="w-5 h-5"/></button>
+                        <CloseButton 
+                            onClose={onClose}
+                            variant="primary"
+                        />
                     </div>
 
                     {/* TRIP DATES INFO BAR */}
@@ -377,3 +389,6 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
     // USE PORTAL FOR HIGH Z-INDEX
     return createPortal(modalContent, document.body);
 };
+
+
+

@@ -12,6 +12,7 @@ interface PhotoTableProps {
         onDeleteRequest: (photo: PhotoSubmission) => void;
         onOpenInspector: (photo: PhotoSubmission) => void;
         onOpenMetadata: (photo: PhotoSubmission) => void;
+        onToggleOfficial: (id: string, currentStatus: boolean) => void;
     };
 }
 
@@ -20,7 +21,7 @@ export const PhotoTable = ({ photos, manifest, isSuperAdmin, actions }: PhotoTab
         <div className="flex-1 bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-xl min-h-0 flex flex-col">
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-950 text-slate-400 text-[9px] uppercase tracking-wider font-bold border-b border-slate-800 sticky top-0 z-10">
+                    <thead className="bg-slate-950 text-slate-400 text-[9px] uppercase tracking-wider font-bold border-b border-slate-800 sticky top-0 z-floating-panel">
                         <tr>
                             <th className="px-4 py-3 text-center w-20">Anteprima</th>
                             <th className="px-4 py-3">Dettagli & Città</th>

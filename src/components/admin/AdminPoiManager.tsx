@@ -153,7 +153,7 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({ cityId, cityNa
             />
 
             {isTaxonomyOpen && (
-                <div className="fixed inset-0 z-[3000] bg-slate-950 flex flex-col">
+                <div className="fixed inset-0 z-admin-modal bg-slate-950 flex flex-col">
                      <div className="p-4 border-b border-slate-800 flex justify-between items-center">
                          <h2 className="text-white font-bold">Gestione Tassonomia</h2>
                          <button onClick={() => setIsTaxonomyOpen(false)}><X className="w-6 h-6 text-white"/></button>

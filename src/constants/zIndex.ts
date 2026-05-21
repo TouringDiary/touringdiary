@@ -1,0 +1,15 @@
+export const Z_ERROR_BOUNDARY = 99999;
+export const Z_TOAST = 16000;
+export const Z_LIGHTBOX_CLOSE = 15200;
+export const Z_LIGHTBOX_CONTENT = 15100;
+export const Z_LIGHTBOX = 15000;
+export const Z_OVERLAY = 14000;
+export const Z_OVERLAY_BACKDROP = 13900;
+export const Z_ADMIN_MODAL_TOP = 13200;
+export const Z_ADMIN_MODAL_NESTED = 13100;
+export const Z_ADMIN_MODAL = 13000;
+export const Z_MODAL_NESTED = 12000;
+export const Z_MODAL = 11000;
+export const Z_DROPDOWN = 10000;
+export const Z_FLOATING_PANEL = 9000;
+export { };

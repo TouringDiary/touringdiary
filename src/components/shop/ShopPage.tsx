@@ -1,6 +1,7 @@
-
+import { Z_LIGHTBOX_CLOSE, Z_LIGHTBOX_CONTENT, Z_LIGHTBOX, Z_OVERLAY, Z_OVERLAY_BACKDROP, Z_MODAL } from '@/constants/zIndex';
 import React, { useEffect, useState, Suspense } from 'react';
-import { X, Map, Loader2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Map, Loader2 } from 'lucide-react';
 import { ShopPartner, ShopCategory, PointOfInterest, User } from '../../types/index';
 import { useItinerary } from '@/context/ItineraryContext';
 import { AddToItineraryModal } from '../modals/AddToItineraryModal';
@@ -12,7 +13,7 @@ import { Utensils, Wine, Hammer, Scissors } from 'lucide-react';
 import { useUser } from '@/context/UserContext';
 import { useGps } from '@/context/GpsContext';
 import { useUI } from '@/context/UIContext';
-import { useDiaryInteractionsContext } from '@/context/DiaryInteractionContext'; // NEW IMPORT
+import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext';
 
 // --- LAZY IMPORTS ---
 const ShopDetailView = React.lazy(() => import('./ShopDetailView').then(m => ({ default: m.ShopDetailView })));
@@ -152,9 +153,9 @@ export const ShopPage = ({
         <div className="relative w-full h-full flex flex-col bg-[#020617] animate-in fade-in duration-500 overflow-hidden">
             
             {lightboxImage && (
-                <div className="fixed inset-0 z-[2000] bg-black/95 backdrop-blur-xl flex items-center justify-center animate-in fade-in duration-300" onClick={() => setLightboxImage(null)}>
-                    <img src={lightboxImage} alt="Fullscreen" className="max-w-[95vw] max-h-[90vh] rounded shadow-2xl object-contain"/>
-                    <button className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"><X className="w-8 h-8"/></button>
+                <div style={{ zIndex: Z_LIGHTBOX }} className="fixed inset-0 bg-black/95 backdrop-blur-xl flex items-center justify-center animate-in fade-in duration-300 pointer-events-auto" onClick={() => setLightboxImage(null)}>
+                    <img src={lightboxImage} alt="Fullscreen" style={{ zIndex: Z_LIGHTBOX_CONTENT }} className="max-w-[95vw] max-h-[90vh] rounded shadow-2xl object-contain relative" />
+                    <CloseButton onClose={() => setLightboxImage(null)} variant="primary" position="absolute" style={{ zIndex: Z_LIGHTBOX_CLOSE }} className="top-6 right-6" />
                 </div>
             )}
 
@@ -172,10 +173,10 @@ export const ShopPage = ({
                 />
             )}
 
-            <div className={`absolute top-0 bottom-0 right-0 z-[100] w-full md:w-[400px] bg-slate-950 border-l border-slate-800 shadow-2xl transform transition-transform duration-500 ease-in-out ${showPlanner ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+            <div style={{ zIndex: Z_MODAL }} className={`absolute top-0 bottom-0 right-0 w-full md:w-[400px] bg-slate-950 border-l border-slate-800 shadow-2xl transform transition-transform duration-500 ease-in-out ${showPlanner ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
                 <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#0f172a]">
                     <div className="flex items-center gap-2"><Map className="w-5 h-5 text-amber-500"/><h3 className="font-bold text-white text-lg">Il Tuo Viaggio</h3></div>
-                    <button onClick={() => setShowPlanner(false)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5"/></button>
+                    <CloseButton onClose={() => setShowPlanner(false)} variant="primary" />
                 </div>
                 <div className="flex-1 overflow-hidden relative">
                     {user && (
@@ -192,7 +193,7 @@ export const ShopPage = ({
                     )}
                 </div>
             </div>
-            {showPlanner && <div className="absolute inset-0 bg-black/50 z-[90] md:hidden" onClick={() => setShowPlanner(false)}></div>}
+            {showPlanner && <div style={{ zIndex: Z_OVERLAY_BACKDROP }} className="absolute inset-0 bg-black/50 md:hidden" onClick={() => setShowPlanner(false)}></div>}
 
             <div className="relative w-full h-full max-w-[1920px] mx-auto flex flex-col overflow-hidden bg-[#020617]">
                 <ShopHeader 
@@ -222,3 +223,6 @@ export const ShopPage = ({
         </div>
     );
 };
+
+
+

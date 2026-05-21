@@ -1,7 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Wallet, Ticket, X, QrCode, CheckCircle, ScanLine, Utensils, Landmark, ShoppingBag, Monitor, Star } from 'lucide-react';
 import { UserReward, RewardCategory } from '../../../services/gamificationService';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 
 interface Props {
     rewards: UserReward[];
@@ -21,6 +24,8 @@ const getCategoryTheme = (cat: string) => {
 export const UserWalletTab = ({ rewards, onMarkUsed }: Props) => {
     const [filter, setFilter] = useState<'all' | RewardCategory>('all');
     const [activeCoupon, setActiveCoupon] = useState<UserReward | null>(null);
+    
+    useGlobalModalEscape(!!activeCoupon, () => setActiveCoupon(null));
 
     const filteredRewards = filter === 'all' ? rewards : rewards.filter(r => r.category === filter);
 
@@ -35,10 +40,13 @@ export const UserWalletTab = ({ rewards, onMarkUsed }: Props) => {
         <div className="space-y-6 animate-in fade-in slide-in-from-right-4 h-full flex flex-col">
             
             {/* QR MODAL */}
-            {activeCoupon && (
-                <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setActiveCoupon(null)}></div>
-                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col">
+            {activeCoupon && createPortal(
+                <div className="td-modal-overlay !p-4 bg-black/90 backdrop-blur-md" onClick={() => setActiveCoupon(null)} style={{ zIndex: Z_OVERLAY }}>
+                    <div 
+                        className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col"
+                        style={{ zIndex: Z_MODAL }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className={`p-8 relative overflow-hidden ${getCategoryTheme(activeCoupon.category || 'general').modalHeader}`}>
                             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
                             <div className="absolute top-4 right-4 p-2 bg-white/20 rounded-full" onClick={() => setActiveCoupon(null)}>
@@ -62,7 +70,8 @@ export const UserWalletTab = ({ rewards, onMarkUsed }: Props) => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
@@ -88,9 +97,9 @@ export const UserWalletTab = ({ rewards, onMarkUsed }: Props) => {
                         const theme = getCategoryTheme(reward.category || 'general');
                         return (
                             <div key={reward.instanceId} className={`relative h-40 bg-[#020617] rounded-xl flex overflow-hidden border border-slate-800 group hover:border-slate-600 transition-all ${reward.status === 'used' ? 'opacity-60 grayscale' : ''}`}>
-                                <div className="flex-1 p-4 relative flex flex-col justify-between z-10 border-r-2 border-dashed border-slate-800">
-                                    <div className="absolute -top-3 -right-3 w-6 h-6 bg-[#020617] rounded-full border border-slate-800 z-20"></div>
-                                    <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-[#020617] rounded-full border border-slate-800 z-20"></div>
+                                <div className="flex-1 p-4 relative flex flex-col justify-between z-floating-panel border-r-2 border-dashed border-slate-800">
+                                    <div className="absolute -top-3 -right-3 w-6 h-6 bg-[#020617] rounded-full border border-slate-800 z-dropdown"></div>
+                                    <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-[#020617] rounded-full border border-slate-800 z-dropdown"></div>
                                     
                                     <div className="flex justify-between items-start">
                                         <div className={`p-2 rounded-lg ${theme.bg} bg-opacity-20`}>
@@ -121,3 +130,6 @@ export const UserWalletTab = ({ rewards, onMarkUsed }: Props) => {
         </div>
     );
 };
+
+
+

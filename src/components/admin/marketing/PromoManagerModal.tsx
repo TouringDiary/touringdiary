@@ -22,7 +22,7 @@ export const PromoManagerModal = ({ isOpen, onClose, onAdd, promoTypes, onDelete
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
             <div className="bg-slate-900 border border-indigo-500/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 flex flex-col max-h-[80vh]">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2"><Tag className="w-5 h-5 text-indigo-500"/> Gestione Promo</h3>

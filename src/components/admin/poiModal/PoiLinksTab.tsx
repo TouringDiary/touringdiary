@@ -2,10 +2,12 @@
 import React from 'react';
 import { Sparkles, Globe, Ticket, Eye, Utensils, Search, ExternalLink } from 'lucide-react';
 import { PointOfInterest, AffiliateLinks } from '../../../types/index';
+import { PoiFormData } from '../../../types/write/poiForm';
 
 interface PoiLinksTabProps {
-    formData: PointOfInterest;
+    formData: PoiFormData;
     updateAffiliate: (key: keyof AffiliateLinks, value: string) => void;
+    updateField: <K extends keyof PoiFormData>(field: K, value: PoiFormData[K]) => void;
     cityName?: string;
 }
 
@@ -46,7 +48,7 @@ const LinkRow = ({ label, value, onChange, brandBg, icon, onSmartSearch }: any) 
     </div>
 );
 
-export const PoiLinksTab = ({ formData, updateAffiliate, cityName }: PoiLinksTabProps) => {
+export const PoiLinksTab = ({ formData, updateAffiliate, updateField, cityName }: PoiLinksTabProps) => {
     
     const performSmartSearch = (platform: string) => {
         if (!formData.name) { alert("Nome mancante."); return; }
@@ -63,7 +65,7 @@ export const PoiLinksTab = ({ formData, updateAffiliate, cityName }: PoiLinksTab
                 </p>
             </div>
             
-            <LinkRow label="Sito Ufficiale" value={formData.affiliate?.website || ''} onChange={(v: string) => updateAffiliate('website', v)} brandBg="bg-slate-700" icon={<Globe className="w-4 h-4"/>} onSmartSearch={() => performSmartSearch('site official')} />
+            <LinkRow label="Sito Ufficiale" value={formData.website || ''} onChange={(v: string) => updateField('website', v)} brandBg="bg-slate-700" icon={<Globe className="w-4 h-4"/>} onSmartSearch={() => performSmartSearch('site official')} />
             <LinkRow label="Booking.com" value={formData.affiliate?.booking || ''} onChange={(v: string) => updateAffiliate('booking', v)} brandBg="bg-[#003580]" icon={<Ticket className="w-4 h-4"/>} onSmartSearch={() => performSmartSearch('booking.com')} />
             <LinkRow label="TripAdvisor" value={formData.affiliate?.tripadvisor || ''} onChange={(v: string) => updateAffiliate('tripadvisor', v)} brandBg="bg-[#00AA6C]" icon={<Eye className="w-4 h-4"/>} onSmartSearch={() => performSmartSearch('tripadvisor')} />
             <LinkRow label="TheFork" value={formData.affiliate?.thefork || ''} onChange={(v: string) => updateAffiliate('thefork', v)} brandBg="bg-[#58902d]" icon={<Utensils className="w-4 h-4"/>} onSmartSearch={() => performSmartSearch('thefork')} />

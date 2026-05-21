@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, MessageSquare, MapPin, Clock, CheckCircle, XCircle, ChevronRight, Loader2, Award, Info, FileText, AlertTriangle, Calendar, CheckSquare, Plus, PenTool, Edit3, Eye, Trash2 } from 'lucide-react';
 import { getAllSuggestionsAsync, deleteSuggestion } from '../../services/communityService';
 import { SuggestionRequest } from '../../types/index';
-import { SuggestionReviewModal } from './SuggestionReviewModal';
+import { SuggestionReviewModal } from '../modals/SuggestionReviewModal';
 import { User } from '../../types/users';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
@@ -146,7 +146,7 @@ export const SuggestionManager = ({ onUserUpdate }: Props) => {
                     <div className="overflow-x-auto flex-1 custom-scrollbar">
                         <table className="w-full text-left border-collapse min-w-[1000px]">
                             <thead>
-                                <tr className="bg-slate-950/80 text-slate-500 text-[9px] uppercase font-bold sticky top-0 z-10 border-b border-slate-800 backdrop-blur-md">
+                                <tr className="bg-slate-950/80 text-slate-500 text-[9px] uppercase font-bold sticky top-0 z-floating-panel border-b border-slate-800 backdrop-blur-md">
                                     <th className="px-6 py-4 w-40">Utente</th>
                                     <th className="px-6 py-4 w-40">Città</th>
                                     <th className="px-6 py-4 w-32">Tipo</th>

@@ -39,12 +39,16 @@ export const useSponsorData = (activeTab: string, initialManifest: CitySummary[]
                     page,
                     pageSize: (filterZone && !filterCity) ? 1000 : pageSize,
                     status: activeTab,
-                    cityId: filterCity || undefined,
-                    tier: filterTier || undefined,
-                    search: searchTerm,
-                    onlyUnread,
-                    sortBy: sortConfig.key,
-                    sortDir: sortConfig.direction
+                    filters: {
+                        cityId: filterCity || undefined,
+                        tier: filterTier || undefined,
+                        onlyUnread
+                    },
+                    searchTerm: searchTerm,
+                    sortConfig: {
+                        key: sortConfig.key,
+                        direction: sortConfig.direction
+                    }
                 });
                 
                 let data = result.data;

@@ -1,142 +1,269 @@
-# 🤖 AI WORKFLOW — TouringDiary
+# 🤖 AI WORKFLOW — TouringDiary (v45.0 — STRATEGIC TRIAD MODEL)
 
-Questo documento definisce il metodo di lavoro ufficiale tra:
+Questo documento definisce il metodo ufficiale di collaborazione tra:
 
-• Utente
-• ChatGPT
-• Gemini (Firebase Studio)
+Utente  
+ChatGPT  
+Gemini
 
-Lo scopo è garantire modifiche sicure e consapevoli all'interno del progetto.
 
----
+Serve per:
 
-# RUOLI
+garantire modifiche sicure  
+migliorare architettura  
+evitare regressioni  
+ottenere miglioramenti “effetto wow” sostenibili
 
-## Utente
-
-L'utente non è uno sviluppatore.
-
-Il suo ruolo è:
-
-• descrivere problemi
-• fare da ponte tra ChatGPT e Gemini
-• approvare le modifiche ai file
-
-L'utente non deve scrivere codice manualmente.
 
 ---
 
-## ChatGPT
+# RUOLI DEL SISTEMA
 
-ChatGPT svolge il ruolo di **analista architetturale e tecnico**.
 
-Compiti principali:
+## UTENTE
 
-• analizzare problemi tecnici **insieme a Gemini**
-• individuare possibili soluzioni
-• identificare file coinvolti
-• valutare rischi delle modifiche
-• discutere la soluzione con Gemini
+Ruolo:
 
-ChatGPT **non modifica direttamente i file del progetto**.
+mente strategica  
+coordinatore decisionale  
+definizione priorità evolutive  
+approvatore finale modifiche
 
----
 
-## Gemini
+Responsabilità:
 
-Gemini opera all'interno di Firebase Studio e ha accesso completo al codice del progetto.
+descrivere obiettivi  
+valutare effort vs beneficio  
+coordinare ChatGPT e Gemini  
+approvare modifiche architetturali
 
-Compiti principali:
 
-• leggere i file del progetto
-• fornire codice completo quando richiesto
-• spiegare la struttura del sistema
-• applicare le modifiche ai file
+DESCRIZIONE SEMPLICE
 
-Gemini modifica i file **solo dopo allineamento tra ChatGPT e utente**.
+L’utente decide dove deve andare il progetto.
+
 
 ---
 
-# WORKFLOW OPERATIVO
+## CHATGPT
 
-Ogni modifica al progetto deve seguire questo flusso.
+Ruolo:
 
-### 1 — ANALISI PROBLEMA
+architetto tecnico  
+consigliere evolutivo  
+analista struttura sistema  
+consulente database Supabase  
+generatore query investigative  
+valutatore impatto modifiche
 
-L'utente descrive il problema a ChatGPT.
 
-ChatGPT avvia l'analisi e discute il problema con Gemini.
+Responsabilità:
 
----
+analizzare architettura  
+proporre miglioramenti  
+individuare rischi  
+definire pipeline  
+produrre query SQL Supabase  
+suggerire ottimizzazioni “effetto wow” con effort stimato
 
-### 2 — IDENTIFICAZIONE FILE
 
-ChatGPT indica quali file devono essere analizzati.
+DESCRIZIONE SEMPLICE
 
-L'utente chiede a Gemini di leggere quei file.
+ChatGPT aiuta a scegliere la strada migliore.
 
----
-
-### 3 — ANALISI CODICE
-
-Gemini fornisce:
-
-• contenuto dei file
-• struttura dati
-• dipendenze
-• eventuali query Supabase
-
-L'utente riporta le informazioni a ChatGPT.
 
 ---
 
-### 4 — DEFINIZIONE SOLUZIONE
+## GEMINI
 
-ChatGPT analizza il codice insieme a Gemini.
+Ruolo:
 
-ChatGPT e Gemini discutono la strategia migliore.
+architetto tecnico lato codice  
+analista dipendenze reali progetto  
+verificatore pipeline runtime  
+operatore modifiche file  
+validatore relazioni tra moduli
 
-Nessun file viene modificato in questa fase.
 
----
+Responsabilità:
 
-### 5 — ALLINEAMENTO
+leggere codice reale  
+identificare dipendenze implicite  
+verificare impatto modifiche  
+applicare modifiche file  
+segnalare rischi nascosti
 
-Quando la soluzione è chiara e condivisa:
 
-ChatGPT descrive la modifica da effettuare.
+DESCRIZIONE SEMPLICE
 
----
+Gemini conosce cosa succede davvero dentro il codice.
 
-### 6 — MODIFICA FILE
-
-L'utente chiede a Gemini di applicare la modifica.
-
-Gemini aggiorna i file del progetto.
-
----
-
-# REGOLA FONDAMENTALE
-
-Nessuna modifica al codice deve essere effettuata finché:
-
-• ChatGPT
-• Gemini
-• Utente
-
-non sono **allineati sulla soluzione tecnica**.
 
 ---
 
-# DOCUMENTI DI RIFERIMENTO
+# PRINCIPIO DI ALLINEAMENTO OBBLIGATORIO
 
-Questo workflow si basa sui seguenti documenti:
+Nessuna modifica viene applicata finché:
 
-AI_CONTEXT/00_AI_RULES.md
-AI_CONTEXT/01_PROJECT_MAP.md
-AI_CONTEXT/02_PROJECT_TECH_MAP.md
-AI_CONTEXT/03_PROJECT_LOGIC_MAP.md
-AI_CONTEXT/05_CRITICAL_FILES_MAP.md
-AI_CONTEXT/06_CHANGE_IMPACT_RULES.md
+Utente  
+ChatGPT  
+Gemini
+
+non sono allineati sulla soluzione tecnica.
+
 
 ---
+
+# WORKFLOW OPERATIVO STANDARD
+
+
+## FASE 1 — DEFINIZIONE OBIETTIVO
+
+L’utente descrive:
+
+problema  
+idea  
+miglioria  
+feature  
+refactoring
+
+
+---
+
+## FASE 2 — ANALISI ARCHITETTURALE
+
+ChatGPT:
+
+analizza struttura sistema  
+valuta pipeline coinvolte  
+propone possibili strategie  
+stima effort sviluppo
+
+
+---
+
+## FASE 3 — ANALISI CODICE REALE
+
+Gemini:
+
+legge file coinvolti  
+verifica dipendenze  
+identifica rischi  
+conferma compatibilità soluzione
+
+
+---
+
+## FASE 4 — DEFINIZIONE STRATEGIA TECNICA
+
+ChatGPT + Gemini:
+
+confrontano soluzioni possibili  
+valutano impatti  
+propongono implementazione ottimale
+
+
+---
+
+## FASE 5 — VALIDAZIONE UTENTE
+
+L’utente:
+
+valuta effort  
+valuta beneficio  
+approva modifica
+
+
+---
+
+## FASE 6 — APPLICAZIONE MODIFICA
+
+Gemini:
+
+modifica file  
+aggiorna codice  
+mantiene coerenza architetturale
+
+
+---
+
+# WORKFLOW ANALISI DOCUMENTAZIONE AI_CONTEXT
+
+
+Quando si aggiorna AI_CONTEXT:
+
+
+STEP 1
+
+Gemini analizza codice reale
+
+
+STEP 2
+
+fornisce evidenze verificabili
+
+
+STEP 3
+
+ChatGPT valida coerenza architetturale
+
+
+STEP 4
+
+Utente approva aggiornamento
+
+
+Solo dopo:
+
+documentazione aggiornata
+
+
+---
+
+# WORKFLOW MIGLIORAMENTI “EFFETTO WOW”
+
+Quando viene proposta una miglioria:
+
+ChatGPT deve indicare:
+
+impatto utente  
+impatto architetturale  
+effort sviluppo stimato
+
+
+Categorie effort:
+
+basso → poche righe codice  
+medio → modifica servizi o hooks  
+alto → refactor architetturale
+
+
+DESCRIZIONE SEMPLICE
+
+Non tutte le migliorie richiedono lo stesso lavoro.
+
+
+---
+
+# REGOLA MODIFICHE SICURE
+
+Prima di modificare codice:
+
+consultare CHANGE_IMPACT_RULES.md  
+consultare CRITICAL_FILES_MAP.md  
+verificare Edge Functions coinvolte  
+verificare RPC coinvolte  
+verificare schema Supabase coinvolto
+
+
+---
+
+# OBIETTIVO WORKFLOW
+
+Garantire:
+
+evoluzione controllata sistema  
+coerenza architetturale  
+riduzione regressioni  
+integrazione perfetta nuove funzionalità  
+collaborazione efficace tra Utente, ChatGPT e Gemini

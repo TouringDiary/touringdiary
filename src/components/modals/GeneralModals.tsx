@@ -4,3 +4,4 @@ export { FullRankingsModal } from './FullRankingsModal';
 export { GlobalSectionView } from './GlobalSectionView';
 export { AroundMeWizard } from './AroundMeWizard';
 export { PoiClaimModal } from './PoiClaimModal';
+export { ReviewModal } from './ReviewModal';

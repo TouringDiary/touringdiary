@@ -49,7 +49,7 @@ export const AdPlaceholder: React.FC<AdPlaceholderProps> = ({
       
       {/* Contenuto scalato e senza gap eccessivi */}
       <div className="flex flex-col items-center leading-tight scale-90 group-hover:scale-95 transition-transform duration-300">
-        <span className="text-[9px] text-white font-bold whitespace-nowrap">{subText}</span>
+        <span className="text-[9px] text-white font-bold whitespace-pre-line">{subText}</span>
         <span className={`text-[7px] font-black uppercase tracking-tight animate-pulse ${isGold ? 'text-amber-500' : 'text-indigo-400'}`}>
             Clicca qui
         </span>

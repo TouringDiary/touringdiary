@@ -1,5 +1,5 @@
-
-import React from 'react';
+import { Z_MODAL } from '@/constants/zIndex';
+import React, { Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { DateChangeWarningModal } from '../../modals/DateChangeWarningModal';
 import { SaveAsModal } from '../../modals/SaveAsModal';
@@ -8,7 +8,9 @@ import { MobileMoveModal } from '../../modals/MobileMoveModal';
 import { AddToItineraryModal } from '../../modals/AddToItineraryModal';
 import { Itinerary, ItineraryItem } from '../../../types/index';
 import { useSystemMessage } from '../../../hooks/useSystemMessage'; 
-import { CheckCircle, Trophy, X, Save, Check } from 'lucide-react';
+import { CheckCircle, Trophy, Save, Check } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+
 
 interface DiaryModalsProps {
     state: {
@@ -51,9 +53,7 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
     const { getText: getSuccessMsg } = useSystemMessage('toast_save_success');
 
     const handleSaveConfirm = async (name: string) => {
-        // La logica di toastMessage è ora gestita dentro actions.saveProject nel hook useDiaryLogic
-        // che invocherà setters.setToastMessage in caso di successo.
-        const success = await actions.saveProject(name, true); // Pass true for isSaveAs
+        const success = await actions.saveProject(name, true);
         if (success) {
             setters.setSaveAsModalOpen(false);
         }
@@ -119,38 +119,35 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
 
             {/* MODALE DI SUCCESSO VERO E PROPRIO (BLOCCANTE) */}
             {state.toastMessage && createPortal(
-                <div className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
-                    <div className="bg-slate-900 border border-emerald-500/50 p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600"></div>
-                        <button onClick={() => setters.setToastMessage(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white p-2"><X className="w-5 h-5"/></button>
-                        
-                        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
-                            {state.toastMessage.xp > 0 ? (
-                                <Trophy className="w-10 h-10 text-emerald-500 animate-bounce"/>
-                            ) : (
-                                <Save className="w-10 h-10 text-emerald-500"/>
-                            )}
+                <div className="fixed inset-0 pointer-events-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in text-center" style={{ zIndex: Z_MODAL }}>
+                    <div className="w-full max-w-sm bg-slate-900 border border-emerald-500/30 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+                        <CloseButton onClose={() => setters.setToastMessage(null)} variant="primary" position="absolute" className="top-4 right-4" />
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl"></div>
+                        <div className="relative">
+                            <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                                <Trophy className="w-10 h-10 text-emerald-500" />
+                            </div>
+                            <h2 className="text-white font-black text-2xl uppercase tracking-wider mb-2">
+                                {state.toastMessage.title || "Ottimo Lavoro!"}
+                            </h2>
+                            <p className="text-slate-400 text-sm leading-relaxed mb-8 whitespace-pre-line">
+                                {state.toastMessage.xp > 0 ? (
+                                    <>
+                                        Hai guadagnato punti esperienza per questa attività. 
+                                        <strong className="text-white block mt-2 text-lg">+{state.toastMessage.xp} XP</strong> 
+                                        <span className="text-xs font-normal opacity-70">Aggiunti al tuo profilo</span>
+                                    </>
+                                ) : (
+                                    "Le modifiche sono state salvate nel cloud in modo sicuro."
+                                )}
+                            </p>
+                            <button 
+                                onClick={() => setters.setToastMessage(null)} 
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <Check className="w-4 h-4"/> Ok
+                            </button>
                         </div>
-                        
-                        <h3 className="text-2xl font-display font-bold text-white mb-2">{state.toastMessage.title}</h3>
-                        
-                        <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                            {state.toastMessage.xp > 0 ? (
-                                <>
-                                    <strong className="text-white block mt-2 text-lg">+{state.toastMessage.xp} XP</strong> 
-                                    <span className="text-xs font-normal opacity-70">Aggiunti al tuo profilo</span>
-                                </>
-                            ) : (
-                                "Le modifiche sono state salvate nel cloud in modo sicuro."
-                            )}
-                        </p>
-
-                        <button 
-                            onClick={() => setters.setToastMessage(null)} 
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            <Check className="w-4 h-4"/> Ok
-                        </button>
                     </div>
                 </div>,
                 document.body
@@ -158,3 +155,6 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
         </>
     );
 };
+
+
+

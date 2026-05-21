@@ -143,7 +143,7 @@ export const CityAuditModal = ({ isOpen, onClose, cityId, cityName }: Props) => 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[3000] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-admin-modal bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-slate-900 w-full max-w-6xl h-[85vh] rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden relative">
                 
                 {/* HEADER */}
@@ -171,7 +171,7 @@ export const CityAuditModal = ({ isOpen, onClose, cityId, cityName }: Props) => 
                         <div className="h-full flex flex-col items-center justify-center gap-6 text-center p-8">
                             <div className="relative">
                                 <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full"></div>
-                                <Search className="w-24 h-24 text-indigo-400 animate-pulse relative z-10"/>
+                                <Search className="w-24 h-24 text-indigo-400 animate-pulse relative z-floating-panel"/>
                             </div>
                             <div className="space-y-2">
                                 <h4 className="text-2xl font-bold text-white">Analisi Micro-Territoriale in Corso...</h4>
@@ -185,7 +185,7 @@ export const CityAuditModal = ({ isOpen, onClose, cityId, cityName }: Props) => 
                         <div className="h-full flex flex-col">
                             <div className="grid grid-cols-12 flex-1 min-h-0 bg-[#020617]">
                                 {/* HEADER TABLE */}
-                                <div className="col-span-12 bg-slate-950 border-b border-slate-800 p-3 grid grid-cols-12 gap-4 text-[10px] font-black uppercase text-slate-500 tracking-widest sticky top-0 z-10">
+                                <div className="col-span-12 bg-slate-950 border-b border-slate-800 p-3 grid grid-cols-12 gap-4 text-[10px] font-black uppercase text-slate-500 tracking-widest sticky top-0 z-floating-panel">
                                     <div className="col-span-1 text-center">Importa</div>
                                     <div className="col-span-4">Proposta AI</div>
                                     <div className="col-span-2 text-center">Status</div>

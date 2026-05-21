@@ -1,6 +1,9 @@
-
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RefreshCw, Trash2, AlertTriangle, X, CheckSquare, Square, CheckCircle } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+
 
 interface RegenerateConfirmModalProps {
     isOpen: boolean;
@@ -21,12 +24,19 @@ export const RegenerateConfirmModal = ({ isOpen, onClose, onConfirm, cityName }:
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[2200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-slate-900 border border-red-500/50 p-6 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95">
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
-                    <X className="w-5 h-5"/>
-                </button>
+    return createPortal(
+        // admin-super-layer modal | intentionally rendered above global modal stack (z-13000)
+        <div className="td-modal-overlay flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in" style={{ zIndex: Z_OVERLAY }}>
+            <div 
+                className="bg-slate-900 border border-red-500/50 p-6 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95"
+                style={{ zIndex: Z_MODAL }}
+            >
+                <CloseButton 
+                    onClose={onClose}
+                    variant="primary"
+                    position="absolute"
+                    className="top-4 right-4"
+                />
                 
                 <div className="flex flex-col items-center text-center gap-4 mb-6">
                     <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border-2 border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]">
@@ -72,6 +82,10 @@ export const RegenerateConfirmModal = ({ isOpen, onClose, onConfirm, cityName }:
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

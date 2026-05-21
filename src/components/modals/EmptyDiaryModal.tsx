@@ -1,6 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Printer, MapPin, LogIn, AlertTriangle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { User } from '../../types/index';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
 
@@ -17,32 +21,26 @@ export const EmptyDiaryModal = ({ isOpen, onClose, onOpenAuth, user }: EmptyDiar
     const { getText: getEmptyMsg } = useSystemMessage('empty_diary_state');
     const emptyMsg = getEmptyMsg();
 
-    // Gestione ESC
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // ESC Handling
+    useGlobalModalEscape(isOpen, onClose);
 
     if (!isOpen) return null;
 
     const isGuest = !user || user.role === 'guest';
 
-    return (
-        <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-            <div className="relative bg-slate-900 w-full max-w-md rounded-3xl border border-slate-700 shadow-2xl p-8 flex flex-col items-center text-center animate-in zoom-in-95">
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
+            <div 
+                className="relative bg-slate-900 w-full max-w-md rounded-3xl border border-slate-700 shadow-2xl p-8 flex flex-col items-center text-center animate-in zoom-in-95"
+                style={{ zIndex: Z_MODAL }}
+            >
                 
-                {/* STANDARD RED CLOSE BUTTON */}
-                <button 
-                    onClick={onClose} 
-                    className="absolute top-4 right-4 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-lg z-50"
-                    title="Chiudi (ESC)"
-                >
-                    <X className="w-5 h-5"/>
-                </button>
+                <CloseButton 
+                    onClose={onClose}
+                    variant="primary"
+                    position="absolute"
+                    className="top-4 right-4"
+                />
 
                 <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center border-2 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.2)] mb-6">
                     <Printer className="w-10 h-10 text-amber-500"/>
@@ -52,7 +50,7 @@ export const EmptyDiaryModal = ({ isOpen, onClose, onOpenAuth, user }: EmptyDiar
                     {emptyMsg.title}
                 </h3>
                 
-                <div className="text-slate-300 text-sm leading-relaxed mb-6">
+                <div className="text-slate-300 text-sm leading-relaxed mb-6 whitespace-pre-line">
                     <div dangerouslySetInnerHTML={{ __html: emptyMsg.body }} />
                 </div>
 
@@ -97,6 +95,10 @@ export const EmptyDiaryModal = ({ isOpen, onClose, onOpenAuth, user }: EmptyDiar
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

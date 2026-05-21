@@ -1,16 +1,18 @@
+import { aiGateway } from '@/services/ai/aiGateway';
+import { MediaStatus } from '@/types';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Link, AlertTriangle, CheckCircle, Info, Image as ImageIcon, ShieldAlert, Loader2, Sparkles, Maximize, RefreshCw, X, Layers } from 'lucide-react';
 import { compressImage, compressImageHighQuality, dataURLtoFile, getPoiCategoryLabel } from '../../utils/common';
 import { uploadPublicMedia } from '../../services/mediaService';
 import { getCachedSetting } from '../../services/settingsService';
-import { getAiClient } from '../../services/ai/aiClient';
+
 
 interface AdminImageInputProps {
     imageUrl: string;
     imageCredit?: string;
     imageLicense?: 'own' | 'cc' | 'public' | 'copyright';
-    onChange: (data: { imageUrl: string, imageCredit: string, imageLicense: 'own' | 'cc' | 'public' | 'copyright', fileName?: string }) => void;
+    onChange: (data: { imageUrl: string, imageCredit: string, imageLicense: 'own' | 'cc' | 'public' | 'copyright', fileName?: string, image_status: MediaStatus }) => void;
     onValidityChange?: (isValid: boolean) => void;
     qualityMode?: 'standard' | 'high';
     category?: string; // NEW: Passiamo la categoria per mostrare il placeholder corretto
@@ -26,7 +28,7 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Placeholder Logic
-    const placeholderUrl = category ? getCachedSetting(category) : null;
+    const placeholderUrl = category ? getCachedSetting<string>(category) : null;
     const hasPlaceholder = !!placeholderUrl;
 
     useEffect(() => {
@@ -50,8 +52,16 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
         if (onValidityChange) onValidityChange(isValid);
     }, [imageLicense, imageCredit, onValidityChange]);
 
-    const updateData = (updates: Partial<{ imageUrl: string, imageCredit: string, imageLicense: 'own' | 'cc' | 'public' | 'copyright', fileName: string }>) => {
-        onChange({ imageUrl, imageCredit, imageLicense, ...updates });
+    const updateData = (updates: Partial<{ imageUrl: string, imageCredit: string, imageLicense: 'own' | 'cc' | 'public' | 'copyright', fileName: string, image_status: MediaStatus }>) => {
+        const newUrl = updates.imageUrl !== undefined ? updates.imageUrl : imageUrl;
+        const defaultStatus: MediaStatus = newUrl ? 'real' : 'missing';
+        
+        const finalData = { 
+            imageUrl, imageCredit, imageLicense, 
+            image_status: updates.image_status ?? defaultStatus,
+            ...updates 
+        };
+        onChange(finalData);
     };
 
     const handleLicenseChange = (newLicense: 'own' | 'cc' | 'public' | 'copyright') => {
@@ -78,7 +88,7 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
                 const publicUrl = await uploadPublicMedia(compressedFile, 'admin_uploads');
 
                 if (publicUrl) {
-                    updateData({ imageUrl: publicUrl, imageLicense: 'own', imageCredit: 'Opera Propria', fileName: file.name });
+                    updateData({ imageUrl: publicUrl, imageLicense: 'own', imageCredit: 'Opera Propria', fileName: file.name, image_status: 'real' });
                 } else {
                     alert("Errore upload Cloud. Verifica la connessione.");
                 }
@@ -94,7 +104,7 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
 
     const handleResetToPlaceholder = () => {
         setLocalPreview('');
-        updateData({ imageUrl: '', imageLicense: 'public', imageCredit: '' });
+        updateData({ imageUrl: '', imageLicense: 'public', imageCredit: '', image_status: 'placeholder' });
     };
 
     const analyzeCopyright = async () => {
@@ -103,11 +113,11 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
         setAiAdvice(null);
         try {
             // FIX: Uso il client centralizzato sicuro
-            const ai = getAiClient();
+            
             let prompt = "Analizza questa immagine (o URL) per scopi di copyright in una guida turistica. Cerca watermark, loghi di agenzie stock.";
             prompt += " Rispondi JSON: { status: 'safe'|'caution'|'danger', message: 'breve spiegazione' }";
 
-            let contentPart: any;
+            let contentPart: { inlineData?: { mimeType: string, data: string }, text?: string };
             if (localPreview.startsWith('data:')) {
                 const base64Data = localPreview.split(',')[1];
                 const mimeType = localPreview.split(';')[0].split(':')[1];
@@ -117,8 +127,8 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
                 contentPart = { text: "Analizza questa immagine URL." }; 
             }
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+            const response = await aiGateway.generateLegacy({
+                model: 'gemini-2.0-flash',
                 contents: contentPart.inlineData ? { parts: [{ text: prompt }, contentPart] } : prompt
             });
 
@@ -132,8 +142,9 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
             } else {
                 setAiAdvice({ status: 'caution', message: "Non riesco a determinare con certezza." });
             }
-        } catch (e: any) {
-            setAiAdvice({ status: 'caution', message: e.message || "Analisi AI fallita." });
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Analisi AI fallita.";
+            setAiAdvice({ status: 'caution', message });
         } finally {
             setAnalyzing(false);
         }
@@ -151,7 +162,7 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
             <div className="p-4 space-y-4">
                 {mode === 'url' ? (
                     <div className="flex gap-2">
-                        <input value={imageUrl} onChange={(e) => { setLocalPreview(e.target.value); updateData({ imageUrl: e.target.value }); }} placeholder="https://..." className="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500 outline-none text-sm"/>
+                        <input value={imageUrl} onChange={(e) => { setLocalPreview(e.target.value); updateData({ imageUrl: e.target.value, image_status: e.target.value ? 'real' : 'missing' }); }} placeholder="https://..." className="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500 outline-none text-sm"/>
                         {imageUrl && (
                              <button onClick={handleResetToPlaceholder} className="p-3 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg border border-slate-700 transition-colors" title="Rimuovi e usa Placeholder">
                                  <X className="w-4 h-4"/>
@@ -230,7 +241,16 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
                     <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Licenza / Fonte</label>
-                        <select value={imageLicense} onChange={(e) => handleLicenseChange(e.target.value as any)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-sm focus:outline-none">
+                        <select 
+                            value={imageLicense} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === 'own' || val === 'cc' || val === 'public' || val === 'copyright') {
+                                    handleLicenseChange(val);
+                                }
+                            }} 
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-sm focus:outline-none"
+                        >
                             <option value="own">Opera Propria</option>
                             <option value="public">Dominio Pubblico</option>
                             <option value="cc">Creative Commons</option>

@@ -26,7 +26,8 @@ interface ZoneCardProps {
     cities: CitySummary[];
     aiSuggestions: AiCitySuggestion[];
     onSelectCity: (id: string) => void;
-    onMagicGenerate: (name: string, poiCount: number) => void;
+    onMagicGenerate: (name: string, poiCount: number, user?: any, existingId?: string, region?: string) => void;
+    adminRegion: string;
     onRename: (name: string) => void;
     onDelete: (name: string) => void;
     onAuditCity: (city: CitySummary) => void;
@@ -48,7 +49,8 @@ export const ZoneCard: React.FC<ZoneCardProps> = ({
     onImportMissing,
     onRecoverCity,
     onAnalyzeZone,
-    onDeleteCityItem
+    onDeleteCityItem,
+    adminRegion
 }) => {
     const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft' | 'missing'>('all');
     const [sortKey, setSortKey] = useState<SortKey>('status'); 
@@ -277,7 +279,7 @@ export const ZoneCard: React.FC<ZoneCardProps> = ({
 
                             mainButton = (
                                 <button 
-                                    onClick={(e) => { e.stopPropagation(); onMagicGenerate(cityName, 10); }} 
+                                    onClick={(e) => { e.stopPropagation(); onMagicGenerate(cityName, 10, undefined, cityId || undefined, adminRegion); }} 
                                     className="w-full h-full bg-purple-900/20 hover:bg-purple-600 border border-purple-500/30 text-purple-400 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1 shadow-lg" 
                                     title="Genera Città e Contenuti con AI"
                                 >
@@ -290,7 +292,7 @@ export const ZoneCard: React.FC<ZoneCardProps> = ({
                             <div 
                                 key={item.type === 'real' ? cityId : `missing-${idx}`}
                                 className={`w-full grid grid-cols-[36px_1fr_50px_85px_56px] gap-1.5 items-center p-2 rounded-xl border cursor-pointer transition-colors group/row text-left relative ${rowBgClass}`}
-                                onClick={() => (cityId && (item.type === 'real' || item.data.source === 'db_skeleton')) ? onSelectCity(cityId) : onMagicGenerate(cityName, 15)}
+                                onClick={() => (cityId && (item.type === 'real' || item.data.source === 'db_skeleton')) ? onSelectCity(cityId) : onMagicGenerate(cityName, 15, undefined, cityId || undefined, adminRegion)}
                             >
                                 <div className="w-9 h-8 rounded-lg overflow-hidden border border-slate-700 relative shrink-0 bg-slate-950 flex items-center justify-center">
                                     {item.type === 'real' ? (
@@ -325,7 +327,7 @@ export const ZoneCard: React.FC<ZoneCardProps> = ({
                                         onClick={(e) => { 
                                             e.stopPropagation(); 
                                             if (item.type === 'missing' && item.data.source === 'ai_suggestion') {
-                                                onMagicGenerate(cityName, 15);
+                                                onMagicGenerate(cityName, 15, undefined, undefined, adminRegion);
                                             } else {
                                                 if (cityId) onSelectCity(cityId);
                                             }

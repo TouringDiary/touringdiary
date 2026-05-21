@@ -1,12 +1,15 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User, Building2, Calendar, Info, ArrowLeft, Bus } from 'lucide-react';
 import { CityDetails, User as UserType, PointOfInterest } from '../../types/index';
 import { CityGuidesTab } from './cityInfo/CityGuidesTab';
 import { CityServicesTab } from './cityInfo/CityServicesTab';
 import { CityEventsTab } from './cityInfo/CityEventsTab';
 import { CityTourOperatorsTab } from './cityInfo/CityTourOperatorsTab';
-import { CloseButton } from '../common/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from "@/components/ui/controls/CloseButton";
 
 interface Props {
     isOpen: boolean;
@@ -37,6 +40,9 @@ export const CityInfoModal = ({ isOpen, onClose, city, initialTab, user, onOpenA
             setMobileView('menu');
         }
     }, [isOpen, initialTab]);
+
+    useGlobalModalEscape(isOpen, onClose);
+
 
     // WRAPPER PER CHIUDERE IL MODALE SU AGGIUNTA
     const handleAddToItineraryAndClose = (poi: PointOfInterest) => {
@@ -94,17 +100,26 @@ export const CityInfoModal = ({ isOpen, onClose, city, initialTab, user, onOpenA
                         </p>
                     </div>
                 </div>
-                <CloseButton onClose={onClose} size="lg" />
+                <CloseButton onClose={onClose} variant="primary" />
+
+
             </div>
         );
     };
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
-            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="relative bg-[#020617] w-full max-w-6xl h-full md:h-[85vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5">
+    return createPortal(
+        <div 
+            className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-5 !p-0 md:!p-4 !items-end md:!items-center"
+            onClick={onClose}
+            style={{ zIndex: Z_OVERLAY }}
+        >
+            <div 
+                className="relative bg-[#020617] w-full max-w-6xl h-full md:h-[85vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {renderHeader()}
                 
@@ -155,6 +170,10 @@ export const CityInfoModal = ({ isOpen, onClose, city, initialTab, user, onOpenA
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

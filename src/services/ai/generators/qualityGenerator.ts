@@ -1,5 +1,6 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
-import { getAiClient } from '../aiClient';
+
 import { withRetry, cleanJsonOutput } from '../aiUtils';
 import { Type, Schema } from '../../../types/ai';
 
@@ -51,9 +52,9 @@ export const ratePoiBatch = async (
         Rispondi ESCLUSIVAMENTE con un array JSON.
         `;
 
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3-flash-preview', 
+        
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-flash', 
             contents: prompt,
             config: {
                 responseMimeType: 'application/json',

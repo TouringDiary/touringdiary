@@ -1,8 +1,11 @@
-
+import { Z_OVERLAY, Z_ADMIN_MODAL } from '@/constants/zIndex';
 import React, { useState } from 'react';
-import { UserCheck, X, Mail, Key, Plus, Loader2, XCircle, FlaskConical } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { UserCheck, Mail, Key, Plus, Loader2, XCircle, FlaskConical } from 'lucide-react';
 import { registerUser, getRoleLabel } from '../../../services/userService';
 import { UserRole } from '../../../types/users';
+
 
 interface Props {
     onClose: () => void;
@@ -30,7 +33,8 @@ export const CreateUserModal = ({ onClose, onSuccess, availableRoles }: Props) =
 
         setIsCreating(true);
         try {
-            const result = await registerUser({
+            const result = await (registerUser as any)({
+                name: `${newUserData.firstName.trim()} ${newUserData.lastName.trim()}`,
                 firstName: newUserData.firstName,
                 lastName: newUserData.lastName,
                 email: newUserData.email,
@@ -51,10 +55,11 @@ export const CreateUserModal = ({ onClose, onSuccess, availableRoles }: Props) =
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6 relative animate-in zoom-in-95">
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5"/></button>
+    return createPortal(
+        // admin-super-layer modal | intentionally rendered above global modal stack (z-13000)
+        <div className="td-modal-overlay flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in" style={{ zIndex: Z_OVERLAY }}>
+            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6 relative animate-in zoom-in-95" style={{ zIndex: Z_ADMIN_MODAL }}>
+                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
                 
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-emerald-600 rounded-xl shadow-lg"><UserCheck className="w-6 h-6 text-white"/></div>
@@ -103,6 +108,10 @@ export const CreateUserModal = ({ onClose, onSuccess, availableRoles }: Props) =
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

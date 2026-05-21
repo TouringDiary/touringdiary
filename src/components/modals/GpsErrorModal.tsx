@@ -1,6 +1,11 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React from 'react';
-import { MapPinOff, X, RefreshCw, AlertTriangle, Settings } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { MapPinOff, RefreshCw, AlertTriangle } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+
 
 interface GpsErrorModalProps {
     isOpen: boolean;
@@ -11,15 +16,24 @@ interface GpsErrorModalProps {
 }
 
 export const GpsErrorModal = ({ isOpen, onClose, error, onRetry, isCritical = false }: GpsErrorModalProps) => {
-    
+    useGlobalModalEscape(isOpen, onClose);
+
+
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95">
-                <button onClick={onClose} className="absolute top-3 right-3 p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
-                    <X className="w-5 h-5"/>
-                </button>
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in pointer-events-auto" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
+            <div 
+                className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <CloseButton 
+                    onClose={onClose}
+                    variant="primary"
+                    position="absolute"
+                    className="top-3 right-3"
+                />
 
                 <div className="flex flex-col items-center text-center gap-4">
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center border-2 shadow-lg ${isCritical ? 'bg-red-900/20 border-red-500/50' : 'bg-slate-800 border-slate-600'}`}>
@@ -62,6 +76,10 @@ export const GpsErrorModal = ({ isOpen, onClose, error, onRetry, isCritical = fa
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

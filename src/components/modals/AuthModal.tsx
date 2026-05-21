@@ -1,12 +1,16 @@
-
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Lock, User, ArrowRight, CheckCircle, AlertCircle, Loader2, Zap, Shield, Briefcase, UserCheck, Gift, FlaskConical } from 'lucide-react';
-import { authenticateUser, registerUser, refreshUsersCache } from '../../services/userService';
+import { createPortal } from 'react-dom';
+import { Mail, Lock, User, ArrowRight, CheckCircle, AlertCircle, Loader2, Zap, Shield, Briefcase, UserCheck, Gift } from 'lucide-react';
+import { authenticateUser, registerUser, refreshUsersCache, devLogin } from '../../services/userService';
 import { addNotification } from '../../services/notificationService'; 
 import { User as UserType } from '../../types/users';
 import { getSessionItem, removeSessionItem } from '../../services/storageService';
 import { useConfig } from '@/context/ConfigContext';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+
+import { CloseButton } from "@/components/ui/controls/CloseButton";
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -73,20 +77,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
         }
     }, [isOpen]);
 
-    // GESTIONE PRIORITARIA TASTO ESC
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                onClose();
-            }
-        };
-        document.addEventListener('keydown', handleKeyDown, { capture: true });
-        return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
-    }, [isOpen, onClose]);
+    useGlobalModalEscape(isOpen, onClose);
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value.replace(/\s/g, '').trim();
@@ -132,6 +123,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
         
         // Passiamo referralCode al servizio
         const cleanData = {
+            name: `${firstName.trim()} ${lastName.trim()}`,
             firstName: firstName.trim(),
             lastName: lastName.trim(),
             email: email.trim().toLowerCase(),
@@ -139,7 +131,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
             referralCode: referralCode.trim().toUpperCase() || undefined
         };
         
-        const result = await registerUser(cleanData);
+        const result = await (registerUser as any)(cleanData);
 
         if (result.success && result.user) {
             // Successo: Rimuovi codice dalla sessione
@@ -176,8 +168,27 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
         }
     };
 
-    const handleQuickLogin = (mockUser: UserType) => {
-        onAuthSuccess(mockUser);
+
+
+    const handleQuickLogin = async (mockUser: UserType) => {
+        console.log("[QuickLogin] click ricevuto");
+        console.log("[QuickLogin] handleQuickLogin start", mockUser.email);
+        setIsLoading(true);
+        setError(null);
+        try {
+            console.log("[QuickLogin] Invoking devLogin for:", mockUser.email);
+            const result = await devLogin(mockUser.email);
+            console.log("[QuickLogin] devLogin result:", result);
+            if (result.success) {
+                onAuthSuccess(mockUser);
+            } else {
+                setError(result.error);
+            }
+        } catch (e: any) {
+            setError(e.message || 'Network error.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const getRoleIcon = (role: string) => {
@@ -205,11 +216,15 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={onClose}></div>
+    return createPortal(
+        <div className="td-modal-overlay flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in pointer-events-auto" style={{ zIndex: Z_OVERLAY }}>
+            <div className="absolute inset-0" onClick={onClose}></div>
             
-            <div className="relative w-full max-w-4xl bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex animate-in zoom-in-95 max-h-[90vh]">
+            <div 
+                className="relative w-full max-w-4xl bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex animate-in zoom-in-95 max-h-[90vh] pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {/* LEFT SIDE: VISUAL (Hidden on Mobile) */}
                 <div className="hidden md:flex w-1/2 relative flex-col items-center justify-center p-12 text-center overflow-hidden">
@@ -218,7 +233,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
                     </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/80 to-transparent"></div>
                     
-                    <div className="relative z-10">
+                    <div className="relative z-floating-panel">
                         <h2 className="text-4xl font-display font-bold text-white mb-4 shadow-black drop-shadow-lg whitespace-pre-line">
                             {welcomeMsg.title?.replace(/\\n/g, '\n')}
                         </h2>
@@ -236,9 +251,12 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
 
                 {/* RIGHT SIDE: FORMS */}
                 <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col relative bg-slate-900 overflow-y-auto">
-                    <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-lg z-20">
-                        <X className="w-6 h-6"/>
-                    </button>
+                    <CloseButton 
+                        onClose={onClose} 
+                        position="absolute"
+                        variant="primary"
+
+                    />
 
                     {/* VIEW: DEV QUICK LOGIN */}
                     {view === 'dev_quick' ? (
@@ -254,6 +272,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
                                 {demoUsers.length > 0 ? demoUsers.map(u => (
                                     <button 
                                         key={u.id}
+                                        type="button"
                                         onClick={() => handleQuickLogin(u)}
                                         className={`w-full border p-3 rounded-xl flex items-center gap-3 transition-all text-left group relative overflow-hidden ${
                                             u.role === 'admin_all' ? 'bg-amber-900/10 border-amber-500/50 hover:bg-amber-900/30' : 
@@ -282,7 +301,11 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
                                 )}
                             </div>
 
-                            <button onClick={() => setView('login')} className="mt-6 text-sm text-slate-500 hover:text-white underline text-center w-full">
+                            <button 
+                                type="button"
+                                onClick={() => setView('login')} 
+                                className="mt-6 text-sm text-slate-500 hover:text-white underline text-center w-full"
+                            >
                                 Torna al login classico
                             </button>
                         </div>
@@ -437,9 +460,9 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
                                 </button>
                             </form>
 
-                            {/* DEV SHORTCUT */}
                             <div className="mt-6 border-t border-slate-800 pt-4 flex justify-center">
                                 <button 
+                                    type="button"
                                     onClick={() => setView('dev_quick')}
                                     className="bg-indigo-900/30 hover:bg-indigo-900/50 text-indigo-400 hover:text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border border-indigo-500/30"
                                 >
@@ -450,6 +473,10 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

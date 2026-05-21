@@ -1,12 +1,14 @@
-
+import { Z_ADMIN_MODAL_TOP, Z_ADMIN_MODAL_NESTED, Z_ADMIN_MODAL } from '@/constants/zIndex';
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { Trophy, Coins, Plus, Edit2, Trash2, Save, X, Loader2, CheckCircle, Gift, Star, Zap, ShoppingBag, Utensils, Landmark, Monitor, Briefcase, Eye, AlertTriangle } from 'lucide-react';
 import { getXpRulesAsync, getRewardsAsync, saveXpRule, saveReward, deleteReward, XpRule, Reward, LEVELS, RewardCategory } from '../../services/gamificationService';
 import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 
-// REPLICA ESATTA DELLA CARD UTENTE (VERTICALE)
-// Extracted to avoid re-rendering and scope pollution
+
+// ... (RewardCardPreview remains unchanged)
 const RewardCardPreview = ({ reward }: { reward: Partial<Reward> }) => {
     // Configurazione colori (Replica di UserDashboard)
     const getCategoryTheme = (cat: string) => {
@@ -59,6 +61,7 @@ const RewardCardPreview = ({ reward }: { reward: Partial<Reward> }) => {
 };
 
 export const AdminGamification = () => {
+    // ... (logic remains unchanged)
     const [activeTab, setActiveTab] = useState<'rules' | 'rewards'>('rules');
     const [rules, setRules] = useState<XpRule[]>([]);
     const [rewards, setRewards] = useState<Reward[]>([]);
@@ -87,17 +90,11 @@ export const AdminGamification = () => {
         refreshData();
     }, []);
 
-    // ESC Key Handler for Modals
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                if (editingRule) setEditingRule(null);
-                if (editingReward) setEditingReward(null);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [editingRule, editingReward]);
+    // MODIFICA: Centralizzazione ESC tramite hook globale
+    useGlobalModalEscape(!!editingRule || !!editingReward, () => {
+        setEditingRule(null);
+        setEditingReward(null);
+    });
 
     const handleSaveRule = async () => {
         if(!editingRule) return;
@@ -214,10 +211,14 @@ export const AdminGamification = () => {
                 message="Eliminare definitivamente questo premio?"
                 confirmLabel="Elimina"
                 variant="danger"
+                zIndex={Z_ADMIN_MODAL_TOP}
             />
             {/* SUCCESS TOAST */}
             {showToast && (
-                <div className="absolute top-4 right-4 z-50 bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-2xl animate-in slide-in-from-top-4 flex items-center gap-2 border border-emerald-400 font-bold text-sm">
+                <div 
+                    className="absolute top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-2xl animate-in slide-in-from-top-4 flex items-center gap-2 border border-emerald-400 font-bold text-sm"
+                    style={{ zIndex: Z_ADMIN_MODAL_TOP }}
+                >
                     <CheckCircle className="w-5 h-5"/> Salvataggio Completato
                 </div>
             )}
@@ -345,14 +346,14 @@ export const AdminGamification = () => {
                                                     <RewardCardPreview reward={reward} />
                                                     
                                                     {/* OVERLAY ACTIONS ADMIN */}
-                                                    <div className="absolute top-2 right-2 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="absolute top-2 right-2 flex gap-1 z-dropdown opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button onClick={() => setEditingReward(reward)} className="p-1.5 bg-indigo-600 text-white rounded shadow hover:bg-indigo-500"><Edit2 className="w-3.5 h-3.5"/></button>
                                                         <button onClick={() => handleDeleteReward(reward.id)} className="p-1.5 bg-red-600 text-white rounded shadow hover:bg-red-500"><Trash2 className="w-3.5 h-3.5"/></button>
                                                     </div>
                                                     
                                                     {/* STATUS BADGE */}
                                                     {!reward.active && (
-                                                        <div className="absolute inset-0 bg-slate-950/80 z-10 flex items-center justify-center rounded-xl border-2 border-slate-700 border-dashed">
+                                                        <div className="absolute inset-0 bg-slate-950/80 z-floating-panel flex items-center justify-center rounded-xl border-2 border-slate-700 border-dashed">
                                                             <span className="text-slate-400 font-bold uppercase text-xs">Disattivato</span>
                                                         </div>
                                                     )}
@@ -367,9 +368,16 @@ export const AdminGamification = () => {
                 )}
 
                 {/* EDIT RULE MODAL */}
-                {editingRule && (
-                    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 animate-in fade-in">
-                        <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 flex flex-col overflow-hidden">
+                {editingRule && createPortal(
+                    // admin-super-layer modal | intentionally rendered above global modal stack
+                    <div 
+                        className="td-modal-overlay p-4 bg-black/90 backdrop-blur-sm animate-in fade-in flex items-center justify-center fixed inset-0"
+                        style={{ zIndex: Z_ADMIN_MODAL }}
+                    >
+                        <div 
+                            className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 flex flex-col overflow-hidden"
+                            style={{ zIndex: Z_ADMIN_MODAL_NESTED }}
+                        >
                              <div className="flex justify-between items-center p-5 border-b border-slate-800 bg-[#0f172a]">
                                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Zap className="w-5 h-5 text-amber-500"/> Modifica Regola XP</h3>
                                 <button onClick={() => setEditingRule(null)} className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-lg"><X className="w-4 h-4"/></button>
@@ -383,13 +391,21 @@ export const AdminGamification = () => {
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
 
                 {/* EDIT REWARD MODAL (SPLIT VIEW) */}
-                {editingReward && (
-                    <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[2000] flex items-center justify-center p-4 animate-in fade-in">
-                        <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col md:flex-row overflow-hidden h-[85vh]">
+                {editingReward && createPortal(
+                    // admin-super-layer modal | intentionally rendered above global modal stack
+                    <div 
+                        className="td-modal-overlay p-4 bg-black/95 backdrop-blur-md animate-in fade-in flex items-center justify-center fixed inset-0"
+                        style={{ zIndex: Z_ADMIN_MODAL }}
+                    >
+                        <div 
+                            className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col md:flex-row overflow-hidden h-[85vh]"
+                            style={{ zIndex: Z_ADMIN_MODAL_NESTED }}
+                        >
                             
                             {/* LEFT: FORM */}
                             <div className="w-full md:w-[60%] p-6 md:p-8 overflow-y-auto custom-scrollbar border-r border-slate-800 bg-[#0f172a]">
@@ -438,7 +454,7 @@ export const AdminGamification = () => {
 
                             {/* RIGHT: LIVE PREVIEW - SFONDO SCURO PER CONTRASTO */}
                             <div className="w-full md:w-[40%] bg-black/50 flex flex-col relative justify-between border-l border-slate-800">
-                                <button onClick={() => setEditingReward(null)} className="absolute top-4 right-4 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-lg z-50"><X className="w-5 h-5"/></button>
+                                <button onClick={() => setEditingReward(null)} className="absolute top-4 right-4 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-lg z-admin-modal"><X className="w-5 h-5"/></button>
                                 
                                 <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800/50 via-slate-950 to-black">
                                     <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-8">Live Preview</h4>
@@ -456,10 +472,15 @@ export const AdminGamification = () => {
                             </div>
 
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
 
             </div>
         </div>
     );
 };
+
+
+
+

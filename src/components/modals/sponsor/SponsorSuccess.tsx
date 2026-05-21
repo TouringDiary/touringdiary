@@ -27,7 +27,7 @@ export const SponsorSuccess = ({ contactName, isGuest, adminEmail, onClose }: Sp
             ) : (
                 <div>
                     <h3 className="text-3xl font-display font-bold text-white mb-3">{message.title || 'Richiesta Inviata!'}</h3>
-                    <div className="text-slate-400 max-w-md mx-auto text-base leading-relaxed">
+                    <div className="text-slate-400 max-w-md mx-auto text-base leading-relaxed whitespace-pre-line">
                         <div dangerouslySetInnerHTML={{ __html: message.body || `<p class="mb-4">Grazie <strong>${contactName}</strong>!</p><p>La tua richiesta è stata ricevuta correttamente.</p>` }} />
                         
                         {isGuest && (

@@ -16,7 +16,7 @@ import { AdminGuideModal } from './common/AdminGuideModal'; // FIX: Correct rela
 import { useAdminStyles } from '../../hooks/useAdminStyles';
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-    <div className={`fixed top-6 right-6 z-[2000] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}>
+    <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}>
         {type === 'success' ? <CheckCircle className="w-6 h-6 shrink-0"/> : <AlertTriangle className="w-6 h-6 shrink-0"/>}
         <div className="font-bold text-sm">{message}</div>
         <button onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full"><X className="w-4 h-4"/></button>
@@ -124,20 +124,26 @@ export const CitiesManager = ({ onEdit, currentUser }: CitiesManagerProps) => {
             return;
         }
 
-        startGeneration(name, poiCount);
+        startGeneration(name, poiCount, undefined, undefined);
     };
 
     const confirmMergeGeneration = () => {
         if (!conflictData) return;
-        startGeneration(conflictData.newName, conflictData.poiCount, conflictData.existingCity.id);
+        startGeneration(conflictData.newName, conflictData.poiCount, currentUser, conflictData.existingCity.id);
         setConflictData(null);
     };
 
-    const startGeneration = async (name: string, poiCount: number, existingId?: string) => {
+    const startGeneration = async (name: string, poiCount: number, user?: User, existingId?: string) => {
+        let region = '';
+        if (existingId) {
+            const cityObj = list.effectiveCities.find((c: CitySummary) => c.id === existingId);
+            if (cityObj) region = cityObj.adminRegion;
+        }
+
         setProcessingCityName(name); 
         setShowAiModal(false);
         setShowProcessModal(true);
-        await generator.executeMagicAdd(name, poiCount, currentUser, existingId);
+        await generator.executeMagicAdd(name, poiCount, user, existingId, region);
     };
 
     if (list.isInitialLoading) {

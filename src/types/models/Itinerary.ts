@@ -56,6 +56,7 @@ export interface Itinerary {
   updatedAt?: number;
   dayStyles?: Record<number, string>; 
   roadbook?: RoadbookDay[]; 
+  suitcase_id?: string | null;
 }
 
 export interface PremadeItinerary {

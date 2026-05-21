@@ -3,18 +3,19 @@
 
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { Star, TrendingUp, Grid, ZoomIn, ChevronLeft, ChevronRight, Award, Plus, Check, GripHorizontal, AlertTriangle } from 'lucide-react';
-import { CitySummary, SponsorRequest, PointOfInterest } from '@/types';
-import { HeroSection } from '@/components/home/HeroSection'; 
+import { CitySummary, SponsorRequest, PointOfInterest, ResolvedSponsor } from '@/types';
+import { PLAN_TYPES } from '@/constants/planTypes';
+import { HeroSection } from '@/components/home/HeroSection';
 import { CuratedGridSection } from '@/components/home/CuratedGridSection';
 import { CityCard } from '@/components/city/CityCard';
 import { DraggableSlider, DraggableSliderHandle } from '@/components/common/DraggableSlider';
-import { getSponsorsAsync, convertSponsorToPoi } from '@/services/sponsorService';
+import { fetchActiveSponsorsResolvedAsync, convertSponsorToPoi } from '@/services/sponsorService';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import { useItinerary } from '@/context/ItineraryContext';
 import { StarRating } from '@/components/common/StarRating';
 import { AdPlaceholder } from '@/components/common/AdPlaceholder';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
-import { useDynamicContent } from '@/hooks/useDynamicContent'; 
+import { useDynamicContent } from '@/hooks/useDynamicContent';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useGps } from '@/context/GpsContext';
 
@@ -24,6 +25,9 @@ interface HeroSectionProps {
     onSelectCity: (id: string) => void;
     selectedZone: string;
     setSelectedZone: (z: string) => void;
+    selectedSeason: string;
+    setSelectedSeason: (s: string) => void;
+    onFilteredCitiesChange?: (cities: CitySummary[]) => void;
 }
 
 interface HomeContentProps {
@@ -36,7 +40,7 @@ interface HomeContentProps {
     onExploreSection: (cities: CitySummary[], title: string, icon: React.ReactNode, categories?: any[]) => void;
     onAddToItinerary: (poi: PointOfInterest) => void;
     onOpenPoiDetail: (poi: PointOfInterest) => void;
-    onOpenSponsor: (tier?: 'gold'|'silver') => void; 
+    onOpenSponsor: (tier?: 'gold' | 'silver') => void;
 }
 
 const ISPIRAZIONI_CATEGORIES = [
@@ -49,7 +53,7 @@ const ISPIRAZIONI_CATEGORIES = [
 
 const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, onScrollRight, subtitleConfig }: any) => {
     const [isMobile, setIsMobile] = useState(false);
-    
+
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768);
         check();
@@ -73,12 +77,12 @@ const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, 
                 <div className="flex items-center gap-3">
                     {(onScrollLeft && onScrollRight) && (
                         <div className="flex bg-slate-900 rounded-lg border border-slate-800">
-                            <button onClick={onScrollLeft} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4"/></button>
-                            <button onClick={onScrollRight} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4"/></button>
+                            <button onClick={onScrollLeft} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4" /></button>
+                            <button onClick={onScrollRight} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
                         </div>
                     )}
                     <button onClick={onExplore} className={`${btnStyle} bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-600 transition-colors flex items-center gap-1.5 group h-full`}>
-                        <ZoomIn className="w-3.5 h-3.5 text-amber-500 group-hover:text-white transition-colors"/> ESPLORA
+                        <ZoomIn className="w-3.5 h-3.5 text-amber-500 group-hover:text-white transition-colors" /> ESPLORA
                     </button>
                 </div>
             </div>
@@ -91,7 +95,7 @@ const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, 
 
 const EmptyFeaturedCard: React.FC<{ label: string }> = ({ label }) => (
     <div className="w-[150px] md:w-[165px] lg:w-[145px] xl:w-[165px] h-[200px] md:h-[240px] flex-shrink-0 bg-slate-900/30 rounded-xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center p-4 text-center gap-2 group hover:border-slate-600 transition-colors snap-start">
-        <AlertTriangle className="w-8 h-8 text-slate-700 group-hover:text-amber-500 transition-colors"/>
+        <AlertTriangle className="w-8 h-8 text-slate-700 group-hover:text-amber-500 transition-colors" />
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
         <div className={`px-2 py-1 rounded text-[9px] font-black uppercase text-white bg-slate-800 opacity-50`}>
             DISPONIBILE
@@ -102,38 +106,38 @@ const EmptyFeaturedCard: React.FC<{ label: string }> = ({ label }) => (
 const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = "" }: any) => {
     const { itinerary } = useItinerary();
     const inItinerary = itinerary.items.some((i: any) => i.poi.id === poi.id);
-    const isGold = poi.tier === 'gold';
-    const isSilver = poi.tier === 'silver';
-    
+    const isGold = poi.planType === PLAN_TYPES.REGIONAL_ACTIVITY;
+    const isSilver = poi.planType === PLAN_TYPES.LOCAL_ACTIVITY;
+
     let borderColor = 'border border-slate-800 hover:border-slate-600';
     if (isGold) borderColor = 'border border-amber-500 hover:border-amber-400 ring-1 ring-amber-500/20';
     else if (isSilver) borderColor = 'border border-slate-200 hover:border-white ring-1 ring-white/10';
 
     let badge = null;
-    if (isGold) badge = <span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 text-black text-[7px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(251,191,36,0.5)] uppercase tracking-normal flex items-center gap-0.5 border border-yellow-100"><Award className="w-2 h-2"/> SPONSOR</span>;
-    else if (isSilver) badge = <span className="bg-gradient-to-r from-slate-200 via-white to-slate-400 text-slate-900 text-[7px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(255,255,255,0.2)] uppercase tracking-normal flex items-center gap-0.5 border border-white/50"><Award className="w-2 h-2"/> SPONSOR</span>;
+    if (isGold) badge = <span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 text-black text-[7px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(251,191,36,0.5)] uppercase tracking-normal flex items-center gap-0.5 border border-yellow-100"><Award className="w-2 h-2" /> SPONSOR</span>;
+    else if (isSilver) badge = <span className="bg-gradient-to-r from-slate-200 via-white to-slate-400 text-slate-900 text-[7px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(255,255,255,0.2)] uppercase tracking-normal flex items-center gap-0.5 border border-white/50"><Award className="w-2 h-2" /> SPONSOR</span>;
     else badge = <span className="bg-slate-700 text-slate-300 text-[7px] font-bold px-1.5 py-0.5 rounded border border-slate-600 uppercase tracking-normal w-fit">SPONSOR</span>;
 
     return (
-        <div 
+        <div
             onClick={() => onOpenDetail(poi)}
             className={`group relative w-full h-full rounded-xl border overflow-hidden cursor-default transition-all bg-slate-900 shadow-lg shrink-0 ${borderColor} ${className}`}
         >
             <div className="absolute inset-0 w-full h-full">
-                <ImageWithFallback 
-                    src={poi.imageUrl} 
-                    alt={poi.name} 
+                <ImageWithFallback
+                    src={poi.imageUrl}
+                    alt={poi.name}
                     draggable={false}
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-90 group-hover:opacity-100 select-none"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none"></div>
             </div>
 
-            <div className="absolute top-2 right-2 z-20 pointer-events-none">
+            <div className="absolute top-2 right-2 z-dropdown pointer-events-none">
                 {badge}
             </div>
 
-            <div className="absolute top-3 left-4 z-20 flex flex-col items-start pr-12 pointer-events-none max-w-full">
+            <div className="absolute top-3 left-4 z-dropdown flex flex-col items-start pr-12 pointer-events-none max-w-full">
                 <div className="mb-0.5">
                     <StarRating value={poi.rating} size="w-3 h-3" showValue={false} />
                 </div>
@@ -142,29 +146,29 @@ const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = 
                 </h4>
             </div>
 
-            <div className="absolute bottom-2 right-2 z-30 flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
-                <div 
-                    className="hidden lg:flex p-1.5 rounded-lg bg-black/50 hover:bg-indigo-600 text-slate-300 hover:text-white backdrop-blur-sm cursor-grab active:cursor-grabbing border border-white/10 transition-all shadow-lg" 
-                    draggable="true" 
-                    onDragStart={(e) => { 
-                        e.stopPropagation(); 
-                        e.dataTransfer.setData('text/plain', JSON.stringify(poi)); 
-                        e.dataTransfer.effectAllowed = 'copy'; 
+            <div className="absolute bottom-2 right-2 z-dropdown flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
+                <div
+                    className="hidden lg:flex p-1.5 rounded-lg bg-black/50 hover:bg-indigo-600 text-slate-300 hover:text-white backdrop-blur-sm cursor-grab active:cursor-grabbing border border-white/10 transition-all shadow-lg"
+                    draggable="true"
+                    onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('text/plain', JSON.stringify(poi));
+                        e.dataTransfer.effectAllowed = 'copy';
                     }}
                     title="Trascina nel diario"
                 >
-                    <GripHorizontal className="w-3.5 h-3.5"/>
+                    <GripHorizontal className="w-3.5 h-3.5" />
                 </div>
-                <button 
-                    onClick={(e) => { 
-                        e.stopPropagation(); 
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
                         e.preventDefault();
-                        onAddToItinerary(poi); 
+                        onAddToItinerary(poi);
                     }}
                     className={`rounded-lg text-white shadow-lg border transition-colors cursor-pointer pointer-events-auto flex items-center justify-center w-9 h-9 ${inItinerary ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500' : 'bg-amber-600 hover:bg-amber-500 border-amber-500'}`}
                     title={inItinerary ? "Aggiunto" : "Aggiungi al diario"}
                 >
-                    {inItinerary ? <Check className="w-4 h-4"/> : <Plus className="w-4 h-4"/>}
+                    {inItinerary ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 </button>
             </div>
         </div>
@@ -172,17 +176,17 @@ const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = 
 };
 
 export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allMostVisitedCities, destinationCities, onCityClick, onExploreSection, onAddToItinerary, onOpenPoiDetail, onOpenSponsor }: HomeContentProps) => {
-    
+
     useDocumentTitle('Scopri la Campania');
-    
+
     const { userLocation } = useGps();
-    
+
     const featuredRef = useRef<DraggableSliderHandle>(null);
     const visitedRef = useRef<DraggableSliderHandle>(null);
     const sponsorContainerRef = useRef<HTMLDivElement>(null);
-    
+
     const [isMobile, setIsMobile] = useState(false);
-    
+
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768);
         check();
@@ -192,38 +196,37 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
 
     const titleStyle = useDynamicStyles('section_title', isMobile);
     const btnStyle = useDynamicStyles('btn_explore', isMobile);
-    
+
     // NEW: USE DYNAMIC CONTENT FOR SUBTITLES
     const featuredSubtitle = useDynamicContent('home_featured_subtitle', isMobile);
     const visitedSubtitle = useDynamicContent('home_visited_subtitle', isMobile);
     const inspirationSubtitle = useDynamicContent('home_inspiration_subtitle', isMobile);
-    
-    const [goldSponsors, setGoldSponsors] = useState<SponsorRequest[]>([]);
+
+    const [goldSponsors, setGoldSponsors] = useState<ResolvedSponsor[]>([]);
     const [sponsorIndex, setSponsorIndex] = useState(0);
     const [sponsorCols, setSponsorCols] = useState(1);
 
-    const { selectedZone, activeCategories } = heroProps;
+    const [heroFilteredCities, setHeroFilteredCities] = useState<CitySummary[] | null>(null);
+    const [seasonalRanking, setSeasonalRanking] = useState<{ city_id: string, seasonal_score: number }[]>([]);
 
-    const filteredCities = useMemo(() => {
-        let data = allMostVisitedCities || mostVisitedCities || []; 
-        if (selectedZone) data = data.filter(c => c.zone === selectedZone);
-        if (activeCategories && activeCategories.length > 0) {
-            data = data.filter(c => {
-                if (c.tags && c.tags.length > 0) return activeCategories.some(cat => c.tags!.includes(cat));
-                if (c.specialBadge) return true;
-                return true; 
-            });
-        }
-        return data;
-    }, [allMostVisitedCities, mostVisitedCities, selectedZone, activeCategories]);
+    // [DIAGNOSTICA PRODUCTION-READY]
+    useEffect(() => {
+        console.log("[HomeContent Debug] Props Audit:", {
+            featured: featuredCities.length,
+            mostVisited: mostVisitedCities.length,
+            allMostVisited: allMostVisitedCities?.length,
+            destinations: destinationCities.length
+        });
+    }, [featuredCities, mostVisitedCities, allMostVisitedCities, destinationCities]);
 
-    const dynamicAllCities = filteredCities;
+    const dynamicAllCities = useMemo(() => {
+        return heroFilteredCities || allMostVisitedCities || mostVisitedCities || [];
+    }, [heroFilteredCities, allMostVisitedCities, mostVisitedCities]);
 
     useEffect(() => {
-        getSponsorsAsync().then(all => {
-            const today = new Date().toISOString().split('T')[0];
-            const active = all.filter(s => (s.status === 'approved' || s.status === 'waiting_payment') && (!s.endDate || s.endDate >= today));
-            setGoldSponsors(active.filter(s => s.tier === 'gold'));
+        fetchActiveSponsorsResolvedAsync().then(all => {
+            // Filtriamo solo i Gold (REGIONAL_ACTIVITY) per la sezione vetrina della Home
+            setGoldSponsors(all.filter(s => s.type === PLAN_TYPES.REGIONAL_ACTIVITY));
         });
     }, []);
 
@@ -246,9 +249,28 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
         if (goldSponsors.length <= 1) return;
         const interval = setInterval(() => {
             setSponsorIndex(prev => prev + 1);
-        }, 8000); 
+        }, 8000);
         return () => clearInterval(interval);
     }, [goldSponsors.length]);
+
+    // NEW: EFFECT FOR SEASONAL RANKING
+    useEffect(() => {
+        const loadSeasonalRanking = async () => {
+            if (!heroProps.selectedSeason) {
+                setSeasonalRanking([]);
+                return;
+            }
+
+            // Usiamo il manifest completo come base per il ranking
+            const allCities = allMostVisitedCities || mostVisitedCities || [];
+            const ids = allCities.map(c => c.id);
+
+            const { getSeasonalRanking } = await import('@/services/cityService');
+            const ranking = await getSeasonalRanking(ids, heroProps.selectedSeason);
+            setSeasonalRanking(ranking);
+        };
+        loadSeasonalRanking();
+    }, [heroProps.selectedSeason, allMostVisitedCities, mostVisitedCities]);
 
     const goldGridSlots = useMemo(() => {
         const slots = [...goldSponsors.slice(0, 8)];
@@ -267,18 +289,35 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
         const slot4City = dynamicAllCities.find(c => c.homeOrder === 4);
 
         const getBadgeConfig = (city: CitySummary | undefined) => {
-             const badge = city?.specialBadge;
-             switch(badge) {
-                 case 'event': return { id: 'event', label: 'EVENTI IN ARRIVO', color: 'bg-rose-600' };
-                 case 'season': return { id: 'season', label: 'IDEALE STAGIONE', color: 'bg-emerald-600' };
-                 case 'trend': return { id: 'trend', label: 'TREND DEL MESE', color: 'bg-blue-600' };
-                 case 'editor': return { id: 'editor', label: 'SCELTA EDITORIALE', color: 'bg-purple-600' };
-                 case 'destination': return { id: 'destination', label: 'DESTINAZIONE TOP', color: 'bg-indigo-600' };
-                 default: return { id: 'destination', label: 'DESTINAZIONE TOP', color: 'bg-indigo-600' };
-             }
+            const badge = city?.specialBadge;
+            switch (badge) {
+                case 'event': return { id: 'event', label: 'EVENTI IN ARRIVO', color: 'bg-rose-600' };
+                case 'season': return { id: 'season', label: 'IDEALE STAGIONE', color: 'bg-emerald-600' };
+                case 'trend': return { id: 'trend', label: 'TREND DEL MESE', color: 'bg-blue-600' };
+                case 'editor': return { id: 'editor', label: 'SCELTA EDITORIALE', color: 'bg-purple-600' };
+                case 'destination': return { id: 'destination', label: 'DESTINAZIONE TOP', color: 'bg-indigo-600' };
+                default: return { id: 'destination', label: 'DESTINAZIONE TOP', color: 'bg-indigo-600' };
+            }
         };
-        
+
         const findFallback = (badge: string) => dynamicAllCities.find(c => c.specialBadge === badge && !c.homeOrder);
+
+        // LOGICA STAGIONALE DINAMICA:
+        // Se c'è un ranking stagionale attivo, le posizioni 1-4 sono i primi 4 della classifica
+        if (seasonalRanking.length > 0) {
+            const sortedBySeason = [...dynamicAllCities].sort((a, b) => {
+                const scoreA = seasonalRanking.find(r => r.city_id === a.id)?.seasonal_score || 0;
+                const scoreB = seasonalRanking.find(r => r.city_id === b.id)?.seasonal_score || 0;
+                return scoreB - scoreA;
+            });
+
+            return [
+                { city: sortedBySeason[0], config: getBadgeConfig(sortedBySeason[0]) },
+                { city: sortedBySeason[1], config: getBadgeConfig(sortedBySeason[1]) },
+                { city: sortedBySeason[2], config: getBadgeConfig(sortedBySeason[2]) },
+                { city: sortedBySeason[3], config: getBadgeConfig(sortedBySeason[3]) }
+            ];
+        }
 
         const slots = [
             { city: slot1City || findFallback('event'), label: 'POSIZIONE 1' },
@@ -305,7 +344,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
     const sponsorsToDisplay = useMemo(() => {
         if (goldSponsors.length === 0) return [];
         const res = [];
-        const maxItems = Math.max(2, sponsorCols * 2); 
+        const maxItems = Math.max(2, sponsorCols * 2);
         for (let i = 0; i < maxItems; i++) {
             const s = goldSponsors[(sponsorIndex + i) % goldSponsors.length];
             if (s) res.push(s);
@@ -313,7 +352,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
         return res;
     }, [goldSponsors, sponsorIndex, sponsorCols]);
 
-    const renderSponsorCell = (sponsor: SponsorRequest | null) => (
+    const renderSponsorCell = (sponsor: ResolvedSponsor | null) => (
         <div className="h-full w-full">
             {sponsor ? (
                 <div className="h-full animate-in fade-in duration-700" key={sponsor.id}>
@@ -327,22 +366,25 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
 
     return (
         <div className="animate-in fade-in flex flex-col gap-0 w-full overflow-x-hidden">
-            
-            <div className="shrink-0 z-30 lg:sticky lg:top-0 lg:bg-[#020617] lg:pb-6 lg:pt-1 lg:border-b lg:border-slate-800/50 lg:shadow-2xl transition-all">
-                 <div className="mb-4 lg:mb-0"> 
-                    <HeroSection 
+
+            <div className="shrink-0 z-dropdown lg:sticky lg:top-0 lg:bg-[#020617] lg:pb-6 lg:pt-1 lg:border-b lg:border-slate-800/50 lg:shadow-2xl transition-all">
+                <div className="mb-4 lg:mb-0">
+                    <HeroSection
                         activeCategories={heroProps.activeCategories}
                         setActiveCategories={heroProps.setActiveCategories}
                         onSelectCity={heroProps.onSelectCity}
                         selectedZone={heroProps.selectedZone}
                         setSelectedZone={heroProps.setSelectedZone}
-                        cityManifest={dynamicAllCities}
+                        selectedSeason={heroProps.selectedSeason}
+                        setSelectedSeason={heroProps.setSelectedSeason}
+                        cityManifest={allMostVisitedCities || mostVisitedCities || []}
+                        onFilteredCitiesChange={setHeroFilteredCities}
                     />
-                 </div>
+                </div>
             </div>
 
             <div className="space-y-12 pb-10 pt-6">
-                
+
                 <section>
                     <div className="flex flex-col lg:flex-row gap-4 xl:gap-6 items-start">
                         <div id="tour-featured-section" className="min-w-0 flex flex-col gap-4 shrink-0 max-w-full relative scroll-mt-40">
@@ -355,12 +397,12 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                                         </h3>
                                     </div>
                                     <div className="flex gap-2">
-                                         <div className="flex bg-slate-900 rounded-lg border border-slate-800">
-                                            <button onClick={() => featuredRef.current?.scroll('left')} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4"/></button>
-                                            <button onClick={() => featuredRef.current?.scroll('right')} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4"/></button>
+                                        <div className="flex bg-slate-900 rounded-lg border border-slate-800">
+                                            <button onClick={() => featuredRef.current?.scroll('left')} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4" /></button>
+                                            <button onClick={() => featuredRef.current?.scroll('right')} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
                                         </div>
-                                        <button onClick={() => onExploreSection(dynamicAllCities, "Ispirazioni di Viaggio", <Grid className="w-5 h-5 text-indigo-500"/>, ISPIRAZIONI_CATEGORIES)} className={`${btnStyle} text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-600 transition-colors flex items-center gap-1.5 uppercase font-bold tracking-wide group shrink-0`}>
-                                            <ZoomIn className="w-3.5 h-3.5 text-amber-500 group-hover:text-white transition-colors"/> ESPLORA
+                                        <button onClick={() => onExploreSection(dynamicAllCities, "Ispirazioni di Viaggio", <Grid className="w-5 h-5 text-indigo-500" />, ISPIRAZIONI_CATEGORIES)} className={`${btnStyle} text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-600 transition-colors flex items-center gap-1.5 uppercase font-bold tracking-wide group shrink-0`}>
+                                            <ZoomIn className="w-3.5 h-3.5 text-amber-500 group-hover:text-white transition-colors" /> ESPLORA
                                         </button>
                                     </div>
                                 </div>
@@ -368,19 +410,19 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                                     <p className={`${featuredSubtitle.style} mb-4 ml-4`}>{featuredSubtitle.text}</p>
                                 )}
                             </div>
-                            
+
                             <div>
                                 <DraggableSlider ref={featuredRef} className="pb-4">
                                     {featuredSlots.map((slot, idx) => {
                                         if (slot.city) {
                                             return (
                                                 <div key={slot.city.id + slot.config.id} className="snap-start flex-shrink-0">
-                                                    <CityCard 
-                                                        city={slot.city} 
-                                                        onClick={onCityClick} 
+                                                    <CityCard
+                                                        city={slot.city}
+                                                        onClick={onCityClick}
                                                         userLocation={userLocation}
                                                         forcedBadge={slot.config.id}
-                                                        priority={idx < 2} 
+                                                        priority={idx < 2}
                                                     />
                                                 </div>
                                             );
@@ -397,12 +439,12 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                                 <div className="flex items-center justify-center gap-2 h-10 mb-2 w-full">
                                     <div className="h-px flex-1 bg-amber-500/50"></div>
                                     <div className="flex items-center gap-2 px-2">
-                                         <Award className="w-4 h-4 text-amber-500"/>
-                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">PARTNER</span>
+                                        <Award className="w-4 h-4 text-amber-500" />
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">PARTNER</span>
                                     </div>
                                     <div className="h-px flex-1 bg-amber-500/50"></div>
                                 </div>
-                                
+
                                 <div className="flex justify-center gap-3 w-full">
                                     {sponsorCols >= 1 && (
                                         <div className="flex flex-col gap-3 w-full md:w-72 shrink-0 h-[280px] md:h-[240px]">
@@ -435,23 +477,23 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                 </section>
 
                 <section className="w-full max-w-[100vw] overflow-hidden">
-                    <SectionHeaderWithAction 
-                        title="Le Più Visitate" 
-                        icon={<TrendingUp className="w-5 h-5 md:w-7 md:h-7 text-rose-500" />} 
+                    <SectionHeaderWithAction
+                        title="Le Più Visitate"
+                        icon={<TrendingUp className="w-5 h-5 md:w-7 md:h-7 text-rose-500" />}
                         color="bg-rose-500"
-                        onExplore={() => onExploreSection(dynamicAllCities, "Le Più Visitate", <TrendingUp className="w-5 h-5 text-rose-500"/>)}
+                        onExplore={() => onExploreSection(dynamicAllCities, "Le Più Visitate", <TrendingUp className="w-5 h-5 text-rose-500" />)}
                         onScrollLeft={() => visitedRef.current?.scroll('left')}
                         onScrollRight={() => visitedRef.current?.scroll('right')}
                         subtitleConfig={visitedSubtitle}
                     />
-                    
+
                     <div id="tour-most-visited-section">
                         <DraggableSlider ref={visitedRef} className="pb-4">
                             {dynamicAllCities.slice(0, 10).map((city, idx) => (
-                                <div key={city.id} className="snap-start flex-shrink-0">
-                                    <CityCard 
-                                        city={city} 
-                                        onClick={onCityClick} 
+                                <div key={city.id || city.slug} className="snap-start flex-shrink-0">
+                                    <CityCard
+                                        city={city}
+                                        onClick={onCityClick}
                                         userLocation={userLocation}
                                         priority={false}
                                     />
@@ -462,16 +504,16 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                 </section>
 
                 <section id="tour-categories-section" className="w-full max-w-[100vw] overflow-hidden">
-                    <SectionHeaderWithAction 
-                        title="Ispirazioni di Viaggio" 
-                        icon={<Grid className="w-5 h-5 md:w-7 md:h-7 text-indigo-500"/>} 
-                        color="bg-indigo-500" 
-                        onExplore={() => onExploreSection(dynamicAllCities, "Ispirazioni di Viaggio", <Grid className="w-5 h-5 text-indigo-500"/>, ISPIRAZIONI_CATEGORIES)}
+                    <SectionHeaderWithAction
+                        title="Ispirazioni di Viaggio"
+                        icon={<Grid className="w-5 h-5 md:w-7 md:h-7 text-indigo-500" />}
+                        color="bg-indigo-500"
+                        onExplore={() => onExploreSection(dynamicAllCities, "Ispirazioni di Viaggio", <Grid className="w-5 h-5 text-indigo-500" />, ISPIRAZIONI_CATEGORIES)}
                         subtitleConfig={inspirationSubtitle}
                     />
-                    <CuratedGridSection 
-                        onCityClick={onCityClick} 
-                        onExplore={(c, t, i) => onExploreSection(c, t, i)} 
+                    <CuratedGridSection
+                        onCityClick={onCityClick}
+                        onExplore={(c, t, i) => onExploreSection(c, t, i)}
                         cityManifest={dynamicAllCities}
                     />
                 </section>
@@ -480,8 +522,8 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                     <div className="flex items-center justify-center gap-2 h-10 mb-6">
                         <div className="h-px flex-1 bg-amber-500/50"></div>
                         <div className="flex items-center gap-2 px-2">
-                             <Award className="w-4 h-4 text-amber-500"/>
-                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">PARTNER</span>
+                            <Award className="w-4 h-4 text-amber-500" />
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">PARTNER</span>
                         </div>
                         <div className="h-px flex-1 bg-amber-500/50"></div>
                     </div>
@@ -490,16 +532,16 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                         {goldGridSlots.map((s, i) => (
                             <div key={s?.id || `empty-${i}`} className="w-full h-32 md:h-44">
                                 {s ? (
-                                    <HomeSideSponsorCard 
-                                        poi={convertSponsorToPoi(s)} 
-                                        onOpenDetail={onOpenPoiDetail} 
-                                        onAddToItinerary={onAddToItinerary} 
+                                    <HomeSideSponsorCard
+                                        poi={convertSponsorToPoi(s)}
+                                        onOpenDetail={onOpenPoiDetail}
+                                        onAddToItinerary={onAddToItinerary}
                                     />
                                 ) : (
-                                    <AdPlaceholder 
-                                        label="Partner Gold" 
-                                        onClick={() => onOpenSponsor('gold')} 
-                                        className="h-full border-amber-500/30" 
+                                    <AdPlaceholder
+                                        label="Partner Gold"
+                                        onClick={() => onOpenSponsor('gold')}
+                                        className="h-full border-amber-500/30"
                                     />
                                 )}
                             </div>

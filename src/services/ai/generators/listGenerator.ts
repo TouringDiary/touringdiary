@@ -1,38 +1,40 @@
+import { aiGateway } from '../aiGateway';
 
-import { getAiClient } from '../aiClient';
 import { withRetry, cleanJsonOutput } from '../aiUtils';
-import { 
-    buildSuggestItemsPrompt, 
+import { generateAllowedCategoriesPromptString } from '../utils/taxonomyUtils'; // NEW IMPORT
+import {
+    buildSuggestItemsPrompt,
     buildRefineServicePrompt
 } from '../../../data/ai/prompts';
 
-// Definizione locale leggera per evitare import
-const ALLOWED_SUBCATEGORIES_LIST = `
-- MONUMENTI: chiesa, castello, museo, piazza, archaeology, palazzo, monumento
-- CIBO: restaurant, pizzeria, trattoria, street_food, pastry, gelato, bar
-- SVAGO: disco, theater, cinema, zoo, spa, stadium
-- NATURA: beach_free, beach_club, park, hiking, viewpoint, lake
-- SHOPPING: fashion, crafts, jewelry, souvenir
-- HOTEL: hotel, bnb, resort
-`;
-
+/**
+ * Genera liste di elementi per la città (Guide, Eventi, Servizi, Tour Operator).
+ */
 export const suggestCityItems = async (cityName: string, type: 'guides' | 'events' | 'services' | 'tour_operators' | 'people', existingNames: string[] = [], contextQuery: string = '', count: number = 3): Promise<any[]> => {
     return withRetry(async () => {
-        if (type === 'people') return [];
+        if (type === 'people') {
+            return [];
+        }
 
-        const exclusionStr = existingNames.length > 0 ? `ESCLUDI: ${existingNames.join(', ')}` : '';
-        const prompt = buildSuggestItemsPrompt(cityName, type, count, contextQuery, exclusionStr, ALLOWED_SUBCATEGORIES_LIST);
+        const exclusionStr = existingNames.length > 0 ? `ESCLUDI questi nomi già presenti: ${existingNames.join(', ')}` : '';
 
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3-flash-preview',
+        // Genera la lista dinamica delle categorie dal DB
+        const allowedCategories = generateAllowedCategoriesPromptString();
+
+        const prompt = buildSuggestItemsPrompt(cityName, type, count, contextQuery, exclusionStr, allowedCategories);
+
+        // USARE IL GETTER LAZY, NON LA COSTANTE
+
+
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: { responseMimeType: 'application/json' }
         });
 
         const text = response.text?.trim() || "[]";
         const items = JSON.parse(cleanJsonOutput(text));
-        
+
         if (type === 'events' && Array.isArray(items)) {
             return items.map((item: any) => ({
                 ...item,
@@ -45,15 +47,23 @@ export const suggestCityItems = async (cityName: string, type: 'guides' | 'event
     });
 };
 
+/**
+ * Esegue la bonifica e il merge intelligente dei dati dei servizi.
+ */
 export const refineServiceData = async (cityName: string, draftData: any): Promise<any> => {
     return withRetry(async () => {
         const prompt = buildRefineServicePrompt(cityName, draftData);
-        
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3.1-pro-preview', 
+
+        // USARE IL GETTER LAZY
+
+
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-pro',
             contents: prompt,
-            config: { responseMimeType: 'application/json', tools: [{ googleSearch: {} }] }
+            config: {
+                responseMimeType: 'application/json',
+                tools: [{ googleSearch: {} }]
+            }
         });
 
         const text = response.text?.trim() || "{}";
@@ -61,17 +71,29 @@ export const refineServiceData = async (cityName: string, draftData: any): Promi
     });
 };
 
+/**
+ * Analizza un evento per stimare interesse turistico e visitatori.
+ */
 export const analyzeEventInterest = async (eventName: string, cityName: string): Promise<any> => {
     return withRetry(async () => {
-        const prompt = `Analizza "${eventName}" a "${cityName}". RISPONDI SOLO JSON: { "rating": 85, "visitors": 5000, "summary": "..." }`;
-        
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3-flash-preview',
+        const prompt = `
+            Analizza l'evento "${eventName}" a "${cityName}".
+            1. Stima un punteggio di interesse turistico (0-100).
+            2. Stima visitatori attesi.
+            3. Scrivi un riassunto di 1 frase per invogliare.
+            
+            RISPONDI SOLO JSON: { "rating": 85, "visitors": 5000, "summary": "..." }
+        `;
+
+        // USARE IL GETTER LAZY
+
+
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: { responseMimeType: 'application/json' }
         });
-        
+
         return JSON.parse(cleanJsonOutput(response.text || "{}"));
     });
 };

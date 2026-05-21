@@ -1,8 +1,10 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../services/supabaseClient';
+import { AuthChangeEvent } from '@supabase/supabase-js';
+import { supabase, validateSession, isAuthOperationInProgress } from '../../services/supabaseClient';
+
 import { getFullManifestAsync } from '../../services/cityService';
-import { refreshUsersCache, getUserById } from '../../services/userService';
+import { refreshUsersCache, getUserById, getCurrentUserProfile } from '../../services/userService';
 import { getGuestUser } from '../../utils/userUtils';
 import { loadGlobalCache, getSetting } from '../../services/settingsService';
 import { getCurrentLevel, fetchLevelsAsync } from '../../services/gamificationService'; // UPDATED
@@ -15,7 +17,7 @@ export const useAppInitialization = (viewMode: string) => {
     const [cityManifest, setCityManifest] = useState<CitySummary[]>([]);
     const [isLoadingManifest, setIsLoadingManifest] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
-    
+
     // Gamification State
     const [showLevelUp, setShowLevelUp] = useState(false);
     const prevLevelRef = useRef(1); // Default to level 1 safely
@@ -24,66 +26,130 @@ export const useAppInitialization = (viewMode: string) => {
     // Onboarding Persistence
     const [hasSeenOnboarding, setHasSeenOnboarding] = usePersistedState<boolean>('has_seen_onboarding_v3', false);
     const [showOnboarding, setShowOnboarding] = useState(false);
+    
+    // Recovery Guard: previene loop infiniti in caso di sessione corrotta
+    const sessionRecoveryAttemptedRef = useRef(false);
+
 
     // 1. Global Setup & Connection Check & Auth Restoration
     useEffect(() => {
-        // Caricamenti base
-        loadGlobalCache();
-        
-        const initUserSession = async () => {
-            // Prima carichiamo la cache utenti per poter mappare l'ID di sessione
-            const allUsers = await refreshUsersCache();
-            
-            // Poi controlliamo se c'è una sessione attiva persistita
-            const { data: { session } } = await supabase.auth.getSession();
-            
+        const syncUserState = async (session: any) => {
             if (session?.user) {
-                const currentUser = allUsers.find(u => u.id === session.user.id);
-                // --- FIX: setUser viene chiamato solo se l'utente è cambiato ---
-                if (currentUser && currentUser.id !== user.id) {
-                    console.log("[AppInit] Sessione ripristinata per:", currentUser.name);
-                    setUser(currentUser);
+                try {
+                    console.log("[AppInit] Sincronizzazione utente con token...");
+                    // Tentiamo il recupero tramite proxy (bypass RLS) passando il token direttamente
+                    const currentUser = await getCurrentUserProfile(session.access_token);
+                    
+                    if (currentUser) {
+                        console.log("[AppInit] Utente sincronizzato via Proxy:", currentUser.name);
+                        setUser(currentUser);
+                    } else {
+                        // Fallback: tenta dalla cache locale (comportamento originale)
+                        const allUsers = await refreshUsersCache();
+                        const foundInCache = allUsers.find(u => u.id === session.user.id);
+                        if (foundInCache) {
+                            console.log("[AppInit] Utente recuperato dalla Cache:", foundInCache.name);
+                            setUser(foundInCache);
+                        }
+                    }
+                } catch (e) {
+                    console.error("[AppInit] Error syncing user state:", e);
                 }
+            } else {
+                setUser(getGuestUser());
             }
         };
 
+        // Listener reattivo per cambi di sessione
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session) => {
+            console.log(`[TRACE_LOGOUT] Auth Event Received: ${event}`, session ? 'Session Present' : 'No Session');
+            
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || (event as string) === 'USER_UPDATED') {
+                console.log("[TRACE_LOGOUT] Sincronizzazione utente attiva...");
+                await syncUserState(session);
+            } else if (event === 'SIGNED_OUT' || (event as string) === 'USER_DELETED') {
+                console.log("[TRACE_LOGOUT] SIGNED_OUT intercettato: reset a Guest.");
+                setUser(getGuestUser());
+            }
+        });
+
+        // Inizializzazione sessione (solo al primo mount)
+        const initUserSession = async () => {
+            console.log("[TRACE_LOGOUT] Inizio initUserSession...");
+            if (isAuthOperationInProgress) {
+                console.warn("[TRACE_LOGOUT] Operazione Auth in corso, skip initUserSession.");
+                return;
+            }
+
+            try {
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                console.log("[TRACE_LOGOUT] getSession result:", session ? 'Sessione Trovata' : 'Nessuna Sessione', sessionError || '');
+                
+                if (session) {
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    const isExpired = session.expires_at && session.expires_at <= nowSec;
+                    console.log("[TRACE_LOGOUT] Sessione scaduta?", isExpired);
+
+                    if (!isExpired) {
+                        await syncUserState(session);
+                    } else if (!sessionRecoveryAttemptedRef.current) {
+                        sessionRecoveryAttemptedRef.current = true;
+                        console.warn("[TRACE_LOGOUT] Sessione scaduta, forzo signOut.");
+                        await supabase.auth.signOut();
+                    }
+                }
+            } catch (e) {
+                console.error("[TRACE_LOGOUT] Error in initUserSession:", e);
+            }
+        };
+
+
         initUserSession();
 
+
         fetchLevelsAsync().then(() => {
-             // Dopo aver caricato i livelli, aggiorniamo il ref del livello corrente per evitare falsi positivi al primo render
-             prevLevelRef.current = getCurrentLevel(user.xp || 0).level;
+            // Dopo aver caricato i livelli, aggiorniamo il ref del livello corrente per evitare falsi positivi al primo render
+            prevLevelRef.current = getCurrentLevel(user.xp || 0).level;
         });
 
         const checkConnection = async () => {
             try {
-                const { error } = await supabase.from('global_settings').select('key').limit(1);
-                if (error && (error.message.includes('fetch') || error.message.includes('network'))) {
-                    setConnectionError(true);
-                } else {
-                    setConnectionError(false);
-                }
+                // Usiamo getSession() come health check leggero:
+                // non chiama PostgREST, non tocca global_settings,
+                // fallisce solo se Supabase è completamente irraggiungibile.
+                const { error } = await supabase.auth.getSession();
+                setConnectionError(!!error);
             } catch (e) {
                 setConnectionError(true);
             }
         };
         checkConnection();
+
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
     // 2. Manifest Loading
-    useEffect(() => { 
+    useEffect(() => {
         if (viewMode === 'app') {
             setIsLoadingManifest(true);
             getFullManifestAsync().then(data => {
                 setCityManifest(data);
                 setIsLoadingManifest(false);
             });
+        } else {
+            // In modalità admin non carichiamo il manifest consumer, 
+            // ma segnamo comunque l'inizializzazione come completata.
+            setIsLoadingManifest(false);
         }
     }, [viewMode]);
 
     // 4. Level Up Detection
     useEffect(() => {
         const currentLvl = getCurrentLevel(user.xp || 0).level;
-        
+
         // Se cambia utente, resetta il ref ma non mostrare level up
         if (user.id !== prevUserIdRef.current) {
             prevLevelRef.current = currentLvl;
@@ -103,9 +169,9 @@ export const useAppInitialization = (viewMode: string) => {
         const checkAutoStart = async () => {
             if (!hasSeenOnboarding && viewMode === 'app') {
                 try {
-                    const config = await getSetting<{autoStart: boolean}>('onboarding_config');
+                    const config = await getSetting<{ autoStart: boolean }>('onboarding_config');
                     if (config && config.autoStart === false) {
-                        return; 
+                        return;
                     }
                     const timer = setTimeout(() => setShowOnboarding(true), 800);
                     return () => clearTimeout(timer);
@@ -115,7 +181,7 @@ export const useAppInitialization = (viewMode: string) => {
                 }
             }
         };
-        
+
         checkAutoStart();
 
         const handleManualRestart = () => {

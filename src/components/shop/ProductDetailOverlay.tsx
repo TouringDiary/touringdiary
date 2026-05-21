@@ -1,8 +1,11 @@
-
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useEffect, useRef } from 'react';
-import { X, MapPin, Truck, MessageCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { MapPin, Truck, MessageCircle } from 'lucide-react';
 import { ShopProduct } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 
 interface ProductDetailOverlayProps {
     product: ShopProduct;
@@ -12,35 +15,25 @@ interface ProductDetailOverlayProps {
 
 export const ProductDetailOverlay: React.FC<ProductDetailOverlayProps> = ({ product, onClose, shopName }) => {
     
-    // Pattern useRef per stabilizzare il listener
-    const onCloseRef = useRef(onClose);
-    useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+    useGlobalModalEscape(!!product, onClose);
 
-    useEffect(() => {
-        const handleEsc = (e: KeyboardEvent) => { 
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                onCloseRef.current(); 
-            }
-        };
-        window.addEventListener('keydown', handleEsc, true);
-        return () => window.removeEventListener('keydown', handleEsc, true);
-    }, []); // Empty Deps
-
-    return (
-        // FIX: 'fixed' invece di 'absolute' per centrare rispetto alla finestra, non al contenitore genitore
-        // Z-Index 3000 per stare sopra alla UserDashboard (che è 2000)
-        <div className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300">
-            {/* Overlay cliccabile per chiudere */}
-            <div className="absolute inset-0" onClick={onClose}></div>
-
-            <div className="relative bg-slate-900 w-full max-w-4xl rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[85vh] z-10">
+    return createPortal(
+        <div 
+            className="td-modal-overlay pointer-events-auto bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300"
+            style={{ zIndex: Z_OVERLAY }}
+            onClick={onClose}
+        >
+            <div 
+                className="relative bg-slate-900 w-full max-w-4xl rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[85vh] pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={e => e.stopPropagation()}
+            >
                 {/* STANDARD RED CLOSE BUTTON */}
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg z-[160]">
-                    <X className="w-5 h-5"/>
-                </button>
+                <CloseButton 
+                    onClose={onClose} 
+                    position="absolute"
+                    variant="primary"
+                />
                 
                 {/* Image Section */}
                 <div className="w-full md:w-1/2 bg-black relative shrink-0 h-64 md:h-auto">
@@ -77,6 +70,10 @@ export const ProductDetailOverlay: React.FC<ProductDetailOverlayProps> = ({ prod
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

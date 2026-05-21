@@ -2,10 +2,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Itinerary, ItineraryItem, PointOfInterest, PremadeItinerary, RoadbookDay } from '../types/index';
 import { User } from '../types/users';
-import { getPoisByIds } from '../services/cityService'; 
-import { getStorageItem, setStorageItem } from '../services/storageService'; 
-import { saveUserDraft, getUserDrafts, deleteUserDraft } from '../services/communityService'; 
-import { useUser } from './UserContext'; 
+import { getPoisByIds } from '../services/cityService';
+import { getStorageItem, setStorageItem } from '../services/storageService';
+import { saveUserDraft, getUserDrafts, deleteUserDraft } from '../services/communityService';
+import { useUser } from './UserContext';
 
 import { ItineraryStorageManager } from '../services/itineraryStorageManager';
 
@@ -13,9 +13,9 @@ interface ItineraryContextType {
     itinerary: Itinerary;
     setItinerary: React.Dispatch<React.SetStateAction<Itinerary>>;
     savedProjects: Itinerary[];
-    saveProject: (name?: string, user?: User, isSaveAs?: boolean) => Promise<boolean>; 
+    saveProject: (name?: string, user?: User, isSaveAs?: boolean) => Promise<boolean>;
     loadProject: (project: Itinerary) => void;
-    deleteProject: (id: string) => Promise<void>; 
+    deleteProject: (id: string) => Promise<void>;
     highlightDates: boolean;
     setHighlightDates: (v: boolean) => void;
     highlightedItemId: string | null;
@@ -28,7 +28,7 @@ interface ItineraryContextType {
     importPremadeItinerary: (template: PremadeItinerary, startDate?: string) => Promise<void>;
     findFreeSlot: (dayIndex: number) => string | null;
     refreshItineraryData: () => Promise<void>;
-    syncCloudDrafts: (userId: string) => Promise<void>; 
+    syncCloudDrafts: (userId: string) => Promise<void>;
 }
 
 const ItineraryContext = createContext<ItineraryContextType | undefined>(undefined);
@@ -38,9 +38,9 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
     const userContext = useUser();
     const user = userContext?.user;
     const prevUserIdRef = useRef<string>(user?.id || 'guest');
-    
-    const [itinerary, setItinerary] = useState<Itinerary>({ 
-        id: 'it1', name: '', startDate: null, endDate: null, items: [], createdAt: Date.now(), dayStyles: {}, roadbook: [] 
+
+    const [itinerary, setItinerary] = useState<Itinerary>({
+        id: null, name: '', startDate: null, endDate: null, items: [], createdAt: Date.now(), dayStyles: {}, roadbook: []
     });
     const [savedProjects, setSavedProjects] = useState<Itinerary[]>([]);
     const [highlightDates, setHighlightDates] = useState(false);
@@ -54,10 +54,10 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         };
 
         loadProjects();
-    }, [user?.id, user?.role]); 
+    }, [user?.id, user?.role]);
 
     const clearItinerary = useCallback(() => {
-        setItinerary({ id: `it-${Date.now()}`, name: '', startDate: null, endDate: null, items: [], createdAt: Date.now(), dayStyles: {}, roadbook: [] });
+        setItinerary({ id: null, name: '', startDate: null, endDate: null, items: [], createdAt: Date.now(), dayStyles: {}, roadbook: [] });
         setHighlightedItemId(null);
     }, []);
 
@@ -65,12 +65,12 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
     useEffect(() => {
         const prevId = prevUserIdRef.current;
         const currentId = user?.id || 'guest';
-        
+
         if (prevId !== 'guest' && currentId === 'guest') {
             console.log("[Itinerary] User logged out. Clearing active itinerary.");
             clearItinerary();
         }
-        
+
         prevUserIdRef.current = currentId;
     }, [user?.id, clearItinerary]);
 
@@ -88,7 +88,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
     const saveProject = useCallback(async (nameOverride?: string, userObj?: User, isSaveAs?: boolean) => {
         const targetUser = userObj || user;
         const isGuest = !targetUser || targetUser.role === 'guest';
-        
+
         const targetName = nameOverride || itinerary.name;
         if (!targetName) {
             console.warn("Inserisci un nome per il viaggio.");
@@ -96,32 +96,32 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         }
 
         let targetId = itinerary.id;
-        
-        const isTempId = targetId === 'it1' || targetId.startsWith('imported-') || targetId.startsWith('ai-it-') || targetId.startsWith('draft_') || targetId.startsWith('it-');
-        
+
+        const isTempId = !targetId || targetId.startsWith('imported-') || targetId.startsWith('ai-it-') || targetId.startsWith('draft_') || targetId.startsWith('it-');
+
         const existsInSaved = savedProjects.some(p => p.id === targetId);
         const isGhostId = !isGuest && !isTempId && !existsInSaved;
 
         const isSaveAsNewCopy = isSaveAs && targetName !== itinerary.name;
 
         if (isTempId || isGhostId || isSaveAsNewCopy) {
-             console.log("[Itinerary] Generating fresh UUID for project (Temp, Ghost, or SaveAs with new name detected)");
-             targetId = crypto.randomUUID();
+            console.log("[Itinerary] Generating fresh UUID for project (Temp, Ghost, or SaveAs with new name detected)");
+            targetId = crypto.randomUUID();
         }
-        
-        const saveObject: Itinerary = { 
-            ...itinerary, 
-            id: targetId, 
-            name: targetName, 
-            userId: isGuest ? 'guest' : targetUser.id, 
-            createdAt: itinerary.createdAt || Date.now() 
+
+        const saveObject: Itinerary = {
+            ...itinerary,
+            id: targetId,
+            name: targetName,
+            userId: isGuest ? 'guest' : targetUser.id,
+            createdAt: itinerary.createdAt || Date.now()
         };
-        
+
         setItinerary(saveObject);
-        
+
         try {
             const success = await ItineraryStorageManager.saveProject(saveObject, targetUser);
-            
+
             if (success) {
                 // Aggiorna OTTIMISTICO Locale
                 setSavedProjects(prev => {
@@ -139,7 +139,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
                     try {
                         const fresh = await ItineraryStorageManager.loadProjects(targetUser);
                         setSavedProjects(fresh);
-                    } catch(e) {
+                    } catch (e) {
                         console.warn("Sync post-save failed but save was successful.");
                     }
                 }
@@ -155,28 +155,28 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
     }, [itinerary, user, savedProjects]);
 
     const loadProject = useCallback((project: Itinerary) => setItinerary(project), []);
-    
+
     // DELETE PROJECT
     const deleteProject = useCallback(async (targetId: string) => {
         const isGuest = !user || user.role === 'guest';
-        
+
         if (!targetId) return;
 
         // Sanitizzazione ID
         const cleanId = targetId.trim();
 
         const success = await ItineraryStorageManager.deleteProject(cleanId, user);
-        
+
         if (success) {
             // Aggiorna OTTIMISTICO Locale
             setSavedProjects(prev => prev.filter(p => p.id !== cleanId));
-            
+
             // SYNC ROBUSTO
             if (!isGuest) {
                 try {
                     const fresh = await ItineraryStorageManager.loadProjects(user);
                     setSavedProjects(fresh);
-                } catch(e) {
+                } catch (e) {
                     console.warn("Sync post-delete failed but delete was successful.");
                 }
             }
@@ -216,57 +216,57 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         const newItems: ItineraryItem[] = [];
         for (const item of template.items) {
             let poi: PointOfInterest | null = null;
-             poi = { 
-                id: item.poiId, 
-                name: item.fallbackName || 'POI', 
-                category: 'discovery', 
-                description: item.note || '', 
-                imageUrl: '', 
-                rating: 4.5, 
-                votes: 0, 
-                coords: { lat: 0, lng: 0 }, 
-                address: '' 
+            poi = {
+                id: item.poiId,
+                name: item.fallbackName || 'POI',
+                category: 'discovery',
+                description: item.note || '',
+                imageUrl: '',
+                rating: 4.5,
+                votes: 0,
+                coords: { lat: 0, lng: 0 },
+                address: ''
             };
-            
+
             newItems.push({ id: `premade-${Date.now()}-${Math.random()}`, cityId: template.mainCity.toLowerCase(), dayIndex: item.dayIndex, timeSlotStr: item.timeSlotStr, poi, notes: item.note });
         }
         const startD = startDateOverride || new Date().toISOString().split('T')[0];
         const start = new Date(startD);
         const end = new Date(start);
         end.setDate(start.getDate() + template.durationDays - 1);
-        
+
         const newId = crypto.randomUUID();
-        
-        setItinerary({ 
-            id: newId, 
-            userId: user ? user.id : 'guest', 
-            name: template.title, 
-            startDate: startD, 
-            endDate: end.toISOString().split('T')[0], 
-            items: newItems, 
-            createdAt: Date.now(), 
-            dayStyles: {}, 
-            roadbook: [] 
+
+        setItinerary({
+            id: newId,
+            userId: user ? user.id : 'guest',
+            name: template.title,
+            startDate: startD,
+            endDate: end.toISOString().split('T')[0],
+            items: newItems,
+            createdAt: Date.now(),
+            dayStyles: {},
+            roadbook: []
         });
     }, [user.id]);
 
     const findFreeSlot = (dayIndex: number) => {
-        const dayItems = itinerary.items.filter(i => 
-            i.dayIndex === dayIndex && 
-            i.timeSlotStr && 
+        const dayItems = itinerary.items.filter(i =>
+            i.dayIndex === dayIndex &&
+            i.timeSlotStr &&
             i.timeSlotStr.includes(':')
         );
-        
+
         if (dayItems.length === 0) return '09:00';
-        
+
         dayItems.sort((a, b) => a.timeSlotStr.localeCompare(b.timeSlotStr));
-        
+
         const lastItem = dayItems[dayItems.length - 1];
         const [h, m] = lastItem.timeSlotStr.split(':').map(Number);
-        
-        let newH = h + 1; 
+
+        let newH = h + 1;
         if (newH >= 24) newH = 23;
-        
+
         return `${newH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     };
 
@@ -290,7 +290,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
                 }
                 return item;
             });
-            
+
             setItinerary(prev => ({ ...prev, items: updatedItems }));
             console.log("Dati diario aggiornati dal Cloud!");
 

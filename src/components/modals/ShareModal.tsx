@@ -1,6 +1,11 @@
-
+import type { User } from '@/types/users';
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useEffect, useState } from 'react';
-import { X, Copy, Check, MessageCircle, Facebook, Twitter, Mail, Share2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Copy, Check, MessageCircle, Facebook, Twitter, Mail, Share2 } from 'lucide-react';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -22,15 +27,11 @@ export const ShareModal = ({ isOpen, onClose, title, text, url }: ShareModalProp
         setIsMobileUserAgent(mobileRegex.test(ua));
     }, []);
 
-    // ESC Key
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // ESC Handling
+    useGlobalModalEscape(isOpen, onClose);
+
+
+
 
     if (!isOpen) return null;
 
@@ -79,13 +80,15 @@ export const ShareModal = ({ isOpen, onClose, title, text, url }: ShareModalProp
         }
     ];
 
-    return (
-        <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl p-6 relative animate-in zoom-in-95">
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm p-4 animate-in fade-in" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
+            <div 
+                className="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl p-6 relative animate-in zoom-in-95 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-slate-800">
-                    <X className="w-5 h-5"/>
-                </button>
+                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
 
                 <div className="text-center mb-6">
                     <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center border-2 border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.3)] mx-auto mb-4">
@@ -122,6 +125,10 @@ export const ShareModal = ({ isOpen, onClose, title, text, url }: ShareModalProp
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

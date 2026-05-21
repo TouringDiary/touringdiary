@@ -37,16 +37,31 @@ export const NewsTicker = ({ overrideSpeed, overrideItems, isVisible = true }: N
 
         // Altrimenti carica dal DB (Sito Pubblico)
         const load = async () => {
+            try {
+                // 1. TENTA API LOCALE
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bootstrap/content`);
+                if (response.ok) {
+                    const apiRes = await response.json();
+                    if (apiRes.success) {
+                        const items = (apiRes.ticker || []).map((n: any) => ({
+                            id: n.id, text: n.text, icon: n.icon, active: n.active, order: n.order_index
+                        }));
+                        setNewsItems(items.filter((i: any) => i && i.active && i.id));
+                        if (apiRes.tickerConfig?.duration) setSpeed(apiRes.tickerConfig.duration);
+                        return;
+                    }
+                }
+            } catch (apiError) {
+                console.warn("[NewsTicker] API locale fallita, uso fallback Supabase");
+            }
+
+            // 2. FALLBACK SUPABASE ORIGINALE
             const [items, config] = await Promise.all([
                 getNewsTickerItemsAsync(),
                 getSetting<{ duration: number }>('ticker_config')
             ]);
-            
-            // FIX: Filtro items validi per evitare undefined keys
             setNewsItems((items || []).filter(i => i && i.active && i.id));
-            if (config && config.duration) {
-                setSpeed(config.duration);
-            }
+            if (config && config.duration) setSpeed(config.duration);
         };
         load();
     }, [overrideSpeed, overrideItems]);
@@ -56,13 +71,13 @@ export const NewsTicker = ({ overrideSpeed, overrideItems, isVisible = true }: N
     return (
         <div 
             className={`
-                relative w-full h-8 bg-slate-900 border-b border-slate-800 z-[1100] flex items-center overflow-hidden shadow-md
+                relative w-full h-8 bg-slate-900 border-b border-slate-800 z-floating-panel flex items-center overflow-hidden shadow-md
                 transition-all duration-500 ease-in-out
                 ${isVisible ? 'mt-0 opacity-100' : '-mt-8 opacity-0 pointer-events-none'}
                 md:mt-0 md:opacity-100 md:pointer-events-auto
             `}
         >
-            <div className={`${labelStyle} bg-amber-600 px-3 h-full flex items-center justify-center z-20 shadow-lg flex-shrink-0 relative border-r border-amber-700`}>
+            <div className={`${labelStyle} bg-amber-600 px-3 h-full flex items-center justify-center z-dropdown shadow-lg flex-shrink-0 relative border-r border-amber-700`}>
                 NEWS
             </div>
             

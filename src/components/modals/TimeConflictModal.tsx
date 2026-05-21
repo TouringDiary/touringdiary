@@ -1,6 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, X, RefreshCw, ArrowDown, Clock, MapPin } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { AlertTriangle, RefreshCw, ArrowDown, Clock, MapPin } from 'lucide-react';
 import { ItineraryItem } from '../../types/index';
 
 interface TimeConflictModalProps {
@@ -26,22 +30,19 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
         }
     }
 
-    // ESC Key Listener
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+
+    // ESC Handling
+    useGlobalModalEscape(isOpen, onClose);
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-             <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={onClose}></div>
-             <div className="relative bg-[#0f172a] w-full max-w-md rounded-3xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col">
+    return createPortal(
+        <div className="td-modal-overlay !p-4 bg-black/95 backdrop-blur-md" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
+             <div 
+                className="relative bg-[#0f172a] w-full max-w-md rounded-3xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {/* HEADER */}
                 <div className="flex justify-between items-start p-6 pb-4 border-b border-slate-800 bg-slate-900/50">
@@ -54,7 +55,7 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
                             <p className="text-sm text-slate-400 font-medium">Spostamento tappa</p>
                          </div>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg -mt-2 -mr-2"><X className="w-5 h-5"/></button>
+                    <CloseButton onClose={onClose} variant="primary" className="-mt-2 -mr-2" />
                 </div>
 
                 <div className="p-6 overflow-y-auto custom-scrollbar">
@@ -85,7 +86,7 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
                         </div>
 
                         {/* CONNECTOR */}
-                        <div className="flex items-center justify-center py-2 relative z-10">
+                        <div className="flex items-center justify-center py-2 relative z-floating-panel">
                             <div className="bg-slate-800 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 shadow-sm flex items-center gap-1">
                                 <ArrowDown className="w-3 h-3"/> SOSTITUIRE CON <ArrowDown className="w-3 h-3"/>
                             </div>
@@ -165,6 +166,10 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
                 </div>
 
              </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

@@ -56,21 +56,21 @@ export const ShopHero: React.FC<ShopHeroProps> = ({ shop, onOpenLightbox, onTogg
                 </DraggableSlider>
 
                 {/* Controls */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-40">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-dropdown">
                     {galleryImages.map((_, dotIdx) => (
                         <div key={dotIdx} className={`h-1.5 rounded-full transition-all duration-500 ${dotIdx === activePhotoIndex ? 'w-8 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.6)]' : 'w-4 bg-slate-500/30 border border-white/5'}`}/>
                     ))}
                 </div>
                 
-                <button onClick={() => galleryRef.current?.scroll('left')} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all z-20 border border-white/10 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0"><ChevronLeft className="w-6 h-6"/></button>
-                <button onClick={() => galleryRef.current?.scroll('right')} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all z-20 border border-white/10 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0"><ChevronRight className="w-6 h-6"/></button>
+                <button onClick={() => galleryRef.current?.scroll('left')} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all z-floating-panel border border-white/10 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0"><ChevronLeft className="w-6 h-6"/></button>
+                <button onClick={() => galleryRef.current?.scroll('right')} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all z-floating-panel border border-white/10 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0"><ChevronRight className="w-6 h-6"/></button>
             </div>
 
             {/* RIGHT: INFO COLUMN */}
             <div className="w-full lg:w-[25%] bg-[#050b1a] flex flex-col justify-center p-6 md:p-8 lg:p-10 relative">
                 <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-500 via-slate-900 to-transparent"></div>
                 
-                <div className="relative z-10 flex flex-col h-full justify-between">
+                <div className="relative z-floating-panel flex flex-col h-full justify-between">
                     <div>
                         {/* STILE UNIFORMATO SUB-HEADER CON ICONA */}
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2 flex items-center gap-2">

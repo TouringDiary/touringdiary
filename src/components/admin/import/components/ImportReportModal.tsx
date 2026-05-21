@@ -20,7 +20,7 @@ export const ImportReportModal = ({ report, onClose }: ImportReportModalProps) =
     if (!report.isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl p-6 relative flex flex-col items-center text-center">
                  <div className={`w-20 h-20 rounded-full flex items-center justify-center border-4 shadow-xl mb-4 ${report.quotaExceeded ? 'bg-amber-500/20 border-amber-500' : 'bg-emerald-500/20 border-emerald-500'}`}>
                      {report.quotaExceeded ? <PauseCircle className="w-10 h-10 text-amber-500"/> : <CheckCircle className="w-10 h-10 text-emerald-500"/>}

@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { History, ChevronUp, ChevronDown, UserCheck, Store, ShoppingBag, Mail, Star, CheckCircle, XCircle, CalendarPlus, Ban, Clock, Eye, Trash2, CheckSquare, Square, AlertOctagon, Users, MessageSquare } from 'lucide-react';
 import { SponsorRequest, CitySummary } from '../../../types/index';
+import { PLAN_TYPES, PlanType } from '../../../constants/planTypes';
 import { getDismissedAlerts, dismissPartnerAlert, getSponsorRating } from '../../../services/sponsorService';
 import { PaginationControls } from '../../common/PaginationControls';
 
@@ -12,7 +13,7 @@ interface SponsorTableProps {
     onInitialApproval: (id: string) => void;
     onReject: (id: string) => void;
     onActivate: (id: string, pricingVersionId?: string) => void;
-    onOpenCrm: (vatNumber: string) => void;
+    onOpenCrm: (identity: { profileId?: string | null, vat?: string | null, email?: string | null, requestId?: string | null }) => void;
     onPreview: (req: SponsorRequest) => void;
     onExtend: (id: string) => void;
     onCancel: (id: string) => void;
@@ -54,7 +55,17 @@ export const SponsorTable = ({
     const [dismissedVats, setDismissedVats] = useState<string[]>(getDismissedAlerts());
     const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
 
+    const ACTIVITY_PLAN_TYPES = useMemo(() => new Set<PlanType>([
+        PLAN_TYPES.LOCAL_ACTIVITY, 
+        PLAN_TYPES.REGIONAL_ACTIVITY, 
+        PLAN_TYPES.DIGITAL_SHOWCASE
+    ]), []);
+
     const displayData = useMemo(() => {
+        if (requests.length > 0) {
+            console.log(`[SponsorTable] Debug | Recived: ${requests.length} records. Statuses:`, requests.map(r => r.status));
+        }
+
         const groups: Record<string, SponsorRequest[]> = {};
         requests.forEach(req => {
             const key = req.vatNumber ? req.vatNumber : req.id;
@@ -102,23 +113,24 @@ export const SponsorTable = ({
                     const cityDetails = manifest.find(c => c.id === req.cityId);
                     
                     // Count only INBOUND unread messages from user
-                    const totalUnreadCount = group.reduce((sum, r) => sum + (r.partnerLogs?.filter(l => l.direction === 'inbound' && l.isUnread).length || 0), 0);
+                    const totalUnreadCount = group.reduce((sum, r) => sum + (r.unreadCount || 0), 0);
                     
                     const isBadPartner = hasBadHistory(req.vatNumber, req.id);
                     const showBadHistoryAlert = isBadPartner && !dismissedVats.includes(req.vatNumber || '');
                     
-                    const isGuide = req.type === 'guide';
-                    const isActivity = req.type === 'activity' || req.type === 'shop' || (!isGuide && req.poiCategory);
+                    const isGuide = req.type === PLAN_TYPES.TOUR_GUIDE;
+                    const isActivity = ACTIVITY_PLAN_TYPES.has(req.type);
                     
                     let currentRating = null;
-                    if (req.status === 'approved' || req.status === 'expired') {
+                    if (req.status === 'approved' || req.isExpired) {
                         currentRating = getSponsorRating(req.id);
                     }
                     
                     let borderClass = 'border-slate-800';
                     let bgClass = 'bg-slate-900';
                     
-                    if (req.status === 'approved') borderClass = 'border-emerald-500/30';
+                    if (req.status === 'approved' && !req.isExpired) borderClass = 'border-emerald-500/30';
+                    else if (req.isExpired) { borderClass = 'border-rose-500/40'; bgClass = 'bg-rose-950/5'; }
                     else if (req.status === 'rejected') { borderClass = 'border-red-500/30'; bgClass = 'bg-red-950/5'; }
                     else if (req.status === 'cancelled') { borderClass = 'border-slate-600'; bgClass = 'bg-slate-900 opacity-60'; }
 
@@ -135,7 +147,7 @@ export const SponsorTable = ({
                         <div key={req.id} className={`${bgClass} rounded-xl border flex flex-col transition-all animate-in fade-in slide-in-from-bottom-2 ${borderClass} overflow-hidden relative shadow-lg ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}>
                             
                             {isSuperAdmin && onToggleSelection && (
-                                <div className="absolute top-2 right-2 z-[50]">
+                                <div className="absolute top-2 right-2 z-admin-modal">
                                     <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSelection(req.id); }} className={`p-1.5 rounded-lg shadow-lg border transition-all ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-black/50 border-white/20 text-slate-300 hover:bg-black/70'}`}>
                                         {isSelected ? <CheckSquare className="w-5 h-5"/> : <Square className="w-5 h-5"/>}
                                     </button>
@@ -143,7 +155,7 @@ export const SponsorTable = ({
                             )}
 
                             {showBadHistoryAlert && (
-                                <div className="bg-red-600 text-white text-xs font-bold px-4 py-3 flex items-center justify-between animate-pulse relative z-10 shadow-lg pl-10">
+                                <div className="bg-red-600 text-white text-xs font-bold px-4 py-3 flex items-center justify-between animate-pulse relative z-floating-panel shadow-lg pl-10">
                                     <div className="flex items-center gap-3">
                                         <div className="bg-white text-red-600 p-1 rounded-full"><AlertOctagon className="w-5 h-5"/></div>
                                         <span className="text-sm uppercase tracking-wide">ATTENZIONE: Partner con storico negativo</span>
@@ -155,25 +167,37 @@ export const SponsorTable = ({
                             )}
 
                             <div className="bg-slate-950/80 px-6 py-3 border-b border-slate-800 flex flex-wrap gap-x-8 gap-y-2 items-center pl-10 md:pl-6">
-                                <div className="flex flex-col"><span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">REGIONE</span><span className="text-[10px] font-bold text-slate-400 uppercase">{cityDetails?.adminRegion || 'CAMPANIA'}</span></div>
-                                <div className="flex flex-col"><span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">CITTÀ</span><span className="text-[11px] font-black text-white">{cityDetails?.name || 'Sconosciuta'}</span></div>
+                                <div className="flex flex-col">
+                                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">REGIONE</span>
+                                    <span className={`text-[10px] font-bold uppercase ${!cityDetails && req.cityId ? 'text-amber-500' : 'text-slate-400'}`}>
+                                        {cityDetails?.adminRegion || (req.cityId ? 'ID Non Valido' : 'N/D')}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">CITTÀ</span>
+                                    <span className={`text-[11px] font-black ${!cityDetails && req.cityId ? 'text-amber-500' : 'text-white'}`}>
+                                        {cityDetails?.name || (req.cityId || 'Sconosciuta')}
+                                    </span>
+                                </div>
                             </div>
 
                             <div className="p-6 flex flex-col md:flex-row gap-6 justify-between items-start pl-12 md:pl-6">
                                 <div className="flex-1 w-full">
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-3">
-                                            <span className={`px-2 py-0.5 rounded text-sm font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-500/20 text-emerald-500' : req.status === 'rejected' ? 'bg-red-500/20 text-red-500' : req.status === 'cancelled' ? 'bg-slate-700 text-slate-400' : 'bg-slate-700 text-slate-400'}`}>{req.status.replace('_', ' ')}</span>
-                                            {isGuide ? <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded border border-indigo-400 flex items-center gap-1"><UserCheck className="w-3 h-3"/> GUIDA</span> : <>{req.tier === 'gold' && <span className="bg-amber-500 text-black text-xs font-bold px-2 py-0.5 rounded border border-amber-600">GOLD</span>}{req.tier === 'silver' && <span className="bg-slate-300 text-slate-900 text-xs font-bold px-2 py-0.5 rounded border border-slate-400">SILVER</span>}</>}
+                                            <span className={`px-2 py-0.5 rounded text-sm font-bold uppercase tracking-wider ${req.isExpired ? 'bg-rose-500/20 text-rose-500' : req.status === 'approved' ? 'bg-emerald-500/20 text-emerald-500' : req.status === 'rejected' ? 'bg-red-500/20 text-red-500' : req.status === 'cancelled' ? 'bg-slate-700 text-slate-400' : 'bg-slate-700 text-slate-400'}`}>
+                                                {req.isExpired ? 'SCADUTO' : req.status.replace('_', ' ')}
+                                            </span>
+                                            {isGuide ? <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded border border-indigo-400 flex items-center gap-1"><UserCheck className="w-3 h-3"/> GUIDA</span> : <>{req.type === PLAN_TYPES.REGIONAL_ACTIVITY && <span className="bg-amber-500 text-black text-xs font-bold px-2 py-0.5 rounded border border-amber-600">GOLD</span>}{req.type === PLAN_TYPES.LOCAL_ACTIVITY && <span className="bg-slate-300 text-slate-900 text-xs font-bold px-2 py-0.5 rounded border border-slate-400">SILVER</span>}</>}
                                         </div>
                                     </div>
                                     
                                     <div className="flex items-center gap-2 mb-2">
                                         <div className={`p-2 rounded-lg ${isGuide ? 'bg-indigo-900/30 text-indigo-400' : 'bg-slate-800 text-slate-400'}`}>{isGuide ? <UserCheck className="w-5 h-5"/> : <Store className="w-5 h-5"/>}</div>
-                                        <h3 className="text-2xl font-bold text-white cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => req.vatNumber && onOpenCrm(req.vatNumber)}>{req.companyName}</h3>
+                                        <h3 className="text-2xl font-bold text-white cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => onOpenCrm({ profileId: req.profileId, vat: req.vatNumber, email: req.email || req.requesterEmail, requestId: req.id })}>{req.companyName}</h3>
                                         {isActivity && <div className="ml-3 bg-blue-900/40 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-bold text-blue-300 uppercase tracking-wide flex items-center gap-1.5" title="Profilo Attività/Bottega"><ShoppingBag className="w-3 h-3"/> Vetrina</div>}
                                         {/* UNREAD INDICATOR */}
-                                        {totalUnreadCount > 0 && <span className="bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse ml-2 cursor-pointer" onClick={() => req.vatNumber && onOpenCrm(req.vatNumber)}><Mail className="w-3 h-3"/> {totalUnreadCount}</span>}
+                                        {totalUnreadCount > 0 && <span className="bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse ml-2 cursor-pointer" onClick={() => onOpenCrm({ profileId: req.profileId, vat: req.vatNumber, email: req.email || req.requesterEmail, requestId: req.id })}><Mail className="w-3 h-3"/> {totalUnreadCount}</span>}
                                     </div>
 
                                     <div className="text-base text-slate-300 mb-4 flex flex-wrap gap-4">
@@ -184,8 +208,8 @@ export const SponsorTable = ({
                                     {(req.status === 'approved' || req.status === 'expired' || req.status === 'cancelled') && (
                                         <div className="bg-slate-950/50 border border-slate-800 rounded-lg p-4 grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                                             <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Attivazione</span><span className="text-base font-bold text-slate-200">{req.startDate || '--'}</span></div>
-                                            <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Scadenza</span><span className={`text-base font-bold ${req.status === 'expired' ? 'text-red-400' : 'text-emerald-400'}`}>{req.endDate || '--'}</span></div>
-                                            <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Rating</span><div className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-amber-400 fill-current"/> <span className="font-bold text-white">{currentRating !== null ? currentRating : 'N/A'}</span></div></div>
+                                            <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Scadenza</span><span className={`text-base font-bold ${req.isExpired ? 'text-red-400' : 'text-emerald-400'}`}>{req.endDate || '--'}</span></div>
+                                            <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Rating</span><div className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-amber-400 fill-current"/> <span className="font-bold text-white">{currentRating !== null && currentRating !== undefined ? currentRating : 'N/A'}</span></div></div>
                                             <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Piano</span><span className="text-base font-bold text-slate-200">{req.plan?.replace('_', ' ') || '--'}</span></div>
                                         </div>
                                     )}
@@ -201,7 +225,7 @@ export const SponsorTable = ({
                                                     {historyItems.map((h, hIdx) => (
                                                         <div key={h.id || `hist-${hIdx}`} className="grid grid-cols-4 items-center gap-2 p-2 bg-slate-900/50 rounded text-xs text-slate-400 hover:bg-slate-800 transition-colors">
                                                             <div className="col-span-1 font-mono">{h.date.split('-')[0]}</div>
-                                                            <div className="col-span-1"><span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${h.status === 'expired' ? 'bg-slate-700 text-slate-400' : h.status === 'approved' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/20 text-red-400'}`}>{h.status}</span></div>
+                                                            <div className="col-span-1"><span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${h.isExpired ? 'bg-rose-900/30 text-rose-400' : h.status === 'approved' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/20 text-red-400'}`}>{h.isExpired ? 'EXPIRED' : h.status}</span></div>
                                                             <div className="col-span-1 font-bold text-slate-300">€{h.amount || 0}</div>
                                                             <div className="col-span-1 text-right text-[10px] font-mono opacity-50">{h.startDate} - {h.endDate}</div>
                                                         </div>
@@ -223,15 +247,22 @@ export const SponsorTable = ({
                                         )}
                                         {req.status === 'approved' && (
                                             <>
-                                                <button onClick={() => onExtend(req.id)} className="bg-slate-800 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold uppercase flex items-center gap-1 transition-colors border border-slate-700 hover:border-indigo-500"><CalendarPlus className="w-4 h-4"/> Estendi</button>
-                                                <button onClick={() => onCancel(req.id)} className="bg-slate-800 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold uppercase flex items-center gap-1 transition-colors border border-slate-700 hover:border-red-500"><Ban className="w-4 h-4"/> Termina</button>
+                                                <button onClick={() => onExtend(req.id)} className="bg-slate-800 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold uppercase flex items-center gap-1 transition-colors border border-slate-700 hover:border-indigo-500"><CalendarPlus className="w-4 h-4"/> {req.isExpired ? 'Rinnova' : 'Estendi'}</button>
+                                                {!req.isExpired && (
+                                                    <button onClick={() => onCancel(req.id)} className="bg-slate-800 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold uppercase flex items-center gap-1 transition-colors border border-slate-700 hover:border-red-500"><Ban className="w-4 h-4"/> Termina</button>
+                                                )}
                                             </>
                                         )}
                                     </div>
                                 </div>
                                 
                                 <div className="flex flex-col gap-2 w-full md:w-40 min-w-[160px]">
-                                    {req.vatNumber && <button onClick={() => req.vatNumber && onOpenCrm(req.vatNumber)} className="w-full text-sm font-bold uppercase flex items-center justify-center gap-2 px-3 py-3 rounded border border-slate-700 bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-indigo-400 transition-colors"><Clock className="w-4 h-4"/> CRM / Chat</button>}
+                                    <button 
+                                        onClick={() => onOpenCrm({ profileId: req.profileId, vat: req.vatNumber, email: req.email || req.requesterEmail, requestId: req.id })} 
+                                        className="w-full text-sm font-bold uppercase flex items-center justify-center gap-2 px-3 py-3 rounded border border-slate-700 bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-indigo-400 transition-colors"
+                                    >
+                                        <Clock className="w-4 h-4"/> CRM / Chat
+                                    </button>
                                     <button onClick={() => onPreview(req)} className="w-full text-sm text-slate-400 hover:text-white flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 py-3 rounded mt-auto transition-colors font-bold uppercase border border-slate-700"><Eye className="w-4 h-4"/> Anteprima</button>
                                     
                                     {isSuperAdmin && onDelete && (

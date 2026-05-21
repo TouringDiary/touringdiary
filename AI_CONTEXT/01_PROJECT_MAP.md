@@ -1,52 +1,359 @@
+# 🗺️ DOC 01: PROJECT MAP (ARCHITETTURA v6.0)
 
-# 🗺️ DOC 00: PROJECT MAP (ARCHITETTURA v4.0)
-*Mappa Concettuale dell'Applicazione*
+Mappa concettuale completa del sistema TouringDiary.
 
-## 1. 🏠 CORE & NAVIGAZIONE
-*   **Shell:** `AppShell` gestisce il layout responsivo (Header, Sidebar Sx, Content Dx).
-*   **Mobile:** Navigazione inferiore (`MobileNavBar`) con logica a scomparsa e FAB.
-*   **Router:** `AppRouter` utilizza un approccio a rotta singola ("/*"). La logica di "routing" è di fatto gestita dal componente MainContent, che renderizza condizionalmente le viste principali (Home, Città, Shop) in base allo stato del NavigationContext.
+Questo documento descrive:
 
-## 2. 🏛️ DOMINIO "CITTÀ" (City)
-*   **Visualizzazione:** Header animato, Tab di navigazione (Vetrina, Liste, Media).
-*   **Logica Dati:** Separazione tra `cityReadService` (Cache) e `cityWriteService` (DB).
-*   **AI Integration:** Generazione automatica di Storia, Patrono, Statistiche e POI mancanti.
+• domini applicativi principali
+• pipeline funzionali
+• moduli logici verificati dal codice
+• sistemi economici AI
+• sistemi social e gamification
+• sistemi sponsor e pricing
 
-## 3. 📒 DOMINIO "DIARIO" (Itinerary)
-*   **Struttura:** Drag & Drop su timeline verticale.
-*   **Tipi Item:**
-    *   **Standard:** Tappe con orario (Monumenti, Ristoranti).
-    *   **Risorse:** Contatti utili (Guide, Hotel) nel footer del giorno.
-    *   **Memo:** Note volanti testuali.
-*   **Smart Features:** Calcolo distanze, avvisi meteo, conflitti orari.
 
-## 4. 💼 DOMINIO "BUSINESS" (B2B)
-*   **Sponsor:** Gestione livelli (Gold/Silver) e visibilità prioritaria.
-*   **Bottega:** Vetrina prodotti per partner locali con contatto diretto (non e-commerce).
-*   **CRM:** Chat diretta tra Admin e Partner (`UserMessagesTab`).
+---
 
-## 5. 🛠️ DOMINIO "ADMIN" (Backoffice Esteso)
-Il pannello di controllo è ora modulare:
-*   **Territorio:** `CitiesManager` (CRUD), `ImportDashboard` (OSM Staging), `GlobalEvents`.
-*   **Marketing:** `SponsorManager` (Contratti), `SocialStudio` (Creazione Post Virali).
-*   **Community:** `SuggestionManager` (Segnalazioni), `PhotoModeration`.
-*   **Sistema:** `AdminDesignSystem` (Stili), `AdminCommunications` (Notifiche/Email).
+# 1. 🏠 CORE & NAVIGAZIONE
 
-## 6. 🧠 DOMINIO "AI" (Intelligence)
-*   **Client:** Wrapper unico `aiClient.ts` per Google Gemini.
-*   **Task Runner:** Sistema a step (`useAiTaskRunner`) per operazioni lunghe (es. Rigenerazione Città).
-*   **Generatori:** Moduli specifici per testi, immagini, analisi dati e itinerari (`aiPlanner`).
+Shell principale:
 
-## 7. 🎨 DESIGN SYSTEM
-*   **Dinamico:** Colori, Font e Testi sono caricati dal DB (`useDynamicStyles`).
-*   **Responsive:** Configurazione separata Desktop/Mobile per ogni elemento UI.
+AppShell
 
-## 8. 🏗️ ARCHITETTURA GENERALE E STRUTTURA CARTELLE
-L'applicazione segue un'architettura a livelli per garantire una chiara separazione delle responsabilità (Separation of Concerns).
 
-`Components (UI) → Hooks (Business Logic) → Services (Data Fetching)`
+Gestisce:
 
-*   **`src/components`**: Contiene esclusivamente componenti React (UI). Questi componenti sono "stupidi" e si occupano solo della visualizzazione e di inoltrare gli eventi utente ai gestori (hooks). Sono suddivisi per dominio (es. `admin`, `city`, `user`).
-*   **`src/hooks`**: Contiene i custom hooks di React. Questi hooks incapsulano la logica di business, la gestione dello stato e l'orchestrazione delle chiamate ai servizi. Funzionano come un ponte tra l'interfaccia utente e i dati.
-*   **`src/services`**: Contiene moduli che gestiscono tutte le comunicazioni con sistemi esterni, principalmente il backend Supabase. Nessun componente o hook deve accedere direttamente a Supabase; deve invece chiamare una funzione da un servizio.
-*   **`src/context`**: Fornisce lo stato globale o condiviso tra più parti dell'applicazione (es. utente autenticato, stato dei modali). Permette di evitare il "prop drilling".
+• Header
+• Sidebar
+• Content area
+
+
+Routing:
+
+Gestito tramite NavigationContext (state-driven routing).
+
+
+DESCRIZIONE SEMPLICE
+
+L’app non cambia pagina.
+
+Mostra contenuti diversi in base allo stato interno.
+
+
+---
+
+# 2. 🏛️ DOMINIO CITTÀ
+
+Gestisce:
+
+• cities
+• POI
+• servizi locali
+• eventi
+• media territoriali
+
+
+Pipeline:
+
+Database
+→ cityReadService
+→ cache locale
+→ rendering UI
+
+
+DESCRIZIONE SEMPLICE
+
+Le città sono il cuore informativo della piattaforma.
+
+
+---
+
+# 3. 📒 DOMINIO DIARIO DI VIAGGIO
+
+Componente principale:
+
+TravelDiary.tsx
+
+
+Gestisce:
+
+• timeline giornaliera
+• tappe POI
+• memo testuali
+• risorse viaggio
+
+
+Pipeline:
+
+User interaction
+→ itinerary state
+→ sync Supabase
+
+
+DESCRIZIONE SEMPLICE
+
+Permette di costruire il viaggio giorno per giorno.
+
+
+---
+
+# 4. 🧠 DOMINIO AI
+
+Gestito tramite Edge Functions Supabase:
+
+• gemini-chat
+• gemini-task
+
+
+Pipeline reale verificata:
+
+Frontend
+→ Edge Function
+→ RPC consume_ai_credits
+→ Gemini
+→ RPC log_ai_usage_tokens
+→ risposta frontend
+
+
+DESCRIZIONE SEMPLICE
+
+L’AI controlla i crediti prima di rispondere.
+
+
+---
+
+# 5. 💳 DOMINIO CREDITI AI
+
+Sistema economico AI verificato da codice.
+
+Tabelle:
+
+• user_ai_credits
+• credit_transactions
+• ai_global_usage
+• extra_credit_packages
+
+
+RPC:
+
+• consume_ai_credits
+• log_ai_usage_tokens
+
+
+Pipeline:
+
+azione utente
+→ verifica crediti
+→ esecuzione AI
+→ logging consumo
+
+
+DESCRIZIONE SEMPLICE
+
+Ogni funzione AI consuma crediti tracciati nel database.
+
+
+---
+
+# 6. 💰 DOMINIO PRICING & SUBSCRIPTIONS
+
+Sistema versioning prezzi verificato da codice.
+
+Tabelle:
+
+• pricing_versions
+• campaigns
+• subscriptions
+• extra_credit_packages
+
+
+Responsabilità:
+
+• gestione piani AI
+• versioning offerte
+• configurazione limiti
+• collegamento sponsor ai piani
+
+
+DESCRIZIONE SEMPLICE
+
+Permette di cambiare prezzi senza modificare codice.
+
+
+---
+
+# 7. 💼 DOMINIO SPONSOR
+
+Gestisce ciclo vita sponsor.
+
+Entità:
+
+• sponsor_requests
+• sponsors
+• subscriptions (relazione sponsor_id)
+
+
+Servizio:
+
+sponsorActivationService
+
+
+Pipeline:
+
+richiesta sponsor
+→ approvazione admin
+→ attivazione subscription
+→ visibilità pubblica
+
+
+DESCRIZIONE SEMPLICE
+
+Lo sponsor diventa visibile solo dopo attivazione.
+
+
+---
+
+# 8. 🎮 DOMINIO GAMIFICATION
+
+Sistema XP verificato da codice.
+
+Componenti:
+
+• gamificationService
+• xp_actions
+• badges
+• rewards_catalog
+
+
+Pipeline:
+
+azione utente
+→ incremento XP
+→ verifica badge
+→ sblocco reward
+
+
+DESCRIZIONE SEMPLICE
+
+Le azioni dell’utente generano progressione.
+
+
+---
+
+# 9. 📸 DOMINIO COMMUNITY & SOCIAL
+
+Sistema social verificato da codice.
+
+Componenti:
+
+• photoService
+• community_posts
+• live_snaps
+• photo_likes
+
+
+Pipeline:
+
+upload contenuto
+→ salvataggio database
+→ interazioni utenti
+
+
+DESCRIZIONE SEMPLICE
+
+Gli utenti possono condividere contenuti.
+
+
+---
+
+# 10. 🏆 DOMINIO RANKING
+
+Sistema classifiche verificato da codice.
+
+Componenti:
+
+• rankingService
+• useRankingsLogic
+
+
+Pipeline:
+
+raccolta dati attività
+→ calcolo ranking
+→ visualizzazione leaderboard
+
+
+DESCRIZIONE SEMPLICE
+
+Mostra classifiche utenti o contenuti.
+
+
+---
+
+# 11. 📥 DOMINIO STAGING IMPORT POI
+
+Sistema importazione dati territoriali verificato da codice.
+
+Componenti:
+
+• importService
+• stagingService
+• pois_staging
+
+
+Pipeline:
+
+import dati esterni
+→ staging
+→ validazione
+→ inserimento definitivo
+
+
+DESCRIZIONE SEMPLICE
+
+Permette import controllato di nuovi POI.
+
+
+---
+
+# 12. 📄 DOMINIO ROADBOOK PDF
+
+Generazione PDF itinerario.
+
+Componenti:
+
+• RoadbookDocument.tsx
+
+
+Pipeline:
+
+TravelDiary
+→ raccolta dati
+→ layout PDF
+→ esportazione
+
+
+DESCRIZIONE SEMPLICE
+
+Trasforma il viaggio in guida stampabile.
+
+
+---
+
+# 13. 🎨 DESIGN SYSTEM DINAMICO
+
+Origine:
+
+tabella global_settings
+
+
+Pipeline:
+
+database
+→ ConfigContext
+→ UI rendering
+
+
+DESCRIZIONE SEMPLICE
+
+Permette modifiche UI senza deploy codice.

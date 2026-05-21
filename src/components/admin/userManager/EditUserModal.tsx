@@ -1,9 +1,12 @@
-
+import { Z_ADMIN_MODAL_TOP, Z_ADMIN_MODAL_NESTED, Z_ADMIN_MODAL } from '@/constants/zIndex';
 import React, { useState } from 'react';
-import { Edit3, X, Briefcase, AlertTriangle, Terminal, Loader2, Save, FlaskConical, RotateCcw, Users } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Edit3, Briefcase, AlertTriangle, Terminal, Loader2, Save, FlaskConical, RotateCcw, Users } from 'lucide-react';
 import { updateUser, getRoleLabel, resetUserReferralStatus } from '../../../services/userService';
 import { User, UserRole, UserStatus } from '../../../types/users';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
+
 
 interface Props {
     user: User;
@@ -55,8 +58,9 @@ export const EditUserModal = ({ user: initialUser, onClose, onSuccess, onShowFix
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+    return createPortal(
+        // admin-super-layer modal | intentionally rendered above global modal stack (z-13000)
+        <div className="td-modal-overlay flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in fixed inset-0" style={{ zIndex: Z_ADMIN_MODAL }}>
             <DeleteConfirmationModal 
                 isOpen={showConfirmReset}
                 onClose={() => setShowConfirmReset(false)}
@@ -65,9 +69,10 @@ export const EditUserModal = ({ user: initialUser, onClose, onSuccess, onShowFix
                 message="Sei sicuro di voler sganciare questo utente dal suo referrer? Potrà inserire un nuovo codice amico."
                 confirmLabel="Sgancia"
                 variant="danger"
+                zIndex={Z_ADMIN_MODAL_TOP}
             />
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-indigo-500/50 shadow-2xl p-6 relative animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5"/></button>
+            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-indigo-500/50 shadow-2xl p-6 relative animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar" style={{ zIndex: Z_ADMIN_MODAL_NESTED }}>
+                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
                 
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-indigo-600 rounded-xl shadow-lg"><Edit3 className="w-6 h-6 text-white"/></div>
@@ -185,6 +190,11 @@ export const EditUserModal = ({ user: initialUser, onClose, onSuccess, onShowFix
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+
+

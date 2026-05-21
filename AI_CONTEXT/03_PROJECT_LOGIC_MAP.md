@@ -1,107 +1,291 @@
+# 🧠 DOC 03: PROJECT LOGIC MAP (v45.0 — EXECUTION PIPELINES CERTIFICATE)
 
-# 🧠 DOC 02: PROJECT LOGIC_MAP (v43.0 - UI UNIFICATION)
+Questo documento descrive la logica operativa reale del sistema TouringDiary.
 
-## 1. ARCHITETTURA STATE MANAGEMENT
-...
+Include:
 
-## 10. UI COMPONENT STRATEGY (Unified System)
-Per ridurre la duplicazione e migliorare la manutenibilità:
-
-1.  **UniversalCard:** Un unico componente gestisce tutte le visualizzazioni dei POI (Griglie, Sidebar, Liste).
-    *   **Variant 'horizontal':** Layout 1/3 immagine a sinistra, usato per liste Top 5.
-    *   **Variant 'vertical':** Layout immagine in alto, usato per griglie e colonne sponsor.
-    *   **Prop 'fluid':** Adatta la larghezza al contenitore padre (utile per le sidebar responsive).
-
-2.  **UniversalPoiModal:** Un unico punto di ingresso per i dettagli dei luoghi.
-    *   **Logic Branching:** Analizza `poi.resourceType` al mount.
-    *   **Standard View:** Layout "Hero + Tabs" per monumenti, ristoranti, hotel.
-    *   **Business View:** Layout "Card Profile" per guide, tour operator e servizi.
-
-## 11. LOGICA DI NAVIGAZIONE (STATE-DRIVEN ROUTING)
-L'applicazione non usa un routing basato su URL multipli. Un componente `MainContent` agisce come un controllore che mostra diverse viste in base a queste condizioni, in ordine di priorità:
-1.  `activeShopId` (da `NavigationContext`) non è nullo -> Mostra `ShopPage`.
-2.  `virtualCity` (da `NavigationContext`) non è nullo -> Mostra `CityDetailContent` (per "Around Me").
-3.  `activeCityId` (da `NavigationContext`) non è nullo -> Mostra `CityDetailContent`.
-4.  Default -> Mostra `HomeContent`.
-Questa architettura centralizza la logica di navigazione ma crea un forte accoppiamento tra lo stato globale e la vista.
-
-## 12. MAPPA RELAZIONALE DATABASE (SUPABASE)
-
-Questa sezione descrive le relazioni principali tra le tabelle più importanti del database Supabase.
-
-*   **Città e POI**:
-    *   `cities.id` (PK) <--> `points_of_interest.city_id` (FK)
-
-*   **Utenti e Ruoli**:
-    *   `users.id` (PK, da `auth.users`) <--> `user_roles.user_id` (FK)
-    *   `roles.id` (PK) <--> `user_roles.role_id` (FK)
-
-*   **Contenuti Utente (UGC)**:
-    *   `users.id` <--> `reviews.user_id`
-    *   `users.id` <--> `photos.user_id`
-    *   `points_of_interest.id` <--> `reviews.poi_id`
-    *   `points_of_interest.id` <--> `photos.poi_id`
-
-*   **Business & Sponsor**:
-    *   `sponsors.id` (PK) <--> `contracts.sponsor_id` (FK)
-    *   `sponsors.id` (PK) <--> `sponsor_subscriptions.sponsor_id` (FK)
-
-*   **Botteghe (Shops) e Prodotti**:
-    *   `cities.id` (PK) <--> `shops.city_id` (FK)
-    *   `users.id` (PK, `auth.users`) <--> `shops.owner_id` (FK)
-    *   `shops.id` (PK) <--> `shop_products.shop_id` (FK)
-
-*   **Servizi Turistici e Cittadini**:
-    *   `cities.id` (PK) <--> `tour_guides.city_id` (FK)
-    *   `users.id` (PK, `auth.users`) <--> `tour_guides.user_id` (FK, opzionale)
-    *   `cities.id` (PK) <--> `tour_operators.city_id` (FK)
-    *   `cities.id` (PK) <--> `city_services.city_id` (FK)
-
-*   **Eventi**:
-    *   `cities.id` (PK) <--> `events.city_id` (FK)
-    *   `points_of_interest.id` (PK) <--> `events.poi_id` (FK, nullable)
-
-*   **Itinerari (Diario di Viaggio)**:
-    *   `users.id` (PK, `auth.users`) <--> `itineraries.user_id` (FK)
-    *   `itineraries.id` (PK) <--> `itinerary_items.itinerary_id` (FK)
-    *   `points_of_interest.id` (PK) <--> `itinerary_items.poi_id` (FK, per tappe POI)
-    *   `tour_guides.id` (PK) <--> `itinerary_items.resource_id` (FK, per risorse)
-
----
-
-## 13. ARCHITETTURA DEL SISTEMA SPONSOR
-
-Il sistema sponsor è progettato per separare il flusso di richiesta/approvazione dalla gestione degli sponsor attivi. Si basa su due tabelle distinte.
-
-### Tabella 1: `sponsor_requests`
-
-*   **Scopo**: Gestire il **workflow amministrativo** delle richieste di sponsorizzazione. Ogni nuova richiesta da un potenziale partner crea un record qui.
-*   **Utilizzo**: Alimentazione del pannello di amministrazione (`SponsorManager`) per approvare o rifiutare le richieste.
-*   **Status Principali**: `pending`, `approved`, `rejected`.
-
-### Tabella 2: `sponsors`
-
-*   **Scopo**: Contenere gli **sponsor attivi e approvati** che sono visibili nell'applicazione pubblica.
-*   **Utilizzo**: Dati live per visualizzare gli sponsor nelle pagine delle città e sulla mappa.
-*   **Status Principali**: `waiting_payment`, `approved`.
-
-### Flusso di Conversione da Richiesta a Sponsor Attivo
-
-Il passaggio da una tabella all'altra è un processo deliberato e controllato dall'amministratore.
-
-1.  Un utente business invia una richiesta di sponsorizzazione → Viene creato un record in `sponsor_requests`.
-2.  Un amministratore esamina la richiesta nel pannello di admin.
-3.  Se approvata, l'amministratore avvia una funzione (es. `createSponsorFromRequest`).
-4.  Questa funzione legge i dati dalla richiesta, crea un nuovo record nella tabella `sponsors` e imposta lo stato della richiesta originale su `approved`.
-
-### Flusso di Visualizzazione: Sponsor come PointOfInterest (POI)
-
-Per massimizzare il riutilizzo dei componenti UI, gli sponsor attivi vengono trattati come una variante dei Punti di Interesse (POI).
-
-*   **Flusso**: `fetchSponsorsByCityAsync` → `convertSponsorToPoi` → `PointOfInterest[]`
-*   **Logica**: La funzione `convertSponsorToPoi` agisce da **adattatore**, mappando i campi di un oggetto `Sponsor` a quelli di un `PointOfInterest`, e aggiungendo il flag `isSponsored: true`.
-*   **Risultato**: Gli sponsor possono essere renderizzati dagli stessi componenti che gestiscono i POI standard (es. `UniversalCard`), semplificando l'interfaccia.
+• pipeline AI
+• pipeline crediti
+• pipeline sponsor
+• pipeline pricing
+• pipeline gamification
+• pipeline social
+• pipeline ranking
+• pipeline staging POI
+• pipeline diario
+• pipeline Roadbook
 
 
 ---
-*Logica aggiornata al 19/12/2025*
+
+# AI EXECUTION FLOW (CERTIFICATO)
+
+Pipeline reale verificata da codice:
+
+Frontend
+→ Edge Function
+→ RPC consume_ai_credits
+→ Gemini API
+→ RPC log_ai_usage_tokens
+→ risposta frontend
+
+
+DESCRIZIONE SEMPLICE
+
+Prima vengono scalati i crediti.
+
+Solo dopo viene eseguita la richiesta AI.
+
+
+---
+
+# CREDIT PURCHASE FLOW (CERTIFICATO)
+
+Pipeline:
+
+utente acquista crediti
+→ purchase-extra-credits Edge Function
+→ Stripe Checkout
+→ stripe-webhook Edge Function
+→ insert credit_transactions
+→ insert user_ai_credits
+→ crediti disponibili
+
+
+DESCRIZIONE SEMPLICE
+
+Stripe conferma il pagamento automaticamente e aggiorna il saldo crediti.
+
+
+---
+
+# CREDIT STORAGE MODEL (CERTIFICATO)
+
+Tabelle coinvolte:
+
+user_ai_credits
+credit_transactions
+ai_global_usage
+extra_credit_packages
+
+
+Responsabilità:
+
+gestione saldo
+storico acquisti
+monitoraggio utilizzo
+limiti giornalieri/mensili
+
+
+DESCRIZIONE SEMPLICE
+
+I crediti non sono salvati in un solo campo.
+
+Sono gestiti come pacchetti separati con scadenza.
+
+
+---
+
+# PRICING VERSIONING FLOW (CERTIFICATO)
+
+Pipeline:
+
+creazione pricing_versions
+→ associazione campaigns
+→ configurazione limiti AI
+→ collegamento subscriptions
+→ attivazione versione pricing
+
+
+DESCRIZIONE SEMPLICE
+
+Permette di cambiare i prezzi senza modificare il codice.
+
+
+---
+
+# SUBSCRIPTION LIMIT ENGINE (CERTIFICATO)
+
+Pipeline:
+
+lettura subscriptions
+→ lettura pricing_versions
+→ aggregazione ai_global_usage
+→ calcolo limiti residui
+
+
+Servizio coinvolto:
+
+subscriptionService
+
+
+DESCRIZIONE SEMPLICE
+
+Calcola quanti crediti restano disponibili.
+
+
+---
+
+# SPONSOR ACTIVATION FLOW (CERTIFICATO)
+
+Pipeline:
+
+richiesta sponsor
+→ record sponsor_requests
+→ approvazione admin
+→ attivazione sponsorActivationService
+→ creazione subscription sponsor
+→ stato sponsor attivo
+
+
+DESCRIZIONE SEMPLICE
+
+Lo sponsor diventa visibile solo dopo attivazione.
+
+
+---
+
+# GAMIFICATION FLOW (CERTIFICATO)
+
+Pipeline:
+
+azione utente
+→ gamificationService.addXp()
+→ update profiles.xp
+→ verifica badges
+→ verifica rewards_catalog
+
+
+Tabelle coinvolte:
+
+xp_actions
+badges
+rewards_catalog
+
+
+DESCRIZIONE SEMPLICE
+
+Ogni azione genera esperienza e premi.
+
+
+---
+
+# COMMUNITY SOCIAL FLOW (CERTIFICATO)
+
+Pipeline:
+
+upload contenuto
+→ photoService
+→ insert community_posts
+→ insert live_snaps
+→ gestione photo_likes
+
+
+DESCRIZIONE SEMPLICE
+
+Gli utenti possono pubblicare contenuti e ricevere interazioni.
+
+
+---
+
+# RANKING FLOW (CERTIFICATO)
+
+Pipeline:
+
+raccolta attività utente
+→ rankingService
+→ useRankingsLogic
+→ rendering leaderboard
+
+
+DESCRIZIONE SEMPLICE
+
+Genera classifiche dinamiche utenti.
+
+
+---
+
+# STAGING IMPORT POI FLOW (CERTIFICATO)
+
+Pipeline:
+
+importService scarica dati
+→ insert pois_staging
+→ stagingService valida dati
+→ migrazione POI definitivi
+
+
+DESCRIZIONE SEMPLICE
+
+Permette import controllato da fonti esterne.
+
+
+---
+
+# DIARIO SALVATAGGIO FLOW
+
+Pipeline:
+
+modifica itinerario
+→ useDiaryLogic
+→ update stato locale
+→ sync Supabase
+
+
+DESCRIZIONE SEMPLICE
+
+Il diario salva automaticamente le modifiche.
+
+
+---
+
+# JOURNEY PHASE DETECTION FLOW (CERTIFICATO)
+
+Pipeline:
+
+lettura stato viaggio
+→ useJourneyPhase
+→ classificazione fase:
+
+planning
+travel
+memory
+
+
+DESCRIZIONE SEMPLICE
+
+Capisce in quale fase del viaggio si trova l’utente.
+
+
+---
+
+# SUITCASE SYSTEM FLOW (CERTIFICATO)
+
+Pipeline:
+
+inizializzazione lista
+→ useSuitcaseSystem
+→ aggiornamento dinamico contenuti
+
+
+DESCRIZIONE SEMPLICE
+
+Gestisce automaticamente la packing list.
+
+
+---
+
+# ROADBOOK GENERATION FLOW (CERTIFICATO)
+
+Pipeline:
+
+TravelDiary
+→ raccolta dati itinerario
+→ RoadbookDocument.tsx
+→ PdfStyles.ts
+→ export PDF
+
+
+DESCRIZIONE SEMPLICE
+
+Genera la guida stampabile del viaggio.

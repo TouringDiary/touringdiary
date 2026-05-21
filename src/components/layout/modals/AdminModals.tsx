@@ -1,3 +1,4 @@
+import { Z_OVERLAY, Z_ADMIN_MODAL } from '@/constants/zIndex';
 
 import React from 'react';
 import { CheckCircle, RefreshCw } from 'lucide-react';
@@ -73,8 +74,13 @@ export const AdminModals = ({
             )}
 
             {activeModal === 'adminSuccess' && (
-                <div className="fixed inset-0 z-[3500] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-                    <div className="bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95">
+                <div className="td-modal-overlay bg-black/90 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95" style={{ zIndex: Z_OVERLAY }}>
+                    {/* admin-super-layer modal | intentionally rendered above global modal stack */}
+                    <div 
+                        className="relative bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl overflow-hidden animate-in zoom-in-95"
+                        style={{ zIndex: Z_ADMIN_MODAL }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                          <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] mx-auto mb-6">
                             <CheckCircle className="w-8 h-8 text-emerald-500"/>
                         </div>
@@ -89,3 +95,6 @@ export const AdminModals = ({
         </>
     );
 };
+
+
+

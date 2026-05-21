@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCachedSetting, SETTINGS_KEYS, saveSetting, loadGlobalCache } from '../services/settingsService';
+import type { StyleRule } from '../types/designSystem';
+
 
 // Tipizzazione per le configurazioni
 type ConfigContextType = {
@@ -28,57 +30,55 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isLoading, setIsLoading] = useState(true);
 
   const loadConfig = useCallback(async () => {
+    // Evitiamo caricamenti multipli se già in corso
     console.log("[ConfigContext] Loading all configurations...");
     setIsLoading(true);
 
-    await loadGlobalCache();
-
-    const newConfigs: { [key: string]: any } = {};
-
-    // ✅ FIX: filtra chiavi invalide
-    console.log("SETTINGS_KEYS RUNTIME:", SETTINGS_KEYS);
-    const allKeys = Object.values(SETTINGS_KEYS).filter(Boolean);
-
-    // ✅ FIX: protezione totale
-    for (const key of allKeys) {
-      if (!key) {
-        console.warn("[ConfigContext] Skipping invalid key:", key);
-        continue;
-      }
-
-      const setting = getCachedSetting(key);
-
-      if (setting !== null && setting !== undefined) {
-        newConfigs[key] = setting;
-      } else {
-        newConfigs[key] = null;
-      }
-    }
-
-    // ======================= 🔥 NUOVO DESIGN SYSTEM =======================
-    // Carichiamo le regole dalla tabella nuova (design_system_rules)
-    // e le mettiamo in configs.design_system_rules
     try {
-      const { getDesignSystemRules } = await import('../services/settingsService');
-      const rules = await getDesignSystemRules();
+      await loadGlobalCache();
 
-      const rulesMap = rules.reduce((acc: any, rule: any) => {
-        acc[rule.component_key] = rule;
-        return acc;
-      }, {});
+      const newConfigs: { [key: string]: any } = {};
 
-      newConfigs.design_system_rules = rulesMap;
-      newConfigs.design_system = { components: rulesMap };
+      const allKeys = Object.values(SETTINGS_KEYS).filter(Boolean);
 
-      console.log("[ConfigContext] Design system rules loaded:", rulesMap);
-    } catch (e) {
-      console.warn("[ConfigContext] Failed to load design_system_rules:", e);
+      for (const key of allKeys) {
+        if (!key) continue;
+        const setting = getCachedSetting(key);
+        newConfigs[key] = (setting !== null && setting !== undefined) ? setting : null;
+      }
+
+      // ======================= 🔥 NUOVO DESIGN SYSTEM =======================
+      try {
+        const { getDesignSystemRules } = await import('../services/settingsService');
+        const rules = await Promise.race([
+          getDesignSystemRules(),
+          new Promise<StyleRule[]>(resolve => setTimeout(() => resolve([]), 3000))
+        ]) as StyleRule[];
+
+
+        const rulesMap = (rules as StyleRule[]).reduce((acc: any, rule: any) => {
+          acc[rule.component_key] = rule;
+          return acc;
+        }, {});
+
+
+        newConfigs.design_system_rules = rulesMap;
+        newConfigs.design_system = { components: rulesMap };
+        console.log("[ConfigContext] Design system rules loaded.");
+      } catch (e) {
+        console.warn("[ConfigContext] Failed to load design_system_rules, continuing...", e);
+      }
+      // =====================================================================
+
+      setConfigs(newConfigs);
+      console.log("[ConfigContext] Configurations applied successfully.");
+    } catch (error) {
+      console.error("[ConfigContext] ERROR during loadConfig. Using fallback/empty state.", error);
+    } finally {
+      setIsLoading(false);
+      console.log("[ConfigContext] Bootstrap loading state cleared.");
     }
-    // =====================================================================
 
-    setConfigs(newConfigs);
-    setIsLoading(false);
-    console.log("[ConfigContext] Configurations loaded.", newConfigs);
   }, []);
 
   useEffect(() => {
@@ -97,12 +97,12 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await saveSetting(key, value);
     await refreshConfig();
   };
-    
+
   const updateMultipleSettings = async (settings: { key: string; value: any }[]) => {
-      const validSettings = settings.filter(s => s.key);
-      const promises = validSettings.map(s => saveSetting(s.key, s.value));
-      await Promise.all(promises);
-      await refreshConfig();
+    const validSettings = settings.filter(s => s.key);
+    const promises = validSettings.map(s => saveSetting(s.key, s.value));
+    await Promise.all(promises);
+    await refreshConfig();
   };
 
   const value = {

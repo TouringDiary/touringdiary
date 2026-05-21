@@ -49,12 +49,20 @@ export const openMap = (lat: number, lng: number, name?: string, address?: strin
     window.open(url, '_blank', 'noopener,noreferrer');
 };
 
-export const open3DView = (lat: number, lng: number, name?: string) => {
-    if (lat == 0 && lng == 0) return;
-
-    const url = `https://www.google.com/maps/@?api=1&map_action=map&center=${lat},${lng}&zoom=19&tilt=75&heading=0`;
-
-    window.open(url, '_blank', 'noopener,noreferrer');
+export const open3DView = (lat?: number, lng?: number, name?: string, address?: string) => {
+    // 1. Priorità Coordinate per Vista 3D / Tilt
+    if (lat && lng && lat !== 0 && lng !== 0) {
+        // Genera URL per Google Maps in modalità "map_action=map" con "tilt" per forzare il 3D
+        // Se 3D non è disponibile nell'area, Google fa fallback automatico su 2D/Sat
+        const url = `https://www.google.com/maps/@?api=1&map_action=map&center=${lat},${lng}&zoom=19&tilt=75&heading=0`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    } 
+    // 2. Fallback su Address (Search) se coordinate assenti
+    else if (address) {
+        const query = name ? `${name}, ${address}` : address;
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
 };
 // --- FINE PATCH ---
 

@@ -159,7 +159,7 @@ export const useAdminExport = () => {
             // 1. Recupera tutte le città (per mappare nomi e zone)
             // 2. Recupera TUTTI i POI dal DB
             const [allCities, allPois] = await Promise.all([
-                getFullManifestAsync(),
+                getFullManifestAsync(false),
                 getAllPoisGlobal()
             ]);
             

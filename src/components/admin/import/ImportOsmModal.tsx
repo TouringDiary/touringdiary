@@ -4,7 +4,7 @@ import { X, Download, Loader2, MapPin, Layers, Maximize, CheckCircle, Terminal }
 import { fetchOsmData } from '../../../services/importService';
 import { saveStagingBatch } from '../../../services/stagingService';
 import { CitySummary } from '../../../types/index';
-import { CloseButton } from '../../common/CloseButton';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 
 interface Props {
     isOpen: boolean;
@@ -36,23 +36,7 @@ export const ImportOsmModal = ({ isOpen, onClose, city, onSuccess }: Props) => {
     const [showLogView, setShowLogView] = useState(false);
     const logsEndRef = useRef<HTMLDivElement>(null);
 
-    // ESC Key Listener
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                if (showLogView) {
-                    // Se siamo nel report finale, chiudi tutto e refresh
-                    onSuccess();
-                    onClose();
-                } else if (!isFetching) {
-                    onClose();
-                }
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose, isFetching, showLogView, onSuccess]);
+    // ESC Key Management delegated to CloseButton
 
     // Auto-scroll logs
     useEffect(() => {
@@ -128,7 +112,7 @@ export const ImportOsmModal = ({ isOpen, onClose, city, onSuccess }: Props) => {
     // VISTA 2: LOG CONSOLE
     if (showLogView) {
         return (
-            <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+            <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
                     <div className="p-4 border-b border-slate-800 bg-[#0f172a] flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2 uppercase tracking-wide">
@@ -162,7 +146,7 @@ export const ImportOsmModal = ({ isOpen, onClose, city, onSuccess }: Props) => {
 
     // VISTA 1: CONFIGURAZIONE
     return (
-        <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
             <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
                 <div className="p-5 border-b border-slate-800 bg-[#0f172a] flex justify-between items-center">

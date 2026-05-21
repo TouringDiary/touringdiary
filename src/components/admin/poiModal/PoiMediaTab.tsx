@@ -2,10 +2,11 @@
 import React from 'react';
 import { AdminImageInput } from '../AdminImageInput';
 import { PointOfInterest } from '../../../types/index';
+import { PoiFormData } from '../../../types/write/poiForm';
 
 interface PoiMediaTabProps {
-    formData: PointOfInterest;
-    updateField: (field: keyof PointOfInterest, value: any) => void;
+    formData: PoiFormData;
+    updateField: <K extends keyof PoiFormData>(field: K, value: PoiFormData[K]) => void;
     setIsImageValid: (isValid: boolean) => void;
 }
 
@@ -18,6 +19,7 @@ export const PoiMediaTab = ({ formData, updateField, setIsImageValid }: PoiMedia
                 imageLicense={formData.imageLicense} 
                 onChange={(data) => { 
                     updateField('imageUrl', data.imageUrl); 
+                    updateField('image_status', data.image_status);
                     updateField('imageCredit', data.imageCredit); 
                     updateField('imageLicense', data.imageLicense); 
                 }} 

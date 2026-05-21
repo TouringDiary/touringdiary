@@ -1,13 +1,15 @@
 
 import React, { useState } from 'react';
-import { Palette, Puzzle } from 'lucide-react';
+import { Palette, Puzzle, Link } from 'lucide-react';
 import { useConfig } from '@/context/ConfigContext';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
+import { PartnerIntegrationsPanel } from './PartnerIntegrationsPanel';
 import DesignSystemSettings from '../design/DesignSystemSettings';
 
 const TABS = [
     { id: 'design_system', label: 'Design System', icon: Palette },
     { id: 'poi_categories_config', label: 'Categorie POI', icon: Puzzle },
+    { id: 'partner_integrations', label: 'Integrazioni Partner', icon: Link },
 ];
 
 export const SettingsPage: React.FC = () => {
@@ -45,6 +47,13 @@ export const SettingsPage: React.FC = () => {
             <div className="flex-1 overflow-y-auto">
                 {activeTab === 'design_system' ? (
                     <DesignSystemSettings />
+                ) : activeTab === 'partner_integrations' && activeConfigData ? (
+                    <PartnerIntegrationsPanel 
+                        key={activeTab}
+                        configKey={activeTab} 
+                        data={activeConfigData} 
+                        onSaveSuccess={refreshConfig} 
+                    />
                 ) : activeConfigData !== undefined && activeConfigData !== null ? (
                     <GlobalSettingsPanel
                         key={activeTab}

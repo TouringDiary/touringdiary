@@ -47,7 +47,7 @@ export const WeatherWidget = ({ city, startDate, endDate }: Props) => {
              <div className={`absolute inset-0 bg-gradient-to-b ${currentWeather.bg} opacity-30`}></div>
              
              {/* TOP SECTION: City & Main Stats (Compact) */}
-             <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4 pt-1 pb-1 min-h-0">
+             <div className="flex-1 flex flex-col items-center justify-center relative z-floating-panel px-4 pt-1 pb-1 min-h-0">
                  
                  <div className="bg-slate-950/60 px-2 py-0.5 rounded-full border border-white/5 backdrop-blur-sm shadow-sm mb-1">
                      <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">{city.name}</span>
@@ -79,7 +79,7 @@ export const WeatherWidget = ({ city, startDate, endDate }: Props) => {
              </div>
 
              {/* BOTTOM: Horizontal Forecast List (Fixed Height) */}
-             <div className="bg-slate-950/60 backdrop-blur-md border-t border-slate-800 h-14 lg:h-16 flex-shrink-0 relative z-20">
+             <div className="bg-slate-950/60 backdrop-blur-md border-t border-slate-800 h-14 lg:h-16 flex-shrink-0 relative z-dropdown">
                  <div className="flex overflow-x-auto scrollbar-hide w-full h-full items-center px-1">
                     {days.slice(1).map((d, i) => {
                         const w = getWeather(d);

@@ -1,6 +1,7 @@
 
-import { ShopPartner, ShopCategory, ShopProduct } from '../types';
-import { DatabaseShop, DatabaseShopProduct } from '../types/database';
+import { ShopPartner, ShopCategory, ShopProduct, Review } from '../types';
+import { PointOfInterest } from '../types/models/City';
+import { DatabaseShop, DatabaseShopInsert, DatabaseShopProduct, DatabaseShopProductInsert, DatabaseSponsor, Json } from '@/types/database';
 import { supabase } from './supabaseClient';
 import { startShopSubscription } from './sponsorService';
 
@@ -21,7 +22,7 @@ export const getAllShops = async (): Promise<ShopPartner[]> => {
 };
 
 export const getShopByVat = async (vat: string): Promise<ShopPartner | undefined> => {
-    const { data, error } = await supabase
+    const { data } = await supabase
         .from('shops')
         .select(`*, shop_products (*)`)
         .eq('vat_number', vat)
@@ -31,11 +32,46 @@ export const getShopByVat = async (vat: string): Promise<ShopPartner | undefined
     return undefined;
 };
 
+export const getShopById = async (id: string): Promise<ShopPartner | undefined> => {
+    const { data, error } = await supabase
+        .from('shops')
+        .select(`*, shop_products (*)`)
+        .eq('id', id)
+        .maybeSingle();
+
+    if (error) {
+        console.error("[ShopService] Error fetching shop by id:", error);
+        return undefined;
+    }
+
+    if (data) return mapDatabaseShopsToApp([data])[0];
+    return undefined;
+};
+
+export const getShopByOwner = async (ownerId: string): Promise<ShopPartner | undefined> => {
+    // SECURITY HARDENING: Rimosso maybeSingle() per evitare crash PGRST116 (Multi-business support)
+    const { data, error } = await supabase
+        .from('shops')
+        .select(`*, shop_products (*)`)
+        .eq('owner_id', ownerId)
+        .limit(1);
+
+    if (error) {
+        console.error("[ShopService] Error fetching shop by owner:", error);
+        return undefined;
+    }
+
+    if (data && data.length > 0) {
+        return mapDatabaseShopsToApp(data)[0];
+    }
+    return undefined;
+};
+
 export const getShopsByFilter = async (cityId: string, category?: ShopCategory): Promise<ShopPartner[]> => {
     let query = supabase
         .from('shops')
         .select(`*, shop_products (*)`)
-        .eq('city_id', cityId); 
+        .eq('city_id', cityId);
 
     if (category) {
         query = query.eq('category', category);
@@ -73,7 +109,7 @@ export const calculateShopRank = (shop: ShopPartner): number => {
 
 export const saveShop = async (shop: ShopPartner): Promise<void> => {
     try {
-        const dbShop: DatabaseShop = {
+        const dbShop: DatabaseShopInsert = {
             id: shop.id,
             city_id: shop.cityId,
             name: shop.name,
@@ -99,16 +135,31 @@ export const saveShop = async (shop: ShopPartner): Promise<void> => {
             likes: shop.likes,
             rating: shop.rating,
             reviews_count: shop.reviewsCount,
-            reviews: shop.reviews as any, 
+            reviews: shop.reviews as unknown as Json, // Safe cast to recursive Json type
+            owner_id: shop.ownerId, // NEW: Supporto owner_id tipizzato
+            slug: shop.slug || null,
             updated_at: new Date().toISOString()
         };
         await supabase.from('shops').upsert(dbShop);
 
         // Sync Sponsor Table
         if (shop.vatNumber) {
-            await supabase.from('sponsors')
-                .update({ company_name: shop.name, address: shop.address })
+            const updatePayload: Partial<DatabaseSponsor> = { 
+                company_name: shop.name, 
+                address: shop.address 
+            };
+            if (shop.ownerId) updatePayload.owner_id = shop.ownerId;
+
+            let sponsorQuery = supabase.from('sponsors')
+                .update(updatePayload)
                 .eq('vat_number', shop.vatNumber);
+            
+            // SECURITY HARDENING: Bind sync to UUID identity if available
+            if (shop.ownerId) {
+                sponsorQuery = sponsorQuery.eq('owner_id', shop.ownerId);
+            }
+
+            await sponsorQuery;
         }
     } catch (e) {
         console.error("Save Shop Error:", e);
@@ -128,7 +179,7 @@ export const deleteShop = async (shopId: string): Promise<void> => {
 
 export const saveProduct = async (shopId: string, product: ShopProduct): Promise<void> => {
     try {
-        const dbProduct: DatabaseShopProduct = {
+        const dbProduct: DatabaseShopProductInsert = {
             id: product.id,
             shop_id: shopId,
             name: product.name,
@@ -140,10 +191,17 @@ export const saveProduct = async (shopId: string, product: ShopProduct): Promise
         };
         await supabase.from('shop_products').upsert(dbProduct);
         
-        // Subscription Trigger
-        const { data: s } = await supabase.from('shops').select('vat_number').eq('id', shopId).maybeSingle();
-        if (s && s.vat_number) {
-            await startShopSubscription(s.vat_number);
+        // Subscription Trigger: Resolve Sponsor and Tier from Business Source of Truth
+        const { data: sponsor, error: _sponsorError } = await supabase
+            .from('sponsors')
+            .select('id, tier')
+            .eq('shop_id', shopId)
+            .maybeSingle();
+
+        if (sponsor) {
+            // Map business tier ('gold'|'silver'|'standard') to trigger tier ('standard'|'premium')
+            const tier: 'standard' | 'premium' = (sponsor.tier === 'gold') ? 'premium' : 'standard';
+            await startShopSubscription(sponsor.id, tier);
         }
     } catch(e) { 
         console.error("Save Product Error:", e);
@@ -161,32 +219,79 @@ export const deleteShopProduct = async (productId: string): Promise<void> => {
     }
 };
 
-const mapDatabaseShopsToApp = (dbShops: any[]): ShopPartner[] => {
+// --- DOMAIN NORMALIZATION MAPPERS (Type-Safe Enums) ---
+
+const normalizePoiCategory = (cat: string | null): PointOfInterest['category'] => {
+    const valid: PointOfInterest['category'][] = ['monument' , 'food' , 'hotel' , 'nature' , 'discovery' , 'leisure' , 'shop' , 'all'];
+    return valid.includes(cat as PointOfInterest['category']) ? (cat as PointOfInterest['category']) : 'discovery';
+};
+
+const normalizeShopCategory = (cat: string | null): ShopPartner['category'] => {
+    const valid: ShopPartner['category'][] = ['gusto', 'cantina', 'artigianato', 'moda'];
+    if (cat && valid.includes(cat as ShopPartner['category'])) {
+        return cat as ShopPartner['category'];
+    }
+    // Mapping silente per categorie legacy o sub-categorie comuni
+    if (cat?.toLowerCase() === 'pasticceria') return 'gusto';
+    
+    if (cat) console.warn(`[ShopService] Invalid category detected: ${cat}. Falling back to 'gusto'.`);
+    return 'gusto';
+};
+
+const normalizeShopLevel = (level: string | null): ShopPartner['level'] => {
+    return (level === 'base' || level === 'premium') ? level : 'base';
+};
+
+const normalizeShopBadge = (badge: string | null): ShopPartner['badge'] => {
+    return (badge === 'registered' || badge === 'gold') ? badge : 'registered';
+};
+
+const normalizeProductStatus = (status: string | null): ShopProduct['status'] => {
+    return (status === 'active' || status === 'inactive') ? status : 'inactive';
+};
+
+const normalizeShippingMode = (mode: string | null): ShopProduct['shippingMode'] => {
+    const valid: ShopProduct['shippingMode'][] = ['pickup', 'ship', 'both'];
+    return valid.includes(mode as ShopProduct['shippingMode']) ? (mode as ShopProduct['shippingMode']) : 'pickup';
+};
+
+const normalizeReviews = (data: Json): Review[] => {
+    if (!Array.isArray(data)) return [];
+    return (data as unknown as any[]).filter(item => 
+        item && 
+        typeof item === 'object' &&
+        typeof (item as any).id === 'string' &&
+        typeof (item as any).author === 'string' &&
+        typeof (item as any).rating === 'number'
+    ) as unknown as Review[];
+};
+
+const mapDatabaseShopsToApp = (dbShops: (DatabaseShop & { shop_products: DatabaseShopProduct[] })[]): ShopPartner[] => {
     return dbShops.map(db => ({
         id: db.id,
         name: db.name || 'Senza Nome',
         cityId: db.city_id,
-        category: db.category,
-        level: db.level || 'base',
-        badge: db.badge || 'registered',
+        category: normalizeShopCategory(db.category),
+        level: normalizeShopLevel(db.level),
+        badge: normalizeShopBadge(db.badge),
         imageUrl: db.image_url || '',
         gallery: db.gallery || [],
         foundedYear: db.founded_year,
         shortBio: db.short_bio || '',
         description: db.description || '',
-        products: (db.shop_products || []).map((p: any) => ({
+        products: (db.shop_products || []).map((p: DatabaseShopProduct) => ({
             id: p.id,
             name: p.name,
             description: p.description,
             imageUrl: p.image_url,
             price: Number(p.price),
-            status: p.status,
-            shippingMode: p.shipping_mode
+            status: normalizeProductStatus(p.status),
+            shippingMode: normalizeShippingMode(p.shipping_mode)
         })),
         likes: Number(db.likes) || 0,
         rating: Number(db.rating) || 0,
         reviewsCount: Number(db.reviews_count) || 0,
-        reviews: db.reviews || [],
+        reviews: normalizeReviews(db.reviews),
         vatNumber: db.vat_number,
         address: db.address || '',
         coords: { lat: db.coords_lat || 0, lng: db.coords_lng || 0 },
@@ -196,6 +301,8 @@ const mapDatabaseShopsToApp = (dbShops: any[]): ShopPartner[] => {
         shippingInfo: db.shipping_info,
         paymentInfo: db.payment_info,
         aiCredits: Number(db.ai_credits) || 0,
-        isTipico: db.is_tipico
+        isTipico: db.is_tipico,
+        ownerId: db.owner_id,
+        slug: db.slug || undefined
     }));
 };

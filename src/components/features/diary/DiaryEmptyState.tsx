@@ -97,7 +97,7 @@ export const DiaryEmptyState = ({ isDraggingOver }: DiaryEmptyStateProps) => {
              
              {/* Drop Zone Overlay (Appare solo durante il drag) */}
              {isDraggingOver && (
-                <div className="absolute inset-0 flex items-center justify-center bg-indigo-50/50 z-20 backdrop-blur-[1px]">
+                <div className="absolute inset-0 flex items-center justify-center bg-indigo-50/50 z-floating-panel backdrop-blur-[1px]">
                     <div className="bg-indigo-600 text-white px-8 py-4 rounded-2xl shadow-2xl font-bold uppercase tracking-widest text-sm border-2 border-white/50 whitespace-nowrap flex items-center gap-3 animate-bounce">
                         <PlusCircle className="w-6 h-6"/> Rilascia per aggiungere
                     </div>

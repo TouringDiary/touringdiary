@@ -1,12 +1,16 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2 } from 'lucide-react';
 import { getStaticPageContent } from '../../services/contentService';
 import { useConfig } from '@/context/ConfigContext';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+
 
 interface StaticPageProps {
     type: string;
+    isOpen?: boolean;
     onBack: () => void;
-    onOpenSponsor: (tier: string) => void;
 }
 
 type PageContent = {
@@ -15,7 +19,8 @@ type PageContent = {
     hero_image_url?: string;
 };
 
-export const StaticPage: React.FC<StaticPageProps> = ({ type, onBack }) => {
+export const StaticPage: React.FC<StaticPageProps> = ({ type, isOpen = true, onBack }) => {
+    if (!isOpen) return null;
     const pageKey = type;
     const [page, setPage] = useState<PageContent | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -50,17 +55,7 @@ export const StaticPage: React.FC<StaticPageProps> = ({ type, onBack }) => {
         loadPage();
     }, [pageKey]);
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                onBack();
-            }
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [onBack]);
+    useGlobalModalEscape(isOpen, onBack);
 
     // Combine base prose classes with dynamic classes from the Design System.
     // The 'css_class' property of each rule contains the Tailwind CSS classes.
@@ -75,9 +70,17 @@ export const StaticPage: React.FC<StaticPageProps> = ({ type, onBack }) => {
         design.legal_list?.css_class
     ].filter(Boolean).join(' '); // Filter out any undefined values and join into a single string.
 
-    return (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[4000] flex items-center justify-center animate-in fade-in" onClick={onBack}>
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-[95vw] max-w-4xl h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    return createPortal(
+        <div 
+            className="fixed inset-0 flex items-center justify-center td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in pointer-events-auto" 
+            onClick={onBack}
+            style={{ zIndex: Z_OVERLAY }}
+        >
+            <div 
+                className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-[95vw] max-w-4xl h-[90vh] flex flex-col overflow-hidden" 
+                onClick={e => e.stopPropagation()}
+                style={{ zIndex: Z_MODAL }}
+            >
                 <header className="relative flex items-center justify-between p-4 md:p-6 border-b border-slate-800 shrink-0">
                     <h2 className="text-xl md:text-2xl font-bold text-white pr-12">
                         {loading ? 'Caricamento...' : page?.title || error || 'Informazioni'}
@@ -91,20 +94,15 @@ export const StaticPage: React.FC<StaticPageProps> = ({ type, onBack }) => {
                     </button>
                 </header>
 
-                {/* Apply spacing from Design System to the main content area, with a fallback. */}
-                <main className={`flex-grow overflow-y-auto ${design.legal_spacing?.css_class}`}>
+                <main className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar bg-slate-950">
                     {loading && (
-                        <div className="flex flex-col items-center justify-center h-full gap-4">
-                            <Loader2 className="w-12 h-12 text-amber-500 animate-spin"/>
-                            <p className="text-slate-500 uppercase font-black text-xs tracking-widest">Caricamento Contenuto...</p>
+                        <div className="flex flex-col items-center justify-center h-full py-20 text-slate-400">
+                            <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500" />
+                            <p className="font-bold uppercase tracking-widest text-xs">Recupero contenuto...</p>
                         </div>
                     )}
                     {error && (
-                         <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-                            <div className="w-16 h-16 flex items-center justify-center bg-red-900/50 text-red-500 rounded-full mb-4">
-                                <X className="w-8 h-8"/>
-                            </div>
-                            <h3 className="text-xl font-bold text-white">Errore</h3>
+                        <div className="flex items-center justify-center h-full py-20">
                             <p className="text-red-400">{error}</p>
                         </div>
                     )}
@@ -115,8 +113,12 @@ export const StaticPage: React.FC<StaticPageProps> = ({ type, onBack }) => {
                     )}
                 </main>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
 export default StaticPage;
+
+
+

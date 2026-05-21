@@ -1,7 +1,10 @@
+import { Z_ADMIN_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect } from 'react';
-import { X, Wand2, Loader2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Wand2, Loader2 } from 'lucide-react';
 import { GEO_CONFIG } from '../../../constants/geoConfig';
+
 
 interface Props {
     onClose: () => void;
@@ -13,14 +16,6 @@ export const CityGeneratorModal = ({ onClose, onGenerate, isGenerating }: Props)
     const [name, setName] = useState('');
     const [poiCount, setPoiCount] = useState(10);
 
-    // Gestione ESC
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
 
     const handleSubmit = () => {
         if (!name.trim()) return;
@@ -28,13 +23,10 @@ export const CityGeneratorModal = ({ onClose, onGenerate, isGenerating }: Props)
     };
 
     return (
-        <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in" style={{ zIndex: Z_ADMIN_MODAL }}>
             <div className="bg-slate-900 border border-indigo-500/50 p-6 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95">
                 
-                {/* STANDARD RED CLOSE BUTTON */}
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg z-50">
-                    <X className="w-5 h-5"/>
-                </button>
+                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
                 
                 <div className="flex flex-col items-center text-center gap-4 mb-6">
                     <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center border-2 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.5)]">
@@ -90,3 +82,6 @@ export const CityGeneratorModal = ({ onClose, onGenerate, isGenerating }: Props)
         </div>
     );
 };
+
+
+

@@ -1,6 +1,12 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
-import { getAiClient, hasValidKey } from './aiClient';
+
 import { Schema } from '../../types/ai';
+
+// In questa architettura (Supabase Edge Functions), la validazione della chiave avviene sul server.
+// hasValidKey è un flag di sicurezza per prevenire chiamate a vuoto se il client non è configurato.
+const hasValidKey = !!import.meta.env.VITE_USE_AI;
+
 
 // Pulisce l'output markdown dai blocchi di codice JSON e rimuove testo extra
 export const cleanJsonOutput = (text: string): string => {
@@ -10,13 +16,13 @@ export const cleanJsonOutput = (text: string): string => {
 
     const firstSquare = clean.indexOf('[');
     const firstCurly = clean.indexOf('{');
-    
+
     let startIndex = -1;
     let openChar = '';
     let closeChar = '';
 
     if (firstSquare === -1 && firstCurly === -1) return clean;
-    
+
     if (firstSquare !== -1 && (firstCurly === -1 || firstSquare < firstCurly)) {
         startIndex = firstSquare;
         openChar = '[';
@@ -68,7 +74,7 @@ export const cleanJsonOutput = (text: string): string => {
     }
 
     if (startIndex !== -1) {
-         return clean.substring(startIndex);
+        return clean.substring(startIndex);
     }
 
     return clean;
@@ -86,29 +92,29 @@ export async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 20
         return await fn();
     } catch (e: any) {
         const errorString = JSON.stringify(e) + (e.message || '');
-        
+
         const isQuotaError = errorString.includes('429') || errorString.toLowerCase().includes('quota') || errorString.toLowerCase().includes('resource_exhausted');
-        
+
         if (isQuotaError) {
-             throw new Error("QUOTA_EXCEEDED_DAILY");
+            throw new Error("QUOTA_EXCEEDED_DAILY");
         }
-        
+
         if (errorString.includes('403') || errorString.includes('PERMISSION_DENIED')) {
-             console.error("[AI Error] Permission Denied (403). Possible Tool/Schema Conflict.", e);
-             throw new Error("API_KEY_ERROR_OR_CONFLICT"); 
+            console.error("[AI Error] Permission Denied (403). Possible Tool/Schema Conflict.", e);
+            throw new Error("API_KEY_ERROR_OR_CONFLICT");
         }
-        
+
         if (errorString.includes('internal error') || errorString.includes('_.zB')) {
-             console.warn("[AI Error] Internal SDK Error detected. Retrying...");
+            console.warn("[AI Error] Internal SDK Error detected. Retrying...");
         }
-        
+
         if (retries > 0) {
             const waitTime = delay;
             await new Promise(res => setTimeout(res, waitTime));
             const nextDelay = delay * 2;
             return withRetry(fn, retries - 1, nextDelay);
         }
-        
+
         throw e;
     }
 }
@@ -120,9 +126,8 @@ export async function generateStructuredResponse<T>(
 ): Promise<T> {
     return withRetry(async () => {
         // USARE IL GETTER QUI
-        const aiClient = getAiClient();
-        
-        const response = await aiClient.models.generateContent({
+
+        const response = await aiGateway.generateLegacy({
             model,
             contents: prompt,
             config: {

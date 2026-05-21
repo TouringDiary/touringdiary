@@ -19,8 +19,17 @@ const GLOBAL_ASSET_DEFAULTS = {
     ai_box: ''
 };
 
+const SUITCASE_PLACEHOLDER_CATS = [
+    { id: 'global', label: 'Default Globale (Backup)' },
+    { id: 'Abbigliamento', label: 'Abbigliamento' },
+    { id: 'Igiene', label: 'Igiene & Bellezza' },
+    { id: 'Documenti', label: 'Documenti & Volo' },
+    { id: 'Elettronica', label: 'Elettronica & Tech' },
+    { id: 'Extra', label: 'Extra & Varie' },
+];
+
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-    <div className={`fixed top-6 right-6 z-[4000] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
+    <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
         {type === 'success' ? <CheckCircle className="w-6 h-6 shrink-0"/> : <AlertTriangle className="w-6 h-6 shrink-0"/>}
         <div className="font-bold text-sm">{message}</div>
         <button onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full"><X className="w-4 h-4"/></button>
@@ -34,6 +43,7 @@ export const AdminHeaderManager = () => {
     const [currentImage, setCurrentImage] = useState(GLOBAL_ASSET_DEFAULTS.hero);
     const [patronImage, setPatronImage] = useState(GLOBAL_ASSET_DEFAULTS.patron);
     const [placeholders, setPlaceholders] = useState<Record<string, string>>({});
+    const [suitcasePlaceholders, setSuitcasePlaceholders] = useState<Record<string, string>>({});
     const [authBg, setAuthBg] = useState(GLOBAL_ASSET_DEFAULTS.auth_bg);
     const [socialBg, setSocialBg] = useState(GLOBAL_ASSET_DEFAULTS.social_bg);
     const [aiBg, setAiBg] = useState(GLOBAL_ASSET_DEFAULTS.ai_box);
@@ -47,7 +57,7 @@ export const AdminHeaderManager = () => {
     const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
     const [inspectorOpen, setInspectorOpen] = useState(false);
     const [imageToEdit, setImageToEdit] = useState('');
-    const [editTarget, setEditTarget] = useState<'hero' | 'patron' | 'placeholder' | 'auth' | 'social' | 'ai_bg'>('hero');
+    const [editTarget, setEditTarget] = useState<'hero' | 'patron' | 'placeholder' | 'suitcase_placeholder' | 'auth' | 'social' | 'ai_bg'>('hero');
     const [editPlaceholderCat, setEditPlaceholderCat] = useState<string>('');
     const [heroNote, setHeroNote] = useState('');
 
@@ -60,6 +70,7 @@ export const AdminHeaderManager = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const patronInputRef = useRef<HTMLInputElement>(null);
     const placeholderInputRef = useRef<HTMLInputElement>(null);
+    const suitcasePlaceholderInputRef = useRef<HTMLInputElement>(null);
     const authInputRef = useRef<HTMLInputElement>(null);
     const socialInputRef = useRef<HTMLInputElement>(null);
     const aiBgInputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +86,7 @@ export const AdminHeaderManager = () => {
             const social = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG];
             const ai = configs[SETTINGS_KEYS.AI_CONSULTANT_BG];
             const ph = configs[SETTINGS_KEYS.CATEGORY_PLACEHOLDERS];
+            const sph = configs[SETTINGS_KEYS.SUITCASE_PLACEHOLDERS];
 
             setCurrentImage(heroImage || GLOBAL_ASSET_DEFAULTS.hero);
             setPreviewImage(heroImage || GLOBAL_ASSET_DEFAULTS.hero);
@@ -83,6 +95,7 @@ export const AdminHeaderManager = () => {
             setSocialBg(social || GLOBAL_ASSET_DEFAULTS.social_bg);
             setAiBg(ai !== undefined ? ai : GLOBAL_ASSET_DEFAULTS.ai_box);
             setPlaceholders(ph || {});
+            setSuitcasePlaceholders(sph || {});
         }
     }, [configs, isLoading]);
 
@@ -91,7 +104,7 @@ export const AdminHeaderManager = () => {
         setTimeout(() => setToast(null), type === 'error' ? 8000 : 4000);
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'hero' | 'patron' | 'placeholder' | 'auth' | 'social' | 'ai_bg', phCat?: string) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'hero' | 'patron' | 'placeholder' | 'suitcase_placeholder' | 'auth' | 'social' | 'ai_bg', phCat?: string) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -107,6 +120,7 @@ export const AdminHeaderManager = () => {
                 else if (target === 'social') setSocialBg(publicUrl);
                 else if (target === 'ai_bg') setAiBg(publicUrl);
                 else if (target === 'placeholder' && phCat) await handleSavePlaceholder(phCat, publicUrl);
+                else if (target === 'suitcase_placeholder' && phCat) await handleSaveSuitcasePlaceholder(phCat, publicUrl);
                 
                 showToast("Immagine caricata con successo!", 'success');
             } else {
@@ -119,6 +133,7 @@ export const AdminHeaderManager = () => {
              if (fileInputRef.current) fileInputRef.current.value = '';
              if (patronInputRef.current) patronInputRef.current.value = '';
              if (placeholderInputRef.current) placeholderInputRef.current.value = '';
+             if (suitcasePlaceholderInputRef.current) suitcasePlaceholderInputRef.current.value = '';
              if (authInputRef.current) authInputRef.current.value = '';
              if (socialInputRef.current) socialInputRef.current.value = '';
              if (aiBgInputRef.current) aiBgInputRef.current.value = '';
@@ -207,7 +222,14 @@ export const AdminHeaderManager = () => {
         showToast(`Placeholder per ${cat} aggiornato!`, 'success');
     };
 
-    const openEditor = (url: string, target: 'hero' | 'patron' | 'placeholder' | 'auth' | 'social' | 'ai_bg', cat?: string) => {
+    const handleSaveSuitcasePlaceholder = async (cat: string, url: string) => {
+        const updated = { ...suitcasePlaceholders, [cat]: url };
+        setSuitcasePlaceholders(updated);
+        await updateSetting(SETTINGS_KEYS.SUITCASE_PLACEHOLDERS, updated);
+        showToast(`Placeholder valigia per ${cat} aggiornato!`, 'success');
+    };
+
+    const openEditor = (url: string, target: 'hero' | 'patron' | 'placeholder' | 'suitcase_placeholder' | 'auth' | 'social' | 'ai_bg', cat?: string) => {
         if (!url) return;
         setImageToEdit(url);
         setEditTarget(target);
@@ -230,6 +252,8 @@ export const AdminHeaderManager = () => {
             setAiBg(newImageUrl);
         } else if (editTarget === 'placeholder' && editPlaceholderCat) {
             await handleSavePlaceholder(editPlaceholderCat, newImageUrl);
+        } else if (editTarget === 'suitcase_placeholder' && editPlaceholderCat) {
+            await handleSaveSuitcasePlaceholder(editPlaceholderCat, newImageUrl);
         }
         setInspectorOpen(false);
     };
@@ -238,6 +262,12 @@ export const AdminHeaderManager = () => {
         setEditPlaceholderCat(cat);
         if (placeholderInputRef.current) placeholderInputRef.current.value = '';
         placeholderInputRef.current?.click();
+    };
+
+    const triggerSuitcasePlaceholderUpload = (cat: string) => {
+        setEditPlaceholderCat(cat);
+        if (suitcasePlaceholderInputRef.current) suitcasePlaceholderInputRef.current.value = '';
+        suitcasePlaceholderInputRef.current?.click();
     };
     
     const handleSafeArtSuccess = (url: string) => {
@@ -298,7 +328,7 @@ export const AdminHeaderManager = () => {
                 </div>
             </div>
 
-            <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-lg overflow-hidden relative z-10">
+            <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-lg overflow-hidden relative z-floating-panel">
                  <div className="flex justify-end items-center p-4 border-b border-slate-800 bg-slate-950/50">
                     <button onClick={handleReset} className="bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-colors">
                         <RefreshCw className="w-4 h-4"/> Ripristina Default
@@ -391,6 +421,16 @@ export const AdminHeaderManager = () => {
                             onEditClick={(url, catId) => openEditor(url, 'placeholder', catId)} 
                         />
                         <input ref={placeholderInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'placeholder', editPlaceholderCat)} />
+
+                        <PlaceholderGrid 
+                            title="Suitcase Suggestion Placeholders"
+                            description="Usati se manca l'immagine prodotto nei suggerimenti valigia"
+                            categories={SUITCASE_PLACEHOLDER_CATS}
+                            placeholders={suitcasePlaceholders} 
+                            onUploadClick={triggerSuitcasePlaceholderUpload} 
+                            onEditClick={(url, catId) => openEditor(url, 'suitcase_placeholder', catId)} 
+                        />
+                        <input ref={suitcasePlaceholderInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'suitcase_placeholder', editPlaceholderCat)} />
 
                     </div>
                 </div>

@@ -232,7 +232,7 @@ export const LoadingTipsManager = () => {
             
             {/* DELETE MODAL (Identico a POI Manager) */}
             {deleteTarget && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-slate-900 border border-red-500/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95">
                         <div className="flex flex-col items-center text-center gap-4">
                              <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse"/>
@@ -305,7 +305,7 @@ export const LoadingTipsManager = () => {
                 
                 {/* COLUMN 1: MAIN TIPS */}
                 <div className="flex flex-col bg-slate-900/50 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
-                    <div className="p-4 border-b border-slate-800 bg-[#0f172a] flex items-center justify-between sticky top-0 z-10">
+                    <div className="p-4 border-b border-slate-800 bg-[#0f172a] flex items-center justify-between sticky top-0 z-floating-panel">
                         <div className="flex items-center gap-2">
                             <MessageSquare className="w-4 h-4 text-amber-500"/>
                             <h3 className="font-bold text-white text-sm uppercase tracking-wide">Consigli del Giorno</h3>
@@ -333,7 +333,7 @@ export const LoadingTipsManager = () => {
 
                 {/* COLUMN 2: LOADING STATUSES */}
                 <div className="flex flex-col bg-slate-900/50 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
-                    <div className="p-4 border-b border-slate-800 bg-[#0f172a] flex items-center justify-between sticky top-0 z-10">
+                    <div className="p-4 border-b border-slate-800 bg-[#0f172a] flex items-center justify-between sticky top-0 z-floating-panel">
                          <div className="flex items-center gap-2">
                             <List className="w-4 h-4 text-indigo-500"/>
                             <h3 className="font-bold text-white text-sm uppercase tracking-wide">Stati Caricamento</h3>

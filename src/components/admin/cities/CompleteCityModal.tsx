@@ -1,7 +1,11 @@
-
-import React, { useState, useEffect } from 'react';
-import { X, Wand2, Loader2, User, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Z_OVERLAY } from '@/constants/zIndex';
+import React, { useState, useEffect, useRef } from 'react';
+import { useGlobalModalEscape } from "@/hooks/useGlobalModalEscape";
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Wand2, Loader2, User, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { GEO_CONFIG } from '../../../constants/geoConfig';
+
+
 
 interface Props {
     isOpen: boolean;
@@ -14,25 +18,19 @@ export const CompleteCityModal = ({ isOpen, onClose, onConfirm, cityName }: Prop
     const [peopleCount, setPeopleCount] = useState(10);
     const [runPoiDeepScan, setRunPoiDeepScan] = useState(false);
 
-    // Gestione ESC
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
+    // Modifica: Centralizzazione ESC tramite hook globale
+    useGlobalModalEscape(isOpen, onClose);
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+        <div 
+            className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in"
+            style={{ zIndex: Z_OVERLAY }}
+        >
             <div className="bg-slate-900 border-2 border-indigo-500/50 p-8 rounded-[2rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in-95">
                 
-                {/* STANDARD RED CLOSE BUTTON */}
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg z-50">
-                    <X className="w-5 h-5"/>
-                </button>
+                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
                 
                 <div className="flex flex-col items-center text-center gap-4 mb-8">
                     <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -105,3 +103,6 @@ export const CompleteCityModal = ({ isOpen, onClose, onConfirm, cityName }: Prop
         </div>
     );
 };
+
+
+

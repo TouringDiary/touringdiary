@@ -5,6 +5,10 @@ import { PointOfInterest } from '../types/index';
 export interface ActivationData {
     id: string | null;
     pricingVersionId: string | null;
+    startDate?: string;
+    duration?: string;
+    amount?: number;
+    invoiceNumber?: string;
 }
 
 export interface RejectData {
@@ -27,12 +31,19 @@ export interface ExtensionData {
     days: number;
 }
 
+export interface CrmIdentity {
+    profileId?: string | null;
+    vat?: string | null;
+    email?: string | null;
+    requestId?: string | null;
+}
+
 export const useSponsorModals = () => {
     const [activationData, setActivationData] = useState<ActivationData | null>(null);
     const [rejectData, setRejectData] = useState<RejectData | null>(null);
     const [cancelData, setCancelData] = useState<CancelData | null>(null);
     const [previewPoi, setPreviewPoi] = useState<PointOfInterest | null>(null);
-    const [partnerCrmVat, setPartnerCrmVat] = useState<string | null>(null);
+    const [partnerCrmIdentity, setPartnerCrmIdentity] = useState<CrmIdentity | null>(null);
     
     const [extensionData, setExtensionData] = useState<ExtensionData>({
         isOpen: false,
@@ -76,8 +87,8 @@ export const useSponsorModals = () => {
     const closePreview = () => setPreviewPoi(null);
 
     // CRM
-    const openCrm = (vat: string) => setPartnerCrmVat(vat);
-    const closeCrm = () => setPartnerCrmVat(null);
+    const openCrm = (identity: CrmIdentity) => setPartnerCrmIdentity(identity);
+    const closeCrm = () => setPartnerCrmIdentity(null);
 
     // Extension
     const openMassExtension = () => {
@@ -140,6 +151,8 @@ export const useSponsorModals = () => {
         setExtensionData(prev => ({ ...prev, newExpirationDate: date, days }));
     };
 
+    const partnerCrmVat = partnerCrmIdentity?.vat || null;
+
     return {
         state: {
             activationData,
@@ -147,6 +160,7 @@ export const useSponsorModals = () => {
             cancelData,
             previewPoi,
             partnerCrmVat,
+            partnerCrmIdentity,
             extensionData
         },
         actions: {

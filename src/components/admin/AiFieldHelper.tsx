@@ -1,7 +1,8 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
 import React, { useState, useEffect } from 'react';
 import { Bot, Loader2, Sparkles, X, Check, ListChecks, Settings, Plus, Trash2, Save, Database } from 'lucide-react';
-import { getAiClient } from '../../services/ai/aiClient';
+
 import { getAiConfig, saveAiConfig } from '../../services/aiConfigService';
 
 interface AiFieldHelperProps {
@@ -67,7 +68,7 @@ export const AiFieldHelper = ({ contextLabel, onApply, mode = 'text', min, max, 
         setLoading(true);
         setError(null);
         try {
-            const ai = getAiClient();
+            
             const combinedPrompt = selectedPrompts.join('\n- ');
             
             let systemInstruction = "Agisci come editor turistico esperto della Campania. Rispondi in italiano.";
@@ -83,8 +84,8 @@ export const AiFieldHelper = ({ contextLabel, onApply, mode = 'text', min, max, 
                 RISULTATO FINALE (Solo testo, niente spiegazioni):
             `;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-3.1-pro-preview',
+            const response = await aiGateway.generateLegacy({
+                model: 'gemini-2.0-pro',
                 contents: `${systemInstruction}\n\n${finalPrompt}`,
             });
 

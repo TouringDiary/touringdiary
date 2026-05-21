@@ -1,7 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, Calendar } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
 
 interface DateChangeWarningModalProps {
@@ -16,22 +19,24 @@ export const DateChangeWarningModal = ({ isOpen, onClose, onConfirm, lostDaysCou
     const { getText } = useSystemMessage('modal_date_warning');
     const msg = getText({ count: lostDaysCount });
 
-    // ESC Key Listener
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // ESC Key Management
+    useGlobalModalEscape(isOpen, onClose);
 
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-amber-500/50 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6">
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
+            <div 
+                className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-amber-500/50 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <CloseButton 
+                    onClose={onClose}
+                    variant="primary"
+                    position="absolute"
+                    className="top-4 right-4"
+                />
                 
                 <div className="flex flex-col items-center text-center mb-6">
                     <div className="p-4 bg-amber-500/20 rounded-full mb-4 animate-pulse">
@@ -40,7 +45,7 @@ export const DateChangeWarningModal = ({ isOpen, onClose, onConfirm, lostDaysCou
                     <h3 className="text-xl font-display font-bold text-white mb-2">
                         {msg.title || 'Attenzione: Modifica Date'}
                     </h3>
-                    <p className="text-sm text-slate-300 leading-relaxed">
+                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
                         {msg.body || `Riducendo la durata del viaggio, perderai le tappe inserite negli ultimi ${lostDaysCount} giorni che verranno rimossi.`}
                     </p>
                     <div className="mt-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700 w-full">
@@ -71,3 +76,6 @@ export const DateChangeWarningModal = ({ isOpen, onClose, onConfirm, lostDaysCou
         document.body
     );
 };
+
+
+

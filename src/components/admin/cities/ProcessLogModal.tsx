@@ -44,7 +44,7 @@ export const ProcessLogModal = ({ isOpen, onClose, onClearSession, isProcessing,
     const progressPercent = totalSteps > 0 ? Math.round((successCount / totalSteps) * 100) : 0;
 
     return (
-        <div className="fixed inset-0 z-[3000] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-admin-modal bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
             <div className="bg-slate-900 w-full max-w-[95vw] h-[90vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden ring-1 ring-white/10">
                 
                 {/* HEADER */}
@@ -122,7 +122,7 @@ export const ProcessLogModal = ({ isOpen, onClose, onClearSession, isProcessing,
                         
                         <div className="flex-1 overflow-y-auto p-0 custom-scrollbar scroll-smooth relative">
                             <table className="w-full text-left border-collapse">
-                                <thead className="bg-slate-950 text-slate-500 text-[9px] uppercase font-bold sticky top-0 z-10 shadow-sm">
+                                <thead className="bg-slate-950 text-slate-500 text-[9px] uppercase font-bold sticky top-0 z-floating-panel shadow-sm">
                                     <tr>
                                         <th className="p-3 border-b border-slate-800">Step Operativo</th>
                                         <th className="p-3 border-b border-slate-800 text-center">Stato</th>

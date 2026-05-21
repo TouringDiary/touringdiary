@@ -106,24 +106,24 @@ export const PoiList: React.FC<PoiListProps> = ({
         return (
             <div key={poi.id || `poi-card-${idx}`} className={`bg-slate-900 rounded-2xl border overflow-hidden group hover:border-slate-600 transition-all shadow-md flex flex-col h-[340px] relative ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500' : isAssetMissing ? 'border-red-500/50' : 'border-slate-800'}`}>
                 
-                <div className="absolute top-2 left-2 z-30 flex items-center">
+                <div className="absolute top-2 left-2 z-dropdown flex items-center">
                     <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); actions.toggleSelection(poi.id); }} className={`p-1.5 rounded-lg shadow-lg border transition-all ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-black/50 border-white/20 text-slate-300 hover:bg-black/70'}`}>
                         {isSelected ? <CheckSquare className="w-4 h-4"/> : <Square className="w-4 h-4"/>}
                     </button>
                     {statusBadge}
                 </div>
                 
-                <div className={`absolute top-2 left-12 z-30 flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${relColor}`} title={`Affidabilità AI: ${relLabel}`} style={{marginLeft: viewStatus === 'all' ? '40px' : '0px'}}>
+                <div className={`absolute top-2 left-12 z-dropdown flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${relColor}`} title={`Affidabilità AI: ${relLabel}`} style={{marginLeft: viewStatus === 'all' ? '40px' : '0px'}}>
                     <RelIcon className="w-3 h-3"/> {relLabel}
                 </div>
                 
                 {/* INTEREST BADGE ALWAYS VISIBLE (Shows N/C if missing) */}
-                <div className={`absolute top-2 right-2 z-30 flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${interestColor}`} title={`Interesse Turistico: ${poi.tourismInterest || 'Non Classificato'}`}>
+                <div className={`absolute top-2 right-2 z-dropdown flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${interestColor}`} title={`Interesse Turistico: ${poi.tourismInterest || 'Non Classificato'}`}>
                     <TrendingUp className="w-3 h-3"/> {interestLabel}
                 </div>
                 
                 {isAssetMissing && (
-                    <div className="absolute top-10 right-2 z-30 bg-red-600 text-white text-[9px] font-black uppercase px-2 py-1 rounded shadow-lg border border-red-400 flex items-center gap-1 animate-pulse pointer-events-none">
+                    <div className="absolute top-10 right-2 z-dropdown bg-red-600 text-white text-[9px] font-black uppercase px-2 py-1 rounded shadow-lg border border-red-400 flex items-center gap-1 animate-pulse pointer-events-none">
                         <ImageOff className="w-3 h-3"/> No Asset
                     </div>
                 )}
@@ -150,10 +150,10 @@ export const PoiList: React.FC<PoiListProps> = ({
                     </div>
                     
                     <div className="flex-1 overflow-hidden mt-1"><p className="text-sm text-slate-400 line-clamp-3 leading-relaxed italic">"{poi.description || 'Nessuna descrizione.'}"</p></div>
-                    <div className="flex gap-2 mt-auto pt-3 border-t border-slate-800/50 relative z-30">
+                    <div className="flex gap-2 mt-auto pt-3 border-t border-slate-800/50 relative z-dropdown">
                         <button onClick={() => actions.onPreview(poi)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors" title="Anteprima"><Eye className="w-4 h-4"/></button>
                         <button onClick={() => actions.onEdit(poi)} className="flex-1 bg-slate-800 hover:bg-indigo-600 text-white px-2 py-0.5 rounded-xl text-[10px] font-black border border-slate-700 uppercase transition-all shadow-md">Modifica</button>
-                        {isSuperAdmin && (<button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); actions.onDeleteRequest(poi); }} className="p-2 rounded-xl border border-red-500/30 text-red-500 bg-red-900/10 hover:bg-red-900/40 transition-all cursor-pointer relative z-50 pointer-events-auto" title="Elimina Definitivamente"><Trash2 className="w-4 h-4 pointer-events-none"/></button>)}
+                        {isSuperAdmin && (<button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); actions.onDeleteRequest(poi); }} className="p-2 rounded-xl border border-red-500/30 text-red-500 bg-red-900/10 hover:bg-red-900/40 transition-all cursor-pointer relative z-admin-modal pointer-events-auto" title="Elimina Definitivamente"><Trash2 className="w-4 h-4 pointer-events-none"/></button>)}
                     </div>
                 </div>
             </div>
@@ -163,7 +163,7 @@ export const PoiList: React.FC<PoiListProps> = ({
     return (
         <div className="flex flex-col flex-1 min-h-0">
             {selectedIds.size > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900 border border-indigo-500/50 rounded-2xl shadow-2xl p-2 flex items-center gap-2 animate-in slide-in-from-bottom-10">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-toast bg-slate-900 border border-indigo-500/50 rounded-2xl shadow-2xl p-2 flex items-center gap-2 animate-in slide-in-from-bottom-10">
                     <div className="bg-indigo-600 px-3 py-1.5 rounded-xl text-white font-bold text-xs flex items-center gap-2 mr-2">
                         <CheckSquare className="w-4 h-4"/> {selectedIds.size}
                     </div>

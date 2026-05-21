@@ -1,8 +1,10 @@
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useItinerary } from '@/context/ItineraryContext';
 import { publishUserItinerary } from '../services/dataService';
 import { User, ItineraryItem } from '../types/index';
+import { useUndoStack, UndoAction } from './useUndoStack';
+import { useDiaryUndo } from './useDiaryUndo';
 
 interface UseDiaryLogicProps {
     user: User;
@@ -28,6 +30,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     const [itemToMove, setItemToMove] = useState<ItineraryItem | null>(null);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const dragCounter = useRef(0);
+    const pendingMoveActionRef = useRef<{ id: string, previousItems: ItineraryItem[] } | null>(null);
 
     // Modals State
     const [saveAsModalOpen, setSaveAsModalOpen] = useState(false);
@@ -39,6 +42,33 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     
     // Feedback State
     const [toastMessage, setToastMessage] = useState<{title: string, xp: number} | null>(null);
+    const [diaryToast, setDiaryToast] = useState<{ message: string; visible: boolean }>({
+        message: "",
+        visible: false
+    });
+    const diaryToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const showDiaryToast = useCallback((message: string) => {
+        if (diaryToastTimeoutRef.current) clearTimeout(diaryToastTimeoutRef.current);
+        setDiaryToast({ message, visible: true });
+        diaryToastTimeoutRef.current = setTimeout(() => {
+            setDiaryToast(prev => ({ ...prev, visible: false }));
+        }, 3000);
+    }, []);
+
+    // --- UNDO/REDO STACK ---
+    const { pushAction, undo, redo, canUndo, canRedo, beginExecution, endExecution, isExecuting } = useUndoStack<any>(50);
+    const { performUndo, performRedo } = useDiaryUndo({
+        undo,
+        redo,
+        setItinerary,
+        addItem,
+        removeItem,
+        showToast: showDiaryToast,
+        isExecuting,
+        beginExecution,
+        endExecution
+    });
 
     // --- EFFECTS ---
 
@@ -51,8 +81,34 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
+    // Cleanup toast timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (diaryToastTimeoutRef.current) {
+                clearTimeout(diaryToastTimeoutRef.current);
+            }
+        };
+    }, []);
+
     // Reset tab when dates change
     useEffect(() => { setActiveTab('all'); }, [itinerary.startDate, itinerary.endDate]);
+
+    // Capture Move Action Result
+    useEffect(() => {
+        if (pendingMoveActionRef.current) {
+            const { id, previousItems } = pendingMoveActionRef.current;
+            pushAction({
+                id,
+                type: 'move',
+                payload: {
+                    previousItems,
+                    newItems: [...itinerary.items]
+                },
+                label: 'Spostamento'
+            });
+            pendingMoveActionRef.current = null;
+        }
+    }, [itinerary.items, pushAction]);
 
     // --- HANDLERS ---
     
@@ -130,7 +186,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         setWarningModal(null);
     }, [warningModal, setItinerary]);
 
-    const handleAddNote = useCallback((dayIndex: number) => {
+    const handleAddNote = useCallback((dayIndex: number, skipUndo = false) => {
         const id = `note-${Date.now()}`;
         const newItem: ItineraryItem = {
             id, 
@@ -151,9 +207,102 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
                 address: '' 
             }
         };
+
+        if (!skipUndo) {
+            pushAction({
+                id,
+                type: 'add',
+                payload: newItem,
+                label: 'Nuova Nota'
+            });
+        }
+
         setItinerary(prev => ({ ...prev, items: [...prev.items, newItem] }));
         setHighlightedItemId(id);
-    }, [setItinerary, setHighlightedItemId]);
+    }, [setItinerary, setHighlightedItemId, pushAction]);
+
+    const handleRemoveItem = useCallback((id: string, skipUndo = false) => {
+        const itemToRemove = itinerary.items.find(i => i.id === id);
+        if (itemToRemove && !skipUndo) {
+            pushAction({
+                id,
+                type: 'delete',
+                payload: itemToRemove,
+                label: itemToRemove.poi?.name || 'Tappa'
+            });
+        }
+        removeItem(id);
+    }, [itinerary.items, removeItem, pushAction]);
+
+    const handleTimeChange = useCallback((id: string, time: string, dayIdx: number) => {
+        const item = itinerary.items.find(i => i.id === id);
+        if (item && item.timeSlotStr !== time) {
+            pushAction({
+                id,
+                type: 'update',
+                payload: {
+                    field: 'timeSlotStr',
+                    newValue: time,
+                    previousValue: item.timeSlotStr
+                },
+                label: 'Orario'
+            });
+        }
+        setItinerary(prev => ({ 
+            ...prev, 
+            items: prev.items.map(i => i.id === id ? { ...i, timeSlotStr: time } : i) 
+        })); 
+        setHighlightedItemId(id);
+    }, [itinerary.items, setItinerary, setHighlightedItemId, pushAction]);
+
+    const handleIconSelect = useCallback((id: string, icon: string) => {
+        const item = itinerary.items.find(i => i.id === id);
+        if (item && item.customIcon !== icon) {
+            pushAction({
+                id,
+                type: 'update',
+                payload: {
+                    field: 'customIcon',
+                    newValue: icon,
+                    previousValue: item.customIcon || 'note'
+                },
+                label: 'Icona'
+            });
+        }
+        setItinerary(prev => ({
+            ...prev, 
+            items: prev.items.map(i => i.id === id ? { ...i, customIcon: icon } : i)
+        })); 
+        setIconPickerOpen(null);
+    }, [itinerary.items, setItinerary, pushAction]);
+
+    const handleNoteChange = useCallback((id: string, text: string) => {
+        const item = itinerary.items.find(i => i.id === id);
+        // Usiamo un piccolo debounce o controllo per evitare troppi push durante la digitazione?
+        // Il requisito dice "modifica testo nota", tipicamente si pusha al blur o dopo pausa.
+        // Ma qui il sistema Suitcase sembra pushare direttamente o tramite merge.
+        //useUndoStack ha il merge logic.
+        
+        if (item && item.poi.description !== text) {
+            pushAction({
+                id,
+                type: 'update',
+                payload: {
+                    field: 'poi.description',
+                    newValue: text,
+                    previousValue: item.poi.description
+                },
+                label: 'Nota',
+                merge: true, // Permette di unire modifiche consecutive alla stessa nota
+                groupId: `note-${id}`
+            });
+        }
+
+        setItinerary(prev => ({
+            ...prev, 
+            items: prev.items.map(i => i.id === id ? { ...i, poi: { ...i.poi, description: text } } : i)
+        }));
+    }, [itinerary.items, setItinerary, pushAction]);
 
     const handlePublish = async () => {
         if (user.role === 'guest' || !itinerary.items.length || !itinerary.name) {
@@ -250,12 +399,28 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     }, [onDayDropProp]);
 
     const handleDayDrop = useCallback((e: React.DragEvent, idx: number, time?: string) => {
-        let data = e.dataTransfer.getData('application/json');
-        if(!data) data = e.dataTransfer.getData('text/plain');
-        onDayDropProp(idx, data, time); 
+        let dataStr = e.dataTransfer.getData('application/json');
+        if(!dataStr) dataStr = e.dataTransfer.getData('text/plain');
+        
+        // Se è un movimento interno, registriamo per undo
+        try {
+            const data = JSON.parse(dataStr);
+            if (data.type === 'MOVE_ITEM' && data.id) {
+                pendingMoveActionRef.current = {
+                    id: data.id,
+                    previousItems: [...itinerary.items]
+                };
+            }
+        } catch (e) {}
+
+        onDayDropProp(idx, dataStr, time); 
         setIsDraggingOver(false); 
         dragCounter.current = 0;
-    }, [onDayDropProp]);
+        
+        // Aggiorniamo l'azione di move con il nuovo stato dopo il drop
+        // Nota: onDayDropProp è asincrono o causa re-render. 
+        // È meglio catturare lo stato in useDiaryUndo confrontando gli array.
+    }, [onDayDropProp, itinerary.items]);
 
     return {
         // Data State from Context
@@ -276,8 +441,11 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             clearModalOpen,
             warningModal,
             toastMessage,
+            diaryToast,
             isDraggingOver,
-            memoTargetItem
+            memoTargetItem,
+            canUndo,
+            canRedo
         },
 
         // Setters
@@ -293,12 +461,14 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             setWarningModal,
             setHighlightedItemId,
             setToastMessage,
-            setMemoTargetItem
+            setMemoTargetItem,
+            performUndo,
+            performRedo
         },
 
         // Logic Actions
         actions: {
-            removeItem,
+            removeItem: handleRemoveItem,
             updateDayStyle,
             saveProject: handleSaveProject, // WRAPPED!
             loadProject,
@@ -316,7 +486,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             handleDragLeave,
             handleDrop,
             handleContainerDrop,
-            handleDayDrop
+            handleDayDrop,
+            onTimeChange: handleTimeChange,
+            onIconSelect: handleIconSelect,
+            onNoteChange: handleNoteChange
         }
     };
 };

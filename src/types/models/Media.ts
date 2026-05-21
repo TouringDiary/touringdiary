@@ -1,5 +1,14 @@
+import { SuggestionType } from '../index';
 
-import { SuggestionType } from '../shared';
+import { Database } from '../supabase';
+export type MediaStatus = Database['public']['Enums']['media_status'];
+
+export interface MediaAsset {
+    url: string;
+    mediaStatus: MediaStatus;
+    credit?: string;
+    license?: 'own' | 'cc' | 'public' | 'copyright';
+}
 
 export interface PhotoSubmission {
     id: string;
@@ -14,6 +23,8 @@ export interface PhotoSubmission {
     status: 'pending' | 'approved' | 'rejected' | 'city_deleted';
     likes?: number;
     cityId?: string; // ADDED: ID Città per collegamento robusto
+    isOfficial: boolean; 
+    mediaStatus: MediaStatus;
 }
 
 export interface NewsTickerItem {
@@ -30,7 +41,7 @@ export interface CommunityReply {
     authorName: string;
     authorRole?: string;
     text: string;
-    timestamp: string;
+    date: string;
     likes: number;
 }
 
@@ -43,7 +54,7 @@ export interface CommunityPost {
     text: string;
     cityId: string;
     cityName: string;
-    timestamp: string;
+    date: string;
     likes: number;
     repliesCount: number;
     replies?: CommunityReply[];

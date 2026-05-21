@@ -1,9 +1,14 @@
+import { Z_OVERLAY, Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, BookOpen, Quote, MapPin, Plus, Star, Award, ArrowRight, Film, Sparkles, Clock, Heart, ChevronRight, Lightbulb, ScrollText, CheckCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { BookOpen, Quote, MapPin, Plus, Star, Award, ArrowRight, Film, Sparkles, Clock, Heart, ChevronRight, Lightbulb, ScrollText, CheckCircle } from 'lucide-react';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CityDetails, FamousPerson, PointOfInterest } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { openMap } from '../../utils/common';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+
 
 interface Props {
     isOpen: boolean;
@@ -35,22 +40,8 @@ export const CultureCornerModal = ({ isOpen, onClose, city, onAddToItinerary, in
         setAddedPlaces(new Set()); // Reset added state on open
     }, [isOpen, initialPersonId, city.details.famousPeople]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                if (selectedPersonRef.current) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setSelectedPerson(null);
-                } else {
-                    onClose();
-                }
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown, { capture: true });
-        return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-    }, [isOpen, onClose]);
+    useGlobalModalEscape(isOpen, onClose);
+
 
     const handleAddPlace = (e: React.MouseEvent, place: any) => {
         e.stopPropagation();
@@ -156,17 +147,21 @@ export const CultureCornerModal = ({ isOpen, onClose, city, onAddToItinerary, in
     if (selectedPerson) {
         const hasStats = selectedPerson.careerStats && selectedPerson.careerStats.length > 0;
         
-        return (
-            <div className="fixed top-0 bottom-0 left-0 right-0 z-[2200] flex items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 overflow-hidden">
-                <div className="w-full h-full md:max-w-7xl md:h-[95vh] bg-[#0b0f1a] md:rounded-3xl relative flex flex-col md:flex-row overflow-hidden shadow-2xl md:border border-slate-800">
+        return createPortal(
+            <div className="td-modal-overlay bg-black/95 backdrop-blur-xl animate-in fade-in !p-0 md:!p-4" onClick={() => setSelectedPerson(null)} style={{ zIndex: Z_MODAL_NESTED }}>
+                <div 
+                    className="relative w-full h-full md:max-w-7xl md:h-[95vh] bg-[#0b0f1a] md:rounded-3xl flex flex-col md:flex-row overflow-hidden shadow-2xl md:border border-slate-800 pointer-events-auto"
+                    style={{ zIndex: Z_MODAL_NESTED }}
+                    onClick={(e) => e.stopPropagation()}
+                >
                     
                     {/* CLOSE DETAIL BUTTON */}
-                    <button 
-                        onClick={() => setSelectedPerson(null)} 
-                        className="absolute top-6 right-6 z-50 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"
-                    >
-                        <X className="w-6 h-6"/>
-                    </button>
+                    <CloseButton 
+                        onClose={() => setSelectedPerson(null)}
+                        position="absolute"
+                        variant="primary"
+                        className="top-6 right-6"
+                    />
 
                     {/* LEFT COLUMN: HERO IMAGE & KEY INFO */}
                     <div className="w-full md:w-[45%] lg:w-[40%] h-[40vh] md:h-full relative shrink-0">
@@ -177,7 +172,7 @@ export const CultureCornerModal = ({ isOpen, onClose, city, onAddToItinerary, in
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f1a] via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-[#0b0f1a]"></div>
                         
-                        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 z-20">
+                        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12">
                             <h2 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold text-white leading-[0.9] tracking-tighter mb-4 shadow-black drop-shadow-2xl">
                                 {selectedPerson.name}
                             </h2>
@@ -299,15 +294,19 @@ export const CultureCornerModal = ({ isOpen, onClose, city, onAddToItinerary, in
                         </div>
                     </div>
                 </div>
-            </div>
+            </div>,
+            document.body
         );
     }
 
-    return (
-        <div className="fixed top-24 bottom-0 left-0 right-0 z-[2000] flex items-center justify-center p-0 md:p-4">
-            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={onClose}></div>
-            <div className="relative bg-[#020617] w-full max-w-6xl h-full md:max-h-[85vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5">
-                <div className="flex justify-between items-center px-6 py-5 border-b border-slate-800 bg-[#020617] z-20 shrink-0">
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in !p-4" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
+            <div 
+                className="relative bg-[#020617] w-full max-w-6xl h-full md:max-h-[85vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex justify-between items-center px-6 py-5 border-b border-slate-800 bg-[#020617] shrink-0">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-900/20 text-white">
                             <Quote className="w-6 h-6"/>
@@ -317,9 +316,7 @@ export const CultureCornerModal = ({ isOpen, onClose, city, onAddToItinerary, in
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">I Grandi Personaggi di {city.name}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                        <X className="w-6 h-6"/>
-                    </button>
+                    <CloseButton onClose={onClose} variant="primary" />
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-slate-950 custom-scrollbar">
@@ -359,6 +356,10 @@ export const CultureCornerModal = ({ isOpen, onClose, city, onAddToItinerary, in
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

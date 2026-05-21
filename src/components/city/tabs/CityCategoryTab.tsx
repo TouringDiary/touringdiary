@@ -1,5 +1,7 @@
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Filter, X, ArrowDownAZ, ArrowUpAZ, Star, Plus, Crosshair, Search, SlidersHorizontal, ChevronDown, PenTool, Award, MapPin, TrendingUp, Heart, ArrowUp, ArrowDown, Coins } from 'lucide-react';
 import { PointOfInterest, SuggestionType, User as UserType } from '../../../types/index';
 import { CityGuide } from './CityGuide';
@@ -11,6 +13,7 @@ import { getPoiCategoryLabel } from '../../../utils/common';
 import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
 import { CategorySponsorColumn } from './CategorySponsorColumn';
 import { CompactDiscoveryCard } from '../ShowcaseCards';
+
 
 // --- MAPPING CATEGORIA -> TAB ---
 const CATEGORY_TO_TAB_MAP: Record<string, string> = {
@@ -132,8 +135,8 @@ export const CityCategoryTab = ({
                 setShowContribMenu(false);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        window.addEventListener('mousedown', handleClickOutside);
+        return () => window.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const isItemInItinerary = (id: string) => itinerary.items.some(i => i.poi.id === id);
@@ -286,9 +289,8 @@ export const CityCategoryTab = ({
     };
 
     // --- RENDER COMPLETO ---
-    // MOBILE FIX: h-auto instead of h-full to allow parent scrolling
     return (
-        <div className="flex flex-col w-full h-auto md:h-full bg-[#020617] relative">
+        <div className="flex flex-col w-full h-auto lg:h-full bg-[#020617] relative">
             <SmartFilterDrawer 
                 isOpen={isFilterDrawerOpen}
                 onClose={() => setIsFilterDrawerOpen(false)}
@@ -302,9 +304,9 @@ export const CityCategoryTab = ({
 
             {/* HEADER CONTROLLI (2 RIGHE) - RELATIVE SU MOBILE PER SCROLLARE VIA */}
             <div className={`
-                flex flex-col border-b border-slate-800 bg-[#020617]/95 backdrop-blur-md z-30 transition-all duration-300 shadow-xl shrink-0
-                relative md:sticky md:top-0
-                ${isUiVisible === false && window.innerWidth >= 768 ? '-translate-y-full opacity-0 pointer-events-none absolute w-full' : ''}
+                flex flex-col border-b border-slate-800 bg-[#020617]/95 backdrop-blur-md z-dropdown transition-all duration-300 shadow-xl shrink-0
+                relative lg:sticky lg:top-0
+                ${isUiVisible === false && window.innerWidth >= 1024 ? '-translate-y-full opacity-0 pointer-events-none absolute w-full' : ''}
             `}>
                 <div className="flex flex-col gap-2 p-3">
                     
@@ -320,7 +322,10 @@ export const CityCategoryTab = ({
                                 <Plus className="w-3.5 h-3.5"/> Contribuisci
                             </button>
                             {showContribMenu && (
-                                <div className="absolute top-full left-0 mt-2 w-full md:w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-[100] overflow-hidden py-1 animate-in zoom-in-95 origin-top-left">
+                                <div 
+                                    className="absolute top-full left-0 mt-2 w-full md:w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-left"
+                                    style={{ zIndex: Z_MODAL_NESTED }}
+                                >
                                     <button onClick={() => handleProtectedAction(() => onOpenSuggestion('new_place'))} className="w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center gap-3 hover:bg-slate-800 text-emerald-400 transition-colors border-b border-slate-800/50"><Plus className="w-3.5 h-3.5"/> Nuovo Luogo</button>
                                     <button onClick={() => handleProtectedAction(() => onOpenSuggestion('edit_info'))} className="w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center gap-3 hover:bg-slate-800 text-indigo-400 transition-colors"><PenTool className="w-3.5 h-3.5"/> Modifica Luogo</button>
                                 </div>
@@ -344,7 +349,10 @@ export const CityCategoryTab = ({
                                     <span className="hidden md:inline text-[10px] font-bold uppercase">Ordina</span>
                                 </button>
                                 {showSortMenu && (
-                                    <div className="absolute top-full right-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-[100] overflow-hidden py-1 animate-in zoom-in-95 origin-top-right">
+                                    <div 
+                                        className="absolute top-full right-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-right"
+                                        style={{ zIndex: Z_MODAL_NESTED }}
+                                    >
                                         <div className="px-3 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800 mb-1">Ordina Per</div>
                                         <SortItem id="votes" label="Popolarità" icon={Heart} />
                                         <SortItem id="interest" label="Interesse" icon={TrendingUp} />
@@ -378,17 +386,17 @@ export const CityCategoryTab = ({
                                 <Crosshair className="w-4 h-4 animate-pulse text-indigo-200 shrink-0"/>
                                 <span className={`truncate ${referenceDistanceStyle || 'text-white text-xs font-bold'}`}>Distanza da: <span className="font-bold text-indigo-300 ml-1">{referencePoint.name}</span> <span className="text-indigo-200/70 text-[10px] ml-1">(<button onClick={handleCategoryLinkClick} className="underline decoration-indigo-300/50 hover:text-indigo-200 transition-colors">{getPoiCategoryLabel(referencePoint.category)}</button>)</span></span>
                             </div>
-                            <button onClick={() => setReferencePoint(null)} className="p-1 hover:bg-indigo-700 rounded-full transition-colors text-white shrink-0"><X className="w-3.5 h-3.5"/></button>
+                            <CloseButton onClose={() => setReferencePoint(null)} variant="primary" className="text-white" />
                         </div>
                     </div>
                 )}
             </div>
 
             {/* --- GRID LAYOUT RESPONSIVO (Contenuto Principale) --- */}
-            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[19rem_1fr_19rem] min-[1900px]:grid-cols-[19rem_19rem_1fr_19rem_19rem] w-full relative">
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[19rem_1fr_19rem] 2xl:grid-cols-[19rem_19rem_1fr_19rem_19rem] w-full relative">
                 
-                {/* 1. COLONNA ESTERNA SX (SOLO >1900px) */}
-                <div className="hidden min-[1900px]:block h-full border-r border-slate-800/50 overflow-hidden">
+                {/* 1. COLONNA ESTERNA SX (SOLO >1536px) */}
+                <div className="hidden 2xl:block h-full border-r border-slate-800/50 overflow-hidden">
                     <CategorySponsorColumn 
                         side="left" 
                         offsetMultiplier={0}
@@ -420,7 +428,7 @@ export const CityCategoryTab = ({
                 </div>
                 
                 {/* 3. CONTENUTO CENTRALE (Fluido & Scrollable) */}
-                <div className="w-full min-w-0 h-auto md:h-full md:overflow-y-auto overflow-visible custom-scrollbar bg-[#020617]">
+                <div className="w-full min-w-0 h-auto lg:h-full overflow-visible lg:overflow-y-auto custom-scrollbar bg-[#020617]">
                      <div className="w-full flex flex-col pb-32">
                          {/* CITY GUIDE RENDERIZZA LA LISTA VERTICALE DEI POI */}
                          <CityGuide 
@@ -500,8 +508,8 @@ export const CityCategoryTab = ({
                     />
                 </div>
 
-                {/* 5. COLONNA ESTERNA DX (SOLO >1900px) */}
-                <div className="hidden min-[1900px]:block h-full border-l border-slate-800/50 overflow-hidden">
+                {/* 5. COLONNA ESTERNA DX (SOLO >1536px) */}
+                <div className="hidden 2xl:block h-full border-l border-slate-800/50 overflow-hidden">
                     <CategorySponsorColumn 
                         side="right" 
                         offsetMultiplier={3}
@@ -519,3 +527,6 @@ export const CityCategoryTab = ({
         </div>
     );
 };
+
+
+

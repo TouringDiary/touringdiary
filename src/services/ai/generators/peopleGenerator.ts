@@ -1,5 +1,6 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
-import { getAiClient } from '../aiClient';
+
 import { withRetry, cleanJsonOutput } from '../aiUtils';
 // UPDATE: Import from unified prompts file
 import { buildSuggestPeoplePrompt, buildEnrichPersonPrompt } from '../../../data/ai/prompts';
@@ -13,9 +14,9 @@ export const suggestCityPeople = async (
     return withRetry(async () => {
         const prompt = buildSuggestPeoplePrompt(cityName, count, existingNames, contextQuery);
 
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3.1-pro-preview', 
+        
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-pro', 
             contents: prompt,
             config: { 
                 responseMimeType: 'application/json',
@@ -38,9 +39,9 @@ export const enrichPersonData = async (personName: string, cityName: string): Pr
     return withRetry(async () => {
         const prompt = buildEnrichPersonPrompt(personName, cityName);
         
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3.1-pro-preview', 
+        
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-pro', 
             contents: prompt,
             config: { 
                 responseMimeType: 'application/json',

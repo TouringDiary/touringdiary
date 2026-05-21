@@ -1,418 +1,472 @@
+# 🧠 CRITICAL FILES MAP — TouringDiary (v45.0 — CERTIFIED FROM CODE EVIDENCE)
 
-# 🧠 CRITICAL FILES MAP — TouringDiary
+Questo documento identifica i file più critici dell’architettura TouringDiary.
 
-Questo documento identifica i file più critici dell'architettura TouringDiary.
 Modifiche a questi file possono avere impatti su più parti del sistema.
 
-Prima di modificare uno di questi file è consigliato analizzare:
+Prima di modificare uno di questi file è obbligatorio:
 
-• dipendenze
-• contesto architetturale
-• flussi applicativi collegati
+• analizzare dipendenze
+• verificare pipeline coinvolte
+• consultare PROJECT_LOGIC_MAP.md
+• applicare CHANGE_IMPACT_RULES.md
+• allineare Utente + ChatGPT + Gemini
+
+
+DESCRIZIONE SEMPLICE
+
+Questi file controllano il funzionamento globale del sistema.
+
+Modificarli senza analisi può causare regressioni.
+
 
 ---
 
+# LAYER CORE NAVIGATION
+
+
+## src/context/NavigationContext.tsx
+
+Ruolo
+
+Gestisce il routing state-driven dell’intera applicazione.
+
+Controlla:
+
+• activeCityId
+• virtualCity
+• activeShopId
+• vista principale corrente
+
+
+Impatto modifiche
+
+Può bloccare:
+
+navigazione
+rendering contenuti
+routing logico app
+
+
+---
+
+# LAYER APPLICATION COORDINATION
+
+
 ## src/components/layout/AppCoordinator.tsx
 
-**Ruolo nel sistema**
-Orchestratore principale dell'applicazione. Gestisce l'inizializzazione, il caricamento dei dati essenziali e la coordinazione dei componenti di layout principali.
+Ruolo
 
-**Dipendenze principali**
-`useAppInitialization`, `AppShell`, `ModalManager`, `GlobalAlert`.
+Orchestratore inizializzazione app.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Può compromettere l'avvio dell'intera applicazione, il caricamento dati e la visualizzazione del layout base.
+Gestisce:
 
-**Note tecniche**
-È il punto di ingresso logico dell'UI. Modifiche qui hanno effetto globale.
+• bootstrap contesti globali
+• configurazioni iniziali
+• caricamento servizi core
+
+
+Impatto modifiche
+
+Può impedire l’avvio corretto dell’app.
+
 
 ---
 
 ## src/components/layout/AppRouter.tsx
 
-**Ruolo nel sistema**
-Gestisce il routing delle pagine principali dell'applicazione (Home, City, Shop, Admin, etc.).
+Ruolo
 
-**Dipendenze principali**
-`react-router-dom`, `MainLayout`.
+Gestisce selezione viste principali.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Può bloccare la navigazione tra le sezioni principali, impedendo l'accesso a intere funzionalità.
+Impatto modifiche
 
-**Note tecniche**
-Contiene la logica di base per decidere quale vista principale mostrare all'utente.
+Può bloccare accesso a sezioni intere.
+
 
 ---
 
 ## src/components/layout/ModalManager.tsx
 
-**Ruolo nel sistema**
-Gestore centralizzato per la visualizzazione di tutti i modali dell'applicazione.
+Ruolo
 
-**Dipendenze principali**
-`ModalContext`, tutti i componenti modali (es. `PoiDetailModal`, `AuthModal`).
+Gestione modali globali applicazione.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Un errore qui può impedire l'apertura o la chiusura di qualsiasi modale nell'app, bloccando molti flussi utente.
+Impatto modifiche
 
-**Note tecniche**
-Utilizza un approccio a "render map" per caricare dinamicamente i modali richiesti.
+Può bloccare:
 
----
+login
+POI detail
+review
+modali sponsor
+modali admin
 
-## src/context/AppProviders.tsx
-
-**Ruolo nel sistema**
-Componente che raggruppa tutti i provider di context globali (Stato Utente, UI, Modali, Itinerario).
-
-**Dipendenze principali**
-`UserContext`, `UIContext`, `ModalContext`, `ItineraryContext`.
-
-**Livello criticità**
-ALTA
-
-**Impatto modifiche**
-Può causare la perdita di stato globale in tutta l'applicazione, con crash a cascata.
-
-**Note tecniche**
-È il wrapper più esterno dell'app, fondamentale per il funzionamento dello stato condiviso.
 
 ---
+
+# LAYER STATE MANAGEMENT
+
 
 ## src/context/UserContext.tsx
 
-**Ruolo nel sistema**
-Gestisce lo stato di autenticazione, i dati dell'utente e i permessi (ruoli).
+Ruolo
 
-**Dipendenze principali**
-`supabaseClient`, `userService`.
+Gestione autenticazione e sessione utente.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Può rompere la logica di login, la gestione dei permessi e la personalizzazione dell'esperienza utente.
+Impatto modifiche
 
-**Note tecniche**
-Interagisce direttamente con Supabase per l'autenticazione.
+Può rompere login e permessi.
+
 
 ---
 
 ## src/context/ConfigContext.tsx
 
-**Ruolo nel sistema**
-Provider per la gestione delle configurazioni globali del sistema (feature flags, design system, configurazioni di marketing, etc.).
+Ruolo
 
-**Dipendenze principali**
-`settingsService`.
+Gestione configurazioni dinamiche UI.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Un errore qui può impedire il corretto funzionamento di moduli dipendenti dalle configurazioni remote, causando crash o loading infiniti.
+Dipende da:
 
-**NOTE — ConfigProvider Mapping**
-Il valore restituito da `getCachedSetting(key)` è già il JSON della configurazione salvata nella colonna `value` della tabella `global_settings`.
+global_settings
 
-Il provider deve quindi assegnare direttamente il valore:
 
-`configs[key] = setting`
+Impatto modifiche
 
-Non deve accedere a `setting.value`.
+Può compromettere rendering UI dinamico.
+
 
 ---
 
 ## src/context/ItineraryContext.tsx
 
-**Ruolo nel sistema**
-Gestisce lo stato completo dell'itinerario di viaggio attivo, incluse tappe, date e metadati.
+Ruolo
 
-**Dipendenze principali**
-`TravelDiary`, `DiaryHeader`, `itineraryStorageManager`.
+Gestione stato itinerario attivo.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Può compromettere la creazione, modifica, salvataggio e caricamento degli itinerari, cuore del prodotto.
+Impatto modifiche
 
-**Note tecniche**
-Contiene la logica di "hydrating" (caricamento) dello stato da diverse fonti (cloud, locale).
+Può compromettere il cuore del prodotto.
+
 
 ---
+
+# LAYER CORE EXPERIENCE
+
 
 ## src/components/features/diary/TravelDiary.tsx
 
-**Ruolo nel sistema**
-Componente principale del Diario di Viaggio. Gestisce la visualizzazione della timeline, le interazioni drag-and-drop e la struttura dei giorni.
+Ruolo
 
-**Dipendenze principali**
-`ItineraryContext`, `DiaryInteractionContext`, `react-beautiful-dnd`.
+Gestione timeline viaggio.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Può rompere l'intera UI del diario, la riorganizzazione delle tappe e la visualizzazione dell'itinerario.
+Include:
 
-**Note tecniche**
-La logica di drag-and-drop è complessa e sensibile a modifiche.
+drag & drop
+giorni
+tappe
+memo
 
----
 
-## src/services/supabaseClient.ts
+Impatto modifiche
 
-**Ruolo nel sistema**
-Crea e esporta il client singleton di Supabase per l'interazione con il database e l'autenticazione.
+Può rompere esperienza principale utente.
 
-**Dipendenze principali**
-`@supabase/supabase-js`. Utilizzato da quasi tutti i servizi.
-
-**Livello criticità**
-ALTA
-
-**Impatto modifiche**
-Un errore di configurazione qui disconnette l'intera applicazione dal suo backend.
-
-**Note tecniche**
-Contiene le chiavi di accesso API a Supabase. Non modificare senza motivo.
 
 ---
 
-## src/types/supabase.ts
+## src/hooks/useDiaryLogic.ts
 
-**Ruolo nel sistema**
-Definisce i tipi TypeScript per l'intero schema del database Supabase, generati automaticamente.
+Ruolo
 
-**Dipendenze principali**
-Utilizzato in tutto il codice che interagisce con il database per garantire la type-safety.
+Gestione logica operativa itinerario.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Modifiche manuali errate possono causare discrepanze tra il frontend e lo schema del DB, portando a errori di runtime.
+Impatto modifiche
 
-**Note tecniche**
-Questo file dovrebbe essere aggiornato solo tramite i comandi CLI di Supabase dopo una migrazione del DB.
+Può causare perdita sincronizzazione dati.
+
 
 ---
 
-## src/services/ai/aiPlanner.ts
+# LAYER AI SYSTEM
 
-**Ruolo nel sistema**
-Servizio core che orchestra la generazione di itinerari tramite intelligenza artificiale.
 
-**Dipendenze principali**
-`aiClient`, `listGenerator`, `poiGenerator`, `cityService`.
+## src/services/aiUsageService.ts
 
-**Livello criticità**
-ALTA
+Ruolo
 
-**Impatto modifiche**
-Può bloccare la funzionalità "Magic Planner", una delle feature principali basate su AI.
+Gestione consumo crediti AI tramite RPC:
 
-**Note tecniche**
-Contiene la logica complessa di suddivisione dei task e di dialogo con i modelli AI.
+consume_ai_credits  
+log_ai_usage_tokens
 
----
 
-## src/services/ai/aiClient.ts
+Impatto modifiche
 
-**Ruolo nel sistema**
-Client astratto per comunicare con i modelli di linguaggio (Gemini). Gestisce chiamate, formattazione e gestione errori.
+Può rompere:
 
-**Dipendenze principali**
-Invocato da tutti i servizi AI (es. `aiPlanner`, `aiText`).
+AI planner
+AI assistant
+credit engine
 
-**Livello criticità**
-MEDIA
-
-**Impatto modifiche**
-Può interrompere tutte le funzionalità AI se la logica di chiamata o di gestione della risposta viene alterata.
-
-**Note tecniche**
-È il punto unico di contatto con le API esterne di Google AI.
 
 ---
 
-## src/services/city/cityReadService.ts
+## src/hooks/useAiGeneration.ts
 
-**Ruolo nel sistema**
-Gestisce la lettura dei dati delle città, con un focus sulla gestione della cache per ottimizzare le performance.
+Ruolo
 
-**Dipendenze principali**
-`supabaseClient`, `cityCache`.
+Orchestrazione UI generazioni AI.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Può causare caricamenti lenti, dati non aggiornati o errori nel recupero delle informazioni delle città.
+Gestisce:
 
-**Note tecniche**
-La logica di caching (stale-while-revalidate) è fondamentale per l'esperienza utente.
+errori
+stato richiesta
+consumo crediti
 
----
 
-## src/services/city/cityWriteService.ts
+Impatto modifiche
 
-**Ruolo nel sistema**
-Gestisce tutte le operazioni di scrittura (creazione, aggiornamento, eliminazione) relative ai dati delle città.
+Può bloccare tutte le funzioni AI frontend.
 
-**Dipendenze principali**
-`supabaseClient`, `AdminCityEditor`.
-
-**Livello criticità**
-MEDIA
-
-**Impatto modifiche**
-Può impedire agli amministratori di aggiornare i contenuti delle città, causando dati obsoleti o errati.
-
-**Note tecniche**
-Contiene logiche critiche per la validazione e la pulizia dei dati prima dell'inserimento nel DB.
 
 ---
 
-## src/components/admin/AdminCityEditor.tsx
+# LAYER CREDIT ENGINE
 
-**Ruolo nel sistema**
-Interfaccia di amministrazione principale per la modifica completa di un'entità "città".
 
-**Dipendenze principali**
-`useAdminCityEditorLogic`, `cityWriteService`, numerosi sotto-componenti per le varie sezioni (media, POI, cultura).
+## src/services/subscriptionService.ts
 
-**Livello criticità**
-MEDIA
+Ruolo
 
-**Impatto modifiche**
-Può bloccare il flusso di lavoro degli amministratori, impedendo la gestione dei contenuti del portale.
+Calcolo limiti residui utenti.
 
-**Note tecniche**
-È un componente "smart" con molta logica di stato e interazione con i servizi.
 
----
+Dipende da:
 
-## src/components/modals/PoiDetailModal.tsx
+subscriptions  
+pricing_versions  
+ai_global_usage
 
-**Ruolo nel sistema**
-Modale universale per la visualizzazione dei dettagli di un Punto di Interesse (POI).
 
-**Dipendenze principali**
-`InteractionContext`, `poiService`, `ReviewModal`.
+Impatto modifiche
 
-**Livello criticità**
-ALTA
+Può alterare disponibilità crediti.
 
-**Impatto modifiche**
-Può impedire agli utenti di visualizzare informazioni cruciali sui POI, una delle interazioni più comuni.
-
-**Note tecniche**
-Gestisce diverse varianti di visualizzazione (es. standard, business, con sponsor).
 
 ---
 
-## src/hooks/core/useAppInitialization.ts
+## src/services/aiAdminService.ts
 
-**Ruolo nel sistema**
-Hook che gestisce la logica di inizializzazione dell'applicazione al primo caricamento.
+Ruolo
 
-**Dipendenze principali**
-`UserContext`, `NavigationContext`.
+Gestione pricing e limiti AI lato admin.
 
-**Livello criticità**
-ALTA
 
-**Impatto modifiche**
-Può impedire il corretto avvio dell'app, bloccando il caricamento di dati utente o di navigazione essenziali.
+Impatto modifiche
 
-**Note tecniche**
-Viene eseguito una sola volta e il suo output determina lo stato iniziale di molte parti dell'UI.
+Può compromettere configurazioni economiche piattaforma.
+
 
 ---
 
-## src/services/sponsorService.ts
+# LAYER SPONSOR SYSTEM
 
-**Ruolo nel sistema**
-Servizio centrale per tutte le operazioni legate al mondo sponsor. Gestisce sia le richieste (`sponsor_requests`) sia gli sponsor attivi (`sponsors`).
 
-**Dipendenze principali**
-`supabaseClient`, `useUserDashboardData`.
+## src/services/sponsors/sponsorActivationService.ts
 
-**Livello criticità**
-ALTA
+Ruolo
 
-**Impatto modifiche**
-Un errore qui può bloccare il flusso di richiesta sponsor, l'attivazione di sottoscrizioni e la visualizzazione degli sponsor nell'app.
+Attivazione sponsor verificata da codice.
 
-**Note tecniche**
-Contiene la logica di mappatura tra `sponsor` e `PointOfInterest`, cruciale per la visualizzazione.
 
----
+Gestisce:
 
-## src/hooks/useUserDashboardData.ts
+collegamento subscription  
+stato sponsor  
+visibilità piattaforma
 
-**Ruolo nel sistema**
-Hook responsabile di caricare tutti i dati necessari per la dashboard utente e business.
 
-**Dipendenze principali**
-`sponsorService`, `rewardService`, `notificationService`.
+Impatto modifiche
 
-**Livello criticità**
-MEDIA
+Può bloccare attivazione sponsor.
 
-**Impatto modifiche**
-Può impedire il caricamento di una o più sezioni della dashboard, degradando l'esperienza utente.
-
-**Note tecniche**
-Orchestra chiamate a molteplici servizi per aggregare i dati in un unico punto.
 
 ---
 
-## src/components/user/UserDashboard.tsx
+## src/services/sponsors/sponsorRequestsService.ts
 
-**Ruolo nel sistema**
-Componente UI che presenta la dashboard all'utente, mostrando tab e dati in base al ruolo (user/business).
+Ruolo
 
-**Dipendenze principali**
-`useUserDashboardData`, vari sotto-componenti di tab (es. `UserWalletTab`, `BusinessShopManager`).
+Gestione workflow richieste sponsor.
 
-**Livello criticità**
-MEDIA
 
-**Impatto modifiche**
-Può causare crash o malfunzionamenti nella visualizzazione del profilo utente e del pannello di gestione business.
+Impatto modifiche
 
-**Note tecniche**
-È un componente complesso che gestisce molta logica di visualizzazione condizionale.
+Può bloccare onboarding partner business.
+
 
 ---
-## src/components/admin/design/DesignRuleEditor.tsx
 
-**Ruolo nel sistema**
-Componente universale per l'editing e la preview delle regole del Design System.
+# LAYER COMMUNITY SYSTEM
 
-**Dipendenze principali**
-src/types/designSystem.ts
 
-**Livello criticità**
-HIGH
+## src/services/photoService.ts
 
-**Impatto modifiche**
-Un bug qui può impedire la modifica delle regole di stile globali e compromettere la configurabilità dell'interfaccia amministrativa.
+Ruolo
 
-**Note tecniche**
-Supporta preview dinamiche tramite le proprietà opzionali della StyleRule:
-preview_type, preview_size, preview_content.
+Gestione contenuti community:
+
+community_posts  
+live_snaps  
+photo_likes
+
+
+Impatto modifiche
+
+Può rompere sistema social.
+
 
 ---
+
+# LAYER GAMIFICATION
+
+
+## src/services/gamificationService.ts
+
+Ruolo
+
+Gestione XP utenti.
+
+
+Dipende da:
+
+xp_actions  
+badges  
+rewards_catalog
+
+
+Impatto modifiche
+
+Può compromettere progressione utenti.
+
+
+---
+
+# LAYER RANKING SYSTEM
+
+
+## src/services/rankingService.ts
+
+Ruolo
+
+Calcolo classifiche utenti.
+
+
+Hook associato:
+
+useRankingsLogic.ts
+
+
+Impatto modifiche
+
+Può compromettere leaderboard.
+
+
+---
+
+# LAYER STAGING IMPORT SYSTEM
+
+
+## src/services/stagingService.ts
+
+Ruolo
+
+Validazione dati staging POI.
+
+
+Dipende da:
+
+pois_staging
+
+
+Impatto modifiche
+
+Può compromettere import dati territoriali.
+
+
+---
+
+## src/services/importService.ts
+
+Ruolo
+
+Import dati esterni POI.
+
+
+Impatto modifiche
+
+Può bloccare pipeline ingestione dati.
+
+
+---
+
+# LAYER PDF ENGINE
+
+
+## src/components/pdf/RoadbookDocument.tsx
+
+Ruolo
+
+Rendering Roadbook PDF.
+
+
+Dipende da:
+
+PdfStyles.ts
+
+
+Impatto modifiche
+
+Può bloccare export guida viaggio.
+
+
+---
+
+# LAYER EDGE FUNCTIONS (SERVER-SIDE CRITICO)
+
+
+supabase/functions/gemini-chat  
+supabase/functions/gemini-task  
+supabase/functions/purchase-extra-credits  
+supabase/functions/stripe-webhook
+
+
+Ruolo
+
+Gestiscono:
+
+pipeline AI  
+credit engine  
+Stripe checkout  
+aggiornamento saldo crediti
+
+
+Impatto modifiche
+
+Può compromettere:
+
+AI planner  
+pagamenti  
+sponsor activation  
+credit system

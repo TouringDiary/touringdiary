@@ -19,7 +19,7 @@ interface Props {
     existingZones: string[];
     existingCityNames: string[];
     onSuccess: () => void;
-    onMagicGenerate?: (name: string, poiCount: number) => void;
+    onMagicGenerate?: (name: string, poiCount: number, user?: any, existingId?: string, region?: string) => void;
     targetZone?: string; 
 }
 
@@ -367,7 +367,7 @@ export const RegionalAnalysisModal = ({ isOpen, onClose, regionName, existingZon
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-admin-modal bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-slate-900 w-full max-w-5xl h-[85vh] rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden relative">
                 
                 <div className="p-6 border-b border-slate-800 bg-[#0f172a] flex justify-between items-center shrink-0">
@@ -503,7 +503,7 @@ export const RegionalAnalysisModal = ({ isOpen, onClose, regionName, existingZon
                         <div className="h-full flex flex-col items-center justify-center gap-6 text-center p-8">
                             <div className="relative">
                                 <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full"></div>
-                                <Globe className="w-24 h-24 text-indigo-400 animate-pulse relative z-10"/>
+                                <Globe className="w-24 h-24 text-indigo-400 animate-pulse relative z-floating-panel"/>
                             </div>
                             <div className="space-y-2">
                                 <h4 className="text-2xl font-bold text-white">
@@ -619,7 +619,7 @@ export const RegionalAnalysisModal = ({ isOpen, onClose, regionName, existingZon
                         <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-6 animate-in fade-in">
                             <div className="relative">
                                 <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full"></div>
-                                <ScanSearch className="w-20 h-20 text-amber-500 animate-pulse relative z-10"/>
+                                <ScanSearch className="w-20 h-20 text-amber-500 animate-pulse relative z-floating-panel"/>
                             </div>
                             <div className="w-full max-w-md">
                                 <h3 className="text-2xl font-bold text-white mb-2">Bonifica Dati (Top-Tier Hunter)</h3>

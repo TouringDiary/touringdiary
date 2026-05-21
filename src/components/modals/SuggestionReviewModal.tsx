@@ -1,10 +1,24 @@
-
+import { Z_OVERLAY, Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, CheckCircle, XCircle, Clock, MapPin, AlertCircle, Loader2, Award, ShieldAlert, Edit3, Wand2, AlertOctagon, UserX, PenTool, Plus, AlertTriangle, Link as LinkIcon, Pencil, Calendar } from 'lucide-react';
+import { AlertOctagon, PenTool, Plus, Pencil, Loader2, Wand2, Edit3, XCircle, Clock, Award } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { SuggestionRequest, PointOfInterest, User } from '../../types/index';
 import { getCityDetails } from '../../services/cityService';
 import { applySuggestion, updateSuggestionStatus, getAllSuggestionsAsync } from '../../services/communityService';
-import { getAiClient } from '../../services/ai/aiClient';
+import { aiGateway } from '@/services/ai/aiGateway';
+const getAiClient = () => ({
+    models: {
+        generateContent: async (payload: any) => {
+            const response = await aiGateway.generateLegacy({
+                model: payload.model,
+                contents: [{ parts: [{ text: payload.contents }] }]
+            });
+            return { text: response.response.text() };
+        }
+    }
+});
 import { cleanJsonOutput } from '../../services/ai';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { CONFIG } from '../../config/env';
@@ -14,6 +28,7 @@ interface Props {
     onClose: () => void;
     onUpdate: () => void;
     onUserUpdate?: (user: User) => void;
+    isOpen?: boolean;
 }
 
 const REJECTION_REASONS = [
@@ -32,7 +47,7 @@ const SHOWCASE_DURATIONS = [
     { label: 'Indefinito (Sempre Novità)', value: 99 }
 ];
 
-export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpdate }: Props) => {
+export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpdate, isOpen = true }: Props) => {
     const [isApplying, setIsApplying] = useState(false);
     const [isRejecting, setIsRejecting] = useState(false);
     const [isPending, setIsPending] = useState(false);
@@ -45,6 +60,11 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
     const [rejectionReason, setRejectionReason] = useState(REJECTION_REASONS[0]);
     const [rejectionNote, setRejectionNote] = useState('');
     const [monthsInNew, setMonthsInNew] = useState(1);
+
+    // ESC Handling
+    useGlobalModalEscape(isOpen, onClose);
+
+    if (!isOpen) return null;
 
     const [editData, setEditData] = useState({
         title: suggestion.details.title,
@@ -88,28 +108,6 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
             setLoadingCurrent(false);
         });
     }, [suggestion]);
-    
-    // GESTIONE ESC STABILE CON REF
-    const stateRef = useRef({ showRejectionOverlay, onClose });
-    useEffect(() => { stateRef.current = { showRejectionOverlay, onClose }; }, [showRejectionOverlay, onClose]);
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation(); 
-
-                if (stateRef.current.showRejectionOverlay) {
-                    setShowRejectionOverlay(false); // Can safely call setter from here
-                } else {
-                    stateRef.current.onClose();
-                }
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown, { capture: true });
-        return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-    }, []);
 
     const handleAiDeepCheck = async () => {
         setIsAiChecking(true);
@@ -205,13 +203,13 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
         setIsPending(false);
     };
 
-    return (
-        <div className="fixed top-24 bottom-0 left-0 right-0 z-[600] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose}></div>
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
+            
             
             {showRejectionOverlay && (
-                <div className="absolute inset-0 z-[700] bg-black/80 flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-red-500/50 p-6 rounded-[2rem] shadow-2xl max-w-md w-full animate-in zoom-in-95">
+                <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4 pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={() => setShowRejectionOverlay(false)}>
+                    <div className="bg-slate-900 border border-red-500/50 p-6 rounded-[2rem] shadow-2xl max-w-md w-full animate-in zoom-in-95 pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col items-center text-center gap-4 mb-6">
                             <div className="p-3 bg-red-900/30 rounded-full text-red-500">
                                 <AlertOctagon className="w-8 h-8"/>
@@ -251,7 +249,11 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
                 </div>
             )}
 
-            <div className="relative bg-slate-900 w-full max-w-6xl h-full md:max-h-[90vh] md:rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col z-10 animate-in slide-in-from-bottom-5">
+            <div 
+                className="relative bg-slate-900 w-full max-w-6xl h-full md:max-h-[90vh] md:rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="flex justify-between items-center p-6 border-b border-slate-800 bg-[#0f172a]">
                     <div className="flex items-center gap-4">
                         <div className={`p-2 rounded-xl bg-slate-800 text-indigo-400`}><PenTool className="w-6 h-6"/></div>
@@ -268,7 +270,7 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
                             {isNewPlace ? <Plus className="w-3.5 h-3.5"/> : <Pencil className="w-3.5 h-3.5"/>}
                             {isNewPlace ? 'Creazione Nuovo' : 'Correzione Dati'}
                         </div>
-                        <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><X className="w-6 h-6"/></button>
+                        <CloseButton onClose={onClose} variant="primary" />
                     </div>
                 </div>
 
@@ -338,6 +340,10 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

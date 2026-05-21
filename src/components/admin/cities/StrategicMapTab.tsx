@@ -60,7 +60,7 @@ const RenameZoneModal = ({ isOpen, currentName, onClose, onConfirm, isProcessing
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
             <div className="bg-slate-900 border border-indigo-500/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95">
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="w-5 h-5"/></button>
                 
@@ -99,7 +99,7 @@ const RenameZoneModal = ({ isOpen, currentName, onClose, onConfirm, isProcessing
 interface StrategicMapTabProps {
     allCities: CitySummary[];
     onSelectCity: (id: string) => void;
-    onMagicGenerate?: (name: string, poiCount: number) => void; 
+    onMagicGenerate?: (name: string, poiCount: number, user?: any, existingId?: string, region?: string) => void; 
     onDataChange?: () => Promise<void> | void; 
 }
 
@@ -207,7 +207,7 @@ export const StrategicMapTab = ({ allCities, onSelectCity, onMagicGenerate, onDa
 
     const handleImportMissing = (suggestion: AiCitySuggestion) => {
         if(onMagicGenerate) {
-            onMagicGenerate(suggestion.name, 10);
+            onMagicGenerate(suggestion.name, 10, undefined, undefined, geoFilter.region);
         }
     };
     
@@ -352,14 +352,15 @@ export const StrategicMapTab = ({ allCities, onSelectCity, onMagicGenerate, onDa
                      </div>
                  ) : (
                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                         {zoneData.map((z, idx) => (
+                         {zoneData.map((z) => (
                              <ZoneCard 
-                                key={z.id || z.name || idx} // FIX CRITICO PER PREVENIRE CRASH SU ID UNDEFINED
+                                key={z.id}
                                 zoneName={z.name}
                                 cities={z.cities}
                                 aiSuggestions={z.cleanSuggestions}
                                 onSelectCity={onSelectCity}
                                 onMagicGenerate={onMagicGenerate || (() => {})}
+                                adminRegion={geoFilter.region}
                                 onRename={(name) => setRenamingZoneName(name)}
                                 onDelete={(name) => setDeleteZoneTarget(name)}
                                 onAuditCity={setAuditCity}

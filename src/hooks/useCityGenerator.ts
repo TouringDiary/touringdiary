@@ -45,8 +45,8 @@ export const useCityGenerator = (onComplete?: () => void) => {
         isRecovered, // NEW
         
         // Exposed Actions
-        executeMagicAdd: (cityName: string, poiCount?: number, user?: User, existingCityId?: string) => 
-            handleCompletionWrapper(() => executeMagicAdd(cityName, poiCount, user, existingCityId)),
+        executeMagicAdd: (cityName: string, poiCount?: number, user?: User, existingCityId?: string, adminRegion?: string) => 
+            handleCompletionWrapper(() => executeMagicAdd(cityName, poiCount, user, existingCityId, adminRegion)),
         
         executeCompleteCity: (cityId: string, cityName: string, config: any, user?: User) => 
             handleCompletionWrapper(() => executeCompleteCity(cityId, cityName, config, user)),

@@ -13,7 +13,7 @@ import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
 
 const ReviewDetailOverlay = ({ review, onClose }: { review: Review, onClose: () => void }) => {
     return (
-        <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
+        <div className="fixed inset-0 z-admin-modal bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
              <div className="relative bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl p-8 flex flex-col gap-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors">
                     <X className="w-5 h-5"/>
@@ -193,7 +193,7 @@ export const ItineraryManager = () => {
         <div className="space-y-4 flex flex-col h-full animate-in fade-in relative">
             {selectedReview && <ReviewDetailOverlay review={selectedReview} onClose={() => setSelectedReview(null)} />}
             {deleteTarget && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-floating-panel flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-slate-900 border border-red-500/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95">
                         <div className="flex flex-col items-center text-center gap-4">
                             <AlertTriangle className="w-12 h-12 text-red-500 animate-pulse"/>
@@ -257,7 +257,7 @@ export const ItineraryManager = () => {
                 ) : (
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left border-collapse min-w-[1000px] table-fixed">
-                            <thead className="sticky top-0 z-20 bg-[#0f172a] shadow-sm">
+                            <thead className="sticky top-0 z-dropdown bg-[#0f172a] shadow-sm">
                                 <tr className="text-slate-400 text-[10px] uppercase tracking-wider font-bold border-b border-slate-800">
                                     <th className="px-4 py-3 w-32 whitespace-nowrap">Autore</th>
                                     <th className="px-4 py-3 w-40 whitespace-nowrap">Oggetto</th>

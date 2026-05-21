@@ -9,7 +9,7 @@ interface AdminMobileHeaderProps {
 
 export const AdminMobileHeader = ({ title, onMenuClick }: AdminMobileHeaderProps) => {
     return (
-        <div className="md:hidden sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-lg">
+        <div className="md:hidden sticky top-0 z-dropdown bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-lg">
             <div className="flex items-center gap-3">
                 <button onClick={onMenuClick} className="p-2 bg-slate-800 text-slate-300 rounded-lg">
                     <Menu className="w-6 h-6"/>

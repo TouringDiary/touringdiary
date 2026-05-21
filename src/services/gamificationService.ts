@@ -30,11 +30,37 @@ export const fetchLevelsAsync = async (): Promise<LevelInfo[]> => {
     if (levelsCache.length > 0) return levelsCache;
     
     try {
-        // Supponiamo esista una tabella 'gamification_levels'. 
-        // Se non esiste, questo catch catturerà l'errore e userà il fallback.
-        const { data, error } = await supabase.from('gamification_levels').select('*').order('level', { ascending: true });
-        
-        if (error || !data || data.length === 0) {
+        let data: any[] | null = null;
+        let source = 'API';
+
+        // 1. TENTA IL CARICAMENTO TRAMITE API PROXY
+        try {
+            const apiResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/bootstrap/levels`);
+            if (apiResponse.ok) {
+                const apiData = await apiResponse.json();
+                if (apiData.success) {
+                    data = apiData.data;
+                }
+            }
+        } catch (apiError) {
+            console.warn("[GamificationService] Local API failed, falling back to Supabase.", apiError);
+        }
+
+        // 2. FALLBACK A SUPABASE
+        if (!data) {
+            source = 'Supabase';
+            const { data: supaData, error } = await supabase
+                .from('gamification_levels')
+                .select('*')
+                .order('level', { ascending: true });
+            
+            if (error) throw error;
+            data = supaData;
+        }
+
+        console.log(`[GamificationService] Levels loaded from ${source}:`, data?.length);
+
+        if (!data || data.length === 0) {
             levelsCache = LEVELS;
         } else {
              levelsCache = data.map((l: any) => ({
@@ -47,6 +73,7 @@ export const fetchLevelsAsync = async (): Promise<LevelInfo[]> => {
              }));
         }
     } catch (e) {
+        console.error("[GamificationService] Error loading levels:", e);
         levelsCache = LEVELS;
     }
     return levelsCache;

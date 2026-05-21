@@ -162,7 +162,7 @@ export const DuplicateResolver = ({
                             </div>
 
                             {/* ACTION COLUMN */}
-                            <div className="flex flex-col gap-4 shrink-0 z-10">
+                            <div className="flex flex-col gap-4 shrink-0 z-floating-panel">
                                 <button 
                                     onClick={() => handleMerge(currentPair.poiA, currentPair.poiB, currentPair.id)}
                                     disabled={isMerging}

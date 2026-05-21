@@ -57,7 +57,7 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
             text: questionText,
             cityId: questionCity,
             cityName: selectedCityName,
-            timestamp: new Date().toISOString(),
+            date: new Date().toISOString(),
             likes: 0,
             repliesCount: 0,
             replies: []
@@ -117,7 +117,7 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
             authorName: user.name,
             authorRole: user.role === 'business' ? 'business' : user.role === 'admin_all' ? 'admin' : 'user',
             text: replyText,
-            timestamp: new Date().toISOString(),
+            date: new Date().toISOString(),
             likes: 0
         };
 
@@ -152,7 +152,7 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
         const replies = selectedPost.replies || [];
         
         return (
-            <div className="flex flex-col h-full animate-in slide-in-from-right-4">
+            <div className="flex flex-col h-full animate-in slide-in-from-right-4 px-4 md:px-8">
                 <div className="flex items-center gap-4 mb-4 border-b border-slate-800 pb-3">
                     <button onClick={() => setSelectedPost(null)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5"/></button>
                     <h3 className="text-lg font-bold text-white">Discussione</h3>
@@ -167,7 +167,7 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
                                         <span className="font-bold text-white text-base">{selectedPost.authorName}</span>
                                         {selectedPost.authorRole === 'guide' && <span className="bg-indigo-900/50 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded uppercase font-bold border border-indigo-500/30">Guida</span>}
                                     </div>
-                                    <div className="text-[10px] text-slate-500 flex items-center gap-2"><span>{new Date(selectedPost.timestamp).toLocaleString()}</span><span>•</span><span className="flex items-center gap-1 text-indigo-400 font-bold uppercase"><MapPin className="w-3 h-3"/> {selectedPost.cityName}</span></div>
+                                    <div className="text-[10px] text-slate-500 flex items-center gap-2"><span>{new Date(selectedPost.date).toLocaleString()}</span><span>•</span><span className="flex items-center gap-1 text-indigo-400 font-bold uppercase"><MapPin className="w-3 h-3"/> {selectedPost.cityName}</span></div>
                                 </div>
                             </div>
                         </div>
@@ -186,7 +186,7 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
                                         <span className="font-bold text-slate-300 text-sm">{reply.authorName}</span>
                                         {reply.authorRole === 'guide' && <span className="text-[9px] bg-indigo-900/30 text-indigo-400 px-1.5 rounded uppercase font-bold">Guida</span>}
                                     </div>
-                                    <span className="text-[10px] text-slate-600">{new Date(reply.timestamp).toLocaleDateString()}</span>
+                                    <span className="text-[10px] text-slate-600">{new Date(reply.date).toLocaleDateString()}</span>
                                 </div>
                                 <p className="text-slate-400 text-sm leading-relaxed">{reply.text}</p>
                             </div>
@@ -206,7 +206,7 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
     const filteredPosts = showMyPostsOnly ? qaPosts.filter(p => p.authorId === user.id) : qaPosts;
 
     return (
-        <div className="flex flex-col h-full gap-6 pb-10">
+        <div className="flex flex-col h-full gap-6 pb-10 px-4 md:px-8">
             <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl shrink-0 animate-in fade-in slide-in-from-top-4">
                 <div className="flex gap-4 items-start">
                     <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0">{user.name.charAt(0)}</div>
@@ -254,7 +254,7 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
                                     <div className={`w-10 h-10 rounded-full border flex items-center justify-center font-bold text-slate-300 ${isMyPost ? 'bg-indigo-900/30 border-indigo-500/50' : 'bg-slate-800 border-slate-700'}`}>{post.authorName.charAt(0)}</div>
                                     <div>
                                         <div className="flex items-center gap-2"><span className={`font-bold text-sm transition-colors ${isMyPost ? 'text-indigo-300' : 'text-white group-hover:text-indigo-400'}`}>{post.authorName}</span>{post.authorRole === 'guide' && <span className="bg-indigo-900/50 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded uppercase font-bold border border-indigo-500/30">Guida</span>}</div>
-                                        <div className="text-[10px] text-slate-500 flex items-center gap-2"><span>{new Date(post.timestamp).toLocaleDateString()}</span><span>•</span><span className="flex items-center gap-1 text-indigo-400 font-bold uppercase"><MapPin className="w-3 h-3"/> {post.cityName}</span></div>
+                                        <div className="text-[10px] text-slate-500 flex items-center gap-2"><span>{new Date(post.date).toLocaleDateString()}</span><span>•</span><span className="flex items-center gap-1 text-indigo-400 font-bold uppercase"><MapPin className="w-3 h-3"/> {post.cityName}</span></div>
                                     </div>
                                 </div>
                                 {!isMyPost && <button className="text-slate-500 hover:text-white p-1"><ChevronRight className="w-4 h-4"/></button>}

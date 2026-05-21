@@ -1,8 +1,10 @@
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, Lightbulb, Zap, Terminal } from 'lucide-react';
 import { getLoadingTipsAsync } from '../../services/contentService';
 import { LoadingTip } from '../../types/index';
+
 
 interface Props {
     onCancel?: () => void;
@@ -74,13 +76,13 @@ export const AiLoadingScreen = ({ onCancel }: Props) => {
     const currentStatus = statuses[currentStatusIndex] || { text: "Elaborazione..." };
 
     return (
-        <div className="absolute inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+        <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300" style={{ zIndex: Z_MODAL_NESTED }}>
             <div className="max-w-md w-full flex flex-col items-center gap-8 relative">
                 
                 {/* Visual Anchor */}
                 <div className="relative">
                     <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full"></div>
-                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-2xl relative z-10">
+                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-2xl relative z-floating-panel">
                         <Loader2 className="w-12 h-12 text-indigo-500 animate-spin"/>
                     </div>
                 </div>
@@ -134,3 +136,6 @@ export const AiLoadingScreen = ({ onCancel }: Props) => {
 };
 
 export const GenerationLoader = AiLoadingScreen;
+
+
+

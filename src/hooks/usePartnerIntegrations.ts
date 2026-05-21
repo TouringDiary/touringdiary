@@ -7,12 +7,15 @@ export const usePartnerIntegrations = (): {
 } => {
 
   const { configs, isLoading } = useConfig()
-  console.log("PARTNER CONFIG:", configs?.partner_integrations);
-  const partnerIntegrations =
-    (configs?.partner_integrations as PartnerIntegrations) || null
+  
+  const partnerIntegrations = (configs && configs.partner_integrations) ? configs.partner_integrations : {};
+
+  const wrapped: PartnerIntegrations = {
+    partners: partnerIntegrations
+  };
 
   return {
-    integrations: partnerIntegrations,
+    integrations: wrapped,
     loading: isLoading
   }
 

@@ -1,4 +1,5 @@
-import { getAiClient } from '../aiClient';
+import { aiGateway } from '@/services/ai/aiGateway';
+
 import { withRetry, cleanJsonOutput } from '../aiUtils';
 import { getAiPrompt } from '../../aiConfigService';
 import { 
@@ -49,7 +50,7 @@ export const generateSingleField = async (cityName: string, fieldType: 'website'
     return withRetry(async () => {
         let prompt = '';
         
-        const model = fieldType === 'subtitle' ? 'gemini-3-flash-preview' : 'gemini-3.1-pro-preview';
+        const model = fieldType === 'subtitle' ? 'gemini-2.0-flash' : 'gemini-2.0-pro';
         const tools = fieldType === 'subtitle' ? undefined : [{ googleSearch: {} }];
 
         if (fieldType === 'website') {
@@ -66,8 +67,8 @@ export const generateSingleField = async (cityName: string, fieldType: 'website'
             prompt = `Scrivi uno slogan turistico breve ed evocativo (max 6 parole) per ${cityName}.`;
         }
 
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
+        
+        const response = await aiGateway.generateLegacy({
             model: model, 
             contents: prompt,
             config: { 
@@ -128,9 +129,9 @@ export const generateCitySection = async (
             // Fallback
         }
 
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3-flash-preview',
+        
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: { responseMimeType: 'application/json' }
         });
@@ -155,9 +156,9 @@ export const generateCitySuggestion = async (userQuery: string, availableCities:
         DOMANDA UTENTE: "${userQuery}"
         `;
 
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3-flash-preview',
+        
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-flash',
             contents: systemPrompt,
             config: {
                 temperature: 0.7,
@@ -172,10 +173,10 @@ export const generateCitySuggestion = async (userQuery: string, availableCities:
 export const generateRegionalAnalysis = async (regionName: string, existingZones: string[] = [], minVisitors: number = 50000): Promise<RegionalAnalysisResult | null> => {
     return withRetry(async () => {
         const prompt = buildRegionalAnalysisPrompt(regionName, existingZones, minVisitors);
-        const aiClient = getAiClient();
+        
 
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-pro',
             contents: prompt,
             config: { 
                 responseMimeType: 'application/json',
@@ -193,10 +194,10 @@ export const generateZoneAnalysis = async (zoneName: string, regionName: string,
     return withRetry(async () => {
         // Nota: existingCities viene ignorato nel prompt builder aggiornato per evitare bias di esclusione
         const prompt = buildZoneAnalysisPrompt(zoneName, regionName, [], minVisitors);
-        const aiClient = getAiClient();
+        
 
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-pro',
             contents: prompt,
             config: { 
                 responseMimeType: 'application/json',

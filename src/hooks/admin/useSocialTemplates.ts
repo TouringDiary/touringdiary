@@ -24,6 +24,7 @@ export const useSocialTemplates = () => {
         setIsLoading(true);
         try {
             // Parallel Fetch
+            console.log("[SystemMessages] called from: useSocialTemplates.ts");
             const [tpls, msgs] = await Promise.all([
                 getSocialTemplates(),
                 getSystemMessagesAsync()

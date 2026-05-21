@@ -4,6 +4,7 @@ import { saveSinglePoi, deleteSinglePoi, getPoisByCityId, getPoisForDeepScan } f
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { enrichStagingPoi } from '../../services/ai/generators/poiGenerator';
 import { PointOfInterest, User } from '../../types/index';
+import { VERIFIED_RELIABILITY_MAP, POI_SUBCATEGORY_VALUES } from '../../constants/governance';
 
 interface UsePoiActionsProps {
     cityId: string;
@@ -18,7 +19,7 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
     const [isFixingTaxonomy, setIsFixingTaxonomy] = useState(false);
     const [genStatus, setGenStatus] = useState('');
-    
+
     // Riferimento per interrompere processi lunghi
     const stopSignalRef = useRef(false);
 
@@ -30,8 +31,9 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
             await saveSinglePoi(poi, cityId, currentUser);
             await refreshData();
             return true;
-        } catch (e: any) {
-            alert(`Errore salvataggio: ${e.message}`);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Errore sconosciuto';
+            alert(`Errore salvataggio: ${msg}`);
             return false;
         } finally {
             setIsSaving(false);
@@ -45,8 +47,9 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
             await new Promise(r => setTimeout(r, 200)); // Delay per propagazione
             await refreshData();
             return true;
-        } catch (e: any) {
-            alert(`Errore eliminazione: ${e.message}`);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Errore sconosciuto';
+            alert(`Errore eliminazione: ${msg}`);
             return false;
         } finally {
             setIsDeleting(false);
@@ -62,17 +65,17 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
             const targets = Array.from(selectedIds);
             // Esegui in parallelo (o chunked se troppi)
             await Promise.all(targets.map(id => deleteSinglePoi(id)));
-            
+
             setSelectedIds(new Set());
             await refreshData();
-        } catch (e: any) {
+        } catch (e: unknown) {
             alert("Errore eliminazione multipla.");
         } finally {
             setIsBulkProcessing(false);
         }
     };
 
-    const bulkStatusChange = async (targetStatus: 'published' | 'draft', getPoiById: (id:string) => PointOfInterest | undefined, currentUser?: User) => {
+    const bulkStatusChange = async (targetStatus: PointOfInterest['status'], getPoiById: (id: string) => PointOfInterest | undefined, currentUser?: User) => {
         if (selectedIds.size === 0) return;
         setIsBulkProcessing(true);
         try {
@@ -82,17 +85,17 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
                 if (poi) return saveSinglePoi({ ...poi, status: targetStatus }, cityId, currentUser);
                 return Promise.resolve();
             }));
-            
+
             setSelectedIds(new Set());
             await refreshData();
-        } catch(e) {
+        } catch (e) {
             alert("Errore cambio stato multiplo.");
         } finally {
             setIsBulkProcessing(false);
         }
     };
 
-    const bulkResetImages = async (getPoiById: (id:string) => PointOfInterest | undefined, currentUser?: User) => {
+    const bulkResetImages = async (getPoiById: (id: string) => PointOfInterest | undefined, currentUser?: User) => {
         if (selectedIds.size === 0) return;
         setIsBulkProcessing(true);
         setGenStatus('Reset immagini...');
@@ -105,7 +108,7 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
                 }
             }));
             await refreshData();
-        } catch (e: any) {
+        } catch (e: unknown) {
             alert("Errore reset immagini.");
         } finally {
             setIsBulkProcessing(false);
@@ -123,7 +126,7 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
             for (const p of allPois) {
                 const correctCat = getCorrectCategory(p.subCategory || '', p.category, p.name);
                 if (correctCat !== p.category) {
-                    await saveSinglePoi({ ...p, category: correctCat as any }, cityId);
+                    await saveSinglePoi({ ...p, category: correctCat }, cityId);
                     fixedCount++;
                 }
             }
@@ -134,93 +137,98 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
             } else {
                 alert("Tassonomia già corretta per tutti i POI.");
             }
-        } catch (e: any) {
-            alert(`Errore fix tassonomia: ${e.message}`);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Errore sconosciuto';
+            alert(`Errore fix tassonomia: ${msg}`);
         } finally {
             setIsFixingTaxonomy(false);
             setGenStatus('');
         }
     };
-    
+
     // --- DAILY DEEP SCAN (BONIFICA GIORNALIERA CON LOGICA "+") ---
     const executeDailyDeepScan = async (cityName: string, currentUser?: User) => {
         setIsBulkProcessing(true);
         stopSignalRef.current = false;
         setGenStatus('Avvio bonifica Pro...');
-        
+
         let processedCount = 0;
         let quotaExceeded = false;
-        
+
         try {
             // Ciclo a blocchi di 5 per non saturare subito se la quota è bassa
             while (!stopSignalRef.current && !quotaExceeded) {
                 // 1. Fetch batch di POI che NON hanno il flag "+"
                 const batch = await getPoisForDeepScan(cityId, 5);
-                
+
                 if (batch.length === 0) {
                     setGenStatus('Tutti i POI sono stati bonificati!');
                     break;
                 }
-                
+
                 for (const poi of batch) {
                     if (stopSignalRef.current) break;
-                    
+
                     setGenStatus(`Bonifica: ${poi.name}...`);
-                    
+
                     try {
                         // 2. Chiamata Gemini Pro + Search (useSearch = true)
                         // Questa chiamata ora ritorna anche un turismoInterest aggiornato basato sui fatti reali
                         const enriched = await enrichStagingPoi(poi.name, cityName, poi.category, true);
-                        
+
                         // 3. Calcolo Nuovo Status "Bonificato"
                         // Prendiamo l'interesse calcolato da Pro (high/medium/low) e aggiungiamo il "+"
                         // Questo "+" impedisce che venga ripescato dalla query, ma preserva l'info sull'importanza.
-                        const rawInterest = enriched.tourismInterest || 'medium';
-                        const newReliability: PointOfInterest['aiReliability'] = `${rawInterest}+` as any;
-                        
-                        // Se l'AI Pro dice che non esiste o è dubbio, lo marchiamo in check/invalidated
-                        let finalStatus = enriched.status || 'published';
+                        const rawInterest: NonNullable<PointOfInterest['tourismInterest']> =
+                            enriched.tourismInterest ?? 'medium';
+                        const newReliability: PointOfInterest['aiReliability'] =
+                            VERIFIED_RELIABILITY_MAP[rawInterest];
+
+                        let finalStatus: PointOfInterest['status'] =
+                            enriched.status ?? 'published';
                         let finalReliability = newReliability;
-                        
+
                         if (finalStatus === 'needs_check') {
-                             // Se Pro ha dubbi seri, non mettiamo il +, ma lo mettiamo in check o invalidated
-                             // Però per "uscire dalla lista", dobbiamo comunque marcarlo in qualche modo.
-                             // Usiamo 'low+' se vogliamo che sia "verificato come scarso/dubbio" e non più processato.
-                             finalReliability = 'low+'; 
-                             finalStatus = 'needs_check';
+                            // Se Pro ha dubbi seri, non mettiamo il +, ma lo mettiamo in check o invalidated
+                            // Però per "uscire dalla lista", dobbiamo comunque marcarlo in qualche modo.
+                            // Usiamo 'low+' se vogliamo che sia "verificato come scarso/dubbio" e non più processato.
+                            finalReliability = 'low+';
+                            finalStatus = 'needs_check';
                         }
-                        
+
                         // 4. Update POI con i nuovi dati e il flag
                         const updatedPoi: PointOfInterest = {
                             ...poi,
                             description: enriched.description || poi.description,
                             address: enriched.address || poi.address,
                             visitDuration: enriched.visitDuration || poi.visitDuration,
-                            priceLevel: enriched.priceLevel as any,
-                            category: enriched.category as any,
-                            subCategory: enriched.subCategory as any,
-                            
+                            priceLevel: enriched.priceLevel || poi.priceLevel,
+                            category: enriched.category || poi.category,
+                            subCategory: (POI_SUBCATEGORY_VALUES as readonly string[]).includes(enriched.rawSubCategory)
+                                ? (enriched.rawSubCategory as PointOfInterest['subCategory'])
+                                : poi.subCategory,
+
                             // IL FLAG CRITICO: Reliability con "+" (es. high+, medium+, low+)
                             aiReliability: finalReliability,
-                            
+
                             // Aggiorniamo anche il campo esplicito tourismInterest per coerenza UI
-                            tourismInterest: rawInterest, 
-                            
+                            tourismInterest: rawInterest,
+
                             updatedBy: 'Daily Deep Scan (Pro)',
                             updatedAt: new Date().toISOString(),
                             lastVerified: new Date().toISOString(),
-                            
-                            status: finalStatus as any
+
+                            status: finalStatus
                         };
-                        
+
                         await saveSinglePoi(updatedPoi, cityId, currentUser);
                         processedCount++;
-                        
+
                         // Piccola pausa per cortesia API
                         await new Promise(r => setTimeout(r, 1500));
-                        
-                    } catch (e: any) {
-                        const errMsg = e.message || JSON.stringify(e);
+
+                    } catch (e: unknown) {
+                        const errMsg = e instanceof Error ? e.message : JSON.stringify(e);
                         // Gestione Quota
                         if (errMsg.includes('429') || errMsg.toLowerCase().includes('quota')) {
                             quotaExceeded = true;
@@ -230,11 +238,11 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
                         console.error(`Errore bonifica ${poi.name}`, e);
                     }
                 }
-                
+
                 // Aggiorna la vista dopo ogni batch
                 await refreshData();
             }
-            
+
             if (quotaExceeded) {
                 alert(`⚠️ QUOTA AI ESAURITA.\n\nIl processo si è fermato dopo aver bonificato ${processedCount} POI.\nI progressi sono salvati (flag '+').\n\nRiprendi domani.`);
             } else if (stopSignalRef.current) {
@@ -251,7 +259,7 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
             setGenStatus('');
         }
     };
-    
+
     const stopBulkProcess = () => {
         stopSignalRef.current = true;
         setGenStatus('Interruzione in corso...');
@@ -264,7 +272,7 @@ export const usePoiActions = ({ cityId, refreshData, selectedIds, setSelectedIds
         isBulkProcessing,
         isFixingTaxonomy,
         genStatus,
-        setGenStatus, 
+        setGenStatus,
 
         // Actions
         savePoi,

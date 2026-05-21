@@ -1,25 +1,28 @@
-import { getAiClient } from '../aiClient';
+import { aiGateway } from '@/services/ai/aiGateway';
+
 import { withRetry, cleanJsonOutput } from '../aiUtils';
 import { calculateDistance } from '../../geo';
 import { getCorrectCategory, generateAllowedCategoriesPromptString } from '../utils/taxonomyUtils'; // NEW IMPORT
-import { 
-    buildSuggestNewPoisPrompt, 
-    buildVerifyPoisPrompt, 
+import {
+    buildSuggestNewPoisPrompt,
+    buildVerifyPoisPrompt,
     buildRegeneratePoiPrompt,
     buildCityAuditPrompt
 } from '../../../data/ai/prompts';
-import { AuditPoiResult } from '../../../types/index';
+import { AuditPoiResult, PoiCategory } from '../../../types/index';
 import { Type, Schema } from '../../../types/ai';
 
 export interface EnrichedPoiData {
     description: string;
-    category: string;
-    subCategory: string;
+    /** Categoria normalizzata tramite getCorrectCategory — sempre un valore valido del dominio */
+    category: PoiCategory;
+    /** Sottocategoria dall'AI — può non essere ancora in POI_SUBCATEGORY_VALUES, normalizzare prima dell'uso */
+    rawSubCategory: string;
     visitDuration: string;
-    priceLevel: number;
-    address?: string; 
-    status?: 'published' | 'needs_check'; 
-    tourismInterest: 'high' | 'medium' | 'low'; 
+    priceLevel: 1 | 2 | 3 | 4;
+    address?: string;
+    status?: 'published' | 'needs_check';
+    tourismInterest: 'high' | 'medium' | 'low';
 }
 
 const ENRICHMENT_SCHEMA: Schema = {
@@ -27,23 +30,23 @@ const ENRICHMENT_SCHEMA: Schema = {
     properties: {
         description: { type: Type.STRING, description: "Descrizione turistica accattivante (max 250 caratteri)" },
         category: { type: Type.STRING, enum: ['monument', 'food', 'hotel', 'nature', 'leisure', 'shop', 'discovery'] },
-        subCategory: { type: Type.STRING, description: "Sottocategoria specifica in inglese o italiano" },
+        rawSubCategory: { type: Type.STRING, description: "Sottocategoria specifica in inglese o italiano" },
         visitDuration: { type: Type.STRING, description: "Durata stimata (es. '1h')" },
         priceLevel: { type: Type.INTEGER, description: "Livello prezzo da 1 a 4" },
         address: { type: Type.STRING, description: "Indirizzo formattato" },
         status: { type: Type.STRING, enum: ['published', 'needs_check'] },
         tourismInterest: { type: Type.STRING, enum: ['high', 'medium', 'low'] }
     },
-    required: ["description", "category", "subCategory", "visitDuration", "priceLevel", "status", "tourismInterest"]
+    required: ["description", "category", "rawSubCategory", "visitDuration", "priceLevel", "status", "tourismInterest"]
 };
 
 export const performCityAudit = async (cityName: string, existingPois: any[]): Promise<AuditPoiResult[]> => {
     return withRetry(async () => {
         const prompt = buildCityAuditPrompt(cityName);
-        const aiClient = getAiClient();
 
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-pro',
             contents: prompt,
             config: { responseMimeType: 'application/json', tools: [{ googleSearch: {} }] }
         });
@@ -64,16 +67,16 @@ export const performCityAudit = async (cityName: string, existingPois: any[]): P
                 matchedDbId = nameMatch.id;
             } else {
                 if (item.lat && item.lng) {
-                     const geoMatch = existingPois.find(p => {
-                         if (!p.coords || p.coords.lat === 0) return false;
-                         const dist = calculateDistance(item.lat, item.lng, p.coords.lat, p.coords.lng);
-                         return dist < 0.1; 
-                     });
-                     if (geoMatch) {
-                         matchStatus = 'geo_match';
-                         matchedDbId = geoMatch.id;
-                         matchedDistance = calculateDistance(item.lat, item.lng, geoMatch.coords.lat, geoMatch.coords.lng) * 1000;
-                     }
+                    const geoMatch = existingPois.find(p => {
+                        if (!p.coords || p.coords.lat === 0) return false;
+                        const dist = calculateDistance(item.lat, item.lng, p.coords.lat, p.coords.lng);
+                        return dist < 0.1;
+                    });
+                    if (geoMatch) {
+                        matchStatus = 'geo_match';
+                        matchedDbId = geoMatch.id;
+                        matchedDistance = calculateDistance(item.lat, item.lng, geoMatch.coords.lat, geoMatch.coords.lng) * 1000;
+                    }
                 }
             }
 
@@ -83,24 +86,24 @@ export const performCityAudit = async (cityName: string, existingPois: any[]): P
 };
 
 export const suggestNewPois = async (
-    cityName: string, 
-    existingNames: string[] = [], 
-    instruction: string = '', 
+    cityName: string,
+    existingNames: string[] = [],
+    instruction: string = '',
     count: number = 5,
     categoryFilter: string = 'monument'
 ): Promise<any[]> => {
     return withRetry(async () => {
         const exclusionStr = existingNames.length > 0 ? `ESCLUDI: ${existingNames.join(', ')}` : '';
         const retryInstruction = "Se non trovi nulla di nuovo, cerca luoghi più di nicchia.";
-        
+
         // Genera la lista dinamica delle categorie dal DB
         const allowedCategories = generateAllowedCategoriesPromptString();
-        
-        const prompt = buildSuggestNewPoisPrompt(cityName, count, categoryFilter, instruction, retryInstruction, exclusionStr, allowedCategories);
-        const aiClient = getAiClient();
 
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3-flash-preview',
+        const prompt = buildSuggestNewPoisPrompt(cityName, count, categoryFilter, instruction, retryInstruction, exclusionStr, allowedCategories);
+
+
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: { responseMimeType: 'application/json' }
         });
@@ -116,18 +119,18 @@ export const suggestNewPois = async (
 };
 
 export const verifyPoisBatch = async (
-    candidates: any[], 
+    candidates: any[],
     cityName: string,
     cityCenterCoords: { lat: number, lng: number }
 ): Promise<any[]> => {
     if (candidates.length === 0) return [];
-    
+
     return withRetry(async () => {
         const prompt = buildVerifyPoisPrompt(cityName, candidates);
-        const aiClient = getAiClient();
 
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3.1-pro-preview', 
+
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-pro',
             contents: prompt,
             config: { responseMimeType: 'application/json', tools: [{ googleSearch: {} }] }
         });
@@ -140,10 +143,10 @@ export const verifyPoisBatch = async (
 
             return safeResults.map((r: any) => {
                 if (cityCenterCoords.lat !== 0 && r.lat && r.lng) {
-                     const dist = calculateDistance(cityCenterCoords.lat, cityCenterCoords.lng, r.lat, r.lng);
-                     if (dist > 30) {
-                         return { ...r, status: 'invalid', reason: 'Fuori zona (>30km dal centro)' };
-                     }
+                    const dist = calculateDistance(cityCenterCoords.lat, cityCenterCoords.lng, r.lat, r.lng);
+                    if (dist > 30) {
+                        return { ...r, status: 'invalid', reason: 'Fuori zona (>30km dal centro)' };
+                    }
                 }
                 return r;
             });
@@ -154,10 +157,10 @@ export const verifyPoisBatch = async (
 export const regeneratePoiData = async (poiName: string, cityName: string): Promise<any> => {
     return withRetry(async () => {
         const prompt = buildRegeneratePoiPrompt(poiName, cityName);
-        const aiClient = getAiClient();
-        
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+
+
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-pro',
             contents: prompt,
             config: { responseMimeType: 'application/json', tools: [{ googleSearch: {} }] }
         });
@@ -170,10 +173,10 @@ export const regeneratePoiData = async (poiName: string, cityName: string): Prom
 export const generatePoiCoords = async (poiName: string, cityName: string): Promise<{ lat: number, lng: number } | null> => {
     return withRetry(async () => {
         const prompt = `Trova le coordinate GPS precise (lat, lng) per: "${poiName}" a "${cityName}". JSON: {lat:0, lng:0}`;
-        const aiClient = getAiClient();
 
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-3-flash-preview',
+
+        const response = await aiGateway.generateLegacy({
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: { responseMimeType: 'application/json', tools: [{ googleSearch: {} }] }
         });
@@ -189,8 +192,8 @@ export const generatePoiCoords = async (poiName: string, cityName: string): Prom
 
 export const enrichStagingPoi = async (poiName: string, cityName: string, rawCategory: string | null, useSearch: boolean = false): Promise<EnrichedPoiData> => {
     return withRetry(async () => {
-        const model = useSearch ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
-        const tools = useSearch ? [{ googleSearch: {} }] : undefined; 
+        const model = useSearch ? 'gemini-2.0-pro' : 'gemini-2.0-flash';
+        const tools = useSearch ? [{ googleSearch: {} }] : undefined;
         const schemaConfig = useSearch ? undefined : ENRICHMENT_SCHEMA;
 
         const prompt = `
@@ -207,8 +210,8 @@ export const enrichStagingPoi = async (poiName: string, cityName: string, rawCat
         3. NON includere blocchi markdown (\`\`\`json), NON includere testo introduttivo o conclusivo. Solo il JSON puro.
         `;
 
-        const aiClient = getAiClient();
-        const response = await aiClient.models.generateContent({
+
+        const response = await aiGateway.generateLegacy({
             model: model,
             contents: prompt,
             config: { responseMimeType: 'application/json', responseSchema: schemaConfig, tools: tools }
@@ -223,7 +226,7 @@ export const enrichStagingPoi = async (poiName: string, cityName: string, rawCat
             json = {
                 description: `Luogo di interesse a ${cityName}. (Generazione AI fallita, richiede revisione)`,
                 category: 'discovery',
-                subCategory: rawCategory || 'generic',
+                rawSubCategory: rawCategory || 'generic',
                 visitDuration: '1h',
                 priceLevel: 1,
                 status: 'needs_check',
@@ -232,7 +235,21 @@ export const enrichStagingPoi = async (poiName: string, cityName: string, rawCat
             };
         }
 
-        json.category = getCorrectCategory(json.subCategory || '', json.category, poiName);
-        return json;
+        json.category = getCorrectCategory(
+            json.rawSubCategory || '',
+            json.category,
+            poiName
+        );
+
+        // 🔥 normalizza la sottocategoria per la validazione
+        const normalizedSubCategory = json.rawSubCategory
+            ?.toLowerCase()
+            .trim()
+            .replace(/\s+/g, '_');
+
+        return {
+            ...json,
+            rawSubCategory: normalizedSubCategory || 'generic'
+        };
     });
 };

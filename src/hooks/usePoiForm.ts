@@ -1,99 +1,46 @@
 import { useState, useEffect } from 'react';
 import { PointOfInterest, AffiliateLinks } from '../types/index';
+import { PoiFormData, mapPoiToFormData, normalizePoiFormData } from '../types/write/poiForm';
 import { getCachedSetting } from '../services/settingsService';
 import { generatePoiCoords } from '../services/ai';
 import { getCorrectCategory } from '../services/ai/utils/taxonomyUtils';
 import { GEO_CONFIG } from '../constants/geoConfig';
 
-const DEFAULT_POI: PointOfInterest = {
-    id: '',
-    name: '',
-    description: '',
-    imageUrl: '',
-    category: 'monument',
-    subCategory: 'square',
-    rating: 4.5,
-    votes: 0,
-    coords: GEO_CONFIG.DEFAULT_CENTER,
-    address: '',
-    visitDuration: '1 h',
-    priceLevel: 1, // DEFAULT A 1 PER SICUREZZA
-    affiliate: {},
-    linkMetadata: {},
-    status: 'published',
-    openingHours: {
-        days: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
-        morning: '09:00 - 13:00',
-        afternoon: '15:00 - 19:00'
-    }
-};
-
 export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
 
-    const [formData, setFormData] = useState<PointOfInterest>(DEFAULT_POI);
+    const [formData, setFormData] = useState<PoiFormData>(mapPoiToFormData(poi));
     const [initialState, setInitialState] = useState<string>('');
     const [isImageValid, setIsImageValid] = useState(true);
     const [isLocating, setIsLocating] = useState(false);
 
     useEffect(() => {
-
-        if (poi) {
-
-            const data = JSON.parse(JSON.stringify(poi));
-
-            if (!data.affiliate) data.affiliate = {};
-
-            if (!data.openingHours) {
-                data.openingHours = {
-                    days: ['Lun-Dom'],
-                    morning: '',
-                    afternoon: '',
-                    evening: ''
-                };
-            }
-
-            setFormData(data);
-            setInitialState(JSON.stringify(data));
-
-        } else {
-
-            // Reset for new
-            const fresh = JSON.parse(JSON.stringify(DEFAULT_POI));
-
-            fresh.id = `poi_${Date.now()}`;
-
-            setFormData(fresh);
-            setInitialState(JSON.stringify(fresh));
-        }
-
+        const data = mapPoiToFormData(poi);
+        setFormData(data);
+        setInitialState(JSON.stringify(data));
     }, [poi]);
 
     const isDirty = JSON.stringify(formData) !== initialState;
 
-    const updateField = (field: keyof PointOfInterest, value: any) => {
-
+    const updateField = <K extends keyof PoiFormData>(field: K, value: PoiFormData[K]) => {
         setFormData(prev => {
-
             const newData = { ...prev, [field]: value };
 
             // --- AUTOMAZIONE TASSONOMIA ---
-            if (field === 'subCategory') {
-
+            if (field === 'subCategory' && typeof value === 'string') {
                 const autoCategory = getCorrectCategory(
-                    value as string,
+                    value,
                     prev.category,
                     prev.name
                 );
 
                 if (autoCategory !== prev.category) {
-                    newData.category = autoCategory as any;
+                    newData.category = autoCategory as PointOfInterest['category'];
                 }
             }
 
             // --- AUTOMAZIONE PREZZO (FIX: Piazze/Chiese a 1 Euro) ---
-            if (field === 'category') {
-
-                const newCat = value as string;
+            if (field === 'category' && typeof value === 'string') {
+                const newCat = value;
 
                 if (
                     newCat === 'monument' ||
@@ -102,12 +49,8 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
                 ) {
                     newData.priceLevel = 1; // Gratis/Basso
                 }
-
                 else if (
-                    newCat === 'food' ||
-                    newCat === 'hotel' ||
-                    newCat === 'shop' ||
-                    newCat === 'leisure'
+                    ['food', 'hotel', 'shop', 'leisure'].includes(newCat)
                 ) {
                     if (prev.priceLevel === 1) newData.priceLevel = 2;
                 }
@@ -117,17 +60,18 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
         });
     };
 
-    const updateCoord = (type: 'lat' | 'lng', value: string) =>
-        setFormData(prev => ({
-            ...prev,
-            coords: {
-                ...prev.coords,
-                [type]: parseFloat(value)
-            }
-        }));
+    const updateCoord = (type: 'lat' | 'lng', value: string) => {
+        if (value === '') {
+            setFormData(prev => ({ ...prev, coords: { ...prev.coords, [type]: 0 } }));
+            return;
+        }
+        const num = parseFloat(value);
+        if (!isNaN(num)) {
+            setFormData(prev => ({ ...prev, coords: { ...prev.coords, [type]: num } }));
+        }
+    };
 
     const updateAffiliate = (key: keyof AffiliateLinks, value: string) => {
-
         setFormData(prev => ({
             ...prev,
             affiliate: {
@@ -138,22 +82,18 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
     };
 
     const handleAutoLocate = async () => {
-
         if (!formData.name) {
             return { error: "Inserisci il nome del POI." };
         }
 
         setIsLocating(true);
-
         try {
-
             const coords = await generatePoiCoords(
                 formData.name,
                 cityName || GEO_CONFIG.DEFAULT_REGION
             );
 
             if (coords) {
-
                 setFormData(prev => ({
                     ...prev,
                     coords: {
@@ -161,26 +101,18 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
                         lng: coords.lng
                     }
                 }));
-
                 return { success: true };
-
             } else {
-
                 return { error: "Coordinate non trovate." };
             }
-
-        } catch (e) {
-
+        } catch (e: unknown) {
             return { error: "Errore servizio AI." };
-
         } finally {
-
             setIsLocating(false);
         }
     };
 
     const validate = () => {
-
         if (!formData.subCategory) {
             return "ERRORE: La Sottocategoria è obbligatoria.";
         }
@@ -206,27 +138,29 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
         ? getCachedSetting(formData.category)
         : null;
 
-    const isMissingAsset =
-        !formData.imageUrl && !categoryPlaceholder;
+    const isMissingAsset = !formData.imageUrl && !categoryPlaceholder;
+
+    /**
+     * getNormalizedData: Converte lo stato del form in una Entity STRICT
+     * pronta per il service layer.
+     */
+    const getNormalizedData = (): PointOfInterest => {
+        return normalizePoiFormData(formData);
+    };
 
     return {
-
         formData,
         setFormData,
-
         isDirty,
-
         isImageValid,
         setIsImageValid,
-
         isLocating,
-
         updateField,
         updateCoord,
         updateAffiliate,
-
         handleAutoLocate,
         validate,
+        getNormalizedData, // NEW: Espone il convertitore domain-driven
 
         // Derived props for UI
         categoryPlaceholder,

@@ -1,23 +1,28 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageSquare, Clock, Eye, EyeOff, Send, Info, StickyNote, Save, AlertCircle, ShoppingBag, CheckCircle, Loader2 } from 'lucide-react';
+import type { User } from '@/types/users';
+import { Z_OVERLAY, Z_ADMIN_MODAL, Z_MODAL_NESTED } from '@/constants/zIndex';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { MessageSquare, Clock, Eye, EyeOff, Send, Info, StickyNote, Save, AlertCircle, ShoppingBag, CheckCircle, Loader2 } from 'lucide-react';
 import { SponsorRequest, PartnerLog, ShopPartner } from '../../types/index';
-// UPDATE: Importa le funzioni async
-import { getPartnerHistoryAsync, addPartnerLogAsync, markPartnerLogsAsRead, togglePartnerLogReadStatus, updateSponsorInternalNotes } from '../../services/sponsorService';
-import { getShopByVat } from '../../services/shopService';
+import { getPartnerHistoryAsync, addPartnerLogAsync, markPartnerLogsAsRead, updateSponsorInternalNotes } from '../../services/sponsorService';
+import { getShopByOwner } from '../../services/shopService';
 import { BusinessShopManager } from '../user/BusinessShopManager';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
-// NEW IMPORTS FOR NOTIFICATION
-import { getUserIdByEmail } from '../../services/userService';
 import { addNotification } from '../../services/notificationService';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { PLAN_TYPES } from '../../constants/planTypes';
 
 interface PartnerDetailModalProps {
-    vatNumber: string;
+    profileId: string;
+    requestId?: string;
+    vatNumber?: string;
+    isOpen?: boolean;
     onClose: () => void;
     onUpdate?: () => void;
 }
 
-export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDetailModalProps) => {
+export const PartnerDetailModal = ({ profileId, requestId, vatNumber, isOpen = true, onClose, onUpdate }: PartnerDetailModalProps) => {
     const [history, setHistory] = useState<SponsorRequest[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(true);
     const [newMessage, setNewMessage] = useState('');
@@ -28,7 +33,7 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
     const [isSavingNote, setIsSavingNote] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
     const [showUnsavedModal, setShowUnsavedModal] = useState(false);
-    const [activeView, setActiveView] = useState<'crm' | 'shop'>('shop'); // FIX: Default to CRM, but shop logic below handles view switch
+    const [activeView, setActiveView] = useState<'crm' | 'shop'>('crm'); 
     const [currentShop, setCurrentShop] = useState<ShopPartner | null>(null);
     
     const [localAlert, setLocalAlert] = useState<{ title: string, message: string, type: 'info' | 'warning' } | null>(null);
@@ -37,14 +42,14 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
 
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
-    // FUNZIONE DI CARICAMENTO ASINCRONA
-    const loadData = async () => {
+    // CARICAMENTO UUID-NATIVE
+    const loadData = useCallback(async () => {
+        if (!profileId) return;
         setIsLoadingHistory(true);
         try {
-            const h = await getPartnerHistoryAsync(vatNumber);
+            const h = await getPartnerHistoryAsync({ profileId });
             setHistory(h);
             if (h.length > 0) {
-                // Imposta note interne dal record più recente se non modificate
                 if (!isDirty) {
                     const note = h[0].adminNotes || '';
                     setInternalNote(note);
@@ -56,14 +61,15 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
         } finally {
             setIsLoadingHistory(false);
         }
-    };
+    }, [profileId, isDirty]);
 
     useEffect(() => {
-        setActiveView('crm'); // Reset view on open
         loadData();
-        markPartnerLogsAsRead(vatNumber);
+        if (requestId) {
+            markPartnerLogsAsRead(requestId);
+        }
         if (onUpdate) onUpdate();
-    }, [vatNumber]);
+    }, [profileId, requestId, loadData, onUpdate]);
 
     useEffect(() => { setIsDirty(internalNote !== originalNote); }, [internalNote, originalNote]);
 
@@ -73,24 +79,24 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
         }
     }, [history]);
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                if (localAlert) setLocalAlert(null);
-                else if (showUnsavedModal) setShowUnsavedModal(false);
-                else handleCloseAttempt();
-            }
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [showUnsavedModal, isDirty, localAlert]);
-
-    const handleCloseAttempt = () => {
+    const handleCloseAttempt = useCallback(() => {
         if (isDirty) setShowUnsavedModal(true);
         else onClose();
-    };
+    }, [isDirty, onClose]);
 
-    const activeRequest = history[0]; 
+    useGlobalModalEscape(isOpen, handleCloseAttempt);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                if (newMessage.trim()) handleSendMessage();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [newMessage]);
+
+    const activeRequest = history.find(r => r.id === requestId) || history[0]; 
     const logs = activeRequest?.partnerLogs || [];
     const totalSpent = history.reduce((sum, r) => sum + (r.amount || 0), 0);
     const rejectedCount = history.filter(r => r.status === 'rejected').length;
@@ -101,12 +107,10 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
     if (rejectedCount > 0 && rejectedCount > activeCount) { reputationColor = 'text-red-500'; reputationLabel = 'A Rischio'; }
     else if (rejectedCount > 0) { reputationColor = 'text-amber-500'; reputationLabel = 'Attenzione'; }
 
-    // INVIO MESSAGGIO ASINCRONO CON NOTIFICA
     const handleSendMessage = async () => {
-        if (!newMessage.trim()) return;
+        if (!newMessage.trim() || !activeRequest) return;
         setIsSending(true);
         try {
-            // 1. Salva log nel CRM
             const log: PartnerLog = {
                 id: Date.now().toString(),
                 date: new Date().toISOString(),
@@ -115,23 +119,20 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                 message: newMessage
             };
             
-            await addPartnerLogAsync(vatNumber, log);
+            await addPartnerLogAsync(activeRequest.id, log);
 
-            // 2. Invia Notifica Utente (se collegato)
-            const targetUserId = await getUserIdByEmail(activeRequest.email);
-            if (targetUserId) {
+            if (activeRequest.profileId) {
                 await addNotification(
-                    targetUserId,
+                    activeRequest.profileId,
                     'info',
                     'Nuovo Messaggio Staff',
                     `Hai ricevuto una comunicazione relativa a "${activeRequest.companyName}".\n${newMessage.substring(0, 50)}${newMessage.length > 50 ? '...' : ''}`,
-                    // FIX: Deep link corretto per aprire la tab messaggi
                     { section: 'profile', tab: 'messages' } 
                 );
             }
             
             setNewMessage('');
-            await loadData(); // Ricarica storico per vedere il nuovo messaggio
+            await loadData(); 
             if (onUpdate) onUpdate();
         } catch (e) {
             alert("Errore invio messaggio");
@@ -144,26 +145,25 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
     const handleSaveInternalNote = () => {
         if (!activeRequest) return;
         setIsSavingNote(true);
-        // Usa setTimeout per simulare o trasforma anche questa in async reale se serve
-        // Per coerenza con gli altri service, qui manteniamo la logica 'fire & forget' ottimistica o update locale
         updateSponsorInternalNotes(activeRequest.id, internalNote);
         
         setTimeout(() => {
             setIsSavingNote(false);
             setOriginalNote(internalNote);
             setIsDirty(false);
-            // Non serve ricaricare tutto per una nota locale se non blocca
         }, 500);
     };
 
     const handleOpenShopManager = async () => {
-        let shop = await getShopByVat(vatNumber);
+        if (!profileId) return;
+        // L'admin accede allo shop tramite l'ownerId
+        let shop = await getShopByOwner(profileId);
         
         if (shop) {
             setCurrentShop(shop);
             setActiveView('shop');
         } else {
-            const isShopContract = activeRequest?.type === 'shop' || activeRequest?.poiCategory === 'shop';
+            const isShopContract = activeRequest?.type === PLAN_TYPES.DIGITAL_SHOWCASE || activeRequest?.poiCategory === 'shop';
             
             if (isShopContract) {
                 setLocalAlert({
@@ -182,10 +182,13 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+    return createPortal(
+        <div 
+            className="td-modal-overlay p-4 bg-black/90 backdrop-blur-sm"
+            style={{ zIndex: Z_OVERLAY }}
+        >
             {activeView === 'shop' && currentShop ? (
-                <div className="bg-slate-900 w-full max-w-6xl h-[95vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden relative">
+                <div className="bg-slate-900 w-full max-w-6xl h-[95vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden relative" style={{ zIndex: Z_ADMIN_MODAL }}>
                     <BusinessShopManager 
                         shop={currentShop} 
                         onUpdate={() => {}} 
@@ -193,10 +196,10 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                     />
                 </div>
             ) : (
-                <div className="bg-slate-900 w-full max-w-6xl h-[90vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden relative">
+                <div className="bg-slate-900 w-full max-w-6xl h-[90vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden relative" style={{ zIndex: Z_ADMIN_MODAL }}>
                     
                     {localAlert && (
-                         <div className="absolute inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" style={{ zIndex: Z_MODAL_NESTED }}>
                             <div className="bg-slate-900 border border-slate-700 p-8 rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in-95 flex flex-col items-center text-center">
                                 <div className={`p-4 rounded-full mb-4 ${localAlert.type === 'warning' ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'}`}>
                                     {localAlert.type === 'warning' ? <AlertCircle className="w-8 h-8"/> : <Info className="w-8 h-8"/>}
@@ -211,7 +214,7 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                     )}
 
                     {showUnsavedModal && (
-                        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: Z_MODAL_NESTED }}>
                             <div className="bg-slate-900 border border-red-500/50 p-6 rounded-xl shadow-2xl max-w-sm w-full animate-in zoom-in-95">
                                 <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2"><AlertCircle className="w-6 h-6 text-red-500"/> Modifiche non salvate</h3>
                                 <p className="text-slate-300 text-sm mb-6">Hai modificato le note interne senza salvare. Se esci ora, le modifiche andranno perse.</p>
@@ -229,7 +232,7 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                                 <h2 className="text-3xl font-bold text-white">{activeRequest?.companyName || 'Partner'}</h2>
                                 <span className={`text-xs uppercase font-bold px-3 py-1 rounded border ${reputationColor === 'text-red-500' ? 'bg-red-900/20 border-red-500/50' : reputationColor === 'text-amber-500' ? 'bg-amber-900/20 border-amber-500/50' : 'bg-emerald-900/20 border-emerald-500/50'} ${reputationColor}`}>{reputationLabel}</span>
                             </div>
-                            <div className="text-sm text-slate-400 font-mono flex items-center gap-6"><span>P.IVA: {vatNumber}</span><span>Email: {activeRequest?.email}</span></div>
+                            <div className="text-sm text-slate-400 font-mono flex items-center gap-6"><span>P.IVA: {vatNumber || activeRequest?.vatNumber || 'N/D'}</span><span>Email: {activeRequest?.email}</span></div>
                         </div>
                         <div className="flex gap-3">
                             <button 
@@ -238,9 +241,7 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                             >
                                 <ShoppingBag className="w-4 h-4"/> SHOPPING - NEGOZIO
                             </button>
-                            <button onClick={handleCloseAttempt} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                                <X className="w-6 h-6"/>
-                            </button>
+                            <CloseButton onClose={handleCloseAttempt} variant="primary" />
                         </div>
                     </div>
 
@@ -267,7 +268,7 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                                          <span className="text-xs uppercase font-bold">Caricamento Storico...</span>
                                      </div>
                                 ) : history.map(req => (
-                                    <div key={req.id} className="bg-slate-950 p-4 rounded-lg border border-slate-800 hover:border-slate-600 transition-colors cursor-pointer group">
+                                    <div key={req.id} className={`bg-slate-950 p-4 rounded-lg border hover:border-slate-600 transition-colors cursor-pointer group ${req.id === requestId ? 'border-indigo-500 ring-1 ring-indigo-500/30' : 'border-slate-800'}`}>
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="flex items-center gap-2">
                                                 <span className={`w-2.5 h-2.5 rounded-full ${req.status === 'approved' ? 'bg-emerald-500' : req.status === 'rejected' ? 'bg-red-500' : req.status === 'cancelled' ? 'bg-slate-500' : 'bg-amber-500'}`}></span>
@@ -279,14 +280,12 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                                             <span className="font-medium text-slate-300">{req.cityId} • {req.tier}</span>
                                             {req.amount && <span className="text-white font-bold">€{req.amount}</span>}
                                         </div>
-                                        {/* SHOW START/END DATE IF APPROVED - FORMATO MIGLIORATO */}
                                         {(req.status === 'approved' || req.status === 'expired') && req.startDate && (
                                             <div className="mt-2 text-[10px] font-medium text-indigo-200 bg-indigo-900/20 px-2 py-1.5 rounded border border-indigo-500/20 flex flex-col gap-0.5">
                                                 <div className="flex justify-between"><span>DAL:</span> <span className="text-white font-mono">{new Date(req.startDate).toLocaleDateString('it-IT')}</span></div>
                                                 <div className="flex justify-between"><span>AL:</span> <span className="text-white font-mono">{req.endDate ? new Date(req.endDate).toLocaleDateString('it-IT') : 'Indefinito'}</span></div>
                                             </div>
                                         )}
-                                        {req.invoiceNumber && <div className="mt-2 text-xs font-mono text-slate-500 bg-slate-900 px-2 py-1 rounded w-fit">Fatt. {req.invoiceNumber}</div>}
                                     </div>
                                 ))}
                             </div>
@@ -302,10 +301,10 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                                     <div key={i} className={`flex w-full ${log.direction === 'outbound' ? 'justify-start' : 'justify-end'}`}>
                                         <div className={`max-w-[85%] rounded-2xl p-5 shadow-sm text-base relative group 
                                             ${log.direction === 'outbound' && log.type !== 'alert' 
-                                                ? 'bg-emerald-600 text-white rounded-bl-none' // Admin: Sinistra (Start) + Verde
+                                                ? 'bg-emerald-600 text-white rounded-bl-none' 
                                                 : log.type === 'system' 
                                                     ? 'bg-slate-800 text-slate-400 text-sm border border-slate-700 italic text-center mx-auto px-6 py-2 rounded-full' 
-                                                    : 'bg-blue-600 text-white rounded-br-none border border-blue-500' // User: Destra (End) + Blu
+                                                    : 'bg-blue-600 text-white rounded-br-none border border-blue-500' 
                                             }`
                                         }>
                                             <p className="whitespace-pre-line leading-relaxed">{log.message}</p>
@@ -329,6 +328,7 @@ export const PartnerDetailModal = ({ vatNumber, onClose, onUpdate }: PartnerDeta
                     </div>
                 </div>
             )}
-        </div>
+        </div>,
+        document.body
     );
 };

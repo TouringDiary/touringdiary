@@ -1,7 +1,11 @@
+import { Z_OVERLAY } from '@/constants/zIndex';
 
 import React, { useEffect } from 'react';
-import { X, Book } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Book } from 'lucide-react';
 import { useSystemMessage } from '../../../hooks/useSystemMessage';
+
+
 
 interface Props {
     guideKey: string;
@@ -12,17 +16,12 @@ export const AdminGuideModal = ({ guideKey, onClose }: Props) => {
     const { getText, loading } = useSystemMessage(guideKey);
     const content = getText();
 
-    // Gestione ESC
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
 
     return (
-        <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+        <div 
+            className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in"
+            style={{ zIndex: Z_OVERLAY }}
+        >
             <div className="bg-[#0b0f1a] w-full max-w-3xl h-[85vh] rounded-3xl border border-indigo-500/30 shadow-2xl flex flex-col overflow-hidden relative">
                 
                 {/* HEADER */}
@@ -38,10 +37,7 @@ export const AdminGuideModal = ({ guideKey, onClose }: Props) => {
                             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Manuale Operativo</p>
                         </div>
                     </div>
-                    {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                        <X className="w-6 h-6"/>
-                    </button>
+                    <CloseButton onClose={onClose} variant="primary" />
                 </div>
 
                 {/* CONTENT */}
@@ -64,3 +60,6 @@ export const AdminGuideModal = ({ guideKey, onClose }: Props) => {
         </div>
     );
 };
+
+
+

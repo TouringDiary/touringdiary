@@ -28,7 +28,7 @@ export const RankingTab = ({ user }: RankingTabProps) => {
     }, [user]);
 
     return (
-        <div className="max-w-4xl mx-auto pb-10 animate-in fade-in">
+        <div className="max-w-4xl mx-auto pb-10 px-4 md:px-8 animate-in fade-in">
             {user && user.role !== 'guest' && userRank && (
                 <div className="bg-gradient-to-r from-indigo-900 to-purple-900 p-6 rounded-2xl border border-indigo-500/30 shadow-2xl mb-8 flex items-center justify-between">
                     <div className="flex items-center gap-4">

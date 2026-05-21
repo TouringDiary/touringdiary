@@ -1,18 +1,23 @@
+import { Z_OVERLAY, Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, MapPin, Navigation, ArrowRight, Layers, Search, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Navigation, ArrowRight, Layers, Search, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { CitySummary } from '../../types/index';
 import { calculateDistance } from '../../services/geo';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { DraggableSlider, DraggableSliderHandle } from '../common/DraggableSlider';
 
 interface Props {
+    isOpen?: boolean;
     onClose: () => void;
     cityManifest: CitySummary[];
     onConfirm: (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => void;
 }
 
-export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
+export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm }: Props) => {
     const [mode, setMode] = useState<'gps' | 'manual' | null>(null);
     const [selectedCityId, setSelectedCityId] = useState<string>('');
     const [radius, setRadius] = useState<number>(25); // Default 25km
@@ -30,14 +35,10 @@ export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
     // Drag detection ref
     const dragStartRef = useRef({ x: 0, y: 0 });
 
-    // ESC Key Listener
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
+    useGlobalModalEscape(isOpen, onClose);
+
+
+
 
     // Click outside to close search dropdown
     useEffect(() => {
@@ -46,8 +47,8 @@ export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
                 setIsSearching(false);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        window.addEventListener('mousedown', handleClickOutside);
+        return () => window.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const filteredCities = useMemo(() => {
@@ -115,14 +116,20 @@ export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
         setMode('gps');
     };
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-            <div className="relative bg-[#020617] w-full max-w-3xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 max-h-[90vh]">
+    if (!isOpen) return null;
+
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in" style={{ zIndex: Z_OVERLAY }}>
+            <div 
+                className="relative bg-[#020617] w-full max-w-3xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 max-h-[90vh] pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {/* GPS WARNING OVERLAY */}
                 {showGpsWarning && (
-                    <div className="absolute inset-0 z-[150] bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
-                        <div className="max-w-sm text-center">
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in" style={{ zIndex: Z_MODAL_NESTED }}>
+                        <div className="max-w-sm text-center" style={{ zIndex: Z_MODAL_NESTED }}>
                             <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
                                 <MapPin className="w-8 h-8 text-blue-500 animate-pulse"/>
                             </div>
@@ -153,13 +160,12 @@ export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Esplorazione Territoriale</p>
                         </div>
                     </div>
-                    {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                        <X className="w-5 h-5"/>
-                    </button>
+                    <CloseButton onClose={onClose} variant="primary" />
+
+
                 </div>
 
-                <div className={`p-6 md:p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar relative z-10 transition-all ${isSearching ? 'pb-72' : ''}`}>
+                <div className={`p-6 md:p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar relative z-floating-panel transition-all ${isSearching ? 'pb-72' : ''}`}>
                     
                     {/* SCELTA MODALITÀ - COMPACTED & SWAPPED ICONS */}
                     <div className="grid grid-cols-2 gap-4">
@@ -214,7 +220,7 @@ export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
                                     </div>
 
                                     {isSearching && (
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scrollbar z-[100] animate-in slide-in-from-top-2">
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2" style={{ zIndex: Z_MODAL_NESTED }}>
                                             {filteredCities.length > 0 ? filteredCities.map(c => (
                                                 <button 
                                                     key={c.id} 
@@ -246,7 +252,7 @@ export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
                                         step="1" 
                                         value={radius} 
                                         onChange={(e) => setRadius(parseInt(e.target.value))}
-                                        className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 z-10 relative"
+                                        className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 z-floating-panel relative"
                                     />
                                     {/* Grid Lines */}
                                     <div className="absolute inset-0 flex justify-between pointer-events-none px-1">
@@ -319,7 +325,7 @@ export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
                 </div>
 
                 {/* COMPACTED FOOTER BUTTON */}
-                <div className="p-4 border-t border-slate-800 bg-[#0f172a] shrink-0 z-50">
+                <div className="p-4 border-t border-slate-800 bg-[#0f172a] shrink-0">
                     <button 
                         onClick={handleConfirm}
                         disabled={!mode || (mode === 'manual' && !selectedCityId)}
@@ -329,6 +335,10 @@ export const AroundMeWizard = ({ onClose, cityManifest, onConfirm }: Props) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

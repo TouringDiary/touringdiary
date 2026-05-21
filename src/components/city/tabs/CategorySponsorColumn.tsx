@@ -49,7 +49,7 @@ export const CategorySponsorColumn: React.FC<CategorySponsorColumnProps> = ({
                     variant="vertical" // Usa variante verticale per sidebar
                     fluid={true}
                     verticalStretch={true}
-                    userLocation={null}
+                    userLocation={userLocation}
                 />
             ) : (
                 <AdPlaceholder 
@@ -63,16 +63,16 @@ export const CategorySponsorColumn: React.FC<CategorySponsorColumnProps> = ({
     );
 
     return (
-        <div className="flex flex-col h-full overflow-hidden px-2 py-3 bg-[#050b14] border-x border-slate-800/50 gap-2">
+        <div className="flex flex-col h-full overflow-hidden px-2 py-3 bg-[#050b14] border-x border-slate-800/50 gap-2 shrink-0">
             <div className="flex items-center justify-center gap-2 mb-1 shrink-0 h-5">
                 <div className="h-px flex-1 bg-amber-600/40"></div>
                 <div className="flex items-center gap-1 px-1"><Award className="w-3 h-3 text-amber-500"/><span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">PARTNER</span></div>
                 <div className="h-px flex-1 bg-amber-600/40"></div>
             </div>
             <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden justify-between">
-                {renderSlot(gold1, 'gold', `slot1-${side}`)}
-                {renderSlot(gold2, 'gold', `slot2-${side}`)}
-                {renderSlot(silver1, 'silver', `slot3-${side}`)}
+                {renderSlot(gold1, 'gold', `slot1-${side}-${offsetMultiplier}`)}
+                {renderSlot(gold2, 'gold', `slot2-${side}-${offsetMultiplier}`)}
+                {renderSlot(silver1, 'silver', `slot3-${side}-${offsetMultiplier}`)}
             </div>
         </div>
     );

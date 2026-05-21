@@ -138,7 +138,7 @@ const generateQr = async (
 export const prepareItineraryForPdf = async (
 
     sourceItinerary: Itinerary,
-    coverImageUrl: string,
+    coverImageUrl: string | undefined,
     options: { includePhotos: boolean, includeQr: boolean },
     onProgress: (percent: number) => void
 
@@ -199,7 +199,15 @@ export const prepareItineraryForPdf = async (
 
     }
 
-    const formattedCityList = citiesInfo.map(c => c.name).join(', ');
+    // FALLBACKS
+    if (citiesInfo.length === 0) {
+        citiesInfo.push({
+            id: 'fallback-city',
+            name: sourceItinerary.name.split(' a ')[1] || 'Tua Destinazione',
+        });
+    }
+
+    const formattedCityList = citiesInfo.map(c => c.name).join(', ') || 'Viaggio in Italia';
 
     onProgress(20);
 

@@ -1,6 +1,7 @@
-
+import { Z_OVERLAY, Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
 import React, { useEffect, useState } from 'react';
-import { X, Sparkles, AlertTriangle, Lock, MapPinOff, AlertCircle, LogIn, Crown } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Sparkles, AlertTriangle, Lock, MapPinOff, AlertCircle, LogIn, Crown } from 'lucide-react';
 import { useAiPlanner } from '@/context/AiPlannerContext'; 
 import { User } from '../../types/index';
 import { AiLoadingScreen, GenerationLoader } from '../aiPlanner/AiLoadingScreen';
@@ -10,6 +11,9 @@ import { useAiGeneration } from '../../hooks/useAiGeneration';
 import { useModal } from '@/context/ModalContext'; 
 import { useSystemMessage } from '../../hooks/useSystemMessage'; 
 import { useDynamicStyles } from '../../hooks/useDynamicStyles'; // NEW IMPORT
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+
 
 // Re-export loader for compatibility
 export { AiLoadingScreen, GenerationLoader };
@@ -45,16 +49,7 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
         cancelGeneration 
     } = useAiGeneration({ user, onClose });
 
-    // Gestione ESC (UI Only)
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleEsc = (e: KeyboardEvent) => { 
-            if (showValidationAlert || showQuotaAlert || warningModal || errorModal) return;
-            if (e.key === 'Escape') onClose(); 
-        };
-        window.addEventListener('keydown', handleEsc);
-        return () => window.removeEventListener('keydown', handleEsc);
-    }, [isOpen, onClose, showValidationAlert, showQuotaAlert, warningModal, errorModal]);
+    useGlobalModalEscape(isOpen, onClose);
 
     // Pre-fill City
     useEffect(() => {
@@ -66,14 +61,20 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
     // --- BLOCCO GUEST CON CONTENUTO DB ---
     const isGuest = !user || user.role === 'guest';
     if (isGuest) {
-        return (
-            <div className="fixed top-24 bottom-0 left-0 right-0 z-[2000] flex items-center justify-center p-0 md:p-4">
-                <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl" onClick={onClose}></div>
+        return createPortal(
+            <div className="td-modal-overlay bg-slate-950/90 backdrop-blur-xl animate-in fade-in flex justify-center p-0 md:p-4 overflow-y-auto pointer-events-auto" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
                 
-                <div className="relative bg-slate-900 w-full max-w-md p-8 rounded-[2rem] border border-indigo-500/30 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95">
-                    <button onClick={onClose} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors">
-                        <X className="w-5 h-5"/>
-                    </button>
+                <div 
+                    className="relative bg-slate-900 w-full max-w-md p-8 rounded-[2rem] border border-indigo-500/30 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 my-auto pointer-events-auto"
+                    style={{ zIndex: Z_MODAL }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <CloseButton 
+                        onClose={onClose} 
+                        position="absolute"
+                        variant="ghost" 
+                        size="sm"
+                    />
 
                     <div className="w-20 h-20 bg-indigo-500/20 rounded-full flex items-center justify-center border-4 border-indigo-500/50 shadow-[0_0_30px_rgba(99,102,241,0.4)] mb-6">
                         <Lock className="w-10 h-10 text-indigo-400"/>
@@ -81,7 +82,7 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
                     
                     <h3 className="text-2xl font-display font-bold text-white mb-3">{blockMsg.title || 'Funzionalità Esclusiva'}</h3>
                     {/* Render HTML content from DB safely */}
-                    <div className="text-slate-300 text-sm leading-relaxed mb-8" dangerouslySetInnerHTML={{ __html: blockMsg.body || "Il Magic Planner AI è riservato agli utenti registrati." }} />
+                    <div className="text-slate-300 text-sm leading-relaxed mb-8 whitespace-pre-line" dangerouslySetInnerHTML={{ __html: blockMsg.body || "Il Magic Planner AI è riservato agli utenti registrati." }} />
                     
                     <button 
                         onClick={() => { onClose(); openModal('auth'); }}
@@ -92,18 +93,22 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
                     
                     <p className="text-[10px] text-slate-500 mt-4">La registrazione è gratuita e richiede meno di 1 minuto.</p>
                 </div>
-            </div>
+            </div>,
+            document.body
         );
     }
 
-    return (
-        <div className="fixed top-24 bottom-0 left-0 right-0 z-[2000] flex items-center justify-center p-0 md:p-4">
-            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl" onClick={onClose}></div>
+    return createPortal(
+        <div className="td-modal-overlay bg-slate-950/90 backdrop-blur-xl animate-in fade-in pointer-events-auto flex items-center justify-center p-0 md:p-4" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
             
             {/* 1. VALIDATION ALERT */}
             {showValidationAlert && (
-                <div className="absolute inset-0 z-[2500] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in">
-                    <div className="bg-slate-900 border-2 border-amber-500 p-8 md:p-10 rounded-[2rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in-95 text-center flex flex-col items-center gap-6">
+                <div className="absolute inset-0 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }}>
+                    <div 
+                        className="relative bg-slate-900 border-2 border-amber-500 p-8 md:p-10 rounded-[2rem] w-full max-w-lg shadow-2xl animate-in zoom-in-95 text-center flex flex-col items-center gap-6 pointer-events-auto"
+                        style={{ zIndex: Z_MODAL_NESTED }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="w-24 h-24 bg-amber-500/20 rounded-full flex items-center justify-center border-4 border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.4)]">
                             <AlertTriangle className="w-12 h-12 text-amber-500 animate-pulse"/>
                         </div>
@@ -122,8 +127,8 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
 
             {/* 2. QUOTA EXCEEDED ALERT (AGGIORNATO) */}
             {showQuotaAlert && (
-                <div className="absolute inset-0 z-[2500] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in">
-                    <div className="bg-slate-900 border-2 border-red-500 p-8 rounded-[2rem] w-full max-w-md shadow-2xl relative animate-in zoom-in-95 text-center flex flex-col items-center gap-6">
+                <div className="absolute inset-0 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={() => setShowQuotaAlert(false)}>
+                    <div className="bg-slate-900 border-2 border-red-500 p-8 rounded-[2rem] w-full max-w-md shadow-2xl relative animate-in zoom-in-95 text-center flex flex-col items-center gap-6 pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={e => e.stopPropagation()}>
                         <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center border-4 border-red-500/50 shadow-[0_0_40px_rgba(239,68,68,0.4)]">
                             <Lock className="w-10 h-10 text-red-500"/>
                         </div>
@@ -160,8 +165,8 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
 
             {/* 3. WARNING MODAL */}
             {warningModal && (
-                 <div className="absolute inset-0 z-[2500] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in">
-                    <div className="bg-slate-900 border-2 border-yellow-500 p-8 rounded-[2rem] w-full max-w-md shadow-2xl relative animate-in zoom-in-95 text-center flex flex-col items-center gap-6">
+                 <div className="absolute inset-0 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={() => handleConfirmWarning(false)}>
+                    <div className="bg-slate-900 border-2 border-yellow-500 p-8 rounded-[2rem] w-full max-w-md shadow-2xl relative animate-in zoom-in-95 text-center flex flex-col items-center gap-6 pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={e => e.stopPropagation()}>
                         <div className="w-20 h-20 bg-yellow-500/20 rounded-full flex items-center justify-center border-4 border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.4)]">
                             <MapPinOff className="w-10 h-10 text-yellow-500 animate-pulse"/>
                         </div>
@@ -185,8 +190,8 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
 
             {/* 4. ERROR MODAL */}
             {errorModal && (
-                 <div className="absolute inset-0 z-[2500] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in">
-                    <div className="bg-slate-900 border-2 border-red-500 p-8 rounded-[2rem] w-full max-w-md shadow-2xl relative animate-in zoom-in-95 text-center flex flex-col items-center gap-6">
+                 <div className="absolute inset-0 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={() => setErrorModal(null)}>
+                    <div className="bg-slate-900 border-2 border-red-500 p-8 rounded-[2rem] w-full max-w-md shadow-2xl relative animate-in zoom-in-95 text-center flex flex-col items-center gap-6 pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={e => e.stopPropagation()}>
                         <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center border-4 border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.4)]">
                             <AlertCircle className="w-10 h-10 text-red-500"/>
                         </div>
@@ -203,12 +208,16 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
                 </div>
             )}
 
-            <div className="relative bg-slate-900 w-full max-w-2xl h-full md:max-h-[92vh] md:rounded-[2rem] border-0 md:border border-indigo-500/30 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 duration-500">
+            <div 
+                className="relative bg-slate-900 w-full max-w-2xl h-full md:max-h-[92vh] md:rounded-[2rem] border-0 md:border border-indigo-500/30 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 duration-500 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {/* UPDATED: Pass cancelGeneration handler to Loader */}
                 {loading && <AiLoadingScreen onCancel={cancelGeneration} />}
 
-                <div className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur-md shrink-0 z-40 relative">
+                <div className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur-md shrink-0 relative">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl shadow-xl shadow-indigo-900/40">
                             <Sparkles className="w-6 h-6 text-white animate-pulse"/>
@@ -220,9 +229,10 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
                         </div>
                     </div>
                     {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                        <X className="w-6 h-6"/>
-                    </button>
+                    <CloseButton 
+                        onClose={onClose} 
+                        withEscape={!showValidationAlert && !showQuotaAlert && !warningModal && !errorModal}
+                    />
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-900 relative">
@@ -242,6 +252,10 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

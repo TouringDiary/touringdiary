@@ -1,10 +1,21 @@
 import { supabase } from './supabaseClient';
-import { PhotoSubmission } from '../types/index';
+import { PhotoSubmission, MediaStatus } from '../types/index';
 import { DatabasePhotoSubmission } from '../types/database';
+import { Insert, Update } from '../types/domain/index';
+
+/** Tipi locali per hardening join e update */
+type DatabasePhotoSubmissionUpdate = Update<'photo_submissions'>;
+type DbPhotoWithLikes = DatabasePhotoSubmission & {
+    photo_likes?: { photo_id: string }[];
+};
 
 // FIX: Import diretti per evitare cicli
 
 import { dataURLtoFile } from '../utils/common';
+import { getFullManifestAsync, getCityDetails, resolveCityIdentity } from './city/cityReadService';
+import { saveCityDetails } from './city/cityWriteService';
+import { sanitizeMediaStatus } from '../utils/media';
+import { PHOTO_SUBMISSION_STATUS_VALUES } from '../constants/governance';
 
 const BUCKET_NAME = 'community-photos';
 const PUBLIC_BUCKET = 'public-media';
@@ -12,6 +23,7 @@ const PUBLIC_BUCKET = 'public-media';
 // Helper Regex UUID (UNICA DEFINIZIONE VALIDA)
 const UUID_REGEX =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 
 
 // --------------------------------------------------
@@ -122,10 +134,69 @@ export const propagatePhotoRemoval = async (
     locationName: string,
     description?: string
 ): Promise<boolean> => {
-    // SSoT: This function is now a no-op for city metadata sync as photo_submissions is the SSoT.
-    // In a future phase, this could handle storage cleanup (deleting the file from the bucket).
-    console.log(`[SSoT] Skipping legacy sync for ${photoUrl} from ${locationName}`);
-    return true;
+    try {
+        // Deterministic City Resolution (Boundary Recovery)
+        let targetCityIds: string[] = [];
+        if (locationName) {
+            const identity = await resolveCityIdentity(locationName);
+            if (identity) targetCityIds = [identity.id];
+        }
+
+        // Fallback: Se non c'è locationName o non è risolvibile, manteniamo il comportamento di scansione globale 
+        // (legacy/safety) ma mappato su ID.
+        if (targetCityIds.length === 0 && !locationName) {
+            const manifest = await getFullManifestAsync();
+            targetCityIds = manifest.map(c => c.id);
+        }
+
+        let globalChanged = false;
+        const isHeroContext = description?.includes('[HERO]');
+
+        for (const cityId of targetCityIds) {
+            const city = await getCityDetails(cityId);
+            if (!city) continue;
+            let changed = false;
+            if (isHeroContext || city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {
+                city.details.heroImage = 'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1000';
+                city.imageUrl = city.details.heroImage;
+                city.imageCredit = '';
+                changed = true;
+            }
+            if (city.details.patronDetails?.imageUrl === photoUrl) {
+                city.details.patronDetails.imageUrl = '';
+                changed = true;
+            }
+            if (city.details.gallery && city.details.gallery.some(asset => asset.url === photoUrl)) {
+                city.details.gallery = city.details.gallery.filter(
+                    asset => asset.url !== photoUrl
+                );
+
+                changed = true;
+            }
+            if (changed) {
+                await saveCityDetails(city);
+                globalChanged = true;
+            }
+        }
+        return globalChanged;
+    } catch (e) {
+        return false;
+    }
+};
+
+export const syncPhotoDescriptionToCity = async (photoUrl: string, newDescription: string, locationName: string) => {
+    try {
+        const identity = await resolveCityIdentity(locationName);
+        if (!identity) return;
+        const city = await getCityDetails(identity.id);
+        if (!city) return;
+        let changed = false;
+        if (city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {
+            city.imageCredit = newDescription;
+            changed = true;
+        }
+        if (changed) await saveCityDetails(city);
+    } catch (e) { }
 };
 
 
@@ -140,18 +211,23 @@ export const flagPhotosAsCityDeleted =
 
         try {
 
-            const { error } =
-                await supabase
-                    .from('photo_submissions')
-                    .update({
-                        status: 'city_deleted',
-                        updated_at:
-                            new Date().toISOString()
-                    })
-                    .ilike(
-                        'location_name',
-                        cityName
-                    );
+            // Resolve identity for SSoT update
+            const identity = await resolveCityIdentity(cityName);
+            
+            let query = supabase.from('photo_submissions').update({
+                status: 'city_deleted',
+                updated_at: new Date().toISOString()
+            });
+
+            if (identity) {
+                // SSoT: Update by ID or normalized name for maximum safety/compat
+                query = query.or(`city_id.eq.${identity.id},location_name.ilike.${identity.name}`);
+            } else {
+                // Fallback legacy (Identity lookup failed)
+                query = query.ilike('location_name', cityName.trim());
+            }
+
+            const { error } = await query;
 
             if (error) throw error;
 
@@ -169,6 +245,10 @@ export const flagPhotosAsCityDeleted =
 // COMMUNITY PHOTO UPLOAD
 // --------------------------------------------------
 
+import { mapDbPhotoSubmission } from './mediaService';
+
+// Rimosso mapDbPhotoToSubmission locale in favore del mapper centralizzato in mediaService.ts
+
 export const uploadCommunityPhoto =
     async (
         file: File,
@@ -177,25 +257,25 @@ export const uploadCommunityPhoto =
         locationName: string,
         description: string,
         cityId?: string,
-        forceStatus?: 'pending' | 'approved' | 'rejected'
+        forceStatus?: 'pending' | 'approved' | 'rejected',
+        isOfficial: boolean = false,
+        mediaStatus: MediaStatus = 'real'
     ): Promise<PhotoSubmission | null> => {
 
         try {
-            // 1. Resolve cityId if not provided (Lookup DB by name)
+            // 1. Resolve cityId if not provided (Refactored: Service Boundary Recovery)
             let resolvedCityId = cityId;
             if (!resolvedCityId && locationName) {
-                const { data: cityData } = await supabase
-                    .from('cities')
-                    .select('id')
-                    .ilike('name', locationName.trim())
-                    .maybeSingle();
-
-                if (cityData) resolvedCityId = cityData.id;
+                const identity = await resolveCityIdentity(locationName);
+                if (identity) resolvedCityId = identity.id;
             }
 
-            // CRITICAL: city_id must be mandatory for SSoT
+            // 2. City ID Validation
             if (!resolvedCityId) {
-                throw new Error("City not found for upload. Photos must be linked to a valid city.");
+                if (isOfficial) {
+                    throw new Error("City ID mandatory for Official/Editorial photos.");
+                }
+                console.warn(`[photoService] Upload proceeds without cityId for location: ${locationName}`);
             }
 
             const safeName =
@@ -233,17 +313,18 @@ export const uploadCommunityPhoto =
             const initialStatus =
                 forceStatus || (isAdmin ? 'approved' : 'pending');
 
-            const newRecord:
-                Partial<DatabasePhotoSubmission> =
-            {
+            const newRecord: Insert<'photo_submissions'> = {
                 user_id: userId,
                 user_name: userName,
                 location_name: locationName,
                 description,
                 image_url: publicUrl,
                 status: initialStatus,
+                published_at: initialStatus === 'approved' ? new Date().toISOString() : null,
                 likes: 0,
-                city_id: resolvedCityId // ADDED
+                city_id: resolvedCityId,
+                is_official: isOfficial,
+                media_status: mediaStatus
             };
 
             const {
@@ -258,91 +339,161 @@ export const uploadCommunityPhoto =
             if (dbError)
                 throw dbError;
 
-            const dbPhoto =
-                data as DatabasePhotoSubmission;
+            return mapDbPhotoSubmission(data);
 
-            return {
-                id: dbPhoto.id,
-                userId: dbPhoto.user_id,
-                user: dbPhoto.user_name,
-                locationName:
-                    dbPhoto.location_name,
-                description:
-                    dbPhoto.description,
-                url: dbPhoto.image_url,
-                status:
-                    dbPhoto.status as
-                    | 'pending'
-                    | 'approved'
-                    | 'rejected'
-                    | 'city_deleted',
-                date: dbPhoto.created_at,
-                likes: dbPhoto.likes,
-                cityId: dbPhoto.city_id || undefined // ADDED MAPPING
-            };
-
-        } catch {
-
+        } catch (e) {
+            console.error("[photoService] Error in uploadCommunityPhoto:", e);
             return null;
         }
     };
 
 
 // --------------------------------------------------
-// FETCH COMMUNITY PHOTOS
+// GET OR CREATE PHOTO SUBMISSION (REGISTRAZIONE PERSISTENTE)
 // --------------------------------------------------
 
+/**
+ * Assicura che un'immagine (anche ufficiale o POI) abbia un record reale e persistente in photo_submissions.
+ * NON usa più ID virtuali. Restituisce sempre un UUID reale dal database.
+ */
+export const getOrCreatePhotoSubmissionForUrl = async (
+    url: string,
+    cityId: string,
+    cityName: string,
+    description: string,
+    mediaStatus: MediaStatus = 'real'
+): Promise<PhotoSubmission | null> => {
+    if (!url || !cityId) return null;
+
+    try {
+        // STEP 1: Cerca per URL esatto (Deduplicazione)
+        let { data: existing, error: searchError } = await supabase
+            .from('photo_submissions')
+            .select('*')
+            .eq('city_id', cityId)
+            .eq('image_url', url)
+            .maybeSingle();
+
+        if (searchError) {
+            console.error("[photoService] Error searching existing photo:", searchError);
+            return null;
+        }
+
+        if (existing) {
+            return mapDbPhotoSubmission(existing);
+        }
+
+        // 2. Crea un record persistente immediato per immagini ufficiali
+        const newRecord = {
+            user_id: '00000000-0000-0000-0000-000000000000', // SYSTEM USER ID
+            user_name: 'Touring Diary',
+            location_name: cityName,
+            description: description,
+            image_url: url,
+            status: 'approved',
+            published_at: new Date().toISOString(),
+            likes: 0,
+            city_id: cityId,
+            is_official: true,
+            media_status: mediaStatus
+        };
+
+        const { data: created, error } = await supabase
+            .from('photo_submissions')
+            .insert(newRecord)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return mapDbPhotoSubmission(created);
+
+    } catch (e) {
+        console.error("[photoService] Errore in getOrCreatePhotoSubmissionForUrl:", e);
+        return null;
+    }
+};
+
+
+// --------------------------------------------------
+// FETCH TOP CITY PHOTOS (GALLERY)
+// --------------------------------------------------
+
+/**
+ * Recupera le prime 10 immagini approvate per una specifica città.
+ * Pattern safe con fallback-return [].
+ */
+export const fetchTopCityPhotos = async (cityId: string): Promise<PhotoSubmission[]> => {
+    if (!cityId) return [];
+
+    try {
+        const { data, error } = await supabase
+            .from('photo_submissions')
+            .select('*')
+            .eq('city_id', cityId)
+            .eq('status', 'approved')
+            .not('media_status', 'in', '("placeholder","missing")')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (error) {
+            console.error("[photoService] REST Error fetching top photos:", error);
+            return [];
+        }
+
+        return (data || []).map(p => mapDbPhotoSubmission(p));
+
+    } catch (err) {
+        console.error("[photoService] Catch fallback in fetchTopCityPhotos:", err);
+        return [];
+    }
+};
+
+
+
 export const fetchCommunityPhotos =
-    async (): Promise<
+    async (status?: string, includePlaceholders: boolean = false): Promise<
         PhotoSubmission[]
     > => {
 
         try {
 
-            const { data, error } =
-                await supabase
-                    .from('photo_submissions')
-                    .select('*, photo_likes(photo_id)')
-                    .order(
-                        'created_at',
-                        {
-                            ascending: false
-                        }
-                    );
+            let query = supabase
+                .from('photo_submissions')
+                .select('*, photo_likes(photo_id)')
+                .order(
+                    'created_at',
+                    {
+                        ascending: false
+                    }
+                );
+
+            if (!includePlaceholders) {
+                query = query.not('media_status', 'in', '("placeholder","missing")');
+            }
+
+            if (status && status !== 'all') {
+                query = query.eq('status', status);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
 
-            return (data as any[]).map(
-                p => ({
-                    id: p.id,
-                    userId: p.user_id,
-                    user: p.user_name,
-                    locationName:
-                        p.location_name,
-                    description:
-                        p.description,
-                    url: p.image_url,
-                    status:
-                        p.status,
-                    date: p.created_at,
-                    likes: p.likes,
-                    updatedAt:
-                        p.updated_at ||
-                        p.created_at,
-                    publishedAt:
-                        p.published_at,
-                    likedByUser:
-                        p.photo_likes &&
-                        p.photo_likes.length > 0
-                })
-            );
+            const photos = (data as DbPhotoWithLikes[]).map(p => {
+                const base = mapDbPhotoSubmission(p);
+                return {
+                    ...base,
+                    likedByUser: p.photo_likes && p.photo_likes.length > 0
+                };
+            });
+
+            return photos;
 
         } catch {
-
             return [];
         }
     };
-
 
 // --------------------------------------------------
 // UPDATE PHOTO STATUS
@@ -357,7 +508,7 @@ export const updatePhotoStatusInDb =
             | 'pending'
     ): Promise<void> => {
 
-        const updates: any = {
+        const updates: DatabasePhotoSubmissionUpdate = {
             status,
             updated_at:
                 new Date().toISOString()
@@ -369,10 +520,14 @@ export const updatePhotoStatusInDb =
                 new Date().toISOString();
         }
 
-        await supabase
-            .from('photo_submissions')
-            .update(updates)
-            .eq('id', id);
+        try {
+            await supabase
+                .from('photo_submissions')
+                .update(updates)
+                .eq('id', id);
+        } catch (err) {
+            console.error("[photoService] Error updating photo status:", err);
+        }
     };
 
 
@@ -386,7 +541,7 @@ export const updatePhotoData =
         data: Partial<PhotoSubmission>
     ): Promise<void> => {
 
-        const payload: any = {
+        const payload: DatabasePhotoSubmissionUpdate = {
             updated_at:
                 new Date().toISOString()
         };
@@ -407,10 +562,24 @@ export const updatePhotoData =
             payload.image_url =
                 data.url;
 
-        await supabase
-            .from('photo_submissions')
-            .update(payload)
-            .eq('id', id);
+        if (data.isOfficial !== undefined)
+            payload.is_official = data.isOfficial;
+
+        if (data.cityId)
+            payload.city_id = data.cityId;
+
+        try {
+            await supabase
+                .from('photo_submissions')
+                .update(payload)
+                .eq('id', id);
+
+            if (data.description && data.locationName && data.url) {
+                await syncPhotoDescriptionToCity(data.url, data.description, data.locationName);
+            }
+        } catch (err) {
+            console.error("[photoService] Error updating photo data:", err);
+        }
     };
 
 
@@ -423,10 +592,14 @@ export const deletePhotoSubmissionInDb =
         id: string
     ): Promise<void> => {
 
-        await supabase
-            .from('photo_submissions')
-            .delete()
-            .eq('id', id);
+        try {
+            await supabase
+                .from('photo_submissions')
+                .delete()
+                .eq('id', id);
+        } catch (err) {
+            console.error("[photoService] Error deleting photo submission:", err);
+        }
     };
 
 
@@ -442,14 +615,14 @@ export const togglePhotoLikeRPC =
         count: number;
     }> => {
 
-        if (
-            !photoId ||
-            !UUID_REGEX.test(photoId)
-        ) {
-            return {
-                liked: false,
-                count: 0
-            };
+        if (!photoId) return { liked: false, count: 0 };
+
+        // RIMOSSA COMPLETAMENTE LA LOGICA VIRTUAL IDs
+        // Il frontend deve garantire di passare un UUID reale persistente.
+
+        if (!UUID_REGEX.test(photoId)) {
+            console.error("[photoService] ID non valido per il like (atteso UUID):", photoId);
+            return { liked: false, count: 0 };
         }
 
         try {
@@ -459,9 +632,10 @@ export const togglePhotoLikeRPC =
 
             if (error) throw error;
 
+            const rpcData = data as { is_liked: boolean; likes_count: number };
             return {
-                liked: data.is_liked,
-                count: data.likes_count
+                liked: rpcData.is_liked,
+                count: rpcData.likes_count
             };
 
         } catch (e) {
@@ -502,7 +676,7 @@ export const fetchUserPhotoLikes =
                     );
 
             return (data || []).map(
-                (row: any) =>
+                (row) =>
                     row.photo_id
             );
 

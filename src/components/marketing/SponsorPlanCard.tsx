@@ -1,5 +1,6 @@
 import React from 'react';
 import { MarketingTierConfig } from '../../types';
+import { PLAN_TYPES } from '@/constants/planTypes';
 
 interface SponsorPlanCardProps {
     planKey: string;
@@ -8,18 +9,19 @@ interface SponsorPlanCardProps {
     isRecommended?: boolean;
     isSelected?: boolean;
     onSelect: () => void;
+    durationLabel?: string; // Es: "/anno", "/3 mesi"
 }
 
 // Oggetto mappa per i colori dei bordi
-const tierBorderColors: { [key: string]: string } = {
-    REGIONAL_ACTIVITY: 'bg-amber-400',      // Gold
-    LOCAL_ACTIVITY:    'bg-slate-300',      // Silver
-    DIGITAL_SHOWCASE:  'bg-cyan-400',
-    TOUR_GUIDE:        'bg-lime-500',
-    TOUR_OPERATOR:     'bg-violet-500',
+const tierBorderColors: Record<string, string> = {
+    [PLAN_TYPES.REGIONAL_ACTIVITY]: 'bg-amber-400',      // Gold
+    [PLAN_TYPES.LOCAL_ACTIVITY]:    'bg-slate-300',      // Silver
+    [PLAN_TYPES.DIGITAL_SHOWCASE]:  'bg-cyan-400',
+    [PLAN_TYPES.TOUR_GUIDE]:        'bg-lime-500',
+    [PLAN_TYPES.TOUR_OPERATOR]:     'bg-violet-500',
 };
 
-const SponsorPlanCard: React.FC<SponsorPlanCardProps> = ({ planKey, planType, config, isRecommended, isSelected, onSelect }) => {
+const SponsorPlanCard: React.FC<SponsorPlanCardProps> = ({ planKey, planType, config, isRecommended, isSelected, onSelect, durationLabel }) => {
     const { basePrice, promoPrice, promoLabel, promoActive, customFeatureLabels } = config;
 
     const hasPromo = promoActive && promoPrice !== null && promoPrice < basePrice;
@@ -60,7 +62,7 @@ const SponsorPlanCard: React.FC<SponsorPlanCardProps> = ({ planKey, planType, co
                     ) : (
                         <span className="text-4xl font-bold text-white">{basePrice}€</span>
                     )}
-                    <p className="text-gray-500 text-sm mt-1">/mese</p>
+                    <p className="text-gray-500 text-sm mt-1">{durationLabel || '/mese'}</p>
                 </div>
 
                 <div className="flex-grow mb-6">

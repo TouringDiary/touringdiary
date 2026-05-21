@@ -155,14 +155,11 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
     
     const renderNovitaLayout = () => {
         return (
-            <div className="grid grid-cols-1 lg:grid-cols-[19rem_1fr_19rem] min-[1900px]:grid-cols-[19rem_19rem_1fr_19rem_19rem] h-full w-full overflow-hidden">
-                <div className="hidden min-[1900px]:block h-full overflow-hidden border-r border-slate-800/50">
+            <div className="grid grid-cols-1 lg:grid-cols-[19rem_1fr_1fr_19rem] h-full w-full overflow-hidden">
+                <div className="hidden lg:block h-full overflow-hidden border-r border-slate-800/50">
                     <CategorySponsorColumn side="left" offsetMultiplier={0} goldSponsors={goldSponsors} silverSponsors={silverSponsors} onAddToItinerary={onAddToItinerary} onOpenPoiDetail={onOpenPoiDetail} onOpenSponsor={onOpenSponsor} onLike={handleLike} hasUserLiked={hasUserLiked} userLocation={userLocation} />
                 </div>
-                <div className="hidden lg:block h-full overflow-hidden border-r border-slate-800/50">
-                     <CategorySponsorColumn side="left" offsetMultiplier={1} goldSponsors={goldSponsors} silverSponsors={silverSponsors} onAddToItinerary={onAddToItinerary} onOpenPoiDetail={onOpenPoiDetail} onOpenSponsor={onOpenSponsor} onLike={handleLike} hasUserLiked={hasUserLiked} userLocation={userLocation} />
-                </div>
-                <div className="flex-1 md:px-6 py-4 min-w-0 h-auto md:h-full overflow-visible md:overflow-y-auto custom-scrollbar">
+                <div className="lg:col-span-2 flex-1 md:px-6 py-4 min-w-0 h-auto lg:h-full overflow-visible lg:overflow-y-auto custom-scrollbar">
                      <div className="flex items-center gap-2 mb-6 px-1">
                         <Sparkles className="w-4 h-4 text-purple-500"/>
                         <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Ultime Novità</h4>
@@ -184,10 +181,7 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
                     </div>
                 </div>
                 <div className="hidden lg:block h-full overflow-hidden border-l border-slate-800/50">
-                     <CategorySponsorColumn side="right" offsetMultiplier={2} goldSponsors={goldSponsors} silverSponsors={silverSponsors} onAddToItinerary={onAddToItinerary} onOpenPoiDetail={onOpenPoiDetail} onOpenSponsor={onOpenSponsor} onLike={handleLike} hasUserLiked={hasUserLiked} userLocation={userLocation} />
-                </div>
-                <div className="hidden min-[1900px]:block h-full overflow-hidden border-l border-slate-800/50">
-                     <CategorySponsorColumn side="right" offsetMultiplier={3} goldSponsors={goldSponsors} silverSponsors={silverSponsors} onAddToItinerary={onAddToItinerary} onOpenPoiDetail={onOpenPoiDetail} onOpenSponsor={onOpenSponsor} onLike={handleLike} hasUserLiked={hasUserLiked} userLocation={userLocation} />
+                     <CategorySponsorColumn side="right" offsetMultiplier={1} goldSponsors={goldSponsors} silverSponsors={silverSponsors} onAddToItinerary={onAddToItinerary} onOpenPoiDetail={onOpenPoiDetail} onOpenSponsor={onOpenSponsor} onLike={handleLike} hasUserLiked={hasUserLiked} userLocation={userLocation} />
                 </div>
             </div>
         );
@@ -230,8 +224,8 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
         const top5Items = ensureFiveItems(displayItems);
 
         return (
-            <div className="grid grid-cols-1 lg:grid-cols-[16rem_1fr_19rem] min-[1900px]:grid-cols-[19rem_16rem_1fr_19rem] h-full w-full overflow-hidden">
-                <div className="hidden min-[1900px]:block h-full overflow-hidden border-r border-slate-800/50">
+            <div className="grid grid-cols-1 lg:grid-cols-[19rem_1fr_1fr_19rem] h-full w-full overflow-hidden">
+                <div className="hidden lg:block h-full overflow-hidden border-r border-slate-800/50">
                     <CategorySponsorColumn side="left" offsetMultiplier={0} goldSponsors={goldSponsors} silverSponsors={silverSponsors} onAddToItinerary={onAddToItinerary} onOpenPoiDetail={onOpenPoiDetail} onOpenSponsor={onOpenSponsor} onLike={handleLike} hasUserLiked={hasUserLiked} userLocation={userLocation} />
                 </div>
                 <div className="hidden lg:flex flex-col gap-2 overflow-hidden border-r border-slate-800/50 p-4 bg-[#020617]">
@@ -253,7 +247,7 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
                     </div>
                 </div>
                 <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden relative border-r border-slate-800/50">
-                    <div className="lg:hidden p-4 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-800/50 shrink-0 bg-[#020617] sticky top-0 z-30">
+                    <div className="lg:hidden p-4 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-800/50 shrink-0 bg-[#020617] sticky top-0 z-dropdown">
                         {menuItems.map(item => {
                             const isActive = activeTopCategory === item.id;
                             const Icon = item.icon;
@@ -262,7 +256,7 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
                             );
                         })}
                     </div>
-                    <div className="flex-1 md:overflow-y-auto overflow-visible custom-scrollbar md:px-6 py-4 min-w-0">
+                    <div className="flex-1 h-auto lg:h-full overflow-visible lg:overflow-y-auto custom-scrollbar md:px-6 py-4 min-w-0">
                          <div className="flex items-center justify-between mb-6 px-1">
                             <div className="flex items-center gap-2"><activeItem.icon className={`w-4 h-4 ${activeItem.color}`} /><h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest">{activeItem.label}</h4></div>
                             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900 px-2 py-0.5 rounded border border-slate-800">TOP 5</div>
@@ -304,15 +298,15 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
                     </div>
                 </div>
                 <div className="hidden lg:block h-full overflow-hidden border-l border-slate-800/50">
-                    <CategorySponsorColumn side="right" offsetMultiplier={2} goldSponsors={goldSponsors} silverSponsors={silverSponsors} onAddToItinerary={onAddToItinerary} onOpenPoiDetail={onOpenPoiDetail} onOpenSponsor={onOpenSponsor} onLike={handleLike} hasUserLiked={hasUserLiked} userLocation={userLocation} />
+                    <CategorySponsorColumn side="right" offsetMultiplier={1} goldSponsors={goldSponsors} silverSponsors={silverSponsors} onAddToItinerary={onAddToItinerary} onOpenPoiDetail={onOpenPoiDetail} onOpenSponsor={onOpenSponsor} onLike={handleLike} hasUserLiked={hasUserLiked} userLocation={userLocation} />
                 </div>
             </div>
         );
     };
 
     return (
-        <div className="flex flex-col md:h-full h-auto pt-2 md:overflow-y-auto overflow-visible custom-scrollbar">
-            <div className="flex items-center justify-between px-1 bg-[#020617] py-2 border-b border-slate-800/50 shadow-lg shrink-0 sticky top-0 z-[40]">
+        <div className="flex flex-col h-auto lg:h-full pt-2 overflow-visible lg:overflow-hidden custom-scrollbar">
+            <div className="flex items-center justify-between px-1 bg-[#020617] py-2 border-b border-slate-800/50 shadow-lg shrink-0 lg:sticky lg:top-0 z-dropdown">
                 <div className="flex bg-[#0f172a] border border-slate-800 rounded-lg shadow-xl overflow-hidden h-8">
                     <button onClick={() => setVetrinaSubTab('novita')} className={`px-4 h-full text-[9px] font-bold uppercase tracking-wider transition-colors border-r border-slate-800 ${vetrinaSubTab === 'novita' ? 'bg-amber-600 text-white' : 'text-yellow-400 hover:text-orange-500 hover:bg-slate-800'}`}>NOVITÀ</button>
                     <button onClick={() => setVetrinaSubTab('community')} className={`px-4 h-full text-[9px] font-bold uppercase tracking-wider transition-colors border-r border-slate-800 ${vetrinaSubTab === 'community' ? 'bg-indigo-600 text-white' : 'text-yellow-400 hover:text-orange-500 hover:bg-slate-800'}`}>TOP 5 | COMMUNITY</button>

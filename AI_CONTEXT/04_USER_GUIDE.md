@@ -1,39 +1,240 @@
+# 🧭 DOC 04: USER GUIDE (v40.0 — FUNZIONALITÀ REALI VERIFICATE)
 
-# 🧭 DOC 03: USER GUIDE (v39.0 - 19/12/2025)
+Questa guida descrive le funzionalità disponibili per:
 
-## 1. PER I VIAGGIATORI
+• viaggiatori
+• partner business
+• utenti attivi community
 
-### Magic Planner AI
-Non sai cosa fare? Chiedi all'AI.
-*   Clicca sull'icona **Scintilla** nell'header o nel diario.
-*   Inserisci date e preferenze (es. "Weekend romantico con arte").
-*   L'AI creerà un itinerario completo usando i luoghi reali del database.
-
-### Diario di Viaggio Smart
-*   **Timeline:** Trascina le tappe per riordinarle.
-*   **Risorse:** Aggiungi guide turistiche o noleggi auto; appariranno in fondo al giorno come "Contatti Utili".
-*   **Roadbook:** Clicca l'icona **Mappa** nel diario per generare un PDF stampabile con tutti i dettagli logistici.
-
-### Guadagna Crediti (Referral)
-*   Vai nel tuo profilo -> **Porta un Amico**.
-*   Copia il tuo codice o scarica la cartolina social personalizzata.
-*   Per ogni amico che si iscrive, ricevi **+20 Crediti AI** per usare le funzioni avanzate.
 
 ---
 
-## 2. PER I PARTNER (BUSINESS)
+# 1. PER I VIAGGIATORI
 
-### Gestione Bottega (E-Commerce)
-*   Accedi alla tua Dashboard -> **La Mia Bottega**.
-*   Carica foto dei tuoi prodotti, imposta prezzi e descrizioni.
-*   **Magic Rewrite:** Usa l'AI per scrivere descrizioni accattivanti dei tuoi prodotti con un click.
 
-### Supporto Diretto
-*   Hai un problema? Usa la tab **Supporto Partner** nel tuo profilo per chattare direttamente con l'amministrazione di Touring Diary.
+## Magic Planner AI
+
+Non sai cosa fare? Chiedi all’AI.
+
+Come funziona:
+
+• clicca sull’icona Scintilla
+• inserisci date e preferenze
+• l’AI genera un itinerario personalizzato
+
+Ogni richiesta utilizza crediti AI disponibili nel tuo account.
+
+
+DESCRIZIONE SEMPLICE
+
+L’AI costruisce il viaggio automaticamente usando i luoghi reali del database.
+
 
 ---
 
-## 3. LIVELLI & GAMIFICATION
-*   Ogni azione (foto, recensione, visita) ti dà punti XP.
-*   Sali di livello per sbloccare **Sconti Esclusivi** nei negozi e ristoranti partner.
-*   Controlla i premi sbloccati nella sezione **Wallet** del tuo profilo.
+## Diario di Viaggio Smart
+
+Funzionalità:
+
+• timeline drag & drop
+• aggiunta tappe POI
+• memo personali
+• risorse viaggio
+
+
+Il diario si sincronizza automaticamente con il database.
+
+
+---
+
+## Roadbook PDF
+
+Dal diario puoi generare:
+
+una guida stampabile completa del viaggio.
+
+
+Include:
+
+• tappe
+• orari
+• luoghi
+• note
+
+
+---
+
+## Packing List Dinamica
+
+Sistema automatico basato su:
+
+useSuitcaseSystem
+
+
+Permette:
+
+• gestione lista bagagli
+• aggiornamento dinamico elementi
+
+
+---
+
+## Fasi del Viaggio Automatiche
+
+Sistema basato su:
+
+useJourneyPhase
+
+
+Riconosce:
+
+• pianificazione
+• viaggio in corso
+• ricordi post viaggio
+
+
+Adatta alcune funzioni dell’app alla fase corrente.
+
+
+---
+
+## Guadagna Crediti AI
+
+Puoi ottenere crediti:
+
+• tramite acquisto
+• tramite campagne marketing attive
+
+
+I crediti permettono di usare:
+
+Magic Planner
+AI assistant
+funzioni avanzate
+
+
+---
+
+# 2. COMMUNITY
+
+
+## Condivisione Contenuti
+
+Puoi pubblicare:
+
+• foto viaggio
+• contenuti live
+• post community
+
+
+Gestiti tramite:
+
+community_posts
+live_snaps
+
+
+---
+
+## Interazioni Social
+
+Gli utenti possono:
+
+• mettere like
+• visualizzare contenuti
+• partecipare alla community
+
+
+Sistema gestito da:
+
+photoService
+
+
+---
+
+# 3. GAMIFICATION
+
+
+## Guadagna XP
+
+Le azioni generano esperienza:
+
+• caricamento contenuti
+• attività piattaforma
+• partecipazione community
+
+
+Sistema gestito da:
+
+gamificationService
+
+
+---
+
+## Badge e Reward
+
+Puoi sbloccare:
+
+• badge
+• premi
+• vantaggi piattaforma
+
+
+Gestiti tramite:
+
+badges
+rewards_catalog
+
+
+---
+
+# 4. CLASSIFICHE UTENTI
+
+
+Sistema leaderboard basato su:
+
+rankingService
+
+
+Mostra:
+
+attività utenti
+progressione
+posizionamento
+
+
+---
+
+# 5. PER I PARTNER (BUSINESS)
+
+
+## Sponsorizzazione
+
+Workflow:
+
+richiesta sponsor
+→ approvazione admin
+→ attivazione piano
+→ visibilità piattaforma
+
+
+Gestito tramite:
+
+sponsorActivationService
+
+
+---
+
+## Gestione Bottega
+
+I partner possono:
+
+• pubblicare prodotti
+• aggiornare descrizioni
+• usare strumenti AI
+
+
+---
+
+## Supporto Diretto
+
+Accesso alla comunicazione con amministrazione tramite dashboard partner.

@@ -16,6 +16,34 @@
   --width-sidebar-wide: 35rem;
 
   --height-header: 4rem;
+
+  --nav-width: 5rem;
+
+  --z-error-boundary: 99999;
+  --z-toast: 16000;
+  --z-lightbox-close: 15200;
+  --z-lightbox-content: 15100;
+  --z-lightbox: 15000;
+  --z-overlay: 14000;
+  --z-overlay-backdrop: 13900;
+  --z-admin-modal-top: 13200;
+  --z-admin-modal-nested: 13100;
+  --z-admin-modal: 13000;
+  --z-modal-nested: 12000;
+  --z-modal: 11000;
+  --z-dropdown: 10000;
+  --z-floating-panel: 9000;
+}
+
+:root {
+  --active-sidebar-width: var(--width-sidebar);
+  --header-height: 64px;
+}
+
+@media (min-width: 1536px) {
+  :root {
+    --active-sidebar-width: var(--width-sidebar-wide);
+  }
 }
 
 @layer base {
@@ -67,9 +95,6 @@
     color: #e2e8f0;
     overflow: hidden;
     overscroll-behavior-y: none;
-    transform: translate3d(0, 0, 0);
-    backface-visibility: hidden;
-    perspective: 1000px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -86,3 +111,20 @@
     font-family: "Caveat", cursive;
   }
 }
+
+@utility td-modal-overlay {
+  @apply fixed inset-0 pointer-events-auto flex items-center justify-center;
+}
+
+@keyframes metal-shine {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@utility animate-metal {
+  background: linear-gradient(270deg, #cbd5e1, #e2e8f0, #fcd34d, #f59e0b, #e2e8f0, #cbd5e1);
+  background-size: 400% 400%;
+  animation: metal-shine 6s ease infinite;
+}
+

@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ShopPartner, ShopCategory, ShopProduct, PointOfInterest } from '../../types/index';
-import { getShopsByFilter, getShopByVat } from '../../services/shopService';
+import { getShopsByFilter } from '../../services/shopService';
 import { fetchSponsorsByCityAsync } from '../../services/sponsorService';
 
 interface UseShopNavigationProps {

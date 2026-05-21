@@ -1,5 +1,6 @@
-
+import { Z_ADMIN_MODAL_TOP, Z_ADMIN_MODAL_NESTED, Z_ADMIN_MODAL } from '@/constants/zIndex';
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, CheckCircle2, AlertTriangle, X, MapPin, Edit3, Loader2, Trash2 } from 'lucide-react';
 import { User as UserType } from '../../types/users';
 import { usePhotoModeration } from '../../hooks/admin/usePhotoModeration';
@@ -8,9 +9,13 @@ import { PhotoTable } from './photos/PhotoTable';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
 import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
 
+
 // Toast Locale (Mantenuto qui o spostato in shared se preferisci, per ora qui va bene)
 const PhotoToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-    <div className={`fixed top-6 right-6 z-[2000] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}>
+    <div 
+        className={`fixed top-6 right-6 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}
+        style={{ zIndex: Z_ADMIN_MODAL_TOP }}
+    >
         {type === 'success' ? <CheckCircle2 className="w-6 h-6 shrink-0"/> : <AlertTriangle className="w-6 h-6 shrink-0"/>}
         <div className="font-bold text-sm leading-snug">{message}</div>
         <button onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full"><X className="w-4 h-4"/></button>
@@ -50,7 +55,8 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
         requestDelete,
         confirmDelete,
         handleInspectorSave,
-        saveMetadata
+        saveMetadata,
+        handleToggleOfficial
     } = usePhotoModeration({ currentUser, onUpdate });
 
     if (isLoading) {
@@ -68,9 +74,16 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
             {toast && <PhotoToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             
             {/* DELETE CONFIRMATION MODAL */}
-            {deleteTarget && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-slate-900 border border-red-500/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95">
+            {deleteTarget && createPortal(
+                // admin-super-layer modal | intentionally rendered above global modal stack
+                <div 
+                    className="td-modal-overlay p-4 bg-black/90 backdrop-blur-sm animate-in fade-in flex items-center justify-center fixed inset-0"
+                    style={{ zIndex: Z_ADMIN_MODAL }}
+                >
+                    <div 
+                        className="bg-slate-900 border border-red-500/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95"
+                        style={{ zIndex: Z_ADMIN_MODAL_TOP }}
+                    >
                         <div className="flex flex-col items-center text-center gap-4">
                             <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse"/>
                             <div>
@@ -99,7 +112,8 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* INSPECTOR MODAL */}
@@ -155,14 +169,21 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
                     onStatusUpdate: handleStatusUpdate,
                     onDeleteRequest: requestDelete,
                     onOpenInspector: (photo) => { setPhotoToEdit(photo); setIsInspectorOpen(true); },
-                    onOpenMetadata: (photo) => setMetadataModal({ isOpen: true, photoId: photo.id, description: photo.description || '', locationName: photo.locationName || '' })
+                    onOpenMetadata: (photo) => setMetadataModal({ isOpen: true, photoId: photo.id, description: photo.description || '', locationName: photo.locationName || '' }), onToggleOfficial: handleToggleOfficial
                 }}
             />
             
             {/* METADATA EDIT MODAL */}
-            {metadataModal && (
-                <div className="fixed inset-0 z-[2200] bg-black/80 flex items-center justify-center p-4">
-                    <div className="bg-slate-900 p-6 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl animate-in zoom-in-95">
+            {metadataModal && createPortal(
+                // admin-super-layer modal | intentionally rendered above global modal stack
+                <div 
+                    className="td-modal-overlay p-4 bg-black/80 backdrop-blur-sm flex items-center justify-center fixed inset-0"
+                    style={{ zIndex: Z_ADMIN_MODAL }}
+                >
+                    <div 
+                        className="bg-slate-900 p-6 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl animate-in zoom-in-95"
+                        style={{ zIndex: Z_ADMIN_MODAL_NESTED }}
+                    >
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-white flex items-center gap-2"><Edit3 className="w-4 h-4 text-indigo-500"/> Modifica Dati Foto</h3>
                             <button onClick={() => setMetadataModal(null)}><X className="w-5 h-5 text-slate-500 hover:text-white"/></button>
@@ -201,8 +222,13 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
 };
+
+
+
+

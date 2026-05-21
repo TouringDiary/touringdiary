@@ -149,7 +149,7 @@ export const CityServicesTab = ({
     return (
         <>
             {/* SIDEBAR (NAVIGAZIONE) */}
-            <div className={`md:w-80 border-r border-slate-800 bg-[#0b0f1a] flex flex-col shrink-0 absolute md:relative inset-0 z-20 md:z-0 transition-transform duration-300 ${isMobile && mobileView === 'content' ? '-translate-x-full' : 'translate-x-0'}`}>
+            <div className={`md:w-80 border-r border-slate-800 bg-[#0b0f1a] flex flex-col shrink-0 absolute md:relative inset-0 z-dropdown md:z-0 transition-transform duration-300 ${isMobile && mobileView === 'content' ? '-translate-x-full' : 'translate-x-0'}`}>
                 <ServiceSidebar 
                     activeServiceCategory={activeServiceCategory} 
                     onCategoryChange={handleCategoryChange}
@@ -157,7 +157,7 @@ export const CityServicesTab = ({
             </div>
             
             {/* CONTENT AREA */}
-            <div className={`flex-1 bg-[#020617] flex flex-col min-w-0 absolute md:relative inset-0 z-10 md:z-0 transition-transform duration-300 ${isMobile && mobileView !== 'content' ? 'translate-x-full' : 'translate-x-0'}`}>
+            <div className={`flex-1 bg-[#020617] flex flex-col min-w-0 absolute md:relative inset-0 z-floating-panel md:z-0 transition-transform duration-300 ${isMobile && mobileView !== 'content' ? 'translate-x-full' : 'translate-x-0'}`}>
                 <div className="flex-1 md:overflow-hidden relative h-auto md:h-full">
                     {/* Mobile: h-auto overflow-visible for natural scrolling */}
                     <div className="md:h-full h-auto md:overflow-y-auto overflow-visible custom-scrollbar p-6 md:p-10 animate-in fade-in bg-[#020617]">

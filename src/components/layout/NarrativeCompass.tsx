@@ -111,7 +111,7 @@ export const NarrativeCompass = ({ activeCityId }: NarrativeCompassProps) => {
                                 <div className="relative mb-0.5">
                                     <span 
                                         className={`
-                                            transition-all duration-500 ease-out cursor-default z-10 block leading-none
+                                            transition-all duration-500 ease-out cursor-default z-floating-panel block leading-none
                                             ${isActive ? activeTextStyle : baseTextStyle}
                                             ${isActive ? 'scale-110' : 'group-hover:opacity-80'}
                                         `}
@@ -120,7 +120,7 @@ export const NarrativeCompass = ({ activeCityId }: NarrativeCompassProps) => {
                                     </span>
                                     
                                     {isActive && (
-                                        <div className="absolute inset-0 bg-white/10 blur-xl rounded-full -z-10 animate-pulse w-full h-full"></div>
+                                        <div className="absolute inset-0 bg-white/10 blur-xl rounded-full -z-floating-panel animate-pulse w-full h-full"></div>
                                     )}
                                 </div>
                                 

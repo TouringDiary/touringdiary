@@ -25,7 +25,7 @@ import { CityInfoModal } from '../modals/CityInfoModal'; // IMPORTATO MODALE PUB
 // --- COMPONENTI UI LOCALI ---
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-    <div className={`fixed top-6 right-6 z-[9999] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
+    <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
         {type === 'success' ? <CheckCircle className="w-6 h-6 shrink-0"/> : <AlertTriangle className="w-6 h-6 shrink-0"/>}
         <div className="font-bold text-sm">{message}</div>
         <button onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full"><X className="w-4 h-4"/></button>
@@ -109,7 +109,7 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
             
             {/* --- MODALE MODIFICHE NON SALVATE --- */}
             {showUnsavedModal && (
-                <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-slate-900 border border-amber-500/50 p-8 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 text-center">
                         <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center border-2 border-amber-500 mx-auto mb-6 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
                             <AlertTriangle className="w-8 h-8 text-amber-500 animate-pulse"/>
@@ -138,7 +138,7 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
 
             {/* --- MODALE AVVISO NO LOGS --- */}
             {showNoLogsWarning && (
-                <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-slate-900 border border-amber-500/50 p-8 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 text-center">
                         <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center border-2 border-amber-500 mx-auto mb-6 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
                             <AlertTriangle className="w-8 h-8 text-amber-500 animate-pulse"/>
@@ -168,7 +168,7 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
             {/* --- ANTEPRIME MODALI --- */}
             
             {previewRequest.type === 'ratings' && (
-                <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
                     <div className="relative bg-slate-900 w-full max-w-4xl rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col">
                         <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#0f172a]">
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -227,7 +227,7 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
             )}
 
             {/* --- HEADER FISSO (NAVIGATION & ACTIONS) --- */}
-            <div className="border-b border-slate-800 p-4 md:p-6 bg-slate-900/95 backdrop-blur-md flex flex-col md:flex-row justify-between items-start md:items-center sticky top-0 z-50 shadow-lg gap-4">
+            <div className="border-b border-slate-800 p-4 md:p-6 bg-slate-900/95 backdrop-blur-md flex flex-col md:flex-row justify-between items-start md:items-center sticky top-[var(--header-height)] z-dropdown shadow-lg gap-4">
                 <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
                     <button onClick={handleBackClick} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors border border-slate-700"><ArrowLeft className="w-6 h-6" /></button>
                     <div className="text-right md:text-left">

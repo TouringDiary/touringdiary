@@ -259,7 +259,7 @@ export const CommsComposer = ({ onSent, showToast, initialDraft }: CommsComposer
                                 <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-amber-400 transition-colors relative">
                                     <Smile className="w-4 h-4"/>
                                     {showEmojiPicker && (
-                                        <div className="absolute top-full right-0 mt-2 p-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-20 grid grid-cols-6 gap-1 w-48">
+                                        <div className="absolute top-full right-0 mt-2 p-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-dropdown grid grid-cols-6 gap-1 w-48">
                                             {EMOJIS.map(em => (
                                                 <button key={em} onClick={() => addEmoji(em)} className="hover:bg-slate-700 p-1 rounded text-lg">{em}</button>
                                             ))}
@@ -345,11 +345,11 @@ export const CommsComposer = ({ onSent, showToast, initialDraft }: CommsComposer
                             /* PHONE PREVIEW */
                             <div className="bg-black border-[6px] border-slate-800 rounded-[2.5rem] p-4 h-[600px] relative shadow-2xl mx-auto max-w-[300px] overflow-hidden">
                                 {/* Dynamic Island */}
-                                <div className="absolute top-0 left-1/2 -translate-x-1/2 h-6 w-24 bg-slate-800 rounded-b-xl z-20"></div>
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 h-6 w-24 bg-slate-800 rounded-b-xl z-dropdown"></div>
                                 {/* Wallpaper */}
                                 <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600" className="absolute inset-0 w-full h-full object-cover opacity-60" alt="Wallpaper"/>
                                 
-                                <div className="relative z-10 mt-12 mx-1 bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl p-3 shadow-lg animate-in slide-in-from-top-4 duration-700">
+                                <div className="relative z-floating-panel mt-12 mx-1 bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl p-3 shadow-lg animate-in slide-in-from-top-4 duration-700">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex items-center gap-1.5">
                                             {logoUrl ? (

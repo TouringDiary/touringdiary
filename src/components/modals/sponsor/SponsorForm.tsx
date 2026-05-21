@@ -2,6 +2,8 @@
 import React, { useState, useRef } from 'react';
 import { Lock, Loader2, Save, Sparkles, Upload, Check, Globe, Phone, MapPin, AlertCircle } from 'lucide-react';
 import { compressImage, dataURLtoFile } from '../../../utils/common';
+import { CitySelector } from '../../common/CitySelector';
+import { PlanType, PLAN_TYPES } from '../../../constants/planTypes';
 
 // --- SUB COMPONENTS ---
 
@@ -91,7 +93,7 @@ const OpeningHoursSelector = ({ value, onChange }: { value: string, onChange: (v
 interface SponsorFormProps {
     formData: any;
     setFormData: (data: any) => void;
-    activeType: 'activity' | 'shop' | 'tour_operator' | 'guide';
+    activeType: PlanType;
     isGuest: boolean;
     isSubmitting: boolean;
     errorMsg: string | null;
@@ -185,37 +187,35 @@ export const SponsorForm = ({
 
             {/* 3. DATI VETRINA */}
             <div>
-                <SectionTitle title={activeType === 'shop' ? "Dati Bottega & Prodotti" : "Dati Pubblici (Vetrina)"} />
+                <SectionTitle title={activeType === PLAN_TYPES.DIGITAL_SHOWCASE ? "Dati Bottega & Prodotti" : "Dati Pubblici (Vetrina)"} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                    <InputGroup label={activeType === 'guide' ? "Nome Pubblico" : activeType === 'tour_operator' ? "Nome Agenzia" : "Nome Insegna (Pubblico)"} required>
-                        <input type="text" placeholder={activeType === 'guide' ? "Es. Guida Mario" : "Es. Ristorante Bella Napoli"} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm font-bold" value={formData.publicName} onChange={e => setFormData({...formData, publicName: e.target.value})} required/>
+                    <InputGroup label={activeType === PLAN_TYPES.TOUR_GUIDE ? "Nome Pubblico" : activeType === PLAN_TYPES.TOUR_OPERATOR ? "Nome Agenzia" : "Nome Insegna (Pubblico)"} required>
+                        <input type="text" placeholder={activeType === PLAN_TYPES.TOUR_GUIDE ? "Es. Guida Mario" : "Es. Ristorante Bella Napoli"} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm font-bold" value={formData.publicName} onChange={e => setFormData({...formData, publicName: e.target.value})} required/>
                     </InputGroup>
 
+
                     <InputGroup label="Comune" required>
-                        <input 
-                            type="text" 
-                            placeholder="Es. Firenze" 
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm" 
+                        <CitySelector 
                             value={formData.cityId} 
-                            onChange={e => setFormData({...formData, cityId: e.target.value})} 
+                            onChange={val => setFormData({...formData, cityId: val})} 
                             required
                         />
                     </InputGroup>
                     
-                    {activeType !== 'guide' && activeType !== 'tour_operator' ? (
+                    {activeType !== PLAN_TYPES.TOUR_GUIDE && activeType !== PLAN_TYPES.TOUR_OPERATOR ? (
                         <InputGroup label="Categoria Principale" required>
                             <select className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm appearance-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required>
                                 <option value="">Seleziona...</option>
-                                {activeType === 'shop' ? (<><option value="gusto">Gusto & Sapori</option><option value="artigianato">Artigianato</option><option value="moda">Moda & Sartoria</option><option value="cantina">Vini & Cantine</option></>) : (<><option value="food">Ristorazione & Food</option><option value="hotel">Hotel & Ospitalità</option><option value="shop">Shopping & Artigianato</option><option value="leisure">Svago & Divertimento</option><option value="nature">Natura & Escursioni</option></>)}
+                                {activeType === PLAN_TYPES.DIGITAL_SHOWCASE ? (<><option value="gusto">Gusto & Sapori</option><option value="artigianato">Artigianato</option><option value="moda">Moda & Sartoria</option><option value="cantina">Vini & Cantine</option></>) : (<><option value="food">Ristorazione & Food</option><option value="hotel">Hotel & Ospitalità</option><option value="shop">Shopping & Artigianato</option><option value="leisure">Svago & Divertimento</option><option value="nature">Natura & Escursioni</option></>)}
                             </select>
                         </InputGroup>
                     ) : (
-                        <InputGroup label={activeType === 'tour_operator' ? "Numero Licenza Agenzia" : "Numero Patentino (Obbligatorio)"} required>
+                        <InputGroup label={activeType === PLAN_TYPES.TOUR_OPERATOR ? "Numero Licenza Agenzia" : "Numero Patentino (Obbligatorio)"} required>
                             <input type="text" placeholder="GT-12345-NA" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm font-mono" value={formData.licenseNumber} onChange={e => setFormData({...formData, licenseNumber: e.target.value})} required/>
                         </InputGroup>
                     )}
 
-                    {activeType !== 'guide' ? (
+                    {activeType !== PLAN_TYPES.TOUR_GUIDE ? (
                         <>
                             <div className="md:col-span-2">
                                 <InputGroup label="Indirizzo Completo" required>
@@ -294,7 +294,7 @@ export const SponsorForm = ({
                         <input type="checkbox" className="hidden" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)}/>
                         <span className="text-sm text-slate-400 group-hover:text-slate-300">
                             Dichiaro che i dati inseriti sono veritieri e accetto i Termini e Condizioni per i Partner Commerciali.
-                            {activeType === 'shop' && <span className="block mt-2 text-amber-500 font-bold bg-amber-900/20 p-2 rounded-lg border border-amber-500/30">Nota per i Partner Shopping: Il periodo di validità dell'abbonamento inizierà automaticamente al caricamento del primo prodotto e non potrà essere sospeso.</span>}
+                            {activeType === PLAN_TYPES.DIGITAL_SHOWCASE && <span className="block mt-2 text-amber-500 font-bold bg-amber-900/20 p-2 rounded-lg border border-amber-500/30">Nota per i Partner Shopping: Il periodo di validità dell'abbonamento inizierà automaticamente al caricamento del primo prodotto e non potrà essere sospeso.</span>}
                         </span>
                     </label>
                     <label className="flex items-start gap-4 cursor-pointer group p-3 rounded-xl hover:bg-slate-900 transition-colors">

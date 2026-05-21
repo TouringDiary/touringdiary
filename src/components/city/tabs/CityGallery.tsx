@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { CityDetails, User as UserType } from '../../../types/index';
 import { useCityGallery } from '../../../hooks/useCityGallery';
 import { GalleryLightbox, LightboxData } from '../gallery/GalleryLightbox';
@@ -17,14 +17,28 @@ interface Props {
 export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
     // 1. Hook Logica
     const { 
-        photos, visiblePhotos, topGallerySlots, 
+        photos, officialPhotos, communityPhotos,
+        topOfficial, topCommunity, defaultTab,
+        visiblePhotos, 
         isUploading, uploadError, setUploadError,
         pagination, uploadPhoto, updatePhotoLikes
     } = useCityGallery(city, user);
 
     // 2. UI State
+    const [activeTab, setActiveTab] = useState<'official' | 'community'>('community');
+    
+    // Sync default tab once loaded
+    useEffect(() => {
+        if (defaultTab) {
+            setActiveTab(defaultTab);
+        }
+    }, [defaultTab]);
+
+    const currentPhotos = useMemo(() => {
+        return activeTab === 'official' ? officialPhotos : communityPhotos;
+    }, [activeTab, officialPhotos, communityPhotos]);
+
     // Gestiamo l'indice della foto attiva invece dell'oggetto data diretto
-    // per permettere la navigazione next/prev
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -36,8 +50,8 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
 
     // Computiamo i dati per la lightbox basandoci sull'indice
     const lightboxData: LightboxData | null = useMemo(() => {
-        if (lightboxIndex === null || !photos[lightboxIndex]) return null;
-        const p = photos[lightboxIndex];
+        if (lightboxIndex === null || !currentPhotos[lightboxIndex]) return null;
+        const p = currentPhotos[lightboxIndex];
         return {
             id: p.id,
             url: p.url,
@@ -46,7 +60,14 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
             caption: p.description,
             date: p.date
         };
-    }, [lightboxIndex, photos]);
+    }, [lightboxIndex, currentPhotos]);
+
+    // FIX 2 — Reset completo stato lightbox alla chiusura/smontaggio
+    useEffect(() => {
+        return () => {
+            setLightboxIndex(null);
+        };
+    }, []);
 
     // 3. Handlers
     const handleAddClick = () => {
@@ -59,13 +80,13 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
     };
     
     const handleOpenLightbox = (data: LightboxData) => {
-        // Trova l'indice della foto cliccata nella lista completa
-        const idx = photos.findIndex(p => p.id === data.id);
+        // Trova l'indice della foto cliccata nella lista filtrata attuale
+        const idx = currentPhotos.findIndex(p => p.id === data.id);
         if (idx !== -1) setLightboxIndex(idx);
     };
     
     const handleNextPhoto = () => {
-        if (lightboxIndex !== null && lightboxIndex < photos.length - 1) {
+        if (lightboxIndex !== null && lightboxIndex < currentPhotos.length - 1) {
             setLightboxIndex(lightboxIndex + 1);
         }
     };
@@ -131,8 +152,11 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
                     onClose={() => setLightboxIndex(null)}
                     onNext={handleNextPhoto}
                     onPrev={handlePrevPhoto}
-                    hasNext={lightboxIndex !== null && lightboxIndex < photos.length - 1}
+                    hasNext={lightboxIndex !== null && lightboxIndex < currentPhotos.length - 1}
                     hasPrev={lightboxIndex !== null && lightboxIndex > 0}
+                    allPhotos={currentPhotos}
+                    currentIndex={lightboxIndex ?? 0}
+                    onGoToPhoto={(idx) => setLightboxIndex(idx)}
                 />
             )}
 
@@ -154,8 +178,13 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
             {/* Main Content */}
             <GalleryGrid 
                 photos={photos}
+                officialPhotos={officialPhotos}
+                communityPhotos={communityPhotos}
+                topOfficial={topOfficial}
+                topCommunity={topCommunity}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
                 visiblePhotos={visiblePhotos}
-                topGallerySlots={topGallerySlots}
                 pagination={pagination}
                 isUploading={isUploading}
                 onAddClick={handleAddClick}
@@ -166,3 +195,4 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
         </div>
     );
 };
+

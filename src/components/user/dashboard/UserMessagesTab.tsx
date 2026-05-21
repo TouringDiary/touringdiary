@@ -31,7 +31,12 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
     useEffect(() => {
         if (selectedRequestId && scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-            markUserLogsAsRead(selectedRequestId).then(onRefresh);
+            
+            // SECURITY FIX: Defensive call to prevent crashes if stub returns null
+            const promise = markUserLogsAsRead(selectedRequestId);
+            if (promise && typeof promise.then === 'function') {
+                promise.then(onRefresh).catch(err => console.error("Error marking logs as read:", err));
+            }
         }
     }, [selectedRequestId, requests]);
 
@@ -105,7 +110,7 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
         return (
             <div className={`flex-1 flex flex-col h-full bg-[#020617] ${isMobileList ? 'hidden md:flex' : 'flex'}`}>
                 {/* Chat Header */}
-                <div className="p-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between shadow-sm z-10">
+                <div className="p-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between shadow-sm z-floating-panel">
                     <div className="flex items-center gap-3">
                         <button className="md:hidden p-1.5 text-slate-400 hover:text-white" onClick={() => setIsMobileList(true)}>
                             <ChevronRight className="w-5 h-5 rotate-180"/>

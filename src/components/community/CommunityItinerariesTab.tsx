@@ -61,7 +61,7 @@ export const CommunityItinerariesTab = ({ user, onViewItinerary }: CommunityItin
     if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
 
     return (
-        <div className="pb-10">
+        <div className="pb-10 px-4 md:px-8">
             <div className="mb-6 relative max-w-md mx-auto md:mx-0">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input type="text" placeholder="Cerca per città o titolo..." value={itinerarySearch} onChange={(e) => setItinerarySearch(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-indigo-500 focus:outline-none transition-all placeholder:text-slate-600 shadow-inner"/>
@@ -75,7 +75,7 @@ export const CommunityItinerariesTab = ({ user, onViewItinerary }: CommunityItin
                             <div className="h-40 relative overflow-hidden">
                                 <ImageWithFallback src={it.coverImage} alt={it.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
-                                <div className="absolute top-2 right-2 z-20">
+                                <div className="absolute top-2 right-2 z-dropdown">
                                      <button onClick={(e) => { e.stopPropagation(); handleLikeItinerary(it.id); }} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold shadow-lg transition-all ${isLiked ? 'bg-rose-600 text-white scale-110' : 'bg-black/40 hover:bg-black/60 text-white backdrop-blur-md border border-white/10'}`}>
                                         <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-white' : ''}`}/> {it.votes}
                                      </button>

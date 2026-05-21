@@ -33,7 +33,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
     }, []);
     
     // Load AI Background from centralized service
-    const bgImage = getCachedSetting('ai_box');
+    const bgImage = getCachedSetting<string>('ai_box');
 
     const aiTitleStyle = useDynamicStyles('ai_title', isMobile);
 
@@ -54,7 +54,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
             )}
             
             <div 
-                className="flex items-center justify-between mb-2 shrink-0 h-8 cursor-pointer lg:cursor-default relative z-10"
+                className="flex items-center justify-between mb-2 shrink-0 h-8 cursor-pointer lg:cursor-default relative z-floating-panel"
                 onClick={() => props.setIsAiExpanded(!props.isAiExpanded)}
             >
                 <div className="flex items-center gap-3">
@@ -69,7 +69,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                 </div>
             </div>
 
-            <div className={`relative z-10 flex-1 flex flex-col min-h-0 justify-between mt-2 ${props.isAiExpanded ? 'flex' : 'hidden lg:flex'}`}>
+            <div className={`relative z-floating-panel flex-1 flex flex-col min-h-0 justify-between mt-4 ${props.isAiExpanded ? 'flex' : 'hidden lg:flex'}`}>
                 {props.isAiLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 bg-slate-950/50 rounded-xl border border-slate-800/50">
                         <Loader2 className="w-10 h-10 animate-spin text-purple-500"/>

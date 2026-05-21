@@ -51,7 +51,7 @@ export const AdminRoleManager = ({ currentUser }: AdminRoleManagerProps) => {
             
             {/* GLOBAL TOAST */}
             {lastAction && (
-                <div className="absolute top-0 right-0 z-50 animate-in slide-in-from-top-2 fade-in">
+                <div className="absolute top-0 right-0 z-admin-modal animate-in slide-in-from-top-2 fade-in">
                     <div className="px-4 py-2 bg-emerald-600 text-white rounded-lg shadow-xl font-bold text-sm flex items-center gap-2 border border-emerald-400">
                         <CheckCircle className="w-4 h-4"/> {lastAction.msg}
                     </div>
@@ -74,7 +74,7 @@ export const AdminRoleManager = ({ currentUser }: AdminRoleManagerProps) => {
                 <div className="overflow-x-auto flex-1 custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[800px]">
                         <thead>
-                            <tr className="bg-slate-950/80 text-slate-400 text-xs uppercase tracking-wider font-bold sticky top-0 z-10 backdrop-blur-sm border-b border-slate-800">
+                            <tr className="bg-slate-950/80 text-slate-400 text-xs uppercase tracking-wider font-bold sticky top-0 z-floating-panel backdrop-blur-sm border-b border-slate-800">
                                 <th className="px-4 py-3 w-56">Permesso</th>
                                 {ROLES.map(role => (
                                     <th key={role} className="px-2 py-3 text-center w-24">{getRoleLabel(role)}</th>

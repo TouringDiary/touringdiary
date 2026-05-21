@@ -1,5 +1,5 @@
-
 import React, { useEffect } from 'react';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { X, Filter, RotateCcw, Check, Globe, MapPin, AlertOctagon, Layers, EyeOff, Eye, Activity, Clock, AlertTriangle } from 'lucide-react';
 import { GeoCascadingFilters } from '../cities/GeoCascadingFilters';
 import { CitySummary } from '../../../types/index';
@@ -47,13 +47,8 @@ export const ObservatoryFilterDrawer = ({
     activeTab
 }: ObservatoryFilterDrawerProps) => {
     
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        if (isOpen) window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // MODIFICA: Centralizzazione ESC tramite hook globale
+    useGlobalModalEscape(isOpen, onClose);
 
     const handleReset = () => {
         setGeoFilter({ continent: '', nation: '', region: '', zone: '', city: '' });
@@ -83,12 +78,12 @@ export const ObservatoryFilterDrawer = ({
         <>
             {/* BACKDROP */}
             <div 
-                className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-admin-modal transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
             ></div>
 
             {/* DRAWER */}
-            <div className={`fixed inset-y-0 right-0 w-80 md:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-[2010] transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed inset-y-0 right-0 w-80 md:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-admin-modal transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 
                 {/* HEADER */}
                 <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-[#0f172a] shrink-0">

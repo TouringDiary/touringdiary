@@ -1,10 +1,11 @@
 
 import { useState, useCallback } from 'react';
-import { getSponsorStats, getAllSponsorsForDashboard, SponsorStats } from '../../services/sponsorService';
+import { getSponsorStats, getAllSponsorsForDashboard } from '../../services/sponsorService';
+import { SponsorStats } from '../../types/index';
 import { SponsorRequest } from '../../types/index';
 
 export const useSponsorStats = () => {
-    const [stats, setStats] = useState<SponsorStats>({ pending: 0, waiting: 0, approved: 0, rejected: 0, cancelled: 0, unreadMessages: 0 });
+    const [stats, setStats] = useState<SponsorStats>({ pending: 0, waiting: 0, approved: 0, expired: 0, rejected: 0, cancelled: 0, converted: 0, unreadMessages: 0 });
     const [dashboardRequests, setDashboardRequests] = useState<SponsorRequest[]>([]);
     const [loadingStats, setLoadingStats] = useState(true);
 

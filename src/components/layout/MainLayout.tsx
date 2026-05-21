@@ -6,7 +6,6 @@ import { NewsTicker } from './NewsTicker';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { MobileNavBar } from './MobileNavBar';
-import { StaticPage } from './StaticPage';
 import { AppRouter } from './AppRouter';
 import { ModalManager } from './ModalManager';
 import { OnboardingWizard } from './OnboardingWizard';
@@ -15,8 +14,8 @@ import { OnboardingWizard } from './OnboardingWizard';
 import { useUser } from '@/context/UserContext';
 import { useUI } from '@/context/UIContext';
 import { useModal } from '@/context/ModalContext';
-import { useNavigation } from '@/context/NavigationContext';
-import { useDiaryInteractionsContext } from '@/context/DiaryInteractionContext'; // NEW IMPORT
+import { useNavigation } from '@/context/useNavigation';
+import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext'; // NEW IMPORT
 
 export interface MainLayoutProps {
     helpFlash?: boolean;
@@ -59,7 +58,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                 header={
                     <>
                         {connectionError && (
-                            <div className="bg-red-600 text-white text-xs font-bold text-center py-2 flex items-center justify-center gap-2 animate-pulse sticky top-0 z-[10000]">
+                            <div className="bg-red-600 text-white text-xs font-bold text-center py-2 flex items-center justify-center gap-2 animate-pulse sticky top-0 z-dropdown">
                                 <WifiOff className="w-4 h-4"/> ATTENZIONE: Connessione al database instabile.
                             </div>
                         )}
@@ -115,20 +114,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                 </div>
 
                 <ModalManager />
-
-                {activeModal === 'static' && (
-                    <StaticPage 
-                        type={modalProps.page || activeStaticPage} 
-                        onBack={closeModal} 
-                        onOpenSponsor={(t) => openModal('sponsor', { sponsorTier: t })}
-                    />
-                )}
             </AppShell>
             
             {(mobileDiaryFullScreen || mobileShowWeather) && (
                 <div 
                     id={mobileDiaryFullScreen ? "tour-mobile-diary-overlay" : "weather-overlay"}
-                    className="fixed inset-0 z-[5000]"
+                    className="fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-modal"
                 >
                     <Sidebar 
                         onViewPoiDetail={(poi) => openModal('poiDetail', { poi })} 

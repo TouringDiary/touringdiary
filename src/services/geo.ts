@@ -25,31 +25,65 @@ function deg2rad(deg: number) {
   return deg * (Math.PI / 180);
 }
 
-// --- FUNZIONI STUB PER FILTRI SPONSOR ---
-// NOTE: Queste funzioni sono segnaposto per prevenire crash in useSponsorLogic.
-// La logica di fetch da Supabase non è ancora implementata.
+import { supabase } from './supabaseClient';
+
+// --- FUNZIONI REALI PER FILTRI SPONSOR ---
 
 export const getContinents = async (): Promise<any[]> => {
-    console.warn("geoService.getContinents is a stub and not implemented.");
-    return [];
+    const { data, error } = await supabase
+        .from('cities')
+        .select('continent')
+        .not('continent', 'is', null);
+    
+    if (error) return ['Europa'];
+    const unique = Array.from(new Set(data.map(d => d.continent))).sort();
+    return unique.map(name => ({ id: name, name }));
 };
 
 export const getNations = async (continentId: string): Promise<any[]> => {
-    console.warn("geoService.getNations is a stub and not implemented.");
-    return [];
+    const { data, error } = await supabase
+        .from('cities')
+        .select('nation')
+        .eq('continent', continentId)
+        .not('nation', 'is', null);
+    
+    if (error) return [];
+    const unique = Array.from(new Set(data.map(d => d.nation))).sort();
+    return unique.map(name => ({ id: name, name }));
 };
 
 export const getAdminRegions = async (nationId: string): Promise<any[]> => {
-    console.warn("geoService.getAdminRegions is a stub and not implemented.");
-    return [];
+    const { data, error } = await supabase
+        .from('cities')
+        .select('admin_region')
+        .eq('nation', nationId)
+        .not('admin_region', 'is', null);
+    
+    if (error) return [];
+    const unique = Array.from(new Set(data.map(d => d.admin_region))).sort();
+    return unique.map(name => ({ id: name, name }));
 };
 
 export const getZones = async (adminRegionId: string): Promise<any[]> => {
-    console.warn("geoService.getZones is a stub and not implemented.");
-    return [];
+    const { data, error } = await supabase
+        .from('cities')
+        .select('zone')
+        .eq('admin_region', adminRegionId)
+        .not('zone', 'is', null);
+    
+    if (error) return [];
+    const unique = Array.from(new Set(data.map(d => d.zone))).sort();
+    return unique.map(name => ({ id: name, name }));
 };
 
 export const getCitiesByZone = async (zoneId: string): Promise<any[]> => {
-    console.warn("geoService.getCitiesByZone is a stub and not implemented.");
-    return [];
+    const { data, error } = await supabase
+        .from('cities')
+        .select('id, name')
+        .eq('zone', zoneId)
+        .order('name');
+    
+    if (error) return [];
+    return data.map(d => ({ id: d.id, name: d.name }));
 };
+

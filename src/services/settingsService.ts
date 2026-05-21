@@ -10,7 +10,6 @@ export const SETTINGS_KEYS = {
   AI_TYPING_SUGGESTIONS: 'ai_typing_suggestions',
 
   // Marketing & Pricing
-  MARKETING_PRICES_V2: 'marketing_prices_v2',
   MARKETING_PROMO_TYPES: 'marketing_promo_types',
 
   // Design & UI Assets
@@ -20,6 +19,7 @@ export const SETTINGS_KEYS = {
   SOCIAL_CANVAS_BG: 'social_canvas_bg',
   AI_CONSULTANT_BG: 'ai_consultant_bg',
   CATEGORY_PLACEHOLDERS: 'category_placeholders',
+  SUITCASE_PLACEHOLDERS: 'suitcase_placeholders',
 
   // Taxonomy & Data Structure
   TAXONOMY_NORMALIZATION: 'taxonomy_normalization',
@@ -41,20 +41,83 @@ export const SETTINGS_KEYS = {
   ONBOARDING_CONFIG: 'onboarding_config',
 };
 
-// --- CACHE IN MEMORIA ---
+// --- CACHE IN MEMORIA & LOCK ---
 let settingsCache: Map<string, any> = new Map();
+let designRulesCache: StyleRule[] | null = null;
+let pendingLoadPromise: Promise<void> | null = null;
 
 export const loadGlobalCache = async (): Promise<void> => {
-  const { data, error } = await supabase.from('global_settings').select('key, value');
-  if (error) {
-    console.error("Failed to fetch global settings:", error);
-    return;
-  }
-  settingsCache.clear();
-  for (const setting of data) {
-    settingsCache.set(setting.key, setting.value);
-  }
-  console.log("[Cache] Global settings cache loaded.", settingsCache);
+  if (pendingLoadPromise) return pendingLoadPromise;
+
+  console.log("[Cache] Starting loadGlobalCache...");
+  const startTime = Date.now();
+
+  pendingLoadPromise = (async () => {
+    try {
+      // 1. TENTA IL CARICAMENTO TRAMITE API LOCALE (MOLTO PIÙ VELOCE IN IFRAME)
+      try {
+        const apiResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/bootstrap/all`);
+        if (apiResponse.ok) {
+          const apiData = await apiResponse.json();
+          if (apiData.success) {
+            settingsCache.clear();
+            if (apiData.settings) {
+              for (const setting of apiData.settings) {
+                settingsCache.set(setting.key, setting.value);
+              }
+            }
+            if (apiData.designSystem) {
+              designRulesCache = apiData.designSystem;
+            }
+            console.log(
+              `[Cache] Bootstrap loaded from API in ${Date.now() - startTime}ms.`,
+              settingsCache.size, "settings,",
+              designRulesCache?.length || 0, "design rules"
+            );
+            return; // Successo via API -> Esci
+          }
+        }
+      } catch (apiError) {
+        console.warn("[Cache] Local API Bootstrap failed or timeout, falling back to Supabase.", apiError);
+      }
+
+      // 2. FALLBACK A SUPABASE (LOGICA ORIGINALE)
+      console.log("[Cache] Using Supabase fallback for global settings...");
+      
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout: global_settings non risponde in 5s")), 5000)
+      );
+
+      const result: any = await Promise.race([
+        supabase.from('global_settings').select('key, value'),
+        timeoutPromise
+      ]);
+
+      const { data, error } = result;
+
+      if (error) {
+        console.error("[Cache] Failed to fetch global settings from Supabase:", error);
+        return;
+      }
+
+      if (data) {
+        settingsCache.clear();
+        for (const setting of data) {
+          settingsCache.set(setting.key, setting.value);
+        }
+        console.log(
+          `[Cache] Global settings fallback loaded in ${Date.now() - startTime}ms.`,
+          settingsCache.size, "keys"
+        );
+      }
+    } catch (e: any) {
+      console.error("[Cache] Error/Timeout during global cache load:", e.message);
+    } finally {
+      pendingLoadPromise = null;
+    }
+  })();
+
+  return pendingLoadPromise;
 };
 
 export const getCachedSetting = <T>(key: string): T | null => {
@@ -62,23 +125,53 @@ export const getCachedSetting = <T>(key: string): T | null => {
 };
 
 export const getSettings = async (): Promise<GlobalSetting[]> => {
-  const { data, error } = await supabase.from('global_settings').select('key, value');
+  const { data, error } = await supabase
+    .from('global_settings')
+    .select('key, value');
+
   if (error) throw error;
-  return data;
+  return data ?? [];
 };
 
 export const getSetting = async <T>(key: string): Promise<T | null> => {
   if (!key) {
     console.error("[SettingsService] getSetting called with invalid key:", key);
-    console.trace("CALL STACK getSetting");
     return null;
   }
-  const { data, error } = await supabase.from('global_settings').select('value').eq('key', key).single();
-  if (error && error.code !== 'PGRST116') {
-    console.error(`Error fetching setting ${key}:`, error);
-    throw error;
+
+  // 1. ATTENDE IL CARICAMENTO DEL BOOTSTRAP SE IN CORSO
+  if (pendingLoadPromise) {
+    await pendingLoadPromise;
   }
-  return data ? (data.value as T) : null;
+
+  // 2. TENTA IL RECUPERO DALLA CACHE (Popolata via API proxy in loadGlobalCache)
+  const cached = settingsCache.get(key);
+  if (cached !== undefined) {
+    return cached as T;
+  }
+
+  // 3. FALLBACK A SUPABASE (Solo se non presente in cache)
+  console.log(`[SettingsService] Setting ${key} not in cache, fetching from Supabase...`);
+  
+  const { data, error } = await supabase
+    .from('global_settings')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle(); // TASK 2: Use maybeSingle to prevent 406 Not Acceptable
+  
+  if (error) {
+    console.error(`Error fetching setting ${key}:`, error);
+    // Non rilanciamo l'errore per evitare crash, preferiamo il fallback
+  }
+  
+  let value = data ? (data.value as T) : null;
+
+  // Salva in cache per chiamate future
+  if (value !== null) {
+    settingsCache.set(key, value);
+  }
+  
+  return value;
 };
 
 export const saveSetting = async (key: string, value: any): Promise<any> => {
@@ -99,12 +192,21 @@ export const saveSetting = async (key: string, value: any): Promise<any> => {
 // ========================================================================
 
 export const getDesignSystemRules = async (): Promise<StyleRule[]> => {
-  console.log("[DesignSystem] Fetching rules from SOURCE OF TRUTH");
+  // Se abbiamo i dati in cache (caricati dal bootstrap API), usiamoli
+  if (designRulesCache && designRulesCache.length > 0) {
+    console.log("[DesignSystem] Using cached rules from bootstrap");
+    return designRulesCache;
+  }
+
+  console.log("[DesignSystem] Fetching rules from SOURCE OF TRUTH (Supabase)");
   const { data, error } = await supabase.from('design_system_rules').select('*').order('id', { ascending: true });
   if (error) {
-    console.error("Error fetching design system rules:", error);
-    throw error;
+    console.warn("[DesignSystem] Error fetching from Supabase, returning empty array");
+    return [];
   }
+  
+  // Salviamo in cache per chiamate future
+  designRulesCache = data;
   return data;
 };
 
@@ -146,7 +248,7 @@ export const updateDesignSystemRule = async (rule: StyleRule): Promise<void> => 
 export const rebuildDesignSystemCache = async (): Promise<any> => {
   console.log("[DesignSystem] Rebuilding public cache...");
 
-  const baseConfig = (currentSiteDesign && typeof currentSiteDesign === 'object') ? currentSiteDesign : {};
+  const baseConfig = {};
 
   const rules = await getDesignSystemRules();
   const componentsMap = rules.reduce((acc, rule) => {

@@ -1,3 +1,4 @@
+import type { User } from '@/types/users';
 
 
 export const FULL_SYSTEM_RULES = [

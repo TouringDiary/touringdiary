@@ -47,9 +47,8 @@ export const ADMIN_CATEGORIES: Record<AdminCategoryKey, MarketingTierKey[]> = {
 };
 
 /**
- * Funzione helper per ottenere tutte le chiavi dei tier validi da un oggetto di configurazione.
- * Questo permette di filtrare via le chiavi che non sono piani veri e propri (es. 'aiLimits').
- * @param allConfigKeys Un array di chiavi dall'oggetto marketing_prices_v2
+ * Funzione helper per ottenere tutte le chiavi dei tier validi.
+ * @param allConfigKeys Un array di chiavi candidate
  * @returns Un array di chiavi che corrispondono a tier di marketing validi.
  */
 export function getValidTierKeys(allConfigKeys: string[]): MarketingTierKey[] {

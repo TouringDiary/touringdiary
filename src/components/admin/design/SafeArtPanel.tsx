@@ -1,7 +1,8 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
 import React, { useState, useEffect } from 'react';
 import { Wand2, Loader2, Palette, PenTool, AlertTriangle, Landmark, User, Image as ImageIcon, Save, History, Plus, Trash2, X, Check, Camera, Moon, Aperture } from 'lucide-react';
-import { getAiClient } from '../../../services/ai/aiClient';
+
 import { uploadPublicMedia } from '../../../services/mediaService';
 import { dataURLtoFile } from '../../../utils/common';
 import { getAiConfig, saveAiConfig, AiPreset } from '../../../services/aiConfigService';
@@ -28,11 +29,11 @@ export const SafeArtPanel = ({ onImageGenerated, onError }: { onImageGenerated: 
         setIsGenerating(true);
         
         try {
-            const ai = getAiClient();
+            
             
             const fullPrompt = `Genera un'immagine. Soggetto: ${genPrompt}. STILE: ${currentInstruction}. NO TESTO.`;
 
-            const response = await ai.models.generateContent({
+            const response = await aiGateway.generateLegacy({
                 model: 'gemini-2.5-flash-image',
                 contents: { parts: [{ text: fullPrompt }] },
                  config: { imageConfig: { aspectRatio: "16:9" } }

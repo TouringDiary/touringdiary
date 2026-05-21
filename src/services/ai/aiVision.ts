@@ -1,5 +1,6 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
-import { getAiClient } from './aiClient';
+
 import { withRetry, cleanJsonOutput } from './aiUtils';
 import { getAiPrompt } from '../aiConfigService';
 import { buildImageCaptionPrompt, buildTipIllustrationPrompt, buildImageSafetyPrompt } from '../../data/ai/prompts';
@@ -23,9 +24,9 @@ export const generateImageCaption = async (base64Image: string, context: string 
             const base64Data = base64Image.includes('base64,') ? base64Image.split('base64,')[1] : base64Image;
             
             // USE GETTER
-            const aiClient = getAiClient();
+            
 
-            const response = await aiClient.models.generateContent({
+            const response = await aiGateway.generateLegacy({
                 model: 'gemini-2.5-flash', 
                 contents: {
                     parts: [
@@ -47,9 +48,9 @@ export const generateTipIllustration = async (text: string): Promise<string | nu
     try {
         return await withRetry(async () => {
             const prompt = buildTipIllustrationPrompt(text);
-            const aiClient = getAiClient();
+            
 
-            const response = await aiClient.models.generateContent({
+            const response = await aiGateway.generateLegacy({
                 model: 'gemini-2.5-flash-image',
                 contents: { parts: [{ text: prompt }] },
                 config: {
@@ -90,11 +91,11 @@ export const generateHistoricalPortrait = async (personName: string, role: strin
 
     // Qui non usiamo withRetry globale per gestire il loop modelli custom, ma chiamiamo getAiClient
     try {
-        const aiClient = getAiClient(); // Throws if invalid
+         // Throws if invalid
         
         for (const model of MODELS_TO_TRY) {
             try {
-                const response = await aiClient.models.generateContent({
+                const response = await aiGateway.generateLegacy({
                     model: model,
                     contents: { parts: [{ text: dbPrompt }] },
                     config: {
@@ -136,9 +137,9 @@ export const analyzeImageSafety = async (base64Image: string): Promise<{ isSafe:
             const prompt = buildImageSafetyPrompt();
             const base64Data = base64Image.includes('base64,') ? base64Image.split('base64,')[1] : base64Image;
             
-            const aiClient = getAiClient();
+            
 
-            const response = await aiClient.models.generateContent({
+            const response = await aiGateway.generateLegacy({
                 model: 'gemini-2.5-flash',
                 contents: {
                     parts: [

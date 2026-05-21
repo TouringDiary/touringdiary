@@ -117,7 +117,7 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
             
             {/* SUCCESS MODAL */}
             {successModal.isOpen && (
-                <div className="fixed inset-0 z-[6000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 max-w-sm w-full text-center">
                         <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
                             <CheckCircle className="w-10 h-10 text-emerald-500" />
@@ -325,7 +325,7 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
                             <div 
                                 id={`person-card-${p.id}`} 
                                 key={p.id || idx} 
-                                className={`bg-slate-900 rounded-xl border transition-all ${isProcessingThis ? 'border-yellow-400 ring-2 ring-yellow-400/50 scale-[1.01] z-10' : isSelected ? 'border-indigo-500 ring-1 ring-indigo-500/50 bg-indigo-900/10' : 'border-slate-800 hover:border-slate-700'}`}
+                                className={`bg-slate-900 rounded-xl border transition-all ${isProcessingThis ? 'border-yellow-400 ring-2 ring-yellow-400/50 scale-[1.01] z-floating-panel' : isSelected ? 'border-indigo-500 ring-1 ring-indigo-500/50 bg-indigo-900/10' : 'border-slate-800 hover:border-slate-700'}`}
                             >
                                 <div className="p-3 md:p-4 flex gap-3 items-center group">
                                     <button 

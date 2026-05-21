@@ -1,3 +1,4 @@
+import { Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, Check, Bed, RotateCw, MapPin, Navigation, ArrowRight, Calendar, Copy, Loader2, Award, User, Bot, Star, Globe, Clock, ArrowLeft, X } from 'lucide-react';
@@ -21,8 +22,9 @@ interface Props {
     onOpenAuth?: () => void;
 }
 
-export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocation, user, onOpenAuth }: Props) => {
-    const { guestUser } = useUser();
+export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocation, user: userProp, onOpenAuth }: Props) => {
+    const { user: contextUser } = useUser();
+    const user = userProp ?? contextUser;
     const [isFlipped, setIsFlipped] = useState(false);
     const [customStays, setCustomStays] = useState<any>({});
     const [resolvedItems, setResolvedItems] = useState<any[]>([]);
@@ -111,7 +113,7 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
         <div className="flex-1 flex flex-col h-full bg-[#020617] perspective-1000 relative">
              <div className={`relative flex-1 transition-transform duration-700 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
                  
-                 <div className={`absolute inset-0 backface-hidden flex flex-col bg-[#020617] z-10 ${isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}>
+                 <div className={`absolute inset-0 backface-hidden flex flex-col bg-[#020617] z-floating-panel ${isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}>
                     <div className="relative h-64 shrink-0 overflow-hidden">
                         <ImageWithFallback 
                             src={itinerary.coverImage} 
@@ -120,7 +122,7 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
                             priority={true}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/50 to-transparent"></div>
-                        <div className="absolute top-6 left-8 z-20 flex items-center gap-4">
+                        <div className="absolute top-6 left-8 z-dropdown flex items-center gap-4">
                             <button onClick={onBack} className="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white border border-white/10 transition-all active:scale-95 group">
                                 <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform"/>
                             </button>
@@ -164,7 +166,7 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
                                     return (
                                         <div key={dayIdx} className="relative pl-16">
                                             <div className="absolute left-[30px] top-10 bottom-0 w-1 bg-gradient-to-b from-indigo-500/30 to-transparent rounded-full"></div>
-                                            <div className="absolute left-0 top-0 w-16 h-16 rounded-3xl bg-slate-900 border-2 border-indigo-500 flex flex-col items-center justify-center shadow-2xl z-10">
+                                            <div className="absolute left-0 top-0 w-16 h-16 rounded-3xl bg-slate-900 border-2 border-indigo-500 flex flex-col items-center justify-center shadow-2xl z-floating-panel">
                                                 <span className="text-[8px] font-black text-indigo-400 uppercase leading-none mb-1">Giorno</span>
                                                 <span className="text-2xl font-display font-black text-white leading-none">{dayIdx + 1}</span>
                                             </div>
@@ -210,7 +212,7 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
                  </div>
 
                  {/* BACKSIDE: ALLOGGI */}
-                 <div className={`absolute inset-0 backface-hidden rotate-y-180 bg-[#020617] flex flex-col z-10 ${!isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}>
+                 <div className={`absolute inset-0 backface-hidden rotate-y-180 bg-[#020617] flex flex-col z-floating-panel ${!isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}>
                      <div className="flex justify-between items-center px-8 py-4 border-b border-slate-800 bg-[#0f172a] shrink-0">
                          <button onClick={() => setIsFlipped(false)} className="flex items-center gap-2 px-6 py-2.5 hover:bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all text-xs font-black uppercase tracking-widest border border-slate-700"><ChevronLeft className="w-4 h-4"/> Torna alla Timeline</button>
                          <button onClick={() => { setIsFlipped(false); setShowDateConfig(true); }} className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl transition-all"><Check className="w-4 h-4"/> Conferma Alloggi</button>
@@ -277,7 +279,10 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
                  </div>
              </div>
 
-             <div className="absolute bottom-8 right-10 z-[100] flex flex-col items-end gap-4 pointer-events-none">
+             <div 
+                className="absolute bottom-8 right-10 flex flex-col items-end gap-4 pointer-events-none"
+                style={{ zIndex: Z_MODAL_NESTED }}
+             >
                 {showDateConfig ? (
                     <div className="bg-slate-900 border-2 border-indigo-500 rounded-[2.5rem] shadow-2xl p-8 w-full max-sm animate-in slide-in-from-bottom-6 pointer-events-auto relative">
                         <button onClick={() => setShowDateConfig(false)} className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white transition-colors"><X className="w-5 h-5"/></button>
@@ -313,10 +318,13 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
                     onOpenReview={() => {}} 
                     /* Fix: removed redundant hasVoted prop */
                     userLocation={userLocation || null}
-                    user={user || guestUser}
-                    onOpenAuth={onOpenAuth || (() => {})}
+                    user={user}
+                    onOpenAuth={onOpenAuth ?? (() => {})}
                 />
             )}
         </div>
     );
 };
+
+
+

@@ -1,7 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Clock, ArrowRightLeft, CheckCircle, RefreshCw } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { Calendar, Clock, ArrowRightLeft, CheckCircle, RefreshCw } from 'lucide-react';
 import { ItineraryItem } from '../../types/index';
 
 interface MobileMoveModalProps {
@@ -33,15 +36,9 @@ export const MobileMoveModal = ({ isOpen, onClose, onConfirm, item, days, allIte
         }
     }, [isOpen, item]);
 
-    // Gestione ESC
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // ESC Key Management
+    useGlobalModalEscape(isOpen, onClose);
+
 
     // Check if the currently selected target slot is occupied by another item
     const isTargetOccupied = allItems.some(i => 
@@ -59,10 +56,14 @@ export const MobileMoveModal = ({ isOpen, onClose, onConfirm, item, days, allIte
 
     // Uso createPortal per garantire che il modale sia sempre sopra tutto (z-index reale rispetto al viewport)
     return createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-0 sm:p-6">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity" onClick={onClose}></div>
+        <div className="td-modal-overlay flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-auto bg-black/90 backdrop-blur-md animate-in fade-in" style={{ zIndex: Z_OVERLAY }}>
+            <div className="absolute inset-0 pointer-events-auto" onClick={onClose}></div>
 
-            <div className="relative bg-slate-900 w-full max-w-sm rounded-t-[2rem] sm:rounded-2xl border-t border-x border-slate-700 sm:border shadow-2xl flex flex-col animate-in slide-in-from-bottom-10 sm:zoom-in-95 pb-safe sm:pb-0 overflow-hidden">
+            <div 
+                className="relative bg-slate-900 w-full max-w-sm rounded-t-[2rem] sm:rounded-2xl border-t border-x border-slate-700 sm:border shadow-2xl flex flex-col animate-in slide-in-from-bottom-10 sm:zoom-in-95 pb-safe sm:pb-0 overflow-hidden pointer-events-auto" 
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 <div className="flex justify-between items-center p-5 border-b border-slate-800 bg-[#0f172a]">
                     <div className="flex items-center gap-3">
@@ -74,10 +75,7 @@ export const MobileMoveModal = ({ isOpen, onClose, onConfirm, item, days, allIte
                             <p className="text-xs text-slate-400 mt-1 truncate max-w-[200px]">{item.poi.name}</p>
                         </div>
                     </div>
-                    {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                        <X className="w-5 h-5"/>
-                    </button>
+                    <CloseButton onClose={onClose} variant="primary" />
                 </div>
 
                 <div className="p-6 space-y-6">
@@ -148,3 +146,6 @@ export const MobileMoveModal = ({ isOpen, onClose, onConfirm, item, days, allIte
         document.body
     );
 };
+
+
+

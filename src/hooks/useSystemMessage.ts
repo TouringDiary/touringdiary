@@ -11,6 +11,7 @@ export const useSystemMessage = (key: string) => {
 
     useEffect(() => {
         const load = async () => {
+            console.log("[SystemMessages] called from: useSystemMessage.ts (key:", key, ")");
             if (messagesCache.length === 0) {
                 messagesCache = await getSystemMessagesAsync();
             }
@@ -22,24 +23,41 @@ export const useSystemMessage = (key: string) => {
     }, [key]);
 
     const formatMessage = (variables: Record<string, string | number>) => {
-        if (!template) return { title: '', body: '' };
+        if (!template) return { title: '', body: '', confirmLabel: undefined, cancelLabel: undefined };
         
         let title = template.titleTemplate || '';
         let body = template.bodyTemplate || '';
 
+        // Parsing ui_config if it's a string (fallback for unparsed DB data)
+        let uiConfig = template.uiConfig;
+        if (typeof uiConfig === 'string') {
+            try {
+                uiConfig = JSON.parse(uiConfig);
+            } catch (e) {
+                uiConfig = {};
+            }
+        }
+
+        let confirmLabel = uiConfig?.confirmLabel;
+        let cancelLabel = uiConfig?.cancelLabel;
+
         Object.entries(variables).forEach(([varKey, varValue]) => {
-            const regex = new RegExp(`{${varKey}}`, 'g'); // Replace {name} globally
-            title = title.replace(regex, String(varValue));
-            body = body.replace(regex, String(varValue));
+            // Supporta sia {var} che {{var}}
+            const regex = new RegExp(`{{?${varKey}}}?`, 'g'); 
+            const valStr = varValue !== null && varValue !== undefined ? String(varValue) : '';
+            title = title.replace(regex, valStr);
+            body = body.replace(regex, valStr);
+            if (confirmLabel) confirmLabel = confirmLabel.replace(regex, valStr);
+            if (cancelLabel) cancelLabel = cancelLabel.replace(regex, valStr);
         });
 
-        return { title, body };
+        return { title, body, confirmLabel, cancelLabel };
     };
 
     return { 
         template, 
         loading, 
         // Helper per ottenere subito testo formattato
-        getText: (variables: Record<string, string | number> = {}) => formatMessage(variables) 
+        getText: (variables: Record<string, string | number> = {}): { title: string, body: string, confirmLabel?: string, cancelLabel?: string } => formatMessage(variables) 
     };
 };

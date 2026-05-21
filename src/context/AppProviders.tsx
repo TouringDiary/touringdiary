@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserProvider } from './UserContext';
+import { BusinessProvider } from './BusinessContext';
 import { UIProvider } from './UIContext';
 import { ModalProvider } from './ModalContext';
 import { ItineraryProvider } from './ItineraryContext';
@@ -26,31 +27,28 @@ interface AppProvidersProps {
 export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
     return (
         <UserProvider>
-            <ConfigProvider>
-                <UIProvider>
-                    <AiPlannerProvider>
-                        <ModalProvider>
-                            <GpsProvider>
-
-                                <NavigationProvider>
-                                    <InteractionProvider> {/* 🔥 SPOSTATO QUI */}
-                                        <ItineraryProvider>
-
-                                            <DiaryInteractionProvider>
-                                                {/* ✅ TUTTO dentro */}
-                                                <AppCoordinator />
-                                                {children}
-                                            </DiaryInteractionProvider>
-
-                                        </ItineraryProvider>
-                                    </InteractionProvider>
-                                </NavigationProvider>
-
-                            </GpsProvider>
-                        </ModalProvider>
-                    </AiPlannerProvider>
-                </UIProvider>
-            </ConfigProvider>
+            <BusinessProvider>
+                <ConfigProvider>
+                    <UIProvider>
+                        <AiPlannerProvider>
+                            <ModalProvider>
+                                <GpsProvider>
+                                    <NavigationProvider>
+                                        <InteractionProvider>
+                                            <ItineraryProvider>
+                                                <DiaryInteractionProvider>
+                                                    <AppCoordinator />
+                                                    {children}
+                                                </DiaryInteractionProvider>
+                                            </ItineraryProvider>
+                                        </InteractionProvider>
+                                    </NavigationProvider>
+                                </GpsProvider>
+                            </ModalProvider>
+                        </AiPlannerProvider>
+                    </UIProvider>
+                </ConfigProvider>
+            </BusinessProvider>
         </UserProvider>
     );
 };

@@ -10,7 +10,7 @@ interface Props {
     onRoleFilterChange: (v: string) => void;
     envFilter: 'all' | 'prod' | 'test';
     onEnvFilterChange: (v: any) => void;
-    onExport: () => void;
+    onExport?: () => void;
     onCreate: () => void;
     onRefresh: () => void;
     isLoading: boolean;

@@ -1,11 +1,12 @@
 
-import React, { Suspense, useCallback } from 'react';
+import React, { Suspense, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useModal } from '@/context/ModalContext';
 import { useUser } from '@/context/UserContext';
 import { useItinerary } from '@/context/ItineraryContext';
 import { useGps } from '@/context/GpsContext';
-import { useNavigation } from '@/context/NavigationContext';
-import { useDiaryInteractionsContext } from '@/context/DiaryInteractionContext';
+import { useNavigation } from '@/context/useNavigation';
+import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext';
 import { useCityData } from '../../hooks/useCityData';
 
 import { PointOfInterest, ItineraryItem, User, CitySummary } from '../../types/index';
@@ -23,21 +24,21 @@ export const ModalManager = () => {
     const { user, setUser, cityManifest, closeLevelUp, handleLogout } = useUser();
     const { itinerary, setItinerary, removeItem } = useItinerary();
     const { userLocation, confirmGpsFromModal } = useGps();
-    
-    const { 
-        activeCityId, 
-        navigateToCity, 
-        handleNavigateGlobal, 
-        openShopFromPoi, 
-        activePreview, 
+
+    const {
+        activeCityId,
+        navigateToCity,
+        handleNavigateGlobal,
+        openShopFromPoi,
+        activePreview,
         setActivePreview,
         handleAroundMeTrigger
     } = useNavigation();
 
-    const { 
-        confirmAddToItinerary, 
-        resolveConflict, 
-        resolveDuplicate 
+    const {
+        confirmAddToItinerary,
+        resolveConflict,
+        resolveDuplicate
     } = useDiaryInteractionsContext();
 
     // 2. DATI CITTÀ ATTIVA (On-Demand)
@@ -46,10 +47,13 @@ export const ModalManager = () => {
     // 3. HANDLERS ADATTATI
     const handleAuthSuccess = (u: User) => {
         setUser(u);
-        if (modalProps.returnTo) {
-             openModal(modalProps.returnTo, modalProps.returnProps);
+        if (modalProps.returnTo === 'dashboard') {
+            closeModal();
+            handleNavigateGlobal('profile', undefined, undefined, { slug: u.slug });
+        } else if (modalProps.returnTo) {
+            openModal(modalProps.returnTo, modalProps.returnProps);
         } else {
-             closeModal();
+            closeModal();
         }
     };
 
@@ -63,26 +67,30 @@ export const ModalManager = () => {
 
     const handleToggleItinerary = (poi: PointOfInterest) => {
         const exists = itinerary.items.some(i => i.poi.id === poi.id);
-        if(exists) { 
-            const items = itinerary.items.filter(i => i.poi.id === poi.id); 
+        if (exists) {
+            const items = itinerary.items.filter(i => i.poi.id === poi.id);
             if (items.length === 1) removeItem(items[0].id);
-            else openModal('removeSelection', { items }); 
-        } else { 
-            openModal('add', { poi }); 
+            else openModal('removeSelection', { 
+                items,
+                onRemoveSingle: async (id: string) => { await removeItem(id); closeModal(); },
+                onRemoveAll: async () => { await handleRemoveAll(items); }
+            });
+        } else {
+            openModal('add', { poi });
         }
     };
 
-    const handleRemoveAll = (items: ItineraryItem[]) => {
-        items.forEach(i => removeItem(i.id));
+    const handleRemoveAll = async (items: ItineraryItem[]) => {
+        await Promise.all(items.map(i => removeItem(i.id)));
         closeModal();
     };
 
-    const activeCitySummary = activeCityId 
-        ? cityManifest.find(c => c.id === activeCityId) 
+    const activeCitySummary = activeCityId
+        ? cityManifest.find(c => c.id === activeCityId)
         : null;
 
     // Props aggregate per i sotto-modali
-    const sharedProps: ModalManagerExternalProps = {
+    const sharedProps: ModalManagerExternalProps = useMemo(() => ({
         user,
         itinerary,
         userLocation,
@@ -110,22 +118,32 @@ export const ModalManager = () => {
         onClosePreview: () => setActivePreview({ ...activePreview, isOpen: false }),
         onLogout: handleLogout,
         onAroundMeTrigger: handleAroundMeTrigger
-    };
+    }), [
+        user,
+        itinerary,
+        userLocation,
+        activeCityId,
+        activeCitySummary,
+        activeCityDetails,
+        cityManifest,
+        activePreview
+    ]);
 
-    return (
+    if (typeof document === 'undefined') return null;
+
+    return createPortal(
         <Suspense fallback={<ModalLoading />}>
-            
-            <CoreModals 
+
+            <CoreModals
                 activeModal={activeModal}
                 modalProps={modalProps}
                 closeModal={closeModal}
                 onConfirmGps={confirmGpsFromModal}
                 onAuthSuccess={handleAuthSuccess}
                 onCloseAuth={handleCloseAuth}
-                activeStaticPage={handleNavigateGlobal} 
             />
 
-            <AdminModals 
+            <AdminModals
                 activeModal={activeModal}
                 modalProps={modalProps}
                 closeModal={closeModal}
@@ -134,10 +152,10 @@ export const ModalManager = () => {
                 activeCityId={activeCityId}
                 activeCitySummary={activeCitySummary}
                 onUserUpdate={setUser}
-                onNavigate={handleNavigateGlobal} 
+                onNavigate={handleNavigateGlobal}
             />
 
-            <FeatureModals 
+            <FeatureModals
                 {...sharedProps}
                 activeModal={activeModal}
                 modalProps={modalProps}
@@ -145,6 +163,7 @@ export const ModalManager = () => {
                 openModal={openModal}
             />
 
-        </Suspense>
+        </Suspense>,
+        document.body
     );
 };

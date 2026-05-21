@@ -2,9 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Loader2, Trash2, CheckCircle } from 'lucide-react';
 import { updateUser, deleteUser, getRoleLabel, refreshUsersCache, getAllUsers } from '../../services/userService';
 import { User, UserRole, UserStatus } from '../../types/users';
-import { getSetting, SETTINGS_KEYS } from '../../services/settingsService';
-import { MarketingConfig } from '../../types/models/Sponsor';
-
+// imports di config legacy rimossi
 // Sub-Components
 import { RlsFixModal } from './userManager/RlsFixModal';
 import { CreateUserModal } from './userManager/CreateUserModal';
@@ -29,7 +27,7 @@ export const AdminUserManager = ({ currentUser }: AdminUserManagerProps) => {
     const [toast, setToast] = useState<{msg: string, type: 'success'|'error'} | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const [limitsConfig, setLimitsConfig] = useState<MarketingConfig['aiLimits'] | null>(null);
+    // Stato rimosso per limitsConfig legacy
 
     const [sortKey, setSortKey] = useState<SortKey>('registrationDate');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -60,13 +58,6 @@ export const AdminUserManager = ({ currentUser }: AdminUserManagerProps) => {
         };
 
         loadUsers();
-
-        getSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES_V2)
-            .then(config => {
-                if (config && config.aiLimits) {
-                    setLimitsConfig(config.aiLimits);
-                }
-            });
 
     }, []);
 
@@ -239,7 +230,7 @@ export const AdminUserManager = ({ currentUser }: AdminUserManagerProps) => {
         <div className="h-full flex flex-col relative">
 
             {toast && (
-                <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl z-50 text-sm font-bold flex items-center gap-2 border ${toast.type === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-red-600 border-red-400 text-white'}`}>
+                <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl z-admin-modal text-sm font-bold flex items-center gap-2 border ${toast.type === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-red-600 border-red-400 text-white'}`}>
                     {toast.type === 'success'
                         ? <CheckCircle className="w-5 h-5"/>
                         : <AlertTriangle className="w-5 h-5"/>}
@@ -303,7 +294,6 @@ export const AdminUserManager = ({ currentUser }: AdminUserManagerProps) => {
                     onStatusToggle={handleStatusToggle}
                     onDelete={handleDeleteRequest}
                     canManage={canManageUser}
-                    limitsConfig={limitsConfig}
                 />
             </div>
 

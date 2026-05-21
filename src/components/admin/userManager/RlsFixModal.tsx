@@ -1,6 +1,9 @@
-
+import { Z_OVERLAY, Z_ADMIN_MODAL } from '@/constants/zIndex';
 import React, { useState } from 'react';
-import { X, Terminal, Copy, CheckCircle, ExternalLink } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Terminal, Copy, CheckCircle, ExternalLink } from 'lucide-react';
+
 
 interface Props {
     onClose: () => void;
@@ -58,10 +61,17 @@ SELECT 'Permessi DELETE aggiornati con successo.' as status;
         setTimeout(() => setCopied(false), 2000);
     };
 
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-indigo-500 shadow-2xl p-6 relative flex flex-col max-h-[90vh]">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X className="w-6 h-6"/></button>
+    return createPortal(
+        // admin-super-layer modal | intentionally rendered above global modal stack
+        <div 
+            className="td-modal-overlay p-4 bg-black/90 backdrop-blur-md animate-in fade-in"
+            style={{ zIndex: Z_OVERLAY }}
+        >
+            <div 
+                className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-indigo-500 shadow-2xl p-6 relative flex flex-col max-h-[90vh]"
+                style={{ zIndex: Z_ADMIN_MODAL }}
+            >
+                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
                 
                 <div className="flex items-center gap-3 mb-4">
                     <div className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-900/40">
@@ -112,6 +122,10 @@ SELECT 'Permessi DELETE aggiornati con successo.' as status;
                     </a>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

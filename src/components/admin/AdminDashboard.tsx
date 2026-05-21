@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { User } from '../../types/users';
 import { getPendingSuggestionCount, getPendingReviewCount } from '../../services/communityService';
@@ -34,6 +34,10 @@ const GlobalEventsManager = React.lazy(() => import('./GlobalEventsManager').the
 const SettingsPage = React.lazy(() => import('./settings/SettingsPage').then(m => ({ default: m.SettingsPage }))); // NUOVO COMPONENTE
 const AdminSocialStudio = React.lazy(() => import('./AdminSocialStudio').then(m => ({ default: m.AdminSocialStudio })));
 const AdminAssetLibrary = React.lazy(() => import('./AdminAssetLibrary').then(m => ({ default: m.AdminAssetLibrary })));
+const AiLimitsControlCenter = React.lazy(() => import('./AiLimitsControlCenter').then(m => ({ default: m.AiLimitsControlCenter })));
+const AiEconomicsDashboard = React.lazy(() => import('./AiEconomicsDashboard').then(m => ({ default: m.AiEconomicsDashboard })));
+const AdminControlCenterAI = React.lazy(() => import('./AdminControlCenterAI').then(m => ({ default: m.AdminControlCenterAI })));
+const AffiliateEditorialCenter = React.lazy(() => import('../features/diary/packing_list/suitcase/AffiliateEditorialCenter').then(m => ({ default: m.AffiliateEditorialCenter })));
 
 interface AdminDashboardProps {
     onBack: () => void;
@@ -50,9 +54,16 @@ const DashboardLoading = () => (
 
 export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashboardProps) => {
     useDocumentTitle('Admin Panel');
+    const location = useLocation();
+    const navigate = useNavigate();
 
-    // STATE PRINCIPALE DI NAVIGAZIONE
-    const [view, setView] = useState<'dashboard' | 'cities' | 'osm_import' | 'events_global' | 'users' | 'sponsors' | 'photos' | 'ticker' | 'tips' | 'marketing' | 'itineraries' | 'design_assets' | 'settings' | 'comms' | 'suggestions' | 'gamification' | 'social_studio' | 'assets'>('dashboard');
+    // TIPIZZAZIONE SEZIONI ADMIN
+    type AdminSection = 'dashboard' | 'cities' | 'osm_import' | 'events_global' | 'users' | 'sponsors' | 'photos' | 'ticker' | 'tips' | 'marketing' | 'itineraries' | 'design_assets' | 'settings' | 'comms' | 'suggestions' | 'gamification' | 'social_studio' | 'assets' | 'ai_control' | 'ai_economics' | 'affiliations';
+
+    // DERIVAZIONE ROBUSTA DELLA SEZIONE DALL'URL (Bypassa i limiti di useParams fuori dai Routes)
+    const section = location.pathname.split('/')[2] || 'dashboard';
+    const view = section as AdminSection;
+
     const [editingCityId, setEditingCityId] = useState<string | null>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     
@@ -81,12 +92,17 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     }, [refreshCounts]);
 
     const sectionNames: Record<string, string> = {
-        dashboard: 'Dashboard', cities: 'Manager POI', osm_import: 'Import OSM', events_global: 'Eventi Globali', users: 'Utenti', sponsors: 'Sponsor', photos: 'Foto', ticker: 'News Ticker', tips: 'Loading Tips', marketing: 'Marketing', itineraries: 'Itinerari', design_assets: 'Asset Globali', settings: 'Impostazioni Globali', comms: 'Comunicazioni', suggestions: 'Segnalazioni', gamification: 'Gamification', social_studio: 'Social Studio', assets: 'Libreria'
+        dashboard: 'Dashboard', cities: 'Manager POI', osm_import: 'Import OSM', events_global: 'Eventi Globali', users: 'Utenti', sponsors: 'Sponsor', photos: 'Foto', ticker: 'News Ticker', tips: 'Loading Tips', marketing: 'Marketing', itineraries: 'Itinerari', design_assets: 'Asset Globali', settings: 'Impostazioni Globali', comms: 'Comunicazioni', suggestions: 'Segnalazioni', gamification: 'Gamification', social_studio: 'Social Studio', assets: 'Libreria', ai_control: 'AI Control Center', ai_economics: 'AI Economics', affiliations: 'Affiliazioni & Override'
     };
 
-    const handleNavClick = (newView: any) => {
+    const handleNavClick = (newView: string) => {
         if (editingCityId) setEditingCityId(null);
-        setView(newView);
+        // La Dashboard Generale punta alla root /admin
+        if (newView === 'dashboard') {
+            navigate('/admin');
+        } else {
+            navigate(`/admin/${newView}`);
+        }
         setIsMobileMenuOpen(false);
     };
     
@@ -112,6 +128,9 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
             case 'tips': return <LoadingTipsManager />;
             case 'design_assets': return <AdminHeaderManager />;
             case 'settings': return <SettingsPage />;
+            case 'ai_control': return <AiLimitsControlCenter />;
+            case 'ai_economics': return <AdminControlCenterAI />;
+            case 'affiliations': return <AffiliateEditorialCenter />;
             default: return <AdminStatsDashboard />;
         }
     };

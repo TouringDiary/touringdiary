@@ -1,3 +1,4 @@
+import type { User } from '@/types/users';
 /**
  * @file src/types/index.ts
  * @description Centralized barrel file for exporting all application types.
@@ -29,3 +30,4 @@ export * from './domain/index';
 // Core system types
 export * from './core';
 export * from './designSystem';
+export * from './partners';

@@ -1,6 +1,11 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React from 'react';
-import { MapPin, Navigation, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { MapPin, Navigation } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+
 
 interface GpsAlertModalProps {
     isOpen: boolean;
@@ -9,15 +14,24 @@ interface GpsAlertModalProps {
 }
 
 export const GpsAlertModal = ({ isOpen, onClose, onConfirm }: GpsAlertModalProps) => {
+    useGlobalModalEscape(isOpen, onClose);
+
+
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95">
-                {/* STANDARD RED CLOSE BUTTON */}
-                <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                    <X className="w-5 h-5"/>
-                </button>
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in pointer-events-auto" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
+            <div 
+                className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <CloseButton 
+                    onClose={onClose}
+                    variant="primary"
+                    position="absolute"
+                    className="top-3 right-3"
+                />
                 <div className="flex flex-col items-center text-center gap-4">
                     <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
                         <Navigation className="w-8 h-8 text-blue-500 animate-pulse"/>
@@ -41,6 +55,10 @@ export const GpsAlertModal = ({ isOpen, onClose, onConfirm }: GpsAlertModalProps
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

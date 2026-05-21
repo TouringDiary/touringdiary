@@ -1,3 +1,5 @@
+import { Z_ERROR_BOUNDARY, Z_TOAST, Z_OVERLAY_BACKDROP, Z_MODAL_NESTED, Z_MODAL, Z_DROPDOWN, Z_FLOATING_PANEL } from '@/constants/zIndex';
+
 
 /**
  * LAYOUT CONSTANTS (Single Source of Truth)
@@ -34,23 +36,23 @@ export const LAYOUT = {
     // --- Z-INDEX LAYERS (Gerarchia di sovrapposizione) ---
     Z: {
         BASE: 0,
-        MAP_CONTROLS: 10,
-        HEADER: 1000,
-        NAVBAR_MOBILE: 1100,
+        MAP_CONTROLS: Z_FLOATING_PANEL,
+        HEADER: Z_DROPDOWN,
+        NAVBAR_MOBILE: Z_DROPDOWN,
+        SIDEBAR: Z_DROPDOWN,
         
-        // Sidebar e Pannelli laterali
-        SIDEBAR: 100, 
-        
-        // Overlay a tutto schermo (livello intermedio)
-        OVERLAY_BACKDROP: 2000,
+        // Overlay a tutto schermo
+        OVERLAY_BACKDROP: Z_OVERLAY_BACKDROP,
         
         // Modali e Finestre di dialogo
-        MODAL: 3000,
-        MODAL_OVERLAY: 3500, // Popover dentro i modali (es. DatePicker)
+        MODAL: Z_MODAL,
+        MODAL_OVERLAY: Z_MODAL_NESTED,
         
-        // Elementi critici (Toast, Errori, Loading)
-        TOAST: 5000,
-        LOADER: 9000,
-        ERROR_BOUNDARY: 99999
+        // Elementi critici
+        TOAST: Z_TOAST,
+        LOADER: Z_TOAST,
+        ERROR_BOUNDARY: Z_ERROR_BOUNDARY
     }
 } as const;
+
+

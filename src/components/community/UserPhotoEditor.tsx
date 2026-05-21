@@ -116,84 +116,84 @@ export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps
         setSaturation(120);
     };
 
-    return typeof document !== 'undefined'
-        ? createPortal(
-            <div className="fixed top-header-mob md:top-header inset-x-0 bottom-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
-                <div className="w-full max-w-5xl h-[85vh] bg-slate-950 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col">
-                    {/* HEADER */}
+    if (typeof document === 'undefined') return null;
+    return createPortal(
+        <div className="fixed top-header-mob md:top-header inset-x-0 bottom-0 z-modal flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
+            <div className="w-full max-w-5xl h-[85vh] bg-slate-950 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+                {/* HEADER */}
                 <div className="flex justify-between items-center p-3 border-b border-slate-800 bg-[#020617] shrink-0">
                     <button onClick={onCancel} className="p-2 text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
-                <h3 className="text-white font-bold uppercase tracking-widest text-xs md:text-sm">Modifica Scatto</h3>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setShowPreviewMode(!showPreviewMode)} className={`p-2 rounded-full transition-all ${showPreviewMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`} title="Anteprima Feed">
-                        <Eye className="w-5 h-5" />
-                    </button>
-                    <button onClick={applyMagicFix} className="p-2 text-amber-500 hover:text-amber-400 transition-colors" title="Magic Fix">
-                        <Wand2 className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => { console.log("FATTO CLICK"); handleSave(); }}
-                        className="ml-2 text-emerald-500 font-bold uppercase text-xs flex items-center gap-1 bg-emerald-900/20 px-4 py-2 rounded-full border border-emerald-500/50">
-                        <Check className="w-4 h-4" /> Fatto
-                    </button>
+                    <h3 className="text-white font-bold uppercase tracking-widest text-xs md:text-sm">Modifica Scatto</h3>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setShowPreviewMode(!showPreviewMode)} className={`p-2 rounded-full transition-all ${showPreviewMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`} title="Anteprima Feed">
+                            <Eye className="w-5 h-5" />
+                        </button>
+                        <button onClick={applyMagicFix} className="p-2 text-amber-500 hover:text-amber-400 transition-colors" title="Magic Fix">
+                            <Wand2 className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => { console.log("FATTO CLICK"); handleSave(); }}
+                            className="ml-2 text-emerald-500 font-bold uppercase text-xs flex items-center gap-1 bg-emerald-900/20 px-4 py-2 rounded-full border border-emerald-500/50">
+                            <Check className="w-4 h-4" /> Fatto
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            {/* CANVAS AREA - FLEXIBLE & CONTAINED */}
-            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-4">
-                <div className={`relative ${showPreviewMode ? 'scale-90 shadow-2xl border-4 border-white/10 rounded-xl overflow-hidden' : ''} transition-all duration-300 max-h-full`}>
-                    <canvas
-                        ref={canvasRef}
-                        width={500} // Reduced base width
-                        height={625} // Reduced base height (4:5 ratio preserved)
-                        className="max-h-[60vh] md:max-h-[70vh] max-w-full object-contain cursor-move touch-none shadow-2xl bg-[#1a1a1a]"
-                        onWheel={handleWheel}
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={handleMouseMove}
-                        onMouseUp={handleMouseUp}
-                        onMouseLeave={handleMouseUp}
-                    />
+                {/* CANVAS AREA - FLEXIBLE & CONTAINED */}
+                <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-4">
+                    <div className={`relative ${showPreviewMode ? 'scale-90 shadow-2xl border-4 border-white/10 rounded-xl overflow-hidden' : ''} transition-all duration-300 max-h-full`}>
+                        <canvas
+                            ref={canvasRef}
+                            width={500} // Reduced base width
+                            height={625} // Reduced base height (4:5 ratio preserved)
+                            className="max-h-[60vh] md:max-h-[70vh] max-w-full object-contain cursor-move touch-none shadow-2xl bg-[#1a1a1a]"
+                            onWheel={handleWheel}
+                            onMouseDown={handleMouseDown}
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                        />
 
-                    {/* FEED CARD MOCKUP OVERLAY */}
-                    {showPreviewMode && (
-                        <div className="absolute inset-0 pointer-events-none border border-slate-800 rounded-xl z-20">
-                            <div className="absolute top-2 right-2 bg-black/40 backdrop-blur px-2 py-1 rounded-full text-white text-[10px] font-bold">❤️ 0</div>
-                            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent pt-12">
-                                <div className="h-2 w-24 bg-white/50 rounded mb-2"></div>
-                                <div className="h-2 w-16 bg-white/30 rounded"></div>
+                        {/* FEED CARD MOCKUP OVERLAY */}
+                        {showPreviewMode && (
+                            <div className="absolute inset-0 pointer-events-none border border-slate-800 rounded-xl z-dropdown">
+                                <div className="absolute top-2 right-2 bg-black/40 backdrop-blur px-2 py-1 rounded-full text-white text-[10px] font-bold">❤️ 0</div>
+                                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent pt-12">
+                                    <div className="h-2 w-24 bg-white/50 rounded mb-2"></div>
+                                    <div className="h-2 w-16 bg-white/30 rounded"></div>
+                                </div>
                             </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* TOOLS PANEL - COMPACT */}
+                <div className="bg-[#0f172a] border-t border-slate-800 p-4 pb-10 md:pb-6 shrink-0 mt-auto">
+                    <div className="grid grid-cols-4 gap-4 mb-3">
+                        <div className="flex flex-col items-center gap-1">
+                            <ZoomIn className="w-4 h-4 text-slate-400" />
+                            <input type="range" min="0.5" max="3" step="0.1" value={scale} onChange={e => setScale(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
                         </div>
-                    )}
-                </div>
-            </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <Sun className="w-4 h-4 text-slate-400" />
+                            <input type="range" min="50" max="150" value={brightness} onChange={e => setBrightness(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <Contrast className="w-4 h-4 text-slate-400" />
+                            <input type="range" min="50" max="150" value={contrast} onChange={e => setContrast(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-slate-400" />
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <Droplets className="w-4 h-4 text-slate-400" />
+                            <input type="range" min="0" max="200" value={saturation} onChange={e => setSaturation(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                        </div>
+                    </div>
 
-            {/* TOOLS PANEL - COMPACT */}
-            <div className="bg-[#0f172a] border-t border-slate-800 p-4 pb-10 md:pb-6 shrink-0 mt-auto">
-                <div className="grid grid-cols-4 gap-4 mb-3">
-                    <div className="flex flex-col items-center gap-1">
-                        <ZoomIn className="w-4 h-4 text-slate-400" />
-                        <input type="range" min="0.5" max="3" step="0.1" value={scale} onChange={e => setScale(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
-                    </div>
-                    <div className="flex flex-col items-center gap-1">
-                        <Sun className="w-4 h-4 text-slate-400" />
-                        <input type="range" min="50" max="150" value={brightness} onChange={e => setBrightness(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                    </div>
-                    <div className="flex flex-col items-center gap-1">
-                        <Contrast className="w-4 h-4 text-slate-400" />
-                        <input type="range" min="50" max="150" value={contrast} onChange={e => setContrast(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-slate-400" />
-                    </div>
-                    <div className="flex flex-col items-center gap-1">
-                        <Droplets className="w-4 h-4 text-slate-400" />
-                        <input type="range" min="0" max="200" value={saturation} onChange={e => setSaturation(parseFloat(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                    <div className="flex justify-center gap-4">
+                        <button onClick={() => setRotation(r => r - 90)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><RotateCw className="w-5 h-5 -scale-x-100" /></button>
+                        <button onClick={() => setRotation(r => r + 90)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><RotateCw className="w-5 h-5" /></button>
                     </div>
                 </div>
-
-                <div className="flex justify-center gap-4">
-                    <button onClick={() => setRotation(r => r - 90)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><RotateCw className="w-5 h-5 -scale-x-100" /></button>
-                    <button onClick={() => setRotation(r => r + 90)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><RotateCw className="w-5 h-5" /></button>
-                </div>
-            </div>
             </div>
         </div>,
         document.body
-    ) : null;
+    )
 };

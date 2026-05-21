@@ -1,6 +1,8 @@
+import { Z_OVERLAY } from '@/constants/zIndex';
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, MapPin, Camera, Award, Link, Info, AlertCircle, Plus, History, ImageOff, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
+import { Save, MapPin, Camera, Award, Link, Info, AlertCircle, Plus, History, ImageOff, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { PointOfInterest } from '../../types/index';
 import { usePoiForm } from '../../hooks/usePoiForm';
 import { PoiInfoTab } from './poiModal/PoiInfoTab';
@@ -23,10 +25,19 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
     // USE CUSTOM HOOK
     const { 
         formData, isDirty, setIsImageValid, isLocating, 
-        updateField, updateCoord, updateAffiliate, handleAutoLocate, validate, isMissingAsset 
+        updateField, updateCoord, updateAffiliate, handleAutoLocate, validate, isMissingAsset, getNormalizedData 
     } = usePoiForm(poi, cityName);
 
-    const [activeTab, setActiveTab] = useState<'info' | 'media' | 'logistics' | 'marketing' | 'links'>('info');
+    const tabs = [
+        { id: 'info', label: 'Info Base', icon: Info },
+        { id: 'media', label: 'Media', icon: Camera },
+        { id: 'logistics', label: 'Logistica', icon: MapPin },
+        { id: 'marketing', label: 'Marketing', icon: Award },
+        { id: 'links', label: 'Affiliazioni', icon: Link }
+    ] as const;
+
+    type TabId = typeof tabs[number]['id'];
+    const [activeTab, setActiveTab] = useState<TabId>('info');
     const [showConfirmClose, setShowConfirmClose] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -46,21 +57,7 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
         else onClose();
     };
 
-    // ESC Key
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.stopPropagation();
-                if (showDeleteConfirm) setShowDeleteConfirm(false);
-                else if (validationError) setValidationError(null);
-                else if (showConfirmClose) setShowConfirmClose(false);
-                else handleCloseAttempt();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, showConfirmClose, isDirty, validationError, showDeleteConfirm]);
+    // ESC Key Management delegated to CloseButton (with dirty check)
 
     const handleSaveClick = () => {
         const error = validate();
@@ -69,7 +66,7 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
             if (error.includes("Sottocategoria")) setActiveTab('info');
             return;
         }
-        onSave(formData);
+        onSave(getNormalizedData());
     };
 
     // FIX: Changed from window.location.reload() to soft refresh event
@@ -99,20 +96,17 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
         return new Date(isoStr).toLocaleString('it-IT', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
     };
 
-    const handleAutoLocateWrapper = async () => {
-        const res = await handleAutoLocate();
-        if (res.error) alert(res.error);
-    };
+
 
     if (!isOpen) return null;
 
     return (
-        // FIX: z-[3000] per coprire nav tab (z-1020). pt-24 per scendere sotto header.
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 pt-24 md:p-6">
+        // overlay root modal | uses Z_OVERLAY according to global stacking contract
+        <div className="td-modal-overlay bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 pt-24 md:p-6" style={{ zIndex: Z_OVERLAY }}>
             <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={handleCloseAttempt}></div>
             
             {validationError && (
-                <div className="absolute inset-0 z-[3600] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
+                <div className="absolute inset-0 z-floating-panel flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
                     <div className="bg-slate-900 border border-red-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95">
                          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)] mx-auto mb-6">
                             <AlertTriangle className="w-8 h-8 text-red-500 animate-pulse"/>
@@ -130,7 +124,7 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
             )}
 
             {showConfirmClose && (
-                <div className="absolute inset-0 z-[3500] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                <div className="absolute inset-0 z-floating-panel flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-2xl max-w-sm w-full text-center">
                         <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2"/>
                         <h3 className="text-lg font-bold text-white mb-1">Modifiche non salvate</h3>
@@ -171,14 +165,16 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
                             </button>
                         )}
                         
-                        <button onClick={handleCloseAttempt} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"><X className="w-6 h-6"/></button>
+                        <CloseButton 
+                            onClose={handleCloseAttempt} 
+                        />
                     </div>
                 </div>
 
                 <div className="px-6 py-3 border-b border-slate-800 bg-slate-900 overflow-x-auto">
                     <div className="flex gap-2">
-                        {[{ id: 'info', label: 'Info Base', icon: Info }, { id: 'media', label: 'Media', icon: Camera }, { id: 'logistics', label: 'Logistica', icon: MapPin }, { id: 'marketing', label: 'Marketing', icon: Award }, { id: 'links', label: 'Affiliazioni', icon: Link }].map(tab => (
-                            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'}`}>
+                        {tabs.map(tab => (
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'}`}>
                                 <tab.icon className="w-4 h-4"/> {tab.label}
                             </button>
                         ))}
@@ -207,7 +203,7 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
                             formData={formData} 
                             updateField={updateField} 
                             updateCoord={updateCoord} 
-                            handleAutoLocate={handleAutoLocateWrapper} 
+                            handleAutoLocate={handleAutoLocate} 
                             isLocating={isLocating} 
                         />
                     )}
@@ -217,7 +213,7 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
                     )}
 
                     {activeTab === 'links' && (
-                        <PoiLinksTab formData={formData} updateAffiliate={updateAffiliate} cityName={cityName} />
+                        <PoiLinksTab formData={formData} updateAffiliate={updateAffiliate} updateField={updateField} cityName={cityName} />
                     )}
                 </div>
 

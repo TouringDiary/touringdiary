@@ -1,12 +1,14 @@
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 
 import React, { useState } from 'react';
 import { StickyNote, Palette, PlusCircle, Briefcase } from 'lucide-react';
-import { ItineraryItem, PointOfInterest } from '@/types';
+import { ItineraryItem, PointOfInterest, CitySummary } from '@/types';
 import { calculateDistance } from '@/services/geo';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { ItineraryItemCard } from './ItineraryItemCard';
 import { DiaryResourceCard } from './DiaryResourceCard';
 import { DiaryMemoCard } from './DiaryMemoCard';
+
 
 // COSTANTI UI LOCALI
 const DAY_COLORS = [
@@ -26,6 +28,7 @@ interface DiaryDayProps {
     isMobile: boolean;
     dayRefs: React.RefObject<{[key: number]: HTMLDivElement | null}>;
     itemRefs: React.RefObject<{[key: string]: HTMLDivElement | null}>;
+    cityManifest?: CitySummary[];
     
     // State Props passate dal genitore
     userLocation: { lat: number; lng: number } | null;
@@ -57,7 +60,7 @@ interface DiaryDayProps {
 }
 
 export const DiaryDay: React.FC<DiaryDayProps> = ({
-    day, dayIndex, items, dayStyleClass, isDraggingOver, isMobile, dayRefs, itemRefs,
+    day, dayIndex, items, dayStyleClass, isDraggingOver, isMobile, dayRefs, itemRefs, cityManifest,
     userLocation, highlightedItemId, editingTimeId, iconPickerOpen, colorPickerOpen,
     onAddNote, onColorPickerToggle, onColorSelect, onDayDrop,
     onViewDetail, onRemoveItem, onTimeChange, onSetEditingTime, onIconClick, onIconSelect, onNoteChange, onItemDrop, onMobileMoveClick, onCreateMemo, onMemoClick
@@ -65,12 +68,57 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     
     // Connessione corretta allo stile configurato
     const dayLabelStyle = useDynamicStyles('diary_day_label', isMobile);
-    const dayIcon = useDynamicStyles('diary_day_icon');
-    const dayIconButton = useDynamicStyles('diary_day_icon_button');
     const dayStyle = DAY_COLORS.find(c => c.class === dayStyleClass) || DAY_COLORS[0];
+
+    const paletteRef = React.useRef<HTMLDivElement>(null);
+
+    // Gestione chiusura palette con click esterno o ESC
+    React.useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (paletteRef.current && !paletteRef.current.contains(e.target as Node)) {
+                onColorPickerToggle(null);
+            }
+        };
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onColorPickerToggle(null);
+        };
+        if (colorPickerOpen === dayIndex) {
+            window.addEventListener('mousedown', handleClickOutside);
+            window.addEventListener('keydown', handleEsc);
+        }
+        return () => {
+            window.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('keydown', handleEsc);
+        };
+    }, [colorPickerOpen, dayIndex, onColorPickerToggle]);
 
     // Stato locale per evidenziare la Drop Zone specifica
     const [isOverDropZone, setIsOverDropZone] = useState(false);
+
+    // Gestione Nomi Città per Label Giorno
+    const getCityDisplayName = (id: string) => {
+        if (!id || typeof id !== 'string' || id === 'unknown' || id === 'custom') return '';
+        if (/City\s*\d+/i.test(id)) return '';
+        if (cityManifest) {
+             const found = cityManifest.find(c => String(c.id) === String(id));
+             if (found) return found.name;
+        }
+        return id.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    };
+
+    const uniqueCityIds = Array.from(new Set(items.map(i => {
+           let cid = i.cityId;
+           if (typeof cid === 'string' && /City\s*\d+/i.test(cid) && i.poi?.cityId) {
+               cid = i.poi.cityId;
+           }
+           return cid;
+    })))
+        .filter(id => {
+            if (!id || typeof id !== 'string' || id === 'unknown' || id === 'custom') return false;
+            if (/City\s*\d+/i.test(id)) return false;
+            return true;
+        }) as string[];
+    const dayCityStr = uniqueCityIds.map(id => getCityDisplayName(id)).filter(Boolean).join(', ');
 
     // --- STEP 3: SEPARAZIONE TIMELINE / RISORSE ---
     const timelineItems = items.filter(i => !i.isResource).sort((a,b) => a.timeSlotStr.localeCompare(b.timeSlotStr));
@@ -142,33 +190,36 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     return (
         <div 
             ref={(el) => { if(dayRefs.current) dayRefs.current[dayIndex] = el; }} 
-            className={`relative pb-0 mb-7 transition-all rounded-xl overflow-hidden ${hasOpenPicker ? 'z-[60]' : 'z-0'}`}>
+            className={`relative pb-0 mb-0 transition-all rounded-xl overflow-hidden ${hasOpenPicker ? 'z-modal' : 'z-0'}`}>
             {/* HEADER GIORNO: Altezza fissa h-7 (1 RIGA esatta) */}
             <div className={`flex items-center justify-center gap-2 ${ROW_H} border-b w-full box-border rounded-t-xl transition-colors border-stone-300 bg-[#e7e5e4]`}>
-                <button onClick={() => onAddNote(dayIndex)} className={dayIconButton} title="Aggiungi Nota">
-                    <StickyNote className={dayIcon}/>
-                </button>
-                
-                {/* Etichetta Giorno Compatta */}
-                <div className={`px-4 h-[1.25rem] rounded-full shadow-sm flex items-center justify-center gap-2 ${dayStyle.class}`}>
-                    <span className={`${dayLabelStyle} leading-none pt-0.5 whitespace-nowrap`}>
-                        {day.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' })} • Giorno {dayIndex + 1}
+                {/* Micro-toolbar compatta Giorno */}
+                <div className={`px-4 h-[24px] rounded-full shadow-sm flex items-center justify-center relative ${dayStyle.class}`}>
+                    <span className={`${dayLabelStyle} leading-[24px] whitespace-nowrap`}>
+                        {dayCityStr ? `${dayCityStr} · Giorno ${dayIndex + 1}` : `Giorno ${dayIndex + 1}`}
                     </span>
-                </div>
-                
-                <div className="relative">
-                    <button onClick={() => onColorPickerToggle(colorPickerOpen === dayIndex ? null : dayIndex)} className={dayIconButton} title="Cambia Colore">
-                        <Palette className={dayIcon}/>
-                    </button>
+
+                    {/* PALETTE PICKER DROPDOWN (RESTORED & STABILIZED) */}
                     {colorPickerOpen === dayIndex && (
-                        <div className="absolute top-full right-0 mt-1 bg-white border border-stone-200 shadow-xl rounded-lg p-2 flex gap-1 z-[100] animate-in zoom-in-95 origin-top-right">
-                            {DAY_COLORS.map(c => (
-                                <button key={c.id} onClick={() => onColorSelect(dayIndex, c.class)} className={`w-6 h-6 rounded-full border border-stone-300 hover:scale-110 transition-transform ${c.class.split(' ')[0]}`} />
+                        <div 
+                            ref={paletteRef}
+                            className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-stone-200 shadow-2xl rounded-xl p-2 flex gap-1.5 animate-in zoom-in-95 origin-top" style={{ zIndex: Z_MODAL_NESTED }}
+                        >
+                             {DAY_COLORS.map(c => (
+                                <button 
+                                    key={c.id} 
+                                    onClick={() => onColorSelect(dayIndex, c.class)} 
+                                    className={`w-7 h-7 rounded-full shadow-sm border border-stone-200 hover:scale-110 active:scale-95 transition-all ${c.class.split(' ')[0]}`}
+                                    title={c.label}
+                                />
                             ))}
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* SPACER RIGA VUOTA (PER MANTENERE BASELINE) */}
+            <div className={ROW_H} />
 
             {/* CONTAINER LISTA ITEMS: NO GAP per allineamento griglia */}
             <div className="pt-0 px-2 flex flex-col gap-0 bg-transparent">
@@ -252,9 +303,12 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
                 </div>
             </div>
 
+            {/* SPACER RIGA VUOTA (PER MANTENERE BASELINE) */}
+            <div className={ROW_H} />
+
             {/* RESOURCE DOCK (FOOTER) - STRICT ALIGNMENT */}
             {resourceItems.length > 0 && (
-                <div className="w-full relative z-10 bg-transparent">
+                <div className="w-full relative z-floating-panel bg-transparent">
                      
                      {/* HEADER SEZIONE RISORSE (1 Riga h-7) - MODIFICATO CON BORDO SUPERIORE NERO TRATTEGGIATO */}
                      <div className={`flex items-center justify-center gap-2 ${ROW_H} border-t border-dashed border-black/40`}>
@@ -279,3 +333,6 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
         </div>
     );
 };
+
+
+

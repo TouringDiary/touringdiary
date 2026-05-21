@@ -1,6 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
-import React, { useEffect } from 'react';
-import { X, Trash2, Calendar, CheckSquare } from 'lucide-react';
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { Trash2, Calendar, CheckSquare } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { ItineraryItem } from '../../types/index';
 
 interface RemoveItemModalProps {
@@ -12,24 +16,20 @@ interface RemoveItemModalProps {
 }
 
 export const RemoveItemModal = ({ isOpen, onClose, items, onRemoveSingle, onRemoveAll }: RemoveItemModalProps) => {
-    
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    useGlobalModalEscape(isOpen, onClose);
+
 
     if (!isOpen || items.length === 0) return null;
 
     const poiName = items[0].poi.name;
 
-    return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-red-500/30 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6">
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 animate-in fade-in pointer-events-auto" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
+            <div 
+                className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-red-500/30 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 <div className="flex justify-between items-start mb-4 border-b border-slate-800 pb-4">
                     <div className="flex items-center gap-3">
@@ -41,8 +41,10 @@ export const RemoveItemModal = ({ isOpen, onClose, items, onRemoveSingle, onRemo
                             <p className="text-xs text-slate-400">"{poiName}" è presente più volte</p>
                         </div>
                     </div>
-                    {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"><X className="w-5 h-5"/></button>
+                    <CloseButton 
+                        onClose={onClose}
+                        variant="primary"
+                    />
                 </div>
 
                 <p className="text-sm text-slate-300 mb-4">
@@ -90,6 +92,10 @@ export const RemoveItemModal = ({ isOpen, onClose, items, onRemoveSingle, onRemo
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

@@ -2,12 +2,13 @@
 import React from 'react';
 import { Loader2, Search } from 'lucide-react';
 import { PointOfInterest } from '../../../types/index';
+import { PoiFormData } from '../../../types/write/poiForm';
 
 interface PoiLogisticsTabProps {
-    formData: PointOfInterest;
-    updateField: (field: keyof PointOfInterest, value: any) => void;
+    formData: PoiFormData;
+    updateField: <K extends keyof PoiFormData>(field: K, value: PoiFormData[K]) => void;
     updateCoord: (type: 'lat' | 'lng', value: string) => void;
-    handleAutoLocate: () => Promise<void>;
+    handleAutoLocate: () => Promise<{ success?: boolean; error?: string }>;
     isLocating: boolean;
 }
 

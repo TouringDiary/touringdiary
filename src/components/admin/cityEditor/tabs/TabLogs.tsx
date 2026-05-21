@@ -121,11 +121,11 @@ export const TabLogs = () => {
 
                 {/* RIGHT: TABLE (PARSED) */}
                 <div className="flex-[1.5] bg-slate-900 overflow-y-auto p-4 custom-scrollbar">
-                    <h4 className="text-slate-300 font-bold uppercase text-xs mb-4 flex items-center gap-2 sticky top-0 bg-slate-900 pb-2 border-b border-slate-800 z-10">
+                    <h4 className="text-slate-300 font-bold uppercase text-xs mb-4 flex items-center gap-2 sticky top-0 bg-slate-900 pb-2 border-b border-slate-800 z-floating-panel">
                         <Timer className="w-4 h-4 text-indigo-400"/> Analisi Performance
                     </h4>
                     <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-950 text-slate-500 text-[9px] uppercase font-bold sticky top-8 z-10">
+                        <thead className="bg-slate-950 text-slate-500 text-[9px] uppercase font-bold sticky top-8 z-floating-panel">
                             <tr>
                                 <th className="p-3 border-b border-slate-800">Step Operativo</th>
                                 <th className="p-3 border-b border-slate-800 text-center">Stato</th>

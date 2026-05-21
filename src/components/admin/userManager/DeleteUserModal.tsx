@@ -1,4 +1,5 @@
 import { Trash2 } from "lucide-react";
+import { CloseButton } from "@/components/ui/controls/CloseButton";
 
 interface Props {
   userName: string
@@ -9,9 +10,10 @@ interface Props {
 
 export const DeleteUserModal = ({ userName, onCancel, onConfirm, isDeleting }: Props) => {
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-admin-modal">
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-[420px] shadow-2xl">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-[420px] shadow-2xl relative">
+        <CloseButton onClose={onCancel} variant="primary" position="absolute" className="top-4 right-4" />
 
         <div className="flex items-center gap-3 mb-4">
           <Trash2 className="text-red-500"/>

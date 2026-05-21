@@ -1,6 +1,10 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Trophy, Loader2, ArrowUpDown, ChevronUp, ChevronDown, Info } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { PointOfInterest } from '../../types/index';
 import { useRankingsLogic, SortKey } from '../../hooks/useRankingsLogic';
 import { PaginationControls } from '../common/PaginationControls';
@@ -17,9 +21,10 @@ interface Props {
     onNavigateToCity?: (cityId: string) => void;
     onOpenPoi?: (poi: PointOfInterest) => void;
     onOpenPhoto?: (url: string) => void;
+    isOpen?: boolean;
 }
 
-export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpenPhoto }: Props) => {
+export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpenPhoto, isOpen = true }: Props) => {
 
     // USE HOOK
     const {
@@ -35,6 +40,11 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
         // Pagination Props
         page, pageSize, totalItems, nextPage, prevPage
     } = useRankingsLogic();
+
+    // ESC Key Management
+    useGlobalModalEscape(isOpen, onClose);
+
+    if (!isOpen) return null;
 
     const [activePhotoIndex, setActivePhotoIndex] = useState<number | null>(null);
 
@@ -60,10 +70,8 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
         return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-amber-500" /> : <ChevronDown className="w-3 h-3 text-amber-500" />;
     };
 
-    return (
-        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-0 md:p-4">
-            <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={onClose}></div>
-
+    return createPortal(
+        <div className="td-modal-overlay bg-black/95 backdrop-blur-md flex items-center justify-center p-0 md:p-4 pointer-events-auto animate-in fade-in" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
             {/* GALLERY LIGHTBOX */}
             {lightboxData && (
                 <GalleryLightbox
@@ -76,7 +84,11 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
                 />
             )}
 
-            <div className="relative bg-[#020617] w-full max-w-6xl h-full md:h-[90vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
+            <div 
+                className="relative bg-[#020617] w-full max-w-6xl h-full md:h-[90vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
 
                 {/* HEADER & FILTERS */}
                 <div className="flex flex-col p-6 border-b border-slate-800 bg-[#0f172a] shrink-0 gap-4">
@@ -90,9 +102,10 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
                                 <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Il meglio della Campania</p>
                             </div>
                         </div>
-                        <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                            <X className="w-6 h-6" />
-                        </button>
+                        <CloseButton 
+                            onClose={onClose}
+                            variant="primary"
+                        />
                     </div>
 
                     <RankingFilters
@@ -118,7 +131,7 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
                         <>
                             {mainTab === 'cities' && (
                                 <table className="w-full text-left border-collapse">
-                                    <thead className="bg-[#0f172a] sticky top-0 z-10 shadow-sm border-b border-slate-800">
+                                    <thead className="bg-[#0f172a] sticky top-0 z-floating-panel shadow-sm border-b border-slate-800">
                                         <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                                             <th className="px-4 py-3 text-center cursor-pointer hover:text-white group" onClick={() => handleSort('rank')}><div className="flex justify-center items-center gap-1">Rank <SortIcon col="rank" /></div></th>
                                             <th className="px-4 py-3">Foto</th>
@@ -204,6 +217,10 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

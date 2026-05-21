@@ -16,14 +16,14 @@ export const getFromCache = <T>(key: string): T | null => {
     const entry = memoryCache[key];
     if (!entry) return null;
     if (Date.now() - entry.timestamp > CACHE_TTL) {
-        delete memoryCache[key]; 
+        delete memoryCache[key];
         return null;
     }
     return entry.data;
 };
 
 export const setInCache = <T>(key: string, data: T, ttl: number = CACHE_TTL) => {
-    memoryCache[key] = { data, timestamp: Date.now() + ttl }; 
+    memoryCache[key] = { data, timestamp: Date.now() };
 };
 
 export const invalidateCityCache = (cityId: string) => {

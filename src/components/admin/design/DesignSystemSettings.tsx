@@ -36,7 +36,7 @@ const SideEditorPanel: React.FC<{
 
     return (
         <>
-            <div className="fixed top-0 right-0 h-full w-full max-w-2xl bg-slate-900 border-l border-slate-700 shadow-2xl z-50 transform transition-transform ease-in-out duration-300 translate-x-0">
+            <div className="fixed top-0 right-0 h-full w-full max-w-2xl bg-slate-900 border-l border-slate-700 shadow-2xl z-admin-modal transform transition-transform ease-in-out duration-300 translate-x-0">
                 <div className="flex flex-col h-full">
                     <div className="flex justify-between items-center p-4 border-b border-slate-800">
                         <div className='flex items-center gap-4'>
@@ -75,7 +75,7 @@ const SideEditorPanel: React.FC<{
                     </div>
                 </div>
             </div>
-            <div className="fixed inset-0 bg-black bg-opacity-60 z-40" onClick={onClose}></div>
+            <div className="fixed inset-0 bg-black bg-opacity-60 z-dropdown" onClick={onClose}></div>
         </>
     );
 };

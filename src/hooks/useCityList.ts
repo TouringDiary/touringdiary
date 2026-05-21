@@ -3,15 +3,16 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAdminData } from './useAdminData';
 import { usePagination } from './usePagination';
 import { deleteCity, getFullManifestAsync } from '../services/cityService';
+import { CitySummary } from '../types/index';
 
 export const useCityList = () => {
-    const { cities: localCities } = useAdminData(); 
-    const [cloudCities, setCloudCities] = useState<any[]>([]);
+    const { cities: localCities } = useAdminData();
+    const [cloudCities, setCloudCities] = useState<CitySummary[]>([]);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
-    
+
     // Filters & Sorting
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortKey, setSortKey] = useState<string>('updatedAt'); 
+    const [sortKey, setSortKey] = useState<keyof CitySummary>('updatedAt');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [pageInput, setPageInput] = useState('1');
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
@@ -21,7 +22,7 @@ export const useCityList = () => {
     const forceReload = useCallback(async () => {
         setIsInitialLoading(true);
         try {
-            const data = await getFullManifestAsync();
+            const data = await getFullManifestAsync(false);
             setCloudCities(data);
         } catch (e) {
             console.error("Errore ricaricamento lista:", e);
@@ -33,7 +34,7 @@ export const useCityList = () => {
     // Initial load & Event Listener
     useEffect(() => {
         forceReload();
-        
+
         const handleRefresh = () => forceReload();
         window.addEventListener('refresh-city-list', handleRefresh);
         return () => window.removeEventListener('refresh-city-list', handleRefresh);
@@ -44,21 +45,22 @@ export const useCityList = () => {
 
     const filteredCities = useMemo(() => {
         const lower = searchTerm.toLowerCase();
-        return effectiveCities.filter(c => 
-            c.name.toLowerCase().includes(lower) || c.zone.toLowerCase().includes(lower)
+        return effectiveCities.filter(c =>
+            c.name.toLowerCase().includes(lower) || (c.zone?.toLowerCase() || '').includes(lower)
         ).sort((a, b) => {
-            let valA = (a as any)[sortKey];
-            let valB = (b as any)[sortKey];
+            let valA = a[sortKey];
+            let valB = b[sortKey];
 
             if (sortKey === 'createdAt' || sortKey === 'updatedAt' || sortKey === 'publishedAt') {
-                valA = valA ? new Date(valA).getTime() : 0;
-                valB = valB ? new Date(valB).getTime() : 0;
+                const timeA = typeof valA === 'string' ? new Date(valA).getTime() : 0;
+                const timeB = typeof valB === 'string' ? new Date(valB).getTime() : 0;
+                return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
             }
 
             if (typeof valA === 'number' && typeof valB === 'number') {
                 return sortDir === 'asc' ? valA - valB : valB - valA;
             }
-            
+
             const strA = String(valA || '').toLowerCase();
             const strB = String(valB || '').toLowerCase();
             return sortDir === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
@@ -69,9 +71,9 @@ export const useCityList = () => {
     const pagination = usePagination(filteredCities, 15);
 
     // Helpers
-    const handleSort = (key: string) => {
+    const handleSort = (key: keyof CitySummary) => {
         if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-        else { setSortKey(key); setSortDir('desc'); } 
+        else { setSortKey(key); setSortDir('desc'); }
     };
 
     const toggleSelection = (id: string) => {
@@ -85,8 +87,8 @@ export const useCityList = () => {
         const currentData = pagination.currentData;
         const allSelected = currentData.every(c => selectedIds.has(c.id));
         const newSet = new Set(selectedIds);
-        if (allSelected) currentData.forEach(c => newSet.delete(c.id)); 
-        else currentData.forEach(c => newSet.add(c.id)); 
+        if (allSelected) currentData.forEach(c => newSet.delete(c.id));
+        else currentData.forEach(c => newSet.add(c.id));
         setSelectedIds(newSet);
     };
 

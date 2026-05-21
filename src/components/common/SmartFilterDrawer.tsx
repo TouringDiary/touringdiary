@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { createPortal } from 'react-dom';
 import { X, Check, Filter, Utensils, Landmark, Bed, ShoppingBag, Music, Sun, EyeOff, Eye, Star, Layers, CheckSquare, Square, AlertTriangle, TrendingUp, Coins, RotateCcw, Box, FileText, List, Search } from 'lucide-react';
 import { PointOfInterest } from '../../types/index';
@@ -135,18 +136,8 @@ export const SmartFilterDrawer = ({
 
     }, [availableItems, localFilters.category, mode, POI_STRUCTURE]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown, { capture: true });
-        return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-    }, [isOpen, onClose]);
+    // MODIFICA: Centralizzazione ESC tramite hook globale
+    useGlobalModalEscape(isOpen, onClose);
 
     const handleReset = () => {
         setLocalFilters(prev => ({
@@ -219,11 +210,11 @@ export const SmartFilterDrawer = ({
     return createPortal(
         <>
             <div 
-                className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[5000] transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-dropdown transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
             ></div>
 
-            <div className={`fixed inset-y-0 right-0 w-80 md:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-[5010] transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed inset-y-0 right-0 w-80 md:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-modal transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 
                 {/* HEADER */}
                 <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#0f172a] shrink-0">

@@ -30,7 +30,8 @@ export const useLogoRasterizer = () => {
             canvas.height = 52 * 2;
             const ctx = canvas.getContext('2d');
             if (ctx) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 
                 // 4. Converte il contenuto del canvas in un'immagine PNG Base64.
@@ -41,6 +42,19 @@ export const useLogoRasterizer = () => {
         // Gestione di eventuali errori nel caricamento dell'immagine SVG
         img.onerror = () => {
             console.error("Errore: Impossibile caricare l'immagine SVG del logo per la rasterizzazione.");
+            // Fallback: logo testuale via canvas se l'SVG fallisce
+            const canvas = document.createElement('canvas');
+            canvas.width = 360;
+            canvas.height = 52;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#1e293b';
+                ctx.font = 'bold 24px Helvetica';
+                ctx.fillText('TOURING DIARY', 10, 35);
+                setLogoBase64(canvas.toDataURL('image/png'));
+            }
         };
     }, []);
 

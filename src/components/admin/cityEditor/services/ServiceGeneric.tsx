@@ -158,7 +158,7 @@ export const ServiceGeneric = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {SERVICE_BOXES.map((box) => (
                     <div key={box.id} className="bg-slate-950 rounded-2xl border border-slate-800 flex flex-col h-[350px] overflow-hidden">
-                        <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex flex-col gap-2 sticky top-0 z-10">
+                        <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex flex-col gap-2 sticky top-0 z-floating-panel">
                             <div className="flex items-center gap-2">
                                 <box.icon className={`w-4 h-4 ${box.color}`}/>
                                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wide truncate max-w-[120px]">{box.label}</span>

@@ -1,85 +1,71 @@
-
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Camera, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
-import { CityDetails } from '@/types';
+import { CityDetails, PhotoSubmission } from '@/types';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
+import { isPlaceholderUrl, normalizeImageUrl } from '@/utils/imageOptimizer';
+import { getOrCreatePhotoSubmissionForUrl, fetchTopCityPhotos } from '@/services/photoService';
+import { getCityOfficialMedia } from '@/services/city/cityMediaService';
 
 interface PreviewGalleryProps {
-    city: any; // Generic object support
-    onOpenLightbox: (data: { url: string, user: string, likes: number, caption: string }) => void;
+    city: CityDetails; 
+    onOpenLightbox: (data: PhotoSubmission) => void;
     activeCategoryColor: string;
     className?: string;
 }
 
 export const PreviewGallery = ({ city, onOpenLightbox, activeCategoryColor, className }: PreviewGalleryProps) => {
     const galleryRef = useRef<DraggableSliderHandle>(null);
+    const [resolvedItems, setResolvedItems] = useState<PhotoSubmission[]>([]);
+    const [isResolving, setIsResolving] = useState(false);
 
-    const galleryItems = useMemo(() => {
-        // Se è un oggetto generico senza dettagli (es. Guide/Servizi), costruiamo una galleria solo con l'immagine principale
-        if (!city) return [];
+    useEffect(() => {
+        if (!city) return;
         
-        const allPois = city.details?.allPois || [];
-        // Ordina per voti decrescenti
-        const votedPois = [...allPois].sort((a: any, b: any) => (b.votes || 0) - (a.votes || 0));
-        
-        // Estrai immagini e metadati
-        const items = [];
-        
-        // Prima la cover principale
-        if (city.imageUrl) {
-            items.push({
-                url: city.imageUrl,
-                user: "Touring Diary",
-                likes: (city.rating || 0) * 100,
-                caption: city.name
-            });
-        }
+        const resolveGallery = async () => {
+            setIsResolving(true);
+            try {
+                const cityName = city.name;
+                const cityId = city.id;
 
-        votedPois.forEach((p: any) => {
-             if (p.imageUrl) {
-                 items.push({
-                     url: p.imageUrl,
-                     user: p.suggestedBy || "Community",
-                     likes: p.votes || 0,
-                     caption: p.name
-                 });
-             }
-        });
-        
-        // Se non ci sono POI (es. Guida), aggiungi altre immagini se disponibili nell'oggetto stesso
-        if (items.length <= 1 && city.details?.gallery) {
-             city.details.gallery.forEach((url: string) => {
-                 if (url !== city.imageUrl) {
-                     items.push({
-                         url: url,
-                         user: "Official",
-                         likes: 0,
-                         caption: city.name
-                     });
-                 }
-             });
-        }
-        
-        // Se ancora solo 1 immagine (es. Guida senza galleria), ok così. Non inventiamo.
+                // 1. Raccogli URL validi (Governance Status-Driven)
+                const validAssets = getCityOfficialMedia(city);
 
-        // Rimuovi duplicati URL e prendi i primi 10
-        const seen = new Set();
-        const uniqueItems = [];
-        for (const item of items) {
-            if (!seen.has(item.url)) {
-                seen.add(item.url);
-                uniqueItems.push(item);
+                const allUrls = Array.from(new Set(validAssets.map(a => a.url))).slice(0, 15); // Limite per evitare troppe chiamate
+
+                // 2. Registrazione/Recupero UUID reali (No Virtual IDs)
+                const promises = allUrls.map(url => 
+                    getOrCreatePhotoSubmissionForUrl(url, cityId, cityName, 'Official city preview image')
+                );
+
+                const results = await Promise.all(promises);
+                const officialItems = results.filter((p): p is PhotoSubmission => p !== null);
+
+                // 3. RECUPERO TOP 10 COMMUNITY (Nuove Foto Approvate)
+                const communityItems = await fetchTopCityPhotos(cityId);
+
+                // 4. MERGE & DEDUPLICAZIONE (Priorità Community)
+                const combined = [...communityItems];
+                officialItems.forEach(off => {
+                    if (!combined.some(c => normalizeImageUrl(c.url) === normalizeImageUrl(off.url))) {
+                        combined.push(off);
+                    }
+                });
+
+                setResolvedItems(combined.slice(0, 10));
+            } catch (error) {
+                console.error("[PreviewGallery] Errore risoluzione gallery:", error);
+            } finally {
+                setIsResolving(false);
             }
-        }
-        
-        return uniqueItems.slice(0, 10);
+        };
+
+        resolveGallery();
     }, [city]);
 
-    // Estrae il colore base
-    const markerColorClass = activeCategoryColor ? activeCategoryColor.replace('text-', 'bg-') : 'bg-amber-500';
+    const galleryItems = resolvedItems;
 
-    if (galleryItems.length === 0) return null;
+    const markerColorClass = activeCategoryColor ? activeCategoryColor.replace('text-', 'bg-') : 'bg-amber-500';
 
     return (
         <div className={`flex flex-col justify-end ${className}`}>
@@ -90,24 +76,36 @@ export const PreviewGallery = ({ city, onOpenLightbox, activeCategoryColor, clas
                         <Camera className="w-4 h-4 text-slate-400"/> TOP 10 | COMMUNITY
                     </h3>
                 </div>
-                <div className="flex gap-1">
-                    <button onClick={() => galleryRef.current?.scroll('left')} className="p-1.5 bg-slate-900 border border-slate-700 rounded-lg hover:border-amber-500 text-slate-400 hover:text-white transition-colors"><ChevronLeft className="w-3.5 h-3.5"/></button>
-                    <button onClick={() => galleryRef.current?.scroll('right')} className="p-1.5 bg-slate-900 border border-slate-700 rounded-lg hover:border-amber-500 text-slate-400 hover:text-white transition-colors"><ChevronRight className="w-3.5 h-3.5"/></button>
-                </div>
+                {galleryItems.length > 0 && (
+                    <div className="flex gap-1">
+                        <button onClick={() => galleryRef.current?.scroll('left')} className="p-1.5 bg-slate-900 border border-slate-700 rounded-lg hover:border-amber-500 text-slate-400 hover:text-white transition-colors"><ChevronLeft className="w-3.5 h-3.5"/></button>
+                        <button onClick={() => galleryRef.current?.scroll('right')} className="p-1.5 bg-slate-900 border border-slate-700 rounded-lg hover:border-amber-500 text-slate-400 hover:text-white transition-colors"><ChevronRight className="w-3.5 h-3.5"/></button>
+                    </div>
+                )}
             </div>
             
             <div className="flex-1 min-h-0 pb-3 px-6">
-                <DraggableSlider ref={galleryRef} className="h-full">
-                    {galleryItems.map((item, idx) => (
-                        <div key={idx} onClick={() => onOpenLightbox(item)} className="snap-start flex-shrink-0 w-64 h-full rounded-lg overflow-hidden relative group cursor-zoom-in border border-slate-800 hover:border-amber-500/50 transition-all shadow-lg">
-                            <ImageWithFallback src={item.url} alt={`${item.caption}`} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg"/>
+                {isResolving ? (
+                    <div className="h-full w-full flex items-center justify-center gap-2 text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse bg-slate-900/20 rounded-xl border border-slate-800/50">
+                        <Camera className="w-4 h-4 animate-bounce" /> Analisi Gallery...
+                    </div>
+                ) : galleryItems.length > 0 ? (
+                    <DraggableSlider ref={galleryRef} className="h-full">
+                        {galleryItems.map((item, idx) => (
+                            <div key={idx} onClick={() => onOpenLightbox(item)} className="snap-start flex-shrink-0 w-64 h-full rounded-lg overflow-hidden relative group cursor-zoom-in border border-slate-800 hover:border-amber-500/50 transition-all shadow-lg">
+                                <ImageWithFallback src={item.url} alt={`${item.description}`} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                    <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg"/>
+                                </div>
+                                <div className="absolute bottom-2 right-2 bg-black/70 px-1.5 py-0.5 rounded text-[10px] font-bold text-white pointer-events-none border border-white/20">#{idx + 1}</div>
                             </div>
-                            <div className="absolute bottom-2 right-2 bg-black/70 px-1.5 py-0.5 rounded text-[10px] font-bold text-white pointer-events-none border border-white/20">#{idx + 1}</div>
-                        </div>
-                    ))}
-                </DraggableSlider>
+                        ))}
+                    </DraggableSlider>
+                ) : (
+                    <div className="h-full w-full flex items-center justify-center gap-2 text-slate-600 text-xs italic font-medium bg-slate-900/10 rounded-xl border border-slate-800/30 border-dashed">
+                        Nessuna foto disponibile per questa anteprima.
+                    </div>
+                )}
             </div>
         </div>
     );

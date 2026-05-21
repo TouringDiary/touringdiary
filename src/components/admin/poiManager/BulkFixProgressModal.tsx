@@ -1,6 +1,9 @@
+import { Z_OVERLAY } from '@/constants/zIndex';
 
 import React, { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, CheckCircle, AlertTriangle, X, Activity, PauseCircle } from 'lucide-react';
+
 
 interface BulkStats {
     total: number;
@@ -35,8 +38,9 @@ export const BulkFixProgressModal = ({ isOpen, onClose, stats, isProcessing, cur
     const progressPercent = stats.total > 0 ? Math.round((stats.processed / stats.total) * 100) : 0;
     const isComplete = stats.processed === stats.total && stats.total > 0;
 
-    return (
-        <div className="fixed inset-0 z-[5000] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+    return createPortal(
+        // admin-super-layer modal | intentionally rendered above global modal stack (z-13000)
+        <div className="td-modal-overlay bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in" style={{ zIndex: Z_OVERLAY }}>
             <div className="bg-slate-900 w-full max-w-4xl rounded-2xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
                 
                 {/* HEADER */}
@@ -100,7 +104,7 @@ export const BulkFixProgressModal = ({ isOpen, onClose, stats, isProcessing, cur
                 {/* TABELLA DETTAGLIO */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6">
                     <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 bg-slate-900 z-10 shadow-sm">
+                        <thead className="sticky top-0 bg-slate-900 z-floating-panel shadow-sm">
                             <tr className="text-[10px] text-slate-500 font-black uppercase tracking-widest border-b border-slate-800">
                                 <th className="py-3">Categoria</th>
                                 <th className="py-3 text-center">Stato</th>
@@ -165,6 +169,10 @@ export const BulkFixProgressModal = ({ isOpen, onClose, stats, isProcessing, cur
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

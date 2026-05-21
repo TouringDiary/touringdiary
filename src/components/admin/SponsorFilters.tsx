@@ -7,15 +7,16 @@ interface SponsorFiltersProps {
         nation: string;
         adminRegion: string;
         zone: string;
-        city: string;
+        cityId?: string;
         tier?: string;
     };
     options: {
-        continents: string[];
-        nations: string[];
-        adminRegions: string[];
-        zones: string[];
+        continents: { id: string; name: string }[];
+        nations: { id: string; name: string }[];
+        adminRegions: { id: string; name: string }[];
+        zones: { id: string; name: string }[];
         cities: { id: string; name: string }[];
+        tiers: string[];
     };
     handlers: {
         onContinentChange: (val: string) => void;
@@ -33,7 +34,7 @@ const FilterWrapper = ({ children, onClear, isActive }: { children?: React.React
         {isActive && (
             <button 
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClear(); }} 
-                className="absolute right-7 top-1/2 -translate-y-1/2 bg-slate-800 text-red-400 hover:text-white hover:bg-red-500 rounded-full p-0.5 shadow-md border border-slate-700 transition-all z-10"
+                className="absolute right-7 top-1/2 -translate-y-1/2 bg-slate-800 text-red-400 hover:text-white hover:bg-red-500 rounded-full p-0.5 shadow-md border border-slate-700 transition-all z-floating-panel"
                 title="Resetta filtro"
             >
                 <X className="w-2.5 h-2.5"/>
@@ -57,7 +58,7 @@ export const SponsorFilters = ({ filters, options, handlers }: SponsorFiltersPro
                     className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[100px]"
                 >
                     <option value="">Continente</option>
-                    {options.continents.map(c => <option key={c} value={c}>{c}</option>)}
+                    {options.continents.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
             </FilterWrapper>
 
@@ -69,7 +70,7 @@ export const SponsorFilters = ({ filters, options, handlers }: SponsorFiltersPro
                     className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[100px]"
                 >
                     <option value="">Nazione</option>
-                    {options.nations.map(n => <option key={n} value={n}>{n}</option>)}
+                    {options.nations.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
                 </select>
             </FilterWrapper>
 
@@ -81,7 +82,7 @@ export const SponsorFilters = ({ filters, options, handlers }: SponsorFiltersPro
                     className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[100px]"
                 >
                     <option value="">Regione</option>
-                    {options.adminRegions.map(r => <option key={r} value={r}>{r}</option>)}
+                    {options.adminRegions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
             </FilterWrapper>
 
@@ -93,13 +94,13 @@ export const SponsorFilters = ({ filters, options, handlers }: SponsorFiltersPro
                     className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[120px]"
                 >
                     <option value="">Zona (Tutte)</option>
-                    {options.zones.map(z => <option key={z} value={z}>{z}</option>)}
+                    {options.zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
                 </select>
             </FilterWrapper>
 
-            <FilterWrapper isActive={!!filters.city} onClear={() => handlers.onCityChange('')}>
+            <FilterWrapper isActive={!!filters.cityId} onClear={() => handlers.onCityChange('')}>
                 <select 
-                    value={filters.city} 
+                    value={filters.cityId} 
                     onChange={e => handlers.onCityChange(e.target.value)} 
                     disabled={!filters.zone && !filters.adminRegion} 
                     className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[150px]"
@@ -125,9 +126,9 @@ export const SponsorFilters = ({ filters, options, handlers }: SponsorFiltersPro
                             className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[120px]"
                         >
                             <option value="">Tutti</option>
-                            <option value="gold">Gold</option>
-                            <option value="silver">Silver</option>
-                            <option value="standard">Standard</option>
+                            {options.tiers.map(t => (
+                                <option key={t} value={t} className="capitalize">{t}</option>
+                            ))}
                         </select>
                     </FilterWrapper>
                 </>

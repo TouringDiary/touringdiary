@@ -2,29 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 // Servizi, Tipi e Componenti UI
+import { PLAN_TYPES } from '@/constants/planTypes';
 import { getPricingVersions, FormattedPricingVersion } from '../../../services/dataService';
 import SponsorPlanCard from '../../marketing/SponsorPlanCard';
 import { MarketingTierConfig } from '@/types';
 
-// Tipi Locali
-type SponsorableType = 'activity' | 'shop' | 'tour_operator' | 'guide';
+// Tipi Locali - Utilizziamo i PlanType canonici come "Group Keys"
+type SponsorableGroup = typeof PLAN_TYPES.LOCAL_ACTIVITY | typeof PLAN_TYPES.DIGITAL_SHOWCASE | typeof PLAN_TYPES.TOUR_GUIDE | typeof PLAN_TYPES.TOUR_OPERATOR;
 
 interface SponsorPricingSelectorProps {
     onSelectionChange: (pricingVersionId: string | null) => void;
-    activeType: SponsorableType;
+    activeGroup: SponsorableGroup;
+    initialPlanType?: string; // Es: PLAN_TYPES.REGIONAL_ACTIVITY (Gold)
+    campaignCode?: string;
 }
 
 // Funzioni Helper
-const getRelevantPlanTypes = (type: SponsorableType): string[] => {
-    switch (type) {
-        case 'activity':
-            return ['LOCAL_ACTIVITY', 'REGIONAL_ACTIVITY'];
-        case 'shop':
-            return ['DIGITAL_SHOWCASE'];
-        case 'guide':
-            return ['TOUR_GUIDE'];
-        case 'tour_operator':
-            return ['TOUR_OPERATOR'];
+const getRelevantPlanTypes = (group: SponsorableGroup): string[] => {
+    switch (group) {
+        case PLAN_TYPES.LOCAL_ACTIVITY:
+            return [PLAN_TYPES.LOCAL_ACTIVITY, PLAN_TYPES.REGIONAL_ACTIVITY];
+        case PLAN_TYPES.DIGITAL_SHOWCASE:
+            return [PLAN_TYPES.DIGITAL_SHOWCASE];
+        case PLAN_TYPES.TOUR_GUIDE:
+            return [PLAN_TYPES.TOUR_GUIDE];
+        case PLAN_TYPES.TOUR_OPERATOR:
+            return [PLAN_TYPES.TOUR_OPERATOR];
         default:
             return [];
     }
@@ -32,35 +35,35 @@ const getRelevantPlanTypes = (type: SponsorableType): string[] => {
 
 const getPlanFeatures = (planType: string): string[] => {
     switch (planType) {
-        case 'LOCAL_ACTIVITY':
+        case PLAN_TYPES.LOCAL_ACTIVITY:
             return [
                 "Visibilità nella tua città",
                 "Badge Partner Silver",
                 "Incluso nei risultati di ricerca",
                 "Pagina dedicata base",
             ];
-        case 'REGIONAL_ACTIVITY':
+        case PLAN_TYPES.REGIONAL_ACTIVITY:
             return [
                 "Visibilità in tutta la regione",
                 "Badge Partner Gold",
                 "Posizionamento prioritario",
                 "Pagina dedicata avanzata",
             ];
-        case 'DIGITAL_SHOWCASE':
+        case PLAN_TYPES.DIGITAL_SHOWCASE:
             return [
                 "Vetrina digitale nel nostro shop",
                 "Badge Bottega Verificata",
                 "Promozione sui canali social",
                 "Pagina shop personalizzata",
             ];
-        case 'TOUR_GUIDE':
+        case PLAN_TYPES.TOUR_GUIDE:
              return [
                 "Visibilità come Guida Certificata",
                 "Badge Guida Professionista",
                 "Proponi i tuoi tour sulla piattaforma",
                 "Pagina profilo personale",
             ];
-        case 'TOUR_OPERATOR':
+        case PLAN_TYPES.TOUR_OPERATOR:
              return [
                 "Visibilità come Tour Operator",
                 "Badge Partner Ufficiale",
@@ -79,32 +82,59 @@ const formatDuration = (days: number): string => {
     }
     if (days >= 30) {
         const months = Math.round(days / 30);
-        return months > 1 ? `${months} Mesi` : 'Mese';
+        return months > 1 ? `${months} Mesi` : 'Mensile';
     }
     return `${days} Giorni`;
 };
 
 // Componente Principale
-export const SponsorPricingSelector: React.FC<SponsorPricingSelectorProps> = ({ onSelectionChange, activeType }) => {
+export const SponsorPricingSelector: React.FC<SponsorPricingSelectorProps> = ({ onSelectionChange, activeGroup, initialPlanType, campaignCode }) => {
     const [pricingVersions, setPricingVersions] = useState<FormattedPricingVersion[]>([]);
     const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    
+    // Grouping state per duration selection all'interno del plan
+    const [selectedDurations, setSelectedDurations] = useState<Record<string, string>>({});
 
     useEffect(() => {
         const loadAndProcessPricings = async () => {
             try {
                 setIsLoading(true);
                 setSelectedVersionId(null);
-                onSelectionChange(null);
+                // Non resettiamo onSelectionChange immediatamente se abbiamo un initialPlanType previsto
 
-                const versions = await getPricingVersions();
-                const relevantPlanTypes = getRelevantPlanTypes(activeType);
+                const versions = await getPricingVersions(campaignCode);
+                const relevantPlanTypes = getRelevantPlanTypes(activeGroup);
                 const filteredVersions = versions
                     .filter(v => relevantPlanTypes.includes(v.plan_type))
-                    .sort((a, b) => a.price - b.price); // Ordina per prezzo crescente
+                    .sort((a, b) => a.price - b.price);
 
                 setPricingVersions(filteredVersions);
+                
+                // Initialize default durations (shortest duration for each plan_type)
+                const defaultDurations: Record<string, string> = {};
+                filteredVersions.forEach(v => {
+                    const existing = defaultDurations[v.plan_type];
+                    if (!existing || v.duration_days < filteredVersions.find(f => f.pricing_version_id === existing)!.duration_days) {
+                         defaultDurations[v.plan_type] = v.pricing_version_id;
+                    }
+                });
+                setSelectedDurations(defaultDurations);
+
+                // AUTO-SELEZIONE INITIAL PLAN
+                if (initialPlanType && defaultDurations[initialPlanType]) {
+                    const targetId = defaultDurations[initialPlanType];
+                    setSelectedVersionId(targetId);
+                    onSelectionChange(targetId);
+                } else if (filteredVersions.length > 0) {
+                    // Fallback sulla prima opzione disponibile (durata minima) se nessun preference
+                    const firstType = relevantPlanTypes.find(t => defaultDurations[t]) || filteredVersions[0].plan_type;
+                    const targetId = defaultDurations[firstType];
+                    setSelectedVersionId(targetId);
+                    onSelectionChange(targetId);
+                }
+
                 setError(null);
             } catch (e) {
                 setError("Impossibile caricare i piani di sponsorizzazione.");
@@ -115,11 +145,19 @@ export const SponsorPricingSelector: React.FC<SponsorPricingSelectorProps> = ({ 
         };
 
         loadAndProcessPricings();
-    }, [activeType, onSelectionChange]);
+    }, [activeGroup, initialPlanType, onSelectionChange, campaignCode]);
 
     const handlePlanSelect = (pricingVersionId: string) => {
         setSelectedVersionId(pricingVersionId);
         onSelectionChange(pricingVersionId);
+    };
+    
+    const handleDurationChange = (planType: string, versionId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedDurations(prev => ({ ...prev, [planType]: versionId }));
+        if (selectedVersionId && pricingVersions.find(v => v.pricing_version_id === selectedVersionId)?.plan_type === planType) {
+             handlePlanSelect(versionId);
+        }
     };
     
     const selectedVersion = pricingVersions.find(v => v.pricing_version_id === selectedVersionId) || null;
@@ -140,37 +178,78 @@ export const SponsorPricingSelector: React.FC<SponsorPricingSelectorProps> = ({ 
             </div>
         );
     }
+    
+    // Raggruppa i pricingVersions per Plan Type
+    const groupedPlans = pricingVersions.reduce((acc, current) => {
+        if (!acc[current.plan_type]) {
+            acc[current.plan_type] = [];
+        }
+        acc[current.plan_type].push(current);
+        // sort in-place per avere durata crescente all'interno del gruppo
+        acc[current.plan_type].sort((a,b) => a.duration_days - b.duration_days);
+        return acc;
+    }, {} as Record<string, FormattedPricingVersion[]>);
 
-    const renderPlanCard = (version: FormattedPricingVersion) => {
-        const isSelected = selectedVersionId === version.pricing_version_id;
+    const renderPlanGroup = (planType: string) => {
+        const versions = groupedPlans[planType];
+        if (!versions || versions.length === 0) return null;
+        
+        const activeVersionId = selectedDurations[planType] || versions[0].pricing_version_id;
+        const activeVersion = versions.find(v => v.pricing_version_id === activeVersionId)!;
+        const isSelected = selectedVersionId === activeVersionId;
         
         const cardConfig: MarketingTierConfig = {
-            basePrice: version.price,
+            basePrice: activeVersion.price,
             promoPrice: undefined,
             promoActive: false,
-            customFeatureLabels: getPlanFeatures(version.plan_type),
+            customFeatureLabels: getPlanFeatures(planType),
         };
 
         return (
-             <SponsorPlanCard
-                key={version.pricing_version_id}
-                planKey={version.plan_name}
-                planType={version.plan_type}
-                config={cardConfig}
-                isSelected={isSelected}
-                onSelect={() => handlePlanSelect(version.pricing_version_id)}
-            />
+            <div key={planType} className="flex flex-col gap-3 relative">
+                {/* Il card component cliccabile */}
+                 <SponsorPlanCard
+                    planKey={activeVersion.plan_name}
+                    planType={planType}
+                    config={cardConfig}
+                    isSelected={isSelected}
+                    onSelect={() => handlePlanSelect(activeVersionId)}
+                    durationLabel={`/${formatDuration(activeVersion.duration_days)}`}
+                />
+                
+                {/* Selettore durata multi-options */}
+                {versions.length > 1 && (
+                    <div className="mt-2 flex gap-2 justify-center absolute -bottom-12 left-0 right-0 z-floating-panel w-full px-4">
+                        <div className="flex bg-slate-800 rounded-full p-1 border border-slate-700 shadow-md">
+                            {versions.map(v => (
+                                <button
+                                    key={v.pricing_version_id}
+                                    type="button"
+                                    onClick={(e) => handleDurationChange(planType, v.pricing_version_id, e)}
+                                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                                        activeVersionId === v.pricing_version_id
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                    }`}
+                                >
+                                    {formatDuration(v.duration_days)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         );
     };
 
     return (
-        <div className="w-full space-y-8">
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch`}>
-                {pricingVersions.map(renderPlanCard)}
+        <div className="w-full space-y-12">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-16 items-stretch`}>
+                {Object.keys(groupedPlans).map(renderPlanGroup)}
             </div>
 
             {selectedVersion && (
-                <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 flex items-center justify-between animate-in fade-in duration-300">
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 flex items-center justify-between animate-in fade-in duration-300 mt-12">
                     <h4 className="font-bold text-white">Riepilogo:</h4>
                     <div className="text-right">
                        <span className="font-mono text-lg text-emerald-400 bg-emerald-900/50 px-3 py-1 rounded">

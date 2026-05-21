@@ -1,5 +1,5 @@
-
 import { useState, useCallback } from 'react';
+import { PointOfInterest } from '../../types';
 
 export const usePoiFilters = () => {
     // --- PAGINATION ---
@@ -7,8 +7,8 @@ export const usePoiFilters = () => {
     const [pageSize, setPageSize] = useState(12);
 
     // --- MAIN FILTERS ---
-    const [viewStatus, setViewStatus] = useState<'published' | 'draft' | 'needs_check' | 'all'>('published');
-    const [activeCategory, setActiveCategory] = useState<string>('all');
+    const [viewStatus, setViewStatus] = useState<PointOfInterest['status'] | 'all'>('published');
+    const [activeCategory, setActiveCategory] = useState<PointOfInterest['category'] | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
     // --- ADVANCED FILTERS ---
@@ -25,11 +25,11 @@ export const usePoiFilters = () => {
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
     // --- ACTIONS ---
-    
+
     // Reset page on filter change
     const resetPage = useCallback(() => setPage(1), []);
 
-    const setCategory = useCallback((cat: string) => {
+    const setCategory = useCallback((cat: PointOfInterest['category'] | 'all') => {
         setActiveCategory(cat);
         setFilterSubCategory([]);
         setFilterRating(0);
@@ -83,7 +83,7 @@ export const usePoiFilters = () => {
         setFilterUpdatedDates,
         setFilterPriceLevel, // NEW
         setSortBy,
-        
+
         // Logic
         toggleSort,
         resetFilters

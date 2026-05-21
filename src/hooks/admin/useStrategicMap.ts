@@ -61,7 +61,7 @@ export const useStrategicMap = (allCities: CitySummary[]) => {
     const zoneData = useMemo(() => {
         return zones.map(z => {
             // Trova le città che appartengono a questa zona
-            const citiesInZone = allCities.filter(c => c.zone === z.name);
+            const citiesInZone = allCities.filter(c => c.tourist_zone_id === z.id);
             
             // Gestione Suggerimenti AI (Missing Cities)
             const suggestions = z.aiSuggestions || [];

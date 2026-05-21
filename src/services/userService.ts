@@ -1,5 +1,5 @@
 import type { User, UserRole, PermissionCode, UserStatus } from '../types/users';
-import { supabase } from './supabaseClient';
+import { supabase, setAuthOperationInProgress } from './supabaseClient';
 import { PERMISSIONS_DESCRIPTION } from '../data/system/permissions';
 
 // Helper Regex UUID (Protezione Database)
@@ -24,59 +24,106 @@ const generateReferralCode = (firstName: string): string => {
     return `${cleanName}-${suffix}`;
 };
 
+// --- VALIDATION HELPERS ---
+const USER_ROLES: UserRole[] = ['admin_all', 'admin_limited', 'business', 'user', 'guest'];
+const USER_STATUSES: UserStatus[] = ['active', 'inactive', 'suspended', 'pending'];
+
+const isUserRole = (role: unknown): role is UserRole =>
+    typeof role === 'string' && USER_ROLES.includes(role as UserRole);
+
+const isUserStatus = (status: unknown): status is UserStatus =>
+    typeof status === 'string' && USER_STATUSES.includes(status as UserStatus);
+
+import { DbProfile } from '../types/domain/index';
+
+/**
+ * Converte un riga del database (p) nell'interfaccia User del frontend.
+ */
+export const mapProfileToUser = (p: DbProfile): User => {
+    return {
+        id: p.id,
+        name: p.name || '',
+        email: p.email || '',
+        role: isUserRole(p.role) ? p.role : 'user',
+        status: isUserStatus(p.status) ? p.status : 'active',
+        isTestAccount: p.is_test_account || false,
+        nation: p.nation || 'Italia',
+        city: p.city || '',
+        vatNumber: p.vat_number || undefined,
+        companyName: p.company_name || undefined,
+        avatar: p.avatar_url || undefined,
+        xp: p.xp || 0,
+        unlockedRewards: p.unlocked_rewards || [],
+        registrationDate: p.created_at || new Date().toISOString(),
+        lastAccess: p.last_access || '',
+        referralCode: p.referral_code || undefined,
+        referredBy: p.referred_by || undefined,
+        extraQuota: p.extra_quota || 0,
+        extraQuotaExpiresAt: p.extra_quota_expires_at || undefined,
+        slug: p.slug || undefined
+    };
+};
+
 // --- CORE DB SYNC ---
 
 export const refreshUsersCache = async (): Promise<User[]> => {
     try {
+        let data: DbProfile[] | null = null;
+        let source = 'API';
 
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*');
+        // 1. TENTA IL CARICAMENTO TRAMITE API PROXY (Local Server)
+        try {
+            const apiResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/bootstrap/profiles`);
+            if (apiResponse.ok) {
+                const apiData = await apiResponse.json() as unknown;
 
-        console.log("SUPABASE DATA:", data)
-        console.log("SUPABASE ERROR:", error)
+                // Narrowing minimale per validare la risposta API
+                if (
+                    apiData &&
+                    typeof apiData === 'object' &&
+                    'success' in apiData &&
+                    'data' in apiData &&
+                    (apiData as { success: boolean }).success
+                ) {
+                    const payload = apiData as {
+                        success: boolean;
+                        data: DbProfile[];
+                    };
 
-        if (error) throw error;
+                    if (Array.isArray(payload.data)) {
+                        data = payload.data;
+                    }
+                }
+            }
+        } catch (apiError) {
+            console.warn("[UserService] Local API failed, falling back to Supabase.", apiError);
+        }
 
-        const mappedUsers: User[] = (data || []).map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            role: p.role as UserRole,
-            status: p.status as UserStatus,
-            isTestAccount: p.is_test_account || false,
-            nation: p.nation || 'Italia',
-            city: p.city || '',
-            vatNumber: p.vat_number,
-            companyName: p.company_name,
-            avatar: p.avatar_url,
-            xp: p.xp,
-            unlockedRewards: p.unlocked_rewards || [],
-            registrationDate: p.created_at,
-            lastAccess: p.last_access,
-            aiUsageFlash: { count: p.ai_flash_count || 0, date: p.ai_last_date || '' },
-            aiUsagePro: { count: p.ai_pro_count || 0, date: p.ai_last_date || '' },
-            aiUsage: { count: (p.ai_flash_count || 0) + (p.ai_pro_count || 0), date: p.ai_last_date || '' },
-            referralCode: p.referral_code,
-            referredBy: p.referred_by,
-            extraQuota: p.extra_quota || 0,
-            lastMonthlyReset: p.last_monthly_reset
-        }));
-        
-        console.log("MAPPED USERS:", mappedUsers)
+        // 2. FALLBACK A SUPABASE (Original Logic)
+        if (!data) {
+            source = 'Supabase';
+            const { data: supaData, error } = await supabase
+                .from('profiles')
+                .select('*');
+
+            if (error) throw error;
+            data = supaData;
+        }
+
+        console.log(`[UserService] Profiles loaded from ${source}:`, data?.length);
+
+        const mappedUsers: User[] = (data || []).map(p => mapProfileToUser(p));
 
         usersCache = mappedUsers;
-
         return usersCache;
 
-    } catch (e: any) {
-
-        if (e?.message === 'TypeError: Failed to fetch' || e?.message?.includes('fetch')) {
-            console.warn("User Sync (Background): Database offline.");
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg === 'TypeError: Failed to fetch' || msg.includes('fetch')) {
+            console.warn("User Sync (Background): Database/Proxy offline.");
         } else {
             console.warn("User Sync Warning:", e);
         }
-
         return [];
     }
 };
@@ -111,6 +158,169 @@ export const getUserIdByEmail = async (email: string): Promise<string | null> =>
     }
 };
 
+/**
+ * Funzione di Login Rapido per Sviluppo.
+ * Genera una sessione Supabase reale chiamando l'endpoint server protetto.
+ */
+export const devLogin = async (email: string): Promise<{ success: boolean; session?: unknown; error?: string }> => {
+    try {
+        console.log("[QuickLogin] devLogin start");
+        const url = `${import.meta.env.VITE_API_URL}/api/dev/login`;
+        console.log("[QuickLogin] fetch start", url);
+
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("[QuickLogin] Errore HTTP:", response.status, errorText);
+            return { success: false, error: `Errore Server (${response.status})` };
+        }
+
+        const apiData = await response.json() as unknown;
+
+        // Narrowing minimale payload dev login
+        if (
+            apiData &&
+            typeof apiData === 'object' &&
+            'success' in apiData
+        ) {
+            const typedData = apiData as {
+                success: boolean;
+                access_token?: string;
+                refresh_token?: string;
+                session?: unknown;
+                error?: string;
+            };
+
+            if (
+                typedData.success &&
+                typedData.access_token &&
+                typedData.refresh_token
+            ) {
+                console.log("[devLogin] Session received from server");
+
+                setAuthOperationInProgress(true);
+
+                try {
+                    const { error: sessionError } = await supabase.auth.setSession({
+                        access_token: typedData.access_token,
+                        refresh_token: typedData.refresh_token
+                    });
+
+                    if (sessionError) {
+                        console.error("[devLogin] Client setSession error:", sessionError);
+
+                        return {
+                            success: false,
+                            error: `Sessione ricevuta ma non valida: ${sessionError.message}`
+                        };
+                    }
+
+                    await refreshUsersCache();
+
+                    return {
+                        success: true,
+                        session: typedData.session
+                    };
+
+                } finally {
+                    setAuthOperationInProgress(false);
+                }
+            }
+
+            return {
+                success: false,
+                error: typedData.error || 'Errore durante la generazione della sessione.'
+            };
+        }
+
+        return {
+            success: false,
+            error: 'Payload API non valido.'
+        };
+
+    } catch (e: unknown) {
+        console.error("[QuickLogin] Errore fetch:", e);
+        const msg = e instanceof Error ? e.message : 'Network error.';
+        return { success: false, error: msg };
+    }
+};
+
+/**
+ * Recupera il profilo completo dell'utente corrente tramite l'API proxy.
+ * Questo bypassa eventuali problemi di RLS nel frontend.
+ * @param token Token di accesso opzionale (se fornito, evita getSession() concorrenti)
+ */
+export const getCurrentUserProfile = async (token?: string): Promise<User | null> => {
+    try {
+        let accessToken = token;
+
+        // Se il token non è fornito, lo recuperiamo dalla sessione (può causare lock se concorrente)
+        if (!accessToken) {
+            const { data: { session } } = await supabase.auth.getSession();
+            accessToken = session?.access_token;
+        }
+
+        if (!accessToken) return null;
+
+        console.log("[userService] Fetching profile via proxy with token...");
+
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/me`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("[userService] Failed to fetch profile via proxy:", errorText);
+            return null;
+        }
+
+        const apiData = await response.json() as unknown;
+
+        // Narrowing per /api/user/me
+        if (
+            apiData &&
+            typeof apiData === 'object' &&
+            'success' in apiData &&
+            'user' in apiData &&
+            (apiData as { success: boolean }).success
+        ) {
+            const payload = apiData as {
+                success: boolean;
+                user: DbProfile;
+            };
+
+            if (
+                payload.user &&
+                typeof payload.user === 'object' &&
+                'id' in payload.user
+            ) {
+                const mappedUser = mapProfileToUser(payload.user);
+
+                console.log(
+                    "[userService] Profile mapped successfully:",
+                    mappedUser.name
+                );
+
+                return mappedUser;
+            }
+        }
+
+        return null;
+    } catch (e) {
+        console.error("[userService] Error in getCurrentUserProfile:", e);
+        return null;
+    }
+};
+
 export const authenticateUser = async (
     email: string,
     password: string
@@ -138,8 +348,33 @@ export const authenticateUser = async (
 };
 
 export const registerUser = async (
-    userData: { name: string, email: string, password: string, referredBy?: string }
-): Promise<{ user: User | null, error: string | null }> => {
+    userData: { name: string, email: string, password: string, role?: string, firstName?: string, lastName?: string, isTestAccount?: boolean, referredBy?: string }
+): Promise<{ user: User | null; success?: boolean; error: string | null }> => {
+    // Se abbiamo un ruolo specifico e siamo in modalità Admin (determinata dal contesto di chiamata)
+    // usiamo l'endpoint server-side per saltare la conferma email.
+    if (userData.role) {
+        try {
+            console.log("[registerUser] Invio payload admin:", userData);
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/create-user`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userData)
+            });
+            const data = await response.json() as unknown;
+
+            if (data && typeof data === 'object' && 'success' in data) {
+                const typedData = data as { success: boolean; user: User | null; error: string | null };
+                if (typedData.success) {
+                    return { success: true, user: typedData.user, error: null };
+                }
+                return { success: false, user: null, error: typedData.error || 'Unknown admin registration error' };
+            }
+            return { success: false, user: null, error: "Invalid response from Admin registration API." };
+        } catch (e: unknown) {
+            return { success: false, user: null, error: "Network error in Admin registration." };
+        }
+    }
+
     try {
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: userData.email,
@@ -153,13 +388,19 @@ export const registerUser = async (
             return { user: null, error: "Registrazione fallita: utente non creato." };
         }
 
-        const referralCode = generateReferralCode(userData.name);
+        const mergedData = userData;
+        const safeName =
+            mergedData.name ||
+            `${mergedData.firstName ?? ''} ${mergedData.lastName ?? ''}`.trim() ||
+            mergedData.email.split('@')[0];
+
+        const referralCode = generateReferralCode(safeName);
 
         const { data, error: profileError } = await supabase
             .from('profiles')
             .insert({
                 id: authData.user.id,
-                name: userData.name,
+                name: safeName,
                 email: userData.email,
                 role: 'user',
                 status: 'active',
@@ -178,8 +419,8 @@ export const registerUser = async (
             id: data.id,
             name: data.name,
             email: data.email,
-            role: data.role as UserRole,
-            status: data.status as UserStatus,
+            role: isUserRole(data.role) ? data.role : 'user',
+            status: isUserStatus(data.status) ? data.status : 'active',
             isTestAccount: data.is_test_account || false,
             nation: data.nation || 'Italia',
             city: data.city || '',
@@ -190,22 +431,20 @@ export const registerUser = async (
             unlockedRewards: data.unlocked_rewards || [],
             registrationDate: data.created_at,
             lastAccess: data.last_access,
-            aiUsageFlash: { count: data.ai_flash_count || 0, date: data.ai_last_date || '' },
-            aiUsagePro: { count: data.ai_pro_count || 0, date: data.ai_last_date || '' },
-            aiUsage: { count: (data.ai_flash_count || 0) + (data.ai_pro_count || 0), date: data.ai_last_date || '' },
             referralCode: data.referral_code,
             referredBy: data.referred_by,
             extraQuota: data.extra_quota || 0,
-            lastMonthlyReset: data.last_monthly_reset
+            slug: data.slug
         };
-        
+
         usersCache.push(newUser);
 
-        return { user: newUser, error: null };
+        return { success: true, user: newUser, error: null };
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("Errore imprevisto in registerUser:", e);
-        return { user: null, error: e.message || 'Errore sconosciuto durante la registrazione.' };
+        const msg = e instanceof Error ? e.message : 'Errore sconosciuto durante la registrazione.';
+        return { user: null, error: msg };
     }
 };
 

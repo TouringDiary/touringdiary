@@ -1,6 +1,9 @@
-
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { X, Navigation, ChevronLeft, ChevronRight, MapPin, ArrowRight, Layers, Locate, Check } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Navigation, ChevronLeft, ChevronRight, MapPin, ArrowRight, Layers, Check } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CityDetails, CitySummary } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { calculateDistance } from '../../services/geo';
@@ -49,12 +52,7 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
             .sort((a, b) => a.distance - b.distance);
     }, [currentCity, liveManifest, maxDistance]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+
 
     const scroll = (direction: 'left' | 'right') => {
         if (scrollRef.current) {
@@ -100,13 +98,20 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
         onClose();
     };
 
+    useGlobalModalEscape(isOpen, onClose);
+
+
     if (!isOpen) return null;
 
     // Altezza card sincronizzata per i bottoni laterali
     const cardHeightClass = "h-[22rem] md:h-[26rem]";
 
-    return (
-        <div className="fixed top-24 bottom-0 left-0 right-0 z-[2000] flex items-center justify-center p-0 md:p-4">
+    return createPortal(
+        <div 
+            className="td-modal-overlay animate-in slide-in-from-bottom-5 !p-0 md:!p-4 pointer-events-auto"
+            onClick={onClose}
+            style={{ zIndex: Z_OVERLAY }}
+        >
             <style>{`
                 .slider-distance { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #1e293b; outline: none; }
                 /* Compass Icon SVG (Bussola) - Smaller Size (20px) */
@@ -131,12 +136,14 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
                 .slider-distance::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.2); }
             `}</style>
             
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose}></div>
-            
-            <div className="relative bg-[#020617] w-full max-w-7xl h-full md:h-auto md:max-h-[98vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5">
+            <div 
+                className="relative bg-[#020617] w-full max-w-7xl h-full md:h-auto md:max-h-[98vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {/* HEADER */}
-                <div className="flex justify-between items-center px-4 md:px-6 py-3 border-b border-slate-800 bg-[#020617] z-20 shrink-0">
+                <div className="flex justify-between items-center px-4 md:px-6 py-3 border-b border-slate-800 bg-[#020617] shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-amber-500">
                             <Navigation className="w-5 h-5 transform rotate-45"/>
@@ -146,10 +153,12 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
                             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Partenza da {currentCity.name}</p>
                         </div>
                     </div>
-                    {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                        <X className="w-5 h-5"/>
-                    </button>
+                    <CloseButton 
+                        onClose={onClose}
+                        variant="primary"
+                    />
+
+
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[#020617] flex flex-col relative">
@@ -187,7 +196,7 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
                                             step="5" 
                                             value={maxDistance} 
                                             onChange={(e) => setMaxDistance(parseInt(e.target.value))} 
-                                            className="slider-distance w-full cursor-pointer relative z-10"
+                                            className="slider-distance w-full cursor-pointer relative z-floating-panel"
                                         />
                                         <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 flex justify-between pointer-events-none opacity-30 px-1">
                                             {[...Array(10)].map((_,i) => <div key={i} className="w-px h-1.5 bg-slate-400"></div>)}
@@ -338,6 +347,10 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
 
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

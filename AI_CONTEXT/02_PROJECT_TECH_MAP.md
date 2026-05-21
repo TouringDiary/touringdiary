@@ -1,72 +1,273 @@
+# 🗺️ DOC 02: PROJECT TECH MAP (v45.0 — EDGE FUNCTIONS + CREDIT ENGINE CERTIFICATO)
 
-# 🗺️ DOC 01: PROJECT TECH_MAP (v43.0 - UI UNIFICATION)
+Questo documento descrive l’architettura tecnica reale del sistema TouringDiary.
 
-## 📍 STACK TECNOLOGICO PRINCIPALE
 
-*   **Frontend Framework:** React (con Vite come build tool).
-*   **Linguaggio:** TypeScript per la tipizzazione statica e la robustezza del codice.
-*   **Backend & Database:** Supabase (PostgreSQL con API RESTful e servizi di autenticazione).
-*   **Styling:** TailwindCSS per un approccio utility-first alla UI.
+Serve per comprendere:
 
----
+• backend Supabase
+• Edge Functions
+• credit engine AI
+• pricing engine
+• sponsor lifecycle
+• pipeline servizi core
 
-## 📍 STRUTTURA CARTELLE AGGIORNATA
-
-### `src/components/layout/`
-*   **`AppCoordinator.tsx`**: Orchestratore principale (snello).
-*   **`MainLayout.tsx`**: Layout strutturale (Header, Sidebar, Content).
-*   **`AppShell.tsx`**: Contenitore visivo (Z-Index, posizionamento fisso).
-*   **`AppRouter.tsx`**: (CRITICAL NOTE) Implementa un pattern di routing "Stateful" non standard. Tutta la logica è nel componente MainContent, non in rotte multiple.
-*   **`ModalManager.tsx`**: Gestore centralizzato di tutti i modali.
-
-### `src/components/common/`
-*   **`UniversalCard.tsx`**: (NEW) Card polimorfica per POI (sostituisce ShowcaseCards).
-*   `ImageWithFallback.tsx`, `StarRating.tsx`, `PaginationControls.tsx`.
-
-### `src/components/modals/`
-*   **`PoiDetailModal.tsx`**: (REFACTORED) Modale universale intelligente (Standard + Business).
-*   *`BusinessCardModal.tsx`*: (DEPRECATED/MERGED) Logica integrata in PoiDetailModal.
-*   `ReviewModal.tsx`, `SuggestionModal.tsx`, etc.
-
-### `src/services/`
-*   **Core:** `supabaseClient.ts`, `storageService.ts`, `settingsService.ts`.
-*   **Domain:** `cityService.ts`, `mediaService.ts`, `communityService.ts`.
-*   **AI:** `aiClient.ts`, `aiPlanner.ts`.
-
-### `src/hooks/`
-*   **Core:** `useAppUI.ts`, `useAppInitialization.ts`.
-*   **Features:** `useNavigationController.ts` (Deprecato), `useNavigationContext.ts` (Attivo).
-
-### `src/context/`
-*   `NavigationContext.tsx`, `DiaryInteractionContext.tsx`, `UIContext.tsx`.
-
----
-*Mappa allineata al refactoring Universal UI.*
 
 ---
 
-### Design System Architecture
+# STACK TECNOLOGICO PRINCIPALE
 
-**Flusso Dati delle Regole di Stile**
-Il Design System è interamente guidato da una configurazione dinamica e non contiene regole di stile hardcoded nel codice sorgente. Il flusso è il seguente:
+Frontend
 
-1.  **Origine Dati (Supabase)**:
-    *   Le definizioni delle `StyleRule` sono memorizzate nella tabella `public.global_settings` di Supabase.
-    *   Le regole si trovano nel record con `key = 'site_design'`. Il campo `value` di questa riga contiene un oggetto JSON con una proprietà `components`, che è la collezione di tutte le regole.
+React + Vite + TypeScript
 
-2.  **Caricamento nel Contesto (Context Layer)**:
-    *   All'avvio dell'app, `ConfigContext` carica la configurazione `site_design` dal database.
-    *   I dati diventano disponibili globalmente tramite l'hook `useConfig()`, accessibili tramite `configs.site_design.components`.
 
-3.  **Rendering Dinamico (UI Layer)**:
-    *   Il componente `src/components/admin/design/DesignSystemSettings.tsx` utilizza `useConfig()` per ottenere le regole.
-    *   I tab delle sezioni (es. "Bottoni", "Card") vengono generati dinamicamente raggruppando le regole in base al valore del loro campo `section`.
-    *   Per creare una nuova sezione, è sufficiente aggiungere al database una `StyleRule` con un nuovo valore per `section` (es. `"typography"`). Il componente la renderizzerà automaticamente in un nuovo tab.
+Backend
 
-4.  **Editing e Preview**:
-    *   `DesignRuleEditor.tsx` riceve le regole e gestisce la loro modifica e l'anteprima.
-    *   Le preview sono generate dinamicamente utilizzando le proprietà `preview_type`, `preview_size`, e `preview_content` definite in ogni regola.
+Supabase
 
-Questa architettura rende il Design System estensibile direttamente dal database, senza richiedere modifiche al codice dei componenti admin per aggiungere nuove sezioni o regole.
+Include:
+
+• PostgreSQL database
+• Auth
+• Storage
+• Edge Functions
+
+
+Styling
+
+TailwindCSS
+
+
+AI Engine
+
+Gemini tramite Edge Functions
+
+
+DESCRIZIONE SEMPLICE
+
+Il browser comunica sempre con Supabase prima dell’AI.
+
 
 ---
+
+# EDGE FUNCTIONS LAYER
+
+Funzioni verificate:
+
+• gemini-chat
+• gemini-task
+• purchase-extra-credits
+• stripe-webhook
+
+
+Responsabilità:
+
+• validazione prompt
+• verifica crediti
+• logging token usage
+• gestione pagamenti Stripe
+
+
+---
+
+# PIPELINE AI CERTIFICATA
+
+Pipeline reale:
+
+Frontend
+→ Edge Function
+→ RPC consume_ai_credits
+→ Gemini API
+→ RPC log_ai_usage_tokens
+→ risposta frontend
+
+
+DESCRIZIONE SEMPLICE
+
+I crediti vengono scalati prima della chiamata AI.
+
+
+---
+
+# CREDIT ENGINE LAYER
+
+Sistema gestione crediti verificato.
+
+Tabelle:
+
+• user_ai_credits
+• credit_transactions
+• ai_global_usage
+• extra_credit_packages
+
+
+RPC:
+
+• consume_ai_credits
+• log_ai_usage_tokens
+
+
+Responsabilità:
+
+• verifica saldo
+• decremento crediti
+• logging token
+• storico transazioni
+
+
+---
+
+# PRICING ENGINE LAYER
+
+Sistema versioning prezzi verificato.
+
+Tabelle:
+
+• pricing_versions
+• campaigns
+• subscriptions
+• extra_credit_packages
+
+
+Responsabilità:
+
+• definizione piani
+• gestione limiti AI
+• attivazione versioni pricing
+
+
+---
+
+# SUBSCRIPTION ENGINE
+
+Gestito tramite:
+
+subscriptionService
+
+
+Responsabilità:
+
+• calcolo limiti residui
+• collegamento pricing_versions
+• collegamento sponsor_id
+
+
+---
+
+# SPONSOR ACTIVATION ENGINE
+
+Servizio verificato:
+
+sponsorActivationService
+
+
+Responsabilità:
+
+• attivazione sponsor
+• collegamento subscription
+• gestione stato sponsor
+
+
+---
+
+# GAMIFICATION ENGINE
+
+Servizio verificato:
+
+gamificationService
+
+
+Tabelle:
+
+• xp_actions
+• badges
+• rewards_catalog
+
+
+Responsabilità:
+
+• gestione XP
+• assegnazione badge
+• gestione reward
+
+
+---
+
+# COMMUNITY MEDIA ENGINE
+
+Servizio verificato:
+
+photoService
+
+
+Tabelle:
+
+• community_posts
+• live_snaps
+• photo_likes
+
+
+Responsabilità:
+
+• upload contenuti
+• moderazione
+• interazioni social
+
+
+---
+
+# RANKING ENGINE
+
+Servizio verificato:
+
+rankingService
+
+
+Hook:
+
+useRankingsLogic
+
+
+Responsabilità:
+
+• calcolo leaderboard
+• aggregazione attività utenti
+
+
+---
+
+# STAGING IMPORT ENGINE
+
+Servizi verificati:
+
+• importService
+• stagingService
+
+
+Tabella:
+
+pois_staging
+
+
+Responsabilità:
+
+• import dati esterni
+• validazione staging
+• inserimento definitivo POI
+
+
+---
+
+# TYPES SAFETY LAYER
+
+File principale:
+
+src/types/supabase.ts
+
+
+Responsabilità:
+
+• mapping schema DB
+• type safety frontend
+• validazione query

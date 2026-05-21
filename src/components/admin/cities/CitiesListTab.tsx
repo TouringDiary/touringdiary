@@ -42,7 +42,7 @@ const ORDER_OPTIONS = [
 ];
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-    <div className={`fixed top-6 right-6 z-[2000] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}>
+    <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}>
         {type === 'success' ? <CheckCircle className="w-6 h-6 shrink-0"/> : <AlertTriangle className="w-6 h-6 shrink-0"/>}
         <div className="font-bold text-sm">{message}</div>
         <button onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full"><X className="w-4 h-4"/></button>
@@ -183,8 +183,8 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
         // Apri modale log
         setShowProcessModal(true);
         
-        // Esegui processo (usa hook)
-        await generator.executeMagicAdd(name, poiCount, currentUser);
+        // Esegui processo (usa hook) - Passiamo la regione del filtro per disambiguazione
+        await generator.executeMagicAdd(name, poiCount, currentUser, undefined, geoFilter.region);
         
         // A fine processo il modale log si chiude o mostra successo, e ricarica la lista
         list.forceReload();
@@ -387,7 +387,7 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
                 <div className="overflow-x-auto flex-1 custom-scrollbar">
                     <table className="w-full text-left border-collapse table-auto">
                         <thead>
-                            <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase tracking-widest font-black sticky top-0 z-20 border-b border-slate-800">
+                            <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase tracking-widest font-black sticky top-0 z-dropdown border-b border-slate-800">
                                 <th className="p-3 text-center border-r border-slate-800/50 w-[40px]"><button onClick={list.toggleAllPage}>{paginatedData.length > 0 && paginatedData.every((c: CitySummary) => list.selectedIds.has(c.id)) ? <CheckSquare className="w-3.5 h-3.5 text-indigo-500"/> : <Square className="w-3.5 h-3.5 opacity-30"/>}</button></th>
                                 <Th id="continent" label="Continente" />
                                 <Th id="nation" label="Nazione" />

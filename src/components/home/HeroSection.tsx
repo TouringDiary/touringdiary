@@ -11,7 +11,10 @@ interface HeroSectionProps {
     onSelectCity: (id: string) => void;
     selectedZone: string;
     setSelectedZone: (z: string) => void;
+    selectedSeason: string;
+    setSelectedSeason: (s: string) => void;
     cityManifest: CitySummary[]; 
+    onFilteredCitiesChange?: (cities: CitySummary[]) => void;
 }
 
 export const HeroSection = (props: HeroSectionProps) => {
@@ -47,8 +50,16 @@ export const HeroSection = (props: HeroSectionProps) => {
         handleToggleCategory,
         handleSeasonClick,
         handleManualCitySelect,
-        handleAiSubmit
+        handleAiSubmit,
+        selectedSeason,
+        setSelectedSeason
     } = useHeroLogic(props);
+
+    React.useEffect(() => {
+        if (props.onFilteredCitiesChange) {
+            props.onFilteredCitiesChange(filteredCities);
+        }
+    }, [filteredCities, props.onFilteredCitiesChange]);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[16rem] transition-all duration-500 ease-in-out">
@@ -66,6 +77,7 @@ export const HeroSection = (props: HeroSectionProps) => {
                 isSearchFocused={isSearchFocused}
                 heroImage={heroImage}
                 activeCategories={props.activeCategories}
+                selectedSeason={selectedSeason}
 
                 // Data
                 uniqueZones={uniqueZones}
@@ -95,6 +107,7 @@ export const HeroSection = (props: HeroSectionProps) => {
                 handleSeasonClick={handleSeasonClick}
                 handleManualCitySelect={handleManualCitySelect}
                 setActiveCategories={props.setActiveCategories}
+                handleAiSubmit={handleAiSubmit}
             />
             
             {/* DESTRA: AI CONSULTANT */}

@@ -404,21 +404,21 @@ export const RoadbookDocument = ({ itinerary, roadbook, activeCityName, logoBase
                             <Text style={styles.summaryColTitle}>Budget Stimato</Text>
                             <View style={styles.summaryRow}>
                                 <Text style={styles.summaryLabel}>Trasporti</Text>
-                                <Text style={styles.summaryVal}>€ {summaryData.totalTransportCost.toFixed(2)}</Text>
+                                <Text style={styles.summaryVal}>€ {(summaryData?.totalTransportCost || 0).toFixed(2)}</Text>
                             </View>
                             <View style={styles.summaryRow}>
                                 <Text style={styles.summaryLabel}>Ingressi</Text>
-                                <Text style={styles.summaryVal}>€ {summaryData.totalTicketCost.toFixed(2)}</Text>
+                                <Text style={styles.summaryVal}>€ {(summaryData?.totalTicketCost || 0).toFixed(2)}</Text>
                             </View>
                             <View style={styles.summaryRow}>
                                 <Text style={styles.summaryLabel}>Cibo</Text>
-                                <Text style={styles.summaryVal}>€ {summaryData.totalFoodCost.toFixed(2)}</Text>
+                                <Text style={styles.summaryVal}>€ {(summaryData?.totalFoodCost || 0).toFixed(2)}</Text>
                             </View>
                             
                             <View style={styles.summaryTotal}>
                                 <Text style={styles.summaryTotalLabel}>TOTALE</Text>
                                 <Text style={styles.summaryTotalVal}>
-                                    € {(summaryData.totalTransportCost + summaryData.totalTicketCost + summaryData.totalFoodCost).toFixed(2)}
+                                    € {((summaryData?.totalTransportCost || 0) + (summaryData?.totalTicketCost || 0) + (summaryData?.totalFoodCost || 0)).toFixed(2)}
                                 </Text>
                             </View>
                         </View>

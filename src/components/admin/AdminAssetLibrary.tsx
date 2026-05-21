@@ -257,19 +257,19 @@ export const AdminAssetLibrary = () => {
                                         className={`group relative bg-slate-950 rounded-xl border overflow-hidden shadow-md transition-all flex flex-col h-72 cursor-pointer ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-slate-800 hover:border-slate-600'}`}
                                     >
                                         {/* CHECKBOX OVERLAY */}
-                                        <div className="absolute top-2 left-2 z-20">
+                                        <div className="absolute top-2 left-2 z-dropdown">
                                             <div className={`p-1 rounded-md shadow-lg transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'bg-black/40 text-slate-300 hover:bg-black/60'}`}>
                                                 {isSelected ? <CheckSquare className="w-4 h-4"/> : <Square className="w-4 h-4"/>}
                                             </div>
                                         </div>
 
                                         {/* USAGE BADGE */}
-                                        <div className="absolute top-2 right-2 z-20">
+                                        <div className="absolute top-2 right-2 z-dropdown">
                                             {isUsed ? (
                                                 <div className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded shadow-lg flex items-center gap-1 group/tooltip relative">
                                                     <LinkIcon className="w-3 h-3"/> IN USO
                                                     {/* TOOLTIP ON HOVER */}
-                                                    <div className="absolute top-full right-0 mt-2 w-48 bg-slate-800 border border-slate-700 text-slate-300 p-2 rounded-lg text-[9px] shadow-xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50">
+                                                    <div className="absolute top-full right-0 mt-2 w-48 bg-slate-800 border border-slate-700 text-slate-300 p-2 rounded-lg text-[9px] shadow-xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-admin-modal">
                                                         <div className="font-bold text-white mb-1 border-b border-slate-700 pb-1">Usato in:</div>
                                                         <ul className="list-disc list-inside">
                                                             {contexts.slice(0, 5).map((c, i) => <li key={i} className="truncate">{c}</li>)}

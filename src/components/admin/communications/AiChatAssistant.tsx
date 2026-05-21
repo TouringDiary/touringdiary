@@ -1,7 +1,8 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, X, Sparkles, Copy, Loader2, RefreshCw } from 'lucide-react';
-import { getAiClient } from '../../../services/ai/aiClient';
+
 
 // ... (INTERFACES)
 
@@ -26,7 +27,7 @@ export const AiChatAssistant = ({ currentContext, onApply, onClose }: { currentC
         setIsLoading(true);
 
         try {
-            const ai = getAiClient();
+            
             
             const systemPrompt = `Sei un esperto copywriter per app turistiche.
             CONTESTO ATTUALE:
@@ -38,8 +39,8 @@ export const AiChatAssistant = ({ currentContext, onApply, onClose }: { currentC
 
             const fullPrompt = `${systemPrompt}\n\nRICHIESTA UTENTE: ${userMsg}`;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-3.1-pro-preview',
+            const response = await aiGateway.generateLegacy({
+                model: 'gemini-2.0-pro',
                 contents: fullPrompt,
             });
 
@@ -53,7 +54,7 @@ export const AiChatAssistant = ({ currentContext, onApply, onClose }: { currentC
     
     // ... (UI RENDERING)
     return (
-        <div className="flex flex-col h-full bg-slate-900 border-l border-slate-800 shadow-2xl w-80 md:w-96 shrink-0 absolute right-0 top-0 bottom-0 z-50 animate-in slide-in-from-right-10">
+        <div className="flex flex-col h-full bg-slate-900 border-l border-slate-800 shadow-2xl w-80 md:w-96 shrink-0 absolute right-0 top-0 bottom-0 z-admin-modal animate-in slide-in-from-right-10">
              {/* ... */}
              <div className="p-3 border-t border-slate-800 bg-slate-950">
                 <div className="flex gap-2">

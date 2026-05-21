@@ -31,21 +31,21 @@ export const DiaryMemoCard: React.FC<DiaryMemoCardProps> = ({
     // 4. Colonna Contenuto: Flex-1
 
     return (
-        <div className="flex w-full min-h-[1.75rem] group relative z-10 mb-1 items-start">
+        <div className="flex w-full h-[1.75rem] group relative z-floating-panel mb-0 items-center">
             
             {/* 1. SPAZIATORE SX (Salta la colonna KM/Linea) */}
             <div className="w-14 shrink-0"></div>
 
             {/* 2. COLONNA ICONA (Allineata con icone POI) */}
-            <div className="w-10 flex justify-center shrink-0 pt-1">
-                <Paperclip className="w-4 h-4 text-slate-400 transform -rotate-45"/>
+            <div className="w-10 flex items-center justify-center shrink-0 h-full">
+                <Paperclip className="w-[14px] h-[14px] text-slate-400 transform -rotate-45"/>
             </div>
 
             {/* 3. COLONNA ORARIO & CONTENUTO */}
-            <div className="flex-1 flex items-start gap-0 min-w-0">
+            <div className="flex-1 flex items-center gap-0 min-w-0 h-full">
                 
                 {/* 3a. ORARIO */}
-                <div className="w-12 flex justify-center shrink-0 pt-0.5">
+                <div className="w-12 flex items-center justify-center shrink-0 h-full">
                      {editingTimeId === item.id ? (
                         <select 
                             autoFocus 
@@ -59,7 +59,7 @@ export const DiaryMemoCard: React.FC<DiaryMemoCardProps> = ({
                     ) : (
                         <button 
                             onClick={() => onSetEditingTime(item.id)} 
-                            className="text-[10px] font-mono font-bold text-slate-400 hover:text-indigo-600 transition-colors"
+                            className="text-[10px] font-mono font-bold text-slate-400 hover:text-indigo-600 transition-colors leading-[1.75rem] h-full flex items-center"
                         >
                             {item.timeSlotStr || '--:--'}
                         </button>
@@ -69,13 +69,13 @@ export const DiaryMemoCard: React.FC<DiaryMemoCardProps> = ({
                 {/* 3b. CARD MEMO (ELEGANT SOFT STYLE) */}
                 <div 
                     onClick={() => item.linkedResourceId && onMemoClick(item.linkedResourceId)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm flex items-center justify-between cursor-pointer hover:bg-white hover:border-indigo-200 hover:shadow-md transition-all group/card ml-1 relative overflow-hidden"
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 h-[1.75rem] shadow-sm flex items-center justify-between cursor-pointer hover:bg-white hover:border-indigo-200 hover:shadow-md transition-all group/card ml-1 relative overflow-hidden"
                 >
                     <div className="w-0.5 h-full absolute left-0 top-0 bg-indigo-400/50"></div>
                     
-                    <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="text-xs font-serif italic text-slate-600 truncate">
-                            Nota: <span className="font-semibold text-slate-800 not-italic">{item.poi.name}</span>
+                    <div className="flex items-center gap-2 overflow-hidden h-full">
+                        <span className="text-xs font-serif italic text-slate-600 truncate leading-[1.75rem] h-full flex items-center">
+                            Nota: <span className="font-semibold text-slate-800 not-italic ml-1">{item.poi.name}</span>
                         </span>
                         {item.linkedResourceId && <Link2 className="w-3 h-3 text-indigo-300"/>}
                     </div>

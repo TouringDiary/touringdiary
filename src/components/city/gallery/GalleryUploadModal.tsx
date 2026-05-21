@@ -1,6 +1,7 @@
-
+import { Z_MODAL } from '@/constants/zIndex';
 import React, { useState } from 'react';
-import { X, Share2, Loader2, Send, AlertCircle } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Share2, Loader2, Send, AlertCircle } from 'lucide-react';
 
 interface Props {
     previewUrl: string;
@@ -16,11 +17,11 @@ export const GalleryUploadModal = ({ previewUrl, isUploading, uploadError, cityN
     const [shareToLive, setShareToLive] = useState(true);
 
     return (
-        <div className="absolute inset-0 z-[50] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm rounded-xl h-full min-h-[500px]">
+        <div style={{ zIndex: Z_MODAL }} className="absolute inset-0 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm rounded-xl h-full min-h-[500px]">
             <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-sm shadow-2xl animate-in zoom-in-95">
                 <div className="flex justify-between items-start mb-4">
                     <h3 className="text-lg font-bold text-white">Descrivi il tuo scatto</h3>
-                    <button onClick={onCancel} className="p-1 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+                    <CloseButton onClose={onCancel} variant="primary" />
                 </div>
                 
                 <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4 border border-slate-800">
@@ -73,3 +74,6 @@ export const GalleryUploadModal = ({ previewUrl, isUploading, uploadError, cityN
         </div>
     );
 };
+
+
+

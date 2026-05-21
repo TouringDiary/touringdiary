@@ -75,7 +75,7 @@ export const PoiImageSection = ({
                     <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent opacity-80"></div>
                     
                     {/* ADD TO ITINERARY BUTTON (Top Right) */}
-                    <div className="absolute top-4 right-4 z-30">
+                    <div className="absolute top-4 right-4 z-dropdown">
                         <button 
                             onClick={() => onToggleItinerary(poi)} 
                             className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest shadow-2xl transition-all transform hover:scale-105 active:scale-95 border ${isInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 border-amber-500 text-white'}`}
@@ -86,7 +86,7 @@ export const PoiImageSection = ({
                     </div>
 
                     {/* RATING & REVIEWS BUTTON (Bottom Left) */}
-                    <div className="absolute bottom-6 left-6 flex items-end gap-4 text-white z-20">
+                    <div className="absolute bottom-6 left-6 flex items-end gap-4 text-white z-dropdown">
                         <div className="bg-black/60 backdrop-blur-md p-3 rounded-2xl border border-white/10 flex flex-col items-center min-w-[70px] shadow-2xl">
                             <span className="text-2xl font-black leading-none">{displayRating}</span>
                             <StarRating value={poi.rating || 0} size="w-3 h-3" showValue={false}/>
@@ -101,7 +101,7 @@ export const PoiImageSection = ({
 
                     {/* SLIDER CONTROLS */}
                     {images.length > 1 && (
-                        <div className="absolute inset-x-4 top-1/2 -translate-x-1/2 flex justify-between pointer-events-none z-20">
+                        <div className="absolute inset-x-4 top-1/2 -translate-x-1/2 flex justify-between pointer-events-none z-dropdown">
                             <button onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(p => (p-1+images.length)%images.length); }} className="p-2 bg-black/40 hover:bg-black/80 text-white rounded-full backdrop-blur border border-white/10 pointer-events-auto transition-all"><ChevronLeft className="w-6 h-6"/></button>
                             <button onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(p => (p+1)%images.length); }} className="p-2 bg-black/40 hover:bg-black/80 text-white rounded-full backdrop-blur border border-white/10 pointer-events-auto transition-all"><ChevronRight className="w-6 h-6"/></button>
                         </div>

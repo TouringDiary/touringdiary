@@ -1,3 +1,4 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Save, ArrowLeft, Plus, Trash2, MapPin, Calendar, Clock, Search, GripVertical, AlertCircle, CheckCircle, Image as ImageIcon, Layout, List, Eye, EyeOff, Bot, Sparkles, X, AlertTriangle, Loader2 } from 'lucide-react';
@@ -6,7 +7,7 @@ import { savePremadeItinerary, getFilteredCommunityItinerariesAsync } from '../.
 import { getCityDetails } from '../../services/cityService';
 import { AdminImageInput } from './AdminImageInput';
 import { ImageWithFallback } from '../common/ImageWithFallback';
-import { getAiClient } from '../../services/ai/aiClient';
+
 
 interface Props {
     itineraryId: string | 'new';
@@ -165,7 +166,7 @@ export const AdminItineraryEditor = ({ itineraryId, onBack }: Props) => {
 
         try {
             // FIX: Uso il client centralizzato
-            const ai = getAiClient();
+            
             
             // Costruiamo un JSON semplificato dell'itinerario per l'AI
             const itineraryContext = {
@@ -206,8 +207,8 @@ export const AdminItineraryEditor = ({ itineraryId, onBack }: Props) => {
             
             NON ESSERE TROPPO PROLISSO. Vai al sodo.`;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+            const response = await aiGateway.generateLegacy({
+                model: 'gemini-2.0-flash',
                 contents: prompt,
             });
 
@@ -297,7 +298,7 @@ export const AdminItineraryEditor = ({ itineraryId, onBack }: Props) => {
         // LAYOUT FISSO: Aggiornato offset left per nuove misure
         // fixed inset-0 ma con left-[30rem] su desktop (lg) e left-[35rem] su 2xl
         // Z-Index 40 per stare sopra al contenuto dashboard standard ma sotto a modali/overlay
-        <div className="fixed inset-0 lg:left-[30rem] 2xl:left-[35rem] z-40 bg-slate-950 flex flex-col animate-in fade-in slide-in-from-bottom-4 transition-[left] duration-300">
+        <div className="fixed inset-0 lg:left-[30rem] 2xl:left-[35rem] z-dropdown bg-slate-950 flex flex-col animate-in fade-in slide-in-from-bottom-4 transition-[left] duration-300">
             
             {/* HEADER FISSO IN ALTO */}
             <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900 shadow-md shrink-0">
@@ -450,7 +451,7 @@ export const AdminItineraryEditor = ({ itineraryId, onBack }: Props) => {
                 {activeTab === 'timeline' && (
                     <div className="flex-1 flex overflow-hidden">
                         {/* SIDEBAR POIS */}
-                        <div className="w-80 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-4 z-20 shrink-0">
+                        <div className="w-80 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-4 z-dropdown shrink-0">
                             <div className="relative">
                                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500"/>
                                 <input 
@@ -542,7 +543,7 @@ export const AdminItineraryEditor = ({ itineraryId, onBack }: Props) => {
 
             {/* Validation Modal */}
             {validationModal.isOpen && (
-                <div className="fixed inset-0 z-[1000] bg-black/90 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-admin-modal bg-black/90 flex items-center justify-center p-4">
                     <div className="bg-slate-900 rounded-2xl border border-indigo-500/50 p-6 max-w-2xl w-full shadow-2xl animate-in zoom-in-95 max-h-[80vh] flex flex-col">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">

@@ -183,7 +183,7 @@ export const CommsTemplates = ({ templates, onSave, onUseTemplate, onDelete, for
         return (
             <div className="p-8 h-full overflow-y-auto custom-scrollbar bg-slate-900/50">
                 {alertModal && alertModal.isOpen && (
-                    <div className="fixed inset-0 z-[6000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                    <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
                         <div className="bg-slate-900 border border-slate-700 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 max-w-sm w-full text-center">
                             <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center border-2 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
                                 <AlertTriangle className="w-8 h-8 text-amber-500" />
@@ -302,7 +302,7 @@ export const CommsTemplates = ({ templates, onSave, onUseTemplate, onDelete, for
     
     if (previewTemplate) {
         return (
-            <div className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPreviewTemplate(null)}>
+            <div className="fixed inset-0 z-admin-modal bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPreviewTemplate(null)}>
                 <div className="bg-slate-900 w-full max-w-md p-6 rounded-3xl border border-slate-700 shadow-2xl relative animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                     <button onClick={() => setPreviewTemplate(null)} className="absolute top-4 right-4 p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
                     <div className="mb-6 text-center">
@@ -332,7 +332,7 @@ export const CommsTemplates = ({ templates, onSave, onUseTemplate, onDelete, for
             />
 
             {showSuccessModal && (
-                <div className="absolute inset-0 z-[6000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                <div className="absolute inset-0 z-floating-panel flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 max-w-sm w-full text-center">
                         <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
                             <CheckCircle className="w-10 h-10 text-emerald-500" />

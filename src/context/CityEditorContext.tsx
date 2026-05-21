@@ -3,14 +3,21 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { CityDetails, CitySummary } from '../types/index';
 import { useAdminData } from '../hooks/useAdminData';
 import { evaluateAndUpdateCityStatus } from '../services/city/cityUpdateService';
+import { resolveCanonicalCityId } from '../services/city/cityIdService';
 
 // Definizione della struttura base per una nuova città
 const EMPTY_CITY: CityDetails = {
-    id: '', name: '', zone: '', adminRegion: 'Campania', nation: 'Italia', continent: 'Europa', description: '', imageUrl: '', rating: 0, visitors: 0, isFeatured: false, coords: { lat: 0, lng: 0 },
+    id: '', slug: '', name: '', zone: '', adminRegion: 'Campania', nation: 'Italia', continent: 'Europa', description: '', imageUrl: '', 
+    image_status: 'placeholder',
+    heroImage: '',
+    hero_status: 'placeholder',
+    rating: 0, visitors: 0, isFeatured: false, coords: { lat: 0, lng: 0 },
     status: 'draft',
     tags: [],
     details: {
-        subtitle: '', heroImage: '', historySnippet: '', historyFull: '', historySections: [], historyGallery: [], topAttractions: [], allPois: [], foodSpots: [], hotels: [], newDiscoveries: [], leisureSpots: [],
+        subtitle: '', heroImage: '', 
+        hero_status: 'placeholder',
+        historySnippet: '', historyFull: '', historySections: [], historyGallery: [], topAttractions: [], allPois: [], foodSpots: [], hotels: [], newDiscoveries: [], leisureSpots: [],
         ratings: { cultura: 50, monumenti: 50, musei_arte: 50, tradizione: 50, architettura: 50, natura: 50, mare_spiagge: 50, paesaggi: 50, clima: 50, sostenibilita: 50, gusto: 50, cucina: 50, vita_notturna: 50, caffe_bar: 50, mercati: 50, viaggiatore: 50, mobilita: 50, accoglienza: 50, costo: 50, sicurezza: 50 },
         seasonalVisitors: { spring: 0, summer: 0, autumn: 0, winter: 0 },
         services: [], events: [], famousPeople: [], guides: [],
@@ -80,7 +87,8 @@ export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveErro
             setIsLoading(true);
             if (cityId === 'new') {
                 if (isMounted) {
-                    const empty = { ...JSON.parse(JSON.stringify(EMPTY_CITY)), id: `city_${Date.now()}` };
+                    // Usiamo un placeholder invece di un timestamp per forzare la risoluzione al primo salvataggio
+                    const empty = { ...JSON.parse(JSON.stringify(EMPTY_CITY)), id: 'NEW_UNREGISTERED_CITY' };
                     setCity(empty);
                     setOriginalCity(JSON.stringify(empty));
                 }
@@ -145,20 +153,34 @@ export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveErro
         
         setIsSaving(true);
         try {
-            const requestedStatus = status || city.status;
+            let cityToSave = { ...city };
+
+            // RISOLUZIONE ID CANONICO (Strict Registry Requirement)
+            if (cityToSave.id === 'NEW_UNREGISTERED_CITY') {
+                if (!cityToSave.name) throw new Error("Inserisci il nome del Comune prima di salvare.");
+                
+                try {
+                    const canonicalId = await resolveCanonicalCityId(cityToSave.name, cityToSave.adminRegion);
+                    cityToSave.id = canonicalId;
+                } catch (err: any) {
+                    throw new Error(`Impossibile registrare la città: il Comune "${cityToSave.name}" non è presente nel registro ufficiale (cities_registry).`);
+                }
+            }
+
+            const requestedStatus = status || cityToSave.status;
             
-            await saveFullCity({ ...city, status: requestedStatus });
+            await saveFullCity({ ...cityToSave, status: requestedStatus });
             
             // Forza il ricalcolo dello stato basato sulle regole di business (es. POI minimi)
             let finalStatus = requestedStatus;
             try {
-                finalStatus = await evaluateAndUpdateCityStatus(city.id);
+                finalStatus = await evaluateAndUpdateCityStatus(cityToSave.id);
             } catch (evalError) {
                 console.warn("Impossibile ricalcolare lo stato, uso quello richiesto:", evalError);
             }
             
             // Aggiorna lo stato originale e locale per resettare isDirty e mostrare il nuovo stato
-            const updatedCity = { ...city, status: finalStatus };
+            const updatedCity = { ...cityToSave, status: finalStatus };
             setCity(updatedCity);
             setOriginalCity(JSON.stringify(updatedCity));
             

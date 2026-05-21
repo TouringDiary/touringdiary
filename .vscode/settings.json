@@ -1,3 +1,9 @@
 {
-  "workbench.startupEditor": "readme"
+  "workbench.startupEditor": "readme",
+  "css.lint.unknownAtRules": "ignore",
+  "deno.enable": true,
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true,
+  "deno.unstable": true,
+  "deno.importMap": "supabase/functions/import_map.json"
 }

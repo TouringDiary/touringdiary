@@ -2,8 +2,7 @@
  * src/types/marketing.ts
  * 
  * Definizioni centralizzate per le configurazioni di marketing e pricing.
- * Questi tipi riflettono la struttura dei dati in `global_settings` 
- * per le chiavi `marketing_prices_v2` e `marketing_promo_types`.
+ * Questi tipi riflettono la struttura dei dati utilizzata per la gestione delle campagne.
  */
 
 /**
@@ -17,18 +16,6 @@ export interface MarketingTierFeatures {
     products?: number;
 }
 
-/**
- * Configurazione per un singolo livello di marketing (es. 'gold', 'premiumUser').
- * I campi opzionali garantiscono la compatibilità con diverse configurazioni di tier.
- */
-export interface MarketingTierConfig {
-    basePrice: number;
-    promoPrice?: number | null;
-    promoLabel?: string | null;
-    promoActive: boolean;
-    features?: MarketingTierFeatures;
-    customFeatureLabels?: string[];
-}
 
 /**
  * Configurazione per i limiti di utilizzo dell'AI in base al ruolo utente.
@@ -44,25 +31,6 @@ export interface AiLimitsConfig {
     shop: number;
 }
 
-/**
- * Rappresenta l'oggetto di configurazione completo per il marketing (chiave: marketing_prices_v2).
- */
-export interface MarketingConfig {
-    // Livelli Business
-    silver: MarketingTierConfig;
-    gold: MarketingTierConfig;
-    guide: MarketingTierConfig;
-    shop: MarketingTierConfig;
-    tourOperator: MarketingTierConfig;
-    
-    // Abbonamenti Utente
-    premiumUser: MarketingTierConfig;
-    premiumUserPlus: MarketingTierConfig;
-    
-    // Impostazioni Globali
-    novitaDuration: number; 
-    aiLimits: AiLimitsConfig; 
-}
 
 /**
  * Rappresenta il tipo per una promozione di marketing (chiave: marketing_promo_types).
@@ -70,4 +38,14 @@ export interface MarketingConfig {
 export interface MarketingPromoType {
     id: string;
     label: string;
+}
+
+/**
+ * Configurazione per il rendering di un piano di marketing nella UI.
+ */
+export interface MarketingTierConfig {
+    basePrice: number;
+    promoPrice?: number;
+    promoActive?: boolean;
+    customFeatureLabels?: string[];
 }

@@ -26,6 +26,8 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 // Cache locale per ridurre chiamate (opzionale, per ora diretta)
 let notificationsCache: AppNotification[] = [];
 
+import { DatabaseNotificationInsert } from '../types/database';
+
 export const getNotifications = (userId: string): AppNotification[] => {
     // Nota: Questa funzione ora è sincrona per compatibilità con i componenti esistenti,
     // ma dovrebbe essere usata in combinazione con un fetch asincrono (es. useEffect)
@@ -118,7 +120,7 @@ export const addNotification = async (
 ): Promise<void> => {
     if (!userId || userId === 'guest') return;
 
-    const newNotif = {
+    const newNotif: DatabaseNotificationInsert = {
         user_id: userId,
         type,
         title,

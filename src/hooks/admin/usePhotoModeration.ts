@@ -5,11 +5,10 @@ import {
     updatePhotoStatusInDb, 
     updatePhotoData, 
     uploadCommunityPhoto, 
-    deletePhotoSubmissionInDb
+    deletePhotoSubmissionInDb,
+    propagatePhotoRemoval,
+    syncPhotoDescriptionToCity
 } from '../../services/photoService';
-
-// IMPORT DAL NUOVO SERVIZIO PONTE (No Cycle!)
-import { propagatePhotoRemoval, syncPhotoDescriptionToCity } from '../../services/mediaConsistencyService';
 
 import { getFullManifestAsync, getCityDetails, saveCityDetails } from '../../services/cityService';
 import { addNotification } from '../../services/notificationService';
@@ -73,7 +72,7 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
     const refreshPhotos = async () => {
         setIsLoading(true);
         try {
-            const allPhotos = await fetchCommunityPhotos();
+            const allPhotos = await fetchCommunityPhotos('all', true);
             setPhotos(allPhotos);
             if (onUpdate) onUpdate();
         } catch (e) {
@@ -268,6 +267,33 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
         }
     };
 
+    const handleToggleOfficial = async (id: string, currentStatus: boolean) => {
+        const newStatus = !currentStatus;
+        const photo = photos.find(p => p.id === id);
+        
+        try {
+            const updates: Partial<PhotoSubmission> = { isOfficial: newStatus };
+            
+            // Tentativo normalizzazione cityId se ufficiale e manca cityId
+            if (newStatus && photo && !photo.cityId) {
+                const cityMatch = manifest.find(c => 
+                    c.name.toLowerCase().trim() === photo.locationName.toLowerCase().trim()
+                );
+                if (cityMatch) {
+                    updates.cityId = cityMatch.id;
+                } else {
+                    console.warn(`[Moderation] Mismatch città durante promozione: ${photo.locationName}`);
+                }
+            }
+
+            await updatePhotoData(id, updates);
+            setPhotos(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+            showToast(newStatus ? "Foto promossa a Ufficiale!" : "Foto riportata a Community.", 'success');
+        } catch (e: any) {
+            showToast(`Errore: ${e.message}`, 'error');
+        }
+    };
+
     const saveMetadata = async () => {
         if (metadataModal) {
             try {
@@ -330,6 +356,7 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
         confirmDelete,
         handleInspectorSave,
         saveMetadata,
+        handleToggleOfficial,
         refreshPhotos
     };
 };

@@ -1,3 +1,4 @@
+import { Z_MODAL_NESTED, Z_MODAL, Z_FLOATING_PANEL } from '@/constants/zIndex';
 
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, Trophy } from 'lucide-react';
@@ -19,6 +20,7 @@ import { DiaryHeader } from './DiaryHeader';
 import { DiaryTimeline } from './DiaryTimeline';
 import { DiaryEmptyState } from './DiaryEmptyState';
 import { DiaryModals } from './DiaryModals';
+import { SuitcaseToast } from './packing_list/SuitcaseFloatingPanel/components/SuitcaseToast';
 
 interface TravelDiaryProps {
     user: User;
@@ -60,10 +62,41 @@ export const TravelDiary = ({
 
     // Funzione per aprire il modale della packing list
     const handleOpenPackingList = () => {
-        if (itinerary.id) {
-            openModal('packingList', { itineraryId: itinerary.id });
-        }
+        openModal('packingList', { itineraryId: itinerary.id });
     };
+
+    const { activeModal } = useModal();
+
+    // --- KEYBOARD SHORTCUTS ---
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Guard: don't trigger if focus is in input/textarea
+            const target = e.target as HTMLElement;
+            if (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable) return;
+
+            // Guard: don't trigger if any modal is open (except packingList if we wanted, but let's stick to user requirement)
+            // Requirement: "focus NON è dentro modali aperti"
+            if (activeModal && activeModal !== 'packingList') return; 
+
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+            // Undo: Ctrl+Z or Cmd+Z
+            if (cmdOrCtrl && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                setters.performUndo();
+            }
+
+            // Redo: Ctrl+Y or Cmd+Y or Cmd+Shift+Z
+            if ((cmdOrCtrl && e.key.toLowerCase() === 'y') || (isMac && cmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'z')) {
+                e.preventDefault();
+                setters.performRedo();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [setters, activeModal]);
 
     return (
         <div ref={containerRef} className="h-full flex flex-col rounded-sm shadow-xl overflow-hidden border border-slate-600 relative group/diary bg-[#e7e5e4] select-none">
@@ -82,7 +115,10 @@ export const TravelDiary = ({
             />
 
             {state.toastMessage && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 fade-in duration-300">
+                <div 
+                    className="absolute top-20 left-1/2 -translate-x-1/2 animate-in slide-in-from-top-4 fade-in duration-300"
+                    style={{ zIndex: Z_MODAL_NESTED }}
+                >
                     <div className="bg-slate-900 border border-emerald-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
                         <div className="bg-emerald-500/20 p-1.5 rounded-full"><CheckCircle className="w-5 h-5 text-emerald-500"/></div>
                         <div><p className="font-bold text-sm">{state.toastMessage.title}</p><p className="text-xs text-slate-400">Hai guadagnato <span className="text-amber-400 font-bold">+{state.toastMessage.xp} XP</span></p></div>
@@ -91,7 +127,9 @@ export const TravelDiary = ({
                 </div>
             )}
 
-            <div className="h-[4px] w-full flex z-10 shadow-sm flex-shrink-0">
+            <SuitcaseToast visible={state.diaryToast.visible} message={state.diaryToast.message} />
+
+            <div className="h-[4px] w-full flex shadow-sm flex-shrink-0" style={{ zIndex: Z_FLOATING_PANEL }}>
                 <div className="h-full w-1/3 bg-[#009246]"></div><div className="h-full w-1/3 bg-[#ffffff]"></div><div className="h-full w-1/3 bg-[#ce2b37]"></div>
             </div>
 
@@ -115,11 +153,15 @@ export const TravelDiary = ({
                 onOpenRoadbook={onOpenRoadbook}
                 onOpenPackingList={handleOpenPackingList} // COLLEGA LA FUNZIONE
                 setActiveTab={setters.setActiveTab}
-                onDeleteProject={actions.deleteProject} // Assicura che onDeleteProject sia passato
+                onDeleteProject={actions.deleteProject} 
+                onUndo={setters.performUndo}
+                onRedo={setters.performRedo}
+                canUndo={state.canUndo}
+                canRedo={state.canRedo}
             />
 
             <div 
-                className="flex-1 overflow-y-auto relative z-10 justify-center diary-grid-bg transition-colors duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]" 
+                className="flex-1 overflow-y-auto relative z-floating-panel justify-center diary-grid-bg transition-colors duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]" 
                 onDragEnter={actions.handleDragEnter}
                 onDragLeave={actions.handleDragLeave}
                 onDragOver={(e) => e.preventDefault()}
@@ -145,11 +187,11 @@ export const TravelDiary = ({
                         onColorSelect={(idx, cls) => { actions.updateDayStyle(idx, cls); setters.setColorPickerOpen(null); }} 
                         onViewDetail={onViewDetail} 
                         onRemoveItem={actions.removeItem} 
-                        onTimeChange={(id, time, dIdx) => { setters.setItinerary(prev => ({ ...prev, items: prev.items.map(i => i.id === id ? { ...i, timeSlotStr: time } : i) })); setters.setHighlightedItemId(id); }} 
+                        onTimeChange={actions.onTimeChange} 
                         onSetEditingTime={setters.setEditingTimeId} 
                         onIconClick={setters.setIconPickerOpen} 
-                        onIconSelect={(id, icon) => { setters.setItinerary(prev => ({...prev, items: prev.items.map(i => i.id === id ? { ...i, customIcon: icon } : i)})); setters.setIconPickerOpen(null); }} 
-                        onNoteChange={(id, text) => setters.setItinerary(prev => ({...prev, items: prev.items.map(i => i.id === id ? { ...i, poi: { ...i.poi, description: text } } : i)}))} 
+                        onIconSelect={actions.onIconSelect} 
+                        onNoteChange={actions.onNoteChange} 
                         onDayDrop={actions.handleDayDrop} 
                         onItemDrop={(e, idx, time) => actions.handleDayDrop(e, idx, time)} 
                         onMobileMoveClick={setters.setItemToMove}
@@ -169,3 +211,6 @@ export const TravelDiary = ({
         </div>
     );
 };
+
+
+

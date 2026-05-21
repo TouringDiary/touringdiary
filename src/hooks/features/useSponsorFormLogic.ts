@@ -1,22 +1,22 @@
+import { aiGateway } from '@/services/ai/aiGateway';
 import React, { useState } from 'react';
 import { submitSponsorRequest } from '../../services/sponsorService';
 import { compressImage, dataURLtoFile } from '../../utils/common';
-import { User, MarketingConfig } from '../../types/index';
-import { getAiClient } from '../../services/ai/aiClient';
+import { User } from '../../types/index';
+import { PLAN_TYPES, PlanType } from '../../constants/planTypes';
+
 
 interface UseSponsorFormLogicProps {
     user?: User;
-    initialType?: 'activity' | 'shop' | 'tour_operator' | 'guide';
-    initialTier?: 'gold' | 'silver';
-    marketingConfig: MarketingConfig | null;
+    initialType?: PlanType;
 }
 
-export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTier = 'gold', marketingConfig }: UseSponsorFormLogicProps) => {
+export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIVITY }: UseSponsorFormLogicProps) => {
     const isGuest = !user || user.role === 'guest';
     
     // Form State
     const [step, setStep] = useState<'form' | 'success'>('form');
-    const [activeType, setActiveType] = useState<'activity' | 'shop' | 'tour_operator' | 'guide'>(initialType || 'activity');
+    const [activeType, setActiveType] = useState<PlanType>(initialType);
     
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
     
@@ -49,7 +49,7 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    const handleTypeChange = (type: 'activity' | 'shop' | 'tour_operator' | 'guide') => {
+    const handleTypeChange = (type: PlanType) => {
         setActiveType(type);
         setSelectedPlan(null); // Resetta la selezione del piano quando il tipo cambia
     };
@@ -58,13 +58,13 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
         if (!formData.description?.trim()) return null;
         
         try {
-            const ai = getAiClient();
+            
             const prompt = `Sei un copywriter turistico d'élite. Riscrivi questa descrizione per una vetrina su "Touring Diary". 
             Rendila accattivante, professionale e persuasiva. Max 500 caratteri.
             Testo originale: "${formData.description}"`;
             
-            const response = await ai.models.generateContent({ 
-                model: 'gemini-3.1-pro-preview', 
+            const response = await aiGateway.generateLegacy({ 
+                model: 'gemini-2.0-pro', 
                 contents: prompt 
             });
             
@@ -134,7 +134,7 @@ export const useSponsorFormLogic = ({ user, initialType = 'activity', initialTie
                  ...formData,
                  pricing_version_id: selectedPlan,
                  coverImage: coverImage
-            }, activeType, selectedPlan);
+            }, activeType, selectedPlan, user?.id);
 
             if (success) {
                 setStep('success');

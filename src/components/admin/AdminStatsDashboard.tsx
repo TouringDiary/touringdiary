@@ -1,10 +1,11 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { Loader2, MapPin, UserCheck, PieChart, BarChart, LayoutDashboard } from 'lucide-react';
-import { getAllSponsorsForDashboard } from '../../services/sponsorService';
+import { getSponsorsDashboardAsync } from '../../services/sponsorService';
 import { getFullManifestAsync } from '../../services/cityService';
 import { formatCurrency } from '../../utils/common';
 import { SponsorRequest } from '../../types/index';
+import { PLAN_TYPES } from '../../constants/planTypes';
 
 export const AdminStatsDashboard = () => {
     const [activeTab, setActiveTab] = useState<'overview' | 'matrix' | 'guides' | 'financial' | 'migration'>('overview');
@@ -18,7 +19,7 @@ export const AdminStatsDashboard = () => {
             try {
                 const [manifestData, sponsorsData] = await Promise.all([
                     getFullManifestAsync(),
-                    getAllSponsorsForDashboard() // Fetch REAL COMPLETE DATA from Cloud (recursive)
+                    getSponsorsDashboardAsync() // Fetch COMPLETE AGGREGATED DATA from both tables
                 ]);
                 setLiveManifest(manifestData);
                 setSponsors(sponsorsData);
@@ -35,25 +36,29 @@ export const AdminStatsDashboard = () => {
         const safeSponsors = sponsors ?? [];
         const safeLiveManifest = liveManifest ?? [];
 
-        const approved = safeSponsors.filter(s => s.status === 'approved' || s.status === 'expired');
+        const approvedAndActive = safeSponsors.filter(s => s.status === 'approved' && !s.isExpired);
+        const expired = safeSponsors.filter(s => s.status === 'approved' && s.isExpired);
         const pipeline = safeSponsors.filter(s => s.status === 'waiting_payment' || s.status === 'pending');
-        const totalRevenue = approved.reduce((sum, s) => sum + (s.amount || 0), 0);
-        const totalPipeline = pipeline.reduce((sum, s) => sum + (s.amount || 50), 0);
+        
+        console.log(`[DashboardAnalytics] Approved: ${approvedAndActive.length} | Expired: ${expired.length} | Pipeline: ${pipeline.length}`);
+
+        const totalRevenue = approvedAndActive.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+        const totalPipeline = pipeline.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
 
         const cityStats: Record<string, any> = {};
         safeLiveManifest.forEach(c => {
             cityStats[c.id] = { id: c.id, name: c.name, zone: c.zone, revenue: 0, contracts: 0, guidesCount: 0, categories: { GUI: 0, FOO: 0, HOT: 0, SHO: 0, LEI: 0, NAT: 0, MON: 0, DIS: 0 } };
         });
 
-        approved.forEach(s => {
+        approvedAndActive.forEach(s => {
             if (!s.cityId || !cityStats[s.cityId]) return;
             const cs = cityStats[s.cityId];
             cs.revenue += (s.amount || 0);
             cs.contracts += 1;
-            if (s.type === 'guide') { cs.categories.GUI++; cs.guidesCount++; }
+            if (s.type === PLAN_TYPES.TOUR_GUIDE) { cs.categories.GUI++; cs.guidesCount++; }
             else if (s.poiCategory === 'food') cs.categories.FOO++;
             else if (s.poiCategory === 'hotel') cs.categories.HOT++;
-            else if (s.poiCategory === 'shop') cs.categories.SHO++;
+            else if (s.type === PLAN_TYPES.DIGITAL_SHOWCASE || s.poiCategory === 'shop') cs.categories.SHO++;
             else if (s.poiCategory === 'leisure') cs.categories.LEI++;
             else if (s.poiCategory === 'nature') cs.categories.NAT++;
             else if (s.poiCategory === 'monument') cs.categories.MON++;
@@ -62,13 +67,13 @@ export const AdminStatsDashboard = () => {
 
         const activeCitiesCount = Object.values(cityStats).filter((c: any) => c.contracts > 0).length;
         const uncoveredCities = Object.values(cityStats).filter((c: any) => c.contracts === 0);
-        const guideList = approved.filter(s => s.type === 'guide');
+        const guideList = approvedAndActive.filter(s => s.type === PLAN_TYPES.TOUR_GUIDE);
 
         const catRevenue: Record<string, number> = { SHOPPING: 0, NATURA: 0, SAPORI: 0, GUIDE: 0, ALLOGGI: 0, SVAGO: 0, MONUMENTI: 0, NOVITÀ: 0 };
-        approved.forEach(s => {
+        approvedAndActive.forEach(s => {
             let label = 'NOVITÀ';
-            if (s.type === 'guide') label = 'GUIDE';
-            else if (s.poiCategory === 'shop') label = 'SHOPPING';
+            if (s.type === PLAN_TYPES.TOUR_GUIDE) label = 'GUIDE';
+            else if (s.type === PLAN_TYPES.DIGITAL_SHOWCASE || s.poiCategory === 'shop') label = 'SHOPPING';
             else if (s.poiCategory === 'nature') label = 'NATURA';
             else if (s.poiCategory === 'food') label = 'SAPORI';
             else if (s.poiCategory === 'hotel') label = 'ALLOGGI';
@@ -78,7 +83,7 @@ export const AdminStatsDashboard = () => {
         });
 
         const zoneRevenue: Record<string, number> = {};
-        approved.forEach(s => {
+        approvedAndActive.forEach(s => {
             const city = safeLiveManifest.find(c => c.id === s.cityId);
             if (city && city.zone) {
                 if (!zoneRevenue[city.zone]) zoneRevenue[city.zone] = 0;
@@ -89,7 +94,7 @@ export const AdminStatsDashboard = () => {
         const rejectedCount = safeSponsors.filter(s => s.status === 'rejected').length;
 
         return {
-            totalRevenue, totalPipeline, totalContracts: approved.length,
+            totalRevenue, totalPipeline, totalContracts: approvedAndActive.length,
             activeCitiesCount, totalCities: safeLiveManifest.length,
             uncoveredCities, catRevenue, zoneRevenue, guideList,
             rejectedCount,
@@ -211,15 +216,15 @@ export const AdminStatsDashboard = () => {
                     <div className="space-y-8 animate-in fade-in">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <div className="bg-slate-900 border border-emerald-500/30 p-8 rounded-3xl shadow-xl relative group">
-                                <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-1">Fatturato Attivo</p>
+                                <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-1">€ - Fatturato Attivo</p>
                                 <h3 className="text-4xl font-display font-bold text-white leading-none">{formatCurrency(stats.totalRevenue)}</h3>
                             </div>
                             <div className="bg-slate-900 border border-amber-500/30 p-8 rounded-3xl shadow-xl relative group">
-                                <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-1">Pipeline (In Attesa)</p>
+                                <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-1">€ - Fatturato (In Attesa)</p>
                                 <h3 className="text-4xl font-display font-bold text-white leading-none">{formatCurrency(stats.totalPipeline)}</h3>
                             </div>
                             <div className="bg-slate-900 border border-blue-500/30 p-8 rounded-3xl shadow-xl relative group">
-                                <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-1">Contratti Totali</p>
+                                <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-1">Contratti Attivi</p>
                                 <h3 className="text-4xl font-display font-bold text-white leading-none">{stats.totalContracts}</h3>
                             </div>
                             <div className="bg-slate-900 border border-slate-700 p-8 rounded-3xl shadow-xl relative group">

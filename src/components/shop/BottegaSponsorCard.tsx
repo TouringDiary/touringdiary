@@ -2,6 +2,7 @@
 import React from 'react';
 import { Award, Star, Check, Plus } from 'lucide-react';
 import { PointOfInterest } from '../../types/index';
+import { PLAN_TYPES } from '@/constants/planTypes';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { StarRating } from '../common/StarRating';
 import { useItinerary } from '@/context/ItineraryContext';
@@ -14,7 +15,7 @@ interface BottegaSponsorCardProps {
 export const BottegaSponsorCard: React.FC<BottegaSponsorCardProps> = ({ poi, onAddToItinerary }) => {
     const { itinerary } = useItinerary();
     const inItinerary = itinerary.items.some(i => i.poi.id === poi.id);
-    const isGold = poi.tier === 'gold';
+    const isGold = poi.planType === PLAN_TYPES.REGIONAL_ACTIVITY;
 
     const handleAdd = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -45,7 +46,7 @@ export const BottegaSponsorCard: React.FC<BottegaSponsorCardProps> = ({ poi, onA
                     onClick={handleAdd}
                     onMouseDown={stopDrag}
                     onPointerDown={stopDrag}
-                    className={`pointer-events-auto p-1.5 rounded-lg transition-all shadow-2xl border shrink-0 flex items-center justify-center w-8 h-8 cursor-pointer relative z-50 ${inItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white active:scale-90 hover:scale-105'}`}
+                    className={`pointer-events-auto p-1.5 rounded-lg transition-all shadow-2xl border shrink-0 flex items-center justify-center w-8 h-8 cursor-pointer relative z-modal ${inItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white active:scale-90 hover:scale-105'}`}
                     title={inItinerary ? "Già Aggiunto" : "Aggiungi all'itinerario"}
                 >
                     {inItinerary ? <Check className="w-4 h-4"/> : <Plus className="w-4 h-4 font-black"/>}

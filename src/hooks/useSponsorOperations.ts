@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { 
     deleteSponsor, 
@@ -6,7 +5,7 @@ import {
     updateSponsorStatus, 
     getSponsorById,
     createSponsorFromRequest,
-    approveSponsorWithSubscription,
+    activateSponsorWithResourceAsync,
     rejectSponsor, 
     cancelSponsor,
     updateSponsorExpiration,
@@ -14,6 +13,13 @@ import {
 } from '../services/sponsorService';
 import { useSponsorModals } from './useSponsorModals';
 import { SponsorRequest } from '../types/index';
+import { validateActivationData } from '../utils/sponsorValidation';
+
+/** Tipo di ritorno per l'estensione massiva degli sponsor */
+type ExtensionResult = {
+    count: number;
+    skipped?: number;
+};
 
 interface UseSponsorOperationsProps {
     refreshData: () => void; // Funzione di callback per ricaricare la UI dopo una mutazione
@@ -87,11 +93,18 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
 
     // 2. Attivazione (Waiting -> Approved)
     const confirmActivation = async () => { 
-        // Recupera solo l'ID della richiesta dal modale.
-        const { id: requestId } = modalState.activationData || {};
+        // Recupera i dati della richiesta dal modale.
+        const { id: requestId, amount, invoiceNumber } = modalState.activationData || {};
 
         if (!requestId) {
             showToast("ID richiesta non specificato.", 'error');
+            return;
+        }
+
+        // DOUBLE VALIDATION
+        const validation = validateActivationData(amount, invoiceNumber);
+        if (!validation.isValid) {
+            showToast(validation.error || "Dati di attivazione non validi.", 'error');
             return;
         }
 
@@ -113,11 +126,16 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
                 throw new Error("Creazione del record sponsor fallita. L'ID non è stato restituito.");
             }
 
-            // 3. Chiama la RPC usando l'ID del nuovo sponsor e il TIER dalla richiesta
-            await approveSponsorWithSubscription(newSponsor.id, requestData.tier);
+            // 3. Chiama la RPC atomica (Crea risorsa UI + Attiva sottoscrizione)
+            await activateSponsorWithResourceAsync(
+                newSponsor.id, 
+                requestId, 
+                requestData.pricingVersionId || '',
+                requestData.profileId // NEW: Pass profileId for ownership linkage
+            );
 
             // 4. Successo: mostra feedback e aggiorna l'interfaccia
-            showToast(`Sponsor "${newSponsor.company_name}" attivato con successo!`, 'success');
+            showToast(`Sponsor "${newSponsor.companyName}" attivato con successo!`, 'success');
             modalActions.closeActivation(); 
             setTimeout(() => refreshData(), 300);
 
@@ -167,15 +185,17 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
                 await updateSponsorExpiration(id, newExpirationDate); 
                 showToast('Scadenza aggiornata.', 'success');
             } else if (mode === 'mass') { 
-                const result = await extendAllActiveSponsors(days, excludeCritical); 
-                if (excludeCritical && result.skipped > 0) {
-                    showToast(`Estesi ${result.count} sponsor. Saltati ${result.skipped} critici.`, 'success');
+                const result = await extendAllActiveSponsors(days, excludeCritical) as ExtensionResult;
+                const count = result?.count ?? 0;
+                const skipped = result?.skipped ?? 0;
+                if (excludeCritical && skipped > 0) {
+                    showToast(`Estesi ${count} sponsor. Saltati ${skipped} critici.`, 'success');
                 } else {
-                    showToast(`Estesi ${result.count} sponsor attivi.`, 'success');
+                    showToast(`Estesi ${count} sponsor attivi.`, 'success');
                 }
             }
             modalActions.closeExtension();
-            setTimeout(() => refreshData(), 500); // Longer delay for mass updates
+            setTimeout(() => refreshData(), 500);
         } catch (e: any) {
             console.error(e);
             showToast("Errore durante l'estensione.", 'error');

@@ -256,7 +256,7 @@ export const OnboardingVisualEditor = ({ isOpen, onClose, template, onSavePositi
     const bubbleWidthClass = viewport === 'desktop' ? 'w-96' : 'w-[80%] max-w-[280px]';
 
     return (
-        <div className="fixed inset-0 z-[99999] bg-black flex flex-col animate-in fade-in select-none">
+        <div className="fixed inset-0 z-admin-modal bg-black flex flex-col animate-in fade-in select-none">
             
             {/* CANVAS LAYER */}
             <div 
@@ -297,7 +297,7 @@ export const OnboardingVisualEditor = ({ isOpen, onClose, template, onSavePositi
                     {/* TARGET BOX */}
                     {activeConfig.targetBox.active && (
                         <div 
-                            className="absolute z-20 cursor-move border-4 border-indigo-500 bg-indigo-500/10 shadow-[0_0_30px_rgba(99,102,241,0.5)] animate-pulse rounded-xl group"
+                            className="absolute z-dropdown cursor-move border-4 border-indigo-500 bg-indigo-500/10 shadow-[0_0_30px_rgba(99,102,241,0.5)] animate-pulse rounded-xl group"
                             style={{ 
                                 top: `${activeConfig.targetBox.y}%`, 
                                 left: `${activeConfig.targetBox.x}%`, 
@@ -312,14 +312,14 @@ export const OnboardingVisualEditor = ({ isOpen, onClose, template, onSavePositi
                     )}
 
                     {/* GUIDES & CONNECTOR */}
-                    <div className="absolute inset-0 pointer-events-none opacity-10 z-10" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 opacity-50">
+                    <div className="absolute inset-0 pointer-events-none opacity-10 z-floating-panel" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-floating-panel opacity-50">
                         <line x1={`${activeConfig.mascot.x}%`} y1={`${activeConfig.mascot.y}%`} x2={`${activeConfig.bubble.x}%`} y2={`${activeConfig.bubble.y}%`} stroke="#6366f1" strokeWidth="2" strokeDasharray="5,5"/>
                     </svg>
 
                     {/* MASCOTTE */}
                     <div 
-                        className="absolute cursor-move flex flex-col items-center group z-30 hover:scale-110 transition-transform"
+                        className="absolute cursor-move flex flex-col items-center group z-dropdown hover:scale-110 transition-transform"
                         style={{ 
                             top: `${activeConfig.mascot.y}%`, 
                             left: `${activeConfig.mascot.x}%`, 
@@ -334,7 +334,7 @@ export const OnboardingVisualEditor = ({ isOpen, onClose, template, onSavePositi
 
                     {/* FUMETTO - USING DYNAMIC STYLES */}
                     <div 
-                         className={`absolute bg-white text-slate-800 p-4 md:p-6 rounded-2xl md:rounded-[2.5rem] shadow-2xl z-40 border-2 md:border-4 border-white ring-2 md:ring-4 ring-indigo-500/10 cursor-move group ${bubbleWidthClass}`}
+                         className={`absolute bg-white text-slate-800 p-4 md:p-6 rounded-2xl md:rounded-[2.5rem] shadow-2xl z-dropdown border-2 md:border-4 border-white ring-2 md:ring-4 ring-indigo-500/10 cursor-move group ${bubbleWidthClass}`}
                          style={{ 
                              top: `${activeConfig.bubble.y}%`, 
                              left: `${activeConfig.bubble.x}%`, 
@@ -367,7 +367,7 @@ export const OnboardingVisualEditor = ({ isOpen, onClose, template, onSavePositi
             </div>
 
             {/* HEADER TOOLS */}
-            <div className={`absolute top-0 left-0 right-0 z-50 transition-transform duration-300 ${hideUI ? '-translate-y-full' : 'translate-y-0'}`}>
+            <div className={`absolute top-0 left-0 right-0 z-admin-modal transition-transform duration-300 ${hideUI ? '-translate-y-full' : 'translate-y-0'}`}>
                 <div className="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 p-2 md:p-3 shadow-2xl flex flex-col gap-3 overflow-x-auto">
                     
                     <div className="flex w-full items-center justify-between gap-2 px-2 flex-wrap md:flex-nowrap">
@@ -445,7 +445,7 @@ export const OnboardingVisualEditor = ({ isOpen, onClose, template, onSavePositi
             </div>
 
             {hideUI && (
-                <button onClick={() => setHideUI(false)} className="absolute top-4 right-4 z-50 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg font-bold text-xs uppercase animate-pulse border-2 border-white/20">
+                <button onClick={() => setHideUI(false)} className="absolute top-4 right-4 z-admin-modal bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg font-bold text-xs uppercase animate-pulse border-2 border-white/20">
                     Mostra Strumenti
                 </button>
             )}

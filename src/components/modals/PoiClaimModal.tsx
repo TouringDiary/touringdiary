@@ -1,12 +1,16 @@
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect } from 'react';
-import { X, Briefcase, UserCheck, Edit3, CheckCircle, Store, Flag, ShoppingCart, Loader2, Info } from 'lucide-react';
-import { PointOfInterest, User, MarketingConfig } from '../../types/index';
+import { createPortal } from 'react-dom';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { Briefcase, UserCheck, CheckCircle, Store, Flag, ShoppingCart, Loader2, Info } from 'lucide-react';
+import { PointOfInterest, User } from '../../types/index';
 import { addSuggestion } from '../../services/communityService';
-import { getSetting, SETTINGS_KEYS } from '../../services/settingsService';
-import { useSponsorFormLogic } from '../../hooks/features/useSponsorFormLogic';
+import { SponsorPricingSelector } from './sponsor/SponsorPricingSelector';
 import { SponsorForm } from './sponsor/SponsorForm';
 import { SponsorSuccess } from './sponsor/SponsorSuccess';
+import { useSponsorFormLogic } from '../../hooks/features/useSponsorFormLogic';
 
 interface PoiClaimModalProps {
     isOpen: boolean;
@@ -18,7 +22,6 @@ interface PoiClaimModalProps {
 export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps) => {
     // 1. Local State per il Tab Attivo
     const [activeTab, setActiveTab] = useState<'gold' | 'silver' | 'shop' | 'report'>('gold');
-    const [marketingConfig, setMarketingConfig] = useState<MarketingConfig | null>(null);
 
     // 2. States for Suggestion (Report Mode only)
     const [suggestionText, setSuggestionText] = useState('');
@@ -27,35 +30,23 @@ export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps
     const [reportSuccess, setReportSuccess] = useState(false);
     const [reportError, setReportError] = useState<string | null>(null);
 
-    // 3. Load Marketing Config
-    useEffect(() => {
-        if (isOpen) {
-            getSetting<MarketingConfig>(SETTINGS_KEYS.MARKETING_PRICES_V2).then(p => { 
-                if(p) setMarketingConfig(p); 
-            });
-        }
-    }, [isOpen]);
+    useGlobalModalEscape(isOpen, onClose);
+
 
     // 4. Hook Logica Sponsor (Riutilizziamo la logica potente già esistente)
     // Inizializziamo con valori default, ma li aggiorneremo quando cambia il tab
     const sponsorLogic = useSponsorFormLogic({ 
         user, 
         initialType: 'activity', 
-        initialTier: 'gold', 
-        marketingConfig 
+        initialTier: 'gold'
     });
 
     // 5. Sync Tab con Sponsor Logic
     useEffect(() => {
-        if (activeTab === 'gold') {
+        if (activeTab === 'gold' || activeTab === 'silver') {
             sponsorLogic.handleTypeChange('activity');
-            sponsorLogic.setSelectedPlan('gold');
-        } else if (activeTab === 'silver') {
-            sponsorLogic.handleTypeChange('activity');
-            sponsorLogic.setSelectedPlan('silver');
         } else if (activeTab === 'shop') {
             sponsorLogic.handleTypeChange('shop');
-            sponsorLogic.setSelectedPlan('shop_basic');
         }
 
         // Pre-fill con dati POI se non già fatto
@@ -70,15 +61,6 @@ export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps
         }
     }, [activeTab]);
 
-    // 6. Handle ESC Key
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
 
     // 7. Handler per "Segnala" (Report)
     const handleSuggestionSubmit = async () => {
@@ -109,15 +91,13 @@ export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps
 
     if (!isOpen) return null;
 
-    const prices = marketingConfig ? { 
-        gold: marketingConfig.gold.basePrice, 
-        silver: marketingConfig.silver.basePrice,
-        shop: marketingConfig.shop.basePrice
-    } : { gold: 120, silver: 50, shop: 80 };
-
-    return (
-        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-4xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 max-h-[90vh]">
+    return createPortal(
+        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm p-0 md:p-4 animate-in fade-in" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
+            <div 
+                className="bg-slate-900 w-full max-w-4xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 max-h-[90vh] pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {/* HEADER */}
                 <div className="p-6 border-b border-slate-800 bg-[#0f172a] flex justify-between items-center shrink-0">
@@ -130,24 +110,24 @@ export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps
                             <p className="text-xs text-slate-400">Sei il proprietario o vuoi segnalare un errore?</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"><X className="w-5 h-5"/></button>
+                    <CloseButton onClose={onClose} variant="primary" />
                 </div>
 
                 {/* TABS NAVIGATION */}
                 <div className="grid grid-cols-4 p-2 bg-slate-950 border-b border-slate-800 gap-2 shrink-0">
                     <button onClick={() => setActiveTab('gold')} className={`py-3 px-2 text-[10px] md:text-xs font-bold uppercase rounded-xl transition-all flex flex-col items-center gap-1.5 ${activeTab === 'gold' ? 'bg-amber-900/20 text-amber-500 shadow-lg border border-amber-500/50' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}>
                         <UserCheck className="w-5 h-5"/> 
-                        <span>Gold <span className="opacity-70 block mt-0.5">€{prices.gold}/mese</span></span>
+                        <span>Gold <span className="opacity-70 block mt-0.5 text-[9px]">Consigliato</span></span>
                     </button>
                     
                     <button onClick={() => setActiveTab('silver')} className={`py-3 px-2 text-[10px] md:text-xs font-bold uppercase rounded-xl transition-all flex flex-col items-center gap-1.5 ${activeTab === 'silver' ? 'bg-slate-800 text-white shadow-lg border border-slate-600' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}>
                         <Store className="w-5 h-5"/> 
-                        <span>Silver <span className="opacity-70 block mt-0.5">€{prices.silver}/mese</span></span>
+                        <span>Silver <span className="opacity-70 block mt-0.5 text-[9px]">Standard</span></span>
                     </button>
 
                     <button onClick={() => setActiveTab('shop')} className={`py-3 px-2 text-[10px] md:text-xs font-bold uppercase rounded-xl transition-all flex flex-col items-center gap-1.5 ${activeTab === 'shop' ? 'bg-indigo-900/20 text-indigo-400 shadow-lg border border-indigo-500/50' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}>
                         <ShoppingCart className="w-5 h-5"/> 
-                        <span>Bottega <span className="opacity-70 block mt-0.5">€{prices.shop}/mese</span></span>
+                        <span>Bottega <span className="opacity-70 block mt-0.5 text-[9px]">E-Commerce</span></span>
                     </button>
 
                     <button onClick={() => setActiveTab('report')} className={`py-3 px-2 text-[10px] md:text-xs font-bold uppercase rounded-xl transition-all flex flex-col items-center gap-1.5 ${activeTab === 'report' ? 'bg-red-900/20 text-red-400 shadow-lg border border-red-500/50' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}>
@@ -227,29 +207,42 @@ export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps
                                     onClose={onClose}
                                 />
                              ) : (
-                                <SponsorForm 
-                                    formData={sponsorLogic.formData} 
-                                    setFormData={sponsorLogic.setFormData}
-                                    activeType={sponsorLogic.activeType}
-                                    isGuest={sponsorLogic.isGuest}
-                                    isSubmitting={sponsorLogic.isSubmitting}
-                                    errorMsg={sponsorLogic.errorMsg}
-                                    setErrorMsg={sponsorLogic.setErrorMsg}
-                                    onSubmit={sponsorLogic.handleSubmit}
-                                    setCoverImage={(file) => sponsorLogic.setCoverImage(file)}
-                                    coverImage={sponsorLogic.coverImage}
-                                    termsAccepted={sponsorLogic.termsAccepted}
-                                    setTermsAccepted={sponsorLogic.setTermsAccepted}
-                                    privacyAccepted={sponsorLogic.privacyAccepted}
-                                    setPrivacyAccepted={sponsorLogic.setPrivacyAccepted}
-                                    handleMagicRewrite={sponsorLogic.handleMagicRewrite} // Pass the handler
-                                />
+                                <>
+                                    <div className="mb-8">
+                                        <SponsorPricingSelector 
+                                            activeType={sponsorLogic.activeType}
+                                            onSelectionChange={sponsorLogic.setSelectedPlan}
+                                        />
+                                    </div>
+
+                                    <SponsorForm 
+                                        formData={sponsorLogic.formData} 
+                                        setFormData={sponsorLogic.setFormData}
+                                        activeType={sponsorLogic.activeType}
+                                        isGuest={sponsorLogic.isGuest}
+                                        isSubmitting={sponsorLogic.isSubmitting}
+                                        errorMsg={sponsorLogic.errorMsg}
+                                        setErrorMsg={sponsorLogic.setErrorMsg}
+                                        onSubmit={sponsorLogic.handleSubmit}
+                                        setCoverImage={(file) => sponsorLogic.setCoverImage(file)}
+                                        coverImage={sponsorLogic.coverImage}
+                                        termsAccepted={sponsorLogic.termsAccepted}
+                                        setTermsAccepted={sponsorLogic.setTermsAccepted}
+                                        privacyAccepted={sponsorLogic.privacyAccepted}
+                                        setPrivacyAccepted={sponsorLogic.setPrivacyAccepted}
+                                        handleMagicRewrite={sponsorLogic.handleMagicRewrite}
+                                    />
+                                </>
                              )
                         )}
 
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

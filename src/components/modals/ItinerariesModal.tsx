@@ -1,5 +1,7 @@
+import { Z_OVERLAY, Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Map, Trash2, Globe, Search, ChevronDown, Check, BookOpen, Users, Zap, Lightbulb, ArrowLeft } from 'lucide-react';
 import { PremadeItinerary, PointOfInterest, User as UserType } from '../../types/index';
 import { ItinerariesList } from '../itineraries/ItinerariesList';
@@ -7,6 +9,8 @@ import { ItineraryDetail } from '../itineraries/ItineraryDetail';
 import { ItineraryReviews } from '../itineraries/ItineraryReviews';
 import { useItinerary } from '@/context/ItineraryContext';
 import { getFilteredCommunityItinerariesAsync, getCommunityItinerariesMetadataAsync } from '../../services/communityService'; // NEW ASYNC
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 
 interface ItinerariesModalProps {
     isOpen: boolean;
@@ -27,8 +31,8 @@ const FilterDropdown = ({ label, options, value, onChange }: { label: string, op
             </button>
             {isOpen && (
                 <>
-                    <div className="fixed inset-0 z-[100]" onClick={() => setIsOpen(false)}></div>
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-[110] overflow-hidden py-1 animate-in slide-in-from-top-2">
+                    <div className="fixed inset-0" onClick={() => setIsOpen(false)} style={{ zIndex: Z_MODAL_NESTED }}></div>
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in slide-in-from-top-2" style={{ zIndex: Z_MODAL_NESTED }}>
                         <button onClick={() => { onChange(''); setIsOpen(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase hover:bg-slate-800 ${!value ? 'text-amber-50' : 'text-slate-400'}`}>Tutti</button>
                         {options.map(opt => (
                             <button key={opt} onClick={() => { onChange(opt); setIsOpen(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase hover:bg-slate-800 flex items-center justify-between ${value === opt ? 'text-indigo-400 bg-slate-800/50' : 'text-slate-300'}`}>
@@ -45,6 +49,9 @@ const FilterDropdown = ({ label, options, value, onChange }: { label: string, op
 
 export const ItinerariesModal = ({ isOpen, onClose, onViewPoiDetail, userLocation, user, initialZoneFilter, onOpenAuth }: ItinerariesModalProps) => {
     const { importPremadeItinerary, itinerary } = useItinerary();
+
+    useGlobalModalEscape(isOpen, onClose);
+
     
     const [allItineraries, setAllItineraries] = useState<Partial<PremadeItinerary>[]>([]);
     const [filteredList, setFilteredList] = useState<PremadeItinerary[]>([]);
@@ -65,17 +72,7 @@ export const ItinerariesModal = ({ isOpen, onClose, onViewPoiDetail, userLocatio
     
     const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.stopPropagation();
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose, isOpen]);
+
 
     useEffect(() => {
         if (isOpen) {
@@ -177,8 +174,8 @@ export const ItinerariesModal = ({ isOpen, onClose, onViewPoiDetail, userLocatio
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed top-24 bottom-0 left-0 right-0 z-[900] flex items-center justify-center p-0 md:p-4">
+    return createPortal(
+        <div className="td-modal-overlay bg-black/95 backdrop-blur-md animate-in fade-in" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
              <style>{`
                 .perspective-1000 { perspective: 1000px; }
                 .transform-style-3d { transform-style: preserve-3d; }
@@ -195,11 +192,15 @@ export const ItinerariesModal = ({ isOpen, onClose, onViewPoiDetail, userLocatio
                 }
             `}</style>
 
-            <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={onClose}></div>
-            
-            <div className="relative bg-[#020617] w-full max-w-[98vw] h-full md:rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95">
+            <div 
+                className="relative bg-[#020617] w-full max-w-[98vw] h-full md:rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
-                <div className="w-full flex justify-between items-center px-6 py-3 border-b border-slate-800 bg-[#0f172a] shrink-0 z-50">
+                <div 
+                    className="w-full flex justify-between items-center px-6 py-3 border-b border-slate-800 bg-[#0f172a] shrink-0"
+                >
                     <div className="flex items-center gap-3">
                         <div className="p-1.5 bg-indigo-900/30 rounded-lg border border-indigo-500/30">
                             <Map className="w-5 h-5 text-indigo-400"/>
@@ -210,12 +211,12 @@ export const ItinerariesModal = ({ isOpen, onClose, onViewPoiDetail, userLocatio
                         </div>
                     </div>
                     {/* STANDARD RED CLOSE BUTTON */}
-                    <button onClick={onClose} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg">
-                        <X className="w-5 h-5"/>
-                    </button>
+                    <CloseButton onClose={onClose} />
                 </div>
 
-                <div className="w-full bg-slate-950 border-b border-slate-800 shrink-0 z-40 p-3 md:px-6 space-y-3">
+                <div 
+                    className="w-full bg-slate-950 border-b border-slate-800 shrink-0 p-3 md:px-6 space-y-3"
+                >
                     <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
                         <div className="flex flex-wrap gap-1.5 items-center w-full md:w-auto">
                             <div className="flex items-center gap-1.5 shrink-0 mr-1 text-slate-600">
@@ -297,14 +298,14 @@ export const ItinerariesModal = ({ isOpen, onClose, onViewPoiDetail, userLocatio
                             </div>
                         </div>
 
-                        <div className="p-4 border-t border-slate-800 bg-[#020617] relative z-20 shrink-0">
+                        <div className="p-4 border-t border-slate-800 bg-[#020617] relative shrink-0">
                             <div className="relative rounded-xl overflow-hidden p-5 bg-slate-900/80 group">
                                 <div className="absolute inset-0 pointer-events-none">
                                     <svg width="100%" height="100%" className="marching-ants">
                                         <rect x="1" y="1" width="99.5%" height="98%" rx="12" ry="12" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="10 10" strokeLinecap="round"/>
                                     </svg>
                                 </div>
-                                <div className="flex gap-4 items-start relative z-10">
+                                <div className="flex gap-4 items-start relative z-floating-panel">
                                     <Lightbulb className="w-6 h-6 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
                                     <div>
                                         <span className="text-amber-500 font-black uppercase text-sm tracking-wider block mb-1.5">CONSIGLIO</span>
@@ -341,8 +342,12 @@ export const ItinerariesModal = ({ isOpen, onClose, onViewPoiDetail, userLocatio
             </div>
 
             {showOverwriteWarning && pendingImportData && (
-                <div className="absolute inset-0 z-[700] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-                    <div className="bg-slate-900 rounded-xl border border-red-500/50 p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
+                <div 
+                    className="absolute inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm pointer-events-auto"
+                    style={{ zIndex: Z_MODAL_NESTED }}
+                    onClick={() => setShowOverwriteWarning(false)}
+                >
+                    <div className="bg-slate-900 rounded-xl border border-red-500/50 p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 pointer-events-auto" style={{ zIndex: Z_MODAL_NESTED }} onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col items-center text-center mb-6">
                             <div className="p-4 bg-red-500/20 rounded-full mb-4 animate-pulse"><Trash2 className="w-10 h-10 text-red-500"/></div>
                             <h3 className="text-xl font-display font-bold text-white mb-2">Attenzione: Sovrascrittura</h3>
@@ -355,7 +360,8 @@ export const ItinerariesModal = ({ isOpen, onClose, onViewPoiDetail, userLocatio
                     </div>
                 </div>
             )}
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -366,3 +372,6 @@ const ReviewArea = ({ itinerary, onBack, user }: any) => {
         </div>
     );
 };
+
+
+

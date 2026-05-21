@@ -37,7 +37,7 @@ export const updateCityHomeOrder = async (cityId: string, order: number | null):
     if (error) throw error;
 };
 
-export const evaluateAndUpdateCityStatus = async (cityId: string): Promise<'published' | 'draft' | 'needs_check'> => {
+export const evaluateAndUpdateCityStatus = async (cityId: string): Promise<CitySummary['status']> => {
     // 1. Recupera i dati base della città
     const { data: city, error: cityError } = await supabase
         .from('cities')
@@ -65,7 +65,7 @@ export const evaluateAndUpdateCityStatus = async (cityId: string): Promise<'publ
     const hasBasicInfo = !!(city.name && city.description && city.image_url);
 
     // 3. Determina il nuovo stato
-    let newStatus: 'published' | 'draft' | 'needs_check' = 'draft';
+    let newStatus: CitySummary['status'] = 'draft';
 
     if (hasPois && hasBasicInfo) {
         newStatus = 'published';

@@ -38,9 +38,6 @@ export const useDynamicStyles = (componentKey: string, isMobile: boolean = false
             const styleRule = configs?.design_system_rules?.[effectiveKey];
 
         if (!styleRule) {
-            if (process.env.NODE_ENV === 'development' && configs?.design_system_rules) {
-                console.warn(`[useDynamicStyles] Component key "${effectiveKey}" not found in design_system_rules.`);
-            }
             return '';
         }
 

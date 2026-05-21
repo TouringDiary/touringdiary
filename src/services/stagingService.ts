@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { DatabasePoiStaging, DatabasePoiInsert } from '../types/database'; // Usa Insert type per scrittura
+import { DatabasePoiStaging, DatabasePoiInsert, DatabasePoiStagingInsert, DatabasePoiStagingUpdate } from '../types/database'; // Usa Insert type per scrittura
 import { RatedPoiResult } from './ai/generators/qualityGenerator';
 import { enrichStagingPoi } from './ai/generators/poiGenerator';
 import { getCachedSetting } from './settingsService';
@@ -14,9 +14,23 @@ export interface StagingFilter {
     page?: number;
     pageSize?: number;
     aiRating?: string[];
-    rawCategories?: string[]; 
+    rawCategories?: string[];
     sortBy?: string;
     sortDir?: 'asc' | 'desc';
+}
+
+/**
+ * DTO canonico per l'ingestione di dati nella tabella di staging.
+ * Definisce il contratto minimo richiesto dai parser esterni.
+ */
+export interface StagingIngestDTO {
+    osm_id: string;
+    name: string;
+    raw_category: string;
+    coords_lat: number;
+    coords_lng: number;
+    address?: string;
+    ai_rating?: 'high' | 'medium' | 'low';
 }
 
 // Colonne leggere per la lista
@@ -53,7 +67,7 @@ export const getStagingPois = async ({ cityId, status = 'all', search = '', page
     if (search) {
         query = query.or(`name.ilike.%${search}%,address.ilike.%${search}%`);
     }
-    
+
     if (aiRating && aiRating.length > 0) {
         query = query.in('ai_rating', aiRating);
     }
@@ -112,7 +126,7 @@ export const getAllStagingPois = async ({ cityId, status = 'all', search = '', a
 export const getAllStagingIds = async ({ cityId, status = 'all', search = '', aiRating = [], rawCategories = [] }: Omit<StagingFilter, 'page' | 'pageSize'>): Promise<string[]> => {
     let query = supabase
         .from('pois_staging')
-        .select('id') 
+        .select('id')
         .eq('city_id', cityId);
 
     if (status !== 'all') {
@@ -122,11 +136,11 @@ export const getAllStagingIds = async ({ cityId, status = 'all', search = '', ai
     if (search) {
         query = query.or(`name.ilike.%${search}%,address.ilike.%${search}%`);
     }
-    
+
     if (aiRating && aiRating.length > 0) {
         query = query.in('ai_rating', aiRating);
     }
-    
+
     if (rawCategories && rawCategories.length > 0) {
         query = query.in('raw_category', rawCategories);
     }
@@ -144,7 +158,7 @@ export const getAllStagingIds = async ({ cityId, status = 'all', search = '', ai
 // FIX: Chunked fetch per evitare errori "Bad Request" su URL troppo lunghi
 export const getStagingItemsByIds = async (ids: string[]): Promise<DatabasePoiStaging[]> => {
     if (ids.length === 0) return [];
-    
+
     // Divide in chunk da 50 per stare sicuri nei limiti URL
     const CHUNK_SIZE = 50;
     const chunks = [];
@@ -155,7 +169,7 @@ export const getStagingItemsByIds = async (ids: string[]): Promise<DatabasePoiSt
     let allData: DatabasePoiStaging[] = [];
 
     // Esegue le chiamate in parallelo per velocità
-    const promises = chunks.map(chunk => 
+    const promises = chunks.map(chunk =>
         supabase
             .from('pois_staging')
             .select('*') // Qui scarichiamo tutto perché serve per il processamento AI/Publish
@@ -175,18 +189,18 @@ export const getStagingItemsByIds = async (ids: string[]): Promise<DatabasePoiSt
     return allData;
 };
 
-export const saveStagingBatch = async (cityId: string, rawItems: any[]) => {
+export const saveStagingBatch = async (cityId: string, rawItems: StagingIngestDTO[]) => {
     if (rawItems.length === 0) return { inserted: 0, error: null };
 
-    const payload = rawItems.map(item => ({
+    const payload: DatabasePoiStagingInsert[] = rawItems.map(item => ({
         city_id: cityId,
         osm_id: item.osm_id,
         name: item.name,
         raw_category: item.raw_category,
         coords_lat: item.coords_lat,
         coords_lng: item.coords_lng,
-        address: item.address,
-        ai_rating: item.ai_rating,
+        address: item.address || null,
+        ai_rating: item.ai_rating || 'medium',
         processing_status: 'new',
         updated_at: new Date().toISOString()
     }));
@@ -210,7 +224,7 @@ export const updateStagingAiRatings = async (results: RatedPoiResult[]) => {
         const dbRating = item.rating === 'discard' ? 'low' : item.rating;
         return supabase
             .from('pois_staging')
-            .update({ 
+            .update({
                 ai_rating: dbRating,
                 processing_status: newStatus,
                 updated_at: new Date().toISOString()
@@ -223,7 +237,7 @@ export const updateStagingAiRatings = async (results: RatedPoiResult[]) => {
 export const updateStagingStatus = async (ids: string[], status: 'new' | 'ready' | 'imported' | 'discarded') => {
     const { error } = await supabase
         .from('pois_staging')
-        .update({ 
+        .update({
             processing_status: status,
             updated_at: new Date().toISOString()
         })
@@ -244,7 +258,7 @@ export const clearCityStaging = async (cityId: string): Promise<number> => {
         .from('pois_staging')
         .delete({ count: 'exact' })
         .eq('city_id', cityId);
-        
+
     if (error) throw error;
     return count || 0;
 };
@@ -258,65 +272,87 @@ export const orphanCityStaging = async (cityId: string, cityName: string): Promi
         // Step 1: Tagga con il nome città (Safe Identification)
         await supabase
             .from('pois_staging')
-            .update({ orphan_city_tag: cityName } as any) // Cast any se TypeScript non ha ancora recepito la colonna
+            .update({ orphan_city_tag: cityName })
             .eq('city_id', cityId);
-        
+
         // Step 2: Rendi orfani (city_id = null)
         await supabase
             .from('pois_staging')
             .update({ city_id: null })
             .eq('city_id', cityId);
-            
-    } catch(e) {
+
+    } catch (e) {
         console.error("Errore during orphaning:", e);
     }
 };
 
 // Recupera gli orfani basandosi sul tag esatto, non sull'indirizzo vago
 export const reclaimStagingByCityName = async (cityName: string, newCityId: string): Promise<number> => {
-    
+
     // Cerca per tag esatto (Case insensitive per sicurezza)
     const { data, error } = await supabase
         .from('pois_staging')
-        .update({ 
+        .update({
             city_id: newCityId,
             orphan_city_tag: null // Pulisce il tag
-        } as any)
+        })
         .is('city_id', null)
         .ilike('orphan_city_tag', cityName.trim())
         .select('*');
-        
+
     if (error) console.error("Error reclaiming staging", error);
     return data ? data.length : 0;
 };
 
 export const getStagingStats = async (cityId: string) => {
     const { data: all } = await supabase.from('pois_staging').select('processing_status').eq('city_id', cityId);
-    const stats = { new: 0, ready: 0, imported: 0, discarded: 0 };
-    all?.forEach((row: any) => {
-        if (stats[row.processing_status as keyof typeof stats] !== undefined) {
-            stats[row.processing_status as keyof typeof stats]++;
+    const stats: Record<'new' | 'ready' | 'imported' | 'discarded', number> = { new: 0, ready: 0, imported: 0, discarded: 0 };
+    all?.forEach((row) => {
+        const status = row.processing_status as keyof typeof stats;
+        if (stats[status] !== undefined) {
+            stats[status]++;
         }
     });
     return stats;
 };
 
+interface StagingComparisonItem {
+    id: string;
+    osm_id: string;
+    name: string;
+    coords_lat: number;
+    coords_lng: number;
+    raw_category: string | null;
+    address: string | null;
+}
+
 // --- ALGORITMO DI DEDUPLICA (SMART) ---
 export const deduplicateStagingData = async (cityId: string): Promise<number> => {
     try {
         // 1. Scarica tutti i dati staging della città (solo colonne per confronto)
-        const { data: allItems } = await supabase
+        const { data, error } = await supabase
             .from('pois_staging')
             .select('id, osm_id, name, coords_lat, coords_lng, raw_category, address')
             .eq('city_id', cityId);
 
-        if (!allItems || allItems.length === 0) return 0;
+        if (error || !data || data.length === 0) return 0;
+
+        // Mappatura esplicita e semanticamente sicura (evita typing trust-based su select)
+        const allItems: StagingComparisonItem[] = data.map(row => ({
+            id: row.id,
+            osm_id: row.osm_id,
+            name: row.name,
+            coords_lat: row.coords_lat,
+            coords_lng: row.coords_lng,
+            raw_category: row.raw_category,
+            address: row.address
+        }));
 
         const toDeleteIds = new Set<string>();
         const processedIds = new Set<string>();
 
-        // Funzione per calcolare "Ricchezza Dati"
-        const getDataScore = (item: any) => {
+        // Algoritmo deterministico per calcolare la "Ricchezza Dati" (Data Quality Score)
+        const getDataScore = (item: StagingComparisonItem): number => {
             let score = 0;
             if (item.address && item.address.length > 5) score += 2;
             if (item.raw_category && item.raw_category !== 'unknown') score += 1;
@@ -327,7 +363,7 @@ export const deduplicateStagingData = async (cityId: string): Promise<number> =>
         // 2. Loop di confronto O(N^2) ottimizzato
         for (let i = 0; i < allItems.length; i++) {
             const current = allItems[i];
-            
+
             if (toDeleteIds.has(current.id) || processedIds.has(current.id)) continue;
             processedIds.add(current.id);
 
@@ -351,13 +387,12 @@ export const deduplicateStagingData = async (cityId: string): Promise<number> =>
             if (duplicates.length > 0) {
                 // Abbiamo un gruppo di duplicati. Troviamo il "Vincitore"
                 const group = [current, ...duplicates];
-                
+
                 // Ordina per punteggio ricchezza decrescente
                 group.sort((a, b) => getDataScore(b) - getDataScore(a));
-                
+
                 // Il primo è il vincitore, gli altri si cancellano
-                const winner = group[0];
-                
+
                 for (let k = 1; k < group.length; k++) {
                     toDeleteIds.add(group[k].id);
                 }
@@ -369,7 +404,7 @@ export const deduplicateStagingData = async (cityId: string): Promise<number> =>
             const ids = Array.from(toDeleteIds);
             const CHUNK = 500;
             for (let i = 0; i < ids.length; i += CHUNK) {
-                 await supabase.from('pois_staging').delete().in('id', ids.slice(i, i + CHUNK));
+                await supabase.from('pois_staging').delete().in('id', ids.slice(i, i + CHUNK));
             }
         }
 
@@ -385,44 +420,54 @@ export const promoteToLive = async (stagingItem: DatabasePoiStaging, cityName: s
     try {
         // 1. Arricchimento AI
         const enriched = await enrichStagingPoi(stagingItem.name, cityName, stagingItem.raw_category, useSearch);
-        
+
         // 2. Determinazione Placeholder
         const category = enriched.category || 'discovery';
-        const placeholderImg = category ? getCachedSetting(category) : null;
+        const placeholderImg = category ? getCachedSetting<string>(category) : null;
 
         // 3. Costruzione Oggetto POI Finale (Type Safe)
         const finalAddress = enriched.address || stagingItem.address || `${cityName}, Italia`;
-        const finalStatus = 'draft'; 
+        const finalStatus = 'draft';
         const stagingInterest = stagingItem.ai_rating || 'medium';
+        if (
+            typeof stagingItem.osm_id !== 'string' ||
+            stagingItem.osm_id.trim().length === 0
+        ) {
+            throw new Error(
+                `[Staging] Invalid osm_id for staging item ${stagingItem.id}`
+            );
+        }
+
+        const safeOsmId = stagingItem.osm_id.replace(/\W/g, '');
 
         const newPoi: DatabasePoiInsert = {
-            id: `osm_${stagingItem.osm_id.replace(/\W/g, '')}`, 
+            id: `osm_${safeOsmId}`,
             city_id: stagingItem.city_id,
             name: stagingItem.name,
-            
+
             category: category,
-            sub_category: enriched.subCategory || stagingItem.raw_category || 'generic',
-            
+            sub_category: enriched.rawSubCategory || stagingItem.raw_category || 'generic',
+
             description: enriched.description || `Luogo di interesse a ${cityName}.`,
-            
+
             coords_lat: stagingItem.coords_lat,
             coords_lng: stagingItem.coords_lng,
             address: finalAddress,
-            
+
             visit_duration: enriched.visitDuration || '1h',
             price_level: enriched.priceLevel || 1,
-            
+
             tourism_interest: stagingInterest,
             ai_reliability: useSearch ? 'high' : 'medium',
-            
-            image_url: placeholderImg, 
+
+            image_url: placeholderImg || '',
             rating: 0,
             votes: 0,
             status: finalStatus, // Forced Draft
             date_added: new Date().toISOString(),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            
+
             is_sponsored: false,
             tier: null,
             opening_hours: null,
@@ -444,7 +489,7 @@ export const promoteToLive = async (stagingItem: DatabasePoiStaging, cityName: s
             .from('pois_staging')
             .update({ processing_status: 'imported', updated_at: new Date().toISOString() })
             .eq('id', stagingItem.id);
-            
+
         if (updateError) console.warn("Warning: Failed to update staging status", stagingItem.id);
 
         return true;

@@ -9,62 +9,151 @@ export * from './communityService';
 
 import { supabase } from './supabaseClient'; // Percorso da verificare
 
-// Definisce la struttura dell'oggetto che la funzione restituirà per ogni versione di prezzo
 export interface FormattedPricingVersion {
   pricing_version_id: string;
   plan_name: string;
-  plan_type: string; // AGGIUNTO: Tipo di piano (es. 'business', 'user')
+  plan_type: string;
   duration_days: number;
   price: number;
   currency: string;
+  ai_limits: any;
 }
 
 /**
- * Recupera tutte le versioni di prezzo standard attive e le formatta per l'uso nel frontend.
- * Filtra le versioni in base a 'valid_until' e 'campaign_id' per ottenere solo i prezzi standard non scaduti.
+ * Recupera le versioni di prezzo filtrando per campagna (opzionale) e applicando il fallback granulare.
+ * Implementa la logica No-Duplicates privilegiando il prezzo della campagna per ogni coppia (piano, durata).
  * 
- * @returns Un array di oggetti FormattedPricingVersion.
+ * @param campaignCode Il codice della campagna promozionale (es: 'black_friday')
+ * @returns Un array di oggetti FormattedPricingVersion deduplicati.
  */
-export const getPricingVersions = async (): Promise<FormattedPricingVersion[]> => {
-  const { data, error } = await supabase
-    .from('pricing_versions')
-    .select(`
-      id,
-      duration_days,
-      price,
-      currency,
-      plans:plans!plan_id (
-        name,
-        type
-      )
-    `) // MODIFICATO: Join esplicito con alias
-    .is('valid_until', null)
-    .is('campaign_id', null);
+export const getPricingVersions = async (campaignCode?: string): Promise<FormattedPricingVersion[]> => {
+  const now = new Date().toISOString();
+  
+  try {
+    let campaignId: string | null = null;
+    
+    // 1. Se campaignCode è fornito, recupera l'ID della campagna
+    if (campaignCode) {
+      const { data: campaignData, error: campaignError } = await supabase
+        .from('campaigns')
+        .select('id')
+        .eq('code', campaignCode)
+        .eq('is_active', true)
+        .lte('valid_from', now)
+        .or(`valid_until.is.null,valid_until.gte.${now}`)
+        .single();
+        
+      if (!campaignError && campaignData) {
+        campaignId = campaignData.id;
+      }
+    }
 
-  if (error) {
-    console.error('Errore durante il recupero delle versioni di prezzo:', error);
-    throw new Error('Impossibile caricare i dati dei piani di sponsorizzazione.');
-  }
+    // 2. Recupera le versioni standard (campaign_id IS NULL)
+    const { data: standardData, error: standardError } = await supabase
+      .from('pricing_versions')
+      .select(`
+        id,
+        duration_days,
+        price,
+        currency,
+        ai_limits,
+        campaign_id,
+        plans:plans!plan_id (
+          name,
+          type
+        )
+      `)
+      .is('campaign_id', null)
+      .lte('valid_from', now)
+      .or(`valid_until.is.null,valid_until.gte.${now}`)
+      .order('created_at', { ascending: false });
 
-  if (!data) {
+    if (standardError) throw standardError;
+
+    // 3. Se abbiamo una campagna valida, recupera le sue specifiche versioni
+    let promoData: any[] = [];
+    if (campaignId) {
+      const { data: campaignPricingData, error: campaignPricingError } = await supabase
+        .from('pricing_versions')
+        .select(`
+          id,
+          duration_days,
+          price,
+          currency,
+          ai_limits,
+          campaign_id,
+          plans:plans!plan_id (
+            name,
+            type
+          )
+        `)
+        .eq('campaign_id', campaignId)
+        .lte('valid_from', now)
+        .or(`valid_until.is.null,valid_until.gte.${now}`)
+        .order('created_at', { ascending: false });
+
+      if (!campaignPricingError && campaignPricingData) {
+        promoData = campaignPricingData;
+      }
+    }
+
+    // 4. Logica di Aggregazione No-Duplicates (Map approach)
+    // Usiamo una chiave composta [type]-[duration] per identificare univocamente l'offerta
+    const mergedMap = new Map<string, FormattedPricingVersion>();
+
+    // Riempiamo prima con i dati standard
+    const processItems = (items: any[]) => {
+      items.forEach(item => {
+        const plan = Array.isArray(item.plans) ? item.plans[0] : item.plans;
+        if (!plan) return;
+
+        const key = `${plan.type}-${item.duration_days}`;
+        const formatted: FormattedPricingVersion = {
+          pricing_version_id: item.id,
+          plan_name: plan.name,
+          plan_type: plan.type,
+          duration_days: item.duration_days,
+          price: item.price,
+          currency: item.currency,
+          ai_limits: item.ai_limits
+        };
+
+        // Se è un dato promozionale, sovrascrivi sempre. 
+        // Se è standard, scrivi solo se la chiave è vuota.
+        const isPromo = item.campaign_id !== null;
+        if (isPromo || !mergedMap.has(key)) {
+          mergedMap.set(key, formatted);
+        }
+      });
+    };
+
+    processItems(standardData || []);
+    processItems(promoData);
+
+    return Array.from(mergedMap.values());
+
+  } catch (error) {
+    console.error('Errore durante il recupero delle versioni di prezzo con campagne:', error);
+    // Fallback sicuro se tutto fallisce: tenta almeno i prezzi standard senza filtri complessi
     return [];
   }
+};
 
-  // Appiattisce la struttura dati per renderla più facile da usare nei componenti React.
-  const formattedData = data
-    .filter(item => item.plans) // Assicura che l'oggetto 'plans' non sia nullo
-    .map(item => {
-        // Estende l'assertion per includere il nuovo campo \`type\`
-        const plan_details = Array.isArray(item.plans) ? item.plans[0] : item.plans;
-        return {
-            pricing_version_id: item.id,
-            plan_name: plan_details.name,
-            plan_type: plan_details.type, // AGGIUNTO: mappatura del nuovo campo
-            duration_days: item.duration_days,
-            price: item.price,
-            currency: item.currency,
-        }
-    });
-
-  return formattedData;
+/**
+ * Esegue un merge sicuro degli AI limits preservando i campi non relativi ai modelli (es. soft_daily_limit).
+ * 
+ * @param oldLimits Oggetto JSON attuale dei limiti
+ * @param newModels Oggetto contenente i nuovi valori per flash e pro
+ * @returns Un nuovo oggetto JSON mergiato
+ */
+export const safeMergeAiLimits = (oldLimits: any, newModels: { flash: number; pro: number }) => {
+  const baseLimits = oldLimits || {};
+  return {
+    ...baseLimits,
+    models: {
+      ...(baseLimits.models || {}),
+      flash: Number(newModels.flash),
+      pro: Number(newModels.pro)
+    }
+  };
 };

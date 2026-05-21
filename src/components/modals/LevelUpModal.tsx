@@ -1,6 +1,8 @@
-
-import React, { useEffect } from 'react';
-import { X, Trophy, Crown, Gift, ArrowRight } from 'lucide-react';
+import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
+import { createPortal } from 'react-dom';
+import { Gift, ArrowRight } from 'lucide-react';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { CloseButton } from "@/components/ui/controls/CloseButton";
 import { getCurrentLevel } from '../../services/gamificationService';
 
 interface Props {
@@ -12,23 +14,20 @@ interface Props {
 
 export const LevelUpModal = ({ isOpen, onClose, xp, onOpenRewards }: Props) => {
     
-    // ESC Key Listener
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    useGlobalModalEscape(isOpen, onClose);
+
 
     if (!isOpen) return null;
 
     const currentLevel = getCurrentLevel(xp);
 
-    return (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-            <div className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 bg-slate-900 border border-slate-700">
+    return createPortal(
+        <div className="td-modal-overlay pointer-events-auto flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
+            <div 
+                className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 bg-slate-900 border border-slate-700 pointer-events-auto"
+                style={{ zIndex: Z_MODAL }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {/* CONFETTI/CELEBRATION BACKGROUND */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -37,11 +36,8 @@ export const LevelUpModal = ({ isOpen, onClose, xp, onOpenRewards }: Props) => {
                     <div className="absolute bottom-[-50px] right-[-50px] w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl animate-pulse delay-700"></div>
                 </div>
 
-                {/* CONTENT */}
-                <div className="relative z-10 p-8 flex flex-col items-center text-center">
-                    <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-slate-800 rounded-full text-slate-500 hover:text-white transition-colors">
-                        <X className="w-5 h-5"/>
-                    </button>
+                <div className="relative z-floating-panel p-8 flex flex-col items-center text-center">
+                    <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
 
                     <div className="mb-6 relative">
                         <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-300 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 border-4 border-slate-900 text-5xl">
@@ -78,6 +74,10 @@ export const LevelUpModal = ({ isOpen, onClose, xp, onOpenRewards }: Props) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
+
+
+

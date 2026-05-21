@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Image as ImageIcon, Loader2 } from 'lucide-react';
 import { getOptimizedImageUrl, ImageSize } from '../../utils/imageOptimizer';
 import { getCachedSetting } from '../../services/settingsService';
@@ -26,7 +26,7 @@ const ErrorBox = ({ className }: { className?: string }) => (
 );
 
 const Spinner = () => (
-  <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900/50 backdrop-blur-sm">
+  <div className="absolute inset-0 flex items-center justify-center z-floating-panel bg-slate-900/50 backdrop-blur-sm">
     <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
   </div>
 );
@@ -43,11 +43,7 @@ export const ImageWithFallback = ({
 }: Props) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    setIsLoaded(false);
-    setHasError(false);
-  }, [src]);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   // --- MODIFICA ARCHITETTURALE --- 
   const fallbackSrc = useMemo(() => {
@@ -62,6 +58,28 @@ export const ImageWithFallback = ({
 
   const sourceToUse = hasError ? fallbackSrc : primarySrc;
 
+  // Quando viene passata una nuova immagine principale, resettiamo l'errore per riprovare
+  useEffect(() => {
+    setHasError(false);
+  }, [primarySrc]);
+
+  useEffect(() => {
+    // Reset dello stato caricamento per l'URL effettivo
+    setIsLoaded(false);
+
+    // Controllo per cache del browser:
+    // Se l'immagine è già stata caricata (es. da cache), img.complete è true.
+    if (imgRef.current?.complete) {
+        // Un'immagine rotta potrebbe avere complete=true ma naturalWidth=0
+        if (imgRef.current.naturalWidth > 0) {
+            setIsLoaded(true);
+        } else if (imgRef.current.naturalWidth === 0 && imgRef.current.src) {
+            // Se l'immagine è completa ma width è 0, potrebbe essere un errore di caricamento (es. 404 ritornato istantaneamente)
+            setHasError(true);
+        }
+    }
+  }, [sourceToUse]);
+
   // Mostra errore finale solo se TUTTE le sorgenti (src e fallback) hanno fallito o sono assenti
   const showFinalError = (hasError && !fallbackSrc) || !sourceToUse;
 
@@ -73,16 +91,12 @@ export const ImageWithFallback = ({
     <div className={`relative overflow-hidden bg-slate-950 ${className}`} onClick={onClick}>
       {!isLoaded && <Spinner />}
       <img
-        key={sourceToUse} // Usa sourceToUse per forzare il re-render se cambia
+        ref={imgRef}
         src={sourceToUse}
         alt={alt}
         className={`w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setIsLoaded(true)}
-        onError={() => {
-          if (!hasError) {
-            setHasError(true);
-          }
-        }}
+        onError={() => setHasError(true)}
         draggable={draggable}
         loading={priority ? 'eager' : 'lazy'}
         decoding="async"

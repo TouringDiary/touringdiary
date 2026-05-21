@@ -1,9 +1,16 @@
 
 import { supabase } from './supabaseClient';
-import { CitySummary, PointOfInterest, PhotoSubmission, RankedItemMixin } from '../types/index';
-import { DatabasePoi, DatabasePhotoSubmission } from '../types/database';
-import { mapDbPoiToApp } from './city/poiService';
+import {
+    CitySummary,
+    PointOfInterest,
+    PhotoSubmission,
+    RankedItemMixin
+} from '../types/index';
+import { DatabaseJoinedPhotoSubmission, DatabaseJoinedPoi } from '../types/database';
+import { mapDbPoiToApp } from './city/poi/poiMapper';
 import { GEO_CONFIG } from '../constants/geoConfig';
+import { sanitizeMediaStatus } from '../utils/media';
+import { CITY_STATUS_VALUES, CITY_BADGE_VALUES } from '../constants/governance';
 
 // Helper per costruire la stringa gerarchica elegante
 const buildHierarchy = (c: { continent?: string | null, nation?: string | null, admin_region?: string | null, zone?: string, name?: string }) => {
@@ -34,43 +41,60 @@ export interface RankedCitiesResult {
 
 export const getRankedCities = async ({ sortType, page, pageSize, search = '', zone = '' }: RankingOptions): Promise<RankedCitiesResult> => {
     try {
-        // Chiamata RPC alla funzione Supabase
+        // Chiamata RPC tipizzata allineata allo schema Supabase
         const { data, error } = await supabase.rpc('get_ranked_cities', {
             sort_type: sortType,
             page_size: pageSize,
-            page_index: page - 1, // RPC usa 0-based
+            page_index: page - 1,
             search_text: search,
             zone_filter: zone
         });
 
         if (error) throw error;
+        const rows = data || [];
 
-        // Mapping Risultati
-        const cities = (data || []).map((db: any, index: number) => ({
-            id: db.id,
-            name: db.name,
-            continent: db.continent || GEO_CONFIG.DEFAULT_CONTINENT,
-            nation: db.nation || GEO_CONFIG.DEFAULT_NATION,
-            adminRegion: db.admin_region || GEO_CONFIG.DEFAULT_REGION,
-            zone: db.zone,
-            description: db.description || '',
-            imageUrl: db.image_url,
-            heroImage: db.hero_image,
-            rating: Number(db.rating || 0),
-            visitors: Number(db.visitors || 0),
-            isFeatured: db.is_featured || false,
-            specialBadge: db.special_badge || null,
-            coords: { lat: db.coords_lat, lng: db.coords_lng },
-            status: db.status,
-            createdAt: db.created_at,
-            updatedAt: db.updated_at,
-            // Calcolo ranking assoluto per display
-            originalRank: ((page - 1) * pageSize) + index + 1,
-            hierarchy: buildHierarchy(db)
-        }));
+        const cities: (CitySummary & RankedItemMixin)[] = rows.map((db, index: number) => {
+            // Normalizzazione Badge Type-Safe via Governance Centralizzata
+            const safeBadge = (db.special_badge && (CITY_BADGE_VALUES as readonly string[]).includes(db.special_badge))
+                ? (db.special_badge as CitySummary['specialBadge'])
+                : null;
+
+            // Normalizzazione Status Type-Safe via Governance Centralizzata
+            const safeStatus = (db.status && (CITY_STATUS_VALUES as readonly string[]).includes(db.status))
+                ? (db.status as CitySummary['status'])
+                : 'draft';
+
+            return {
+                id: db.id,
+                slug: db.slug || db.id,
+                name: db.name,
+                continent: db.continent || GEO_CONFIG.DEFAULT_CONTINENT,
+                nation: db.nation || GEO_CONFIG.DEFAULT_NATION,
+                adminRegion: db.admin_region || GEO_CONFIG.DEFAULT_REGION,
+                zone: db.zone,
+                description: db.description || '',
+                imageUrl: db.image_url,
+
+                // MediaStatus deterministico (RPC/DB driven)
+                image_status: sanitizeMediaStatus(db.image_status),
+
+                heroImage: db.hero_image,
+                hero_status: sanitizeMediaStatus(db.hero_status),
+
+                rating: Number(db.rating || 0),
+                visitors: Number(db.visitors || 0),
+                isFeatured: db.is_featured || false,
+                specialBadge: safeBadge,
+                coords: { lat: db.coords_lat, lng: db.coords_lng },
+                status: safeStatus,
+                createdAt: db.created_at,
+                updatedAt: db.updated_at,
+                originalRank: ((page - 1) * pageSize) + index + 1,
+                hierarchy: buildHierarchy(db)
+            };
+        });
 
         const totalCount = data && data.length > 0 ? Number(data[0].total_count) : 0;
-
         return { data: cities, totalCount };
 
     } catch (e) {
@@ -104,7 +128,9 @@ export const getTopCommunityPhotos = async (limit: number = 50): Promise<(PhotoS
 
         const userId = (await supabase.auth.getUser()).data.user?.id;
 
-        return (data as any[]).map((p, idx) => {
+        const photos: DatabaseJoinedPhotoSubmission[] = (data as unknown as DatabaseJoinedPhotoSubmission[]) || [];
+
+        return photos.map((p, idx) => {
             const city = p.cities;
 
             const hierarchy = city
@@ -115,20 +141,22 @@ export const getTopCommunityPhotos = async (limit: number = 50): Promise<(PhotoS
                 id: p.id,
                 submissionId: p.id ?? null,
 
-                userId: p.user_id,
-                user: p.user_name,
-                locationName: p.location_name,
-                description: p.description,
-                url: p.image_url,
-                status: p.status as any,
-                date: p.created_at,
-                likes: p.likes,
-                updatedAt: p.updated_at,
+                userId: p.user_id || undefined,
+                user: p.user_name || 'Utente',
+                locationName: p.location_name || '',
+                description: p.description || undefined,
+                url: p.image_url || '',
+                mediaStatus: sanitizeMediaStatus(p.media_status),
+                status: (p.status as PhotoSubmission['status']) || 'pending',
+                date: p.created_at || new Date().toISOString(),
+                likes: p.likes || 0,
+                updatedAt: p.updated_at || undefined,
 
-                // ✅ FIX DEFINITIVO
                 likedByUser: Boolean(
-                    p.photo_likes?.some((l: any) => l.user_id === userId)
+                    p.photo_likes?.some((l) => l.user_id === userId)
                 ),
+
+                isOfficial: p.is_official ?? false,
 
                 hierarchy: hierarchy,
                 originalRank: idx + 1
@@ -167,7 +195,9 @@ export const getTopCommunityPois = async (limit: number = 50, category?: string)
         const { data, error } = await query;
         if (error) throw error;
 
-        return (data as any[]).map((db, idx) => {
+        const pois: DatabaseJoinedPoi[] = (data as unknown as DatabaseJoinedPoi[]) || [];
+
+        return pois.map((db, idx) => {
             const poi = mapDbPoiToApp(db);
             const city = db.cities;
 

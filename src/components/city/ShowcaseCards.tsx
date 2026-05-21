@@ -43,7 +43,7 @@ const PriceLevelIndicator = ({ level }: { level?: number }) => {
 
 // Action Buttons Row (Like, Add, Drag Handle)
 const ActionRow = ({ poi, onLike, isLiked, onAdd, inItinerary, isMobile, variant }: any) => (
-    <div className={`absolute z-50 flex items-center gap-1.5 pointer-events-auto ${variant === 'horizontal' ? 'bottom-2 right-2' : 'bottom-1 right-0 p-2'}`} onClick={e => e.stopPropagation()}>
+    <div className={`absolute z-modal flex items-center gap-1.5 pointer-events-auto ${variant === 'horizontal' ? 'bottom-2 right-2' : 'bottom-1 right-0 p-2'}`} onClick={e => e.stopPropagation()}>
         {variant === 'horizontal' && (
             <div className="hidden lg:flex p-1.5 rounded-lg bg-black/40 text-slate-500 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
                 <GripHorizontal className="w-4 h-4 group-hover:text-amber-500 transition-colors"/>
@@ -120,7 +120,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
                 {poi.isSponsored && <div className="absolute top-2 right-2"><span className={`text-[7px] font-black px-1.5 py-0.5 rounded border shadow-lg ${poi.tier==='gold'?'bg-amber-500 text-black border-amber-200':'bg-white text-slate-900 border-slate-200'}`}><Award className="w-2 h-2"/> SPONSOR</span></div>}
                 
                 {showDistance && (
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-dropdown pointer-events-none">
                         <span className={`flex items-center justify-center gap-0.5 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded-full border border-emerald-500/50 shadow-sm whitespace-nowrap ${distanceBadgeStyle || 'text-[8px] font-black text-emerald-300'}`}>
                             <Navigation className="w-2 h-2 fill-current transform rotate-45"/> {distanceRel}km
                         </span>
@@ -177,7 +177,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
                 
                 {/* Badge Overlay */}
-                <div className="absolute top-2 right-2 flex justify-end mb-1 z-20">
+                <div className="absolute top-2 right-2 flex justify-end mb-1 z-dropdown">
                     {poi.isSponsored ? (
                         <span className={`text-[7px] font-black px-1.5 py-0.5 rounded border ${poi.tier==='gold'?'bg-amber-500 text-black border-amber-300':'bg-white text-slate-900 border-slate-200'}`}>
                             <Award className="w-2 h-2 inline mr-0.5"/> SPONSOR
@@ -189,7 +189,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
 
                 {/* Distance Badge */}
                 {showDistance && (
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-dropdown pointer-events-none">
                         <span className={`flex items-center justify-center gap-0.5 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded-full border border-emerald-500/50 shadow-sm whitespace-nowrap ${distanceBadgeStyle || 'text-[8px] font-black text-emerald-300'}`}>
                             <Navigation className="w-2 h-2 fill-current transform rotate-45"/> {distanceRel}km
                         </span>
@@ -198,7 +198,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
             </div>
 
             {/* CONTENUTO */}
-            <div className="relative z-10 p-2 md:p-3 flex flex-col flex-1 min-h-0 justify-between">
+            <div className="relative z-floating-panel p-2 md:p-3 flex flex-col flex-1 min-h-0 justify-between">
                 <div className="w-full min-h-0 flex-1">
                     <StarRating value={poi.rating} size="w-2.5 h-2.5" />
                     <h4 className={`text-white font-bold leading-tight mt-0.5 line-clamp-2 pr-2 ${titleStyle || 'text-sm md:text-lg'}`}>

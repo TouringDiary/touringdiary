@@ -1,10 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, ChevronUp, ChevronDown, Coffee, Lightbulb, Sparkles, Route, AlertTriangle, Loader2, Clock, Calendar, Hash, Flag, Navigation, Zap, Lock, Gift, Crown } from 'lucide-react';
 import { useAiPlanner } from '@/context/AiPlannerContext';
 import { DailyLogistics } from '../../services/ai/aiPlanner';
 // import { checkAiQuota } from '../../services/aiUsageService';
-import { getGuestUser } from '../../services/userService';
 import { useModal } from '@/context/ModalContext';
 import { User } from '../../types/index';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
@@ -23,6 +22,102 @@ const FALLBACK_STYLES = [
 ];
 
 const DISTANCE_STEPS = [2, 5, 10, 15, 20, 25, 30];
+
+// Custom colored calendar icon — design system compliant (arancione/dorato)
+const ColoredCalendarIcon = ({ onClick }: { onClick?: () => void }) => (
+  <svg
+    onClick={onClick}
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    className="w-5 h-5 cursor-pointer shrink-0 hover:scale-110 transition-transform duration-150"
+    aria-label="Apri calendario"
+  >
+    <rect x="3" y="5" width="18" height="16" rx="3" ry="3"
+      fill="#1e293b" stroke="#f97316" strokeWidth="1.5"/>
+    <rect x="3" y="5" width="18" height="5" rx="2" ry="2"
+      fill="#f97316"/>
+    <line x1="8" y1="3" x2="8" y2="7"
+      stroke="#facc15" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="16" y1="3" x2="16" y2="7"
+      stroke="#facc15" strokeWidth="2" strokeLinecap="round"/>
+    <circle cx="8" cy="14" r="1.2" fill="#94a3b8"/>
+    <circle cx="12" cy="14" r="1.2" fill="#f97316"/>
+    <circle cx="16" cy="14" r="1.2" fill="#94a3b8"/>
+    <circle cx="8" cy="18" r="1.2" fill="#94a3b8"/>
+    <circle cx="12" cy="18" r="1.2" fill="#94a3b8"/>
+  </svg>
+);
+
+// ─── Date Range Picker sub-component ───────────────────────────────────────
+interface DateRangePickerProps {
+    startDate: string;
+    endDate: string;
+    minDate: string;
+    onStartDateChange: (val: string) => void;
+    onEndDateChange: (val: string) => void;
+}
+const DateRangePicker = ({ startDate, endDate, minDate, onStartDateChange, onEndDateChange }: DateRangePickerProps) => {
+    const startRef = useRef<HTMLInputElement>(null);
+    const endRef = useRef<HTMLInputElement>(null);
+    return (
+        <div className="grid grid-cols-2 gap-4 bg-slate-950/40 p-4 rounded-2xl border border-slate-800">
+            {/* DAL */}
+            <div className="space-y-1">
+                <label className="text-[10px] text-slate-500 uppercase font-black ml-1">Dal</label>
+                <div className="relative flex items-center">
+                    <input
+                        ref={startRef}
+                        type="date"
+                        id="ai-planner-date-dal"
+                        min={minDate}
+                        value={startDate}
+                        onChange={(e) => {
+                            if (e.target.value < minDate) return;
+                            onStartDateChange(e.target.value);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 pr-9 text-white text-base font-black font-mono text-center outline-none focus:border-indigo-500 transition-colors"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <ColoredCalendarIcon onClick={() => {
+                            if (startRef.current?.showPicker) {
+                                startRef.current.showPicker();
+                            } else {
+                                startRef.current.focus();
+                            }
+                        }} />
+                    </span>
+                </div>
+            </div>
+            {/* AL */}
+            <div className="space-y-1">
+                <label className="text-[10px] text-slate-500 uppercase font-black ml-1">Al</label>
+                <div className="relative flex items-center">
+                    <input
+                        ref={endRef}
+                        type="date"
+                        id="ai-planner-date-al"
+                        min={minDate}
+                        value={endDate}
+                        onChange={(e) => {
+                            if (e.target.value < minDate) return;
+                            onEndDateChange(e.target.value);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 pr-9 text-white text-base font-black font-mono text-center outline-none focus:border-indigo-500 transition-colors"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <ColoredCalendarIcon onClick={() => {
+                            if (endRef.current?.showPicker) {
+                                endRef.current.showPicker();
+                            } else {
+                                endRef.current.focus();
+                            }
+                        }} />
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // Dynamic Header Component
 const SectionHeader = ({ num, title }: { num: string, title: string }) => {
@@ -58,7 +153,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error, user }: Props) => 
 
     // useEffect(() => {
     //     const check = async () => {
-    //         const targetUser = user || getGuestUser();
+    //         const targetUser = user;
     //         const q = await checkAiQuota(targetUser);
     //         setQuota(q);
     //     };
@@ -189,6 +284,15 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error, user }: Props) => 
                 .slider-navigator::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: #f97316; clip-path: polygon(100% 50%, 0% 0%, 25% 50%, 0% 100%); cursor: pointer; border: none; box-shadow: 0 0 10px rgba(249, 115, 22, 0.4); }
                 .slider-clock::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: #facc15; border-radius: 50%; border: 2px solid #854d0e; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23854d0e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E"); background-size: 65%; background-repeat: no-repeat; background-position: center; }
                 input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+                input[type="date"]::-webkit-calendar-picker-indicator {
+                  opacity: 0 !important;
+                  display: none !important;
+                  -webkit-appearance: none !important;
+                }
+                input[type="date"] {
+                  appearance: none !important;
+                  -webkit-appearance: none !important;
+                }
             `}</style>
 
             <section>
@@ -247,16 +351,13 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error, user }: Props) => 
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 bg-slate-950/40 p-4 rounded-2xl border border-slate-800">
-                        <div className="space-y-1">
-                            <label className="text-[10px] text-slate-500 uppercase font-black ml-1">Dal</label>
-                            <input type="date" min={minDate} value={aiSession.startDate} onChange={e => handleStartDateChange(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white text-base font-black font-mono text-center outline-none focus:border-indigo-500 transition-colors"/>
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] text-slate-500 uppercase font-black ml-1">Al</label>
-                            <input type="date" min={aiSession.startDate || minDate} value={aiSession.endDate} onChange={e => updateAiSession({ endDate: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white text-base font-black font-mono text-center outline-none focus:border-indigo-500 transition-colors"/>
-                        </div>
-                    </div>
+                    <DateRangePicker
+                        startDate={aiSession.startDate}
+                        endDate={aiSession.endDate}
+                        minDate={minDate}
+                        onStartDateChange={handleStartDateChange}
+                        onEndDateChange={(val) => updateAiSession({ endDate: val })}
+                    />
                 </div>
             </section>
 
