@@ -10,18 +10,18 @@ import { useAdminStyles } from '../../hooks/useAdminStyles';
 import { AdminPageHeader } from './common/AdminPageHeader';
 import { AdminSectionCard } from './common/AdminSectionCard';
 import * as aiAdmin from '../../services/aiAdminService';
-import { format } from 'date-fns';
-import { it } from 'date-fns/locale';
 
-type AdminUserSortBy = 'registrationDate' | 'extraQuota' | 'expiresSoon';
+type AdminUserSortBy = 'registrationDate' | 'bonusTotal' | 'expiresSoon';
 
 interface AiAdminUserListItem {
     id: string;
     name: string;
     email: string;
     role?: string;
-    extra_quota?: number;
-    extra_quota_expires_at?: string | null;
+    bonus_total: number;
+    bonus_flash: number;
+    bonus_pro: number;
+    bonus_expires_at: string | null;
 }
 
 type PlanLimitField = 'soft_daily_limit' | 'burst_allowed' | 'models';
@@ -29,7 +29,8 @@ type PlanLimitValue = string | number | boolean | { flash: string | number; pro:
 
 export const AiLimitsControlCenter = () => {
     const { styles } = useAdminStyles();
-    const [isLoading, setIsLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isUserListLoading, setIsUserListLoading] = useState(false);
     const [isSaving, setIsSaving] = useState<string | null>(null);
     const [data, setData] = useState<aiAdmin.AiAdminData | null>(null);
     
@@ -38,8 +39,10 @@ export const AiLimitsControlCenter = () => {
     const [userList, setUserList] = useState<AiAdminUserListItem[]>([]);
     const [sortBy, setSortBy] = useState<AdminUserSortBy>('registrationDate');
     const [selectedUser, setSelectedUser] = useState<AiAdminUserListItem | null>(null);
-    const [newExtraQuota, setNewExtraQuota] = useState(0);
+    const [newFlashCredits, setNewFlashCredits] = useState(0);
+    const [newProCredits, setNewProCredits] = useState(0);
     const [newExtraExpiry, setNewExtraExpiry] = useState('');
+    const [extraQuotaNotice, setExtraQuotaNotice] = useState<string | null>(null);
 
     const [modelCostDrafts, setModelCostDrafts] = useState<Record<string, string>>({});
     const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({});
@@ -74,32 +77,59 @@ export const AiLimitsControlCenter = () => {
         setPlanLimitDrafts(plans);
     }, []);
 
-    const loadData = async () => {
+    const loadAdminConfig = useCallback(async () => {
         try {
-            setIsLoading(true);
+            setIsInitialLoading(true);
             const res = await aiAdmin.getAiAdminData();
             setData(res);
             syncFormDrafts(res);
-            
-            // Load initial user list for extra quota
+        } catch (e) {
+            console.error('Error loading AI Admin data', e);
+        } finally {
+            setIsInitialLoading(false);
+        }
+    }, [syncFormDrafts]);
+
+    const loadUserList = useCallback(async (sort: AdminUserSortBy, search: string) => {
+        try {
+            setIsUserListLoading(true);
+            const users = await aiAdmin.getAdminUsersPaged(sort, search);
+            setUserList(users);
+        } catch (e) {
+            console.error('Error loading admin user list', e);
+        } finally {
+            setIsUserListLoading(false);
+        }
+    }, []);
+
+    const refreshAll = useCallback(async () => {
+        try {
+            const res = await aiAdmin.getAiAdminData();
+            setData(res);
+            syncFormDrafts(res);
             const users = await aiAdmin.getAdminUsersPaged(sortBy, searchEmail);
             setUserList(users);
         } catch (e) {
-            console.error("Error loading AI Admin data", e);
-        } finally {
-            setIsLoading(false);
+            console.error('Error refreshing AI Admin data', e);
         }
-    };
+    }, [sortBy, searchEmail, syncFormDrafts]);
 
     useEffect(() => {
-        loadData();
-    }, [sortBy, searchEmail]); // Ricarica lista utenti se cambiano filtri/ordinamento
+        void loadAdminConfig();
+    }, [loadAdminConfig]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            void loadUserList(sortBy, searchEmail);
+        }, 300);
+        return () => window.clearTimeout(timer);
+    }, [sortBy, searchEmail, loadUserList]);
 
     const handleSaveCost = async (model: string, cost: number) => {
         setIsSaving(`cost_${model}`);
         try {
             await aiAdmin.updateModelCosts(model, cost);
-            await loadData();
+            await refreshAll();
         } catch (e) { console.error(e); }
         finally { setIsSaving(null); }
     };
@@ -108,7 +138,7 @@ export const AiLimitsControlCenter = () => {
         setIsSaving(key);
         try {
             await aiAdmin.updateAnonBudgets(key, value);
-            await loadData();
+            await refreshAll();
         } catch (e) { console.error(e); }
         finally { setIsSaving(null); }
     };
@@ -117,33 +147,61 @@ export const AiLimitsControlCenter = () => {
         setIsSaving(`${versionId}_${field}`);
         try {
             await aiAdmin.updatePlanAiLimitField(versionId, field, value);
-            await loadData();
+            await refreshAll();
         } catch (e) { console.error(e); }
         finally { setIsSaving(null); }
     };
 
     const handleApplyExtraQuota = async () => {
         if (!selectedUser) return;
+
+        const flashCredits = Number(newFlashCredits);
+        const proCredits = Number(newProCredits);
+        const flashValid = Number.isFinite(flashCredits) && flashCredits > 0;
+        const proValid = Number.isFinite(proCredits) && proCredits > 0;
+
+        if (!flashValid && !proValid) {
+            setExtraQuotaNotice('Inserisci almeno un credito Flash o Pro maggiore di zero.');
+            return;
+        }
+
+        setExtraQuotaNotice(null);
         setIsSaving('extra_quota');
         try {
-            await aiAdmin.updateUserExtraQuota(selectedUser.id, Number(newExtraQuota), newExtraExpiry || null);
-            await loadData();
+            const expiresAt = newExtraExpiry ? new Date(newExtraExpiry).toISOString() : null;
+            await aiAdmin.grantAdminWalletCredits(
+                selectedUser.id,
+                flashValid ? flashCredits : 0,
+                proValid ? proCredits : 0,
+                expiresAt,
+            );
+            await refreshAll();
             setSelectedUser(null);
-            setSearchEmail('');
-        } catch (e) { console.error(e); }
-        finally { setIsSaving(null); }
+            setNewFlashCredits(0);
+            setNewProCredits(0);
+            setNewExtraExpiry('');
+        } catch (e) {
+            console.error(e);
+            const message =
+                e && typeof e === 'object' && 'message' in e && typeof e.message === 'string'
+                    ? e.message
+                    : 'Errore durante l\'assegnazione bonus wallet.';
+            setExtraQuotaNotice(message);
+        } finally {
+            setIsSaving(null);
+        }
     };
 
     const handleToggleEmergency = async (current: boolean) => {
         setIsSaving('emergency');
         try {
             await aiAdmin.toggleEmergencyStop(!current);
-            await loadData();
+            await refreshAll();
         } catch (e) { console.error(e); }
         finally { setIsSaving(null); }
     };
 
-    if (isLoading) {
+    if (isInitialLoading) {
         return (
             <div className="flex flex-col items-center justify-center p-20 gap-4">
                 <Loader2 className="w-12 h-12 animate-spin text-indigo-500" />
@@ -366,13 +424,18 @@ export const AiLimitsControlCenter = () => {
                 </div>
             </AdminSectionCard>
 
-            {/* 6. EXTRA QUOTA USER OVERRIDE */}
+            {/* Wallet BONUS grant panel */}
             <AdminSectionCard
                 className="animate-in slide-in-from-bottom-2 duration-500"
-                title="6. Extra Quota Override"
+                title="ADMIN BONUS CREDITS"
                 icon={Users}
-                subtitle="Assegna un bonus temporaneo di richieste AI a un utente specifico. Ha la precedenza assoluta sul piano base."
+                subtitle="Aggiungi crediti bonus wallet (Flash e/o Pro) a un utente. Ogni assegnazione è additiva e finisce nel bucket BONUS runtime."
             >
+                {extraQuotaNotice && (
+                    <div className="mb-4 p-3 rounded-xl border border-rose-500/30 bg-rose-950/20 text-[11px] text-rose-200">
+                        {extraQuotaNotice}
+                    </div>
+                )}
                 <div className="flex flex-col md:flex-row gap-6">
                     {/* Search & List Section */}
                     <div className="w-full md:w-1/3 bg-slate-950/50 p-6 rounded-3xl border border-slate-800 space-y-4">
@@ -393,19 +456,26 @@ export const AiLimitsControlCenter = () => {
                                 className="bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-[10px] font-bold text-slate-400 outline-none"
                             >
                                 <option value="registrationDate">Recenti</option>
-                                <option value="extraQuota">Quota Max</option>
-                                <option value="expiresSoon">In Scadenza</option>
+                                <option value="bonusTotal">Bonus Max</option>
+                                <option value="expiresSoon">Bonus in Scadenza</option>
                             </select>
                         </div>
 
-                        <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                        <div className="relative space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                           {isUserListLoading && (
+                               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-slate-950/40 backdrop-blur-[1px]">
+                                   <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                               </div>
+                           )}
                            {userList.map(u => (
                                <button 
                                     key={u.id} 
                                     onClick={() => {
                                         setSelectedUser(u);
-                                        setNewExtraQuota(u.extra_quota || 0);
-                                        setNewExtraExpiry(u.extra_quota_expires_at ? new Date(u.extra_quota_expires_at).toISOString().slice(0, 16) : '');
+                                        setNewFlashCredits(0);
+                                        setNewProCredits(0);
+                                        setNewExtraExpiry('');
+                                        setExtraQuotaNotice(null);
                                     }}
                                     className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between ${selectedUser?.id === u.id ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-900 border-slate-800 hover:border-slate-600'}`}
                                 >
@@ -414,7 +484,7 @@ export const AiLimitsControlCenter = () => {
                                        <p className="text-[10px] text-slate-500 truncate">{u.email}</p>
                                    </div>
                                    <div className="bg-slate-800 px-2 py-1 rounded text-center min-w-[30px]">
-                                       <p className="text-[10px] font-bold text-indigo-400">{u.extra_quota || 0}</p>
+                                       <p className="text-[10px] font-bold text-amber-400">{u.bonus_total || 0}</p>
                                    </div>
                                </button>
                            ))}
@@ -435,26 +505,40 @@ export const AiLimitsControlCenter = () => {
                                     </div>
                                     <span className="text-xs text-indigo-400 font-mono">{selectedUser.email}</span>
                                  </div>
-                                 <div className="bg-indigo-600/10 border border-indigo-500/20 px-4 py-2 rounded-2xl text-center">
-                                     <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest leading-none mb-1">Quota Attuale</p>
-                                     <p className="text-2xl font-black text-white">{selectedUser.extra_quota || 0}</p>
+                                 <div className="bg-amber-600/10 border border-amber-500/20 px-4 py-2 rounded-2xl text-center">
+                                     <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest leading-none mb-1">Bonus wallet attivo</p>
+                                     <p className="text-2xl font-black text-white">{selectedUser.bonus_total || 0}</p>
+                                     <p className="text-[9px] text-amber-300/80 mt-1 font-mono">
+                                         F {selectedUser.bonus_flash || 0} · P {selectedUser.bonus_pro || 0}
+                                     </p>
                                  </div>
                              </div>
 
-                             <div className="grid grid-cols-2 gap-8 mb-8">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
                                  <div className="space-y-2">
-                                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Nuova Quota Totale</label>
-                                     <input 
-                                        type="number" 
-                                        value={newExtraQuota}
-                                        onChange={(e) => setNewExtraQuota(Number(e.target.value))}
+                                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Flash da aggiungere (BONUS)</label>
+                                     <input
+                                        type="number"
+                                        min={0}
+                                        value={newFlashCredits}
+                                        onChange={(e) => setNewFlashCredits(Number(e.target.value))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-2xl font-bold text-indigo-400 outline-none focus:border-indigo-500 transition-all font-mono"
                                      />
                                  </div>
                                  <div className="space-y-2">
-                                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Scadenza Override</label>
-                                     <input 
-                                        type="datetime-local" 
+                                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Pro da aggiungere (BONUS)</label>
+                                     <input
+                                        type="number"
+                                        min={0}
+                                        value={newProCredits}
+                                        onChange={(e) => setNewProCredits(Number(e.target.value))}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-2xl font-bold text-rose-400 outline-none focus:border-rose-500 transition-all font-mono"
+                                     />
+                                 </div>
+                                 <div className="space-y-2 sm:col-span-2">
+                                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Scadenza bonus (opzionale, default 365g)</label>
+                                     <input
+                                        type="datetime-local"
                                         value={newExtraExpiry}
                                         onChange={(e) => setNewExtraExpiry(e.target.value)}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500 transition-all font-mono"
@@ -463,13 +547,13 @@ export const AiLimitsControlCenter = () => {
                              </div>
 
                              <div className="flex gap-4">
-                                <button 
+                                <button
                                     onClick={handleApplyExtraQuota}
                                     disabled={isSaving === 'extra_quota'}
-                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all"
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all"
                                 >
                                     {isSaving === 'extra_quota' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                                    APPLICA OVERRIDE
+                                    ASSEGNA BONUS
                                 </button>
                                 <button 
                                     onClick={() => setSelectedUser(null)}
@@ -484,7 +568,7 @@ export const AiLimitsControlCenter = () => {
                              <div className="p-6 bg-slate-800/30 rounded-full mb-4">
                                 <Users className="w-10 h-10 text-slate-700" />
                              </div>
-                            Seleziona un utente dalla lista a sinistra per gestire la sua Extra Quota
+                            Seleziona un utente dalla lista a sinistra per assegnare bonus wallet
                         </div>
                     )}
                 </div>

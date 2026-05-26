@@ -58,8 +58,8 @@ export const mapProfileToUser = (p: DbProfile): User => {
         lastAccess: p.last_access || '',
         referralCode: p.referral_code || undefined,
         referredBy: p.referred_by || undefined,
-        extraQuota: p.extra_quota || 0,
-        extraQuotaExpiresAt: p.extra_quota_expires_at || undefined,
+        extraQuota: 0,
+        extraQuotaExpiresAt: undefined,
         slug: p.slug || undefined
     };
 };
@@ -415,27 +415,7 @@ export const registerUser = async (
             return { user: null, error: "Impossibile creare il profilo utente dopo la registrazione." };
         }
 
-        const newUser: User = {
-            id: data.id,
-            name: data.name,
-            email: data.email,
-            role: isUserRole(data.role) ? data.role : 'user',
-            status: isUserStatus(data.status) ? data.status : 'active',
-            isTestAccount: data.is_test_account || false,
-            nation: data.nation || 'Italia',
-            city: data.city || '',
-            vatNumber: data.vat_number,
-            companyName: data.company_name,
-            avatar: data.avatar_url,
-            xp: data.xp,
-            unlockedRewards: data.unlocked_rewards || [],
-            registrationDate: data.created_at,
-            lastAccess: data.last_access,
-            referralCode: data.referral_code,
-            referredBy: data.referred_by,
-            extraQuota: data.extra_quota || 0,
-            slug: data.slug
-        };
+        const newUser = mapProfileToUser(data);
 
         usersCache.push(newUser);
 

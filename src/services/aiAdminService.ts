@@ -1,7 +1,28 @@
 import { supabase } from './supabaseClient';
+import type { Database } from '../types/supabase';
+import {
+    fetchAdminUsersPaged,
+    searchAdminUsersByEmail,
+} from './ai/legacyExtraQuotaCompat';
+
+export { type AdminProfileQuotaRow } from './ai/legacyExtraQuotaCompat';
 
 export type AiUserCostCategory = 'guest' | 'free' | 'sponsor' | 'admin';
 export type AiSeasonKey = 'winter' | 'spring' | 'summer' | 'autumn';
+
+type AiGlobalUsageAnalyticsRow = Pick<
+    Database['public']['Tables']['ai_global_usage']['Row'],
+    'request_count' | 'model_type' | 'date' | 'user_id' | 'guest_id'
+> & {
+    /** Present only when PostgREST embed is included in the select (not in current query). */
+    profiles?: { role?: string | null } | null;
+};
+
+function getAnalyticsLogUserRole(log: AiGlobalUsageAnalyticsRow): string | null | undefined {
+    const profiles = log.profiles;
+    if (!profiles || typeof profiles !== 'object') return undefined;
+    return typeof profiles.role === 'string' ? profiles.role : null;
+}
 
 export interface AiModelPrice {
     model: string;
@@ -172,51 +193,43 @@ export const updatePlanAiLimitField = async (versionId: string, field: string, v
 };
 
 /**
- * Cerca un utente per email per l'override extra quota
+ * Cerca un utente per email per il pannello grant bonus wallet.
  */
 export const searchAdminUserByEmail = async (email: string) => {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name, email, extra_quota, extra_quota_expires_at')
-        .ilike('email', `%${email}%`)
-        .limit(5);
-    
-    if (error) throw error;
-    return data;
+    return searchAdminUsersByEmail(email);
 };
 
-/**
- * Aggiorna la extra quota di un utente (Integrazione tracciamento v16)
- */
-export const updateUserExtraQuota = async (userId: string, quota: number, expiresAt: string | null, adminId?: string, reason: string = 'manual_adjustment') => {
-    // 1. Aggiorna il profilo
-    const { error } = await supabase
-        .from('profiles')
-        .update({ 
-            extra_quota: quota, 
-            extra_quota_expires_at: expiresAt 
-        })
-        .eq('id', userId);
-    
-    if (error) throw error;
+export interface GrantAdminWalletCreditsResult {
+    success?: boolean;
+    grant_id?: string;
+    wallet_id?: string;
+    user_id?: string;
+    flash_credits?: number;
+    pro_credits?: number;
+    expires_at?: string;
+}
 
-    // 2. Tracciamento economico (admin_credit_grants)
-    // Se adminId è fornito, registriamo l'operazione
-    if (adminId) {
-        try {
-            await supabase.from('admin_credit_grants').insert({
-                admin_id: adminId,
-                user_id: userId,
-                amount: quota,
-                credit_type: 'flash',
-                reason: reason,
-                source: 'manual_adjustment'
-            });
-        } catch (auditError) {
-            console.error("[AUDIT ERROR] Failed to record credit grant:", auditError);
-            // Non blocchiamo l'operazione principale se l'audit fallisce
-        }
-    }
+/**
+ * Assegna crediti bonus admin nel wallet runtime (user_ai_credits) via RPC SECURITY DEFINER.
+ * Audit atomico su admin_credit_grants. source wallet = 'bonus' (bucket BONUS runtime).
+ */
+export const grantAdminWalletCredits = async (
+    userId: string,
+    flashCredits: number,
+    proCredits: number = 0,
+    expiresAt: string | null = null,
+    reason: string = 'manual_admin_grant',
+): Promise<GrantAdminWalletCreditsResult> => {
+    const { data, error } = await supabase.rpc('grant_admin_ai_credits', {
+        p_user_id: userId,
+        p_flash_credits: flashCredits,
+        p_pro_credits: proCredits,
+        p_expires_at: expiresAt,
+        p_reason: reason,
+    });
+
+    if (error) throw error;
+    return (data ?? {}) as GrantAdminWalletCreditsResult;
 };
 
 /**
@@ -234,31 +247,13 @@ export const toggleEmergencyStop = async (enabled: boolean) => {
 };
 
 /**
- * Recupera una lista di utenti con ordinamento e ricerca per la dashboard AI
+ * Recupera una lista di utenti con ordinamento e ricerca per la dashboard AI.
  */
 export const getAdminUsersPaged = async (
-    sortBy: 'registrationDate' | 'extraQuota' | 'expiresSoon' = 'registrationDate',
+    sortBy: 'registrationDate' | 'bonusTotal' | 'expiresSoon' = 'registrationDate',
     searchTerm: string = ''
 ) => {
-    let query = supabase
-        .from('profiles')
-        .select('id, name, email, role, created_at, extra_quota, extra_quota_expires_at');
-    
-    if (searchTerm) {
-        query = query.ilike('email', `%${searchTerm}%`);
-    }
-
-    if (sortBy === 'registrationDate') {
-        query = query.order('created_at', { ascending: false });
-    } else if (sortBy === 'extraQuota') {
-        query = query.order('extra_quota', { ascending: false });
-    } else if (sortBy === 'expiresSoon') {
-        query = query.not('extra_quota_expires_at', 'is', null).order('extra_quota_expires_at', { ascending: true });
-    }
-
-    const { data, error } = await query.limit(50);
-    if (error) throw error;
-    return data || [];
+    return fetchAdminUsersPaged(sortBy, searchTerm);
 };
 
 /**
@@ -369,7 +364,8 @@ export const getEconomicsDashboardData = async (): Promise<AiEconomicsDashboardD
         }
     };
 
-    (rawLogs || []).forEach(log => {
+    (rawLogs || []).forEach((rawLog) => {
+        const log = rawLog as AiGlobalUsageAnalyticsRow;
         const cost = (log.request_count || 0) * (costMap[log.model_type] || 0);
         const date = log.date;
         const month = date.slice(0, 7); // YYYY-MM
@@ -378,9 +374,7 @@ export const getEconomicsDashboardData = async (): Promise<AiEconomicsDashboardD
         let category: 'guest' | 'free' | 'sponsor' | 'admin' = 'free';
         if (!log.user_id) category = 'guest';
         else {
-            // TODO(arch): profiles.role non è incluso nella query ai_global_usage sopra.
-            // Verificare schema/join Supabase reale prima di assumere join impliciti su log.profiles.
-            const role = (log as any).profiles?.role;
+            const role = getAnalyticsLogUserRole(log);
             if (role === 'admin_all' || role === 'admin_limited') category = 'admin';
             else if (role === 'business' || activeSubUserIds.has(log.user_id)) category = 'sponsor';
             else category = 'free';
@@ -583,14 +577,11 @@ export const rollbackPricingVersion = activatePricingVersion;
 export const updatePricingVersion = async (versionId: string, updates: AiAdminPricingVersionUpdate) => {
     const { data, error } = await supabase
         .from('pricing_versions')
-        .update({
-            ...updates,
-            updated_at: new Date().toISOString()
-        })
+        .update(updates)
         .eq('id', versionId)
         .select()
         .single();
-    
+
     if (error) throw error;
     return data;
 };

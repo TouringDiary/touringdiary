@@ -58,6 +58,8 @@ export interface User {
     // --- REFERRAL & QUOTA (STEP 1) ---
     referralCode?: string;
     referredBy?: string;
+    /** @deprecated Wallet-only: use header RPC buckets; kept for API shape compat only */
     extraQuota?: number;
-    extraQuotaExpiresAt?: string; // ISO Date
+    /** @deprecated Wallet-only: not populated from profiles anymore */
+    extraQuotaExpiresAt?: string;
 }
