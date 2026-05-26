@@ -1,6 +1,7 @@
 import React from 'react';
 import { FolderOpen, RefreshCw, Trash2, Save, FilePlus2, Printer, Share2, Facebook, Copy } from 'lucide-react';
 import { Itinerary } from '@/types';
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 
 interface DiaryHeaderProjectInputProps {
     itinerary: Itinerary;
@@ -47,81 +48,91 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
-                <div className="relative" ref={loadMenuRef}>
+                <div ref={loadMenuRef}>
                     <button onClick={handleLoadMenuOpen} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${loadMenuOpen ? 'bg-slate-800 text-white' : ''}`} title="Apri/Carica">
                         <FolderOpen className="w-[16.5px] h-[16.5px]" />
                     </button>
-                    {loadMenuOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-modal overflow-hidden animate-in zoom-in-95 origin-top-right">
-                            <button onClick={handleRefreshData} className="w-full text-left px-3 py-3 text-xs font-bold text-emerald-400 hover:text-white hover:bg-slate-700 flex items-center gap-2 border-b border-slate-700/50">
-                                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`}/> Aggiorna Dati
-                            </button>
-                            
-                            <div className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-700 flex justify-between">
-                                <span>Progetti Salvati</span>
-                                {isSyncing && <RefreshCw className="w-3 h-3 animate-spin"/>}
-                            </div>
-                            
-                            {savedProjects.length > 0 ? (
-                                <div className="max-h-48 overflow-y-auto custom-scrollbar">
-                                    {savedProjects.map((p, idx) => (
-                                        <div key={p.id || idx} className="flex items-center border-b border-slate-700/50 last:border-0 hover:bg-slate-700/50 transition-colors group">
-                                            <button onClick={() => { onLoadProject(p); handleLoadMenuOpen(); }} className="flex-1 text-left px-3 py-2 text-xs text-slate-300 hover:text-white truncate">
-                                                <span className="font-bold block truncate">{p.name || 'Senza Nome'}</span>
-                                                <span className="text-[9px] text-slate-500">{(p.items || []).length} tappe • {new Date(p.createdAt || 0).toLocaleDateString()}</span>
-                                            </button>
-                                            <button 
-                                                onClick={(e) => handleDeleteClick(e, p.id || '')} 
-                                                className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100"
-                                                title="Elimina"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5"/>
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : <div className="px-3 py-4 text-xs text-slate-500 text-center italic">Nessun progetto</div>}
+                    <AnchoredPopover
+                        isOpen={loadMenuOpen}
+                        onClose={() => handleLoadMenuOpen()}
+                        anchorRef={loadMenuRef}
+                        align="right"
+                        className="w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-right"
+                    >
+                        <button onClick={handleRefreshData} className="w-full text-left px-3 py-3 text-xs font-bold text-emerald-400 hover:text-white hover:bg-slate-700 flex items-center gap-2 border-b border-slate-700/50">
+                            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`}/> Aggiorna Dati
+                        </button>
+                        <div className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-700 flex justify-between">
+                            <span>Progetti Salvati</span>
+                            {isSyncing && <RefreshCw className="w-3 h-3 animate-spin"/>}
                         </div>
-                    )}
+                        {savedProjects.length > 0 ? (
+                            <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                {savedProjects.map((p, idx) => (
+                                    <div key={p.id || idx} className="flex items-center border-b border-slate-700/50 last:border-0 hover:bg-slate-700/50 transition-colors group">
+                                        <button onClick={() => { onLoadProject(p); handleLoadMenuOpen(); }} className="flex-1 text-left px-3 py-2 text-xs text-slate-300 hover:text-white truncate">
+                                            <span className="font-bold block truncate">{p.name || 'Senza Nome'}</span>
+                                            <span className="text-[9px] text-slate-500">{(p.items || []).length} tappe • {new Date(p.createdAt || 0).toLocaleDateString()}</span>
+                                        </button>
+                                        <button 
+                                            onClick={(e) => handleDeleteClick(e, p.id || '')} 
+                                            className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100"
+                                            title="Elimina"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5"/>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : <div className="px-3 py-4 text-xs text-slate-500 text-center italic">Nessun progetto</div>}
+                    </AnchoredPopover>
                 </div>
                 
-                <div className="relative" ref={saveMenuRef}>
+                <div ref={saveMenuRef}>
                     <button onClick={() => {
                          if (isGuest) openModal('auth');
                          else setSaveMenuOpen(!saveMenuOpen);
                     }} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${saveMenuOpen ? 'bg-slate-800 text-white' : ''}`}>
                         <Save className="w-[16.5px] h-[16.5px]" />
                     </button>
-                    {saveMenuOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-36 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-modal overflow-hidden animate-in zoom-in-95 origin-top-right">
-                            <button onClick={handleSave} className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2">
-                                <Save className="w-3 h-3 text-emerald-500"/> Salva
-                            </button>
-                            <button onClick={handleSaveAs} className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700">
-                                <FilePlus2 className="w-3 h-3 text-amber-500"/> Salva come...
-                            </button>
-                        </div>
-                    )}
+                    <AnchoredPopover
+                        isOpen={saveMenuOpen}
+                        onClose={() => setSaveMenuOpen(false)}
+                        anchorRef={saveMenuRef}
+                        align="right"
+                        className="w-36 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-right"
+                    >
+                        <button onClick={handleSave} className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2">
+                            <Save className="w-3 h-3 text-emerald-500"/> Salva
+                        </button>
+                        <button onClick={handleSaveAs} className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700">
+                            <FilePlus2 className="w-3 h-3 text-amber-500"/> Salva come...
+                        </button>
+                    </AnchoredPopover>
                 </div>
 
                 <button onClick={handleExportClick} className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 p-1.5 rounded-full transition-colors" title="Esporta / Stampa">
                     <Printer className="w-[16.5px] h-[16.5px]" />
                 </button>
                 
-                <div className="relative" ref={shareMenuRef}>
+                <div ref={shareMenuRef}>
                     <button onClick={() => setShareMenuOpen(!shareMenuOpen)} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${shareMenuOpen ? 'bg-slate-800 text-white' : ''}`}>
                         <Share2 className="w-[16.5px] h-[16.5px]" />
                     </button>
-                    {shareMenuOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-32 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-modal overflow-hidden animate-in zoom-in-95 origin-top-right">
-                            <button className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2">
-                                <Facebook className="w-3 h-3 text-blue-500"/> Facebook
-                            </button>
-                            <button className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700">
-                                <Copy className="w-3 h-3 text-emerald-500"/> Copia Link
-                            </button>
-                        </div>
-                    )}
+                    <AnchoredPopover
+                        isOpen={shareMenuOpen}
+                        onClose={() => setShareMenuOpen(false)}
+                        anchorRef={shareMenuRef}
+                        align="right"
+                        className="w-32 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-right"
+                    >
+                        <button className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2">
+                            <Facebook className="w-3 h-3 text-blue-500"/> Facebook
+                        </button>
+                        <button className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700">
+                            <Copy className="w-3 h-3 text-emerald-500"/> Copia Link
+                        </button>
+                    </AnchoredPopover>
                 </div>
 
                 <div className="w-px h-4 bg-slate-700 mx-1"></div>

@@ -1,6 +1,26 @@
 
 import { useState } from 'react';
-import { PointOfInterest } from '../types/index';
+import { PointOfInterest, SponsorRequest } from '../types/index';
+
+function sponsorRequestToPreviewPoi(request: SponsorRequest): PointOfInterest {
+    return {
+        id: request.poiId ?? request.id,
+        name: request.companyName,
+        description: request.description ?? '',
+        imageUrl: request.imageUrl ?? '',
+        image_status: request.image_status,
+        category: request.poiCategory ?? 'discovery',
+        subCategory: request.poiSubCategory,
+        rating: 0,
+        votes: 0,
+        coords: {
+            lat: request.coordsLat ?? 0,
+            lng: request.coordsLng ?? 0,
+        },
+        cityId: request.cityId,
+        address: request.address,
+    };
+}
 
 export interface ActivationData {
     id: string | null;
@@ -83,7 +103,7 @@ export const useSponsorModals = () => {
     };
 
     // Preview
-    const openPreview = (poi: PointOfInterest) => setPreviewPoi(poi);
+    const openPreview = (request: SponsorRequest) => setPreviewPoi(sponsorRequestToPreviewPoi(request));
     const closePreview = () => setPreviewPoi(null);
 
     // CRM

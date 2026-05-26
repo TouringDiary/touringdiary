@@ -37,6 +37,16 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src')
       }
+    },
+
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react-pdf': ['@react-pdf/renderer'],
+          }
+        }
+      }
     }
   }
 })

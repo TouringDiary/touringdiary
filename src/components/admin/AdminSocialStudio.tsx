@@ -7,7 +7,7 @@ import { AiBackgroundPanel } from './social/AiBackgroundPanel';
 import { SocialPreviewConfig } from './social/SocialPreviewConfig'; 
 import { CommsTemplates } from './communications/CommsTemplates'; 
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 
 // Custom Hooks
@@ -16,7 +16,6 @@ import { useSocialTemplates } from '../../hooks/admin/useSocialTemplates';
 
 export const AdminSocialStudio = () => {
     const [activeTab, setActiveTab] = useState<'templates' | 'preview' | 'viral'>('templates');
-    const { styles } = useAdminStyles(); // USATO STILI DINAMICI
     
     // --- HOOKS ---
     const canvasLogic = useSocialCanvasLogic();
@@ -86,25 +85,21 @@ export const AdminSocialStudio = () => {
                 document.body
             )}
 
-            {/* HEADER CLEAN DESIGN */}
             <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl shadow-lg">
-                            <Layout className="w-6 h-6 text-white"/>
-                        </div>
-                        <div>
-                            <h2 className={styles.admin_page_title}>Social Studio</h2>
-                            <p className={styles.admin_page_subtitle}>Marketing Virale e Anteprime Link</p>
-                        </div>
-                    </div>
-                    {activeTab === 'templates' && (
-                        <div className="flex gap-2">
-                            <button onClick={handleNewWrapper} className="px-4 py-2 bg-slate-800 text-white rounded-lg font-bold text-xs uppercase flex items-center gap-2 hover:bg-slate-700 transition-colors"><Plus className="w-4 h-4"/> Nuovo</button>
-                            <button onClick={handleSaveGraphicsWrapper} disabled={templateLogic.isSaving} className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg hover:bg-emerald-500 transition-colors">{templateLogic.isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} Salva</button>
-                        </div>
-                    )}
-                </div>
+                <AdminPageHeader
+                    icon={Layout}
+                    title="Social Studio"
+                    subtitle="Marketing Virale e Anteprime Link"
+                    accent="pink"
+                    actions={
+                        activeTab === 'templates' ? (
+                            <div className="flex gap-2">
+                                <button onClick={handleNewWrapper} className="px-4 py-2 bg-slate-800 text-white rounded-lg font-bold text-xs uppercase flex items-center gap-2 hover:bg-slate-700 transition-colors"><Plus className="w-4 h-4"/> Nuovo</button>
+                                <button onClick={handleSaveGraphicsWrapper} disabled={templateLogic.isSaving} className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg hover:bg-emerald-500 transition-colors">{templateLogic.isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} Salva</button>
+                            </div>
+                        ) : undefined
+                    }
+                />
 
                 {/* TABS SWITCHER */}
                 <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 w-fit overflow-x-auto gap-1">

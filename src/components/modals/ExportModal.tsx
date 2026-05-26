@@ -3,15 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { FileText, Image as ImageIcon, Printer, Download, LayoutList, ExternalLink, AlertTriangle, Loader2, Sparkles, CheckSquare, Square, QrCode, Edit3, Link } from 'lucide-react';
+import { FileText, Image as ImageIcon, Printer, Download, LayoutList, AlertTriangle, Loader2, Sparkles, CheckSquare, Square, QrCode, Edit3, Link } from 'lucide-react';
 import { useItinerary } from '@/context/ItineraryContext';
-import { pdf } from '@react-pdf/renderer';
 import FileSaver from 'file-saver';
-import { TravelDocument } from '../pdf/TravelDocument';
 import { prepareItineraryForPdf, PreparedItinerary, CityVisualInfo } from '../../utils/pdfUtils'; 
 import { generateWordDocument, generateTextFile } from '../../utils/exportGenerators'; 
 import { useLogoRasterizer } from '../../hooks/useLogoRasterizer';
-import { ExportLogo } from '../export/ExportLogo'; // Importa il nuovo logo
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -118,7 +115,18 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
             if (!preparedDoc) return;
             setIsGeneratingPdf(true);
             try {
-                const blob = await pdf(<TravelDocument itinerary={preparedDoc} logoBase64={logoBase64 || ''} options={options} />).toBlob();
+                const [{ pdf }, { TravelDocument }] = await Promise.all([
+                    import('@react-pdf/renderer'),
+                    import('../pdf/TravelDocument'),
+                ]);
+
+                const blob = await pdf(
+                    <TravelDocument
+                        itinerary={preparedDoc}
+                        logoBase64={logoBase64 || ''}
+                        options={options}
+                    />
+                ).toBlob();
                 FileSaver.saveAs(blob, buildFilename('pdf'));
             } catch (e: any) {
                 console.error("PDF GENERATION ERROR:", e);
@@ -356,7 +364,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
 const OptionRow = ({ label, icon: Icon, active, onClick, desc, disabled }: any) => (
     <div 
         onClick={!disabled ? onClick : undefined}
-        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${disabled ? 'opacity-40 cursor-not-allowed border-slate-800' : 'cursor-not-allowed hover:bg-slate-800 hover:border-slate-600 border-slate-800'}`}
+        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${disabled ? 'opacity-40 cursor-not-allowed border-slate-800' : 'cursor-pointer hover:bg-slate-800 hover:border-slate-600 border-slate-800'}`}
     >
         <div className="flex items-center gap-3">
             <div className={`p-1.5 rounded-lg ${active && !disabled ? 'bg-indigo-600 text-white' : 'bg-slate-950 text-slate-500'}`}>

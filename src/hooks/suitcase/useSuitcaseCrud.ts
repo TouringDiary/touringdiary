@@ -82,7 +82,7 @@ export const useCloneSuitcase = () => {
         return guestSc.id;
       }
 
-      const newSuitcaseId = await cloneSuitcaseAsync(suitcaseId, itineraryId, userId, title);
+      const newSuitcaseId = await cloneSuitcaseAsync(suitcaseId, userId, title);
 
       // Fase 1: Creazione link esplicito nella join table dopo clone
       if (itineraryId && newSuitcaseId) {

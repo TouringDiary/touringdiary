@@ -5,7 +5,6 @@ import { PointOfInterest } from '../../types/index';
 import { HomeContent } from '../home/HomeContent';
 import { getShopByVat } from '../../services/shopService';
 import { useModal } from '@/context/ModalContext';
-import { StaticPage } from './StaticPage';
 
 // CONTEXT CONSUMER
 import { useUser } from '@/context/UserContext';
@@ -41,7 +40,6 @@ const MainContent: React.FC = () => {
         setActiveCategories, setSelectedZone, setSelectedSeason,
         navigateToCity, goBack, goHome, handleAroundMeTrigger,
         openShopFromPoi, handleNavigateGlobal, targetShopVat, setActivePreview,
-        activeStaticPage
     } = useNavigation();
 
     const { openModal } = useModal();
@@ -100,13 +98,6 @@ const MainContent: React.FC = () => {
         }
         openModal('poiDetail', { poi });
     };
-
-    // ======== BLOCCO AGGIUNTO PER PAGINE STATICHE ========
-    const staticPages = ['chi-siamo', 'contatti', 'privacy', 'termini', 'support', 'about', 'contacts'];
-    if (staticPages.includes(activeStaticPage)) {
-        return <StaticPage type={activeStaticPage} onBack={goHome} />;
-    }
-    // ========================================================
 
     if (isLoadingManifest || isBuildingVirtual) {
         return (
@@ -202,7 +193,12 @@ const MainContent: React.FC = () => {
             allMostVisitedCities={[...publicManifest].sort((a, b) => b.visitors - a.visitors)}
             destinationCities={publicDestinations}
             onCityClick={navigateToCity}
-            onExploreSection={(cities, title, icon, categories) => { setActivePreview({ isOpen: true, title, icon, cities, categories }); openModal('preview'); }}
+            onExploreSection={(cities, title, icon, categories) => {
+                    // Preview è gestita esclusivamente da activePreview (NavigationContext).
+                    // Non chiamare openModal('preview'): creerebbe un doppio stato che lascia
+                    // #focus-overlay attivo dopo la chiusura del modale (bug Esplora).
+                    setActivePreview({ isOpen: true, title, icon, cities, categories, selectedId: null });
+                }}
             onAddToItinerary={(poi) => openModal('add', { poi })}
             onOpenPoiDetail={handleSmartPoiClick}
             onOpenSponsor={(tier) => openModal('sponsor', { sponsorTier: tier })}

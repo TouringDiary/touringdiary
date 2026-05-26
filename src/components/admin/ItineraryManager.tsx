@@ -2,14 +2,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Map, MessageSquare, Trash2, CheckCircle, XCircle, Award, Users, LayoutList, AlertTriangle, Loader2, X } from 'lucide-react';
 import { getAllPremadeItinerariesAsync, getFilteredCommunityItinerariesAsync, getUnifiedReviews, updateUnifiedReviewStatus, deletePremadeItinerary, deleteItineraryReview, ItineraryFilters } from '../../services/communityService';
-import { getFullManifestAsync } from '../../services/cityService';
-import { Review, PremadeItinerary, CitySummary } from '../../types/index';
+import { Review, PremadeItinerary } from '../../types/index';
 import { StarRating } from '../common/StarRating';
 import { AdminItineraryEditor } from './AdminItineraryEditor';
-import { SponsorFilters } from './SponsorFilters';
+import { SponsorFilters, type SponsorFilterOption } from './SponsorFilters';
 import { addNotification } from '../../services/notificationService';
 import { ImageWithFallback } from '../common/ImageWithFallback';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 const ReviewDetailOverlay = ({ review, onClose }: { review: Review, onClose: () => void }) => {
     return (
@@ -67,7 +66,6 @@ export const ItineraryManager = () => {
     const [reviewStatus, setReviewStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
     const [reviews, setReviews] = useState<Review[]>([]);
     const [itineraries, setItineraries] = useState<PremadeItinerary[]>([]);
-    const [manifest, setManifest] = useState<CitySummary[]>([]);
     const [editingItineraryId, setEditingItineraryId] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'itinerary' | 'review', name: string } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -76,12 +74,10 @@ export const ItineraryManager = () => {
     const [filterNation, setFilterNation] = useState('');
     const [filterAdminRegion, setFilterAdminRegion] = useState('');
     const [filterZone, setFilterZone] = useState('');
-    const [filterCity, setFilterCity] = useState('');
+    const [filterCityId, setFilterCityId] = useState('');
     const [reviewSearch, setReviewSearch] = useState('');
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     
-    const { styles } = useAdminStyles(); // STILI DINAMICI
-
     const [allOptions, setAllOptions] = useState<PremadeItinerary[]>([]);
 
     useEffect(() => { 
@@ -89,7 +85,7 @@ export const ItineraryManager = () => {
         if (allOptions.length === 0) {
             getAllPremadeItinerariesAsync().then(setAllOptions);
         }
-    }, [editingItineraryId, filterContinent, filterNation, filterAdminRegion, filterZone, filterCity, itineraryStatus]); 
+    }, [editingItineraryId, filterContinent, filterNation, filterAdminRegion, filterZone, filterCityId, itineraryStatus]); 
 
     const refreshData = async () => {
         setIsInitialLoading(true);
@@ -99,7 +95,7 @@ export const ItineraryManager = () => {
         if (filterNation) filters.nation = filterNation;
         if (filterAdminRegion) filters.region = filterAdminRegion;
         if (filterZone) filters.zone = filterZone;
-        if (filterCity) filters.mainCity = filterCity;
+        if (filterCityId) filters.mainCity = filterCityId;
         
         const data = await getFilteredCommunityItinerariesAsync(filters);
         
@@ -109,7 +105,6 @@ export const ItineraryManager = () => {
         setItineraries(finalData);
         const allReviews = await getUnifiedReviews();
         setReviews(allReviews.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        getFullManifestAsync().then(setManifest);
         setIsInitialLoading(false);
     };
 
@@ -126,30 +121,49 @@ export const ItineraryManager = () => {
         } catch (e) { alert("Errore cancellazione."); } finally { setIsDeleting(false); }
     };
 
-    const handleContinentChange = (val: string) => { setFilterContinent(val); setFilterNation(''); setFilterAdminRegion(''); setFilterZone(''); setFilterCity(''); };
-    const handleNationChange = (val: string) => { setFilterNation(val); setFilterAdminRegion('Campania'); setFilterZone(''); setFilterCity(''); };
-    const handleAdminRegionChange = (val: string) => { setFilterAdminRegion(val); setFilterZone(''); setFilterCity(''); };
-    const handleZoneChange = (val: string) => { setFilterZone(val); setFilterCity(''); };
-    const handleCityChange = (val: string) => setFilterCity(val);
+    const handleContinentChange = (val: string) => { setFilterContinent(val); setFilterNation(''); setFilterAdminRegion(''); setFilterZone(''); setFilterCityId(''); };
+    const handleNationChange = (val: string) => { setFilterNation(val); setFilterAdminRegion(''); setFilterZone(''); setFilterCityId(''); };
+    const handleAdminRegionChange = (val: string) => { setFilterAdminRegion(val); setFilterZone(''); setFilterCityId(''); };
+    const handleZoneChange = (val: string) => { setFilterZone(val); setFilterCityId(''); };
+    const handleCityChange = (val: string) => setFilterCityId(val);
+
+    const toFilterOptions = (values: string[]): SponsorFilterOption[] =>
+        values.map(value => ({ id: value, name: value }));
+
+    const uniqueGeoValues = (list: PremadeItinerary[], field: keyof Pick<PremadeItinerary, 'continent' | 'nation' | 'region' | 'zone'>) =>
+        Array.from(new Set(list.map(c => c[field]).filter((v): v is string => Boolean(v)))).sort();
 
     const filterOptions = useMemo(() => {
         let list = allOptions;
-        const continents = Array.from(new Set(list.map(c => c.continent || 'Europa'))).sort();
-        if (filterContinent) list = list.filter(c => (c.continent || 'Europa') === filterContinent);
-        const nations = Array.from(new Set(list.map(c => c.nation || 'Italia'))).sort();
-        if (filterNation) list = list.filter(c => (c.nation || 'Italia') === filterNation);
-        const adminRegions = Array.from(new Set(list.map(c => c.region || 'Campania'))).sort();
-        if (filterAdminRegion) list = list.filter(c => (c.region || 'Campania') === filterAdminRegion);
-        const zones = Array.from(new Set(list.map(c => c.zone))).sort();
+        const continents = toFilterOptions(uniqueGeoValues(list, 'continent'));
+        if (filterContinent) list = list.filter(c => c.continent === filterContinent);
+        const nations = toFilterOptions(uniqueGeoValues(list, 'nation'));
+        if (filterNation) list = list.filter(c => c.nation === filterNation);
+        const adminRegions = toFilterOptions(uniqueGeoValues(list, 'region'));
+        if (filterAdminRegion) list = list.filter(c => c.region === filterAdminRegion);
+        const zones = toFilterOptions(uniqueGeoValues(list, 'zone'));
         if (filterZone) list = list.filter(c => c.zone === filterZone);
-        
-        // We need to map this back to CitySummary format for the SponsorFilters component
-        // which expects { name: string } for cities.
-        const uniqueCityNames = Array.from(new Set(list.map(c => c.mainCity))).sort();
-        const cities = uniqueCityNames.map(name => ({ name } as CitySummary));
-        
-        return { continents, nations, adminRegions, zones, cities };
+
+        const uniqueCityNames = Array.from(new Set(list.map(c => c.mainCity).filter(Boolean))).sort();
+        // TODO(arch): mainCity è usato sia come label che come id nel filtro.
+        // Allineare in futuro a cityId/manifest reale (es. manifest lookup) senza cambiare la logica query attuale.
+        const cities: SponsorFilterOption[] = uniqueCityNames.map(name => ({ id: name, name }));
+
+        return { continents, nations, adminRegions, zones, cities, tiers: [] as string[] };
     }, [allOptions, filterContinent, filterNation, filterAdminRegion, filterZone]);
+
+    // UI defaults inferred from dataset (same pattern as useHeroLogic / "Trova la tua meta")
+    useEffect(() => {
+        if (!filterContinent && filterOptions.continents.length === 1) {
+            setFilterContinent(filterOptions.continents[0].id);
+        }
+        if (!filterNation && filterOptions.nations.length === 1) {
+            setFilterNation(filterOptions.nations[0].id);
+        }
+        if (!filterAdminRegion && filterOptions.adminRegions.length === 1) {
+            setFilterAdminRegion(filterOptions.adminRegions[0].id);
+        }
+    }, [filterOptions.continents, filterOptions.nations, filterOptions.adminRegions, filterContinent, filterNation, filterAdminRegion]);
 
     const displayedReviews = useMemo(() => {
         let filtered = reviews;
@@ -158,9 +172,9 @@ export const ItineraryManager = () => {
             const lower = reviewSearch.toLowerCase();
             filtered = filtered.filter(r => r.author.toLowerCase().includes(lower) || (r.poiName && r.poiName.toLowerCase().includes(lower)) || r.text.toLowerCase().includes(lower));
         }
-        if (filterCity) filtered = filtered.filter(r => r.cityId === filterCity);
+        if (filterCityId) filtered = filtered.filter(r => r.cityId === filterCityId);
         return filtered;
-    }, [reviews, reviewStatus, reviewSearch, filterCity]);
+    }, [reviews, reviewStatus, reviewSearch, filterCityId]);
 
     const displayedItineraries = itineraries;
 
@@ -208,25 +222,40 @@ export const ItineraryManager = () => {
                 </div>
             )}
             
-            {/* HEADER CLEAN DESIGN */}
-            <div className="flex justify-between items-center mb-2 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-amber-600 rounded-xl shadow-lg"><Map className="w-8 h-8 text-white" /></div>
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className={styles.admin_page_title}>Itinerari & Recensioni</h2>
-                             {pendingReviewsCount > 0 && (
-                                <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                                    {pendingReviewsCount} IN ATTESA
-                                </span>
-                            )}
-                        </div>
-                        <p className={styles.admin_page_subtitle}>Moderazione contenuti community</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={Map}
+                title="Itinerari & Recensioni"
+                subtitle="Moderazione contenuti community"
+                accent="amber"
+                badge={
+                    pendingReviewsCount > 0 ? (
+                        <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
+                            {pendingReviewsCount} IN ATTESA
+                        </span>
+                    ) : undefined
+                }
+            />
 
-            <div className="shrink-0 overflow-x-auto"><SponsorFilters filters={{ continent: filterContinent, nation: filterNation, adminRegion: filterAdminRegion, zone: filterZone, city: filterCity }} options={filterOptions} handlers={{ onContinentChange: handleContinentChange, onNationChange: handleNationChange, onAdminRegionChange: handleAdminRegionChange, onZoneChange: handleZoneChange, onCityChange: handleCityChange }} /></div>
+            <div className="shrink-0 overflow-x-auto">
+                <SponsorFilters
+                    filters={{
+                        continent: filterContinent,
+                        nation: filterNation,
+                        adminRegion: filterAdminRegion,
+                        zone: filterZone,
+                        cityId: filterCityId,
+                        tier: '',
+                    }}
+                    options={filterOptions}
+                    handlers={{
+                        onContinentChange: handleContinentChange,
+                        onNationChange: handleNationChange,
+                        onAdminRegionChange: handleAdminRegionChange,
+                        onZoneChange: handleZoneChange,
+                        onCityChange: handleCityChange,
+                    }}
+                />
+            </div>
             <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 shrink-0">
                 <button onClick={() => setMainView('itineraries')} className={`flex-1 py-3 rounded-lg text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-3 transition-all ${mainView === 'itineraries' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}><LayoutList className="w-4 h-4"/> ITINERARI</button>
                 <button onClick={() => setMainView('reviews')} className={`flex-1 py-3 rounded-lg text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-3 transition-all ${mainView === 'reviews' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}>

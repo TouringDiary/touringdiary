@@ -1,15 +1,25 @@
 
 import React from 'react';
-import { DesignRule, FONTS, SIZES, WEIGHTS, TRACKING, COLORS, TRANSFORMS, EFFECTS } from '../../../types/designSystem';
+import type { StyleRule } from '../../../types/designSystem';
+
+import {
+    FONT_TOKENS,
+    SIZE_TOKENS,
+    WEIGHT_TOKENS,
+    TRACKING_TOKENS,
+    COLOR_TOKENS,
+    TRANSFORM_TOKENS,
+    EFFECT_TOKENS,
+} from '../../../data/system/designTokens';
 
 interface Props {
-    rule: DesignRule;
-    onChange: (field: keyof DesignRule, value: any) => void;
+    rule: StyleRule;
+    onChange: (field: keyof StyleRule, value: string) => void;
 }
 
 export const StyleEditorForm = ({ rule, onChange }: Props) => {
     
-    const SelectGroup = ({ label, value, options, field }: { label: string, value: string, options: {label: string, value: string}[], field: keyof DesignRule }) => (
+    const SelectGroup = ({ label, value, options, field }: { label: string, value: string, options: readonly string[], field: keyof StyleRule }) => (
         <div>
             <label className="text-[10px] font-bold text-indigo-400 uppercase block mb-1.5">{label}</label>
             <select 
@@ -17,7 +27,11 @@ export const StyleEditorForm = ({ rule, onChange }: Props) => {
                 onChange={e => onChange(field, e.target.value)} 
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white text-xs outline-none focus:border-indigo-500 transition-colors"
             >
-                {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {options.map(o => (
+      <option key={o} value={o}>
+        {o}
+       </option>
+))}
             </select>
         </div>
     );
@@ -25,13 +39,13 @@ export const StyleEditorForm = ({ rule, onChange }: Props) => {
     return (
         <div className="space-y-6">
             <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 grid grid-cols-2 md:grid-cols-3 gap-5">
-                <SelectGroup label="Font Family" value={rule.font_family} options={FONTS} field="font_family" />
-                <SelectGroup label="Dimensione" value={rule.text_size || 'text-base'} options={SIZES} field="text_size" />
-                <SelectGroup label="Peso (Boldness)" value={rule.font_weight || 'font-normal'} options={WEIGHTS} field="font_weight" />
-                <SelectGroup label="Spaziatura" value={rule.tracking || 'tracking-normal'} options={TRACKING} field="tracking" />
-                <SelectGroup label="Colore" value={rule.color_class || 'text-white'} options={COLORS} field="color_class" />
-                <SelectGroup label="Trasformazione" value={rule.text_transform || 'normal-case'} options={TRANSFORMS} field="text_transform" />
-                <SelectGroup label="Effetti" value={rule.effect_class || 'none'} options={EFFECTS} field="effect_class" />
+                <SelectGroup label="Font Family" value={rule.font_family} options={FONT_TOKENS} field="font_family" />
+                <SelectGroup label="Dimensione" value={rule.text_size || 'text-base'} options={SIZE_TOKENS} field="text_size" />
+                <SelectGroup label="Peso (Boldness)" value={rule.font_weight || 'font-normal'} options={WEIGHT_TOKENS} field="font_weight" />
+                <SelectGroup label="Spaziatura" value={rule.tracking || 'tracking-normal'} options={TRACKING_TOKENS} field="tracking" />
+                <SelectGroup label="Colore" value={rule.color_class || 'text-white'} options={COLOR_TOKENS} field="color_class" />
+                <SelectGroup label="Trasformazione" value={rule.text_transform || 'normal-case'} options={TRANSFORM_TOKENS} field="text_transform" />
+                <SelectGroup label="Effetti" value={rule.effect_class || 'none'} options={EFFECT_TOKENS} field="effect_class" />
             </div>
 
             <div className="bg-indigo-900/10 border border-indigo-500/30 p-4 rounded-xl">

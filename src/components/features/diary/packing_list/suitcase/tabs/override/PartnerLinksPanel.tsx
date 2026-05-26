@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShoppingBag, Edit3, Plus, Trash2, ExternalLink } from 'lucide-react';
-import { AffiliateProductLink } from '@/types/partners';
+import { AffiliateProductLink, PartnerIntegration } from '@/types/partners';
 import { SuggestionProduct, ItemOverride } from '@/types/suitcase';
 import {
   upsertAffiliateProductLinkWithConflictAsync,
@@ -11,7 +11,7 @@ import {
 
 interface PartnerLinksPanelProps {
   currentProduct: SuggestionProduct;
-  groupedPartners: [string, any[]][];
+  groupedPartners: [string, PartnerIntegration[]][];
   productLinks: AffiliateProductLink[];
   override: ItemOverride | undefined;
   onLinksUpdated: (newLinks: AffiliateProductLink[]) => void;
@@ -102,12 +102,12 @@ export const PartnerLinksPanel: React.FC<PartnerLinksPanelProps> = ({
                             const finalPartnerId = detectedPartnerId || partner.id;
 
                             await upsertAffiliateProductLinkWithConflictAsync({
-                              id: link?.id, // Use ID if exists for better upsert
-                              product_id: currentProduct.id,
-                              partner_id: finalPartnerId,
-                              query: currentProduct.name,
-                              url_override: url,
-                              image_override: imgOverride || null
+                              existingLinkId: link?.id,
+                              productId: currentProduct.id,
+                              partnerId: finalPartnerId,
+                              searchQuery: currentProduct.name,
+                              urlOverride: url,
+                              imageOverride: imgOverride || null
                             });
 
                             const newLinks = await fetchProductLinksForProductAsync(currentProduct.id);

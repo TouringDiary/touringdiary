@@ -81,7 +81,9 @@ serve(async (req) => {
       console.error("RPC consume_ai_credits error:", rpcError);
       throw new Error('Fallimento controllo crediti server.');
     }
-    if (!rpcData?.allowed) throw new Error('RATE_LIMIT_EXCEEDED');
+    if (!rpcData?.allowed) {
+      throw new Error(rpcData?.reason === 'EMERGENCY_STOP' ? 'EMERGENCY_STOP' : 'RATE_LIMIT_EXCEEDED');
+    }
 
     const pricingVersionId = rpcData.pricing_version_id;
 
@@ -139,10 +141,13 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
+    const isEmergencyStop = error.message === 'EMERGENCY_STOP';
     const isRateLimit = error.message === 'RATE_LIMIT_EXCEEDED';
     // Se isJson era abilitato, il chiamante si aspetta spesso un JSON parsabile nella reply.
     // Strutturalmente proviamo a fornire un JSON valido o una stringa d'errore a seconda dei contesti.
-    const uiFallback = isRateLimit
+    const uiFallback = isEmergencyStop
+      ? '{"error": "Servizi AI sospesi per emergenza.", "code":"EMERGENCY_STOP"}'
+      : isRateLimit
       ? '{"error": "Limite crediti esaurito per questo mese.", "code":"429"}'
       : '{"error": "Errore interno AI.", "message":"' + error.message.replace(/"/g, '\\"') + '"}';
 

@@ -1,7 +1,9 @@
 import type { User } from '@/types/users';
-import { Z_FLOATING_PANEL } from '@/constants/zIndex';
+import { Z_FOCUS_COMPANION } from '@/constants/zIndex';
+import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
+import { useFocusMode } from '@/focus';
 
-import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { Map, Users, ArrowUpRight, Sun, Star, Snowflake, Waves, Mountain, Droplets, Wind, Castle, Bot, Sparkles, Leaf, Flower, Award, GripHorizontal, Plus, Check, BookOpen, ChevronDown, CloudSun, X, MapPin, Loader2 } from 'lucide-react';
 import { PointOfInterest, SponsorRequest, ResolvedSponsor } from '@/types';
@@ -75,6 +77,7 @@ export const Sidebar = ({
     const { isSidebarOpen, mobileShowWeather, setMobileShowWeather, mobileDiaryFullScreen, setMobileDiaryFullScreen } = useUI();
     const { itinerary } = useItinerary();
     const { activeModal, openModal, closeModal } = useModal();
+    const { isWorkspace } = useFocusMode();
 
     const [rankingSource, setRankingSource] = useState<'mix' | 'ai' | 'users'>('mix');
     const [activeContext, setActiveContext] = useState<string | null>(null);
@@ -135,19 +138,60 @@ export const Sidebar = ({
     const isSponsorInItinerary = sponsorPoi ? itinerary.items.some(i => i.poi.id === sponsorPoi.id) : false;
 
     // --- SHARED STATE & EFFECTS (Unconditional) ---
-    const isSuitcaseOpen = activeModal === 'packingList';
+    const isCompanionPortaled = isWorkspace && isSidebarOpen && mounted;
 
-    // Portaled diary alignment - pixel perfect vertical sync
-    useEffect(() => {
-        const diary = document.getElementById('tour-diary-panel');
-        if (!diary) return;
+    const diaryPanelRef = useRef<HTMLDivElement>(null);
+    const companionShellRef = useRef<HTMLDivElement>(null);
+    const sidebarColumnRef = useRef<HTMLDivElement>(null);
+    const companionWidgetsRef = useRef<HTMLDivElement>(null);
+    const companionLayoutReadyRef = useRef(false);
 
-        const rect = diary.getBoundingClientRect();
-        document.documentElement.style.setProperty(
-            '--sidebar-diary-top',
-            `${rect.top}px`
-        );
-    }, [isSuitcaseOpen]);
+    // Portaled diary alignment — top + visibility on owned portal node (no global CSS, no React state)
+    useLayoutEffect(() => {
+        if (!isCompanionPortaled) {
+            companionLayoutReadyRef.current = false;
+            return;
+        }
+
+        companionLayoutReadyRef.current = false;
+        if (companionShellRef.current) {
+            companionShellRef.current.style.visibility = 'hidden';
+        }
+
+        const syncCompanionTop = () => {
+            const diary = diaryPanelRef.current;
+            const shell = companionShellRef.current;
+            if (!diary || !shell) return;
+
+            const top = diary.getBoundingClientRect().top;
+            if (!Number.isFinite(top)) return;
+
+            const topPx = `${top}px`;
+            if (shell.style.top !== topPx) {
+                shell.style.top = topPx;
+            }
+
+            if (!companionLayoutReadyRef.current) {
+                companionLayoutReadyRef.current = true;
+                shell.style.visibility = 'visible';
+            }
+        };
+
+        syncCompanionTop();
+
+        const observer = new ResizeObserver(syncCompanionTop);
+        const diary = diaryPanelRef.current;
+        if (diary) observer.observe(diary);
+        if (sidebarColumnRef.current) observer.observe(sidebarColumnRef.current);
+        if (companionWidgetsRef.current) observer.observe(companionWidgetsRef.current);
+
+        window.addEventListener('resize', syncCompanionTop);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', syncCompanionTop);
+        };
+    }, [isCompanionPortaled]);
 
 
     if (mobileShowWeather) {
@@ -229,10 +273,14 @@ export const Sidebar = ({
     // --- STANDARD DESKTOP SIDEBAR ---
 
     return (
-        <div id="tour-sidebar" className="hidden lg:flex flex-col h-full overflow-hidden px-3 pb-4 gap-3 relative">
+        <div id="tour-sidebar" ref={sidebarColumnRef} className="hidden lg:flex flex-col h-full overflow-hidden px-3 pb-4 gap-3 relative">
 
-            {/* LEVEL 3 CONTENT (Obscured in focus mode) */}
-            <div className={`flex flex-col gap-3 flex-shrink-0 relative transition-all duration-500`}>
+            {/* LEVEL 3 — dimmedBackground in workspace focus (sidebar widgets) */}
+            <div
+                ref={companionWidgetsRef}
+                className="flex flex-col gap-3 flex-shrink-0 relative transition-all duration-500"
+                data-focus-surface={FOCUS_SURFACE_ATTR.dimmedBackground}
+            >
 
 
                 {/* 1. GLOBAL BUTTONS */}
@@ -303,17 +351,24 @@ export const Sidebar = ({
                 </div>
             </div>
 
-            {/* LEVEL 2 CONTENT (Diary - Elevated in focus mode) */}
-            <div id="tour-diary-panel" className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
-                {isSuitcaseOpen && isSidebarOpen && mounted ? (
+            {/* LEVEL 2 — focusCompanion (diary + sponsor, portaled above workspace dim) */}
+            <div
+                id="tour-diary-panel"
+                ref={diaryPanelRef}
+                className="flex-1 min-h-0 flex flex-col overflow-hidden relative"
+                data-focus-surface={FOCUS_SURFACE_ATTR.focusCompanion}
+            >
+                {isCompanionPortaled ? (
                     <>
                         {createPortal(
-                            <div 
-                                className="fixed left-0 top-[var(--sidebar-diary-top)] bottom-0 w-sidebar 2xl:w-sidebar-wide pointer-events-auto flex flex-col"
-                                style={{ zIndex: Z_FLOATING_PANEL }}
+                            <div
+                                ref={companionShellRef}
+                                className="fixed left-0 bottom-0 w-sidebar 2xl:w-sidebar-wide pointer-events-auto flex flex-col"
+                                style={{ zIndex: Z_FOCUS_COMPANION, visibility: 'hidden' }}
+                                data-focus-surface={FOCUS_SURFACE_ATTR.focusCompanion}
                             >
-                                <div className="px-3 pb-[100px] h-full flex flex-col">
-                                    <div className="flex-1 min-h-0 flex flex-col overflow-hidden ring-2 ring-indigo-500/20 rounded-xl bg-[#e7e5e4] shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                                <div className="px-3 pb-24 h-full flex flex-col">
+                                    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                                         <Suspense fallback={<DiarySkeleton />}>
                                             <TravelDiary
                                                 user={user}
@@ -336,11 +391,12 @@ export const Sidebar = ({
 
                         {createPortal(
                             <div 
-                                className="fixed left-0 bottom-4 w-sidebar 2xl:w-sidebar-wide pointer-events-auto"
-                                style={{ zIndex: Z_FLOATING_PANEL }}
+                                className="fixed left-0 bottom-0 w-sidebar 2xl:w-sidebar-wide pointer-events-auto"
+                                style={{ zIndex: Z_FOCUS_COMPANION }}
+                                data-focus-surface={FOCUS_SURFACE_ATTR.focusCompanion}
                             >
-                                <div className="px-3">
-                                    <div className="transition-all duration-500 relative z-dropdown scale-[1.02] shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                                <div className="px-3 pb-4">
+                                    <div className="relative h-20 overflow-hidden">
                                         {sponsorPoi && sidebarSponsor ? (
                                             <div onClick={() => openModal('poiDetail', { poi: sponsorPoi })} className="bg-slate-900 rounded-xl border border-amber-500 hover:border-amber-400 transition-all cursor-pointer overflow-hidden relative group h-20 shadow-lg animate-in fade-in">
                                                 <ImageWithFallback src={sponsorPoi.imageUrl} alt={sponsorPoi.name} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />

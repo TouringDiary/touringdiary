@@ -3057,7 +3057,7 @@ export type Database = {
           name: string
           poi_triggers: string[] | null
           quantity: number | null
-          suggested_at: string
+          suggested_at: string | null
           suitcase_id: string
         }
         Insert: {
@@ -3821,21 +3821,11 @@ export type Database = {
         }
         Returns: Json
       }
-      clone_suitcase:
-      | {
+      clone_suitcase: {
         Args: {
-          p_itinerary_id: string
           p_template_id: string
           p_user_id: string
-        }
-        Returns: string
-      }
-      | {
-        Args: {
-          p_itinerary_id: string
-          p_template_id: string
           p_title?: string
-          p_user_id: string
         }
         Returns: string
       }

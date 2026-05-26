@@ -11,7 +11,6 @@ export const useFloatingPanelState = (
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
   const [autoOpenNewCategory, setAutoOpenNewCategory] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
   const [isNewSuitcaseSession, setIsNewSuitcaseSession] = useState(false);
   const [newSuitcaseId, setNewSuitcaseId] = useState<string | null>(null);
   
@@ -33,7 +32,6 @@ export const useFloatingPanelState = (
     hoveredItemId, setHoveredItemId,
     highlightItemId, setHighlightItemId,
     autoOpenNewCategory, setAutoOpenNewCategory,
-    isClosing, setIsClosing,
     isNewSuitcaseSession, setIsNewSuitcaseSession,
     newSuitcaseId, setNewSuitcaseId,
     isMobile

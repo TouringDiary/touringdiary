@@ -1,25 +1,6 @@
 import { useConfig } from '@/context/ConfigContext';
 import { useMemo } from 'react';
-
-// Funzione helper per costruire la classe CSS, allineata con useDynamicStyles.
-const constructClassName = (rule: any): string => {
-    if (!rule) {
-        return '';
-    }
-    if (rule.css_class && rule.css_class.length > 3) {
-        return `${rule.css_class} ${rule.color_class || ''}`.trim();
-    }
-    const parts = [
-        rule.font_family,
-        rule.text_size,
-        rule.font_weight,
-        rule.text_transform,
-        rule.tracking,
-        rule.color_class,
-        rule.effect_class !== 'none' ? rule.effect_class : ''
-    ];
-    return parts.filter(Boolean).join(' ').trim();
-};
+import { constructClassName } from './useDynamicStyles';
 
 export const useDynamicContent = (componentKey: string, isMobile: boolean = false) => {
     const effectiveKey = isMobile ? `${componentKey}_mobile` : componentKey;

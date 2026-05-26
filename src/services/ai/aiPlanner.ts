@@ -1,29 +1,9 @@
+import { AiItineraryItem } from './types';
 import { generateStructuredResponse } from './aiUtils';
 import { RoadbookDay } from '../../types/models/Itinerary'; 
 import { getAiPrompt } from '../aiConfigService';
 import { Type, Schema } from '../../types/ai';
 import { buildPlannerItineraryPrompt, buildPlannerRoadbookPrompt, buildPlannerModifyPrompt } from '../../data/ai/prompts';
-
-export interface DailyLogistics {
-    dayIndex: number;
-    start: string;
-    end: string;
-    startTime: string;
-    endTime: string;
-}
-
-export interface AiItineraryItem {
-    dayIndex: number;
-    time: string;
-    activityName: string;
-    category: string;
-    description: string;
-    lat: number;
-    lng: number;
-    matchedPoiId?: string;
-    address?: string;
-    visitDuration?: string;
-}
 
 const ITINERARY_SCHEMA: Schema = {
     type: Type.ARRAY,

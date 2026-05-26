@@ -2,7 +2,6 @@
 import { verifyPoisBatch } from '../../services/ai';
 import { saveSinglePoi, deleteSinglePoi, getPoisByCityId, getCityDetails } from '../../services/cityService';
 import { PointOfInterest, User } from '../../types/index';
-import { incrementAiUsage } from '../../services/aiUsageService';
 import { useAiTaskRunner } from './useAiTaskRunner';
 import { GEO_CONFIG } from '../../constants/geoConfig';
 
@@ -70,9 +69,6 @@ export const useAiValidation = (
                 if(!categoryFilter && !options.keepLogs) stopRunner();
                 return 0;
             }
-
-            // TRACK USAGE: La validazione batch invia TUTTI i POI in un unico prompt (o pochi chunk).
-            if (user) await incrementAiUsage(user, 1);
 
             const resultStats = await performStep(stepName, async () => {
                 const inputList = draftsToVerify.map(p => ({

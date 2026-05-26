@@ -217,7 +217,6 @@ export const getDesignSystemRules = async (): Promise<StyleRule[]> => {
 export const updateDesignSystemRule = async (rule: StyleRule): Promise<void> => {
   console.log(`[DesignSystem] Updating rule ${rule.component_key}`);
 
-  // --- FIX: Costruisce un payload esplicito con solo i campi della tabella ---
   const payload = {
     component_key: rule.component_key,
     element_name: rule.element_name ?? '',
@@ -226,6 +225,7 @@ export const updateDesignSystemRule = async (rule: StyleRule): Promise<void> => 
     font_family: rule.font_family ?? null,
     text_size: rule.text_size ?? null,
     font_weight: rule.font_weight ?? null,
+    line_height: rule.line_height ?? null,
     text_transform: rule.text_transform ?? null,
     tracking: rule.tracking ?? null,
     color_class: rule.color_class ?? null,
@@ -242,26 +242,25 @@ export const updateDesignSystemRule = async (rule: StyleRule): Promise<void> => 
     console.error("Error updating design system rule:", error);
     throw error;
   }
+
+  // Invalida la cache in-memory: il prossimo getDesignSystemRules() andrà in Supabase.
+  designRulesCache = null;
 };
 
 
-export const rebuildDesignSystemCache = async (): Promise<any> => {
-  console.log("[DesignSystem] Rebuilding public cache...");
+export const rebuildDesignSystemCache = async (): Promise<Record<string, StyleRule>> => {
+  console.log("[DesignSystem] Rebuilding cache from Supabase...");
 
-  const baseConfig = {};
-
+  // getDesignSystemRules() usa la cache in-memory se disponibile.
+  // updateDesignSystemRule() la azzera dopo ogni save, quindi qui troviamo
+  // sempre designRulesCache === null → fetch fresco da Supabase.
   const rules = await getDesignSystemRules();
+
   const componentsMap = rules.reduce((acc, rule) => {
-    acc[rule.component_key] = rule;
+    if (rule.component_key) acc[rule.component_key] = rule;
     return acc;
   }, {} as Record<string, StyleRule>);
 
-  const finalCacheObject = {
-    ...baseConfig,
-    components: componentsMap,
-    last_updated: new Date().toISOString(),
-  };
-
-  console.log("[DesignSystem] Public cache rebuild COMPLETE");
-  return finalCacheObject;
+  console.log(`[DesignSystem] Cache rebuilt: ${rules.length} rules`);
+  return componentsMap;
 };

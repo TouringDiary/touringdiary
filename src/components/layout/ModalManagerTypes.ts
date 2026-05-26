@@ -1,13 +1,15 @@
-import { PointOfInterest, ItineraryItem, User, CitySummary } from '../../types/index';
+import { PointOfInterest, ItineraryItem, User, CitySummary, Itinerary, CityDetails } from '../../types/index';
+import type { NavigationPreviewState } from '@/types/navigationPreview';
+import type { NavigationGlobalExtra } from '@/types/navigationGlobal';
 
 export interface ModalManagerExternalProps {
     user: User;
-    itinerary: any;
+    itinerary: Itinerary;
     userLocation: { lat: number; lng: number } | null;
     activeCityId: string | null;
-    activeCitySummary: any;
+    activeCitySummary: CitySummary | null | undefined;
     visibleAllPois: PointOfInterest[];
-    activeCityDetails: any;
+    activeCityDetails: CityDetails | null;
     cityManifest: CitySummary[];
     onAuthSuccess: (user: User) => void;
     onConfirmGps: () => void;
@@ -22,9 +24,9 @@ export interface ModalManagerExternalProps {
     onRemoveSingle: (id: string) => void;
     onRemoveAll: (items: ItineraryItem[]) => void;
     onUserUpdate: (user: User) => void;
-    onNavigateGlobal: (section: any, tab?: string, id?: string, extra?: any) => void;
+    onNavigateGlobal: (section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => void;
     onOpenShop?: (poi: PointOfInterest) => void;
-    activePreview: any;
+    activePreview: NavigationPreviewState;
     onClosePreview: () => void;
     onLogout: () => void;
     onAroundMeTrigger: (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => void;

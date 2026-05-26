@@ -1,12 +1,55 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useConfig } from '@/context/ConfigContext';
 import type { StyleRule } from '../../../types/designSystem';
 import { Smartphone, Monitor, Save, Loader2, Wand2, ArrowLeft, ChevronRight, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { updateDesignSystemRule, rebuildDesignSystemCache } from '../../../services/settingsService';
-
+import { Z_ADMIN_MODAL } from '@/constants/zIndex';
 import StyleEditor from './StyleEditor';
 import ComponentPreviewHost from './ComponentPreviewHost';
+
+// ── Module-level helper — pure, no closure, never re-created on render. ──────
+// Semanticamente esplicito: no falsy coercion su stringa vuota.
+const getRuleSection = (rule: StyleRule): string => {
+    const section = rule.section?.trim() ?? '';
+    return section.length > 0 ? section : 'uncategorized';
+};
+
+// ── Error boundary temporanea per debug runtime del pannello editor. ──────────
+// Cattura crash React silenti nel subtree ComponentPreviewHost/StyleEditor
+// e li espone visibilmente + in console con stack trace completo.
+class DesignEditorBoundary extends React.Component<
+    { children: React.ReactNode; label: string },
+    { error: Error | null }
+> {
+    state = { error: null as Error | null };
+
+    static getDerivedStateFromError(error: Error) {
+        return { error };
+    }
+
+    componentDidCatch(error: Error, info: React.ErrorInfo) {
+        console.error(`[DesignEditorBoundary "${this.props.label}"] CRASH:`, error.message);
+        console.error(`[DesignEditorBoundary "${this.props.label}"] Stack:`, error.stack);
+        console.error(`[DesignEditorBoundary "${this.props.label}"] Component tree:`, info.componentStack);
+    }
+
+    render() {
+        if (this.state.error) {
+            return (
+                <div className="p-4 m-2 bg-red-950 border border-red-500 rounded-lg text-xs font-mono overflow-auto max-h-48">
+                    <p className="text-red-400 font-bold mb-1">⚠ CRASH [{this.props.label}]</p>
+                    <p className="text-red-300">{this.state.error.message}</p>
+                    <pre className="text-red-500 mt-2 text-[10px] whitespace-pre-wrap leading-tight">
+                        {this.state.error.stack?.split('\n').slice(0, 6).join('\n')}
+                    </pre>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 const SideEditorPanel: React.FC<{
     rule: StyleRule | null;
@@ -20,6 +63,12 @@ const SideEditorPanel: React.FC<{
     const [deviceView, setDeviceView] = useState<'mobile' | 'desktop'>('desktop');
 
     useEffect(() => {
+        console.log('[SideEditorPanel] rule prop →', {
+            component_key: rule?.component_key ?? 'NULL',
+            section: rule?.section ?? 'NULL',
+            element_name: rule?.element_name ?? 'NULL',
+            isNull: rule === null,
+        });
         setLocalRule(rule);
     }, [rule]);
 
@@ -30,13 +79,33 @@ const SideEditorPanel: React.FC<{
         onSave();
     };
 
-    if (!localRule) return null;
+    if (!localRule) {
+        console.warn('[SideEditorPanel] localRule is null — rendering nothing. rule prop:', rule);
+        return null;
+    }
+
+    console.log('[SideEditorPanel] render | key:', localRule.component_key, '| section:', localRule.section, '| componentKey:', componentKey);
 
     const isMobile = deviceView === 'mobile';
 
-    return (
+    // Portal to document.body so the panel is not subject to any ancestor
+    // overflow-hidden / overflow-y-auto clipping, and so backdrop-filter on
+    // #focus-overlay (z=14000) cannot blur it (the panel sits at Z_ADMIN_MODAL=13000
+    // but with the conditional backdrop-blur fix in AppCoordinator, admin mode
+    // never activates the blur layer regardless).
+    return createPortal(
         <>
-            <div className="fixed top-0 right-0 h-full w-full max-w-2xl bg-slate-900 border-l border-slate-700 shadow-2xl z-admin-modal transform transition-transform ease-in-out duration-300 translate-x-0">
+            {/* Backdrop — below panel but above admin content */}
+            <div
+                className="fixed inset-0 bg-black/60"
+                style={{ zIndex: Z_ADMIN_MODAL - 100 }}
+                onClick={onClose}
+            />
+            {/* Slide-over panel — admin super-layer */}
+            <div
+                className="fixed top-0 right-0 h-full w-full max-w-2xl bg-slate-900 border-l border-slate-700 shadow-2xl transform transition-transform ease-in-out duration-300 translate-x-0"
+                style={{ zIndex: Z_ADMIN_MODAL }}
+            >
                 <div className="flex flex-col h-full">
                     <div className="flex justify-between items-center p-4 border-b border-slate-800">
                         <div className='flex items-center gap-4'>
@@ -53,13 +122,17 @@ const SideEditorPanel: React.FC<{
 
                     <div className="p-8 bg-slate-900 flex-grow flex items-center justify-center border-b border-slate-800">
                        <div className="border border-slate-700 rounded-lg bg-slate-800">
-                         <ComponentPreviewHost rule={localRule} componentKey={componentKey} isLarge={true} isMobile={isMobile} />
+                         <DesignEditorBoundary label={`Preview:${componentKey}`}>
+                             <ComponentPreviewHost rule={localRule} componentKey={componentKey} isLarge={true} isMobile={isMobile} />
+                         </DesignEditorBoundary>
                        </div>
                     </div>
                     
                     <div className="flex-shrink-0 p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                         <h3 className="text-xl font-bold mb-4 text-white">Editor Proprietà CSS</h3>
-                        <StyleEditor rule={localRule} onChange={setLocalRule} />
+                        <DesignEditorBoundary label={`StyleEditor:${componentKey}`}>
+                            <StyleEditor rule={localRule} onChange={setLocalRule} />
+                        </DesignEditorBoundary>
                     </div>
 
                     <div className="mt-auto p-4 bg-slate-900/80 border-t border-slate-800 backdrop-blur-sm flex justify-end items-center gap-4">
@@ -75,8 +148,8 @@ const SideEditorPanel: React.FC<{
                     </div>
                 </div>
             </div>
-            <div className="fixed inset-0 bg-black bg-opacity-60 z-dropdown" onClick={onClose}></div>
-        </>
+        </>,
+        document.body,
     );
 };
 
@@ -94,53 +167,75 @@ const DesignSystemSettings: React.FC = () => {
 
     useEffect(() => {
         if (configs?.design_system_rules) {
-            const source = configs?.design_system_rules || {};
+            // Cast architetturalmente corretto: ConfigContext popola design_system_rules
+            // come Record<string, StyleRule> via getDesignSystemRules() → StyleRule[].
+            const source = configs.design_system_rules as Record<string, StyleRule>;
 
-            const rulesMap = Object.entries(source).reduce((acc, [key, value]) => {
-                acc[key] = { ...value, component_key: key, section: value.section || 'uncategorized' };
+            const rulesMap = Object.entries(source).reduce<Record<string, StyleRule>>((acc, [key, value]) => {
+                acc[key] = { ...value, component_key: key, section: value.section ?? 'uncategorized' };
                 return acc;
-            }, {} as Record<string, StyleRule>);
+            }, {});
     
             setOriginalRules(JSON.parse(JSON.stringify(rulesMap)));
             setEditedRules(JSON.parse(JSON.stringify(rulesMap)));
         }
     }, [configs]);
 
-    const { TABS, groupedRules, sectionCounts } = useMemo(() => {
-        if (!editedRules) return { TABS: [], groupedRules: [], sectionCounts: {} };
+    // ── Deriva TABS e conteggi di sezione da editedRules.
+    // NON dipende da activeTab: è pura derivazione dei dati.
+    const { TABS, sectionCounts } = useMemo(() => {
+        if (!editedRules) return { TABS: [] as string[], sectionCounts: {} as Record<string, number> };
 
         const allRules = Object.values(editedRules);
-        const baseRules = allRules.filter(rule => !rule.component_key.endsWith('_mobile'));
-        const mobileRules = new Map(allRules.filter(rule => rule.component_key.endsWith('_mobile')).map(rule => [rule.component_key.replace('_mobile', ''), rule]));
+        const baseRules = allRules.filter(r => !r.component_key.endsWith('_mobile'));
 
-        const getSection = (rule: StyleRule) => (rule.section && rule.section.trim()) ? rule.section.trim() : 'uncategorized';
-
-        const sections = [...new Set(allRules.map(getSection))];
-        const sortedSections = sections.sort((a, b) => {
+        const sortedSections = [...new Set(allRules.map(getRuleSection))].sort((a, b) => {
             if (a === 'uncategorized') return 1;
             if (b === 'uncategorized') return -1;
             return a.localeCompare(b);
         });
 
-        const counts = baseRules.reduce((acc, rule) => {
-            const section = getSection(rule);
-            acc[section] = (acc[section] || 0) + 1;
+        const counts = baseRules.reduce<Record<string, number>>((acc, rule) => {
+            const s = getRuleSection(rule);
+            acc[s] = (acc[s] || 0) + 1;
             return acc;
-        }, {} as Record<string, number>);
+        }, {});
 
-        const currentActiveTab = activeTab || sortedSections[0] || 'uncategorized';
-        if (activeTab !== currentActiveTab) {
-             setTimeout(() => setActiveTab(currentActiveTab), 0);
+        return { TABS: sortedSections, sectionCounts: counts };
+    }, [editedRules]);
+
+    // ── Tab effettivamente attiva: preferenza utente se valida, altrimenti prima tab.
+    // Derivazione pura — disponibile immediatamente nel render corrente,
+    // prima che l'effect di sync abbia avuto modo di girare.
+    const currentTab = TABS.length > 0
+        ? (TABS.includes(activeTab) ? activeTab : TABS[0])
+        : '';
+
+    // ── Sincronizza activeTab state quando il valore corrente non è più valido.
+    // Scatta solo se TABS o activeTab cambiano; se activeTab è già in TABS è no-op.
+    // Nessun render loop: setActiveTab(TABS[0]) → activeTab === TABS[0] → TABS.includes = true → no-op.
+    useEffect(() => {
+        if (TABS.length > 0 && !TABS.includes(activeTab)) {
+            setActiveTab(TABS[0]);
         }
+    }, [TABS, activeTab]);
 
-        const rules = baseRules.filter(rule => getSection(rule) === currentActiveTab).map(rule => ({
-            key: rule.component_key,
-            desktop: rule,
-            mobile: mobileRules.get(rule.component_key)
-        }));
+    // ── Righe visibili per la tab corrente.
+    const groupedRules = useMemo(() => {
+        if (!editedRules || !currentTab) return [];
 
-        return { TABS: sortedSections, groupedRules: rules, sectionCounts: counts };
-    }, [editedRules, activeTab]);
+        const allRules = Object.values(editedRules);
+        const baseRules = allRules.filter(r => !r.component_key.endsWith('_mobile'));
+        const mobileMap = new Map(
+            allRules
+                .filter(r => r.component_key.endsWith('_mobile'))
+                .map(r => [r.component_key.replace('_mobile', ''), r])
+        );
+
+        return baseRules
+            .filter(r => getRuleSection(r) === currentTab)
+            .map(r => ({ key: r.component_key, desktop: r, mobile: mobileMap.get(r.component_key) }));
+    }, [editedRules, currentTab]);
 
 
     const currentRule = useMemo(() => {
@@ -225,14 +320,14 @@ const DesignSystemSettings: React.FC = () => {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`whitespace-nowrap capitalize py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
-                                (activeTab || TABS[0]) === tab
+                                currentTab === tab
                                     ? 'border-indigo-500 text-white'
                                     : 'border-transparent text-slate-400 hover:text-white hover:border-slate-600'
                             }`}
                         >
                             {tab}
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                (activeTab || TABS[0]) === tab ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-300'
+                                currentTab === tab ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-300'
                             }`}>
                                 {sectionCounts[tab] || 0}
                             </span>
@@ -278,7 +373,10 @@ const DesignSystemSettings: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button onClick={() => setSelectedKey(key)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
+                                        <button onClick={() => {
+                                            console.log('[DesignSystem] Modifica →', key, '| rule in editedRules:', editedRules?.[key]);
+                                            setSelectedKey(key);
+                                        }} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
                                             <Wand2 size={16} /> Modifica
                                             <ChevronRight size={16} />
                                         </button>

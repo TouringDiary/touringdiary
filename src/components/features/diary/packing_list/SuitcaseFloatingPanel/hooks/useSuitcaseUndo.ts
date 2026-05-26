@@ -1,4 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
+import { workspaceOwnsKeyboardShortcuts } from '@/focus/focusModeRegistry';
+import { useFocusMode } from '@/focus';
 import { UndoAction } from '@/hooks/useUndoStack';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
@@ -36,6 +38,8 @@ export const useSuitcaseUndo = ({
   beginExecution,
   endExecution
 }: UndoProps) => {
+  const { mode } = useFocusMode();
+
   // Riferimenti persistenti per evitare stale closures nel listener
   const undoRef = useRef(undo);
   const redoRef = useRef(redo);
@@ -147,32 +151,28 @@ export const useSuitcaseUndo = ({
   }, [isExecuting, executeAction]);
 
   useEffect(() => {
+    if (!workspaceOwnsKeyboardShortcuts(mode)) return;
+
     const handleKeyDown = async (e: KeyboardEvent) => {
-      console.log("[UndoListener] keydown detected:", e.key, "ctrl:", e.ctrlKey);
-      // Evita trigger durante inserimento testo
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
 
-      // UNDO: CTRL+Z or CMD+Z
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();
-        console.log("[UndoListener] CTRL+Z detected");
         await performUndo();
       }
-      
-      // REDO: CTRL+Y or CMD+Y or CTRL+SHIFT+Z
+
       const isRedo = ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
                      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z');
-      
+
       if (isRedo) {
         e.preventDefault();
-        console.log("[UndoListener] Redo Shortcut detected");
         await performRedo();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [performUndo, performRedo]);
+  }, [mode, performUndo, performRedo]);
 
   return {
     performUndo,

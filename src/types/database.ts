@@ -1,4 +1,4 @@
-import type { CitySummary } from '@/types/index';
+import type { CitySummary } from './models/City';
 
 import type { Database, Json } from './supabase';
 export type { Database, Json };

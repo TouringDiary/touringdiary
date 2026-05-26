@@ -1,8 +1,7 @@
 import { Z_FLOATING_PANEL } from '@/constants/zIndex';
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Loader2, Calendar, History, Zap, TrendingUp, ShieldCheck, CheckCircle, AlertTriangle, X } from 'lucide-react';
+import { CreditCard, Loader2, Calendar, History, Zap, TrendingUp, CheckCircle, AlertTriangle, X } from 'lucide-react';
 
-import { useAdminStyles } from '../../hooks/useAdminStyles';
 import {
     getPricingVersionsWithPlans,
     getCampaigns,
@@ -21,6 +20,7 @@ import { PricingHistoryPanel } from './marketing/PricingHistoryPanel';
 import { AiLimitsPanel } from './marketing/AiLimitsPanel';
 import { CampaignsPanel } from './marketing/CampaignsPanel';
 import { PromoManagerModal } from './marketing/PromoManagerModal';
+import { AdminPageHeader } from './common/AdminPageHeader';
 import * as Domain from '../../types/domain/index';
 
 type TabType = 'pricing' | 'history' | 'campaigns' | 'ai_limits';
@@ -56,7 +56,6 @@ const AdminToast = ({ message, type, onClose }: { message: string, type: 'succes
 );
 
 export const MarketingManager = () => {
-    useAdminStyles();
     const [activeTab, setActiveTab] = useState<TabType>('pricing');
     const [plansData, setPlansData] = useState<GroupedPlans[]>([]);
     const [allVersions, setAllVersions] = useState<PricingVersionJoined[]>([]);
@@ -238,27 +237,19 @@ export const MarketingManager = () => {
         <div className="space-y-8 animate-in fade-in pb-20 relative">
             {toast && <AdminToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-            {/* HEADER & NAV */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                    <div className="p-4 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl shadow-xl shadow-indigo-900/40">
-                        <TrendingUp className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic">Pricing Engine</h2>
-                        <p className="text-slate-500 text-sm font-bold flex items-center gap-2">
-                            Relational Versioning Control (SSOT)
-                        </p>
-                    </div>
-                </div>
+            <AdminPageHeader
+                icon={TrendingUp}
+                title="Pricing Engine"
+                subtitle="Relational Versioning Control (SSOT)"
+                accent="indigo"
+            />
 
-                <div className="flex bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 backdrop-blur-xl shadow-2xl overflow-x-auto">
-                    {NAV_TABS.map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all flex items-center gap-2 shrink-0 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-500 hover:text-white'}`}>
-                            <tab.icon className="w-4 h-4" /> {tab.label}
-                        </button>
-                    ))}
-                </div>
+            <div className="flex bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 backdrop-blur-xl shadow-2xl overflow-x-auto shrink-0">
+                {NAV_TABS.map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all flex items-center gap-2 shrink-0 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-500 hover:text-white'}`}>
+                        <tab.icon className="w-4 h-4" /> {tab.label}
+                    </button>
+                ))}
             </div>
 
             {/* MAIN CONTENT */}

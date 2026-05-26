@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppRouter } from '../hooks/useAppRouter';
 import { useUser } from './UserContext';
@@ -9,16 +9,20 @@ import { buildVirtualCity, getPoisByCityId } from '../services/cityService';
 import { getShopByVat } from '../services/shopService';
 import { GEO_CONFIG } from '../constants/geoConfig';
 import { useGps } from './GpsContext';
+import type { NavigationViewMode } from '../types/navigationViewMode';
+import type { NavigationPreviewState } from '../types/navigationPreview';
+import { CLOSED_NAVIGATION_PREVIEW } from '../types/navigationPreview';
+import type { NavigationGlobalExtra } from '../types/navigationGlobal';
 
 interface NavigationContextType {
     // Router State
-    viewMode: 'app' | 'admin';
+    viewMode: NavigationViewMode;
     activeCityId: string | null;
     activeShopId: string | null;
     targetShopVat: string | null;
     currentCityTab: string;
     activeStaticPage: string | null;
-    activePreview: any;
+    activePreview: NavigationPreviewState;
     
     // Virtual City State
     virtualCity: CityDetails | null;
@@ -35,15 +39,15 @@ interface NavigationContextType {
     openShopFromPoi: (poi?: PointOfInterest) => void;
     goBack: () => void;
     goHome: () => void;
-    handleNavigateGlobal: (section: string, tab?: string, id?: string, extra?: any) => void;
+    handleNavigateGlobal: (section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => void;
     handleAroundMeTrigger: (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => void;
     resolveCityIdFromSlug: (slug: string) => string | null;
     
     // Setters
-    setViewMode: (mode: 'app' | 'admin') => void;
+    setViewMode: (mode: NavigationViewMode) => void;
     setCurrentCityTab: (tab: string) => void;
-    setActiveStaticPage: (page: any) => void;
-    setActivePreview: (preview: any) => void;
+    setActiveStaticPage: Dispatch<SetStateAction<string | null>>;
+    setActivePreview: Dispatch<SetStateAction<NavigationPreviewState>>;
     setSelectedZone: (z: string) => void;
     setActiveCategories: (c: string[]) => void;
     setSelectedSeason: (s: string) => void;
@@ -186,7 +190,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
         aiPlannerContext.resetAiSession();
     };
 
-    const handleNavigateGlobal = (section: string, tab?: string, id?: string, extra?: any) => {
+    const handleNavigateGlobal = (section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => {
         if (section === 'city' && id) navigateToCity(id, tab); 
         else if (section === 'auth') modalContext.openModal('auth');
         else if (section === 'rewards') {
@@ -247,7 +251,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
             console.log(`[OverlayCleanup] Virtual City destroyed.`);
 
             // 3. Resettiamo le preview aperte
-            router.setActivePreview({ isOpen: false, title: '', cities: [], selectedId: null, categories: undefined });
+            router.setActivePreview(CLOSED_NAVIGATION_PREVIEW);
 
             // 4. Riportiamo il tab della città allo stato iniziale 'vetrina'
             router.setCurrentCityTab('vetrina');

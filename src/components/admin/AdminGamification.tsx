@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { Trophy, Coins, Plus, Edit2, Trash2, Save, X, Loader2, CheckCircle, Gift, Star, Zap, ShoppingBag, Utensils, Landmark, Monitor, Briefcase, Eye, AlertTriangle } from 'lucide-react';
 import { getXpRulesAsync, getRewardsAsync, saveXpRule, saveReward, deleteReward, XpRule, Reward, LEVELS, RewardCategory } from '../../services/gamificationService';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 
 // ... (RewardCardPreview remains unchanged)
@@ -66,8 +66,6 @@ export const AdminGamification = () => {
     const [rules, setRules] = useState<XpRule[]>([]);
     const [rewards, setRewards] = useState<Reward[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    
-    const { styles } = useAdminStyles(); // USATO STILI DINAMICI
     
     // Edit States
     const [editingRule, setEditingRule] = useState<XpRule | null>(null);
@@ -223,18 +221,12 @@ export const AdminGamification = () => {
                 </div>
             )}
             
-            {/* HEADER STILE MARKETING */}
-            <div className="flex justify-between items-center mb-2 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-amber-600 rounded-xl shadow-lg">
-                        <Trophy className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className={styles.admin_page_title}>Gamification & Premi</h2>
-                        <p className={styles.admin_page_subtitle}>Gestisci le regole XP e il catalogo ricompense</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={Trophy}
+                title="Gamification & Premi"
+                subtitle="Gestisci le regole XP e il catalogo ricompense"
+                accent="amber"
+            />
 
             {/* TABS */}
             <div className="flex bg-slate-900 p-1.5 rounded-xl border border-slate-800 w-fit shrink-0">

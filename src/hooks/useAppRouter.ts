@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { PointOfInterest } from '../types/index';
+import type { NavigationViewMode } from '@/types/navigationViewMode';
+import type { NavigationPreviewState } from '@/types/navigationPreview';
+import { CLOSED_NAVIGATION_PREVIEW } from '@/types/navigationPreview';
 
 // --- DASHBOARD ROUTING CONFIGURATION ---
 export const USER_DASHBOARD_TABS = {
@@ -24,13 +27,32 @@ export type UserDashboardTab = keyof typeof USER_DASHBOARD_TABS;
 export type BizDashboardTab = keyof typeof BIZ_DASHBOARD_TABS;
 export type DashboardTab = UserDashboardTab | BizDashboardTab;
 
+export function isUserDashboardTab(tab: string): tab is UserDashboardTab {
+    return tab in USER_DASHBOARD_TABS;
+}
+
+export function isBizDashboardTab(tab: string): tab is BizDashboardTab {
+    return tab in BIZ_DASHBOARD_TABS;
+}
+
+function buildUrlToInternalTab(): Record<string, DashboardTab> {
+    const map: Record<string, DashboardTab> = {
+        'porta-un-amico': 'referral',
+    };
+
+    for (const tab of Object.keys(USER_DASHBOARD_TABS) as UserDashboardTab[]) {
+        map[USER_DASHBOARD_TABS[tab]] = tab;
+    }
+
+    for (const tab of Object.keys(BIZ_DASHBOARD_TABS) as BizDashboardTab[]) {
+        map[BIZ_DASHBOARD_TABS[tab]] = tab;
+    }
+
+    return map;
+}
+
 // Reverse Mappings for Parser
-export const URL_TO_INTERNAL_TAB: Record<string, DashboardTab> = {
-    ...Object.fromEntries(Object.entries(USER_DASHBOARD_TABS).map(([k, v]) => [v, k as DashboardTab])),
-    ...Object.fromEntries(Object.entries(BIZ_DASHBOARD_TABS).map(([k, v]) => [v, k as DashboardTab])),
-    // Legacy support per vecchio slug discorsivo
-    'porta-un-amico': 'referral'
-};
+export const URL_TO_INTERNAL_TAB: Record<string, DashboardTab> = buildUrlToInternalTab();
 
 export const useAppRouter = () => {
     const { user, cityManifest } = useUser();
@@ -84,7 +106,7 @@ export const useAppRouter = () => {
     }, [citySlug, cityManifest]);
 
     // --- CORE VIEW MODE (DERIVED FROM URL) ---
-    const viewMode = useMemo<'app' | 'admin'>(() => 
+    const viewMode = useMemo<NavigationViewMode>(() =>
         location.pathname.startsWith('/admin') ? 'admin' : 'app'
     , [location.pathname]);
 
@@ -93,7 +115,7 @@ export const useAppRouter = () => {
     const [targetShopVat, setTargetShopVat] = useState<string | null>(null);
     const [activeStaticPage, setActiveStaticPage] = useState<string | null>(null);
     const [currentCityTab, setCurrentCityTab] = useState<string>('vetrina');
-    const [activePreview, setActivePreview] = useState<any>({ isOpen: false, title: '', cities: [], selectedId: null, categories: undefined });
+    const [activePreview, setActivePreview] = useState<NavigationPreviewState>(CLOSED_NAVIGATION_PREVIEW);
 
     // --- DEEP LINK STATE ---
     const [deepLinkParams, setDeepLinkParams] = useState<{ cityId?: string, poiId?: string, shopVat?: string } | null>(null);
@@ -120,21 +142,22 @@ export const useAppRouter = () => {
 
     const navigateToCity = (targetCityId: string, targetTab: string = 'vetrina') => {
         console.log(`[NavigationSync] Navigating to city: ${targetCityId}`);
-        const targetCity = cityManifest.find(c => c.id === targetCityId);
+        const targetCity = cityManifest.find((c) => c.id === targetCityId);
         if (!targetCity) return;
 
-        // Costruzione path gerarchico deterministico
-        const continent = (targetCity as any).continent_slug || 'europa';
-        const nation = (targetCity as any).nation_slug || 'italia';
-        const region = (targetCity as any).region_slug;
-        const zone = (targetCity as any).zone_slug;
-        const citySlug = (targetCity as any).slug || targetCity.id;
+        const continent = targetCity.continent_slug ?? 'europa';
+        const nation = targetCity.nation_slug ?? 'italia';
+        const region = targetCity.region_slug;
+        const zone = targetCity.zone_slug;
+        const citySlugForPath = targetCity.slug || targetCity.id;
 
-        const segments = [continent, nation, region, zone, citySlug].filter(Boolean);
+        const segments = [continent, nation, region, zone, citySlugForPath].filter(
+            (segment): segment is string => Boolean(segment)
+        );
         const newPath = `/${segments.join('/')}`;
 
         setActiveShopId(null); 
-        setActivePreview((prev: any) => ({ ...prev, isOpen: false })); 
+        setActivePreview((prev) => ({ ...prev, isOpen: false })); 
         setCurrentCityTab(targetTab); 
         
         console.log(`[OverlayCleanup] Resetting UI state for new city: ${targetCityId}`);
@@ -186,7 +209,7 @@ export const useAppRouter = () => {
         window.scrollTo(0, 0);
     };
 
-    const setViewModeAction = (mode: 'app' | 'admin') => {
+    const setViewModeAction = (mode: NavigationViewMode) => {
         if (mode === 'admin') {
             navigate('/admin');
         } else {
@@ -205,27 +228,20 @@ export const useAppRouter = () => {
         // 1. Root Fallback
         if (!tab) return `${baseUrl}/profilo`;
 
-        // 2. Identify Tab Slug (Semantic Mapping)
-        const tabSlug = USER_DASHBOARD_TABS[tab as UserDashboardTab] || 
-                        BIZ_DASHBOARD_TABS[tab as BizDashboardTab] || 
-                        tab;
-
-        // 3. User Area Path
-        if (USER_DASHBOARD_TABS[tab as UserDashboardTab]) {
-            return `${baseUrl}/${tabSlug}`;
+        if (isUserDashboardTab(tab)) {
+            return `${baseUrl}/${USER_DASHBOARD_TABS[tab]}`;
         }
 
-        // 4. Business Area Path
-        if (BIZ_DASHBOARD_TABS[tab as BizDashboardTab]) {
-            let path = `${baseUrl}/${tabSlug}`;
+        if (isBizDashboardTab(tab)) {
+            let path = `${baseUrl}/${BIZ_DASHBOARD_TABS[tab]}`;
             if (businessIdOrSlug) {
                 path += `/${businessIdOrSlug}`;
             }
             return path;
         }
 
-        // 5. Legacy/Unknown Fallback
-        return `${baseUrl}/${tabSlug}${businessIdOrSlug ? `/${businessIdOrSlug}` : ''}`;
+        // Legacy/Unknown Fallback
+        return `${baseUrl}/${tab}${businessIdOrSlug ? `/${businessIdOrSlug}` : ''}`;
     }, [user?.slug]);
 
     return {

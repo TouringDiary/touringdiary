@@ -18,6 +18,7 @@ import { useGps } from '@/context/GpsContext';
 import { useUI } from '@/context/UIContext';
 import { useNavigation } from '@/context/useNavigation';
 import { useAppRouter } from '@/hooks/useAppRouter';
+import { useFocusMode } from '@/focus';
 
 export interface HeaderProps {
     // Props residue solo se strettamente UI/locali
@@ -51,6 +52,7 @@ export const Header = ({
   const { user, handleLogout } = useUser();
   const { userLocation, isLocating, toggleGps } = useGps();
   const { isMobile, mobileShowWeather, toggleMobileWeather, isSidebarOpen, toggleSidebar } = useUI();
+  const { isWorkspace } = useFocusMode();
   const { openModal } = useModal();
   const { buildDashboardPath } = useAppRouter();
   const navigate = useNavigate();
@@ -179,8 +181,11 @@ export const Header = ({
 
         <button 
             id="tour-toggle-sidebar"
-            onClick={toggleSidebar}
-            className={`hidden md:flex h-10 rounded-xl px-4 gap-2 border items-center justify-center transition-all ${isSidebarOpen ? amberBtnClass : inactiveBtnClass}`}
+            onClick={isWorkspace ? undefined : toggleSidebar}
+            disabled={isWorkspace}
+            aria-disabled={isWorkspace}
+            title={isWorkspace ? 'Sidebar bloccata durante la sessione focus' : undefined}
+            className={`hidden md:flex h-10 rounded-xl px-4 gap-2 border items-center justify-center transition-all ${isWorkspace ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''} ${isSidebarOpen ? amberBtnClass : inactiveBtnClass}`}
         >
             {isSidebarOpen ? <PanelLeftOpen className="w-5 h-5"/> : <PanelLeftClose className="w-5 h-5"/>}
             <span className={`${diaryBtnStyle} hidden lg:inline leading-none pt-1`}>Diario di Viaggio</span>

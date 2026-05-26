@@ -115,7 +115,9 @@ export const ModalManager = () => {
         onNavigateGlobal: handleNavigateGlobal,
         onOpenShop: openShopFromPoi,
         activePreview,
-        onClosePreview: () => setActivePreview({ ...activePreview, isOpen: false }),
+        onClosePreview: () => {
+            setActivePreview((prev) => ({ ...prev, isOpen: false }));
+        },
         onLogout: handleLogout,
         onAroundMeTrigger: handleAroundMeTrigger
     }), [

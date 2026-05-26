@@ -134,11 +134,11 @@ export const UserTable = ({ users, isLoading, sortKey, sortDir, onSort, currentU
                 <table className="w-full text-left text-sm text-slate-400">
                     <thead className="sticky top-0 bg-slate-900/50 backdrop-blur-sm z-floating-panel">
                         <tr>
-                            <th className="p-3 font-semibold" onClick={() => onSort('name')}>Utente <SortIcon colKey='name' /></th>
-                            <th className="p-3 font-semibold" onClick={() => onSort('registrationDate')}>Registrato <SortIcon colKey='registrationDate' /></th>
-                            <th className="p-3 font-semibold text-center">AI Oggi (F/P)</th>
-                            <th className="p-3 font-semibold text-center">Quota</th>
-                            <th className="p-3 font-semibold text-center">Azioni</th>
+                            <th className={`p-3 ${styles.admin_table_head}`} onClick={() => onSort('name')}>Utente <SortIcon colKey='name' /></th>
+                            <th className={`p-3 ${styles.admin_table_head}`} onClick={() => onSort('registrationDate')}>Registrato <SortIcon colKey='registrationDate' /></th>
+                            <th className={`p-3 text-center ${styles.admin_table_head}`}>AI Oggi (F/P)</th>
+                            <th className={`p-3 text-center ${styles.admin_table_head}`}>Quota</th>
+                            <th className={`p-3 text-center ${styles.admin_table_head}`}>Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -146,27 +146,29 @@ export const UserTable = ({ users, isLoading, sortKey, sortDir, onSort, currentU
                             const uStats = usageStats[user.id] || { flash: 0, pro: 0 };
                             return (
                                 <tr key={user.id} className="border-t border-slate-800 hover:bg-slate-800/50">
-                                    <td className="p-3 flex items-center gap-3">
+                                    <td className={`p-3 ${styles.admin_table_cell}`}>
+                                        <div className="flex items-center gap-3">
                                         {getRoleBadge(user.role)}
                                         <div>
                                             <div className="font-bold text-white">{user.name || 'N/D'}</div>
                                             <div className="text-slate-500">{user.email || 'N/D'}</div>
                                         </div>
+                                        </div>
                                     </td>
-                                    <td className="p-3">
+                                    <td className={`p-3 ${styles.admin_table_cell}`}>
                                         <div>{new Date(user.registrationDate).toLocaleDateString()}</div>
                                         <div className="text-slate-500">Ultimo accesso: {user.lastAccess ? new Date(user.lastAccess).toLocaleDateString() : 'Mai'}</div>
                                     </td>
-                                    <td className="p-3 text-center font-mono">
+                                    <td className={`p-3 text-center font-mono ${styles.admin_table_cell}`}>
                                         <div>
                                             <span className="text-amber-400">{uStats.flash}</span> /
                                             <span className="text-purple-400"> {uStats.pro}</span>
                                         </div>
                                     </td>
-                                    <td className="p-3 text-center font-mono">
+                                    <td className={`p-3 text-center font-mono ${styles.admin_table_cell}`}>
                                         <UserAiLimitCell userId={user.id} />
                                     </td>
-                                    <td className="p-3">
+                                    <td className={`p-3 ${styles.admin_table_cell}`}>
                                         <div className="flex items-center justify-center gap-1">
                                             <button 
                                                 onClick={() => onEdit(user)} 

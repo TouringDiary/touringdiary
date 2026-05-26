@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
-import { AiItineraryItem, DailyLogistics } from '../services/ai';
+import { AiItineraryItem, DailyLogistics } from '../services/ai/types';
 
 export interface AiSessionState {
     destination: string;

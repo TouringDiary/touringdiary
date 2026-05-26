@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { fetchAffiliateTriggersAsync } from '@/services/suitcaseService';
-import { ResolvedAffiliateProduct, Suitcase, JoinedAffiliateTrigger, JoinedAffiliateProduct } from '@/types/suitcase';
+import {
+  fetchAffiliateTriggersAsync,
+  adaptTriggerRelationToRuntime,
+} from '@/services/suitcase/suitcaseAffiliateService';
+import {
+  CanonicalAffiliateTriggerRelation,
+  RuntimeAffiliateProduct,
+  Suitcase,
+} from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
-
-export interface RuntimeAffiliateProduct extends ResolvedAffiliateProduct {
-  trigger_priority: number;
-}
 
 export const useSuitcaseAffiliate = (contextSuitcase: Suitcase | undefined | null) => {
   const [affiliateMaps, setAffiliateMaps] = useState<{
@@ -53,34 +56,9 @@ export const useSuitcaseAffiliate = (contextSuitcase: Suitcase | undefined | nul
           placeholders: {}
         };
 
-        (data || []).forEach((t: JoinedAffiliateTrigger) => {
-          const rawProduct = Array.isArray(t.product)
-            ? t.product[0]
-            : t.product;
-          if (!rawProduct) return;
-
-          const product: RuntimeAffiliateProduct = { 
-            id: rawProduct.id,
-            name: rawProduct.name,
-            title: rawProduct.name,
-            description: rawProduct.description || '',
-            price: rawProduct.estimated_price !== null && rawProduct.estimated_price !== undefined 
-              ? String(rawProduct.estimated_price) 
-              : null,
-            category: rawProduct.target_categories && rawProduct.target_categories.length > 0 
-              ? rawProduct.target_categories[0] 
-              : null,
-            image_url: rawProduct.image_url,
-            imageUrl: rawProduct.image_url,
-            target_categories: rawProduct.target_categories,
-            provider: rawProduct.provider,
-            product_id: rawProduct.product_id,
-            is_active: rawProduct.is_active,
-            preferred_partners: rawProduct.preferred_partners,
-            url: null,
-            trigger_priority: t.priority || 0,
-            product_links: rawProduct.links || rawProduct.affiliate_product_links || [] 
-          };
+        (data || []).forEach((t: CanonicalAffiliateTriggerRelation) => {
+          const product = adaptTriggerRelationToRuntime(t);
+          if (!product) return;
 
           const key = t.trigger_key?.toLowerCase();
 

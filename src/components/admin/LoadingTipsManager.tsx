@@ -4,7 +4,7 @@ import { Lightbulb, Plus, Trash2, Eye, EyeOff, Loader2, RefreshCw, X, MessageSqu
 import { LoadingTip } from '../../types/index';
 import { getLoadingTipsAsync, saveLoadingTipAsync, deleteLoadingTipAsync } from '../../services/contentService';
 import { ImageWithFallback } from '../common/ImageWithFallback';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 // --- SUB-COMPONENT ESTRATTO (FIX FOCUS LOSS) ---
 interface TipRowProps {
@@ -93,7 +93,6 @@ const TipRow: React.FC<TipRowProps> = ({ tip, savingId, onUpdate, onReorder, onS
 export const LoadingTipsManager = () => {
     const [tips, setTips] = useState<LoadingTip[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const { styles } = useAdminStyles(); // USATO STILI DINAMICI
 
     // States for New Tip Form
     const [newTipText, setNewTipText] = useState('');
@@ -251,21 +250,18 @@ export const LoadingTipsManager = () => {
                 </div>
             )}
 
-            {/* HEADER CLEAN DESIGN */}
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-yellow-600 rounded-xl shadow-lg">
-                        <Lightbulb className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className={styles.admin_page_title}>Loading Tips</h2>
-                        <p className={styles.admin_page_subtitle}>Gestisci i messaggi di attesa e i caricamenti</p>
-                    </div>
-                </div>
-                 <button onClick={refresh} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors border border-slate-700">
-                    <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`}/>
-                </button>
-            </div>
+            <AdminPageHeader
+                icon={Lightbulb}
+                accent="yellow"
+                title="Loading Tips"
+                subtitle="Gestisci i messaggi di attesa e i caricamenti"
+                className="!mb-6"
+                actions={
+                    <button onClick={refresh} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors border border-slate-700">
+                        <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`}/>
+                    </button>
+                }
+            />
 
             {/* ADD NEW FORM */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shrink-0 shadow-lg flex flex-col md:flex-row gap-4 items-end">

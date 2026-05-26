@@ -142,7 +142,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
     };
 
     return (
-        <div id="tour-search-section" className={`col-span-12 lg:col-span-7 relative group shadow-2xl flex flex-col bg-slate-900 border border-slate-800 rounded-2xl transition-all duration-300 overflow-visible ${!props.isFiltersExpanded ? 'h-auto' : 'lg:h-full'}`}>
+        <div id="tour-search-section" className={`col-span-12 lg:col-span-7 relative group shadow-2xl flex flex-col bg-slate-900 border border-slate-800 rounded-2xl transition-all duration-300 overflow-visible ${!props.isFiltersExpanded ? 'h-auto' : 'lg:h-full'}`} data-focus-surface="dimmed-background">
 
             {/* BACKGROUND IMAGE WITH OVERLAY */}
             {props.heroImage && (
@@ -157,33 +157,33 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                 </div>
             )}
 
-            <div className="relative z-floating-panel flex flex-col h-full">
+            <div className="relative z-10 flex flex-col h-full">
                 {/* TOP CONTENT: PADDED */}
                 <div className="p-3 md:px-5 md:py-4 flex flex-col">
                     {/* HEADER ROW */}
                     <div
-                        className="flex justify-between items-center h-10 shrink-0 mb-0.5 lg:mb-0 cursor-pointer lg:cursor-default relative"
+                        className="flex justify-between items-center h-10 shrink-0 mb-0.5 lg:mb-0 cursor-pointer lg:cursor-default"
                         onClick={() => props.setIsFiltersExpanded(!props.isFiltersExpanded)}
                     >
-                        <div className="flex items-center gap-3 relative z-floating-panel">
-                            <div className="w-1 h-7 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
-                            <h3 className={`${heroLabelStyle} drop-shadow-md z-dropdown relative`}>Trova la tua meta</h3>
+                        <div className="flex items-center gap-3">
+                            <div className="w-1 h-7 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+                            <h3 className={`${heroLabelStyle} drop-shadow-md`}>Trova la tua meta</h3>
                         </div>
 
                         {/* ICON SUMMARY (center) */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-floating-panel">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="pointer-events-auto">
                                 {renderSummary()}
                             </div>
                         </div>
 
-                        <div className="lg:hidden p-1.5 bg-slate-800/50 rounded-full border border-white/10 text-white backdrop-blur-sm relative z-floating-panel">
+                        <div className="lg:hidden p-1.5 bg-slate-800/50 rounded-full border border-white/10 text-white backdrop-blur-sm">
                             {props.isFiltersExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </div>
 
                         <button
                             onClick={(e) => { e.stopPropagation(); props.handleGlobalReset(); }}
-                            className="text-slate-400 hover:text-white transition-all hidden lg:flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/30 hover:bg-slate-700/50 border border-white/5 hover:border-white/20 relative z-floating-panel"
+                            className="text-slate-400 hover:text-white transition-all hidden lg:flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/30 hover:bg-slate-700/50 border border-white/5 hover:border-white/20"
                             title="Resetta filtri"
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
@@ -206,7 +206,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
 
                     {/* EXPANDABLE GEO FILTERS */}
                     <div className={`mt-3.5 ${props.isFiltersExpanded ? 'flex' : 'hidden lg:flex'}`}>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-3 lg:gap-y-4 w-full relative z-modal">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-3 lg:gap-y-4 w-full">
                             <FilterSelect label="Continente" value={props.continent} options={continents} onChange={props.handleContinentChange} onReset={props.resetContinent} />
                             <FilterSelect label="Nazione" value={props.nation} options={nations} onChange={props.handleNationChange} onReset={props.resetNation} disabled={!props.continent} />
                             <FilterSelect label="Regione" value={props.region} options={regions} onChange={props.handleRegionChange} onReset={props.resetRegion} disabled={!props.nation} />
@@ -218,7 +218,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                 </div>
 
                 {/* BOTTOM STRIP: INTEGRATED, 100% WIDTH */}
-                <div className={`mt-auto bg-slate-950/60 backdrop-blur-md flex flex-col lg:flex-row items-stretch justify-between w-full transition-all duration-300 relative z-floating-panel rounded-b-2xl ${props.isFiltersExpanded ? 'flex' : 'hidden lg:flex'}`}>
+                <div className={`mt-auto bg-slate-950/60 backdrop-blur-md flex flex-col lg:flex-row items-stretch justify-between w-full transition-all duration-300 rounded-b-2xl ${props.isFiltersExpanded ? 'flex' : 'hidden lg:flex'}`}>
 
                     {/* LEFT: TIPOLOGIA SECTION */}
                     <div className="flex items-stretch shrink-0 border-t lg:border-t-0 border-b lg:border-b-0 border-slate-700/40 rounded-tr-xl overflow-visible">

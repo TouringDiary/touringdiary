@@ -3,7 +3,8 @@ import { Insert, DbSuitcase, DbSuitcaseItem } from '../../types/domain/index';
 import { Suitcase, SuitcaseItem } from '../../types/suitcase';
 import {
   mapDbSuitcaseToRuntimeSuitcase,
-  mapDbSuitcaseItemToRuntimeItem
+  mapDbSuitcaseItemToRuntimeItem,
+  serializeUiState
 } from './suitcaseCoreService';
 
 /* NOTE: I servizi editoriali di master template e relative sotto-entità (creazione, modifica, clonazione e rimozione)
@@ -252,9 +253,7 @@ export const updateHiddenCategoriesAsync = async (
   const { error } = await supabase
     .from('suitcases')
     .update({
-      ui_state: {
-        hidden_category_ids: hiddenCategoryIds
-      }
+      ui_state: serializeUiState({ hidden_category_ids: hiddenCategoryIds })
     })
     .eq('id', suitcaseId);
 

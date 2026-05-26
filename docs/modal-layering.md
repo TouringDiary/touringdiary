@@ -1,108 +1,142 @@
-# Modal Layering Contract — Touring Diary
+# Modal & Layering Architecture — Touring Diary
 
-## Overview
-
-Il sistema modali di Touring Diary utilizza uno stacking deterministico centralizzato basato su costanti globali per garantire coerenza visiva e prevenire conflitti di layering.
-
-### Regole Fondamentali
-– Tutti i modal fullscreen utilizzano `createPortal(..., document.body)` per evitare problemi di overflow parent.
-– Tutti gli overlay utilizzano la classe base `td-modal-overlay`.
-– È vietato l'uso di z-index hardcoded inline (es. `z-[100]`) per la gestione dei layer principali.
-– I livelli di profondità sono definiti centralmente in `src/constants/zIndex.ts`.
+> Last updated: 2026-05-24  
+> Layer registry: `src/layering/layerRegistry.ts`  
+> Focus mode policy: `src/focus/focusModeRegistry.ts`  
+> Numeric values: `src/constants/zIndex.ts`
 
 ---
 
-## Stacking Levels
+## UI Modes (Focus System)
 
-### Z_OVERLAY = 10000
-**Layer:** Global Backdrop Overlay
-**Uso:** Classe `td-modal-overlay`.
-Fornisce il backdrop semi-trasparente e blocca le interazioni con il contenuto sottostante.
+Application focus is derived by `deriveFocusState()` — **no hardcoded modal exceptions**.
 
-### Z_MODAL = 11000
-**Layer:** Standard Fullscreen Modal Content
-**Uso:** Componenti principali dell'applicazione.
-- CityInfoModal
-- SuggestionModal
-- ItinerariesModal
-- GlobalSectionView
-- SponsorModal
+| UIMode | Trigger | Overlay | Primary owner |
+|---|---|---|---|
+| `home` | Default app | none | — |
+| `workspace` | `WORKSPACE_REGISTRY.modalKey` (e.g. `packingList`) | `workspaceDim` @ Z_FOCUS_DIM | `WorkspaceHost` |
+| `modal` | Any other `activeModal` | `modalDim` @ Z_OVERLAY | `ModalManager` |
+| `preview` | `activePreview.isOpen` | `modalDim` @ Z_OVERLAY | `FeatureModals` |
+| `immersive` | Reserved | TBD | Future maps/editors |
 
-### Z_MODAL_NESTED = 12000
-**Layer:** Nested Confirmation Modal
-**Uso:** Modali di conferma o flussi annidati.
-- DeleteConfirmationModal
-- Dialog di conferma associazione
-- Flussi annidati interni ad altri modali
-
-### Z_ADMIN_MODAL = 13000
-**Layer:** Admin Super-Layer Modal
-**Uso:** Strumenti amministrativi critici.
-- AdminPhotoInspector
-- CampaignsPanel
-- PricingManager
-- AdminCreditPackages
-- PartnerDetailModal
-
-**Descrizione:** Questo layer è intenzionalmente posizionato sopra l'intero stack applicativo per garantire che gli strumenti di gestione siano sempre accessibili e visibili.
+Provider: `FocusModeProvider` (`src/focus/FocusModeContext.tsx`)  
+Visual overlay: `FocusOverlay` (`src/focus/FocusOverlay.tsx`)  
+Workspace panels: `WorkspaceHost` (`src/focus/WorkspaceHost.tsx`)
 
 ---
 
-## Overlay Contract
+## Focus Surfaces (Semantic, not z-index)
 
-La classe `td-modal-overlay` definisce il posizionamento ma NON contiene un background di default.
-Ogni modal deve dichiarare esplicitamente lo stile dell'overlay desiderato.
+| Surface | Workspace mode | Modal mode |
+|---|---|---|
+| `globalChrome` (news, header) | visible | visible |
+| `focusCompanion` (diary, sponsor) | visible | dimmed |
+| `focusActive` (Valigia panel) | visible | dimmed |
+| `dimmedBackground` (hero, sidebar widgets) | dimmed | dimmed |
+| `baseContent` | dimmed | dimmed |
 
-**Esempi Standard:**
-- `td-modal-overlay bg-black/90 backdrop-blur-sm`
-- `td-modal-overlay bg-slate-950/95 backdrop-blur-md`
-
----
-
-## Portal Contract
-
-Tutti i modal fullscreen devono utilizzare il portale verso il body:
-`createPortal(..., document.body)`
-
-**Eccezione Documentata:**
-- `PoiDetailModal`: Utilizza un overlay custom locale per permettere l'animazione di flip 3D integrata nel layout della pagina.
+Mark up: `data-focus-surface="…"` (see `FOCUS_SURFACE_ATTR`).
 
 ---
 
-## ESC Handling Contract
+## Z-index Tier Map
 
-La gestione del tasto ESC è centralizzata per prevenire chiusure accidentali di stack multipli:
-- Utilizzo dell'hook `useGlobalModalEscape` (attivo nella capture phase).
-- Utilizzo del componente `CloseButton`.
+### Focus workspace stack (9000–9399)
 
-L'implementazione di listener manuali (`document.addEventListener`) per il tasto ESC non è consentita nei nuovi componenti.
+| Tier | Value | CSS / style | Owner | Portal |
+|---|---|---|---|---|
+| focusDim | 9 000 | `Z_FOCUS_DIM` | `FocusOverlay` (workspace) | body |
+| focusCompanion | 9 100 | `z-focus-companion` | `Sidebar.tsx` diary + sponsor | body |
+| globalChrome | 9 200 | `Z_GLOBAL_CHROME` | `AppShell.tsx` news + header | inline |
+| focusActive | 9 300 | `Z_FOCUS_ACTIVE` | `WorkspaceHost` → Valigia | body |
+
+### Consumer stack (10000+)
+
+| Tier | Value | CSS class | Owner | Portal |
+|---|---|---|---|---|
+| dropdown | 10 000 | `z-dropdown` | Header menus | body |
+| popover | 10 500 | `z-popover` | AnchoredPopover, hero filters | inline/body |
+| modal | 11 000 | `z-modal` | Classic fullscreen modals | body |
+| modalNested | 12 000 | `z-modal-nested` | Nested confirms | body |
+| adminModal | 13 000 | — | Admin panels | body |
+| overlay | 14 000 | — | `FocusOverlay` (modal/preview) | body |
+| lightbox | 15 000+ | — | GalleryLightbox | body |
+| toast | 16 000 | — | GlobalAlert | body |
+
+**Note:** `SuitcaseFloatingPanel` is **focusActive**, NOT `modal`. Classic modals stay on the 11000/14000 stack.
 
 ---
 
-## Admin Super Layer Contract
+## Valigia / Workspace Focus Flow
 
-I componenti definiti come **admin-super-layer** devono riportare la seguente annotazione obbligatoria sopra il root modal container:
+```
+User opens Valigia
+  → openModal('packingList')          // transport key only
+  → deriveFocusState → mode=workspace
+  → FocusOverlay renders workspaceDim @ 9000
+  → Sidebar portals diary+sponsor @ 9100 (focusCompanion)
+  → WorkspaceHost mounts SuitcaseFloatingPanel @ 9300
+  → Inline dimmedBackground (hero, TOP/MIX) sits below overlay → dimmed
+  → globalChrome (news, header) above overlay top edge + tier 9200
+```
 
-`// admin-super-layer modal | intentionally rendered above global modal stack (z-13000)`
+Click workspace dim overlay or ESC → `closeFocus()` → `closeModal()`.
 
-**Componenti Certificati:**
-- AdminPhotoInspector
-- CampaignsPanel
-- PricingManager
-- AdminCreditPackages
-- PartnerDetailModal
+---
 
-## Tailwind z-index Policy
+## Modal / Preview Flow (unchanged contract)
 
-Il progetto Touring Diary non utilizza classi Tailwind dinamiche per lo z-index (es. `z-[${Z_MODAL}]`).
+```
+openModal('itineraries') / activePreview.isOpen
+  → mode=modal | preview
+  → FocusOverlay modalDim @ 14000
+  → BaseFullscreenModalShell: td-modal-overlay + content @ 11000
+  → backdrop-blur ONLY on active overlay (mount/unmount per mode)
+```
 
-**Motivo:**
-Tailwind JIT non garantisce la generazione deterministica di classi dinamiche in runtime conditionale o basate su variabili JavaScript non analizzabili staticamente durante la build.
+---
 
-Per questo motivo, tutti i layer modali devono utilizzare l'attributo style:
-`style={{ zIndex: Z_* }}`
+## Sidebar LEVEL Semantics
 
-Dove le costanti (`Z_OVERLAY`, `Z_MODAL`, `Z_MODAL_NESTED`, `Z_ADMIN_MODAL`) sono importate da:
-`src/constants/zIndex.ts`
+| Level | Surface | Workspace behaviour |
+|---|---|---|
+| LEVEL 3 | `dimmedBackground` | TOP/MIX, global buttons — dimmed |
+| LEVEL 2 | `focusCompanion` | Diary + sponsor — portaled above dim |
 
-Questa regola è obbligatoria per prevenire regressioni visive e comportamenti di stacking non deterministici in produzione.
+---
+
+## Adding a New Workspace
+
+1. Add entry to `WORKSPACE_REGISTRY` in `src/focus/focusModeRegistry.ts`
+2. Add case in `WorkspaceHost.tsx`
+3. Use `Z_FOCUS_ACTIVE` for the panel portal
+4. No changes to `FocusOverlay` unless new overlay geometry is needed
+
+---
+
+## Anti-patterns (removed)
+
+- ~~`activeModal !== 'packingList'`~~ in overlay logic
+- ~~`Z_FLOATING_PANEL` (9000) below sidebar shell (10000)~~
+- ~~Hero modules using `z-floating-panel` for local stacking~~
+- ~~`aside` with document-level z-index blocking companion portals~~
+
+`Z_FLOATING_PANEL` is deprecated alias → `Z_FOCUS_COMPANION`.
+
+---
+
+## ESC Ownership
+
+Single LIFO stack in `src/hooks/useCloseOnEscape.ts`.  
+Workspace panels register via `useGlobalModalEscape` in `SuitcaseFloatingPanel`.
+
+---
+
+## Portal Policy
+
+| Component | Mount | Tier |
+|---|---|---|
+| Workspace companion (diary) | `document.body` | focusCompanion |
+| Workspace active (Valigia) | `document.body` | focusActive |
+| Classic modals | `document.body` | modal inside overlay |
+| Header menu | `document.body` | dropdown |

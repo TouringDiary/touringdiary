@@ -9,7 +9,6 @@ import {
     saveCityDetails
 } from '../../services/cityService';
 import { getSafeServiceType, getSafeEventCategory } from '../../utils/common';
-import { incrementAiUsage } from '../../services/aiUsageService';
 import { User } from '../../types/users';
 import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
 
@@ -73,11 +72,6 @@ export const useServiceRegeneration = (currentUser: User) => {
         addLog(`🚀 AVVIO RIGENERAZIONE SERVIZI: ${city.name}`);
 
         try {
-            // 0. TRACK USAGE
-            if (currentUser) {
-                await incrementAiUsage(currentUser);
-            }
-
             // 1. FASE DISCOVERY (FLASH)
             let rawData: any = {};
             await performStep('Analisi & Discovery (Flash)', async () => {

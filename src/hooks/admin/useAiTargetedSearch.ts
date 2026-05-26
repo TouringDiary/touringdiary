@@ -2,7 +2,6 @@
 import { suggestNewPois } from '../../services/ai';
 import { saveSinglePoi } from '../../services/cityService';
 import { PointOfInterest, User } from '../../types/index';
-import { incrementAiUsage } from '../../services/aiUsageService';
 import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 
@@ -31,8 +30,6 @@ export const useAiTargetedSearch = (
         addLog(`🚀 AVVIO RICERCA MIRATA: ${cityName}`);
 
         try {
-            if (user) await incrementAiUsage(user);
-
             let totalSaved = 0;
 
             for (const [catId, count] of Object.entries(categoriesToSearch)) {

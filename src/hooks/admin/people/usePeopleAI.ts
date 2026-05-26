@@ -1,11 +1,10 @@
 
 import React, { useState } from 'react';
-import { FamousPerson, User } from '../../../types/index';
+import { FamousPerson } from '../../../types/index';
 import { saveCityPerson } from '../../../services/cityService';
 import { suggestCityPeople, enrichPersonData } from '../../../services/ai';
 import { generateHistoricalPortrait } from '../../../services/ai/aiVision';
 import { findExistingPortrait } from '../../../services/mediaService'; 
-import { incrementAiUsage } from '../../../services/aiUsageService';
 import { useCityEditor } from '@/context/CityEditorContext';
 
 interface UsePeopleAIProps {
@@ -81,16 +80,11 @@ export const usePeopleAI = ({
     };
 
     // 2. MAGIC FIX (Wipe & Rewrite Single)
-    const wipeAndRewritePerson = async (person: FamousPerson, user?: User) => {
+    const wipeAndRewritePerson = async (person: FamousPerson) => {
         if (!person.id) return;
         if (!isBulkProcessing) setProcessingId(person.id); 
         
         try {
-            // Track Usage (Single Call per Enrichment)
-            if (user && !isBulkProcessing) {
-                await incrementAiUsage(user, 1);
-            }
-
             const enrichedData = await enrichPersonData(person.name, cityName);
             
             if (enrichedData) {
@@ -104,11 +98,9 @@ export const usePeopleAI = ({
                     const isPlaceholder = finalImageUrl.includes('unsplash.com') || finalImageUrl.includes('ui-avatars');
                     if (isMissing || isPlaceholder) {
                         const roleForImg = enrichedData.role || person.role || 'Personaggio Storico';
-                        // Generazione Immagine: +1 Chiamata
                         const newImage = await generateHistoricalPortrait(person.name, roleForImg, cityName);
                         if (newImage) {
                             finalImageUrl = newImage;
-                            if (user && !isBulkProcessing) await incrementAiUsage(user, 1);
                         }
                     }
                 }
@@ -150,16 +142,12 @@ export const usePeopleAI = ({
     };
 
     // 4. BATCH PROCESSING (Bulk Fix) - THROTTLED
-    const fixPeopleBatch = async (user?: User) => {
+    const fixPeopleBatch = async () => {
         const targets = selectedIds.size > 0 ? peopleList.filter(p => p.id && selectedIds.has(p.id)) : peopleList;
         if (targets.length === 0) return;
         
         setIsBulkProcessing(true);
 
-        // TRACK USAGE MASSIVO
-        // Qui incrementiamo per ogni persona, perché il ciclo fa una chiamata per persona.
-        if (user) await incrementAiUsage(user, targets.length);
-        
         for (const person of targets) {
             if (person.id) {
                 // Scroll per feedback visivo
@@ -168,8 +156,7 @@ export const usePeopleAI = ({
 
                 setProcessingId(person.id);
                 try {
-                    // Passiamo null come user per evitare che incrementi ancora dentro
-                    await wipeAndRewritePerson(person, undefined); 
+                    await wipeAndRewritePerson(person);
                 } catch (e) {
                     console.error(`Errore durante fix massivo su ${person.name}`, e);
                 }

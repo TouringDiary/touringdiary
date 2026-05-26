@@ -86,7 +86,7 @@ serve(async (req) => {
     }
 
     if (!rpcData?.allowed) {
-      throw new Error('RATE_LIMIT_EXCEEDED');
+      throw new Error(rpcData?.reason === 'EMERGENCY_STOP' ? 'EMERGENCY_STOP' : 'RATE_LIMIT_EXCEEDED');
     }
 
     const pricingVersionId = rpcData.pricing_version_id;
@@ -132,10 +132,13 @@ Risposta:`;
     });
 
   } catch (error: any) {
+    const isEmergencyStop = error.message === 'EMERGENCY_STOP';
     const isRateLimit = error.message === 'RATE_LIMIT_EXCEEDED';
     const isShortPrompt = error.message.includes('caratteri');
 
-    const uiFallback = isRateLimit
+    const uiFallback = isEmergencyStop
+      ? "I servizi AI sono temporaneamente sospesi per manutenzione di emergenza. Riprova più tardi."
+      : isRateLimit
       ? "Hai esaurito i crediti AI di questo mese. Aggiorna il profilo o sfrutta il tuo codice Referral per ottenere crediti extra!"
       : isShortPrompt ? error.message : "Spiacenti, il consulente non è disponibile per problemi di ricezione. Riprova tra poco.";
 

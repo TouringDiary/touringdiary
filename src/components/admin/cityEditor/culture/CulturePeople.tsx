@@ -83,7 +83,7 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
         if (!refineTarget) return;
         const target = refineTarget;
         setRefineTarget(null);
-        const result = await wipeAndRewritePerson(target, currentUser);
+        const result = await wipeAndRewritePerson(target);
         if (!result?.success) {
             alert("Errore durante la bonifica: " + (result?.error || "Sconosciuto"));
         } else {
@@ -93,7 +93,7 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
     
     const confirmBulkFix = async () => {
         setShowBulkFixConfirm(false);
-        const result = await fixPeopleBatch(currentUser);
+        const result = await fixPeopleBatch();
         if (result?.success) {
              setSuccessModal({ isOpen: true, message: `Bonifica completata! Processati ${result.count} personaggi.` });
         }

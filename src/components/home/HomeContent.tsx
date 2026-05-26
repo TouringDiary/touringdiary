@@ -1,7 +1,6 @@
 
-
-
 import React, { useRef, useMemo, useState, useEffect } from 'react';
+import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
 import { Star, TrendingUp, Grid, ZoomIn, ChevronLeft, ChevronRight, Award, Plus, Check, GripHorizontal, AlertTriangle } from 'lucide-react';
 import { CitySummary, SponsorRequest, PointOfInterest, ResolvedSponsor } from '@/types';
 import { PLAN_TYPES } from '@/constants/planTypes';
@@ -367,7 +366,10 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
     return (
         <div className="animate-in fade-in flex flex-col gap-0 w-full overflow-x-hidden">
 
-            <div className="shrink-0 z-dropdown lg:sticky lg:top-0 lg:bg-[#020617] lg:pb-6 lg:pt-1 lg:border-b lg:border-slate-800/50 lg:shadow-2xl transition-all">
+            <div
+                className="shrink-0 lg:sticky lg:top-0 lg:z-10 lg:bg-[#020617] lg:pb-6 lg:pt-1 lg:border-b lg:border-slate-800/50 lg:shadow-2xl transition-all"
+                data-focus-surface={FOCUS_SURFACE_ATTR.dimmedBackground}
+            >
                 <div className="mb-4 lg:mb-0">
                     <HeroSection
                         activeCategories={heroProps.activeCategories}
@@ -383,7 +385,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                 </div>
             </div>
 
-            <div className="space-y-12 pb-10 pt-6">
+            <div className="space-y-12 pb-10 pt-6" data-focus-surface={FOCUS_SURFACE_ATTR.dimmedBackground}>
 
                 <section>
                     <div className="flex flex-col lg:flex-row gap-4 xl:gap-6 items-start">

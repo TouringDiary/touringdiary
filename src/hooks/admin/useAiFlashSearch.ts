@@ -2,7 +2,6 @@
 import { suggestNewPois } from '../../services/ai';
 import { saveSinglePoi } from '../../services/cityService';
 import { PointOfInterest, User } from '../../types/index';
-import { incrementAiUsage } from '../../services/aiUsageService';
 import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 
@@ -32,8 +31,6 @@ export const useAiFlashSearch = (
         addLog(`🚀 AVVIO RICERCA FLASH (Bozze non validate): ${cityName}`);
 
         try {
-            if (user) await incrementAiUsage(user);
-
             for (const cat of categories) {
                 await delay(300); // Piccolo delay per non saturare
                 

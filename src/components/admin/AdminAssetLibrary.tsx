@@ -5,7 +5,7 @@ import { Loader2, Trash2, FolderOpen, Image as ImageIcon, Copy, Check, Download,
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { getAssetUsageMap } from '../../services/mediaService';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 interface AssetFile {
     name: string;
@@ -22,8 +22,6 @@ export const AdminAssetLibrary = () => {
     const [currentFolder, setCurrentFolder] = useState('people_portraits');
     const [files, setFiles] = useState<AssetFile[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    
-    const { styles } = useAdminStyles(); // USATO STILI DINAMICI
     
     // --- DB USAGE DATA ---
     const [usageMap, setUsageMap] = useState<Record<string, string[]>>({});
@@ -182,18 +180,12 @@ export const AdminAssetLibrary = () => {
                 variant={deleteTarget?.hasUsed ? 'danger' : 'danger'} // Visivamente rosso se pericolo
             />
 
-            {/* HEADER CLEAN DESIGN */}
-            <div className="flex justify-between items-center mb-2 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-cyan-600 rounded-xl shadow-lg">
-                        <ImageIcon className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className={styles.admin_page_title}>Libreria Media</h2>
-                        <p className={styles.admin_page_subtitle}>Esplora, bonifica e gestisci i file del cloud</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={ImageIcon}
+                accent="cyan"
+                title="Libreria Media"
+                subtitle="Esplora, bonifica e gestisci i file del cloud"
+            />
 
             <div className="flex bg-slate-900 p-2 rounded-xl border border-slate-800 gap-2 overflow-x-auto shrink-0">
                 {FOLDERS.map(folder => (

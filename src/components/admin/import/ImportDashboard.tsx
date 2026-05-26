@@ -8,7 +8,7 @@ import { useAdminExport } from '../../../hooks/useAdminExport';
 import { SmartFilterDrawer } from '../../common/SmartFilterDrawer';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import { AdminGuideModal } from '../common/AdminGuideModal';
-import { useAdminStyles } from '../../../hooks/useAdminStyles';
+import { AdminPageHeader } from '../common/AdminPageHeader';
 
 // HOOKS MODULARI
 import { useImportData } from '../../../hooks/admin/import/useImportData';
@@ -24,7 +24,6 @@ import { ImportReportModal } from './components/ImportReportModal';
 export const ImportDashboard = () => {
     const { cities } = useAdminData();
     const { exportStagingCsv, isExporting } = useAdminExport();
-    const { styles } = useAdminStyles();
     
     // --- 1. DATA HOOK (READ) ---
     const dataLogic = useImportData();
@@ -148,44 +147,41 @@ export const ImportDashboard = () => {
                 rawCategoryOptions={dataLogic.availableRawCats} 
             />
 
-            {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 mb-2">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-cyan-600 rounded-xl shadow-lg"><Database className="w-8 h-8 text-white" /></div>
-                    <div>
-                        <h2 className={styles.admin_page_title}>Console Importazione OSM</h2>
-                        <p className={styles.admin_page_subtitle}>Gestione dati grezzi (Staging Area)</p>
-                    </div>
-                </div>
+            <AdminPageHeader
+                icon={Database}
+                accent="cyan"
+                title="Console Importazione OSM"
+                subtitle="Gestione dati grezzi (Staging Area)"
+                actions={
+                    <>
+                        <button onClick={() => setShowGuideModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg transition-all border border-blue-500">
+                            <Book className="w-4 h-4"/> Manuale
+                        </button>
 
-                <div className="flex gap-3 w-full md:w-auto items-center">
-                    <button onClick={() => setShowGuideModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg transition-all border border-blue-500">
-                        <Book className="w-4 h-4"/> Manuale
-                    </button>
-
-                    <select 
-                        value={dataLogic.selectedCityId} 
-                        onChange={(e) => dataLogic.setSelectedCityId(e.target.value)}
-                        className="bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:border-cyan-500 outline-none w-full md:w-64 font-bold"
-                    >
-                        <option value="">-- Seleziona Città --</option>
-                        {cities.sort((a,b) => a.name.localeCompare(b.name)).map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                    
-                    <button onClick={() => dataLogic.refreshData()} disabled={!dataLogic.selectedCityId} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 disabled:opacity-50 transition-colors" title="Aggiorna Lista">
-                        <RefreshCw className={`w-5 h-5 ${dataLogic.isLoading ? 'animate-spin' : ''}`}/>
-                    </button>
-                    
-                    {dataLogic.selectedCityId && <div className="h-8 w-px bg-slate-700 mx-1"></div>}
-                    
-                    <button onClick={() => activeCity && actionLogic.handleRecoverOrphans(activeCity.name)} disabled={!dataLogic.selectedCityId || dataLogic.isLoading} className="flex items-center gap-2 px-3 py-2 bg-indigo-950/30 hover:bg-indigo-900/50 text-indigo-400 hover:text-indigo-300 rounded-lg border border-indigo-900/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Recupera elementi staging rimasti orfani">
-                        <History className="w-4 h-4"/>
-                        <span className="text-[10px] font-black uppercase hidden md:inline">Recupera Orfani</span>
-                    </button>
-                </div>
-            </div>
+                        <select 
+                            value={dataLogic.selectedCityId} 
+                            onChange={(e) => dataLogic.setSelectedCityId(e.target.value)}
+                            className="bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:border-cyan-500 outline-none w-full md:w-64 font-bold"
+                        >
+                            <option value="">-- Seleziona Città --</option>
+                            {cities.sort((a,b) => a.name.localeCompare(b.name)).map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                        
+                        <button onClick={() => dataLogic.refreshData()} disabled={!dataLogic.selectedCityId} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 disabled:opacity-50 transition-colors" title="Aggiorna Lista">
+                            <RefreshCw className={`w-5 h-5 ${dataLogic.isLoading ? 'animate-spin' : ''}`}/>
+                        </button>
+                        
+                        {dataLogic.selectedCityId && <div className="h-8 w-px bg-slate-700 mx-1"></div>}
+                        
+                        <button onClick={() => activeCity && actionLogic.handleRecoverOrphans(activeCity.name)} disabled={!dataLogic.selectedCityId || dataLogic.isLoading} className="flex items-center gap-2 px-3 py-2 bg-indigo-950/30 hover:bg-indigo-900/50 text-indigo-400 hover:text-indigo-300 rounded-lg border border-indigo-900/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Recupera elementi staging rimasti orfani">
+                            <History className="w-4 h-4"/>
+                            <span className="text-[10px] font-black uppercase hidden md:inline">Recupera Orfani</span>
+                        </button>
+                    </>
+                }
+            />
 
             {dataLogic.selectedCityId ? (
                 <>

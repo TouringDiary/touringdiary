@@ -227,7 +227,7 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
             )}
 
             {/* --- HEADER FISSO (NAVIGATION & ACTIONS) --- */}
-            <div className="border-b border-slate-800 p-4 md:p-6 bg-slate-900/95 backdrop-blur-md flex flex-col md:flex-row justify-between items-start md:items-center sticky top-[var(--header-height)] z-dropdown shadow-lg gap-4">
+            <div className="border-b border-slate-800 p-4 md:p-6 bg-slate-900/95 backdrop-blur-md flex flex-col md:flex-row justify-between items-start md:items-center sticky top-0 z-dropdown shadow-lg gap-4">
                 <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
                     <button onClick={handleBackClick} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors border border-slate-700"><ArrowLeft className="w-6 h-6" /></button>
                     <div className="text-right md:text-left">

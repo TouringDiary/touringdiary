@@ -1,4 +1,3 @@
-import type { User } from '@/types/users';
 /**
  * @file src/types/index.ts
  * @description Centralized barrel file for exporting all application types.
@@ -31,3 +30,9 @@ export * from './domain/index';
 export * from './core';
 export * from './designSystem';
 export * from './partners';
+
+// Navigation shell types (routing / preview / global handlers)
+export type { NavigationViewMode } from './navigationViewMode';
+export type { NavigationPreviewState, NavigationPreviewCategory } from './navigationPreview';
+export { CLOSED_NAVIGATION_PREVIEW } from './navigationPreview';
+export type { NavigationGlobalExtra } from './navigationGlobal';

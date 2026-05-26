@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, Suspense, useRef } from 'react';
-import { Layout, MapPin, Utensils, Bed, Camera, Sparkles, PartyPopper, User, Trees, Loader2, ShoppingBag } from 'lucide-react';
+import { Layout, MapPin, Utensils, Bed, Camera, Sparkles, PartyPopper, Trees, Loader2, ShoppingBag, type LucideIcon } from 'lucide-react';
 import { PointOfInterest, SuggestionType, CityDetails, CitySummary } from '../../types/index';
 import { useCityData } from '../../hooks/useCityData';
 import { CityHeader } from './CityHeader';
@@ -19,14 +19,59 @@ import { useGps } from '@/context/GpsContext';
 import { useUI } from '@/context/UIContext';
 import AffiliateCTA from '../common/AffiliateCTA';
 import { NearbyCitiesRow } from './components/NearbyCitiesRow';
-import { updateCityMetadata, injectJsonLd } from '../../utils/seo';
+import { updateCityMetadata, injectJsonLd, type RouteSeo } from '../../utils/seo';
 
 // --- LAZY IMPORTS ---
 const CityGallery = React.lazy(() => import('./tabs/CityGallery').then(m => ({ default: m.CityGallery })));
 const CityShowcaseTab = React.lazy(() => import('./tabs/CityShowcaseTab').then(m => ({ default: m.CityShowcaseTab })));
 const CityCategoryTab = React.lazy(() => import('./tabs/CityCategoryTab').then(m => ({ default: m.CityCategoryTab })));
 
-type CityTab = 'vetrina' | 'destinazioni' | 'natura' | 'sapori' | 'alloggi' | 'shopping' | 'svago' | 'novita' | 'galleria';
+const CITY_TAB_IDS = [
+    'vetrina', 'destinazioni', 'natura', 'sapori', 'alloggi', 'shopping', 'svago', 'novita', 'galleria',
+] as const;
+
+type CityTab = (typeof CITY_TAB_IDS)[number];
+
+type CityInfoTab = 'guides' | 'services' | 'events' | 'tour_operators';
+type ActiveModal = 'none' | CityInfoTab | 'province' | 'culture' | 'patron' | 'history';
+
+interface CityTabConfig {
+    id: CityTab;
+    label: string;
+    icon: LucideIcon;
+}
+
+const CITY_INFO_TABS: readonly CityInfoTab[] = ['guides', 'services', 'events', 'tour_operators'];
+
+const TABS: CityTabConfig[] = [
+    { id: 'vetrina', label: 'Vetrina', icon: Layout },
+    { id: 'destinazioni', label: 'Destinazioni', icon: MapPin },
+    { id: 'sapori', label: 'Sapori', icon: Utensils },
+    { id: 'alloggi', label: 'Alloggi', icon: Bed },
+    { id: 'shopping', label: 'Shopping', icon: ShoppingBag },
+    { id: 'svago', label: 'Svago', icon: PartyPopper },
+    { id: 'natura', label: 'Natura', icon: Trees },
+    { id: 'novita', label: 'Novità', icon: Sparkles },
+    { id: 'galleria', label: 'Galleria', icon: Camera },
+];
+
+function isCityTab(value: string): value is CityTab {
+    return (CITY_TAB_IDS as readonly string[]).includes(value);
+}
+
+function parseCityTab(value: string | undefined): CityTab {
+    return value !== undefined && isCityTab(value) ? value : 'vetrina';
+}
+
+function isCityInfoTab(modal: ActiveModal): modal is CityInfoTab {
+    return (CITY_INFO_TABS as readonly string[]).includes(modal);
+}
+
+type CityDetailsWithRouteSeo = CityDetails['details'] & { route_seo?: RouteSeo | null };
+
+function getCityRouteSeo(city: CityDetails): RouteSeo | null {
+    return (city.details as CityDetailsWithRouteSeo).route_seo ?? null;
+}
 
 interface CityDetailContentProps {
     cityId: string;
@@ -99,8 +144,8 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
     useDocumentTitle(city?.name || 'Caricamento...');
 
-    const [activeTab, setActiveTab] = useState<CityTab>((initialTab as CityTab) || 'vetrina');
-    const [activeModal, setActiveModal] = useState<'none' | 'guides' | 'services' | 'events' | 'province' | 'culture' | 'patron' | 'history' | 'tour_operators'>('none');
+    const [activeTab, setActiveTab] = useState<CityTab>(() => parseCityTab(initialTab));
+    const [activeModal, setActiveModal] = useState<ActiveModal>('none');
     const [suggestionModal, setSuggestionModal] = useState<{ isOpen: boolean; type: SuggestionType; prefilledName?: string }>({ isOpen: false, type: 'new_place' });
 
     const [referencePoint, setReferencePoint] = useState<PointOfInterest | null>(null);
@@ -115,7 +160,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         if (!city || loading) return;
 
         // 1. Sincronizzazione Metadati (Title, Description, Canonical)
-        const routeSeo = (city as any).details?.route_seo || null;
+        const routeSeo = getCityRouteSeo(city);
         const canonicalUrl = updateCityMetadata(city, routeSeo);
 
         // 2. Iniezione Structured Data (JSON-LD)
@@ -223,18 +268,6 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         }
     };
 
-    const tabs = [
-        { id: 'vetrina', label: 'Vetrina', icon: Layout },
-        { id: 'destinazioni', label: 'Destinazioni', icon: MapPin },
-        { id: 'sapori', label: 'Sapori', icon: Utensils },
-        { id: 'alloggi', label: 'Alloggi', icon: Bed },
-        { id: 'shopping', label: 'Shopping', icon: ShoppingBag },
-        { id: 'svago', label: 'Svago', icon: PartyPopper },
-        { id: 'natura', label: 'Natura', icon: Trees },
-        { id: 'novita', label: 'Novità', icon: Sparkles },
-        { id: 'galleria', label: 'Galleria', icon: Camera },
-    ];
-
     // 3.5 STRICT DB-DRIVEN HERO
     const displayCity = useMemo(() => {
         return city || null;
@@ -255,7 +288,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         <div
             ref={scrollContainerRef}
             onScroll={handleMainScroll}
-            className="flex flex-col w-full bg-[#020617] relative custom-scrollbar scrollbar-hide-mobile scroll-smooth h-full overflow-y-auto lg:overflow-hidden pt-[var(--header-height,0px)]"
+            className="flex flex-col w-full bg-[#020617] relative custom-scrollbar scrollbar-hide-mobile scroll-smooth h-full overflow-y-auto lg:overflow-hidden"
         >
 
             {/* 1. HEADER CITTÀ (IMMAGINE HERO) */}
@@ -276,42 +309,57 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
             )}
 
             {/* 2. TAB NAVIGATION - NOT STICKY ON MOBILE */}
-            <div className="sticky top-[var(--header-height,0px)] z-dropdown bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl shrink-0">
+            <div className="sticky top-0 z-dropdown bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl shrink-0">
                 {/* DESKTOP TABS */}
                 <div className="hidden md:flex flex-nowrap justify-center gap-0 overflow-x-auto no-scrollbar px-1 w-full">
-                    {tabs.map((tab) => (
-                        <React.Fragment key={tab.id}>
-                            <button onClick={() => handleTabChange(tab.id as any)} className={`flex-shrink-0 py-3 px-3 text-sm font-bold uppercase tracking-wider transition-all relative group whitespace-nowrap ${activeTab === tab.id ? 'text-orange-500' : 'text-yellow-400 hover:text-orange-500'}`}><span className="flex items-center gap-1.5 relative z-floating-panel">{/*@ts-ignore*/}<tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-orange-500' : 'text-yellow-400 group-hover:text-orange-500'}`} /> {tab.label}</span></button>
-                            <div className="w-px h-3 bg-slate-800 flex-shrink-0 opacity-50 mx-1 self-center"></div>
-                        </React.Fragment>
-                    ))}
+                    {TABS.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <React.Fragment key={tab.id}>
+                                <button onClick={() => handleTabChange(tab.id)} className={`flex-shrink-0 py-3 px-3 text-sm font-bold uppercase tracking-wider transition-all relative group whitespace-nowrap ${isActive ? 'text-orange-500' : 'text-yellow-400 hover:text-orange-500'}`}>
+                                    <span className="flex items-center gap-1.5 relative z-floating-panel">
+                                        <Icon className={`w-4 h-4 ${isActive ? 'text-orange-500' : 'text-yellow-400 group-hover:text-orange-500'}`} />
+                                        {tab.label}
+                                    </span>
+                                </button>
+                                <div className="w-px h-3 bg-slate-800 flex-shrink-0 opacity-50 mx-1 self-center"></div>
+                            </React.Fragment>
+                        );
+                    })}
                 </div>
 
                 {/* MOBILE TABS (GRID 2 ROWS) */}
                 <div className="md:hidden grid grid-cols-5 grid-rows-2 gap-1 p-2 bg-slate-900">
-                    {tabs.filter(t => t.id !== 'galleria').map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => handleTabChange(tab.id as any)}
-                            className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all h-10 ${activeTab === tab.id ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-orange-500'}`}
-                        >
-                            {/* @ts-ignore */}
-                            <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-orange-500' : 'text-slate-500'}`} />
-                            <span className="text-[7px] font-bold uppercase text-center leading-none mt-0.5 w-full truncate px-0.5">{tab.label}</span>
-                        </button>
-                    ))}
+                    {TABS.filter((tab) => tab.id !== 'galleria').map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleTabChange(tab.id)}
+                                className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all h-10 ${isActive ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-orange-500'}`}
+                            >
+                                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-orange-500' : 'text-slate-500'}`} />
+                                <span className="text-[7px] font-bold uppercase text-center leading-none mt-0.5 w-full truncate px-0.5">{tab.label}</span>
+                            </button>
+                        );
+                    })}
 
-                    {tabs.filter(t => t.id === 'galleria').map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => handleTabChange(tab.id as any)}
-                            className={`col-start-5 row-start-1 row-span-2 flex flex-col items-center justify-center rounded-xl border transition-all shadow-md active:scale-95 ${activeTab === tab.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
-                        >
-                            {/* @ts-ignore */}
-                            <tab.icon className={`w-5 h-5 mb-0.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-400'}`} />
-                            <span className="text-[8px] font-black uppercase text-center leading-none">FOTO</span>
-                        </button>
-                    ))}
+                    {TABS.filter((tab) => tab.id === 'galleria').map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleTabChange(tab.id)}
+                                className={`col-start-5 row-start-1 row-span-2 flex flex-col items-center justify-center rounded-xl border transition-all shadow-md active:scale-95 ${isActive ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
+                            >
+                                <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                                <span className="text-[8px] font-black uppercase text-center leading-none">FOTO</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -349,7 +397,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                                 onOpenAuth={onOpenAuth}
                                 isUiVisible={isUiVisible}
                                 onAdminEdit={handleAdminEdit}
-                                onTabChange={(t) => handleTabChange(t as CityTab)}
+                                onTabChange={(tab) => { if (isCityTab(tab)) handleTabChange(tab); }}
                                 currentCategory={getCategoryFromTab(activeTab)}
                             />
                         )}
@@ -361,12 +409,12 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
             <div className="h-24 md:hidden w-full shrink-0"></div>
 
             {/* MODALI */}
-            {['guides', 'services', 'events', 'tour_operators'].includes(activeModal) && (
+            {isCityInfoTab(activeModal) && (
                 <CityInfoModal
                     isOpen={true}
                     onClose={() => setActiveModal('none')}
                     city={city}
-                    initialTab={activeModal as any}
+                    initialTab={activeModal}
                     onAddToItinerary={onAddToItinerary}
                     user={user}
                     onOpenAuth={onOpenAuth}

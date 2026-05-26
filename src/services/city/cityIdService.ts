@@ -78,3 +78,24 @@ export async function resolveCanonicalCityId(
     console.error(`[CityIdService] Impossibile risolvere ID per "${cleanName}" in region "${adminRegion || 'any'}".`);
     throw new Error("CITY_NOT_IN_REGISTRY");
 }
+
+/**
+ * Slug canonico da cities_registry (SSOT identità comune).
+ * Fallback su cityId, allineato a mapDbCityToSummary (city_slug || slug || id).
+ */
+export async function getRegistryCitySlugById(cityId: string): Promise<string> {
+    if (!cityId) return cityId;
+
+    const { data, error } = await supabase
+        .from('cities_registry')
+        .select('slug')
+        .eq('id', cityId)
+        .maybeSingle();
+
+    if (error) {
+        console.warn(`[CityIdService] getRegistryCitySlugById failed for ${cityId}:`, error);
+        return cityId;
+    }
+
+    return data?.slug || cityId;
+}

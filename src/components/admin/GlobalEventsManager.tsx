@@ -5,7 +5,7 @@ import { getGlobalEventsPaginated, analyzeEventWithAi, updateEventMetadata, togg
 import { PaginationControls } from '../common/PaginationControls';
 import { StarRating } from '../common/StarRating';
 import { formatVisitors } from '../../utils/common';
-import { useAdminStyles } from '../../hooks/useAdminStyles';
+import { AdminPageHeader } from './common/AdminPageHeader';
 import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 
@@ -14,8 +14,6 @@ export const GlobalEventsManager = () => {
     const [events, setEvents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
-    
-    const { styles } = useAdminStyles();
     
     // LOAD CACHE
     const eventList = getCachedSetting<any[]>(SETTINGS_KEYS.EVENT_CANONICAL_LIST);
@@ -170,23 +168,25 @@ export const GlobalEventsManager = () => {
                 confirmLabel="Analizza"
                 variant="info"
             />
-            <div className="flex justify-between items-center shrink-0 mb-2">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-rose-600 rounded-xl shadow-lg"><CalendarDays className="w-8 h-8 text-white" /></div>
-                    <div><h2 className={styles.admin_page_title}>Centro Controllo Eventi</h2><p className={styles.admin_page_subtitle}>Monitoraggio globale, analisi AI e gestione priorità</p></div>
-                </div>
-                {selectedIds.size > 0 ? (
-                     <div className="flex items-center gap-3 bg-indigo-900/40 border border-indigo-500/50 px-4 py-2 rounded-xl animate-in slide-in-from-top-2">
-                        <span className="text-xs font-bold text-indigo-200">{selectedIds.size} selezionati</span>
-                        <button onClick={handleBulkAnalyze} disabled={isBulkAnalyzing} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide flex items-center gap-2 shadow-lg disabled:opacity-50">
-                            {isBulkAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Bot className="w-3.5 h-3.5"/>}
-                            {isBulkAnalyzing ? 'Analisi...' : 'Analizza con AI'}
-                        </button>
-                     </div>
-                ) : (
-                    <button onClick={loadEvents} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors border border-slate-700"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`}/></button>
-                )}
-            </div>
+            <AdminPageHeader
+                icon={CalendarDays}
+                accent="rose"
+                title="Centro Controllo Eventi"
+                subtitle="Monitoraggio globale, analisi AI e gestione priorità"
+                actions={
+                    selectedIds.size > 0 ? (
+                        <div className="flex items-center gap-3 bg-indigo-900/40 border border-indigo-500/50 px-4 py-2 rounded-xl animate-in slide-in-from-top-2">
+                            <span className="text-xs font-bold text-indigo-200">{selectedIds.size} selezionati</span>
+                            <button onClick={handleBulkAnalyze} disabled={isBulkAnalyzing} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide flex items-center gap-2 shadow-lg disabled:opacity-50">
+                                {isBulkAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Bot className="w-3.5 h-3.5"/>}
+                                {isBulkAnalyzing ? 'Analisi...' : 'Analizza con AI'}
+                            </button>
+                        </div>
+                    ) : (
+                        <button onClick={loadEvents} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors border border-slate-700"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`}/></button>
+                    )
+                }
+            />
             
             {isBulkAnalyzing && <div className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 flex items-center gap-3 justify-center text-xs text-amber-400 font-mono animate-pulse"><Loader2 className="w-3 h-3 animate-spin"/> {bulkProgress}</div>}
 

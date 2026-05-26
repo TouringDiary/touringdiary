@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useConfig } from '@/context/ConfigContext';
-import { normalizeItemName } from '@/utils/tagDerivation';
-import { fetchAffiliateGearAsync } from '@/services/suitcaseService';
-import { SuitcaseItem, DbAffiliateProduct } from '@/types/suitcase';
+import { fetchAffiliateGearAsync } from '@/services/suitcase/suitcaseAffiliateService';
+import { SuitcaseItem, ResolvedAffiliateProduct } from '@/types/suitcase';
+import { PartnerIntegration } from '@/types/partners';
 
 export const useAffiliateGear = (itineraryTags: string[], currentItems: SuitcaseItem[]) => {
   const { configs } = useConfig();
-  const integrations = configs?.partner_integrations || {};
+  const integrations: Record<string, PartnerIntegration> = configs?.partner_integrations ?? {};
 
-  const [data, setData] = useState<DbAffiliateProduct[]>([]);
+  const [data, setData] = useState<ResolvedAffiliateProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -27,26 +27,20 @@ export const useAffiliateGear = (itineraryTags: string[], currentItems: Suitcase
           .filter((i: SuitcaseItem) => !i.is_checked)
           .map((i: SuitcaseItem) => i.name || '');
 
-        const dbData = await fetchAffiliateGearAsync(itineraryTags, missingItems);
-        const products = dbData || [];
-        const normalizedSuitcaseItems = currentItems.map((i: SuitcaseItem) => normalizeItemName(i.name || ''));
+        const enabledPartnerIds = Object.entries(integrations)
+          .filter(([, partner]) => partner.enabled)
+          .map(([id]) => id);
 
-        const filtered = products.filter(product => {
-          if (!product.provider) return false;
-          const partner = integrations[product.provider];
-          if (!partner || !partner.enabled) return false;
+        const suitcaseItemNames = currentItems.map((i: SuitcaseItem) => i.name || '');
 
-          if (product.trigger_items && product.trigger_items.length > 0) {
-            const hasOverlap = product.trigger_items.some((trigger: string) =>
-              normalizedSuitcaseItems.includes(normalizeItemName(trigger))
-            );
-            if (hasOverlap) return false;
-          }
+        const products = await fetchAffiliateGearAsync(
+          itineraryTags,
+          missingItems,
+          enabledPartnerIds,
+          suitcaseItemNames
+        );
 
-          return true;
-        }).slice(0, 4);
-
-        if (isMounted) setData(filtered);
+        if (isMounted) setData(products);
       } catch (err) {
         console.error("Error fetching affiliate gear:", err);
       } finally {

@@ -1,31 +1,42 @@
 import React from 'react';
 import { Filter, X, Award } from 'lucide-react';
 
+export interface SponsorFiltersState {
+    continent: string;
+    nation: string;
+    adminRegion: string;
+    zone: string;
+    cityId: string;
+    tier: string;
+}
+
+export interface SponsorFilterOption {
+    id: string;
+    name: string;
+}
+
+export interface SponsorFiltersOptions {
+    continents: SponsorFilterOption[];
+    nations: SponsorFilterOption[];
+    adminRegions: SponsorFilterOption[];
+    zones: SponsorFilterOption[];
+    cities: SponsorFilterOption[];
+    tiers: string[];
+}
+
+export interface SponsorFiltersHandlers {
+    onContinentChange: (val: string) => void;
+    onNationChange: (val: string) => void;
+    onAdminRegionChange: (val: string) => void;
+    onZoneChange: (val: string) => void;
+    onCityChange: (val: string) => void;
+    onTierChange?: (val: string) => void;
+}
+
 interface SponsorFiltersProps {
-    filters: {
-        continent: string;
-        nation: string;
-        adminRegion: string;
-        zone: string;
-        cityId?: string;
-        tier?: string;
-    };
-    options: {
-        continents: { id: string; name: string }[];
-        nations: { id: string; name: string }[];
-        adminRegions: { id: string; name: string }[];
-        zones: { id: string; name: string }[];
-        cities: { id: string; name: string }[];
-        tiers: string[];
-    };
-    handlers: {
-        onContinentChange: (val: string) => void;
-        onNationChange: (val: string) => void;
-        onAdminRegionChange: (val: string) => void;
-        onZoneChange: (val: string) => void;
-        onCityChange: (val: string) => void;
-        onTierChange?: (val: string) => void;
-    };
+    filters: SponsorFiltersState;
+    options: SponsorFiltersOptions;
+    handlers: SponsorFiltersHandlers;
 }
 
 const FilterWrapper = ({ children, onClear, isActive }: { children?: React.ReactNode, onClear: () => void, isActive: boolean }) => (

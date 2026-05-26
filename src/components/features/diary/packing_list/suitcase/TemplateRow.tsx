@@ -43,6 +43,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
       aria-selected={isHovered}
       tabIndex={0}
       className={containerClass}
+      onClick={() => onUse()}
       onMouseEnter={onHover}
       onFocus={onHover}
       onKeyDown={(e) => {

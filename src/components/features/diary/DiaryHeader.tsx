@@ -210,15 +210,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
         }
     }, [itinerary.items.length]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (saveMenuRef.current && !saveMenuRef.current.contains(event.target as Node)) setSaveMenuOpen(false);
-            if (loadMenuRef.current && !loadMenuRef.current.contains(event.target as Node)) setLoadMenuOpen(false);
-            if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) setShareMenuOpen(false);
-        };
-        window.addEventListener('mousedown', handleClickOutside);
-        return () => window.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    // Menu click-outside: handled by AnchoredPopover in DiaryHeaderProjectInput (portaled).
 
     const scrollTabs = (direction: 'left' | 'right') => {
         if (tabsContainerRef.current) tabsContainerRef.current.scrollBy({ left: direction === 'left' ? -100 : 100, behavior: 'smooth' });

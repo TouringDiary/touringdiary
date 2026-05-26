@@ -6,7 +6,6 @@ import { saveCityDetails, saveCityPerson, saveCityGuide, saveCityEvent, saveCity
 import { reclaimOrphanedItems } from '../../services/city/cityLifecycleService';
 import { findExistingPortrait } from '../../services/mediaService'; // NUOVO IMPORT
 import { CityDetails, User, FamousPerson } from '../../types/index';
-import { incrementAiUsage } from '../../services/aiUsageService';
 import { getSafeEventCategory, getSafeServiceType } from '../../utils/common';
 
 const DEFAULT_MASTER_PATRON = "https://upload.wikimedia.org/wikipedia/commons/7/79/Croce_del_campo1.jpg";
@@ -46,8 +45,6 @@ export const useAiCompleteCity = (
         addLog(`🚀 AVVIO COMPLETAMENTO TOTALE: ${cityName}`);
 
         try {
-            if (user) await incrementAiUsage(user);
-
             // Carica la città attuale
             let currentCity = await getCityDetails(cityId);
             if (!currentCity) throw new Error("Città non trovata.");

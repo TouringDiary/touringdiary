@@ -149,12 +149,14 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
             />
             
             <div className="flex-1 h-full overflow-y-auto bg-slate-950 custom-scrollbar relative flex flex-col">
-                <AdminMobileHeader 
-                    title={editingCityId ? 'Modifica Città' : sectionNames[view]} 
-                    onMenuClick={() => setIsMobileMenuOpen(true)} 
-                />
+                {!editingCityId && (
+                    <AdminMobileHeader 
+                        title={sectionNames[view]} 
+                        onMenuClick={() => setIsMobileMenuOpen(true)} 
+                    />
+                )}
                 
-                <div className="p-4 md:p-8 pb-24 md:pb-20 max-w-[1920px] mx-auto h-full w-full">
+                <div className={`${editingCityId ? 'p-0 pb-20' : 'p-4 md:p-8 pb-24 md:pb-20'} max-w-[1920px] mx-auto h-full w-full`}>
                     <Suspense fallback={<DashboardLoading />}>
                         {renderContent()}
                     </Suspense>

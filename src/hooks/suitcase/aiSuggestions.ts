@@ -1,4 +1,4 @@
-import { addSuitcaseItemsBulkAsync } from '@/services/suitcase/suitcaseItemsService';
+import { addAiSuggestedItemsAsync } from '@/services/suitcase/suitcaseItemsService';
 import { normalizeItemName } from '@/utils/tagDerivation';
 
 // ─── Scalable tag → packing-item mapping ─────────────────────────────────────
@@ -86,17 +86,6 @@ export const seedAiSuggestions = async (
 
   if (toInsert.length === 0) return 0;
 
-  const rows = toInsert.map(item => ({
-    suitcase_id: suitcaseId,
-    name: item.name,
-    category: item.category,
-    is_checked: false,
-    is_ai_suggestion: true,
-    quantity: 1,
-    ai_suggestion_context: suggestionContext,
-    suggested_at: new Date().toISOString()
-  }));
-
-  await addSuitcaseItemsBulkAsync(rows);
+  await addAiSuggestedItemsAsync(suitcaseId, toInsert, suggestionContext);
   return toInsert.length;
 };

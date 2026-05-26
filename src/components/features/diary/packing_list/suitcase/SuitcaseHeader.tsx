@@ -212,6 +212,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
 
           <CloseButton
             onClose={onClose}
+            withEscape={false}
             size="md"
             variant="primary"
           />

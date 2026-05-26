@@ -5,7 +5,6 @@ import { PointOfInterest } from '@/types';
 
 // Lazy Imports
 const PoiDetailModal = React.lazy(() => import('@/components/modals/PoiDetailModal').then(module => ({ default: module.PoiDetailModal })));
-const SuitcaseFloatingPanel = React.lazy(() => import('@/components/features/diary/packing_list/SuitcaseFloatingPanel').then(module => ({ default: module.SuitcaseFloatingPanel })));
 const ReviewModal = React.lazy(() => import('@/components/modals/ReviewModal').then(module => ({ default: module.ReviewModal })));
 const AddToItineraryModal = React.lazy(() => import('@/components/modals/AddToItineraryModal').then(module => ({ default: module.AddToItineraryModal })));
 const TimeConflictModal = React.lazy(() => import('@/components/modals/TimeConflictModal').then(module => ({ default: module.TimeConflictModal })));
@@ -72,12 +71,15 @@ export const FeatureModals = (props: FeatureModalsProps) => {
         openModal('poiDetail', { poi });
     };
 
-    if (!activeModal) return null;
+    const shouldRender =
+        activeModal !== null ||
+        props.activePreview?.isOpen === true;
+
+    if (!shouldRender) return null;
 
     return (
         <>
             {/* --- ITINERARY & PLANNER --- */}
-            {activeModal === 'packingList' && null}
             {/* --- USER DASHBOARD & GAMIFICATION --- */}
             {activeModal === 'levelUp' && (
                 <LevelUpModal isOpen={true} onClose={() => { closeModal(); props.onCloseLevelUp(); }} xp={user.xp || 0} onOpenRewards={() => { closeModal(); props.onNavigateGlobal('rewards'); }} />
@@ -158,7 +160,7 @@ export const FeatureModals = (props: FeatureModalsProps) => {
                     onOpenPoi={handleOpenPoiDetailFromRanking}
                 />
             )}
-            {props.activePreview.isOpen && (
+            {props.activePreview?.isOpen === true && (
                 <SectionPreviewModal isOpen={true} cities={props.activePreview.cities} title={props.activePreview.title} icon={props.activePreview.icon} categories={props.activePreview.categories} initialSelectedId={props.activePreview.selectedId || props.activeCityId} onClose={props.onClosePreview} onCitySelect={props.onNavigateToCity} />
             )}
 

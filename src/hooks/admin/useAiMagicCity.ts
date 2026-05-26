@@ -4,14 +4,13 @@ import { saveCityDetails, saveCityPerson, saveCityGuide, saveCityEvent, saveCity
 import { reclaimOrphanedItems } from '../../services/city/cityLifecycleService';
 import { findExistingPortrait } from '../../services/mediaService'; // NUOVO IMPORT
 import { CityDetails, User, PointOfInterest, FamousPerson } from '../../types/index';
-import { incrementAiUsage } from '../../services/aiUsageService';
 import { getSafeEventCategory, getSafeServiceType, toTitleCase } from '../../utils/common';
 import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
 import { ensureZoneExists, getTouristZones } from '../../services/zoneService';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { GEO_CONFIG } from '../../constants/geoConfig';
 import { useConfig } from '@/context/ConfigContext';
-import { resolveCanonicalCityId } from '../../services/city/cityIdService';
+import { getRegistryCitySlugById, resolveCanonicalCityId } from '../../services/city/cityIdService';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -111,10 +110,6 @@ export const useAiMagicCity = (
                 }
                 const servicesQuery = 'stazione ferroviaria, metro, porto, traghetti, ospedale, farmacia, polizia, carabinieri, trasporti pubblici';
 
-                // CONTEGGIO COSTO API ESATTO (REQUESTS):
-                const apiCallsCount = isTrueDraft ? 4 : 9;
-                if (user) await incrementAiUsage(user, apiCallsCount);
-
                 let generalData: any = {}, statsData: any = {}, historyData: any = {}, ratingsData: any = {}, patronData: any = {};
                 let guides: any[] = [], events: any[] = [], services: any[] = [], people: any[] = [];
 
@@ -149,12 +144,15 @@ export const useAiMagicCity = (
                     people = results[8];
                 }
 
-                let existingCityData: any = null;
+                let existingCityData: CityDetails | null = null;
                 if (isUpdateMode) existingCityData = await getCityDetails(cityId);
+
+                const citySlug = existingCityData?.slug ?? (await getRegistryCitySlugById(cityId));
 
                 // CLEANUP: Usa il default globale invece di Unsplash hardcoded
                 const cityPayload: CityDetails = {
                     id: cityId,
+                    slug: citySlug,
                     name: cityName,
                     zone: generalData.zone || (existingCityData?.zone || GEO_CONFIG.DEFAULT_REGION), 
                     adminRegion: generalData.adminRegion || (existingCityData?.adminRegion || GEO_CONFIG.DEFAULT_REGION),
@@ -201,9 +199,10 @@ export const useAiMagicCity = (
                                     const generated = await generateHistoricalPortrait(p.name, p.role, cityName);
                                     if (generated) {
                                         imageUrl = generated;
-                                        if(user) await incrementAiUsage(user, 1);
                                     }
-                                } catch (err) {}
+                                } catch (err) {
+                                    console.warn(`[useAiMagicCity] Ritratto non generato per ${p.name}:`, err);
+                                }
                             }
                             await saveCityPerson(cityId, { 
                                 ...p, imageUrl: imageUrl, status: 'draft', orderIndex: orderIdx++ 
@@ -219,7 +218,6 @@ export const useAiMagicCity = (
             // STEP 2: FLASH GATHERING POI
             for (const cat of categoriesToGenerate) {
                 await delay(2000); 
-                if (user) await incrementAiUsage(user, 1);
 
                 await performStep(`Ricerca Flash: ${cat.label}`, async () => {
                     const items = await suggestNewPois(cityName, existingPoiNames, undefined, poiCount, cat.id);
@@ -253,8 +251,6 @@ export const useAiMagicCity = (
 
             // STEP 3: REFINEMENT SERVIZI
             await performStep('Bonifica Servizi & Eventi (Pro)', async () => {
-                 if (user) await incrementAiUsage(user, 1); 
-
                  const refinedData = await refineServiceData(cityName, rawServicesData);
                  const savePromises: Promise<any>[] = [];
 
@@ -284,7 +280,6 @@ export const useAiMagicCity = (
                 for (const person of draftPeople) {
                     try {
                         if (enrichedPeopleCount > 0) await delay(5000);
-                        if (user) await incrementAiUsage(user, 1);
 
                         const enrichedData = await enrichPersonData(person.name, cityName);
                         if (enrichedData) {
@@ -293,14 +288,15 @@ export const useAiMagicCity = (
                                 const newImg = await generateHistoricalPortrait(person.name, enrichedData.role || person.role, cityName);
                                 if (newImg) {
                                      finalImage = newImg;
-                                     if(user) await incrementAiUsage(user, 1); 
                                 }
                             }
                             const updatedPerson: FamousPerson = { ...person, ...enrichedData, imageUrl: finalImage, role: enrichedData.role || person.role, bio: enrichedData.bio || person.bio, status: 'published' };
                             await saveCityPerson(cityId, updatedPerson);
                             enrichedPeopleCount++;
                         }
-                    } catch (err) {}
+                    } catch (err) {
+                        console.warn(`[useAiMagicCity] Enrichment fallito per ${person.name}:`, err);
+                    }
                 }
                 return (verifiedCount || 0) + (enrichedPeopleCount || 0);
             }, (count) => count);

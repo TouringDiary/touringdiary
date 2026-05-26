@@ -7,7 +7,7 @@ import { usePhotoModeration } from '../../hooks/admin/usePhotoModeration';
 import { PhotoFilters } from './photos/PhotoFilters';
 import { PhotoTable } from './photos/PhotoTable';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 
 // Toast Locale (Mantenuto qui o spostato in shared se preferisci, per ora qui va bene)
@@ -28,7 +28,6 @@ interface PhotoModerationProps {
 }
 
 export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps) => {
-    const { styles } = useAdminStyles(); // USATO STILI DINAMICI
     // USE HOOK
     const {
         filteredList,
@@ -132,17 +131,12 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
                 />
             )}
             
-            <div className="flex justify-between items-center mb-2 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-purple-600 rounded-xl shadow-lg">
-                        <Camera className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className={styles.admin_page_title}>Foto & Moderazione</h2>
-                        <p className={styles.admin_page_subtitle}>Gestisci i contributi visivi della community</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={Camera}
+                accent="purple"
+                title="Foto & Moderazione"
+                subtitle="Gestisci i contributi visivi della community"
+            />
 
             <PhotoFilters 
                 filterStatus={filterStatus}

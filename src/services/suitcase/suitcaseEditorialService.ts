@@ -2,7 +2,7 @@ import { supabase } from '../supabaseClient';
 import {
   createProductWithOverrideTriggerAsync,
   deleteAffiliateTriggerAsync,
-  upsertAffiliateTriggerAsync
+  upsertAffiliateTriggerFromDtoAsync
 } from './suitcaseAffiliateService';
 import { Insert, DbSuitcase, DbSuitcaseItem } from '../../types/domain/index';
 import { Suitcase, SuitcaseItem } from '../../types/suitcase';
@@ -286,11 +286,10 @@ export const saveTemplateOverrideAsync = async (
   if (productId === 'new') {
     const { product, trigger } = await createProductWithOverrideTriggerAsync({
       name: itemName,
-      image_url: 'https://placehold.co/400x400/0f172a/6366f1?text=' + encodeURIComponent(itemName),
-      provider: 'manual',
-      preferred_partners: [],
-      target_categories: [],
-      target_tags: []
+      imageUrl: 'https://placehold.co/400x400/0f172a/6366f1?text=' + encodeURIComponent(itemName),
+      preferredPartners: [],
+      targetCategories: [],
+      targetTags: []
     }, triggerKey);
 
     return {
@@ -300,11 +299,11 @@ export const saveTemplateOverrideAsync = async (
     };
   }
 
-  const trigger = await upsertAffiliateTriggerAsync({
+  const trigger = await upsertAffiliateTriggerFromDtoAsync({
     id: overrideId,
-    trigger_key: triggerKey,
-    trigger_type: 'item',
-    product_id: productId,
+    triggerKey,
+    triggerType: 'item',
+    productId,
     priority: 100
   });
 

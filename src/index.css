@@ -31,8 +31,14 @@
   --z-admin-modal: 13000;
   --z-modal-nested: 12000;
   --z-modal: 11000;
+  --z-popover: 10500;
   --z-dropdown: 10000;
-  --z-floating-panel: 9000;
+  --z-focus-active: 9300;
+  --z-global-chrome: 9200;
+  --z-focus-companion: 9100;
+  --z-focus-dim: 9000;
+  /* @deprecated alias — use --z-focus-companion */
+  --z-floating-panel: 9100;
 }
 
 :root {
@@ -113,7 +119,15 @@
 }
 
 @utility td-modal-overlay {
-  @apply fixed inset-0 pointer-events-auto flex items-center justify-center;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--header-height);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @keyframes metal-shine {

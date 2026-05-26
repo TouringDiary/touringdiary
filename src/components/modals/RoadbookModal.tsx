@@ -1,11 +1,9 @@
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, Loader2, Download, AlertTriangle, Sparkles, Zap, Info, ChevronRight, Wand2, Euro } from 'lucide-react';
 import { useItinerary } from '@/context/ItineraryContext';
-import { pdf } from '@react-pdf/renderer';
 import FileSaver from 'file-saver';
-import { RoadbookDocument } from '../pdf/RoadbookDocument';
 import { prepareItineraryForPdf } from '../../utils/pdfUtils';
 import { useLogoRasterizer } from '../../hooks/useLogoRasterizer';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
@@ -86,6 +84,10 @@ export const RoadbookModal = ({ isOpen, onClose }: RoadbookModalProps) => {
                 { includePhotos: true, includeQr: true },
                 (p) => setProgress(p)
             );
+            const [{ pdf }, { RoadbookDocument }] = await Promise.all([
+                import('@react-pdf/renderer'),
+                import('../pdf/RoadbookDocument'),
+            ]);
 
             const blob = await pdf(
                 <RoadbookDocument 

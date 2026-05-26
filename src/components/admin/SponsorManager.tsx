@@ -2,7 +2,7 @@
 import React from 'react';
 import { Store, CheckCircle, Bell, AlertTriangle, X, Info } from 'lucide-react';
 import { SponsorDashboardOverview } from './SponsorDashboardOverview';
-import { useSponsorLogic } from '../../hooks/useSponsorLogic';
+import { useSponsorLogic, type SponsorTab } from '../../hooks/useSponsorLogic';
 import { useSponsorExport } from '../../hooks/useSponsorExport';
 import { useSponsorOperations } from '../../hooks/useSponsorOperations'; 
 import { SponsorFilters } from './SponsorFilters';
@@ -11,12 +11,40 @@ import { SponsorBulkActions } from './sponsor/SponsorBulkActions';
 import { SponsorTable } from './sponsor/SponsorTable';
 import { SponsorModals } from './sponsor/SponsorModals';
 import { User } from '../../types/users';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; 
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 interface SponsorManagerProps {
     currentUser?: User;
 }
+
+const TAB_COLOR_CLASSES = {
+    indigo: 'bg-indigo-600',
+    amber: 'bg-amber-600',
+    blue: 'bg-blue-600',
+    emerald: 'bg-emerald-600',
+    rose: 'bg-rose-600',
+    slate: 'bg-slate-600',
+} as const;
+
+type SponsorTabColor = keyof typeof TAB_COLOR_CLASSES;
+
+interface SponsorNavTab {
+    id: SponsorTab;
+    label: string;
+    count: number | null;
+    color: SponsorTabColor;
+}
+
+const SPONSOR_NAV_TABS: SponsorNavTab[] = [
+    { id: 'dashboard', label: 'Dashboard', count: null, color: 'indigo' },
+    { id: 'pending', label: 'NUOVE RICHIESTE', count: null, color: 'amber' },
+    { id: 'waiting', label: 'ATTESA PAGAMENTI', count: null, color: 'blue' },
+    { id: 'approved', label: 'SPONSOR ATTIVI', count: null, color: 'emerald' },
+    { id: 'expired', label: 'SPONSOR SCADUTI', count: null, color: 'rose' },
+    { id: 'rejected', label: 'SPONSOR RIFIUTATI', count: null, color: 'slate' },
+    { id: 'cancelled', label: 'SPONSOR ANNULLATI', count: null, color: 'slate' },
+];
 
 export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
     
@@ -82,9 +110,6 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
     // --- 3. EXPORT HOOK ---
     const { exportToCSV } = useSponsorExport();
     
-    // --- 4. STYLES HOOK ---
-    const { styles } = useAdminStyles();
-
     const handleSectionNavigation = (cityId: string, statusTab: 'pending' | 'waiting' | 'approved' | 'rejected', filterUnread: boolean) => {
         setActiveTab(statusTab);
         handleCityChange(cityId);
@@ -133,25 +158,20 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                 onResetSelection={resetSelection}
             />
 
-            {/* --- PAGE HEADER --- */}
-            <div className="flex justify-between items-center mb-6 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-emerald-600 rounded-xl shadow-lg">
-                        <Store className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className={styles.admin_page_title}>Attività & Sponsor</h2>
-                            {(stats?.pending ?? 0) > 0 && (
-                                <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                                    {stats?.pending} DA GESTIRE
-                                </span>
-                            )}
-                        </div>
-                        <p className={styles.admin_page_subtitle}>Gestione Contratti e Pagamenti</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={Store}
+                title="Attività & Sponsor"
+                subtitle="Gestione Contratti e Pagamenti"
+                accent="emerald"
+                className="!mb-6"
+                badge={
+                    (stats?.pending ?? 0) > 0 ? (
+                        <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
+                            {stats?.pending} DA GESTIRE
+                        </span>
+                    ) : undefined
+                }
+            />
 
             {/* --- TOOLBAR (COMPONENTE ATOMICO) --- */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
@@ -181,12 +201,12 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
             <div className="shrink-0 overflow-x-auto">
                 <SponsorFilters 
                     filters={{ 
-                        continent: filters.continent, 
-                        nation: filters.nation, 
-                        adminRegion: filters.adminRegion, 
-                        zone: filters.zone, 
-                        cityId: filters.cityId, 
-                        tier: filters.tier 
+                        continent: filters.continent ?? '', 
+                        nation: filters.nation ?? '', 
+                        adminRegion: filters.adminRegion ?? '', 
+                        zone: filters.zone ?? '', 
+                        cityId: filters.cityId ?? '', 
+                        tier: filters.tier ?? '',
                     }} 
                     options={options} 
                     handlers={{ 
@@ -203,24 +223,27 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
             {/* --- TAB NAVIGATOR --- */}
             <div className="flex justify-between items-center bg-slate-900 p-1 rounded-xl border border-slate-800 shrink-0 overflow-x-auto">
                 <div className="flex gap-1 w-full min-w-max">
-                    {[ 
-                        { id: 'dashboard', label: 'Dashboard', count: null, color: 'indigo' }, 
-                        { id: 'pending', label: 'NUOVE RICHIESTE', count: stats?.pending ?? null, color: 'amber' }, 
-                        { id: 'waiting', label: 'ATTESA PAGAMENTI', count: stats?.waiting ?? null, color: 'blue' }, 
-                        { id: 'approved', label: 'SPONSOR ATTIVI', count: stats?.approved ?? null, color: 'emerald' }, 
-                        { id: 'expired', label: 'SPONSOR SCADUTI', count: stats?.expired ?? null, color: 'rose' }, 
-                        { id: 'rejected', label: 'SPONSOR RIFIUTATI', count: stats?.rejected ?? null, color: 'slate' }, 
-                        { id: 'cancelled', label: 'SPONSOR ANNULLATI', count: stats?.cancelled ?? null, color: 'slate' } 
-                    ].map(tab => (
+                    {SPONSOR_NAV_TABS.map(tab => {
+                        const count =
+                            tab.id === 'pending' ? stats?.pending ?? null
+                            : tab.id === 'waiting' ? stats?.waiting ?? null
+                            : tab.id === 'approved' ? stats?.approved ?? null
+                            : tab.id === 'expired' ? stats?.expired ?? null
+                            : tab.id === 'rejected' ? stats?.rejected ?? null
+                            : tab.id === 'cancelled' ? stats?.cancelled ?? null
+                            : null;
+
+                        return (
                         <button 
                             key={tab.id} 
-                            onClick={() => setActiveTab(tab.id as any)} 
-                            className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? `bg-${tab.color}-600 text-white shadow-lg` : 'text-slate-500 hover:text-white'}`}
+                            onClick={() => setActiveTab(tab.id)} 
+                            className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? `${TAB_COLOR_CLASSES[tab.color]} text-white shadow-lg` : 'text-slate-500 hover:text-white'}`}
                         >
                             {tab.label}
-                            {tab.count !== null && tab.count > 0 && <span className="bg-white text-black px-1.5 rounded-full text-[9px]">{tab.count}</span>}
+                            {count !== null && count > 0 && <span className="bg-white text-black px-1.5 rounded-full text-[9px]">{count}</span>}
                         </button>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
             
@@ -239,7 +262,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                         onReject={modalActions.openReject} 
                         onActivate={modalActions.openActivation} 
                         onOpenCrm={modalActions.openCrm} 
-                        onPreview={(req) => modalActions.openPreview({ ...req } as any)} 
+                        onPreview={modalActions.openPreview} 
                         onExtend={(id) => { const req = requests.find(r => r.id === id); if (req?.endDate) modalActions.openSingleExtension(id, req.endDate); }} 
                         onCancel={modalActions.openCancel}
                         onDelete={handleDeleteRequest}

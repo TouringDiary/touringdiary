@@ -13,7 +13,7 @@ import { CitySummary } from '../../types/index';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { ObservatoryLayout } from './observatory/ObservatoryLayout';
 import { AdminGuideModal } from './common/AdminGuideModal'; // FIX: Correct relative path
-import { useAdminStyles } from '../../hooks/useAdminStyles';
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
     <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}>
@@ -37,8 +37,6 @@ const getCityDisplayStatus = (city: CitySummary) => {
 
 export const CitiesManager = ({ onEdit, currentUser }: CitiesManagerProps) => {
     const list = useCityList();
-    const { styles } = useAdminStyles();
-    
     // GENERATOR HOOK
     const generator = useCityGenerator(list.forceReload);
     
@@ -206,46 +204,43 @@ export const CitiesManager = ({ onEdit, currentUser }: CitiesManagerProps) => {
                 />
             )}
 
-            {/* HEADER CLEAN DESIGN */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 mb-2">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-600 rounded-xl shadow-lg"><Globe className="w-8 h-8 text-white" /></div>
-                    <div>
-                        <h2 className={styles.admin_page_title}>Manager POI - DB</h2>
-                        <p className={styles.admin_page_subtitle}>Gestione Territoriale e Contenuti</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <button 
-                        onClick={() => setShowGuideModal(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg transition-all border border-blue-500"
-                    >
-                        <Book className="w-4 h-4"/> Manuale
-                    </button>
-
-                    <div className="flex bg-slate-900 p-1.5 rounded-xl border border-slate-800 shadow-md overflow-x-auto max-w-full">
-                         <button 
-                            onClick={() => setActiveTab('map')} 
-                            className={`px-4 md:px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'map' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
-                        >
-                            <MapIcon className="w-4 h-4"/> Aree Geografiche
-                        </button>
+            <AdminPageHeader
+                icon={Globe}
+                accent="indigo"
+                title="Manager POI - DB"
+                subtitle="Gestione Territoriale e Contenuti"
+                actions={
+                    <>
                         <button 
-                            onClick={() => setActiveTab('list')} 
-                            className={`px-4 md:px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'list' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
+                            onClick={() => setShowGuideModal(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg transition-all border border-blue-500"
                         >
-                            <LayoutList className="w-4 h-4"/> Edit City
+                            <Book className="w-4 h-4"/> Manuale
                         </button>
-                        <button 
-                            onClick={() => setActiveTab('observatory')} 
-                            className={`px-4 md:px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'observatory' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
-                        >
-                            <Microscope className="w-4 h-4"/> Osservatorio Dati
-                        </button>
-                    </div>
-                </div>
-            </div>
+
+                        <div className="flex bg-slate-900 p-1.5 rounded-xl border border-slate-800 shadow-md overflow-x-auto max-w-full">
+                            <button 
+                                onClick={() => setActiveTab('map')} 
+                                className={`px-4 md:px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'map' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
+                            >
+                                <MapIcon className="w-4 h-4"/> Aree Geografiche
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('list')} 
+                                className={`px-4 md:px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'list' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
+                            >
+                                <LayoutList className="w-4 h-4"/> Edit City
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('observatory')} 
+                                className={`px-4 md:px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'observatory' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
+                            >
+                                <Microscope className="w-4 h-4"/> Osservatorio Dati
+                            </button>
+                        </div>
+                    </>
+                }
+            />
 
             <div className="flex-1 min-h-0 relative">
                 {activeTab === 'map' ? (

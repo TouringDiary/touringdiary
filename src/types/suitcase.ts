@@ -11,20 +11,41 @@ export type DbAffiliateProduct = Row<'affiliate_products'>;
 export type DbAffiliateTrigger = Row<'affiliate_triggers'>;
 
 // =============================================================================
-// SECTION 2 — JOINED RELATIONAL DTOs
-// Extended DB rows returned by Supabase relational queries.
-// Shape is determined by the SELECT string used in service functions.
-// NOTE: JoinedAffiliateTrigger.product union includes [] variant for
-//       edge-case Supabase returns; narrowing deferred to Step B.
+// SECTION 2 — CANONICAL RELATIONAL DTOs
+// Single source of truth for the Supabase relational graph.
+// Produced exclusively by the service layer (adaptAffiliateProductRelation /
+// adaptAffiliateTriggerRelation). Consumed by hooks and UI — never by DB
+// queries directly.
+//
+// Invariants:
+//   • No union types (product is T | null, never T | T[]).
+//   • Single canonical field name per join (links, not affiliate_product_links).
+//   • Empty array instead of null for collection joins.
+//   • All consumers above this layer work with these shapes only.
 // =============================================================================
 
-export interface JoinedAffiliateProduct extends DbAffiliateProduct {
-  links?: DbAffiliateProductLink[] | null;
-  affiliate_product_links?: DbAffiliateProductLink[] | null;
+/**
+ * Canonical projection of an affiliate_products row with its resolved
+ * affiliate_product_links join.
+ *
+ * `links` is always a plain array (never null, never aliased as
+ * `affiliate_product_links`). The adapter normalises both Supabase
+ * alias variants into this single field.
+ */
+export interface CanonicalAffiliateProductRelation extends DbAffiliateProduct {
+  links: DbAffiliateProductLink[];
 }
 
-export interface JoinedAffiliateTrigger extends DbAffiliateTrigger {
-  product?: JoinedAffiliateProduct | JoinedAffiliateProduct[] | null;
+/**
+ * Canonical projection of an affiliate_triggers row with its resolved
+ * product join.
+ *
+ * `product` is always `CanonicalAffiliateProductRelation | null`; the
+ * `T | T[]` union present in the raw Supabase response is collapsed by
+ * the adapter before this type is returned to any caller.
+ */
+export interface CanonicalAffiliateTriggerRelation extends DbAffiliateTrigger {
+  product: CanonicalAffiliateProductRelation | null;
 }
 
 export interface AdminOverrideTrigger extends DbAffiliateTrigger {
@@ -68,6 +89,14 @@ export interface ResolvedAffiliateProduct {
   is_active?: boolean | null;
   preferred_partners?: string[] | null;
   url?: string | null;
+}
+
+/**
+ * Canonical runtime product enriched with trigger-level priority.
+ * Produced exclusively by suitcaseAffiliateService.adaptTriggerRelationToRuntime.
+ */
+export interface RuntimeAffiliateProduct extends ResolvedAffiliateProduct {
+  trigger_priority: number;
 }
 
 // =============================================================================

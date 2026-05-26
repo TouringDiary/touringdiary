@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import * as sponsorService from '../services/sponsorService';
 import { usePersistedState } from './usePersistedState';
 import { SponsorRequest, SponsorStats, GeoFilters, GeoOptions, SortConfig } from '../types/models/Sponsor';
@@ -11,7 +11,7 @@ import { getFullManifestAsync } from '../services/cityService';
 // 1. TIPI CORRETTI
 // Tipizzazione delle tab della UI
 // Tipizzazione delle tab della UI
-type SponsorTab = 'dashboard' | 'pending' | 'waiting' | 'approved' | 'expired' | 'rejected' | 'cancelled';
+export type SponsorTab = 'dashboard' | 'pending' | 'waiting' | 'approved' | 'expired' | 'rejected' | 'cancelled';
 // Tipizzazione degli status reali del database (con l'aggiunta di 'converted')
 type SponsorStatus = SponsorLifecycleStatus;
 
@@ -54,6 +54,8 @@ export const useSponsorLogic = () => {
     
     // Opzioni per i filtri geografici
     const [options, setOptions] = useState<GeoOptions>({ continents: [], nations: [], adminRegions: [], zones: [], cities: [], tiers: [] });
+    const fetchGenerationRef = useRef(0);
+    const lastStructuralKeyRef = useRef('');
 
     const fetchGeoOptions = useCallback(async () => {
         const continents = await geoService.getContinents();
@@ -105,35 +107,45 @@ export const useSponsorLogic = () => {
     }), [filters, onlyUnread]);
 
     const fetchData = useCallback(async () => {
+        const requestId = ++fetchGenerationRef.current;
         setIsLoading(true);
         const queryStatus = tabToStatusMap[activeTab];
-        
-        // Reset requests when switching from/to dashboard or between tabs 
-        // to prevent temporary data contamination (Problem 1)
-        setRequests([]);
+
+        // Svuota solo al cambio tab/filtri strutturali; su paginazione/ordinamento mantiene la lista visibile (no flash vuoto).
+        const structuralKey = `${activeTab}|${JSON.stringify(appliedFilters)}|${searchTerm}`;
+        if (structuralKey !== lastStructuralKeyRef.current) {
+            setRequests([]);
+            lastStructuralKeyRef.current = structuralKey;
+        }
 
         console.log(`[FetchData] 🚀 START | Tab: ${activeTab} | Status: ${queryStatus} | Page: ${page} | Filters:`, appliedFilters);
+
+        const isStale = () => requestId !== fetchGenerationRef.current;
 
         // Se siamo in dashboard, carichiamo dati aggregati per le statistiche città
         if (activeTab === 'dashboard') {
             try {
                 const data = await sponsorService.getSponsorsDashboardAsync();
+                if (isStale()) return;
                 console.log(`[FetchData] 📊 Dashboard Data Loaded: ${data.length} records`);
                 setRequests(data);
                 setTotalItems(data.length);
             } catch (error) {
+                if (isStale()) return;
                 console.error("Errore nel caricamento dati dashboard:", error);
                 setRequests([]);
             } finally {
-                setIsLoading(false);
+                if (!isStale()) setIsLoading(false);
             }
             return;
         }
 
         if (!queryStatus) {
             console.log(`[FetchData] ⚠️ No query status for tab: ${activeTab}. Clearing requests.`);
-            setRequests([]);
-            setIsLoading(false);
+            if (!isStale()) {
+                setRequests([]);
+                setIsLoading(false);
+            }
             return;
         }
 
@@ -146,17 +158,20 @@ export const useSponsorLogic = () => {
                 sortConfig,
                 searchTerm
             });
+
+            if (isStale()) return;
             
-            console.log(`[FetchData] ✅ Success | Status: ${queryStatus} | Retreived: ${data?.length || 0}/${count || 0}`);
+            console.log(`[FetchData] ✅ Success | Status: ${queryStatus} | Retrieved: ${data?.length || 0}/${count || 0}`);
             setRequests(data || []);
             setTotalItems(count || 0);
 
         } catch (error) {
+            if (isStale()) return;
             console.error("Errore nel recuperare gli sponsor:", error);
             setRequests([]);
             setTotalItems(0);
         } finally {
-            setIsLoading(false);
+            if (!isStale()) setIsLoading(false);
         }
     }, [activeTab, page, pageSize, appliedFilters, sortConfig, searchTerm]);
 

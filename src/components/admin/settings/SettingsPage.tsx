@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { Palette, Puzzle, Link } from 'lucide-react';
+import { Palette, Puzzle, Link, Settings } from 'lucide-react';
 import { useConfig } from '@/context/ConfigContext';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
 import { PartnerIntegrationsPanel } from './PartnerIntegrationsPanel';
 import DesignSystemSettings from '../design/DesignSystemSettings';
+import { AdminPageHeader } from '../common/AdminPageHeader';
 
 const TABS = [
     { id: 'design_system', label: 'Design System', icon: Palette },
@@ -24,10 +25,13 @@ export const SettingsPage: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full">
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white">Impostazioni Globali</h2>
-                <p className="text-sm text-slate-400">Gestione centralizzata delle configurazioni del sito.</p>
-            </div>
+            <AdminPageHeader
+                icon={Settings}
+                title="Impostazioni Globali"
+                subtitle="Gestione centralizzata delle configurazioni del sito."
+                accent="indigo"
+                className="!mb-6"
+            />
 
             <div className="flex gap-2 border-b border-slate-800 mb-6">
                 {TABS.map(tab => {

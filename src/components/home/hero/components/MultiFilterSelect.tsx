@@ -49,7 +49,7 @@ export const MultiFilterSelect = ({ label, selectedValues, onChange, options }: 
 
     return (
         <div className="relative min-w-0 group/select" ref={containerRef}>
-            <label className={`${labelStyle} absolute -top-1.5 left-2 bg-slate-900 px-1 z-floating-panel leading-none pointer-events-none`}>{label}</label>
+            <label className={`${labelStyle} absolute -top-1.5 left-2 bg-slate-900 px-1 z-10 leading-none pointer-events-none`}>{label}</label>
             <div className="relative">
                 <button 
                     type="button"

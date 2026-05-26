@@ -6,7 +6,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { uploadPublicMedia } from '../../services/mediaService';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
 import { compressImage, dataURLtoFile } from '../../utils/common';
-import { useAdminStyles } from '../../hooks/useAdminStyles';
+import { AdminPageHeader } from './common/AdminPageHeader';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { SafeArtPanel } from './design/SafeArtPanel';
 import { PlaceholderGrid } from './design/PlaceholderGrid';
@@ -75,8 +75,6 @@ export const AdminHeaderManager = () => {
     const socialInputRef = useRef<HTMLInputElement>(null);
     const aiBgInputRef = useRef<HTMLInputElement>(null);
     
-    const { styles } = useAdminStyles();
-
     // Initial Load from ConfigContext
     useEffect(() => {
         if (!isLoading && configs) {
@@ -316,17 +314,13 @@ export const AdminHeaderManager = () => {
                 variant="info"
             />
             
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-600 rounded-xl shadow-lg">
-                        <Monitor className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className={styles.admin_page_title}>Design & Asset Globali</h2>
-                        <p className={styles.admin_page_subtitle}>Personalizza l'aspetto e i fallback</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={Monitor}
+                title="Design & Asset Globali"
+                subtitle="Personalizza l'aspetto e i fallback"
+                accent="indigo"
+                className="!mb-6"
+            />
 
             <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-lg overflow-hidden relative z-floating-panel">
                  <div className="flex justify-end items-center p-4 border-b border-slate-800 bg-slate-950/50">

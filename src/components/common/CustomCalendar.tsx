@@ -1,11 +1,9 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-
-
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 
 interface CustomCalendarProps {
+    isOpen: boolean;
     value: string | null; // Format: YYYY-MM-DD
     minDateStr?: string; // Format: YYYY-MM-DD
     maxDateStr?: string; // Format: YYYY-MM-DD
@@ -13,6 +11,7 @@ interface CustomCalendarProps {
     onChange: (date: string) => void;
     onClose: () => void;
     onClearRequest?: () => void;
+    anchorRef: React.RefObject<HTMLElement | null>;
 }
 
 const parseDateString = (dateStr: string | null): Date | null => {
@@ -38,28 +37,14 @@ const getTodayLocalDateString = (): string => {
 };
 
 
-export const CustomCalendar: React.FC<CustomCalendarProps> = ({ value, minDateStr, maxDateStr, align = 'left', onChange, onClose, onClearRequest }) => {
+export const CustomCalendar: React.FC<CustomCalendarProps> = ({
+    isOpen, value, minDateStr, maxDateStr, align = 'left',
+    onChange, onClose, onClearRequest, anchorRef,
+}) => {
     const [currentMonth, setCurrentMonth] = useState<Date>(() => {
         const initialDate = parseDateString(value) || new Date();
         return new Date(initialDate.getFullYear(), initialDate.getMonth(), 1);
     });
-
-    const calendarRef = useRef<HTMLDivElement>(null);
-
-    useGlobalModalEscape(true, onClose);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
-                onClose();
-            }
-        };
-
-        window.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            window.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [onClose]);
 
     const getDaysInMonth = (year: number, month: number) => {
         return new Date(year, month + 1, 0).getDate();
@@ -67,7 +52,6 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({ value, minDateSt
 
     const getFirstDayOfMonth = (year: number, month: number) => {
         const day = new Date(year, month, 1).getDay();
-        // Adjust so Monday is 0, Sunday is 6
         return day === 0 ? 6 : day - 1;
     };
 
@@ -83,7 +67,6 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({ value, minDateSt
         const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
         const dateStr = formatDateString(selectedDate);
 
-        // Prevent clicking disabled dates
         if (minDateStr) {
             const minDate = parseDateString(minDateStr);
             if (minDate && selectedDate < minDate) {
@@ -114,11 +97,7 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({ value, minDateSt
 
     const selectedDateObj = parseDateString(value);
     const minDateObj = parseDateString(minDateStr || null);
-    const maxDateObj = parseDateString(maxDateStr || null);
 
-    // Range Logic: 
-    // 1. If maxDateStr exists, value is the start of the range (DAL).
-    // 2. If minDateStr exists and is different from value, it could be the start (AL selection mode).
     const rangeStart = (maxDateStr && value && value <= maxDateStr) ? value : (minDateStr && value && minDateStr < value ? minDateStr : null);
     const rangeEnd = (maxDateStr && value && value <= maxDateStr) ? maxDateStr : (minDateStr && value && minDateStr < value ? value : null);
 
@@ -128,11 +107,13 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({ value, minDateSt
     const isFullRange = rangeStart && rangeEnd;
 
     return (
-        <div
-            ref={calendarRef}
-            className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-4 w-64 animate-in fade-in zoom-in-95`}
-            style={{ zIndex: Z_MODAL_NESTED }}
-            onClick={(e) => e.stopPropagation()}
+        <AnchoredPopover
+            isOpen={isOpen}
+            onClose={onClose}
+            anchorRef={anchorRef}
+            align={align}
+            role="dialog"
+            className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-4 w-64"
         >
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
@@ -190,13 +171,11 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({ value, minDateSt
 
                     let isDisabled = false;
                     if (minDateObj && currentLoopDate < minDateObj) {
-                        // Allow if it's already the selected value
                         if (!isSelected) {
                             isDisabled = true;
                         }
                     }
 
-                    // Hide separator if day is part of a range (but not the very end of the range)
                     const hideSeparator = isFullRange && (isStart || isMid) && !isSame;
 
                     return (
@@ -220,9 +199,6 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({ value, minDateSt
                     );
                 })}
             </div>
-        </div>
+        </AnchoredPopover>
     );
 };
-
-
-

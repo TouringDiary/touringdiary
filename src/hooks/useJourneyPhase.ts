@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useModal } from '@/context/ModalContext';
 import { useItinerary } from '@/context/ItineraryContext'; // Importato per verificare items
+import { useNavigation } from '@/context/useNavigation';
 import { JourneyPhase } from '../types/index';
 
 /**
@@ -17,6 +18,7 @@ import { JourneyPhase } from '../types/index';
 export const useJourneyPhase = (activeCityId: string | null): JourneyPhase => {
     const { activeModal } = useModal();
     const { itinerary } = useItinerary();
+    const { activePreview } = useNavigation();
     
     // Calcolo della fase corrente basato su priorità
     const currentPhase = useMemo((): JourneyPhase => {
@@ -53,14 +55,14 @@ export const useJourneyPhase = (activeCityId: string | null): JourneyPhase => {
         // Solo se il diario è vuoto, distinguiamo tra "Home" (Scoperta) e "Città" (Selezione)
         
         // Fase SELEZIONE (Dettaglio specifico aperto, ma diario ancora vuoto)
-        if (activeCityId || activeModal === 'poiDetail' || activeModal === 'cityInfo' || activeModal === 'province' || activeModal === 'culture' || activeModal === 'patron' || activeModal === 'history' || activeModal === 'fullRankings' || activeModal === 'preview') {
+        if (activeCityId || activeModal === 'poiDetail' || activeModal === 'cityInfo' || activeModal === 'province' || activeModal === 'culture' || activeModal === 'patron' || activeModal === 'history' || activeModal === 'fullRankings' || activePreview?.isOpen === true) {
             return 'SELEZIONE';
         }
         
         // Default: Home Page / Landing
         return 'SCOPERTA';
         
-    }, [activeModal, activeCityId, itinerary.items]);
+    }, [activeModal, activeCityId, itinerary.items, activePreview?.isOpen]);
 
     return currentPhase;
 };

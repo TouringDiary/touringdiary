@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { ExportLogo } from '../components/export/ExportLogo';
+
 
 /**
  * Hook che renderizza il componente `ExportLogo` in una stringa SVG,
@@ -14,9 +13,19 @@ export const useLogoRasterizer = () => {
     useEffect(() => {
         // 1. Renderizza il componente React ExportLogo in una stringa SVG statica.
         // Questo assicura che usiamo sempre il componente corretto e aggiornato.
-        const svgString = renderToStaticMarkup(
-            ExportLogo({ width: 360, height: 52 })
-        );
+        const svgString = `
+        <svg width="360" height="52" viewBox="0 0 360 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="360" height="52" rx="12" fill="#ffffff"/>
+            <text x="20" y="34"
+        font-family="Helvetica, Arial, sans-serif"
+        font-size="24"
+        font-weight="700"
+        fill="#1e293b">
+        TOURING DIARY
+            </text>
+            </rect>
+        </svg>
+        `;
 
         // 2. Crea un'immagine dall'SVG per disegnarla sul canvas.
         const img = new Image();

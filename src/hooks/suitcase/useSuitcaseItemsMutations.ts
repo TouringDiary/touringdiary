@@ -2,13 +2,18 @@ import {
   updateSuitcaseItemAsync,
   addSuitcaseItemAsync,
   deleteSuitcaseItemAsync,
+  persistSuitcaseItemsFromRuntimeAsync,
+  AddSuitcaseItemMetadata
+} from '@/services/suitcase/suitcaseItemsService';
+import {
   updateSuitcaseAsync,
+  createSuitcaseAsync
+} from '@/services/suitcase/suitcaseCoreService';
+import {
   checkProfileExistsAsync,
   createEmergencyProfileAsync,
-  createSuitcaseAsync,
-  addSuitcaseItemsBulkAsync,
   getAuthUserAsync
-} from '@/services/suitcaseService';
+} from '@/services/suitcase/suitcaseGuestService';
 import {
   getGuestSuitcase,
   saveGuestSuitcase,
@@ -24,7 +29,7 @@ export const useSuitcaseItemsMutations = () => {
     await updateSuitcaseItemAsync(itemId, updates);
   };
 
-  const addItem = async (suitcaseId: string, name: string, category: string, metadata: Partial<SuitcaseItem> = {}) => {
+  const addItem = async (suitcaseId: string, name: string, category: string, metadata: AddSuitcaseItemMetadata = {}) => {
     if (suitcaseId.startsWith('guest-suitcase-')) {
       return {
         id: metadata.id || `guest-item-${Date.now()}`,
@@ -88,17 +93,7 @@ export const useSuitcaseItemsMutations = () => {
 
       // 2. Se ci sono item, li inseriamo
       if (guestSc.suitcase_items && guestSc.suitcase_items.length > 0) {
-        const itemsToInsert = guestSc.suitcase_items.map((item) => ({
-          suitcase_id: suitcase.id,
-          name: item.name,
-          category: item.category,
-          is_checked: item.is_checked,
-          quantity: item.quantity || 1,
-          is_ai_suggestion: item.is_ai_suggestion || false,
-          ai_suggestion_context: item.ai_suggestion_context || null
-        }));
-
-        await addSuitcaseItemsBulkAsync(itemsToInsert);
+        await persistSuitcaseItemsFromRuntimeAsync(suitcase.id, guestSc.suitcase_items);
       }
 
       // 3. Colleghiamo all'itinerario se necessario

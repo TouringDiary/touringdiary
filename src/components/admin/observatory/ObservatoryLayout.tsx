@@ -9,6 +9,7 @@ import { getObservatoryStats, getCityQualityMetrics } from '../../../services/ob
 import { ObservatoryStats, CityQualityStats } from '../../../types/index';
 import { useAdminData } from '../../../hooks/useAdminData'; 
 import { ObservatoryFilterDrawer } from './ObservatoryFilterDrawer';
+import { AdminPageHeader } from '../common/AdminPageHeader';
 
 export const ObservatoryLayout = () => {
     const [activeTab, setActiveTab] = useState<'overview' | 'anomalies' | 'duplicates'>('overview');
@@ -70,25 +71,21 @@ export const ObservatoryLayout = () => {
                 activeTab={activeTab}
             />
 
-            {/* HEADER */}
-            <div className="flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-cyan-600 rounded-xl shadow-lg">
-                        <Microscope className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-3xl font-bold text-white font-display">Osservatorio Dati</h2>
-                        <p className="text-slate-400 text-sm">Analisi qualità, anomalie e integrità del database</p>
-                    </div>
-                </div>
-                <button 
-                    onClick={loadStats} 
-                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition-colors"
-                    title="Aggiorna Statistiche"
-                >
-                    <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`}/>
-                </button>
-            </div>
+            <AdminPageHeader
+                icon={Microscope}
+                title="Osservatorio Dati"
+                subtitle="Analisi qualità, anomalie e integrità del database"
+                accent="cyan"
+                actions={
+                    <button
+                        onClick={loadStats}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition-colors"
+                        title="Aggiorna Statistiche"
+                    >
+                        <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                }
+            />
 
             {/* TABS NAVIGATION */}
             <div className="flex bg-slate-900 p-1.5 rounded-xl border border-slate-800 w-fit shrink-0 gap-1 overflow-x-auto">

@@ -3,28 +3,39 @@ import { useConfig } from '@/context/ConfigContext';
 import { useMemo } from 'react';
 import { StyleRule } from '../types/designSystem';
 
-// --- FIX: La funzione ora include tutte le proprietà di StyleRule ---
+/** Layout/spacing/sizing utilities — non typography. */
+export const constructUtilityClassName = (rule: Partial<StyleRule>): string => {
+    if (!rule) {
+        return '';
+    }
+
+    return [
+        rule.css_class?.trim(),
+        rule.color_class?.trim(),
+        rule.effect_class !== 'none' ? rule.effect_class?.trim() : undefined,
+    ].filter(Boolean).join(' ').trim();
+};
+
 export const constructClassName = (rule: Partial<StyleRule>): string => {
     if (!rule) {
         return '';
     }
 
-    // Se la sezione NON è 'typography', manteniamo la logica di priorità per css_class.
-    if (rule.section !== 'typography') {
-        if (rule.css_class && rule.css_class.length > 3) {
-            return `${rule.css_class}`.trim();
-        }
+    // Utility-first: css_class presente → sizing/layout + color/effect opzionali.
+    if (rule.css_class?.trim()) {
+        return constructUtilityClassName(rule);
     }
 
-    // Per 'typography' (o altri senza css_class), costruisce la classe dinamicamente.
+    // Typography (+ color/effect tipografici).
     const parts = [
         rule.font_family,
         rule.text_size,
         rule.font_weight,
-        rule.text_transform,
+        rule.line_height,
+        rule.text_transform !== 'none' ? rule.text_transform : undefined,
         rule.tracking,
         rule.color_class,
-        rule.effect_class !== 'none' ? rule.effect_class : ''
+        rule.effect_class !== 'none' ? rule.effect_class : undefined,
     ];
 
     return parts.filter(Boolean).join(' ').trim();

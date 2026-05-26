@@ -1,8 +1,9 @@
-import { Z_MODAL_NESTED, Z_MODAL, Z_DROPDOWN } from '@/constants/zIndex';
+import { Z_DROPDOWN } from '@/constants/zIndex';
 import React, { useState, useEffect, useRef } from 'react';
-import { StickyNote, Palette, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Itinerary, ItineraryItem, PointOfInterest, CitySummary } from '@/types';
 import { useSystemMessage } from '@/hooks/useSystemMessage';
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { DiaryDay } from './DiaryDay';
 
 export interface DiaryTimelineProps {
@@ -15,7 +16,6 @@ export interface DiaryTimelineProps {
     iconPickerOpen: string | null;
     colorPickerOpen: number | null;
     isMobile: boolean;
-    isDraggingOver?: boolean; 
     dayRefs: React.RefObject<{[key: number]: HTMLDivElement | null}>;
     itemRefs: React.RefObject<{[key: string]: HTMLDivElement | null}>;
     cityManifest?: CitySummary[];
@@ -28,14 +28,12 @@ export interface DiaryTimelineProps {
     onRemoveSingle?: (id: string) => void;
     onTimeChange: (id: string, time: string, dayIdx: number) => void;
     onSetEditingTime: (id: string | null) => void;
-    onIconClick: (id: string) => void;
+    onIconClick: (id: string | null) => void;
     onIconSelect: (id: string, iconKey: string) => void;
     onNoteChange: (id: string, text: string) => void;
     onDayDrop: (e: React.DragEvent, dayIdx: number, time?: string) => void;
     onItemDrop: (e: React.DragEvent, dayIdx: number, time: string) => void;
     onMobileMoveClick: (item: ItineraryItem) => void;
-    onToggleItemType: (item: ItineraryItem) => void; // RENAMED in DiaryDay to onCreateMemo
-    // NEW PROPS
     onCreateMemo: (item: ItineraryItem) => void;
     onMemoClick: (id: string) => void;
 }
@@ -43,13 +41,23 @@ export interface DiaryTimelineProps {
 export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
     const [daySelectorOpen, setDaySelectorOpen] = useState<'note' | 'palette' | null>(null);
     const [cityTooltipOpen, setCityTooltipOpen] = useState(false);
-    const [visibleCitiesCount, setVisibleCitiesCount] = useState(props.itinerary.items.length || 10);
+    const [visibleCitiesCount, setVisibleCitiesCount] = useState(10);
     const { getText: getPopoverMsg } = useSystemMessage('popover_select_day_for_action');
-    const popoverRef = useRef<HTMLDivElement>(null);
+    const noteAnchorRef = useRef<HTMLDivElement>(null);
+    const paletteAnchorRef = useRef<HTMLDivElement>(null);
+    const cityDotsAnchorRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const ghostRef = useRef<HTMLDivElement>(null);
     const dotsGhostRef = useRef<HTMLDivElement>(null);
-    const closeTimeoutRef = useRef<any>(null);
+    const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (closeTimeoutRef.current) {
+                clearTimeout(closeTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleCityTooltipEnter = () => {
         if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
@@ -57,29 +65,11 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
     };
 
     const handleCityTooltipLeave = () => {
+        if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
         closeTimeoutRef.current = setTimeout(() => {
             setCityTooltipOpen(false);
         }, 150);
     };
-
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-                setDaySelectorOpen(null);
-            }
-        };
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setDaySelectorOpen(null);
-        };
-        if (daySelectorOpen) {
-            window.addEventListener('mousedown', handleClickOutside);
-            window.addEventListener('keydown', handleEsc);
-        }
-        return () => {
-            window.removeEventListener('mousedown', handleClickOutside);
-            window.removeEventListener('keydown', handleEsc);
-        };
-    }, [daySelectorOpen]);
 
     const scrollIntoDay = (idx: number) => {
         const ref = props.dayRefs.current?.[idx];
@@ -191,35 +181,40 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                                 </div>
                                 {visibleCitiesCount < uniqueCityIds.length && (
                                     <div 
+                                        ref={cityDotsAnchorRef}
                                         className="relative flex items-center flex-shrink-0 h-full"
                                         onMouseEnter={handleCityTooltipEnter}
                                         onMouseLeave={handleCityTooltipLeave}
                                     >
                                         <span className="cursor-help text-stone-400 hover:text-amber-600 ml-1">, + ...</span>
-                                        {cityTooltipOpen && (
-                                            <div 
-                                                onMouseEnter={handleCityTooltipEnter}
-                                                onMouseLeave={handleCityTooltipLeave}
-                                                className="absolute top-full right-0 mt-2 block bg-slate-900 border border-slate-700 shadow-2xl rounded-xl p-4 min-w-[200px] max-w-[calc(100vw-2rem)] animate-in fade-in zoom-in-95 origin-top-right"
-                                                style={{ zIndex: Z_MODAL_NESTED }}
-                                            >
-                                                <div className="flex flex-col gap-1">
-                                                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-sans mb-2">Tutte le tappe</p>
-                                                    {uniqueCityIds.map(id => (
-                                                        <button 
-                                                            key={id}
-                                                            onClick={() => {
-                                                                props.onCityClick(id);
-                                                                setCityTooltipOpen(false);
-                                                            }}
-                                                            className="text-left text-sm text-slate-200 hover:text-amber-500 hover:bg-amber-500/10 px-2 py-1.5 rounded-lg transition-all block w-full"
-                                                        >
-                                                            {getCityDisplayName(id)}
-                                                        </button>
-                                                    ))}
-                                                </div>
+                                        <AnchoredPopover
+                                            isOpen={cityTooltipOpen}
+                                            onClose={() => setCityTooltipOpen(false)}
+                                            anchorRef={cityDotsAnchorRef}
+                                            align="right"
+                                            role="tooltip"
+                                            closeOnEscape={false}
+                                            closeOnClickOutside={false}
+                                            onMouseEnter={handleCityTooltipEnter}
+                                            onMouseLeave={handleCityTooltipLeave}
+                                            className="bg-slate-900 border border-slate-700 shadow-2xl rounded-xl p-4 min-w-[200px] max-w-[calc(100vw-2rem)] origin-top-right"
+                                        >
+                                            <div className="flex flex-col gap-1">
+                                                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-sans mb-2">Tutte le tappe</p>
+                                                {uniqueCityIds.map(id => (
+                                                    <button 
+                                                        key={id}
+                                                        onClick={() => {
+                                                            props.onCityClick(id);
+                                                            setCityTooltipOpen(false);
+                                                        }}
+                                                        className="text-left text-sm text-slate-200 hover:text-amber-500 hover:bg-amber-500/10 px-2 py-1.5 rounded-lg transition-all block w-full"
+                                                    >
+                                                        {getCityDisplayName(id)}
+                                                    </button>
+                                                ))}
                                             </div>
-                                        )}
+                                        </AnchoredPopover>
                                     </div>
                                 )}
                             </>
@@ -239,7 +234,7 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                 style={{ zIndex: Z_DROPDOWN }}
             >
                 {/* NOTE ACTION */}
-                <div className="relative">
+                <div ref={noteAnchorRef}>
                     <button 
                         onClick={() => {
                             if (props.activeTab !== 'all') {
@@ -253,23 +248,23 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                     >
                         📝
                     </button>
-                    {daySelectorOpen === 'note' && (
-                        <DaySelectorPopover 
-                            popoverRef={popoverRef}
-                            title={getPopoverMsg().title || "Seleziona Giorno"}
-                            body={getPopoverMsg().body || "Scegli il giorno per la nota."}
-                            days={props.days}
-                            onSelect={(idx) => {
-                                props.onAddNote(idx);
-                                scrollIntoDay(idx);
-                                setDaySelectorOpen(null);
-                            }}
-                        />
-                    )}
+                    <DaySelectorPopover 
+                        isOpen={daySelectorOpen === 'note'}
+                        onClose={() => setDaySelectorOpen(null)}
+                        anchorRef={noteAnchorRef}
+                        title={getPopoverMsg().title || "Seleziona Giorno"}
+                        body={getPopoverMsg().body || "Scegli il giorno per la nota."}
+                        days={props.days}
+                        onSelect={(idx) => {
+                            props.onAddNote(idx);
+                            scrollIntoDay(idx);
+                            setDaySelectorOpen(null);
+                        }}
+                    />
                 </div>
 
                 {/* PALETTE ACTION */}
-                <div className="relative">
+                <div ref={paletteAnchorRef}>
                     <button 
                         onClick={() => {
                             if (props.activeTab !== 'all') {
@@ -283,19 +278,19 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                     >
                         🎨
                     </button>
-                    {daySelectorOpen === 'palette' && (
-                        <DaySelectorPopover 
-                            popoverRef={popoverRef}
-                            title={getPopoverMsg().title || "Seleziona Giorno"}
-                            body={getPopoverMsg().body || "Scegli il giorno per il colore."}
-                            days={props.days}
-                            onSelect={(idx) => {
-                                props.onColorPickerToggle(idx);
-                                scrollIntoDay(idx);
-                                setDaySelectorOpen(null);
-                            }}
-                        />
-                    )}
+                    <DaySelectorPopover 
+                        isOpen={daySelectorOpen === 'palette'}
+                        onClose={() => setDaySelectorOpen(null)}
+                        anchorRef={paletteAnchorRef}
+                        title={getPopoverMsg().title || "Seleziona Giorno"}
+                        body={getPopoverMsg().body || "Scegli il giorno per il colore."}
+                        days={props.days}
+                        onSelect={(idx) => {
+                            props.onColorPickerToggle(idx);
+                            scrollIntoDay(idx);
+                            setDaySelectorOpen(null);
+                        }}
+                    />
                 </div>
             </div>
 
@@ -330,22 +325,25 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
 };
 
 interface DaySelectorPopoverProps {
-    popoverRef: React.RefObject<HTMLDivElement>;
+    isOpen: boolean;
+    onClose: () => void;
+    anchorRef: React.RefObject<HTMLElement | null>;
     title: string;
     body: string;
     days: Date[];
     onSelect: (idx: number) => void;
 }
 
-const DaySelectorPopover: React.FC<DaySelectorPopoverProps> = ({ popoverRef, title, body, days, onSelect }) => (
-    <div 
-        ref={popoverRef}
-        className="absolute top-full right-0 mt-2 bg-slate-900 border border-slate-700 shadow-2xl rounded-xl p-4 min-w-[220px] max-w-[calc(100vw-2rem)] animate-in fade-in zoom-in-95 origin-top-right"
-        style={{ zIndex: Z_MODAL_NESTED }}
+const DaySelectorPopover: React.FC<DaySelectorPopoverProps> = ({ isOpen, onClose, anchorRef, title, body, days, onSelect }) => (
+    <AnchoredPopover
+        isOpen={isOpen}
+        onClose={onClose}
+        anchorRef={anchorRef}
+        align="right"
+        className="bg-slate-900 border border-slate-700 shadow-2xl rounded-xl p-4 min-w-[220px] max-w-[calc(100vw-2rem)] origin-top-right"
     >
         <h4 className="text-sm font-bold text-slate-100 mb-1">{title}</h4>
         <p className="text-[11px] text-slate-400 mb-4 leading-relaxed whitespace-pre-line">{body}</p>
-        
         <div className="flex flex-col gap-1 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
             {days.map((_, idx) => (
                 <button 
@@ -358,7 +356,7 @@ const DaySelectorPopover: React.FC<DaySelectorPopoverProps> = ({ popoverRef, tit
                 </button>
             ))}
         </div>
-    </div>
+    </AnchoredPopover>
 );
 
 

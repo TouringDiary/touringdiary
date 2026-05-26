@@ -1,9 +1,82 @@
 import { supabase } from './supabaseClient';
 
+export type AiUserCostCategory = 'guest' | 'free' | 'sponsor' | 'admin';
+export type AiSeasonKey = 'winter' | 'spring' | 'summer' | 'autumn';
+
+export interface AiModelPrice {
+    model: string;
+    cost_per_request: number;
+}
+
+export interface AiThirtyDayCosts {
+    flash: number;
+    pro: number;
+    total: number;
+    guest: number;
+    free: number;
+    sponsor: number;
+    admin: number;
+}
+
+export interface AiEconomicsDashboardData {
+    mrr: number;
+    modelPrices: AiModelPrice[];
+    costs: {
+        today: Pick<AiThirtyDayCosts, 'flash' | 'pro' | 'guest' | 'free' | 'sponsor' | 'admin'>;
+        sevenDays: { flash: number; pro: number; total: number };
+        thirtyDays: AiThirtyDayCosts;
+        thisMonth: number;
+        lastMonth: number;
+    };
+    trends: {
+        monthly: Record<string, number>;
+        seasonal: Record<AiSeasonKey, number>;
+    };
+}
+
+export interface AiAdminGlobalSetting {
+    key: string;
+    value: string;
+}
+
+export interface AiAdminPlanSummary {
+    name?: string;
+    type?: string;
+}
+
+export interface AiAdminPricingVersion {
+    id: string;
+    duration_days: number;
+    price: number;
+    currency: string;
+    ai_limits?: {
+        soft_daily_limit?: number;
+        burst_allowed?: boolean;
+        models?: { flash?: number; pro?: number };
+    };
+    plans?: AiAdminPlanSummary | AiAdminPlanSummary[];
+}
+
 export interface AiAdminData {
-    modelPrices: any[];
-    globalSettings: any[];
-    pricingVersions: any[];
+    modelPrices: AiModelPrice[];
+    globalSettings: AiAdminGlobalSetting[];
+    pricingVersions: AiAdminPricingVersion[];
+}
+
+export type PlanAiLimitFieldValue =
+    | number
+    | boolean
+    | string
+    | { flash?: number | string; pro?: number | string };
+
+export interface AiAdminPricingVersionUpdate {
+    duration_days?: number;
+    price?: number;
+    currency?: string;
+    ai_limits?: AiAdminPricingVersion['ai_limits'];
+    is_active?: boolean;
+    valid_from?: string;
+    activated_at?: string;
 }
 
 /**
@@ -37,8 +110,8 @@ export const getAiAdminData = async (): Promise<AiAdminData> => {
 
     return {
         modelPrices: modelPrices || [],
-        globalSettings: globalSettings || [],
-        pricingVersions: pricingVersions || []
+        globalSettings: (globalSettings || []) as AiAdminGlobalSetting[],
+        pricingVersions: (pricingVersions || []) as AiAdminPricingVersion[],
     };
 };
 
@@ -66,7 +139,7 @@ export const updateAnonBudgets = async (key: string, value: string) => {
 /**
  * Aggiorna un campo specifico dell'oggetto ai_limits in pricing_versions
  */
-export const updatePlanAiLimitField = async (versionId: string, field: string, value: any) => {
+export const updatePlanAiLimitField = async (versionId: string, field: string, value: PlanAiLimitFieldValue) => {
     // 1. Get current limits
     const { data } = await supabase
         .from('pricing_versions')
@@ -83,10 +156,10 @@ export const updatePlanAiLimitField = async (versionId: string, field: string, v
         newLimits.soft_daily_limit = Number(value);
     } else if (field === 'burst_allowed') {
         newLimits.burst_allowed = !!value;
-    } else if (field === 'models') {
+    } else if (field === 'models' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
         newLimits.models = {
             ...(oldLimits.models || {}),
-            ...value
+            ...value,
         };
     }
 
@@ -239,7 +312,7 @@ export const getGlobalConsumptionToday = async (date: string) => {
  * Recupera i dati aggregati per la AI Economics Dashboard
  * Analizza lo storico completo per trend e simulazioni
  */
-export const getEconomicsDashboardData = async () => {
+export const getEconomicsDashboardData = async (): Promise<AiEconomicsDashboardData> => {
     // 1. Prezzi Modelli
     const { data: prices } = await supabase.from('ai_model_prices').select('model, cost_per_request');
     const costMap: Record<string, number> = {};
@@ -305,8 +378,8 @@ export const getEconomicsDashboardData = async () => {
         let category: 'guest' | 'free' | 'sponsor' | 'admin' = 'free';
         if (!log.user_id) category = 'guest';
         else {
-            // Nota: Se il ruolo non è nel log, andrebbe recuperato separatamente.
-            // Per ora manteniamo la logica fallback se profiles è assente.
+            // TODO(arch): profiles.role non è incluso nella query ai_global_usage sopra.
+            // Verificare schema/join Supabase reale prima di assumere join impliciti su log.profiles.
             const role = (log as any).profiles?.role;
             if (role === 'admin_all' || role === 'admin_limited') category = 'admin';
             else if (role === 'business' || activeSubUserIds.has(log.user_id)) category = 'sponsor';
@@ -354,7 +427,10 @@ export const getEconomicsDashboardData = async () => {
         costs: stats.costs,
         mrr: currentMRR,
         trends: stats.trends,
-        modelPrices: prices || []
+        modelPrices: (prices || []).map(p => ({
+            model: p.model,
+            cost_per_request: p.cost_per_request ?? 0,
+        })),
     };
 };
 /**
@@ -391,10 +467,24 @@ export const getCreditPackages = async () => {
     return data;
 };
 
+export interface CreditPackage {
+    id?: string;
+    name: string;
+    description: string;
+    flash_credits: number;
+    pro_credits: number;
+    price_eur: number;
+    stripe_price_id_test: string;
+    stripe_price_id_prod: string;
+    is_active: boolean;
+    sort_order: number;
+    is_recommended: boolean;
+}
+
 /**
  * Crea o aggiorna un pacchetto crediti
  */
-export const upsertCreditPackage = async (pkg: any) => {
+export const upsertCreditPackage = async (pkg: CreditPackage) => {
     const { data, error } = await supabase
         .from('extra_credit_packages')
         .upsert({
@@ -490,7 +580,7 @@ export const rollbackPricingVersion = activatePricingVersion;
 /**
  * Aggiorna i dati di una versione (tipicamente una bozza)
  */
-export const updatePricingVersion = async (versionId: string, updates: any) => {
+export const updatePricingVersion = async (versionId: string, updates: AiAdminPricingVersionUpdate) => {
     const { data, error } = await supabase
         .from('pricing_versions')
         .update({
@@ -536,20 +626,6 @@ export const createCampaign = async (name: string, description?: string) => {
 };
 
 
-
-export interface CreditPackage {
-    id?: string;
-    name: string;
-    description: string;
-    flash_credits: number;
-    pro_credits: number;
-    price_eur: number;
-    stripe_price_id_test: string;
-    stripe_price_id_prod: string;
-    is_active: boolean;
-    sort_order: number;
-    is_recommended: boolean;
-}
 
 /**
  * Recupera la versione di pricing attiva (SSoT) tramite RPC v2

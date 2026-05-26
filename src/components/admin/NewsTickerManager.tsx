@@ -4,7 +4,7 @@ import { getNewsTickerItemsAsync, saveNewsTickerItemAsync, deleteNewsTickerItemA
 import { getSetting, saveSetting } from '../../services/settingsService';
 import { NewsTickerItem } from '../../types/index';
 import { NewsTicker } from '../layout/NewsTicker';
-import { useAdminStyles } from '../../hooks/useAdminStyles';
+import { AdminPageHeader } from './common/AdminPageHeader';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 
 const ICONS = [
@@ -70,7 +70,6 @@ const RichTextInput = ({ value, onChange, placeholder, onEnter }: { value: strin
 };
 
 export const NewsTickerManager = () => {
-    const { styles } = useAdminStyles();
     const [items, setItems] = useState<NewsTickerItem[]>([]);
     const [speed, setSpeed] = useState(80);
     const [isLoading, setIsLoading] = useState(true);
@@ -217,17 +216,12 @@ export const NewsTickerManager = () => {
                 confirmLabel="Elimina"
                 variant="danger"
             />
-            <div className="flex justify-between items-center mb-2 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-600 rounded-xl shadow-lg">
-                        <Newspaper className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className={styles.admin_page_title}>News Ticker</h2>
-                        <p className={styles.admin_page_subtitle}>Gestione notizie scorrevoli in alto</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={Newspaper}
+                accent="indigo"
+                title="News Ticker"
+                subtitle="Gestione notizie scorrevoli in alto"
+            />
 
             {/* LIVE PREVIEW */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shrink-0">

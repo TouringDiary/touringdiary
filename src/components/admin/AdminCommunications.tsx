@@ -6,6 +6,7 @@ import { getCommunicationLogsAsync, getSystemMessagesAsync, saveSystemMessageAsy
 import { CommsComposer } from './communications/CommsComposer';
 import { CommsHistory } from './communications/CommsHistory';
 import { CommsTemplates } from './communications/CommsTemplates';
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
     <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
@@ -83,17 +84,12 @@ export const AdminCommunications = () => {
             
             {toast && <AdminToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-            <div className="flex justify-between items-center mb-2 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-600 rounded-xl shadow-lg">
-                        <Megaphone className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-3xl font-bold text-white font-display">Centro Comunicazioni</h2>
-                        <p className="text-slate-400 text-sm">Gestisci notifiche, email e avvisi di sistema</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={Megaphone}
+                title="Centro Comunicazioni"
+                subtitle="Gestisci notifiche, email e avvisi di sistema"
+                accent="indigo"
+            />
 
             <div className="flex bg-slate-900 p-1.5 rounded-xl border border-slate-800 w-fit shrink-0 mb-4 shadow-lg overflow-x-auto gap-1">
                 <button onClick={() => setActiveTab('compose')} className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'compose' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}>Nuovo Messaggio</button>

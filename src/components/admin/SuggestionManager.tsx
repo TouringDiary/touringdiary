@@ -6,7 +6,7 @@ import { SuggestionRequest } from '../../types/index';
 import { SuggestionReviewModal } from '../modals/SuggestionReviewModal';
 import { User } from '../../types/users';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-import { useAdminStyles } from '../../hooks/useAdminStyles'; // IMPORTATO STYLES
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 interface Props {
     onUserUpdate?: (user: User) => void;
@@ -19,8 +19,6 @@ export const SuggestionManager = ({ onUserUpdate }: Props) => {
     const [selectedSug, setSelectedSug] = useState<SuggestionRequest | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     
-    const { styles } = useAdminStyles(); // USATO STILI DINAMICI
-
     // DELETE STATE (Replicato da PoiManager)
     const [deleteTarget, setDeleteTarget] = useState<SuggestionRequest | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -88,25 +86,20 @@ export const SuggestionManager = ({ onUserUpdate }: Props) => {
                 isDeleting={isDeleting}
             />
 
-            {/* HEADER CLEAN DESIGN */}
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-600 rounded-xl shadow-lg">
-                        <FileText className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className={styles.admin_page_title}>Segnalazioni</h2>
-                            {pendingCount > 0 && (
-                                <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                                    {pendingCount} NUOVE
-                                </span>
-                            )}
-                        </div>
-                        <p className={styles.admin_page_subtitle}>Gestisci i contributi editoriali della community</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={FileText}
+                title="Segnalazioni"
+                subtitle="Gestisci i contributi editoriali della community"
+                accent="indigo"
+                className="!mb-6"
+                badge={
+                    pendingCount > 0 ? (
+                        <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
+                            {pendingCount} NUOVE
+                        </span>
+                    ) : undefined
+                }
+            />
 
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
                 <div className="flex flex-col md:flex-row gap-4 items-start md:items-center w-full xl:w-auto">

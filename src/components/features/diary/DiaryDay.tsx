@@ -1,10 +1,9 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { StickyNote, Palette, PlusCircle, Briefcase } from 'lucide-react';
 import { ItineraryItem, PointOfInterest, CitySummary } from '@/types';
 import { calculateDistance } from '@/services/geo';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { ItineraryItemCard } from './ItineraryItemCard';
 import { DiaryResourceCard } from './DiaryResourceCard';
 import { DiaryMemoCard } from './DiaryMemoCard';
@@ -24,7 +23,6 @@ interface DiaryDayProps {
     dayIndex: number;
     items: ItineraryItem[]; // Già filtrati per questo giorno
     dayStyleClass?: string;
-    isDraggingOver?: boolean; // Stato globale di drag dal parent
     isMobile: boolean;
     dayRefs: React.RefObject<{[key: number]: HTMLDivElement | null}>;
     itemRefs: React.RefObject<{[key: string]: HTMLDivElement | null}>;
@@ -44,13 +42,11 @@ interface DiaryDayProps {
     onDayDrop: (e: React.DragEvent, dayIdx: number, time?: string) => void;
     
     // Item Actions (Pass-through)
-    onCityClick: (id: string) => void;
     onViewDetail: (poi: PointOfInterest) => void;
     onRemoveItem: (id: string) => void;
-    onRemoveSingle?: (id: string) => void;
     onTimeChange: (id: string, time: string, dayIdx: number) => void;
     onSetEditingTime: (id: string | null) => void;
-    onIconClick: (id: string) => void;
+    onIconClick: (id: string | null) => void;
     onIconSelect: (id: string, iconKey: string) => void;
     onNoteChange: (id: string, text: string) => void;
     onItemDrop: (e: React.DragEvent, dayIdx: number, time: string) => void;
@@ -60,7 +56,7 @@ interface DiaryDayProps {
 }
 
 export const DiaryDay: React.FC<DiaryDayProps> = ({
-    day, dayIndex, items, dayStyleClass, isDraggingOver, isMobile, dayRefs, itemRefs, cityManifest,
+    day, dayIndex, items, dayStyleClass, isMobile, dayRefs, itemRefs, cityManifest,
     userLocation, highlightedItemId, editingTimeId, iconPickerOpen, colorPickerOpen,
     onAddNote, onColorPickerToggle, onColorSelect, onDayDrop,
     onViewDetail, onRemoveItem, onTimeChange, onSetEditingTime, onIconClick, onIconSelect, onNoteChange, onItemDrop, onMobileMoveClick, onCreateMemo, onMemoClick
@@ -70,27 +66,7 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     const dayLabelStyle = useDynamicStyles('diary_day_label', isMobile);
     const dayStyle = DAY_COLORS.find(c => c.class === dayStyleClass) || DAY_COLORS[0];
 
-    const paletteRef = React.useRef<HTMLDivElement>(null);
-
-    // Gestione chiusura palette con click esterno o ESC
-    React.useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (paletteRef.current && !paletteRef.current.contains(e.target as Node)) {
-                onColorPickerToggle(null);
-            }
-        };
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onColorPickerToggle(null);
-        };
-        if (colorPickerOpen === dayIndex) {
-            window.addEventListener('mousedown', handleClickOutside);
-            window.addEventListener('keydown', handleEsc);
-        }
-        return () => {
-            window.removeEventListener('mousedown', handleClickOutside);
-            window.removeEventListener('keydown', handleEsc);
-        };
-    }, [colorPickerOpen, dayIndex, onColorPickerToggle]);
+    const colorAnchorRef = useRef<HTMLDivElement>(null);
 
     // Stato locale per evidenziare la Drop Zone specifica
     const [isOverDropZone, setIsOverDropZone] = useState(false);
@@ -125,7 +101,7 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     const resourceItems = items.filter(i => i.isResource);
 
     // --- LOGICA ZIG-ZAG INTELLIGENTE ---
-    const calculateDayAlignments = (itemsList: ItineraryItem[]) => {
+    const calculateDayAlignments = (itemsList: ItineraryItem[]): Array<'left' | 'right'> => {
         const poiIndices = itemsList
             .map((item, idx) => (!item.isCustom && item.type !== 'memo' ? idx : -1))
             .filter(idx => idx !== -1);
@@ -162,8 +138,6 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
         return hasSecondRow ? 2 : 1;
     };
 
-    const hasOpenPicker = timelineItems.some(item => item.id === iconPickerOpen) || colorPickerOpen === dayIndex;
-
     // HANDLERS PER LA DROP ZONE ESPLICITA
     const handleDropZoneEnter = (e: React.DragEvent) => {
         e.preventDefault();
@@ -190,31 +164,32 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     return (
         <div 
             ref={(el) => { if(dayRefs.current) dayRefs.current[dayIndex] = el; }} 
-            className={`relative pb-0 mb-0 transition-all rounded-xl overflow-hidden ${hasOpenPicker ? 'z-modal' : 'z-0'}`}>
+            className="relative pb-0 mb-0 transition-all rounded-xl overflow-hidden"
+        >
             {/* HEADER GIORNO: Altezza fissa h-7 (1 RIGA esatta) */}
             <div className={`flex items-center justify-center gap-2 ${ROW_H} border-b w-full box-border rounded-t-xl transition-colors border-stone-300 bg-[#e7e5e4]`}>
                 {/* Micro-toolbar compatta Giorno */}
-                <div className={`px-4 h-[24px] rounded-full shadow-sm flex items-center justify-center relative ${dayStyle.class}`}>
+                <div ref={colorAnchorRef} className={`px-4 h-[24px] rounded-full shadow-sm flex items-center justify-center relative ${dayStyle.class}`}>
                     <span className={`${dayLabelStyle} leading-[24px] whitespace-nowrap`}>
                         {dayCityStr ? `${dayCityStr} · Giorno ${dayIndex + 1}` : `Giorno ${dayIndex + 1}`}
                     </span>
 
-                    {/* PALETTE PICKER DROPDOWN (RESTORED & STABILIZED) */}
-                    {colorPickerOpen === dayIndex && (
-                        <div 
-                            ref={paletteRef}
-                            className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-stone-200 shadow-2xl rounded-xl p-2 flex gap-1.5 animate-in zoom-in-95 origin-top" style={{ zIndex: Z_MODAL_NESTED }}
-                        >
-                             {DAY_COLORS.map(c => (
-                                <button 
-                                    key={c.id} 
-                                    onClick={() => onColorSelect(dayIndex, c.class)} 
-                                    className={`w-7 h-7 rounded-full shadow-sm border border-stone-200 hover:scale-110 active:scale-95 transition-all ${c.class.split(' ')[0]}`}
-                                    title={c.label}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    <AnchoredPopover
+                        isOpen={colorPickerOpen === dayIndex}
+                        onClose={() => onColorPickerToggle(null)}
+                        anchorRef={colorAnchorRef}
+                        align="center"
+                        className="bg-white border border-stone-200 shadow-2xl rounded-xl p-2 flex gap-1.5 origin-top"
+                    >
+                        {DAY_COLORS.map(c => (
+                            <button 
+                                key={c.id} 
+                                onClick={() => onColorSelect(dayIndex, c.class)} 
+                                className={`w-7 h-7 rounded-full shadow-sm border border-stone-200 hover:scale-110 active:scale-95 transition-all ${c.class.split(' ')[0]}`}
+                                title={c.label}
+                            />
+                        ))}
+                    </AnchoredPopover>
                 </div>
             </div>
 
@@ -254,14 +229,13 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
 
                     return (
                         <ItineraryItemCard 
-                            innerRef={(el: any) => { if(itemRefs.current) itemRefs.current[item.id] = el; }} 
+                            innerRef={(el: HTMLDivElement | null) => { if (itemRefs.current) itemRefs.current[item.id] = el; }} 
                             key={item.id} 
                             item={item} 
                             dayIndex={dayIndex} 
                             distanceFromPrev={dist} 
                             isBridge={isBridge}     
                             prevItemRows={prevItemRows} 
-                            connectorRows={prevItemRows} 
                             userLocation={userLocation} 
                             isHighlighted={highlightedItemId === item.id} 
                             editingTimeId={editingTimeId} 

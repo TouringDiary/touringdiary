@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
     Zap, ShieldAlert, Euro, Users, LayoutGrid, 
     Save, Search, Calendar, RefreshCcw, Loader2, 
@@ -7,9 +7,25 @@ import {
     ChevronRight, ArrowRight, ToggleLeft as Toggle, ToggleRight
 } from 'lucide-react';
 import { useAdminStyles } from '../../hooks/useAdminStyles';
+import { AdminPageHeader } from './common/AdminPageHeader';
+import { AdminSectionCard } from './common/AdminSectionCard';
 import * as aiAdmin from '../../services/aiAdminService';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+
+type AdminUserSortBy = 'registrationDate' | 'extraQuota' | 'expiresSoon';
+
+interface AiAdminUserListItem {
+    id: string;
+    name: string;
+    email: string;
+    role?: string;
+    extra_quota?: number;
+    extra_quota_expires_at?: string | null;
+}
+
+type PlanLimitField = 'soft_daily_limit' | 'burst_allowed' | 'models';
+type PlanLimitValue = string | number | boolean | { flash: string | number; pro: string | number };
 
 export const AiLimitsControlCenter = () => {
     const { styles } = useAdminStyles();
@@ -19,17 +35,51 @@ export const AiLimitsControlCenter = () => {
     
     // UI State for Sections
     const [searchEmail, setSearchEmail] = useState('');
-    const [userList, setUserList] = useState<any[]>([]);
-    const [sortBy, setSortBy] = useState<'registrationDate' | 'extraQuota' | 'expiresSoon'>('registrationDate');
-    const [selectedUser, setSelectedUser] = useState<any | null>(null);
+    const [userList, setUserList] = useState<AiAdminUserListItem[]>([]);
+    const [sortBy, setSortBy] = useState<AdminUserSortBy>('registrationDate');
+    const [selectedUser, setSelectedUser] = useState<AiAdminUserListItem | null>(null);
     const [newExtraQuota, setNewExtraQuota] = useState(0);
     const [newExtraExpiry, setNewExtraExpiry] = useState('');
+
+    const [modelCostDrafts, setModelCostDrafts] = useState<Record<string, string>>({});
+    const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({});
+    const [planLimitDrafts, setPlanLimitDrafts] = useState<Record<string, { soft: string; flash: string; pro: string }>>({});
+
+    const syncFormDrafts = useCallback((adminData: aiAdmin.AiAdminData) => {
+        const costs: Record<string, string> = {};
+        adminData.modelPrices.forEach(p => {
+            costs[p.model] = String(p.cost_per_request ?? 0);
+        });
+        setModelCostDrafts(costs);
+
+        const budgets: Record<string, string> = {};
+        (['anon_flash_budget_eur', 'anon_pro_budget_eur', 'anon_guest_budget_ratio'] as const).forEach(key => {
+            const val = adminData.globalSettings.find(s => s.key === key)?.value ?? '0.0';
+            budgets[key] = key === 'anon_guest_budget_ratio'
+                ? (parseFloat(val) * 100).toFixed(0)
+                : val;
+        });
+        setBudgetDrafts(budgets);
+
+        const plans: Record<string, { soft: string; flash: string; pro: string }> = {};
+        adminData.pricingVersions.forEach(ver => {
+            const limits = ver.ai_limits || {};
+            const models = limits.models || {};
+            plans[ver.id] = {
+                soft: String(limits.soft_daily_limit ?? 0),
+                flash: String(models.flash ?? 0),
+                pro: String(models.pro ?? 0),
+            };
+        });
+        setPlanLimitDrafts(plans);
+    }, []);
 
     const loadData = async () => {
         try {
             setIsLoading(true);
             const res = await aiAdmin.getAiAdminData();
             setData(res);
+            syncFormDrafts(res);
             
             // Load initial user list for extra quota
             const users = await aiAdmin.getAdminUsersPaged(sortBy, searchEmail);
@@ -63,7 +113,7 @@ export const AiLimitsControlCenter = () => {
         finally { setIsSaving(null); }
     };
 
-    const handleUpdatePlanLimit = async (versionId: string, field: string, value: any) => {
+    const handleUpdatePlanLimit = async (versionId: string, field: PlanLimitField, value: PlanLimitValue) => {
         setIsSaving(`${versionId}_${field}`);
         try {
             await aiAdmin.updatePlanAiLimitField(versionId, field, value);
@@ -104,48 +154,48 @@ export const AiLimitsControlCenter = () => {
 
     const emergencyStop = data?.globalSettings.find(s => s.key === 'ai_emergency_stop')?.value === 'true';
 
+    const emergencyActions = (
+        <div className={`p-1 rounded-2xl border transition-all flex items-center gap-3 pr-4 shadow-lg ${emergencyStop ? 'bg-red-950/40 border-red-500/50' : 'bg-slate-900 border-slate-700'}`}>
+            <button
+                onClick={() => handleToggleEmergency(emergencyStop)}
+                disabled={isSaving === 'emergency'}
+                className={`p-3 rounded-xl transition-all ${emergencyStop ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-800 text-slate-500 hover:text-white'}`}
+            >
+                {isSaving === 'emergency' ? <Loader2 className="w-6 h-6 animate-spin" /> : <ShieldAlert className="w-6 h-6" />}
+            </button>
+            <div>
+                <p className={`text-[10px] font-black uppercase tracking-tighter ${emergencyStop ? 'text-red-400' : 'text-slate-500'}`}>
+                    Platform Status
+                </p>
+                <p className={`text-xs font-bold ${emergencyStop ? 'text-white' : 'text-slate-300'}`}>
+                    {emergencyStop ? 'STOP DI EMERGENZA ATTIVO' : 'SISTEMA OPERATIVO'}
+                </p>
+            </div>
+        </div>
+    );
+
     return (
         <div className="space-y-8 animate-in fade-in pb-20">
-            {/* Header */}
-            <div className="flex items-center justify-between gap-6 mb-2">
-                <div className="flex items-center gap-4">
-                    <div className={`p-4 rounded-2xl shadow-xl ${emergencyStop ? 'bg-red-600' : 'bg-indigo-600'}`}>
-                        <Zap className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h1 className={styles.admin_page_title}>AI Limits Control Center</h1>
-                        <p className={styles.admin_page_subtitle}>Gestione centralizzata budget, costi e pipeline di consumo</p>
-                    </div>
-                </div>
-
-                {/* 7. EMERGENCY AI STOP SWITCH */}
-                <div className={`p-1 rounded-2xl border transition-all flex items-center gap-3 pr-4 shadow-lg ${emergencyStop ? 'bg-red-950/40 border-red-500/50' : 'bg-slate-900 border-slate-700'}`}>
-                    <button 
-                        onClick={() => handleToggleEmergency(emergencyStop)}
-                        disabled={isSaving === 'emergency'}
-                        className={`p-3 rounded-xl transition-all ${emergencyStop ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-800 text-slate-500 hover:text-white'}`}
-                    >
-                        {isSaving === 'emergency' ? <Loader2 className="w-6 h-6 animate-spin" /> : <ShieldAlert className="w-6 h-6" />}
-                    </button>
-                    <div>
-                        <p className={`text-[10px] font-black uppercase tracking-tighter ${emergencyStop ? 'text-red-400' : 'text-slate-500'}`}>
-                            Platform Status
-                        </p>
-                        <p className={`text-xs font-bold ${emergencyStop ? 'text-white' : 'text-slate-300'}`}>
-                            {emergencyStop ? 'STOP DI EMERGENZA ATTIVO' : 'SISTEMA OPERATIVO'}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                as="h1"
+                icon={Zap}
+                title="AI Limits Control Center"
+                subtitle="Gestione centralizzata budget, costi e pipeline di consumo"
+                accent={emergencyStop ? 'rose' : 'indigo'}
+                actions={emergencyActions}
+            />
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 
                 {/* 1. MODEL COSTS */}
-                <SectionCard title="Costi Unitari Modelli" icon={Euro} subtitle="Prezzo per singola richiesta utilizzato per il calcolo dei budget anonimi.">
+                <AdminSectionCard
+                    className="animate-in slide-in-from-bottom-2 duration-500"
+                    title="Costi Unitari Modelli"
+                    icon={Euro}
+                    subtitle="Prezzo per singola richiesta utilizzato per il calcolo dei budget anonimi."
+                >
                     <div className="grid grid-cols-2 gap-4">
-                        {['flash', 'pro'].map(model => {
-                            const currentCost = data?.modelPrices.find(p => p.model === model)?.cost_per_request || 0;
-                            return (
+                        {(['flash', 'pro'] as const).map(model => (
                                 <div key={model} className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800 flex flex-col gap-3">
                                     <div className="flex items-center justify-between">
                                         <span className="text-[10px] uppercase font-black tracking-widest text-indigo-400">{model}</span>
@@ -156,13 +206,13 @@ export const AiLimitsControlCenter = () => {
                                         <input 
                                             type="number" 
                                             step="0.001"
-                                            defaultValue={currentCost}
-                                            id={`cost_${model}`}
+                                            value={modelCostDrafts[model] ?? ''}
+                                            onChange={(e) => setModelCostDrafts(prev => ({ ...prev, [model]: e.target.value }))}
                                             className="w-full bg-transparent text-xl font-mono font-bold text-white focus:outline-none"
                                         />
                                     </div>
                                     <button 
-                                        onClick={() => handleSaveCost(model, parseFloat((document.getElementById(`cost_${model}`) as HTMLInputElement).value))}
+                                        onClick={() => handleSaveCost(model, parseFloat(modelCostDrafts[model] ?? '0'))}
                                         disabled={isSaving === `cost_${model}`}
                                         className="mt-2 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
                                     >
@@ -170,16 +220,19 @@ export const AiLimitsControlCenter = () => {
                                         Salva Costo
                                     </button>
                                 </div>
-                            );
-                        })}
+                            ))}
                     </div>
-                </SectionCard>
+                </AdminSectionCard>
 
                 {/* 2. ANONYMOUS DAILY BUDGET */}
-                <SectionCard title="Budget Giornaliero Anonimi" icon={Globe} subtitle="Budget massimo aggregato piattaforma espresso in Euro. Superato il limite, l'AI è disabilitata per tutti i guest.">
+                <AdminSectionCard
+                    className="animate-in slide-in-from-bottom-2 duration-500"
+                    title="Budget Giornaliero Anonimi"
+                    icon={Globe}
+                    subtitle="Budget massimo aggregato piattaforma espresso in Euro. Superato il limite, l'AI è disabilitata per tutti i guest."
+                >
                     <div className="space-y-4">
-                       {['anon_flash_budget_eur', 'anon_pro_budget_eur', 'anon_guest_budget_ratio'].map(key => {
-                           const val = data?.globalSettings.find(s => s.key === key)?.value || '0.0';
+                       {(['anon_flash_budget_eur', 'anon_pro_budget_eur', 'anon_guest_budget_ratio'] as const).map(key => {
                            const isRatio = key === 'anon_guest_budget_ratio';
 
                            return (
@@ -193,15 +246,15 @@ export const AiLimitsControlCenter = () => {
                                            <input 
                                                 type="number" 
                                                 step={isRatio ? "0.01" : "1.0"}
-                                                defaultValue={isRatio ? (parseFloat(val) * 100).toFixed(0) : val} 
-                                                id={key}
+                                                value={budgetDrafts[key] ?? ''}
+                                                onChange={(e) => setBudgetDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                 className="bg-transparent text-xl font-mono font-bold text-white focus:outline-none w-24"
                                            />
                                        </div>
                                    </div>
                                    <button 
                                         onClick={() => {
-                                            const rawVal = (document.getElementById(key) as HTMLInputElement).value;
+                                            const rawVal = budgetDrafts[key] ?? '0';
                                             const finalVal = isRatio ? (parseFloat(rawVal) / 100).toString() : rawVal;
                                             handleSaveBudget(key, finalVal);
                                         }}
@@ -214,26 +267,25 @@ export const AiLimitsControlCenter = () => {
                            );
                        })}
                     </div>
-                </SectionCard>
-
+                </AdminSectionCard>
             </div>
 
             {/* 3, 4, 5. PLAN LIMITS TABLES */}
-            <div className="bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden shadow-2xl">
-                <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
-                    <LayoutGrid className="w-5 h-5 text-indigo-500" />
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Configurazione Piani Standard</h3>
-                </div>
-                <div className="overflow-x-auto">
+            <AdminSectionCard
+                className="overflow-hidden shadow-2xl"
+                title="Configurazione Piani Standard"
+                icon={LayoutGrid}
+            >
+                <div className="overflow-x-auto -mx-6">
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
                             <tr className="bg-slate-850">
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800">Piano & Durata</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800 text-center">3. Soft Daily Limit</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800 text-center">4. Flash Monthly</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800 text-center">4. Pro Monthly</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800 text-center">5. Burst Fallback</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800 text-right">Azioni</th>
+                                <th className={`p-4 border-b border-slate-800 ${styles.admin_table_head}`}>Piano & Durata</th>
+                                <th className={`p-4 border-b border-slate-800 text-center ${styles.admin_table_head}`}>3. Soft Daily Limit</th>
+                                <th className={`p-4 border-b border-slate-800 text-center ${styles.admin_table_head}`}>4. Flash Monthly</th>
+                                <th className={`p-4 border-b border-slate-800 text-center ${styles.admin_table_head}`}>4. Pro Monthly</th>
+                                <th className={`p-4 border-b border-slate-800 text-center ${styles.admin_table_head}`}>5. Burst Fallback</th>
+                                <th className={`p-4 border-b border-slate-800 text-right ${styles.admin_table_head}`}>Azioni</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
@@ -241,34 +293,48 @@ export const AiLimitsControlCenter = () => {
                                  const limits = ver.ai_limits || {};
                                  const models = limits.models || {};
                                  const plan = Array.isArray(ver.plans) ? ver.plans[0] : ver.plans;
+                                 const draft = planLimitDrafts[ver.id] ?? {
+                                     soft: String(limits.soft_daily_limit ?? 0),
+                                     flash: String(models.flash ?? 0),
+                                     pro: String(models.pro ?? 0),
+                                 };
                                  
                                  return (
                                      <tr key={ver.id} className="hover:bg-slate-800/40 transition-colors">
-                                         <td className="p-4">
+                                         <td className={`p-4 ${styles.admin_table_cell}`}>
                                              <div className="font-bold text-white">{plan?.name || 'Sconosciuto'}</div>
                                              <div className="text-[10px] text-slate-500 font-mono italic">{ver.duration_days} giorni - {ver.price}{ver.currency}</div>
                                          </td>
                                          <td className="p-4 text-center">
                                              <input 
                                                 type="number"
-                                                id={`soft_${ver.id}`}
-                                                defaultValue={limits.soft_daily_limit || 0}
+                                                value={draft.soft}
+                                                onChange={(e) => setPlanLimitDrafts(prev => ({
+                                                    ...prev,
+                                                    [ver.id]: { ...draft, soft: e.target.value },
+                                                }))}
                                                 className="w-16 bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-center text-xs font-bold text-amber-500 focus:border-amber-500 outline-none"
                                              />
                                          </td>
                                          <td className="p-4 text-center">
                                             <input 
                                                 type="number"
-                                                id={`flash_${ver.id}`}
-                                                defaultValue={models.flash || 0}
+                                                value={draft.flash}
+                                                onChange={(e) => setPlanLimitDrafts(prev => ({
+                                                    ...prev,
+                                                    [ver.id]: { ...draft, flash: e.target.value },
+                                                }))}
                                                 className="w-20 bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-center text-xs font-bold text-indigo-400 focus:border-indigo-500 outline-none"
                                              />
                                          </td>
                                          <td className="p-4 text-center">
                                             <input 
                                                 type="number"
-                                                id={`pro_${ver.id}`}
-                                                defaultValue={models.pro || 0}
+                                                value={draft.pro}
+                                                onChange={(e) => setPlanLimitDrafts(prev => ({
+                                                    ...prev,
+                                                    [ver.id]: { ...draft, pro: e.target.value },
+                                                }))}
                                                 className="w-16 bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-center text-xs font-bold text-rose-500 focus:border-rose-500 outline-none"
                                              />
                                          </td>
@@ -284,12 +350,8 @@ export const AiLimitsControlCenter = () => {
                                              <button 
                                                 disabled={isSaving?.startsWith(ver.id)}
                                                 onClick={() => {
-                                                    const soft = (document.getElementById(`soft_${ver.id}`) as HTMLInputElement).value;
-                                                    const flash = (document.getElementById(`flash_${ver.id}`) as HTMLInputElement).value;
-                                                    const pro = (document.getElementById(`pro_${ver.id}`) as HTMLInputElement).value;
-                                                    
-                                                    handleUpdatePlanLimit(ver.id, 'soft_daily_limit', soft);
-                                                    handleUpdatePlanLimit(ver.id, 'models', { flash, pro });
+                                                    handleUpdatePlanLimit(ver.id, 'soft_daily_limit', draft.soft);
+                                                    handleUpdatePlanLimit(ver.id, 'models', { flash: draft.flash, pro: draft.pro });
                                                 }}
                                                 className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-lg"
                                              >
@@ -302,10 +364,15 @@ export const AiLimitsControlCenter = () => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </AdminSectionCard>
 
             {/* 6. EXTRA QUOTA USER OVERRIDE */}
-            <SectionCard title="6. Extra Quota Override" icon={Users} subtitle="Assegna un bonus temporaneo di richieste AI a un utente specifico. Ha la precedenza assoluta sul piano base.">
+            <AdminSectionCard
+                className="animate-in slide-in-from-bottom-2 duration-500"
+                title="6. Extra Quota Override"
+                icon={Users}
+                subtitle="Assegna un bonus temporaneo di richieste AI a un utente specifico. Ha la precedenza assoluta sul piano base."
+            >
                 <div className="flex flex-col md:flex-row gap-6">
                     {/* Search & List Section */}
                     <div className="w-full md:w-1/3 bg-slate-950/50 p-6 rounded-3xl border border-slate-800 space-y-4">
@@ -322,7 +389,7 @@ export const AiLimitsControlCenter = () => {
                             </div>
                             <select 
                                 value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as any)}
+                                onChange={(e) => setSortBy(e.target.value as AdminUserSortBy)}
                                 className="bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-[10px] font-bold text-slate-400 outline-none"
                             >
                                 <option value="registrationDate">Recenti</option>
@@ -421,28 +488,8 @@ export const AiLimitsControlCenter = () => {
                         </div>
                     )}
                 </div>
-            </SectionCard>
+            </AdminSectionCard>
 
-        </div>
-    );
-};
-
-// Helper Sub-component
-const SectionCard = ({ title, subtitle, icon: Icon, children }: { title: string, subtitle?: string, icon: any, children: React.ReactNode }) => {
-    return (
-        <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl flex flex-col h-full animate-in slide-in-from-bottom-2 duration-500">
-            <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 bg-slate-800 rounded-2xl text-indigo-400 border border-slate-700">
-                    <Icon className="w-6 h-6" />
-                </div>
-                <div>
-                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">{title}</h3>
-                    {subtitle && <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">{subtitle}</p>}
-                </div>
-            </div>
-            <div className="flex-1">
-                {children}
-            </div>
         </div>
     );
 };

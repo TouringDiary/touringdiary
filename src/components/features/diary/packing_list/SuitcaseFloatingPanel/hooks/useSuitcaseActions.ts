@@ -1,17 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
-import { addSuitcaseItemsBulkAsync } from '@/services/suitcaseService';
+import { persistSuitcaseItemsFromRuntimeAsync } from '@/services/suitcase/suitcaseItemsService';
 import { saveGuestSuitcase } from '@/utils/guestSuitcaseHelper';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 
 interface ActionsProps {
   currentUser: User | null;
   itineraryId: string | null;
-  onClose: () => void;
+  requestClose: () => void;
   activeTabId: string | null;
   setActiveTabId: (id: string | null) => void;
   setViewMode: (v: 'selector' | 'editor') => void;
-  setIsClosing: (v: boolean) => void;
   fetchLinkedIds: () => Promise<void>;
   fetchUserSuitcases: () => void;
   createSuitcase: (itId: string | null, userId: string, title: string) => Promise<Suitcase | null>;
@@ -49,11 +48,10 @@ interface ActionsProps {
 export const useSuitcaseActions = ({
   currentUser,
   itineraryId,
-  onClose,
+  requestClose,
   activeTabId,
   setActiveTabId,
   setViewMode,
-  setIsClosing,
   fetchLinkedIds,
   fetchUserSuitcases,
   createSuitcase,
@@ -87,11 +85,6 @@ export const useSuitcaseActions = ({
   setShowAssociationModal
 }: ActionsProps) => {
 
-  const handleClose = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(onClose, 500);
-  }, [onClose, setIsClosing]);
-
   const handleDiscardSuitcase = async () => {
     if (isNewSuitcaseSession && activeTabId) {
       await deleteSuitcase(activeTabId);
@@ -111,21 +104,20 @@ export const useSuitcaseActions = ({
 
       if (newSuitcase) {
         const userId = currentUser.id;
-        const rows: SuitcaseItem[] = mergedSuggestedItems.map((item, i) => ({
-          id: userId === 'guest' ? `guest-item-${Date.now()}-${i}-${Math.random()}` : undefined,
-          suitcase_id: newSuitcase.id,
-          name: item.name,
-          category: item.category,
-          is_checked: false,
-          is_ai_suggestion: false,
-          quantity: 1
-        }));
 
         if (userId === 'guest') {
-          // Per guest, aggiorniamo il localStorage invece di Supabase
-          saveGuestSuitcase({ ...newSuitcase, suitcase_items: rows });
+          const guestRows: SuitcaseItem[] = mergedSuggestedItems.map((item, i) => ({
+            id: `guest-item-${Date.now()}-${i}-${Math.random()}`,
+            suitcase_id: newSuitcase.id,
+            name: item.name,
+            category: item.category,
+            is_checked: false,
+            is_ai_suggestion: false,
+            quantity: 1
+          }));
+          saveGuestSuitcase({ ...newSuitcase, suitcase_items: guestRows });
         } else {
-          await addSuitcaseItemsBulkAsync(rows);
+          await persistSuitcaseItemsFromRuntimeAsync(newSuitcase.id, mergedSuggestedItems);
         }
 
         await fetchUserSuitcases();
@@ -274,7 +266,7 @@ export const useSuitcaseActions = ({
   };
 
   return {
-    handleClose,
+    handleClose: requestClose,
     handleDiscardSuitcase,
     handleUseSuggestedTemplates,
     handleUseTemplate,

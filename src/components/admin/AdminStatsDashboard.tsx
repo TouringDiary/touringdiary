@@ -6,6 +6,7 @@ import { getFullManifestAsync } from '../../services/cityService';
 import { formatCurrency } from '../../utils/common';
 import { SponsorRequest } from '../../types/index';
 import { PLAN_TYPES } from '../../constants/planTypes';
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 export const AdminStatsDashboard = () => {
     const [activeTab, setActiveTab] = useState<'overview' | 'matrix' | 'guides' | 'financial' | 'migration'>('overview');
@@ -110,17 +111,13 @@ export const AdminStatsDashboard = () => {
     return (
         <div className="flex flex-col h-full space-y-6">
             
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-blue-600 rounded-xl shadow-lg">
-                        <LayoutDashboard className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-3xl font-bold text-white font-display">Dashboard</h2>
-                        <p className="text-slate-400 text-sm">Panoramica finanziaria e territoriale</p>
-                    </div>
-                </div>
-            </div>
+            <AdminPageHeader
+                icon={LayoutDashboard}
+                title="Dashboard"
+                subtitle="Panoramica finanziaria e territoriale"
+                accent="blue"
+                className="!mb-6"
+            />
 
             <div className="flex justify-between items-center bg-slate-900 p-1.5 rounded-xl border border-slate-800 shrink-0">
                 <div className="flex gap-1">

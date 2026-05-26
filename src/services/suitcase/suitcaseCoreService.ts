@@ -282,15 +282,13 @@ export const createSuitcaseAsync = async (
  */
 export const cloneSuitcaseAsync = async (
   suitcaseId: string,
-  itineraryId: string | null,
   userId: string,
   title?: string
 ): Promise<string> => {
   const { data, error } = await supabase.rpc('clone_suitcase', {
     p_template_id: suitcaseId,
-    p_itinerary_id: itineraryId || null,
     p_user_id: userId,
-    p_title: title || null
+    p_title: title ?? null,
   });
 
   if (error) throw error;

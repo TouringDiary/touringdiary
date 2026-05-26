@@ -3,15 +3,16 @@ import { Loader2, Search, Plus, Edit3, Trash2, Database as DatabaseIcon, Shoppin
 import { usePartnerIntegrations } from '@/hooks/usePartnerIntegrations';
 import {
   fetchGlobalTriggersAsync,
-  upsertAffiliateProductLinksBulkAsync,
+  upsertAffiliateProductLinksBulkFromDtosAsync,
   fetchAllAffiliateProductsAsync,
   fetchAllAffiliateProductLinksAsync,
-  upsertAffiliateProductAsync
+  upsertAffiliateProductFromDtoAsync,
+  UpsertAffiliateProductDto,
+  UpsertAffiliateLinkBulkItemDto
 } from '@/services/suitcase/suitcaseAffiliateService';
 import { AffiliateProductLink } from '@/types/partners';
 import { AdminImageInput } from '@/components/admin/AdminImageInput';
-import { SuggestionProduct, DbAffiliateTrigger } from '@/types/suitcase';
-import { Insert } from '@/types/domain/index';
+import { CanonicalAffiliateTriggerRelation, SuggestionProduct } from '@/types/suitcase';
 
 type EditableSuggestionProduct = {
   id?: string;
@@ -23,13 +24,23 @@ type EditableSuggestionProduct = {
   is_active: boolean;
 };
 
+type PartnerLinkDraft = {
+  id?: string;
+  partnerId: string;
+  searchQuery: string;
+  urlOverride?: string | null;
+  imageOverride?: string | null;
+  trackingOverride?: string | null;
+  priority?: number | null;
+};
+
 export const GlobalSuggestionsTab: React.FC = () => {
   const [products, setProducts] = useState<SuggestionProduct[]>([]);
-  const [triggers, setTriggers] = useState<DbAffiliateTrigger[]>([]);
+  const [triggers, setTriggers] = useState<CanonicalAffiliateTriggerRelation[]>([]);
   const [productLinks, setProductLinks] = useState<AffiliateProductLink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<EditableSuggestionProduct | null>(null);
-  const [activePartnerLinks, setActivePartnerLinks] = useState<Partial<AffiliateProductLink>[]>([]);
+  const [activePartnerLinks, setActivePartnerLinks] = useState<PartnerLinkDraft[]>([]);
   const [search, setSearch] = useState('');
   const { integrations } = usePartnerIntegrations();
 
@@ -47,17 +58,7 @@ export const GlobalSuggestionsTab: React.FC = () => {
         fetchAllAffiliateProductLinksAsync()
       ]);
 
-      const mappedProducts: SuggestionProduct[] = productsData.map(p => ({
-        id: p.id,
-        name: p.name,
-        image_url: p.image_url,
-        preferred_partners: p.preferred_partners || [],
-        target_categories: p.target_categories || [],
-        target_tags: p.target_tags || [],
-        is_active: p.is_active ?? true
-      }));
-
-      setProducts(mappedProducts);
+      setProducts(productsData);
       setTriggers(triggersData);
       setProductLinks(linksData);
     } catch (e) {
@@ -71,8 +72,18 @@ export const GlobalSuggestionsTab: React.FC = () => {
 
   useEffect(() => {
     if (editingProduct?.id) {
-      const existingLinks = productLinks.filter(l => l.product_id === editingProduct.id);
-      setActivePartnerLinks(existingLinks);
+      const drafts: PartnerLinkDraft[] = productLinks
+        .filter(l => l.product_id === editingProduct.id)
+        .map(l => ({
+          id: l.id,
+          partnerId: l.partner_id,
+          searchQuery: l.query,
+          urlOverride: l.url_override ?? null,
+          imageOverride: l.image_override ?? null,
+          trackingOverride: l.tracking_override ?? null,
+          priority: l.priority ?? null
+        }));
+      setActivePartnerLinks(drafts);
     } else if (editingProduct) {
       setActivePartnerLinks([]);
     }
@@ -81,39 +92,34 @@ export const GlobalSuggestionsTab: React.FC = () => {
   const handleSaveProduct = async () => {
     if (!editingProduct) return;
     try {
-      const productPayload: Insert<'affiliate_products'> = {
+      const productDto: UpsertAffiliateProductDto = {
         id: editingProduct.id,
-        name: editingProduct.name || '',
-        image_url: editingProduct.image_url || null,
-        preferred_partners: editingProduct.preferred_partners || [],
-        target_categories: editingProduct.target_categories || [],
-        target_tags: editingProduct.target_tags || [],
-        is_active: editingProduct.is_active ?? true,
-        provider: 'manual' // Required by DB schema
+        name: editingProduct.name,
+        imageUrl: editingProduct.image_url ?? null,
+        preferredPartners: editingProduct.preferred_partners,
+        targetCategories: editingProduct.target_categories,
+        targetTags: editingProduct.target_tags,
+        isActive: editingProduct.is_active
       };
 
-      const data = await upsertAffiliateProductAsync(productPayload);
+      const savedProduct = await upsertAffiliateProductFromDtoAsync(productDto);
 
       if (activePartnerLinks.length > 0) {
-        const linksToSave: Insert<'affiliate_product_links'>[] = [];
-        for (const l of activePartnerLinks) {
-          if (!l.partner_id || !data.id || !(l.query || editingProduct.name)) continue;
-          linksToSave.push({
-            id: l.id || crypto.randomUUID(),
-            product_id: data.id,
-            partner_id: l.partner_id,
-            query: l.query || editingProduct.name || '',
-            url_override: l.url_override,
-            image_override: l.image_override,
-            tracking_override: l.tracking_override,
-            priority: l.priority,
-            created_at: l.created_at || new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        }
+        const dtos: UpsertAffiliateLinkBulkItemDto[] = activePartnerLinks
+          .filter(l => l.partnerId && savedProduct.id && (l.searchQuery || editingProduct.name))
+          .map(l => ({
+            id: l.id,
+            productId: savedProduct.id,
+            partnerId: l.partnerId,
+            searchQuery: l.searchQuery || editingProduct.name || '',
+            urlOverride: l.urlOverride ?? null,
+            imageOverride: l.imageOverride ?? null,
+            trackingOverride: l.trackingOverride ?? null,
+            priority: l.priority ?? null
+          }));
 
-        if (linksToSave.length > 0) {
-          await upsertAffiliateProductLinksBulkAsync(linksToSave);
+        if (dtos.length > 0) {
+          await upsertAffiliateProductLinksBulkFromDtosAsync(dtos);
         }
       }
 
@@ -247,20 +253,20 @@ export const GlobalSuggestionsTab: React.FC = () => {
                 <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">Configurazioni Partner</h4>
                 <div className="space-y-4">
                   {activePartners.map(partner => {
-                    const link = activePartnerLinks.find(l => l.partner_id === partner.id);
+                    const link = activePartnerLinks.find(l => l.partnerId === partner.id);
                     const isConfigured = !!link;
                     return (
                       <div key={partner.id} className={`p-4 rounded-2xl border ${isConfigured ? 'bg-indigo-600/5 border-indigo-500/20' : 'bg-slate-950 border-white/5 opacity-60'}`}>
                         <div className="flex items-center gap-3 mb-4">
                           {partner.display_options?.logo_url ? <img src={partner.display_options.logo_url} alt="" className="h-4 w-auto object-contain" /> : <ShoppingBag className="w-4 h-4 text-slate-500" />}
                           <span className="text-xs font-bold text-white">{partner.label}</span>
-                          {!isConfigured && <button onClick={() => setActivePartnerLinks(prev => [...prev, { partner_id: partner.id, query: editingProduct.name }])} className="ml-auto text-[9px] font-black text-indigo-400">Attiva Link</button>}
+                          {!isConfigured && <button onClick={() => setActivePartnerLinks(prev => [...prev, { partnerId: partner.id, searchQuery: editingProduct.name }])} className="ml-auto text-[9px] font-black text-indigo-400">Attiva Link</button>}
                         </div>
                         {isConfigured && (
                           <div className="space-y-3">
-                            <input type="text" placeholder="Query" value={link.query || ''} onChange={e => setActivePartnerLinks(prev => prev.map(l => l.partner_id === partner.id ? { ...l, query: e.target.value } : l))} className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white" />
-                            <input type="text" placeholder="URL Override" value={link.url_override || ''} onChange={e => setActivePartnerLinks(prev => prev.map(l => l.partner_id === partner.id ? { ...l, url_override: e.target.value } : l))} className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-1.5 text-[10px] text-indigo-400 font-mono" />
-                            <button onClick={() => setActivePartnerLinks(prev => prev.filter(l => l.partner_id !== partner.id))} className="text-[9px] font-black uppercase text-red-500">Rimuovi</button>
+                            <input type="text" placeholder="Query" value={link.searchQuery || ''} onChange={e => setActivePartnerLinks(prev => prev.map(l => l.partnerId === partner.id ? { ...l, searchQuery: e.target.value } : l))} className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white" />
+                            <input type="text" placeholder="URL Override" value={link.urlOverride || ''} onChange={e => setActivePartnerLinks(prev => prev.map(l => l.partnerId === partner.id ? { ...l, urlOverride: e.target.value } : l))} className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-1.5 text-[10px] text-indigo-400 font-mono" />
+                            <button onClick={() => setActivePartnerLinks(prev => prev.filter(l => l.partnerId !== partner.id))} className="text-[9px] font-black uppercase text-red-500">Rimuovi</button>
                           </div>
                         )}
                       </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { CustomCalendar } from '@/components/common/CustomCalendar';
 import { Itinerary } from '@/types';
@@ -24,9 +24,15 @@ interface DiaryHeaderDateRangeProps {
 export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
     itinerary, displayStartDate, setDisplayStartDate, handleDateBlur, isStartCalendarOpen, setIsStartCalendarOpen, setIsEndCalendarOpen, minDateStr, handleLocalDateChange, setDateToClear, highlightDates, displayEndDate, setDisplayEndDate, isEndCalendarOpen, endMinDateStr
 }) => {
+    // Anchor refs for portaled calendar positioning.
+    // The calendar portals to document.body (escaping TravelDiary's overflow-hidden).
+    // Positioning is calculated from these refs via getBoundingClientRect().
+    const startAnchorRef = useRef<HTMLDivElement>(null);
+    const endAnchorRef = useRef<HTMLDivElement>(null);
+
     return (
         <div className="flex items-center gap-3">
-            <div className="relative flex-1">
+            <div className="flex-1" ref={startAnchorRef}>
                 <div className={`flex items-center bg-slate-800 rounded border h-9 overflow-hidden ${highlightDates ? 'border-red-500 ring-2 ring-red-500 animate-pulse' : 'border-slate-700'}`}>
                     <div className="h-full w-10 flex items-center justify-center border-r border-slate-600/50 bg-slate-900/30 shrink-0">
                          <span className="text-[10px] font-bold text-amber-500 uppercase leading-none">Dal</span>
@@ -63,18 +69,18 @@ export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
                         </div>
                     </div>
                 </div>
-                {isStartCalendarOpen && (
-                    <CustomCalendar
-                        value={itinerary.startDate}
-                        minDateStr={minDateStr}
-                        maxDateStr={itinerary.endDate || undefined}
-                        onChange={(val) => handleLocalDateChange('startDate', val)}
-                        onClose={() => setIsStartCalendarOpen(false)}
-                        onClearRequest={() => setDateToClear('startDate')}
-                    />
-                )}
+                <CustomCalendar
+                    isOpen={isStartCalendarOpen}
+                    value={itinerary.startDate}
+                    minDateStr={minDateStr}
+                    maxDateStr={itinerary.endDate || undefined}
+                    onChange={(val) => handleLocalDateChange('startDate', val)}
+                    onClose={() => setIsStartCalendarOpen(false)}
+                    onClearRequest={() => setDateToClear('startDate')}
+                    anchorRef={startAnchorRef}
+                />
             </div>
-            <div className="relative flex-1">
+            <div className="flex-1" ref={endAnchorRef}>
                 <div className={`flex items-center bg-slate-800 rounded border h-9 overflow-hidden ${highlightDates ? 'border-red-500 ring-2 ring-red-500 animate-pulse' : 'border-slate-700'}`}>
                     <div className="h-full w-10 flex items-center justify-center border-r border-slate-600/50 bg-slate-900/30 shrink-0">
                         <span className="text-[10px] font-bold text-amber-500 uppercase leading-none">Al</span>
@@ -111,16 +117,16 @@ export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
                         </div>
                     </div>
                 </div>
-                {isEndCalendarOpen && (
-                    <CustomCalendar
-                        value={itinerary.endDate}
-                        minDateStr={itinerary.startDate || undefined}
-                        align="right"
-                        onChange={(val) => handleLocalDateChange('endDate', val)}
-                        onClose={() => setIsEndCalendarOpen(false)}
-                        onClearRequest={() => setDateToClear('endDate')}
-                    />
-                )}
+                <CustomCalendar
+                    isOpen={isEndCalendarOpen}
+                    value={itinerary.endDate}
+                    minDateStr={itinerary.startDate || undefined}
+                    align="right"
+                    onChange={(val) => handleLocalDateChange('endDate', val)}
+                    onClose={() => setIsEndCalendarOpen(false)}
+                    onClearRequest={() => setDateToClear('endDate')}
+                    anchorRef={endAnchorRef}
+                />
             </div>
         </div>
     );

@@ -93,17 +93,7 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
         onSelectMaster(mastersData[0].id);
       }
 
-      const mappedProducts: SuggestionProduct[] = productsData.map(p => ({
-        id: p.id,
-        name: p.name,
-        image_url: p.image_url,
-        preferred_partners: p.preferred_partners || [],
-        target_categories: p.target_categories || [],
-        target_tags: p.target_tags || [],
-        is_active: p.is_active ?? true
-      }));
-
-      setProducts(mappedProducts);
+      setProducts(productsData);
       setProductLinks(linksData);
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
   }, [selectedMasterId, onSelectMaster]);
@@ -164,16 +154,7 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
       } else {
         if (result.action === 'create') {
           const updatedProds = await fetchAllAffiliateProductsAsync();
-          const mappedProducts: SuggestionProduct[] = updatedProds.map(p => ({
-            id: p.id,
-            name: p.name,
-            image_url: p.image_url,
-            preferred_partners: p.preferred_partners || [],
-            target_categories: p.target_categories || [],
-            target_tags: p.target_tags || [],
-            is_active: p.is_active ?? true
-          }));
-          setProducts(mappedProducts);
+          setProducts(updatedProds);
         }
 
         setOverrides(prev => ({
