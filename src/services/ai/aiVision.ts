@@ -7,6 +7,8 @@ import { buildImageCaptionPrompt, buildTipIllustrationPrompt, buildImageSafetyPr
 import { dataURLtoFile } from '../../utils/common';
 import { uploadPublicMedia } from '../mediaService';
 
+import { extractInlineDataFromRaw } from './aiLegacyPayload';
+
 export const generateImageCaption = async (base64Image: string, context: string = ''): Promise<string> => {
     try {
         return await withRetry(async () => {
@@ -22,9 +24,6 @@ export const generateImageCaption = async (base64Image: string, context: string 
             }
 
             const base64Data = base64Image.includes('base64,') ? base64Image.split('base64,')[1] : base64Image;
-            
-            // USE GETTER
-            
 
             const response = await aiGateway.generateLegacy({
                 model: 'gemini-2.5-flash', 
@@ -34,9 +33,13 @@ export const generateImageCaption = async (base64Image: string, context: string 
                         { text: prompt }
                     ]
                 }
-            });
+            }, { feature: 'vision' });
 
-            return response.text?.trim() || "Foto Community";
+            const text =
+                typeof response.text === 'string'
+                    ? response.text
+                    : response.response?.text?.();
+            return text?.trim() || "Foto Community";
         });
     } catch (e) {
         console.warn("AI Caption Error (Handled):", e);
@@ -48,7 +51,6 @@ export const generateTipIllustration = async (text: string): Promise<string | nu
     try {
         return await withRetry(async () => {
             const prompt = buildTipIllustrationPrompt(text);
-            
 
             const response = await aiGateway.generateLegacy({
                 model: 'gemini-2.5-flash-image',
@@ -58,16 +60,9 @@ export const generateTipIllustration = async (text: string): Promise<string | nu
                          aspectRatio: "1:1"
                     }
                 }
-            });
+            }, { feature: 'vision' });
 
-            if (response.candidates && response.candidates[0].content.parts) {
-                for (const part of response.candidates[0].content.parts) {
-                    if (part.inlineData && part.inlineData.data) {
-                        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                    }
-                }
-            }
-            return null;
+            return extractInlineDataFromRaw(response.raw) ?? null;
         });
     } catch (e) {
         console.error("AI Generation Error:", e);
@@ -89,10 +84,7 @@ export const generateHistoricalPortrait = async (personName: string, role: strin
         dbPrompt = `Genera un ritratto artistico di ${personName} a ${cityName}. Vista di spalle.`;
     }
 
-    // Qui non usiamo withRetry globale per gestire il loop modelli custom, ma chiamiamo getAiClient
     try {
-         // Throws if invalid
-        
         for (const model of MODELS_TO_TRY) {
             try {
                 const response = await aiGateway.generateLegacy({
@@ -103,24 +95,15 @@ export const generateHistoricalPortrait = async (personName: string, role: strin
                             aspectRatio: "3:4",
                         }
                     }
-                });
+                }, { feature: 'vision' });
 
-                let base64Data = '';
-                if (response.candidates && response.candidates.length > 0 && response.candidates[0].content && response.candidates[0].content.parts) {
-                    for (const part of response.candidates[0].content.parts) {
-                        if (part.inlineData && part.inlineData.data) {
-                            base64Data = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                            break;
-                        }
-                    }
-                }
-                
+                const base64Data = extractInlineDataFromRaw(response.raw);
                 if (base64Data) {
                     const file = dataURLtoFile(base64Data, `portrait_${personName.replace(/\s/g, '_')}_${Date.now()}.png`);
                     const publicUrl = await uploadPublicMedia(file, 'people_portraits');
                     if (publicUrl) return publicUrl;
                 }
-            } catch (e: any) {
+            } catch (e: unknown) {
                 console.warn(`[AI Vision] Fallito con ${model}.`, e);
             }
         }
@@ -136,8 +119,6 @@ export const analyzeImageSafety = async (base64Image: string): Promise<{ isSafe:
         return await withRetry(async () => {
             const prompt = buildImageSafetyPrompt();
             const base64Data = base64Image.includes('base64,') ? base64Image.split('base64,')[1] : base64Image;
-            
-            
 
             const response = await aiGateway.generateLegacy({
                 model: 'gemini-2.5-flash',
@@ -148,10 +129,13 @@ export const analyzeImageSafety = async (base64Image: string): Promise<{ isSafe:
                     ]
                 },
                 config: { responseMimeType: 'application/json' }
-            });
+            }, { feature: 'vision' });
 
-            const text = response.text?.trim() || "{}";
-            const json = JSON.parse(cleanJsonOutput(text));
+            const text =
+                typeof response.text === 'string'
+                    ? response.text
+                    : response.response?.text?.() ?? "{}";
+            const json = JSON.parse(cleanJsonOutput(text.trim() || "{}"));
             
             return { 
                 isSafe: json.isSafe === true, 

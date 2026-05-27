@@ -22,8 +22,10 @@ export const getCurrentModelCosts = async () => {
     return data;
 };
 
-// Helper per il logging universale dei consumi (Single Source of Truth)
-// Migrato a RPC atomica increment_global_usage per coerenza v16
+/**
+ * @deprecated Edge-only consume (gemini-chat / gemini-task). Do not call from client — risk of double consume.
+ * RPC increment_global_usage is revoked for anon/authenticated clients.
+ */
 export const logUniversalUsage = async (userId: string | null, guestId: string | null, modelType: AIModelType) => {
     try {
         const { error } = await supabase.rpc('increment_global_usage', {
@@ -63,8 +65,7 @@ export const getGuestId = (): string => {
     return id;
 };
 /**
- * Nuova funzione centralizzata per il consumo crediti AI.
- * Invia la richiesta al database (RPC consume_ai_credits).
+ * @deprecated Edge-only consume via gemini-* functions. Client RPC would bypass single-shot runtime.
  */
 export const incrementAiUsage = async (userId: string | null, modelType: AIModelType, feature: string = 'generic'): Promise<AIUsageResult> => {
     try {
@@ -103,7 +104,7 @@ export const incrementAiUsage = async (userId: string | null, modelType: AIModel
 };
 
 /**
- * Registra il consumo effettivo di token per analytics.
+ * @deprecated Token logging runs inside edge functions after provider success.
  */
 export const logAiTokenUsage = async (
     userId: string | null,

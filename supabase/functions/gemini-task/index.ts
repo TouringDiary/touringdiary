@@ -4,17 +4,50 @@ import { GoogleGenAI } from "npm:@google/genai";
 import {
   generateContentWithRetry,
   resolveGuestIdForRpc,
+  logAiRuntime,
 } from "../_shared/geminiRuntime.ts";
+import {
+  assertGeminiApiKey,
+  consumeCreditsOrThrow,
+  CORS_HEADERS,
+  handleEdgeCatch,
+} from "../_shared/geminiGovernance.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const FN = 'gemini-task';
+
+type RuntimeGenerationConfig = {
+  model: string;
+  contents: unknown;
+  systemInstruction?: unknown;
+  generationConfig?: Record<string, unknown>;
+  tools?: unknown;
+  imageConfig?: unknown;
+};
+
+type RuntimeGenerateResult = {
+  text?: string;
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
+  candidates?: unknown[];
+};
+
+type EdgeSuccessPayload = {
+  reply: string;
+  candidates?: unknown[];
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+
+  let feature = 'task';
+  let userId: string | null = null;
 
   try {
+    const apiKey = assertGeminiApiKey();
+
     const authHeader = req.headers.get('Authorization') || '';
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') || '',
@@ -23,7 +56,7 @@ serve(async (req) => {
     );
 
     const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id || null;
+    userId = user?.id || null;
 
     const clientIps = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown-ip';
     const clientIp = clientIps.split(',')[0].trim();
@@ -35,7 +68,19 @@ serve(async (req) => {
       throw new Error("Formato JSON della richiesta non valido o payload vuoto.");
     }
 
-    const { prompt, modelId = 'gemini-2.0-flash', systemInstruction, isJson, files, guestId: bodyGuestId } = body;
+    const {
+      prompt,
+      modelId = 'gemini-2.0-flash',
+      systemInstruction,
+      isJson,
+      files,
+      guestId: bodyGuestId,
+      generationConfig: bodyGenerationConfig,
+      tools,
+      imageConfig,
+      responseSchema,
+    } = body;
+    feature = body.feature || 'task';
 
     const trimmedPrompt = prompt?.trim() || '';
     if (trimmedPrompt.length < 2 || trimmedPrompt.length > 25000) {
@@ -44,29 +89,21 @@ serve(async (req) => {
 
     const guestIdForRpc = await resolveGuestIdForRpc(userId, bodyGuestId, clientIp);
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc('consume_ai_credits', {
-      p_user_id: userId,
-      p_model_type: modelId.includes('flash') ? 'flash' : 'pro',
-      p_feature: body.feature || 'task',
-      p_guest_id: guestIdForRpc,
-    });
-
-    if (rpcError) {
-      console.error("RPC consume_ai_credits error:", rpcError);
-      throw new Error('Fallimento controllo crediti server.');
-    }
-    if (!rpcData?.allowed) {
-      throw new Error(rpcData?.reason === 'EMERGENCY_STOP' ? 'EMERGENCY_STOP' : 'RATE_LIMIT_EXCEEDED');
-    }
+    const rpcData = await consumeCreditsOrThrow(
+      supabase,
+      {
+        p_user_id: userId,
+        p_model_type: modelId.includes('flash') ? 'flash' : 'pro',
+        p_feature: feature,
+        p_guest_id: guestIdForRpc,
+      },
+      { fn: FN, feature, userId },
+    );
 
     const pricingVersionId = rpcData.pricing_version_id;
-
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!apiKey) throw new Error('Configurazione API KEY mancante.');
-
     const ai = new GoogleGenAI({ apiKey });
 
-    const configDataGen: Record<string, unknown> = {
+    const configDataGen: RuntimeGenerationConfig = {
       model: modelId,
       contents: [{ parts: [{ text: trimmedPrompt }] }]
     };
@@ -75,8 +112,25 @@ serve(async (req) => {
       configDataGen.systemInstruction = { parts: [{ text: systemInstruction }] };
     }
 
+    const mergedGenerationConfig: Record<string, unknown> = {
+      ...(bodyGenerationConfig && typeof bodyGenerationConfig === 'object' ? bodyGenerationConfig : {}),
+    };
     if (isJson) {
-      configDataGen.generationConfig = { responseMimeType: "application/json" };
+      mergedGenerationConfig.responseMimeType = 'application/json';
+    }
+    if (responseSchema) {
+      mergedGenerationConfig.responseSchema = responseSchema;
+    }
+    if (Object.keys(mergedGenerationConfig).length > 0) {
+      configDataGen.generationConfig = mergedGenerationConfig;
+    }
+
+    if (tools) {
+      configDataGen.tools = tools;
+    }
+
+    if (imageConfig) {
+      configDataGen.imageConfig = imageConfig;
     }
 
     if (files && Array.isArray(files) && files.length > 0) {
@@ -88,14 +142,40 @@ serve(async (req) => {
       ];
     }
 
-    const result = await generateContentWithRetry(ai, configDataGen);
+    let result: RuntimeGenerateResult;
+    try {
+      result = await generateContentWithRetry(ai, configDataGen) as RuntimeGenerateResult;
+    } catch (providerErr: unknown) {
+      logAiRuntime({
+        function: FN,
+        feature,
+        phase: 'provider_fail',
+        userId,
+        guest: !userId,
+        errorCategory: 'gemini',
+        message: String((providerErr as Error)?.message ?? providerErr),
+      });
+      throw providerErr;
+    }
+
     const replyText = result?.text || '';
+    if (!replyText.trim()) {
+      logAiRuntime({
+        function: FN,
+        feature,
+        phase: 'malformed_response',
+        userId,
+        guest: !userId,
+        errorCategory: 'empty_reply',
+      });
+      throw new Error('Risposta AI vuota dal provider.');
+    }
 
     if (result?.usageMetadata) {
       try {
         await supabase.rpc('log_ai_usage_tokens', {
           p_user_id: userId,
-          p_feature_name: body.feature || 'task',
+          p_feature_name: feature,
           p_model_name: modelId,
           p_prompt_tokens: result.usageMetadata.promptTokenCount || 0,
           p_completion_tokens: result.usageMetadata.candidatesTokenCount || 0,
@@ -104,27 +184,31 @@ serve(async (req) => {
           p_pricing_version_id: pricingVersionId
         });
       } catch (logErr) {
-        console.error("Failed to log AI tokens:", logErr);
+        logAiRuntime({
+          function: FN,
+          feature,
+          phase: 'logging_fail',
+          userId,
+          guest: !userId,
+          errorCategory: 'log_ai_usage_tokens',
+          message: String((logErr as Error)?.message ?? logErr),
+        });
       }
     }
 
-    return new Response(JSON.stringify({ reply: replyText }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    logAiRuntime({ function: FN, feature, phase: 'success', userId, guest: !userId });
+
+    const edgePayload: EdgeSuccessPayload = { reply: replyText };
+    if (Array.isArray(result.candidates)) {
+      edgePayload.candidates = result.candidates;
+    }
+
+    return new Response(JSON.stringify(edgePayload), {
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       status: 200
     });
 
-  } catch (error: any) {
-    const isEmergencyStop = error.message === 'EMERGENCY_STOP';
-    const isRateLimit = error.message === 'RATE_LIMIT_EXCEEDED';
-    const uiFallback = isEmergencyStop
-      ? '{"error": "Servizi AI sospesi per emergenza.", "code":"EMERGENCY_STOP"}'
-      : isRateLimit
-      ? '{"error": "Limite crediti esaurito per questo mese.", "code":"429"}'
-      : '{"error": "Errore interno AI.", "message":"' + error.message.replace(/"/g, '\\"') + '"}';
-
-    return new Response(JSON.stringify({ error: error.message, reply: uiFallback }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
+  } catch (error: unknown) {
+    return handleEdgeCatch(error, CORS_HEADERS);
   }
 });

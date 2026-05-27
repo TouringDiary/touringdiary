@@ -3,9 +3,12 @@ import { useParams } from 'react-router-dom';
 import { generateItineraryPlan } from '../services/ai';
 import { getFullManifestAsync, getPoisByCityIds } from '../services/cityService';
 import { calculateDistance } from '../services/geo';
-import { PointOfInterest, CitySummary } from '../types/index';
+import { POI_CATEGORY_VALUES } from '../constants/governance';
+import { PointOfInterest, CitySummary, ItineraryItem, PoiCategory } from '../types/index';
 import { useItinerary } from '@/context/ItineraryContext';
 import { useAiPlanner } from '@/context/AiPlannerContext';
+import { aiErrorModalTitle, aiErrorUserMessage, isAiEdgeError } from '../services/ai/aiEdgeErrors';
+import { getAiRuntimeStatus } from '../services/ai/aiRuntimeStatus';
 
 interface UseAiGenerationProps {
     onClose: () => void;
@@ -87,8 +90,19 @@ export const useAiGeneration = ({ onClose }: UseAiGenerationProps) => {
     }, []);
 
     const generatePlan = async () => {
+        if (loading) return;
+
         if (!aiSession.destination || !aiSession.startDate || !aiSession.endDate) {
             setShowValidationAlert(true);
+            return;
+        }
+
+        const runtimeStatus = getAiRuntimeStatus();
+        if (!runtimeStatus.available) {
+            setErrorModal({
+                title: runtimeStatus.reason === 'EMERGENCY_STOP' ? 'Servizi AI sospesi' : 'Manutenzione AI',
+                message: runtimeStatus.message || 'I servizi AI non sono disponibili al momento.',
+            });
             return;
         }
 
@@ -254,8 +268,23 @@ export const useAiGeneration = ({ onClose }: UseAiGenerationProps) => {
             }
 
             console.error("AI Gen Error:", e);
-            const friendlyMessage = e.message || "Errore tecnico del server AI.";
-            setErrorModal({ title: "Errore Generazione", message: friendlyMessage });
+
+            if (isAiEdgeError(e)) {
+                if (e.code === 'RATE_LIMIT') {
+                    setShowQuotaAlert(true);
+                    return;
+                }
+                setErrorModal({
+                    title: aiErrorModalTitle(e),
+                    message: e.message,
+                });
+                return;
+            }
+
+            setErrorModal({
+                title: "Errore Generazione",
+                message: aiErrorUserMessage(e, "Errore tecnico del server AI."),
+            });
         } finally {
             // Solo se non abortito (per evitare race condition su state update di un componente smontato)
             if (!signal.aborted) {
@@ -268,16 +297,20 @@ export const useAiGeneration = ({ onClose }: UseAiGenerationProps) => {
         if (!aiSession.generatedPlan) return;
         clearItinerary();
         
-        const newItems: any[] = aiSession.generatedPlan.map((item, index) => {
+        const newItems: ItineraryItem[] = aiSession.generatedPlan.map((item, index) => {
             const realPoi = candidatePoisCache.find(p => p.id === item.matchedPoiId);
             
             const isCustom = !realPoi || item.category === 'hotel';
             const cleanName = item.activityName.replace(/^(Partenza da|Rientro a|Partenza|Rientro)[:\s]*/i, "").trim();
 
-            const poiData = {
+            const aiCategory: PoiCategory = (POI_CATEGORY_VALUES as readonly string[]).includes(item.category)
+                ? (item.category as PoiCategory)
+                : 'discovery';
+
+            const poiData: PointOfInterest = {
                 id: realPoi ? realPoi.id : (item.matchedPoiId || `ai-gen-${index}`),
                 name: realPoi ? realPoi.name : cleanName,
-                category: (item.category as any) || 'discovery',
+                category: realPoi ? realPoi.category : aiCategory,
                 description: isCustom ? cleanName : item.description,
                 imageUrl: realPoi ? realPoi.imageUrl : 'https://images.unsplash.com/photo-1526772662000-3f88f10405ff?q=80&w=400',
                 rating: realPoi ? realPoi.rating : 0, 

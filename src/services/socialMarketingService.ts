@@ -1,4 +1,5 @@
 import { aiGateway } from '@/services/ai/aiGateway';
+import { extractInlineDataFromRaw } from '@/services/ai/aiLegacyPayload';
 
 import { supabase } from './supabaseClient';
 import { SocialTemplate, SocialLayoutConfig } from '../types/index';
@@ -132,13 +133,8 @@ export const generateSocialBackground = async (prompt: string): Promise<string |
             }
         });
 
-        if (response.candidates && response.candidates[0].content.parts) {
-            for (const part of response.candidates[0].content.parts) {
-                if (part.inlineData && part.inlineData.data) {
-                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                }
-            }
-        }
+        const dataUrl = extractInlineDataFromRaw(response.raw);
+        if (dataUrl) return dataUrl;
         return null;
     });
 };

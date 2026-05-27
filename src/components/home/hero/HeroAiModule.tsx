@@ -6,6 +6,9 @@ import { getCachedSetting } from '../../../services/settingsService';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { generateCitySuggestion } from '../../../services/ai';
 
+import { AiRuntimeBanner } from '@/components/ai/AiRuntimeBanner';
+import type { AiRuntimeStatus } from '@/services/ai/aiRuntimeStatus';
+
 interface HeroAiModuleProps {
     // State
     isAiExpanded: boolean;
@@ -13,6 +16,7 @@ interface HeroAiModuleProps {
     aiResponse: string;
     typingText: string;
     aiQuery: string;
+    aiRuntimeStatus: AiRuntimeStatus;
 
     // Handlers
     setIsAiExpanded: (v: boolean) => void;
@@ -36,6 +40,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
     const bgImage = getCachedSetting<string>('ai_box');
 
     const aiTitleStyle = useDynamicStyles('ai_title', isMobile);
+    const aiBlocked = !props.aiRuntimeStatus.available;
 
     return (
         <div id="tour-ai-button" className={`col-span-12 lg:col-span-5 relative rounded-2xl border border-slate-800 bg-slate-900 p-4 flex flex-col shadow-2xl overflow-hidden transition-all duration-300 ${!props.isAiExpanded ? 'h-auto' : 'h-[30rem] lg:h-full'}`} data-focus-surface="dimmed-background">
@@ -54,7 +59,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
             )}
             
             <div 
-                className="flex items-center justify-between mb-2 shrink-0 h-8 cursor-pointer lg:cursor-default relative relative z-10"
+                className="flex items-center justify-between mb-2 shrink-0 h-8 cursor-pointer lg:cursor-default relative z-10"
                 onClick={() => props.setIsAiExpanded(!props.isAiExpanded)}
             >
                 <div className="flex items-center gap-3">
@@ -69,7 +74,10 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                 </div>
             </div>
 
-            <div className={`relative relative z-10 flex-1 flex flex-col min-h-0 justify-between mt-4 ${props.isAiExpanded ? 'flex' : 'hidden lg:flex'}`}>
+            <div className={`relative z-10 flex-1 flex flex-col min-h-0 justify-between mt-4 ${props.isAiExpanded ? 'flex' : 'hidden lg:flex'}`}>
+                {aiBlocked && (
+                    <AiRuntimeBanner status={props.aiRuntimeStatus} className="mb-3" />
+                )}
                 {props.isAiLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 bg-slate-950/50 rounded-xl border border-slate-800/50">
                         <Loader2 className="w-10 h-10 animate-spin text-purple-500"/>
@@ -96,8 +104,8 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                                 </span>
                             </div>
                             <div 
-                                onClick={() => { if (!props.isAiLoading) props.handleAiSubmit(props.typingText); }}
-                                className="bg-slate-950/60 border border-slate-800/60 hover:border-purple-500/50 rounded-xl p-4 flex-1 cursor-pointer group transition-all relative overflow-hidden shadow-inner backdrop-blur-sm"
+                                onClick={() => { if (!props.isAiLoading && !aiBlocked) props.handleAiSubmit(props.typingText); }}
+                                className={`bg-slate-950/60 border border-slate-800/60 rounded-xl p-4 flex-1 relative overflow-hidden shadow-inner backdrop-blur-sm ${aiBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:border-purple-500/50 cursor-pointer group transition-all'}`}
                             >
                                 <p className="text-slate-300 font-medium text-sm leading-relaxed font-mono h-full overflow-hidden">
                                     {props.typingText}
@@ -117,13 +125,14 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
                                         e.preventDefault();
-                                        if (!props.isAiLoading) props.handleAiSubmit();
+                                        if (!props.isAiLoading && !aiBlocked) props.handleAiSubmit();
                                     }
                                 }}
-                                placeholder="Scrivi qui la tua domanda..." 
+                                disabled={aiBlocked}
+                                placeholder={aiBlocked ? 'Consulente AI non disponibile' : 'Scrivi qui la tua domanda...'} 
                                 className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-4 pr-12 py-3 text-sm text-white focus:border-purple-500 focus:outline-none resize-none shadow-inner h-12 min-h-[3rem] overflow-hidden leading-tight placeholder:text-slate-600 transition-all backdrop-blur-sm"
                             />
-                            <button onClick={() => props.handleAiSubmit()} disabled={!props.aiQuery.trim() || props.isAiLoading} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-95">
+                            <button onClick={() => props.handleAiSubmit()} disabled={!props.aiQuery.trim() || props.isAiLoading || aiBlocked} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-95">
                                 <Send className="w-3.5 h-3.5"/>
                             </button>
                         </div>

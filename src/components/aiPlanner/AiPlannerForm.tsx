@@ -6,6 +6,8 @@ import { DailyLogistics } from '../../services/ai/aiPlanner';
 import { useModal } from '@/context/ModalContext';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService';
+import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
+import { AiRuntimeBanner } from '../ai/AiRuntimeBanner';
 
 interface Props {
     onGenerate: () => void;
@@ -139,7 +141,8 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
     const [isCustomDays, setIsCustomDays] = useState(false);
     const [showDailyLogistics, setShowDailyLogistics] = useState(false);
     const [selectedStyles, setSelectedStyles] = useState<string[]>(['balanced']);
-    const [quota, setQuota] = useState<{count: number, limit: number, canProceed: boolean} | null>(null);
+    const aiRuntimeStatus = getAiRuntimeStatus();
+    const aiBlocked = !aiRuntimeStatus.available;
     
     // FETCH STYLES FROM DB CACHE
     const travelStyles = getCachedSetting<any[]>(SETTINGS_KEYS.TRAVEL_STYLES_CONFIG) || FALLBACK_STYLES;
@@ -518,23 +521,21 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
             </section>
 
             {error && <div className="p-4 bg-red-900/30 border border-red-500/50 rounded-xl text-red-400 text-xs font-bold flex items-center gap-2 animate-in slide-in-from-top-2"><AlertTriangle className="w-4 h-4"/> {error}</div>}
+
+            {aiBlocked && <AiRuntimeBanner status={aiRuntimeStatus} />}
             
             <div className="flex flex-col items-center gap-3 pt-4">
                 <button 
                     onClick={handleGenerateClick} 
-                    disabled={isLoading || (quota && !quota.canProceed)} 
+                    disabled={isLoading || aiBlocked} 
                     className="w-full max-w-sm bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-display font-bold uppercase tracking-[0.15em] py-4 rounded-[1.5rem] shadow-2xl shadow-indigo-900/50 flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm border border-indigo-400/20"
                 >
                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5"/>} 
-                    {isLoading ? 'Analisi in corso...' : 'Genera Itinerario Magico'}
+                    {isLoading ? 'Analisi in corso...' : aiBlocked ? 'AI non disponibile' : 'Genera Itinerario Magico'}
                 </button>
-                
-                {quota && (
-                    <div className="text-center w-full max-w-sm mx-auto mt-2 space-y-3">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                            Crediti Giornalieri: <span className={quota.canProceed ? "text-emerald-500" : "text-red-500"}>{quota.count} / {quota.limit}</span>
-                        </p>
-                        
+
+                {!aiBlocked && (
+                    <div className="text-center w-full max-w-sm mx-auto mt-2">
                         <div className="text-center text-xs text-slate-400">
                              Desideri ottenere crediti extra gratuiti? <button 
                                 onClick={() => openModal('userDashboard', { tab: 'referral' })} 
@@ -544,7 +545,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
                             </button>
                         </div>
                         
-                        <div className="relative py-2">
+                        <div className="relative py-2 mt-2">
                              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
                              <div className="relative flex justify-center text-[9px] uppercase font-black text-slate-600 bg-[#020617] px-2 tracking-widest">Oppure</div>
                         </div>
@@ -558,12 +559,6 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
                                 <Crown className="w-4 h-4 fill-current"/> PASSA A PREMIUM
                             </button>
                          </div>
-
-                        {!quota.canProceed && (
-                             <button onClick={() => openModal('auth')} className="text-xs text-indigo-400 hover:text-indigo-300 font-bold underline mt-2 block">
-                                Accedi per + crediti
-                             </button>
-                        )}
                     </div>
                 )}
             </div>

@@ -4,6 +4,9 @@ import { Trash2, Bot, Send, Loader2, CheckCircle, Navigation, Landmark, Utensils
 import { useAiPlanner } from '@/context/AiPlannerContext';
 import { calculateDistance } from '../../services/geo';
 import { modifyItinerary } from '../../services/ai/aiPlanner';
+import { aiErrorUserMessage, isAiEdgeError } from '../../services/ai/aiEdgeErrors';
+import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
+import { AiRuntimeBanner } from '../ai/AiRuntimeBanner';
 import { getCityDetails, getFullManifestAsync } from '../../services/cityService';
 
 interface Props {
@@ -31,9 +34,12 @@ export const AiPlannerTimeline = ({ onApply, onReset, activeStyles }: Props) => 
     const [isModifying, setIsModifying] = useState(false);
     const [aiFeedback, setAiFeedback] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const aiRuntimeStatus = getAiRuntimeStatus();
+    const aiBlocked = !aiRuntimeStatus.available;
 
     const handleChatModify = async () => {
         if (!chatInput.trim() || !aiSession.generatedPlan) return;
+        if (isModifying || aiBlocked) return;
         setIsModifying(true);
         setAiFeedback(null);
         setError(null);
@@ -56,9 +62,13 @@ export const AiPlannerTimeline = ({ onApply, onReset, activeStyles }: Props) => 
             const { updatedPlan, chatReply } = await modifyItinerary(aiSession.generatedPlan, chatInput, aiSession.destination, availablePois);
             updateAiSession({ generatedPlan: updatedPlan });
             setAiFeedback(chatReply);
-        } catch (e: any) { 
-            setError(e.message || "Errore durante la modifica."); 
-        } finally { 
+        } catch (e: unknown) {
+            if (isAiEdgeError(e)) {
+                setError(e.message);
+            } else {
+                setError(aiErrorUserMessage(e, "Errore durante la modifica."));
+            }
+        } finally {
             setIsModifying(false); 
             setChatInput(''); 
         }
@@ -100,7 +110,8 @@ export const AiPlannerTimeline = ({ onApply, onReset, activeStyles }: Props) => 
             
             <div className="bg-[#0f172a] border-2 border-indigo-500/30 rounded-[2rem] p-6 shadow-2xl">
                 <div className="flex items-center gap-3 mb-4"><Bot className="w-5 h-5 text-indigo-400"/><span className="text-[10px] font-black uppercase text-indigo-300 tracking-[0.3em]">IA Conversazionale</span></div>
-                <div className="flex gap-3"><input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleChatModify()} placeholder="Chiedi modifiche (es: meno tappe il primo giorno)..." className="flex-1 bg-slate-950 border-2 border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:border-indigo-500 outline-none shadow-inner"/><button onClick={handleChatModify} disabled={isModifying || !chatInput.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 rounded-2xl disabled:opacity-50 shadow-lg active:scale-95 transition-all">{isModifying ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button></div>
+                {aiBlocked && <AiRuntimeBanner status={aiRuntimeStatus} className="mb-4" />}
+                <div className="flex gap-3"><input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleChatModify()} placeholder={aiBlocked ? 'Modifica AI non disponibile' : 'Chiedi modifiche (es: meno tappe il primo giorno)...'} disabled={aiBlocked} className="flex-1 bg-slate-950 border-2 border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:border-indigo-500 outline-none shadow-inner disabled:opacity-50"/><button onClick={handleChatModify} disabled={isModifying || !chatInput.trim() || aiBlocked} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 rounded-2xl disabled:opacity-50 shadow-lg active:scale-95 transition-all">{isModifying ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button></div>
                 {aiFeedback && <div className="mt-3 p-3 bg-indigo-900/20 border border-indigo-500/20 rounded-xl text-xs text-indigo-200">{aiFeedback}</div>}
                 {error && <div className="mt-3 p-3 bg-red-900/20 border border-red-500/20 rounded-xl text-xs text-red-200">{error}</div>}
             </div>

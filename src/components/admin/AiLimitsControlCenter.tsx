@@ -201,6 +201,15 @@ export const AiLimitsControlCenter = () => {
         finally { setIsSaving(null); }
     };
 
+    const handleToggleAiEnabled = async (currentlyEnabled: boolean) => {
+        setIsSaving('ai_enabled');
+        try {
+            await aiAdmin.toggleAiEnabled(!currentlyEnabled);
+            await refreshAll();
+        } catch (e) { console.error(e); }
+        finally { setIsSaving(null); }
+    };
+
     if (isInitialLoading) {
         return (
             <div className="flex flex-col items-center justify-center p-20 gap-4">
@@ -211,9 +220,28 @@ export const AiLimitsControlCenter = () => {
     }
 
     const emergencyStop = data?.globalSettings.find(s => s.key === 'ai_emergency_stop')?.value === 'true';
+    const aiEnabled = data?.globalSettings.find(s => s.key === 'ai_enabled')?.value !== 'false';
 
     const emergencyActions = (
-        <div className={`p-1 rounded-2xl border transition-all flex items-center gap-3 pr-4 shadow-lg ${emergencyStop ? 'bg-red-950/40 border-red-500/50' : 'bg-slate-900 border-slate-700'}`}>
+        <div className="flex flex-wrap items-center gap-3">
+            <div className={`p-1 rounded-2xl border transition-all flex items-center gap-3 pr-4 shadow-lg ${!aiEnabled ? 'bg-amber-950/40 border-amber-500/50' : 'bg-slate-900 border-slate-700'}`}>
+                <button
+                    onClick={() => handleToggleAiEnabled(aiEnabled)}
+                    disabled={isSaving === 'ai_enabled'}
+                    className={`p-3 rounded-xl transition-all ${!aiEnabled ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-500 hover:text-white'}`}
+                >
+                    {isSaving === 'ai_enabled' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Toggle className="w-6 h-6" />}
+                </button>
+                <div>
+                    <p className={`text-[10px] font-black uppercase tracking-tighter ${!aiEnabled ? 'text-amber-400' : 'text-slate-500'}`}>
+                        AI Runtime
+                    </p>
+                    <p className={`text-xs font-bold ${!aiEnabled ? 'text-white' : 'text-slate-300'}`}>
+                        {!aiEnabled ? 'MANUTENZIONE (AI OFF)' : 'AI ATTIVA'}
+                    </p>
+                </div>
+            </div>
+            <div className={`p-1 rounded-2xl border transition-all flex items-center gap-3 pr-4 shadow-lg ${emergencyStop ? 'bg-red-950/40 border-red-500/50' : 'bg-slate-900 border-slate-700'}`}>
             <button
                 onClick={() => handleToggleEmergency(emergencyStop)}
                 disabled={isSaving === 'emergency'}
@@ -229,6 +257,7 @@ export const AiLimitsControlCenter = () => {
                     {emergencyStop ? 'STOP DI EMERGENZA ATTIVO' : 'SISTEMA OPERATIVO'}
                 </p>
             </div>
+        </div>
         </div>
     );
 

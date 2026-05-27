@@ -1,3 +1,0 @@
-import{o as b,a9 as d,r as p}from"./index-CEyn7Etq.js";const E=()=>{const{getText:h}=b("social_share_global"),{openModal:u}=d(),[g,t]=p.useState(!1);return{share:async({title:o,text:s,params:f})=>{t(!0);try{const r=window.location.origin,e=new URL(r);Object.entries(f).forEach(([S,l])=>{l&&e.searchParams.set(S,l)}),e.searchParams.set("utm_source","share_button");const a=e.toString(),n=h({title:o,text:s,url:a}),i=n.title||`Scopri ${o}`,m=n.body||`${s}
-
-Guarda qui: ${a}`,c={title:i,text:m,url:a};navigator.share&&navigator.canShare(c)?await navigator.share(c):u("share",{title:i,text:s,url:a})}catch(r){r.name!=="AbortError"&&console.error("Errore condivisione:",r)}finally{t(!1)}},isSharing:g}};export{E as u};

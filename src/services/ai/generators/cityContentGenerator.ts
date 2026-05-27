@@ -15,6 +15,18 @@ import {
 import { RegionalAnalysisResult } from '../../../types/index';
 import { Type, Schema } from '../../../types/ai';
 
+type CityCoords = {
+    lat: number;
+    lng: number;
+};
+
+type CityHierarchy = {
+    continent: string;
+    nation: string;
+    adminRegion: string;
+    zone: string;
+};
+
 // DEFINIZIONE SCHEMA RIGOROSO PER ANALISI REGIONALE/ZONA
 const ZONE_ANALYSIS_SCHEMA: Schema = {
   type: Type.OBJECT,
@@ -46,7 +58,10 @@ const ZONE_ANALYSIS_SCHEMA: Schema = {
   required: ["region", "zones"]
 };
 
-export const generateSingleField = async (cityName: string, fieldType: 'website' | 'coords' | 'hierarchy' | 'subtitle'): Promise<string | any> => {
+export const generateSingleField = async (
+    cityName: string,
+    fieldType: 'website' | 'coords' | 'hierarchy' | 'subtitle'
+): Promise<string | CityCoords | CityHierarchy> => {
     return withRetry(async () => {
         let prompt = '';
         
@@ -78,8 +93,11 @@ export const generateSingleField = async (cityName: string, fieldType: 'website'
         });
 
         const text = response.text?.trim() || "";
-        if (fieldType === 'coords' || fieldType === 'hierarchy') {
-            return JSON.parse(cleanJsonOutput(text));
+        if (fieldType === 'coords') {
+            return JSON.parse(cleanJsonOutput(text)) as CityCoords;
+        }
+        if (fieldType === 'hierarchy') {
+            return JSON.parse(cleanJsonOutput(text)) as CityHierarchy;
         }
         
         if (fieldType === 'website') {
@@ -96,7 +114,7 @@ export const generateCitySection = async (
     section: 'general' | 'stats' | 'history' | 'ratings' | 'patron', 
     extraInstructions: string = '',
     existingZones: string[] = [] 
-): Promise<any> => {
+): Promise<Record<string, unknown>> => {
     return withRetry(async () => {
         let prompt = '';
         let baseContext = `Città Target: ${cityName}. ${extraInstructions}`;
@@ -137,7 +155,7 @@ export const generateCitySection = async (
         });
 
         const text = response.text?.trim() || "{}";
-        return JSON.parse(cleanJsonOutput(text));
+        return JSON.parse(cleanJsonOutput(text)) as Record<string, unknown>;
     });
 };
 
@@ -164,7 +182,7 @@ export const generateCitySuggestion = async (userQuery: string, availableCities:
                 temperature: 0.7,
                 maxOutputTokens: 200
             }
-        });
+        }, { feature: 'hero_chat' });
 
         return response.text?.trim() || "Non ho trovato una risposta precisa, ma ti consiglio di esplorare le nostre città in evidenza!";
     });
@@ -186,7 +204,7 @@ export const generateRegionalAnalysis = async (regionName: string, existingZones
         });
 
         const text = response.text?.trim() || "{}";
-        return JSON.parse(cleanJsonOutput(text));
+        return JSON.parse(cleanJsonOutput(text)) as RegionalAnalysisResult;
     });
 };
 
@@ -209,7 +227,7 @@ export const generateZoneAnalysis = async (zoneName: string, regionName: string,
         const text = response.text?.trim() || "{}";
         
         try {
-            const data = JSON.parse(cleanJsonOutput(text));
+            const data = JSON.parse(cleanJsonOutput(text)) as RegionalAnalysisResult;
             // Validazione base
             if (!data.zones || !Array.isArray(data.zones)) {
                 console.error("Invalid Zone Analysis Format", data);

@@ -1,6 +1,7 @@
 import { AiItineraryItem } from './types';
 import { generateStructuredResponse } from './aiUtils';
-import { RoadbookDay } from '../../types/models/Itinerary'; 
+import { AI_TIMEOUT_REPLAY_WARNING } from './aiEdgeErrors';
+import { ItineraryItem, RoadbookDay } from '../../types/models/Itinerary'; 
 import { getAiPrompt } from '../aiConfigService';
 import { Type, Schema } from '../../types/ai';
 import { buildPlannerItineraryPrompt, buildPlannerRoadbookPrompt, buildPlannerModifyPrompt } from '../../data/ai/prompts';
@@ -97,20 +98,17 @@ export const generateItineraryPlan = async (
         const result = await generateStructuredResponse<AiItineraryItem[]>(
             'gemini-2.0-pro',
             fullPrompt,
-            ITINERARY_SCHEMA
+            ITINERARY_SCHEMA,
+            'planner'
         );
 
-        // ✅ FIX: protezione parsing / struttura risposta
-        try {
-            if (!Array.isArray(result)) {
-                console.error("❌ AI returned non-array result:", result);
-                return [];
-            }
-            return result;
-        } catch (e) {
-            console.error("❌ AI parsing error (generateItineraryPlan):", result);
-            return [];
+        if (!Array.isArray(result)) {
+            throw new Error("L'AI non ha restituito un itinerario valido.");
         }
+        if (result.length === 0) {
+            throw new Error("L'AI non ha generato nessuna tappa valida.");
+        }
+        return result;
     };
 
     return new Promise<AiItineraryItem[]>((resolve, reject) => {
@@ -119,7 +117,7 @@ export const generateItineraryPlan = async (
         if (signal) signal.addEventListener('abort', abortHandler);
 
         const timeoutId = setTimeout(() => {
-            reject(new Error("L'AI sta impiegando troppo tempo (Timeout 180s). Riduci i giorni o riprova."));
+            reject(new Error(`Timeout: l'elaborazione sta impiegando più del previsto. ${AI_TIMEOUT_REPLAY_WARNING}`));
         }, 180000);
 
         generationTask()
@@ -133,8 +131,8 @@ export const generateItineraryPlan = async (
 };
 
 export const generateRoadbook = async (
-    itineraryItems: any[], 
-    cityName: string, 
+    itineraryItems: ItineraryItem[],
+    cityName: string,
     forcedModel?: 'flash' | 'pro'
 ): Promise<RoadbookDay[]> => {
     if (!itineraryItems || itineraryItems.length === 0) return [];
@@ -149,7 +147,7 @@ export const generateRoadbook = async (
     if (selectedModel === 'flash') selectedModel = 'gemini-2.0-flash';
     if (selectedModel === 'pro') selectedModel = 'gemini-2.0-pro';
 
-    const simplifiedSchedule = itineraryItems.map((item: any) => ({
+    const simplifiedSchedule = itineraryItems.map((item) => ({
         d: item.dayIndex,
         t: item.timeSlotStr,
         p: item.poi.name,
@@ -163,7 +161,8 @@ export const generateRoadbook = async (
     const data = await generateStructuredResponse<RoadbookDay[]>(
         selectedModel,
         fullPrompt,
-        ROADBOOK_SCHEMA
+        ROADBOOK_SCHEMA,
+        'roadbook'
     );
 
     return data.map((day: any) => ({
@@ -186,7 +185,9 @@ export const modifyItinerary = async (currentPlan: AiItineraryItem[], userReques
 
     return generateStructuredResponse<{ updatedPlan: AiItineraryItem[], chatReply: string }>(
         'gemini-2.0-pro',
-        prompt
+        prompt,
+        undefined,
+        'modify'
     ).then(result => ({
         updatedPlan: result.updatedPlan || currentPlan,
         chatReply: result.chatReply || "Modifica effettuata."

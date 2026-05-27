@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CitySummary } from '../../types/index';
 import { generateChatReply } from '../../services/ai/aiText';
+import { aiErrorUserMessage, isAiEdgeError } from '../../services/ai/aiEdgeErrors';
+import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
 import { getSetting, SETTINGS_KEYS } from '../../services/settingsService';
 import { getUniqueCityTypes, getActiveContinents, getActiveNations, getActiveRegions, getActiveTouristZones } from '../../services/geoRegistryService';
 
@@ -388,8 +390,16 @@ export const useHeroLogic = ({
     };
 
     // --- HANDLERS: AI ---
+    const aiRuntimeStatus = getAiRuntimeStatus();
+
     const handleAiSubmit = async (queryOverride?: string) => {
         if (isAiLoading) return;
+
+        if (!aiRuntimeStatus.available) {
+            setAiResponse(aiRuntimeStatus.message || 'I servizi AI non sono disponibili al momento.');
+            setIsAiExpanded(true);
+            return;
+        }
 
         let userInput = queryOverride || aiQuery;
         if (!userInput.trim()) return;
@@ -418,8 +428,12 @@ export const useHeroLogic = ({
         try {
             const aiResponseText = await generateChatReply(userInput);
             setAiResponse(aiResponseText);
-        } catch (err: any) {
-            setAiResponse('Spiacenti, il nostro consulente non è disponibile al momento. Riprova più tardi.');
+        } catch (err: unknown) {
+            if (isAiEdgeError(err)) {
+                setAiResponse(err.message);
+            } else {
+                setAiResponse(aiErrorUserMessage(err, 'Spiacenti, il nostro consulente non è disponibile al momento.'));
+            }
         } finally {
             setIsAiLoading(false);
         }
@@ -454,6 +468,7 @@ export const useHeroLogic = ({
         handleSeasonClick,
         handleManualCitySelect,
         handleAiSubmit,
+        aiRuntimeStatus,
         selectedSeason,
         setSelectedSeason,
         geoOptions

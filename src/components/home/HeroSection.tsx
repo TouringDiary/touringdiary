@@ -51,6 +51,7 @@ export const HeroSection = (props: HeroSectionProps) => {
         handleSeasonClick,
         handleManualCitySelect,
         handleAiSubmit,
+        aiRuntimeStatus,
         selectedSeason,
         setSelectedSeason
     } = useHeroLogic(props);
@@ -117,6 +118,7 @@ export const HeroSection = (props: HeroSectionProps) => {
                 aiResponse={aiResponse}
                 typingText={typingText}
                 aiQuery={aiQuery}
+                aiRuntimeStatus={aiRuntimeStatus}
                 setIsAiExpanded={setIsAiExpanded}
                 setAiQuery={setAiQuery}
                 setAiResponse={setAiResponse}

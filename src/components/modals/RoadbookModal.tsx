@@ -9,6 +9,9 @@ import { useLogoRasterizer } from '../../hooks/useLogoRasterizer';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { generateRoadbook } from '@/services/ai/aiPlanner';
+import { aiErrorUserMessage, isAiEdgeError } from '@/services/ai/aiEdgeErrors';
+import { getAiRuntimeStatus } from '@/services/ai/aiRuntimeStatus';
+import { AiRuntimeBanner } from '@/components/ai/AiRuntimeBanner';
 
 interface RoadbookModalProps {
     isOpen: boolean;
@@ -36,19 +39,22 @@ export const RoadbookModal = ({ isOpen, onClose }: RoadbookModalProps) => {
     const suggestedModel = daysCount <= 2 ? 'flash' : 'pro';
     const activeModel = forcedModel || suggestedModel;
     const hasRoadbook = itinerary.roadbook && itinerary.roadbook.length > 0;
+    const aiRuntimeStatus = getAiRuntimeStatus();
+    const aiBlocked = !aiRuntimeStatus.available;
 
     // ESC Key Management
     useGlobalModalEscape(isOpen, onClose);
 
     const handleGenerateAiRoadbook = async () => {
         if (!itinerary.items || itinerary.items.length === 0) return;
-        
+        if (isGeneratingAi || aiBlocked) return;
+
         setIsGeneratingAi(true);
         setError(null);
 
         try {
             const cityName = itinerary.name.split(' a ')[1] || 'tua destinazione';
-            const aiRoadbook = await generateRoadbook(itinerary.items, cityName, activeModel as any);
+            const aiRoadbook = await generateRoadbook(itinerary.items, cityName, activeModel);
             
             if (!aiRoadbook || aiRoadbook.length === 0) {
                 throw new Error("L'AI non ha prodotto segmenti validi per il roadbook.");
@@ -59,9 +65,13 @@ export const RoadbookModal = ({ isOpen, onClose }: RoadbookModalProps) => {
                 roadbook: aiRoadbook
             }));
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("AI Roadbook Error", e);
-            setError(e.message || "Errore durante la generazione AI del roadbook.");
+            if (isAiEdgeError(e)) {
+                setError(e.message);
+            } else {
+                setError(aiErrorUserMessage(e, "Errore durante la generazione AI del roadbook."));
+            }
         } finally {
             setIsGeneratingAi(false);
         }
@@ -193,13 +203,15 @@ export const RoadbookModal = ({ isOpen, onClose }: RoadbookModalProps) => {
                             </div>
                         </div>
 
+                        {aiBlocked && <AiRuntimeBanner status={aiRuntimeStatus} className="mb-4" />}
+
                         <button 
                             onClick={handleGenerateAiRoadbook}
-                            disabled={isGeneratingAi || isGeneratingPdf}
-                            className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${hasRoadbook ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-white hover:bg-indigo-50 text-slate-950 shadow-xl active:scale-95'}`}
+                            disabled={isGeneratingAi || isGeneratingPdf || aiBlocked}
+                            className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${hasRoadbook || aiBlocked ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-white hover:bg-indigo-50 text-slate-950 shadow-xl active:scale-95'}`}
                         >
                             {isGeneratingAi ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
-                            {hasRoadbook ? 'Roadbook già generato' : isGeneratingAi ? 'Generazione in corso...' : 'Genera Logistica AI'}
+                            {aiBlocked ? 'AI non disponibile' : hasRoadbook ? 'Roadbook già generato' : isGeneratingAi ? 'Generazione in corso...' : 'Genera Logistica AI'}
                         </button>
                     </div>
 

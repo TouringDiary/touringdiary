@@ -1,4 +1,5 @@
 import { aiGateway } from '@/services/ai/aiGateway';
+import { extractInlineDataFromRaw } from '@/services/ai/aiLegacyPayload';
 
 import React, { useState, useEffect } from 'react';
 import { Wand2, Loader2, Palette, PenTool, AlertTriangle, Landmark, User, Image as ImageIcon, Save, History, Plus, Trash2, X, Check, Camera, Moon, Aperture } from 'lucide-react';
@@ -39,15 +40,10 @@ export const SafeArtPanel = ({ onImageGenerated, onError }: { onImageGenerated: 
                  config: { imageConfig: { aspectRatio: "16:9" } }
             });
             
-            let generatedBase64 = '';
-            if (response.candidates && response.candidates[0].content.parts) {
-                for (const part of response.candidates[0].content.parts) {
-                    if (part.inlineData && part.inlineData.data) {
-                        generatedBase64 = part.inlineData.data;
-                        break;
-                    }
-                }
-            }
+            const dataUrl = extractInlineDataFromRaw(response.raw);
+            const generatedBase64 = dataUrl?.includes('base64,')
+                ? dataUrl.split('base64,')[1]
+                : '';
 
             if (generatedBase64) {
                 const file = dataURLtoFile(`data:image/png;base64,${generatedBase64}`, `ai_gen_${Date.now()}.png`);

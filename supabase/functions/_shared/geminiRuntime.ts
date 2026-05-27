@@ -3,8 +3,30 @@
 const GEMINI_MAX_ATTEMPTS = 3;
 const GEMINI_RETRY_BASE_MS = 2000;
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export type AiRuntimePhase =
+  | 'consume_ok'
+  | 'consume_fail'
+  | 'provider_fail'
+  | 'logging_fail'
+  | 'success'
+  | 'malformed_response';
+
+export function logAiRuntime(entry: {
+  function: string;
+  feature: string;
+  phase: AiRuntimePhase;
+  userId?: string | null;
+  guest?: boolean;
+  errorCategory?: string;
+  message?: string;
+}) {
+  const line = JSON.stringify({ ts: new Date().toISOString(), ...entry });
+  if (entry.phase === 'success' || entry.phase === 'consume_ok') {
+    console.log(line);
+  } else {
+    console.error(line);
+  }
+}
 
 export async function hashIp(ip: string): Promise<string> {
   const msgUint8 = new TextEncoder().encode(ip);
@@ -19,14 +41,16 @@ export function ipHashToGuestUuid(hex64: string): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(12, 15)}-8${h.slice(15, 18)}-${h.slice(18, 30)}`;
 }
 
+/**
+ * Guest id for consume RPC: IP-derived only (edge SSOT).
+ * Ignores client bodyGuestId to prevent UUID rotation abuse.
+ */
 export async function resolveGuestIdForRpc(
   userId: string | null,
-  bodyGuestId: unknown,
+  _bodyGuestId: unknown,
   clientIp: string,
 ): Promise<string | null> {
   if (userId) return null;
-  const trimmed = typeof bodyGuestId === 'string' ? bodyGuestId.trim() : '';
-  if (trimmed && UUID_RE.test(trimmed)) return trimmed;
   const hex = await hashIp(clientIp);
   return ipHashToGuestUuid(hex);
 }

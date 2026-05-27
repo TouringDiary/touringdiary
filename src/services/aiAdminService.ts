@@ -247,6 +247,20 @@ export const toggleEmergencyStop = async (enabled: boolean) => {
 };
 
 /**
+ * Toggle AI enabled (maintenance / planned OFF)
+ */
+export const toggleAiEnabled = async (enabled: boolean) => {
+    const { error } = await supabase
+        .from('global_settings')
+        .upsert({
+            key: 'ai_enabled',
+            value: enabled ? 'true' : 'false',
+            updated_at: new Date().toISOString(),
+        });
+    if (error) throw error;
+};
+
+/**
  * Recupera una lista di utenti con ordinamento e ricerca per la dashboard AI.
  */
 export const getAdminUsersPaged = async (

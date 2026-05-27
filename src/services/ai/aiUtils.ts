@@ -1,5 +1,5 @@
 import { aiGateway } from '@/services/ai/aiGateway';
-
+import { AiEdgeError } from '@/services/ai/aiEdgeErrors';
 
 import { Schema } from '../../types/ai';
 
@@ -96,21 +96,27 @@ export async function withRetry<T>(fn: () => Promise<T>, retries = EDGE_INVOKE_R
 
     try {
         return await fn();
-    } catch (e: any) {
-        const errorString = JSON.stringify(e) + (e.message || '');
+    } catch (e: unknown) {
+        if (e instanceof AiEdgeError) throw e;
 
-        const isQuotaError = errorString.includes('429') || errorString.toLowerCase().includes('quota') || errorString.toLowerCase().includes('resource_exhausted');
+        const errorMessage =
+            e instanceof Error
+                ? e.message
+                : String(e);
+        const errorLower = errorMessage.toLowerCase();
+
+        const isQuotaError = errorMessage.includes('429') || errorLower.includes('quota') || errorLower.includes('resource_exhausted');
 
         if (isQuotaError) {
             throw new Error("QUOTA_EXCEEDED_DAILY");
         }
 
-        if (errorString.includes('403') || errorString.includes('PERMISSION_DENIED')) {
+        if (errorMessage.includes('403') || errorMessage.includes('PERMISSION_DENIED')) {
             console.error("[AI Error] Permission Denied (403). Possible Tool/Schema Conflict.", e);
             throw new Error("API_KEY_ERROR_OR_CONFLICT");
         }
 
-        if (errorString.includes('internal error') || errorString.includes('_.zB')) {
+        if (errorLower.includes('internal error') || errorMessage.includes('_.zB')) {
             console.warn("[AI Error] Internal SDK Error detected. Retrying...");
         }
 
@@ -128,21 +134,34 @@ export async function withRetry<T>(fn: () => Promise<T>, retries = EDGE_INVOKE_R
 export async function generateStructuredResponse<T>(
     model: string,
     prompt: string,
-    schema?: Schema
+    schema?: Schema,
+    feature = 'task'
 ): Promise<T> {
     return withRetry(async () => {
-        // USARE IL GETTER QUI
+        const response = await aiGateway.generateLegacy(
+            {
+                model,
+                contents: prompt,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: schema
+                }
+            },
+            { feature }
+        );
 
-        const response = await aiGateway.generateLegacy({
-            model,
-            contents: prompt,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: schema
-            }
-        });
+        const rawJson =
+            typeof response.text === 'string'
+                ? response.text
+                : response.response?.text?.();
+        if (!rawJson?.trim()) {
+            throw new AiEdgeError('MALFORMED_RESPONSE', 'L\'AI ha restituito una risposta JSON vuota.');
+        }
 
-        const rawJson = response.text || (schema?.type === 'ARRAY' ? "[]" : "{}");
-        return JSON.parse(cleanJsonOutput(rawJson));
+        try {
+            return JSON.parse(cleanJsonOutput(rawJson)) as T;
+        } catch {
+            throw new AiEdgeError('MALFORMED_RESPONSE', 'Risposta AI non parsabile come JSON.');
+        }
     });
 }
