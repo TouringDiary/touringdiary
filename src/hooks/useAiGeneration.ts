@@ -3,23 +3,18 @@ import { useParams } from 'react-router-dom';
 import { generateItineraryPlan } from '../services/ai';
 import { getFullManifestAsync, getPoisByCityIds } from '../services/cityService';
 import { calculateDistance } from '../services/geo';
-// import { checkAiQuota, incrementAiUsage } from '../services/aiUsageService';
-import { useSystemMessage } from './useSystemMessage';
-import { AiItineraryItem } from '../services/ai/aiPlanner';
-import { PointOfInterest, CitySummary, User } from '../types/index';
+import { PointOfInterest, CitySummary } from '../types/index';
 import { useItinerary } from '@/context/ItineraryContext';
 import { useAiPlanner } from '@/context/AiPlannerContext';
 
 interface UseAiGenerationProps {
-    user?: User;
     onClose: () => void;
 }
 
-export const useAiGeneration = ({ user, onClose }: UseAiGenerationProps) => {
+export const useAiGeneration = ({ onClose }: UseAiGenerationProps) => {
     const { city: citySlug } = useParams<{ city: string }>();
     const { aiSession, updateAiSession, resetAiSession } = useAiPlanner();
     const { setItinerary, clearItinerary } = useItinerary();
-    const { getText: getQuotaError } = useSystemMessage('ai_quota_exceeded');
 
     // STATE
     const [loading, setLoading] = useState(false);
@@ -109,13 +104,6 @@ export const useAiGeneration = ({ user, onClose }: UseAiGenerationProps) => {
 
         // Wrap everything in a top-level try-catch to ensure we catch abortions
         try {
-            // const quotaCheck = await checkAiQuota(user!);
-            // if (!quotaCheck.canProceed) {
-            //     setQuotaLimit(quotaCheck.limit);
-            //     setShowQuotaAlert(true);
-            //     return;
-            // }
-
             const matchedCity = manifest.find(c => c.name.toLowerCase() === aiSession.destination.trim().toLowerCase());
             if (!matchedCity) {
                 setError(`La città "${aiSession.destination}" non è attualmente censita in Touring Diary.`);
@@ -206,7 +194,6 @@ export const useAiGeneration = ({ user, onClose }: UseAiGenerationProps) => {
             }
             
             setCandidatePoisCache(allCandidatePois);
-            // await incrementAiUsage(user!);
 
             if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
@@ -267,17 +254,8 @@ export const useAiGeneration = ({ user, onClose }: UseAiGenerationProps) => {
             }
 
             console.error("AI Gen Error:", e);
-            let friendlyMessage = e.message || "Errore tecnico del server AI.";
-            
-            // GESTIONE ERRORE QUOTA
-            // if (friendlyMessage.includes("QUOTA_EXCEEDED_DAILY")) {
-            //     const dbMsg = getQuotaError();
-            //     // @ts-ignore
-            //     setQuotaLimit(quotaCheck?.limit || 0);
-            //     setShowQuotaAlert(true);
-            // } else {
-                 setErrorModal({ title: "Errore Generazione", message: friendlyMessage });
-            // }
+            const friendlyMessage = e.message || "Errore tecnico del server AI.";
+            setErrorModal({ title: "Errore Generazione", message: friendlyMessage });
         } finally {
             // Solo se non abortito (per evitare race condition su state update di un componente smontato)
             if (!signal.aborted) {

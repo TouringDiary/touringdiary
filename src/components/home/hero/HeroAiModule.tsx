@@ -96,7 +96,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                                 </span>
                             </div>
                             <div 
-                                onClick={() => props.handleAiSubmit(props.typingText)}
+                                onClick={() => { if (!props.isAiLoading) props.handleAiSubmit(props.typingText); }}
                                 className="bg-slate-950/60 border border-slate-800/60 hover:border-purple-500/50 rounded-xl p-4 flex-1 cursor-pointer group transition-all relative overflow-hidden shadow-inner backdrop-blur-sm"
                             >
                                 <p className="text-slate-300 font-medium text-sm leading-relaxed font-mono h-full overflow-hidden">
@@ -114,11 +114,16 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                             <textarea 
                                 value={props.aiQuery}
                                 onChange={(e) => props.setAiQuery(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); props.handleAiSubmit(); } }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        if (!props.isAiLoading) props.handleAiSubmit();
+                                    }
+                                }}
                                 placeholder="Scrivi qui la tua domanda..." 
                                 className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-4 pr-12 py-3 text-sm text-white focus:border-purple-500 focus:outline-none resize-none shadow-inner h-12 min-h-[3rem] overflow-hidden leading-tight placeholder:text-slate-600 transition-all backdrop-blur-sm"
                             />
-                            <button onClick={() => props.handleAiSubmit()} disabled={!props.aiQuery.trim()} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-95">
+                            <button onClick={() => props.handleAiSubmit()} disabled={!props.aiQuery.trim() || props.isAiLoading} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-95">
                                 <Send className="w-3.5 h-3.5"/>
                             </button>
                         </div>

@@ -3,9 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, ChevronUp, ChevronDown, Coffee, Lightbulb, Sparkles, Route, AlertTriangle, Loader2, Clock, Calendar, Hash, Flag, Navigation, Zap, Lock, Gift, Crown } from 'lucide-react';
 import { useAiPlanner } from '@/context/AiPlannerContext';
 import { DailyLogistics } from '../../services/ai/aiPlanner';
-// import { checkAiQuota } from '../../services/aiUsageService';
 import { useModal } from '@/context/ModalContext';
-import { User } from '../../types/index';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService';
 
@@ -13,7 +11,6 @@ interface Props {
     onGenerate: () => void;
     isLoading: boolean;
     error: string | null;
-    user?: User; 
 }
 
 // Fallback minimo se il DB non è ancora popolato
@@ -136,7 +133,7 @@ const SectionHeader = ({ num, title }: { num: string, title: string }) => {
     );
 };
 
-export const AiPlannerForm = ({ onGenerate, isLoading, error, user }: Props) => {
+export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
     const { aiSession, updateAiSession } = useAiPlanner();
     const { openModal } = useModal();
     const [isCustomDays, setIsCustomDays] = useState(false);
@@ -150,15 +147,6 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error, user }: Props) => 
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
     const textStyle = useDynamicStyles('planner_text', isMobile);
-
-    // useEffect(() => {
-    //     const check = async () => {
-    //         const targetUser = user;
-    //         const q = await checkAiQuota(targetUser);
-    //         setQuota(q);
-    //     };
-    //     check();
-    // }, [isLoading, user]); 
 
     useEffect(() => {
         if (showDailyLogistics && aiSession.dailyLogistics.length === 0) {

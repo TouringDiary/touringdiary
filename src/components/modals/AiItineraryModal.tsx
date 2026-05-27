@@ -47,7 +47,7 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
         errorModal, setErrorModal,
         generatePlan, applyPlanToItinerary,
         cancelGeneration 
-    } = useAiGeneration({ user, onClose });
+    } = useAiGeneration({ onClose });
 
     useGlobalModalEscape(isOpen, onClose);
 
@@ -241,7 +241,6 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
                             onGenerate={generatePlan} 
                             isLoading={loading} 
                             error={error} 
-                            user={user} 
                         />
                     ) : (
                         <AiPlannerTimeline 

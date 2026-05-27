@@ -1,4 +1,5 @@
 import { supabase } from '../../supabaseClient';
+import { getGuestId } from '../../aiUsageService';
 
 export interface AiRequestOptions {
     model?: string;
@@ -16,13 +17,17 @@ export const supabaseProvider = {
             edgeFunction = 'gemini-chat';
         }
 
+        const { data: { session } } = await supabase.auth.getSession();
+        const guestId = session?.user?.id ? undefined : getGuestId();
+
         const { data, error } = await supabase.functions.invoke(edgeFunction, {
             body: { 
                 prompt,
                 modelId: options?.model || 'gemini-2.0-flash',
                 systemInstruction: options?.systemInstruction,
                 isJson: options?.isJson,
-                files: options?.files
+                files: options?.files,
+                guestId,
             }
         });
 

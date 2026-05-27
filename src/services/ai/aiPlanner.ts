@@ -5,6 +5,8 @@ import { getAiPrompt } from '../aiConfigService';
 import { Type, Schema } from '../../types/ai';
 import { buildPlannerItineraryPrompt, buildPlannerRoadbookPrompt, buildPlannerModifyPrompt } from '../../data/ai/prompts';
 
+export type { AiItineraryItem, DailyLogistics } from './types';
+
 const ITINERARY_SCHEMA: Schema = {
     type: Type.ARRAY,
     items: {

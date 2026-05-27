@@ -80,8 +80,14 @@ export const cleanJsonOutput = (text: string): string => {
     return clean;
 };
 
+/**
+ * Edge-backed AI: one invoke = one consume (Gemini retries run inside gemini-* edge only).
+ * Default retries = 0 to prevent multi-consume on client re-invoke.
+ */
+export const EDGE_INVOKE_RETRIES = 0;
+
 // Wrapper per riprovare una funzione in caso di errore (Retry Logic) con gestione QUOTA
-export async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, retries = EDGE_INVOKE_RETRIES, delay = 2000): Promise<T> {
     // GUARD RAIL: Se la chiave non è valida, blocca tutto SUBITO.
     if (!hasValidKey) {
         console.warn("[AI Safety] Chiamata bloccata: API Key non configurata o non valida.");

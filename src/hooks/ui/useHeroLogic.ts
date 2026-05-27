@@ -389,6 +389,8 @@ export const useHeroLogic = ({
 
     // --- HANDLERS: AI ---
     const handleAiSubmit = async (queryOverride?: string) => {
+        if (isAiLoading) return;
+
         let userInput = queryOverride || aiQuery;
         if (!userInput.trim()) return;
 

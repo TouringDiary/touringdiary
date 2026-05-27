@@ -35,7 +35,6 @@ const SettingsPage = React.lazy(() => import('./settings/SettingsPage').then(m =
 const AdminSocialStudio = React.lazy(() => import('./AdminSocialStudio').then(m => ({ default: m.AdminSocialStudio })));
 const AdminAssetLibrary = React.lazy(() => import('./AdminAssetLibrary').then(m => ({ default: m.AdminAssetLibrary })));
 const AiLimitsControlCenter = React.lazy(() => import('./AiLimitsControlCenter').then(m => ({ default: m.AiLimitsControlCenter })));
-const AiEconomicsDashboard = React.lazy(() => import('./AiEconomicsDashboard').then(m => ({ default: m.AiEconomicsDashboard })));
 const AdminControlCenterAI = React.lazy(() => import('./AdminControlCenterAI').then(m => ({ default: m.AdminControlCenterAI })));
 const AffiliateEditorialCenter = React.lazy(() => import('../features/diary/packing_list/suitcase/AffiliateEditorialCenter').then(m => ({ default: m.AffiliateEditorialCenter })));
 

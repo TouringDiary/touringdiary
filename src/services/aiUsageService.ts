@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient';
-import { getUserModelLimits, ModelAwareLimits } from './subscriptionService';
 
 export type AIModelType = 'flash' | 'pro';
 
@@ -10,35 +9,6 @@ export interface AIUsageResult {
     source?: string;
 }
 
-const FREE_DAILY_CAP = 10;
-
-// TASK 6: Funzione helper per ottenere i crediti burst disponibili (Ora semplificata)
-export const getUserBurstCredits = async (userId: string) => {
-    const { data, error } = await supabase
-        .from('user_ai_credits' as any)
-        .select('flash_remaining, pro_remaining')
-        .eq('user_id', userId)
-        .gte('expires_at', new Date().toISOString());
-
-    if (error) {
-        console.error('Failed to fetch burst credits', error);
-        return { flashRemaining: 0, proRemaining: 0 };
-    }
-
-    let flashRemaining = 0;
-    let proRemaining = 0;
-
-    if (data) {
-        for (const record of data) {
-            flashRemaining += (record.flash_remaining || 0);
-            proRemaining += (record.pro_remaining || 0);
-        }
-    }
-
-    return { flashRemaining, proRemaining };
-};
-
-// TASK 6: Cost control helper
 export const getCurrentModelCosts = async () => {
     // Note: Do not implement recalculation logic yet, only support reading values.
     const { data, error } = await supabase
@@ -72,7 +42,7 @@ export const logUniversalUsage = async (userId: string | null, guestId: string |
 
 // Helper per ottenere l'utilizzo giornaliero aggregato
 export const getDailyUsageCount = async (userId: string | null, guestId: string | null, date: string): Promise<number> => {
-    const query = supabase.from('ai_global_usage' as any).select('request_count');
+    const query = supabase.from('ai_global_usage').select('request_count');
     
     if (userId) query.eq('user_id', userId);
     else if (guestId) query.eq('guest_id', guestId);
@@ -98,10 +68,12 @@ export const getGuestId = (): string => {
  */
 export const incrementAiUsage = async (userId: string | null, modelType: AIModelType, feature: string = 'generic'): Promise<AIUsageResult> => {
     try {
+        const guestId = userId ? null : getGuestId();
         const { data, error } = await supabase.rpc('consume_ai_credits', {
             p_user_id: userId,
             p_model_type: modelType,
-            p_feature: feature
+            p_feature: feature,
+            p_guest_id: guestId,
         });
 
         if (error) {
