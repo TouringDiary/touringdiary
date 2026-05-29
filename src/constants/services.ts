@@ -57,7 +57,6 @@ export const getBoxIdForType = (type: string): string => {
     }
     
     // Heuristics di fallback (se il DB non ha mappato tutto)
-    if (t.includes('tour') || t.includes('agency') || t.includes('agenzia')) return 'tour_operator';
     if (t.includes('aerop') || t.includes('airport')) return 'airport';
     if (t.includes('train') || t.includes('tren') || t.includes('stazione')) return 'train';
     if (t.includes('bus') || t.includes('pullman')) return 'bus';

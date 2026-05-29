@@ -17,7 +17,6 @@ export const usePeopleManager = (cityId: string, cityName: string) => {
         reloadList: dataLogic.reloadList,
         selectedIds: dataLogic.selectedIds,
         resetSelection: dataLogic.resetSelection,
-        mapDbToApp: dataLogic.mapDbToApp
     });
 
     // 3. EXPOSE UNIFIED API

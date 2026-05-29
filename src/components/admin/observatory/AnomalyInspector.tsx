@@ -136,10 +136,10 @@ export const AnomalyInspector = ({
                 if (cityStatusFilter === 'published') {
                     if (cityData.status !== 'published') return false;
                 } else if (cityStatusFilter === 'draft') {
-                    const isDraft = cityData.status !== 'published' && cityData.status !== 'restored' && cityData.hasGeneratedContent;
+                    const isDraft = cityData.status !== 'published' && cityData.hasGeneratedContent;
                     if (!isDraft) return false;
                 } else if (cityStatusFilter === 'missing') {
-                    const isMissing = cityData.status !== 'published' && cityData.status !== 'restored' && !cityData.hasGeneratedContent;
+                    const isMissing = cityData.status !== 'published' && !cityData.hasGeneratedContent;
                     if (!isMissing) return false;
                 }
             }

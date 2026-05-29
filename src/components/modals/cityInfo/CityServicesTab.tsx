@@ -67,13 +67,10 @@ export const CityServicesTab = ({
                     return false; 
                 }
 
-                return !['tour_operator', 'airport', 'train', 'bus', 'taxi', 'maritime', 'emergency', 'pharmacy', 'hospital', 'police', 'fire'].includes(s.type);
+                return !['airport', 'train', 'bus', 'taxi', 'maritime', 'emergency', 'pharmacy', 'hospital', 'police', 'fire'].includes(s.type);
             }
             if (activeServiceCategory === 'emergency') {
                 return ['emergency', 'hospital', 'police', 'fire'].includes(s.type);
-            }
-            if (activeServiceCategory === 'tour_operator') {
-                return s.type === 'tour_operator' || s.type === 'agency';
             }
             return s.type === activeServiceCategory;
         });
@@ -107,7 +104,7 @@ export const CityServicesTab = ({
         const activeCatInfo = SERVICES_CATEGORIES.find(c => c.id === activeServiceCategory);
         
         // CLEANUP: Usa stringa vuota o placeholder dalla cache, NO HARDCODED URL
-        const placeholder = getCachedSetting('service') || '';
+        const placeholder = String(getCachedSetting('service') || '');
 
         const poi: PointOfInterest = {
             id: service.id || `svc-${Date.now()}-${Math.random()}`,

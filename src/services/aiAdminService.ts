@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { Database } from '../types/supabase';
+import type { Database, Json } from '../types/supabase';
 import {
     fetchAdminUsersPaged,
     searchAdminUsersByEmail,
@@ -100,6 +100,80 @@ export interface AiAdminPricingVersionUpdate {
     activated_at?: string;
 }
 
+type AiPlanLimits = NonNullable<AiAdminPricingVersion['ai_limits']>;
+
+export interface GrantAdminWalletCreditsResult {
+    success?: boolean;
+    grant_id?: string;
+    wallet_id?: string;
+    user_id?: string;
+    flash_credits?: number;
+    pro_credits?: number;
+    expires_at?: string;
+}
+
+function parseAiPlanLimits(raw: Json | null | undefined): AiPlanLimits {
+    if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+        return {};
+    }
+    const obj = raw as Record<string, unknown>;
+    const limits: AiPlanLimits = {};
+
+    if (typeof obj.soft_daily_limit === 'number') {
+        limits.soft_daily_limit = obj.soft_daily_limit;
+    }
+    if (typeof obj.burst_allowed === 'boolean') {
+        limits.burst_allowed = obj.burst_allowed;
+    }
+    if (obj.models && typeof obj.models === 'object' && !Array.isArray(obj.models)) {
+        const models = obj.models as Record<string, unknown>;
+        limits.models = {};
+        if (typeof models.flash === 'number') limits.models.flash = models.flash;
+        if (typeof models.pro === 'number') limits.models.pro = models.pro;
+    }
+
+    return limits;
+}
+
+function parseGrantAdminWalletCreditsResult(raw: Json | null | undefined): GrantAdminWalletCreditsResult {
+    if (raw == null) return {};
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+        throw new Error('grant_admin_ai_credits: expected JSON object');
+    }
+    const obj = raw as Record<string, unknown>;
+    const result: GrantAdminWalletCreditsResult = {};
+
+    if (typeof obj.success === 'boolean') result.success = obj.success;
+    if (typeof obj.grant_id === 'string') result.grant_id = obj.grant_id;
+    if (typeof obj.wallet_id === 'string') result.wallet_id = obj.wallet_id;
+    if (typeof obj.user_id === 'string') result.user_id = obj.user_id;
+    if (typeof obj.flash_credits === 'number') result.flash_credits = obj.flash_credits;
+    if (typeof obj.pro_credits === 'number') result.pro_credits = obj.pro_credits;
+    if (typeof obj.expires_at === 'string') result.expires_at = obj.expires_at;
+
+    return result;
+}
+
+function mapPricingVersionsForAdmin(
+    rows: Array<{
+        id: string;
+        duration_days: number;
+        price: number;
+        currency: string;
+        ai_limits: Json | null;
+        plans: AiAdminPlanSummary | AiAdminPlanSummary[] | null;
+    }>,
+): AiAdminPricingVersion[] {
+    return rows.map((row) => ({
+        id: row.id,
+        duration_days: row.duration_days,
+        price: row.price,
+        currency: row.currency,
+        ai_limits: parseAiPlanLimits(row.ai_limits),
+        plans: row.plans ?? undefined,
+    }));
+}
+
 /**
  * Recupera tutti i dati necessari per l'AI Limits Control Center
  */
@@ -131,8 +205,11 @@ export const getAiAdminData = async (): Promise<AiAdminData> => {
 
     return {
         modelPrices: modelPrices || [],
-        globalSettings: (globalSettings || []) as AiAdminGlobalSetting[],
-        pricingVersions: (pricingVersions || []) as AiAdminPricingVersion[],
+        globalSettings: (globalSettings || []).map((setting) => ({
+            key: setting.key,
+            value: String(setting.value ?? ''),
+        })),
+        pricingVersions: mapPricingVersionsForAdmin(pricingVersions || []),
     };
 };
 
@@ -168,10 +245,10 @@ export const updatePlanAiLimitField = async (versionId: string, field: string, v
         .eq('id', versionId)
         .single();
     
-    const oldLimits = (data?.ai_limits as Record<string, any>) || {};
+    const oldLimits = parseAiPlanLimits(data?.ai_limits);
     
     // 2. Deep merge logic for specific fields
-    const newLimits: Record<string, any> = { ...oldLimits };
+    const newLimits: AiPlanLimits = { ...oldLimits };
     
     if (field === 'soft_daily_limit') {
         newLimits.soft_daily_limit = Number(value);
@@ -180,7 +257,8 @@ export const updatePlanAiLimitField = async (versionId: string, field: string, v
     } else if (field === 'models' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
         newLimits.models = {
             ...(oldLimits.models || {}),
-            ...value,
+            ...(value.flash !== undefined ? { flash: Number(value.flash) } : {}),
+            ...(value.pro !== undefined ? { pro: Number(value.pro) } : {}),
         };
     }
 
@@ -198,16 +276,6 @@ export const updatePlanAiLimitField = async (versionId: string, field: string, v
 export const searchAdminUserByEmail = async (email: string) => {
     return searchAdminUsersByEmail(email);
 };
-
-export interface GrantAdminWalletCreditsResult {
-    success?: boolean;
-    grant_id?: string;
-    wallet_id?: string;
-    user_id?: string;
-    flash_credits?: number;
-    pro_credits?: number;
-    expires_at?: string;
-}
 
 /**
  * Assegna crediti bonus admin nel wallet runtime (user_ai_credits) via RPC SECURITY DEFINER.
@@ -229,7 +297,7 @@ export const grantAdminWalletCredits = async (
     });
 
     if (error) throw error;
-    return (data ?? {}) as GrantAdminWalletCreditsResult;
+    return parseGrantAdminWalletCreditsResult(data);
 };
 
 /**
@@ -632,16 +700,27 @@ export const createCampaign = async (name: string, description?: string) => {
 
 
 
+/** Singola riga attiva restituita da RPC get_active_pricing_version_v2 (SETOF pricing_versions). */
+export type ActivePricingVersion =
+    Database['public']['Functions']['get_active_pricing_version_v2']['Returns'][number];
+
 /**
- * Recupera la versione di pricing attiva (SSoT) tramite RPC v2
+ * Recupera la versione di pricing attiva (SSoT) tramite RPC v2.
+ * Normalizza SETOF → singolo oggetto o null; la UI non deve gestire array RPC.
  */
-export const getActivePricingVersion = async (planId: string, durationDays: number) => {
+export const getActivePricingVersion = async (
+    planId: string,
+    durationDays: number,
+): Promise<ActivePricingVersion | null> => {
     const { data, error } = await supabase.rpc('get_active_pricing_version_v2', {
         p_plan_id: planId,
-        p_duration_days: durationDays
+        p_duration_days: durationDays,
     });
     if (error) throw error;
-    return data;
+    if (!Array.isArray(data)) {
+        throw new Error('get_active_pricing_version_v2: expected SETOF array response');
+    }
+    return data[0] ?? null;
 };
 
 /**

@@ -22,7 +22,6 @@ export const parseService = (raw: any): CityService => {
         url: ensureString(raw.url),
         address: ensureString(raw.address),
         category: ensureString(raw.category),
-        imageUrl: ensureString(raw.image_url),
         orderIndex: Number(raw.order_index ?? 0)
     };
 };

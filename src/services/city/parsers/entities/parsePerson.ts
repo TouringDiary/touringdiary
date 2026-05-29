@@ -1,18 +1,53 @@
 import { FamousPerson } from '../../../../types';
+import { PERSON_STATUS_VALUES } from '../../../../constants/governance';
 import { ensureString } from '../shared/ensureString';
 import { ensureArray } from '../shared/ensureArray';
+
+interface PersonDbRow {
+    id?: unknown;
+    name?: unknown;
+    role?: unknown;
+    bio?: unknown;
+    full_bio?: unknown;
+    image_url?: unknown;
+    quote?: unknown;
+    lifespan?: unknown;
+    famous_works?: unknown;
+    awards?: unknown;
+    private_life?: unknown;
+    related_places?: FamousPerson['relatedPlaces'];
+    career_stats?: FamousPerson['careerStats'];
+    status?: unknown;
+    order_index?: unknown;
+}
+
+function isPersonRecord(raw: unknown): raw is PersonDbRow {
+    return typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+}
+
+export function parsePersonStatus(value: unknown): FamousPerson['status'] | undefined {
+    if (value === PERSON_STATUS_VALUES[0]) {
+        return PERSON_STATUS_VALUES[0];
+    }
+    if (value === PERSON_STATUS_VALUES[1]) {
+        return PERSON_STATUS_VALUES[1];
+    }
+    return undefined;
+}
 
 /**
  * PARSER: FamousPerson
  * Structural Recovery: Preserva integrità JSONB e trasparenza media.
  */
-export const parsePerson = (raw: any): FamousPerson => {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+export const parsePerson = (raw: unknown): FamousPerson => {
+    if (!isPersonRecord(raw)) {
         if (import.meta.env.DEV && raw !== null && raw !== undefined) {
             console.warn(`[Parser:Person] Invalid person object:`, raw);
         }
-        return { id: '', name: '', role: '', bio: '', imageUrl: '' } as FamousPerson;
+        return { id: '', name: '', role: '', bio: '', imageUrl: '' };
     }
+
+    const status = parsePersonStatus(raw.status);
 
     return {
         id: ensureString(raw.id),
@@ -26,9 +61,9 @@ export const parsePerson = (raw: any): FamousPerson => {
         famousWorks: ensureArray<string>(raw.famous_works),
         awards: ensureArray<string>(raw.awards),
         privateLife: ensureString(raw.private_life),
-        relatedPlaces: raw.related_places, // Preserva integrità JSONB
-        careerStats: raw.career_stats,     // Preserva integrità JSONB
-        status: raw.status as FamousPerson['status'],
-        orderIndex: Number(raw.order_index ?? 0)
+        relatedPlaces: raw.related_places,
+        careerStats: raw.career_stats,
+        ...(status !== undefined ? { status } : {}),
+        orderIndex: Number(raw.order_index ?? 0),
     };
 };

@@ -1,20 +1,16 @@
 
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, ChevronUp, ChevronDown, CheckSquare, Square, Trash2, FileDown, Loader2, RefreshCw, Wand2, Plus, Target, ImageOff, CheckCircle, AlertTriangle, X, Bot, ScanSearch, Pencil, Filter, Globe, Layers, AlertOctagon, RotateCcw, Zap } from 'lucide-react';
-import { CitySummary, User, CityDeleteOptions } from '../../../types/index';
+import { Search, ArrowUpDown, ChevronUp, ChevronDown, CheckSquare, Square, FileDown, Loader2, RefreshCw, Wand2, Plus, Target, ImageOff, CheckCircle, AlertTriangle, X, Bot, ScanSearch, Pencil, Filter, Globe, Layers, AlertOctagon, Zap } from 'lucide-react';
+import { CitySummary, User } from '../../../types/index';
 
-// --- FIX CRITICO IMPORT ---
-import { deleteCity } from '../../../services/city/cityLifecycleService';
 import { updateCityBadge, updateCityHomeOrder } from '../../../services/city/cityUpdateService';
-// --------------------------
 
 import { PaginationControls } from '../../common/PaginationControls';
 import { BadgeType } from '../../../types/index';
 import { useAdminExport } from '../../../hooks/useAdminExport';
 import { CityGeneratorModal } from './CityGeneratorModal';
 import { ProcessLogModal } from './ProcessLogModal';
-import { DeleteCityOptionsModal } from './DeleteCityOptionsModal'; 
-import { CompleteCityModal } from './CompleteCityModal'; // NEW IMPORT
+import { CompleteCityModal } from './CompleteCityModal';
 import { useCityGenerator } from '../../../hooks/useCityGenerator';
 import { GeoCascadingFilters } from './GeoCascadingFilters';
 
@@ -58,7 +54,6 @@ const AdminLegend = () => (
                 <span className="flex items-center gap-1.5 text-emerald-400"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]"></div> Online (Pubblicati)</span>
                 <span className="flex items-center gap-1.5 text-amber-500"><div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_5px_#f59e0b]"></div> Bozza (Con Contenuti)</span>
                 <span className="flex items-center gap-1.5 text-red-400"><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_#ef4444]"></div> Mancante (Scheletro)</span>
-                <span className="flex items-center gap-1.5 text-purple-400"><div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_5px_#a855f7]"></div> Ripristinato</span>
             </div>
             
             {/* AZIONI ALLINEATE AI TASTI */}
@@ -81,12 +76,10 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
     const [showCompleteModal, setShowCompleteModal] = useState(false); // NEW STATE
     const [showProcessModal, setShowProcessModal] = useState(false);
     const [processingCityName, setProcessingCityName] = useState('');
-    const [deleteTarget, setDeleteTarget] = useState<{ id: string, name: string } | null>(null);
-    const [deleteReport, setDeleteReport] = useState<string | null>(null); 
     const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
 
     // NEW FILTER STATES - UNIFIED
-    const [listTab, setListTab] = useState<'all' | 'published' | 'draft' | 'missing' | 'restored'>('all');
+    const [listTab, setListTab] = useState<'all' | 'published' | 'draft' | 'missing'>('all');
     const [geoFilter, setGeoFilter] = useState({ continent: '', nation: '', region: '', zone: '', city: '' });
     
     // Internal Pagination
@@ -116,12 +109,10 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
         // 3. Tab Status Filters
         if (listTab === 'published') {
             data = data.filter(c => c.status === 'published');
-        } else if (listTab === 'restored') {
-            data = data.filter(c => c.status === 'restored');
         } else if (listTab === 'draft') {
-            data = data.filter(c => c.status !== 'published' && c.status !== 'restored' && c.hasGeneratedContent);
+            data = data.filter(c => c.status !== 'published' && c.hasGeneratedContent);
         } else if (listTab === 'missing') {
-            data = data.filter(c => c.status !== 'published' && c.status !== 'restored' && !c.hasGeneratedContent);
+            data = data.filter(c => c.status !== 'published' && !c.hasGeneratedContent);
         }
 
         // 4. Sorting
@@ -157,23 +148,6 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
     }, [listTab, geoFilter, list.searchTerm]);
 
     // --- HANDLERS ---
-
-    const handleDeleteRequest = (city: { id: string, name: string }) => {
-        setDeleteTarget(city);
-    };
-
-    const confirmDelete = async (options: CityDeleteOptions) => {
-        if (!deleteTarget) return;
-        try {
-            await deleteCity(deleteTarget.id, options, deleteTarget.name); // PASS NAME HERE
-            setDeleteReport(`[System] Città ${deleteTarget.name} eliminata con opzioni: ${JSON.stringify(options)}`);
-            setDeleteTarget(null);
-            list.forceReload(); 
-            showToast("Operazione completata con successo", "success");
-        } catch (e: any) {
-            showToast(`Errore: ${e.message}`, 'error');
-        }
-    };
 
     const handleMagicAdd = async (name: string, poiCount: number) => {
         // Chiudi modale input
@@ -284,9 +258,8 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
     const counts = {
         all: list.effectiveCities.length,
         published: list.effectiveCities.filter((c: CitySummary) => c.status === 'published').length,
-        draft: list.effectiveCities.filter((c: CitySummary) => c.status !== 'published' && c.status !== 'restored' && c.hasGeneratedContent).length,
-        missing: list.effectiveCities.filter((c: CitySummary) => c.status !== 'published' && c.status !== 'restored' && !c.hasGeneratedContent).length,
-        restored: list.effectiveCities.filter((c: CitySummary) => c.status === 'restored').length
+        draft: list.effectiveCities.filter((c: CitySummary) => c.status !== 'published' && c.hasGeneratedContent).length,
+        missing: list.effectiveCities.filter((c: CitySummary) => c.status !== 'published' && !c.hasGeneratedContent).length,
     };
     
     const selectedCityForCompletion = list.selectedIds.size === 1 ? list.effectiveCities.find((c:any) => c.id === Array.from(list.selectedIds)[0]) : null;
@@ -296,8 +269,6 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
             {toast && <AdminToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             {/* MODALI */}
-            <DeleteCityOptionsModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete} cityName={deleteTarget?.name || ''} />
-            
             {showAiModal && <CityGeneratorModal onClose={() => setShowAiModal(false)} onGenerate={handleMagicAdd} isGenerating={generator.isProcessing} />}
 
             {showCompleteModal && selectedCityForCompletion && (
@@ -374,9 +345,6 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
                 <button onClick={() => setListTab('draft')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all whitespace-nowrap flex items-center justify-center gap-2 ${listTab === 'draft' ? 'bg-amber-600 text-white shadow' : 'text-slate-500 hover:text-amber-400'}`}>
                     <Pencil className="w-3 h-3"/> Bozza ({counts.draft})
                 </button>
-                <button onClick={() => setListTab('restored')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all whitespace-nowrap flex items-center justify-center gap-2 ${listTab === 'restored' ? 'bg-purple-600 text-white shadow' : 'text-slate-500 hover:text-purple-400'}`}>
-                    <RotateCcw className="w-3 h-3"/> Ripristinato ({counts.restored})
-                </button>
                 <button onClick={() => setListTab('missing')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all whitespace-nowrap flex items-center justify-center gap-2 ${listTab === 'missing' ? 'bg-red-600 text-white shadow' : 'text-slate-500 hover:text-red-400'}`}>
                     <AlertOctagon className="w-3 h-3"/> Mancanti ({counts.missing})
                 </button>
@@ -405,9 +373,7 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
                         <tbody className="divide-y divide-slate-800/50">
                             {paginatedData.map((city: CitySummary) => {
                                 const isSelected = list.selectedIds.has(city.id);
-                                const isMissing = !city.hasGeneratedContent && city.status !== 'published' && city.status !== 'restored';
-                                const isDraft = city.status !== 'published' && city.status !== 'restored' && city.hasGeneratedContent;
-                                const isRestored = city.status === 'restored';
+                                const isMissing = !city.hasGeneratedContent && city.status !== 'published';
 
                                 return (
                                     <tr key={city.id} className={`transition-colors group text-slate-300 ${isSelected ? 'bg-indigo-900/10' : 'hover:bg-slate-800/30'}`}>
@@ -447,8 +413,6 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
                                         <td className="p-3 text-center border-r border-slate-800/30">
                                             {city.status === 'published' ? (
                                                 <span className="text-[8px] bg-emerald-900/30 text-emerald-500 px-1.5 py-0.5 rounded-full font-black uppercase">Online</span>
-                                            ) : isRestored ? (
-                                                <span className="text-[8px] bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded-full font-black uppercase">Ripristinato</span>
                                             ) : isMissing ? (
                                                 <span className="text-[8px] bg-red-900/30 text-red-500 px-1.5 py-0.5 rounded-full font-black uppercase" title="Scheletro vuoto">Mancante</span>
                                             ) : (
@@ -458,15 +422,8 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
                                         <td className="p-3 text-center border-r border-slate-800/30 text-slate-500">{formatDate(city.createdAt)}</td>
                                         <td className="p-3 text-center border-r border-slate-800/30 bg-slate-900/30 text-white font-bold">{formatDate(city.updatedAt)}</td>
                                         <td className="p-3 text-right pr-2 sticky right-0 bg-[#0f172a] shadow-[-10px_0_15px_rgba(0,0,0,0.5)] group-hover:bg-[#1e293b]">
-                                            <div className="flex gap-1.5 justify-end">
+                                            <div className="flex gap-1.5 justify-end items-center">
                                                 <button onClick={() => onEdit(city.id)} className="bg-slate-800 hover:bg-indigo-600 text-white px-2 py-0.5 rounded-xl text-[10px] font-black border border-slate-700 uppercase transition-all shadow-md">Edit</button>
-                                                <button 
-                                                    onClick={(e) => { e.preventDefault(); handleDeleteRequest(city); }} 
-                                                    className="text-slate-600 hover:text-red-500 p-1 hover:bg-slate-800 rounded transition-all"
-                                                    title="Elimina Città"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5"/>
-                                                </button>
                                             </div>
                                         </td>
                                     </tr>

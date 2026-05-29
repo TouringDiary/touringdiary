@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { MediaStatus, MediaAsset, CityDetails } from '@/types';
+import { createMediaAssetFromUrl, dedupeGalleryAssets, mediaAssetUrl } from '../../../../utils/media';
 
 import { ImageIcon, Crop, Plus, RefreshCw, Loader2, Trash2, LayoutTemplate, Square } from 'lucide-react';
 import { useCityEditor } from '@/context/CityEditorContext';
@@ -108,17 +109,6 @@ export const TabMedia = () => {
         }
     };
 
-    const getUniqueGallery = (newAssets: MediaAsset[]) => {
-        const uniqueSet = new Set();
-        return newAssets.filter(asset => {
-            if (!asset.url) return false;
-            const cleanUrl = asset.url.split('?')[0].trim();
-            if (uniqueSet.has(cleanUrl)) return false;
-            uniqueSet.add(cleanUrl);
-            return true;
-        });
-    };
-
     const updateHeroState = (url: string, credit: string, license: string, status: MediaStatus) => {
         // Sincronizzazione atomica tra root e details per la Hero
         updateField('heroImage', url);
@@ -162,7 +152,7 @@ export const TabMedia = () => {
                     url: data.image,
                     mediaStatus: data.image ? 'real' : 'missing'
                 };
-                updateDetailField('gallery', getUniqueGallery(currentGallery));
+                updateDetailField('gallery', dedupeGalleryAssets(currentGallery));
             }
         }
         setIsInspectorOpen(false);
@@ -183,8 +173,8 @@ export const TabMedia = () => {
                  return;
              }
              const currentGallery = city.details.gallery || [];
-             const newGallery: MediaAsset[] = [...currentGallery, { url, mediaStatus: 'real' }];
-             updateDetailField('gallery', getUniqueGallery(newGallery));
+             const newGallery: MediaAsset[] = [...currentGallery, createMediaAssetFromUrl(url)];
+             updateDetailField('gallery', dedupeGalleryAssets(newGallery));
         }
     };
 

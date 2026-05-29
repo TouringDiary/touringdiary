@@ -153,7 +153,7 @@ export const propagatePhotoRemoval = async (
         const isHeroContext = description?.includes('[HERO]');
 
         for (const cityId of targetCityIds) {
-            const city = await getCityDetails(cityId);
+            const city = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
             if (!city) continue;
             let changed = false;
             if (isHeroContext || city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {
@@ -188,7 +188,7 @@ export const syncPhotoDescriptionToCity = async (photoUrl: string, newDescriptio
     try {
         const identity = await resolveCityIdentity(locationName);
         if (!identity) return;
-        const city = await getCityDetails(identity.id);
+        const city = await getCityDetails(identity.id, undefined, { peopleAudience: 'admin' });
         if (!city) return;
         let changed = false;
         if (city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {

@@ -28,9 +28,8 @@ interface CitiesManagerProps {
     currentUser?: User; 
 }
 
-const getCityDisplayStatus = (city: CitySummary) => {
+const getCityDisplayStatus = (city: CitySummary): 'Online' | 'Bozza' | 'Mancante' => {
     if (city.status === 'published') return 'Online';
-    if (city.status === 'restored') return 'Ripristinato';
     if (city.hasGeneratedContent) return 'Bozza';
     return 'Mancante';
 };
@@ -104,13 +103,9 @@ export const CitiesManager = ({ onEdit, currentUser }: CitiesManagerProps) => {
                 title = "Integrare Bozza?";
                 body = `La città "${existing.name}" è una **Bozza** con contenuti esistenti.\n\nVuoi avviare un **Merge Intelligente**? L'IA cercherà SOLO nuovi POI mancanti e aggiornerà i servizi, SENZA sovrascrivere la storia o i rating attuali.`;
                 btnLabel = "Sì, Integra Dati";
-            } else if (displayStatus === 'Ripristinato') {
-                title = "Riattivare Città?";
-                body = `La città "${existing.name}" era stata cancellata ed è in stato **Ripristinato**.\n\nVuoi trattarla come una bozza e cercare aggiornamenti?`;
-                btnLabel = "Sì, Aggiorna";
             }
 
-            setConflictData({ 
+            setConflictData({
                 existingCity: existing, 
                 newName: name, 
                 poiCount,

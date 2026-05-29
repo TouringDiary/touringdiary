@@ -21,12 +21,19 @@ interface DeleteConfirmationModalProps {
     children?: React.ReactNode;
     /** Disabilita il pulsante di conferma (es. validazione fallita) */
     confirmDisabled?: boolean;
+    /** Override classi bg/hover del bottone conferma (es. chrome warning + azione emerald/red) */
+    confirmClassName?: string;
+    /** Icona nel bottone conferma quando !isDeleting */
+    confirmIcon?: React.ReactNode;
+    /** Testo bottone conferma durante loading (default: "Attendere...") */
+    loadingLabel?: string;
 }
 
 export const DeleteConfirmationModal = ({
     isOpen, onClose, onConfirm, title, message, isDeleting = false,
     confirmLabel = "Elimina", cancelLabel = "Annulla", variant = 'danger', icon,
-    zIndex, children, confirmDisabled = false
+    zIndex, children, confirmDisabled = false,
+    confirmClassName, confirmIcon, loadingLabel
 }: DeleteConfirmationModalProps) => {
 
     if (!isOpen) return null;
@@ -98,10 +105,10 @@ export const DeleteConfirmationModal = ({
                         <button
                             onClick={onConfirm}
                             disabled={isDeleting || confirmDisabled}
-                            className={`flex-1 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 text-xs uppercase ${config.btnBg} disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100`}
+                            className={`flex-1 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 text-xs uppercase ${confirmClassName ?? config.btnBg} disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100`}
                         >
-                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : (!icon && variant === 'danger' ? <Trash2 className="w-4 h-4" /> : null)}
-                            {isDeleting ? 'Attendere...' : confirmLabel}
+                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : (confirmIcon ?? (!icon && variant === 'danger' ? <Trash2 className="w-4 h-4" /> : null))}
+                            {isDeleting ? (loadingLabel ?? 'Attendere...') : confirmLabel}
                         </button>
                     </div>
                 </div>

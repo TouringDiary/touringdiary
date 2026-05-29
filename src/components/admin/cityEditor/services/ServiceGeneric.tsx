@@ -38,10 +38,7 @@ export const ServiceGeneric = () => {
         setIsLoading(true);
         try {
             const data = await getCityServices(city.id);
-            // Filtra solo quelli non tour_operator/agency
-            const general = data.filter(i => i.type !== 'tour_operator' && i.type !== 'agency')
-                                .sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0));
-            setServicesList(general);
+            setServicesList(data.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)));
         } catch (e) { console.error(e); }
         finally { setIsLoading(false); }
     };

@@ -9,9 +9,8 @@
  * - Non c'è mai ambiguità tra read/write/update.
  *
  * PERCHÉ NON SI USANO DbCityUpdate / DbPoiUpdate:
- * - supabase.upsert() richiede i campi obbligatori di Insert (es. id, name).
- * - DbCityUpdate = Update<'cities'> ha tutti i campi opzionali → incompatibile con upsert.
- * - Questi payload soddisfano Insert<T> che è il contratto corretto di upsert.
+ * - Il write path admin usa UPDATE/INSERT espliciti con payload completo tipizzato.
+ * - DbCityUpdate = Update<'cities'> ha tutti i campi opzionali → insufficiente come contratto di scrittura editor.
  *
  * PERCHÉ NON SI USA Partial:
  * - Partial nasconde quali campi sono realmente inviati al DB.
@@ -40,12 +39,11 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * CityUpsertPayload: contratto esplicito per supabase.from('cities').upsert().
+ * CityUpsertPayload: contratto esplicito di scrittura città (read model → DB row).
  *
- * Responsabilità: persistenza completa di una CityDetails nel DB.
- * Usato da: cityWriteService.saveCityDetails()
+ * Usato da: cityPayloadMapper.buildCityWritePayload() → admin PATCH /cities/:id/details
  *
- * CAMPI OBBLIGATORI (id richiesto da upsert per conflict resolution):
+ * CAMPI OBBLIGATORI:
  * - id, name
  *
  * CAMPI MEDIA (Persistenza DB-Driven):

@@ -66,7 +66,7 @@ export const AdminItineraryEditor = ({ itineraryId, onBack }: Props) => {
             let allPois: PointOfInterest[] = [];
             
             for (const cityId of citiesToLoad) {
-                const cityData = await getCityDetails(cityId);
+                const cityData = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
                 if (cityData?.details.allPois) {
                     allPois = [...allPois, ...cityData.details.allPois];
                 }

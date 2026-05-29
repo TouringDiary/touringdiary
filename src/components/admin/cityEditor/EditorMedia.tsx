@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
-import { ImageIcon, Crop, Plus, RefreshCw, Loader2, Trash2, LayoutTemplate, Square, Info } from 'lucide-react';
+import { MediaAsset, MediaStatus, CityDetails } from '@/types';
+import { createMediaAssetFromUrl, dedupeGalleryAssets, mediaAssetUrl } from '../../../utils/media';
+import { ImageIcon, Crop, Plus, RefreshCw, Loader2, Trash2, LayoutTemplate, Square } from 'lucide-react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { AdminImageInput } from '../AdminImageInput';
 import { AdminPhotoInspector } from '../AdminPhotoInspector';
@@ -40,11 +42,9 @@ export const EditorMedia = () => {
         
         try {
             if (deleteTarget.type === 'hero') {
-                // Reset Hero (Puro)
-                updateHeroState('', '', 'public');
+                updateHeroState('', '', 'public', 'missing');
             } else if (deleteTarget.type === 'card') {
-                // Reset Card (Puro)
-                updateCardState('');
+                updateCardState('', 'missing');
             } else if (deleteTarget.type === 'gallery' && typeof deleteTarget.index === 'number') {
                 const currentGallery = [...(city.details.gallery || [])];
                 currentGallery.splice(deleteTarget.index, 1);
@@ -78,90 +78,79 @@ export const EditorMedia = () => {
             const newHero = `https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1200&sig=${Date.now()}`;
             
             newDetails.heroImage = newHero;
-            newDetails.gallery = []; 
+            newDetails.gallery = [];
 
-            const updatedCity = { 
-                ...city, 
-                imageUrl: newHero, // Qui sincronizziamo solo perché è una rigenerazione totale AI
-                details: newDetails 
+            const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Media (in 0s)`;
+            newDetails.generationLogs = [...(newDetails.generationLogs || []), newLog];
+
+            const updatedCity: CityDetails = {
+                ...city,
+                imageUrl: newHero,
+                image_status: 'real',
+                hero_status: 'real',
+                details: {
+                    ...newDetails,
+                    heroImage: newHero,
+                    hero_status: 'real',
+                    gallery: [],
+                },
             };
-            
+
             await saveCityDetails(updatedCity);
             await new Promise(r => setTimeout(r, 1000));
             await reloadCurrentCity();
-            
+
             alert("Media rigenerati. La galleria è stata svuotata e l'immagine Hero aggiornata.");
 
-        } catch (e: any) {
+        } catch (e: unknown) {
              console.error(e);
-             alert(`Errore rigenerazione: ${e.message}`);
+             const msg = e instanceof Error ? e.message : "Errore tecnico durante la rigenerazione.";
+             alert(`Errore rigenerazione: ${msg}`);
         } finally {
             setGenerating(false);
         }
     };
 
-    const getUniqueGallery = (newImages: string[]) => {
-        const uniqueSet = new Set();
-        return newImages.filter(url => {
-            if (!url) return false;
-            const cleanUrl = url.split('?')[0].trim();
-            if (uniqueSet.has(cleanUrl)) return false;
-            uniqueSet.add(cleanUrl);
-            return true;
-        });
-    };
 
-    // --- FUNZIONI DI AGGIORNAMENTO ATOMICHE (SENZA SIDE EFFECTS) ---
-    
-    const updateHeroState = (url: string, credit: string, license: string) => {
+    const updateHeroState = (url: string, credit: string, license: string, status: MediaStatus) => {
+        updateField('heroImage', url);
+        updateField('hero_status', status);
         updateDetailField('heroImage', url);
+        updateDetailField('hero_status', status);
         updateField('imageCredit', credit);
         updateField('imageLicense', license);
     };
 
-    const updateCardState = (url: string) => {
+    const updateCardState = (url: string, status: MediaStatus) => {
         updateField('imageUrl', url);
+        updateField('image_status', status);
     };
 
-    // --- HANDLERS UI (INPUT) ---
-
-    // Handler per l'upload manuale nella sezione HERO
-    const handleHeroUpload = (data: { imageUrl: string, imageCredit: string, imageLicense: 'own' | 'cc' | 'public' | 'copyright', fileName?: string }) => {
-        // Aggiorna Hero
-        updateHeroState(data.imageUrl, data.imageCredit, data.imageLicense);
-        
-        // Sync SOLO se la card è vuota (Comodità iniziale, mai sovrascrittura)
-        if (!city.imageUrl) {
-            updateCardState(data.imageUrl);
-        }
+    const handleHeroUpload = (data: { imageUrl: string, imageCredit: string, imageLicense: 'own' | 'cc' | 'public' | 'copyright', fileName?: string, image_status: MediaStatus }) => {
+        updateHeroState(data.imageUrl, data.imageCredit, data.imageLicense, data.image_status);
     };
 
-    // Handler per l'upload manuale nella sezione CARD
-    const handleCardUpload = (data: { imageUrl: string }) => {
-        // Aggiorna SOLO Card
-        updateCardState(data.imageUrl);
+    const handleCardUpload = (data: { imageUrl: string, image_status: MediaStatus }) => {
+        updateCardState(data.imageUrl, data.image_status);
     };
 
-    // Handler salvataggio EDITOR (Ritaglio/Modifiche)
     const handleInspectorSave = (data: { image: string }) => {
         if (editingTarget === 'hero') {
-            // Se modifico la Hero, tocco SOLO la Hero. La Card rimane com'era.
-            updateHeroState(
-                data.image,
-                city.imageCredit || '',
-                city.imageLicense || 'public'
-            );
+            updateHeroState(data.image, city.imageCredit || '', city.imageLicense || 'public', data.image ? 'real' : 'missing');
         } else if (editingTarget === 'card') {
-            // Se modifico la Card, tocco SOLO la Card.
-            updateCardState(data.image);
+            updateCardState(data.image, data.image ? 'real' : 'missing');
         } else if (editingTarget === 'patron') {
              const currentDetails = city.details.patronDetails || { name: '', date: '', history: '', imageUrl: '' };
              updateDetailField('patronDetails', { ...currentDetails, imageUrl: data.image });
         } else if (editingTarget === 'gallery') {
             const currentGallery = [...(city.details.gallery || [])];
             if (imageToEdit.index !== null && imageToEdit.index >= 0 && imageToEdit.index < currentGallery.length) {
-                currentGallery[imageToEdit.index] = data.image;
-                updateDetailField('gallery', getUniqueGallery(currentGallery));
+                currentGallery[imageToEdit.index] = {
+                    ...currentGallery[imageToEdit.index],
+                    url: data.image,
+                    mediaStatus: data.image ? 'real' : 'missing',
+                };
+                updateDetailField('gallery', dedupeGalleryAssets(currentGallery));
             }
         }
         setIsInspectorOpen(false);
@@ -182,8 +171,8 @@ export const EditorMedia = () => {
                  return;
              }
              const currentGallery = city.details.gallery || [];
-             const newGallery = [...currentGallery, url];
-             updateDetailField('gallery', getUniqueGallery(newGallery));
+             const newGallery: MediaAsset[] = [...currentGallery, createMediaAssetFromUrl(url)];
+             updateDetailField('gallery', dedupeGalleryAssets(newGallery));
         }
     };
 
@@ -305,7 +294,7 @@ export const EditorMedia = () => {
                              <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Carica Specifica (Opzionale)</h4>
                              <AdminImageInput 
                                 imageUrl={city.imageUrl} 
-                                onChange={handleCardUpload} // Usa handler specifico
+                                onChange={handleCardUpload}
                                 qualityMode="standard" 
                             />
                         </div>
@@ -319,14 +308,14 @@ export const EditorMedia = () => {
                     <ImageIcon className="w-5 h-5 text-indigo-500"/> Galleria Fotografica
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {city.details.gallery?.map((img, i) => (
+                    {city.details.gallery?.map((asset, i) => (
                         <div key={i} className="aspect-square relative group rounded-xl overflow-hidden border border-slate-700 shadow-md">
-                            <img src={img} className="w-full h-full object-cover" alt="Gallery item"/>
+                            <img src={mediaAssetUrl(asset)} className="w-full h-full object-cover" alt="Gallery item"/>
                             
                             {/* OVERLAY ACTIONS */}
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                 <button 
-                                    onClick={() => openInspector(img, 'gallery', i)} 
+                                    onClick={() => openInspector(mediaAssetUrl(asset), 'gallery', i)} 
                                     className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-full shadow-lg transition-transform hover:scale-110"
                                     title="Modifica / Ritaglia"
                                 >

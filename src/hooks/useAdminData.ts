@@ -31,14 +31,17 @@ export const useAdminData = () => {
     };
 
     const getFullCity = async (id: string) => {
-        return await CityService.getCityDetails(id);
+        return await CityService.getCityDetails(id, undefined, { peopleAudience: 'admin' });
     };
 
     const saveFullCity = async (city: CityDetails) => {
         setLoading(true);
-        await CityService.saveCityDetails(city);
-        await refreshManifest();
-        setLoading(false);
+        try {
+            await CityService.saveCityDetails(city);
+            await refreshManifest();
+        } finally {
+            setLoading(false);
+        }
     };
 
     return {

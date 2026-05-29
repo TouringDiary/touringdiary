@@ -5,7 +5,8 @@ import { PointOfInterest, User } from '@/types';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { getUnifiedReviews } from '../../../services/communityService';
-import { getCachedSetting, SETTINGS_KEYS } from '../../../services/settingsService'; // IMPORT CORRETTO
+import { getCachedSetting, SETTINGS_KEYS } from '../../../services/settingsService';
+import { galleryDisplayUrls } from '../../../utils/media';
 
 interface PoiImageSectionProps {
     poi: PointOfInterest;
@@ -31,8 +32,9 @@ export const PoiImageSection = ({
     const mainImageUrl = poi.imageUrl || (placeholders ? placeholders[poi.category] : undefined);
 
     const images = useMemo(() => {
-        if (poi.gallery && poi.gallery.length > 0) {
-            return poi.gallery;
+        const fromGallery = galleryDisplayUrls(poi.gallery);
+        if (fromGallery.length > 0) {
+            return fromGallery;
         }
         return mainImageUrl ? [mainImageUrl] : [];
     }, [poi.gallery, mainImageUrl]);

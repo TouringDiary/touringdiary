@@ -1,8 +1,10 @@
 
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, FileText, BarChart3, ImageIcon, MapPin, Eye, EyeOff, BookOpen, Info, Loader2, CheckCircle, AlertTriangle, X, Terminal, Save } from 'lucide-react';
+import { CityDetails } from '../../types/index';
 import { User } from '../../types/users';
 import { CityEditorProvider, useCityEditor } from '@/context/CityEditorContext';
+import { isCityInfoPreviewTab } from '../../types/cityPreview';
 import { useAdminCityEditorLogic } from '../../hooks/admin/useAdminCityEditorLogic';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
 
@@ -14,6 +16,7 @@ import { TabServices } from './cityEditor/tabs/TabServices';
 import { TabMedia } from './cityEditor/tabs/TabMedia';
 import { TabPois } from './cityEditor/tabs/TabPois';
 import { TabLogs } from './cityEditor/tabs/TabLogs';
+import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 
 // Modali per Anteprima
 import { SectionPreviewModal } from '../modals/SectionPreviewModal';
@@ -23,6 +26,18 @@ import { PatronSaintModal } from '../modals/PatronSaintModal';
 import { CityInfoModal } from '../modals/CityInfoModal'; // IMPORTATO MODALE PUBBLICO
 
 // --- COMPONENTI UI LOCALI ---
+
+type PreviewCityDetailsOverrides = Partial<Pick<CityDetails['details'], 'guides' | 'events' | 'services' | 'tourOperators'>>;
+
+const EDITOR_TABS = [
+    { id: 'general', label: 'Generali', icon: FileText },
+    { id: 'ratings', label: 'Valutazioni', icon: BarChart3 },
+    { id: 'culture', label: 'Storia', icon: BookOpen },
+    { id: 'info', label: 'Info & Guide', icon: Info },
+    { id: 'media', label: 'Media', icon: ImageIcon },
+    { id: 'pois', label: 'Punti Interesse', icon: MapPin },
+    { id: 'logs', label: 'Log AI', icon: Terminal },
+] as const;
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
     <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
@@ -35,22 +50,21 @@ const AdminToast = ({ message, type, onClose }: { message: string, type: 'succes
 // --- CONTENUTO INTERNO (ORCHESTRATORE) ---
 
 const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, currentUser: User }) => {
+    console.log('[CE-E:ORCHESTRATOR-RENDER]');
     // Logica di gestione stato centralizzata nell'hook
     const { 
         city, isLoading, isSaving, previewRequest, isDirty,
         activeTab, setActiveTab,
-        showNoLogsWarning, setShowNoLogsWarning,
+        showNoAiContentConfirm,
         toast, closeToast,
-        handleSaveRequest, clearPreviewRequest
+        handleSaveRequest, confirmNoAiContentSave, cancelNoAiContentSave,
+        clearPreviewRequest
     } = useAdminCityEditorLogic();
 
     const [showUnsavedModal, setShowUnsavedModal] = useState(false);
     
-    // FETCH TESTI SISTEMA PER MODALE UNSAVED
     const { getText: getUnsavedMsg } = useSystemMessage('city_unsaved_changes');
-    const { getText: getNoLogsMsg } = useSystemMessage('city_publish_no_logs_warning');
     const unsavedMsg = getUnsavedMsg();
-    const noLogsMsg = getNoLogsMsg();
 
     const handleBackClick = () => {
         if (isDirty) {
@@ -73,14 +87,12 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
         // creiamo un override dei dettagli per il modale
         if (previewRequest.items && previewRequest.items.length > 0) {
              const type = previewRequest.type;
-             const overrides: any = {};
+             const overrides: PreviewCityDetailsOverrides = {};
              
              if (type === 'guides') overrides.guides = previewRequest.items;
              if (type === 'events') overrides.events = previewRequest.items;
-             
-             if (type === 'services' || type === 'tour_operators') {
-                 overrides.services = previewRequest.items;
-             }
+             if (type === 'services') overrides.services = previewRequest.items;
+             if (type === 'tour_operators') overrides.tourOperators = previewRequest.items;
 
              return {
                  ...city,
@@ -107,63 +119,32 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
             {/* TOAST NOTIFICATIONS */}
             {toast && <AdminToast message={toast.message} type={toast.type} onClose={closeToast} />}
             
-            {/* --- MODALE MODIFICHE NON SALVATE --- */}
-            {showUnsavedModal && (
-                <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-slate-900 border border-amber-500/50 p-8 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 text-center">
-                        <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center border-2 border-amber-500 mx-auto mb-6 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-                            <AlertTriangle className="w-8 h-8 text-amber-500 animate-pulse"/>
-                        </div>
-                        <h3 className="text-xl font-bold text-white mb-2">{unsavedMsg.title || 'Modifiche non salvate'}</h3>
-                        <p className="text-sm text-slate-300 mb-6 leading-relaxed whitespace-pre-line">
-                            {unsavedMsg.body || 'Hai modifiche non salvate. Se esci, andranno perse.'}
-                        </p>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={() => setShowUnsavedModal(false)} 
-                                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs uppercase transition-colors"
-                            >
-                                Annulla
-                            </button>
-                            <button 
-                                onClick={confirmExitWithoutSave} 
-                                className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg transition-colors flex items-center justify-center gap-2"
-                            >
-                                Esci senza salvare
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeleteConfirmationModal
+                isOpen={showUnsavedModal}
+                onClose={() => setShowUnsavedModal(false)}
+                onConfirm={confirmExitWithoutSave}
+                title={unsavedMsg.title || 'Modifiche non salvate'}
+                message={unsavedMsg.body || 'Hai modifiche non salvate. Se esci, andranno perse.'}
+                variant="warning"
+                confirmLabel="Esci senza salvare"
+                cancelLabel="Annulla"
+                confirmClassName="bg-red-600 hover:bg-red-500"
+            />
 
-            {/* --- MODALE AVVISO NO LOGS --- */}
-            {showNoLogsWarning && (
-                <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-slate-900 border border-amber-500/50 p-8 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 text-center">
-                        <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center border-2 border-amber-500 mx-auto mb-6 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-                            <AlertTriangle className="w-8 h-8 text-amber-500 animate-pulse"/>
-                        </div>
-                        <h3 className="text-xl font-bold text-white mb-2">{noLogsMsg.title || 'Attenzione: Log AI Mancanti'}</h3>
-                        <p className="text-sm text-slate-300 mb-6 leading-relaxed whitespace-pre-line">
-                            {noLogsMsg.body || 'Stai per pubblicare una città che non ha log di generazione AI. Se sei sicuro che i contenuti siano presenti, puoi forzare la pubblicazione o usare il flag "Forza Contenuti Generati" nel tab Log AI.'}
-                        </p>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={() => setShowNoLogsWarning(false)} 
-                                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs uppercase transition-colors"
-                            >
-                                Annulla
-                            </button>
-                            <button 
-                                onClick={() => { setShowNoLogsWarning(false); handleSaveRequest('published', true); }} 
-                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg transition-colors flex items-center justify-center gap-2"
-                            >
-                                <CheckCircle className="w-4 h-4"/> Pubblica Comunque
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeleteConfirmationModal
+                isOpen={showNoAiContentConfirm}
+                onClose={cancelNoAiContentSave}
+                onConfirm={confirmNoAiContentSave}
+                title="Nessun contenuto AI rilevato"
+                message="Questa città non ha log/contenuti AI associati. Vuoi continuare comunque?"
+                variant="warning"
+                confirmLabel="Continua"
+                cancelLabel="Annulla"
+                confirmClassName="bg-emerald-600 hover:bg-emerald-500"
+                confirmIcon={<CheckCircle className="w-4 h-4" />}
+                isDeleting={isSaving}
+                loadingLabel="Continua"
+            />
 
             {/* --- ANTEPRIME MODALI --- */}
             
@@ -204,12 +185,12 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
             )}
             
             {/* ANTEPRIME TAB INFORMATIVI (USANO IL VERO MODALE UTENTE) */}
-            {['guides', 'events', 'services', 'tour_operators'].includes(previewRequest.type) && previewCity && (
+            {isCityInfoPreviewTab(previewRequest.type) && previewCity && (
                 <CityInfoModal 
                     isOpen={true}
                     onClose={clearPreviewRequest}
-                    city={previewCity} // Passiamo l'oggetto con i dati "live"
-                    initialTab={previewRequest.type as any}
+                    city={previewCity}
+                    initialTab={previewRequest.type}
                     onAddToItinerary={() => alert("Funzione 'Aggiungi al diario' disabilitata in anteprima admin.")}
                     user={currentUser}
                     onOpenAuth={() => {}}
@@ -244,9 +225,15 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
                         {isSaving ? '...' : 'Salva Modifiche'}
                     </button>
                     
-                    <button onClick={() => handleSaveRequest('draft')} disabled={isSaving} className="flex-1 md:flex-none bg-amber-900/20 hover:bg-amber-900/40 text-amber-500 hover:text-amber-400 border border-amber-500/30 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 whitespace-nowrap"><EyeOff className="w-4 h-4"/> Bozza</button>
+                    <button onClick={() => handleSaveRequest('draft')} disabled={isSaving} className="flex-1 md:flex-none bg-amber-900/20 hover:bg-amber-900/40 text-amber-500 hover:text-amber-400 border border-amber-500/30 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50">
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <EyeOff className="w-4 h-4"/>}
+                        {isSaving ? '...' : 'Bozza'}
+                    </button>
                     
-                    <button onClick={() => handleSaveRequest('published')} disabled={isSaving} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl transition-all border border-emerald-500 flex items-center justify-center gap-2 whitespace-nowrap"><CheckCircle className="w-4 h-4"/> Pubblica Ora</button>
+                    <button onClick={() => handleSaveRequest('published')} disabled={isSaving} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl transition-all border border-emerald-500 flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50">
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <CheckCircle className="w-4 h-4"/>}
+                        {isSaving ? '...' : 'Pubblica Ora'}
+                    </button>
                 </div>
             </div>
 
@@ -254,16 +241,8 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
             <div className="px-4 md:px-6 mt-4 md:mt-8">
                 <div className="w-full overflow-x-auto pb-2 no-scrollbar">
                     <div className="flex bg-slate-900 p-1.5 rounded-xl border border-slate-800 inline-flex shadow-inner min-w-max gap-1">
-                        {[
-                            { id: 'general', label: 'Generali', icon: FileText },
-                            { id: 'ratings', label: 'Valutazioni', icon: BarChart3 },
-                            { id: 'culture', label: 'Storia', icon: BookOpen },
-                            { id: 'info', label: 'Info & Guide', icon: Info },
-                            { id: 'media', label: 'Media', icon: ImageIcon },
-                            { id: 'pois', label: 'Punti Interesse', icon: MapPin },
-                            { id: 'logs', label: 'Log AI', icon: Terminal },
-                        ].map(tab => (
-                            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 md:px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${activeTab === tab.id ? 'bg-slate-800 text-white shadow-sm border border-slate-700' : 'text-slate-500 hover:text-slate-300'}`}><tab.icon className="w-4 h-4"/> {tab.label}</button>
+                        {EDITOR_TABS.map(tab => (
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 md:px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${activeTab === tab.id ? 'bg-slate-800 text-white shadow-sm border border-slate-700' : 'text-slate-500 hover:text-slate-300'}`}><tab.icon className="w-4 h-4"/> {tab.label}</button>
                         ))}
                     </div>
                 </div>
@@ -284,6 +263,7 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
 };
 
 export const AdminCityEditor = ({ cityId, onBack, currentUser }: { cityId: string, onBack: () => void, currentUser: User }) => {
+    console.log('[CE-F:WRAPPER-RENDER]', { cityId });
     return (
         <CityEditorProvider cityId={cityId}>
             <EditorOrchestrator onBack={onBack} currentUser={currentUser} />

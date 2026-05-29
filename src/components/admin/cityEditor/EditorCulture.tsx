@@ -44,7 +44,7 @@ export const EditorCulture = () => {
     const loadPeople = () => {
          if (!city?.id) return;
          setIsLoadingPeople(true);
-         getCityPeople(city.id).then(data => {
+         getCityPeople(city.id, 'admin').then(data => {
             // Sort by order_index (if available, else fallback)
             const sorted = data.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0));
             setPeopleList(sorted);
@@ -76,7 +76,7 @@ export const EditorCulture = () => {
         setGenerating('full_page');
         try {
             // 1. DELETE EXISTING PEOPLE FROM DB
-            const existingPeople = await getCityPeople(city.id);
+            const existingPeople = await getCityPeople(city.id, 'admin');
             await Promise.all(existingPeople.map(p => deleteCityPerson(p.id!)));
             
             // 2. REGENERATE CONTENT
@@ -128,19 +128,25 @@ export const EditorCulture = () => {
         if (!city.name) { alert("Inserisci il nome della città!"); return; }
         setGenerating(target);
         try {
-            const data = await generateCitySection(city.name, 'history', instructions);
-            
-            if (target === 'snippet' && data.historySnippet) updateDetailField('historySnippet', data.historySnippet);
-            if (target === 'full' && data.historyFull) updateDetailField('historyFull', data.historyFull);
-            if (target === 'patron' && data.patron && data.patron.name) {
-                const newPatronDetails = {
-                    ...data.patron,
-                    imageUrl: city.details.patronDetails?.imageUrl || '' 
-                };
-                updateDetailField('patronDetails', newPatronDetails);
-                updateDetailField('patron', data.patron.name);
+            if (target === 'patron') {
+                const data = await generateCitySection(city.name, 'patron', instructions);
+                if (data.patron?.name) {
+                    const newPatronDetails = {
+                        ...data.patron,
+                        imageUrl: city.details.patronDetails?.imageUrl || '',
+                    };
+                    updateDetailField('patronDetails', newPatronDetails);
+                    updateDetailField('patron', data.patron.name);
+                }
+            } else {
+                const data = await generateCitySection(city.name, 'history', instructions);
+                if (target === 'snippet' && data.historySnippet) {
+                    updateDetailField('historySnippet', data.historySnippet);
+                }
+                if (target === 'full' && data.historyFull) {
+                    updateDetailField('historyFull', data.historyFull);
+                }
             }
-
         } catch (e) {
             alert("Errore generazione AI.");
         } finally {
@@ -165,39 +171,25 @@ export const EditorCulture = () => {
         const newPerson = {
             ...person,
             lifespan: person.lifespan || '', quote: person.quote || '', famousWorks: person.famousWorks || [], relatedPlaces: person.relatedPlaces || [], fullBio: person.fullBio || person.bio || '', privateLife: person.privateLife || '', collaborations: person.collaborations || [], awards: person.awards || [], careerStats: person.careerStats || [],
-            status: 'draft', // Import always as draft
+            status: 'draft' as const,
             orderIndex: peopleList.length + 1
         };
         
         // Save to DB immediately
         const saved = await saveCityPerson(city.id, newPerson);
-        if (saved) {
-            // Re-fetch standardized from DB return
-            const mappedSaved: FamousPerson = {
-                id: saved.id, name: saved.name, role: saved.role, bio: saved.bio, imageUrl: saved.image_url,
-                fullBio: saved.full_bio, quote: saved.quote, lifespan: saved.lifespan, status: saved.status,
-                orderIndex: saved.order_index
-            };
-            setPeopleList(prev => [...prev, mappedSaved]);
-            setDiscoveryResults(prev => prev.filter(p => p.name !== person.name));
-            reloadCurrentCity();
-        }
+        setPeopleList(prev => [...prev, saved]);
+        setDiscoveryResults(prev => prev.filter(p => p.name !== person.name));
+        reloadCurrentCity();
     };
     
     const handleAddManualPerson = async () => {
         const tempPerson = {
-             name: 'Nuovo Personaggio', role: 'Artista', bio: '', imageUrl: 'https://images.unsplash.com/photo-1555626040-3b731de3a81c?q=80&w=400', relatedPlaces: [], famousWorks: [], fullBio: '', privateLife: '', awards: [], collaborations: [], careerStats: [], status: 'draft', orderIndex: peopleList.length + 1
+             name: 'Nuovo Personaggio', role: 'Artista', bio: '', imageUrl: 'https://images.unsplash.com/photo-1555626040-3b731de3a81c?q=80&w=400', relatedPlaces: [], famousWorks: [], fullBio: '', privateLife: '', awards: [], collaborations: [], careerStats: [], status: 'draft' as const, orderIndex: peopleList.length + 1
         };
         const saved = await saveCityPerson(city.id, tempPerson);
-        if(saved) {
-             const mappedSaved: FamousPerson = {
-                id: saved.id, name: saved.name, role: saved.role, bio: saved.bio, imageUrl: saved.image_url,
-                fullBio: saved.full_bio, quote: saved.quote, lifespan: saved.lifespan, status: saved.status, orderIndex: saved.order_index
-            };
-            setPeopleList(prev => [...prev, mappedSaved]);
-            setExpandedPersonId(saved.id);
-            reloadCurrentCity();
-        }
+        setPeopleList(prev => [...prev, saved]);
+        setExpandedPersonId(saved.id);
+        reloadCurrentCity();
     };
 
     const handleUpdatePerson = (id: string, field: keyof FamousPerson, value: any) => {

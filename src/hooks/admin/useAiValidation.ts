@@ -42,7 +42,7 @@ export const useAiValidation = (
         try {
             let cityCenterCoords = GEO_CONFIG.DEFAULT_CENTER; 
             try {
-                const cityDetails = await getCityDetails(cityId);
+                const cityDetails = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
                 if (cityDetails) {
                     cityCenterCoords = cityDetails.coords;
                     if(!categoryFilter) addLog(`📍 Centro città riferimento: ${cityCenterCoords.lat}, ${cityCenterCoords.lng}`);

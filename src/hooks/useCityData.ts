@@ -31,7 +31,7 @@ export const useCityData = (cityId: string | null) => {
     setError(null);
 
     try {
-      const data = await getCityDetails(cityId, controller.signal);
+      const data = await getCityDetails(cityId, controller.signal, { peopleAudience: 'public' });
       console.log('[CITY_TRACE] useCityData result', {
         requestedCityId: cityId,
         receivedId: data?.id,

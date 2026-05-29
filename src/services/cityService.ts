@@ -8,7 +8,13 @@ export * from './city/poiService';
 export * from './city/entitiesService';
 export * from './city/cityReadService';
 export * from './city/cityWriteService';
+export * from './city/tourOperatorService';
 
 // NUOVI EXPORT DOPO REFACTORING FASE 1
 export * from './city/cityLifecycleService';
-export * from './city/cityUpdateService';
+export {
+    saveManifestItem,
+    updateCityBadge,
+    updateCityHomeOrder,
+    evaluateAndUpdateCityStatus,
+} from './city/cityUpdateService';

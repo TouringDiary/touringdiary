@@ -2,19 +2,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { useSystemMessage } from '../useSystemMessage';
+import { CityDetails } from '../../types/index';
+
+const hasAiGenerationLogs = (city: CityDetails): boolean =>
+    Array.isArray(city.details.generationLogs) && city.details.generationLogs.length > 0;
 
 export const useAdminCityEditorLogic = () => {
-    // Accesso ai dati dal Context (Data Layer - Single Source of Truth)
+    console.log('[CE-D:LOGIC-ENTER]');
     const { city, isLoading, isSaving, isDirty, previewRequest, clearPreviewRequest, saveCity } = useCityEditor();
 
-    // --- LOCAL UI STATE ---
     const [activeTab, setActiveTab] = useState<'general' | 'ratings' | 'culture' | 'info' | 'media' | 'pois' | 'logs'>('general');
-    const [showNoLogsWarning, setShowNoLogsWarning] = useState(false);
+    const [showNoAiContentConfirm, setShowNoAiContentConfirm] = useState(false);
+    const [pendingSaveStatus, setPendingSaveStatus] = useState<'published' | 'draft' | null>(null);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
-    
-    // --- MOUNT SAFETY (Memory Leak Protection) ---
+
     const isMounted = useRef(true);
-    
+
     useEffect(() => {
         isMounted.current = true;
         return () => {
@@ -22,126 +25,129 @@ export const useAdminCityEditorLogic = () => {
         };
     }, []);
 
-    // --- SYSTEM MESSAGES (DB Driven) ---
     const { getText: getMsgSave } = useSystemMessage('city_save_success');
     const { getText: getMsgPublish } = useSystemMessage('city_publish_success');
     const { getText: getMsgDraft } = useSystemMessage('city_draft_success');
 
-    // --- ACTIONS ---
-
     const showToast = useCallback((message: string, type: 'success' | 'error') => {
         if (!isMounted.current) return;
         setToast({ message, type });
-        // Auto-dismiss gestito internamente
-        const timer = setTimeout(() => {
+        setTimeout(() => {
             if (isMounted.current) setToast(null);
         }, 4000);
-        return () => clearTimeout(timer);
     }, []);
 
     const closeToast = useCallback(() => {
         if (isMounted.current) setToast(null);
     }, []);
 
-    const handleSaveRequest = useCallback(async (targetStatus?: 'published' | 'draft', skipLogsCheck = false) => {
-        // 1. Guard Clause: Dati non pronti
+    const resolveSuccessMessage = useCallback((targetStatus?: 'published' | 'draft'): string => {
+        if (targetStatus === 'published') {
+            return getMsgPublish().title || 'Città Pubblicata con Successo!';
+        }
+        if (targetStatus === 'draft') {
+            return getMsgDraft().title || 'Bozza Salvata al Sicuro.';
+        }
+        return getMsgSave().title || 'Modifiche Salvate.';
+    }, [getMsgPublish, getMsgDraft, getMsgSave]);
+
+    const executeSave = useCallback(async (targetStatus?: 'published' | 'draft') => {
         if (!city) {
-            console.warn("Tentativo di salvataggio su città nulla.");
+            showToast('Impossibile salvare: dati città non disponibili.', 'error');
             return;
         }
 
-        // 2. Business Logic: Validazione Pubblicazione
-        if (targetStatus === 'published') {
-            // Regola: Se non ci sono log AI e non stiamo forzando (skipLogsCheck), avvisa l'utente
-            const hasLogs = city.details.generationLogs && city.details.generationLogs.length > 0;
-            if (!hasLogs && !skipLogsCheck) {
-                if (isMounted.current) setShowNoLogsWarning(true);
-                return;
-            }
-        }
-
-        // 3. Preparazione Messaggio UI
-        let successMessage = "Operazione completata";
-        if (targetStatus === 'published') {
-            successMessage = getMsgPublish().title || "Città Pubblicata con Successo!";
-        } else if (targetStatus === 'draft') {
-            successMessage = getMsgDraft().title || "Bozza Salvata al Sicuro.";
-        } else {
-            // Salvataggio intermedio (senza cambio stato esplicito)
-            successMessage = getMsgSave().title || "Modifiche Salvate.";
-        }
+        const successMessage = resolveSuccessMessage(targetStatus);
 
         try {
-            // 4. Esecuzione Atomica (Await critico)
-            // Il context gestisce la transazione DB e l'aggiornamento stato
             const success = await saveCity(targetStatus);
-            
-            // 5. Post-Save UI Update (Safe Check)
             if (!isMounted.current) return;
-            
+
             if (success) {
                 showToast(successMessage, 'success');
             } else {
-                showToast("Errore durante il salvataggio. Riprova.", 'error');
+                showToast('Errore durante il salvataggio. Riprova.', 'error');
             }
-        } catch (error: any) {
-            console.error("Critical Save Error:", error);
+        } catch (error: unknown) {
+            console.error('Critical Save Error:', error);
             if (isMounted.current) {
-                showToast(`Errore critico: ${error.message || 'Sconosciuto'}`, 'error');
+                const message = error instanceof Error ? error.message : 'Sconosciuto';
+                showToast(`Errore critico: ${message}`, 'error');
             }
         }
+    }, [city, saveCity, resolveSuccessMessage, showToast]);
 
-    }, [city, saveCity, getMsgPublish, getMsgDraft, getMsgSave, showToast]);
+    const handleSaveRequest = useCallback(async (targetStatus?: 'published' | 'draft') => {
+        if (!city) {
+            showToast('Impossibile salvare: dati città non disponibili.', 'error');
+            return;
+        }
 
-    // Gestione ESC con REF per evitare churn
-    const stateRef = useRef({ showNoLogsWarning, previewRequest, clearPreviewRequest });
-    
-    // Aggiorna ref
+        const requiresAiConfirm =
+            targetStatus === 'published' &&
+            !hasAiGenerationLogs(city);
+
+        if (requiresAiConfirm) {
+            setPendingSaveStatus(targetStatus);
+            setShowNoAiContentConfirm(true);
+            return;
+        }
+
+        await executeSave(targetStatus);
+    }, [city, executeSave, showToast]);
+
+    const confirmNoAiContentSave = useCallback(async () => {
+        const status = pendingSaveStatus;
+        setShowNoAiContentConfirm(false);
+        setPendingSaveStatus(null);
+        if (status) {
+            await executeSave(status);
+        }
+    }, [pendingSaveStatus, executeSave]);
+
+    const cancelNoAiContentSave = useCallback(() => {
+        setShowNoAiContentConfirm(false);
+        setPendingSaveStatus(null);
+    }, []);
+
+    const previewRef = useRef({ previewRequest, clearPreviewRequest });
+
     useEffect(() => {
-        stateRef.current = { showNoLogsWarning, previewRequest, clearPreviewRequest };
-    }, [showNoLogsWarning, previewRequest, clearPreviewRequest]);
+        previewRef.current = { previewRequest, clearPreviewRequest };
+    }, [previewRequest, clearPreviewRequest]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                // Accesso tramite ref corrente
-                const { showNoLogsWarning, previewRequest, clearPreviewRequest } = stateRef.current;
-                
-                if (showNoLogsWarning) {
-                    setShowNoLogsWarning(false);
-                    return;
-                }
-                if (previewRequest.type !== 'none') { 
-                    clearPreviewRequest(); 
-                    return;
+                const { previewRequest, clearPreviewRequest } = previewRef.current;
+                if (previewRequest.type !== 'none') {
+                    clearPreviewRequest();
                 }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []); // Empty deps = stable listener
+    }, []);
 
     return {
-        // State
         activeTab,
-        showNoLogsWarning,
+        showNoAiContentConfirm,
+        pendingSaveStatus,
         toast,
-        
-        // Context Passthrough (Data Layer)
+
         city,
         isLoading,
         isSaving,
         isDirty,
         previewRequest,
 
-        // Setters (UI Logic)
         setActiveTab,
-        setShowNoLogsWarning,
-        
-        // Actions
+
         handleSaveRequest,
+        confirmNoAiContentSave,
+        cancelNoAiContentSave,
         showToast,
         closeToast,
-        clearPreviewRequest
+        clearPreviewRequest,
     };
 };

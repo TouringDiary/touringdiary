@@ -9,7 +9,7 @@
  * CITY STATUS GOVERNANCE
  * Contratto DB: cities.status
  */
-export const CITY_STATUS_VALUES = ['published', 'draft', 'needs_check', 'restored'] as const;
+export const CITY_STATUS_VALUES = ['published', 'draft', 'needs_check'] as const;
 
 /**
  * POI CATEGORY GOVERNANCE
@@ -27,7 +27,14 @@ export const CITY_BADGE_VALUES = ['event', 'trend', 'season', 'editor', 'destina
  * POI STATUS GOVERNANCE
  * Contratto DB: pois.status
  */
-export const POI_STATUS_VALUES = ['published', 'draft', 'needs_check', 'restored'] as const;
+export const POI_STATUS_VALUES = ['published', 'draft', 'needs_check'] as const;
+
+/**
+ * CITY PEOPLE STATUS GOVERNANCE
+ * Contratto DB: city_people.status
+ */
+export const PERSON_STATUS_VALUES = ['published', 'draft'] as const;
+
 /**
  * PHOTO SUBMISSION STATUS GOVERNANCE
  * Contratto DB: photo_submissions.status

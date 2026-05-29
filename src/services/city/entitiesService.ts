@@ -9,6 +9,10 @@ import { parseEvent } from './parsers/entities/parseEvent';
 import { parseService } from './parsers/entities/parseService';
 import { parseGuide } from './parsers/entities/parseGuide';
 import { parsePerson } from './parsers/entities/parsePerson';
+import {
+    type CityPeopleAudience,
+    filterFamousPeopleByAudience,
+} from './parsers/entities/famousPersonAudience';
 
 // --- ROW TYPES (GOVERNANCE) ---
 type DatabaseCityEventRow = Database['public']['Tables']['city_events']['Row'];
@@ -36,10 +40,29 @@ export const getCityGuides = async (cityId: string): Promise<CityGuide[]> => {
     return (data as DatabaseCityGuideRow[] || []).map(parseGuide); 
 };
 
-export const getCityPeople = async (cityId: string): Promise<FamousPerson[]> => { 
-    const { data, error } = await supabase.from('city_people').select('*').eq('city_id', cityId).order('order_index', { ascending: true }); 
+export type { CityPeopleAudience } from './parsers/entities/famousPersonAudience';
+
+export type SaveCityPersonInput = Omit<FamousPerson, 'id'> & { id?: string };
+
+export const getCityPeople = async (
+    cityId: string,
+    audience: CityPeopleAudience = 'admin',
+): Promise<FamousPerson[]> => {
+    let query = supabase
+        .from('city_people')
+        .select('*')
+        .eq('city_id', cityId)
+        .order('order_index', { ascending: true });
+
+    if (audience === 'public') {
+        query = query.eq('status', 'published');
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
-    return (data as DatabaseCityPersonRow[] || []).map(parsePerson); 
+
+    const parsed = (data as DatabaseCityPersonRow[] || []).map(parsePerson);
+    return filterFamousPeopleByAudience(parsed, audience);
 };
 
 // --- SAVE / DELETE METHODS ---
@@ -75,7 +98,15 @@ export const deleteCityEvent = async (id: string) => {
 };
 
 export const saveCityService = async (cityId: string, service: any) => { 
-    invalidateCityCache(cityId); 
+    invalidateCityCache(cityId);
+
+    const serviceType = (service.type || '').toLowerCase().trim();
+    if (serviceType === 'tour_operator' || serviceType === 'agency') {
+        throw new Error(
+            `Tour Operator non può essere salvato in city_services (type="${service.type}"). Usare city_tour_operators.`
+        );
+    }
+
     const isNew = !service.id || !service.id.match(/^[0-9a-f]{8}-/); 
     const payload: DatabaseCityServiceInsert = { 
         city_id: cityId, 
@@ -87,7 +118,6 @@ export const saveCityService = async (cityId: string, service: any) => {
         address: service.address, 
         category: service.category,
         order_index: service.orderIndex || 0,
-        image_url: service.imageUrl
     }; 
     if (!isNew) (payload as any).id = service.id; 
 
@@ -136,34 +166,41 @@ export const deleteCityGuide = async (id: string) => {
     await supabase.from('city_guides').delete().eq('id', id); 
 };
 
-export const saveCityPerson = async (cityId: string, person: any) => { 
-    invalidateCityCache(cityId); 
-    const isNew = !person.id || !person.id.match(/^[0-9a-f]{8}-/); 
-    const payload: DatabaseCityPersonInsert = { 
-        city_id: cityId, 
-        name: person.name, 
-        role: person.role, 
-        bio: person.bio, 
-        full_bio: person.fullBio, 
-        image_url: person.imageUrl, 
-        quote: person.quote, 
-        lifespan: person.lifespan, 
-        famous_works: person.famousWorks, 
-        awards: person.awards, 
-        private_life: person.privateLife, 
-        related_places: person.relatedPlaces, 
-        career_stats: person.careerStats, 
+export const saveCityPerson = async (
+    cityId: string,
+    person: SaveCityPersonInput,
+): Promise<FamousPerson> => {
+    invalidateCityCache(cityId);
+    const isNew = !person.id || !person.id.match(/^[0-9a-f]{8}-/);
+    const payload: DatabaseCityPersonInsert = {
+        city_id: cityId,
+        name: person.name,
+        role: person.role,
+        bio: person.bio,
+        full_bio: person.fullBio,
+        image_url: person.imageUrl,
+        quote: person.quote,
+        lifespan: person.lifespan,
+        famous_works: person.famousWorks,
+        awards: person.awards,
+        private_life: person.privateLife,
+        related_places: person.relatedPlaces,
+        career_stats: person.careerStats,
         status: person.status,
-        order_index: person.orderIndex || 0
-    }; 
-    if (!isNew) (payload as any).id = person.id; 
+        order_index: person.orderIndex || 0,
+    };
+    if (!isNew && person.id) {
+        payload.id = person.id;
+    }
 
-    const query: any = supabase.from('city_people').upsert(payload as any);
-    const { data, error } = await query.select().single();
+    const { data, error } = await supabase
+        .from('city_people')
+        .upsert(payload)
+        .select()
+        .single();
 
-    if(error) throw error; 
-    const result = data as DatabaseCityPersonRow;
-    return { ...result, orderIndex: result.order_index }; 
+    if (error) throw error;
+    return parsePerson(data as DatabaseCityPersonRow);
 };
 
 export const deleteCityPerson = async (id: string) => { 

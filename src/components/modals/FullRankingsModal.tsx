@@ -53,7 +53,7 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
         console.log("DEBUG FULL ITEM:", item);
 
         return {
-            id: item.submissionId,
+            id: item.id,
             url: item.url || item.imageUrl,
             user: item.user || item.name,
             likes: item.likes || item.rating || 0,
@@ -164,8 +164,8 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
                             {mainTab === 'gallery' && (
                                 <PhotoGrid
                                     photos={processedData as any}
-                                    onClick={(photo) => {
-                                        const idx = processedData.findIndex((p: any) => p.id === photo.id);
+                                    onClick={(url) => {
+                                        const idx = processedData.findIndex((p: { url?: string; imageUrl?: string }) => p.url === url || p.imageUrl === url);
 
                                         if (idx !== -1) {
                                             setActivePhotoIndex(idx);

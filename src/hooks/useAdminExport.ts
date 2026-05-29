@@ -112,7 +112,7 @@ export const useAdminExport = () => {
         try {
             // Recupera Dati Città (per geo) e POI (tutti)
             const [city, pois] = await Promise.all([
-                getCityDetails(cityId),
+                getCityDetails(cityId, undefined, { peopleAudience: 'admin' }),
                 getPoisByCityId(cityId)
             ]);
 

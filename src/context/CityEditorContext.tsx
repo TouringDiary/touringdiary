@@ -4,6 +4,7 @@ import { CityDetails, CitySummary } from '../types/index';
 import { useAdminData } from '../hooks/useAdminData';
 import { evaluateAndUpdateCityStatus } from '../services/city/cityUpdateService';
 import { resolveCanonicalCityId } from '../services/city/cityIdService';
+import { CityInfoPreviewTab } from '../types/cityPreview';
 
 // Definizione della struttura base per una nuova città
 const EMPTY_CITY: CityDetails = {
@@ -28,7 +29,7 @@ const EMPTY_CITY: CityDetails = {
 };
 
 // Tipi per la richiesta di anteprima
-export type PreviewType = 'none' | 'history' | 'patron' | 'snippet' | 'ratings' | 'header' | 'card' | 'weather' | 'list' | 'guides' | 'events' | 'services' | 'tour_operators';
+export type PreviewType = 'none' | 'history' | 'patron' | 'snippet' | 'ratings' | 'header' | 'card' | 'weather' | 'list' | CityInfoPreviewTab;
 
 export interface PreviewRequest {
     type: PreviewType;
@@ -63,6 +64,12 @@ interface CityEditorContextType {
 
 const CityEditorContext = createContext<CityEditorContextType | undefined>(undefined);
 
+export const __CE_DEBUG__ = {
+    moduleUrl: import.meta.url,
+    moduleId: Math.random().toString(36).slice(2, 8),
+    ctx: CityEditorContext,
+};
+
 interface ProviderProps {
     children?: ReactNode;
     cityId: string;
@@ -71,6 +78,7 @@ interface ProviderProps {
 }
 
 export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveError }: ProviderProps) => {
+    console.log('[CE-A:PROVIDER-MOUNT]', { moduleId: __CE_DEBUG__.moduleId, ctx: __CE_DEBUG__.ctx, cityId });
     const { getFullCity, saveFullCity, cities, refreshManifest } = useAdminData();
     
     const [city, setCity] = useState<CityDetails | null>(null);
@@ -150,59 +158,55 @@ export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveErro
 
     const saveCity = useCallback(async (status?: 'published' | 'draft', customSuccessMessage?: string): Promise<boolean> => {
         if (!city) return false;
-        
+
+        let cityToSave = { ...city };
+        let requestedStatus: CityDetails['status'] = cityToSave.status;
+
         setIsSaving(true);
         try {
-            let cityToSave = { ...city };
-
-            // RISOLUZIONE ID CANONICO (Strict Registry Requirement)
             if (cityToSave.id === 'NEW_UNREGISTERED_CITY') {
                 if (!cityToSave.name) throw new Error("Inserisci il nome del Comune prima di salvare.");
-                
+
                 try {
                     const canonicalId = await resolveCanonicalCityId(cityToSave.name, cityToSave.adminRegion);
                     cityToSave.id = canonicalId;
-                } catch (err: any) {
+                } catch {
                     throw new Error(`Impossibile registrare la città: il Comune "${cityToSave.name}" non è presente nel registro ufficiale (cities_registry).`);
                 }
             }
 
-            const requestedStatus = status || cityToSave.status;
-            
+            requestedStatus = status ?? cityToSave.status;
             await saveFullCity({ ...cityToSave, status: requestedStatus });
-            
-            // Forza il ricalcolo dello stato basato sulle regole di business (es. POI minimi)
-            let finalStatus = requestedStatus;
-            try {
-                finalStatus = await evaluateAndUpdateCityStatus(cityToSave.id);
-            } catch (evalError) {
-                console.warn("Impossibile ricalcolare lo stato, uso quello richiesto:", evalError);
-            }
-            
-            // Aggiorna lo stato originale e locale per resettare isDirty e mostrare il nuovo stato
-            const updatedCity = { ...cityToSave, status: finalStatus };
-            setCity(updatedCity);
-            setOriginalCity(JSON.stringify(updatedCity));
-            
-            if (onSaveSuccess) {
-                if (customSuccessMessage) {
-                    onSaveSuccess(customSuccessMessage);
-                } else {
-                    if (requestedStatus === 'published' && finalStatus !== 'published') {
-                        onSaveSuccess("Città salvata. (Non pubblicabile: mancano POI o info base)");
-                    } else {
-                        onSaveSuccess(finalStatus === 'published' ? "Città pubblicata!" : "Città salvata.");
-                    }
-                }
-            }
-            return true;
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Errore salvataggio.';
             console.error("Save error:", e);
-            if (onSaveError) onSaveError(e.message || "Errore salvataggio.");
+            if (onSaveError) onSaveError(message);
             return false;
         } finally {
             setIsSaving(false);
         }
+
+        let finalStatus: CityDetails['status'] = requestedStatus;
+        try {
+            finalStatus = await evaluateAndUpdateCityStatus(cityToSave.id);
+        } catch (evalError) {
+            console.warn("Impossibile ricalcolare lo stato, uso quello richiesto:", evalError);
+        }
+
+        const updatedCity = { ...cityToSave, status: finalStatus };
+        setCity(updatedCity);
+        setOriginalCity(JSON.stringify(updatedCity));
+
+        if (onSaveSuccess) {
+            if (customSuccessMessage) {
+                onSaveSuccess(customSuccessMessage);
+            } else if (requestedStatus === 'published' && finalStatus !== 'published') {
+                onSaveSuccess("Città salvata. (Non pubblicabile: mancano POI o info base)");
+            } else {
+                onSaveSuccess(finalStatus === 'published' ? "Città pubblicata!" : "Città salvata.");
+            }
+        }
+        return true;
     }, [city, saveFullCity, onSaveSuccess, onSaveError]);
 
     const triggerPreview = useCallback((type: PreviewType, title?: string, items?: any[]) => {
@@ -212,6 +216,8 @@ export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveErro
     const clearPreviewRequest = useCallback(() => {
         setPreviewRequest({ type: 'none' });
     }, []);
+
+    console.log('[CE-C:PROVIDER-RENDER]', { moduleId: __CE_DEBUG__.moduleId, ctx: __CE_DEBUG__.ctx, isLoading, hasCity: !!city });
 
     return (
         <CityEditorContext.Provider value={{
@@ -237,7 +243,16 @@ export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveErro
 };
 
 export const useCityEditor = () => {
+    console.log('[CE-B:CONSUMER-HOOK]', {
+        moduleId: __CE_DEBUG__.moduleId,
+        ctx: __CE_DEBUG__.ctx,
+        stack: new Error().stack?.split('\n').slice(1, 4).join(' | '),
+    });
     const context = useContext(CityEditorContext);
-    if (!context) throw new Error("useCityEditor must be used within CityEditorProvider");
+    if (!context) {
+        throw new Error(
+            `[CE-CRASH] moduleId=${__CE_DEBUG__.moduleId} ctx=${String(__CE_DEBUG__.ctx)}`
+        );
+    }
     return context;
 };

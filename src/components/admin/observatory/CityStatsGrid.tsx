@@ -164,7 +164,6 @@ export const CityStatsGrid = ({
     const StatusBadge = ({ status }: { status: string }) => {
         if (status === 'published') return <span className="bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-[9px] font-black uppercase">Online</span>;
         if (status === 'draft') return <span className="bg-amber-900/30 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[9px] font-black uppercase">Bozza</span>;
-        if (status === 'restored') return <span className="bg-purple-900/30 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-[9px] font-black uppercase">Restored</span>;
         return <span className="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded text-[9px] font-black uppercase">Missing</span>;
     };
 

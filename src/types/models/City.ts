@@ -193,16 +193,13 @@ export interface CityEvent {
 
 export interface CityService {
     id: string;
-    type: 'airport' | 'train' | 'bus' | 'taxi' | 'maritime' | 'emergency' | 'pharmacy' | 'other' | 'tour_operator' | 'agency' | 'transport' | 'info' | 'hospital' | 'police' | 'fire' | 'atm' | 'post' | 'luggage' | 'water' | 'consulate';
+    type: 'airport' | 'train' | 'bus' | 'taxi' | 'maritime' | 'emergency' | 'pharmacy' | 'other' | 'transport' | 'info' | 'hospital' | 'police' | 'fire' | 'atm' | 'post' | 'luggage' | 'water' | 'consulate';
     name: string;
     contact: string;
     category?: string;
     description?: string;
     url?: string;
     address?: string;
-    imageUrl?: string;
-    image_status?: MediaStatus;
-    imageAsset?: MediaAsset;
     orderIndex?: number;
 }
 
@@ -221,6 +218,27 @@ export interface CityGuide {
     reviews?: Review[];
     isSponsored?: boolean;
     orderIndex?: number;
+}
+
+export interface CityTourOperator {
+    id: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    imageUrl?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+    address?: string;
+    coords?: { lat: number; lng: number };
+    rating?: number;
+    reviews?: Review[];
+    destinations?: string[];
+    servicesOffered?: string[];
+    openingHours?: OpeningHours | null;
+    licenseNumber?: string;
+    ownerId?: string;
+    isSponsored?: boolean;
 }
 
 export interface CityDetails extends CitySummary {
@@ -262,6 +280,7 @@ export interface CityDetails extends CitySummary {
         services: CityService[];
         events: CityEvent[];
         guides: CityGuide[];
+        tourOperators?: CityTourOperator[];
 
         seasonalVisitors?: { spring: number, summer: number, autumn: number, winter: number };
         generationLogs?: string[];

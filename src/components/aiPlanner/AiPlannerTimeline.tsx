@@ -51,7 +51,7 @@ export const AiPlannerTimeline = ({ onApply, onReset, activeStyles }: Props) => 
             const matchedCity = manifest.find(c => c.name.toLowerCase() === aiSession.destination.toLowerCase());
             
             if (matchedCity) {
-                const details = await getCityDetails(matchedCity.id);
+                const details = await getCityDetails(matchedCity.id, undefined, { peopleAudience: 'public' });
                 if (details?.details.allPois) {
                      availablePois = details.details.allPois
                         .sort((a,b) => b.rating - a.rating)

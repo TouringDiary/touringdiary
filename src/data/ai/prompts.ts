@@ -65,18 +65,40 @@ export const buildRegeneratePoiPrompt = (poiName: string, cityName: string) => `
     OUTPUT JSON COMPLETO.
 `;
 
-export const buildSuggestItemsPrompt = (cityName: string, type: string, count: number, contextQuery: string, exclusionStr: string, allowedSubcategories: string) => `
+export const buildSuggestItemsPrompt = (cityName: string, type: string, count: number, contextQuery: string, exclusionStr: string, allowedSubcategories: string) => {
+    const tourOperatorSchema = type === 'tour_operators' ? `
+    SCHEMA tour_operators (OBBLIGATORIO per ogni elemento):
+    { "name": "...", "phone": "...", "website": "...", "email": "...", "address": "...", "description": "..." }
+    NON usare i campi "contact" o "url". Usa SOLO "phone" e "website" per i contatti.
+    ` : '';
+
+    const servicesSchema = type === 'services' ? `
+    SCHEMA services (SOLO servizi utilitari — NO tour operator, NO agenzie viaggio):
+    { "name": "...", "type": "...", "contact": "...", "url": "...", "address": "...", "description": "...", "category": "..." }
+    ` : '';
+
+    return `
     esperto di "${cityName}".
     Trova ${count} elementi reali per "${type}".
     ${contextQuery ? `CONTESTO: "${contextQuery}"` : ''}
     ${exclusionStr}
+    ${tourOperatorSchema}
+    ${servicesSchema}
     OUTPUT JSON ARRAY.
-`;
+    `;
+};
 
 export const buildRefineServicePrompt = (cityName: string, draftData: any) => `
     DATA MANAGER. Città: ${cityName}.
     Unisci e bonifica.
     INPUT: ${JSON.stringify(draftData)}
+    SCHEMA OUTPUT OBBLIGATORIO:
+    - guides: [{ name, isOfficial, languages, specialties, email, phone, website, ... }]
+    - events: [{ name, date, category, description, location, coords, ... }]
+    - tour_operators: [{ name, phone, website, email, address, description }]
+      NON usare "contact" o "url" per tour_operators — SOLO "phone" e "website".
+    - services: [{ name, type, contact, url, address, description, category }]
+      SOLO servizi utilitari (trasporti, emergenza, info, ecc.). NO tour operator, NO agenzie viaggio.
     OUTPUT JSON: { "guides": [], "events": [], "tour_operators": [], "services": [] }
 `;
 

@@ -9,17 +9,27 @@ import {
     CityEvent,
     CityService as CityServiceEntity,
     CityGuide,
+    CityTourOperator,
     FamousPerson
 } from '../../types/index';
 import { DatabaseCityRouteView } from '../../types/database';
 import { getFromCache, setInCache, LONG_CACHE_TTL } from './cityCache';
 import { calculateDistance } from '../geo';
 import { getPoisByCityId, getPoisByCityIds, mapDbPoiToApp } from './poiService';
-import { getCityEvents, getCityServices, getCityGuides, getCityPeople } from './entitiesService';
+import {
+    getCityEvents,
+    getCityServices,
+    getCityGuides,
+    getCityPeople,
+    type CityPeopleAudience,
+} from './entitiesService';
+import { filterFamousPeopleByAudience } from './parsers/entities/famousPersonAudience';
 import { parseEvent } from './parsers/entities/parseEvent';
 import { parseService } from './parsers/entities/parseService';
 import { parseGuide } from './parsers/entities/parseGuide';
+import { parseTourOperator } from './parsers/entities/parseTourOperator';
 import { parsePerson } from './parsers/entities/parsePerson';
+import { getCityTourOperators } from './tourOperatorService';
 import { GEO_CONFIG } from '../../constants/geoConfig';
 import { sanitizeMediaStatus } from '../../utils/media';
 import { parseMediaAsset } from './parsers/media/parseMediaAsset';
@@ -117,6 +127,7 @@ const mapDbCityToDetails = (db: DatabaseCityRouteView, extra: {
     events: CityEvent[],
     services: CityServiceEntity[],
     guides: CityGuide[],
+    tourOperators: CityTourOperator[],
     famousPeople: FamousPerson[]
 }, zoneMap?: Map<string, string>): CityDetails | null => {
     if (!db) return null;
@@ -133,7 +144,7 @@ const mapDbCityToDetails = (db: DatabaseCityRouteView, extra: {
         return null;
     }
 
-    const { pois, events, services, guides, famousPeople } = extra;
+    const { pois, events, services, guides, tourOperators, famousPeople } = extra;
 
     return {
         ...summary,
@@ -152,6 +163,7 @@ const mapDbCityToDetails = (db: DatabaseCityRouteView, extra: {
             events,
             services,
             guides,
+            tourOperators,
             famousPeople,
             allPois: pois,
             topAttractions: pois.filter(p => p.category === POI_CATEGORIES.MONUMENT),
@@ -164,16 +176,23 @@ const mapDbCityToDetails = (db: DatabaseCityRouteView, extra: {
     };
 };
 
-export const getFullManifestAsync = async (onlyPublished = true): Promise<CitySummary[]> => {
+export const getFullManifestAsync = async (
+    onlyPublished = true,
+    options?: { bypassCache?: boolean }
+): Promise<CitySummary[]> => {
     const CACHE_KEY = onlyPublished ? 'manifest_published' : 'manifest_all';
-    const cached = getFromCache<CitySummary[]>(CACHE_KEY);
-    if (cached) return cached;
+    if (!options?.bypassCache) {
+        const cached = getFromCache<CitySummary[]>(CACHE_KEY);
+        if (cached) return cached;
+    }
 
     let dbData: DatabaseCityRouteView[] = [];
 
     // 1. TENTA IL CARICAMENTO TRAMITE API LOCALE (PROXIED)
     try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bootstrap/cities`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bootstrap/cities`, {
+            cache: 'no-store',
+        });
         if (response.ok) {
             const apiRes = await response.json();
             if (apiRes.success && apiRes.data) {
@@ -221,8 +240,19 @@ export const getFullManifestAsync = async (onlyPublished = true): Promise<CitySu
     return result;
 };
 
-export const getCityDetails = async (cityId: string, signal?: AbortSignal): Promise<CityDetails | null> => {
-    const CACHE_KEY = `city_details_${cityId}`;
+export type { CityPeopleAudience };
+
+export interface GetCityDetailsOptions {
+    peopleAudience?: CityPeopleAudience;
+}
+
+export const getCityDetails = async (
+    cityId: string,
+    signal?: AbortSignal,
+    options: GetCityDetailsOptions = {},
+): Promise<CityDetails | null> => {
+    const peopleAudience = options.peopleAudience ?? 'public';
+    const CACHE_KEY = `city_details_${cityId}_${peopleAudience}`;
     const cached = getFromCache<CityDetails>(CACHE_KEY);
     if (cached) return cached;
 
@@ -243,10 +273,12 @@ export const getCityDetails = async (cityId: string, signal?: AbortSignal): Prom
                 const pois = (apiRes.pois || []).map(mapDbPoiToApp);
                 const events = (apiRes.events || []).map(parseEvent);
                 const services = (apiRes.services || []).map(parseService);
+                const tourOperators = (apiRes.tour_operators || []).map(parseTourOperator);
                 const guides = (apiRes.guides || []).map(parseGuide);
-                const people = (apiRes.people || [])
-                    .map(parsePerson)
-                    .sort((a: FamousPerson, b: FamousPerson) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                const people = filterFamousPeopleByAudience(
+                    (apiRes.people || []).map(parsePerson),
+                    peopleAudience,
+                ).sort((a: FamousPerson, b: FamousPerson) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
                 let result: CityDetails | null = null;
 
@@ -257,6 +289,7 @@ export const getCityDetails = async (cityId: string, signal?: AbortSignal): Prom
                     events,
                     services,
                     guides,
+                    tourOperators,
                     famousPeople: people
                 }, zoneMap);
 
@@ -279,14 +312,14 @@ export const getCityDetails = async (cityId: string, signal?: AbortSignal): Prom
     if (cityErr || !cityData) return null;
     const dbCity = cityData as DatabaseCityRouteView;
 
-    const [pois, events, services, guides, people] = await Promise.all([
+    const [pois, events, services, guides, tourOperators, people] = await Promise.all([
         getPoisByCityId(cityId),
         getCityEvents(cityId),
         getCityServices(cityId),
         getCityGuides(cityId),
-        getCityPeople(cityId)
+        getCityTourOperators(cityId),
+        getCityPeople(cityId, peopleAudience),
     ]);
-
     const sortedPeople = people.sort((a: FamousPerson, b: FamousPerson) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
     const result = mapDbCityToDetails(dbCity, {
@@ -294,6 +327,7 @@ export const getCityDetails = async (cityId: string, signal?: AbortSignal): Prom
         events,
         services,
         guides,
+        tourOperators,
         famousPeople: sortedPeople
     }, zoneMap);
 
@@ -370,6 +404,7 @@ export const buildVirtualCity = async (
                 leisureSpots: allPois.filter(p => p.category === POI_CATEGORIES.LEISURE),
                 newDiscoveries: allPois.filter(p => p.category === POI_CATEGORIES.DISCOVERY),
                 services: isMergedMode ? baseCity.details.services : [],
+                tourOperators: isMergedMode ? (baseCity.details.tourOperators || []) : [],
                 famousPeople: isMergedMode ? baseCity.details.famousPeople : [],
                 gallery: isMergedMode ? baseCity.details.gallery : [],
                 ratings: isMergedMode ? baseCity.details.ratings : undefined,

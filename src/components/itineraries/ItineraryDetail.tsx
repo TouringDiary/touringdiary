@@ -51,7 +51,9 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
             
             // Scarichiamo i dati delle città coinvolte
             // Safe call: handle partial failures
-            const citiesDataResults = await Promise.all(uniqueCityIds.map(id => getCityDetails(id)));
+            const citiesDataResults = await Promise.all(
+                uniqueCityIds.map(id => getCityDetails(id, undefined, { peopleAudience: 'public' })),
+            );
             const allPoisMap = new Map();
             const foundHotels: PointOfInterest[] = [];
             

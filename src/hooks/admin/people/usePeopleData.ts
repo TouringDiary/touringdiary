@@ -1,7 +1,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FamousPerson } from '../../../types/index';
-import { getCityPeople, saveCityPerson, deleteCityPerson } from '../../../services/cityService';
+import {
+    getCityPeople,
+    saveCityPerson,
+    deleteCityPerson,
+    type SaveCityPersonInput,
+} from '../../../services/cityService';
 import { useCityEditor } from '@/context/CityEditorContext';
 
 export const usePeopleData = (cityId: string) => {
@@ -22,7 +27,7 @@ export const usePeopleData = (cityId: string) => {
         if (!cityId) return;
         setIsLoading(true);
         try {
-            const data = await getCityPeople(cityId);
+            const data = await getCityPeople(cityId, 'admin');
             const sorted = data.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0));
             setPeopleList(sorted);
         } catch (e) {
@@ -60,19 +65,15 @@ export const usePeopleData = (cityId: string) => {
     
     // Add Placeholder
     const addManualPerson = async () => {
-        const tempPerson: any = {
+        const tempPerson: SaveCityPersonInput = {
              name: 'Nuovo Personaggio', role: 'Artista', bio: '', 
              imageUrl: 'https://images.unsplash.com/photo-1555626040-3b731de3a81c?q=80&w=400', 
              relatedPlaces: [], famousWorks: [], fullBio: '', privateLife: '', awards: [], 
              collaborations: [], careerStats: [], status: 'draft', orderIndex: peopleList.length + 1
         };
         const saved = await saveCityPerson(cityId, tempPerson);
-        if(saved) {
-             const mappedSaved = mapDbToApp(saved);
-             setPeopleList(prev => [...prev, mappedSaved]);
-             return mappedSaved.id;
-        }
-        return null;
+        setPeopleList(prev => [...prev, saved]);
+        return saved.id;
     };
 
     // Delete Single
@@ -140,13 +141,6 @@ export const usePeopleData = (cityId: string) => {
         }
     };
 
-    // Helper Mapping
-    const mapDbToApp = (saved: any): FamousPerson => ({
-        id: saved.id, name: saved.name, role: saved.role, bio: saved.bio, imageUrl: saved.image_url,
-        fullBio: saved.full_bio, quote: saved.quote, lifespan: saved.lifespan, status: saved.status,
-        orderIndex: saved.order_index
-    });
-
     return {
         peopleList,
         setPeopleList, // Exposed for AI Hook updates
@@ -165,7 +159,5 @@ export const usePeopleData = (cityId: string) => {
         toggleStatus,
         reorderPerson,
         reloadList: loadPeople,
-        
-        mapDbToApp // Exposed helper
     };
 };

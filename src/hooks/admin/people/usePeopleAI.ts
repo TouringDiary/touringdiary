@@ -15,11 +15,10 @@ interface UsePeopleAIProps {
     reloadList: () => Promise<void>;
     selectedIds: Set<string>;
     resetSelection: () => void;
-    mapDbToApp: (dbObj: any) => FamousPerson;
 }
 
 export const usePeopleAI = ({ 
-    cityId, cityName, peopleList, setPeopleList, reloadList, selectedIds, resetSelection, mapDbToApp 
+    cityId, cityName, peopleList, setPeopleList, reloadList, selectedIds, resetSelection,
 }: UsePeopleAIProps) => {
     
     const { reloadCurrentCity } = useCityEditor();
@@ -64,12 +63,9 @@ export const usePeopleAI = ({
                 awards: person.awards || [], careerStats: person.careerStats || []
             };
             const saved = await saveCityPerson(cityId, newPerson);
-            if (saved) {
-                const mapped = mapDbToApp(saved);
-                setPeopleList(prev => [...prev, mapped]);
-                setDiscoveryResults(prev => prev.filter(p => p.name !== person.name));
-                reloadCurrentCity();
-            }
+            setPeopleList(prev => [...prev, saved]);
+            setDiscoveryResults(prev => prev.filter(p => p.name !== person.name));
+            reloadCurrentCity();
         } catch (e) {
             setDiscoveryResults(prev => prev.map(p => p.name === person.name ? { ...p, isImporting: false } : p));
         }

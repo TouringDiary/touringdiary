@@ -28,7 +28,10 @@ export const setInCache = <T>(key: string, data: T, ttl: number = CACHE_TTL) => 
 
 export const invalidateCityCache = (cityId: string) => {
     delete memoryCache[`city_details_${cityId}`];
-    delete memoryCache['manifest_full']; // Forza ricaricamento lista
+    delete memoryCache[`city_details_${cityId}_public`];
+    delete memoryCache[`city_details_${cityId}_admin`];
+    delete memoryCache['manifest_published'];
+    delete memoryCache['manifest_all'];
 };
 
 export const clearCacheKey = (pattern: string) => {

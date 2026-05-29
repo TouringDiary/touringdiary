@@ -1,7 +1,7 @@
 
 import { supabase } from '../supabaseClient';
 import { AiZoneSuggestion, CityDeleteOptions } from '../../types/index';
-import { DatabaseCity } from '../../types/database';
+import { DatabaseCityInsert, Json } from '../../types/database';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
 import { ensureZoneExists } from '../zoneService';
 import { orphanCityStaging, reclaimStagingByCityName } from '../stagingService';
@@ -117,6 +117,7 @@ export const deleteCity = async (cityId: string, options: CityDeleteOptions, cit
         await supabase.from('city_events').delete().eq('city_id', cityId);
         await supabase.from('city_services').delete().eq('city_id', cityId);
         await supabase.from('city_guides').delete().eq('city_id', cityId);
+        await supabase.from('city_tour_operators').delete().eq('city_id', cityId);
     } catch (e) {}
 
     // 6. CANCELLAZIONE CITTÀ
@@ -205,19 +206,19 @@ export const importRegionalData = async (
                             continue; // Salta questa città se non è nel registro
                         }
                         
-                        const payload: Partial<DatabaseCity> = {
+                        const payload: DatabaseCityInsert = {
                             id: newId,
                             name: city.name,
                             admin_region: adminRegion,
                             zone: zone.name,
                             status: 'draft',
-                            image_url: 'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1200', 
+                            image_url: 'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1200',
                             visitors: city.visitors,
                             coords_lat: 0,
                             coords_lng: 0,
                             created_at: new Date().toISOString(),
                             updated_at: new Date().toISOString(),
-                            generation_logs: [] 
+                            generation_logs: [] as Json,
                         };
 
                         await supabase.from('cities').insert(payload);

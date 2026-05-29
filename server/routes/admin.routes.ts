@@ -1,5 +1,14 @@
 import { Router } from 'express';
 import { supabaseAdmin } from '../supabaseAdmin';
+import {
+  persistCityDetails,
+  updateCityStatus,
+  patchCityManifestFields,
+  patchCityBadge,
+  patchCityHomeOrder,
+  type CityWritePayload,
+  type CityManifestPatch,
+} from '../services/cityAdminService';
 
 const router = Router();
 
@@ -122,6 +131,103 @@ router.post("/create-user", async (req, res) => {
       error: e.message
     });
   }
+});
+
+/** Aggiornamento stato città (draft / published / needs_check) — evaluate & admin. */
+router.patch("/cities/:cityId/status", async (req, res) => {
+  try {
+    const { cityId } = req.params;
+    const { status } = req.body as { status?: string };
+
+    if (!status) {
+      return res.status(400).json({ success: false, error: 'Missing status' });
+    }
+
+    const data = await updateCityStatus(cityId, status);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, data });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    console.error('[Admin] city status crash:', message);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+/** Persistenza editor — UPDATE esplicito (INSERT solo se riga assente). */
+router.patch("/cities/:cityId/details", async (req, res) => {
+  try {
+    const { cityId } = req.params;
+    const payload = req.body as CityWritePayload;
+
+    const data = await persistCityDetails(cityId, payload);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, data });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    console.error('[Admin] city details crash:', message);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+/** Aggiornamento minimale manifest (name, zone, status). */
+router.patch("/cities/:cityId/manifest", async (req, res) => {
+  try {
+    const { cityId } = req.params;
+    const patch = req.body as CityManifestPatch;
+
+    const data = await patchCityManifestFields(cityId, patch);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, data });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    console.error('[Admin] city manifest crash:', message);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+/** Aggiornamento special_badge. */
+router.patch("/cities/:cityId/badge", async (req, res) => {
+  try {
+    const { cityId } = req.params;
+    const { badge } = req.body as { badge?: string | null };
+
+    const data = await patchCityBadge(cityId, badge ?? null);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, data });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    console.error('[Admin] city badge crash:', message);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+/** Aggiornamento home_order. */
+router.patch("/cities/:cityId/home-order", async (req, res) => {
+  try {
+    const { cityId } = req.params;
+    const { home_order } = req.body as { home_order?: number | null };
+
+    const data = await patchCityHomeOrder(cityId, home_order ?? null);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, data });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    console.error('[Admin] city home-order crash:', message);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+/** Evita che richieste admin non gestite cadano nel middleware Vite (PATCH/GET pendenti). */
+router.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `Admin route not found: ${req.method} ${req.path}`,
+  });
 });
 
 export default router;

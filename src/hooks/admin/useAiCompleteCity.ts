@@ -2,7 +2,7 @@
 import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
 import { generateCitySection, suggestCityItems, suggestCityPeople, refineServiceData, enrichPersonData } from '../../services/ai';
 import { generateHistoricalPortrait } from '../../services/ai/aiVision';
-import { saveCityDetails, saveCityPerson, saveCityGuide, saveCityEvent, saveCityService, getCityPeople, deleteCityPerson, getCityDetails } from '../../services/cityService';
+import { saveCityDetails, saveCityPerson, saveCityGuide, saveCityEvent, saveCityService, saveCityTourOperator, mapToTourOperatorInput, getCityPeople, deleteCityPerson, getCityDetails } from '../../services/cityService';
 import { reclaimOrphanedItems } from '../../services/city/cityLifecycleService';
 import { findExistingPortrait } from '../../services/mediaService'; // NUOVO IMPORT
 import { CityDetails, User, FamousPerson } from '../../types/index';
@@ -46,7 +46,7 @@ export const useAiCompleteCity = (
 
         try {
             // Carica la città attuale
-            let currentCity = await getCityDetails(cityId);
+            let currentCity = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
             if (!currentCity) throw new Error("Città non trovata.");
 
             // 0. RECLAIM PREVENTIVO (Una tantum all'inizio)
@@ -189,7 +189,7 @@ export const useAiCompleteCity = (
                 const savePromises: Promise<any>[] = [];
                 if (refinedData.guides) refinedData.guides.forEach((g: any, i: number) => savePromises.push(saveCityGuide(cityId, { ...g, orderIndex: i + 1 })));
                 if (refinedData.events) refinedData.events.forEach((e: any, i: number) => savePromises.push(saveCityEvent(cityId, { ...e, category: getSafeEventCategory(e.category), orderIndex: i + 1 })));
-                if (refinedData.tour_operators) refinedData.tour_operators.forEach((op: any, i: number) => savePromises.push(saveCityService(cityId, { ...op, type: 'tour_operator', orderIndex: i + 1 })));
+                if (refinedData.tour_operators) refinedData.tour_operators.forEach((op: any) => savePromises.push(saveCityTourOperator(cityId, mapToTourOperatorInput(op))));
                 if (refinedData.services) refinedData.services.forEach((s: any, i: number) => savePromises.push(saveCityService(cityId, { ...s, type: getSafeServiceType(s.type || s.category), orderIndex: i + 1 })));
 
                 await Promise.all(savePromises);
@@ -215,7 +215,7 @@ export const useAiCompleteCity = (
 
             // FINALIZZAZIONE
             await performStep('Finalizzazione & Log', async () => {
-                 const finalCity = await getCityDetails(cityId);
+                 const finalCity = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
                  if (finalCity) {
                      finalCity.details.generationLogs = getAccumulatedLogs();
                      // Salvataggio finale: qui riattiviamo il reclaim per sicurezza finale

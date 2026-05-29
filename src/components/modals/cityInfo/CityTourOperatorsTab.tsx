@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Bus, ChevronRight, Phone, Mail, Check, Plus, MessageSquare, PenTool, Globe, Star, ShieldCheck, Flag } from 'lucide-react';
-import { CityDetails, User as UserType, PointOfInterest } from '@/types/index';
+import { CityDetails, User as UserType, PointOfInterest, CityTourOperator } from '@/types/index';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
@@ -20,34 +20,18 @@ interface Props {
 
 export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobile, setMobileView, mobileView, onSuggestEdit }: Props) => {
     const { itinerary } = useItinerary();
-    const [selectedOperator, setSelectedOperator] = useState<any>(null);
+    const [selectedOperator, setSelectedOperator] = useState<CityTourOperator | null>(null);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [localReviews, setLocalReviews] = useState<any[]>([]);
 
-    const getOperatorsList = () => {
-        const services = city.details.services || [];
-        return services.filter(s => 
-            s.type === 'tour_operator' || 
-            s.type === 'agency' || 
-            s.category?.toLowerCase().includes('tour') || 
-            s.category?.toLowerCase().includes('agenzia')
-        ).map(s => ({
-            ...s,
-            rating: 4.8, 
-            reviews: [],
-            languages: ['IT', 'EN'], 
-            specialties: [s.category || 'Tour Organizzati']
-        }));
-    };
-
-    const operatorsList = getOperatorsList();
+    const operatorsList = city.details.tourOperators || [];
 
     useEffect(() => {
         const isDesktop = window.innerWidth >= 768;
         if (isDesktop && operatorsList.length > 0 && !selectedOperator) {
             setSelectedOperator(operatorsList[0]);
         }
-    }, []);
+    }, [operatorsList, selectedOperator]);
 
     const isItemInItinerary = (id: string) => itinerary.items.some(i => i.poi.id === id);
 
@@ -72,10 +56,11 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
         setShowReviewModal(false);
     };
 
-    const renderOperatorDetail = (operator: any) => {
+    const renderOperatorDetail = (operator: CityTourOperator | null) => {
         if (!operator) return <div className="h-full flex items-center justify-center text-slate-600 italic">Seleziona un operatore</div>;
         
-        const reviews = [...localReviews, ...(operator.reviews || [])];
+        const storedReviews = Array.isArray(operator.reviews) ? operator.reviews : [];
+        const reviews = [...localReviews, ...storedReviews];
         const isAdded = operator.id ? isItemInItinerary(operator.id) : false;
 
         const handleAddOperator = () => {
@@ -85,16 +70,16 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                 category: 'leisure', 
                 subCategory: 'agency',
                 description: `Tour Operator: ${operator.description || 'Organizzazione viaggi e escursioni.'}`,
-                imageUrl: operator.imageUrl,
-                coords: { lat: 0, lng: 0 },
+                imageUrl: operator.imageUrl || '',
+                coords: operator.coords || { lat: 0, lng: 0 },
                 rating: operator.rating || 0,
                 votes: reviews.length,
-                address: operator.address || operator.contact,
+                address: operator.address || operator.phone,
                 
                 resourceType: 'operator',
                 contactInfo: {
-                    phone: operator.contact,
-                    website: operator.url
+                    phone: operator.phone,
+                    website: operator.website
                 }
             };
             onAddToItinerary(poi);
@@ -109,7 +94,7 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                              src={operator.imageUrl} 
                              className="w-full h-full object-cover" 
                              alt={operator.name} 
-                             category={operator.type || 'tour_operator'} // Usa il tipo reale del servizio
+                             category="tour_operator"
                          />
                          <div className="absolute inset-0 bg-indigo-900/20 mix-blend-overlay"></div>
                     </div>
@@ -130,13 +115,13 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                         </p>
 
                         <div className="flex flex-wrap gap-4 mt-6 justify-center md:justify-start">
-                            {operator.contact && (operator.contact.includes('+') || operator.contact.length > 5) && (
-                                <a href={`tel:${operator.contact}`} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wide border border-slate-700 transition-all active:scale-95">
+                            {operator.phone && (
+                                <a href={`tel:${operator.phone}`} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wide border border-slate-700 transition-all active:scale-95">
                                     <Phone className="w-4 h-4"/> Chiama
                                 </a>
                             )}
-                            {operator.url && (
-                                <a href={operator.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wide border border-slate-700 transition-all active:scale-95">
+                            {operator.website && (
+                                <a href={operator.website} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wide border border-slate-700 transition-all active:scale-95">
                                     <Globe className="w-4 h-4"/> Sito Web
                                 </a>
                             )}
@@ -215,7 +200,7 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                                 <div className="min-w-0">
                                     <div className="font-bold text-sm truncate">{op.name}</div>
                                     <div className={`text-[10px] uppercase font-bold truncate ${selectedOperator?.name === op.name ? 'text-cyan-200' : 'text-slate-600'}`}>
-                                        {op.category || 'Agenzia Viaggi'}
+                                        {op.servicesOffered?.[0] || 'Agenzia Viaggi'}
                                     </div>
                                 </div>
                                 <ChevronRight className={`w-5 h-5 ml-auto opacity-50 ${selectedOperator?.name === op.name ? 'text-white' : ''}`}/>

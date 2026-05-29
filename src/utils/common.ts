@@ -253,7 +253,7 @@ export const getSafeServiceType = (rawType: string): string => {
     const validTypes = [
         'airport', 'train', 'bus', 'taxi', 'maritime', 'other', 'emergency', 'pharmacy', 
         'guide', 'transport', 'info', 'hospital', 'police', 'fire', 'atm', 'consulate', 
-        'parking', 'rental', 'post', 'water', 'luggage', 'tour_operator', 'agency'
+        'parking', 'rental', 'post', 'water', 'luggage'
     ];
     if (validTypes.includes(t)) return t;
     if (t.includes('aeroport') || t.includes('aereo') || t.includes('volo')) return 'airport';
@@ -272,7 +272,6 @@ export const getSafeServiceType = (rawType: string): string => {
     if (t.includes('bagagli')) return 'luggage';
     if (t.includes('acqua') || t.includes('fontan')) return 'water';
     if (t.includes('consolato') || t.includes('ambasciata')) return 'consulate';
-    if (t.includes('tour') || t.includes('agenzia') || t.includes('viaggi')) return 'tour_operator';
     return 'other';
 };
 

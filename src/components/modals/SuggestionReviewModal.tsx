@@ -60,9 +60,14 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
     const [rejectionReason, setRejectionReason] = useState(REJECTION_REASONS[0]);
     const [rejectionNote, setRejectionNote] = useState('');
     const [monthsInNew, setMonthsInNew] = useState(1);
+    const [linkedPoiId, setLinkedPoiId] = useState<string | undefined>(suggestion.poiId);
 
     // ESC Handling
     useGlobalModalEscape(isOpen, onClose);
+
+    useEffect(() => {
+        setLinkedPoiId(suggestion.poiId);
+    }, [suggestion.id, suggestion.poiId]);
 
     if (!isOpen) return null;
 
@@ -97,17 +102,17 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
 
     useEffect(() => {
         setLoadingCurrent(true);
-        getCityDetails(suggestion.cityId).then(city => {
+        getCityDetails(suggestion.cityId, undefined, { peopleAudience: 'admin' }).then(city => {
             if (city) {
                 setAllCityPois(city.details.allPois || []);
-                if (suggestion.poiId) {
-                    const poi = city.details.allPois.find(p => p.id === suggestion.poiId);
+                if (linkedPoiId) {
+                    const poi = city.details.allPois.find(p => p.id === linkedPoiId);
                     if (poi) setCurrentPoi(poi);
                 }
             }
             setLoadingCurrent(false);
         });
-    }, [suggestion]);
+    }, [suggestion.cityId, linkedPoiId]);
 
     const handleAiDeepCheck = async () => {
         setIsAiChecking(true);
@@ -148,8 +153,8 @@ export const SuggestionReviewModal = ({ suggestion, onClose, onUpdate, onUserUpd
 
             if (exists) {
                 setDuplicateFound({ name: exists.name, id: exists.id });
-                if (!suggestion.poiId) {
-                    suggestion.poiId = exists.id;
+                if (!linkedPoiId) {
+                    setLinkedPoiId(exists.id);
                     setCurrentPoi(exists);
                 }
             }

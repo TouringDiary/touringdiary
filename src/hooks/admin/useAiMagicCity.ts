@@ -1,6 +1,6 @@
 import { generateCitySection, suggestCityItems, suggestCityPeople, refineServiceData, enrichPersonData, suggestNewPois } from '../../services/ai';
 import { generateHistoricalPortrait } from '../../services/ai/aiVision'; 
-import { saveCityDetails, saveCityPerson, saveCityGuide, saveCityEvent, saveCityService, saveSinglePoi, getCityPeople, deleteCityPerson, getCityDetails, getPoisByCityId } from '../../services/cityService';
+import { saveCityDetails, saveCityPerson, saveCityGuide, saveCityEvent, saveCityService, saveCityTourOperator, mapToTourOperatorInput, saveSinglePoi, getCityPeople, deleteCityPerson, getCityDetails, getPoisByCityId } from '../../services/cityService';
 import { reclaimOrphanedItems } from '../../services/city/cityLifecycleService';
 import { findExistingPortrait } from '../../services/mediaService'; // NUOVO IMPORT
 import { CityDetails, User, PointOfInterest, FamousPerson } from '../../types/index';
@@ -70,7 +70,7 @@ export const useAiMagicCity = (
                      const existingPois = await getPoisByCityId(existingCityId);
                      existingPoiNames = existingPois.map(p => p.name);
                      
-                     const cityDetails = await getCityDetails(existingCityId);
+                     const cityDetails = await getCityDetails(existingCityId, undefined, { peopleAudience: 'admin' });
                      if (cityDetails) {
                          if (cityDetails.coords.lat !== 0) cityCenterCoords = cityDetails.coords;
                          if (cityDetails.description && cityDetails.description.length > 50 && Object.keys(cityDetails.details.ratings || {}).length > 0) {
@@ -91,7 +91,7 @@ export const useAiMagicCity = (
                 
                 if (isUpdateMode && !currentRegion) {
                     try {
-                        const existingData = await getCityDetails(cityId);
+                        const existingData = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
                         if (existingData) currentRegion = existingData.adminRegion;
                     } catch (e) {
                          console.warn("Could not fetch existing region for disambiguation", e);
@@ -145,7 +145,7 @@ export const useAiMagicCity = (
                 }
 
                 let existingCityData: CityDetails | null = null;
-                if (isUpdateMode) existingCityData = await getCityDetails(cityId);
+                if (isUpdateMode) existingCityData = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
 
                 const citySlug = existingCityData?.slug ?? (await getRegistryCitySlugById(cityId));
 
@@ -262,7 +262,7 @@ export const useAiMagicCity = (
                          savePromises.push(saveCityEvent(cityId, { ...e, category: safeCat, orderIndex: i + 1, metadata }));
                      }
                  });
-                 if (refinedData.tour_operators) refinedData.tour_operators.forEach((op: any, i: number) => savePromises.push(saveCityService(cityId, { ...op, type: 'tour_operator', orderIndex: i + 1 })));
+                 if (refinedData.tour_operators) refinedData.tour_operators.forEach((op: any) => savePromises.push(saveCityTourOperator(cityId, mapToTourOperatorInput(op))));
                  if (refinedData.services) refinedData.services.forEach((s: any, i: number) => savePromises.push(saveCityService(cityId, { ...s, type: getSafeServiceType(s.type || s.category), orderIndex: i + 1 })));
                  
                  await Promise.all(savePromises);
@@ -303,7 +303,7 @@ export const useAiMagicCity = (
 
             // STEP 5: FINAL
             await performStep('Finalizzazione & Log', async () => {
-                 const finalCity = await getCityDetails(cityId);
+                 const finalCity = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
                  if (finalCity) {
                      finalCity.details.generationLogs = getAccumulatedLogs();
                      await saveCityDetails(finalCity, { skipReclaim: false });

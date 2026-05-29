@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { suggestCityItems, refineServiceData } from '../../services/ai';
-import { 
-    getCityEvents, saveCityEvent, deleteCityEvent, 
-    getCityServices, saveCityService, deleteCityService, 
+import {
+    getCityEvents, saveCityEvent, deleteCityEvent,
+    getCityServices, saveCityService, deleteCityService,
     getCityGuides, saveCityGuide, deleteCityGuide,
+    getCityTourOperators, saveCityTourOperator, deleteCityTourOperator,
+    mapToTourOperatorInput,
     saveCityDetails
 } from '../../services/cityService';
 import { getSafeServiceType, getSafeEventCategory } from '../../utils/common';
@@ -14,33 +16,40 @@ import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
 
 export const useServiceRegeneration = (currentUser: User) => {
     const { city, reloadCurrentCity } = useCityEditor();
-    
-    // UI STATES
+
     const [showConfirmRegen, setShowConfirmRegen] = useState(false);
-    
-    // AI RUNNER (Gestisce log e stati)
-    const { 
-        processLog, 
-        stepReports, 
-        isProcessing, 
-        addLog, 
-        performStep, 
-        resetRunner, 
-        stopRunner 
+
+    const {
+        processLog,
+        stepReports,
+        isProcessing,
+        addLog,
+        performStep,
+        resetRunner,
+        stopRunner
     } = useAiTaskRunner();
 
-    // Data Snapshot for Logic
-    const [currentData, setCurrentData] = useState<{guides: any[], events: any[], services: any[]}>({ guides: [], events: [], services: [] });
+    const [currentData, setCurrentData] = useState<{
+        guides: any[];
+        events: any[];
+        services: any[];
+        tourOperators: any[];
+    }>({ guides: [], events: [], services: [], tourOperators: [] });
 
-    // Load snapshot when city changes
     useEffect(() => {
         if (city?.id) {
              Promise.all([
                 getCityGuides(city.id),
                 getCityEvents(city.id),
-                getCityServices(city.id)
-            ]).then(([g, e, s]) => {
-                setCurrentData({ guides: g, events: e, services: s });
+                getCityServices(city.id),
+                getCityTourOperators(city.id),
+            ]).then(([g, e, services, tourOperators]) => {
+                setCurrentData({
+                    guides: g,
+                    events: e,
+                    services,
+                    tourOperators,
+                });
             });
         }
     }, [city?.id]);
@@ -50,59 +59,53 @@ export const useServiceRegeneration = (currentUser: User) => {
         if (!city?.name) { alert("Inserisci il nome della città!"); return; }
         setShowConfirmRegen(true);
     };
-    
+
     const closeProcessLog = () => {
-        resetRunner([]); // Pulisce i log visivi
+        resetRunner([]);
     };
 
     const executeRegeneration = async () => {
         if (!city) return;
-        
+
         setShowConfirmRegen(false);
 
-        // DEFINIZIONE STEP VISUALI
         const steps: StepReport[] = [
             { step: 'Analisi & Discovery (Flash)', status: 'pending', itemsCount: 0, durationMs: 0 },
             { step: 'Refinement & Merge (Pro)', status: 'pending', itemsCount: 0, durationMs: 0 },
             { step: 'Pulizia Database', status: 'pending', itemsCount: 0, durationMs: 0 },
             { step: 'Salvataggio Dati Certificati', status: 'pending', itemsCount: 0, durationMs: 0 }
         ];
-        
+
         resetRunner(steps);
         addLog(`🚀 AVVIO RIGENERAZIONE SERVIZI: ${city.name}`);
 
         try {
-            // 1. FASE DISCOVERY (FLASH)
             let rawData: any = {};
             await performStep('Analisi & Discovery (Flash)', async () => {
-                const currentOperators = currentData.services.filter(s => s.type === 'tour_operator' || s.type === 'agency');
-                const currentGeneric = currentData.services.filter(s => s.type !== 'tour_operator' && s.type !== 'agency');
-
                 const existG = currentData.guides.map(i => i.name);
                 const existE = currentData.events.map(i => i.name);
-                const existO = currentOperators.map(i => i.name);
-                const existS = currentGeneric.map(i => i.name);
-                
+                const existO = currentData.tourOperators.map(i => i.name);
+                const existS = currentData.services.map(i => i.name);
+
                 const servicesQuery = 'stazione ferroviaria, metro, porto, traghetti, ospedale, farmacia, polizia, carabinieri';
 
                 const [rawGuides, rawEvents, rawOperators, rawServices] = await Promise.all([
                     suggestCityItems(city.name, 'guides', existG, '', 5),
                     suggestCityItems(city.name, 'events', existE, '', 5),
                     suggestCityItems(city.name, 'tour_operators', existO, '', 4),
-                    suggestCityItems(city.name, 'services', existS, servicesQuery, 10) 
+                    suggestCityItems(city.name, 'services', existS, servicesQuery, 10)
                 ]);
-                
+
                 rawData = {
                     guides: [...currentData.guides, ...rawGuides],
                     events: [...currentData.events, ...rawEvents],
-                    tour_operators: [...currentOperators, ...rawOperators],
-                    services: [...currentGeneric, ...rawServices]
+                    tour_operators: [...currentData.tourOperators, ...rawOperators],
+                    services: [...currentData.services, ...rawServices]
                 };
-                
+
                 return rawGuides.length + rawEvents.length + rawOperators.length + rawServices.length;
             }, (count) => count, (count) => `${count} Nuovi elementi grezzi trovati`);
-            
-            // 2. FASE REFINEMENT (GEMINI PRO)
+
             let refinedData: any = {};
             await performStep('Refinement & Merge (Pro)', async () => {
                 refinedData = await refineServiceData(city.name, rawData);
@@ -110,17 +113,16 @@ export const useServiceRegeneration = (currentUser: User) => {
                 return totalItems;
             }, (count) => count, (count) => `${count} Elementi unificati e bonificati`);
 
-            // 3. CANCELLAZIONE DATI OBSOLETI
             await performStep('Pulizia Database', async () => {
                 await Promise.all([
                     ...currentData.guides.map(g => deleteCityGuide(g.id)),
                     ...currentData.events.map(e => deleteCityEvent(e.id)),
-                    ...currentData.services.map(s => deleteCityService(s.id))
+                    ...currentData.services.map(s => deleteCityService(s.id)),
+                    ...currentData.tourOperators.map(op => deleteCityTourOperator(op.id)),
                 ]);
                 return 1;
             }, () => 1, () => "Vecchi dati rimossi");
 
-            // 4. SALVATAGGIO DATI PULITI
             await performStep('Salvataggio Dati Certificati', async () => {
                 const savePromises: Promise<any>[] = [];
 
@@ -140,10 +142,9 @@ export const useServiceRegeneration = (currentUser: User) => {
                 }
 
                 if (refinedData.tour_operators && Array.isArray(refinedData.tour_operators)) {
-                    refinedData.tour_operators.forEach((op: any, i: number) => {
+                    refinedData.tour_operators.forEach((op: any) => {
                         if (op && op.name) {
-                            op.type = 'tour_operator';
-                            savePromises.push(saveCityService(city.id, { ...op, orderIndex: i + 1 }));
+                            savePromises.push(saveCityTourOperator(city.id, mapToTourOperatorInput(op)));
                         }
                     });
                 }
@@ -151,7 +152,7 @@ export const useServiceRegeneration = (currentUser: User) => {
                 if (refinedData.services && Array.isArray(refinedData.services)) {
                     refinedData.services.forEach((s: any, i: number) => {
                         if (s && s.name) {
-                            s.type = getSafeServiceType(s.type || s.category || s.name || ''); 
+                            s.type = getSafeServiceType(s.type || s.category || s.name || '');
                             savePromises.push(saveCityService(city.id, { ...s, orderIndex: i + 1 }));
                         }
                     });
@@ -166,15 +167,20 @@ export const useServiceRegeneration = (currentUser: User) => {
             await saveCityDetails(updatedCity);
 
             await reloadCurrentCity();
-            
-            // Reload local snapshot
-            const [g, e, s] = await Promise.all([
-                getCityGuides(city.id), 
-                getCityEvents(city.id), 
-                getCityServices(city.id)
+
+            const [g, e, services, tourOperators] = await Promise.all([
+                getCityGuides(city.id),
+                getCityEvents(city.id),
+                getCityServices(city.id),
+                getCityTourOperators(city.id),
             ]);
-            setCurrentData({ guides: g, events: e, services: s });
-            
+            setCurrentData({
+                guides: g,
+                events: e,
+                services,
+                tourOperators,
+            });
+
             addLog("✅ Processo completato con successo!");
 
         } catch (err: any) {

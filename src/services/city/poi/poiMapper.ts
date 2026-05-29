@@ -91,6 +91,7 @@ export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
             whatsapp: dbContact?.whatsapp || null
         };
         const affiliate = (db.affiliate as unknown as AffiliateLinks) || EMPTY_AFFILIATE_LINKS;
+        const imageAsset = parseMediaAsset(db.image_url, db.image_status, db.image_credit, db.image_license);
 
         return {
             id: db.id,
@@ -99,12 +100,12 @@ export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
             category: cat,
             subCategory: subCat,
             description: db.description || '',
-            imageUrl: db.image_url || '',
+            imageUrl: imageAsset.url,
             // Media Governance (DB-Driven)
-            image_status: db.image_status || (db.image_url ? 'real' : 'missing'),
-            imageCredit: db.image_credit || undefined,
-            imageLicense: typeof db.image_license === 'string' ? db.image_license : undefined,
-            imageAsset: parseMediaAsset(db.image_url, db.image_status, db.image_credit, db.image_license as string),
+            image_status: imageAsset.mediaStatus,
+            imageCredit: imageAsset.credit,
+            imageLicense: imageAsset.license,
+            imageAsset,
 
             coords: { lat: db.coords_lat || 0, lng: db.coords_lng || 0 },
             address: db.address || '',

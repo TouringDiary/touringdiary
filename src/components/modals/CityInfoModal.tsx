@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { User, Building2, Calendar, Info, ArrowLeft, Bus } from 'lucide-react';
 import { CityDetails, User as UserType, PointOfInterest } from '../../types/index';
+import { CityInfoPreviewTab } from '../../types/cityPreview';
 import { CityGuidesTab } from './cityInfo/CityGuidesTab';
 import { CityServicesTab } from './cityInfo/CityServicesTab';
 import { CityEventsTab } from './cityInfo/CityEventsTab';
@@ -15,7 +16,7 @@ interface Props {
     isOpen: boolean;
     onClose: () => void;
     city: CityDetails;
-    initialTab: 'guides' | 'services' | 'events' | 'tour_operators';
+    initialTab: CityInfoPreviewTab;
     onAddToItinerary: (poi: PointOfInterest) => void;
     user?: UserType;
     onOpenAuth?: () => void;

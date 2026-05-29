@@ -2,7 +2,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAdminData } from './useAdminData';
 import { usePagination } from './usePagination';
-import { deleteCity, getFullManifestAsync } from '../services/cityService';
+import { getFullManifestAsync } from '../services/cityService';
+import { clearCacheKey } from '../services/city/cityCache';
 import { CitySummary } from '../types/index';
 
 export const useCityList = () => {
@@ -18,27 +19,41 @@ export const useCityList = () => {
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+    const loadManifest = useCallback(async (bypassCache: boolean) => {
+        const data = await getFullManifestAsync(false, { bypassCache });
+        setCloudCities(data);
+    }, []);
+
     // Force reload logic
     const forceReload = useCallback(async () => {
         setIsInitialLoading(true);
         try {
-            const data = await getFullManifestAsync(false);
-            setCloudCities(data);
+            clearCacheKey('manifest');
+            await loadManifest(true);
         } catch (e) {
             console.error("Errore ricaricamento lista:", e);
         } finally {
             setIsInitialLoading(false);
         }
-    }, []);
+    }, [loadManifest]);
+
+    const reloadManifest = useCallback(async () => {
+        try {
+            clearCacheKey('manifest');
+            await loadManifest(true);
+        } catch (e) {
+            console.error("Errore ricaricamento manifest:", e);
+        }
+    }, [loadManifest]);
 
     // Initial load & Event Listener
     useEffect(() => {
         forceReload();
 
-        const handleRefresh = () => forceReload();
+        const handleRefresh = () => { void reloadManifest(); };
         window.addEventListener('refresh-city-list', handleRefresh);
         return () => window.removeEventListener('refresh-city-list', handleRefresh);
-    }, [forceReload]);
+    }, [forceReload, reloadManifest]);
 
     // Derived Data
     const effectiveCities = cloudCities.length > 0 ? cloudCities : localCities;
@@ -102,6 +117,7 @@ export const useCityList = () => {
         pageInput, setPageInput,
         selectedIds, setSelectedIds, toggleSelection, toggleAllPage,
         forceReload,
+        reloadManifest,
         effectiveCities
     };
 };

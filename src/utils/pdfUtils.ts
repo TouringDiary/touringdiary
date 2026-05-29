@@ -75,13 +75,13 @@ const processImage = async (url: string): Promise<string | undefined> => {
 
             } catch {
 
-                resolve(url);
+                resolve(undefined);
 
             }
 
         };
 
-        img.onerror = () => resolve(url);
+        img.onerror = () => resolve(undefined);
 
         const cacheBuster = url.includes('?')
             ? `&_cb=${Date.now()}`
@@ -169,7 +169,7 @@ export const prepareItineraryForPdf = async (
 
         try {
 
-            const cityDetails = await getCityDetails(cityId);
+            const cityDetails = await getCityDetails(cityId, undefined, { peopleAudience: 'public' });
 
             if (cityDetails) {
 
