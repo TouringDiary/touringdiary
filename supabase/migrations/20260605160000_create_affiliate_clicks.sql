@@ -1,4 +1,4 @@
--- 1. Creazione Tabella affiliate_clicks
+-- 1. Creazione Tabella affiliate_clicks con tipi TEXT per FK
 CREATE TABLE public.affiliate_clicks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -6,9 +6,9 @@ CREATE TABLE public.affiliate_clicks (
     source_type TEXT NOT NULL,
     platform TEXT NOT NULL DEFAULT 'web',
     category TEXT NOT NULL,
-    poi_id UUID REFERENCES public.pois(id) ON DELETE SET NULL,
+    poi_id TEXT REFERENCES public.pois(id) ON DELETE SET NULL,
     product_id TEXT,
-    city_id UUID REFERENCES public.cities(id) ON DELETE SET NULL,
+    city_id TEXT REFERENCES public.cities(id) ON DELETE SET NULL,
     search_query TEXT,
     metadata JSONB DEFAULT '{}'::jsonb
 );
@@ -28,10 +28,13 @@ COMMENT ON COLUMN public.affiliate_clicks.source_type IS 'Origine: suitcase, poi
 -- 4. RLS e Sicurezza
 ALTER TABLE public.affiliate_clicks ENABLE ROW LEVEL SECURITY;
 
--- Policy Inserimento (Public): Consente a chiunque (anche guest) di registrare un click.
-CREATE POLICY "Allow public insert" ON public.affiliate_clicks FOR INSERT WITH CHECK (true);
+-- Policy Inserimento (Public)
+CREATE POLICY "Allow public insert" 
+ON public.affiliate_clicks 
+FOR INSERT 
+WITH CHECK (true);
 
--- Policy Lettura (Admin): Allineata allo standard di governance TD.
+-- Policy Lettura (Admin)
 CREATE POLICY "Allow admin select" 
 ON public.affiliate_clicks 
 FOR SELECT 
