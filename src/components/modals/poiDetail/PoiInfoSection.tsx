@@ -2,8 +2,8 @@
 import React from 'react';
 import { Sparkles, ShieldCheck, Flag, Clock, Ticket, Globe, RotateCw, CheckCircle, XCircle, Share2, Utensils, AlertTriangle, Info, Check } from 'lucide-react';
 import { PointOfInterest } from '@/types';
-import { enrichAffiliateUrl } from '../../../utils/affiliateNetwork';
-import { trackAffiliateClick } from '../../../services/trackingService';
+import { enrichAffiliateUrl, PartnerType } from '../../../utils/affiliateNetwork';
+import { affiliateTrackingService } from '../../../services/affiliateTrackingService';
 import { useShare } from '../../../hooks/useShare';
 
 interface PoiInfoSectionProps {
@@ -31,9 +31,18 @@ const PriceHeaderBadge = ({ level }: { level: number }) => {
 export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
     const { share } = useShare();
 
-    const handleAffiliateClick = (e: React.MouseEvent, partner: any, rawUrl: string) => {
+    const handleAffiliateClick = (e: React.MouseEvent, partner: PartnerType, rawUrl: string) => {
         e.stopPropagation();
-        trackAffiliateClick(poi.id, poi.name, partner);
+        
+        // Nuovo tracking centralizzato
+        affiliateTrackingService.trackClickOut({
+            partnerId: partner,
+            sourceType: 'poi',
+            category: 'poi_booking',
+            poiId: poi.id,
+            cityId: poi.cityId || undefined
+        });
+
         window.open(enrichAffiliateUrl(rawUrl, partner), '_blank', 'noopener,noreferrer');
     };
 

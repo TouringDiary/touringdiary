@@ -3,6 +3,7 @@ import { useAppInitialization } from '../hooks/core/useAppInitialization';
 import { getGuestUser } from '../utils/userUtils';
 import { supabase } from '../services/supabaseClient';
 import type { User, CitySummary } from '../types/index';
+import type { AiQuota } from '../types/ai';
 
 interface UserContextType {
     user: User;
@@ -11,6 +12,10 @@ interface UserContextType {
     isLoadingManifest: boolean;
     connectionError: boolean;
     handleLogout: () => void;
+    
+    // AI Quota
+    aiQuota: AiQuota | null;
+    refreshAiQuota: () => Promise<void>;
     
     // Gamification & Onboarding (parte di AppInit)
     showLevelUp: boolean;
@@ -37,7 +42,6 @@ export function UserProvider({ children }: { children?: ReactNode }) {
         }
     }, [currentMode]);
 
-    // Usiamo l'hook esistente che contiene tutta la logica di inizializzazione
     const {
         user, setUser,
         cityManifest,
@@ -47,12 +51,31 @@ export function UserProvider({ children }: { children?: ReactNode }) {
         showOnboarding, completeOnboarding
     } = useAppInitialization(currentMode);
 
+    const [aiQuota, setAiQuota] = React.useState<AiQuota | null>(null);
+
+    const refreshAiQuota = React.useCallback(async () => {
+        if (!user || user.role === 'guest') {
+            setAiQuota(null);
+            return;
+        }
+        try {
+            const { data, error } = await supabase.rpc('get_current_ai_quota', {
+                p_user_id: user.id
+            });
+            if (error) throw error;
+            setAiQuota(data as unknown as AiQuota);
+        } catch (err) {
+            console.error("[UserContext] Error fetching quota:", err);
+        }
+    }, [user.id, user.role]);
+
     // Inizializzazione completata
     React.useEffect(() => {
         if (!isLoadingManifest) {
             // Manifest inizializzato correttamente (o saltato in modalità admin)
+            refreshAiQuota();
         }
-    }, [isLoadingManifest]);
+    }, [isLoadingManifest, refreshAiQuota]);
 
 
     const handleLogout = async () => {
@@ -72,12 +95,15 @@ export function UserProvider({ children }: { children?: ReactNode }) {
         user, setUser,
         cityManifest, isLoadingManifest, connectionError,
         handleLogout,
+        aiQuota, refreshAiQuota,
         showLevelUp, closeLevelUp,
         showOnboarding, completeOnboarding,
         syncMode
     }), [
         user, setUser, 
         cityManifest, isLoadingManifest, connectionError, 
+        handleLogout,
+        aiQuota, refreshAiQuota,
         showLevelUp, closeLevelUp, 
         showOnboarding, completeOnboarding, 
         syncMode

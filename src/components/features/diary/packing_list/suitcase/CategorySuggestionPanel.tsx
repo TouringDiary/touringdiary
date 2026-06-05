@@ -6,6 +6,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { SETTINGS_KEYS } from '@/services/settingsService';
 import { ResolvedAffiliateProduct } from '@/types/suitcase';
 import { ItemCategoryIcon, resolveAffiliateProductImage } from './SuitcaseUtils';
+import { affiliateTrackingService } from '@/services/affiliateTrackingService';
 
 interface CategorySuggestionPanelProps {
   category: string;
@@ -198,6 +199,15 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                   }
                   return onLinkBuild(finalProduct.provider || "amazon", pid);
                 })()}
+                onClick={() => {
+                  affiliateTrackingService.trackClickOut({
+                    partnerId: finalProduct.provider || 'amazon',
+                    sourceType: 'suitcase',
+                    category: finalProduct.category || category || 'gear',
+                    productId: finalProduct.product_id || undefined,
+                    searchQuery: finalProduct.product_id?.startsWith('search:') ? finalProduct.product_id.replace('search:', '') : undefined
+                  });
+                }}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-white flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-orange-500/20 group/btn"

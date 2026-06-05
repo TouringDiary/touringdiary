@@ -74,12 +74,16 @@ export const useAppRouter = () => {
         return true;
     }, []);
 
+    const isCheckoutSuccessPath = useCallback((path: string) => {
+        return path === '/checkout-success';
+    }, []);
+
     // --- CORE ROUTING STATE (DERIVED FROM PATHNAME) ---
     // Estraiamo lo slug direttamente dal pathname per essere indipendenti dal nesting del router
     const citySlug = useMemo(() => {
-        // HARDENING: Se siamo in dashboard, non cerchiamo slug di città.
+        // HARDENING: Se siamo in dashboard o in checkout success, non cerchiamo slug di città.
         // Questo evita collisioni tra businessSlug e citySlug.
-        if (isDashboardPath(location.pathname)) return null;
+        if (isDashboardPath(location.pathname) || isCheckoutSuccessPath(location.pathname)) return null;
 
         const segments = location.pathname.split('/').filter(Boolean);
         if (segments.length === 0) return null;
@@ -248,6 +252,7 @@ export const useAppRouter = () => {
         // State
         pathname: location.pathname,
         isDashboardPath: isDashboardPath(location.pathname),
+        isCheckoutSuccessPath: isCheckoutSuccessPath(location.pathname),
         viewMode, activeCityId, activeShopId, targetShopVat,
         activeStaticPage, 
         currentCityTab, activePreview,

@@ -16,7 +16,7 @@ interface SearchBarProps {
 }
 
 export const SearchBar = ({ className = "", variant = "default", value, onChange, isFocused, onFocus, results, onSelect, containerRef }: SearchBarProps) => (
-    <div className={`w-full relative z-10 ${className}`} ref={containerRef}>
+    <div className={`w-full relative z-[999] ${className}`} ref={containerRef}>
         <div className={`flex items-center transition-all h-full ${variant === 'minimal'
                 ? 'bg-transparent pl-3 pr-0 flex w-full'
                 : `bg-slate-950 border rounded-full px-4 py-2 shadow-xl ${isFocused ? 'border-amber-500/50 ring-2 ring-amber-500/10' : 'border-slate-700 hover:border-slate-500'}`
@@ -48,7 +48,7 @@ export const SearchBar = ({ className = "", variant = "default", value, onChange
         </div>
 
         {isFocused && value.trim().length > 0 && (
-            <div className="absolute top-full mt-2 left-2 right-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2 z-dropdown">
+            <div className="absolute top-full mt-2 left-2 right-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2 z-[9999]">
                 {results.length > 0 ? (
                     results.map(city => (
                         <button

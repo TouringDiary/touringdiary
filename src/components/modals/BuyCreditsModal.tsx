@@ -74,22 +74,19 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClos
     const handleBuy = async (pkg: Package) => {
         setPurchasingId(pkg.id);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            
-            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/purchase-extra-credits`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
-                },
-                body: JSON.stringify({ packageId: pkg.id })
+            const { data, error } = await supabase.functions.invoke('purchase-extra-credits', {
+                body: { 
+                    packageId: pkg.id,
+                    origin: window.location.origin
+                }
             });
 
-            const result = await response.json();
-            if (result.checkoutUrl) {
-                window.location.href = result.checkoutUrl;
+            if (error) throw error;
+
+            if (data?.checkoutUrl) {
+                window.location.href = data.checkoutUrl;
             } else {
-                throw new Error(result.error || 'Failed to create checkout session');
+                throw new Error(data?.error || 'Failed to create checkout session');
             }
         } catch (err: any) {
             console.error("Purchase error:", err);

@@ -157,7 +157,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                 </div>
             )}
 
-            <div className="relative z-10 flex flex-col h-full">
+<div className="relative z-10 flex flex-col h-full rounded-2xl">
                 {/* TOP CONTENT: PADDED */}
                 <div className="p-3 md:px-5 md:py-4 flex flex-col">
                     {/* HEADER ROW */}
@@ -218,13 +218,13 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                 </div>
 
                 {/* BOTTOM STRIP: INTEGRATED, 100% WIDTH */}
-                <div className={`mt-auto bg-slate-950/60 backdrop-blur-md flex flex-col lg:flex-row items-stretch justify-between w-full transition-all duration-300 rounded-b-2xl ${props.isFiltersExpanded ? 'flex' : 'hidden lg:flex'}`}>
+                <div className={`mt-auto bg-slate-950/60 backdrop-blur-md flex flex-col lg:flex-row items-stretch justify-between w-auto lg:mx-6 xl:mx-10 transition-all duration-300 rounded-xl overflow-visible ${props.isFiltersExpanded ? 'flex' : 'hidden lg:flex'}`}>
 
                     {/* LEFT: TIPOLOGIA SECTION */}
-                    <div className="flex items-stretch shrink-0 border-t lg:border-t-0 border-b lg:border-b-0 border-slate-700/40 rounded-tr-xl overflow-visible">
+                    <div className="flex items-stretch lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-l-xl overflow-hidden">
                         {/* Vertical Label */}
                         <div
-                            className="hidden lg:flex items-center justify-center px-1 bg-slate-950/40 border-r border-transparent group/label cursor-help rounded-bl-2xl"
+                            className="hidden lg:flex items-center justify-center px-1 bg-slate-950/40 border-r border-slate-700/40 group/label cursor-help rounded-tl-xl rounded-bl-xl"
                             title="Categoria territoriale della destinazione"
                         >
                             <span
@@ -241,7 +241,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                         </div>
 
                         {/* 3x2 Grid */}
-                        <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[140px] xl:w-[180px]">
+                        <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[120px] xl:w-[180px]">
                             {TIPOLOGIA_OPTIONS.map((item, idx) => {
                                 const isActive = props.activeCategories.includes(item.val);
                                 const isFirstRow = idx < 3;
@@ -264,8 +264,8 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                     </div>
 
                     {/* CENTER: SEARCH SECTION */}
-                    <div className="flex items-center min-w-0 relative group/search px-2 lg:px-4 max-w-md xl:max-w-lg 2xl:max-w-xl w-full mx-auto">
-                        <div className="flex items-center bg-slate-950/40 border border-slate-700/30 rounded-xl h-9 md:h-10 w-full max-w-md xl:max-w-lg 2xl:max-w-xl transition-all hover:border-slate-600/50 shadow-inner">
+                    <div className="flex items-center min-w-0 relative group/search px-1 lg:px-1 xl:px-0 mx-1 lg:mx-1 xl:mx-2 lg:w-[260px] xl:flex-1">
+                    <div className="flex items-center bg-slate-950/40 border border-slate-700/30 rounded-xl h-9 md:h-10 w-full transition-all hover:border-slate-600/50 shadow-inner">
                             <div className="flex-1 min-w-0 h-full">
                                 <SearchBar
                                     variant="minimal"
@@ -297,9 +297,9 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                     </div>
 
                     {/* RIGHT: ISPIRAZIONE SECTION */}
-                    <div className="flex items-stretch shrink-0 border-t lg:border-t-0 border-slate-700/40 rounded-tl-xl overflow-visible">
+                    <div className="flex items-stretch lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-r-xl overflow-hidden">
                         {/* 3x2 Grid */}
-                        <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[140px] xl:w-[180px]">
+                        <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[120px] xl:w-[180px]">
                             {ISPIRAZIONE_OPTIONS.map((item, idx) => {
                                 const isActive = props.activeCategories.includes(item.val);
                                 const isFirstRow = idx < 3;
@@ -328,7 +328,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
 
                         {/* Vertical Label */}
                         <div
-                            className="hidden lg:flex items-center justify-center px-1 bg-slate-950/40 border-l border-transparent group/label cursor-help rounded-br-2xl"
+                            className="hidden lg:flex items-center justify-center px-1 bg-slate-950/40 border-l border-slate-700/40 group/label cursor-help rounded-tr-xl rounded-br-xl"
                             title="Stile di viaggio che desideri vivere"
                         >
                             <span

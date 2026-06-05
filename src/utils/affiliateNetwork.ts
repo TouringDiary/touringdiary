@@ -4,7 +4,7 @@ import { getStorageItem } from '../services/storageService';
 // Chiave di salvataggio nel database locale del browser
 const AFFILIATE_STORAGE_KEY = 'touring_affiliate_config';
 
-type PartnerType = 'booking' | 'tripadvisor' | 'getyourguide' | 'website' | 'thefork' | 'michelin' | 'airbnb' | 'skyscanner' | 'ferryscanner';
+export type PartnerType = 'booking' | 'tripadvisor' | 'getyourguide' | 'website' | 'thefork' | 'michelin' | 'airbnb' | 'skyscanner' | 'ferryscanner';
 
 /**
  * Recupera la configurazione attuale (salvata dall'Admin o default).

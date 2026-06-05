@@ -1,70 +1,31 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { Sparkles, Zap, Info } from 'lucide-react';
-import { supabase } from '@/services/supabaseClient';
 import { useModal } from '@/context/ModalContext';
 import { useUser } from '@/context/UserContext';
 import { HeaderPopover, HeaderPopoverHandle } from '@/components/ui/header/HeaderPopover';
 
 export const HeaderCreditsIndicator = () => {
-    const { user } = useUser();
+    const { user, aiQuota } = useUser();
     const { openModal } = useModal();
-    const [quota, setQuota] = useState<{
-        flash_remaining: number;
-        pro_remaining: number;
-        flash_limit: number;
-        pro_limit: number;
-        
-        subscription_flash_remaining?: number;
-        subscription_pro_remaining?: number;
-        
-        extra_credit_packs_flash_remaining?: number;
-        extra_credit_packs_pro_remaining?: number;
-        
-        admin_bonus_flash_remaining?: number;
-        admin_bonus_pro_remaining?: number;
-        
-        total_remaining?: number;
-    } | null>(null);
-    
     const popoverRef = useRef<HeaderPopoverHandle>(null);
-
-    const fetchQuota = async () => {
-        if (!user || user.role === 'guest') return;
-        try {
-            const { data, error } = await supabase.rpc('get_current_ai_quota', {
-                p_user_id: user.id
-            });
-            if (error) throw error;
-            setQuota(data);
-        } catch (err) {
-            console.error("[HeaderCreditsIndicator] Error fetching quota:", err);
-        }
-    };
-
-    useEffect(() => {
-        fetchQuota();
-        const interval = setInterval(fetchQuota, 60000);
-        return () => clearInterval(interval);
-    }, [user?.id]);
 
     if (!user || user.role === 'guest') return null;
 
     // Calcolo totali granulari (Frontend-side aggregation fallback)
-    const totalFlashRemaining = quota?.flash_remaining ?? (
-        (quota?.subscription_flash_remaining || 0) + 
-        (quota?.extra_credit_packs_flash_remaining || 0) + 
-        (quota?.admin_bonus_flash_remaining || 0)
+    const totalFlashRemaining = aiQuota?.flash_remaining ?? (
+        (aiQuota?.subscription_flash_remaining || 0) + 
+        (aiQuota?.extra_credit_packs_flash_remaining || 0) + 
+        (aiQuota?.admin_bonus_flash_remaining || 0)
     );
     
-    const totalProRemaining = quota?.pro_remaining ?? (
-        (quota?.subscription_pro_remaining || 0) + 
-        (quota?.extra_credit_packs_pro_remaining || 0) + 
-        (quota?.admin_bonus_pro_remaining || 0)
+    const totalProRemaining = aiQuota?.pro_remaining ?? (
+        (aiQuota?.subscription_pro_remaining || 0) + 
+        (aiQuota?.extra_credit_packs_pro_remaining || 0) + 
+        (aiQuota?.admin_bonus_pro_remaining || 0)
     );
 
-    const totalRemaining = quota?.total_remaining ?? (totalFlashRemaining + totalProRemaining);
-    const totalLimit = (quota?.flash_limit || 0) + (quota?.pro_limit || 0) || 1;
+    const totalRemaining = aiQuota?.total_remaining ?? (totalFlashRemaining + totalProRemaining);
+    const totalLimit = (aiQuota?.flash_limit || 0) + (aiQuota?.pro_limit || 0) || 1;
     const percent = Math.min(100, (totalRemaining / totalLimit) * 100);
 
     // Colori basati sulla policy
@@ -107,7 +68,9 @@ export const HeaderCreditsIndicator = () => {
                     </span>
                 </div>
                 <div className="p-1.5 rounded-full bg-white/5 border border-white/5">
-                    <Info className="w-3 h-3 text-slate-600" />
+                    <div className="group relative cursor-help">
+                        <Info className="w-3 h-3 text-slate-600" />
+                    </div>
                 </div>
             </div>
 
@@ -123,12 +86,12 @@ export const HeaderCreditsIndicator = () => {
                     <div className="flex items-center gap-3">
                         <div className="flex flex-col items-end">
                             <span className="text-[7px] text-slate-500 uppercase font-black tracking-tighter">FLASH</span>
-                            <span className="text-xs font-black text-white leading-none">{quota?.subscription_flash_remaining ?? 0}</span>
+                            <span className="text-xs font-black text-white leading-none">{aiQuota?.subscription_flash_remaining ?? 0}</span>
                         </div>
                         <div className="w-px h-6 bg-white/5" />
                         <div className="flex flex-col items-end">
                             <span className="text-[7px] text-slate-500 uppercase font-black tracking-tighter">PRO</span>
-                            <span className="text-xs font-black text-white leading-none">{quota?.subscription_pro_remaining ?? 0}</span>
+                            <span className="text-xs font-black text-white leading-none">{aiQuota?.subscription_pro_remaining ?? 0}</span>
                         </div>
                     </div>
                 </div>
@@ -144,12 +107,12 @@ export const HeaderCreditsIndicator = () => {
                     <div className="flex items-center gap-3">
                         <div className="flex flex-col items-end">
                             <span className="text-[7px] text-slate-500 uppercase font-black tracking-tighter">FLASH</span>
-                            <span className="text-xs font-black text-white leading-none">{quota?.extra_credit_packs_flash_remaining ?? 0}</span>
+                            <span className="text-xs font-black text-white leading-none">{aiQuota?.extra_credit_packs_flash_remaining ?? 0}</span>
                         </div>
                         <div className="w-px h-6 bg-white/5" />
                         <div className="flex flex-col items-end">
                             <span className="text-[7px] text-slate-500 uppercase font-black tracking-tighter">PRO</span>
-                            <span className="text-xs font-black text-white leading-none">{quota?.extra_credit_packs_pro_remaining ?? 0}</span>
+                            <span className="text-xs font-black text-white leading-none">{aiQuota?.extra_credit_packs_pro_remaining ?? 0}</span>
                         </div>
                     </div>
                 </div>
@@ -165,19 +128,18 @@ export const HeaderCreditsIndicator = () => {
                     <div className="flex items-center gap-3">
                         <div className="flex flex-col items-end">
                             <span className="text-[7px] text-slate-500 uppercase font-black tracking-tighter">FLASH</span>
-                            <span className="text-xs font-black text-white leading-none">{quota?.admin_bonus_flash_remaining ?? 0}</span>
+                            <span className="text-xs font-black text-white leading-none">{aiQuota?.admin_bonus_flash_remaining ?? 0}</span>
                         </div>
                         <div className="w-px h-6 bg-white/5" />
                         <div className="flex flex-col items-end">
                             <span className="text-[7px] text-slate-500 uppercase font-black tracking-tighter">PRO</span>
-                            <span className="text-xs font-black text-white leading-none">{quota?.admin_bonus_pro_remaining ?? 0}</span>
+                            <span className="text-xs font-black text-white leading-none">{aiQuota?.admin_bonus_pro_remaining ?? 0}</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Hero Balance Section */}
                 <div className="relative mt-6 p-5 bg-indigo-600/10 border border-indigo-500/20 rounded-[1.75rem] overflow-hidden group">
-                    {/* Background Decorative Glow */}
                     <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/10 blur-[40px] rounded-full pointer-events-none group-hover:bg-indigo-500/20 transition-colors duration-700" />
                     
                     <span className="relative z-10 text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-4 block">SALDO DISPONIBILE</span>

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import Stripe from 'https://esm.sh/stripe@12.0.0?target=deno'
+import { assignCredits } from '../_shared/credits.ts'
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
 const stripeWebhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')
@@ -29,7 +30,7 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' // Necessario per scrivere su user_ai_credits
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     // 2. Handling Evento: checkout.session.completed
@@ -56,34 +57,17 @@ serve(async (req) => {
           return new Response('Already processed', { status: 200 })
       }
 
-      // B. Aggiorna Transazione
-      await supabaseAdmin
-        .from('credit_transactions')
-        .update({ 
-            status: 'completed', 
-            completed_at: new Date().toISOString() 
-        })
-        .eq('id', tx.id)
+      // B. Usa logica condivisa per completare transazione e accreditare crediti
+      if (!userId) throw new Error('Missing userId in session')
 
-      // C. Accredito Crediti (Nuovo pacchetto con scadenza 365gg)
-      const { error: creditError } = await supabaseAdmin
-        .from('user_ai_credits')
-        .insert({
-            user_id: userId,
-            flash_remaining: tx.flash_credits_assigned,
-            pro_remaining: tx.pro_credits_assigned,
-            source: 'purchase',
-            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            metadata: {
-                transaction_id: tx.id,
-                stripe_session_id: sessionId
-            }
-        })
-
-      if (creditError) {
-          console.error("Failed to assign credits:", creditError)
-          return new Response('Credit assignment failed', { status: 500 })
-      }
+      await assignCredits(
+        supabaseAdmin,
+        userId,
+        tx.flash_credits_assigned ?? 0,
+        tx.pro_credits_assigned ?? 0,
+        tx.id,
+        sessionId
+      )
 
       console.log(`[STRIPE WEBHOOK] Credits assigned successfully to user ${userId}`)
     }

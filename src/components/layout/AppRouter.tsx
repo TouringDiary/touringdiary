@@ -19,6 +19,7 @@ const CityDetailContent = React.lazy(() => import('../city/CityDetailContent').t
 const ShopPage = React.lazy(() => import('../shop/ShopPage').then(module => ({ default: module.ShopPage })));
 const TravelDiary = React.lazy(() => import('../features/diary/TravelDiary').then(module => ({ default: module.TravelDiary })));
 const UserDashboard = React.lazy(() => import('../user/UserDashboard').then(module => ({ default: module.UserDashboard })));
+const CheckoutSuccessPage = React.lazy(() => import('../features/checkout/CheckoutSuccessPage').then(module => ({ default: module.CheckoutSuccessPage })));
 
 const PageLoader = () => (
     <div className="h-full w-full flex flex-col items-center justify-center gap-4 min-h-[50vh]">
@@ -75,6 +76,15 @@ const MainContent: React.FC = () => {
                     }} 
                     onNavigate={handleNavigateGlobal}
                 />
+            </Suspense>
+        );
+    }
+
+    // ======== CHECKOUT SUCCESS INTERCEPTION ========
+    if (router.isCheckoutSuccessPath) {
+        return (
+            <Suspense fallback={<PageLoader />}>
+                <CheckoutSuccessPage />
             </Suspense>
         );
     }
@@ -223,6 +233,7 @@ export const AppRouter: React.FC = () => (
             <Route path="/:ownerSlug/dashboard/*" element={<MainContent />} />
 
             {/* --- CONSUMER DOMAIN --- */}
+            <Route path="/checkout-success" element={<MainContent />} />
             <Route path="/:continent/:nation/:region/:zone/:city" element={<MainContent />} />
             <Route path="/:continent/:nation/:region/:city" element={<MainContent />} />
             <Route path="/:city" element={<MainContent />} />

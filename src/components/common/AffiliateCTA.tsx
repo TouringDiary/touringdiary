@@ -3,9 +3,10 @@ import React from 'react';
 import {
   buildAffiliateLink,
   getPartnerByCapability,
-  PartnerCapability,
 } from '../../services/partnerIntegrationService';
+import { PartnerCapability } from '../../types/partners';
 import { usePartnerIntegrations } from '../../hooks/usePartnerIntegrations';
+import { affiliateTrackingService } from '../../services/affiliateTrackingService';
 
 interface AffiliateCTAProps {
   capability: PartnerCapability;
@@ -15,15 +16,6 @@ interface AffiliateCTAProps {
     checkin?: string;
     checkout?: string;
   };
-}
-
-/**
- * Registra un evento di click affiliato.
- * In futuro questo potrà essere collegato a Google Analytics o altro sistema.
- * @param eventName Il nome dell'evento da tracciare.
- */
-function trackAffiliateClick(eventName: string) {
-  console.log("Affiliate click:", eventName);
 }
 
 /**
@@ -43,9 +35,14 @@ const AffiliateCTA: React.FC<AffiliateCTAProps> = ({ capability, context }) => {
   const affiliateLink = buildAffiliateLink(partner, context);
 
   const handleTrackClick = () => {
-    if (partner.tracking?.analytics_event_name) {
-      trackAffiliateClick(partner.tracking.analytics_event_name);
-    }
+    // Nuovo tracking centralizzato
+    affiliateTrackingService.trackClickOut({
+      partnerId: partner.id,
+      sourceType: 'cta',
+      category: capability,
+      cityId: context?.city,
+      searchQuery: context?.query
+    });
   };
 
   const buttonStyle: React.CSSProperties = {

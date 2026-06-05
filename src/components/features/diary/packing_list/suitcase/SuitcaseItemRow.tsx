@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Trash2, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
 import { SuitcaseItem } from '@/types/suitcase';
+import { affiliateTrackingService } from '@/services/affiliateTrackingService';
 
 interface SuitcaseItemRowProps {
   item: SuitcaseItem;
@@ -88,7 +89,16 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
           target="_blank"
           rel="noopener noreferrer"
           className="shrink-0 transition-all hover:-translate-y-0.5 px-3 py-1.5 bg-white rounded-xl border border-slate-200 shadow-md shadow-black/10 flex items-center justify-center hover:shadow-lg active:scale-95"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            affiliateTrackingService.trackClickOut({
+              partnerId: 'amazon',
+              sourceType: 'suitcase',
+              category: item.category || 'gear',
+              productId: override.product_id || undefined,
+              searchQuery: override.product_id?.startsWith('search:') ? override.product_id.replace('search:', '') : undefined
+            });
+          }}
         >
           <img 
             src="/assets/logos/amazon_logo.svg" 

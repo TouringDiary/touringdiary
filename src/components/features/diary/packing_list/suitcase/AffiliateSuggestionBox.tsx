@@ -5,6 +5,7 @@ import { usePartnerIntegrations } from '@/hooks/usePartnerIntegrations';
 import { buildAffiliateLink } from '@/services/partnerIntegrationService';
 import { PartnerIntegration } from '@/types/partners';
 import { normalizeItemName } from '@/utils/tagDerivation';
+import { affiliateTrackingService } from '@/services/affiliateTrackingService';
 import { ResolvedAffiliateProductLink, ResolvedAffiliateProduct } from '@/types/suitcase';
 import { resolveAffiliateProductImage } from './SuitcaseUtils';
 
@@ -327,7 +328,15 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
           <button
             onClick={() => {
               const link = getAffiliateLink(primaryPartner);
-              if (link) window.open(link, '_blank');
+              if (link) {
+                affiliateTrackingService.trackClickOut({
+                  partnerId: primaryPartner.id,
+                  sourceType: 'suitcase',
+                  category: finalSuggestion.category || 'gear',
+                  productId: finalSuggestion.id
+                });
+                window.open(link, '_blank');
+              }
             }}
             className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-[0_0_20px_rgba(79,70,229,0.2)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)] transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
           >
@@ -351,7 +360,15 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
                   key={partner.id}
                   onClick={() => {
                     const link = getAffiliateLink(partner);
-                    if (link) window.open(link, '_blank');
+                    if (link) {
+                      affiliateTrackingService.trackClickOut({
+                        partnerId: partner.id,
+                        sourceType: 'suitcase',
+                        category: finalSuggestion.category || 'gear',
+                        productId: finalSuggestion.id
+                      });
+                      window.open(link, '_blank');
+                    }
                   }}
                   className="h-8 group/logo relative flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
                   title={partner.label}

@@ -22,31 +22,6 @@ const FALLBACK_STYLES = [
 
 const DISTANCE_STEPS = [2, 5, 10, 15, 20, 25, 30];
 
-// Custom colored calendar icon — design system compliant (arancione/dorato)
-const ColoredCalendarIcon = ({ onClick }: { onClick?: () => void }) => (
-  <svg
-    onClick={onClick}
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    className="w-5 h-5 cursor-pointer shrink-0 hover:scale-110 transition-transform duration-150"
-    aria-label="Apri calendario"
-  >
-    <rect x="3" y="5" width="18" height="16" rx="3" ry="3"
-      fill="#1e293b" stroke="#f97316" strokeWidth="1.5"/>
-    <rect x="3" y="5" width="18" height="5" rx="2" ry="2"
-      fill="#f97316"/>
-    <line x1="8" y1="3" x2="8" y2="7"
-      stroke="#facc15" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="16" y1="3" x2="16" y2="7"
-      stroke="#facc15" strokeWidth="2" strokeLinecap="round"/>
-    <circle cx="8" cy="14" r="1.2" fill="#94a3b8"/>
-    <circle cx="12" cy="14" r="1.2" fill="#f97316"/>
-    <circle cx="16" cy="14" r="1.2" fill="#94a3b8"/>
-    <circle cx="8" cy="18" r="1.2" fill="#94a3b8"/>
-    <circle cx="12" cy="18" r="1.2" fill="#94a3b8"/>
-  </svg>
-);
-
 // ─── Date Range Picker sub-component ───────────────────────────────────────
 interface DateRangePickerProps {
     startDate: string;
@@ -76,15 +51,18 @@ const DateRangePicker = ({ startDate, endDate, minDate, onStartDateChange, onEnd
                         }}
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 pr-9 text-white text-base font-black font-mono text-center outline-none focus:border-indigo-500 transition-colors"
                     />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <ColoredCalendarIcon onClick={() => {
-                            if (startRef.current?.showPicker) {
-                                startRef.current.showPicker();
-                            } else {
-                                startRef.current.focus();
-                            }
-                        }} />
-                    </span>
+                    <div
+    className="absolute right-2 top-1/2 -translate-y-1/2 z-dropdown cursor-pointer select-none pointer-events-auto flex items-center justify-center w-6 h-6 group"
+    onClick={() => {
+        if (startRef.current?.showPicker) {
+            startRef.current.showPicker();
+        } else {
+            startRef.current.focus();
+        }
+    }}
+>
+    <span className="text-base">📅</span>
+</div>
                 </div>
             </div>
             {/* AL */}
@@ -103,15 +81,18 @@ const DateRangePicker = ({ startDate, endDate, minDate, onStartDateChange, onEnd
                         }}
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 pr-9 text-white text-base font-black font-mono text-center outline-none focus:border-indigo-500 transition-colors"
                     />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <ColoredCalendarIcon onClick={() => {
-                            if (endRef.current?.showPicker) {
-                                endRef.current.showPicker();
-                            } else {
-                                endRef.current.focus();
-                            }
-                        }} />
-                    </span>
+                    <div
+    className="absolute right-2 top-1/2 -translate-y-1/2 z-dropdown cursor-pointer select-none pointer-events-auto flex items-center justify-center w-6 h-6 group"
+    onClick={() => {
+        if (endRef.current?.showPicker) {
+            endRef.current.showPicker();
+        } else {
+            endRef.current.focus();
+        }
+    }}
+>
+    <span className="text-base">📅</span>
+</div>
                 </div>
             </div>
         </div>

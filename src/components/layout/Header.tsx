@@ -122,7 +122,7 @@ export const Header = ({
   // Helper per aprire profilo
   const handleProfileClick = () => {
       if (user.role === 'guest') {
-          openModal('auth', { returnTo: 'dashboard' });
+          openModal('auth');
       } else {
           // NAVIGAZIONE URL-DRIVEN (FASE 3 DEFINITIVA - NAMESPACE OWNER)
           navigate(buildDashboardPath(user.slug));
