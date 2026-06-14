@@ -1,8 +1,26 @@
-import { useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { User } from '@supabase/supabase-js';
-import { persistSuitcaseItemsFromRuntimeAsync } from '@/services/suitcase/suitcaseItemsService';
-import { saveGuestSuitcase } from '@/utils/guestSuitcaseHelper';
+import {
+  getGuestSuitcase,
+  hasDraftWorkspaceInStorage,
+  isDraftWorkspaceId,
+  abandonDraftWorkspace,
+} from '@/utils/guestSuitcaseHelper';
+import {
+  createDraftWorkspace,
+  createDraftWorkspaceFromTemplate,
+  createDraftWorkspaceFromMergedItems,
+  createDraftWorkspaceFromSuitcase,
+  DRAFT_OVERWRITE_NEW_SUITCASE,
+  DRAFT_OVERWRITE_NEW_TEMPLATE,
+  DRAFT_OVERWRITE_SUGGESTED_TEMPLATES,
+  DRAFT_OVERWRITE_SAVE_AS_TEMPLATE,
+} from '@/hooks/suitcase/useSuitcaseCrud';
+import { mergeTemplateItems } from '@/hooks/useSuitcaseSystem';
+import { fetchClonedTemplateDetailsAsync } from '@/services/suitcaseService';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { SUITCASE_MODIFIED_TOAST, ToastVariant } from '@/types/toast';
+import { isTdTemplate, isAssociableSuitcase, getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
 
 interface ActionsProps {
   currentUser: User | null;
@@ -12,7 +30,8 @@ interface ActionsProps {
   setActiveTabId: (id: string | null) => void;
   setViewMode: (v: 'selector' | 'editor') => void;
   fetchLinkedIds: () => Promise<void>;
-  fetchUserSuitcases: () => void;
+  fetchUserSuitcases: () => void | Promise<void>;
+  setUserSuitcases: Dispatch<SetStateAction<Suitcase[]>>;
   createSuitcase: (itId: string | null, userId: string, title: string) => Promise<Suitcase | null>;
   cloneSuitcase: (tempId: string, itId: string | null, userId: string, title?: string) => Promise<string>;
   linkSuitcaseToTrip: (itId: string, scId: string, userId: string) => Promise<void>;
@@ -20,6 +39,7 @@ interface ActionsProps {
   deleteSuitcase: (scId: string) => Promise<void>;
   updateSuitcase: (scId: string, updates: Partial<Suitcase>) => Promise<void>;
   globalTemplates: Suitcase[];
+  userOwnedTemplates: Suitcase[];
   linkedSuitcaseIds: string[];
   mergedSuggestedItems: SuitcaseItem[];
   suggestedTemplates: Suitcase[];
@@ -27,7 +47,7 @@ interface ActionsProps {
   setSaveStatus: (v: string | null) => void;
   setAutoOpenNewCategory: (v: boolean) => void;
   activeSuitcase: Suitcase | undefined;
-  // State from external hooks
+  showToast: (message: string, description?: string, variant?: ToastVariant) => void;
   suitcaseToDelete: string | null;
   setSuitcaseToDelete: (id: string | null) => void;
   suitcaseToUnlink: string | null;
@@ -39,10 +59,15 @@ interface ActionsProps {
   tempTitle: string;
   setTempTitle: (v: string) => void;
   newSuitcaseId: string | null;
-  setNewSuitcaseId: (id: string | null) => void;
   isNewSuitcaseSession: boolean;
-  setIsNewSuitcaseSession: (v: boolean) => void;
+  beginNewSuitcaseSession: (suitcaseId: string) => void;
+  clearNewSuitcaseSession: () => void;
   setShowAssociationModal: (v: boolean) => void;
+  setShowDraftOverwriteModal: (v: boolean) => void;
+  setShowRecommendedSuitcaseModal: (v: boolean) => void;
+  draftOverwriteIntent: string | null;
+  setDraftOverwriteIntent: (v: string | null) => void;
+  handleLinkExisting: (suitcaseId: string) => Promise<void>;
 }
 
 export const useSuitcaseActions = ({
@@ -54,6 +79,7 @@ export const useSuitcaseActions = ({
   setViewMode,
   fetchLinkedIds,
   fetchUserSuitcases,
+  setUserSuitcases,
   createSuitcase,
   cloneSuitcase,
   linkSuitcaseToTrip,
@@ -61,6 +87,7 @@ export const useSuitcaseActions = ({
   deleteSuitcase,
   updateSuitcase,
   globalTemplates,
+  userOwnedTemplates,
   linkedSuitcaseIds,
   mergedSuggestedItems,
   suggestedTemplates,
@@ -68,6 +95,7 @@ export const useSuitcaseActions = ({
   setSaveStatus,
   setAutoOpenNewCategory,
   activeSuitcase,
+  showToast,
   suitcaseToDelete,
   setSuitcaseToDelete,
   suitcaseToUnlink,
@@ -79,53 +107,170 @@ export const useSuitcaseActions = ({
   tempTitle,
   setTempTitle,
   newSuitcaseId,
-  setNewSuitcaseId,
   isNewSuitcaseSession,
-  setIsNewSuitcaseSession,
-  setShowAssociationModal
+  beginNewSuitcaseSession,
+  clearNewSuitcaseSession,
+  setShowAssociationModal,
+  setShowDraftOverwriteModal,
+  setShowRecommendedSuitcaseModal,
+  draftOverwriteIntent,
+  setDraftOverwriteIntent,
+  handleLinkExisting
 }: ActionsProps) => {
 
-  const handleDiscardSuitcase = async () => {
-    if (isNewSuitcaseSession && activeTabId) {
-      await deleteSuitcase(activeTabId);
-      await fetchUserSuitcases();
+  const openNewSuitcaseEditor = (suitcase: Suitcase) => {
+    setUserSuitcases((prev) => [
+      suitcase,
+      ...prev.filter((s) => !isDraftWorkspaceId(s.id) && s.id !== suitcase.id),
+    ]);
+    beginNewSuitcaseSession(suitcase.id);
+    void fetchUserSuitcases();
+  };
+
+  const allResolvableTemplates = [...globalTemplates, ...userOwnedTemplates];
+
+  const resolveTemplateDetails = async (templateId: string): Promise<Suitcase | null> => {
+    const cached = allResolvableTemplates.find((t) => t.id === templateId);
+    if (cached) return cached;
+    return fetchClonedTemplateDetailsAsync(templateId);
+  };
+
+  const openTemplateAsDraftWorkspace = async (templateId: string) => {
+    const template = await resolveTemplateDetails(templateId);
+    if (!template) return;
+
+    const userId = currentUser?.id || 'guest';
+    const isGuest = userId === 'guest' || !currentUser;
+
+    if (isGuest) {
+      let newTitle = template.title;
+      if (newTitle?.startsWith('Template ')) {
+        newTitle = newTitle.replace('Template ', 'Valigia ');
+      }
+      await cloneSuitcase(templateId, null, userId, newTitle);
+      const draftSc = getGuestSuitcase();
+      if (draftSc) {
+        await fetchUserSuitcases();
+        openNewSuitcaseEditor(draftSc);
+      }
+      return;
     }
+
+    const draft = createDraftWorkspaceFromTemplate(userId, template);
+    openNewSuitcaseEditor(draft);
+  };
+
+  const openMergedTemplatesAsDraftWorkspace = async (templates: Suitcase[]) => {
+    if (!currentUser || templates.length === 0) return;
+
+    const mergedItems = mergeTemplateItems(templates);
+    const names = templates.map((t) => t.title).join(' + ');
+    const icon = templates[0]?.icon ?? '🎒';
+    const draft = createDraftWorkspaceFromMergedItems(
+      currentUser.id,
+      `Valigia ${names}`,
+      mergedItems,
+      icon
+    );
+    openNewSuitcaseEditor(draft);
+  };
+
+  const createAndOpenNewSuitcase = async () => {
+    const userId = currentUser?.id || 'guest';
+    const isGuest = userId === 'guest' || !currentUser;
+
+    if (isGuest) {
+      const newSuitcase = await createSuitcase(null, userId, 'Nuova Valigia');
+      if (newSuitcase) {
+        openNewSuitcaseEditor(newSuitcase);
+      }
+      return;
+    }
+
+    const draft = createDraftWorkspace(userId, 'Nuova Valigia', '🎒', 'suitcase');
+    openNewSuitcaseEditor(draft);
+  };
+
+  const createAndOpenNewTemplate = async () => {
+    const userId = currentUser?.id || 'guest';
+    const isGuest = userId === 'guest' || !currentUser;
+
+    if (isGuest) {
+      const newTemplate = await createSuitcase(null, userId, 'Nuovo Template');
+      if (newTemplate) {
+        openNewSuitcaseEditor(newTemplate);
+      }
+      return;
+    }
+
+    const draft = createDraftWorkspace(userId, 'Nuovo Template', '🎒', 'user_template');
+    openNewSuitcaseEditor(draft);
+  };
+
+  const handleDiscardSuitcase = async () => {
+    if (activeTabId && isDraftWorkspaceId(activeTabId)) {
+      try {
+        abandonDraftWorkspace();
+        await fetchUserSuitcases();
+        showToast(
+          'Modifiche non salvate',
+          'La bozza locale è stata abbandonata.',
+          'success'
+        );
+      } catch (err) {
+        console.error('Error abandoning draft workspace:', err);
+        showToast(
+          'Operazione non riuscita',
+          'Non è stato possibile abbandonare la bozza. Riprova.',
+          'destructive'
+        );
+        return;
+      }
+    }
+    clearNewSuitcaseSession();
     setViewMode('selector');
     setActiveTabId(null);
-    setIsNewSuitcaseSession(false);
   };
 
   const handleUseSuggestedTemplates = async () => {
     if (mergedSuggestedItems.length === 0 || !currentUser) return;
     setIsMerging(true);
     try {
-      const names = suggestedTemplates.map(t => t.title).join(' + ');
-      const newSuitcase = await createSuitcase(null, currentUser.id, `Valigia ${names}`);
-
-      if (newSuitcase) {
-        const userId = currentUser.id;
-
-        if (userId === 'guest') {
-          const guestRows: SuitcaseItem[] = mergedSuggestedItems.map((item, i) => ({
-            id: `guest-item-${Date.now()}-${i}-${Math.random()}`,
-            suitcase_id: newSuitcase.id,
-            name: item.name,
-            category: item.category,
-            is_checked: false,
-            is_ai_suggestion: false,
-            quantity: 1
-          }));
-          saveGuestSuitcase({ ...newSuitcase, suitcase_items: guestRows });
-        } else {
-          await persistSuitcaseItemsFromRuntimeAsync(newSuitcase.id, mergedSuggestedItems);
-        }
-
-        await fetchUserSuitcases();
-        setIsNewSuitcaseSession(true);
-        setActiveTabId(newSuitcase.id);
-        setViewMode('editor');
-        setNewSuitcaseId(newSuitcase.id);
+      if (hasDraftWorkspaceInStorage()) {
+        setDraftOverwriteIntent(DRAFT_OVERWRITE_SUGGESTED_TEMPLATES);
+        setShowDraftOverwriteModal(true);
+        return;
       }
+      await openMergedTemplatesAsDraftWorkspace(suggestedTemplates);
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const handleOpenRecommendedSuitcase = () => {
+    if (!currentUser) {
+      showToast(
+        'Accesso richiesto',
+        'Effettua il login per usare la Valigia Consigliata.',
+        'destructive'
+      );
+      return;
+    }
+    setShowRecommendedSuitcaseModal(true);
+  };
+
+  const handleConfirmRecommendedSuitcase = async (selectedTemplates: Suitcase[]) => {
+    if (!currentUser || selectedTemplates.length === 0) return;
+    setIsMerging(true);
+    try {
+      if (hasDraftWorkspaceInStorage()) {
+        setDraftOverwriteIntent(DRAFT_OVERWRITE_SUGGESTED_TEMPLATES);
+        setShowDraftOverwriteModal(true);
+        setShowRecommendedSuitcaseModal(false);
+        return;
+      }
+      setShowRecommendedSuitcaseModal(false);
+      await openMergedTemplatesAsDraftWorkspace(selectedTemplates);
     } finally {
       setIsMerging(false);
     }
@@ -133,33 +278,43 @@ export const useSuitcaseActions = ({
 
   const handleUseTemplate = async (templateId: string) => {
     try {
-      const template = globalTemplates.find(t => t.id === templateId);
-      let newTitle = template?.title;
-      if (newTitle?.startsWith('Template ')) {
-        newTitle = newTitle.replace('Template ', 'Valigia ');
+      if (hasDraftWorkspaceInStorage()) {
+        setDraftOverwriteIntent(templateId);
+        setShowDraftOverwriteModal(true);
+        return;
       }
-      const userId = currentUser?.id || 'guest';
-      const createdId = await cloneSuitcase(templateId, null, userId, newTitle);
-      if (createdId) {
-        await fetchUserSuitcases();
-        setIsNewSuitcaseSession(true);
-        setActiveTabId(createdId);
-        setViewMode('editor');
-        setNewSuitcaseId(createdId);
-      }
+      await openTemplateAsDraftWorkspace(templateId);
     } catch (e) {
-      console.error("Error cloning template", e);
+      console.error('Error opening template as draft workspace', e);
     }
   };
 
-  const handleLinkExisting = async (suitcaseId: string) => {
-    if (!itineraryId || !currentUser) return;
-    await linkSuitcaseToTrip(itineraryId, suitcaseId, currentUser.id);
-    await fetchLinkedIds();
-    await fetchUserSuitcases();
-    setIsNewSuitcaseSession(false);
-    setActiveTabId(suitcaseId);
-    setViewMode('editor');
+  const handleSaveAsTemplate = async (suitcaseId: string) => {
+    if (!currentUser) return;
+
+    const source = await fetchClonedTemplateDetailsAsync(suitcaseId);
+
+    if (!source || !isAssociableSuitcase(source)) {
+      showToast(
+        'Operazione non disponibile',
+        'Solo le valigie possono essere salvate come template.',
+        'destructive'
+      );
+      return;
+    }
+
+    if (hasDraftWorkspaceInStorage()) {
+      setDraftOverwriteIntent(`${DRAFT_OVERWRITE_SAVE_AS_TEMPLATE}:${suitcaseId}`);
+      setShowDraftOverwriteModal(true);
+      return;
+    }
+
+    const draft = createDraftWorkspaceFromSuitcase(
+      currentUser.id,
+      source,
+      'user_template'
+    );
+    openNewSuitcaseEditor(draft);
   };
 
   const handleUnlink = async (suitcaseId: string) => {
@@ -167,15 +322,13 @@ export const useSuitcaseActions = ({
     await unlinkSuitcase(itineraryId, suitcaseId);
     await fetchLinkedIds();
     await fetchUserSuitcases();
-    if (activeTabId === suitcaseId) {
-      setActiveTabId(null);
-      setViewMode('selector');
-    }
     setSuitcaseToUnlink(null);
+    showToast("Valigia rimossa dal diario", "La valigia resta salvata tra le tue valigie personali.", 'success');
   };
 
   const confirmDeleteSuitcase = async () => {
     if (!suitcaseToDelete) return;
+    const wasDraft = isDraftWorkspaceId(suitcaseToDelete);
     setIsDeleting(true);
     try {
       if (linkedSuitcaseIds.includes(suitcaseToDelete)) {
@@ -185,11 +338,25 @@ export const useSuitcaseActions = ({
       await fetchLinkedIds();
       await fetchUserSuitcases();
       setSuitcaseToDelete(null);
-      if (activeTabId === suitcaseToDelete) {
+      if (activeTabId === suitcaseToDelete || newSuitcaseId === suitcaseToDelete) {
+        clearNewSuitcaseSession();
         setViewMode('selector');
         setActiveTabId(null);
-        setIsNewSuitcaseSession(false);
       }
+      showToast(
+        wasDraft ? 'Bozza eliminata' : 'Eliminato',
+        wasDraft
+          ? 'La workspace in pausa è stata rimossa.'
+          : 'L\'elemento è stato eliminato dal tuo profilo.',
+        'success'
+      );
+    } catch (err) {
+      console.error('Error deleting suitcase:', err);
+      showToast(
+        'Eliminazione non riuscita',
+        'Non è stato possibile eliminare. Riprova.',
+        'destructive'
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -213,8 +380,11 @@ export const useSuitcaseActions = ({
     await updateSuitcase(activeTabId, { title: tempTitle.trim() });
     await fetchUserSuitcases();
     setIsEditingTitle(false);
-    setSaveStatus("Titolo salvato");
-    setTimeout(() => setSaveStatus(null), 2000);
+    showToast(
+      SUITCASE_MODIFIED_TOAST.message,
+      SUITCASE_MODIFIED_TOAST.description,
+      'success'
+    );
   };
 
   const startEditingTitle = () => {
@@ -234,42 +404,102 @@ export const useSuitcaseActions = ({
     }
   };
 
+  const handleContinueGuestWorkspace = () => {
+    const draftSc = getGuestSuitcase();
+    if (!draftSc?.id || !isDraftWorkspaceId(draftSc.id)) return;
+    beginNewSuitcaseSession(draftSc.id);
+    setViewMode('editor');
+    setActiveTabId(draftSc.id);
+  };
+
   const handleAddCategoryFromPreview = (id: string) => {
-    setIsNewSuitcaseSession(false);
+    const target = allResolvableTemplates.find((t) => t.id === id);
+    if (target && isTdTemplate(target)) {
+      showToast(
+        'Template di sistema',
+        'I template TD non sono modificabili. Usa «Usa template» per creare una valigia.',
+        'neutral'
+      );
+      return;
+    }
+
+    clearNewSuitcaseSession();
     setActiveTabId(id);
     setViewMode('editor');
     setAutoOpenNewCategory(true);
   };
 
   const handleCreateNew = async () => {
-    const userId = currentUser?.id || 'guest';
-    const newSuitcase = await createSuitcase(null, userId, `Nuova Valigia`);
-    if (newSuitcase) {
-      await fetchUserSuitcases();
-      setIsNewSuitcaseSession(true);
-      setActiveTabId(newSuitcase.id);
-      setViewMode('editor');
-      setNewSuitcaseId(newSuitcase.id);
+    if (hasDraftWorkspaceInStorage()) {
+      setDraftOverwriteIntent(DRAFT_OVERWRITE_NEW_SUITCASE);
+      setShowDraftOverwriteModal(true);
+      return;
     }
+    await createAndOpenNewSuitcase();
+  };
+
+  const handleConfirmDraftOverwrite = async () => {
+    setShowDraftOverwriteModal(false);
+    const intent = draftOverwriteIntent;
+    setDraftOverwriteIntent(null);
+
+    const existing = getGuestSuitcase();
+    if (existing?.id && isDraftWorkspaceId(existing.id)) {
+      await deleteSuitcase(existing.id);
+      await fetchUserSuitcases();
+    }
+
+    if (intent === DRAFT_OVERWRITE_NEW_TEMPLATE) {
+      await createAndOpenNewTemplate();
+      return;
+    }
+    if (intent === DRAFT_OVERWRITE_SUGGESTED_TEMPLATES) {
+      await openMergedTemplatesAsDraftWorkspace(suggestedTemplates);
+      return;
+    }
+    if (intent?.startsWith(`${DRAFT_OVERWRITE_SAVE_AS_TEMPLATE}:`)) {
+      const suitcaseId = intent.split(':')[1];
+      if (suitcaseId && currentUser) {
+        const source = await fetchClonedTemplateDetailsAsync(suitcaseId);
+        if (source) {
+          const draft = createDraftWorkspaceFromSuitcase(
+            currentUser.id,
+            source,
+            'user_template'
+          );
+          openNewSuitcaseEditor(draft);
+        }
+      }
+      return;
+    }
+    if (intent && intent !== DRAFT_OVERWRITE_NEW_SUITCASE) {
+      await openTemplateAsDraftWorkspace(intent);
+      return;
+    }
+    await createAndOpenNewSuitcase();
   };
 
   const handleCreateTemplate = async () => {
-    const userId = currentUser?.id || 'guest';
-    const newTemplate = await createSuitcase(null, userId, `Nuovo Template`);
-    if (newTemplate) {
-      await fetchUserSuitcases();
-      setIsNewSuitcaseSession(true);
-      setActiveTabId(newTemplate.id);
-      setViewMode('editor');
-      setNewSuitcaseId(newTemplate.id);
+    if (hasDraftWorkspaceInStorage()) {
+      setDraftOverwriteIntent(DRAFT_OVERWRITE_NEW_TEMPLATE);
+      setShowDraftOverwriteModal(true);
+      return;
     }
+    await createAndOpenNewTemplate();
   };
+
+  const isTemplateDraftSession = activeSuitcase
+    ? getDraftWorkspaceKind(activeSuitcase) === 'user_template'
+    : false;
 
   return {
     handleClose: requestClose,
     handleDiscardSuitcase,
     handleUseSuggestedTemplates,
+    handleOpenRecommendedSuitcase,
+    handleConfirmRecommendedSuitcase,
     handleUseTemplate,
+    handleSaveAsTemplate,
     handleLinkExisting,
     handleUnlink,
     confirmDeleteSuitcase,
@@ -278,8 +508,11 @@ export const useSuitcaseActions = ({
     startEditingTitle,
     handleAddCategoryFromPreview,
     handleCreateNew,
+    handleConfirmDraftOverwrite,
     handleCreateTemplate,
     handleBackToSelector,
+    handleContinueGuestWorkspace,
+    isTemplateDraftSession,
     suitcaseToDelete,
     setSuitcaseToDelete,
     suitcaseToUnlink,
@@ -290,8 +523,6 @@ export const useSuitcaseActions = ({
     tempTitle,
     setTempTitle,
     newSuitcaseId,
-    setNewSuitcaseId,
-    isNewSuitcaseSession,
-    setIsNewSuitcaseSession
+    isNewSuitcaseSession
   };
 };

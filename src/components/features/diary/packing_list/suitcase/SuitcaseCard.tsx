@@ -1,7 +1,9 @@
-import React from 'react';
-import { TemplateCategoryIcon, getTemplateColor } from './SuitcaseUtils';
-import { Eye, Unlink, Trash2 } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { TemplateCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
+import { Trash2, Edit2, CheckSquare, Layout } from 'lucide-react';
+import { User } from '@supabase/supabase-js';
 import { Suitcase } from '@/types/suitcase';
+import { isAssociableSuitcase } from '@/utils/suitcaseDomain';
 
 interface SuitcaseCardProps {
   suitcase: Suitcase;
@@ -9,10 +11,12 @@ interface SuitcaseCardProps {
   isLinked?: boolean;
   onClick: (id: string) => void;
   onLink?: (id: string) => void;
+  isDiaryAssociable?: boolean;
   onUnlink?: (id: string) => void;
   onDelete?: (id: string) => void;
-  currentUser?: any;
-  badge?: string;
+  onSaveTitle?: (id: string, title: string) => Promise<void>;
+  onSaveAsTemplate?: (id: string) => void;
+  currentUser?: User | null;
   onMouseEnter?: () => void;
 }
 
@@ -22,25 +26,59 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
   isLinked,
   onClick,
   onLink,
+  isDiaryAssociable = true,
   onUnlink,
   onDelete,
+  onSaveTitle,
+  onSaveAsTemplate,
   currentUser,
-  badge,
   onMouseEnter
 }) => {
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
+
   const isOwner = 
     (currentUser?.id === suitcase.user_id) || 
     (!currentUser && (suitcase.user_id === 'guest' || suitcase.id.startsWith('guest-')));
 
-  const categoryColor = getTemplateColor(suitcase.title);
+  const canEditTitle = !!onSaveTitle && isOwner && !!suitcase.user_id;
+  const canLink = !!onLink && isAssociableSuitcase(suitcase);
+
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDraftTitle(suitcase.title);
+    setIsEditingTitle(true);
+  };
+
+  const handleSaveTitle = useCallback(async () => {
+    if (!onSaveTitle) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const trimmed = draftTitle.trim();
+    if (!trimmed) {
+      setIsEditingTitle(false);
+      return;
+    }
+    if (trimmed !== suitcase.title) {
+      await onSaveTitle(suitcase.id, trimmed);
+    }
+    setIsEditingTitle(false);
+  }, [onSaveTitle, suitcase.id, suitcase.title, draftTitle]);
+
+  const progress = useMemo(
+    () => getSuitcaseItemProgress(suitcase.suitcase_items),
+    [suitcase.suitcase_items]
+  );
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onClick(suitcase.id)}
+      onClick={() => !isEditingTitle && onClick(suitcase.id)}
       onMouseEnter={onMouseEnter}
       onKeyDown={(e) => {
+        if (isEditingTitle) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onClick(suitcase.id);
@@ -79,17 +117,43 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
             </button>
           )}
 
+          {onSaveAsTemplate && isOwner && isAssociableSuitcase(suitcase) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSaveAsTemplate(suitcase.id);
+              }}
+              className="flex-1 flex items-center justify-center h-[32px]
+                   border-r border-white/10
+                   text-slate-400 hover:text-emerald-400
+                   hover:bg-emerald-400/10 transition-all"
+              title="Salva come template"
+            >
+              <Layout className="w-4 h-4" />
+            </button>
+          )}
+
           {onLink && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onLink(suitcase.id);
               }}
-              disabled={isLinked}
-              className="flex-1 flex items-center justify-center h-[32px]
-                   text-indigo-400 hover:bg-indigo-500/10
+              disabled={isLinked || !isDiaryAssociable || !canLink}
+              title={
+                !canLink
+                  ? 'I template non possono essere associati al diario'
+                  : !isDiaryAssociable
+                    ? 'Completa date e almeno una tappa nel diario per associare'
+                    : undefined
+              }
+              className={`flex-1 flex items-center justify-center h-[32px]
                    text-[10px] xl:text-[12px] font-black uppercase tracking-tight
-                   transition-all"
+                   transition-all ${
+                     isLinked || !isDiaryAssociable || !canLink
+                       ? 'text-slate-600 opacity-50 cursor-not-allowed'
+                       : 'text-indigo-400 hover:bg-indigo-500/10'
+                   }`}
             >
               {isLinked ? '✓' : 'Scegli'}
             </button>
@@ -101,12 +165,37 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
       <div className="flex-1 flex flex-col min-w-0">
         {/* AREA TOP: Centrata verticalmente (Altezza icona 58px) */}
         <div className="flex-1 flex flex-col justify-center px-4 leading-tight min-h-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate">
-              {suitcase.title}
-            </span>
-            {isLinked && (
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <div className="flex items-center justify-between gap-2 mb-0.5 min-w-0">
+            {isEditingTitle ? (
+              <input
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onBlur={handleSaveTitle}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') handleSaveTitle();
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="bg-slate-800 border border-indigo-500/50 rounded-lg px-2 py-0.5 text-[13.5px] font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 w-full min-w-0 max-w-full"
+                autoFocus
+              />
+            ) : (
+              <>
+                <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate min-w-0 flex-1">
+                  {suitcase.title}
+                </span>
+                {canEditTitle && (
+                  <button
+                    type="button"
+                    onClick={handleStartEdit}
+                    className="p-0.5 rounded-md text-slate-500 hover:text-indigo-400 transition-colors shrink-0"
+                    title="Modifica nome valigia"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -122,26 +211,19 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
             </div>
           )}
 
-          {/* Status badges shifted slightly to keep height contained */}
-          <div className="mt-1 flex items-center gap-1.5">
-            {isLinked && (
-              <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[8px] xl:text-[10px] font-bold uppercase tracking-wider border border-emerald-500/30">
-                In uso
-              </span>
-            )}
-            {badge && (
-              <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 text-[8px] xl:text-[10px] font-bold uppercase tracking-wider border border-indigo-500/30">
-                {badge}
-              </span>
-            )}
-          </div>
         </div>
 
-        {/* AREA BOTTOM (Altezza Toolbar bottoni: 32px): Allineata perfettamente */}
-        <div className="h-[32px] flex items-center px-4 border-t border-white/[0.05] bg-white/[0.01]">
-          <div className="text-[9px] xl:text-[11px] text-indigo-400 font-black uppercase tracking-wider">
-            {suitcase.suitcase_items?.length || 0} OGGETTI
+        {/* AREA BOTTOM (Altezza Toolbar bottoni: 32px): Progress */}
+        <div className="h-[32px] flex items-center justify-between gap-2 px-4 border-t border-white/[0.05] bg-white/[0.01]">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <CheckSquare className={`w-3 h-3 shrink-0 ${progress.percentage === 100 ? 'text-emerald-500' : 'text-indigo-400'}`} />
+            <span className="text-[9px] xl:text-[11px] text-indigo-400 font-black uppercase tracking-wider tabular-nums">
+              {progress.checked}/{progress.total} <span className="opacity-40 mx-0.5">•</span> {progress.percentage}%
+            </span>
           </div>
+          {isLinked && (
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          )}
         </div>
       </div>
     </div>

@@ -8,6 +8,8 @@ import { useSuitcasePanelClose } from './useSuitcasePanelClose';
 
 interface UseFloatingPanelShellLifecycleOptions {
   workspaceId: WorkspaceId;
+  /** Intercetta X / ESC / overlay prima della chiusura animata (es. modale Pausa). */
+  onCloseAttempt?: () => void;
 }
 
 export interface FloatingPanelShellLifecycle {
@@ -24,6 +26,7 @@ export interface FloatingPanelShellLifecycle {
  */
 export function useFloatingPanelShellLifecycle({
   workspaceId,
+  onCloseAttempt,
 }: UseFloatingPanelShellLifecycleOptions): FloatingPanelShellLifecycle {
   const [isPortalReady, setIsPortalReady] = useState(false);
   const [isEntered, setIsEntered] = useState(false);
@@ -47,14 +50,22 @@ export function useFloatingPanelShellLifecycle({
     onCloseComplete,
   });
 
+  const attemptClose = useCallback(() => {
+    if (onCloseAttempt) {
+      onCloseAttempt();
+      return;
+    }
+    requestClose();
+  }, [onCloseAttempt, requestClose]);
+
   useEffect(() => {
     setIsPortalReady(true);
   }, []);
 
   usePanelEnterAnimation({ panelRef, isPortalReady, setIsEntered });
 
-  useGlobalModalEscape(isPortalReady && !isClosing, requestClose);
-  useWorkspaceCloseRegistration(workspaceId, requestClose);
+  useGlobalModalEscape(isPortalReady && !isClosing, attemptClose);
+  useWorkspaceCloseRegistration(workspaceId, attemptClose);
 
   const isPanelRaised = isEntered && !isClosing;
 

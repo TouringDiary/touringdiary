@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
-import { fetchLinkedSuitcaseIdsAsync, getAuthUserAsync } from '@/services/suitcaseService';
+import { fetchLinkedSuitcaseIdsAsync } from '@/services/suitcaseService';
+import { useUser } from '@/context/UserContext';
 
 interface LifecycleProps {
   itineraryId: string | null;
@@ -25,17 +26,23 @@ export const useSuitcaseLifecycle = ({
   setSourceTab,
   setSelectedItemName
 }: LifecycleProps) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user: appUser } = useUser();
+  const currentUser = useMemo<User | null>(() => {
+    if (appUser.role === 'guest') return null;
+    return { id: appUser.id } as User;
+  }, [appUser.id, appUser.role]);
+
   const [linkedSuitcaseIds, setLinkedSuitcaseIds] = useState<string[] | null>(null);
 
-  const fetchLinkedIds = useCallback(async () => {
-    if (!itineraryId) {
+  const fetchLinkedIds = useCallback(async (overrideItineraryId?: string) => {
+    const id = overrideItineraryId ?? itineraryId;
+    if (!id) {
       setLinkedSuitcaseIds([]);
       return;
     }
 
     try {
-      const ids = await fetchLinkedSuitcaseIdsAsync(itineraryId);
+      const ids = await fetchLinkedSuitcaseIdsAsync(id);
       setLinkedSuitcaseIds(ids);
     } catch (e) {
       console.error("Error fetching linked ids:", e);
@@ -45,7 +52,6 @@ export const useSuitcaseLifecycle = ({
 
   // Initializations
   useEffect(() => {
-    getAuthUserAsync().then((user) => setCurrentUser(user));
     fetchGlobalTemplates();
     fetchLinkedIds();
   }, [fetchGlobalTemplates, fetchLinkedIds]);

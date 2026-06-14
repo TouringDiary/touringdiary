@@ -139,6 +139,15 @@ export interface SuitcaseUiState {
   hidden_category_ids: string[];
 }
 
+/** Rifiuto AI memorizzato localmente su workspace draft (pre-save). */
+export interface DraftLocalRejection {
+  id: string;
+  name: string;
+  category: string;
+  created_at: string;
+  ai_suggestion_context?: string | null;
+}
+
 export interface SuitcaseItem {
   id: string;
   name: string;
@@ -156,6 +165,9 @@ export interface SuitcaseItem {
   custom_categories?: SuitcaseCategory[];
 }
 
+/** Tipo workspace draft in localStorage — non persistito su DB. */
+export type DraftWorkspaceKind = 'suitcase' | 'user_template';
+
 export interface Suitcase {
   id: string;
   title: string;
@@ -167,6 +179,19 @@ export interface Suitcase {
   custom_categories?: SuitcaseCategory[];
   ui_state?: SuitcaseUiState;
   suitcase_items?: SuitcaseItem[];
+  local_rejections?: DraftLocalRejection[];
   itinerary_suitcases?: { itinerary_id: string }[];
   is_template?: boolean;
+  is_user_template?: boolean;
+  /** Solo draft LS: distingue template USER da valigia prima del persist. */
+  workspace_kind?: DraftWorkspaceKind;
+}
+
+export interface SuitcaseRejection {
+  id: string;
+  suitcase_id: string;
+  name: string;
+  category: string;
+  created_at: string;
+  ai_suggestion_context?: string | null;
 }

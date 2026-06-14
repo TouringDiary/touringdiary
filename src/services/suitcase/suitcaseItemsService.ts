@@ -56,6 +56,7 @@
    */
   export interface UpdateSuitcaseItemDto {
     is_checked?: boolean | null;
+    is_ai_suggestion?: boolean | null;
     quantity?: number | null;
     name?: string;
     category?: string;
@@ -85,7 +86,7 @@
     const { data, error } = await supabase
       .from('suitcase_items')
       .insert({
-        id: metadata.id || undefined,
+        id: metadata.id ?? crypto.randomUUID(),
         suitcase_id: suitcaseId,
         name,
         category,
@@ -111,7 +112,7 @@
     dtos: AddSuitcaseItemDto[]
   ): Promise<SuitcaseItem[]> => {
     const rows = dtos.map(dto => ({
-      id: dto.id || undefined,
+      id: dto.id ?? crypto.randomUUID(),
       suitcase_id: dto.suitcase_id,
       name: dto.name,
       category: dto.category,
@@ -120,7 +121,7 @@
       quantity: dto.quantity ?? 1,
       ai_suggestion_context: dto.ai_suggestion_context ?? null,
       ...suggestedAtInsertField(dto.suggested_at),
-      accepted_from_ai: dto.accepted_from_ai ?? null,
+      accepted_from_ai: dto.accepted_from_ai ?? false,
       affiliate_tags: dto.affiliate_tags ?? null,
       poi_triggers: dto.poi_triggers ?? null
     }));
@@ -145,6 +146,7 @@
   ): Promise<void> => {
     const payload: {
       is_checked?: boolean | null;
+      is_ai_suggestion?: boolean | null;
       quantity?: number | null;
       name?: string;
       category?: string;
@@ -154,6 +156,7 @@
     } = {};
 
     if (dto.is_checked !== undefined)    payload.is_checked = dto.is_checked;
+    if (dto.is_ai_suggestion !== undefined) payload.is_ai_suggestion = dto.is_ai_suggestion;
     if (dto.quantity !== undefined)      payload.quantity = dto.quantity;
     if (dto.name !== undefined)          payload.name = dto.name;
     if (dto.category !== undefined)      payload.category = dto.category;

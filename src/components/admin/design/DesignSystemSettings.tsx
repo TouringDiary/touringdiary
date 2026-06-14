@@ -56,7 +56,7 @@ const SideEditorPanel: React.FC<{
     isSaving: boolean;
     onRuleChange: (updatedRule: StyleRule) => void;
     onClose: () => void;
-    onSave: () => void;
+    onSave: (rule: StyleRule) => void;
     componentKey: string;
 }> = ({ rule, onRuleChange, onClose, onSave, isSaving, componentKey }) => {
     const [localRule, setLocalRule] = useState(rule);
@@ -75,8 +75,8 @@ const SideEditorPanel: React.FC<{
     const handleSyncAndSave = () => {
         if (localRule) {
             onRuleChange(localRule);
+            onSave(localRule);
         }
-        onSave();
     };
 
     if (!localRule) {
@@ -261,10 +261,10 @@ const DesignSystemSettings: React.FC = () => {
         }
     }, [refreshConfig]);
 
-    const handleSaveChanges = async () => {
-        if (!editedRules || !originalRules || !selectedKey) return;
+    const handleSaveChanges = async (ruleToSave: StyleRule) => {
+        if (!originalRules || !selectedKey) return;
 
-        const ruleToUpdate = editedRules[selectedKey];
+        const ruleToUpdate = ruleToSave;
         if (JSON.stringify(ruleToUpdate) === JSON.stringify(originalRules[selectedKey])) {
             setSelectedKey(null);
             return;

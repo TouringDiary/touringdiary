@@ -1,8 +1,9 @@
 import { ItineraryItem } from '@/types';
 
-export const normalizeItemName = (name: string): string => {
+export const normalizeItemName = (name: string, options?: { preserveCase?: boolean }): string => {
   if (!name) return '';
-  return name.toLowerCase().trim()
+  const base = options?.preserveCase ? name.trim() : name.toLowerCase().trim();
+  return base
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
     .replace(/[^\w\s-]/gi, '')
     .replace(/\s+/g, ' ');

@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { 
   fetchGlobalTemplatesAsync, 
-  fetchCityTypeTemplatesAsync, 
+  fetchCityTypeTemplatesAsync,
+  fetchCityTypesTemplatesAsync,
   fetchUserTemplatePreferencesAsync, 
   upsertUserTemplatePreferenceAsync 
 } from '@/services/suitcaseService';
@@ -13,7 +14,7 @@ import { normalizeItemName } from '@/utils/tagDerivation';
  * and grouping by category.
  */
 export const mergeTemplateItems = (templates: Suitcase[]): SuitcaseItem[] => {
-  const allItems: any[] = [];
+  const allItems: SuitcaseItem[] = [];
   templates.forEach(tpl => {
     if (tpl.suitcase_items) allItems.push(...tpl.suitcase_items);
   });
@@ -75,6 +76,35 @@ export const useCityTypeTemplates = (cityType: string | null) => {
       setIsLoading(false);
     }
   }, [cityType]);
+
+  useEffect(() => {
+    fetchSuggestions();
+  }, [fetchSuggestions]);
+
+  return { suggestedTemplateIds, isLoading, refetch: fetchSuggestions };
+};
+
+export const useCityTypesTemplates = (cityTypes: string[]) => {
+  const [suggestedTemplateIds, setSuggestedTemplateIds] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const cityTypesKey = cityTypes.join('|');
+
+  const fetchSuggestions = useCallback(async () => {
+    if (cityTypes.length === 0) {
+      setSuggestedTemplateIds([]);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const ids = await fetchCityTypesTemplatesAsync(cityTypes);
+      setSuggestedTemplateIds(ids);
+    } catch (e) {
+      console.error('Error fetching city templates', e);
+      setSuggestedTemplateIds([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [cityTypesKey, cityTypes]);
 
   useEffect(() => {
     fetchSuggestions();

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { Suitcase } from '@/types/suitcase';
+import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
+import { isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
 
 export const useSuitcaseSelectors = (
   userSuitcases: Suitcase[],
@@ -18,7 +20,7 @@ export const useSuitcaseSelectors = (
   const tripSuitcases = useMemo(() => {
     if (linkedSuitcaseIds === null) return [];
     return userSuitcases.filter(
-      s => linkedSuitcaseIds.includes(s.id)
+      s => linkedSuitcaseIds.includes(s.id) && isValigia(s)
     );
   }, [userSuitcases, linkedSuitcaseIds]);
 
@@ -36,9 +38,21 @@ export const useSuitcaseSelectors = (
   const savedSuitcases = useMemo(() => {
     if (linkedSuitcaseIds === null || !userId) return [];
     return userSuitcases.filter(
-      s => !linkedSuitcaseIds.includes(s.id) && s.user_id !== null
+      s =>
+        !linkedSuitcaseIds.includes(s.id) &&
+        s.user_id !== null &&
+        s.user_id !== 'guest' &&
+        !isDraftWorkspaceId(s.id) &&
+        !isUserTemplate(s)
     );
   }, [userSuitcases, linkedSuitcaseIds, userId]);
+
+  const userOwnedTemplates = useMemo(() => {
+    if (!userId) return [];
+    return userSuitcases.filter(
+      (s) => s.user_id === userId && isUserTemplate(s) && !isDraftWorkspaceId(s.id)
+    );
+  }, [userSuitcases, userId]);
 
 
   /**
@@ -55,6 +69,7 @@ export const useSuitcaseSelectors = (
   return {
     tripSuitcases,
     savedSuitcases,
+    userOwnedTemplates,
     activeSuitcase
   };
 

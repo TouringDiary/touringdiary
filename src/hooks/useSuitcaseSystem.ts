@@ -6,12 +6,14 @@ export type { Suitcase, SuitcaseItem } from '@/types/suitcase';
 export { 
   mergeTemplateItems, 
   useGlobalTemplates, 
-  useCityTypeTemplates, 
+  useCityTypeTemplates,
+  useCityTypesTemplates,
   useUserTemplatePreferences 
 } from './suitcase/useSuitcaseTemplates';
 
 export { 
-  seedAiSuggestions 
+  seedAiSuggestions,
+  getAiCandidates
 } from './suitcase/aiSuggestions';
 
 export { 

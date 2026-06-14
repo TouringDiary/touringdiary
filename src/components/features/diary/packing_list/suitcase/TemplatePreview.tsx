@@ -1,17 +1,24 @@
 import React, { useMemo } from 'react';
-import { Plus, Eye, EyeOff } from 'lucide-react';
-import { TemplateCategoryIcon, ItemCategoryIcon, STABLE_CATEGORY_ORDER, getCategoryId } from './SuitcaseUtils';
+import { Plus, Eye, EyeOff, CheckSquare } from 'lucide-react';
+import { TemplateCategoryIcon, ItemCategoryIcon, STABLE_CATEGORY_ORDER, getCategoryId, getSuitcaseItemProgress } from './SuitcaseUtils';
 import { Suitcase } from '@/types/suitcase';
 import { useHiddenCategories } from '@/hooks/suitcase/useHiddenCategories';
 
 interface TemplatePreviewProps {
   template: Suitcase | null;
+  sourceTab?: 'trip' | 'saved' | 'default';
   onAddCategory?: (id: string) => void;
   onUpdateSuitcaseLocal?: (id: string, updates: any) => void;
   showHiddenCategories?: boolean;
 }
 
-export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onAddCategory, onUpdateSuitcaseLocal, showHiddenCategories = false }) => {
+const PREVIEW_LABELS: Record<'trip' | 'saved' | 'default', string> = {
+  default: "TEMPLATE PRONTO ALL'USO",
+  saved: 'VALIGIA SALVATA',
+  trip: 'VALIGIA ASSOCIATA AL DIARIO DI VIAGGIO',
+};
+
+export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, sourceTab = 'default', onAddCategory, onUpdateSuitcaseLocal, showHiddenCategories = false }) => {
   const { toggleCategory, showAll, isHidden } = useHiddenCategories(
     template?.id, 
     template?.ui_state?.hidden_category_ids || [],
@@ -55,6 +62,11 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onAd
     return allCategories.filter(cat => isHidden(cat.id));
   }, [allCategories, isHidden]);
 
+  const progress = useMemo(
+    () => getSuitcaseItemProgress(template?.suitcase_items),
+    [template?.suitcase_items]
+  );
+
   if (!template) {
     return (
       <div className="flex items-center justify-center text-slate-600 text-xs italic rounded-xl border border-dashed border-slate-800 p-6 text-center h-full">
@@ -65,21 +77,33 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onAd
 
   return (
     <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4 space-y-3 sticky top-4">
-      <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-        <div className="p-2 rounded-xl bg-slate-800/50 flex items-center justify-center w-11 h-11 text-xl">
+      <div className="flex items-start gap-3 pb-3 border-b border-slate-800">
+        <div className="p-2 rounded-xl bg-slate-800/50 flex items-center justify-center w-11 h-11 text-xl shrink-0">
           <TemplateCategoryIcon template={template} />
         </div>
-        <div>
-          <div className="text-[13.5px] font-bold text-white leading-tight">
+        <div className="min-w-0">
+          <div className="text-[13.5px] font-bold text-white leading-tight truncate">
             {template.title.replace(/^Template\s+/i, '')}
           </div>
           <div className="text-[9px] xl:text-[11px] text-slate-300 font-bold uppercase tracking-widest mt-0.5">
-            Template pronto all'uso
+            {PREVIEW_LABELS[sourceTab]}
           </div>
-          <div className="text-[9px] xl:text-[11px] text-indigo-400 font-black uppercase tracking-wider">
-            {template.suitcase_items?.length || 0} OGGETTI
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <CheckSquare className={`w-3 h-3 shrink-0 ${progress.percentage === 100 ? 'text-emerald-500' : 'text-indigo-400'}`} />
+            <span className="text-[9px] xl:text-[11px] text-indigo-400 font-black uppercase tracking-wider tabular-nums">
+              {progress.checked}/{progress.total} <span className="opacity-40 mx-0.5">•</span> {progress.percentage}%
+            </span>
           </div>
         </div>
+        {onAddCategory && (
+          <button
+            onClick={() => onAddCategory(template.id)}
+            className="ml-auto w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/40 flex items-center justify-center shrink-0 transition-all"
+            title="Aggiungi categoria"
+          >
+            <Plus className="w-7 h-7" />
+          </button>
+        )}
       </div>
 
       <div className="max-h-[380px] lg:overflow-y-auto lg:custom-scrollbar pr-1">
@@ -116,16 +140,6 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onAd
               </div>
             );
           })}
-
-          {/* CLICCA PER AGGIUNGERE */}
-          <button
-            onClick={() => onAddCategory && onAddCategory(template.id)}
-            className="flex flex-col items-center justify-center p-2 rounded-2xl border border-dashed border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-500/40 transition-all group"
-          >
-            <div className="w-12 h-12 2xl:w-14 2xl:h-14 rounded-2xl flex items-center justify-center bg-indigo-500/10 text-indigo-400 group-hover:scale-110 transition-transform">
-              <Plus className="w-6 h-6 2xl:w-8 2xl:h-8" />
-            </div>
-          </button>
         </div>
 
         {/* BOX CATEGORIE NASCOSTE */}

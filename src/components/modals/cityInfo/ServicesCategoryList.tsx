@@ -3,6 +3,7 @@ import React from 'react';
 import { Plus, Info, MapPin, ArrowLeft, Phone, Globe, Check, Box, Lightbulb, Pencil, Ban, Flame, Shield, ShieldAlert, HeartPulse, TrainFront, LandPlot } from 'lucide-react';
 import { CityService, SuggestionType } from '@/types';
 import { getServicesConfig } from '../../../constants/services';
+import { affiliateTrackingService } from '../../../services/affiliateTrackingService';
 
 interface ServicesCategoryListProps {
     servicesList: CityService[];
@@ -153,9 +154,21 @@ export const ServicesCategoryList = ({
                                         )}
                                         
                                         {hasUrl ? (
-                                            <a href={service.url} target="_blank" rel="noopener noreferrer" className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold uppercase text-[10px] shadow-lg transition-transform active:scale-95">
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    affiliateTrackingService.trackClickOut({
+                                                        partnerId: 'website',
+                                                        sourceType: 'poi',
+                                                        category: 'service_website',
+                                                        poiId: service.id
+                                                    });
+                                                    window.open(service.url!, '_blank', 'noopener,noreferrer');
+                                                }}
+                                                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold uppercase text-[10px] shadow-lg transition-transform active:scale-95"
+                                            >
                                                 <Globe className="w-4 h-4"/> Web
-                                            </a>
+                                            </button>
                                         ) : (
                                             <button disabled className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-800 text-slate-600 border border-slate-700 px-5 py-3 rounded-xl font-bold uppercase text-[10px] cursor-not-allowed opacity-70 relative overflow-hidden group/disabled">
                                                 <div className="relative">

@@ -40,7 +40,8 @@ export const fetchMasterTemplatesAsync = async (): Promise<Suitcase[]> => {
       updated_at: row.updated_at,
       source_template_id: row.source_template_id,
       custom_categories: row.custom_categories,
-      ui_state: row.ui_state
+      ui_state: row.ui_state,
+      is_user_template: row.is_user_template ?? false,
     };
 
     return mapDbSuitcaseToRuntimeSuitcase(dbSuitcase, []);
@@ -114,7 +115,8 @@ export const createMasterTemplateAsync = async (
     updated_at: data.updated_at,
     source_template_id: data.source_template_id,
     custom_categories: data.custom_categories,
-    ui_state: data.ui_state
+    ui_state: data.ui_state,
+    is_user_template: data.is_user_template ?? false,
   };
 
   return mapDbSuitcaseToRuntimeSuitcase(dbSuitcase, []);

@@ -43,7 +43,6 @@ export const TemplateSelectorSection: React.FC<TemplateSelectorSectionProps> = (
           {filteredTemplates.map(tpl => {
             const isSuggested = suggestedTemplateIds.includes(tpl.id);
             const isPreferred = preferences[tpl.id]?.enabled === true;
-            const isDismissed = preferences[tpl.id]?.enabled === false;
             const isHovered = hoveredItemId === tpl.id;
 
             return (
@@ -54,7 +53,6 @@ export const TemplateSelectorSection: React.FC<TemplateSelectorSectionProps> = (
                 isPreferred={isPreferred}
                 isHovered={isHovered}
                 isCloning={isCloning}
-                isDismissed={isDismissed}
                 onHover={() => onHover(tpl.id)}
                 onTogglePreference={() => onTogglePreference(tpl.id, !isPreferred)}
                 onUse={() => onUseTemplate(tpl.id)}

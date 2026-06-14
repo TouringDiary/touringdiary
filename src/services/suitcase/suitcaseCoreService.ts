@@ -2,6 +2,7 @@ import { supabase, Json } from '../supabaseClient';
 import { Database } from '../../types/supabase';
 import { DbSuitcase, DbSuitcaseItem } from '../../types/domain/index';
 import { Suitcase, SuitcaseItem, SuitcaseCategory, SuitcaseUiState } from '../../types/suitcase';
+import { resolveRuntimeIsTemplate } from '../../utils/suitcaseDomain';
 
 type RawSuitcase = Database['public']['Tables']['suitcases']['Row'];
 type RawSuitcaseItem = Database['public']['Tables']['suitcase_items']['Row'];
@@ -126,7 +127,11 @@ export const mapDbSuitcaseToRuntimeSuitcase = (
     source_template_id: dbSuitcase.source_template_id,
     custom_categories: parseCustomCategories(dbSuitcase.custom_categories),
     ui_state: parseUiState(dbSuitcase.ui_state),
-    is_template: dbSuitcase.user_id === null,
+    is_user_template: dbSuitcase.is_user_template ?? false,
+    is_template: resolveRuntimeIsTemplate({
+      user_id: dbSuitcase.user_id,
+      is_user_template: dbSuitcase.is_user_template ?? false,
+    }),
     itinerary_suitcases: itinerarySuitcases || undefined,
     suitcase_items: suitcaseItems ? suitcaseItems.map(mapDbSuitcaseItemToRuntimeItem) : undefined
   };
@@ -149,7 +154,8 @@ export const mapDbSuitcaseRowToRuntime = (
     updated_at: row.updated_at,
     source_template_id: row.source_template_id,
     custom_categories: row.custom_categories,
-    ui_state: row.ui_state
+    ui_state: row.ui_state,
+    is_user_template: row.is_user_template,
   };
 
   const dbItems = suitcaseItems?.map(it => {
@@ -207,6 +213,7 @@ export const fetchUserSuitcasesAsync = async (userId: string): Promise<Suitcase[
       title,
       icon,
       user_id,
+      is_user_template,
       itinerary_suitcases(itinerary_id),
       source_template_id,
       custom_categories,
@@ -253,20 +260,34 @@ export const fetchUserSuitcasesAsync = async (userId: string): Promise<Suitcase[
   });
 };
 
+export interface CreateSuitcaseOptions {
+  is_user_template?: boolean;
+  source_template_id?: string | null;
+  custom_categories?: SuitcaseCategory[];
+  ui_state?: SuitcaseUiState;
+}
+
 /**
- * Crea una nuova valigia vuota associandola ad un utente.
+ * Crea una nuova valigia o template utente associandolo ad un utente.
  */
 export const createSuitcaseAsync = async (
   userId: string,
   title: string,
-  icon: string
+  icon: string,
+  options: CreateSuitcaseOptions = {}
 ): Promise<Suitcase | null> => {
   const { data, error } = await supabase
     .from('suitcases')
     .insert({
       user_id: userId,
       title,
-      icon
+      icon,
+      is_user_template: options.is_user_template ?? false,
+      source_template_id: options.source_template_id ?? null,
+      custom_categories: options.custom_categories
+        ? serializeCustomCategories(options.custom_categories)
+        : undefined,
+      ui_state: options.ui_state ? serializeUiState(options.ui_state) : undefined,
     })
     .select()
     .single();

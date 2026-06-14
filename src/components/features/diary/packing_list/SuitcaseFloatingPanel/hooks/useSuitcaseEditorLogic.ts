@@ -1,16 +1,20 @@
 import { useCallback } from 'react';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { Suitcase, SuitcaseItem, SuitcaseRejection } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 import { UndoAction } from '@/hooks/useUndoStack';
+
+import { ToastVariant } from '@/types/toast';
 
 interface EditorLogicProps {
   activeSuitcase: Suitcase | null;
   handleUpdateItemConfirmed: (itemId: string, updates: Partial<SuitcaseItem>, currentItem: SuitcaseItem) => Promise<void>;
   handleDeleteItemConfirmed: (itemToDelete: SuitcaseItem) => Promise<void>;
   handleAddItemConfirmed: (suitcaseId: string, name: string, category: string) => Promise<any>;
+  handleRestoreFromBlacklist: (rejection: SuitcaseRejection) => Promise<void>;
+  handleRemoveFromBlacklist: (rejectionId: string, name: string) => Promise<void>;
   modalState: any;
   panelState: any;
-  showToast: (message: string) => void;
+  showToast: (message: string, description?: string, variant?: ToastVariant) => void;
   pushAction: (action: UndoAction) => void;
 }
 
@@ -19,6 +23,8 @@ export const useSuitcaseEditorLogic = ({
   handleUpdateItemConfirmed,
   handleDeleteItemConfirmed,
   handleAddItemConfirmed,
+  handleRestoreFromBlacklist,
+  handleRemoveFromBlacklist,
   modalState,
   panelState,
   showToast,
@@ -54,7 +60,7 @@ export const useSuitcaseEditorLogic = ({
     );
 
     if (isDuplicate) {
-      showToast(`"${name}" è già presente in ${cat}`);
+      showToast(`"${name}" è già presente in ${cat}`, undefined, 'neutral');
       return;
     }
 
@@ -75,10 +81,17 @@ export const useSuitcaseEditorLogic = ({
     panelState.setSelectedItemName(name);
   }, [panelState, pushAction]);
 
+  const onOpenBlacklist = useCallback(() => {
+    modalState.setShowBlacklistModal(true);
+  }, [modalState]);
+
   return {
     onUpdateItem,
     onDeleteItem,
     onAddItem,
-    onSelectItem
+    onSelectItem,
+    onOpenBlacklist,
+    onRestoreFromBlacklist: handleRestoreFromBlacklist,
+    onRemoveFromBlacklist: handleRemoveFromBlacklist
   };
 };

@@ -113,19 +113,19 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     // --- HANDLERS ---
     
     // Wrapper per Save Project per mostrare il modale di successo
-    const handleSaveProject = useCallback(async (nameOverride?: string, isSaveAs?: boolean) => {
+    const handleSaveProject = useCallback(async (nameOverride?: string, isSaveAs?: boolean): Promise<string | null> => {
         try {
-            const success = await saveProject(nameOverride, undefined, isSaveAs);
-            if (success) {
+            const savedId = await saveProject(nameOverride, isSaveAs);
+            if (savedId) {
                 setToastMessage({ title: "Salvataggio completato!", xp: 0 });
             }
-            return success;
+            return savedId;
         } catch (e: any) {
             console.error("Save error:", e);
             setToastMessage({ title: "Errore durante il salvataggio in cloud!", xp: 0 });
             // Timeout per far scomparire il messaggio di errore
             setTimeout(() => setToastMessage(null), 4000);
-            return false;
+            return null;
         }
     }, [saveProject]);
 

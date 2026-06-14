@@ -2,6 +2,8 @@ import { UndoAction } from '@/hooks/useUndoStack';
 import { useFloatingPanelUndoIntegration } from './useFloatingPanelUndoIntegration';
 import { SuitcaseItem } from '@/types/suitcase';
 
+import { ToastVariant } from '@/types/toast';
+
 interface UndoHandlersProps {
   updateItem: (id: string, updates: Partial<SuitcaseItem>) => Promise<void>;
   addItem: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
@@ -9,7 +11,7 @@ interface UndoHandlersProps {
   fetchUserSuitcases: () => Promise<void> | void;
   setHighlightItemId: (id: string | null) => void;
   activeTabId: string | null;
-  showToast: (message: string) => void;
+  showToast: (message: string, description?: string, variant?: ToastVariant) => void;
   handleStateSync: (action: UndoAction, inverse: boolean, suitcaseId: string | null) => void;
   checkDuplicateItem: (id: string, name: string, category: string, suitcaseId: string | null, isUndo?: boolean) => boolean;
   stack: {

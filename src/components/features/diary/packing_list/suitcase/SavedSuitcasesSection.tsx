@@ -63,7 +63,7 @@ export const SavedSuitcasesSection: React.FC<SavedSuitcasesSectionProps> = ({
 
         {/* Preview dinamica */}
         <div aria-live="polite" aria-atomic="true" className="block animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <TemplatePreview template={hoveredSuitcase} onAddCategory={onAddCategory} />
+          <TemplatePreview template={hoveredSuitcase} sourceTab="saved" onAddCategory={onAddCategory} />
         </div>
       </div>
     </div>

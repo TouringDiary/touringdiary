@@ -7,12 +7,18 @@ import { formatCurrency } from '../../utils/common';
 import { SponsorRequest } from '../../types/index';
 import { PLAN_TYPES } from '../../constants/planTypes';
 import { AdminPageHeader } from './common/AdminPageHeader';
+import { AffiliateOverviewCard } from './affiliations/AffiliateOverviewCard';
+import { AffiliateAnalyticsTab } from './affiliations/AffiliateAnalyticsTab';
+import { useAffiliateAnalytics } from '../../hooks/admin/useAffiliateAnalytics';
 
 export const AdminStatsDashboard = () => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'matrix' | 'guides' | 'financial' | 'migration'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'matrix' | 'guides' | 'financial' | 'affiliations'>('overview');
     const [liveManifest, setLiveManifest] = useState<any[]>([]);
     const [sponsors, setSponsors] = useState<SponsorRequest[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Lifted hook to share state between Overview and Affiliations tabs
+    const affiliateAnalytics = useAffiliateAnalytics();
 
     useEffect(() => {
         const loadData = async () => {
@@ -125,6 +131,7 @@ export const AdminStatsDashboard = () => {
                     <button onClick={() => setActiveTab('matrix')} className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'matrix' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Matrice Territoriale</button>
                     <button onClick={() => setActiveTab('guides')} className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'guides' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Focus Guide</button>
                     <button onClick={() => setActiveTab('financial')} className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'financial' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Financial</button>
+                    <button onClick={() => setActiveTab('affiliations')} className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'affiliations' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Affiliazioni</button>
                 </div>
             </div>
 
@@ -229,8 +236,14 @@ export const AdminStatsDashboard = () => {
                                 <h3 className="text-4xl font-display font-bold text-white leading-none">{stats.rejectedCount}</h3>
                             </div>
                         </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <AffiliateOverviewCard {...affiliateAnalytics} />
+                        </div>
                     </div>
                 )}
+                
+                {activeTab === 'affiliations' && <AffiliateAnalyticsTab {...affiliateAnalytics} />}
                 
                 {activeTab === 'matrix' && (
                      <div className="space-y-6 animate-in fade-in">

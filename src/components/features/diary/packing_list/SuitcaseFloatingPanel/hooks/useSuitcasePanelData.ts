@@ -5,13 +5,16 @@ import {
   useGlobalTemplates,
   useCreateSuitcase,
   useCloneSuitcase,
-  useCityTypeTemplates,
+  useCityTypesTemplates,
   useUserTemplatePreferences
 } from '@/hooks/useSuitcaseSystem';
 import { useUI } from '@/context/UIContext';
 import { useItinerary } from '@/context/ItineraryContext';
+import { useUser } from '@/context/UserContext';
+import { deriveItineraryCityTypes } from '@/utils/deriveItineraryCityTypes';
 import { useConfig } from '@/context/ConfigContext';
 import { SETTINGS_KEYS } from '@/services/settingsService';
+import { ToastVariant } from '@/types/toast';
 import { useSuitcaseLifecycle } from './useSuitcaseLifecycle';
 import { useFloatingPanelStateSync } from './useFloatingPanelOptimisticUpdates';
 import { useSuitcaseSelectors } from '../selectors/suitcaseSelectors';
@@ -19,6 +22,17 @@ import { useSuitcaseAffiliate } from './useSuitcaseAffiliate';
 import { useSuitcaseSuggestions } from './useSuitcaseSuggestions';
 import { useFloatingPanelState } from './useFloatingPanelState';
 import { useFloatingPanelModals } from './useFloatingPanelModals';
+import { getRejectionsBySuitcaseAsync } from '@/services/suitcase/suitcaseRejectionsService';
+import { SuitcaseRejection } from '@/types/suitcase';
+import { isDiaryAssociable as checkDiaryAssociable } from '@/utils/itineraryAssociability';
+import {
+  getDraftLocalRejections,
+  getGuestSuitcase,
+  isDraftWorkspaceId,
+  mapDraftLocalRejectionsToRuntime,
+  preserveDraftLocalStorageFields,
+  saveGuestSuitcase,
+} from '@/utils/guestSuitcaseHelper';
 
 /**
  * Funzione pura per determinare il tab iniziale della valigia
@@ -33,10 +47,12 @@ export function resolveInitialSuitcaseTab(
   return 'default';
 }
 
-export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: string, initialSuitcaseId?: string | null) => {
+export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?: string, initialSuitcaseId?: string | null) => {
 
-  const { itinerary } = useItinerary();
+  const { itinerary, savedProjects, saveProject } = useItinerary();
+  const { cityManifest } = useUser();
   const itineraryId = propItineraryId || itinerary?.id;
+  const isDiaryAssociable = useMemo(() => checkDiaryAssociable(itinerary), [itinerary]);
 
   const { configs } = useConfig();
   const { isSidebarOpen } = useUI();
@@ -55,17 +71,23 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
   const [tempTitle, setTempTitle] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const [toast, setToast] = useState<{ message: string; visible: boolean }>({
+  const [toast, setToast] = useState<{ 
+    message: string; 
+    description?: string; 
+    variant: ToastVariant;
+    visible: boolean; 
+  }>({
     message: "",
+    variant: 'success',
     visible: false
   });
 
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const showToast = useCallback((message: string) => {
+  const showToast = useCallback((message: string, description?: string, variant: ToastVariant = 'success') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
 
-    setToast({ message, visible: true });
+    setToast({ message, description, variant, visible: true });
 
     toastTimeoutRef.current = setTimeout(() => {
       setToast(prev => ({ ...prev, visible: false }));
@@ -122,6 +144,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
   const {
     tripSuitcases,
     savedSuitcases,
+    userOwnedTemplates,
     activeSuitcase
   } = useSuitcaseSelectors(
     userSuitcases,
@@ -130,21 +153,77 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
     currentUser?.id
   );
 
+  const guestSuitcase = useMemo(
+    () => userSuitcases.find((s) => isDraftWorkspaceId(s.id)) ?? null,
+    [userSuitcases]
+  );
+
   /**
-   * 6. Readiness selectors
- *
- * IMPORTANTE:
- * NON richiediamo currentUser !== null
- * perché:
- *
- * - utente anonimo → deve andare su TEMPLATE
- * - utente loggato senza valigie → TEMPLATE
- * - utente loggato con valigie → SALVATE
- *
- * quindi basta sapere che:
- * - loading terminato
- * - linkedSuitcaseIds disponibili
- */
+   * 6. Blacklist (Rifiuti AI)
+   */
+  const [blacklistItems, setBlacklistItems] = useState<SuitcaseRejection[]>([]);
+  const [isFetchingBlacklist, setIsFetchingBlacklist] = useState(false);
+  const [isBlacklistFlashing, setIsBlacklistFlashing] = useState(false);
+  const blacklistFlashTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (blacklistFlashTimeoutRef.current) {
+        clearTimeout(blacklistFlashTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const triggerBlacklistFlash = useCallback(() => {
+    if (blacklistFlashTimeoutRef.current) clearTimeout(blacklistFlashTimeoutRef.current);
+    setIsBlacklistFlashing(true);
+    blacklistFlashTimeoutRef.current = setTimeout(() => setIsBlacklistFlashing(false), 2000);
+  }, []);
+
+  const fetchBlacklist = useCallback(async () => {
+    if (!activeSuitcase?.id) {
+      setBlacklistItems([]);
+      return;
+    }
+
+    if (isDraftWorkspaceId(activeSuitcase.id)) {
+      const draft = getGuestSuitcase();
+      const locals =
+        draft?.id === activeSuitcase.id ? getDraftLocalRejections(draft) : [];
+      setBlacklistItems(mapDraftLocalRejectionsToRuntime(locals, activeSuitcase.id));
+      return;
+    }
+
+    setIsFetchingBlacklist(true);
+    try {
+      const rejections = await getRejectionsBySuitcaseAsync(activeSuitcase.id);
+      setBlacklistItems(rejections);
+    } catch (e) {
+      console.error("[useSuitcasePanelData] Error fetching blacklist:", e);
+    } finally {
+      setIsFetchingBlacklist(false);
+    }
+  }, [activeSuitcase?.id]);
+
+  useEffect(() => {
+    fetchBlacklist();
+  }, [fetchBlacklist]);
+
+  /**
+   * 7. Readiness selectors
+   *
+   * IMPORTANTE:
+   * NON richiediamo currentUser !== null
+   * perché:
+   *
+   * - utente anonimo → deve andare su TEMPLATE
+   * - utente loggato senza valigie → TEMPLATE
+   * - utente loggato con valigie → SALVATE
+   *
+   * quindi basta sapere che:
+   * - loading terminato
+   * - linkedSuitcaseIds disponibili
+   */
 
   /**
    * Selectors readiness
@@ -154,20 +233,17 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
    * - quindi NON aspettiamo isLoadingUser
    */
 
-  const selectorsReady =
-    linkedSuitcaseIds !== null;
-
   /**
-   * 7. Auto-selezione tab dinamica (logica UX definitiva)
-/**
- * Auto-selezione tab deterministica
- *
- * Regole:
- *
- * - aspetta che linkedSuitcaseIds e userSuitcases siano caricati
- * - inizializza una sola volta il tab corretto
- * - aggiorna solo quando cambia il numero valigie nel diario
- */
+   * 8. Auto-selezione tab dinamica (logica UX definitiva)
+   *
+   * Auto-selezione tab deterministica
+   *
+   * Regole:
+   *
+   * - aspetta che linkedSuitcaseIds e userSuitcases siano caricati
+   * - inizializza una sola volta il tab corretto
+   * - aggiorna solo quando cambia il numero valigie nel diario
+   */
 
   const previousTripCount = useRef<number>(0);
   const previousSavedCount = useRef<number>(0);
@@ -210,7 +286,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
     if (tripCount !== previousTripCount.current || 
        (savedCount !== previousSavedCount.current && panelState.sourceTab === 'default')) {
       // PROTEZIONE: Se stiamo editando una valigia guest, non resettiamo forzatamente il tab al login
-      if (panelState.activeTabId?.startsWith('guest-suitcase-')) {
+      if (panelState.activeTabId && isDraftWorkspaceId(panelState.activeTabId)) {
         previousTripCount.current = tripCount;
         previousSavedCount.current = savedCount;
         return;
@@ -230,11 +306,15 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
   ]);
 
   /**
-   * 8. Affiliate + Suggestions
+   * 9. Affiliate + Suggestions
    */
 
-  const { suggestedTemplateIds } =
-    useCityTypeTemplates(cityType || null);
+  const itineraryCityTypes = useMemo(
+    () => deriveItineraryCityTypes(itinerary, cityManifest),
+    [itinerary, cityManifest]
+  );
+
+  const { suggestedTemplateIds } = useCityTypesTemplates(itineraryCityTypes);
 
   const {
     preferences,
@@ -260,21 +340,21 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
             ? { ...s, ...updates }
             : s
         );
-        
-        if (!currentUser || currentUser.role === 'guest') {
-          const guestSc = next.find(s => s.id === id);
-          if (guestSc) {
-            localStorage.setItem('GUEST_LOCAL_SUITCASE', JSON.stringify(guestSc));
-          }
-        }
-        
-        return next;
+
+        if (!isDraftWorkspaceId(id)) return next;
+
+        const draftSc = next.find((s) => s.id === id);
+        if (!draftSc) return next;
+
+        const preserved = preserveDraftLocalStorageFields(draftSc);
+        saveGuestSuitcase(preserved);
+        return next.map((s) => (s.id === id ? preserved : s));
       });
 
     }, [setUserSuitcases, currentUser]);
 
   /**
-   * 9. Mutations
+   * 10. Mutations
    */
   const mutations = useSuitcaseItemsMutations();
   const {
@@ -287,7 +367,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
   } = useCloneSuitcase();
 
   /**
-   * 10. Suggestions engine
+   * 11. Suggestions engine
    */
 
   const suggestions =
@@ -298,7 +378,8 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
       activeSuitcase,
       itinerary,
       fetchUserSuitcases,
-      setSaveStatus
+      setSaveStatus,
+      showToast
     });
 
   /**
@@ -334,7 +415,10 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
     togglePreference,
     tripSuitcases,
     savedSuitcases,
+    userOwnedTemplates,
+    guestSuitcase,
     activeSuitcase,
+    itineraryCityTypes,
     affiliateMaps,
     handleStateSync,
     handleUpdateSuitcaseLocal,
@@ -344,8 +428,17 @@ export const useSuitcasePanelData = (propItineraryId: string | null, cityType?: 
     cloneSuitcase,
     isCloning,
     itinerary,
+    savedProjects,
+    saveProject,
+    isDiaryAssociable,
     hasSuitcaseLinkedToDiary: tripSuitcases.length > 0,
     adminSuitcasePlaceholders: configs?.[SETTINGS_KEYS.SUITCASE_PLACEHOLDERS] || {},
+    blacklistItems,
+    blacklistCount: blacklistItems.length,
+    isFetchingBlacklist,
+    isBlacklistFlashing,
+    triggerBlacklistFlash,
+    fetchBlacklist,
     ...suggestions
   };
 };

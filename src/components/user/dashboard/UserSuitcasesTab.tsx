@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Briefcase, Copy, Edit2, Trash2, Loader2 } from 'lucide-react';
-import { useUserTemplates, useCloneSuitcase, useCreateSuitcase, deleteSuitcase } from '@/hooks/useSuitcaseSystem';
+import { useUserTemplates, useCloneSuitcase, deleteSuitcase } from '@/hooks/useSuitcaseSystem';
+import { createSuitcaseAsync } from '@/services/suitcaseService';
+import { isUserTemplate } from '@/utils/suitcaseDomain';
 import { User } from '@/types';
 import { Suitcase } from '@/types/suitcase';
 import { useModal } from '@/context/ModalContext';
@@ -11,12 +13,12 @@ interface Props {
 }
 
 export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
-  const { templates, isLoading, fetchTemplates } = useUserTemplates(user.id);
+  const { templates: allUserSuitcases, isLoading, fetchTemplates } = useUserTemplates(user.id);
+  const templates = allUserSuitcases.filter(isUserTemplate);
   const { openModal } = useModal();
   const { cloneSuitcase, isCloning } = useCloneSuitcase();
-  const { createSuitcase, isCreating } = useCreateSuitcase();
-  
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // FIX: fetch on mount — previously fetchTemplates was never called,
@@ -58,14 +60,19 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
   };
 
   const handleCreateNew = async () => {
+    setIsCreating(true);
     try {
-      const newSc = await createSuitcase(null, user.id, "Nuovo Modello", "🧳");
-      if (newSc && newSc.id) {
+      const newSc = await createSuitcaseAsync(user.id, 'Nuovo Template', '🧳', {
+        is_user_template: true,
+      });
+      if (newSc?.id) {
         fetchTemplates();
-        handleEdit(newSc.id); // Apri subito l'editor
+        handleEdit(newSc.id);
       }
     } catch (e) {
       console.error("Errore durante la creazione:", e);
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -86,8 +93,8 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
             <Briefcase className="w-6 h-6 text-indigo-400" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white tracking-wide">Le mie Valigie</h2>
-            <p className="text-sm text-slate-400">Gestisci i tuoi modelli di viaggio e riutilizzali.</p>
+            <h2 className="text-xl font-bold text-white tracking-wide">I miei Template</h2>
+            <p className="text-sm text-slate-400">Gestisci i tuoi template personali e riutilizzali.</p>
           </div>
         </div>
         <button 
@@ -95,7 +102,7 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
           disabled={isCreating}
           className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-2 px-4 rounded-xl shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-all flex items-center gap-2 disabled:opacity-50"
         >
-          {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : '+ Nuovo Modello'}
+          {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : '+ Nuovo Template'}
         </button>
       </div>
 

@@ -6,51 +6,11 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-/** Return shape of RPC `consume_ai_credits` (Postgres `json`; typed manually for client inference). */
-export type ConsumeAiCreditsResult = {
-  allowed: boolean
-  reason?: string
-  source?:
-    | 'admin'
-    | 'subscription'
-    | 'extra_credits'
-    | 'free_tier'
-    | 'free_tier_guest'
-  remaining?: number
-  pricing_version_id?: string
-  record_id?: string
-}
-
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
   }
   public: {
     Tables: {
@@ -107,6 +67,91 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_clicks: {
+        Row: {
+          category: string
+          city_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          partner_id: string
+          platform: string
+          poi_id: string | null
+          product_id: string | null
+          search_query: string | null
+          source_type: string
+        }
+        Insert: {
+          category: string
+          city_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          partner_id: string
+          platform?: string
+          poi_id?: string | null
+          product_id?: string | null
+          search_query?: string | null
+          source_type: string
+        }
+        Update: {
+          category?: string
+          city_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          partner_id?: string
+          platform?: string
+          poi_id?: string | null
+          product_id?: string | null
+          search_query?: string | null
+          source_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_clicks_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_clicks_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "obs_city_quality_metrics"
+            referencedColumns: ["city_id"]
+          },
+          {
+            foreignKeyName: "affiliate_clicks_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "seo_city_routes"
+            referencedColumns: ["city_id"]
+          },
+          {
+            foreignKeyName: "affiliate_clicks_poi_id_fkey"
+            columns: ["poi_id"]
+            isOneToOne: false
+            referencedRelation: "obs_poi_anomalies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_clicks_poi_id_fkey"
+            columns: ["poi_id"]
+            isOneToOne: false
+            referencedRelation: "poi_quality_analysis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_clicks_poi_id_fkey"
+            columns: ["poi_id"]
+            isOneToOne: false
+            referencedRelation: "pois"
             referencedColumns: ["id"]
           },
         ]
@@ -3159,6 +3204,41 @@ export type Database = {
           },
         ]
       }
+      suitcase_rejections: {
+        Row: {
+          ai_suggestion_context: string | null
+          category: string
+          created_at: string
+          id: string
+          name: string
+          suitcase_id: string
+        }
+        Insert: {
+          ai_suggestion_context?: string | null
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          suitcase_id: string
+        }
+        Update: {
+          ai_suggestion_context?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          suitcase_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suitcase_rejections_suitcase_id_fkey"
+            columns: ["suitcase_id"]
+            isOneToOne: false
+            referencedRelation: "suitcases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suitcase_template_affiliates: {
         Row: {
           affiliate_product_id: string | null
@@ -3201,6 +3281,7 @@ export type Database = {
           custom_categories: Json
           icon: string | null
           id: string
+          is_user_template: boolean
           source_template_id: string | null
           title: string
           ui_state: Json | null
@@ -3212,6 +3293,7 @@ export type Database = {
           custom_categories?: Json
           icon?: string | null
           id?: string
+          is_user_template?: boolean
           source_template_id?: string | null
           title: string
           ui_state?: Json | null
@@ -3223,6 +3305,7 @@ export type Database = {
           custom_categories?: Json
           icon?: string | null
           id?: string
+          is_user_template?: boolean
           source_template_id?: string | null
           title?: string
           ui_state?: Json | null
@@ -3888,15 +3971,20 @@ export type Database = {
         Args: { p_new_title?: string; p_source_id: string }
         Returns: string
       }
-      consume_ai_credits: {
-        Args: {
-          p_feature: string
-          p_guest_id?: string | null
-          p_model_type: string
-          p_user_id: string | null
-        }
-        Returns: ConsumeAiCreditsResult
-      }
+      consume_ai_credits:
+        | {
+            Args: { p_feature: string; p_model_type: string; p_user_id: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_feature: string
+              p_guest_id?: string
+              p_model_type: string
+              p_user_id: string
+            }
+            Returns: Json
+          }
       get_active_pricing_version: { Args: never; Returns: Json }
       get_active_pricing_version_legacy_backup: {
         Args: never
@@ -4078,6 +4166,7 @@ export type Database = {
         Args: { p_guest_id: string; p_model_type: string; p_user_id: string }
         Returns: undefined
       }
+      is_service_role: { Args: never; Returns: boolean }
       is_td_admin: { Args: { p_uid: string }; Returns: boolean }
       log_ai_usage_tokens: {
         Args: {
@@ -4333,9 +4422,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       ai_credit_source: [

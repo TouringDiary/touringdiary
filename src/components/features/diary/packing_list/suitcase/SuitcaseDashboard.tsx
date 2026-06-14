@@ -1,9 +1,10 @@
 import React from 'react';
-import { Briefcase, Layout, Lock } from 'lucide-react';
+import { Briefcase, Layout, Lock, ArrowRight } from 'lucide-react';
 import { Suitcase } from '@/types/suitcase';
 import { User } from '@supabase/supabase-js';
 import { ResolvedAffiliateProduct } from '@/types/suitcase';
 import { normalizeAllSuitcases } from './SuitcaseUtils';
+import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
 import { SuitcaseCard } from './SuitcaseCard';
 import { TemplateRow } from './TemplateRow';
 import { TemplatePreview } from './TemplatePreview';
@@ -13,6 +14,8 @@ import { DashboardActionGroup } from './DashboardActionGroup';
 import { SuitcaseSidePanel } from './SuitcaseSidePanel';
 import { SuitcaseOnboardingBox } from './SuitcaseOnboardingBox';
 import { SuitcaseToast } from '../SuitcaseFloatingPanel/components/SuitcaseToast';
+
+import { ToastVariant } from '@/types/toast';
 
 interface SuitcaseDashboardProps {
   // Navigation & View
@@ -39,12 +42,16 @@ interface SuitcaseDashboardProps {
   onTogglePreference: (id: string, preferred: boolean) => void;
   onUseTemplate: (id: string) => void;
   onAddCategory: (id: string) => void;
+  onSaveTitle?: (id: string, title: string) => Promise<void>;
   onUpdateSuitcaseLocal?: (id: string, updates: Partial<Suitcase>) => void;
 
   // Actions
   isCreatingSuitcase?: boolean;
   onCreateSuitcase?: () => void;
   onCreateTemplate?: () => void;
+  onOpenRecommendedSuitcase?: () => void;
+  showRecommendedSuitcase?: boolean;
+  onSaveAsTemplate?: (id: string) => void;
 
   // Affiliate Data
   itemMap: Record<string, ResolvedAffiliateProduct[]>;
@@ -55,14 +62,17 @@ interface SuitcaseDashboardProps {
   onLinkBuild: (provider: string, url: string) => string;
   onLinkBuildSearch: (query: string) => string;
   adminSuitcasePlaceholders?: Record<string, string>;
-  toast?: { visible: boolean; message: string };
+  toast?: { visible: boolean; message: string; description?: string; variant?: ToastVariant };
   showHiddenCategories?: boolean;
   hasActiveDiary?: boolean;
+  isDiaryAssociable?: boolean;
   hasSavedSuitcases?: boolean;
   hasSuitcaseLinkedToDiary?: boolean;
   savedSuitcases: Suitcase[];
   linkedSuitcaseIds: string[];
   onLinkSuitcase: (id: string) => void;
+  guestSuitcase?: Suitcase | null;
+  onContinueGuestSuitcase?: () => void;
 }
 
 export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
@@ -83,10 +93,14 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   onTogglePreference,
   onUseTemplate,
   onAddCategory,
+  onSaveTitle,
   onUpdateSuitcaseLocal,
   isCreatingSuitcase = false,
   onCreateSuitcase,
   onCreateTemplate,
+  onOpenRecommendedSuitcase,
+  showRecommendedSuitcase = false,
+  onSaveAsTemplate,
   itemMap,
   categoryMap,
   overrides,
@@ -98,11 +112,14 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   toast = { visible: false, message: "" },
   showHiddenCategories = false,
   hasActiveDiary = false,
+  isDiaryAssociable = true,
   hasSavedSuitcases = false,
   hasSuitcaseLinkedToDiary = false,
   savedSuitcases = [],
   linkedSuitcaseIds = [],
-  onLinkSuitcase
+  onLinkSuitcase,
+  guestSuitcase = null,
+  onContinueGuestSuitcase
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const templatesSectionRef = React.useRef<HTMLDivElement>(null);
@@ -126,7 +143,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   );
 
   const filteredTemplates = normalizedAllSuitcases.filter(tpl => {
-    if (sourceTab === 'default') return (tpl.user_id === null || !tpl.user_id || tpl.is_template === true);
+    if (sourceTab === 'default') return isTdTemplate(tpl) || isUserTemplate(tpl);
     return tpl.user_id === currentUser?.id;
   }).sort((a, b) => {
     const aPref = preferences[a.id]?.enabled === true ? 1 : 0;
@@ -144,8 +161,20 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
       : filteredTemplates;
 
   const isTripTabEnabled = hasActiveDiary && tripSuitcases.length > 0;
+  const isSavedTabDisabled = !currentUser;
+
+  React.useEffect(() => {
+    if (isSavedTabDisabled && sourceTab === 'saved') {
+      setSourceTab('default');
+    }
+  }, [isSavedTabDisabled, sourceTab, setSourceTab]);
+
   const showProgress = sourceTab === 'trip' && hasActiveDiary && tripSuitcases.length > 0;
-  const showOnboarding = (sourceTab === 'default' || !currentUser) && savedSuitcases.length === 0 && tripSuitcases.length === 0;
+  const showOnboarding =
+    (sourceTab === 'default' || !currentUser) &&
+    savedSuitcases.length === 0 &&
+    tripSuitcases.length === 0 &&
+    !guestSuitcase;
 
   return (
     <div className="w-full h-full flex flex-col lg:flex-row relative lg:overflow-y-auto lg:custom-scrollbar">
@@ -162,14 +191,22 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
             {(['trip', 'saved', 'default'] as const).map((tab) => {
               const label = tab === 'trip' ? 'Diario' : tab === 'saved' ? 'Salvate' : 'Template';
               const isTrip = tab === 'trip';
-              const isDisabled = isTrip && !isTripTabEnabled;
+              const isSaved = tab === 'saved';
+              const isDisabled =
+                (isTrip && !isTripTabEnabled) ||
+                (isSaved && isSavedTabDisabled);
+              const disabledTitle = isTrip && isDisabled
+                ? 'Associa una valigia al Diario per attivare questa sezione'
+                : isSaved && isDisabled
+                  ? 'Accedi per vedere le tue valigie salvate'
+                  : '';
 
               return (
                 <button
                   key={tab}
                   onClick={() => !isDisabled && setSourceTab(tab)}
                   disabled={isDisabled}
-                  title={isDisabled ? "Associa una valigia al Diario per attivare questa sezione" : ""}
+                  title={disabledTitle}
                   className={`flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${isDisabled
                       ? 'opacity-60 cursor-not-allowed text-slate-500'
                       : sourceTab === tab
@@ -177,7 +214,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                         : 'text-slate-500 hover:text-white'
                     }`}
                 >
-                  {isTrip && isDisabled && <Lock className="w-3 h-3 text-slate-500/50" />}
+                  {isDisabled && <Lock className="w-3 h-3 text-slate-500/50" />}
                   {label}
                 </button>
               );
@@ -189,6 +226,8 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
               isCreating={isCreatingSuitcase}
               onCreateSuitcase={onCreateSuitcase}
               onCreateTemplate={onCreateTemplate}
+              onOpenRecommendedSuitcase={onOpenRecommendedSuitcase}
+              showRecommendedSuitcase={showRecommendedSuitcase}
             />
           </div>
         </div>
@@ -199,8 +238,37 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
             isCreating={isCreatingSuitcase}
             onCreateSuitcase={onCreateSuitcase}
             onCreateTemplate={onCreateTemplate}
+            onOpenRecommendedSuitcase={onOpenRecommendedSuitcase}
+            showRecommendedSuitcase={showRecommendedSuitcase}
           />
         </div>
+
+        {/* WORKSPACE GUEST LOCALE — fuori da tab Salvate */}
+        {guestSuitcase && onContinueGuestSuitcase && (
+          <div className="w-full shrink-0 animate-in fade-in slide-in-from-top-2 duration-500">
+            <button
+              type="button"
+              onClick={onContinueGuestSuitcase}
+              className="w-full flex items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 hover:border-emerald-500/50 transition-all text-left group"
+            >
+              <div className="min-w-0">
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400 mb-1">
+                  Workspace in pausa
+                </div>
+                <div className="text-sm font-bold text-white truncate group-hover:text-emerald-50">
+                  {guestSuitcase.title}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  Modifiche locali — salva quando sei pronto
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 group-hover:bg-emerald-500 transition-colors">
+                Continua valigia
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* RIGA 3: STATUS STRIP / ONBOARDING */}
         {showProgress && (
@@ -231,7 +299,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
         )}
 
         {/* RIGA 4: COLONNE LISTE E PREVIEW */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-8 min-h-0 min-w-0">
+        <div className="flex-1 flex flex-col lg:flex-row gap-8 min-h-0 min-w-0 lg:items-start">
 
           <div 
             className={`flex flex-col lg:w-[45%] xl:w-[40%] min-w-0 transition-all duration-500 rounded-xl ${highlightTemplates ? 'ring-2 ring-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : ''}`}
@@ -268,6 +336,8 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                           onHover={() => onHover(tpl.id)}
                           onTogglePreference={() => onTogglePreference(tpl.id, !isPreferred)}
                           onUse={() => onUseTemplate(tpl.id)}
+                          onOpen={() => onOpenSuitcase(tpl.id)}
+                          onDelete={() => onDeleteSuitcase(tpl.id)}
                         />
                       );
                     }
@@ -279,7 +349,10 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                         isLinked={linkedSuitcaseIds.includes(tpl.id)}
                         onClick={onOpenSuitcase}
                         onLink={onLinkSuitcase}
+                        isDiaryAssociable={isDiaryAssociable}
                         onDelete={onDeleteSuitcase}
+                        onSaveTitle={onSaveTitle}
+                        onSaveAsTemplate={onSaveAsTemplate}
                         onMouseEnter={() => onHover(tpl.id)}
                         currentUser={currentUser}
                       />
@@ -303,6 +376,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
               <div key={previewTarget?.id} className="animate-in fade-in duration-300">
                 <TemplatePreview
                   template={previewTarget}
+                  sourceTab={sourceTab}
                   onAddCategory={onAddCategory}
                   onUpdateSuitcaseLocal={onUpdateSuitcaseLocal}
                   showHiddenCategories={showHiddenCategories}

@@ -13,7 +13,7 @@ interface ItineraryContextType {
     itinerary: Itinerary;
     setItinerary: React.Dispatch<React.SetStateAction<Itinerary>>;
     savedProjects: Itinerary[];
-    saveProject: (name?: string, user?: User, isSaveAs?: boolean) => Promise<boolean>;
+    saveProject: (name?: string, isSaveAs?: boolean) => Promise<string | null>;
     loadProject: (project: Itinerary) => void;
     deleteProject: (id: string) => Promise<void>;
     highlightDates: boolean;
@@ -85,14 +85,14 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         }
     }, [user]);
 
-    const saveProject = useCallback(async (nameOverride?: string, userObj?: User, isSaveAs?: boolean) => {
-        const targetUser = userObj || user;
+    const saveProject = useCallback(async (nameOverride?: string, isSaveAs?: boolean): Promise<string | null> => {
+        const targetUser = user;
         const isGuest = !targetUser || targetUser.role === 'guest';
 
         const targetName = nameOverride || itinerary.name;
         if (!targetName) {
             console.warn("Inserisci un nome per il viaggio.");
-            return false;
+            return null;
         }
 
         let targetId = itinerary.id;
@@ -143,14 +143,14 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
                         console.warn("Sync post-save failed but save was successful.");
                     }
                 }
-                return true;
+                return saveObject.id;
             } else {
                 console.error("Errore durante il salvataggio. Riprova.");
-                return false;
+                return null;
             }
         } catch (error) {
             console.error("Errore durante il salvataggio in cloud:", error);
-            return false;
+            return null;
         }
     }, [itinerary, user, savedProjects]);
 

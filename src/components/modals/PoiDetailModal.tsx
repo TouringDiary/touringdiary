@@ -11,6 +11,7 @@ import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { StarRating } from '../common/StarRating';
+import { affiliateTrackingService } from '../../services/affiliateTrackingService';
 
 // Imported Sub-Components
 import { PoiImageSection as GallerySection } from './poiDetail/PoiImageSection'; // Rename for clarity
@@ -61,7 +62,19 @@ const BusinessView = ({ poi, onClose, onToggleItinerary, isInItinerary }: any) =
     const theme = CONFIG[type] || CONFIG.default;
     const ThemeIcon = theme.icon;
 
+    const handleWebsiteClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        if (!poi.contactInfo?.website) return;
 
+        affiliateTrackingService.trackClickOut({
+            partnerId: 'website',
+            sourceType: 'poi',
+            category: 'business_website',
+            poiId: poi.id
+        });
+
+        window.open(poi.contactInfo.website, '_blank', 'noopener,noreferrer');
+    };
 
     return (
         <div className="td-modal-overlay bg-black/90 backdrop-blur-md !p-4 animate-in fade-in" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
@@ -96,7 +109,7 @@ const BusinessView = ({ poi, onClose, onToggleItinerary, isInItinerary }: any) =
                     <div className="w-full grid grid-cols-2 gap-3 mb-8">
                         {poi.contactInfo?.phone && <a href={`tel:${poi.contactInfo.phone}`} className="flex flex-col items-center justify-center p-3 bg-slate-900 rounded-xl border border-slate-800 hover:border-emerald-500/50 hover:bg-emerald-900/10 transition-colors group"><Phone className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 mb-1" /><span className="text-[10px] font-bold text-slate-500 uppercase group-hover:text-white">Chiama</span></a>}
                         {poi.contactInfo?.email && <a href={`mailto:${poi.contactInfo.email}`} className="flex flex-col items-center justify-center p-3 bg-slate-900 rounded-xl border border-slate-800 hover:border-blue-500/50 hover:bg-blue-900/10 transition-colors group"><Mail className="w-5 h-5 text-slate-400 group-hover:text-blue-400 mb-1" /><span className="text-[10px] font-bold text-slate-500 uppercase group-hover:text-white">Email</span></a>}
-                        {poi.contactInfo?.website && <a href={poi.contactInfo.website} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-3 bg-slate-900 rounded-xl border border-slate-800 hover:border-purple-500/50 hover:bg-purple-900/10 transition-colors group col-span-2"><Globe className="w-5 h-5 text-slate-400 group-hover:text-purple-400 mb-1" /><span className="text-[10px] font-bold text-slate-500 uppercase group-hover:text-white">Visita Sito Web</span></a>}
+                        {poi.contactInfo?.website && <button onClick={handleWebsiteClick} className="flex flex-col items-center justify-center p-3 bg-slate-900 rounded-xl border border-slate-800 hover:border-purple-500/50 hover:bg-purple-900/10 transition-colors group col-span-2"><Globe className="w-5 h-5 text-slate-400 group-hover:text-purple-400 mb-1" /><span className="text-[10px] font-bold text-slate-500 uppercase group-hover:text-white">Visita Sito Web</span></button>}
                         {!poi.contactInfo?.phone && !poi.contactInfo?.email && !poi.contactInfo?.website && poi.address && <div className="flex flex-col items-center justify-center p-3 bg-slate-900 rounded-xl border border-slate-800 col-span-2"><MapPin className="w-5 h-5 text-slate-500 mb-1" /><span className="text-[10px] text-slate-400 text-center">{poi.address}</span></div>}
                     </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export const useFloatingPanelState = (
   initialViewMode: 'selector' | 'editor' = 'selector',
@@ -13,6 +13,7 @@ export const useFloatingPanelState = (
   const [autoOpenNewCategory, setAutoOpenNewCategory] = useState(false);
   const [isNewSuitcaseSession, setIsNewSuitcaseSession] = useState(false);
   const [newSuitcaseId, setNewSuitcaseId] = useState<string | null>(null);
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   
   const [isMobile, setIsMobile] = useState(() => 
     typeof window !== 'undefined' ? window.innerWidth < 1024 : false
@@ -24,6 +25,19 @@ export const useFloatingPanelState = (
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  /** Invariante: isNewSuitcaseSession ↔ newSuitcaseId ↔ activeTabId (in editor nuova sessione). */
+  const beginNewSuitcaseSession = useCallback((suitcaseId: string) => {
+    setIsNewSuitcaseSession(true);
+    setNewSuitcaseId(suitcaseId);
+    setActiveTabId(suitcaseId);
+    setViewMode('editor');
+  }, []);
+
+  const clearNewSuitcaseSession = useCallback(() => {
+    setIsNewSuitcaseSession(false);
+    setNewSuitcaseId(null);
+  }, []);
+
   return {
     activeTabId, setActiveTabId,
     viewMode, setViewMode,
@@ -32,8 +46,11 @@ export const useFloatingPanelState = (
     hoveredItemId, setHoveredItemId,
     highlightItemId, setHighlightItemId,
     autoOpenNewCategory, setAutoOpenNewCategory,
-    isNewSuitcaseSession, setIsNewSuitcaseSession,
-    newSuitcaseId, setNewSuitcaseId,
+    isNewSuitcaseSession,
+    newSuitcaseId,
+    beginNewSuitcaseSession,
+    clearNewSuitcaseSession,
+    isAddingNewCategory, setIsAddingNewCategory,
     isMobile
   };
 };

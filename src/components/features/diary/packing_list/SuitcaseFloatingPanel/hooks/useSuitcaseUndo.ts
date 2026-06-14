@@ -5,16 +5,19 @@ import { UndoAction } from '@/hooks/useUndoStack';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 
+import { ToastVariant } from '@/types/toast';
+
 interface UndoProps {
   undo: () => UndoAction | null;
   redo: () => UndoAction | null;
+  viewMode: 'selector' | 'editor';
   updateItem: (id: string, updates: Partial<SuitcaseItem>) => Promise<void>;
   addItem: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
   deleteItem: (id: string) => Promise<void>;
   fetchUserSuitcases: () => Promise<void> | void;
   setHighlightItemId: (id: string | null) => void;
   activeSuitcaseId: string | null;
-  onShowToast: (message: string) => void;
+  onShowToast: (message: string, description?: string, variant?: ToastVariant) => void;
   onStateSync: (action: UndoAction, inverse: boolean, suitcaseId: string | null) => void;
   onCheckDuplicate: (id: string, name: string, category: string, suitcaseId: string | null, isUndo?: boolean) => boolean;
   isExecuting: () => boolean;
@@ -25,6 +28,7 @@ interface UndoProps {
 export const useSuitcaseUndo = ({
   undo,
   redo,
+  viewMode,
   updateItem,
   addItem,
   deleteItem,
@@ -74,9 +78,9 @@ export const useSuitcaseUndo = ({
         
         if (action.payload.field === 'is_checked') {
           const state = val ? "selezionato" : "rimosso";
-          onShowToast(`${action.label} è stato ${state}`);
+          onShowToast(`${action.label} è stato ${state}`, undefined, inverse ? 'destructive' : 'success');
         } else {
-          onShowToast(`${action.label} aggiornato`);
+          onShowToast(`${action.label} aggiornato`, undefined, inverse ? 'destructive' : 'success');
         }
       } 
       else if (action.type === 'selection') {
@@ -84,21 +88,25 @@ export const useSuitcaseUndo = ({
         if (action.payload.setter && typeof action.payload.setter === 'function') {
           action.payload.setter(val);
         }
-        onShowToast(val ? `Selezionato: ${action.label}` : `Selezione di ${action.label} rimossa`);
+        onShowToast(
+          val ? `Selezionato: ${action.label}` : `Selezione di ${action.label} rimossa`,
+          undefined,
+          inverse ? 'destructive' : 'success'
+        );
         return; 
       }
       else if (action.type === 'add') {
         if (inverse) {
           await deleteItem(action.id);
           onStateSync(action, inverse, activeSuitcaseId);
-          onShowToast(`Oggetto rimosso: ${action.label}`);
+          onShowToast(`Oggetto rimosso: ${action.label}`, undefined, 'destructive');
         } else if (activeSuitcaseId) {
           const isDuplicate = onCheckDuplicate(action.id, action.label || '', action.payload.category, activeSuitcaseId, true);
 
           if (!isDuplicate) {
             await addItem(activeSuitcaseId, action.label || '', action.payload.category, { ...action.payload, id: action.id });
             onStateSync(action, inverse, activeSuitcaseId);
-            onShowToast(`Oggetto ripristinato: ${action.label}`);
+            onShowToast(`Oggetto ripristinato: ${action.label}`, undefined, 'success');
           }
         }
       }
@@ -110,20 +118,20 @@ export const useSuitcaseUndo = ({
             if (!isDuplicate) {
               await addItem(activeSuitcaseId, action.label || '', action.payload.category, { ...action.payload, id: action.id });
               onStateSync(action, inverse, activeSuitcaseId);
-              onShowToast(`Oggetto ripristinato: ${action.label}`);
+              onShowToast(`Oggetto ripristinato: ${action.label}`, undefined, 'success');
             }
           }
         } else {
           await deleteItem(action.id);
           onStateSync(action, inverse, activeSuitcaseId);
-          onShowToast(`Oggetto eliminato: ${action.label}`);
+          onShowToast(`Oggetto eliminato: ${action.label}`, undefined, 'destructive');
         }
       }
       
       // Sincronizzazione atomica già gestita da onStateSync post-conferma
     } catch (err) {
       console.error("Action execution failed:", err);
-      onShowToast("Errore durante l'operazione");
+      onShowToast("Errore durante l'operazione", undefined, 'destructive');
       fetchUserSuitcases(); 
     } finally {
       endExecution();
@@ -152,6 +160,7 @@ export const useSuitcaseUndo = ({
 
   useEffect(() => {
     if (!workspaceOwnsKeyboardShortcuts(mode)) return;
+    if (viewMode !== 'editor') return;
 
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
@@ -172,7 +181,7 @@ export const useSuitcaseUndo = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, performUndo, performRedo]);
+  }, [mode, viewMode, performUndo, performRedo]);
 
   return {
     performUndo,

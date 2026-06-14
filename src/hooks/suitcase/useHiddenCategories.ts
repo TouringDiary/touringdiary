@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { updateHiddenCategoriesAsync } from '@/services/suitcaseService';
+import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 
 /**
  * Hook per gestire le categorie nascoste di una valigia o template.
@@ -55,8 +56,8 @@ export const useHiddenCategories = (
     }
 
     if (!suitcaseId) return;
-    if (suitcaseId.startsWith('guest-')) {
-      // Per le valigie guest, salviamo solo in localStorage
+    if (isDraftWorkspaceId(suitcaseId)) {
+      // Workspace draft: persistenza solo in localStorage
       const timer = setTimeout(() => {
         const localData = localStorage.getItem('GUEST_LOCAL_SUITCASE');
         if (localData) {

@@ -8,10 +8,17 @@ import {
 import {
   saveGuestSuitcase,
   deleteGuestSuitcase,
-  createGuestSuitcaseObject
+  createGuestSuitcaseObject,
+  createDraftWorkspaceObject,
+  isDraftWorkspaceId,
+  toDraftWorkspaceSeedItems,
 } from '@/utils/guestSuitcaseHelper';
-import { linkSuitcaseToTrip } from './useSuitcaseLinking';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { Suitcase, SuitcaseItem, DraftWorkspaceKind } from '@/types/suitcase';
+
+export const DRAFT_OVERWRITE_NEW_SUITCASE = 'new-suitcase';
+export const DRAFT_OVERWRITE_NEW_TEMPLATE = 'new-template';
+export const DRAFT_OVERWRITE_SUGGESTED_TEMPLATES = 'suggested-templates';
+export const DRAFT_OVERWRITE_SAVE_AS_TEMPLATE = 'save-as-template';
 
 export const useCreateSuitcase = () => {
   const [isCreating, setIsCreating] = useState(false);
@@ -26,12 +33,6 @@ export const useCreateSuitcase = () => {
       }
 
       const suitcase = await createSuitcaseAsync(userId, title, icon);
-
-      // Fase 1: Creazione link esplicito nella join table
-      if (itineraryId && suitcase?.id) {
-        await linkSuitcaseToTrip(itineraryId, suitcase.id, userId);
-      }
-
       return suitcase;
     } finally {
       setIsCreating(false);
@@ -39,6 +40,115 @@ export const useCreateSuitcase = () => {
   };
 
   return { createSuitcase, isCreating };
+};
+
+/**
+ * Crea una workspace temporanea in localStorage (draft-suitcase-*).
+ */
+export const createDraftWorkspace = (
+  userId: string,
+  title = 'Valigia',
+  icon = '🎒',
+  workspaceKind: DraftWorkspaceKind = 'suitcase'
+): Suitcase => {
+  const draftSc = createDraftWorkspaceObject(userId, title, icon, [], workspaceKind);
+  saveGuestSuitcase(draftSc);
+  return draftSc;
+};
+
+/**
+ * Crea una draft workspace popolata da un template (TD o USER) → draft valigia.
+ */
+export const createDraftWorkspaceFromTemplate = (
+  userId: string,
+  template: Suitcase,
+  title?: string
+): Suitcase => {
+  let resolvedTitle = title ?? template.title;
+  if (resolvedTitle?.startsWith('Template ')) {
+    resolvedTitle = resolvedTitle.replace('Template ', 'Valigia ');
+  }
+
+  const seedItems = toDraftWorkspaceSeedItems(template.suitcase_items ?? [], {
+    is_checked: false,
+    is_ai_suggestion: false,
+  });
+
+  const draftSc = createDraftWorkspaceObject(
+    userId,
+    resolvedTitle || 'Valigia',
+    template.icon || '🎒',
+    seedItems,
+    'suitcase'
+  );
+
+  const draft: Suitcase = {
+    ...draftSc,
+    source_template_id: template.id,
+    custom_categories: template.custom_categories ?? [],
+    ui_state: template.ui_state ?? { hidden_category_ids: [] },
+  };
+
+  saveGuestSuitcase(draft);
+  return draft;
+};
+
+/**
+ * Crea draft da valigia/template sorgente con kind esplicito.
+ */
+export const createDraftWorkspaceFromSuitcase = (
+  userId: string,
+  source: Suitcase,
+  workspaceKind: DraftWorkspaceKind,
+  title?: string
+): Suitcase => {
+  const seedItems = toDraftWorkspaceSeedItems(source.suitcase_items ?? [], {
+    is_checked: workspaceKind === 'suitcase' ? false : false,
+    is_ai_suggestion: false,
+  });
+
+  const resolvedTitle =
+    title ??
+    (workspaceKind === 'user_template'
+      ? `Template ${source.title}`
+      : source.title);
+
+  const draftSc = createDraftWorkspaceObject(
+    userId,
+    resolvedTitle,
+    source.icon || '🎒',
+    seedItems,
+    workspaceKind
+  );
+
+  const draft: Suitcase = {
+    ...draftSc,
+    source_template_id: workspaceKind === 'suitcase' ? source.id : source.source_template_id ?? source.id,
+    custom_categories: source.custom_categories ?? [],
+    ui_state: source.ui_state ?? { hidden_category_ids: [] },
+  };
+
+  saveGuestSuitcase(draft);
+  return draft;
+};
+
+/**
+ * Crea una draft workspace popolata da item merge-deduplicati (Valigia Consigliata).
+ */
+export const createDraftWorkspaceFromMergedItems = (
+  userId: string,
+  title: string,
+  items: SuitcaseItem[],
+  icon = '🎒'
+): Suitcase => {
+  const seedItems = toDraftWorkspaceSeedItems(items, {
+    is_checked: false,
+    is_ai_suggestion: false,
+  });
+
+  const draftSc = createDraftWorkspaceObject(userId, title, icon, seedItems, 'suitcase');
+  saveGuestSuitcase(draftSc);
+  return draftSc;
 };
 
 export const useCloneSuitcase = () => {
@@ -75,7 +185,8 @@ export const useCloneSuitcase = () => {
           suitcase_items: items,
           custom_categories: [],
           ui_state: { hidden_category_ids: [] },
-          source_template_id: suitcaseId
+          source_template_id: suitcaseId,
+          workspace_kind: 'suitcase',
         };
 
         saveGuestSuitcase(guestSc);
@@ -83,13 +194,7 @@ export const useCloneSuitcase = () => {
       }
 
       const newSuitcaseId = await cloneSuitcaseAsync(suitcaseId, userId, title);
-
-      // Fase 1: Creazione link esplicito nella join table dopo clone
-      if (itineraryId && newSuitcaseId) {
-        await linkSuitcaseToTrip(itineraryId, newSuitcaseId, userId);
-      }
-
-      return newSuitcaseId; // The new suitcase UUID
+      return newSuitcaseId;
     } finally {
       setIsCloning(false);
     }
@@ -99,7 +204,7 @@ export const useCloneSuitcase = () => {
 };
 
 export const deleteSuitcase = async (suitcaseId: string) => {
-  if (suitcaseId.startsWith('guest-suitcase-')) {
+  if (isDraftWorkspaceId(suitcaseId)) {
     deleteGuestSuitcase();
     return;
   }

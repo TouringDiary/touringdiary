@@ -6,6 +6,7 @@ import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
 import { useItinerary } from '@/context/ItineraryContext';
+import { affiliateTrackingService } from '../../../services/affiliateTrackingService';
 
 interface Props {
     city: CityDetails;
@@ -85,6 +86,21 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
             onAddToItinerary(poi);
         };
 
+        const handleWebsiteClick = (e: React.MouseEvent) => {
+            e.preventDefault();
+            if (!operator.website) return;
+
+            affiliateTrackingService.trackClickOut({
+                partnerId: 'website',
+                sourceType: 'poi',
+                category: 'operator_website',
+                poiId: operator.id,
+                cityId: city.id
+            });
+
+            window.open(operator.website, '_blank', 'noopener,noreferrer');
+        };
+
         return (
             <div className="h-full overflow-y-auto custom-scrollbar p-6 md:p-10 animate-in fade-in bg-[#020617] flex flex-col">
                 <div className="flex flex-col md:flex-row gap-8 mb-10">
@@ -121,9 +137,12 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                                 </a>
                             )}
                             {operator.website && (
-                                <a href={operator.website} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wide border border-slate-700 transition-all active:scale-95">
+                                <button 
+                                    onClick={handleWebsiteClick}
+                                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wide border border-slate-700 transition-all active:scale-95"
+                                >
                                     <Globe className="w-4 h-4"/> Sito Web
-                                </a>
+                                </button>
                             )}
                             <button 
                                 onClick={handleAddOperator}

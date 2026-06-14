@@ -14,10 +14,12 @@ export const useFloatingPanelStateSync = (setUserSuitcases: React.Dispatch<React
 
         if (action.type === 'update') {
           const val = inverse ? action.payload.previousValue : action.payload.newValue;
+          const extra = (!inverse && action.payload.extraUpdates) ? action.payload.extraUpdates : {};
+          
           return {
             ...suitcase,
             suitcase_items: items.map(item => 
-              item.id === action.id ? { ...item, [action.payload.field]: val } : item
+              item.id === action.id ? { ...item, [action.payload.field]: val, ...extra } : item
             )
           };
         }

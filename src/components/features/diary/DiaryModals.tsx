@@ -31,7 +31,7 @@ interface DiaryModalsProps {
         setMemoTargetItem: (item: ItineraryItem | null) => void;
     };
     actions: {
-        saveProject: (name?: string, isSaveAs?: boolean) => Promise<boolean>;
+        saveProject: (name?: string, isSaveAs?: boolean) => Promise<string | null>;
         clearItinerary: () => void;
         confirmDateChange: () => void;
         handleConfirmAddMemo: (day: number, time: string) => void;
@@ -53,8 +53,8 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
     const { getText: getSuccessMsg } = useSystemMessage('toast_save_success');
 
     const handleSaveConfirm = async (name: string) => {
-        const success = await actions.saveProject(name, true);
-        if (success) {
+        const savedId = await actions.saveProject(name, true);
+        if (savedId) {
             setters.setSaveAsModalOpen(false);
         }
     };

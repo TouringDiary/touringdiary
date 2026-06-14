@@ -1,5 +1,5 @@
-import type { User } from '@/types/users';
-import { ResolvedAffiliateProductLink, ResolvedAffiliateProduct, Suitcase } from '@/types/suitcase';
+import { ResolvedAffiliateProductLink, ResolvedAffiliateProduct, Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { isTdTemplate, isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
 import React from 'react';
 import {
   Backpack, Briefcase, Camera, Car, Coffee,
@@ -20,13 +20,27 @@ import {
   Eye, EyeOff
 } from 'lucide-react';
 
-export const STABLE_CATEGORY_ORDER = ['Abbigliamento', 'Igiene', 'Documenti', 'Elettronica', 'Extra'];
+export const STABLE_CATEGORY_ORDER = [
+  'Abbigliamento',
+  'Igiene',
+  'Documenti',
+  'Elettronica',
+  'Farmaci',
+  'Bambini',
+  'Animali',
+  'Accessori & Organizzazione',
+  'Extra'
+];
 
 export const SYSTEM_CATEGORY_ID_MAP: Record<string, string> = {
   'Abbigliamento': 'clothing',
   'Igiene': 'hygiene',
   'Documenti': 'documents',
   'Elettronica': 'electronics',
+  'Farmaci': 'meds',
+  'Bambini': 'kids',
+  'Animali': 'pets',
+  'Accessori & Organizzazione': 'accessories',
   'Extra': 'extra'
 };
 
@@ -42,6 +56,14 @@ export const getCategoryId = (categoryName: string, customCategories?: any[]) =>
 
   // 3. Fallback (slug o lowercase se non trovato - utile per migrazione o dati sporchi)
   return categoryName.toLowerCase().replace(/\s+/g, '-');
+};
+
+export const getSuitcaseItemProgress = (items: SuitcaseItem[] | undefined | null) => {
+  const list = items || [];
+  const total = list.length;
+  const checked = list.filter(i => i.is_checked).length;
+  const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
+  return { checked, total, percentage };
 };
 
 export const CATEGORY_ICON_REGISTRY: Record<string, React.ReactElement> = {
@@ -122,11 +144,17 @@ export const getTemplateColor = (title: string) => {
 export const ItemCategoryIcon: React.FC<{ category: string; iconKey?: string; className?: string }> = ({ category, iconKey, className }) => {
   if (iconKey) return getIconByName(iconKey, className);
 
-  switch (category.toLowerCase()) {
+  const cat = category.toLowerCase().trim();
+
+  switch (cat) {
     case 'abbigliamento': return <span className={`${className} flex items-center justify-center`}>👕</span>;
     case 'igiene': return <span className={`${className} flex items-center justify-center`}>🚿</span>;
     case 'documenti': return <span className={`${className} flex items-center justify-center`}>📄</span>;
     case 'elettronica': return <span className={`${className} flex items-center justify-center`}>📱</span>;
+    case 'farmaci': return <span className={`${className} flex items-center justify-center`}>💊</span>;
+    case 'bambini': return <span className={`${className} flex items-center justify-center`}>👶</span>;
+    case 'animali': return <span className={`${className} flex items-center justify-center`}>🐾</span>;
+    case 'accessori & organizzazione': return <span className={`${className} flex items-center justify-center`}>🎒</span>;
     case 'extra': return <span className={`${className} flex items-center justify-center`}>📦</span>;
     default: return <span className={`${className} flex items-center justify-center`}>📦</span>;
   }
@@ -164,10 +192,10 @@ export const normalizeAllSuitcases = (
 ): Suitcase[] => {
   const map = new globalThis.Map<string, Suitcase>();
 
-  // 1. Template globali (priorità base)
+  // 1. Template TD e USER (priorità base)
   allSuitcases.forEach(s => {
     if (!s || !s.id) return;
-    if (s.user_id === null || s.is_template) {
+    if (isTdTemplate(s) || isUserTemplate(s)) {
       map.set(s.id, s);
     }
   });
@@ -181,7 +209,7 @@ export const normalizeAllSuitcases = (
   // 3. Valigie reali dell'utente (priorità massima)
   allSuitcases.forEach(s => {
     if (!s || !s.id) return;
-    if (s.user_id !== null && !s.is_template) {
+    if (isValigia(s)) {
       map.set(s.id, s);
     }
   });

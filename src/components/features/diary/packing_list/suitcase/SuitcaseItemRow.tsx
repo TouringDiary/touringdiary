@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Trash2, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, Trash2, Sparkles, X } from 'lucide-react';
 import { SuitcaseItem } from '@/types/suitcase';
 import { affiliateTrackingService } from '@/services/affiliateTrackingService';
 
@@ -68,12 +68,6 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         item.is_checked ? 'text-slate-400' : 'text-slate-200'
       }`}>
         {item.name}
-        {item.is_ai_suggestion && (
-          <div className="flex items-center gap-1 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/10" title="Suggerito automaticamente in base al viaggio">
-            <Sparkles className="w-2.5 h-2.5 text-amber-500 animate-pulse" />
-            <span className="text-[8px] font-black uppercase text-amber-600/80 tracking-tighter">AI</span>
-          </div>
-        )}
       </span>
 
       {override && (
@@ -109,7 +103,12 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
       )}
 
        {item.is_ai_suggestion ? (
-        <div className="flex items-center gap-1 px-1">
+        <div className="flex items-center gap-1.5 px-1">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 shadow-sm shrink-0" title="Suggerimento AI">
+            <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
+            <span className="text-[9px] font-black uppercase text-amber-600/80 tracking-widest">AI</span>
+          </div>
+
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -118,7 +117,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
             className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm border border-emerald-500/20"
             title="Accetta Suggerimento"
           >
-            <CheckCircle2 className="w-3.5 h-3.5" />
+            <Check className="w-4.5 h-4.5 stroke-[3]" />
           </button>
           <button
             onClick={(e) => {
@@ -128,7 +127,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
             className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-500/20"
             title="Rifiuta Suggerimento"
           >
-            <XCircle className="w-3.5 h-3.5" />
+            <X className="w-4.5 h-4.5 stroke-[3]" />
           </button>
         </div>
       ) : (

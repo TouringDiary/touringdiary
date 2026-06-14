@@ -1,18 +1,20 @@
 import React from 'react';
-import { Star, Trash2, Sparkles, ArrowRight } from 'lucide-react';
-import { TemplateCategoryIcon, getTemplateColor } from './SuitcaseUtils';
+import { Star, ArrowRight, Sparkles, Trash2 } from 'lucide-react';
+import { TemplateCategoryIcon } from './SuitcaseUtils';
 import { Suitcase } from '@/types/suitcase';
+import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
 
 interface TemplateRowProps {
   template: Suitcase;
   isSuggested: boolean;
   isPreferred: boolean;
-  isDismissed?: boolean;
   isHovered: boolean;
   isCloning: boolean;
   onHover: () => void;
   onTogglePreference: () => void;
   onUse: () => void;
+  onOpen?: () => void;
+  onDelete?: () => void;
 }
 export const TemplateRow: React.FC<TemplateRowProps> = ({
   template,
@@ -22,9 +24,12 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
   isCloning,
   onHover,
   onTogglePreference,
-  onUse
+  onUse,
+  onOpen,
+  onDelete,
 }) => {
-  const colorClass = getTemplateColor(template.title);
+  const isTd = isTdTemplate(template);
+  const isUser = isUserTemplate(template);
 
   const containerClass = [
     'flex items-stretch overflow-hidden rounded-xl border transition-all text-left group relative cursor-pointer outline-none min-h-0 shrink-0 w-full',
@@ -37,41 +42,58 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
           : 'bg-slate-800/40 border-slate-700 hover:border-indigo-500/30 hover:bg-slate-800/60',
   ].join(' ');
 
+  const handleRowClick = () => {
+    if (isUser && onOpen) {
+      onOpen();
+      return;
+    }
+    onUse();
+  };
+
   return (
     <div
       role="option"
       aria-selected={isHovered}
       tabIndex={0}
       className={containerClass}
-      onClick={() => onUse()}
+      onClick={handleRowClick}
       onMouseEnter={onHover}
       onFocus={onHover}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === 'ArrowRight') { e.preventDefault(); onUse(); }
+        if (e.key === 'Enter' || e.key === 'ArrowRight') { e.preventDefault(); handleRowClick(); }
         if (e.key === ' ') { e.preventDefault(); onHover(); }
       }}
     >
-      {/* Colonna Sinistra/Comandi */}
       <div
         className={`w-[96px] shrink-0 flex flex-col border-r border-white/5 overflow-hidden
           bg-white/[0.03]
           ${isHovered ? 'bg-indigo-500/10' : ''}`}
       >
-        {/* Icona */}
         <div className="flex items-center justify-center h-[58px]">
           <TemplateCategoryIcon template={template} className="text-[26px] leading-none flex items-center justify-center" />
         </div>
 
-        {/* Toolbar bottoni */}
         <div className="flex border-t border-white/10 mt-auto">
-          <button
-            onClick={(e) => { e.stopPropagation(); onTogglePreference(); }}
-            className={`flex-1 flex items-center justify-center h-[32px] border-r border-white/10 transition-all
-              ${isPreferred ? 'text-amber-400 bg-amber-400/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-            title={isPreferred ? "Rimuovi dai preferiti" : "Segna come preferito"}
-          >
-            <Star className={`w-4 h-4 ${isPreferred ? 'fill-amber-400' : ''}`} />
-          </button>
+          {isTd && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onTogglePreference(); }}
+              className={`flex-1 flex items-center justify-center h-[32px] border-r border-white/10 transition-all
+                ${isPreferred ? 'text-amber-400 bg-amber-400/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+              title={isPreferred ? "Rimuovi dai preferiti" : "Segna come preferito"}
+            >
+              <Star className={`w-4 h-4 ${isPreferred ? 'fill-amber-400' : ''}`} />
+            </button>
+          )}
+
+          {isUser && onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="flex-1 flex items-center justify-center h-[32px] border-r border-white/10 text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
+              title="Elimina template"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
 
           <button
             onClick={(e) => { e.stopPropagation(); onUse(); }}
@@ -84,26 +106,33 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
         </div>
       </div>
 
-      {/* Colonna Destra: Contenuto Testuale (Suddivisa in Top/Bottom per allineamento perfetto con l'area bottoni) */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* AREA TOP (Altezza icona): Centrata verticalmente */}
         <div className="flex-1 flex flex-col justify-center px-4 leading-tight min-h-0">
-          <div className="flex items-center gap-2 mb-0.5">
+          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
             <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate">
               {template.title.replace(/^Template\s+/i, '')}
             </span>
+            {isTd && (
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[8px] xl:text-[10px] font-bold uppercase tracking-wider border border-amber-500/20 shrink-0">
+                TD
+              </span>
+            )}
+            {isUser && (
+              <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[8px] xl:text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20 shrink-0">
+                USER
+              </span>
+            )}
             {isSuggested && (
               <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 text-[8px] xl:text-[10px] font-bold uppercase tracking-wider border border-indigo-500/30 shrink-0">
                 Suggerito
               </span>
             )}
           </div>
-          <div className="text-[9px] xl:text-[11px] text-slate-300 truncate">
-            Template pronto all'uso
+          <div className="text-[9px] xl:text-[11px] text-slate-300 font-bold uppercase tracking-widest truncate">
+            {isUser ? 'TEMPLATE PERSONALE' : 'TEMPLATE PRONTO ALL\'USO'}
           </div>
         </div>
 
-        {/* AREA BOTTOM (Altezza Toolbar bottoni: 32px): Allineata perfettamente */}
         <div className="h-[32px] flex items-center px-4 border-t border-white/[0.05] bg-white/[0.01]">
           <div className="text-[9px] xl:text-[11px] text-indigo-400 font-black uppercase tracking-wider">
             {template.suitcase_items?.length || 0} OGGETTI

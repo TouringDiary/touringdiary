@@ -1,10 +1,9 @@
 import { Z_MODAL_NESTED } from '@/constants/zIndex';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 
 import { Briefcase, Link, ArrowRight, Loader2, Sparkles } from 'lucide-react';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 
 interface AssociationConfirmationModalProps {
   isOpen: boolean;
@@ -12,13 +11,15 @@ interface AssociationConfirmationModalProps {
   onConfirm: () => void; // "Salva e associa"
   onDiscard: () => void; // "Esci senza salvare" (deletes if new)
   onCancel?: () => void; // "Annulla" (just close modal, stay in editor)
-  isDiaryFull?: boolean;
+  isDiaryAssociable?: boolean;
   title: string;
   message: string;
   isLinking?: boolean;
   hasActiveTrip: boolean;
   isGuest?: boolean;
   onLogin?: () => void;
+  /** Draft template USER: solo salva, nessuna associazione al diario */
+  isTemplateDraft?: boolean;
 }
 
 export const AssociationConfirmationModal: React.FC<AssociationConfirmationModalProps> = ({
@@ -27,32 +28,33 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
   onConfirm,
   onDiscard,
   onCancel,
-  isDiaryFull = true,
+  isDiaryAssociable = true,
   title,
   message,
   isLinking = false,
   hasActiveTrip,
   isGuest = false,
-  onLogin
+  onLogin,
+  isTemplateDraft = false,
 }) => {
-  useGlobalModalEscape(isOpen, onClose);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && hasActiveTrip) onConfirm();
-    };
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, onConfirm, hasActiveTrip]);
+  // Dismiss = chiudi modale senza azione primaria (resta in editor se onCancel è fornito).
+  // Allineato a DeleteConfirmationModal: ESC e overlay via CloseButton, niente secondo listener ESC.
+  const handleDismiss = () => {
+    (onCancel ?? onClose)();
+  };
 
   if (!isOpen) return null;
 
     return createPortal(
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300" style={{ zIndex: Z_MODAL_NESTED }}>
+    <div
+      className="td-modal-overlay fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300"
+      style={{ zIndex: Z_MODAL_NESTED }}
+      onClick={handleDismiss}
+    >
       <div 
         className="bg-slate-900 border border-indigo-500/30 p-8 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(99,102,241,0.2)] relative animate-in zoom-in-95 duration-300"
         style={{ zIndex: Z_MODAL_NESTED }}
+        onClick={(e) => e.stopPropagation()}
       >
 
         <div className="flex flex-col items-center text-center gap-6">
@@ -88,19 +90,19 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
                   Esci senza salvare
                 </button>
               </>
-            ) : hasActiveTrip ? (
+            ) : hasActiveTrip && !isTemplateDraft ? (
               <>
                 <button
                   onClick={onConfirm}
-                  disabled={isLinking || !isDiaryFull}
-                  className={`w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest group ${(!isDiaryFull && !isLinking) ? 'opacity-50 cursor-not-allowed grayscale-[0.5]' : ''}`}
+                  disabled={isLinking || !isDiaryAssociable}
+                  className={`w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest group ${(!isDiaryAssociable && !isLinking) ? 'opacity-50 cursor-not-allowed grayscale-[0.5]' : ''}`}
                 >
                   {isLinking ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Link className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                   )}
-                  {isLinking ? 'Associazione in corso...' : !isDiaryFull ? 'Diario vuoto (Impossibile associare)' : 'Salva e associa al diario'}
+                  {isLinking ? 'Associazione in corso...' : !isDiaryAssociable ? 'Diario non associabile' : 'Salva e associa al diario'}
                 </button>
 
                 <button
@@ -124,7 +126,7 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest"
                 >
                   <ArrowRight className="w-4 h-4" />
-                  Salva Valigia
+                  {isLinking ? 'Salvataggio...' : isTemplateDraft ? 'Salva template' : 'Salva Valigia'}
                 </button>
 
                 <button
@@ -139,7 +141,7 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
         </div>
 
         {/* Close hint */}
-        <CloseButton onClose={onCancel || onClose} variant="primary" position="absolute" className="top-4 right-4" />
+        <CloseButton onClose={handleDismiss} variant="primary" position="absolute" className="top-4 right-4" />
       </div>
     </div>,
     document.body

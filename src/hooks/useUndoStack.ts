@@ -133,16 +133,26 @@ export function useUndoStack<T>(maxSize = 30) {
     return actionToReturn;
   }, []);
 
+  const resetStack = useCallback(() => {
+    setState({ history: [], pointer: -1 });
+  }, []);
+
+  const hasPersistentUndo =
+    state.pointer >= 0 &&
+    state.history.slice(0, state.pointer + 1).some((action) => action.type !== 'selection');
+
   return useMemo(() => ({ 
     pushAction, 
     undo, 
-    redo, 
+    redo,
+    resetStack,
     isExecuting,
     beginExecution,
     endExecution,
     canUndo: state.pointer >= 0, 
     canRedo: state.pointer < state.history.length - 1,
+    hasPersistentUndo,
     historySize: state.history.length,
     currentPointer: state.pointer
-  }), [pushAction, undo, redo, isExecuting, beginExecution, endExecution, state.pointer, state.history.length]);
+  }), [pushAction, undo, redo, resetStack, isExecuting, beginExecution, endExecution, state.pointer, state.history.length, hasPersistentUndo]);
 }
