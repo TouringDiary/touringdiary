@@ -1,6 +1,8 @@
   import { supabase } from '../supabaseClient';
   import { SuitcaseItem } from '../../types/suitcase';
   import { mapDbSuitcaseItemRowToRuntime } from './suitcaseCoreService';
+  import { normalizeCategoryName } from '../../domain/packing/packingCategories';
+  import { isEphemeralItemId } from '../../utils/runtimeItemId';
 
   // =============================================================================
   // WRITE DTOs — Suitcase Items
@@ -86,10 +88,10 @@
     const { data, error } = await supabase
       .from('suitcase_items')
       .insert({
-        id: metadata.id ?? crypto.randomUUID(),
+        id: metadata.id && !isEphemeralItemId(metadata.id) ? metadata.id : crypto.randomUUID(),
         suitcase_id: suitcaseId,
         name,
-        category,
+        category: normalizeCategoryName(category),
         is_checked: metadata.is_checked ?? false,
         is_ai_suggestion: metadata.is_ai_suggestion ?? false,
         quantity: metadata.quantity ?? 1,
@@ -112,10 +114,10 @@
     dtos: AddSuitcaseItemDto[]
   ): Promise<SuitcaseItem[]> => {
     const rows = dtos.map(dto => ({
-      id: dto.id ?? crypto.randomUUID(),
+      id: dto.id && !isEphemeralItemId(dto.id) ? dto.id : crypto.randomUUID(),
       suitcase_id: dto.suitcase_id,
       name: dto.name,
-      category: dto.category,
+      category: normalizeCategoryName(dto.category),
       is_checked: dto.is_checked ?? false,
       is_ai_suggestion: dto.is_ai_suggestion ?? false,
       quantity: dto.quantity ?? 1,
@@ -159,7 +161,7 @@
     if (dto.is_ai_suggestion !== undefined) payload.is_ai_suggestion = dto.is_ai_suggestion;
     if (dto.quantity !== undefined)      payload.quantity = dto.quantity;
     if (dto.name !== undefined)          payload.name = dto.name;
-    if (dto.category !== undefined)      payload.category = dto.category;
+    if (dto.category !== undefined)      payload.category = normalizeCategoryName(dto.category);
     if (dto.accepted_from_ai !== undefined) payload.accepted_from_ai = dto.accepted_from_ai;
     if (dto.affiliate_tags !== undefined)   payload.affiliate_tags = dto.affiliate_tags;
     if (dto.poi_triggers !== undefined)     payload.poi_triggers = dto.poi_triggers;
@@ -185,7 +187,7 @@
     const dtos: AddSuitcaseItemDto[] = items.map(item => ({
       suitcase_id: suitcaseId,
       name: item.name,
-      category: item.category,
+      category: normalizeCategoryName(item.category),
       is_checked: item.is_checked ?? false,
       is_ai_suggestion: item.is_ai_suggestion ?? false,
       quantity: item.quantity ?? 1,

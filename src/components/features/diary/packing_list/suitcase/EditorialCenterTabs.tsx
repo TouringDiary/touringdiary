@@ -2,6 +2,11 @@ import { SuggestionProduct, SuitcaseItem } from '@/types/suitcase';
 import { OverrideTab } from './tabs/OverrideTab';
 import { GlobalSuggestionsTab } from './tabs/GlobalSuggestionsTab';
 import { TemplateLibraryTab } from './tabs/TemplateLibraryTab';
+import { StandardItemsTab } from './tabs/StandardItemsTab';
+import { TemplateSpecificItemsTab } from './tabs/TemplateSpecificItemsTab';
+import { AiCatalogTab } from './tabs/AiCatalogTab';
+
+export { OverrideTab, GlobalSuggestionsTab, TemplateLibraryTab, StandardItemsTab, TemplateSpecificItemsTab, AiCatalogTab };
 
 // --- SHARED UTILS (To be extracted in next phase) ---
 export const getRelevantProducts = (item: SuitcaseItem, products: SuggestionProduct[]) => {
@@ -13,8 +18,10 @@ export const getRelevantProducts = (item: SuitcaseItem, products: SuggestionProd
   const affinityMap: Record<string, string[]> = {
     'abbigliamento': ['vestiti', 'scarpe', 'intimo', 'pantaloni', 'maglie', 'calze'],
     'elettronica': ['tech', 'smartphone', 'powerbank', 'caricabatterie', 'cuffie', 'fotografia'],
-    'salute': ['medicina', 'sanitario', 'protezione', 'igiene', 'beauty'],
+    'farmaci': ['medicina', 'sanitario', 'protezione', 'salute'],
+    'igiene': ['beauty', 'cosmetici'],
     'documenti': ['viaggio', 'assicurazione', 'portafoglio', 'cartaceo'],
+    'accessori': ['organizzazione', 'bagaglio'],
     'calzature': ['scarpe', 'ciabatte', 'sandali', 'sneakers'],
   };
 
@@ -40,6 +47,3 @@ export const getRelevantProducts = (item: SuitcaseItem, products: SuggestionProd
     return nameMatch || categoryMatch || tagMatch;
   });
 };
-
-// Re-export components for the parent AffiliateEditorialCenter
-export { OverrideTab, GlobalSuggestionsTab, TemplateLibraryTab };

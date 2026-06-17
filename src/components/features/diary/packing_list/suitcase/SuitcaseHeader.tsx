@@ -3,9 +3,11 @@ import { Edit2, Trash2, ChevronLeft, Unlink, Link2, Layout, Undo2, Redo2, CloudO
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Suitcase } from '@/types/suitcase';
 import { TemplateCategoryIcon } from './SuitcaseUtils';
+import { isSessionReadOnly } from '@/utils/suitcaseDomain';
+import type { SuitcasePanelViewMode } from '../SuitcaseFloatingPanel/types/panelViewMode';
 
 interface SuitcaseHeaderProps {
-  viewMode: 'selector' | 'editor';
+  viewMode: SuitcasePanelViewMode;
   activeSuitcase: Suitcase | null;
   isEditingTitle: boolean;
   tempTitle: string;
@@ -67,13 +69,23 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
   sourceTab,
   setSourceTab
 }) => {
-  const isEditor = viewMode === 'editor';
+  const isDetailView = viewMode === 'editor' || viewMode === 'viewer';
+  const isReadOnlySession =
+    isDetailView && activeSuitcase
+      ? isSessionReadOnly(activeSuitcase, viewMode)
+      : false;
+
+  const editabilityBadgeClass = isReadOnlySession
+    ? 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+
+  const editabilityLabel = isReadOnlySession ? 'Sola lettura' : 'Modificabile';
 
   return (
     <div className="flex flex-col shrink-0 bg-slate-900/80 backdrop-blur-md border-b border-white/5 z-header relative">
       <div className="flex items-center justify-between px-4 md:px-6 h-20 md:h-24">
         <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-          {isEditor ? (
+          {isDetailView ? (
             <button 
               onClick={onBackToSelector}
               className="p-2.5 -ml-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-all group"
@@ -88,7 +100,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
           )}
 
           <div className="flex flex-col min-w-0">
-            {isEditor && activeSuitcase ? (
+            {isDetailView && activeSuitcase ? (
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-3 md:gap-4">
                   <div className="flex items-center gap-2 group min-w-0">
@@ -96,7 +108,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       template={activeSuitcase} 
                       className="text-2xl md:text-3xl shrink-0 flex items-center justify-center" 
                     />
-                    {isEditingTitle ? (
+                    {isEditingTitle && !isReadOnlySession ? (
                       <input
                         ref={titleInputRef}
                         value={tempTitle}
@@ -108,14 +120,24 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       />
                     ) : (
                       <h2 
-                        onClick={onEditTitle}
-                        className="text-base md:text-2xl font-bold text-white truncate cursor-pointer hover:text-indigo-400 transition-colors flex items-center gap-2"
+                        onClick={isReadOnlySession ? undefined : onEditTitle}
+                        className={`text-base md:text-2xl font-bold text-white truncate flex items-center gap-2 ${
+                          isReadOnlySession ? '' : 'cursor-pointer hover:text-indigo-400 transition-colors'
+                        }`}
                       >
                         {activeSuitcase.title}
-                        <Edit2 className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors shrink-0" />
+                        {!isReadOnlySession && (
+                          <Edit2 className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors shrink-0" />
+                        )}
                       </h2>
                     )}
                   </div>
+
+                  <span
+                    className={`shrink-0 px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-widest ${editabilityBadgeClass}`}
+                  >
+                    {editabilityLabel}
+                  </span>
                   
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/80 border border-white/10 shadow-lg shrink-0">
                     <CheckSquare className={`w-3.5 h-3.5 ${progressPerc === 100 ? 'text-emerald-500' : 'text-indigo-400'}`} />
@@ -138,7 +160,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
               <h2 className="text-lg md:text-2xl font-bold text-white tracking-tight">Le mie Valigie</h2>
             )}
             
-            {!isEditor && (
+            {!isDetailView && (
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                   Gestione bagagli e template
@@ -149,7 +171,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
-          {isEditor && activeSuitcase && (
+          {isDetailView && activeSuitcase && viewMode === 'editor' && !isReadOnlySession && (
             <>
               <div className="flex items-center bg-slate-800/50 rounded-2xl border border-white/5 p-1.5">
                 <button

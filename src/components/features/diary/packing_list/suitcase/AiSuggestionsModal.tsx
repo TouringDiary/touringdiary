@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles } from 'lucide-react';
-import { STABLE_CATEGORY_ORDER } from './SuitcaseUtils';
+import { CORE_CATEGORY_NAMES, CATEGORY_ORDER } from '@/domain/packing/packingCategories';
 import { AiSuggestion } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
 import { AiSuggestionsSetupStep } from './AiSuggestionsSetupStep';
 import { AiSuggestionsReviewStep } from './AiSuggestionsReviewStep';
@@ -61,7 +61,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   // Inizializzazione categorie basata su prop o default
   useEffect(() => {
     if (isOpen && selectedCategories.length === 0) {
-      setSelectedCategories(initialCategories.length > 0 ? initialCategories : STABLE_CATEGORY_ORDER.slice(0, 4));
+      setSelectedCategories(initialCategories.length > 0 ? initialCategories : [...CORE_CATEGORY_NAMES].slice(0, 4));
     }
   }, [isOpen, initialCategories]);
 
@@ -138,7 +138,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
     setShowAddCategoryDropdown(false);
   };
 
-  const availableCategories = STABLE_CATEGORY_ORDER.filter(c => !selectedCategories.includes(c));
+  const availableCategories = CATEGORY_ORDER.filter(c => !selectedCategories.includes(c));
 
   const handleGenerate = () => {
     if (mode === 'direct') {

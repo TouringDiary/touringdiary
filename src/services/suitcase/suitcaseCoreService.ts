@@ -2,6 +2,9 @@ import { supabase, Json } from '../supabaseClient';
 import { Database } from '../../types/supabase';
 import { DbSuitcase, DbSuitcaseItem } from '../../types/domain/index';
 import { Suitcase, SuitcaseItem, SuitcaseCategory, SuitcaseUiState } from '../../types/suitcase';
+import { CategorySetupEntry } from '../../domain/packing/categorySetupTypes';
+import { getDefaultCategorySetupForNewEntity } from '../../domain/packing/categorySetup';
+import { normalizeCategoryName } from '../../domain/packing/packingCategories';
 import { resolveRuntimeIsTemplate } from '../../utils/suitcaseDomain';
 
 type RawSuitcase = Database['public']['Tables']['suitcases']['Row'];
@@ -46,24 +49,46 @@ export const parseUiState = (json: unknown): SuitcaseUiState => {
   if (json === null || json === undefined) {
     return { hidden_category_ids: [] };
   }
-  if (typeof json !== 'object') {
+  if (typeof json !== 'object' || Array.isArray(json)) {
     throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state deve essere un oggetto, ottenuto: ${typeof json}`);
   }
-  const obj = json as { hidden_category_ids?: unknown };
-  const hidden_category_ids = obj.hidden_category_ids;
-  if (hidden_category_ids !== undefined) {
-    if (!Array.isArray(hidden_category_ids)) {
+
+  const obj = json as { hidden_category_ids?: unknown; category_setup?: unknown };
+  const result: SuitcaseUiState = { hidden_category_ids: [] };
+
+  if (obj.hidden_category_ids !== undefined) {
+    if (!Array.isArray(obj.hidden_category_ids)) {
       throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.hidden_category_ids deve essere un array.`);
     }
-    const filtered = hidden_category_ids.map((id, idx) => {
+    result.hidden_category_ids = obj.hidden_category_ids.map((id, idx) => {
       if (typeof id !== 'string') {
         throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.hidden_category_ids[${idx}] non è una stringa.`);
       }
       return id;
     });
-    return { hidden_category_ids: filtered };
   }
-  return { hidden_category_ids: [] };
+
+  if (obj.category_setup !== undefined && obj.category_setup !== null) {
+    if (typeof obj.category_setup !== 'object' || Array.isArray(obj.category_setup)) {
+      throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.category_setup deve essere un oggetto.`);
+    }
+    const setup: Record<string, CategorySetupEntry> = {};
+    for (const [key, value] of Object.entries(obj.category_setup as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.category_setup[${key}] non è un oggetto.`);
+      }
+      const entry = value as { enabled?: unknown; seeded?: unknown };
+      setup[key] = {
+        enabled: entry.enabled !== false,
+        seeded: entry.seeded === true,
+      };
+    }
+    if (Object.keys(setup).length > 0) {
+      result.category_setup = setup;
+    }
+  }
+
+  return result;
 };
 
 /**
@@ -84,9 +109,15 @@ export const serializeCustomCategories = (
  */
 export const serializeUiState = (
   uiState: SuitcaseUiState
-): Json => ({
-  hidden_category_ids: uiState.hidden_category_ids
-});
+): Json => {
+  const payload: Record<string, unknown> = {
+    hidden_category_ids: uiState.hidden_category_ids,
+  };
+  if (uiState.category_setup && Object.keys(uiState.category_setup).length > 0) {
+    payload.category_setup = uiState.category_setup;
+  }
+  return payload as Json;
+};
 
 /**
  * Mapper rigoroso da DbSuitcaseItem (Row<'suitcase_items'>) a modello runtime SuitcaseItem.
@@ -95,7 +126,7 @@ export const mapDbSuitcaseItemToRuntimeItem = (dbItem: DbSuitcaseItem): Suitcase
   return {
     id: dbItem.id,
     name: dbItem.name,
-    category: dbItem.category,
+    category: normalizeCategoryName(dbItem.category),
     suitcase_id: dbItem.suitcase_id,
     is_checked: dbItem.is_checked,
     is_ai_suggestion: dbItem.is_ai_suggestion,
@@ -276,6 +307,11 @@ export const createSuitcaseAsync = async (
   icon: string,
   options: CreateSuitcaseOptions = {}
 ): Promise<Suitcase | null> => {
+  const uiState = options.ui_state ?? {
+    hidden_category_ids: [],
+    category_setup: getDefaultCategorySetupForNewEntity(),
+  };
+
   const { data, error } = await supabase
     .from('suitcases')
     .insert({
@@ -287,7 +323,7 @@ export const createSuitcaseAsync = async (
       custom_categories: options.custom_categories
         ? serializeCustomCategories(options.custom_categories)
         : undefined,
-      ui_state: options.ui_state ? serializeUiState(options.ui_state) : undefined,
+      ui_state: serializeUiState(uiState),
     })
     .select()
     .single();

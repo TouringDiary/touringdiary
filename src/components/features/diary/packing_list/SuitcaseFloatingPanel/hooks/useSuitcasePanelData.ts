@@ -3,7 +3,6 @@ import {
   useUserSuitcases,
   useSuitcaseItemsMutations,
   useGlobalTemplates,
-  useCreateSuitcase,
   useCloneSuitcase,
   useCityTypesTemplates,
   useUserTemplatePreferences
@@ -33,6 +32,7 @@ import {
   preserveDraftLocalStorageFields,
   saveGuestSuitcase,
 } from '@/utils/guestSuitcaseHelper';
+import { isTdTemplate } from '@/utils/suitcaseDomain';
 
 /**
  * Funzione pura per determinare il tab iniziale della valigia
@@ -148,6 +148,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     activeSuitcase
   } = useSuitcaseSelectors(
     userSuitcases,
+    globalTemplates,
     linkedSuitcaseIds,
     panelState.activeTabId,
     currentUser?.id
@@ -259,11 +260,14 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
 
   useEffect(() => {
     if (initialSuitcaseId && dataReady) {
-       panelState.setActiveTabId(initialSuitcaseId);
-       panelState.setViewMode('editor');
-       hasInitializedTab.current = true;
+      const entity =
+        userSuitcases.find((s) => s.id === initialSuitcaseId) ??
+        globalTemplates.find((s) => s.id === initialSuitcaseId);
+      panelState.setActiveTabId(initialSuitcaseId);
+      panelState.setViewMode(entity && isTdTemplate(entity) ? 'viewer' : 'editor');
+      hasInitializedTab.current = true;
     }
-  }, [initialSuitcaseId, dataReady]);
+  }, [initialSuitcaseId, dataReady, userSuitcases, globalTemplates]);
 
   useEffect(() => {
     if (!dataReady || hasInitializedTab.current) return;
@@ -358,10 +362,6 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
    */
   const mutations = useSuitcaseItemsMutations();
   const {
-    createSuitcase,
-    isCreating: isCreatingSuitcase
-  } = useCreateSuitcase();
-  const {
     cloneSuitcase,
     isCloning
   } = useCloneSuitcase();
@@ -423,8 +423,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     handleStateSync,
     handleUpdateSuitcaseLocal,
     mutations,
-    createSuitcase,
-    isCreatingSuitcase,
+    isCreatingSuitcase: modalState.isCreatingFromConfiguration,
     cloneSuitcase,
     isCloning,
     itinerary,

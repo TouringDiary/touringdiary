@@ -40,3 +40,13 @@ export const resolveRuntimeIsTemplate = (
 
 export const getDraftWorkspaceKind = (suitcase: Suitcase): DraftWorkspaceKind =>
   suitcase.workspace_kind ?? 'suitcase';
+
+/** Template TD: mai modificabili. Viewer: sola consultazione. */
+export const isSessionReadOnly = (
+  suitcase: Pick<Suitcase, 'user_id' | 'is_user_template'> | null | undefined,
+  viewMode: 'selector' | 'viewer' | 'editor'
+): boolean => {
+  if (!suitcase) return false;
+  if (isTdTemplate(suitcase)) return true;
+  return viewMode === 'viewer';
+};

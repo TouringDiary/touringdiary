@@ -10,6 +10,7 @@ import { AdminPageHeader } from './common/AdminPageHeader';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { SafeArtPanel } from './design/SafeArtPanel';
 import { PlaceholderGrid } from './design/PlaceholderGrid';
+import { ADMIN_CATEGORY_OPTIONS } from '@/domain/packing/packingCategories';
 
 const GLOBAL_ASSET_DEFAULTS = {
     hero: 'https://images.unsplash.com/photo-1554797589-72413632cb75?w=1280&h=720&fit=crop',
@@ -21,11 +22,7 @@ const GLOBAL_ASSET_DEFAULTS = {
 
 const SUITCASE_PLACEHOLDER_CATS = [
     { id: 'global', label: 'Default Globale (Backup)' },
-    { id: 'Abbigliamento', label: 'Abbigliamento' },
-    { id: 'Igiene', label: 'Igiene & Bellezza' },
-    { id: 'Documenti', label: 'Documenti & Volo' },
-    { id: 'Elettronica', label: 'Elettronica & Tech' },
-    { id: 'Extra', label: 'Extra & Varie' },
+    ...ADMIN_CATEGORY_OPTIONS.map((name) => ({ id: name, label: name })),
 ];
 
 const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (

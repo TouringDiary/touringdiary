@@ -1,8 +1,11 @@
 import React, { useMemo } from 'react';
 import { Plus, Eye, EyeOff, CheckSquare } from 'lucide-react';
-import { TemplateCategoryIcon, ItemCategoryIcon, STABLE_CATEGORY_ORDER, getCategoryId, getSuitcaseItemProgress } from './SuitcaseUtils';
+import { TemplateCategoryIcon, ItemCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
+import { buildDisplayCategories, getRestorableHiddenCategories } from '@/domain/packing/categorySetup';
+import { normalizeCategoryName } from '@/domain/packing/packingCategories';
 import { Suitcase } from '@/types/suitcase';
 import { useHiddenCategories } from '@/hooks/suitcase/useHiddenCategories';
+import { isTdTemplate } from '@/utils/suitcaseDomain';
 
 interface TemplatePreviewProps {
   template: Suitcase | null;
@@ -10,6 +13,7 @@ interface TemplatePreviewProps {
   onAddCategory?: (id: string) => void;
   onUpdateSuitcaseLocal?: (id: string, updates: any) => void;
   showHiddenCategories?: boolean;
+  readOnly?: boolean;
 }
 
 const PREVIEW_LABELS: Record<'trip' | 'saved' | 'default', string> = {
@@ -18,14 +22,26 @@ const PREVIEW_LABELS: Record<'trip' | 'saved' | 'default', string> = {
   trip: 'VALIGIA ASSOCIATA AL DIARIO DI VIAGGIO',
 };
 
-export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, sourceTab = 'default', onAddCategory, onUpdateSuitcaseLocal, showHiddenCategories = false }) => {
+export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
+  template,
+  sourceTab = 'default',
+  onAddCategory,
+  onUpdateSuitcaseLocal,
+  showHiddenCategories = false,
+  readOnly: readOnlyProp,
+}) => {
+  const isReadOnly = readOnlyProp ?? (template ? isTdTemplate(template) : false);
   const { toggleCategory, showAll, isHidden } = useHiddenCategories(
-    template?.id, 
-    template?.ui_state?.hidden_category_ids || [],
-    (newIds) => {
+    template?.id,
+    template ?? undefined,
+    (patch) => {
       if (template?.id && onUpdateSuitcaseLocal) {
-        onUpdateSuitcaseLocal(template.id, { 
-          ui_state: { ...template.ui_state, hidden_category_ids: newIds } 
+        onUpdateSuitcaseLocal(template.id, {
+          ui_state: {
+            ...template.ui_state,
+            category_setup: patch.category_setup,
+            hidden_category_ids: patch.hidden_category_ids,
+          },
         });
       }
     }
@@ -33,34 +49,26 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, sour
 
   const categoryCounts = useMemo(() => {
     if (!template?.suitcase_items) return {};
-    return template.suitcase_items.reduce((acc: Record<string, number>, item: any) => {
-      acc[item.category] = (acc[item.category] || 0) + 1;
+    return template.suitcase_items.reduce((acc: Record<string, number>, item: { category: string }) => {
+      const cat = normalizeCategoryName(item.category);
+      acc[cat] = (acc[cat] || 0) + 1;
       return acc;
     }, {});
   }, [template]);
 
   const allCategories = useMemo(() => {
     if (!template) return [];
-    const systemCats = STABLE_CATEGORY_ORDER.map(name => ({ 
-      name, 
-      icon_key: null, 
-      id: getCategoryId(name) 
-    }));
-    const customCats = (template.custom_categories || []).map((c: any) => ({ 
-      name: c.name, 
-      icon_key: c.icon_key, 
-      id: c.id || getCategoryId(c.name, template.custom_categories) 
-    }));
-    return [...systemCats, ...customCats];
+    return buildDisplayCategories(template);
   }, [template]);
 
   const visibleCategories = useMemo(() => {
-    return allCategories.filter(cat => !isHidden(cat.id));
+    return allCategories.filter((cat) => cat.source === 'system' || !isHidden(cat.id));
   }, [allCategories, isHidden]);
 
   const hiddenCategories = useMemo(() => {
-    return allCategories.filter(cat => isHidden(cat.id));
-  }, [allCategories, isHidden]);
+    if (!template) return [];
+    return getRestorableHiddenCategories(template, isHidden);
+  }, [template, isHidden]);
 
   const progress = useMemo(
     () => getSuitcaseItemProgress(template?.suitcase_items),
@@ -97,9 +105,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, sour
         </div>
         {onAddCategory && (
           <button
-            onClick={() => onAddCategory(template.id)}
-            className="ml-auto w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/40 flex items-center justify-center shrink-0 transition-all"
-            title="Aggiungi categoria"
+            onClick={() => !isReadOnly && onAddCategory(template.id)}
+            disabled={isReadOnly}
+            className="ml-auto w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/40 flex items-center justify-center shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-500/10 disabled:hover:border-indigo-500/20"
+            title={isReadOnly ? 'Non disponibile per i template TD' : 'Aggiungi categoria'}
           >
             <Plus className="w-7 h-7" />
           </button>
@@ -117,9 +126,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, sour
               >
                 {/* ICONA OCCHIO PER NASCONDERE */}
                 <button
-                  onClick={(e) => { e.stopPropagation(); toggleCategory(cat.id); }}
-                  className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/60 text-slate-400 opacity-0 lg:group-hover:opacity-100 hover:text-indigo-400 transition-all z-floating-panel"
-                  title="Nascondi categoria"
+                  onClick={(e) => { e.stopPropagation(); if (!isReadOnly) toggleCategory(cat.id); }}
+                  disabled={isReadOnly}
+                  className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/60 text-slate-400 opacity-0 lg:group-hover:opacity-100 hover:text-indigo-400 transition-all z-floating-panel disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+                  title={isReadOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
                 >
                   <Eye className="w-3 h-3" />
                 </button>
@@ -150,8 +160,9 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, sour
                 Categorie nascoste <EyeOff className="w-3 h-3" />
               </h4>
               <button 
-                onClick={showAll}
-                className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider"
+                onClick={() => !isReadOnly && showAll()}
+                disabled={isReadOnly}
+                className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-indigo-400"
               >
                 Mostra tutte
               </button>
@@ -160,9 +171,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, sour
               {hiddenCategories.map(cat => (
                 <button
                   key={cat.id}
-                  onClick={() => toggleCategory(cat.id)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/30 border border-white/5 hover:border-indigo-500/30 hover:bg-slate-800/60 transition-all group"
-                  title="Ripristina categoria"
+                  onClick={() => !isReadOnly && toggleCategory(cat.id)}
+                  disabled={isReadOnly}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/30 border border-white/5 hover:border-indigo-500/30 hover:bg-slate-800/60 transition-all group disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/5 disabled:hover:bg-slate-800/30"
+                  title={isReadOnly ? 'Non disponibile in sola lettura' : 'Ripristina categoria'}
                 >
                   <Eye className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
                   <span className="text-[9px] font-bold text-slate-400 group-hover:text-white uppercase tracking-wider">{cat.name}</span>

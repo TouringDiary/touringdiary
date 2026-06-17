@@ -31,6 +31,7 @@ interface ModalsProps {
   onConfirmWorkspacePause?: () => void;
   onCancelWorkspacePause?: () => void;
   isTemplateDraftSession?: boolean;
+  onConfirmAssociateSaved?: () => void;
 }
 
 export const SuitcaseModals: React.FC<ModalsProps> = ({
@@ -56,6 +57,7 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
   onConfirmWorkspacePause,
   onCancelWorkspacePause,
   isTemplateDraftSession = false,
+  onConfirmAssociateSaved,
 }) => {
   useGlobalModalEscape(
     modalState.showPauseWorkspaceModal === true,
@@ -64,6 +66,25 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
 
   return (
     <>
+      <DeleteConfirmationModal
+        isOpen={modalState.suitcaseToAssociate !== null}
+        title="Associare questa valigia al Diario?"
+        message={
+          'La valigia verrà spostata nella sezione Diario.\n\n' +
+          'Se desideri riutilizzarla in futuro per più viaggi, è consigliabile trasformarla in un Template.'
+        }
+        confirmLabel="Associa al diario"
+        cancelLabel="Annulla"
+        variant="info"
+        isDeleting={isAssociating}
+        loadingLabel="Associazione..."
+        onConfirm={() => onConfirmAssociateSaved?.()}
+        onClose={() => {
+          if (isAssociating) return;
+          modalState.setSuitcaseToAssociate(null);
+        }}
+      />
+
       <DeleteConfirmationModal
         isOpen={modalState.showPauseWorkspaceModal}
         title="Mettere in pausa la valigia?"
@@ -120,6 +141,35 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
             await itemActions.handleDeleteItemConfirmed(modalState.itemToDelete);
             modalState.setItemToDelete(null);
           }
+        }}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={modalState.categoryToDelete !== null}
+        title="Elimina categoria?"
+        message={
+          modalState.categoryToDelete
+            ? modalState.categoryToDelete.itemCount > 0
+              ? `Vuoi eliminare la categoria '${modalState.categoryToDelete.name}'?\n\nVerranno rimossi ${modalState.categoryToDelete.itemCount} oggett${modalState.categoryToDelete.itemCount === 1 ? 'o' : 'i'}.`
+              : `Vuoi eliminare la categoria '${modalState.categoryToDelete.name}'?\n\nLa sezione verrà rimossa dalla valigia.`
+            : ''
+        }
+        confirmLabel="Elimina categoria"
+        variant="danger"
+        isDeleting={modalState.isDeleting}
+        onConfirm={async () => {
+          if (!modalState.categoryToDelete) return;
+          modalState.setIsDeleting(true);
+          try {
+            await itemActions.handleDeleteCategoryConfirmed(modalState.categoryToDelete);
+            modalState.setCategoryToDelete(null);
+          } finally {
+            modalState.setIsDeleting(false);
+          }
+        }}
+        onClose={() => {
+          if (modalState.isDeleting) return;
+          modalState.setCategoryToDelete(null);
         }}
       />
 

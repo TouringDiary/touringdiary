@@ -5,6 +5,7 @@ import { isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
 
 export const useSuitcaseSelectors = (
   userSuitcases: Suitcase[],
+  globalTemplates: Suitcase[],
   linkedSuitcaseIds: string[] | null,
   activeTabId: string | null,
   userId: string | null | undefined
@@ -49,9 +50,14 @@ export const useSuitcaseSelectors = (
 
   const userOwnedTemplates = useMemo(() => {
     if (!userId) return [];
-    return userSuitcases.filter(
-      (s) => s.user_id === userId && isUserTemplate(s) && !isDraftWorkspaceId(s.id)
-    );
+    return userSuitcases
+      .filter(
+        (s) => s.user_id === userId && isUserTemplate(s) && !isDraftWorkspaceId(s.id)
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime()
+      );
   }, [userSuitcases, userId]);
 
 
@@ -59,12 +65,13 @@ export const useSuitcaseSelectors = (
    * Valigia attualmente aperta
    */
 
-  const activeSuitcase = useMemo(() =>
-    userSuitcases.find(
-      s => s.id === activeTabId
-    ),
-    [userSuitcases, activeTabId]
-  );
+  const activeSuitcase = useMemo(() => {
+    if (!activeTabId) return undefined;
+    return (
+      userSuitcases.find((s) => s.id === activeTabId) ??
+      globalTemplates.find((s) => s.id === activeTabId)
+    );
+  }, [userSuitcases, globalTemplates, activeTabId]);
 
   return {
     tripSuitcases,

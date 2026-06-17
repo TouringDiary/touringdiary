@@ -29,7 +29,6 @@ export {
 } from './suitcase/useSuitcaseItemsMutations';
 
 export { 
-  useCreateSuitcase, 
   useCloneSuitcase, 
   deleteSuitcase 
 } from './suitcase/useSuitcaseCrud';

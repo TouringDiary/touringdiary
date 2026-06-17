@@ -135,8 +135,12 @@ export interface SuitcaseCategory {
   icon_key?: string;
 }
 
+import type { CategorySetupMap } from '../domain/packing/categorySetupTypes';
+
 export interface SuitcaseUiState {
   hidden_category_ids: string[];
+  /** Setup categorie core/aggiuntive — MACROFASE A */
+  category_setup?: CategorySetupMap;
 }
 
 /** Rifiuto AI memorizzato localmente su workspace draft (pre-save). */

@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Layout, Globe, Sliders } from 'lucide-react';
-import { OverrideTab, GlobalSuggestionsTab, TemplateLibraryTab } from './EditorialCenterTabs';
+import { ShoppingBag, Layout, Globe, Sliders, Package, Sparkles, ListTree } from 'lucide-react';
+import { OverrideTab, GlobalSuggestionsTab, TemplateLibraryTab, StandardItemsTab, TemplateSpecificItemsTab, AiCatalogTab } from './EditorialCenterTabs';
 import { AdminPageHeader } from '@/components/admin/common/AdminPageHeader';
 
 interface AffiliateEditorialCenterProps { }
 
-type TabType = 'overrides' | 'global' | 'library';
+type TabType = 'overrides' | 'global' | 'library' | 'standard' | 'template_items' | 'ai_catalog';
 
 const TABS = [
     { id: 'overrides' as TabType, label: 'Override Prodotti', icon: Sliders },
     { id: 'global' as TabType, label: 'Suggerimenti Globali', icon: Globe },
     { id: 'library' as TabType, label: 'Template Library', icon: Layout },
+    { id: 'standard' as TabType, label: 'Standard Items', icon: Package },
+    { id: 'template_items' as TabType, label: 'Template Specifici', icon: ListTree },
+    { id: 'ai_catalog' as TabType, label: 'Catalogo AI', icon: Sparkles },
 ];
 
 export const AffiliateEditorialCenter: React.FC<AffiliateEditorialCenterProps> = () => {
@@ -67,13 +70,16 @@ export const AffiliateEditorialCenter: React.FC<AffiliateEditorialCenterProps> =
                         onSelectMaster={setSelectedMasterId}
                     />
                 )}
+                {activeTab === 'standard' && <StandardItemsTab />}
+                {activeTab === 'template_items' && <TemplateSpecificItemsTab />}
+                {activeTab === 'ai_catalog' && <AiCatalogTab />}
             </div>
 
             <footer className="mt-6 py-4 border-t border-slate-900 flex items-center justify-between pointer-events-none text-slate-500 shrink-0">
                 <div className="flex items-center gap-4 text-[9px] uppercase tracking-widest font-black">
                     <span className="text-slate-700">Sistema Editoriale:</span>
                     <code className="text-slate-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                        {activeTab === 'overrides' ? 'Override Mode (Template specific)' : activeTab === 'global' ? 'Global Mode (Partner-driven)' : 'Library Mode (Content Masters)'}
+                        {activeTab === 'overrides' ? 'Override Mode (Template specific)' : activeTab === 'global' ? 'Global Mode (Partner-driven)' : activeTab === 'library' ? 'Library Mode (Content Masters)' : activeTab === 'standard' ? 'Standard Items (DB)' : activeTab === 'template_items' ? 'Template Specifics (DB)' : 'AI Catalog (DB)'}
                     </code>
                 </div>
                 <p className="text-[9px] text-slate-700 uppercase tracking-widest font-black italic">

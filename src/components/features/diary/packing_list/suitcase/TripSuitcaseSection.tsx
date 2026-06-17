@@ -10,6 +10,7 @@ interface TripSuitcaseSectionProps {
   suggestedTemplates?: Suitcase[];
   isMerging?: boolean;
   onOpenSuitcase: (id: string) => void;
+  onViewSuitcase: (id: string) => void;
   onUnlinkSuitcase: (id: string) => void;
   onDeleteSuitcase: (id: string) => void;
   onUseSuggested?: () => void;
@@ -24,6 +25,7 @@ export const TripSuitcaseSection: React.FC<TripSuitcaseSectionProps> = ({
   suggestedTemplates,
   isMerging,
   onOpenSuitcase,
+  onViewSuitcase,
   onUnlinkSuitcase,
   onDeleteSuitcase,
   onUseSuggested,
@@ -158,10 +160,14 @@ export const TripSuitcaseSection: React.FC<TripSuitcaseSectionProps> = ({
                 <React.Fragment key={s.id}>
                   <SuitcaseCard
                     suitcase={s}
+                    variant="trip"
+                    removeAction="unlink"
                     isActive={true}
                     isLinked={true}
-                    onClick={onOpenSuitcase}
+                    onOpen={onOpenSuitcase}
+                    onView={onViewSuitcase}
                     onDelete={onUnlinkSuitcase}
+                    onUnlink={onUnlinkSuitcase}
                     currentUser={currentUser}
                   />
                   {idx < tripSuitcases.length - 1 && (

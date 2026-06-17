@@ -6,7 +6,8 @@ import { SuitcaseDashboard } from '../suitcase/SuitcaseDashboard';
 import { SuitcaseEditorView } from '../suitcase/SuitcaseEditorView';
 import { SuitcaseModals } from './components/SuitcaseModals';
 import { RecommendedSuitcaseModal } from '../suitcase/RecommendedSuitcaseModal';
-import { isAssociableSuitcase } from '@/utils/suitcaseDomain';
+import { CategorySetupConfigurationModal } from '../suitcase/CategorySetupConfigurationModal';
+import { isAssociableSuitcase, isTdTemplate } from '@/utils/suitcaseDomain';
 import type { SuitcasePanelComposition } from './hooks/useSuitcasePanelComposition';
 
 interface Props {
@@ -37,6 +38,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
     handleBackToSelector,
     handleConfirmWorkspacePause,
     handleCancelWorkspacePause,
+    handleConfirmAssociateSaved,
   } = composition;
 
   if (showLoadingShell) {
@@ -76,6 +78,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         onLinkModalCancel={associationFlow.handleLinkModalCancel}
         onConfirmWorkspacePause={handleConfirmWorkspacePause}
         onCancelWorkspacePause={handleCancelWorkspacePause}
+        onConfirmAssociateSaved={handleConfirmAssociateSaved}
         isTemplateDraftSession={actions.isTemplateDraftSession}
       />
 
@@ -88,6 +91,16 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         globalTemplates={data.globalTemplates}
         userOwnedTemplates={data.userOwnedTemplates}
       />
+
+      {actions.pendingWorkspaceCreate && (
+        <CategorySetupConfigurationModal
+          isOpen={actions.showCategorySetupModal}
+          title={actions.pendingWorkspaceCreate.title}
+          isSubmitting={data.modalState.isCreatingFromConfiguration}
+          onConfirm={actions.handleConfirmCategorySetup}
+          onClose={actions.handleCancelCategorySetup}
+        />
+      )}
 
       <SuitcaseHeader
         viewMode={data.panelState.viewMode}
@@ -137,7 +150,23 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               activeTabId={data.panelState.activeTabId}
               hoveredItemId={data.panelState.hoveredItemId}
               onLinkSuitcase={actions.handleLinkExisting}
+              onViewSuitcase={(id) => {
+                data.panelState.clearNewSuitcaseSession();
+                data.panelState.setActiveTabId(id);
+                data.panelState.setHoveredItemId(id);
+                data.panelState.setViewMode('viewer');
+              }}
               onOpenSuitcase={(id) => {
+                const entity =
+                  data.userSuitcases.find((s) => s.id === id) ??
+                  data.globalTemplates.find((s) => s.id === id);
+                if (entity && isTdTemplate(entity)) {
+                  data.panelState.clearNewSuitcaseSession();
+                  data.panelState.setActiveTabId(id);
+                  data.panelState.setHoveredItemId(id);
+                  data.panelState.setViewMode('viewer');
+                  return;
+                }
                 data.panelState.clearNewSuitcaseSession();
                 data.panelState.setActiveTabId(id);
                 data.panelState.setViewMode('editor');
@@ -147,6 +176,8 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               onHover={data.panelState.setHoveredItemId}
               onTogglePreference={data.togglePreference}
               onUseTemplate={actions.handleUseTemplate}
+              onDuplicateEntity={actions.handleDuplicateEntity}
+              onRequestAssociate={(id) => data.modalState.setSuitcaseToAssociate(id)}
               onCreateSuitcase={actions.handleCreateNew}
               onCreateTemplate={actions.handleCreateTemplate}
               onOpenRecommendedSuitcase={actions.handleOpenRecommendedSuitcase}
@@ -184,9 +215,14 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               onContinueGuestSuitcase={actions.handleContinueGuestWorkspace}
             />
           )}
-          {data.panelState.viewMode === 'editor' && data.activeSuitcase && (
+          {(data.panelState.viewMode === 'editor' || data.panelState.viewMode === 'viewer') &&
+            data.activeSuitcase && (
             <SuitcaseEditorView
               suitcase={data.activeSuitcase}
+              readOnly={
+                data.panelState.viewMode === 'viewer' ||
+                isTdTemplate(data.activeSuitcase)
+              }
               {...editorLogic}
               onUpdateSuitcase={async (updates) => {
                 await data.mutations.updateSuitcase(data.activeSuitcase!.id, updates);

@@ -36,11 +36,14 @@ interface SuitcaseDashboardProps {
 
   // Callbacks
   onOpenSuitcase: (id: string) => void;
+  onViewSuitcase: (id: string) => void;
   onUnlinkSuitcase: (id: string) => void;
   onDeleteSuitcase: (id: string) => void;
   onHover: (id: string | null) => void;
   onTogglePreference: (id: string, preferred: boolean) => void;
   onUseTemplate: (id: string) => void;
+  onDuplicateEntity?: (id: string) => void;
+  onRequestAssociate?: (id: string) => void;
   onAddCategory: (id: string) => void;
   onSaveTitle?: (id: string, title: string) => Promise<void>;
   onUpdateSuitcaseLocal?: (id: string, updates: Partial<Suitcase>) => void;
@@ -87,11 +90,14 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   currentUser,
   isCloning,
   onOpenSuitcase,
+  onViewSuitcase,
   onUnlinkSuitcase,
   onDeleteSuitcase,
   onHover,
   onTogglePreference,
   onUseTemplate,
+  onDuplicateEntity,
+  onRequestAssociate,
   onAddCategory,
   onSaveTitle,
   onUpdateSuitcaseLocal,
@@ -148,7 +154,8 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   }).sort((a, b) => {
     const aPref = preferences[a.id]?.enabled === true ? 1 : 0;
     const bPref = preferences[b.id]?.enabled === true ? 1 : 0;
-    return bPref - aPref;
+    if (bPref !== aPref) return bPref - aPref;
+    return new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime();
   });
 
   const previewTarget = normalizedAllSuitcases.find(t => t.id === hoveredItemId) || filteredTemplates[0] || tripSuitcases[0] || null;
@@ -180,14 +187,14 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
     <div className="w-full h-full flex flex-col lg:flex-row relative lg:overflow-y-auto lg:custom-scrollbar">
 
       {/* ── AREA SINISTRA (Contenuto Principale) ── */}
-      <div className="flex-1 flex flex-col p-4 md:p-6 lg:p-10 lg:pr-6 gap-6 relative z-floating-panel w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex-1 flex flex-col px-4 pb-4 md:px-6 md:pb-6 lg:px-10 lg:pb-10 lg:pr-6 gap-4 relative z-floating-panel w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
 
         {/* Toast localizzato sopra la lista */}
         <SuitcaseToast {...toast} />
 
         {/* RIGA 2: CONTROL BAR */}
-        <div className="flex items-center justify-between shrink-0 border-b border-white/5 pb-4">
-          <div className="flex bg-slate-950/50 rounded-xl border border-white/5 p-1 overflow-x-auto">
+        <div className="flex items-center justify-between gap-2 shrink-0 border-b border-white/5 pb-2 min-w-0 overflow-visible">
+          <div className="flex bg-slate-950/50 rounded-xl border border-white/5 p-1 min-w-0">
             {(['trip', 'saved', 'default'] as const).map((tab) => {
               const label = tab === 'trip' ? 'Diario' : tab === 'saved' ? 'Salvate' : 'Template';
               const isTrip = tab === 'trip';
@@ -207,7 +214,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                   onClick={() => !isDisabled && setSourceTab(tab)}
                   disabled={isDisabled}
                   title={disabledTitle}
-                  className={`flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${isDisabled
+                  className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${isDisabled
                       ? 'opacity-60 cursor-not-allowed text-slate-500'
                       : sourceTab === tab
                         ? 'bg-indigo-600 text-white shadow-lg'
@@ -221,19 +228,6 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
             })}
           </div>
 
-          <div className="shrink-0 ml-4 hidden sm:block">
-            <DashboardActionGroup
-              isCreating={isCreatingSuitcase}
-              onCreateSuitcase={onCreateSuitcase}
-              onCreateTemplate={onCreateTemplate}
-              onOpenRecommendedSuitcase={onOpenRecommendedSuitcase}
-              showRecommendedSuitcase={showRecommendedSuitcase}
-            />
-          </div>
-        </div>
-
-        {/* Mobile action group fallback */}
-        <div className="sm:hidden flex justify-end shrink-0">
           <DashboardActionGroup
             isCreating={isCreatingSuitcase}
             onCreateSuitcase={onCreateSuitcase}
@@ -305,7 +299,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
             className={`flex flex-col lg:w-[45%] xl:w-[40%] min-w-0 transition-all duration-500 rounded-xl ${highlightTemplates ? 'ring-2 ring-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : ''}`}
             ref={templatesSectionRef}
           >
-            <div className="flex items-center justify-between mb-2 px-1 shrink-0">
+            <div className="flex items-center justify-between mb-1 px-1 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-1 h-5 bg-amber-500 rounded-full" />
                 <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">
@@ -334,10 +328,16 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                           isHovered={hoveredItemId === tpl.id}
                           isCloning={isCloning}
                           onHover={() => onHover(tpl.id)}
+                          onView={() => onViewSuitcase(tpl.id)}
                           onTogglePreference={() => onTogglePreference(tpl.id, !isPreferred)}
                           onUse={() => onUseTemplate(tpl.id)}
-                          onOpen={() => onOpenSuitcase(tpl.id)}
-                          onDelete={() => onDeleteSuitcase(tpl.id)}
+                          onOpen={isUserTemplate(tpl) ? () => onOpenSuitcase(tpl.id) : undefined}
+                          onDuplicate={
+                            onDuplicateEntity ? () => onDuplicateEntity(tpl.id) : undefined
+                          }
+                          onDelete={
+                            isUserTemplate(tpl) ? () => onDeleteSuitcase(tpl.id) : undefined
+                          }
                         />
                       );
                     }
@@ -345,16 +345,19 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                       <SuitcaseCard
                         key={tpl.id}
                         suitcase={tpl}
+                        variant={sourceTab === 'trip' ? 'trip' : 'saved'}
                         isActive={hoveredItemId === tpl.id}
                         isLinked={linkedSuitcaseIds.includes(tpl.id)}
-                        onClick={onOpenSuitcase}
-                        onLink={onLinkSuitcase}
+                        isCloning={isCloning}
                         isDiaryAssociable={isDiaryAssociable}
-                        onDelete={onDeleteSuitcase}
-                        onSaveTitle={onSaveTitle}
-                        onSaveAsTemplate={onSaveAsTemplate}
-                        onMouseEnter={() => onHover(tpl.id)}
                         currentUser={currentUser}
+                        onOpen={onOpenSuitcase}
+                        onView={onViewSuitcase}
+                        onDelete={onDeleteSuitcase}
+                        onDuplicate={onDuplicateEntity}
+                        onAssociate={sourceTab === 'saved' ? onRequestAssociate : undefined}
+                        onUnlink={sourceTab === 'trip' ? onUnlinkSuitcase : undefined}
+                        onMouseEnter={() => onHover(tpl.id)}
                       />
                     );
                   })
@@ -365,7 +368,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
 
           {/* COLONNA 2: CONTENUTO PREVIEW */}
           <div className="hidden lg:flex flex-col flex-1 min-w-0 animate-in fade-in slide-in-from-right-4 duration-700">
-            <div className="flex items-center gap-3 mb-2 px-1 shrink-0 h-6">
+            <div className="flex items-center gap-3 mb-1 px-1 shrink-0 h-6">
               <div className="w-1 h-5 bg-amber-500 rounded-full" />
               <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">
                 {sourceTab === 'default' ? 'Contenuto Template' : 'Contenuto Valigia'}

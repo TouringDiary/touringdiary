@@ -85,12 +85,25 @@ export const useSuitcaseEditorLogic = ({
     modalState.setShowBlacklistModal(true);
   }, [modalState]);
 
+  const onDeleteCategory = useCallback((category: { id: string; name: string; source: string }) => {
+    if (!activeSuitcase) return;
+    const itemCount =
+      activeSuitcase.suitcase_items?.filter((item) => item.category === category.name).length ?? 0;
+    modalState.setCategoryToDelete({
+      id: category.id,
+      name: category.name,
+      source: category.source === 'user' ? 'user' : 'system',
+      itemCount,
+    });
+  }, [activeSuitcase, modalState]);
+
   return {
     onUpdateItem,
     onDeleteItem,
     onAddItem,
     onSelectItem,
     onOpenBlacklist,
+    onDeleteCategory,
     onRestoreFromBlacklist: handleRestoreFromBlacklist,
     onRemoveFromBlacklist: handleRemoveFromBlacklist
   };

@@ -12,7 +12,7 @@ import { useSuitcaseUndo } from './useSuitcaseUndo';
 import { useSuitcaseUndoHandlers } from './useSuitcaseUndoHandlers';
 import { getSuitcaseItemProgress } from '../../suitcase/SuitcaseUtils';
 import { useSuitcaseAssociationFlow } from './useSuitcaseAssociationFlow';
-import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
+import { hasDraftWorkspaceInStorage, isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
 
 interface UseSuitcasePanelCompositionOptions {
@@ -55,10 +55,14 @@ export function useSuitcasePanelComposition({
 
   const hiddenCategories = useSuitcaseHiddenCategories({
     activeSuitcase: data.activeSuitcase,
-    onUpdateHiddenCategoryIds: (newIds) => {
+    onUpdateCategoryVisibility: (patch) => {
       if (data.activeSuitcase?.id) {
         data.handleUpdateSuitcaseLocal(data.activeSuitcase.id, {
-          ui_state: { ...data.activeSuitcase.ui_state, hidden_category_ids: newIds },
+          ui_state: {
+            ...data.activeSuitcase.ui_state,
+            category_setup: patch.category_setup,
+            hidden_category_ids: patch.hidden_category_ids,
+          },
         });
       }
     },
@@ -98,6 +102,14 @@ export function useSuitcasePanelComposition({
   const itemActions = useSuitcaseItemActions({
     activeTabId: data.panelState.activeTabId,
     ...data.mutations,
+    getActiveSuitcase: () => {
+      const id = data.panelState.activeTabId;
+      if (!id) return undefined;
+      return (
+        data.userSuitcasesRef.current.find((suitcase) => suitcase.id === id) ??
+        data.globalTemplates.find((template) => template.id === id)
+      );
+    },
     handleStateSync: data.handleStateSync,
     pushAction,
     fetchUserSuitcases: data.fetchUserSuitcases,
@@ -151,12 +163,30 @@ export function useSuitcasePanelComposition({
     if (m.showPauseWorkspaceModal) return;
     if (m.showAssociationModal) return;
     if (m.showDraftOverwriteModal) return;
+    if (m.showCategorySetupModal) return;
     if (m.suitcaseToDelete !== null || m.suitcaseToUnlink !== null) return;
     if (m.itemToDelete !== null) return;
+    if (m.categoryToDelete !== null) return;
     if (m.showBlacklistModal) return;
     if (associationFlow.linkModalOpen) return;
+
+    const hasActiveEditingSession =
+      hasDraftWorkspaceInStorage() ||
+      (data.panelState.viewMode === 'editor' && data.panelState.activeTabId !== null);
+
+    if (!hasActiveEditingSession) {
+      requestClose();
+      return;
+    }
+
     m.setShowPauseWorkspaceModal(true);
-  }, [associationFlow.linkModalOpen, data.modalState]);
+  }, [
+    associationFlow.linkModalOpen,
+    data.modalState,
+    data.panelState.activeTabId,
+    data.panelState.viewMode,
+    requestClose,
+  ]);
 
   useEffect(() => {
     registerCloseAttempt?.(requestWorkspacePause);
@@ -170,6 +200,24 @@ export function useSuitcasePanelComposition({
   const handleCancelWorkspacePause = useCallback(() => {
     data.modalState.setShowPauseWorkspaceModal(false);
   }, [data.modalState]);
+
+  const handleConfirmAssociateSaved = useCallback(async () => {
+    const suitcaseId = data.modalState.suitcaseToAssociate;
+    if (!suitcaseId) return;
+
+    await associationFlow.requestAssociation(suitcaseId, {
+      successNavigation: 'selector',
+      successToast: {
+        message: 'Valigia associata al diario',
+        description: 'La valigia è stata spostata nella sezione Diario.',
+      },
+      onBeforeLinkModal: () => data.modalState.setSuitcaseToAssociate(null),
+      onSuccess: () => {
+        data.modalState.setSuitcaseToAssociate(null);
+        data.panelState.setSourceTab('trip');
+      },
+    });
+  }, [associationFlow, data.modalState, data.panelState]);
 
   const actions = useSuitcaseActions({
     ...data,
@@ -305,6 +353,7 @@ export function useSuitcasePanelComposition({
     handleBackToSelector,
     handleConfirmWorkspacePause,
     handleCancelWorkspacePause,
+    handleConfirmAssociateSaved,
   };
 }
 

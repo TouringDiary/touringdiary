@@ -4,3 +4,6 @@ export * from './suitcaseTemplateService';
 export * from './suitcaseAffiliateService';
 export * from './suitcaseGuestService';
 export * from './suitcaseLinkingService';
+export * from './packingCatalogService';
+export * from './packingCompositionService';
+export * from './packingSeedService';

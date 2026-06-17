@@ -4,12 +4,19 @@ import {
   deleteAffiliateTriggerAsync,
   upsertAffiliateTriggerFromDtoAsync
 } from './suitcaseAffiliateService';
-import { Insert, DbSuitcase, DbSuitcaseItem } from '../../types/domain/index';
+import { DbSuitcase } from '../../types/domain/index';
 import { Suitcase, SuitcaseItem } from '../../types/suitcase';
 import {
   mapDbSuitcaseToRuntimeSuitcase,
-  mapDbSuitcaseItemToRuntimeItem
 } from './suitcaseCoreService';
+import {
+  fetchAllTemplateSpecificItemsAsync,
+  upsertTemplateSpecificItemAsync,
+  deleteTemplateSpecificItemAsync,
+  cloneTemplateSpecificItemsAsync,
+} from './packingCatalogService';
+import { UpsertPackingTemplateItemDto } from '@/types/packingCatalog';
+import { normalizeCategoryName } from '@/domain/packing/packingCategories';
 
 /* ==========================================
    SERVIZI EDITORIALI MASTER TEMPLATE (MIGRATI)
@@ -49,43 +56,23 @@ export const fetchMasterTemplatesAsync = async (): Promise<Suitcase[]> => {
 };
 
 /**
- * Recupera tutti gli oggetti valigia (items) associati a un determinato template.
+ * Recupera gli oggetti specifici di un template TD (packing_template_items).
  */
 export const fetchTemplateItemsAsync = async (suitcaseId: string): Promise<SuitcaseItem[]> => {
   if (!suitcaseId) {
     throw new Error("[suitcaseEditorialService] fetchTemplateItemsAsync: suitcaseId mancante.");
   }
 
-  const { data, error } = await supabase
-    .from('suitcase_items')
-    .select('*')
-    .eq('suitcase_id', suitcaseId)
-    .order('category');
-
-  if (error) throw error;
-  if (!data) {
-    throw new Error("[suitcaseEditorialService] fetchTemplateItemsAsync ha restituito data null.");
-  }
-
-  return data.map(row => {
-    const dbItem: DbSuitcaseItem = {
-      id: row.id,
-      name: row.name,
-      category: row.category,
-      suitcase_id: row.suitcase_id,
-      is_checked: row.is_checked,
-      is_ai_suggestion: row.is_ai_suggestion,
-      quantity: row.quantity,
-      ai_suggestion_context: row.ai_suggestion_context,
-      suggested_at: row.suggested_at,
-      created_at: row.created_at,
-      accepted_from_ai: row.accepted_from_ai,
-      affiliate_tags: row.affiliate_tags,
-      poi_triggers: row.poi_triggers
-    };
-
-    return mapDbSuitcaseItemToRuntimeItem(dbItem);
-  });
+  const rows = await fetchAllTemplateSpecificItemsAsync(suitcaseId);
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    suitcase_id: row.template_id,
+    is_checked: false,
+    is_ai_suggestion: false,
+    quantity: 1,
+  }));
 };
 
 /**
@@ -138,6 +125,8 @@ export const cloneMasterTemplateAsync = async (sourceId: string): Promise<string
   if (typeof data !== 'string') {
     throw new Error("[suitcaseEditorialService] Chiamata RPC clone_suitcase_master non ha restituito un ID valido.");
   }
+
+  await cloneTemplateSpecificItemsAsync(sourceId, data);
   return data;
 };
 
@@ -187,16 +176,16 @@ export interface UpsertTemplateItemDto {
 }
 
 /**
- * Crea o aggiorna un oggetto all'interno di un template valigia.
+ * Crea o aggiorna un oggetto specifico template TD (packing_template_items).
  */
 export const upsertTemplateItemAsync = async (
   item: UpsertTemplateItemDto
 ): Promise<SuitcaseItem> => {
-  const suitcase_id = item.suitcase_id;
+  const template_id = item.suitcase_id;
   const name = item.name;
   const category = item.category;
 
-  if (!suitcase_id) {
+  if (!template_id) {
     throw new Error("[suitcaseEditorialService] upsertTemplateItemAsync: suitcase_id mancante.");
   }
   if (!name) {
@@ -206,60 +195,35 @@ export const upsertTemplateItemAsync = async (
     throw new Error("[suitcaseEditorialService] upsertTemplateItemAsync: category mancante.");
   }
 
-  const payload: Insert<'suitcase_items'> = {
+  const dto: UpsertPackingTemplateItemDto = {
     id: item.id,
-    suitcase_id,
+    template_id,
     name,
-    category,
-    quantity: item.quantity ?? 1,
-    is_checked: item.is_checked ?? false,
-    is_ai_suggestion: item.is_ai_suggestion ?? false
+    category: normalizeCategoryName(category),
   };
 
-  const { data, error } = await supabase
-    .from('suitcase_items')
-    .upsert(payload)
-    .select()
-    .single();
+  const row = await upsertTemplateSpecificItemAsync(dto);
 
-  if (error) throw error;
-  if (!data) {
-    throw new Error("[suitcaseEditorialService] upsertTemplateItemAsync: nessun record restituito.");
-  }
-
-  const dbItem: DbSuitcaseItem = {
-    id: data.id,
-    name: data.name,
-    category: data.category,
-    suitcase_id: data.suitcase_id,
-    is_checked: data.is_checked,
-    is_ai_suggestion: data.is_ai_suggestion,
-    quantity: data.quantity,
-    ai_suggestion_context: data.ai_suggestion_context,
-    suggested_at: data.suggested_at,
-    created_at: data.created_at,
-    accepted_from_ai: data.accepted_from_ai,
-    affiliate_tags: data.affiliate_tags,
-    poi_triggers: data.poi_triggers
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    suitcase_id: row.template_id,
+    is_checked: false,
+    is_ai_suggestion: false,
+    quantity: 1,
   };
-
-  return mapDbSuitcaseItemToRuntimeItem(dbItem);
 };
 
 /**
- * Rimuove un oggetto da un template valigia.
+ * Rimuove un oggetto specifico da un template TD.
  */
 export const deleteTemplateItemAsync = async (itemId: string): Promise<void> => {
   if (!itemId) {
     throw new Error("[suitcaseEditorialService] deleteTemplateItemAsync: itemId mancante.");
   }
 
-  const { error } = await supabase
-    .from('suitcase_items')
-    .delete()
-    .eq('id', itemId);
-
-  if (error) throw error;
+  await deleteTemplateSpecificItemAsync(itemId);
 };
 
 export interface SaveOverrideResult {

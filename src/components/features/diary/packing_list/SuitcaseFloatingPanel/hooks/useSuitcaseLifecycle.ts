@@ -2,14 +2,15 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
 import { fetchLinkedSuitcaseIdsAsync } from '@/services/suitcaseService';
 import { useUser } from '@/context/UserContext';
+import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
 interface LifecycleProps {
   itineraryId: string | null;
   fetchGlobalTemplates: () => void;
   activeTabId: string | null;
   setActiveTabId: (id: string | null) => void;
-  viewMode: 'selector' | 'editor';
-  setViewMode: (v: 'selector' | 'editor') => void;
+  viewMode: SuitcasePanelViewMode;
+  setViewMode: (v: SuitcasePanelViewMode) => void;
   sourceTab: 'trip' | 'saved' | 'default';
   setSourceTab: (t: 'trip' | 'saved' | 'default') => void;
   setSelectedItemName: (n: string | null) => void;

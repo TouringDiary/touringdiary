@@ -1,13 +1,22 @@
 import { useCallback } from 'react';
-import { SuitcaseItem, SuitcaseRejection } from '@/types/suitcase';
+import { Suitcase, SuitcaseItem, SuitcaseRejection } from '@/types/suitcase';
 import { UndoAction } from '@/hooks/useUndoStack';
 import { ToastVariant } from '@/types/toast';
 import { removeRejectionAsync, removeRejectionByNameAsync } from '@/services/suitcase/suitcaseRejectionsService';
 import {
   isDraftWorkspaceId,
+  isDraftItemId,
   removeDraftLocalRejectionById,
   removeDraftLocalRejectionByName,
 } from '@/utils/guestSuitcaseHelper';
+import type { CategoryDeleteModalTarget } from './useFloatingPanelModals';
+import {
+  computeCategoryDeleteUpdates,
+  computeCategoryRestoreUpdates,
+  createCategoryDeleteSnapshot,
+  getItemsRemovedByCategoryDelete,
+  type CategoryDeleteSnapshot,
+} from '@/utils/suitcaseCategoryDelete';
 
 interface ItemActionsProps {
   activeTabId: string | null;
@@ -15,6 +24,8 @@ interface ItemActionsProps {
   deleteItem: (id: string) => Promise<void>;
   rejectItem: (suitcaseId: string, item: SuitcaseItem) => Promise<void>;
   addItem: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
+  updateSuitcase: (suitcaseId: string, updates: Partial<Suitcase>) => Promise<void>;
+  getActiveSuitcase: () => Suitcase | undefined;
   handleStateSync: (action: UndoAction, inverse: boolean, suitcaseId: string | null) => void;
   pushAction: (action: UndoAction) => void;
   fetchUserSuitcases: () => Promise<void> | void;
@@ -29,6 +40,8 @@ export const useSuitcaseItemActions = ({
   deleteItem,
   rejectItem,
   addItem,
+  updateSuitcase,
+  getActiveSuitcase,
   handleStateSync,
   pushAction,
   fetchUserSuitcases,
@@ -36,6 +49,69 @@ export const useSuitcaseItemActions = ({
   fetchBlacklist,
   triggerBlacklistFlash
 }: ItemActionsProps) => {
+
+  const persistCategoryDelete = useCallback(
+    async (suitcaseId: string, suitcase: Suitcase, target: CategoryDeleteSnapshot['target']) => {
+      const updates = computeCategoryDeleteUpdates(suitcase, target);
+      const removedItems = getItemsRemovedByCategoryDelete(suitcase, target);
+
+      if (isDraftWorkspaceId(suitcaseId)) {
+        await updateSuitcase(suitcaseId, updates);
+        return;
+      }
+
+      await Promise.all(
+        removedItems
+          .filter(
+            (item) =>
+              item.id && !isDraftItemId(item.id) && !item.id.startsWith('temp-')
+          )
+          .map((item) => deleteItem(item.id))
+      );
+
+      const metadataUpdates: Partial<Suitcase> = {};
+      if (updates.custom_categories !== undefined) {
+        metadataUpdates.custom_categories = updates.custom_categories;
+      }
+      if (updates.ui_state !== undefined) {
+        metadataUpdates.ui_state = updates.ui_state;
+      }
+      if (Object.keys(metadataUpdates).length > 0) {
+        await updateSuitcase(suitcaseId, metadataUpdates);
+      }
+    },
+    [deleteItem, updateSuitcase]
+  );
+
+  const persistCategoryRestore = useCallback(
+    async (suitcaseId: string, snapshot: CategoryDeleteSnapshot) => {
+      const updates = computeCategoryRestoreUpdates(snapshot);
+      const removedItems = snapshot.previousItems.filter(
+        (item) => item.category === snapshot.target.name
+      );
+
+      if (isDraftWorkspaceId(suitcaseId)) {
+        await updateSuitcase(suitcaseId, updates);
+        return;
+      }
+
+      await updateSuitcase(suitcaseId, {
+        custom_categories: updates.custom_categories,
+        ui_state: updates.ui_state,
+      });
+
+      for (const item of removedItems) {
+        await addItem(suitcaseId, item.name, item.category, {
+          is_checked: item.is_checked,
+          is_ai_suggestion: item.is_ai_suggestion,
+          quantity: item.quantity,
+          ai_suggestion_context: item.ai_suggestion_context,
+          suggested_at: item.suggested_at,
+        });
+      }
+    },
+    [addItem, updateSuitcase]
+  );
 
   const handleUpdateItemConfirmed = useCallback(async (itemId: string, updates: Partial<SuitcaseItem>, currentItem: SuitcaseItem) => {
     try {
@@ -270,10 +346,80 @@ export const useSuitcaseItemActions = ({
     }
   }, [activeTabId, fetchBlacklist, showToast]);
 
+  const handleDeleteCategoryConfirmed = useCallback(
+    async (target: CategoryDeleteModalTarget) => {
+      if (!activeTabId) return;
+      const suitcase = getActiveSuitcase();
+      if (!suitcase) return;
+
+      const snapshot = createCategoryDeleteSnapshot(suitcase, target);
+
+      try {
+        await persistCategoryDelete(activeTabId, suitcase, target);
+        await fetchUserSuitcases();
+
+        const action: UndoAction = {
+          id: `category-${target.id}`,
+          payload: snapshot,
+          label: target.name,
+          timestamp: Date.now(),
+          inverse: async (payload: CategoryDeleteSnapshot) => {
+            await persistCategoryRestore(activeTabId, payload);
+            await fetchUserSuitcases();
+            showToast(
+              `Categoria ripristinata: ${payload.target.name}`,
+              undefined,
+              'success'
+            );
+          },
+          apply: async (payload: CategoryDeleteSnapshot) => {
+            const currentSuitcase = getActiveSuitcase();
+            if (!currentSuitcase) return;
+            await persistCategoryDelete(activeTabId, currentSuitcase, payload.target);
+            await fetchUserSuitcases();
+            showToast(
+              `Categoria eliminata: ${payload.target.name}`,
+              undefined,
+              'destructive'
+            );
+          },
+        };
+
+        pushAction(action);
+        showToast(
+          `Categoria eliminata: ${target.name}`,
+          target.itemCount > 0
+            ? `${target.itemCount} oggett${target.itemCount === 1 ? 'o rimosso' : 'i rimossi'}.`
+            : undefined,
+          'destructive'
+        );
+      } catch (err) {
+        console.error('Delete category failed:', err);
+        await fetchUserSuitcases();
+        showToast(
+          'Eliminazione non riuscita',
+          'Non è stato possibile eliminare la categoria. Riprova.',
+          'destructive'
+        );
+        throw err;
+      }
+    },
+    [
+      activeTabId,
+      fetchUserSuitcases,
+      getActiveSuitcase,
+      persistCategoryDelete,
+      persistCategoryRestore,
+      pushAction,
+      showToast,
+    ]
+  );
+
   return {
     handleUpdateItemConfirmed,
     handleDeleteItemConfirmed,
     handleAddItemConfirmed,
+    handleDeleteCategoryConfirmed,
     handleRestoreFromBlacklist,
     handleRemoveFromBlacklist
   };

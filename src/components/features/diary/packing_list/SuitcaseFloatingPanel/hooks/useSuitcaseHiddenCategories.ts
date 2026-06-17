@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHiddenCategories } from '@/hooks/suitcase/useHiddenCategories';
+import type { CategoryVisibilityPatch } from '@/hooks/suitcase/useHiddenCategories';
 import type { Suitcase } from '@/types/suitcase';
 
 interface UseSuitcaseHiddenCategoriesOptions {
   activeSuitcase: Suitcase | undefined;
-  onUpdateHiddenCategoryIds: (ids: string[]) => void;
+  onUpdateCategoryVisibility: (patch: CategoryVisibilityPatch) => void;
 }
 
 export function useSuitcaseHiddenCategories({
   activeSuitcase,
-  onUpdateHiddenCategoryIds,
+  onUpdateCategoryVisibility,
 }: UseSuitcaseHiddenCategoriesOptions) {
   const [showHiddenCategories, setShowHiddenCategories] = useState<boolean>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('showHiddenCategories') : null;
@@ -33,8 +34,8 @@ export function useSuitcaseHiddenCategories({
 
   const hiddenCategoriesLogic = useHiddenCategories(
     activeSuitcase?.id,
-    activeSuitcase?.ui_state?.hidden_category_ids || [],
-    onUpdateHiddenCategoryIds
+    activeSuitcase,
+    onUpdateCategoryVisibility
   );
 
   const toggleCategoryWithFlash = useCallback((id: string) => {

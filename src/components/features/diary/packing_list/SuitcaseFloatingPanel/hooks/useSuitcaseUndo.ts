@@ -6,11 +6,12 @@ import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 
 import { ToastVariant } from '@/types/toast';
+import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
 interface UndoProps {
   undo: () => UndoAction | null;
   redo: () => UndoAction | null;
-  viewMode: 'selector' | 'editor';
+  viewMode: SuitcasePanelViewMode;
   updateItem: (id: string, updates: Partial<SuitcaseItem>) => Promise<void>;
   addItem: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
   deleteItem: (id: string) => Promise<void>;

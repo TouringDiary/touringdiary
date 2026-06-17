@@ -7,7 +7,6 @@ import {
   abandonDraftWorkspace,
 } from '@/utils/guestSuitcaseHelper';
 import {
-  createDraftWorkspace,
   createDraftWorkspaceFromTemplate,
   createDraftWorkspaceFromMergedItems,
   createDraftWorkspaceFromSuitcase,
@@ -16,11 +15,15 @@ import {
   DRAFT_OVERWRITE_SUGGESTED_TEMPLATES,
   DRAFT_OVERWRITE_SAVE_AS_TEMPLATE,
 } from '@/hooks/suitcase/useSuitcaseCrud';
+import { createWorkspaceFromConfiguration } from '@/hooks/suitcase/createWorkspaceFromConfiguration';
+import type { CategorySetupConfigurationResult } from '../../suitcase/CategorySetupConfigurationModal';
+import type { PendingWorkspaceCreate } from './useFloatingPanelModals';
 import { mergeTemplateItems } from '@/hooks/useSuitcaseSystem';
-import { fetchClonedTemplateDetailsAsync } from '@/services/suitcaseService';
+import { duplicateSuitcaseEntityAsync, fetchClonedTemplateDetailsAsync } from '@/services/suitcaseService';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { SUITCASE_MODIFIED_TOAST, ToastVariant } from '@/types/toast';
-import { isTdTemplate, isAssociableSuitcase, getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
+import { isTdTemplate, isUserTemplate, isAssociableSuitcase, getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
+import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
 interface ActionsProps {
   currentUser: User | null;
@@ -28,11 +31,10 @@ interface ActionsProps {
   requestClose: () => void;
   activeTabId: string | null;
   setActiveTabId: (id: string | null) => void;
-  setViewMode: (v: 'selector' | 'editor') => void;
+  setViewMode: (v: SuitcasePanelViewMode) => void;
   fetchLinkedIds: () => Promise<void>;
   fetchUserSuitcases: () => void | Promise<void>;
   setUserSuitcases: Dispatch<SetStateAction<Suitcase[]>>;
-  createSuitcase: (itId: string | null, userId: string, title: string) => Promise<Suitcase | null>;
   cloneSuitcase: (tempId: string, itId: string | null, userId: string, title?: string) => Promise<string>;
   linkSuitcaseToTrip: (itId: string, scId: string, userId: string) => Promise<void>;
   unlinkSuitcase: (itId: string, scId: string) => Promise<void>;
@@ -40,6 +42,7 @@ interface ActionsProps {
   updateSuitcase: (scId: string, updates: Partial<Suitcase>) => Promise<void>;
   globalTemplates: Suitcase[];
   userOwnedTemplates: Suitcase[];
+  userSuitcases: Suitcase[];
   linkedSuitcaseIds: string[];
   mergedSuggestedItems: SuitcaseItem[];
   suggestedTemplates: Suitcase[];
@@ -65,6 +68,11 @@ interface ActionsProps {
   setShowAssociationModal: (v: boolean) => void;
   setShowDraftOverwriteModal: (v: boolean) => void;
   setShowRecommendedSuitcaseModal: (v: boolean) => void;
+  showCategorySetupModal: boolean;
+  setShowCategorySetupModal: (v: boolean) => void;
+  pendingWorkspaceCreate: PendingWorkspaceCreate | null;
+  setPendingWorkspaceCreate: (v: PendingWorkspaceCreate | null) => void;
+  setIsCreatingFromConfiguration: (v: boolean) => void;
   draftOverwriteIntent: string | null;
   setDraftOverwriteIntent: (v: string | null) => void;
   handleLinkExisting: (suitcaseId: string) => Promise<void>;
@@ -80,7 +88,6 @@ export const useSuitcaseActions = ({
   fetchLinkedIds,
   fetchUserSuitcases,
   setUserSuitcases,
-  createSuitcase,
   cloneSuitcase,
   linkSuitcaseToTrip,
   unlinkSuitcase,
@@ -88,6 +95,7 @@ export const useSuitcaseActions = ({
   updateSuitcase,
   globalTemplates,
   userOwnedTemplates,
+  userSuitcases,
   linkedSuitcaseIds,
   mergedSuggestedItems,
   suggestedTemplates,
@@ -113,6 +121,11 @@ export const useSuitcaseActions = ({
   setShowAssociationModal,
   setShowDraftOverwriteModal,
   setShowRecommendedSuitcaseModal,
+  showCategorySetupModal,
+  setShowCategorySetupModal,
+  pendingWorkspaceCreate,
+  setPendingWorkspaceCreate,
+  setIsCreatingFromConfiguration,
   draftOverwriteIntent,
   setDraftOverwriteIntent,
   handleLinkExisting
@@ -175,36 +188,69 @@ export const useSuitcaseActions = ({
     openNewSuitcaseEditor(draft);
   };
 
-  const createAndOpenNewSuitcase = async () => {
+  const openCategorySetupModal = (pending: PendingWorkspaceCreate) => {
+    setPendingWorkspaceCreate(pending);
+    setShowCategorySetupModal(true);
+  };
+
+  const handleCancelCategorySetup = () => {
+    setShowCategorySetupModal(false);
+    setPendingWorkspaceCreate(null);
+  };
+
+  const handleConfirmCategorySetup = async (result: CategorySetupConfigurationResult) => {
+    if (!pendingWorkspaceCreate) return;
+
     const userId = currentUser?.id || 'guest';
-    const isGuest = userId === 'guest' || !currentUser;
+    setIsCreatingFromConfiguration(true);
 
-    if (isGuest) {
-      const newSuitcase = await createSuitcase(null, userId, 'Nuova Valigia');
-      if (newSuitcase) {
-        openNewSuitcaseEditor(newSuitcase);
-      }
-      return;
+    try {
+      const workspace = await createWorkspaceFromConfiguration({
+        userId,
+        title: pendingWorkspaceCreate.title,
+        icon: pendingWorkspaceCreate.icon,
+        workspaceKind: pendingWorkspaceCreate.kind,
+        categorySetup: result.categorySetup,
+        customCategories: result.customCategories,
+      });
+
+      setShowCategorySetupModal(false);
+      setPendingWorkspaceCreate(null);
+      openNewSuitcaseEditor(workspace);
+    } catch (err) {
+      console.error('Error creating workspace from configuration:', err);
+      showToast(
+        'Creazione non riuscita',
+        'Non è stato possibile creare la valigia. Riprova.',
+        'destructive'
+      );
+    } finally {
+      setIsCreatingFromConfiguration(false);
     }
+  };
 
-    const draft = createDraftWorkspace(userId, 'Nuova Valigia', '🎒', 'suitcase');
-    openNewSuitcaseEditor(draft);
+  const requestNewSuitcaseConfiguration = () => {
+    openCategorySetupModal({
+      kind: 'suitcase',
+      title: 'Nuova Valigia',
+      icon: '🎒',
+    });
+  };
+
+  const requestNewTemplateConfiguration = () => {
+    openCategorySetupModal({
+      kind: 'user_template',
+      title: 'Nuovo Template',
+      icon: '🎒',
+    });
+  };
+
+  const createAndOpenNewSuitcase = async () => {
+    requestNewSuitcaseConfiguration();
   };
 
   const createAndOpenNewTemplate = async () => {
-    const userId = currentUser?.id || 'guest';
-    const isGuest = userId === 'guest' || !currentUser;
-
-    if (isGuest) {
-      const newTemplate = await createSuitcase(null, userId, 'Nuovo Template');
-      if (newTemplate) {
-        openNewSuitcaseEditor(newTemplate);
-      }
-      return;
-    }
-
-    const draft = createDraftWorkspace(userId, 'Nuovo Template', '🎒', 'user_template');
-    openNewSuitcaseEditor(draft);
+    requestNewTemplateConfiguration();
   };
 
   const handleDiscardSuitcase = async () => {
@@ -488,6 +534,41 @@ export const useSuitcaseActions = ({
     await createAndOpenNewTemplate();
   };
 
+  const handleDuplicateEntity = async (entityId: string) => {
+    if (!currentUser) return;
+
+    const source =
+      userSuitcases.find((s) => s.id === entityId) ??
+      allResolvableTemplates.find((t) => t.id === entityId) ??
+      (await fetchClonedTemplateDetailsAsync(entityId));
+
+    const isTemplateSource =
+      source && (isTdTemplate(source) || isUserTemplate(source));
+    const baseTitle = source?.title?.replace(/ \(Copia\)$/i, '') ?? (isTemplateSource ? 'Template' : 'Valigia');
+    const newTitle = `${baseTitle} (Copia)`;
+
+    try {
+      const newId = await duplicateSuitcaseEntityAsync(entityId, currentUser.id, newTitle);
+      if (newId) {
+        await fetchUserSuitcases();
+        showToast(
+          isTemplateSource ? 'Template duplicato' : 'Valigia duplicata',
+          isTemplateSource
+            ? 'La copia è disponibile nel tab Template.'
+            : 'La copia è disponibile tra le tue valigie.',
+          'success'
+        );
+      }
+    } catch (e) {
+      console.error('Error duplicating entity:', e);
+      showToast(
+        'Duplicazione non riuscita',
+        'Non è stato possibile completare la duplicazione. Riprova.',
+        'destructive'
+      );
+    }
+  };
+
   const isTemplateDraftSession = activeSuitcase
     ? getDraftWorkspaceKind(activeSuitcase) === 'user_template'
     : false;
@@ -510,6 +591,11 @@ export const useSuitcaseActions = ({
     handleCreateNew,
     handleConfirmDraftOverwrite,
     handleCreateTemplate,
+    handleConfirmCategorySetup,
+    handleCancelCategorySetup,
+    showCategorySetupModal,
+    pendingWorkspaceCreate,
+    handleDuplicateEntity,
     handleBackToSelector,
     handleContinueGuestWorkspace,
     isTemplateDraftSession,

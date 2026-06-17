@@ -4,7 +4,10 @@ import {
   DraftLocalRejection,
   SuitcaseRejection,
   DraftWorkspaceKind,
+  SuitcaseCategory,
+  SuitcaseUiState,
 } from '../types/suitcase';
+import { getDefaultUiStateForNewEntity } from '@/services/suitcase/packingSeedService';
 import { normalizeItemName } from './tagDerivation';
 
 const GUEST_STORAGE_KEY = 'GUEST_LOCAL_SUITCASE';
@@ -241,6 +244,12 @@ export const insertDraftAiSuggestions = (
   return newItems;
 };
 
+export interface CreateWorkspaceObjectOptions {
+  ui_state?: SuitcaseUiState;
+  custom_categories?: SuitcaseCategory[];
+  workspace_kind?: DraftWorkspaceKind;
+}
+
 export const removeDraftItemFromWorkspace = (suitcaseId: string, itemId: string): void => {
   const draft = getGuestSuitcase();
   if (!draft || draft.id !== suitcaseId) return;
@@ -260,10 +269,12 @@ export const createDraftWorkspaceObject = (
   title: string,
   icon: string,
   items: DraftWorkspaceSeedItem[] = [],
-  workspaceKind: DraftWorkspaceKind = 'suitcase'
+  workspaceKind: DraftWorkspaceKind = 'suitcase',
+  options: CreateWorkspaceObjectOptions = {}
 ): Suitcase => {
   const draftId = `${DRAFT_SUITCASE_ID_PREFIX}${Date.now()}`;
   const now = new Date().toISOString();
+  const resolvedKind = options.workspace_kind ?? workspaceKind;
 
   return {
     id: draftId,
@@ -277,11 +288,11 @@ export const createDraftWorkspaceObject = (
       id: item.id ?? `${DRAFT_ITEM_ID_PREFIX}${Date.now()}-${index}`,
       suitcase_id: draftId,
     })),
-    custom_categories: [],
-    ui_state: { hidden_category_ids: [] },
+    custom_categories: options.custom_categories ?? [],
+    ui_state: options.ui_state ?? getDefaultUiStateForNewEntity(),
     source_template_id: null,
-    workspace_kind: workspaceKind,
-    is_user_template: workspaceKind === 'user_template',
+    workspace_kind: resolvedKind,
+    is_user_template: resolvedKind === 'user_template',
   };
 };
 
@@ -290,7 +301,13 @@ export const createDraftWorkspaceObject = (
  * I caller esistenti restano invariati fino alle PR successive.
  * Per nuove workspace auth usare createDraftWorkspaceObject.
  */
-export const createGuestSuitcaseObject = (title: string, icon: string, items: SuitcaseItem[] = []): Suitcase => {
+export const createGuestSuitcaseObject = (
+  title: string,
+  icon: string,
+  items: SuitcaseItem[] = [],
+  options: CreateWorkspaceObjectOptions = {}
+): Suitcase => {
+  const workspaceKind = options.workspace_kind ?? 'suitcase';
   return {
     id: `${LEGACY_GUEST_SUITCASE_ID_PREFIX}${Date.now()}`,
     title,
@@ -299,8 +316,10 @@ export const createGuestSuitcaseObject = (title: string, icon: string, items: Su
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     suitcase_items: items,
-    custom_categories: [],
-    ui_state: { hidden_category_ids: [] },
+    custom_categories: options.custom_categories ?? [],
+    ui_state: options.ui_state ?? getDefaultUiStateForNewEntity(),
     source_template_id: null,
+    workspace_kind: workspaceKind,
+    is_user_template: workspaceKind === 'user_template',
   };
 };

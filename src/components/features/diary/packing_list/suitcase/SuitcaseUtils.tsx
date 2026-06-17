@@ -1,5 +1,13 @@
 import { ResolvedAffiliateProductLink, ResolvedAffiliateProduct, Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { isTdTemplate, isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
+import {
+  getCategoryId as getDomainCategoryId,
+  getCategoryEmoji,
+  normalizeCategoryName,
+  isSystemCategoryName,
+  CATEGORY_ID_MAP,
+  ADMIN_CATEGORY_OPTIONS,
+} from '@/domain/packing/packingCategories';
 import React from 'react';
 import {
   Backpack, Briefcase, Camera, Car, Coffee,
@@ -20,43 +28,10 @@ import {
   Eye, EyeOff
 } from 'lucide-react';
 
-export const STABLE_CATEGORY_ORDER = [
-  'Abbigliamento',
-  'Igiene',
-  'Documenti',
-  'Elettronica',
-  'Farmaci',
-  'Bambini',
-  'Animali',
-  'Accessori & Organizzazione',
-  'Extra'
-];
+export { ADMIN_CATEGORY_OPTIONS };
 
-export const SYSTEM_CATEGORY_ID_MAP: Record<string, string> = {
-  'Abbigliamento': 'clothing',
-  'Igiene': 'hygiene',
-  'Documenti': 'documents',
-  'Elettronica': 'electronics',
-  'Farmaci': 'meds',
-  'Bambini': 'kids',
-  'Animali': 'pets',
-  'Accessori & Organizzazione': 'accessories',
-  'Extra': 'extra'
-};
-
-export const getCategoryId = (categoryName: string, customCategories?: any[]) => {
-  // 1. Cerca nelle categorie di sistema
-  if (SYSTEM_CATEGORY_ID_MAP[categoryName]) {
-    return SYSTEM_CATEGORY_ID_MAP[categoryName];
-  }
-
-  // 2. Cerca nelle categorie custom (per ID stabile)
-  const custom = customCategories?.find(c => c.name === categoryName);
-  if (custom?.id) return custom.id;
-
-  // 3. Fallback (slug o lowercase se non trovato - utile per migrazione o dati sporchi)
-  return categoryName.toLowerCase().replace(/\s+/g, '-');
-};
+export const getCategoryId = (categoryName: string, customCategories?: { id: string; name: string }[]) =>
+  getDomainCategoryId(categoryName, customCategories);
 
 export const getSuitcaseItemProgress = (items: SuitcaseItem[] | undefined | null) => {
   const list = items || [];
@@ -144,20 +119,8 @@ export const getTemplateColor = (title: string) => {
 export const ItemCategoryIcon: React.FC<{ category: string; iconKey?: string; className?: string }> = ({ category, iconKey, className }) => {
   if (iconKey) return getIconByName(iconKey, className);
 
-  const cat = category.toLowerCase().trim();
-
-  switch (cat) {
-    case 'abbigliamento': return <span className={`${className} flex items-center justify-center`}>👕</span>;
-    case 'igiene': return <span className={`${className} flex items-center justify-center`}>🚿</span>;
-    case 'documenti': return <span className={`${className} flex items-center justify-center`}>📄</span>;
-    case 'elettronica': return <span className={`${className} flex items-center justify-center`}>📱</span>;
-    case 'farmaci': return <span className={`${className} flex items-center justify-center`}>💊</span>;
-    case 'bambini': return <span className={`${className} flex items-center justify-center`}>👶</span>;
-    case 'animali': return <span className={`${className} flex items-center justify-center`}>🐾</span>;
-    case 'accessori & organizzazione': return <span className={`${className} flex items-center justify-center`}>🎒</span>;
-    case 'extra': return <span className={`${className} flex items-center justify-center`}>📦</span>;
-    default: return <span className={`${className} flex items-center justify-center`}>📦</span>;
-  }
+  const emoji = getCategoryEmoji(normalizeCategoryName(category));
+  return <span className={`${className} flex items-center justify-center`}>{emoji}</span>;
 };
 
 export const TemplateCategoryIcon: React.FC<{ template: any; className?: string }> = ({ template, className }) => {
@@ -249,6 +212,18 @@ const INVALID_IMAGE_PATTERNS = [
   'placeholder.com'
 ];
 
+/** Chiave placeholder admin: nome canonico da dominio (alias, slug ID, match case-insensitive). */
+const resolveAdminPlaceholderCategoryKey = (raw: string): string => {
+  const normalized = normalizeCategoryName(raw);
+  if (isSystemCategoryName(normalized)) return normalized;
+
+  const lower = raw.trim().toLowerCase();
+  const bySlug = Object.entries(CATEGORY_ID_MAP).find(([, slug]) => slug === lower);
+  if (bySlug) return bySlug[0];
+
+  return normalized || raw;
+};
+
 export const resolveAffiliateProductImage = ({
   product,
   partnerId,
@@ -298,22 +273,6 @@ export const resolveAffiliateProductImage = ({
 
   // LIVELLO 3 — Placeholder Categoria
   // - Recuperare placeholder da Asset Globali / Suitcase Placeholders
-  const CATEGORY_MAP_TO_ADMIN: Record<string, string> = {
-    'must have': 'Extra',
-    'travel': 'Extra',
-    'clothing': 'Abbigliamento',
-    'abbigliamento': 'Abbigliamento',
-    'hygiene': 'Igiene',
-    'igiene': 'Igiene',
-    'beauty': 'Igiene',
-    'electronics': 'Elettronica',
-    'elettronica': 'Elettronica',
-    'documents': 'Documenti',
-    'documenti': 'Documenti',
-    'gear': 'Extra',
-    'extra': 'Extra'
-  };
-
   const getProductCategory = () => {
     if (product.category && product.category !== 'Travel') return product.category;
     if (product.target_categories && product.target_categories.length > 0) {
@@ -324,7 +283,7 @@ export const resolveAffiliateProductImage = ({
 
   const categoryName = getProductCategory();
   const catLower = categoryName.toLowerCase();
-  const adminKey = CATEGORY_MAP_TO_ADMIN[catLower] || categoryName;
+  const adminKey = resolveAdminPlaceholderCategoryKey(categoryName);
 
   const adminCategoryPhRaw = placeholders[adminKey] ||
     placeholders[categoryName] ||

@@ -5,6 +5,7 @@ import { affiliateTrackingService } from '@/services/affiliateTrackingService';
 
 interface SuitcaseItemRowProps {
   item: SuitcaseItem;
+  readOnly?: boolean;
   onUpdate: (id: string, updates: Partial<SuitcaseItem>) => void;
   onDelete: (id: string) => void;
   highlightId: string | null;
@@ -16,6 +17,7 @@ interface SuitcaseItemRowProps {
 
 export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
   item,
+  readOnly = false,
   onUpdate,
   onDelete,
   highlightId,
@@ -53,9 +55,10 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onUpdate(item.id, { is_checked: !item.is_checked });
+          if (!readOnly) onUpdate(item.id, { is_checked: !item.is_checked });
         }}
-        className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center border transition-all shadow-sm ${
+        disabled={readOnly}
+        className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
           item.is_checked 
             ? 'bg-emerald-500 border-emerald-500 text-white' 
             : 'bg-slate-900 border-slate-700 hover:border-indigo-500 group-hover:scale-105 active:scale-95'
@@ -109,28 +112,33 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
             <span className="text-[9px] font-black uppercase text-amber-600/80 tracking-widest">AI</span>
           </div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onUpdate(item.id, { is_ai_suggestion: false, accepted_from_ai: true } as any);
-            }}
-            className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm border border-emerald-500/20"
-            title="Accetta Suggerimento"
-          >
-            <Check className="w-4.5 h-4.5 stroke-[3]" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(item.id);
-            }}
-            className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-500/20"
-            title="Rifiuta Suggerimento"
-          >
-            <X className="w-4.5 h-4.5 stroke-[3]" />
-          </button>
+          {!readOnly && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate(item.id, { is_ai_suggestion: false, accepted_from_ai: true } as any);
+                }}
+                className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm border border-emerald-500/20"
+                title="Accetta Suggerimento"
+              >
+                <Check className="w-4.5 h-4.5 stroke-[3]" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(item.id);
+                }}
+                className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-500/20"
+                title="Rifiuta Suggerimento"
+              >
+                <X className="w-4.5 h-4.5 stroke-[3]" />
+              </button>
+            </>
+          )}
         </div>
       ) : (
+        !readOnly && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -141,6 +149,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
+        )
       )}
     </div>
   );

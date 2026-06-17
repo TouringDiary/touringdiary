@@ -86,5 +86,11 @@ export type DbNation = Row<'nations'>;
 export type DbRegion = Row<'regions'>;
 export type DbSuitcase = Row<'suitcases'>;
 export type DbSuitcaseItem = Row<'suitcase_items'>;
+export type DbPackingStandardItem = Row<'packing_standard_items'>;
+export type DbPackingTemplateItem = Row<'packing_template_items'>;
+export type DbPackingAiCatalogItem = Row<'packing_ai_catalog'>;
+export type DbPackingStandardItemInsert = Insert<'packing_standard_items'>;
+export type DbPackingTemplateItemInsert = Insert<'packing_template_items'>;
+export type DbPackingAiCatalogItemInsert = Insert<'packing_ai_catalog'>;
 export type DbItinerarySuitcase = Row<'itinerary_suitcases'>;
 

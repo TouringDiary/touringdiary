@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  createSuitcaseAsync,
   cloneSuitcaseAsync,
   deleteSuitcaseAsync,
   fetchClonedTemplateDetailsAsync
@@ -8,53 +7,17 @@ import {
 import {
   saveGuestSuitcase,
   deleteGuestSuitcase,
-  createGuestSuitcaseObject,
   createDraftWorkspaceObject,
   isDraftWorkspaceId,
   toDraftWorkspaceSeedItems,
 } from '@/utils/guestSuitcaseHelper';
+import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
 import { Suitcase, SuitcaseItem, DraftWorkspaceKind } from '@/types/suitcase';
 
 export const DRAFT_OVERWRITE_NEW_SUITCASE = 'new-suitcase';
 export const DRAFT_OVERWRITE_NEW_TEMPLATE = 'new-template';
 export const DRAFT_OVERWRITE_SUGGESTED_TEMPLATES = 'suggested-templates';
 export const DRAFT_OVERWRITE_SAVE_AS_TEMPLATE = 'save-as-template';
-
-export const useCreateSuitcase = () => {
-  const [isCreating, setIsCreating] = useState(false);
-
-  const createSuitcase = async (itineraryId: string | null, userId: string, title = "Valigia", icon = "🎒") => {
-    setIsCreating(true);
-    try {
-      if (userId === 'guest' || !userId) {
-        const guestSc = createGuestSuitcaseObject(title, icon);
-        saveGuestSuitcase(guestSc);
-        return guestSc;
-      }
-
-      const suitcase = await createSuitcaseAsync(userId, title, icon);
-      return suitcase;
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  return { createSuitcase, isCreating };
-};
-
-/**
- * Crea una workspace temporanea in localStorage (draft-suitcase-*).
- */
-export const createDraftWorkspace = (
-  userId: string,
-  title = 'Valigia',
-  icon = '🎒',
-  workspaceKind: DraftWorkspaceKind = 'suitcase'
-): Suitcase => {
-  const draftSc = createDraftWorkspaceObject(userId, title, icon, [], workspaceKind);
-  saveGuestSuitcase(draftSc);
-  return draftSc;
-};
 
 /**
  * Crea una draft workspace popolata da un template (TD o USER) → draft valigia.
@@ -86,7 +49,12 @@ export const createDraftWorkspaceFromTemplate = (
     ...draftSc,
     source_template_id: template.id,
     custom_categories: template.custom_categories ?? [],
-    ui_state: template.ui_state ?? { hidden_category_ids: [] },
+    ui_state: ensureUiStateForPersist({
+      ...draftSc,
+      source_template_id: template.id,
+      custom_categories: template.custom_categories ?? [],
+      ui_state: template.ui_state,
+    }),
   };
 
   saveGuestSuitcase(draft);
@@ -125,7 +93,12 @@ export const createDraftWorkspaceFromSuitcase = (
     ...draftSc,
     source_template_id: workspaceKind === 'suitcase' ? source.id : source.source_template_id ?? source.id,
     custom_categories: source.custom_categories ?? [],
-    ui_state: source.ui_state ?? { hidden_category_ids: [] },
+    ui_state: ensureUiStateForPersist({
+      ...draftSc,
+      source_template_id: workspaceKind === 'suitcase' ? source.id : source.source_template_id ?? source.id,
+      custom_categories: source.custom_categories ?? [],
+      ui_state: source.ui_state,
+    }),
   };
 
   saveGuestSuitcase(draft);
@@ -147,8 +120,12 @@ export const createDraftWorkspaceFromMergedItems = (
   });
 
   const draftSc = createDraftWorkspaceObject(userId, title, icon, seedItems, 'suitcase');
-  saveGuestSuitcase(draftSc);
-  return draftSc;
+  const draftWithUi: Suitcase = {
+    ...draftSc,
+    ui_state: ensureUiStateForPersist(draftSc),
+  };
+  saveGuestSuitcase(draftWithUi);
+  return draftWithUi;
 };
 
 export const useCloneSuitcase = () => {
@@ -175,7 +152,7 @@ export const useCloneSuitcase = () => {
           is_checked: false
         }));
 
-        const guestSc: Suitcase = {
+        const guestScBase: Suitcase = {
           id: guestScId,
           title: title || template?.title || 'Template',
           icon: template?.icon || '🎒',
@@ -183,10 +160,15 @@ export const useCloneSuitcase = () => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           suitcase_items: items,
-          custom_categories: [],
-          ui_state: { hidden_category_ids: [] },
+          custom_categories: template?.custom_categories ?? [],
+          ui_state: template?.ui_state,
           source_template_id: suitcaseId,
           workspace_kind: 'suitcase',
+        };
+
+        const guestSc: Suitcase = {
+          ...guestScBase,
+          ui_state: ensureUiStateForPersist(guestScBase),
         };
 
         saveGuestSuitcase(guestSc);

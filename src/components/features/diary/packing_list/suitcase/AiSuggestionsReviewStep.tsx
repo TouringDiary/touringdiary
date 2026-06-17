@@ -2,7 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Sparkles, Plus } from 'lucide-react';
 import { AiSuggestionReviewRow } from './AiSuggestionReviewRow';
 import { AiSuggestion } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
-import { STABLE_CATEGORY_ORDER, ItemCategoryIcon } from './SuitcaseUtils';
+import { getSystemCategoryOrderIndexExact } from '@/domain/packing/packingCategories';
+import { ItemCategoryIcon } from './SuitcaseUtils';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface AiSuggestionsReviewStepProps {
@@ -46,10 +47,10 @@ export const AiSuggestionsReviewStep: React.FC<AiSuggestionsReviewStepProps> = (
       groups[s.category].push(s);
     });
 
-    // Ordinamento categorie: STABLE_CATEGORY_ORDER prima, poi le altre
+    // Ordinamento categorie: CATEGORY_ORDER prima, poi le altre
     const sortedCategories = Object.keys(groups).sort((a, b) => {
-      const indexA = STABLE_CATEGORY_ORDER.indexOf(a);
-      const indexB = STABLE_CATEGORY_ORDER.indexOf(b);
+      const indexA = getSystemCategoryOrderIndexExact(a);
+      const indexB = getSystemCategoryOrderIndexExact(b);
       
       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
       if (indexA !== -1) return -1;

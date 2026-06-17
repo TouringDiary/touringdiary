@@ -16,6 +16,7 @@ import {
   LinkModalVariant,
   resolveAssociationCase,
 } from '@/utils/suitcaseAssociation';
+import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
 const ASSOCIATION_SUCCESS_TOAST: Record<
   AssociationCase,
@@ -44,6 +45,10 @@ export type AssociationSuccessNavigation = 'editor' | 'selector';
 export interface RequestAssociationOptions {
   successNavigation: AssociationSuccessNavigation;
   closeAssociationModal?: boolean;
+  successToast?: { message: string; description: string };
+  /** Chiamato quando l'associazione passa al modale nomi (B/C/D), prima di aprirlo. */
+  onBeforeLinkModal?: () => void;
+  onSuccess?: () => void;
 }
 
 interface AssociationFlowProps {
@@ -62,7 +67,7 @@ interface AssociationFlowProps {
   clearNewSuitcaseSession: () => void;
   setShowAssociationModal: (value: boolean) => void;
   setActiveTabId: (id: string | null) => void;
-  setViewMode: (mode: 'selector' | 'editor') => void;
+  setViewMode: (mode: SuitcasePanelViewMode) => void;
   showToast: (message: string, description?: string, variant?: ToastVariant) => void;
   onLoginRequired: () => void;
 }
@@ -92,6 +97,7 @@ export const useSuitcaseAssociationFlow = ({
   const [pendingSuitcaseId, setPendingSuitcaseId] = useState<string | null>(null);
   const [pendingSuitcaseTitle, setPendingSuitcaseTitle] = useState('');
   const [isAssociating, setIsAssociating] = useState(false);
+  const pendingAssociationOptsRef = useRef<Partial<RequestAssociationOptions>>({});
   const pendingSuccessNavigationRef = useRef<AssociationSuccessNavigation>('editor');
 
   const resolveSuitcaseTitle = useCallback(
@@ -121,8 +127,13 @@ export const useSuitcaseAssociationFlow = ({
         setActiveTabId(null);
       }
 
-      const toast = ASSOCIATION_SUCCESS_TOAST[associationCase];
+      const toast =
+        pendingAssociationOptsRef.current.successToast ??
+        ASSOCIATION_SUCCESS_TOAST[associationCase];
       showToast(toast.message, toast.description, 'success');
+
+      pendingAssociationOptsRef.current.onSuccess?.();
+      pendingAssociationOptsRef.current = {};
     },
     [
       fetchLinkedIds,
@@ -233,6 +244,7 @@ export const useSuitcaseAssociationFlow = ({
       }
 
       pendingSuccessNavigationRef.current = options.successNavigation;
+      pendingAssociationOptsRef.current = options;
 
       const diaryPersisted = isDiaryPersisted(itinerary, savedProjects);
       const suitcasePersisted = isSuitcasePersisted(suitcaseId);
@@ -243,6 +255,7 @@ export const useSuitcaseAssociationFlow = ({
         if (options.closeAssociationModal) {
           setShowAssociationModal(false);
         }
+        options.onBeforeLinkModal?.();
         setPendingSuitcaseId(suitcaseId);
         setPendingSuitcaseTitle(resolveSuitcaseTitle(suitcaseId));
         setLinkModalVariant(modalVariant);

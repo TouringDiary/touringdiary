@@ -14,6 +14,7 @@ interface TemplateSelectorSectionProps {
   onHover: (id: string) => void;
   onTogglePreference: (id: string, enabled: boolean) => void;
   onUseTemplate: (id: string) => void;
+  onViewTemplate: (id: string) => void;
   onAddCategory: (id: string) => void;
 }
 
@@ -27,6 +28,7 @@ export const TemplateSelectorSection: React.FC<TemplateSelectorSectionProps> = (
   onHover,
   onTogglePreference,
   onUseTemplate,
+  onViewTemplate,
   onAddCategory
 }) => {
   const filteredTemplates = globalTemplates.filter(
@@ -54,6 +56,7 @@ export const TemplateSelectorSection: React.FC<TemplateSelectorSectionProps> = (
                 isHovered={isHovered}
                 isCloning={isCloning}
                 onHover={() => onHover(tpl.id)}
+                onView={() => onViewTemplate(tpl.id)}
                 onTogglePreference={() => onTogglePreference(tpl.id, !isPreferred)}
                 onUse={() => onUseTemplate(tpl.id)}
               />

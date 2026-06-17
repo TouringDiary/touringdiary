@@ -8,8 +8,12 @@ interface SavedSuitcasesSectionProps {
   savedSuitcases: Suitcase[];
   isLoading: boolean;
   onOpenSuitcase: (id: string) => void;
-  onLinkSuitcase: (id: string) => void;
+  onViewSuitcase: (id: string) => void;
+  onRequestAssociate?: (id: string) => void;
   onDeleteSuitcase: (id: string) => void;
+  onDuplicateSuitcase?: (id: string) => void;
+  isCloning?: boolean;
+  isDiaryAssociable?: boolean;
   currentUser?: any;
   hoveredItemId: string | null;
   onHover: (id: string | null) => void;
@@ -20,8 +24,12 @@ export const SavedSuitcasesSection: React.FC<SavedSuitcasesSectionProps> = ({
   savedSuitcases,
   isLoading,
   onOpenSuitcase,
-  onLinkSuitcase,
+  onViewSuitcase,
+  onRequestAssociate,
   onDeleteSuitcase,
+  onDuplicateSuitcase,
+  isCloning = false,
+  isDiaryAssociable = true,
   currentUser,
   hoveredItemId,
   onHover,
@@ -48,13 +56,18 @@ export const SavedSuitcasesSection: React.FC<SavedSuitcasesSectionProps> = ({
         {/* Lista valigie */}
         <div className="flex flex-col gap-3">
           {savedSuitcases.map(s => (
-            <SuitcaseCard 
-              key={s.id} 
-              suitcase={s} 
+            <SuitcaseCard
+              key={s.id}
+              suitcase={s}
+              variant="saved"
               isActive={hoveredItemId === s.id}
-              onClick={onOpenSuitcase} 
-              onLink={onLinkSuitcase}
+              isCloning={isCloning}
+              isDiaryAssociable={isDiaryAssociable}
+              onOpen={onOpenSuitcase}
+              onView={onViewSuitcase}
+              onAssociate={onRequestAssociate}
               onDelete={onDeleteSuitcase}
+              onDuplicate={onDuplicateSuitcase}
               onMouseEnter={() => onHover(s.id)}
               currentUser={currentUser}
             />

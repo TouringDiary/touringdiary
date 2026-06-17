@@ -15,6 +15,10 @@ import {
 } from '@/services/suitcase/suitcaseAffiliateService';
 import { AffiliateProductLink } from '@/types/partners';
 import { SuggestionProduct, ItemOverride } from '@/types/suitcase';
+import {
+  getSystemCategoryOrderIndexExact,
+  normalizeCategoryName,
+} from '@/domain/packing/packingCategories';
 
 // Sub-components
 import { TemplateSelector } from './override/TemplateSelector';
@@ -71,13 +75,20 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
   const groupedItems = useMemo(() => {
     const groups: Record<string, { items: SuitcaseItem[], configured: number }> = {};
     items.forEach(item => {
-      const cat = item.category || 'Altro';
+      const cat = normalizeCategoryName(item.category || 'Extra');
       if (!groups[cat]) groups[cat] = { items: [], configured: 0 };
       groups[cat].items.push(item);
       const normalized = normalizeItemName(item.name);
       if (overrides[normalized]?.is_saved) groups[cat].configured += 1;
     });
-    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+    return Object.entries(groups).sort((a, b) => {
+      const indexA = getSystemCategoryOrderIndexExact(a[0]);
+      const indexB = getSystemCategoryOrderIndexExact(b[0]);
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return a[0].localeCompare(b[0]);
+    });
   }, [items, overrides]);
 
   const fetchData = useCallback(async () => {

@@ -14,6 +14,10 @@ import {
   createSuitcaseAsync
 } from '@/services/suitcase/suitcaseCoreService';
 import {
+  applyStandardSeedToSuitcaseInMemory,
+} from '@/services/suitcase/packingSeedService';
+import { ensureUiStateForPersist, resolveCategorySetup } from '@/domain/packing/categorySetup';
+import {
   checkProfileExistsAsync,
   createEmergencyProfileAsync,
   getAuthUserAsync
@@ -129,6 +133,11 @@ export const useSuitcaseItemsMutations = () => {
     const resolvedTitle = titleOverride?.trim() || draftSc.title;
 
     try {
+      let draftForPersist = draftSc;
+      draftForPersist = await applyStandardSeedToSuitcaseInMemory(draftForPersist);
+      const normalizedUiState = ensureUiStateForPersist(draftForPersist);
+      draftForPersist = { ...draftForPersist, ui_state: normalizedUiState };
+
       // 0. Verifica attiva del profilo per evitare FK violation silenziose (admin bypass bug)
       const profileCheck = await checkProfileExistsAsync(userId);
 
@@ -148,14 +157,14 @@ export const useSuitcaseItemsMutations = () => {
       }
 
       // 1. Promuoviamo la workspace draft → riga suitcases (UUID reale)
-      const workspaceKind = getDraftWorkspaceKind(draftSc);
+      const workspaceKind = getDraftWorkspaceKind(draftForPersist);
       const isUserTemplate = workspaceKind === 'user_template';
 
-      const suitcase = await createSuitcaseAsync(userId, resolvedTitle, draftSc.icon, {
+      const suitcase = await createSuitcaseAsync(userId, resolvedTitle, draftForPersist.icon, {
         is_user_template: isUserTemplate,
-        source_template_id: draftSc.source_template_id ?? null,
-        custom_categories: draftSc.custom_categories,
-        ui_state: draftSc.ui_state,
+        source_template_id: draftForPersist.source_template_id ?? null,
+        custom_categories: draftForPersist.custom_categories,
+        ui_state: draftForPersist.ui_state,
       });
 
       if (!suitcase) {
@@ -163,28 +172,28 @@ export const useSuitcaseItemsMutations = () => {
       }
 
       // 2. Persistiamo gli item runtime (draft-item-* / guest-item-* → UUID DB)
-      let persistedItems = draftSc.suitcase_items ?? [];
+      let persistedItems = draftForPersist.suitcase_items ?? [];
       if (persistedItems.length > 0) {
         persistedItems = await persistSuitcaseItemsFromRuntimeAsync(suitcase.id, persistedItems);
       }
 
       // 3. Metadati aggiuntivi creati in editing locale
       const metadataUpdates: Partial<Suitcase> = {};
-      if (draftSc.custom_categories?.length) {
-        metadataUpdates.custom_categories = draftSc.custom_categories;
+      if (draftForPersist.custom_categories?.length) {
+        metadataUpdates.custom_categories = draftForPersist.custom_categories;
       }
-      if (draftSc.ui_state && Object.keys(draftSc.ui_state).length > 0) {
-        metadataUpdates.ui_state = draftSc.ui_state;
+      if (draftForPersist.ui_state && Object.keys(draftForPersist.ui_state).length > 0) {
+        metadataUpdates.ui_state = draftForPersist.ui_state;
       }
-      if (draftSc.source_template_id) {
-        metadataUpdates.source_template_id = draftSc.source_template_id;
+      if (draftForPersist.source_template_id) {
+        metadataUpdates.source_template_id = draftForPersist.source_template_id;
       }
       if (Object.keys(metadataUpdates).length > 0) {
         await updateSuitcaseAsync(suitcase.id, metadataUpdates);
       }
 
       // 4. Migriamo i rifiuti AI locali → suitcase_rejections sulla valigia persistita
-      const localRejections = draftSc.local_rejections ?? [];
+      const localRejections = draftForPersist.local_rejections ?? [];
       for (const rejection of localRejections) {
         try {
           await addRejectionAsync(

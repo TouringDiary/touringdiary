@@ -1,78 +1,117 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { updateHiddenCategoriesAsync } from '@/services/suitcaseService';
-import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  isSystemCategoryId,
+  materializeCategorySetupForWrite,
+  setCategoryEnabled,
+} from '@/domain/packing/categorySetup';
+import { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
+import { persistCategoryVisibilityAsync } from '@/services/suitcase/packingSeedService';
+import { getGuestSuitcase, isDraftWorkspaceId, saveGuestSuitcase } from '@/utils/guestSuitcaseHelper';
+import { Suitcase } from '@/types/suitcase';
+
+export type CategoryVisibilityPatch = {
+  category_setup: CategorySetupMap;
+  hidden_category_ids: string[];
+};
 
 /**
- * Hook per gestire le categorie nascoste di una valigia o template.
- * Include logica di persistenza debounced su colonna ui_state.
+ * Gestisce visibilità categorie via category_setup.enabled (sistema)
+ * e hidden_category_ids (solo categorie custom).
  */
 export const useHiddenCategories = (
   suitcaseId: string | undefined,
-  initialHiddenIds: string[] = [],
-  onSync?: (hiddenIds: string[]) => void
+  suitcase: Suitcase | undefined,
+  onSync?: (patch: CategoryVisibilityPatch) => void
 ) => {
-  const [hiddenIds, setHiddenIds] = useState<string[]>(initialHiddenIds);
+  const materialized = useMemo(
+    () => (suitcase ? materializeCategorySetupForWrite(suitcase) : { setup: {}, hidden_category_ids: [] }),
+    [suitcase]
+  );
+
+  const [categorySetup, setCategorySetup] = useState<CategorySetupMap>(materialized.setup);
+  const [customHiddenIds, setCustomHiddenIds] = useState<string[]>(materialized.hidden_category_ids);
   const isInitialMount = useRef(true);
 
-  // Sincronizza lo stato locale quando cambia la valigia o i dati iniziali
   useEffect(() => {
-    if (!initialHiddenIds) return;
+    setCategorySetup(materialized.setup);
+    setCustomHiddenIds(materialized.hidden_category_ids);
+  }, [suitcaseId, materialized.setup, materialized.hidden_category_ids]);
 
-    setHiddenIds(prev => {
-      if (JSON.stringify(prev) === JSON.stringify(initialHiddenIds)) {
-        return prev;
+  const emitSync = useCallback(
+    (setup: CategorySetupMap, hiddenIds: string[]) => {
+      onSync?.({ category_setup: setup, hidden_category_ids: hiddenIds });
+    },
+    [onSync]
+  );
+
+  const toggleCategory = useCallback(
+    (categoryId: string) => {
+      if (isSystemCategoryId(categoryId)) {
+        const enabled = categorySetup[categoryId]?.enabled === false;
+        const nextSetup = setCategoryEnabled(categorySetup, categoryId, enabled);
+        setCategorySetup(nextSetup);
+        emitSync(nextSetup, customHiddenIds);
+        return;
       }
-      return initialHiddenIds;
-    });
-  }, [suitcaseId, initialHiddenIds]);
 
-  // Toggle visibilità categoria
-  const toggleCategory = useCallback((categoryId: string) => {
-    const newIds = hiddenIds.includes(categoryId)
-      ? hiddenIds.filter(id => id !== categoryId)
-      : [...hiddenIds, categoryId];
+      const nextHidden = customHiddenIds.includes(categoryId)
+        ? customHiddenIds.filter((id) => id !== categoryId)
+        : [...customHiddenIds, categoryId];
+      setCustomHiddenIds(nextHidden);
+      emitSync(categorySetup, nextHidden);
+    },
+    [categorySetup, customHiddenIds, emitSync]
+  );
 
-    setHiddenIds(newIds);
-    if (onSync) onSync(newIds);
-  }, [hiddenIds, onSync]);
-
-  // Ripristina tutte le categorie
   const showAll = useCallback(() => {
-    setHiddenIds([]);
-    if (onSync) onSync([]);
-  }, [onSync]);
+    let nextSetup = categorySetup;
+    for (const categoryId of Object.keys(categorySetup)) {
+      if (categorySetup[categoryId]?.enabled === false) {
+        nextSetup = setCategoryEnabled(nextSetup, categoryId, true);
+      }
+    }
+    setCategorySetup(nextSetup);
+    setCustomHiddenIds([]);
+    emitSync(nextSetup, []);
+  }, [categorySetup, emitSync]);
 
-  // Verifica se una categoria è nascosta
-  const isHidden = useCallback((categoryId: string) => {
-    return hiddenIds.includes(categoryId);
-  }, [hiddenIds]);
+  const isHidden = useCallback(
+    (categoryId: string) => {
+      if (isSystemCategoryId(categoryId)) {
+        return categorySetup[categoryId]?.enabled === false;
+      }
+      return customHiddenIds.includes(categoryId);
+    },
+    [categorySetup, customHiddenIds]
+  );
 
-  // Persistenza su Database (Debounced 800ms)
+  const hiddenIds = useMemo(() => {
+    const disabledSystemIds = Object.entries(categorySetup)
+      .filter(([, entry]) => entry.enabled === false)
+      .map(([id]) => id);
+    return [...disabledSystemIds, ...customHiddenIds];
+  }, [categorySetup, customHiddenIds]);
+
   useEffect(() => {
-    // Salta il primo render per evitare update inutili all'avvio
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
     if (!suitcaseId) return;
+
     if (isDraftWorkspaceId(suitcaseId)) {
-      // Workspace draft: persistenza solo in localStorage
       const timer = setTimeout(() => {
-        const localData = localStorage.getItem('GUEST_LOCAL_SUITCASE');
-        if (localData) {
-          try {
-            const guestSc = JSON.parse(localData);
-            if (guestSc.id === suitcaseId) {
-              const updated = { 
-                ...guestSc, 
-                ui_state: { ...guestSc.ui_state, hidden_category_ids: hiddenIds } 
-              };
-              localStorage.setItem('GUEST_LOCAL_SUITCASE', JSON.stringify(updated));
-            }
-          } catch (e) {
-            console.error("[useHiddenCategories] Error updating guest ui_state", e);
-          }
+        const draft = getGuestSuitcase();
+        if (draft?.id === suitcaseId) {
+          saveGuestSuitcase({
+            ...draft,
+            ui_state: {
+              ...draft.ui_state,
+              category_setup: categorySetup,
+              hidden_category_ids: customHiddenIds,
+            },
+          });
         }
       }, 800);
       return () => clearTimeout(timer);
@@ -80,15 +119,14 @@ export const useHiddenCategories = (
 
     const timer = setTimeout(async () => {
       try {
-        await updateHiddenCategoriesAsync(suitcaseId, hiddenIds);
-        console.log(`[useHiddenCategories] Stato salvato per ${suitcaseId}`);
+        await persistCategoryVisibilityAsync(suitcaseId, categorySetup, customHiddenIds);
       } catch (error) {
-        console.error("[useHiddenCategories] Errore salvataggio ui_state:", error);
+        console.error('[useHiddenCategories] Errore salvataggio category_setup:', error);
       }
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [hiddenIds, suitcaseId]);
+  }, [categorySetup, customHiddenIds, suitcaseId]);
 
   return { hiddenIds, toggleCategory, showAll, isHidden };
 };
