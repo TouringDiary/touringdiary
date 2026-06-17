@@ -5,3 +5,7 @@ node_modules
 *.bak
 
 dist
+
+# UI audit artifacts
+scripts/*.png
+scripts/measurement-comparison.json
