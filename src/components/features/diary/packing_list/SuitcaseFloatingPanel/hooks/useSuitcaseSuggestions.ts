@@ -95,7 +95,14 @@ export const useSuitcaseSuggestions = ({
       }));
 
       if (mode === 'direct') {
-        const count = await seedAiSuggestions(activeSuitcase.id, tags, itemsForAi, context, selectedCategories);
+        const count = await seedAiSuggestions(
+        activeSuitcase.id,
+        tags,
+        itemsForAi,
+        context,
+        selectedCategories,
+        activeSuitcase
+      );
         if (!isSessionCurrent()) return;
 
         if (count > 0) {
@@ -114,7 +121,13 @@ export const useSuitcaseSuggestions = ({
         }
       } else {
         // Modalità Review
-        const candidates = await getAiCandidates(activeSuitcase.id, tags, itemsForAi, selectedCategories);
+        const candidates = await getAiCandidates(
+          activeSuitcase.id,
+          tags,
+          itemsForAi,
+          selectedCategories,
+          activeSuitcase
+        );
         if (!isSessionCurrent()) return;
 
         setAllAiCandidates(candidates);

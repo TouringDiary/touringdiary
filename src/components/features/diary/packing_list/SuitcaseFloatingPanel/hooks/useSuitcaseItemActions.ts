@@ -238,10 +238,14 @@ export const useSuitcaseItemActions = ({
     }
   }, [activeTabId, deleteItem, rejectItem, addItem, handleStateSync, pushAction, fetchUserSuitcases, fetchBlacklist, showToast]);
 
-  const handleAddItemConfirmed = useCallback(async (suitcaseId: string, name: string, category: string) => {
+  const handleAddItemConfirmed = useCallback(async (
+    suitcaseId: string,
+    name: string,
+    category: string,
+    metadata?: Partial<SuitcaseItem>
+  ) => {
     try {
-      // 1. Persistenza DB
-      const res = await addItem(suitcaseId, name, category); 
+      const res = await addItem(suitcaseId, name, category, metadata);
       if (res) {
         // 2. Forza refresh dati dal database
         await fetchUserSuitcases();

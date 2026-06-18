@@ -53,19 +53,36 @@ export const parseUiState = (json: unknown): SuitcaseUiState => {
     throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state deve essere un oggetto, ottenuto: ${typeof json}`);
   }
 
-  const obj = json as { hidden_category_ids?: unknown; category_setup?: unknown };
+  const obj = json as {
+    hidden_category_ids?: unknown;
+    category_setup?: unknown;
+    dismissed_category_ids?: unknown;
+    category_display_order?: unknown;
+  };
   const result: SuitcaseUiState = { hidden_category_ids: [] };
 
-  if (obj.hidden_category_ids !== undefined) {
-    if (!Array.isArray(obj.hidden_category_ids)) {
-      throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.hidden_category_ids deve essere un array.`);
+  const parseStringArray = (value: unknown, field: string): string[] => {
+    if (!Array.isArray(value)) {
+      throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.${field} deve essere un array.`);
     }
-    result.hidden_category_ids = obj.hidden_category_ids.map((id, idx) => {
+    return value.map((id, idx) => {
       if (typeof id !== 'string') {
-        throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.hidden_category_ids[${idx}] non è una stringa.`);
+        throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.${field}[${idx}] non è una stringa.`);
       }
       return id;
     });
+  };
+
+  if (obj.hidden_category_ids !== undefined) {
+    result.hidden_category_ids = parseStringArray(obj.hidden_category_ids, 'hidden_category_ids');
+  }
+
+  if (obj.dismissed_category_ids !== undefined) {
+    result.dismissed_category_ids = parseStringArray(obj.dismissed_category_ids, 'dismissed_category_ids');
+  }
+
+  if (obj.category_display_order !== undefined) {
+    result.category_display_order = parseStringArray(obj.category_display_order, 'category_display_order');
   }
 
   if (obj.category_setup !== undefined && obj.category_setup !== null) {
@@ -78,9 +95,24 @@ export const parseUiState = (json: unknown): SuitcaseUiState => {
         throw new Error(`[suitcaseCoreService] Errore di validazione: ui_state.category_setup[${key}] non è un oggetto.`);
       }
       const entry = value as { enabled?: unknown; seeded?: unknown };
+
+      const parseSetupBoolean = (
+        fieldValue: unknown,
+        fieldName: 'enabled' | 'seeded'
+      ): boolean | undefined => {
+        if (fieldValue === undefined) return undefined;
+        if (typeof fieldValue === 'boolean') return fieldValue;
+        throw new Error(
+          `[suitcaseCoreService] Errore di validazione: ui_state.category_setup[${key}].${fieldName} deve essere un booleano o undefined, ottenuto: ${typeof fieldValue}`
+        );
+      };
+
+      const enabled = parseSetupBoolean(entry.enabled, 'enabled');
+      const seeded = parseSetupBoolean(entry.seeded, 'seeded');
+
       setup[key] = {
-        enabled: entry.enabled !== false,
-        seeded: entry.seeded === true,
+        enabled: enabled !== false,
+        seeded: seeded === true,
       };
     }
     if (Object.keys(setup).length > 0) {
@@ -115,6 +147,12 @@ export const serializeUiState = (
   };
   if (uiState.category_setup && Object.keys(uiState.category_setup).length > 0) {
     payload.category_setup = uiState.category_setup;
+  }
+  if (uiState.dismissed_category_ids && uiState.dismissed_category_ids.length > 0) {
+    payload.dismissed_category_ids = uiState.dismissed_category_ids;
+  }
+  if (uiState.category_display_order && uiState.category_display_order.length > 0) {
+    payload.category_display_order = uiState.category_display_order;
   }
   return payload as Json;
 };

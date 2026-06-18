@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Sparkles, Trash2, Edit2, Copy, Eye } from 'lucide-react';
+import { Star, Sparkles, Trash2, Wrench, Copy, Eye } from 'lucide-react';
 import { TemplateCategoryIcon } from './SuitcaseUtils';
 import { Suitcase } from '@/types/suitcase';
 import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
@@ -174,7 +174,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
                   title="Modifica template"
                   aria-label="Modifica template"
                 >
-                  <Edit2 className="w-3.5 h-3.5" />
+                  <Wrench className="w-3.5 h-3.5" />
                 </button>
               )}
             </>

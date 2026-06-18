@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { TemplateCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
-import { Trash2, Edit2, CheckSquare, Copy, Eye } from 'lucide-react';
+import { Trash2, Wrench, CheckSquare, Copy, Eye } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { Suitcase } from '@/types/suitcase';
 
@@ -187,7 +187,7 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
             title="Modifica valigia"
             aria-label="Modifica valigia"
           >
-            <Edit2 className="w-3.5 h-3.5" />
+            <Wrench className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

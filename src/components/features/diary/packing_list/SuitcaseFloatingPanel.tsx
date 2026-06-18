@@ -1,6 +1,6 @@
 import { Z_FOCUS_ACTIVE } from '@/constants/zIndex';
 import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SuitcaseFloatingPanelBody } from './SuitcaseFloatingPanel/SuitcaseFloatingPanelBody';
 import { useFloatingPanelShellLifecycle } from './SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
@@ -18,10 +18,12 @@ export const SuitcaseFloatingPanel: React.FC<Props> = ({
   suitcaseId,
 }) => {
   const closeAttemptRef = useRef<() => void>(() => {});
+  const [suppressShellEscape, setSuppressShellEscape] = useState(false);
 
   const shell = useFloatingPanelShellLifecycle({
     workspaceId: 'packingList',
     onCloseAttempt: () => closeAttemptRef.current(),
+    suppressEscape: suppressShellEscape,
   });
 
   const composition = useSuitcasePanelComposition({
@@ -32,6 +34,7 @@ export const SuitcaseFloatingPanel: React.FC<Props> = ({
     registerCloseAttempt: (handler) => {
       closeAttemptRef.current = handler;
     },
+    onOverlayModalOpenChange: setSuppressShellEscape,
   });
 
   if (!shell.isPortalReady) return null;

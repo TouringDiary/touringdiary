@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect } from 'react';
 import { useModal } from '@/context/ModalContext';
 import { useUndoStack } from '@/hooks/useUndoStack';
 import { buildProductAffiliateLink, buildAffiliateLink, getPartnerById, resolveBestPartner } from '@/services/partnerIntegrationService';
@@ -14,6 +14,12 @@ import { getSuitcaseItemProgress } from '../../suitcase/SuitcaseUtils';
 import { useSuitcaseAssociationFlow } from './useSuitcaseAssociationFlow';
 import { hasDraftWorkspaceInStorage, isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
+import { CATEGORY_ID_MAP, normalizeCategoryName } from '@/domain/packing/packingCategories';
+import {
+  enableOptionalSystemCategory,
+  materializeCategorySetupForWrite,
+} from '@/domain/packing/categorySetup';
+import { buildMissingStandardSeedItems } from '@/services/suitcase/packingSeedService';
 
 interface UseSuitcasePanelCompositionOptions {
   itineraryId: string | null;
@@ -21,6 +27,7 @@ interface UseSuitcasePanelCompositionOptions {
   suitcaseId?: string | null;
   requestClose: () => void;
   registerCloseAttempt?: (handler: () => void) => void;
+  onOverlayModalOpenChange?: (open: boolean) => void;
 }
 
 export function useSuitcasePanelComposition({
@@ -29,6 +36,7 @@ export function useSuitcasePanelComposition({
   suitcaseId,
   requestClose,
   registerCloseAttempt,
+  onOverlayModalOpenChange,
 }: UseSuitcasePanelCompositionOptions) {
   const data = useSuitcasePanelData(propItineraryId, cityType, suitcaseId);
   const { openModal } = useModal();
@@ -62,6 +70,8 @@ export function useSuitcasePanelComposition({
             ...data.activeSuitcase.ui_state,
             category_setup: patch.category_setup,
             hidden_category_ids: patch.hidden_category_ids,
+            dismissed_category_ids: patch.dismissed_category_ids,
+            category_display_order: patch.category_display_order,
           },
         });
       }
@@ -127,6 +137,33 @@ export function useSuitcasePanelComposition({
     pushAction,
   });
 
+  const handleActivateOptionalCategory = useCallback(async (categoryId: string) => {
+    const suitcase = data.activeSuitcase;
+    if (!suitcase) return;
+
+    const { setup } = materializeCategorySetupForWrite(suitcase);
+    const nextSetup = enableOptionalSystemCategory(setup, categoryId);
+    hiddenCategories.enhancedHiddenCategoriesLogic.activateOptionalCategory(categoryId);
+
+    const categoryName = Object.entries(CATEGORY_ID_MAP).find(([, id]) => id === categoryId)?.[0];
+    const seedItems = await buildMissingStandardSeedItems(suitcase, nextSetup);
+    const toAdd = seedItems.filter(
+      (item) => !categoryName || normalizeCategoryName(item.category) === categoryName
+    );
+
+    for (const item of toAdd) {
+      await itemActions.handleAddItemConfirmed(suitcase.id, item.name, item.category);
+    }
+    if (toAdd.length > 0) {
+      await data.fetchUserSuitcases();
+    }
+  }, [
+    data.activeSuitcase,
+    data.fetchUserSuitcases,
+    hiddenCategories.enhancedHiddenCategoriesLogic,
+    itemActions,
+  ]);
+
   const handleLogin = () => {
     requestAnimationFrame(() => {
       openModal('auth', {
@@ -164,6 +201,7 @@ export function useSuitcasePanelComposition({
     if (m.showAssociationModal) return;
     if (m.showDraftOverwriteModal) return;
     if (m.showCategorySetupModal) return;
+    if (m.showRecommendedSuitcaseModal) return;
     if (m.suitcaseToDelete !== null || m.suitcaseToUnlink !== null) return;
     if (m.itemToDelete !== null) return;
     if (m.categoryToDelete !== null) return;
@@ -191,6 +229,17 @@ export function useSuitcasePanelComposition({
   useEffect(() => {
     registerCloseAttempt?.(requestWorkspacePause);
   }, [registerCloseAttempt, requestWorkspacePause]);
+
+  useLayoutEffect(() => {
+    const m = data.modalState;
+    onOverlayModalOpenChange?.(
+      m.showCategorySetupModal || m.showRecommendedSuitcaseModal
+    );
+  }, [
+    data.modalState.showCategorySetupModal,
+    data.modalState.showRecommendedSuitcaseModal,
+    onOverlayModalOpenChange,
+  ]);
 
   const handleConfirmWorkspacePause = useCallback(() => {
     data.modalState.setShowPauseWorkspaceModal(false);
@@ -354,6 +403,7 @@ export function useSuitcasePanelComposition({
     handleConfirmWorkspacePause,
     handleCancelWorkspacePause,
     handleConfirmAssociateSaved,
+    handleActivateOptionalCategory,
   };
 }
 

@@ -1,8 +1,6 @@
 /**
- * Eccezione documentata (MACROFASE A → C):
- * `src/hooks/suitcase/aiSuggestions.ts` resta sorgente runtime AI fino a MACROFASE C.
- * Il catalogo DB (`packing_ai_catalog`) è popolato e gestibile da admin;
- * il motore AI verrà collegato in MACROFASE C.
+ * Dominio packing: categorie, category_setup, catalogo AI legacy (`packingAiSeedSource`).
+ * Il motore runtime AI usa `packing_ai_catalog` (vedi `aiSuggestions.ts`).
  */
 
 export * from './packingCategories';

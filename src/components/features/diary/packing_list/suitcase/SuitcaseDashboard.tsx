@@ -1,9 +1,10 @@
 import React from 'react';
 import { Briefcase, Layout, Lock, ArrowRight } from 'lucide-react';
 import { Suitcase } from '@/types/suitcase';
+import { CategorySetupMap } from '@/types/packingCatalog';
 import { User } from '@supabase/supabase-js';
 import { ResolvedAffiliateProduct } from '@/types/suitcase';
-import { normalizeAllSuitcases } from './SuitcaseUtils';
+import { normalizeAllSuitcases, SUITCASE_TOOLBAR_SHELL_CLASS } from './SuitcaseUtils';
 import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
 import { SuitcaseCard } from './SuitcaseCard';
 import { TemplateRow } from './TemplateRow';
@@ -42,6 +43,11 @@ interface SuitcaseDashboardProps {
   onHover: (id: string | null) => void;
   onTogglePreference: (id: string, preferred: boolean) => void;
   onUseTemplate: (id: string) => void;
+  templatePreviewOverlays?: Record<string, CategorySetupMap>;
+  onTemplatePreviewOverlayChange?: (
+    templateId: string,
+    updater: (prev: CategorySetupMap) => CategorySetupMap
+  ) => void;
   onDuplicateEntity?: (id: string) => void;
   onRequestAssociate?: (id: string) => void;
   onAddCategory: (id: string) => void;
@@ -96,6 +102,8 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   onHover,
   onTogglePreference,
   onUseTemplate,
+  templatePreviewOverlays = {},
+  onTemplatePreviewOverlayChange,
   onDuplicateEntity,
   onRequestAssociate,
   onAddCategory,
@@ -184,17 +192,13 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
     !guestSuitcase;
 
   return (
-    <div className="w-full h-full flex flex-col lg:flex-row relative lg:overflow-y-auto lg:custom-scrollbar">
+    <div className="w-full h-full flex flex-col lg:flex-row relative overflow-hidden lg:overflow-x-visible lg:overflow-y-hidden">
 
       {/* ── AREA SINISTRA (Contenuto Principale) ── */}
-      <div className="flex-1 flex flex-col px-4 pb-4 md:px-6 md:pb-6 lg:px-10 lg:pb-10 lg:pr-6 gap-4 relative z-floating-panel w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex-1 flex flex-col min-h-0 relative z-floating-panel w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-        {/* Toast localizzato sopra la lista */}
-        <SuitcaseToast {...toast} />
-
-        {/* RIGA 2: CONTROL BAR */}
-        <div className="flex items-center justify-between gap-2 shrink-0 border-b border-white/5 pb-2 min-w-0 overflow-visible">
-          <div className="flex bg-slate-950/50 rounded-xl border border-white/5 p-1 min-w-0">
+        <div className={SUITCASE_TOOLBAR_SHELL_CLASS}>
+          <div className="flex bg-slate-800/60 rounded-xl border border-white/10 p-1 min-w-0">
             {(['trip', 'saved', 'default'] as const).map((tab) => {
               const label = tab === 'trip' ? 'Diario' : tab === 'saved' ? 'Salvate' : 'Template';
               const isTrip = tab === 'trip';
@@ -214,11 +218,11 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                   onClick={() => !isDisabled && setSourceTab(tab)}
                   disabled={isDisabled}
                   title={disabledTitle}
-                  className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${isDisabled
+                  className={`flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${isDisabled
                       ? 'opacity-60 cursor-not-allowed text-slate-500'
                       : sourceTab === tab
-                        ? 'bg-indigo-600 text-white shadow-lg'
-                        : 'text-slate-500 hover:text-white'
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-slate-500 hover:text-white hover:bg-white/5'
                     }`}
                 >
                   {isDisabled && <Lock className="w-3 h-3 text-slate-500/50" />}
@@ -236,6 +240,11 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
             showRecommendedSuitcase={showRecommendedSuitcase}
           />
         </div>
+
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto px-4 pb-4 md:px-6 md:pb-6 lg:px-10 lg:pb-10 lg:pr-6 gap-4 custom-scrollbar">
+
+        {/* Toast localizzato sopra la lista */}
+        <SuitcaseToast {...toast} />
 
         {/* WORKSPACE GUEST LOCALE — fuori da tab Salvate */}
         {guestSuitcase && onContinueGuestSuitcase && (
@@ -383,10 +392,19 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                   onAddCategory={onAddCategory}
                   onUpdateSuitcaseLocal={onUpdateSuitcaseLocal}
                   showHiddenCategories={showHiddenCategories}
+                  categorySetupOverlay={
+                    previewTarget ? templatePreviewOverlays[previewTarget.id] : undefined
+                  }
+                  onCategorySetupOverlayChange={
+                    previewTarget && onTemplatePreviewOverlayChange
+                      ? (updater) => onTemplatePreviewOverlayChange(previewTarget.id, updater)
+                      : undefined
+                  }
                 />
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
 

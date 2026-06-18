@@ -1,5 +1,6 @@
 import { Suitcase, SuitcaseCategory, SuitcaseItem } from '@/types/suitcase';
 import {
+  addDismissedCategoryId,
   materializeCategorySetupForWrite,
   setCategoryEnabled,
 } from '@/domain/packing/categorySetup';
@@ -16,6 +17,8 @@ export type CategoryDeleteSnapshot = {
   previousItems: SuitcaseItem[];
   previousCustomCategories: SuitcaseCategory[];
   previousHiddenCategoryIds: string[];
+  previousDismissedCategoryIds: string[];
+  previousCategoryDisplayOrder: string[];
   previousCategorySetup: CategorySetupMap;
 };
 
@@ -30,6 +33,8 @@ export function createCategoryDeleteSnapshot(
     previousItems: [...(suitcase.suitcase_items ?? [])],
     previousCustomCategories: [...(suitcase.custom_categories ?? [])],
     previousHiddenCategoryIds: [...materialized.hidden_category_ids],
+    previousDismissedCategoryIds: [...materialized.dismissed_category_ids],
+    previousCategoryDisplayOrder: [...materialized.category_display_order],
     previousCategorySetup: { ...materialized.setup },
   };
 }
@@ -53,9 +58,15 @@ export function computeCategoryDeleteUpdates(
         ...suitcase.ui_state,
         category_setup: materialized.setup,
         hidden_category_ids: materialized.hidden_category_ids.filter((id) => id !== target.id),
+        dismissed_category_ids: materialized.dismissed_category_ids,
+        category_display_order: materialized.category_display_order.filter(
+          (id) => id !== target.id
+        ),
       },
     };
   }
+
+  const dismissed = addDismissedCategoryId(materialized.dismissed_category_ids, target.id);
 
   return {
     suitcase_items: nextItems,
@@ -63,6 +74,10 @@ export function computeCategoryDeleteUpdates(
       ...suitcase.ui_state,
       category_setup: setCategoryEnabled(materialized.setup, target.id, false),
       hidden_category_ids: materialized.hidden_category_ids,
+      dismissed_category_ids: dismissed,
+      category_display_order: materialized.category_display_order.filter(
+        (id) => id !== target.id
+      ),
     },
   };
 }
@@ -75,6 +90,8 @@ export function computeCategoryRestoreUpdates(
     custom_categories: snapshot.previousCustomCategories,
     ui_state: {
       hidden_category_ids: snapshot.previousHiddenCategoryIds,
+      dismissed_category_ids: snapshot.previousDismissedCategoryIds,
+      category_display_order: snapshot.previousCategoryDisplayOrder,
       category_setup: snapshot.previousCategorySetup,
     },
   };

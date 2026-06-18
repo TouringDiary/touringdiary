@@ -1,19 +1,32 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Eye, EyeOff, CheckSquare } from 'lucide-react';
 import { TemplateCategoryIcon, ItemCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
-import { buildDisplayCategories, getRestorableHiddenCategories } from '@/domain/packing/categorySetup';
+import {
+  buildDisplayCategories,
+  enableOptionalSystemCategory,
+  getAvailableOptionalCategories,
+  getRestorableHiddenCategories,
+  mergeTemplateWithOverlay,
+  resolveCategorySetup,
+} from '@/domain/packing/categorySetup';
 import { normalizeCategoryName } from '@/domain/packing/packingCategories';
-import { Suitcase } from '@/types/suitcase';
+import { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { CategorySetupMap } from '@/types/packingCatalog';
 import { useHiddenCategories } from '@/hooks/suitcase/useHiddenCategories';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
+import { composeTdTemplateItemsAsync } from '@/services/suitcase/packingCompositionService';
 
 interface TemplatePreviewProps {
   template: Suitcase | null;
   sourceTab?: 'trip' | 'saved' | 'default';
   onAddCategory?: (id: string) => void;
-  onUpdateSuitcaseLocal?: (id: string, updates: any) => void;
+  onUpdateSuitcaseLocal?: (id: string, updates: Partial<Suitcase>) => void;
   showHiddenCategories?: boolean;
   readOnly?: boolean;
+  categorySetupOverlay?: CategorySetupMap;
+  onCategorySetupOverlayChange?: (
+    updater: (prev: CategorySetupMap) => CategorySetupMap
+  ) => void;
 }
 
 const PREVIEW_LABELS: Record<'trip' | 'saved' | 'default', string> = {
@@ -29,11 +42,21 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
   onUpdateSuitcaseLocal,
   showHiddenCategories = false,
   readOnly: readOnlyProp,
+  categorySetupOverlay,
+  onCategorySetupOverlayChange,
 }) => {
-  const isReadOnly = readOnlyProp ?? (template ? isTdTemplate(template) : false);
+  const isTd = template ? isTdTemplate(template) : false;
+  const isReadOnly = readOnlyProp ?? isTd;
+  const useOverlayMode = isTd && !!onCategorySetupOverlayChange;
+
+  const editableTemplate = useMemo(
+    () => (template ? mergeTemplateWithOverlay(template, categorySetupOverlay) : null),
+    [template, categorySetupOverlay]
+  );
+
   const { toggleCategory, showAll, isHidden } = useHiddenCategories(
-    template?.id,
-    template ?? undefined,
+    useOverlayMode ? undefined : template?.id,
+    useOverlayMode ? undefined : editableTemplate ?? undefined,
     (patch) => {
       if (template?.id && onUpdateSuitcaseLocal) {
         onUpdateSuitcaseLocal(template.id, {
@@ -41,41 +64,99 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
             ...template.ui_state,
             category_setup: patch.category_setup,
             hidden_category_ids: patch.hidden_category_ids,
+            dismissed_category_ids: patch.dismissed_category_ids,
+            category_display_order: patch.category_display_order,
           },
         });
       }
     }
   );
 
+  const [displayItems, setDisplayItems] = useState<SuitcaseItem[]>([]);
+
+  useEffect(() => {
+    if (!editableTemplate) {
+      setDisplayItems([]);
+      return;
+    }
+
+    if (!isTd) {
+      setDisplayItems(editableTemplate.suitcase_items ?? []);
+      return;
+    }
+
+    let cancelled = false;
+
+    void composeTdTemplateItemsAsync(editableTemplate, {
+      categorySetup: resolveCategorySetup(editableTemplate),
+    }).then((items) => {
+      if (!cancelled) {
+        setDisplayItems(items);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editableTemplate, isTd]);
+
+  const overlayIsHidden = (categoryId: string): boolean => {
+    if (!editableTemplate) return false;
+    const setup = resolveCategorySetup(editableTemplate);
+    if (setup[categoryId]?.enabled === false) return true;
+    return (editableTemplate.ui_state?.hidden_category_ids ?? []).includes(categoryId);
+  };
+
+  const resolvedIsHidden = useOverlayMode ? overlayIsHidden : isHidden;
+
   const categoryCounts = useMemo(() => {
-    if (!template?.suitcase_items) return {};
-    return template.suitcase_items.reduce((acc: Record<string, number>, item: { category: string }) => {
+    return displayItems.reduce((acc: Record<string, number>, item) => {
       const cat = normalizeCategoryName(item.category);
       acc[cat] = (acc[cat] || 0) + 1;
       return acc;
     }, {});
-  }, [template]);
+  }, [displayItems]);
 
   const allCategories = useMemo(() => {
-    if (!template) return [];
-    return buildDisplayCategories(template);
-  }, [template]);
+    if (!editableTemplate) return [];
+    return buildDisplayCategories(editableTemplate);
+  }, [editableTemplate]);
 
   const visibleCategories = useMemo(() => {
-    return allCategories.filter((cat) => cat.source === 'system' || !isHidden(cat.id));
-  }, [allCategories, isHidden]);
+    return allCategories.filter((cat) => cat.source === 'system' || !resolvedIsHidden(cat.id));
+  }, [allCategories, resolvedIsHidden]);
 
   const hiddenCategories = useMemo(() => {
-    if (!template) return [];
-    return getRestorableHiddenCategories(template, isHidden);
-  }, [template, isHidden]);
+    if (!editableTemplate) return [];
+    return getRestorableHiddenCategories(editableTemplate, resolvedIsHidden);
+  }, [editableTemplate, resolvedIsHidden]);
+
+  const availableOptionalCategories = useMemo(() => {
+    if (!editableTemplate) return [];
+    return getAvailableOptionalCategories(editableTemplate);
+  }, [editableTemplate]);
 
   const progress = useMemo(
-    () => getSuitcaseItemProgress(template?.suitcase_items),
-    [template?.suitcase_items]
+    () => getSuitcaseItemProgress(displayItems),
+    [displayItems]
   );
 
-  if (!template) {
+  const handleActivateOptional = (categoryId: string) => {
+    if (!template || !onCategorySetupOverlayChange) return;
+    onCategorySetupOverlayChange((prevOverlay) => {
+      const base = resolveCategorySetup(template);
+      const next = enableOptionalSystemCategory(
+        { ...base, ...prevOverlay },
+        categoryId
+      );
+      return {
+        ...prevOverlay,
+        [categoryId]: next[categoryId],
+      };
+    });
+  };
+
+  if (!template || !editableTemplate) {
     return (
       <div className="flex items-center justify-center text-slate-600 text-xs italic rounded-xl border border-dashed border-slate-800 p-6 text-center h-full">
         Scegli un template per visualizzare la preview
@@ -103,7 +184,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
             </span>
           </div>
         </div>
-        {onAddCategory && (
+        {onAddCategory && !useOverlayMode && (
           <button
             onClick={() => !isReadOnly && onAddCategory(template.id)}
             disabled={isReadOnly}
@@ -116,7 +197,28 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
       </div>
 
       <div className="max-h-[380px] lg:overflow-y-auto lg:custom-scrollbar pr-1">
-                <div className="grid grid-cols-3 gap-3">
+        {availableOptionalCategories.length > 0 && useOverlayMode && (
+          <div className="mb-4 pb-4 border-b border-white/5">
+            <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 px-1">
+              Categorie disponibili
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {availableOptionalCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleActivateOptional(cat.id)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/20 transition-all group"
+                  title={`Attiva ${cat.name}`}
+                >
+                  <Plus className="w-3 h-3 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
+                  <span className="text-[9px] font-bold text-emerald-300 group-hover:text-white uppercase tracking-wider">{cat.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3">
           {visibleCategories.map((cat) => {
             const count = categoryCounts[cat.name] || 0;
             return (
@@ -124,15 +226,16 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                 key={cat.id}
                 className={`group relative flex flex-col items-center justify-center gap-1.5 p-2 rounded-2xl border border-white/5 bg-slate-800/20 transition-all ${count === 0 ? 'opacity-30' : 'opacity-100'}`}
               >
-                {/* ICONA OCCHIO PER NASCONDERE */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); if (!isReadOnly) toggleCategory(cat.id); }}
-                  disabled={isReadOnly}
-                  className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/60 text-slate-400 opacity-0 lg:group-hover:opacity-100 hover:text-indigo-400 transition-all z-floating-panel disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-400"
-                  title={isReadOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
-                >
-                  <Eye className="w-3 h-3" />
-                </button>
+                {!useOverlayMode && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (!isReadOnly) toggleCategory(cat.id); }}
+                    disabled={isReadOnly}
+                    className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/60 text-slate-400 opacity-0 lg:group-hover:opacity-100 hover:text-indigo-400 transition-all z-floating-panel disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+                    title={isReadOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
+                  >
+                    <Eye className="w-3 h-3" />
+                  </button>
+                )}
 
                 <div className="relative">
                   <div className="w-12 h-12 2xl:w-14 2xl:h-14 rounded-2xl flex items-center justify-center bg-slate-800/40 text-slate-400 lg:group-hover:text-indigo-400 transition-colors overflow-hidden">
@@ -152,14 +255,13 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
           })}
         </div>
 
-        {/* BOX CATEGORIE NASCOSTE */}
-        {hiddenCategories.length > 0 && showHiddenCategories && (
+        {hiddenCategories.length > 0 && showHiddenCategories && !useOverlayMode && (
           <div className="mt-4 pt-4 border-t border-white/5">
             <div className="flex items-center justify-between mb-3 px-1">
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 Categorie nascoste <EyeOff className="w-3 h-3" />
               </h4>
-              <button 
+              <button
                 onClick={() => !isReadOnly && showAll()}
                 disabled={isReadOnly}
                 className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-indigo-400"

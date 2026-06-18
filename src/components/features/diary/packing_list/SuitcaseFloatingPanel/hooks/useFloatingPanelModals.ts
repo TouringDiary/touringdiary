@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SuitcaseItem } from '@/types/suitcase';
+import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import type { CategoryDeleteTarget } from '@/utils/suitcaseCategoryDelete';
 import type { DraftWorkspaceKind } from '@/types/suitcase';
 
@@ -30,6 +30,8 @@ export const useFloatingPanelModals = () => {
   const [suitcaseToAssociate, setSuitcaseToAssociate] = useState<string | null>(null);
   /** intent: DRAFT_OVERWRITE_* oppure templateId in attesa dopo conferma sovrascrittura draft */
   const [draftOverwriteIntent, setDraftOverwriteIntent] = useState<string | null>(null);
+  /** Sorgenti merge scelte dall'utente in attesa dopo conferma sovrascrittura draft */
+  const [pendingMergeSources, setPendingMergeSources] = useState<Suitcase[] | null>(null);
 
   return {
     suitcaseToDelete, setSuitcaseToDelete,
@@ -47,5 +49,6 @@ export const useFloatingPanelModals = () => {
     isCreatingFromConfiguration, setIsCreatingFromConfiguration,
     suitcaseToAssociate, setSuitcaseToAssociate,
     draftOverwriteIntent, setDraftOverwriteIntent,
+    pendingMergeSources, setPendingMergeSources,
   };
 };

@@ -9,7 +9,7 @@ interface EditorLogicProps {
   activeSuitcase: Suitcase | null;
   handleUpdateItemConfirmed: (itemId: string, updates: Partial<SuitcaseItem>, currentItem: SuitcaseItem) => Promise<void>;
   handleDeleteItemConfirmed: (itemToDelete: SuitcaseItem) => Promise<void>;
-  handleAddItemConfirmed: (suitcaseId: string, name: string, category: string) => Promise<any>;
+  handleAddItemConfirmed: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
   handleRestoreFromBlacklist: (rejection: SuitcaseRejection) => Promise<void>;
   handleRemoveFromBlacklist: (rejectionId: string, name: string) => Promise<void>;
   modalState: any;

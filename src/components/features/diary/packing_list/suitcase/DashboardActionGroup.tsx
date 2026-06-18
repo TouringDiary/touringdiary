@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus, Layout, Sparkles, type LucideIcon } from 'lucide-react';
+import { SUITCASE_TOOLBAR_BTN_CLASS } from './SuitcaseUtils';
 
 interface DashboardActionGroupProps {
   isCreating: boolean;
@@ -30,7 +31,7 @@ const IconActionButton: React.FC<IconActionButtonProps> = ({
     onClick={onClick}
     disabled={disabled}
     aria-label={label}
-    className={`relative group flex items-center justify-center p-2 rounded-xl transition-all disabled:opacity-50 ${className}`}
+    className={`relative group ${SUITCASE_TOOLBAR_BTN_CLASS} disabled:opacity-50 ${className}`}
   >
     <Icon className="w-4 h-4" aria-hidden />
     <span
@@ -56,16 +57,16 @@ export const DashboardActionGroup: React.FC<DashboardActionGroupProps> = ({
         onClick={onCreateSuitcase}
         disabled={isCreating}
         icon={Plus}
-        className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-indigo-300 border border-indigo-500/20"
+        className="bg-indigo-600/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-500/40"
       />
 
       {showRecommendedSuitcase && onOpenRecommendedSuitcase && (
         <IconActionButton
-          label="Crea valigia consigliata"
+          label="Crea valigia personalizzata"
           onClick={onOpenRecommendedSuitcase}
           disabled={isCreating}
           icon={Sparkles}
-          className="bg-indigo-900/40 hover:bg-indigo-800/50 text-indigo-300 hover:text-white border border-indigo-400/30"
+          className="bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500/40"
         />
       )}
 
@@ -74,7 +75,7 @@ export const DashboardActionGroup: React.FC<DashboardActionGroupProps> = ({
         onClick={onCreateTemplate}
         disabled={isCreating}
         icon={Layout}
-        className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/5"
+        className="bg-slate-800/80 border-white/10 text-slate-400 hover:text-white hover:bg-slate-700 hover:border-white/15"
       />
     </div>
   );

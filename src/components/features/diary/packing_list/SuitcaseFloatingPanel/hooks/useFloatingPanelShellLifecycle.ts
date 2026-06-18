@@ -10,6 +10,8 @@ interface UseFloatingPanelShellLifecycleOptions {
   workspaceId: WorkspaceId;
   /** Intercetta X / ESC / overlay prima della chiusura animata (es. modale Pausa). */
   onCloseAttempt?: () => void;
+  /** Disattiva ESC del panel quando una modale overlay figlia è aperta. */
+  suppressEscape?: boolean;
 }
 
 export interface FloatingPanelShellLifecycle {
@@ -27,6 +29,7 @@ export interface FloatingPanelShellLifecycle {
 export function useFloatingPanelShellLifecycle({
   workspaceId,
   onCloseAttempt,
+  suppressEscape = false,
 }: UseFloatingPanelShellLifecycleOptions): FloatingPanelShellLifecycle {
   const [isPortalReady, setIsPortalReady] = useState(false);
   const [isEntered, setIsEntered] = useState(false);
@@ -64,7 +67,7 @@ export function useFloatingPanelShellLifecycle({
 
   usePanelEnterAnimation({ panelRef, isPortalReady, setIsEntered });
 
-  useGlobalModalEscape(isPortalReady && !isClosing, attemptClose);
+  useGlobalModalEscape(isPortalReady && !isClosing && !suppressEscape, attemptClose);
   useWorkspaceCloseRegistration(workspaceId, attemptClose);
 
   const isPanelRaised = isEntered && !isClosing;

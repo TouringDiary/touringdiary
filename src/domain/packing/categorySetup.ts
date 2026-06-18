@@ -22,10 +22,20 @@ export function hasPersistedCategorySetup(suitcase: Suitcase): boolean {
   );
 }
 
+export function getDismissedCategoryIds(suitcase: Suitcase): string[] {
+  return suitcase.ui_state?.dismissed_category_ids ?? [];
+}
+
+export function getCategoryDisplayOrder(suitcase: Suitcase): string[] {
+  return suitcase.ui_state?.category_display_order ?? [];
+}
+
 /** Materializza setup scrivibile: inferenza legacy + hidden_category_ids solo per custom. */
 export function materializeCategorySetupForWrite(suitcase: Suitcase): {
   setup: CategorySetupMap;
   hidden_category_ids: string[];
+  dismissed_category_ids: string[];
+  category_display_order: string[];
 } {
   const hiddenIds = suitcase.ui_state?.hidden_category_ids ?? [];
   const setup = hasPersistedCategorySetup(suitcase)
@@ -35,9 +45,14 @@ export function materializeCategorySetupForWrite(suitcase: Suitcase): {
   return {
     setup,
     hidden_category_ids: hiddenIds.filter((id) => !isSystemCategoryId(id)),
+    dismissed_category_ids: getDismissedCategoryIds(suitcase),
+    category_display_order: getCategoryDisplayOrder(suitcase),
   };
 }
 
+/**
+ * Nascondi / mostra categoria sistema — preserva seeded (MACROFASE C).
+ */
 export function setCategoryEnabled(
   setup: CategorySetupMap,
   categoryId: string,
@@ -48,9 +63,43 @@ export function setCategoryEnabled(
     ...setup,
     [categoryId]: {
       enabled,
-      seeded: enabled ? current.seeded : false,
+      seeded: current.seeded,
     },
   };
+}
+
+/** Attiva categoria opzionale (Bambini / Animali) con seed standard. */
+export function enableOptionalSystemCategory(
+  setup: CategorySetupMap,
+  categoryId: string,
+  options: { seeded?: boolean } = {}
+): CategorySetupMap {
+  return {
+    ...setup,
+    [categoryId]: {
+      enabled: true,
+      seeded: options.seeded ?? true,
+    },
+  };
+}
+
+export function addDismissedCategoryId(
+  dismissedIds: string[],
+  categoryId: string
+): string[] {
+  if (dismissedIds.includes(categoryId)) return dismissedIds;
+  return [...dismissedIds, categoryId];
+}
+
+export function removeDismissedCategoryId(
+  dismissedIds: string[],
+  categoryId: string
+): string[] {
+  return dismissedIds.filter((id) => id !== categoryId);
+}
+
+export function isCategoryDismissed(suitcase: Suitcase, categoryId: string): boolean {
+  return getDismissedCategoryIds(suitcase).includes(categoryId);
 }
 
 /** Normalizza ui_state per persistenza (materializza setup legacy al primo save). */
@@ -59,20 +108,38 @@ export function ensureUiStateForPersist(suitcase: Suitcase): SuitcaseUiState {
   return {
     hidden_category_ids: materialized.hidden_category_ids,
     category_setup: materialized.setup,
+    dismissed_category_ids: materialized.dismissed_category_ids,
+    category_display_order: materialized.category_display_order,
   };
 }
 
+function isOptionalNeverActivated(setup: CategorySetupMap, categoryId: string): boolean {
+  const entry = setup[categoryId];
+  return entry?.enabled === false && entry?.seeded !== true;
+}
+
+/**
+ * Categorie nascoste recuperabili (hide utente) — esclude opzionali mai attivate e dismissate.
+ */
 export function getRestorableHiddenCategories(
   suitcase: Suitcase,
   isHidden: (categoryId: string) => boolean
 ): DisplayCategory[] {
+  const setup = resolveCategorySetup(suitcase);
+  const dismissed = new Set(getDismissedCategoryIds(suitcase));
   const hidden: DisplayCategory[] = [];
 
   for (const name of CATEGORY_ORDER) {
     const id = getCategoryId(name);
-    if (isHidden(id)) {
-      hidden.push({ id, name, icon_key: null, source: 'system' });
+    if (!isHidden(id)) continue;
+    if (dismissed.has(id)) continue;
+    if (
+      (ADDITIONAL_CATEGORY_NAMES as readonly string[]).includes(name) &&
+      isOptionalNeverActivated(setup, id)
+    ) {
+      continue;
     }
+    hidden.push({ id, name, icon_key: null, source: 'system' });
   }
 
   for (const cat of suitcase.custom_categories ?? []) {
@@ -87,6 +154,28 @@ export function getRestorableHiddenCategories(
   }
 
   return hidden;
+}
+
+/**
+ * Categorie opzionali (Bambini / Animali) disabilitate ma attivabili.
+ */
+export function getAvailableOptionalCategories(
+  suitcase: Suitcase,
+  setup?: CategorySetupMap
+): DisplayCategory[] {
+  const resolved = setup ?? resolveCategorySetup(suitcase);
+  const dismissed = new Set(getDismissedCategoryIds(suitcase));
+  const available: DisplayCategory[] = [];
+
+  for (const name of ADDITIONAL_CATEGORY_NAMES) {
+    const id = CATEGORY_ID_MAP[name];
+    if (dismissed.has(id)) continue;
+    const entry = resolved[id];
+    if (entry?.enabled !== false) continue;
+    available.push({ id, name, icon_key: null, source: 'system' });
+  }
+
+  return available;
 }
 
 export const FAMIGLIA_TEMPLATE_TITLE_PATTERN = /famiglia|family/i;
@@ -110,18 +199,12 @@ export function getDefaultCategorySetupForTdTemplate(title: string): CategorySet
   const setup = getDefaultCategorySetupForNewEntity();
   if (FAMIGLIA_TEMPLATE_TITLE_PATTERN.test(title)) {
     setup[CATEGORY_ID_MAP.Bambini] = { enabled: true, seeded: true };
+    setup[CATEGORY_ID_MAP.Animali] = { enabled: true, seeded: true };
   }
   return setup;
 }
 
-/** Inferisce setup da valigie legacy senza category_setup in ui_state.
- *  Tre stati distinti:
- *  - assente: enabled false, seeded false
- *  - presente vuota: enabled true, seeded false
- *  - presente precompilata: enabled true, seeded true
- *
- *  Legacy: tutte le categorie erano visibili salvo hidden_category_ids.
- */
+/** Inferisce setup da valigie legacy senza category_setup in ui_state. */
 export function inferCategorySetupFromSuitcase(suitcase: Suitcase): CategorySetupMap {
   const items = suitcase.suitcase_items ?? [];
   const hiddenIds = new Set(suitcase.ui_state?.hidden_category_ids ?? []);
@@ -161,6 +244,24 @@ export function resolveCategorySetup(suitcase: Suitcase): CategorySetupMap {
   return inferCategorySetupFromSuitcase(suitcase);
 }
 
+/** Applica overlay sessione preview su template senza mutare la sorgente TD. */
+export function mergeTemplateWithOverlay(
+  template: Suitcase,
+  overlay?: CategorySetupMap
+): Suitcase {
+  if (!overlay || Object.keys(overlay).length === 0) return template;
+  return {
+    ...template,
+    ui_state: {
+      ...template.ui_state,
+      category_setup: {
+        ...resolveCategorySetup(template),
+        ...overlay,
+      },
+    },
+  };
+}
+
 export function isCategoryEnabled(suitcase: Suitcase, categoryName: SystemCategoryName): boolean {
   const id = getCategoryId(categoryName);
   const setup = resolveCategorySetup(suitcase);
@@ -194,6 +295,23 @@ export interface DisplayCategory {
   source: 'system' | 'user';
 }
 
+function sortByDisplayOrder(
+  categories: DisplayCategory[],
+  displayOrder: string[]
+): DisplayCategory[] {
+  if (displayOrder.length === 0) return categories;
+
+  const indexMap = new Map(displayOrder.map((id, i) => [id, i]));
+  return [...categories].sort((a, b) => {
+    const ia = indexMap.get(a.id);
+    const ib = indexMap.get(b.id);
+    if (ia !== undefined && ib !== undefined) return ia - ib;
+    if (ia !== undefined) return -1;
+    if (ib !== undefined) return 1;
+    return 0;
+  });
+}
+
 export function buildDisplayCategories(suitcase: Suitcase): DisplayCategory[] {
   const enabledNames = new Set(getEnabledSystemCategoryNames(suitcase));
   const systemCats: DisplayCategory[] = CATEGORY_ORDER.filter((name) => enabledNames.has(name)).map(
@@ -212,7 +330,50 @@ export function buildDisplayCategories(suitcase: Suitcase): DisplayCategory[] {
     source: 'user' as const,
   }));
 
-  return [...systemCats, ...customCats];
+  const merged = [...systemCats, ...customCats];
+  return sortByDisplayOrder(merged, getCategoryDisplayOrder(suitcase));
+}
+
+export function moveCategoryInDisplayOrder(
+  order: string[],
+  categoryId: string,
+  direction: 'up' | 'down',
+  visibleIds: string[]
+): string[] {
+  const baseOrder =
+    order.length > 0
+      ? [...order]
+      : visibleIds.filter((id, idx, arr) => arr.indexOf(id) === idx);
+
+  for (const id of visibleIds) {
+    if (!baseOrder.includes(id)) baseOrder.push(id);
+  }
+
+  const visibleSet = new Set(visibleIds);
+  const working = baseOrder.filter((id) => visibleSet.has(id));
+  const idx = working.indexOf(categoryId);
+  if (idx === -1) return baseOrder;
+
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= working.length) return baseOrder;
+
+  const nextWorking = [...working];
+  [nextWorking[idx], nextWorking[swapIdx]] = [nextWorking[swapIdx], nextWorking[idx]];
+
+  const workingSet = new Set(working);
+  const result: string[] = [];
+  let wi = 0;
+  for (const id of baseOrder) {
+    if (workingSet.has(id)) {
+      result.push(nextWorking[wi++]);
+    } else {
+      result.push(id);
+    }
+  }
+  while (wi < nextWorking.length) {
+    result.push(nextWorking[wi++]);
+  }
+  return result;
 }
 
 export function categorySetupToUiStatePatch(setup: CategorySetupMap): { category_setup: CategorySetupMap } {
@@ -240,4 +401,12 @@ export function itemsToSeedFromStandard(
       is_ai_suggestion: false,
       quantity: 1,
     }));
+}
+
+/** Conta categorie nascoste recuperabili (esclude opzionali disponibili e dismissate). */
+export function countRestorableHiddenCategories(
+  suitcase: Suitcase,
+  isHidden: (categoryId: string) => boolean
+): number {
+  return getRestorableHiddenCategories(suitcase, isHidden).length;
 }

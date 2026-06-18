@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Check, Sparkles, ShoppingBag, Package, ChevronRight, Eye, EyeOff, Ban, CheckSquare, CloudOff } from 'lucide-react';
+import { Plus, Trash2, Check, Sparkles, ShoppingBag, Package, ChevronRight, ChevronUp, ChevronDown, Eye, EyeOff, Ban, CheckSquare, CloudOff, Wrench } from 'lucide-react';
 import { ItemCategoryIcon, getCategoryId, CATEGORY_ICON_REGISTRY } from './SuitcaseUtils';
-import { buildDisplayCategories, getRestorableHiddenCategories } from '@/domain/packing/categorySetup';
+import { buildDisplayCategories, getAvailableOptionalCategories, getEnabledSystemCategoryNames, getRestorableHiddenCategories } from '@/domain/packing/categorySetup';
 import { normalizeCategoryName } from '@/domain/packing/packingCategories';
 import { Suitcase, SuitcaseItem, RuntimeAffiliateProduct, SuitcaseCategory } from '@/types/suitcase';
 import { AiSuggestion } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
@@ -11,8 +11,10 @@ import { SuitcaseSidePanel } from './SuitcaseSidePanel';
 import { normalizeItemName } from '@/utils/tagDerivation';
 import { SuitcaseToast } from '../SuitcaseFloatingPanel/components/SuitcaseToast';
 import { AiSuggestionsModal } from './AiSuggestionsModal';
+import { SUITCASE_TOOLBAR_BTN_CLASS, SUITCASE_TOOLBAR_SHELL_CLASS, SUITCASE_VIEW_MODE_ACTION_BTN_CLASS } from './SuitcaseUtils';
+import { isTdTemplate } from '@/utils/suitcaseDomain';
 
-import { ToastVariant } from '@/types/toast';
+import { ToastVariant, CATEGORY_ADDED_TOAST } from '@/types/toast';
 
 interface HiddenCategories {
   showHiddenCategories: boolean;
@@ -20,9 +22,12 @@ interface HiddenCategories {
   isEyeFlashing: boolean;
   enhancedHiddenCategoriesLogic: {
     toggleCategory: (id: string) => void;
+    activateOptionalCategory: (id: string) => void;
+    moveCategory: (id: string, direction: 'up' | 'down', visibleIds: string[]) => void;
     showAll: () => void;
     isHidden: (id: string) => boolean;
     hiddenIds: string[];
+    restorableHiddenCount: number;
   };
 }
 
@@ -54,6 +59,7 @@ interface SuitcaseEditorViewProps {
   selectedItemName: string | null;
   onSelectItem: (name: string | null) => void;
   onDeleteCategory?: (category: { id: string; name: string; source: string }) => void;
+  onActivateOptionalCategory?: (categoryId: string) => void | Promise<void>;
   hiddenCategories: HiddenCategories;
   showToast?: (message: string, description?: string, variant?: ToastVariant) => void;
   toast?: { visible: boolean; message: string; description?: string; variant?: ToastVariant };
@@ -62,6 +68,8 @@ interface SuitcaseEditorViewProps {
   isAddingNewCategory: boolean;
   setIsAddingNewCategory: (val: boolean) => void;
   showGuestWarning?: boolean;
+  panelViewMode?: 'viewer' | 'editor';
+  onSetViewMode?: (mode: 'viewer' | 'editor') => void;
 }
 
 // Componente locale per la selezione icone
@@ -110,6 +118,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   selectedItemName,
   onSelectItem,
   onDeleteCategory,
+  onActivateOptionalCategory,
   hiddenCategories,
   showToast,
   toast = { visible: false, message: "" },
@@ -122,10 +131,19 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   onAcceptAiSuggestion,
   onRejectAiSuggestion,
   onShowMoreAi,
-  hasMoreAi
+  hasMoreAi,
+  panelViewMode = 'editor',
+  onSetViewMode
 }) => {
   const { showHiddenCategories, setShowHiddenCategories, isEyeFlashing, enhancedHiddenCategoriesLogic } = hiddenCategories;
-  const { toggleCategory, showAll, isHidden, hiddenIds } = enhancedHiddenCategoriesLogic;
+  const {
+    toggleCategory,
+    activateOptionalCategory,
+    moveCategory,
+    showAll,
+    isHidden,
+    restorableHiddenCount,
+  } = enhancedHiddenCategoriesLogic;
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [newItemName, setNewItemName] = useState("");
@@ -163,6 +181,11 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
     setNewCatName("");
     setNewCatIcon("Package");
     setIsAddingNewCategory(false);
+    showToast?.(
+      CATEGORY_ADDED_TOAST.message,
+      CATEGORY_ADDED_TOAST.description,
+      'success'
+    );
   };
 
   const allCategories = buildDisplayCategories(suitcase);
@@ -172,6 +195,17 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   );
 
   const hiddenCategoriesList = getRestorableHiddenCategories(suitcase, isHidden);
+  const availableOptionalCategories = getAvailableOptionalCategories(suitcase);
+  const visibleCategoryIds = visibleCategories.map((cat) => cat.id);
+  const aiInitialCategories = getEnabledSystemCategoryNames(suitcase);
+
+  const handleActivateOptional = async (categoryId: string) => {
+    if (onActivateOptionalCategory) {
+      await onActivateOptionalCategory(categoryId);
+    } else {
+      activateOptionalCategory(categoryId);
+    }
+  };
 
   const groupedItems = allCategories.reduce((acc: Record<string, SuitcaseItem[]>, cat) => {
     acc[cat.name] = (suitcase.suitcase_items || []).filter(
@@ -181,21 +215,20 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   }, {});
 
   const selectedItemData = suitcase.suitcase_items?.find(i => i.name === selectedItemName);
+  const canToggleViewMode = !!onSetViewMode && !isTdTemplate(suitcase);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-0 items-start w-full h-full lg:overflow-hidden bg-transparent">
+    <div className="flex flex-col lg:flex-row gap-0 items-stretch w-full h-full lg:min-h-0 lg:overflow-y-hidden lg:overflow-x-visible bg-transparent">
       {/* LEFT: Items List */}
-      <div className="flex-1 w-full h-full overflow-y-auto px-4 md:px-6 lg:px-10 pb-4 md:pb-6 lg:pb-10 lg:pr-6 custom-scrollbar relative">
-        {/* LINGUETTA OPERATIVA - Design Raffinato a Pillola */}
-        <div className="sticky top-0 z-20 flex justify-center pointer-events-none">
-          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-xl rounded-b-[2rem] border-x border-b border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] px-6 md:px-10 py-2 md:py-2.5 flex items-center gap-6 md:gap-12 transition-all duration-500">
-            
-            {/* GRUPPO 1: OGGETTI */}
+      <div className="flex-1 w-full h-full flex flex-col min-h-0 overflow-hidden lg:overflow-visible">
+        <div className={SUITCASE_TOOLBAR_SHELL_CLASS}>
+          <div className="flex items-center justify-between gap-3 w-full min-w-0">
+            <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-center md:justify-start min-w-0">
             <div className="flex items-center gap-2 md:gap-3">
               <button
                 onClick={() => !readOnly && setShowAiModal(true)}
                 disabled={readOnly || isSeedingAi}
-                className={`flex items-center justify-center gap-2.5 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500/10 disabled:hover:text-amber-400 text-[10px] font-black uppercase tracking-widest group shrink-0 shadow-lg shadow-amber-500/5`}
+                className={`${SUITCASE_TOOLBAR_BTN_CLASS} bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500/40 disabled:hover:bg-amber-500/10 disabled:hover:text-amber-400 group`}
                 title={readOnly ? 'Non disponibile in sola lettura' : undefined}
               >
                 <Sparkles className={`w-3.5 h-3.5 group-hover:scale-110 transition-transform ${isSeedingAi ? 'animate-spin' : ''}`} />
@@ -206,12 +239,12 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
               <button
                 onClick={() => !readOnly && onOpenBlacklist()}
                 disabled={readOnly}
-                className={`flex items-center justify-center gap-2.5 px-4 py-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest group relative shrink-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`${SUITCASE_TOOLBAR_BTN_CLASS} group relative ${
                   readOnly
-                    ? 'bg-slate-800 border-white/5 text-slate-500'
-                    : isBlacklistFlashing 
-                    ? 'bg-amber-500 animate-pulse ring-2 ring-amber-300 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)]' 
-                    : 'bg-slate-800 border-white/5 text-slate-400 hover:text-white hover:bg-slate-700'
+                    ? 'bg-slate-800/50 border-white/10 text-slate-500'
+                    : isBlacklistFlashing
+                      ? 'bg-amber-500 animate-pulse ring-2 ring-amber-300 text-white border-amber-400/50'
+                      : 'bg-slate-800/80 border-white/10 text-slate-400 hover:text-white hover:bg-slate-700 hover:border-white/15'
                 }`}
                 title={readOnly ? 'Non disponibile in sola lettura' : 'Oggetti rifiutati'}
               >
@@ -227,46 +260,62 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
               </button>
             </div>
 
-            {/* Divider Verticale Elegante */}
-            <div className="w-px h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent shrink-0" />
+            <div className="hidden sm:block w-px h-8 bg-white/10 shrink-0" />
 
-            {/* GRUPPO 2: CATEGORIE */}
             <div className="flex items-center gap-2 md:gap-3">
               <button
                 onClick={() => !readOnly && setIsAddingNewCategory(true)}
                 disabled={readOnly}
-                className="flex items-center justify-center gap-2.5 px-4 py-2 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-indigo-600/10 disabled:hover:text-indigo-400 text-[10px] font-black uppercase tracking-widest group shrink-0 shadow-lg shadow-indigo-500/5"
+                className={`${SUITCASE_TOOLBAR_BTN_CLASS} bg-indigo-600/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-500/40 disabled:hover:bg-indigo-600/10 disabled:hover:text-indigo-400 group`}
                 title={readOnly ? 'Non disponibile in sola lettura' : undefined}
               >
                 <Plus className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                <span>NUOVA</span>
+                <span>Nuova</span>
               </button>
 
               <button
                 onClick={() => !readOnly && setShowHiddenCategories(!showHiddenCategories)}
-                disabled={readOnly || hiddenIds.length === 0}
-                className={`flex items-center justify-center gap-2.5 px-4 py-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest group relative shrink-0 shadow-lg ${
-                  readOnly || hiddenIds.length === 0
-                    ? 'bg-slate-800/50 border-white/5 text-slate-600 cursor-not-allowed opacity-50'
-                    : showHiddenCategories 
-                      ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' 
-                      : 'bg-slate-800 border-white/5 text-slate-400 hover:text-white'
+                disabled={readOnly || restorableHiddenCount === 0}
+                className={`${SUITCASE_TOOLBAR_BTN_CLASS} group relative ${
+                  readOnly || restorableHiddenCount === 0
+                    ? 'bg-slate-800/50 border-white/10 text-slate-600 cursor-not-allowed opacity-50'
+                    : showHiddenCategories
+                      ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400'
+                      : 'bg-slate-800/80 border-white/10 text-slate-400 hover:text-white hover:border-white/15'
                 }`}
-                title={readOnly ? 'Non disponibile in sola lettura' : hiddenIds.length === 0 ? 'Nessuna categoria nascosta' : 'Categorie nascoste'}
+                title={readOnly ? 'Non disponibile in sola lettura' : restorableHiddenCount === 0 ? 'Nessuna categoria nascosta' : 'Categorie nascoste'}
               >
                 {showHiddenCategories ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                 <span className="hidden sm:inline">Nascoste</span>
-                {hiddenIds.length > 0 && (
+                {restorableHiddenCount > 0 && (
                   <span className={`flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-white text-[9px] font-black border-2 border-slate-900 transition-all ml-0.5 ${isEyeFlashing ? 'bg-amber-500 scale-110' : 'bg-slate-700'}`}>
-                    {hiddenIds.length}
+                    {restorableHiddenCount}
                   </span>
                 )}
               </button>
             </div>
+            </div>
+
+            {canToggleViewMode && (
+              <button
+                type="button"
+                onClick={() => onSetViewMode!(panelViewMode === 'viewer' ? 'editor' : 'viewer')}
+                className={`${SUITCASE_VIEW_MODE_ACTION_BTN_CLASS} shrink-0 ml-auto`}
+                aria-label={panelViewMode === 'viewer' ? 'Modifica' : 'Visualizzazione'}
+                title={panelViewMode === 'viewer' ? 'Modifica' : 'Visualizzazione'}
+              >
+                {panelViewMode === 'viewer' ? (
+                  <Wrench className="w-4 h-4 md:w-5 md:h-5 shrink-0" aria-hidden />
+                ) : (
+                  <Eye className="w-4 h-4 md:w-5 md:h-5 shrink-0" aria-hidden />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="pt-8 space-y-8">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 lg:px-10 pb-4 md:pb-6 lg:pb-10 lg:pr-6 custom-scrollbar relative">
+        <div className="pt-6 space-y-8">
           {/* Toast localizzato sopra la lista */}
           <SuitcaseToast {...toast} />
 
@@ -297,7 +346,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         )}
 
         {/* BOX CATEGORIE NASCOSTE - ORA SOPRA LE CATEGORIE NORMALI */}
-        {hiddenIds.length > 0 && showHiddenCategories && !readOnly && (
+        {restorableHiddenCount > 0 && showHiddenCategories && !readOnly && (
           <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="bg-slate-950/40 rounded-3xl border border-white/5 py-4 px-5 shadow-xl shadow-black/20">
               <div className="flex items-center justify-between mb-3 px-1">
@@ -321,6 +370,29 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                   >
                     <Eye className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
                     <span className="text-[9px] font-bold text-slate-400 group-hover:text-white uppercase tracking-wider">{cat.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {availableOptionalCategories.length > 0 && !readOnly && (
+          <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="bg-slate-950/40 rounded-3xl border border-emerald-500/10 py-4 px-5 shadow-xl shadow-black/20">
+              <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 px-1">
+                Categorie disponibili
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {availableOptionalCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleActivateOptional(cat.id)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/20 transition-all group"
+                    title={`Attiva ${cat.name}`}
+                  >
+                    <Plus className="w-3 h-3 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
+                    <span className="text-[9px] font-bold text-emerald-300 group-hover:text-white uppercase tracking-wider">{cat.name}</span>
                   </button>
                 ))}
               </div>
@@ -409,6 +481,22 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
               </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
+                    onClick={() => !readOnly && moveCategory(cat.id, 'up', visibleCategoryIds)}
+                    disabled={readOnly || visibleCategoryIds.indexOf(cat.id) <= 0}
+                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    title={readOnly ? 'Non disponibile in sola lettura' : 'Sposta su'}
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => !readOnly && moveCategory(cat.id, 'down', visibleCategoryIds)}
+                    disabled={readOnly || visibleCategoryIds.indexOf(cat.id) >= visibleCategoryIds.length - 1}
+                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    title={readOnly ? 'Non disponibile in sola lettura' : 'Sposta giù'}
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
                     onClick={() => !readOnly && setActiveCategoryForAdd(cat.name === activeCategoryForAdd ? null : cat.name)}
                     disabled={readOnly}
                     className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-indigo-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
@@ -435,7 +523,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                     }
                     disabled={readOnly}
                     className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-slate-400"
-                    title={readOnly ? 'Non disponibile in sola lettura' : 'Elimina categoria'}
+                    title={readOnly ? 'Non disponibile in sola lettura' : 'Elimina definitivamente la categoria'}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -492,6 +580,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           );
         })}
         </div>
+        </div>
       </div>
 
       {/* RIGHT: Sidebar Suggestions Unificata (Sticky & Collapsible) */}
@@ -522,6 +611,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       <AiSuggestionsModal
         isOpen={showAiModal}
         onClose={() => setShowAiModal(false)}
+        initialCategories={aiInitialCategories}
         onGenerate={(categories, mode) => {
           onSeedAi(categories, mode);
         }}

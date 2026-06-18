@@ -23,6 +23,7 @@ import { useFloatingPanelState } from './useFloatingPanelState';
 import { useFloatingPanelModals } from './useFloatingPanelModals';
 import { getRejectionsBySuitcaseAsync } from '@/services/suitcase/suitcaseRejectionsService';
 import { SuitcaseRejection } from '@/types/suitcase';
+import { CategorySetupMap } from '@/types/packingCatalog';
 import { isDiaryAssociable as checkDiaryAssociable } from '@/utils/itineraryAssociability';
 import {
   getDraftLocalRejections,
@@ -81,6 +82,23 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     variant: 'success',
     visible: false
   });
+
+  const [templatePreviewOverlays, setTemplatePreviewOverlays] = useState<
+    Record<string, CategorySetupMap>
+  >({});
+
+  const updateTemplatePreviewOverlay = useCallback(
+    (
+      templateId: string,
+      updater: (prev: CategorySetupMap) => CategorySetupMap
+    ) => {
+      setTemplatePreviewOverlays((prev) => ({
+        ...prev,
+        [templateId]: updater(prev[templateId] ?? {}),
+      }));
+    },
+    []
+  );
 
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -438,6 +456,8 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     isBlacklistFlashing,
     triggerBlacklistFlash,
     fetchBlacklist,
+    templatePreviewOverlays,
+    updateTemplatePreviewOverlay,
     ...suggestions
   };
 };

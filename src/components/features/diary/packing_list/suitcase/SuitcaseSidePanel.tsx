@@ -22,7 +22,7 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
 }) => {
   return (
     <div 
-      className={`flex flex-col shrink-0 lg:border-l border-white/5 bg-[#030508] lg:bg-[#030508]/80 h-auto lg:min-h-full relative z-0 transition-all duration-500 ease-in-out ${
+      className={`flex flex-col shrink-0 lg:border-l border-white/10 bg-[#030508] lg:bg-[#030508]/80 h-auto lg:min-h-full relative z-30 overflow-visible transition-all duration-500 ease-in-out ${
         sticky ? 'sticky top-0' : ''
       } ${
         isOpen 
@@ -33,9 +33,11 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
       {/* Toggle Button (only if collapsible) */}
       {isCollapsible && (
         <button
+          type="button"
           onClick={onToggle}
-          className="absolute -left-3 top-12 w-6 h-6 bg-amber-500 rounded-full border border-slate-900 flex items-center justify-center text-slate-950 hover:bg-amber-400 transition-colors z-dropdown shadow-lg shadow-amber-500/20 active:scale-90"
-          title={isOpen ? "Chiudi Suggerimenti" : "Apri Suggerimenti"}
+          className="absolute -left-3 top-12 w-6 h-6 bg-amber-500 rounded-full border border-slate-900 flex items-center justify-center text-slate-950 hover:bg-amber-400 transition-colors z-dropdown shadow-lg shadow-amber-500/20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
+          aria-label={isOpen ? 'Chiudi suggerimenti' : 'Apri suggerimenti'}
+          title={isOpen ? 'Chiudi Suggerimenti' : 'Apri Suggerimenti'}
         >
           {isOpen ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>

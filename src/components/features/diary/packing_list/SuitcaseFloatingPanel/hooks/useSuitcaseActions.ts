@@ -5,6 +5,8 @@ import {
   hasDraftWorkspaceInStorage,
   isDraftWorkspaceId,
   abandonDraftWorkspace,
+  saveGuestSuitcase,
+  toDraftWorkspaceSeedItems,
 } from '@/utils/guestSuitcaseHelper';
 import {
   createDraftWorkspaceFromTemplate,
@@ -23,6 +25,9 @@ import { duplicateSuitcaseEntityAsync, fetchClonedTemplateDetailsAsync } from '@
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { SUITCASE_MODIFIED_TOAST, ToastVariant } from '@/types/toast';
 import { isTdTemplate, isUserTemplate, isAssociableSuitcase, getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
+import { resolveCategorySetup, mergeTemplateWithOverlay, ensureUiStateForPersist } from '@/domain/packing/categorySetup';
+import { composeTdTemplateItemsAsync } from '@/services/suitcase/packingCompositionService';
+import { CategorySetupMap } from '@/types/packingCatalog';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
 interface ActionsProps {
@@ -75,7 +80,10 @@ interface ActionsProps {
   setIsCreatingFromConfiguration: (v: boolean) => void;
   draftOverwriteIntent: string | null;
   setDraftOverwriteIntent: (v: string | null) => void;
+  pendingMergeSources: Suitcase[] | null;
+  setPendingMergeSources: (v: Suitcase[] | null) => void;
   handleLinkExisting: (suitcaseId: string) => Promise<void>;
+  templatePreviewOverlays?: Record<string, CategorySetupMap>;
 }
 
 export const useSuitcaseActions = ({
@@ -128,7 +136,10 @@ export const useSuitcaseActions = ({
   setIsCreatingFromConfiguration,
   draftOverwriteIntent,
   setDraftOverwriteIntent,
-  handleLinkExisting
+  pendingMergeSources,
+  setPendingMergeSources,
+  handleLinkExisting,
+  templatePreviewOverlays = {},
 }: ActionsProps) => {
 
   const openNewSuitcaseEditor = (suitcase: Suitcase) => {
@@ -154,31 +165,64 @@ export const useSuitcaseActions = ({
 
     const userId = currentUser?.id || 'guest';
     const isGuest = userId === 'guest' || !currentUser;
+    const overlay = templatePreviewOverlays[templateId];
+
+    let resolvedTemplate = template;
+    if (overlay && Object.keys(overlay).length > 0) {
+      const withSetup = mergeTemplateWithOverlay(template, overlay);
+      if (isTdTemplate(template)) {
+        const items = await composeTdTemplateItemsAsync(template, {
+          categorySetup: resolveCategorySetup(withSetup),
+        });
+        resolvedTemplate = {
+          ...withSetup,
+          suitcase_items: items,
+        };
+      } else {
+        resolvedTemplate = withSetup;
+      }
+    }
 
     if (isGuest) {
-      let newTitle = template.title;
+      let newTitle = resolvedTemplate.title;
       if (newTitle?.startsWith('Template ')) {
         newTitle = newTitle.replace('Template ', 'Valigia ');
       }
       await cloneSuitcase(templateId, null, userId, newTitle);
       const draftSc = getGuestSuitcase();
-      if (draftSc) {
+      if (draftSc && resolvedTemplate !== template) {
+        saveGuestSuitcase({
+          ...draftSc,
+          suitcase_items: toDraftWorkspaceSeedItems(resolvedTemplate.suitcase_items ?? [], {
+            is_checked: false,
+            is_ai_suggestion: false,
+          }) as SuitcaseItem[],
+          custom_categories: resolvedTemplate.custom_categories ?? draftSc.custom_categories,
+          ui_state: ensureUiStateForPersist({
+            ...draftSc,
+            ui_state: resolvedTemplate.ui_state,
+            custom_categories: resolvedTemplate.custom_categories ?? draftSc.custom_categories,
+          }),
+        });
+      }
+      const updatedDraft = getGuestSuitcase();
+      if (updatedDraft) {
         await fetchUserSuitcases();
-        openNewSuitcaseEditor(draftSc);
+        openNewSuitcaseEditor(updatedDraft);
       }
       return;
     }
 
-    const draft = createDraftWorkspaceFromTemplate(userId, template);
+    const draft = createDraftWorkspaceFromTemplate(userId, resolvedTemplate);
     openNewSuitcaseEditor(draft);
   };
 
-  const openMergedTemplatesAsDraftWorkspace = async (templates: Suitcase[]) => {
-    if (!currentUser || templates.length === 0) return;
+  const openMergedSourcesAsDraftWorkspace = async (sources: Suitcase[]) => {
+    if (!currentUser || sources.length === 0) return;
 
-    const mergedItems = mergeTemplateItems(templates);
-    const names = templates.map((t) => t.title).join(' + ');
-    const icon = templates[0]?.icon ?? '🎒';
+    const mergedItems = mergeTemplateItems(sources);
+    const names = sources.map((s) => s.title).join(' + ');
+    const icon = sources[0]?.icon ?? '🎒';
     const draft = createDraftWorkspaceFromMergedItems(
       currentUser.id,
       `Valigia ${names}`,
@@ -283,11 +327,12 @@ export const useSuitcaseActions = ({
     setIsMerging(true);
     try {
       if (hasDraftWorkspaceInStorage()) {
+        setPendingMergeSources(suggestedTemplates);
         setDraftOverwriteIntent(DRAFT_OVERWRITE_SUGGESTED_TEMPLATES);
         setShowDraftOverwriteModal(true);
         return;
       }
-      await openMergedTemplatesAsDraftWorkspace(suggestedTemplates);
+      await openMergedSourcesAsDraftWorkspace(suggestedTemplates);
     } finally {
       setIsMerging(false);
     }
@@ -297,7 +342,7 @@ export const useSuitcaseActions = ({
     if (!currentUser) {
       showToast(
         'Accesso richiesto',
-        'Effettua il login per usare la Valigia Consigliata.',
+        'Effettua il login per usare la Valigia Personalizzata.',
         'destructive'
       );
       return;
@@ -305,18 +350,19 @@ export const useSuitcaseActions = ({
     setShowRecommendedSuitcaseModal(true);
   };
 
-  const handleConfirmRecommendedSuitcase = async (selectedTemplates: Suitcase[]) => {
-    if (!currentUser || selectedTemplates.length === 0) return;
+  const handleConfirmRecommendedSuitcase = async (selectedSources: Suitcase[]) => {
+    if (!currentUser || selectedSources.length === 0) return;
     setIsMerging(true);
     try {
       if (hasDraftWorkspaceInStorage()) {
+        setPendingMergeSources(selectedSources);
         setDraftOverwriteIntent(DRAFT_OVERWRITE_SUGGESTED_TEMPLATES);
         setShowDraftOverwriteModal(true);
         setShowRecommendedSuitcaseModal(false);
         return;
       }
       setShowRecommendedSuitcaseModal(false);
-      await openMergedTemplatesAsDraftWorkspace(selectedTemplates);
+      await openMergedSourcesAsDraftWorkspace(selectedSources);
     } finally {
       setIsMerging(false);
     }
@@ -500,7 +546,9 @@ export const useSuitcaseActions = ({
       return;
     }
     if (intent === DRAFT_OVERWRITE_SUGGESTED_TEMPLATES) {
-      await openMergedTemplatesAsDraftWorkspace(suggestedTemplates);
+      const sources = pendingMergeSources ?? suggestedTemplates;
+      setPendingMergeSources(null);
+      await openMergedSourcesAsDraftWorkspace(sources);
       return;
     }
     if (intent?.startsWith(`${DRAFT_OVERWRITE_SAVE_AS_TEMPLATE}:`)) {

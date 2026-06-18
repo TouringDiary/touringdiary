@@ -110,6 +110,7 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
         onClose={() => {
           modalState.setShowDraftOverwriteModal(false);
           modalState.setDraftOverwriteIntent(null);
+          modalState.setPendingMergeSources(null);
         }}
       />
 
@@ -146,12 +147,12 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
 
       <DeleteConfirmationModal
         isOpen={modalState.categoryToDelete !== null}
-        title="Elimina categoria?"
+        title="Elimina definitivamente la categoria?"
         message={
           modalState.categoryToDelete
             ? modalState.categoryToDelete.itemCount > 0
-              ? `Vuoi eliminare la categoria '${modalState.categoryToDelete.name}'?\n\nVerranno rimossi ${modalState.categoryToDelete.itemCount} oggett${modalState.categoryToDelete.itemCount === 1 ? 'o' : 'i'}.`
-              : `Vuoi eliminare la categoria '${modalState.categoryToDelete.name}'?\n\nLa sezione verrà rimossa dalla valigia.`
+              ? `Vuoi eliminare definitivamente la categoria '${modalState.categoryToDelete.name}'?\n\nVerranno rimossi ${modalState.categoryToDelete.itemCount} oggett${modalState.categoryToDelete.itemCount === 1 ? 'o' : 'i'} e la categoria non comparirà tra le nascoste.\n\nPer nasconderla temporaneamente usa l'icona occhio.`
+              : `Vuoi eliminare definitivamente la categoria '${modalState.categoryToDelete.name}'?\n\nLa sezione verrà rimossa dalla valigia e non comparirà tra le categorie nascoste.\n\nPer nasconderla temporaneamente usa l'icona occhio.`
             : ''
         }
         confirmLabel="Elimina categoria"

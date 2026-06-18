@@ -306,3 +306,15 @@ export const resolveAffiliateProductImage = ({
 
   return null;
 };
+
+/** Shell condivisa per toolbar dashboard ed editor valigia. */
+export const SUITCASE_TOOLBAR_SHELL_CLASS =
+  'shrink-0 flex items-center justify-between gap-3 md:gap-4 px-4 md:px-6 lg:px-10 py-2.5 bg-slate-900/95 backdrop-blur-md border-b border-white/10 min-w-0';
+
+/** Pulsante base toolbar valigia (stati attivi/disabled via classi aggiuntive). */
+export const SUITCASE_TOOLBAR_BTN_CLASS =
+  'flex items-center justify-center gap-2 px-3 md:px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed';
+
+/** Pulsante icona quadrato per switch lettura/modifica nell'header valigia. */
+export const SUITCASE_VIEW_MODE_ACTION_BTN_CLASS =
+  'shrink-0 flex items-center justify-center p-2.5 rounded-xl bg-slate-800/50 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40';

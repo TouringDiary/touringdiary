@@ -9,6 +9,7 @@ import { fetchActiveStandardItemsAsync } from './packingCatalogService';
 import { serializeUiState, parseUiState } from './suitcaseCoreService';
 import { persistSuitcaseItemsFromRuntimeAsync } from './suitcaseItemsService';
 import { supabase } from '../supabaseClient';
+import { normalizeItemName } from '@/utils/tagDerivation';
 
 /**
  * Genera item seed per nuova valigia / template utente da packing_standard_items.
@@ -53,6 +54,8 @@ export const fetchStandardSeedItemsForSetupAsync = async (
 
 export const getDefaultUiStateForNewEntity = (): SuitcaseUiState => ({
   hidden_category_ids: [],
+  dismissed_category_ids: [],
+  category_display_order: [],
   category_setup: getDefaultCategorySetupForNewEntity(),
 });
 
@@ -79,12 +82,14 @@ export const applyStandardSeedToSuitcaseInMemory = async (
 };
 
 /**
- * Persiste category_setup + hidden_category_ids (solo custom) su valigia esistente.
+ * Persiste category_setup, hidden_category_ids, dismissed e display order su valigia esistente.
  */
 export const persistCategoryVisibilityAsync = async (
   suitcaseId: string,
-  categorySetup: CategorySetupMap,
-  hiddenCategoryIds: string[]
+  patch: Pick<
+    SuitcaseUiState,
+    'category_setup' | 'hidden_category_ids' | 'dismissed_category_ids' | 'category_display_order'
+  >
 ): Promise<void> => {
   const { data, error: fetchError } = await supabase
     .from('suitcases')
@@ -97,8 +102,10 @@ export const persistCategoryVisibilityAsync = async (
   const parsed = parseUiState(data?.ui_state);
   const merged: SuitcaseUiState = {
     ...parsed,
-    category_setup: categorySetup,
-    hidden_category_ids: hiddenCategoryIds,
+    category_setup: patch.category_setup ?? parsed.category_setup,
+    hidden_category_ids: patch.hidden_category_ids ?? parsed.hidden_category_ids,
+    dismissed_category_ids: patch.dismissed_category_ids ?? parsed.dismissed_category_ids ?? [],
+    category_display_order: patch.category_display_order ?? parsed.category_display_order ?? [],
   };
 
   const { error } = await supabase
@@ -149,4 +156,19 @@ export const seedStandardItemsOnSuitcaseAsync = async (
   if (items.length === 0) return 0;
   await persistSuitcaseItemsFromRuntimeAsync(suitcaseId, items);
   return items.length;
+};
+
+/**
+ * Item seed standard mancanti rispetto alla valigia corrente (es. attivazione categoria opzionale).
+ */
+export const buildMissingStandardSeedItems = async (
+  suitcase: Suitcase,
+  setup: CategorySetupMap
+): Promise<SuitcaseItem[]> => {
+  const existing = new Set(
+    (suitcase.suitcase_items ?? []).map((i) => normalizeItemName(i.name))
+  );
+  const rows = await fetchActiveStandardItemsAsync();
+  const candidates = buildStandardSeedItems(rows, setup, suitcase.id);
+  return candidates.filter((item) => !existing.has(normalizeItemName(item.name)));
 };

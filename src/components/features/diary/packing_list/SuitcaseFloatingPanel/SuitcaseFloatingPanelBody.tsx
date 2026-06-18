@@ -39,6 +39,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
     handleConfirmWorkspacePause,
     handleCancelWorkspacePause,
     handleConfirmAssociateSaved,
+    handleActivateOptionalCategory,
   } = composition;
 
   if (showLoadingShell) {
@@ -90,17 +91,16 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         suggestedTemplateIds={data.suggestedTemplateIds ?? []}
         globalTemplates={data.globalTemplates}
         userOwnedTemplates={data.userOwnedTemplates}
+        savedSuitcases={data.savedSuitcases}
       />
 
-      {actions.pendingWorkspaceCreate && (
-        <CategorySetupConfigurationModal
-          isOpen={actions.showCategorySetupModal}
-          title={actions.pendingWorkspaceCreate.title}
-          isSubmitting={data.modalState.isCreatingFromConfiguration}
-          onConfirm={actions.handleConfirmCategorySetup}
-          onClose={actions.handleCancelCategorySetup}
-        />
-      )}
+      <CategorySetupConfigurationModal
+        isOpen={actions.showCategorySetupModal && !!actions.pendingWorkspaceCreate}
+        title={actions.pendingWorkspaceCreate?.title ?? 'Nuova Valigia'}
+        isSubmitting={data.modalState.isCreatingFromConfiguration}
+        onConfirm={actions.handleConfirmCategorySetup}
+        onClose={actions.handleCancelCategorySetup}
+      />
 
       <SuitcaseHeader
         viewMode={data.panelState.viewMode}
@@ -112,12 +112,10 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         totalCount={totalCount}
         progressPerc={progressPerc}
         saveStatus={data.saveStatus}
-        isCreatingSuitcase={data.isCreatingSuitcase}
         isLinkedToItinerary={data.linkedSuitcaseIds?.includes(data.panelState.activeTabId || '') || false}
         onEditTitle={actions.startEditingTitle}
         onSaveTitle={actions.handleSaveSuitcaseTitle}
         onTitleChange={data.setTempTitle}
-        onCreateSuitcase={actions.handleCreateNew}
         onClose={actions.handleClose}
         onDelete={() => data.modalState.setSuitcaseToDelete(data.panelState.activeTabId)}
         onUnlink={() => data.panelState.activeTabId && data.modalState.setSuitcaseToUnlink(data.panelState.activeTabId)}
@@ -127,16 +125,15 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         }
         onLink={() => data.panelState.activeTabId && actions.handleLinkExisting(data.panelState.activeTabId)}
         onBackToSelector={handleBackToSelector}
-        onCreateTemplate={actions.handleCreateTemplate}
         performUndo={performUndo}
         performRedo={performRedo}
         canUndo={canUndo}
         canRedo={canRedo}
-        sourceTab={data.panelState.sourceTab}
-        setSourceTab={data.panelState.setSourceTab}
       />
-      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
-        <div className={`flex flex-1 flex-col min-h-0 ${data.panelState.viewMode === 'selector' ? 'lg:overflow-hidden overflow-y-auto p-0' : 'overflow-hidden p-0'}`}>
+      <div className="flex flex-1 flex-col min-h-0 overflow-x-visible overflow-y-hidden">
+        <div className={`flex flex-1 flex-col min-h-0 overflow-x-visible p-0 ${
+          data.panelState.viewMode === 'selector' ? 'overflow-y-auto' : 'overflow-y-hidden'
+        }`}>
           {data.isLoadingUser && data.panelState.viewMode === 'selector' && (
             <div className="text-center text-slate-400 py-12">Caricamento valigie...</div>
           )}
@@ -175,7 +172,9 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               onDeleteSuitcase={(id) => data.modalState.setSuitcaseToDelete(id)}
               onHover={data.panelState.setHoveredItemId}
               onTogglePreference={data.togglePreference}
-              onUseTemplate={actions.handleUseTemplate}
+              onUseTemplate={(id) => actions.handleUseTemplate(id)}
+              templatePreviewOverlays={data.templatePreviewOverlays}
+              onTemplatePreviewOverlayChange={data.updateTemplatePreviewOverlay}
               onDuplicateEntity={actions.handleDuplicateEntity}
               onRequestAssociate={(id) => data.modalState.setSuitcaseToAssociate(id)}
               onCreateSuitcase={actions.handleCreateNew}
@@ -234,7 +233,10 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               aiSuggestions={data.aiSuggestions}
               onAcceptAiSuggestion={async (name, category) => {
                 if (data.activeSuitcase) {
-                  await itemActions.handleAddItemConfirmed(data.activeSuitcase.id, name, category);
+                  await itemActions.handleAddItemConfirmed(data.activeSuitcase.id, name, category, {
+                    accepted_from_ai: true,
+                    is_ai_suggestion: false,
+                  });
                   data.setAiSuggestions(prev => prev.map(s => s.name === name ? { ...s, status: 'accepted' } : s));
                 }
               }}
@@ -259,6 +261,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               selectedItemName={data.panelState.selectedItemName}
               autoOpenNewCategory={data.panelState.autoOpenNewCategory}
               hiddenCategories={hiddenCategories}
+              onActivateOptionalCategory={handleActivateOptionalCategory}
               showToast={data.showToast}
               toast={data.toast}
               blacklistCount={data.blacklistCount}
@@ -269,6 +272,10 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
                 !data.currentUser &&
                 !!data.activeSuitcase?.id.startsWith('guest-suitcase-')
               }
+              panelViewMode={
+                data.panelState.viewMode === 'viewer' ? 'viewer' : 'editor'
+              }
+              onSetViewMode={(mode) => data.panelState.setViewMode(mode)}
             />
           )}
         </div>

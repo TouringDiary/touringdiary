@@ -7,19 +7,31 @@ import {
   insertDraftAiSuggestions,
   isDraftWorkspaceId,
 } from '@/utils/guestSuitcaseHelper';
-import { TAG_ITEM_MAP, UNIVERSAL_DEFAULTS } from '@/domain/packing/packingAiSeedSource';
-
-// ECCEZIONE DOCUMENTATA (MACROFASE A→C): catalogo hardcoded fino a collegamento packing_ai_catalog.
-// Vedi docs/packing/MACROFASE_A_EXCEPTIONS.md
+import { getCategoryId, normalizeCategoryName } from '@/domain/packing/packingCategories';
+import { resolveCategorySetup } from '@/domain/packing/categorySetup';
+import { Suitcase } from '@/types/suitcase';
+import { isTdTemplate } from '@/utils/suitcaseDomain';
+import {
+  fetchActiveAiCatalogAsync,
+  fetchActiveStandardItemsAsync,
+  fetchTemplateSpecificItemsAsync,
+} from '@/services/suitcase/packingCatalogService';
 
 export const seedAiSuggestions = async (
   suitcaseId: string,
   tags: string[],
   existingItems: { name: string; is_ai_suggestion: boolean }[],
   suggestionContext?: string,
-  selectedCategories?: string[]
+  selectedCategories?: string[],
+  suitcase?: Suitcase
 ): Promise<number> => {
-  const toInsert = await getAiCandidates(suitcaseId, tags, existingItems, selectedCategories);
+  const toInsert = await getAiCandidates(
+    suitcaseId,
+    tags,
+    existingItems,
+    selectedCategories,
+    suitcase
+  );
 
   if (toInsert.length === 0) return 0;
 
@@ -32,13 +44,41 @@ export const seedAiSuggestions = async (
   return toInsert.length;
 };
 
+async function buildCatalogExclusions(suitcase?: Suitcase): Promise<Set<string>> {
+  const excluded = new Set<string>();
+  if (!suitcase) return excluded;
+
+  const setup = resolveCategorySetup(suitcase);
+  const standardRows = await fetchActiveStandardItemsAsync();
+
+  for (const row of standardRows) {
+    const cat = normalizeCategoryName(row.category);
+    const catId = getCategoryId(cat);
+    const entry = setup[catId];
+    if (entry?.enabled === false) continue;
+    if (entry?.seeded !== true) continue;
+    if (row.tier === 'additional_ai_only') continue;
+    excluded.add(normalizeItemName(row.name));
+  }
+
+  const templateId = suitcase.source_template_id ?? (isTdTemplate(suitcase) ? suitcase.id : null);
+  if (templateId) {
+    const templateItems = await fetchTemplateSpecificItemsAsync(templateId);
+    for (const item of templateItems) {
+      excluded.add(normalizeItemName(item.name));
+    }
+  }
+
+  return excluded;
+}
+
 export const getAiCandidates = async (
   suitcaseId: string,
   tags: string[],
   existingItems: { name: string; is_ai_suggestion: boolean }[],
-  selectedCategories?: string[]
+  selectedCategories?: string[],
+  suitcase?: Suitcase
 ): Promise<{ name: string; category: string }[]> => {
-  // 1. Carica blacklist: locale su workspace draft, DB su valigie persistite
   let rejections: string[] = [];
   if (isDraftWorkspaceId(suitcaseId)) {
     const draft = getGuestSuitcase();
@@ -50,36 +90,42 @@ export const getAiCandidates = async (
       const dbRejections = await getRejectionsBySuitcaseAsync(suitcaseId);
       rejections = dbRejections.map((r) => normalizeItemName(r.name));
     } catch (e) {
-      console.error("[getAiCandidates] Failed to load rejections:", e);
+      console.error('[getAiCandidates] Failed to load rejections:', e);
     }
   }
 
-  // 2. Unifica oggetti esistenti e blacklist nel Set di esclusione
   const existingNormalized = new Set([
-    ...existingItems.map(i => normalizeItemName(i.name)),
-    ...rejections
+    ...existingItems.map((i) => normalizeItemName(i.name)),
+    ...rejections,
   ]);
 
-  const candidates: { name: string; category: string }[] = [...UNIVERSAL_DEFAULTS];
-  
-  // Aggiungiamo tag impliciti basati sui tag esistenti per arricchire la generazione
-  const enrichedTags = [...tags];
-  if (tags.includes('mare') || tags.includes('montagna')) enrichedTags.push('igiene_completa', 'abbigliamento_base');
-  if (tags.includes('volo') || tags.includes('lungo_raggio')) enrichedTags.push('elettronica_completa', 'farmacia');
+  const catalogExclusions = await buildCatalogExclusions(suitcase);
+  for (const name of catalogExclusions) {
+    existingNormalized.add(name);
+  }
 
-  // Logica Categorie -> Tag (Bambini -> famiglia, Animali -> pet)
+  const enrichedTags = [...tags];
+  if (tags.includes('mare') || tags.includes('montagna')) {
+    enrichedTags.push('igiene_completa', 'abbigliamento_base');
+  }
+  if (tags.includes('volo') || tags.includes('lungo_raggio')) {
+    enrichedTags.push('elettronica_completa', 'farmacia');
+  }
   if (selectedCategories?.includes('Bambini')) enrichedTags.push('famiglia');
   if (selectedCategories?.includes('Animali')) enrichedTags.push('pet');
 
-  enrichedTags.forEach(tag => {
-    if (TAG_ITEM_MAP[tag]) candidates.push(...TAG_ITEM_MAP[tag]);
-  });
+  const catalog = await fetchActiveAiCatalogAsync();
+  const matchesTags = (itemTags: string[]) =>
+    itemTags.includes('universal') || itemTags.some((tag) => enrichedTags.includes(tag));
+
+  const candidates = catalog
+    .filter((item) => matchesTags(item.tags))
+    .map((item) => ({ name: item.name, category: item.category }));
 
   const seen = new Set<string>();
-  const filtered = candidates.filter(item => {
+  return candidates.filter((item) => {
     const key = normalizeItemName(item.name);
-    
-    // Filtro per categoria se specificato
+
     if (selectedCategories && selectedCategories.length > 0) {
       if (!selectedCategories.includes(item.category)) return false;
     }
@@ -88,6 +134,4 @@ export const getAiCandidates = async (
     seen.add(key);
     return true;
   });
-
-  return filtered;
 };

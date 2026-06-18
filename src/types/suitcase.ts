@@ -141,6 +141,10 @@ export interface SuitcaseUiState {
   hidden_category_ids: string[];
   /** Setup categorie core/aggiuntive — MACROFASE A */
   category_setup?: CategorySetupMap;
+  /** Categorie sistema eliminate (non ripristinabili da "nascoste") — MACROFASE C */
+  dismissed_category_ids?: string[];
+  /** Ordine visualizzazione categorie (id sistema + custom) — MACROFASE C */
+  category_display_order?: string[];
 }
 
 /** Rifiuto AI memorizzato localmente su workspace draft (pre-save). */

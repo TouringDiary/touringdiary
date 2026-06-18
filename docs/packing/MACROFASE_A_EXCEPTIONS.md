@@ -2,14 +2,14 @@
 
 ## Motore AI (`aiSuggestions.ts`)
 
-**Stato:** eccezione **documentata e intenzionale** fino a MACROFASE C.
+**Stato:** eccezione **risolta in MACROFASE C**.
 
-| Aspetto | Sorgente attuale | Sorgente target (MACROFASE C) |
-|---------|------------------|-------------------------------|
-| Catalogo candidati | `TAG_ITEM_MAP` + `UNIVERSAL_DEFAULTS` hardcoded | `packing_ai_catalog` (DB) |
-| Formula differenza | Non implementata | `Catalog − (Standard + Template + Esistenti + Rifiuti)` |
+| Aspetto | Prima (MACROFASE A) | Dopo (MACROFASE C) |
+|---------|---------------------|---------------------|
+| Catalogo candidati | `TAG_ITEM_MAP` + `UNIVERSAL_DEFAULTS` hardcoded | `packing_ai_catalog` (DB) via `fetchActiveAiCatalogAsync` |
+| Formula differenza | Non implementata | `Catalog − (Standard seed + Template specifici + Esistenti + Rifiuti)` |
 
-Il catalogo DB è già creato, popolato (~170 item) e modificabile da admin senza deploy.
+Il catalogo DB è la sorgente runtime; `packingAiSeedSource.ts` resta come riferimento legacy/admin.
 
 ## `suitcase_items` su template TD
 

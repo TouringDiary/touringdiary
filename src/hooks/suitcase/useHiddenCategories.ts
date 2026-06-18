@@ -1,18 +1,23 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
+  countRestorableHiddenCategories,
+  enableOptionalSystemCategory,
   isSystemCategoryId,
   materializeCategorySetupForWrite,
+  moveCategoryInDisplayOrder,
+  removeDismissedCategoryId,
   setCategoryEnabled,
 } from '@/domain/packing/categorySetup';
 import { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
 import { persistCategoryVisibilityAsync } from '@/services/suitcase/packingSeedService';
+import { SuitcaseUiState } from '@/types/suitcase';
 import { getGuestSuitcase, isDraftWorkspaceId, saveGuestSuitcase } from '@/utils/guestSuitcaseHelper';
 import { Suitcase } from '@/types/suitcase';
 
-export type CategoryVisibilityPatch = {
-  category_setup: CategorySetupMap;
-  hidden_category_ids: string[];
-};
+export type CategoryVisibilityPatch = Pick<
+  SuitcaseUiState,
+  'category_setup' | 'hidden_category_ids' | 'dismissed_category_ids' | 'category_display_order'
+>;
 
 /**
  * Gestisce visibilità categorie via category_setup.enabled (sistema)
@@ -24,22 +29,50 @@ export const useHiddenCategories = (
   onSync?: (patch: CategoryVisibilityPatch) => void
 ) => {
   const materialized = useMemo(
-    () => (suitcase ? materializeCategorySetupForWrite(suitcase) : { setup: {}, hidden_category_ids: [] }),
+    () =>
+      suitcase
+        ? materializeCategorySetupForWrite(suitcase)
+        : {
+            setup: {},
+            hidden_category_ids: [],
+            dismissed_category_ids: [],
+            category_display_order: [],
+          },
     [suitcase]
   );
 
   const [categorySetup, setCategorySetup] = useState<CategorySetupMap>(materialized.setup);
   const [customHiddenIds, setCustomHiddenIds] = useState<string[]>(materialized.hidden_category_ids);
+  const [dismissedIds, setDismissedIds] = useState<string[]>(materialized.dismissed_category_ids);
+  const [displayOrder, setDisplayOrder] = useState<string[]>(materialized.category_display_order);
   const isInitialMount = useRef(true);
 
   useEffect(() => {
     setCategorySetup(materialized.setup);
     setCustomHiddenIds(materialized.hidden_category_ids);
-  }, [suitcaseId, materialized.setup, materialized.hidden_category_ids]);
+    setDismissedIds(materialized.dismissed_category_ids);
+    setDisplayOrder(materialized.category_display_order);
+  }, [
+    suitcaseId,
+    materialized.setup,
+    materialized.hidden_category_ids,
+    materialized.dismissed_category_ids,
+    materialized.category_display_order,
+  ]);
 
   const emitSync = useCallback(
-    (setup: CategorySetupMap, hiddenIds: string[]) => {
-      onSync?.({ category_setup: setup, hidden_category_ids: hiddenIds });
+    (
+      setup: CategorySetupMap,
+      hiddenIds: string[],
+      dismissed: string[],
+      order: string[]
+    ) => {
+      onSync?.({
+        category_setup: setup,
+        hidden_category_ids: hiddenIds,
+        dismissed_category_ids: dismissed,
+        category_display_order: order,
+      });
     },
     [onSync]
   );
@@ -50,7 +83,7 @@ export const useHiddenCategories = (
         const enabled = categorySetup[categoryId]?.enabled === false;
         const nextSetup = setCategoryEnabled(categorySetup, categoryId, enabled);
         setCategorySetup(nextSetup);
-        emitSync(nextSetup, customHiddenIds);
+        emitSync(nextSetup, customHiddenIds, dismissedIds, displayOrder);
         return;
       }
 
@@ -58,9 +91,29 @@ export const useHiddenCategories = (
         ? customHiddenIds.filter((id) => id !== categoryId)
         : [...customHiddenIds, categoryId];
       setCustomHiddenIds(nextHidden);
-      emitSync(categorySetup, nextHidden);
+      emitSync(categorySetup, nextHidden, dismissedIds, displayOrder);
     },
-    [categorySetup, customHiddenIds, emitSync]
+    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
+  );
+
+  const activateOptionalCategory = useCallback(
+    (categoryId: string) => {
+      const nextSetup = enableOptionalSystemCategory(categorySetup, categoryId);
+      const nextDismissed = removeDismissedCategoryId(dismissedIds, categoryId);
+      setCategorySetup(nextSetup);
+      setDismissedIds(nextDismissed);
+      emitSync(nextSetup, customHiddenIds, nextDismissed, displayOrder);
+    },
+    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
+  );
+
+  const moveCategory = useCallback(
+    (categoryId: string, direction: 'up' | 'down', visibleIds: string[]) => {
+      const nextOrder = moveCategoryInDisplayOrder(displayOrder, categoryId, direction, visibleIds);
+      setDisplayOrder(nextOrder);
+      emitSync(categorySetup, customHiddenIds, dismissedIds, nextOrder);
+    },
+    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
   );
 
   const showAll = useCallback(() => {
@@ -72,8 +125,8 @@ export const useHiddenCategories = (
     }
     setCategorySetup(nextSetup);
     setCustomHiddenIds([]);
-    emitSync(nextSetup, []);
-  }, [categorySetup, emitSync]);
+    emitSync(nextSetup, [], dismissedIds, displayOrder);
+  }, [categorySetup, dismissedIds, displayOrder, emitSync]);
 
   const isHidden = useCallback(
     (categoryId: string) => {
@@ -92,6 +145,21 @@ export const useHiddenCategories = (
     return [...disabledSystemIds, ...customHiddenIds];
   }, [categorySetup, customHiddenIds]);
 
+  const restorableHiddenCount = useMemo(() => {
+    if (!suitcase) return 0;
+    const withState: Suitcase = {
+      ...suitcase,
+      ui_state: {
+        ...suitcase.ui_state,
+        category_setup: categorySetup,
+        hidden_category_ids: customHiddenIds,
+        dismissed_category_ids: dismissedIds,
+        category_display_order: displayOrder,
+      },
+    };
+    return countRestorableHiddenCategories(withState, isHidden);
+  }, [suitcase, categorySetup, customHiddenIds, dismissedIds, displayOrder, isHidden]);
+
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -99,6 +167,13 @@ export const useHiddenCategories = (
     }
 
     if (!suitcaseId) return;
+
+    const patch: CategoryVisibilityPatch = {
+      category_setup: categorySetup,
+      hidden_category_ids: customHiddenIds,
+      dismissed_category_ids: dismissedIds,
+      category_display_order: displayOrder,
+    };
 
     if (isDraftWorkspaceId(suitcaseId)) {
       const timer = setTimeout(() => {
@@ -108,8 +183,7 @@ export const useHiddenCategories = (
             ...draft,
             ui_state: {
               ...draft.ui_state,
-              category_setup: categorySetup,
-              hidden_category_ids: customHiddenIds,
+              ...patch,
             },
           });
         }
@@ -119,14 +193,25 @@ export const useHiddenCategories = (
 
     const timer = setTimeout(async () => {
       try {
-        await persistCategoryVisibilityAsync(suitcaseId, categorySetup, customHiddenIds);
+        await persistCategoryVisibilityAsync(suitcaseId, patch);
       } catch (error) {
         console.error('[useHiddenCategories] Errore salvataggio category_setup:', error);
       }
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [categorySetup, customHiddenIds, suitcaseId]);
+  }, [categorySetup, customHiddenIds, dismissedIds, displayOrder, suitcaseId]);
 
-  return { hiddenIds, toggleCategory, showAll, isHidden };
+  return {
+    hiddenIds,
+    restorableHiddenCount,
+    toggleCategory,
+    activateOptionalCategory,
+    moveCategory,
+    showAll,
+    isHidden,
+    categorySetup,
+    dismissedIds,
+    displayOrder,
+  };
 };

@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, Loader2, Plus, Trash2 } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CATEGORY_ID_MAP, getCategoryEmoji, SystemCategoryName } from '@/domain/packing/packingCategories';
 import type { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
 import {
@@ -44,7 +45,7 @@ const STATE_PILL_OFF =
 const MODAL_TITLE_CLASS =
   'font-sans text-xl font-bold text-white tracking-normal leading-tight';
 const MODAL_SUBTITLE_CLASS =
-  'font-sans text-sm font-medium text-slate-300 leading-snug';
+  'font-sans text-sm font-medium text-slate-200 leading-snug';
 const SECTION_LABEL_CLASS =
   'font-sans text-xs sm:text-[12px] font-black uppercase tracking-widest sm:tracking-[0.16em] text-slate-300';
 const CATEGORY_NAME_CLASS =
@@ -258,6 +259,19 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
   const [showAddForm, setShowAddForm] = useState(false);
 
   const iconPickerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const dialogPanelRef = useRef<HTMLDivElement>(null);
+
+  useGlobalModalEscape(isOpen, onClose);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    setShowIconPicker(false);
+    setShowAddForm(false);
+    scrollContainerRef.current.scrollTop = 0;
+    dialogPanelRef.current?.focus({ preventScroll: true });
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -271,7 +285,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
   }, [isOpen]);
 
   useEffect(() => {
-    if (!showIconPicker || !showAddForm) return;
+    if (!isOpen || !showIconPicker || !showAddForm) return;
 
     let timeoutId: ReturnType<typeof setTimeout>;
     const rafId = requestAnimationFrame(() => {
@@ -285,7 +299,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
       cancelAnimationFrame(rafId);
       clearTimeout(timeoutId);
     };
-  }, [showIconPicker, showAddForm]);
+  }, [isOpen, showIconPicker, showAddForm]);
 
   if (!isOpen) return null;
 
@@ -345,7 +359,12 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.75)] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 flex flex-col max-h-[94vh] sm:max-h-[90vh] overflow-hidden"
+        ref={dialogPanelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="category-setup-title"
+        className="relative w-full max-w-3xl bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.75)] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 flex flex-col max-h-[94vh] sm:max-h-[90vh] overflow-hidden outline-none"
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -353,6 +372,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
           onClose={onClose}
           variant="primary"
           position="absolute"
+          withEscape={false}
           className="top-5 right-5 sm:top-6 sm:right-6 z-10"
         />
 
@@ -361,7 +381,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
             <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
           </div>
           <div className="min-w-0">
-            <h2 className={`${MODAL_TITLE_CLASS} truncate`}>
+            <h2 id="category-setup-title" className={`${MODAL_TITLE_CLASS} truncate`}>
               {title}
             </h2>
             <p className={`${MODAL_SUBTITLE_CLASS} mt-1.5`}>
@@ -370,7 +390,10 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-5 sm:py-6 custom-scrollbar space-y-6 min-h-0">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto px-6 sm:px-8 py-5 sm:py-6 custom-scrollbar space-y-6 min-h-0"
+        >
           <SystemCategorySection
             title="Standard"
             names={CONFIGURATION_MODAL_STANDARD_NAMES}
