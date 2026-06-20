@@ -31,6 +31,7 @@ interface ModalsProps {
   onConfirmWorkspacePause?: () => void;
   onCancelWorkspacePause?: () => void;
   isTemplateDraftSession?: boolean;
+  pausedDraftKind?: 'suitcase' | 'user_template';
   onConfirmAssociateSaved?: () => void;
 }
 
@@ -57,8 +58,14 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
   onConfirmWorkspacePause,
   onCancelWorkspacePause,
   isTemplateDraftSession = false,
+  pausedDraftKind,
   onConfirmAssociateSaved,
 }) => {
+  const pauseIsTemplate =
+    isTemplateDraftSession || pausedDraftKind === 'user_template';
+  const pauseEntityLabel = pauseIsTemplate ? 'template' : 'valigia';
+  const storedDraftIsTemplate = pauseIsTemplate;
+
   useGlobalModalEscape(
     modalState.showPauseWorkspaceModal === true,
     () => onCancelWorkspacePause?.()
@@ -87,11 +94,11 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
 
       <DeleteConfirmationModal
         isOpen={modalState.showPauseWorkspaceModal}
-        title="Mettere in pausa la valigia?"
+        title={`Mettere in pausa ${pauseEntityLabel === 'template' ? 'il template' : 'la valigia'}?`}
         message={
-          'La valigia verrà messa in pausa.\n\n' +
-          'Potrai riprendere le modifiche successivamente da questo dispositivo.\n\n' +
-          'Ti consigliamo di salvare la valigia prima di chiudere o cambiare la sessione per non perdere il lavoro svolto.'
+          pauseIsTemplate
+            ? 'Il template verrà messo in pausa.\n\nPotrai riprendere le modifiche successivamente da questo dispositivo.\n\nTi consigliamo di salvare il template prima di chiudere o cambiare la sessione per non perdere il lavoro svolto.'
+            : 'La valigia verrà messa in pausa.\n\nPotrai riprendere le modifiche successivamente da questo dispositivo.\n\nTi consigliamo di salvare la valigia prima di chiudere o cambiare la sessione per non perdere il lavoro svolto.'
         }
         confirmLabel="Metti in pausa"
         cancelLabel="Annulla"
@@ -102,8 +109,12 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
 
       <DeleteConfirmationModal
         isOpen={modalState.showDraftOverwriteModal}
-        title="Sostituire la valigia in pausa?"
-        message={'Hai già una valigia in pausa.\n\nVuoi eliminarla e crearne una nuova?'}
+        title={`Sostituire ${storedDraftIsTemplate ? 'il template' : 'la valigia'} in pausa?`}
+        message={
+          storedDraftIsTemplate
+            ? 'Hai già un template in pausa.\n\nVuoi eliminarlo e crearne uno nuovo?'
+            : 'Hai già una valigia in pausa.\n\nVuoi eliminarla e crearne una nuova?'
+        }
         confirmLabel="Sostituisci"
         variant="warning"
         onConfirm={actions.handleConfirmDraftOverwrite}
@@ -147,15 +158,15 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
 
       <DeleteConfirmationModal
         isOpen={modalState.categoryToDelete !== null}
-        title="Elimina definitivamente la categoria?"
+        title="Eliminare categoria?"
         message={
           modalState.categoryToDelete
             ? modalState.categoryToDelete.itemCount > 0
-              ? `Vuoi eliminare definitivamente la categoria '${modalState.categoryToDelete.name}'?\n\nVerranno rimossi ${modalState.categoryToDelete.itemCount} oggett${modalState.categoryToDelete.itemCount === 1 ? 'o' : 'i'} e la categoria non comparirà tra le nascoste.\n\nPer nasconderla temporaneamente usa l'icona occhio.`
-              : `Vuoi eliminare definitivamente la categoria '${modalState.categoryToDelete.name}'?\n\nLa sezione verrà rimossa dalla valigia e non comparirà tra le categorie nascoste.\n\nPer nasconderla temporaneamente usa l'icona occhio.`
+              ? `Categoria: ${modalState.categoryToDelete.name}\n\nVerranno eliminati anche ${modalState.categoryToDelete.itemCount} oggett${modalState.categoryToDelete.itemCount === 1 ? 'o' : 'i'} contenuti nella categoria.\n\nL'operazione è definitiva.`
+              : `Categoria: ${modalState.categoryToDelete.name}\n\nLa categoria verrà rimossa definitivamente.\n\nNon sono presenti oggetti.`
             : ''
         }
-        confirmLabel="Elimina categoria"
+        confirmLabel="Elimina"
         variant="danger"
         isDeleting={modalState.isDeleting}
         onConfirm={async () => {

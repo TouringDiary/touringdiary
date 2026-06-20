@@ -41,6 +41,62 @@ export const getSuitcaseItemProgress = (items: SuitcaseItem[] | undefined | null
   return { checked, total, percentage };
 };
 
+export type CategoryStatusFilter = 'all' | 'incomplete' | 'complete';
+
+export type SuitcaseListSortMode = 'updated_at' | 'created_at' | 'title' | 'favorites';
+
+export type SuitcaseListSortOptions = {
+  preferences?: Record<string, { enabled: boolean; priority: number }>;
+};
+
+const compareUpdatedAtDesc = (a: Suitcase, b: Suitcase): number => {
+  const aTime = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+  const bTime = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+  return bTime - aTime;
+};
+
+export const sortSuitcaseList = (
+  items: Suitcase[],
+  mode: SuitcaseListSortMode,
+  options?: SuitcaseListSortOptions
+): Suitcase[] => {
+  const sorted = [...items];
+  sorted.sort((a, b) => {
+    if (mode === 'favorites') {
+      const prefs = options?.preferences ?? {};
+      const aFav = prefs[a.id]?.enabled === true ? 1 : 0;
+      const bFav = prefs[b.id]?.enabled === true ? 1 : 0;
+      if (bFav !== aFav) return bFav - aFav;
+      return compareUpdatedAtDesc(a, b);
+    }
+    if (mode === 'title') {
+      return a.title.localeCompare(b.title, 'it', { sensitivity: 'base' });
+    }
+    const dateField = mode === 'updated_at' ? a.updated_at : a.created_at;
+    const dateFieldB = mode === 'updated_at' ? b.updated_at : b.created_at;
+    const aTime = dateField ? new Date(dateField).getTime() : 0;
+    const bTime = dateFieldB ? new Date(dateFieldB).getTime() : 0;
+    return bTime - aTime;
+  });
+  return sorted;
+};
+
+export const getIncompleteItemCount = (items: SuitcaseItem[] | undefined | null): number =>
+  (items || []).filter((i) => !i.is_checked).length;
+
+export const filterCategoriesByStatus = <T extends { id: string; name: string }>(
+  categories: T[],
+  groupedItems: Record<string, SuitcaseItem[]>,
+  filter: CategoryStatusFilter
+): T[] => {
+  if (filter === 'all') return categories;
+  return categories.filter((cat) => {
+    const incomplete = getIncompleteItemCount(groupedItems[cat.name]);
+    if (filter === 'incomplete') return incomplete > 0;
+    return incomplete === 0;
+  });
+};
+
 export const CATEGORY_ICON_REGISTRY: Record<string, React.ReactElement> = {
   Shirt: <Shirt />,
   Heart: <Heart />,
@@ -318,3 +374,10 @@ export const SUITCASE_TOOLBAR_BTN_CLASS =
 /** Pulsante icona quadrato per switch lettura/modifica nell'header valigia. */
 export const SUITCASE_VIEW_MODE_ACTION_BTN_CLASS =
   'shrink-0 flex items-center justify-center p-2.5 rounded-xl bg-slate-800/50 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40';
+
+/** Dimensione icona unificata per pulsanti toolbar editor valigia. */
+export const SUITCASE_TOOLBAR_ICON_SIZE_CLASS = 'w-4 h-4 md:w-5 md:h-5';
+
+/** Pulsante icona quadrato compatto per toolbar categorie (stessa dimensione del toggle modifica). */
+export const SUITCASE_TOOLBAR_ICON_BTN_CLASS =
+  'shrink-0 flex items-center justify-center p-2.5 rounded-xl border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed';

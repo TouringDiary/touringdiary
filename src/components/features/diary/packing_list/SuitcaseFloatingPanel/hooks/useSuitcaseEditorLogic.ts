@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Suitcase, SuitcaseItem, SuitcaseRejection } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 import { UndoAction } from '@/hooks/useUndoStack';
@@ -30,19 +30,38 @@ export const useSuitcaseEditorLogic = ({
   showToast,
   pushAction
 }: EditorLogicProps) => {
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const triggerItemHighlight = useCallback((itemId: string) => {
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    panelState.setHighlightItemId(itemId);
+    highlightTimeoutRef.current = setTimeout(() => {
+      panelState.setHighlightItemId(null);
+      highlightTimeoutRef.current = null;
+    }, 2500);
+  }, [panelState]);
 
   const onUpdateItem = useCallback(async (itemId: string, updates: Partial<SuitcaseItem>) => {
     if (!activeSuitcase) return;
     const item = activeSuitcase.suitcase_items?.find(i => i.id === itemId);
     if (!item) return;
 
-    if (updates.is_checked !== undefined) {
-      panelState.setHighlightItemId(itemId);
-      await handleUpdateItemConfirmed(itemId, updates, item);
-    } else {
-      await handleUpdateItemConfirmed(itemId, updates, item);
+    if (updates.is_checked !== undefined || updates.quantity !== undefined) {
+      triggerItemHighlight(itemId);
     }
-  }, [activeSuitcase, handleUpdateItemConfirmed, panelState]);
+
+    await handleUpdateItemConfirmed(itemId, updates, item);
+  }, [activeSuitcase, handleUpdateItemConfirmed, triggerItemHighlight]);
 
   const onDeleteItem = useCallback((id: string) => {
     if (!activeSuitcase) return;

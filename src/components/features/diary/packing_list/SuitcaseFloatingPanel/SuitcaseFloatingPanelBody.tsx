@@ -8,6 +8,7 @@ import { SuitcaseModals } from './components/SuitcaseModals';
 import { RecommendedSuitcaseModal } from '../suitcase/RecommendedSuitcaseModal';
 import { CategorySetupConfigurationModal } from '../suitcase/CategorySetupConfigurationModal';
 import { isAssociableSuitcase, isTdTemplate } from '@/utils/suitcaseDomain';
+import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import type { SuitcasePanelComposition } from './hooks/useSuitcasePanelComposition';
 
 interface Props {
@@ -81,6 +82,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         onCancelWorkspacePause={handleCancelWorkspacePause}
         onConfirmAssociateSaved={handleConfirmAssociateSaved}
         isTemplateDraftSession={actions.isTemplateDraftSession}
+        pausedDraftKind={data.guestSuitcase ? data.guestSuitcase.workspace_kind ?? 'suitcase' : undefined}
       />
 
       <RecommendedSuitcaseModal
@@ -187,6 +189,22 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               }
               onSaveAsTemplate={actions.handleSaveAsTemplate}
               onAddCategory={actions.handleAddCategoryFromPreview}
+              onDeleteCategory={(suitcaseId, category) => {
+                const suitcase =
+                  data.userSuitcases.find((s) => s.id === suitcaseId) ??
+                  data.savedSuitcases.find((s) => s.id === suitcaseId) ??
+                  data.tripSuitcases.find((s) => s.id === suitcaseId);
+                if (!suitcase) return;
+                const itemCount =
+                  suitcase.suitcase_items?.filter((item) => item.category === category.name).length ?? 0;
+                data.modalState.setCategoryToDelete({
+                  id: category.id,
+                  name: category.name,
+                  source: category.source === 'user' ? 'user' : 'system',
+                  itemCount,
+                  suitcaseId,
+                });
+              }}
               onSaveTitle={async (id, title) => {
                 await data.mutations.updateSuitcase(id, { title: title.trim() });
                 await data.fetchUserSuitcases();
@@ -209,9 +227,12 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               onLinkBuild={handleLinkBuild}
               onLinkBuildSearch={handleLinkBuildSearch}
               toast={data.toast}
-              showHiddenCategories={hiddenCategories.showHiddenCategories}
               guestSuitcase={data.guestSuitcase}
               onContinueGuestSuitcase={actions.handleContinueGuestWorkspace}
+              isLoadingGlobalTemplates={data.isLoadingGlobalTemplates}
+              globalTemplatesFetchError={data.globalTemplatesFetchError}
+              isGuest={!data.currentUser}
+              onLogin={handleLogin}
             />
           )}
           {(data.panelState.viewMode === 'editor' || data.panelState.viewMode === 'viewer') &&
@@ -221,6 +242,17 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               readOnly={
                 data.panelState.viewMode === 'viewer' ||
                 isTdTemplate(data.activeSuitcase)
+              }
+              categorySetupOverlay={
+                isTdTemplate(data.activeSuitcase)
+                  ? data.templatePreviewOverlays[data.activeSuitcase.id]
+                  : undefined
+              }
+              onCategorySetupOverlayChange={
+                isTdTemplate(data.activeSuitcase)
+                  ? (updater) =>
+                      data.updateTemplatePreviewOverlay(data.activeSuitcase!.id, updater)
+                  : undefined
               }
               {...editorLogic}
               onUpdateSuitcase={async (updates) => {
@@ -250,6 +282,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               }}
               onShowMoreAi={data.handleShowMoreAi}
               hasMoreAi={data.hasMoreAi}
+              aiQuotaFeedback={data.aiQuotaFeedback}
               itemMap={data.affiliateMaps.items}
               categoryMap={data.affiliateMaps.categories}
               globalMap={data.affiliateMaps.global}
@@ -270,12 +303,18 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               setIsAddingNewCategory={data.panelState.setIsAddingNewCategory}
               showGuestWarning={
                 !data.currentUser &&
-                !!data.activeSuitcase?.id.startsWith('guest-suitcase-')
+                !!data.activeSuitcase?.id &&
+                isDraftWorkspaceId(data.activeSuitcase.id)
               }
               panelViewMode={
                 data.panelState.viewMode === 'viewer' ? 'viewer' : 'editor'
               }
               onSetViewMode={(mode) => data.panelState.setViewMode(mode)}
+              onUseTemplate={
+                isTdTemplate(data.activeSuitcase)
+                  ? () => actions.handleUseTemplate(data.activeSuitcase!.id)
+                  : undefined
+              }
             />
           )}
         </div>

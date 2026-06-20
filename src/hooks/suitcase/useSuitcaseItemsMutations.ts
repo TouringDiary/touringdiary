@@ -27,28 +27,32 @@ import {
   DRAFT_ITEM_ID_PREFIX,
   DRAFT_SUITCASE_ID_PREFIX,
   getGuestSuitcase,
-  isDraftItemId,
   isDraftWorkspaceId,
   LEGACY_GUEST_ITEM_ID_PREFIX,
   removeDraftItemFromWorkspace,
   saveGuestSuitcase,
   deleteGuestSuitcase
 } from '@/utils/guestSuitcaseHelper';
+import { isEphemeralItemId } from '@/utils/runtimeItemId';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
 import { deleteSuitcase } from './useSuitcaseCrud';
 import { unlinkSuitcase, linkSuitcaseToTrip } from './useSuitcaseLinking';
 
+const updateDraftWorkspaceItem = (itemId: string, updates: Partial<SuitcaseItem>) => {
+  const draftSc = getGuestSuitcase();
+  if (!draftSc?.suitcase_items) return;
+
+  const updatedItems = draftSc.suitcase_items.map((item) =>
+    item.id === itemId ? { ...item, ...updates } : item
+  );
+  saveGuestSuitcase({ ...draftSc, suitcase_items: updatedItems });
+};
+
 export const useSuitcaseItemsMutations = () => {
   const updateItem = async (itemId: string, updates: Partial<SuitcaseItem>) => {
-    if (isDraftItemId(itemId)) {
-      const draftSc = getGuestSuitcase();
-      if (draftSc && draftSc.suitcase_items) {
-        const updatedItems = draftSc.suitcase_items.map(item =>
-          item.id === itemId ? { ...item, ...updates } : item
-        );
-        saveGuestSuitcase({ ...draftSc, suitcase_items: updatedItems });
-      }
+    if (isEphemeralItemId(itemId)) {
+      updateDraftWorkspaceItem(itemId, updates);
       return;
     }
     await updateSuitcaseItemAsync(itemId, updates);
@@ -76,14 +80,14 @@ export const useSuitcaseItemsMutations = () => {
   };
 
   const deleteItem = async (itemId: string) => {
-    if (isDraftItemId(itemId) || itemId.startsWith('temp-')) return;
+    if (isEphemeralItemId(itemId) || itemId.startsWith('temp-')) return;
     await deleteSuitcaseItemAsync(itemId);
   };
 
   const rejectItem = async (suitcaseId: string, item: { name: string; category: string; id?: string; ai_suggestion_context?: string | null }) => {
     if (isDraftWorkspaceId(suitcaseId)) {
       appendDraftLocalRejection(suitcaseId, item);
-      if (item.id && isDraftItemId(item.id)) {
+      if (item.id && isEphemeralItemId(item.id)) {
         removeDraftItemFromWorkspace(suitcaseId, item.id);
       }
       return;

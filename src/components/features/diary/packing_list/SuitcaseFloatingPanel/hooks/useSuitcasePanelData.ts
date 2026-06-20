@@ -22,7 +22,7 @@ import { useSuitcaseSuggestions } from './useSuitcaseSuggestions';
 import { useFloatingPanelState } from './useFloatingPanelState';
 import { useFloatingPanelModals } from './useFloatingPanelModals';
 import { getRejectionsBySuitcaseAsync } from '@/services/suitcase/suitcaseRejectionsService';
-import { SuitcaseRejection } from '@/types/suitcase';
+import { Suitcase, SuitcaseRejection } from '@/types/suitcase';
 import { CategorySetupMap } from '@/types/packingCatalog';
 import { isDiaryAssociable as checkDiaryAssociable } from '@/utils/itineraryAssociability';
 import {
@@ -34,25 +34,20 @@ import {
   saveGuestSuitcase,
 } from '@/utils/guestSuitcaseHelper';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
+import { resolveDefaultSuitcaseTab } from '../types/sourceTab';
 
-/**
- * Funzione pura per determinare il tab iniziale della valigia
- */
-export function resolveInitialSuitcaseTab(
-  currentUser: any,
-  tripSuitcaseCount: number,
-  savedSuitcaseCount: number
-): 'trip' | 'saved' | 'default' {
-  if (tripSuitcaseCount > 0) return 'trip';
-  if (savedSuitcaseCount > 0) return 'saved';
-  return 'default';
-}
+export {
+  resolveInitialSuitcaseTab,
+  resolveDefaultSuitcaseTab,
+  isSuitcaseDashboardEmpty,
+} from '../types/sourceTab';
+export type { SuitcaseSourceTab } from '../types/sourceTab';
 
 export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?: string, initialSuitcaseId?: string | null) => {
 
   const { itinerary, savedProjects, saveProject } = useItinerary();
   const { cityManifest } = useUser();
-  const itineraryId = propItineraryId || itinerary?.id;
+  const itineraryId = itinerary?.id ?? propItineraryId ?? null;
   const isDiaryAssociable = useMemo(() => checkDiaryAssociable(itinerary), [itinerary]);
 
   const { configs } = useConfig();
@@ -61,10 +56,9 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
   /**
    * 1. Stato pannello
    *
-   * Tab iniziale = TEMPLATE (default)
-   * poi verrà aggiornato dinamicamente quando i dati diventano disponibili
+   * Tab iniziale = INIZIA (start), aggiornato da resolveDefaultSuitcaseTab quando i dati sono pronti.
    */
-  const panelState = useFloatingPanelState('selector', 'default');
+  const panelState = useFloatingPanelState('selector', 'start');
   const modalState = useFloatingPanelModals();
 
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -115,7 +109,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
   /**
    * 2. Template globali
    */
-  const { globalTemplates, fetchGlobalTemplates } = useGlobalTemplates();
+  const { globalTemplates, fetchGlobalTemplates, isLoading: isLoadingGlobalTemplates, fetchError: globalTemplatesFetchError } = useGlobalTemplates();
 
   /**
    * 3. Lifecycle
@@ -288,26 +282,32 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
   }, [initialSuitcaseId, dataReady, userSuitcases, globalTemplates]);
 
   useEffect(() => {
-    if (!dataReady || hasInitializedTab.current) return;
+    if (!dataReady || hasInitializedTab.current || initialSuitcaseId) return;
 
-    const initialTab = resolveInitialSuitcaseTab(currentUser, tripCount, savedCount);
+    const initialTab = resolveDefaultSuitcaseTab(tripCount, savedCount);
+    setSourceTab(initialTab);
+    hasInitializedTab.current = true;
+    previousTripCount.current = tripCount;
+    previousSavedCount.current = savedCount;
+  }, [
+    dataReady,
+    currentUser,
+    tripCount,
+    savedCount,
+    setSourceTab,
+    initialSuitcaseId,
+  ]);
 
-    // Prima inizializzazione
-    if (!hasInitializedTab.current) {
-      setSourceTab(initialTab);
-      hasInitializedTab.current = true;
-      previousTripCount.current = tripCount;
-      previousSavedCount.current = savedCount;
-      return;
-    }
+  useEffect(() => {
+    if (!dataReady || !hasInitializedTab.current) return;
 
-    /**
-     * Aggiornamento reattivo
-     * Monitoriamo principalmente l'aggiunta/rimozione dal diario.
-     */
-    if (tripCount !== previousTripCount.current || 
-       (savedCount !== previousSavedCount.current && panelState.sourceTab === 'default')) {
-      // PROTEZIONE: Se stiamo editando una valigia guest, non resettiamo forzatamente il tab al login
+    const initialTab = resolveDefaultSuitcaseTab(tripCount, savedCount);
+
+    if (
+      tripCount !== previousTripCount.current ||
+      (savedCount !== previousSavedCount.current &&
+        (panelState.sourceTab === 'default' || panelState.sourceTab === 'start'))
+    ) {
       if (panelState.activeTabId && isDraftWorkspaceId(panelState.activeTabId)) {
         previousTripCount.current = tripCount;
         previousSavedCount.current = savedCount;
@@ -324,8 +324,15 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     tripCount,
     savedCount,
     setSourceTab,
-    panelState.sourceTab
+    panelState.sourceTab,
+    panelState.activeTabId,
   ]);
+
+  useEffect(() => {
+    if (panelState.viewMode !== 'selector') return;
+    void fetchLinkedIds();
+    void fetchUserSuitcases();
+  }, [panelState.viewMode, fetchLinkedIds, fetchUserSuitcases]);
 
   /**
    * 9. Affiliate + Suggestions
@@ -355,7 +362,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
   );
 
   const handleUpdateSuitcaseLocal =
-    useCallback((id: string, updates: any) => {
+    useCallback((id: string, updates: Partial<Suitcase>) => {
       setUserSuitcases(prev => {
         const next = prev.map(s =>
           s.id === id
@@ -420,6 +427,8 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     toast,
     showToast,
     globalTemplates,
+    isLoadingGlobalTemplates,
+    globalTemplatesFetchError,
     currentUser,
     linkedSuitcaseIds,
     fetchLinkedIds,

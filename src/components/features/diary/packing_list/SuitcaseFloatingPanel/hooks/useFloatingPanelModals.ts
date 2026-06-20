@@ -5,6 +5,7 @@ import type { DraftWorkspaceKind } from '@/types/suitcase';
 
 export type CategoryDeleteModalTarget = CategoryDeleteTarget & {
   itemCount: number;
+  suitcaseId?: string;
 };
 
 export interface PendingWorkspaceCreate {

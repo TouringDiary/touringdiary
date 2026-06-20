@@ -1,14 +1,137 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { Itinerary } from '@/types';
-import { seedAiSuggestions, mergeTemplateItems, getAiCandidates } from '@/hooks/useSuitcaseSystem';
-import { deriveItineraryTags } from '@/utils/tagDerivation';
+import {
+  seedAiSuggestions,
+  mergeTemplateItems,
+  getAiCandidates,
+  AiCandidate,
+  GetAiCandidatesOptions,
+} from '@/hooks/useSuitcaseSystem';
+import { getSystemCategoryOrderIndexExact, SystemCategoryName } from '@/domain/packing/packingCategories';
+import { deriveItineraryTags, normalizeItemName } from '@/utils/tagDerivation';
 import { ToastVariant } from '@/types/toast';
 
 export interface AiSuggestion {
   name: string;
   category: string;
   status: 'pending' | 'accepted' | 'rejected';
+  tripRelevant?: boolean;
+}
+
+export interface AiQuotaFeedback {
+  requested: Partial<Record<SystemCategoryName, number>>;
+  delivered: Record<string, number>;
+  selectedCategories: string[];
+}
+
+const REVIEW_INITIAL_BATCH_MAX = 14;
+const REVIEW_SHOW_MORE_BATCH_MAX = 10;
+
+function toAiSuggestion(candidate: AiCandidate): AiSuggestion {
+  return {
+    name: candidate.name,
+    category: candidate.category,
+    status: 'pending',
+    tripRelevant: candidate.tripRelevant,
+  };
+}
+
+function countByCategory(candidates: AiCandidate[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const candidate of candidates) {
+    counts[candidate.category] = (counts[candidate.category] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export function buildQuotaFeedback(
+  categories: string[],
+  options: GetAiCandidatesOptions | undefined,
+  candidates: AiCandidate[]
+): AiQuotaFeedback | null {
+  if (!options?.limitPerCategory) return null;
+  return {
+    requested: options.limitPerCategory,
+    delivered: countByCategory(candidates),
+    selectedCategories: categories,
+  };
+}
+
+function buildCategoryOrder(
+  selectedCategories: string[],
+  byCategory: Map<string, AiCandidate[]>
+): string[] {
+  const selected =
+    selectedCategories.length > 0
+      ? selectedCategories.filter((cat) => byCategory.has(cat))
+      : [];
+
+  const orphan = [...byCategory.keys()].filter((cat) => !selected.includes(cat));
+  orphan.sort((a, b) => {
+    const indexA = getSystemCategoryOrderIndexExact(a);
+    const indexB = getSystemCategoryOrderIndexExact(b);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  return selected.length > 0 ? [...selected, ...orphan] : orphan;
+}
+
+function takeNextCategoryAwareBatch(
+  candidates: AiCandidate[],
+  selectedCategories: string[],
+  alreadyShownKeys: Set<string>,
+  maxBatchSize: number
+): AiCandidate[] {
+  const remaining = candidates.filter((c) => !alreadyShownKeys.has(normalizeItemName(c.name)));
+  const byCategory = new Map<string, AiCandidate[]>();
+
+  for (const candidate of remaining) {
+    const list = byCategory.get(candidate.category) ?? [];
+    list.push(candidate);
+    byCategory.set(candidate.category, list);
+  }
+
+  const categoryOrder = buildCategoryOrder(selectedCategories, byCategory);
+  const batch: AiCandidate[] = [];
+  let round = 0;
+
+  while (batch.length < maxBatchSize) {
+    let addedThisRound = false;
+    for (const cat of categoryOrder) {
+      if (batch.length >= maxBatchSize) break;
+      const items = byCategory.get(cat) ?? [];
+      if (round < items.length) {
+        batch.push(items[round]);
+        addedThisRound = true;
+      }
+    }
+    if (!addedThisRound) break;
+    round++;
+  }
+
+  return batch;
+}
+
+function describePartialQuota(feedback: AiQuotaFeedback): string | undefined {
+  const shortfalls = feedback.selectedCategories.filter((cat) => {
+    const requested = feedback.requested[cat as SystemCategoryName];
+    if (requested === undefined) return false;
+    const delivered = feedback.delivered[cat] ?? 0;
+    return delivered < requested;
+  });
+
+  if (shortfalls.length === 0) return undefined;
+  if (shortfalls.length === 1) {
+    const cat = shortfalls[0];
+    const requested = feedback.requested[cat as SystemCategoryName] ?? 0;
+    const delivered = feedback.delivered[cat] ?? 0;
+    return `${cat}: mostrati ${delivered} di ${requested} richiesti — catalogo esaurito per questa categoria.`;
+  }
+  return `Alcune categorie hanno meno suggerimenti del richiesto — catalogo esaurito.`;
 }
 
 interface SuggestionsProps {
@@ -38,34 +161,48 @@ export const useSuitcaseSuggestions = ({
   const [isSeedingAi, setIsSeedingAi] = useState(false);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
-  // Stato per il nuovo modal
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
-  const [allAiCandidates, setAllAiCandidates] = useState<{ name: string; category: string }[]>([]);
+  const [allAiCandidates, setAllAiCandidates] = useState<AiCandidate[]>([]);
   const [shownCount, setShownCount] = useState(0);
+  const [lastSelectedCategories, setLastSelectedCategories] = useState<string[]>([]);
+  const [aiQuotaFeedback, setAiQuotaFeedback] = useState<AiQuotaFeedback | null>(null);
+  const [hasActiveQuota, setHasActiveQuota] = useState(false);
 
   const aiSessionSuitcaseIdRef = useRef<string | null>(null);
+  const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSaveStatusTimeout = useCallback(() => {
+    if (saveStatusTimeoutRef.current !== null) {
+      clearTimeout(saveStatusTimeoutRef.current);
+      saveStatusTimeoutRef.current = null;
+    }
+  }, []);
 
   const resetAiSession = useCallback(() => {
+    clearSaveStatusTimeout();
     setAiSuggestions([]);
     setAllAiCandidates([]);
     setShownCount(0);
+    setLastSelectedCategories([]);
+    setAiQuotaFeedback(null);
+    setHasActiveQuota(false);
     setIsSeedingAi(false);
-  }, []);
+  }, [clearSaveStatusTimeout]);
 
   useEffect(() => {
     resetAiSession();
     aiSessionSuitcaseIdRef.current = activeSuitcase?.id ?? null;
   }, [activeSuitcase?.id, resetAiSession]);
 
+  useEffect(() => clearSaveStatusTimeout, [clearSaveStatusTimeout]);
+
   useEffect(() => {
-    // Guardia di readiness: se i dati non sono ancora arrivati o sono null, resettiamo
     if (!linkedSuitcaseIds || !suggestedTemplateIds || !globalTemplates) {
       setMergedSuggestedItems([]);
       setSuggestedTemplates([]);
       return;
     }
 
-    // Se non ci sono valigie collegate e abbiamo template suggeriti, mostriamoli
     if (linkedSuitcaseIds.length === 0 && suggestedTemplateIds.length > 0 && globalTemplates.length > 0) {
       const suggested = globalTemplates.filter(t => suggestedTemplateIds.includes(t.id));
       if (suggested.length > 0) {
@@ -79,67 +216,115 @@ export const useSuitcaseSuggestions = ({
     }
   }, [linkedSuitcaseIds, suggestedTemplateIds, globalTemplates]);
 
-  const handleSeedAi = async (selectedCategories?: string[], mode: 'direct' | 'review' = 'direct') => {
+  const handleSeedAi = async (
+    selectedCategories?: string[],
+    mode: 'direct' | 'review' = 'direct',
+    options?: GetAiCandidatesOptions
+  ) => {
     if (!activeSuitcase || !itinerary) return;
     const targetSuitcaseId = activeSuitcase.id;
     const isSessionCurrent = () => aiSessionSuitcaseIdRef.current === targetSuitcaseId;
+    const categories = selectedCategories ?? [];
+    const quotaActive = !!options?.limitPerCategory;
 
     setIsSeedingAi(true);
     try {
       const tags = deriveItineraryTags(itinerary?.items || []);
       const context = `Viaggio: ${itinerary.name} | Tags: ${tags.join(', ')}`;
-      
+
       const itemsForAi = (activeSuitcase.suitcase_items || []).map(i => ({
         name: i.name,
         is_ai_suggestion: !!i.is_ai_suggestion
       }));
 
       if (mode === 'direct') {
+        const candidates = quotaActive
+          ? await getAiCandidates(
+              activeSuitcase.id,
+              tags,
+              itemsForAi,
+              categories,
+              activeSuitcase,
+              options
+            )
+          : undefined;
+
+        if (quotaActive && !isSessionCurrent()) return;
+
+        const feedback = candidates
+          ? buildQuotaFeedback(categories, options, candidates)
+          : null;
+
         const count = await seedAiSuggestions(
-        activeSuitcase.id,
-        tags,
-        itemsForAi,
-        context,
-        selectedCategories,
-        activeSuitcase
-      );
+          activeSuitcase.id,
+          tags,
+          itemsForAi,
+          context,
+          categories,
+          activeSuitcase,
+          options,
+          candidates
+        );
         if (!isSessionCurrent()) return;
 
         if (count > 0) {
           await fetchUserSuitcases();
           if (!isSessionCurrent()) return;
 
+          clearSaveStatusTimeout();
           setSaveStatus(`Aggiunti ${count} suggerimenti`);
-          setTimeout(() => setSaveStatus(null), 3000);
-          showToast("Suggerimenti aggiunti", `Abbiamo trovato ${count} oggetti per il tuo viaggio.`, 'success');
+          const statusSuitcaseId = targetSuitcaseId;
+          saveStatusTimeoutRef.current = setTimeout(() => {
+            saveStatusTimeoutRef.current = null;
+            if (aiSessionSuitcaseIdRef.current === statusSuitcaseId) {
+              setSaveStatus(null);
+            }
+          }, 3000);
+
+          const partialNote = feedback ? describePartialQuota(feedback) : undefined;
+          showToast(
+            'Suggerimenti aggiunti',
+            partialNote ?? `Abbiamo aggiunto ${count} oggetti dalle categorie selezionate.`,
+            'success'
+          );
         } else {
           showToast(
-            "Nessun nuovo suggerimento trovato",
-            "La valigia sembra già ben coperta per questo tipo di viaggio.",
+            'Nessun nuovo suggerimento trovato',
+            'La valigia copre già tutti gli oggetti disponibili nelle categorie selezionate.',
             'neutral'
           );
         }
       } else {
-        // Modalità Review
         const candidates = await getAiCandidates(
           activeSuitcase.id,
           tags,
           itemsForAi,
-          selectedCategories,
-          activeSuitcase
+          categories,
+          activeSuitcase,
+          options
         );
         if (!isSessionCurrent()) return;
 
+        const feedback = buildQuotaFeedback(categories, options, candidates);
+
         setAllAiCandidates(candidates);
-        
-        const initialBatch = candidates.slice(0, 10).map(c => ({
-          name: c.name,
-          category: c.category,
-          status: 'pending' as const
-        }));
-        
-        setAiSuggestions(initialBatch);
-        setShownCount(10);
+        setLastSelectedCategories(categories);
+        setAiQuotaFeedback(feedback);
+        setHasActiveQuota(quotaActive);
+
+        if (quotaActive) {
+          setAiSuggestions(candidates.map(toAiSuggestion));
+          setShownCount(candidates.length);
+        } else {
+          const initialBatch = takeNextCategoryAwareBatch(
+            candidates,
+            categories,
+            new Set(),
+            REVIEW_INITIAL_BATCH_MAX
+          );
+          setAiSuggestions(initialBatch.map(toAiSuggestion));
+          setShownCount(initialBatch.length);
+        }
       }
     } finally {
       if (isSessionCurrent()) {
@@ -149,17 +334,25 @@ export const useSuitcaseSuggestions = ({
   };
 
   const handleShowMoreAi = () => {
-    const nextBatch = allAiCandidates.slice(shownCount, shownCount + 10).map(c => ({
-      name: c.name,
-      category: c.category,
-      status: 'pending' as const
-    }));
-    
+    if (hasActiveQuota) return;
+
+    const shownKeys = new Set(aiSuggestions.map((s) => normalizeItemName(s.name)));
+    const nextBatch = takeNextCategoryAwareBatch(
+      allAiCandidates,
+      lastSelectedCategories,
+      shownKeys,
+      REVIEW_SHOW_MORE_BATCH_MAX
+    );
+
     if (nextBatch.length > 0) {
-      setAiSuggestions(prev => [...prev, ...nextBatch]);
-      setShownCount(prev => prev + 10);
+      setAiSuggestions(prev => [...prev, ...nextBatch.map(toAiSuggestion)]);
+      setShownCount(prev => prev + nextBatch.length);
     } else {
-      showToast("Fine dei suggerimenti", "Abbiamo esaurito gli oggetti nel catalogo per queste categorie.", 'neutral');
+      showToast(
+        'Fine dei suggerimenti',
+        'Abbiamo esaurito gli oggetti disponibili nelle categorie selezionate.',
+        'neutral'
+      );
     }
   };
 
@@ -174,6 +367,7 @@ export const useSuitcaseSuggestions = ({
     aiSuggestions,
     setAiSuggestions,
     handleShowMoreAi,
-    hasMoreAi: shownCount < allAiCandidates.length
+    hasMoreAi: !hasActiveQuota && shownCount < allAiCandidates.length,
+    aiQuotaFeedback,
   };
 };

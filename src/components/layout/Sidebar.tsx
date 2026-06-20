@@ -1,5 +1,5 @@
 import type { User } from '@/types/users';
-import { Z_FOCUS_COMPANION } from '@/constants/zIndex';
+import { Z_FOCUS_COMPANION, Z_MODAL } from '@/constants/zIndex';
 import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
 import { useFocusMode } from '@/focus';
 
@@ -214,9 +214,10 @@ export const Sidebar = ({
         return (
             <div
                 id="tour-mobile-diary-overlay"
-                className="fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-dropdown bg-slate-950 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5"
+                className="fixed top-[var(--header-height)] left-0 right-0 bottom-0 bg-slate-950 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5"
+                style={{ zIndex: Z_MODAL }}
             >
-                <div className="flex-1 flex flex-col min-h-0 relative">
+                <div className="flex-1 flex flex-col min-h-0 relative overflow-y-auto">
                     <Suspense fallback={<DiarySkeleton />}>
                         <TravelDiary
                             user={user}
@@ -233,21 +234,8 @@ export const Sidebar = ({
                     </Suspense>
                 </div>
 
-                <div
-                    className="h-12 bg-slate-900 border-t border-b border-slate-800 flex items-center justify-center px-4 shrink-0 cursor-pointer active:bg-slate-800 transition-colors shadow-md z-modal relative"
-                    onClick={() => setMobileDiaryFullScreen?.(false)}
-                >
-                    <div className="flex items-center gap-3">
-                        <ChevronDown className="w-5 h-5 text-amber-500" />
-                        <span className="font-handwriting text-xl font-bold text-white pt-1">
-                            Nascondi Diario
-                        </span>
-                        <ChevronDown className="w-5 h-5 text-amber-500" />
-                    </div>
-                </div>
-
                 {sponsorPoi && (
-                    <div className="px-3 py-2 shrink-0 bg-slate-950 border-t-2 border-slate-800 shadow-[0_-15px_30px_rgba(0,0,0,0.8)] mt-1 mb-safe">
+                    <div className="px-3 py-2 shrink-0 bg-slate-950 border-t-2 border-slate-800 shadow-[0_-15px_30px_rgba(0,0,0,0.8)]">
                         <div onClick={() => openModal('poiDetail', { poi: sponsorPoi })} className="bg-slate-900 rounded-2xl border border-amber-500/60 p-2 flex items-center gap-3 relative overflow-hidden group shadow-2xl">
                             <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-slate-800">
                                 <img src={sponsorPoi.imageUrl} className="w-full h-full object-cover" alt={sponsorPoi.name} />
@@ -266,6 +254,22 @@ export const Sidebar = ({
                         </div>
                     </div>
                 )}
+
+                <button
+                    type="button"
+                    className="sticky bottom-0 h-12 bg-slate-900 border-t border-b border-slate-800 flex items-center justify-center px-4 shrink-0 cursor-pointer active:bg-slate-800 transition-colors shadow-[0_-8px_24px_rgba(0,0,0,0.45)] pointer-events-auto pb-safe"
+                    style={{ zIndex: Z_MODAL + 1 }}
+                    onClick={() => setMobileDiaryFullScreen?.(false)}
+                    aria-label="Nascondi Diario"
+                >
+                    <div className="flex items-center gap-3">
+                        <ChevronDown className="w-5 h-5 text-amber-500 shrink-0" />
+                        <span className="font-handwriting text-xl font-bold text-white pt-1">
+                            Nascondi Diario
+                        </span>
+                        <ChevronDown className="w-5 h-5 text-amber-500 shrink-0" />
+                    </div>
+                </button>
             </div>
         );
     }

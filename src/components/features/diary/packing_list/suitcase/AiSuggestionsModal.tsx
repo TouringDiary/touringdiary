@@ -1,19 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles } from 'lucide-react';
-import { CORE_CATEGORY_NAMES, CATEGORY_ORDER } from '@/domain/packing/packingCategories';
-import { AiSuggestion } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
-import { AiSuggestionsSetupStep } from './AiSuggestionsSetupStep';
+import {
+  CORE_CATEGORY_NAMES,
+  CATEGORY_ORDER,
+  normalizeCategoryName,
+  SystemCategoryName,
+} from '@/domain/packing/packingCategories';
+import {
+  AiQuotaFeedback,
+  AiSuggestion,
+} from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
+import {
+  AiSuggestionsSetupStep,
+  AiQuotaMode,
+} from './AiSuggestionsSetupStep';
 import { AiSuggestionsReviewStep } from './AiSuggestionsReviewStep';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { ToastVariant } from '@/types/toast';
+import {
+  buildUniformLimitMap,
+  GetAiCandidatesOptions,
+  normalizeLimitPerCategory,
+} from '@/hooks/useSuitcaseSystem';
 
 interface AiSuggestionsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerate: (categories: string[], mode: 'direct' | 'review') => void;
+  onGenerate: (
+    categories: string[],
+    mode: 'direct' | 'review',
+    options?: GetAiCandidatesOptions
+  ) => void;
   onShowMore: () => void;
   onAccept: (name: string, category: string) => Promise<void>;
   onReject: (name: string, category: string) => Promise<void>;
@@ -22,7 +43,10 @@ interface AiSuggestionsModalProps {
   initialCategories?: string[];
   suggestions: AiSuggestion[];
   hasMore: boolean;
+  quotaFeedback?: AiQuotaFeedback | null;
 }
+
+const DEFAULT_UNIFORM_LIMIT = 3;
 
 export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   isOpen,
@@ -35,37 +59,30 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   isGenerating,
   initialCategories = [],
   suggestions,
-  hasMore
+  hasMore,
+  quotaFeedback = null,
 }) => {
   const [step, setStep] = useState<'setup' | 'review'>('setup');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [mode, setMode] = useState<'direct' | 'review'>('review');
+  const [quotaMode, setQuotaMode] = useState<AiQuotaMode>('unlimited');
+  const [uniformLimit, setUniformLimit] = useState(DEFAULT_UNIFORM_LIMIT);
+  const [customLimits, setCustomLimits] = useState<Partial<Record<SystemCategoryName, number>>>({});
   const [showAddCategoryDropdown, setShowAddCategoryDropdown] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState<'accept-all' | 'reject-all' | null>(null);
   const [isBulkRunning, setIsBulkRunning] = useState(false);
 
-  // Rilevamento Mobile per Design System
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
-  // Token Design System
+  const isMobile = useMobileDetect();
   const titleStyle = useDynamicStyles('suitcase_title', isMobile);
   const subtitleStyle = useDynamicStyles('suitcase_text_support', isMobile);
   const btnLabelStyle = useDynamicStyles('suitcase_label_caps', isMobile);
 
-  // Inizializzazione categorie basata su prop o default
   useEffect(() => {
     if (isOpen && selectedCategories.length === 0) {
       setSelectedCategories(initialCategories.length > 0 ? initialCategories : [...CORE_CATEGORY_NAMES].slice(0, 4));
     }
-  }, [isOpen, initialCategories]);
+  }, [isOpen, initialCategories, selectedCategories.length]);
 
-  // Reset step alla chiusura
   useEffect(() => {
     if (!isOpen) {
       setStep('setup');
@@ -74,6 +91,21 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
       setIsBulkRunning(false);
     }
   }, [isOpen]);
+
+  const buildGenerateOptions = useCallback((): GetAiCandidatesOptions | undefined => {
+    if (quotaMode === 'unlimited') return undefined;
+    if (quotaMode === 'uniform') {
+      return {
+        limitPerCategory: buildUniformLimitMap(selectedCategories, uniformLimit),
+      };
+    }
+    const map: Partial<Record<SystemCategoryName, number>> = {};
+    for (const cat of selectedCategories) {
+      const normalized = normalizeCategoryName(cat) as SystemCategoryName;
+      map[normalized] = customLimits[normalized] ?? uniformLimit;
+    }
+    return { limitPerCategory: normalizeLimitPerCategory(map) };
+  }, [quotaMode, uniformLimit, customLimits, selectedCategories]);
 
   if (!isOpen) return null;
 
@@ -129,6 +161,12 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
 
   const removeCategory = (cat: string) => {
     setSelectedCategories(prev => prev.filter(c => c !== cat));
+    const normalized = normalizeCategoryName(cat) as SystemCategoryName;
+    setCustomLimits(prev => {
+      const next = { ...prev };
+      delete next[normalized];
+      return next;
+    });
   };
 
   const addCategory = (cat: string) => {
@@ -138,31 +176,35 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
     setShowAddCategoryDropdown(false);
   };
 
+  const handleSetQuotaMode = (next: AiQuotaMode) => {
+    setQuotaMode(next);
+  };
+
   const availableCategories = CATEGORY_ORDER.filter(c => !selectedCategories.includes(c));
 
   const handleGenerate = () => {
+    const options = buildGenerateOptions();
     if (mode === 'direct') {
-      onGenerate(selectedCategories, 'direct');
+      onGenerate(selectedCategories, 'direct', options);
       onClose();
     } else {
       setStep('review');
-      onGenerate(selectedCategories, 'review');
+      onGenerate(selectedCategories, 'review', options);
     }
   };
 
   return createPortal(
-    <div 
+    <div
       className="td-modal-overlay bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300 flex items-center justify-center p-4 md:p-6"
       style={{ zIndex: Z_OVERLAY }}
       onClick={handleDismiss}
     >
-      {/* Modal Content */}
-      <div 
+      <div
         className="relative w-full max-w-2xl bg-slate-900 border border-white/10 rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 fade-in duration-300 flex flex-col max-h-[90vh]"
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
       >
-        <CloseButton 
+        <CloseButton
           onClose={handleDismiss}
           disableIfDirty={isBulkRunning}
           disabled={isBulkRunning}
@@ -170,8 +212,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
           position="absolute"
           className="top-6 right-8"
         />
-        
-        {/* Header */}
+
         <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 shrink-0">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
@@ -180,13 +221,14 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
             <div>
               <h3 className={`${titleStyle || "text-xl font-bold text-white"} leading-none mb-1`}>Suggerimenti AI</h3>
               <p className={`${subtitleStyle || "text-xs text-slate-400 font-medium"}`}>
-                {step === 'setup' ? 'Configura la generazione intelligente' : 'Revisione suggerimenti'}
+                {step === 'setup'
+                  ? 'Scegli categorie e quantità: i suggerimenti seguono la tua selezione'
+                  : 'Revisione suggerimenti per categoria'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
           {step === 'setup' ? (
             <AiSuggestionsSetupStep
@@ -194,16 +236,25 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               availableCategories={availableCategories}
               showAddCategoryDropdown={showAddCategoryDropdown}
               mode={mode}
+              quotaMode={quotaMode}
+              uniformLimit={uniformLimit}
+              customLimits={customLimits}
               onAddCategory={addCategory}
               onRemoveCategory={removeCategory}
               onToggleDropdown={() => setShowAddCategoryDropdown(!showAddCategoryDropdown)}
               onSetMode={setMode}
+              onSetQuotaMode={handleSetQuotaMode}
+              onSetUniformLimit={setUniformLimit}
+              onSetCustomLimit={(category, limit) =>
+                setCustomLimits(prev => ({ ...prev, [category]: limit }))
+              }
             />
           ) : (
             <AiSuggestionsReviewStep
               suggestions={suggestions}
               isGenerating={isGenerating}
               hasMore={hasMore}
+              quotaFeedback={quotaFeedback}
               onShowMore={onShowMore}
               onAccept={onAccept}
               onReject={onReject}
@@ -212,7 +263,6 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-8 py-6 border-t border-white/5 bg-slate-900/50 shrink-0 flex items-center justify-between gap-4">
           {step === 'setup' ? (
             <>
@@ -262,11 +312,11 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
           ) : (
             <>
               <button
-                onClick={onClose}
+                onClick={() => setStep('setup')}
                 disabled={isBulkRunning}
                 className={`px-6 py-3 rounded-xl ${btnLabelStyle || "text-[10px] font-black text-slate-400 uppercase tracking-widest"} hover:text-white transition-colors disabled:opacity-50`}
               >
-                Chiudi
+                Indietro
               </button>
               <div className="flex items-center gap-3">
                 <button
@@ -292,4 +342,3 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
     document.body
   );
 };
-

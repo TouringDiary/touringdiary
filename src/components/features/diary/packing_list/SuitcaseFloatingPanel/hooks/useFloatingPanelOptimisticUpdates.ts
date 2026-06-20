@@ -14,7 +14,9 @@ export const useFloatingPanelStateSync = (setUserSuitcases: React.Dispatch<React
 
         if (action.type === 'update') {
           const val = inverse ? action.payload.previousValue : action.payload.newValue;
-          const extra = (!inverse && action.payload.extraUpdates) ? action.payload.extraUpdates : {};
+          const extra = inverse
+            ? (action.payload.inverseExtraUpdates ?? {})
+            : (action.payload.extraUpdates ?? {});
           
           return {
             ...suitcase,

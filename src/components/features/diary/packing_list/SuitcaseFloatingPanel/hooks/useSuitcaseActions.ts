@@ -435,10 +435,16 @@ export const useSuitcaseActions = ({
         setViewMode('selector');
         setActiveTabId(null);
       }
+      const draftEntity = wasDraft
+        ? userSuitcases.find((s) => s.id === suitcaseToDelete) ?? getGuestSuitcase()
+        : null;
+      const draftKind = draftEntity ? getDraftWorkspaceKind(draftEntity) : 'suitcase';
       showToast(
         wasDraft ? 'Bozza eliminata' : 'Eliminato',
         wasDraft
-          ? 'La workspace in pausa è stata rimossa.'
+          ? draftKind === 'user_template'
+            ? 'Il template in pausa è stato rimosso.'
+            : 'La valigia in pausa è stata rimossa.'
           : 'L\'elemento è stato eliminato dal tuo profilo.',
         'success'
       );
@@ -493,6 +499,8 @@ export const useSuitcaseActions = ({
       setViewMode('selector');
       setAutoOpenNewCategory(false);
       setActiveTabId(null);
+      void fetchLinkedIds();
+      void fetchUserSuitcases();
     }
   };
 

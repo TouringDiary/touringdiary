@@ -62,7 +62,7 @@ export const DashboardActionGroup: React.FC<DashboardActionGroupProps> = ({
 
       {showRecommendedSuitcase && onOpenRecommendedSuitcase && (
         <IconActionButton
-          label="Crea valigia personalizzata"
+          label="Crea Valigia Personalizzata"
           onClick={onOpenRecommendedSuitcase}
           disabled={isCreating}
           icon={Sparkles}

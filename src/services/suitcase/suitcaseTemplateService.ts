@@ -13,7 +13,7 @@ import {
 } from './suitcaseCoreService';
 import { persistSuitcaseItemsFromRuntimeAsync } from './suitcaseItemsService';
 import { getRejectionsBySuitcaseAsync, addRejectionAsync } from './suitcaseRejectionsService';
-import { enrichTdTemplateAsync, enrichTdTemplatesAsync } from './packingCompositionService';
+import { enrichTdTemplateAsync, enrichTdTemplatesAsync, ensureTdTemplateCategorySetup } from './packingCompositionService';
 import { isTdTemplate, isUserTemplate, isValigia } from '../../utils/suitcaseDomain';
 
 /** Suggerimento AI ancora in attesa di accettazione/rifiuto — escluso dalla duplicazione. */
@@ -163,7 +163,14 @@ export const fetchGlobalTemplatesAsync = async (): Promise<Suitcase[]> => {
     return mapDbSuitcaseToRuntimeSuitcase(dbSuitcase, []);
   });
 
-  return enrichTdTemplatesAsync(templates);
+  try {
+    return await enrichTdTemplatesAsync(templates);
+  } catch (enrichError) {
+    console.error('[fetchGlobalTemplatesAsync] enrichTdTemplatesAsync failed:', enrichError);
+    return templates.map((template) =>
+      isTdTemplate(template) ? ensureTdTemplateCategorySetup(template) : template
+    );
+  }
 };
 
 /**

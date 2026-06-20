@@ -106,7 +106,7 @@ export const createDraftWorkspaceFromSuitcase = (
 };
 
 /**
- * Crea una draft workspace popolata da item merge-deduplicati (Valigia Consigliata).
+ * Crea una draft workspace popolata da item merge-deduplicati (Valigia Personalizzata).
  */
 export const createDraftWorkspaceFromMergedItems = (
   userId: string,

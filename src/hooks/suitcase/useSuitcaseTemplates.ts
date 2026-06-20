@@ -40,13 +40,21 @@ export const mergeTemplateItems = (templates: Suitcase[]): SuitcaseItem[] => {
 
 export const useGlobalTemplates = () => {
   const [globalTemplates, setGlobalTemplates] = useState<Suitcase[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchGlobalTemplates = useCallback(async () => {
+    setIsLoading(true);
+    setFetchError(null);
     try {
       const data = await fetchGlobalTemplatesAsync();
       setGlobalTemplates(data);
     } catch (error) {
       console.error('Errore fetchGlobalTemplates:', error);
+      setFetchError(error instanceof Error ? error.message : 'fetch_failed');
+      setGlobalTemplates([]);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -54,7 +62,7 @@ export const useGlobalTemplates = () => {
     fetchGlobalTemplates();
   }, [fetchGlobalTemplates]);
 
-  return { globalTemplates, fetchGlobalTemplates };
+  return { globalTemplates, fetchGlobalTemplates, isLoading, fetchError };
 };
 
 export const useCityTypeTemplates = (cityType: string | null) => {
@@ -122,7 +130,7 @@ export const useUserTemplatePreferences = (userId: string | undefined) => {
     setIsLoading(true);
     try {
       const data = await fetchUserTemplatePreferencesAsync(userId);
-      const prefs: Record<string, any> = {};
+      const prefs: Record<string, { enabled: boolean; priority: number }> = {};
       data?.forEach(p => {
         prefs[p.template_id] = { enabled: p.enabled, priority: p.priority };
       });

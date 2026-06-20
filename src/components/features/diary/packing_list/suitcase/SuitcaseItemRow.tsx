@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Check, Trash2, Sparkles, X } from 'lucide-react';
-import { SuitcaseItem } from '@/types/suitcase';
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, Trash2, Sparkles, X, Minus, Plus } from 'lucide-react';
+import { SuitcaseItem, RuntimeAffiliateProduct } from '@/types/suitcase';
 import { affiliateTrackingService } from '@/services/affiliateTrackingService';
 
 interface SuitcaseItemRowProps {
@@ -9,7 +9,7 @@ interface SuitcaseItemRowProps {
   onUpdate: (id: string, updates: Partial<SuitcaseItem>) => void;
   onDelete: (id: string) => void;
   highlightId: string | null;
-  override?: any;
+  override?: RuntimeAffiliateProduct;
   onLinkBuildSearch?: (query: string) => string;
   isSelected?: boolean;
   onSelect?: () => void;
@@ -26,23 +26,67 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
   isSelected,
   onSelect
 }) => {
-  const [isTemporarilyHighlighted, setIsTemporarilyHighlighted] = useState(false);
+  const quantity = item.quantity ?? 1;
+  const [quantityInput, setQuantityInput] = useState<string | null>(null);
+  const [isFadingHighlight, setIsFadingHighlight] = useState(false);
+  const wasHighlightedRef = useRef(false);
+  const isActiveHighlight = highlightId === item.id;
+  const showModifiedHighlight = isActiveHighlight || isFadingHighlight;
 
-  // Trigger temporary highlight when this specific item is modified
   useEffect(() => {
-    if (highlightId === item.id) {
-      setIsTemporarilyHighlighted(true);
-      const timer = setTimeout(() => setIsTemporarilyHighlighted(false), 3500);
-      return () => clearTimeout(timer);
+    if (isActiveHighlight) {
+      wasHighlightedRef.current = true;
+      setIsFadingHighlight(false);
+      return;
     }
-  }, [highlightId, item.id]);
+
+    if (!wasHighlightedRef.current) return;
+
+    wasHighlightedRef.current = false;
+    setIsFadingHighlight(true);
+    const timer = setTimeout(() => setIsFadingHighlight(false), 500);
+    return () => clearTimeout(timer);
+  }, [isActiveHighlight, item.id]);
+
+  const sanitizeQuantityDigits = (raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    if (digits === '') return '';
+    return String(parseInt(digits, 10));
+  };
+
+  const commitQuantity = (raw: string) => {
+    const parsed = parseInt(raw, 10);
+    const next = Number.isFinite(parsed) ? Math.max(1, parsed) : 1;
+    setQuantityInput(null);
+    if (next !== quantity) {
+      onUpdate(item.id, { quantity: next });
+    }
+  };
+
+  const getEffectiveQuantity = () => {
+    if (quantityInput !== null && quantityInput !== '') {
+      const parsed = parseInt(quantityInput, 10);
+      if (Number.isFinite(parsed) && parsed >= 1) {
+        return parsed;
+      }
+    }
+    return quantity;
+  };
+
+  const adjustQuantity = (delta: number) => {
+    const next = Math.max(1, getEffectiveQuantity() + delta);
+    setQuantityInput(null);
+    if (next !== quantity) {
+      onUpdate(item.id, { quantity: next });
+    }
+  };
 
   return (
     <div 
       onClick={onSelect}
-      className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 group relative cursor-pointer ${
-        isTemporarilyHighlighted 
-          ? 'bg-emerald-400/20 border-emerald-400/30' 
+      className={`flex items-center gap-2 sm:gap-3 p-3 rounded-xl border transition-all duration-500 group relative cursor-pointer ${
+        showModifiedHighlight
+          ? 'bg-emerald-400/20 border-emerald-400/30'
           : isSelected
             ? 'bg-indigo-500/10 border-indigo-500/50 shadow-lg shadow-indigo-500/10'
             : item.is_ai_suggestion
@@ -53,25 +97,74 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
       }`}
     >
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           if (!readOnly) onUpdate(item.id, { is_checked: !item.is_checked });
         }}
         disabled={readOnly}
-        className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
-          item.is_checked 
-            ? 'bg-emerald-500 border-emerald-500 text-white' 
-            : 'bg-slate-900 border-slate-700 hover:border-indigo-500 group-hover:scale-105 active:scale-95'
-        }`}
+        aria-checked={!!item.is_checked}
+        aria-label={item.is_checked ? 'Deseleziona oggetto' : 'Seleziona oggetto'}
+        className="shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 md:min-w-[32px] md:min-h-[32px] md:w-8 md:h-8 rounded-lg touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {item.is_checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+        <span
+          className={`flex items-center justify-center w-5 h-5 rounded-md border transition-all shadow-sm group-hover:scale-105 active:scale-95 ${
+            item.is_checked
+              ? 'bg-emerald-500 border-emerald-500 text-white'
+              : 'bg-slate-900 border-slate-700 group-hover:border-indigo-500'
+          }`}
+        >
+          {item.is_checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+        </span>
       </button>
       
-      <span className={`flex-1 text-sm font-medium transition-colors flex items-center gap-2 ${
+      <span className={`flex-1 min-w-0 text-base font-medium transition-colors flex items-center gap-2 ${
         item.is_checked ? 'text-slate-400' : 'text-slate-200'
       }`}>
-        {item.name}
+        <span className="truncate">{item.name}</span>
       </span>
+
+      {!item.is_ai_suggestion && !readOnly && (
+        <div
+          className="flex items-center shrink-0 rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+          role="group"
+          aria-label="Quantità"
+        >
+          <button
+            type="button"
+            onClick={() => adjustQuantity(-1)}
+            disabled={getEffectiveQuantity() <= 1}
+            className="flex items-center justify-center w-8 h-8 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
+            aria-label="Diminuisci quantità"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={quantityInput ?? String(quantity)}
+            onChange={(e) => setQuantityInput(sanitizeQuantityDigits(e.target.value))}
+            onBlur={() => commitQuantity(quantityInput ?? String(quantity))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              }
+            }}
+            className="w-8 md:w-7 h-8 md:h-7 bg-transparent border-x border-white/10 text-center text-sm font-semibold text-slate-200 focus:outline-none focus:bg-white/5"
+            aria-label="Quantità oggetto"
+          />
+          <button
+            type="button"
+            onClick={() => adjustQuantity(1)}
+            className="flex items-center justify-center w-8 h-8 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all touch-manipulation"
+            aria-label="Aumenta quantità"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {override && (
         <a 
@@ -117,12 +210,12 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onUpdate(item.id, { is_ai_suggestion: false, accepted_from_ai: true } as any);
+                  onUpdate(item.id, { is_ai_suggestion: false, accepted_from_ai: true } as Partial<SuitcaseItem>);
                 }}
                 className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm border border-emerald-500/20"
                 title="Accetta Suggerimento"
               >
-                <Check className="w-4.5 h-4.5 stroke-[3]" />
+                <Check className="w-4 h-4 stroke-[3]" />
               </button>
               <button
                 onClick={(e) => {
@@ -132,7 +225,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
                 className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-500/20"
                 title="Rifiuta Suggerimento"
               >
-                <X className="w-4.5 h-4.5 stroke-[3]" />
+                <X className="w-4 h-4 stroke-[3]" />
               </button>
             </>
           )}
@@ -140,14 +233,16 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
       ) : (
         !readOnly && (
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(item.id);
           }}
-          className="p-1 px-2 rounded-lg hover:bg-red-500/10 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all ml-1"
+          className="shrink-0 flex items-center justify-center w-9 h-9 md:w-auto md:h-auto md:min-w-0 md:min-h-0 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all touch-manipulation"
           title="Rimuovi"
+          aria-label="Rimuovi oggetto"
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="w-4 h-4" />
         </button>
         )
       )}

@@ -13,6 +13,7 @@ import { useSuitcaseUndoHandlers } from './useSuitcaseUndoHandlers';
 import { getSuitcaseItemProgress } from '../../suitcase/SuitcaseUtils';
 import { useSuitcaseAssociationFlow } from './useSuitcaseAssociationFlow';
 import { hasDraftWorkspaceInStorage, isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
+import { isTdTemplate } from '@/utils/suitcaseDomain';
 import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
 import { CATEGORY_ID_MAP, normalizeCategoryName } from '@/domain/packing/packingCategories';
 import {
@@ -64,7 +65,7 @@ export function useSuitcasePanelComposition({
   const hiddenCategories = useSuitcaseHiddenCategories({
     activeSuitcase: data.activeSuitcase,
     onUpdateCategoryVisibility: (patch) => {
-      if (data.activeSuitcase?.id) {
+      if (data.activeSuitcase?.id && !isTdTemplate(data.activeSuitcase)) {
         data.handleUpdateSuitcaseLocal(data.activeSuitcase.id, {
           ui_state: {
             ...data.activeSuitcase.ui_state,
@@ -120,6 +121,9 @@ export function useSuitcasePanelComposition({
         data.globalTemplates.find((template) => template.id === id)
       );
     },
+    getSuitcaseById: (id: string) =>
+      data.userSuitcasesRef.current.find((suitcase) => suitcase.id === id) ??
+      data.globalTemplates.find((template) => template.id === id),
     handleStateSync: data.handleStateSync,
     pushAction,
     fetchUserSuitcases: data.fetchUserSuitcases,

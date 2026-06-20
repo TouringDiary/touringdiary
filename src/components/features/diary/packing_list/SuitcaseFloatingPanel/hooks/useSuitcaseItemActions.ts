@@ -5,10 +5,10 @@ import { ToastVariant } from '@/types/toast';
 import { removeRejectionAsync, removeRejectionByNameAsync } from '@/services/suitcase/suitcaseRejectionsService';
 import {
   isDraftWorkspaceId,
-  isDraftItemId,
   removeDraftLocalRejectionById,
   removeDraftLocalRejectionByName,
 } from '@/utils/guestSuitcaseHelper';
+import { isEphemeralItemId } from '@/utils/runtimeItemId';
 import type { CategoryDeleteModalTarget } from './useFloatingPanelModals';
 import {
   computeCategoryDeleteUpdates,
@@ -26,6 +26,7 @@ interface ItemActionsProps {
   addItem: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
   updateSuitcase: (suitcaseId: string, updates: Partial<Suitcase>) => Promise<void>;
   getActiveSuitcase: () => Suitcase | undefined;
+  getSuitcaseById?: (id: string) => Suitcase | undefined;
   handleStateSync: (action: UndoAction, inverse: boolean, suitcaseId: string | null) => void;
   pushAction: (action: UndoAction) => void;
   fetchUserSuitcases: () => Promise<void> | void;
@@ -42,6 +43,7 @@ export const useSuitcaseItemActions = ({
   addItem,
   updateSuitcase,
   getActiveSuitcase,
+  getSuitcaseById,
   handleStateSync,
   pushAction,
   fetchUserSuitcases,
@@ -64,7 +66,7 @@ export const useSuitcaseItemActions = ({
         removedItems
           .filter(
             (item) =>
-              item.id && !isDraftItemId(item.id) && !item.id.startsWith('temp-')
+              item.id && !isEphemeralItemId(item.id) && !item.id.startsWith('temp-')
           )
           .map((item) => deleteItem(item.id))
       );
@@ -141,6 +143,25 @@ export const useSuitcaseItemActions = ({
         // 5. Registrazione nello stack Undo
         console.log("[UndoStack] registering action:", action);
         pushAction(action);
+      } else if (updates.quantity !== undefined) {
+        const clampedQty = Math.max(1, updates.quantity ?? 1);
+        await updateItem(itemId, { quantity: clampedQty });
+        await fetchUserSuitcases();
+
+        const action: UndoAction = {
+          id: itemId,
+          type: 'update',
+          payload: {
+            field: 'quantity',
+            previousValue: currentItem.quantity ?? 1,
+            newValue: clampedQty,
+          },
+          label: currentItem.name,
+          timestamp: Date.now(),
+        };
+
+        handleStateSync(action, false, activeTabId);
+        pushAction(action);
       } else if (updates.accepted_from_ai === true) {
         // 1. Persistenza DB (accepted_from_ai=true, is_ai_suggestion=false)
         await updateItem(itemId, updates);
@@ -154,17 +175,17 @@ export const useSuitcaseItemActions = ({
           type: 'update',
           payload: {
             field: 'accepted_from_ai',
-            previousValue: false,
+            previousValue: !!currentItem.accepted_from_ai,
             newValue: true,
-            // Includiamo anche is_ai_suggestion nel sync locale se necessario
-            extraUpdates: { is_ai_suggestion: false }
+            extraUpdates: { is_ai_suggestion: false },
+            inverseExtraUpdates: { is_ai_suggestion: true },
           },
           label: currentItem.name,
           timestamp: Date.now()
         };
         handleStateSync(action, false, activeTabId);
+        pushAction(action);
 
-        // 4. Feedback visivo
         showToast("Oggetto aggiunto", "L'oggetto è stato aggiunto alla valigia.", 'success');
       } else {
         await updateItem(itemId, updates);
@@ -175,7 +196,7 @@ export const useSuitcaseItemActions = ({
       fetchUserSuitcases();
       throw err;
     }
-  }, [activeTabId, updateItem, handleStateSync, pushAction, fetchUserSuitcases]);
+  }, [activeTabId, updateItem, handleStateSync, pushAction, fetchUserSuitcases, showToast]);
 
   const handleDeleteItemConfirmed = useCallback(async (itemToDelete: SuitcaseItem) => {
     try {
@@ -352,14 +373,15 @@ export const useSuitcaseItemActions = ({
 
   const handleDeleteCategoryConfirmed = useCallback(
     async (target: CategoryDeleteModalTarget) => {
-      if (!activeTabId) return;
-      const suitcase = getActiveSuitcase();
+      const suitcaseId = target.suitcaseId ?? activeTabId;
+      if (!suitcaseId) return;
+      const suitcase = getSuitcaseById?.(suitcaseId);
       if (!suitcase) return;
 
       const snapshot = createCategoryDeleteSnapshot(suitcase, target);
 
       try {
-        await persistCategoryDelete(activeTabId, suitcase, target);
+        await persistCategoryDelete(suitcaseId, suitcase, target);
         await fetchUserSuitcases();
 
         const action: UndoAction = {
@@ -368,7 +390,7 @@ export const useSuitcaseItemActions = ({
           label: target.name,
           timestamp: Date.now(),
           inverse: async (payload: CategoryDeleteSnapshot) => {
-            await persistCategoryRestore(activeTabId, payload);
+            await persistCategoryRestore(suitcaseId, payload);
             await fetchUserSuitcases();
             showToast(
               `Categoria ripristinata: ${payload.target.name}`,
@@ -377,9 +399,9 @@ export const useSuitcaseItemActions = ({
             );
           },
           apply: async (payload: CategoryDeleteSnapshot) => {
-            const currentSuitcase = getActiveSuitcase();
+            const currentSuitcase = getSuitcaseById?.(suitcaseId);
             if (!currentSuitcase) return;
-            await persistCategoryDelete(activeTabId, currentSuitcase, payload.target);
+            await persistCategoryDelete(suitcaseId, currentSuitcase, payload.target);
             await fetchUserSuitcases();
             showToast(
               `Categoria eliminata: ${payload.target.name}`,
@@ -411,7 +433,7 @@ export const useSuitcaseItemActions = ({
     [
       activeTabId,
       fetchUserSuitcases,
-      getActiveSuitcase,
+      getSuitcaseById,
       persistCategoryDelete,
       persistCategoryRestore,
       pushAction,

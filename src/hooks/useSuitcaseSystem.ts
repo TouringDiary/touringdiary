@@ -11,10 +11,15 @@ export {
   useUserTemplatePreferences 
 } from './suitcase/useSuitcaseTemplates';
 
-export { 
+export {
   seedAiSuggestions,
-  getAiCandidates
+  getAiCandidates,
+  buildUniformLimitMap,
+  normalizeLimitPerCategory,
+  clampCategoryLimit,
 } from './suitcase/aiSuggestions';
+
+export type { AiCandidate, GetAiCandidatesOptions } from './suitcase/aiSuggestions';
 
 export { 
   useAffiliateGear 

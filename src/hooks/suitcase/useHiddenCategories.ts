@@ -12,6 +12,7 @@ import { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
 import { persistCategoryVisibilityAsync } from '@/services/suitcase/packingSeedService';
 import { SuitcaseUiState } from '@/types/suitcase';
 import { getGuestSuitcase, isDraftWorkspaceId, saveGuestSuitcase } from '@/utils/guestSuitcaseHelper';
+import { isTdTemplate } from '@/utils/suitcaseDomain';
 import { Suitcase } from '@/types/suitcase';
 
 export type CategoryVisibilityPatch = Pick<
@@ -116,6 +117,47 @@ export const useHiddenCategories = (
     [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
   );
 
+  const reorderCategoryToIndex = useCallback(
+    (categoryId: string, targetIndex: number, visibleIds: string[]) => {
+      const visibleSet = new Set(visibleIds);
+      const baseOrder =
+        displayOrder.length > 0
+          ? [...displayOrder]
+          : visibleIds.filter((id, idx, arr) => arr.indexOf(id) === idx);
+
+      for (const id of visibleIds) {
+        if (!baseOrder.includes(id)) baseOrder.push(id);
+      }
+
+      const working = baseOrder.filter((id) => visibleSet.has(id));
+      const currentIdx = working.indexOf(categoryId);
+      if (currentIdx === -1 || targetIndex < 0 || targetIndex >= working.length || currentIdx === targetIndex) {
+        return;
+      }
+
+      const nextWorking = working.filter((id) => id !== categoryId);
+      nextWorking.splice(targetIndex, 0, categoryId);
+
+      const workingSet = new Set(working);
+      const nextOrder: string[] = [];
+      let wi = 0;
+      for (const id of baseOrder) {
+        if (workingSet.has(id)) {
+          nextOrder.push(nextWorking[wi++]);
+        } else {
+          nextOrder.push(id);
+        }
+      }
+      while (wi < nextWorking.length) {
+        nextOrder.push(nextWorking[wi++]);
+      }
+
+      setDisplayOrder(nextOrder);
+      emitSync(categorySetup, customHiddenIds, dismissedIds, nextOrder);
+    },
+    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
+  );
+
   const showAll = useCallback(() => {
     let nextSetup = categorySetup;
     for (const categoryId of Object.keys(categorySetup)) {
@@ -167,6 +209,7 @@ export const useHiddenCategories = (
     }
 
     if (!suitcaseId) return;
+    if (suitcase && isTdTemplate(suitcase)) return;
 
     const patch: CategoryVisibilityPatch = {
       category_setup: categorySetup,
@@ -208,6 +251,7 @@ export const useHiddenCategories = (
     toggleCategory,
     activateOptionalCategory,
     moveCategory,
+    reorderCategoryToIndex,
     showAll,
     isHidden,
     categorySetup,

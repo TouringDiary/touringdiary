@@ -15,6 +15,7 @@ import {
 } from '@/domain/packing/categorySetupUx';
 import { SuitcaseCategory } from '@/types/suitcase';
 import { CategoryIconPicker } from './CategoryIconPicker';
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { getIconByName } from './SuitcaseUtils';
 
 export interface CategorySetupConfigurationResult {
@@ -258,7 +259,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const iconPickerRef = useRef<HTMLDivElement>(null);
+  const iconTriggerRef = useRef<HTMLButtonElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dialogPanelRef = useRef<HTMLDivElement>(null);
 
@@ -283,23 +284,6 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
       setShowAddForm(false);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen || !showIconPicker || !showAddForm) return;
-
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const rafId = requestAnimationFrame(() => {
-      iconPickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      timeoutId = setTimeout(() => {
-        iconPickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 220);
-    });
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      clearTimeout(timeoutId);
-    };
-  }, [isOpen, showIconPicker, showAddForm]);
 
   if (!isOpen) return null;
 
@@ -446,10 +430,11 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
                   ${showAddForm ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}
                 `}
               >
-                <div className={showIconPicker ? 'overflow-visible' : 'overflow-hidden'}>
+                <div className="overflow-hidden">
                   <div className="px-4 py-3 border-t border-white/[0.05] bg-black/15">
                     <div className="flex items-center gap-2">
                       <button
+                        ref={iconTriggerRef}
                         type="button"
                         onClick={() => setShowIconPicker((v) => !v)}
                         className={`
@@ -487,17 +472,21 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
                         OK
                       </button>
                     </div>
-                    {showIconPicker && (
-                      <div ref={iconPickerRef} className="mt-3 scroll-mt-4">
-                        <CategoryIconPicker
-                          onSelect={(key) => {
-                            setNewCatIcon(key);
-                            setShowIconPicker(false);
-                          }}
-                          onClose={() => setShowIconPicker(false)}
-                        />
-                      </div>
-                    )}
+                    <AnchoredPopover
+                      isOpen={showIconPicker}
+                      onClose={() => setShowIconPicker(false)}
+                      anchorRef={iconTriggerRef}
+                      align="left"
+                      className="w-[min(400px,calc(100vw-24px))]"
+                    >
+                      <CategoryIconPicker
+                        onSelect={(key) => {
+                          setNewCatIcon(key);
+                          setShowIconPicker(false);
+                        }}
+                        onClose={() => setShowIconPicker(false)}
+                      />
+                    </AnchoredPopover>
                   </div>
                 </div>
               </div>

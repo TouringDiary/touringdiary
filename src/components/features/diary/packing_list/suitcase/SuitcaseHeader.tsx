@@ -1,10 +1,23 @@
 import React from 'react';
-import { Edit2, Trash2, ChevronLeft, Unlink, Link2, Layout, Undo2, Redo2, CloudOff, Calendar, Clock, CheckSquare } from 'lucide-react';
+import { Edit2, Trash2, ChevronLeft, Link2, Layout, Undo2, Redo2, CloudOff, CalendarDays, Clock3 } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Suitcase } from '@/types/suitcase';
 import { TemplateCategoryIcon } from './SuitcaseUtils';
+import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
 import { isSessionReadOnly } from '@/utils/suitcaseDomain';
 import type { SuitcasePanelViewMode } from '../SuitcaseFloatingPanel/types/panelViewMode';
+
+const formatSuitcaseDateTime = (iso: string) =>
+  new Date(iso)
+    .toLocaleString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    .replace(',', '');
 
 interface SuitcaseHeaderProps {
   viewMode: SuitcasePanelViewMode;
@@ -66,9 +79,9 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
       : false;
 
   return (
-    <div className="flex flex-col shrink-0 bg-slate-900/80 backdrop-blur-md border-b border-white/10 z-header relative">
-      <div className="flex items-center justify-between px-4 md:px-6 h-20 md:h-24">
-        <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+    <div className="flex flex-col shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-white/10 z-header relative">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 h-20 md:h-24 w-full gap-2 md:gap-4">
+        <div className="flex items-center gap-3 md:gap-4 min-w-0 justify-self-start">
           {isDetailView ? (
             <button 
               onClick={onBackToSelector}
@@ -105,31 +118,34 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                     ) : (
                       <h2 
                         onClick={isReadOnlySession ? undefined : onEditTitle}
-                        className={`text-base md:text-2xl font-bold text-white truncate flex items-center gap-2 min-w-0 ${
+                        className={`text-base md:text-2xl font-bold text-slate-50 truncate flex items-center gap-2 min-w-0 ${
                           isReadOnlySession ? '' : 'cursor-pointer hover:text-indigo-400 transition-colors'
                         }`}
                       >
                         {activeSuitcase.title}
                         {!isReadOnlySession && (
-                          <Edit2 className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors shrink-0" />
+                          <Edit2 className="w-4 h-4 text-slate-400 group-hover:text-indigo-400 transition-colors shrink-0" />
                         )}
                       </h2>
                     )}
                   </div>
-
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/80 border border-white/10 shadow-lg shrink-0">
-                    <CheckSquare className={`w-3.5 h-3.5 ${progressPerc === 100 ? 'text-emerald-500' : 'text-indigo-400'}`} />
-                    <span className="text-[11px] font-black text-slate-300 tracking-tight whitespace-nowrap">
-                      {checkedCount}/{totalCount} <span className="opacity-40 mx-1">•</span> {progressPerc}%
-                    </span>
-                  </div>
                 </div>
 
                 {activeSuitcase.created_at && (
-                  <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                    <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3 opacity-50" /> Creato il {new Date(activeSuitcase.created_at).toLocaleDateString('it-IT')}</span>
+                  <div className="flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-3 md:gap-4 text-[10px] font-semibold text-slate-300 tabular-nums ml-1">
+                    <span className="flex items-center gap-1.5">
+                      <span title="Data creazione">
+                        <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+                      </span>
+                      <span>{formatSuitcaseDateTime(activeSuitcase.created_at)}</span>
+                    </span>
                     {activeSuitcase.updated_at && (
-                      <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 opacity-50" /> Modificato il {new Date(activeSuitcase.updated_at).toLocaleDateString('it-IT')}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span title="Ultima modifica">
+                          <Clock3 className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+                        </span>
+                        <span>{formatSuitcaseDateTime(activeSuitcase.updated_at)}</span>
+                      </span>
                     )}
                   </div>
                 )}
@@ -148,24 +164,35 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="justify-self-center shrink-0 px-1 flex md:hidden">
+          {isDetailView && activeSuitcase ? (
+            <SuitcaseToolbarProgressBox
+              checkedCount={checkedCount}
+              totalCount={totalCount}
+              progressPerc={progressPerc}
+              variant="header"
+            />
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-3 justify-self-end shrink-0 md:col-start-3">
           {isDetailView && activeSuitcase && viewMode === 'editor' && !isReadOnlySession && (
             <>
               {isLinkedToItinerary ? (
                 <button
                   onClick={onUnlink}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all group shadow-lg shadow-emerald-500/5"
+                  className="flex items-center gap-0 md:gap-2 p-2.5 md:px-4 md:py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all group shadow-lg shadow-emerald-500/5"
                   title="Scollega dal diario"
+                  aria-label="Scollega dal diario"
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 group-hover:bg-amber-500 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Sincronizzato</span>
-                  <Unlink className="w-4 h-4 sm:hidden" />
+                  <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Sincronizzato</span>
                 </button>
               ) : onLink && isAssociable ? (
                 <button
                   onClick={onLink}
                   disabled={!isDiaryAssociable}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 transition-all shadow-lg ${
+                  className={`flex items-center gap-0 md:gap-2 p-2.5 md:px-4 md:py-2 rounded-xl border border-white/10 transition-all shadow-lg ${
                     isDiaryAssociable
                       ? 'bg-slate-800 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-400 hover:border-indigo-500/20'
                       : 'bg-slate-800/50 text-slate-600 opacity-50 cursor-not-allowed'
@@ -175,24 +202,29 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       ? 'Collega al diario'
                       : 'Completa date e almeno una tappa nel diario per associare'
                   }
+                  aria-label={
+                    isDiaryAssociable
+                      ? 'Collega al diario'
+                      : 'Completa date e almeno una tappa nel diario per associare'
+                  }
                 >
                   <Link2 className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Collega</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Collega</span>
                 </button>
               ) : onLink && !isAssociable ? (
                 <div
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-white/10"
+                  className="flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10"
                   title="I template non possono essere collegati al diario"
                 >
                   <Layout className="w-4 h-4 text-slate-500" />
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden sm:inline">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden md:inline">
                     Template · Non associabile
                   </span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-white/10">
+                <div className="flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10">
                   <CloudOff className="w-4 h-4 text-slate-500" />
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden sm:inline">Offline</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden md:inline">Offline</span>
                 </div>
               )}
 

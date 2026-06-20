@@ -1,5 +1,6 @@
 import React from 'react';
-import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
+import { Z_MODAL } from '@/constants/zIndex';
 
 interface SuitcaseSidePanelProps {
   children: React.ReactNode;
@@ -10,6 +11,9 @@ interface SuitcaseSidePanelProps {
   className?: string;
   sticky?: boolean;
 }
+
+const MOBILE_COLLAPSE_BAR_CLASS =
+  'lg:hidden w-full h-11 shrink-0 bg-slate-900 border-slate-800 flex items-center justify-center gap-2 px-4 cursor-pointer active:bg-slate-800 transition-colors shadow-md pointer-events-auto';
 
 export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
   children,
@@ -30,12 +34,42 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
           : 'w-full lg:w-[60px]'
       } ${className}`}
     >
-      {/* Toggle Button (only if collapsible) */}
       {isCollapsible && (
         <button
           type="button"
           onClick={onToggle}
-          className="absolute -left-3 top-12 w-6 h-6 bg-amber-500 rounded-full border border-slate-900 flex items-center justify-center text-slate-950 hover:bg-amber-400 transition-colors z-dropdown shadow-lg shadow-amber-500/20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
+          className={`${MOBILE_COLLAPSE_BAR_CLASS} ${
+            isOpen ? 'border-b' : 'border-t'
+          }`}
+          style={{ zIndex: Z_MODAL }}
+          aria-label={isOpen ? 'Nascondi suggerimenti' : 'Mostra suggerimenti'}
+          title={isOpen ? 'Nascondi suggerimenti' : 'Mostra suggerimenti'}
+        >
+          {isOpen ? (
+            <>
+              <ChevronUp className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="font-handwriting text-lg font-bold text-white pt-0.5 truncate">
+                Nascondi suggerimenti
+              </span>
+              <ChevronUp className="w-4 h-4 text-amber-500 shrink-0" />
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="font-handwriting text-lg font-bold text-white pt-0.5 truncate">
+                Mostra suggerimenti
+              </span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            </>
+          )}
+        </button>
+      )}
+
+      {isCollapsible && (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="hidden lg:flex absolute -left-3 top-12 w-6 h-6 bg-amber-500 rounded-full border border-slate-900 items-center justify-center text-slate-950 hover:bg-amber-400 transition-colors z-dropdown shadow-lg shadow-amber-500/20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
           aria-label={isOpen ? 'Chiudi suggerimenti' : 'Apri suggerimenti'}
           title={isOpen ? 'Chiudi Suggerimenti' : 'Apri Suggerimenti'}
         >
@@ -43,8 +77,11 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
         </button>
       )}
 
-      {/* Content Area */}
-      <div className={`flex-1 flex flex-col p-6 transition-all duration-300 ${!isOpen ? 'lg:opacity-0 lg:pointer-events-none' : 'opacity-100'}`}>
+      <div
+        className={`flex-1 flex-col p-6 transition-all duration-300 ${
+          isOpen ? 'flex opacity-100' : 'hidden lg:flex lg:opacity-0 lg:pointer-events-none'
+        }`}
+      >
         <div className="flex items-center mb-1 px-1 h-6 shrink-0">
           <div className="w-[3px] h-full bg-amber-500 rounded-full mr-3" />
           <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">{title}</h3>
@@ -54,7 +91,6 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
         </div>
       </div>
 
-      {/* Collapsed Vertical Indicator (Ghost Affordance) */}
       {!isOpen && isCollapsible && (
         <div 
           onClick={onToggle}

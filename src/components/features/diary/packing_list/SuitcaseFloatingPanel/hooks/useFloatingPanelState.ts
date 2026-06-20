@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
+import type { SuitcaseSourceTab } from '../types/sourceTab';
 
 export type { SuitcasePanelViewMode };
+export type { SuitcaseSourceTab };
 
 export const useFloatingPanelState = (
   initialViewMode: SuitcasePanelViewMode = 'selector',
-  defaultTab: 'trip' | 'saved' | 'default' = 'default'
+  defaultTab: SuitcaseSourceTab = 'start'
 ) => {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<SuitcasePanelViewMode>(initialViewMode);
-  const [sourceTab, setSourceTab] = useState<'trip' | 'saved' | 'default'>(defaultTab);
+  const [sourceTab, setSourceTab] = useState<SuitcaseSourceTab>(defaultTab);
   const [selectedItemName, setSelectedItemName] = useState<string | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null);

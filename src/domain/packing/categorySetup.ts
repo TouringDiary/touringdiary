@@ -12,6 +12,14 @@ import type { CategorySetupEntry, CategorySetupMap } from './categorySetupTypes'
 
 const SYSTEM_CATEGORY_IDS = new Set<string>(Object.values(CATEGORY_ID_MAP));
 
+/** Core opzionali attivabili dalla sezione "Disponibili" nell'editor valigia. */
+const CORE_ACTIVATABLE_CATEGORY_NAMES = ['Farmaci', 'Accessori'] as const satisfies readonly SystemCategoryName[];
+
+const EDITOR_ACTIVATABLE_CATEGORY_NAMES: readonly SystemCategoryName[] = [
+  ...CORE_ACTIVATABLE_CATEGORY_NAMES,
+  ...ADDITIONAL_CATEGORY_NAMES,
+];
+
 export function isSystemCategoryId(categoryId: string): boolean {
   return SYSTEM_CATEGORY_IDS.has(categoryId);
 }
@@ -51,7 +59,9 @@ export function materializeCategorySetupForWrite(suitcase: Suitcase): {
 }
 
 /**
- * Nascondi / mostra categoria sistema — preserva seeded (MACROFASE C).
+ * Nascondi / mostra categoria sistema.
+ * Nascondere imposta seeded: true — l'utente ha interagito con la categoria;
+ * non va più trattata come "mai attivata" (Disponibili).
  */
 export function setCategoryEnabled(
   setup: CategorySetupMap,
@@ -63,7 +73,7 @@ export function setCategoryEnabled(
     ...setup,
     [categoryId]: {
       enabled,
-      seeded: current.seeded,
+      seeded: enabled ? current.seeded : true,
     },
   };
 }
@@ -133,12 +143,8 @@ export function getRestorableHiddenCategories(
     const id = getCategoryId(name);
     if (!isHidden(id)) continue;
     if (dismissed.has(id)) continue;
-    if (
-      (ADDITIONAL_CATEGORY_NAMES as readonly string[]).includes(name) &&
-      isOptionalNeverActivated(setup, id)
-    ) {
-      continue;
-    }
+    // Mai usata nella valigia → "Disponibili", non "Nascoste"
+    if (isOptionalNeverActivated(setup, id)) continue;
     hidden.push({ id, name, icon_key: null, source: 'system' });
   }
 
@@ -157,7 +163,8 @@ export function getRestorableHiddenCategories(
 }
 
 /**
- * Categorie opzionali (Bambini / Animali) disabilitate ma attivabili.
+ * Categorie disabilitate, mai usate nella valigia, attivabili dalla sezione "Disponibili".
+ * Mutuamente esclusive con getRestorableHiddenCategories (stesso criterio seeded).
  */
 export function getAvailableOptionalCategories(
   suitcase: Suitcase,
@@ -167,11 +174,12 @@ export function getAvailableOptionalCategories(
   const dismissed = new Set(getDismissedCategoryIds(suitcase));
   const available: DisplayCategory[] = [];
 
-  for (const name of ADDITIONAL_CATEGORY_NAMES) {
+  for (const name of EDITOR_ACTIVATABLE_CATEGORY_NAMES) {
     const id = CATEGORY_ID_MAP[name];
     if (dismissed.has(id)) continue;
     const entry = resolved[id];
     if (entry?.enabled !== false) continue;
+    if (!isOptionalNeverActivated(resolved, id)) continue;
     available.push({ id, name, icon_key: null, source: 'system' });
   }
 
@@ -219,7 +227,7 @@ export function inferCategorySetupFromSuitcase(suitcase: Suitcase): CategorySetu
     const hasItems = hasItemsInCategory(name);
 
     if (isHidden) {
-      setup[id] = { enabled: false, seeded: false };
+      setup[id] = { enabled: false, seeded: true };
     } else if (hasItems) {
       setup[id] = { enabled: true, seeded: true };
     } else {

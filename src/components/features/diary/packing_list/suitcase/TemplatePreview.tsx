@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, EyeOff, CheckSquare } from 'lucide-react';
+import { Plus, Eye, CheckSquare, MinusCircle, Trash2 } from 'lucide-react';
 import { TemplateCategoryIcon, ItemCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
 import {
   buildDisplayCategories,
@@ -8,20 +8,24 @@ import {
   getRestorableHiddenCategories,
   mergeTemplateWithOverlay,
   resolveCategorySetup,
+  setCategoryEnabled,
 } from '@/domain/packing/categorySetup';
+import { ADDITIONAL_CATEGORY_NAMES } from '@/domain/packing/packingCategories';
 import { normalizeCategoryName } from '@/domain/packing/packingCategories';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { CategorySetupMap } from '@/types/packingCatalog';
 import { useHiddenCategories } from '@/hooks/suitcase/useHiddenCategories';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
-import { composeTdTemplateItemsAsync } from '@/services/suitcase/packingCompositionService';
+import { composeTdTemplateItemsAsync, ensureTdTemplateCategorySetup } from '@/services/suitcase/packingCompositionService';
+import { HiddenCategoriesPanel } from './HiddenCategoriesPanel';
+import { OptionalCategoriesPanel } from './OptionalCategoriesPanel';
 
 interface TemplatePreviewProps {
   template: Suitcase | null;
   sourceTab?: 'trip' | 'saved' | 'default';
   onAddCategory?: (id: string) => void;
+  onDeleteCategory?: (category: { id: string; name: string; source: string }) => void;
   onUpdateSuitcaseLocal?: (id: string, updates: Partial<Suitcase>) => void;
-  showHiddenCategories?: boolean;
   readOnly?: boolean;
   categorySetupOverlay?: CategorySetupMap;
   onCategorySetupOverlayChange?: (
@@ -39,8 +43,8 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
   template,
   sourceTab = 'default',
   onAddCategory,
+  onDeleteCategory,
   onUpdateSuitcaseLocal,
-  showHiddenCategories = false,
   readOnly: readOnlyProp,
   categorySetupOverlay,
   onCategorySetupOverlayChange,
@@ -49,12 +53,20 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
   const isReadOnly = readOnlyProp ?? isTd;
   const useOverlayMode = isTd && !!onCategorySetupOverlayChange;
 
+  const resolvedBaseTemplate = useMemo(() => {
+    if (!template) return null;
+    return isTd ? ensureTdTemplateCategorySetup(template) : template;
+  }, [template, isTd]);
+
   const editableTemplate = useMemo(
-    () => (template ? mergeTemplateWithOverlay(template, categorySetupOverlay) : null),
-    [template, categorySetupOverlay]
+    () =>
+      resolvedBaseTemplate
+        ? mergeTemplateWithOverlay(resolvedBaseTemplate, categorySetupOverlay)
+        : null,
+    [resolvedBaseTemplate, categorySetupOverlay]
   );
 
-  const { toggleCategory, showAll, isHidden } = useHiddenCategories(
+  const { toggleCategory, showAll, isHidden, activateOptionalCategory } = useHiddenCategories(
     useOverlayMode ? undefined : template?.id,
     useOverlayMode ? undefined : editableTemplate ?? undefined,
     (patch) => {
@@ -142,19 +154,81 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
   );
 
   const handleActivateOptional = (categoryId: string) => {
-    if (!template || !onCategorySetupOverlayChange) return;
+    if (useOverlayMode && resolvedBaseTemplate && onCategorySetupOverlayChange) {
+      onCategorySetupOverlayChange((prevOverlay) => {
+        const base = resolveCategorySetup(resolvedBaseTemplate);
+        const next = enableOptionalSystemCategory(
+          { ...base, ...prevOverlay },
+          categoryId
+        );
+        return {
+          ...prevOverlay,
+          [categoryId]: next[categoryId],
+        };
+      });
+      return;
+    }
+
+    if (isReadOnly) return;
+    activateOptionalCategory(categoryId);
+  };
+
+  const handleRestoreHiddenCategory = (categoryId: string) => {
+    if (useOverlayMode && resolvedBaseTemplate && onCategorySetupOverlayChange) {
+      onCategorySetupOverlayChange((prevOverlay) => {
+        const merged = { ...resolveCategorySetup(resolvedBaseTemplate), ...prevOverlay };
+        if (merged[categoryId]?.enabled !== false) return prevOverlay;
+        const next = setCategoryEnabled(merged, categoryId, true);
+        return { ...prevOverlay, [categoryId]: next[categoryId] };
+      });
+      return;
+    }
+
+    if (!isReadOnly) toggleCategory(categoryId);
+  };
+
+  const handleShowAllHidden = () => {
+    if (useOverlayMode && resolvedBaseTemplate && onCategorySetupOverlayChange) {
+      onCategorySetupOverlayChange((prevOverlay) => {
+        let merged = { ...resolveCategorySetup(resolvedBaseTemplate), ...prevOverlay };
+        const nextOverlay = { ...prevOverlay };
+        for (const categoryId of Object.keys(merged)) {
+          if (merged[categoryId]?.enabled === false) {
+            merged = setCategoryEnabled(merged, categoryId, true);
+            nextOverlay[categoryId] = merged[categoryId];
+          }
+        }
+        return nextOverlay;
+      });
+      return;
+    }
+
+    if (!isReadOnly) showAll();
+  };
+
+  const handleDeactivateOptional = (categoryId: string) => {
+    if (!resolvedBaseTemplate || !onCategorySetupOverlayChange) return;
     onCategorySetupOverlayChange((prevOverlay) => {
-      const base = resolveCategorySetup(template);
-      const next = enableOptionalSystemCategory(
-        { ...base, ...prevOverlay },
-        categoryId
-      );
+      const base = resolveCategorySetup(resolvedBaseTemplate);
+      const next = setCategoryEnabled({ ...base, ...prevOverlay }, categoryId, false);
       return {
         ...prevOverlay,
         [categoryId]: next[categoryId],
       };
     });
   };
+
+  const isActiveOptionalCategory = (categoryId: string, categoryName: string): boolean => {
+    if (!editableTemplate) return false;
+    if (!(ADDITIONAL_CATEGORY_NAMES as readonly string[]).includes(categoryName)) {
+      return false;
+    }
+    const setup = resolveCategorySetup(editableTemplate);
+    return setup[categoryId]?.enabled !== false;
+  };
+
+  const previewSectionsReadOnly = isReadOnly && !useOverlayMode;
+  const showCategoryDelete = !!onDeleteCategory && sourceTab !== 'default' && !isTd;
 
   if (!template || !editableTemplate) {
     return (
@@ -197,44 +271,80 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
       </div>
 
       <div className="max-h-[380px] lg:overflow-y-auto lg:custom-scrollbar pr-1">
-        {availableOptionalCategories.length > 0 && useOverlayMode && (
-          <div className="mb-4 pb-4 border-b border-white/5">
-            <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 px-1">
-              Categorie disponibili
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {availableOptionalCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleActivateOptional(cat.id)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/20 transition-all group"
-                  title={`Attiva ${cat.name}`}
-                >
-                  <Plus className="w-3 h-3 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
-                  <span className="text-[9px] font-bold text-emerald-300 group-hover:text-white uppercase tracking-wider">{cat.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 pb-4 border-b border-white/5">
+          <OptionalCategoriesPanel
+            categories={availableOptionalCategories}
+            onActivate={handleActivateOptional}
+            readOnly={previewSectionsReadOnly}
+          />
+          <HiddenCategoriesPanel
+            categories={hiddenCategories}
+            onRestore={handleRestoreHiddenCategory}
+            onRestoreAll={handleShowAllHidden}
+            readOnly={previewSectionsReadOnly}
+          />
+        </div>
 
         <div className="grid grid-cols-3 gap-3">
           {visibleCategories.map((cat) => {
             const count = categoryCounts[cat.name] || 0;
+            const showDeactivateOptional =
+              useOverlayMode && isActiveOptionalCategory(cat.id, cat.name);
             return (
               <div
                 key={cat.id}
                 className={`group relative flex flex-col items-center justify-center gap-1.5 p-2 rounded-2xl border border-white/5 bg-slate-800/20 transition-all ${count === 0 ? 'opacity-30' : 'opacity-100'}`}
               >
-                {!useOverlayMode && (
+                {showDeactivateOptional && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); if (!isReadOnly) toggleCategory(cat.id); }}
-                    disabled={isReadOnly}
-                    className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/60 text-slate-400 opacity-0 lg:group-hover:opacity-100 hover:text-indigo-400 transition-all z-floating-panel disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-400"
-                    title={isReadOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeactivateOptional(cat.id);
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/60 text-slate-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:text-emerald-300 transition-all z-floating-panel"
+                    title={`Disattiva ${cat.name}`}
+                    aria-label={`Disattiva ${cat.name}`}
                   >
-                    <Eye className="w-3 h-3" />
+                    <MinusCircle className="w-3 h-3" />
                   </button>
+                )}
+
+                {!useOverlayMode && (
+                  <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 lg:group-hover:opacity-100 transition-all z-floating-panel">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isReadOnly) return;
+                        toggleCategory(cat.id);
+                      }}
+                      disabled={isReadOnly}
+                      className="p-1 rounded-lg bg-slate-900/60 text-rose-400/80 hover:text-rose-400 hover:bg-rose-500/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-rose-400/80 disabled:hover:bg-slate-900/60"
+                      title={isReadOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
+                    >
+                      <Eye className="w-3 h-3" />
+                    </button>
+                    {showCategoryDelete && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isReadOnly) return;
+                          onDeleteCategory?.({
+                            id: cat.id,
+                            name: cat.name,
+                            source: cat.source,
+                          });
+                        }}
+                        disabled={isReadOnly}
+                        className="p-1 rounded-lg bg-slate-900/60 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-slate-900/60 disabled:hover:text-slate-400"
+                        title="Elimina categoria"
+                        aria-label={`Elimina categoria ${cat.name}`}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 <div className="relative">
@@ -254,37 +364,6 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
             );
           })}
         </div>
-
-        {hiddenCategories.length > 0 && showHiddenCategories && !useOverlayMode && (
-          <div className="mt-4 pt-4 border-t border-white/5">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                Categorie nascoste <EyeOff className="w-3 h-3" />
-              </h4>
-              <button
-                onClick={() => !isReadOnly && showAll()}
-                disabled={isReadOnly}
-                className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-indigo-400"
-              >
-                Mostra tutte
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {hiddenCategories.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => !isReadOnly && toggleCategory(cat.id)}
-                  disabled={isReadOnly}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/30 border border-white/5 hover:border-indigo-500/30 hover:bg-slate-800/60 transition-all group disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/5 disabled:hover:bg-slate-800/30"
-                  title={isReadOnly ? 'Non disponibile in sola lettura' : 'Ripristina categoria'}
-                >
-                  <Eye className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
-                  <span className="text-[9px] font-bold text-slate-400 group-hover:text-white uppercase tracking-wider">{cat.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -70,7 +70,11 @@ export const useSuitcaseUndo = ({
       // 2. Esecuzione Asincrona (Persistenza) Legacy
       if (action.type === 'update') {
         const val = inverse ? action.payload.previousValue : action.payload.newValue;
-        await updateItem(action.id, { [action.payload.field]: val });
+        const extra = inverse ? action.payload.inverseExtraUpdates : action.payload.extraUpdates;
+        await updateItem(action.id, {
+          [action.payload.field]: val,
+          ...(extra ?? {}),
+        });
         
         // Sincronizzazione stato solo DOPO conferma DB
         onStateSync(action, inverse, activeSuitcaseId);

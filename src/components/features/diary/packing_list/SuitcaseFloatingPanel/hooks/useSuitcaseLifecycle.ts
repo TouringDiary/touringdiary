@@ -3,6 +3,7 @@ import { User } from '@supabase/supabase-js';
 import { fetchLinkedSuitcaseIdsAsync } from '@/services/suitcaseService';
 import { useUser } from '@/context/UserContext';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
+import type { SuitcaseSourceTab } from '../types/sourceTab';
 
 interface LifecycleProps {
   itineraryId: string | null;
@@ -11,8 +12,8 @@ interface LifecycleProps {
   setActiveTabId: (id: string | null) => void;
   viewMode: SuitcasePanelViewMode;
   setViewMode: (v: SuitcasePanelViewMode) => void;
-  sourceTab: 'trip' | 'saved' | 'default';
-  setSourceTab: (t: 'trip' | 'saved' | 'default') => void;
+  sourceTab: SuitcaseSourceTab;
+  setSourceTab: (t: SuitcaseSourceTab) => void;
   setSelectedItemName: (n: string | null) => void;
 }
 

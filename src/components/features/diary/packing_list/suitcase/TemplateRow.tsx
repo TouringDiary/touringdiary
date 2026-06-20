@@ -47,8 +47,10 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
           : 'bg-slate-800/40 border-slate-700 hover:border-indigo-500/30 hover:bg-slate-800/60',
   ].join(' ');
 
+  const actionRowClass =
+    'flex border-t border-white/10 mt-auto shrink-0 w-full h-[32px] min-h-[32px] max-h-[32px]';
   const actionBtnClass =
-    'flex-1 flex items-center justify-center h-[32px] border-r border-white/10 transition-all last:border-r-0 cursor-pointer';
+    'flex-1 flex items-center justify-center h-full min-h-[32px] max-h-[32px] shrink-0 border-r border-white/10 transition-all last:border-r-0 cursor-pointer';
 
   const handleContentClick = () => {
     onView();
@@ -95,7 +97,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
           />
         </div>
 
-        <div className="flex border-t border-white/10 mt-auto">
+        <div className={actionRowClass}>
           {isTd && (
             <>
               <button

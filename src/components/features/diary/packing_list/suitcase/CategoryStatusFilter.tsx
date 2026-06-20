@@ -1,0 +1,96 @@
+import React, { useRef, useState } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
+import type { CategoryStatusFilter } from './SuitcaseUtils';
+
+interface CategoryStatusFilterDropdownProps {
+  value: CategoryStatusFilter;
+  onChange: (value: CategoryStatusFilter) => void;
+}
+
+const FILTER_OPTIONS: {
+  value: CategoryStatusFilter;
+  label: string;
+}[] = [
+  { value: 'all', label: 'ALL' },
+  { value: 'incomplete', label: 'INCOMPLETE' },
+  { value: 'complete', label: 'COMPLETE' },
+];
+
+const ACTIVE_TRIGGER_CLASS: Record<CategoryStatusFilter, string> = {
+  all: 'bg-slate-800/90 border-white/15 text-slate-200 hover:bg-slate-800 hover:border-white/25',
+  incomplete: 'bg-amber-500/15 border-amber-500/35 text-amber-200 hover:bg-amber-500/20',
+  complete: 'bg-emerald-500/15 border-emerald-500/35 text-emerald-200 hover:bg-emerald-500/20',
+};
+
+export const CategoryStatusFilterDropdown: React.FC<CategoryStatusFilterDropdownProps> = ({
+  value,
+  onChange,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const selected = FILTER_OPTIONS.find((option) => option.value === value) ?? FILTER_OPTIONS[0];
+
+  const handleSelect = (next: CategoryStatusFilter) => {
+    onChange(next);
+    setIsOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={`Filtro categorie: ${selected.label}`}
+        className={`shrink-0 self-center flex items-center gap-1 px-2 py-1.5 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${ACTIVE_TRIGGER_CLASS[value]}`}
+        title={`Filtro: ${selected.label}`}
+      >
+        <ChevronDown
+          className={`w-3 h-3 shrink-0 opacity-80 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-wider leading-none whitespace-nowrap">
+          {selected.label}
+        </span>
+      </button>
+
+      <AnchoredPopover
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        anchorRef={triggerRef}
+        align="left"
+        role="listbox"
+        className="min-w-[7.5rem] rounded-xl border border-white/10 bg-slate-950/98 backdrop-blur-md shadow-2xl shadow-black/40 py-1 overflow-hidden pointer-events-auto"
+      >
+        {FILTER_OPTIONS.map((option) => {
+          const isSelected = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              onClick={() => handleSelect(option.value)}
+              className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${
+                isSelected
+                  ? 'bg-indigo-500/15 text-indigo-100'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <span className="w-3.5 shrink-0 flex items-center justify-center">
+                {isSelected ? <Check className="w-3 h-3 text-indigo-400" aria-hidden /> : null}
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-wider leading-none">
+                {option.label}
+              </span>
+            </button>
+          );
+        })}
+      </AnchoredPopover>
+    </>
+  );
+};
