@@ -283,6 +283,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               onShowMoreAi={data.handleShowMoreAi}
               hasMoreAi={data.hasMoreAi}
               aiQuotaFeedback={data.aiQuotaFeedback}
+              exhaustedCategories={data.exhaustedCategories}
               itemMap={data.affiliateMaps.items}
               categoryMap={data.affiliateMaps.categories}
               globalMap={data.affiliateMaps.global}

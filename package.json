@@ -9,7 +9,13 @@
     "start": "node server/index.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "lint:scripts": "tsc -p tsconfig.scripts.json --noEmit",
+    "lint:packing": "tsc -p tsconfig.packing.json --noEmit",
+    "packing:catalog:build": "tsx scripts/build-packing-domain-catalog.ts",
+    "packing:catalog:validate": "tsx scripts/validate-packing-domain-catalog.ts",
+    "packing:catalog:migrate": "tsx scripts/generate-packing-catalog-migrations.ts",
+    "packing:qa": "tsx scripts/qa-macrofase-c.ts"
   },
   "dependencies": {
     "@google/genai": "latest",

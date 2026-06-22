@@ -44,9 +44,18 @@ interface AiSuggestionsModalProps {
   suggestions: AiSuggestion[];
   hasMore: boolean;
   quotaFeedback?: AiQuotaFeedback | null;
+  exhaustedCategories?: string[];
 }
 
 const DEFAULT_UNIFORM_LIMIT = 3;
+
+const FOOTER_SECONDARY_BTN_CLASS =
+  'text-[10px] font-black text-slate-400 uppercase tracking-widest';
+
+const TITLE_FALLBACK_DESKTOP =
+  'text-xl font-display font-bold text-white uppercase tracking-wide leading-none';
+const TITLE_FALLBACK_MOBILE =
+  'text-lg font-display font-bold text-white uppercase tracking-wide leading-none';
 
 export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   isOpen,
@@ -61,13 +70,15 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   suggestions,
   hasMore,
   quotaFeedback = null,
+  exhaustedCategories = [],
 }) => {
   const [step, setStep] = useState<'setup' | 'review'>('setup');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [mode, setMode] = useState<'direct' | 'review'>('review');
-  const [quotaMode, setQuotaMode] = useState<AiQuotaMode>('unlimited');
+  const [quotaMode, setQuotaMode] = useState<AiQuotaMode>('uniform');
   const [uniformLimit, setUniformLimit] = useState(DEFAULT_UNIFORM_LIMIT);
   const [customLimits, setCustomLimits] = useState<Partial<Record<SystemCategoryName, number>>>({});
+  const [removedCategories, setRemovedCategories] = useState<string[]>([]);
   const [showAddCategoryDropdown, setShowAddCategoryDropdown] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState<'accept-all' | 'reject-all' | null>(null);
   const [isBulkRunning, setIsBulkRunning] = useState(false);
@@ -75,7 +86,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   const isMobile = useMobileDetect();
   const titleStyle = useDynamicStyles('suitcase_title', isMobile);
   const subtitleStyle = useDynamicStyles('suitcase_text_support', isMobile);
-  const btnLabelStyle = useDynamicStyles('suitcase_label_caps', isMobile);
+  const titleFallback = isMobile ? TITLE_FALLBACK_MOBILE : TITLE_FALLBACK_DESKTOP;
 
   useEffect(() => {
     if (isOpen && selectedCategories.length === 0) {
@@ -87,13 +98,13 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
     if (!isOpen) {
       setStep('setup');
       setShowAddCategoryDropdown(false);
+      setRemovedCategories([]);
       setBulkConfirm(null);
       setIsBulkRunning(false);
     }
   }, [isOpen]);
 
-  const buildGenerateOptions = useCallback((): GetAiCandidatesOptions | undefined => {
-    if (quotaMode === 'unlimited') return undefined;
+  const buildGenerateOptions = useCallback((): GetAiCandidatesOptions => {
     if (quotaMode === 'uniform') {
       return {
         limitPerCategory: buildUniformLimitMap(selectedCategories, uniformLimit),
@@ -161,6 +172,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
 
   const removeCategory = (cat: string) => {
     setSelectedCategories(prev => prev.filter(c => c !== cat));
+    setRemovedCategories(prev => (prev.includes(cat) ? prev : [...prev, cat]));
     const normalized = normalizeCategoryName(cat) as SystemCategoryName;
     setCustomLimits(prev => {
       const next = { ...prev };
@@ -169,10 +181,18 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
     });
   };
 
+  const restoreCategory = (cat: string) => {
+    setRemovedCategories(prev => prev.filter(c => c !== cat));
+    if (!selectedCategories.includes(cat)) {
+      setSelectedCategories(prev => [...prev, cat]);
+    }
+  };
+
   const addCategory = (cat: string) => {
     if (!selectedCategories.includes(cat)) {
       setSelectedCategories(prev => [...prev, cat]);
     }
+    setRemovedCategories(prev => prev.filter(c => c !== cat));
     setShowAddCategoryDropdown(false);
   };
 
@@ -180,7 +200,9 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
     setQuotaMode(next);
   };
 
-  const availableCategories = CATEGORY_ORDER.filter(c => !selectedCategories.includes(c));
+  const availableCategories = CATEGORY_ORDER.filter(
+    c => !selectedCategories.includes(c) && !removedCategories.includes(c)
+  );
 
   const handleGenerate = () => {
     const options = buildGenerateOptions();
@@ -219,8 +241,8 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               <Sparkles className={`w-6 h-6 ${isGenerating ? 'animate-spin' : ''}`} />
             </div>
             <div>
-              <h3 className={`${titleStyle || "text-xl font-bold text-white"} leading-none mb-1`}>Suggerimenti AI</h3>
-              <p className={`${subtitleStyle || "text-xs text-slate-400 font-medium"}`}>
+              <h3 className={`${titleStyle || titleFallback} mb-1`}>Suggerimenti AI</h3>
+              <p className={`${subtitleStyle || "text-[13.5px] text-slate-400 font-medium"}`}>
                 {step === 'setup'
                   ? 'Scegli categorie e quantità: i suggerimenti seguono la tua selezione'
                   : 'Revisione suggerimenti per categoria'}
@@ -233,6 +255,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
           {step === 'setup' ? (
             <AiSuggestionsSetupStep
               selectedCategories={selectedCategories}
+              removedCategories={removedCategories}
               availableCategories={availableCategories}
               showAddCategoryDropdown={showAddCategoryDropdown}
               mode={mode}
@@ -241,6 +264,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               customLimits={customLimits}
               onAddCategory={addCategory}
               onRemoveCategory={removeCategory}
+              onRestoreCategory={restoreCategory}
               onToggleDropdown={() => setShowAddCategoryDropdown(!showAddCategoryDropdown)}
               onSetMode={setMode}
               onSetQuotaMode={handleSetQuotaMode}
@@ -255,6 +279,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               isGenerating={isGenerating}
               hasMore={hasMore}
               quotaFeedback={quotaFeedback}
+              exhaustedCategories={exhaustedCategories}
               onShowMore={onShowMore}
               onAccept={onAccept}
               onReject={onReject}
@@ -268,7 +293,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
             <>
               <button
                 onClick={onClose}
-                className={`px-6 py-3 rounded-xl ${btnLabelStyle || "text-[10px] font-black text-slate-400 uppercase tracking-widest"} hover:text-white transition-colors`}
+                className="px-6 py-3 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-white transition-colors"
               >
                 Annulla
               </button>
@@ -283,7 +308,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
             </>
           ) : bulkConfirm ? (
             <>
-              <p className={`${subtitleStyle || "text-xs text-slate-400"} flex-1`}>
+              <p className={`${subtitleStyle || "text-[13px] text-slate-400"} flex-1`}>
                 {bulkConfirm === 'accept-all'
                   ? `Accettare ${pendingSuggestions.length} suggerimenti e aggiungerli alla valigia?`
                   : `Rifiutare ${pendingSuggestions.length} suggerimenti e inserirli in blacklist?`}
@@ -292,7 +317,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
                 <button
                   onClick={() => setBulkConfirm(null)}
                   disabled={isBulkRunning}
-                  className={`px-6 py-3 rounded-xl ${btnLabelStyle || "text-[10px] font-black text-slate-400 uppercase tracking-widest"} hover:text-white transition-colors disabled:opacity-50`}
+                  className={`px-6 py-3 rounded-xl ${FOOTER_SECONDARY_BTN_CLASS} hover:text-white transition-colors disabled:opacity-50`}
                 >
                   Annulla
                 </button>
@@ -314,7 +339,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               <button
                 onClick={() => setStep('setup')}
                 disabled={isBulkRunning}
-                className={`px-6 py-3 rounded-xl ${btnLabelStyle || "text-[10px] font-black text-slate-400 uppercase tracking-widest"} hover:text-white transition-colors disabled:opacity-50`}
+                className={`px-6 py-3 rounded-xl ${FOOTER_SECONDARY_BTN_CLASS} hover:text-white transition-colors disabled:opacity-50`}
               >
                 Indietro
               </button>

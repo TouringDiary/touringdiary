@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src/domain/packing/**/*",
+    "scripts/build-packing-domain-catalog.ts",
+    "scripts/packing-domain-catalog-data.schema.ts",
+    "scripts/validate-packing-domain-catalog.ts",
+    "scripts/qa-macrofase-c.ts",
+    "scripts/generate-packing-catalog-migrations.ts"
+  ]
+}

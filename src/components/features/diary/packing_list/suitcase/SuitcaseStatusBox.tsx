@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { CheckCircle2, Circle, ChevronRight } from 'lucide-react';
 import { Suitcase } from '@/types/suitcase';
+import { getSuitcaseItemProgress } from './SuitcaseUtils';
+import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
 
 interface SuitcaseStatusBoxProps {
   suitcases: Suitcase[];
@@ -18,52 +19,27 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
   activeTabId
 }) => {
   const globalStats = useMemo(() => {
-    let total = 0;
-    let checked = 0;
-    
-    suitcases.forEach(s => {
-      const items = s.suitcase_items || [];
-      total += items.length;
-      checked += items.filter(i => i.is_checked).length;
-    });
-
-    return {
-      total,
-      checked,
-      percentage: total > 0 ? Math.round((checked / total) * 100) : 0
-    };
+    const allItems = suitcases.flatMap((s) => s.suitcase_items ?? []);
+    return getSuitcaseItemProgress(allItems);
   }, [suitcases]);
 
   if (suitcases.length === 0) return null;
 
   return (
     <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/5 py-4 px-5 w-full h-[85px] lg:h-[90px] flex flex-col lg:flex-row items-stretch gap-6 animate-in fade-in zoom-in duration-500 overflow-hidden">
-      {/* Left: Global Stats (Fixed width area) */}
-      <div className="lg:w-[320px] shrink-0 flex flex-col justify-start pt-1 gap-y-2">
-        {/* Row 1: Stats & Percentage Inline */}
-        <div className="flex items-baseline gap-5 mb-0.5">
-          <span className="text-[18px] font-semibold text-slate-100 tabular-nums">
-            {globalStats.checked} / {globalStats.total} <span className="text-[12px] uppercase text-indigo-400 ml-1 font-medium">oggetti</span>
-          </span>
-          <span className="text-[14px] font-semibold text-indigo-400 leading-none">{globalStats.percentage}%</span>
-        </div>
-
-        {/* Row 2: Progress Bar */}
-        <div className="h-2 w-full bg-slate-950/80 rounded-full overflow-hidden shadow-inner">
-          <div 
-            className="h-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-emerald-500 transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(99,102,241,0.3)]" 
-            style={{ width: `${globalStats.percentage}%` }}
-          />
-        </div>
+      <div className="lg:w-[320px] shrink-0 flex flex-col justify-center">
+        <SuitcaseToolbarProgressBox
+          checkedCount={globalStats.checked}
+          totalCount={globalStats.total}
+          progressPerc={globalStats.percentage}
+          variant="panels"
+        />
       </div>
 
-      {/* Right: Individual Suitcases List (Scrollable) */}
       <div className="flex-1 min-w-0 overflow-y-auto custom-scrollbar pr-2">
         <div className="flex flex-col gap-2 py-1.5">
           {suitcases.map(s => {
-            const total = s.suitcase_items?.length || 0;
-            const checked = s.suitcase_items?.filter(i => i.is_checked).length || 0;
-            const perc = total > 0 ? Math.round((checked / total) * 100) : 0;
+            const { percentage: perc } = getSuitcaseItemProgress(s.suitcase_items);
             const isActive = activeTabId === s.id;
 
             return (

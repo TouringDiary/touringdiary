@@ -70,6 +70,7 @@ interface SuitcaseEditorViewProps {
   onShowMoreAi: () => void;
   hasMoreAi: boolean;
   aiQuotaFeedback?: AiQuotaFeedback | null;
+  exhaustedCategories?: string[];
   itemMap: Record<string, RuntimeAffiliateProduct[]>;
   categoryMap: Record<string, RuntimeAffiliateProduct[]>;
   overrides: Record<string, RuntimeAffiliateProduct>;
@@ -137,6 +138,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   onShowMoreAi,
   hasMoreAi,
   aiQuotaFeedback = null,
+  exhaustedCategories = [],
   panelViewMode = 'editor',
   onSetViewMode,
   onUseTemplate,
@@ -686,6 +688,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         suggestions={aiSuggestions}
         hasMore={hasMoreAi}
         quotaFeedback={aiQuotaFeedback}
+        exhaustedCategories={exhaustedCategories}
       />
     </div>
   );

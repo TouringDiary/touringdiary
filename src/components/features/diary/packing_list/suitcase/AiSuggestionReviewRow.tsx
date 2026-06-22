@@ -13,6 +13,11 @@ interface AiSuggestionReviewRowProps {
   tripRelevant?: boolean;
 }
 
+const ROW_CATEGORY_LABEL_CLASS =
+  'text-[10px] text-slate-500 uppercase font-black tracking-widest';
+const ROW_RECOMMENDED_BADGE_CLASS =
+  'text-[9px] font-black uppercase tracking-widest';
+
 export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
   name,
   category,
@@ -23,39 +28,36 @@ export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
 }) => {
   const isMobile = useMobileDetect();
   const itemPrimaryStyle = useDynamicStyles('suitcase_item_primary', isMobile);
-  const labelStyle = useDynamicStyles('suitcase_label_caps', isMobile);
 
   return (
     <div className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
       status === 'accepted' ? 'bg-emerald-500/10 border-emerald-500/30' :
       status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30 opacity-50' :
-      tripRelevant ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/30' :
+      tripRelevant ? 'bg-violet-500/5 border-violet-500/20 hover:border-violet-500/30' :
       'bg-white/5 border-white/5 hover:border-white/10'
     }`}>
       <div className="flex items-center gap-3 min-w-0">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-          tripRelevant ? 'bg-amber-500/10 text-amber-400' : 'bg-indigo-500/10 text-indigo-400'
+          tripRelevant ? 'bg-violet-500/10 text-violet-300' : 'bg-indigo-500/10 text-indigo-400'
         }`}>
           <ItemCategoryIcon category={category} className="w-4 h-4" />
         </div>
         <div className="flex flex-col min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className={`${itemPrimaryStyle || "text-base font-bold text-white"} truncate`}>{name}</span>
-            {tripRelevant && status === 'pending' && (
-              <span
-                className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/25 ${labelStyle || "text-[9px] font-black uppercase tracking-widest"} text-amber-300`}
-                title="Consigliato in base al tuo viaggio"
-              >
-                <Sparkles className="w-2.5 h-2.5" />
-                Viaggio
-              </span>
-            )}
-          </div>
-          <span className={`${labelStyle || "text-[10px] text-slate-500 uppercase font-black tracking-widest"}`}>{category}</span>
+          <span className={`${itemPrimaryStyle || "text-base font-bold text-white"} truncate`}>{name}</span>
+          <span className={ROW_CATEGORY_LABEL_CLASS}>{category}</span>
         </div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {tripRelevant && status === 'pending' && (
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-400/30 ${ROW_RECOMMENDED_BADGE_CLASS} text-violet-200`}
+            title="Consigliato in base al tuo itinerario"
+          >
+            <Sparkles className="w-2.5 h-2.5" />
+            Consigliato
+          </span>
+        )}
         {status === 'pending' && (
           <>
             <button

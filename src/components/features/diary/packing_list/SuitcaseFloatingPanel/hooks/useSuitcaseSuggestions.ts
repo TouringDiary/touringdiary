@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { Itinerary } from '@/types';
 import {
@@ -132,6 +132,36 @@ function describePartialQuota(feedback: AiQuotaFeedback): string | undefined {
     return `${cat}: mostrati ${delivered} di ${requested} richiesti — catalogo esaurito per questa categoria.`;
   }
   return `Alcune categorie hanno meno suggerimenti del richiesto — catalogo esaurito.`;
+}
+
+function sortCategoriesBySystemOrder(categories: string[]): string[] {
+  return [...categories].sort((a, b) => {
+    const indexA = getSystemCategoryOrderIndexExact(a);
+    const indexB = getSystemCategoryOrderIndexExact(b);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function buildExhaustedCategories(
+  selectedCategories: string[],
+  candidates: AiCandidate[],
+  quotaFeedback: AiQuotaFeedback | null
+): string[] {
+  if (!selectedCategories.length) return [];
+
+  const counts = countByCategory(candidates);
+  const exhausted = selectedCategories.filter((cat) => {
+    if (quotaFeedback) {
+      const requested = quotaFeedback.requested[cat as SystemCategoryName];
+      if (requested === 0) return false;
+    }
+    return (counts[cat] ?? 0) === 0;
+  });
+
+  return sortCategoriesBySystemOrder(exhausted);
 }
 
 interface SuggestionsProps {
@@ -356,6 +386,11 @@ export const useSuitcaseSuggestions = ({
     }
   };
 
+  const exhaustedCategories = useMemo(
+    () => buildExhaustedCategories(lastSelectedCategories, allAiCandidates, aiQuotaFeedback),
+    [lastSelectedCategories, allAiCandidates, aiQuotaFeedback]
+  );
+
   return {
     mergedSuggestedItems,
     suggestedTemplates,
@@ -369,5 +404,6 @@ export const useSuitcaseSuggestions = ({
     handleShowMoreAi,
     hasMoreAi: !hasActiveQuota && shownCount < allAiCandidates.length,
     aiQuotaFeedback,
+    exhaustedCategories,
   };
 };

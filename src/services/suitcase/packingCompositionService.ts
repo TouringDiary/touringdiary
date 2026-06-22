@@ -1,13 +1,12 @@
-import { getCategoryId, normalizeCategoryName } from '@/domain/packing/packingCategories';
 import {
   getDefaultCategorySetupForTdTemplate,
   resolveCategorySetup,
 } from '@/domain/packing/categorySetup';
+import { composeTdTemplateItemsFromCatalog } from '@/domain/packing/packingTemplateComposition';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { CategorySetupMap } from '@/types/packingCatalog';
 import { PackingStandardItem, PackingTemplateItem } from '@/types/packingCatalog';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
-import { normalizeItemName } from '@/utils/tagDerivation';
 import {
   fetchActiveStandardItemsAsync,
   fetchTemplateSpecificItemsAsync,
@@ -38,45 +37,12 @@ export function composeTdTemplateItems(
   const setup = options.categorySetup ?? resolveCategorySetup(template);
   const suitcaseId = options.suitcaseId ?? template.id;
 
-  const merged: { name: string; category: string }[] = [];
-
-  for (const row of standardRows) {
-    const cat = normalizeCategoryName(row.category);
-    const catId = getCategoryId(cat);
-    const entry = setup[catId];
-    if (entry?.enabled === false) continue;
-    if (row.tier === 'additional' && entry?.seeded !== true) continue;
-    if (row.tier === 'additional_ai_only') continue;
-    merged.push({ name: row.name, category: cat });
-  }
-
-  for (const row of specificRows) {
-    const cat = normalizeCategoryName(row.category);
-    const catId = getCategoryId(cat);
-    const entry = setup[catId];
-    if (entry?.enabled === false) continue;
-    merged.push({ name: row.name, category: cat });
-  }
-
-  const seen = new Set<string>();
-  const items: SuitcaseItem[] = [];
-
-  for (const row of merged) {
-    const key = normalizeItemName(row.name);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    items.push({
-      id: `composed-${suitcaseId}-${items.length}`,
-      name: row.name,
-      category: row.category,
-      suitcase_id: suitcaseId,
-      is_checked: false,
-      is_ai_suggestion: false,
-      quantity: 1,
-    });
-  }
-
-  return items;
+  return composeTdTemplateItemsFromCatalog({
+    setup,
+    suitcaseId,
+    standardRows,
+    specificRows,
+  });
 }
 
 export const composeTdTemplateItemsAsync = async (
