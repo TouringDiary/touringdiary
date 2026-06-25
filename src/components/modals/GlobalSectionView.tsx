@@ -99,7 +99,7 @@ export const GlobalSectionView = ({ section, onClose, onUserUpdate, user, initia
                 <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full md:w-auto pb-2 md:pb-0">
                     {[
                         { id: 'live', label: 'Live Feed', icon: Camera },
-                        { id: 'diari', label: 'Diari di Viaggio', icon: BookOpen },
+                        { id: 'diari', label: 'Itinerari', icon: BookOpen },
                         { id: 'qa', label: 'Q&A Local', icon: MessageSquare },
                         { id: 'classifica', label: 'Classifiche', icon: Trophy },
                         { id: 'partner', label: 'Partner', icon: Store },

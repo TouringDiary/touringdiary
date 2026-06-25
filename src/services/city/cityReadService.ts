@@ -306,11 +306,15 @@ export const getCityDetails = async (
         console.warn(`[CityReadService] API locale fallita per ${cityId}, uso fallback Supabase`, apiError);
     }
 
-    // 2. FALLBACK SUPABASE ORIGINALE (Utilizziamo seo_city_routes per uniformità SEO)
-    let { data: cityData, error: cityErr } = await supabase.from('seo_city_routes').select('*').eq('city_id', cityId).maybeSingle();
+    // 2. FALLBACK SUPABASE — stessa sorgente dell'API (tabella `cities`).
+    // La view `seo_city_routes` è una proiezione snella per routing/manifest e NON espone
+    // i campi di dettaglio (official_website, patron_details, history_*, ratings, gallery,
+    // *_status, image_credit/license). Leggendo direttamente `cities`, come fa l'endpoint
+    // API, il fallback costruisce un CityDetails funzionalmente identico: parità Desktop/Mobile.
+    let { data: cityData, error: cityErr } = await supabase.from('cities').select('*').eq('id', cityId).maybeSingle();
 
     if (cityErr || !cityData) return null;
-    const dbCity = cityData as DatabaseCityRouteView;
+    const dbCity = cityData as unknown as DatabaseCityRouteView;
 
     const [pois, events, services, guides, tourOperators, people] = await Promise.all([
         getPoisByCityId(cityId),

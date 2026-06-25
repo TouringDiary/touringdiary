@@ -319,9 +319,11 @@ export const CityCategoryTab = ({
                         <div className="relative shrink-0 md:w-1/4" ref={contribMenuRef}>
                              <button 
                                 onClick={() => setShowContribMenu(!showContribMenu)}
-                                className="h-11 shrink-0 w-auto whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-500 border border-slate-700 hover:border-amber-500/50 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 shadow-sm px-4 md:w-auto"
+                                className="h-11 shrink-0 max-md:w-11 max-md:px-0 w-auto whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-500 border border-slate-700 hover:border-amber-500/50 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 shadow-sm px-4 md:w-auto"
+                                aria-label="Contribuisci"
                             >
-                                <Plus className="w-3.5 h-3.5"/> Contribuisci
+                                <Plus className="w-3.5 h-3.5"/>
+                                <span className="hidden md:inline">Contribuisci</span>
                             </button>
                             {showContribMenu && (
                                 <div 

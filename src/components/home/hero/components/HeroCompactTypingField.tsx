@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 import { HERO_COMPACT, heroCompactFieldShell } from '../heroCompactTokens';
 
 type HeroCompactTypingVariant = 'ai' | 'inspiration';
@@ -36,14 +37,37 @@ export const HeroCompactTypingField: React.FC<HeroCompactTypingFieldProps> = ({
 }) => {
     const styles = VARIANT_STYLES[variant];
     const interactive = Boolean(onClick) && !disabled;
+    const isMobileCompact = useMobileCompact();
+    const scrollRef = useRef<HTMLDivElement>(null);
 
-    const content = (
-        <p className={`${HERO_COMPACT.fieldText} ${styles.text}`}>
+    useLayoutEffect(() => {
+        if (!isMobileCompact || !scrollRef.current) return;
+        const el = scrollRef.current;
+        el.scrollLeft = el.scrollWidth - el.clientWidth;
+    }, [text, isMobileCompact, showCursor]);
+
+    const textClasses = isMobileCompact
+        ? `text-xs leading-tight whitespace-nowrap ${styles.text}`
+        : `${HERO_COMPACT.fieldText} ${styles.text}`;
+
+    const textContent = (
+        <p className={textClasses}>
             {text}
             {showCursor && (
                 <span className={`w-0.5 h-3.5 ${styles.cursor} inline-block ml-0.5 animate-pulse translate-y-0.5`} />
             )}
         </p>
+    );
+
+    const content = isMobileCompact ? (
+        <div
+            ref={scrollRef}
+            className="min-w-0 w-full overflow-x-auto overflow-y-hidden scrollbar-hide"
+        >
+            {textContent}
+        </div>
+    ) : (
+        textContent
     );
 
     const inner = interactive ? (

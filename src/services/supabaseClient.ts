@@ -6,24 +6,22 @@ export type { Json };
 /**
  * ------------------------------------------------------------------
  * 🔒 SECURITY NOTICE
- * Credenziali Demo. In produzione usare variabili d'ambiente.
+ * La configurazione proviene esclusivamente dalle variabili d'ambiente.
+ * In assenza di configurazione il client fallisce esplicitamente.
  * ------------------------------------------------------------------
  */
-const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL ||
-  'https://iyncirtysrjrmqwfmkbm.supabase.co';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const SUPABASE_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'sb_publishable_12o2VzkveewDpHKYRUPiaQ_ZzkI3cyl';
-
-console.log("SUPABASE URL:", import.meta.env.VITE_SUPABASE_URL);
-console.log("SUPABASE KEY:", import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) + "...");
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error(
+    '[Supabase] Configurazione mancante: definire VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nel file .env'
+  );
+}
 
 // Chiave storage FISSA per lo sviluppo: evita che la sessione si perda
 // quando si passa tra localhost, 127.0.0.1 o IP di rete.
 const STORAGE_KEY = `td_auth_dev_v1`;
-console.log("[Supabase] Using storage key:", STORAGE_KEY);
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
   auth: {

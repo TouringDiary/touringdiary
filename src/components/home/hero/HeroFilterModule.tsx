@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ChevronUp, ChevronDown, RotateCcw, Waves, Mountain, Droplets, Landmark, Castle, Sparkles, Heart, Compass, Wine, PartyPopper, Scale } from 'lucide-react';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
@@ -91,16 +91,6 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
     const nations = props.geoOptions?.nations || [];
     const regions = props.geoOptions?.regions || [];
 
-    // --- Automatic Balanced Mode ---
-    const inspirationKeys = ['romantico', 'avventura', 'cultura', 'gusto', 'svago'];
-    useEffect(() => {
-        const activeInspirations = props.activeCategories.filter(c => inspirationKeys.includes(c));
-        if (activeInspirations.length === inspirationKeys.length) {
-            const otherCats = props.activeCategories.filter(c => !inspirationKeys.includes(c) && c !== 'equilibrato');
-            props.setActiveCategories([...otherCats, 'equilibrato']);
-        }
-    }, [props.activeCategories, props.setActiveCategories]);
-
     // --- Header Icon Summary ---
     const renderSummary = () => {
         if (props.activeCategories.length === 0) return null;
@@ -148,6 +138,8 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
 
     const showCompactFilter = isMobileCompact && !props.isFiltersExpanded;
     const showFullFilterContent = props.isFiltersExpanded || !isMobileCompact;
+    const showCitySearchPopover =
+        props.isSearchFocused && props.manualCitySearch.trim().length > 0;
 
     const inspirationText = useTypingCycle(HERO_INSPIRATION_PHRASES, !showCompactFilter);
 
@@ -155,6 +147,8 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
         <div
             id="tour-search-section"
             className={`max-md:col-span-1 md:col-span-12 lg:col-span-7 min-w-0 relative group shadow-2xl flex flex-col bg-slate-900 border border-slate-800 rounded-2xl transition-all duration-300 ease-in-out overflow-visible ${
+                showCitySearchPopover ? 'max-lg:z-home-hero-popover' : ''
+            } ${
                 isMobileCompact
                     ? 'h-auto'
                     : !props.isFiltersExpanded
@@ -231,17 +225,20 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                         }`}
                         onClick={() => props.setIsFiltersExpanded(!props.isFiltersExpanded)}
                     >
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                             <div className={`bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)] shrink-0 ${isMobileCompact ? 'w-1 h-5' : 'w-1 h-7'}`} />
                             <h3 className={`${heroLabelStyle} drop-shadow-md truncate`}>
                                 Trova la tua meta
                             </h3>
                         </div>
 
-                        {/* ICON SUMMARY (center) — hidden in mobile compact side-by-side */}
+                        {/* ICON SUMMARY — mobile/tablet: header right; desktop: centered overlay */}
                         {!showCompactFilter && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="pointer-events-auto">
+                            <div
+                                className="shrink-0 mr-2 lg:mr-0 lg:absolute lg:inset-0 lg:flex lg:items-center lg:justify-center lg:pointer-events-none"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="lg:pointer-events-auto">
                                     {renderSummary()}
                                 </div>
                             </div>
@@ -266,22 +263,6 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                         </button>
                     </div>
 
-                    {/* TABLET ONLY — mobile compact uses the bottom-strip search when expanded */}
-                    {!isMobileCompact && (
-                    <div className="lg:hidden mt-2">
-                        <SearchBar
-                            className="mb-0"
-                            value={props.manualCitySearch}
-                            onChange={props.setManualCitySearch}
-                            isFocused={props.isSearchFocused}
-                            onFocus={handleSearchFocus}
-                            results={props.searchResults}
-                            onSelect={props.handleManualCitySelect}
-                            containerRef={props.searchRef}
-                        />
-                    </div>
-                    )}
-
                     {/* EXPANDABLE GEO FILTERS */}
                     <div className={`mt-3.5 ${showFullFilterContent && props.isFiltersExpanded ? 'flex' : showFullFilterContent ? 'hidden lg:flex' : 'hidden'}`}>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-3 lg:gap-y-4 w-full">
@@ -295,120 +276,209 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                     </div>
                 </div>
 
-                {/* BOTTOM STRIP: [ Tipologia | Cerca | Ispirazione ] — same row on mobile & desktop */}
-                <div className={`mt-auto bg-slate-950/60 backdrop-blur-md flex flex-row items-stretch justify-between w-auto max-md:mx-3 lg:mx-6 xl:mx-10 transition-all duration-300 ease-in-out rounded-xl overflow-visible ${
+                {/* BOTTOM STRIP: mobile = [Tipologia | sep | Ispirazione] + full-width search; tablet+ = single row */}
+                <div className={`mt-auto bg-slate-950/60 backdrop-blur-md flex flex-col max-md:gap-2 md:flex-row items-stretch justify-between w-auto max-md:mx-3 lg:mx-6 xl:mx-10 transition-all duration-300 ease-in-out rounded-xl overflow-visible ${
                     showFullFilterContent && props.isFiltersExpanded ? 'flex' : showFullFilterContent ? 'hidden lg:flex' : 'hidden'
                 }`}>
 
-                    {/* LEFT: TIPOLOGIA SECTION */}
-                    <div className="flex items-stretch shrink-0 lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-l-xl overflow-hidden">
-                        {/* Vertical Label — left edge, rotated counter-clockwise (same as desktop) */}
-                        <div
-                            className="flex items-center justify-center px-1 bg-slate-950/40 border-r border-slate-700/40 group/label cursor-help rounded-tl-xl rounded-bl-xl shrink-0"
-                            title="Categoria territoriale della destinazione"
-                        >
-                            <span
-                                className="uppercase tracking-[0.04em] text-[6.5px] font-black text-amber-500/70 group-hover/label:text-amber-500 transition-colors w-full text-center"
-                                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-                            >
-                                Tipologia
-                            </span>
-                        </div>
-
-                        {/* 3x2 Grid */}
-                        <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[120px] xl:w-[180px]">
-                            {TIPOLOGIA_OPTIONS.map((item, idx) => {
-                                const isActive = props.activeCategories.includes(item.val);
-                                const isFirstRow = idx < 3;
-                                return (
-                                    <button
-                                        key={item.val}
-                                        onClick={() => props.handleToggleCategory(item.val)}
-                                        className={`flex items-center justify-center py-2.5 transition-all border-r border-b border-slate-700/20 ${idx < 3 ? 'border-t-0' : ''}
-                                            ${isActive
-                                                ? 'bg-amber-500/10 text-amber-500 shadow-[inset_0_0_10px_rgba(245,158,11,0.05)]'
-                                                : 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-300'}
-                                        `}
-                                        title={item.label}
+                    {isMobileCompact ? (
+                        <>
+                            <div className="flex flex-row items-stretch w-full">
+                                {/* TIPOLOGIA */}
+                                <div className="flex items-stretch flex-1 min-w-0 border border-slate-700/40 rounded-l-xl overflow-hidden">
+                                    <div
+                                        className="flex items-center justify-center px-1 bg-slate-950/40 border-r border-slate-700/40 group/label cursor-help rounded-tl-xl rounded-bl-xl shrink-0"
+                                        title="Categoria territoriale della destinazione"
                                     >
-                                        <item.icon className={`w-3.5 h-3.5 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
+                                        <span
+                                            className="uppercase tracking-[0.04em] text-[6.5px] font-black text-amber-500/70 group-hover/label:text-amber-500 transition-colors w-full text-center"
+                                            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                                        >
+                                            Tipologia
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-3 grid-rows-2 flex-1 min-w-0">
+                                        {TIPOLOGIA_OPTIONS.map((item) => {
+                                            const isActive = props.activeCategories.includes(item.val);
+                                            return (
+                                                <button
+                                                    key={item.val}
+                                                    onClick={() => props.handleToggleCategory(item.val)}
+                                                    className={`flex items-center justify-center py-2.5 transition-all border-r border-b border-slate-700/20 border-t-0
+                                                        ${isActive
+                                                            ? 'bg-amber-500/10 text-amber-500 shadow-[inset_0_0_10px_rgba(245,158,11,0.05)]'
+                                                            : 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-300'}
+                                                    `}
+                                                    title={item.label}
+                                                >
+                                                    <item.icon className={`w-3.5 h-3.5 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
 
-                    {/* CENTER: SEARCH SECTION */}
-                    <div className="flex items-center min-w-0 flex-1 relative group/search px-1 mx-1 lg:mx-1 xl:mx-2 lg:w-[260px] xl:flex-1">
-                    <div className="flex items-center bg-slate-950/40 border border-slate-700/30 rounded-xl h-9 md:h-10 w-full transition-all hover:border-slate-600/50 shadow-inner">
-                            <div className="flex-1 min-w-0 h-full">
-                                <SearchBar
-                                    variant="minimal"
-                                    value={props.manualCitySearch}
-                                    onChange={props.setManualCitySearch}
-                                    isFocused={props.isSearchFocused}
-                                    onFocus={props.setIsSearchFocused}
-                                    results={props.searchResults}
-                                    onSelect={props.handleManualCitySelect}
-                                    containerRef={props.searchRef}
-                                    className="h-full flex items-center"
-                                />
+                                <div className="w-px self-stretch bg-slate-700/30 shrink-0" aria-hidden="true" />
+
+                                {/* ISPIRAZIONE */}
+                                <div className="flex items-stretch flex-1 min-w-0 border border-slate-700/40 rounded-r-xl overflow-hidden">
+                                    <div className="grid grid-cols-3 grid-rows-2 flex-1 min-w-0">
+                                        {ISPIRAZIONE_OPTIONS.map((item, idx) => {
+                                            const isActive = props.activeCategories.includes(item.val);
+                                            return (
+                                                <button
+                                                    key={item.val}
+                                                    onClick={() => props.handleToggleCategory(item.val)}
+                                                    className={`flex items-center justify-center py-2.5 transition-all border-r border-b last:border-r-0 border-slate-700/20 border-t-0
+                                                        ${idx % 3 === 0 ? 'border-l border-l-slate-700/20' : ''}
+                                                        ${isActive
+                                                            ? 'bg-indigo-500/10 text-indigo-400 shadow-[inset_0_0_10px_rgba(99,102,241,0.05)]'
+                                                            : 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-300'}
+                                                    `}
+                                                    title={item.label}
+                                                >
+                                                    <item.icon className={`w-3.5 h-3.5 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div
+                                        className="flex items-center justify-center px-1 bg-slate-950/40 border-l border-slate-700/40 group/label cursor-help rounded-tr-xl rounded-br-xl shrink-0"
+                                        title="Stile di viaggio che desideri vivere"
+                                    >
+                                        <span
+                                            className="uppercase tracking-[0.04em] text-[6.5px] font-black text-amber-500/70 group-hover/label:text-amber-500 transition-colors w-full text-center"
+                                            style={{ writingMode: 'vertical-rl' }}
+                                        >
+                                            Ispirazione
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            
-                            {/* SEPARATOR */}
-                            <div className="w-[1px] h-4 bg-slate-700/60 shrink-0"></div>
 
-                            {/* AI BUTTON */}
-                            <div className="px-2 shrink-0 flex items-center justify-center">
-                                <button
-                                    onClick={() => props.handleAiSubmit('Shortlist AI analysis')}
-                                    className="flex items-center justify-center p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors tooltip-trigger"
-                                    title="Lasciati guidare: l'AI analizza le città selezionate e suggerisce la destinazione più adatta al tuo viaggio in base alle esperienze degli utenti, al periodo scelto ed alle caratteristiche del territorio!"
+                            <div className="flex items-center w-full relative group/search">
+                                <div className="flex items-center bg-slate-950/40 border border-slate-700/30 rounded-xl h-9 w-full transition-all hover:border-slate-600/50 shadow-inner">
+                                    <div className="flex-1 min-w-0 h-full">
+                                        <SearchBar
+                                            variant="minimal"
+                                            value={props.manualCitySearch}
+                                            onChange={props.setManualCitySearch}
+                                            isFocused={props.isSearchFocused}
+                                            onFocus={props.setIsSearchFocused}
+                                            results={props.searchResults}
+                                            onSelect={props.handleManualCitySelect}
+                                            containerRef={props.searchRef}
+                                            className="h-full flex items-center"
+                                        />
+                                    </div>
+                                    <div className="w-[1px] h-4 bg-slate-700/60 shrink-0" />
+                                    <div className="px-2 shrink-0 flex items-center justify-center">
+                                        <button
+                                            onClick={() => props.handleAiSubmit('Shortlist AI analysis')}
+                                            className="flex items-center justify-center p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors tooltip-trigger"
+                                            title="Lasciati guidare: l'AI analizza le città selezionate e suggerisce la destinazione più adatta al tuo viaggio in base alle esperienze degli utenti, al periodo scelto ed alle caratteristiche del territorio!"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* LEFT: TIPOLOGIA SECTION */}
+                            <div className="flex items-stretch shrink-0 lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-l-xl overflow-hidden">
+                                <div
+                                    className="flex items-center justify-center px-1 bg-slate-950/40 border-r border-slate-700/40 group/label cursor-help rounded-tl-xl rounded-bl-xl shrink-0"
+                                    title="Categoria territoriale della destinazione"
                                 >
-                                    <Sparkles className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* RIGHT: ISPIRAZIONE SECTION */}
-                    <div className="flex items-stretch shrink-0 lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-r-xl overflow-hidden">
-                        {/* 3x2 Grid */}
-                        <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[120px] xl:w-[180px]">
-                            {ISPIRAZIONE_OPTIONS.map((item, idx) => {
-                                const isActive = props.activeCategories.includes(item.val);
-                                const isFirstRow = idx < 3;
-                                return (
-                                    <button
-                                        key={item.val}
-                                        onClick={() => props.handleToggleCategory(item.val)}
-                                        className={`flex items-center justify-center py-2.5 transition-all border-r border-b last:border-r-0 border-slate-700/20 ${idx < 3 ? 'border-t-0' : ''}
-                                            ${idx % 3 === 0 ? 'border-l border-l-slate-700/20' : ''}
-                                            ${isActive
-                                                ? 'bg-indigo-500/10 text-indigo-400 shadow-[inset_0_0_10px_rgba(99,102,241,0.05)]'
-                                                : 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-300'}
-                                        `}
-                                        title={item.label}
+                                    <span
+                                        className="uppercase tracking-[0.04em] text-[6.5px] font-black text-amber-500/70 group-hover/label:text-amber-500 transition-colors w-full text-center"
+                                        style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
                                     >
-                                        <item.icon className={`w-3.5 h-3.5 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                        Tipologia
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[120px] xl:w-[180px]">
+                                    {TIPOLOGIA_OPTIONS.map((item, idx) => (
+                                        <button
+                                            key={item.val}
+                                            onClick={() => props.handleToggleCategory(item.val)}
+                                            className={`flex items-center justify-center py-2.5 transition-all border-r border-b border-slate-700/20 ${idx < 3 ? 'border-t-0' : ''}
+                                                ${props.activeCategories.includes(item.val)
+                                                    ? 'bg-amber-500/10 text-amber-500 shadow-[inset_0_0_10px_rgba(245,158,11,0.05)]'
+                                                    : 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-300'}
+                                            `}
+                                            title={item.label}
+                                        >
+                                            <item.icon className={`w-3.5 h-3.5 transition-transform ${props.activeCategories.includes(item.val) ? 'scale-110' : 'group-hover:scale-110'}`} />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
-                        {/* Vertical Label — right edge, rotated clockwise (same as desktop) */}
-                        <div
-                            className="flex items-center justify-center px-1 bg-slate-950/40 border-l border-slate-700/40 group/label cursor-help rounded-tr-xl rounded-br-xl shrink-0"
-                            title="Stile di viaggio che desideri vivere"
-                        >
-                            <span
-                                className="uppercase tracking-[0.04em] text-[6.5px] font-black text-amber-500/70 group-hover/label:text-amber-500 transition-colors w-full text-center"
-                                style={{ writingMode: 'vertical-rl' }}
-                            >
-                                Ispirazione
-                            </span>
-                        </div>
-                    </div>
+                            {/* CENTER: SEARCH SECTION */}
+                            <div className="flex items-center min-w-0 flex-1 relative group/search px-1 mx-1 lg:mx-1 xl:mx-2 lg:w-[260px] xl:flex-1">
+                                <div className="flex items-center bg-slate-950/40 border border-slate-700/30 rounded-xl h-9 md:h-10 w-full transition-all hover:border-slate-600/50 shadow-inner">
+                                    <div className="flex-1 min-w-0 h-full">
+                                        <SearchBar
+                                            variant="minimal"
+                                            value={props.manualCitySearch}
+                                            onChange={props.setManualCitySearch}
+                                            isFocused={props.isSearchFocused}
+                                            onFocus={props.setIsSearchFocused}
+                                            results={props.searchResults}
+                                            onSelect={props.handleManualCitySelect}
+                                            containerRef={props.searchRef}
+                                            className="h-full flex items-center"
+                                        />
+                                    </div>
+                                    <div className="w-[1px] h-4 bg-slate-700/60 shrink-0" />
+                                    <div className="px-2 shrink-0 flex items-center justify-center">
+                                        <button
+                                            onClick={() => props.handleAiSubmit('Shortlist AI analysis')}
+                                            className="flex items-center justify-center p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors tooltip-trigger"
+                                            title="Lasciati guidare: l'AI analizza le città selezionate e suggerisce la destinazione più adatta al tuo viaggio in base alle esperienze degli utenti, al periodo scelto ed alle caratteristiche del territorio!"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* RIGHT: ISPIRAZIONE SECTION */}
+                            <div className="flex items-stretch shrink-0 lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-r-xl overflow-hidden">
+                                <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[120px] xl:w-[180px]">
+                                    {ISPIRAZIONE_OPTIONS.map((item, idx) => (
+                                        <button
+                                            key={item.val}
+                                            onClick={() => props.handleToggleCategory(item.val)}
+                                            className={`flex items-center justify-center py-2.5 transition-all border-r border-b last:border-r-0 border-slate-700/20 ${idx < 3 ? 'border-t-0' : ''}
+                                                ${idx % 3 === 0 ? 'border-l border-l-slate-700/20' : ''}
+                                                ${props.activeCategories.includes(item.val)
+                                                    ? 'bg-indigo-500/10 text-indigo-400 shadow-[inset_0_0_10px_rgba(99,102,241,0.05)]'
+                                                    : 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-300'}
+                                            `}
+                                            title={item.label}
+                                        >
+                                            <item.icon className={`w-3.5 h-3.5 transition-transform ${props.activeCategories.includes(item.val) ? 'scale-110' : 'group-hover:scale-110'}`} />
+                                        </button>
+                                    ))}
+                                </div>
+                                <div
+                                    className="flex items-center justify-center px-1 bg-slate-950/40 border-l border-slate-700/40 group/label cursor-help rounded-tr-xl rounded-br-xl shrink-0"
+                                    title="Stile di viaggio che desideri vivere"
+                                >
+                                    <span
+                                        className="uppercase tracking-[0.04em] text-[6.5px] font-black text-amber-500/70 group-hover/label:text-amber-500 transition-colors w-full text-center"
+                                        style={{ writingMode: 'vertical-rl' }}
+                                    >
+                                        Ispirazione
+                                    </span>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
                 </>
                 )}

@@ -92,6 +92,30 @@ export const useHeroLogic = ({
 
 
     const TIPOLOGIA_WHITELIST = ['mare', 'montagna', 'laghi_fiumi', 'cultura', 'weekend', 'borghi'];
+    const INSPIRATION_KEYS = ['romantico', 'avventura', 'cultura', 'gusto', 'svago'];
+    const EQUILIBRATO_KEY = 'equilibrato';
+    const isInspirationKey = (key: string) => INSPIRATION_KEYS.includes(key);
+
+    const resolveCategoryToggle = (categories: string[], categoryToSet: string): string[] => {
+        if (categories.includes(categoryToSet)) {
+            return categories.filter(c => c !== categoryToSet);
+        }
+
+        if (categoryToSet === EQUILIBRATO_KEY) {
+            return [...categories.filter(c => !isInspirationKey(c)), EQUILIBRATO_KEY];
+        }
+
+        if (isInspirationKey(categoryToSet)) {
+            const next = [...categories.filter(c => c !== EQUILIBRATO_KEY), categoryToSet];
+            const activeInspirations = next.filter(isInspirationKey);
+            if (activeInspirations.length === INSPIRATION_KEYS.length) {
+                return [...next.filter(c => !isInspirationKey(c)), EQUILIBRATO_KEY];
+            }
+            return next;
+        }
+
+        return [...categories, categoryToSet];
+    };
 
     // --- HELPERS: Data-Driven Matching ---
     const matchesInspiration = (cityTypes: string[], inspirationId: string) => {
@@ -334,11 +358,7 @@ export const useHeroLogic = ({
 
     // --- HANDLERS: Categories ---
     const handleToggleCategory = (categoryToSet: string) => {
-        if (activeCategories.includes(categoryToSet)) {
-            setActiveCategories(activeCategories.filter(c => c !== categoryToSet));
-        } else {
-            setActiveCategories([...activeCategories, categoryToSet]);
-        }
+        setActiveCategories(resolveCategoryToggle(activeCategories, categoryToSet));
     };
 
     const handleSeasonClick = (season: string) => {

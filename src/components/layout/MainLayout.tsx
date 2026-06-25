@@ -27,7 +27,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
     const { connectionError, showOnboarding } = useUser(); 
     const { isMobile, isSidebarOpen, isUiVisible, setIsUiVisible, mobileShowWeather, mobileDiaryFullScreen, setMobileDiaryFullScreen } = useUI();
     const { activeModal, openModal, closeModal, modalProps } = useModal(); // FIX: Destructured modalProps correctly
-    const { activeStaticPage, goBack, goHome, setViewMode, activeCityId, virtualCity, navigateToCity } = useNavigation();
+    const { activeStaticPage, goBack, goHome, setViewMode, activeCityId, virtualCity, navigateToCity, handleNavigateGlobal } = useNavigation();
     
     // RECUPERO LOGICA DIARIO
     const { handleSmartDrop } = useDiaryInteractionsContext();
@@ -97,7 +97,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                         <MobileNavBar 
                             activeSection={mobileActiveSection}
                             onOpenDiary={() => setMobileDiaryFullScreen(true)}
-                            onOpenGlobal={(section) => openModal('global', { section })}
+                            onOpenGlobal={(section) => handleNavigateGlobal(section)}
                             onOpenRankings={() => openModal('fullRankings')}
                             isVisible={isUiVisible}
                             onExpandUi={() => setIsUiVisible(true)}

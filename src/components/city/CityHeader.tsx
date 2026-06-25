@@ -58,6 +58,8 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
         window.open(details.officialWebsite, '_blank', 'noopener,noreferrer');
     };
 
+    const hasWebsite = !!details.officialWebsite;
+
     return (
         <div className="relative w-full h-[18.5rem] md:h-[19rem] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 transition-all group/header">
 
@@ -161,24 +163,46 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                 </div>
             </div>
 
-            {/* --- MOBILE BOTTOM ACTIONS ROW --- */}
-            <div className="md:hidden absolute bottom-[5.5rem] left-0 right-0 px-2 z-dropdown pointer-events-auto flex justify-between items-center">
-                {/* WEBSITE LINK LEFT ALIGNED */}
-                {details.officialWebsite && (
-                    <button 
-                        onClick={handleOfficialWebsiteClick}
-                        className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 transition-all active:scale-95 shadow-lg"
-                    >
-                        <Globe className="w-3 h-3 text-indigo-400" />
-                        <span className="text-[9px] font-black text-white uppercase tracking-widest">Sito Web</span>
-                    </button>
-                )}
+            {/* --- MOBILE RIGHT QUICK ACTIONS COLUMN ---
+                Ancorata tra il cluster in alto (top-4) e la barra in basso (bottom-4):
+                top-16 libera il cluster, bottom-4 si allinea alla barra. justify-between
+                distribuisce i 3 pulsanti nello spazio reale dell'hero. La colonna è SEMPRE
+                composta da WEB · PATRONO · STORIA: WEB è disabilitato se manca il sito. */}
+            <div className="md:hidden absolute top-16 bottom-4 right-3 z-dropdown pointer-events-auto flex flex-col items-center justify-between">
+                <button
+                    onClick={handleOfficialWebsiteClick}
+                    disabled={!hasWebsite}
+                    aria-disabled={!hasWebsite}
+                    className={`flex flex-col items-center gap-1 group transition-transform ${hasWebsite ? 'active:scale-95' : 'cursor-not-allowed opacity-40'}`}
+                    title={hasWebsite ? 'Vai al sito ufficiale' : 'Sito ufficiale non disponibile'}
+                >
+                    <span className={`w-10 h-10 rounded-full bg-slate-900/70 backdrop-blur-md border border-white/10 shadow-xl flex items-center justify-center transition-colors ${hasWebsite ? 'group-hover:border-indigo-500/50 group-active:border-indigo-500/50' : ''}`}>
+                        <Globe className={`w-4 h-4 ${hasWebsite ? 'text-indigo-400 group-hover:text-white' : 'text-slate-400'} transition-colors`} />
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-wide text-slate-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Web</span>
+                </button>
 
-                {/* HISTORY RIGHT ALIGNED */}
+                <button
+                    onClick={onOpenPatron}
+                    className="flex flex-col items-center gap-1 group active:scale-95 transition-transform"
+                    title="Santo Patrono"
+                >
+                    <span className="w-10 h-10 rounded-full bg-slate-900/70 backdrop-blur-md border border-white/10 shadow-xl flex items-center justify-center group-hover:border-amber-500/50 group-active:border-amber-500/50 transition-colors">
+                        <User className="w-4 h-4 text-amber-400 group-hover:text-white transition-colors" />
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-wide text-slate-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Patrono</span>
+                </button>
+
                 {onOpenHistory && (
-                    <button onClick={onOpenHistory} className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-amber-500/30 transition-all active:scale-95 shadow-xl ml-auto">
-                        <span className="text-[9px] font-black text-white uppercase tracking-widest">Storia & Origini</span>
-                        <ScrollText className="w-3.5 h-3.5 text-amber-500" />
+                    <button
+                        onClick={onOpenHistory}
+                        className="flex flex-col items-center gap-1 group active:scale-95 transition-transform"
+                        title="Storia & Origini"
+                    >
+                        <span className="w-10 h-10 rounded-full bg-slate-900/70 backdrop-blur-md border border-white/10 shadow-xl flex items-center justify-center group-hover:border-amber-500/50 group-active:border-amber-500/50 transition-colors">
+                            <ScrollText className="w-4 h-4 text-amber-500 group-hover:text-white transition-colors" />
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-wide text-slate-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Storia</span>
                     </button>
                 )}
             </div>
@@ -222,9 +246,9 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                 </div>
             )}
 
-            {/* --- MOBILE SECONDARY NAV PILL (COMPACTED 100% WIDTH) --- */}
-            <div className="md:hidden absolute bottom-4 left-2 right-2 z-dropdown pointer-events-auto">
-                <div className="bg-slate-950/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-700/50 shadow-2xl grid grid-cols-5 gap-1 w-full">
+            {/* --- MOBILE SECONDARY NAV PILL (COMPACTED — leaves a right lane for the quick-actions column) --- */}
+            <div className="md:hidden absolute bottom-4 left-2 right-[4.75rem] z-dropdown pointer-events-auto">
+                <div className="bg-slate-950/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-700/50 shadow-2xl grid grid-cols-4 gap-0.5 w-full">
                     {[
                         { id: 'tour_operators', label: 'Tour Op.', icon: Bus, action: () => onOpenInfo('tour_operators') },
                         { id: 'guides', label: 'Guide', icon: User, action: () => onOpenInfo('guides') },
@@ -234,7 +258,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                         <button
                             key={btn.id}
                             onClick={btn.action}
-                            className="flex flex-col items-center justify-center gap-0.5 active:scale-95 transform text-slate-300 active:text-amber-400 transition-colors w-full h-full py-1"
+                            className="flex flex-col items-center justify-center gap-0.5 active:scale-95 transform text-slate-300 active:text-amber-400 transition-colors w-full h-full px-0.5 py-1"
                         >
                             <btn.icon className="w-5 h-5" />
                             <span className="text-[7px] font-black uppercase tracking-tight truncate w-full text-center leading-none mt-0.5">{btn.label}</span>
