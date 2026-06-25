@@ -3,6 +3,7 @@ import { TemplateCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
 import { Trash2, Wrench, CheckSquare, Copy, Eye } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { Suitcase } from '@/types/suitcase';
+import { formatItalianDateTime } from '@/utils/dateFormatters';
 
 export type SuitcaseCardVariant = 'trip' | 'saved';
 export type SuitcaseCardRemoveAction = 'delete' | 'unlink';
@@ -28,18 +29,6 @@ interface SuitcaseCardProps {
 
 const actionBtnClass =
   'flex-1 flex items-center justify-center h-[32px] border-r border-white/10 transition-all last:border-r-0 cursor-pointer';
-
-const formatSuitcaseDateTime = (iso: string) =>
-  new Date(iso)
-    .toLocaleString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-    .replace(',', '');
 
 export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
   suitcase,
@@ -237,12 +226,12 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
           </span>
           {suitcase.created_at && (
             <div className="text-[9px] xl:text-[11px] text-slate-300 tabular-nums leading-snug">
-              Creato il: {formatSuitcaseDateTime(suitcase.created_at)}
+              Creato il: {formatItalianDateTime(suitcase.created_at)}
             </div>
           )}
           {suitcase.updated_at && suitcase.user_id && (
             <div className="text-[9px] xl:text-[11px] text-slate-300 tabular-nums leading-snug">
-              Modificato il: {formatSuitcaseDateTime(suitcase.updated_at)}
+              Modificato il: {formatItalianDateTime(suitcase.updated_at)}
             </div>
           )}
         </div>

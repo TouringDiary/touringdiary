@@ -144,10 +144,10 @@ export const SuitcaseOnboardingBox: React.FC<SuitcaseOnboardingBoxProps> = ({
     (showRecommendedSuitcase && !!onOpenRecommendedSuitcase) || (isGuest && !!onLogin);
 
   return (
-    <div className="w-full h-full flex-1 flex flex-col lg:flex-row lg:items-stretch gap-4 lg:gap-5 min-h-0 animate-in fade-in zoom-in duration-700">
+    <div className="w-full shrink-0 flex flex-col lg:flex-1 lg:flex-row lg:items-stretch lg:min-h-0 gap-5 lg:gap-5 animate-in fade-in zoom-in duration-700">
       {/* Colonna principale — onboarding */}
       <div
-        className={`flex-1 flex flex-col min-h-0 min-w-0 lg:self-stretch gap-4 md:gap-5 ${SUITCASE_DASHBOARD_PANEL_SHELL_CLASS} ${SUITCASE_DASHBOARD_PANEL_PADDING_CLASS}`}
+        className={`shrink-0 flex flex-col min-w-0 lg:flex-1 lg:self-stretch gap-4 md:gap-5 ${SUITCASE_DASHBOARD_PANEL_SHELL_CLASS} ${SUITCASE_DASHBOARD_PANEL_PADDING_CLASS}`}
       >
         <div className="w-full space-y-2 shrink-0">
           <SuitcaseDashboardSectionLabel label="Inizia qui" />
@@ -161,7 +161,7 @@ export const SuitcaseOnboardingBox: React.FC<SuitcaseOnboardingBoxProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full flex-1 min-h-0 auto-rows-fr">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-lg:gap-3 md:gap-4 w-full max-lg:flex-none lg:flex-1 lg:min-h-0 lg:auto-rows-fr">
           <OnboardingEntry
             icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6" />}
             title="Crea una nuova valigia"
@@ -197,7 +197,7 @@ export const SuitcaseOnboardingBox: React.FC<SuitcaseOnboardingBoxProps> = ({
           />
         </div>
 
-        <div className="w-full rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 md:p-5 shadow-inner shadow-indigo-500/5 shrink-0 mt-auto">
+        <div className="w-full rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 md:p-5 shadow-inner shadow-indigo-500/5 shrink-0 max-lg:mt-1 lg:mt-auto">
           {isGuest && onLogin ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-left">
               <button

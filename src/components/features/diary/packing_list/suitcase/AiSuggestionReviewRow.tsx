@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X, Sparkles } from 'lucide-react';
+import { Plus, X, Sparkles, Check } from 'lucide-react';
 import { ItemCategoryIcon } from './SuitcaseUtils';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
@@ -11,6 +11,8 @@ interface AiSuggestionReviewRowProps {
   onReject: () => void;
   status: 'pending' | 'accepted' | 'rejected';
   tripRelevant?: boolean;
+  isSelectedForAccept?: boolean;
+  onToggleSelectForAccept?: () => void;
 }
 
 const ROW_CATEGORY_LABEL_CLASS =
@@ -25,7 +27,10 @@ export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
   onReject,
   status,
   tripRelevant = false,
+  isSelectedForAccept = false,
+  onToggleSelectForAccept,
 }) => {
+  const useSelectionMode = status === 'pending' && !!onToggleSelectForAccept;
   const isMobile = useMobileDetect();
   const itemPrimaryStyle = useDynamicStyles('suitcase_item_primary', isMobile);
 
@@ -33,6 +38,7 @@ export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
     <div className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
       status === 'accepted' ? 'bg-emerald-500/10 border-emerald-500/30' :
       status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30 opacity-50' :
+      isSelectedForAccept ? 'bg-indigo-500/10 border-indigo-500/35' :
       tripRelevant ? 'bg-violet-500/5 border-violet-500/20 hover:border-violet-500/30' :
       'bg-white/5 border-white/5 hover:border-white/10'
     }`}>
@@ -68,11 +74,20 @@ export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
               <X className="w-4 h-4" />
             </button>
             <button
-              onClick={onAccept}
-              className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 transition-all"
-              title="Accetta"
+              onClick={useSelectionMode ? onToggleSelectForAccept : onAccept}
+              className={`p-2 rounded-lg transition-all ${
+                useSelectionMode && isSelectedForAccept
+                  ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
+              }`}
+              title={useSelectionMode ? (isSelectedForAccept ? 'Deseleziona' : 'Seleziona per accettare') : 'Accetta'}
+              aria-pressed={useSelectionMode ? isSelectedForAccept : undefined}
             >
-              <Plus className="w-4 h-4" />
+              {useSelectionMode && isSelectedForAccept ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
             </button>
           </>
         )}

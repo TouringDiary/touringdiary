@@ -5,6 +5,8 @@ import { buildProductAffiliateLink, buildAffiliateLink, getPartnerById, resolveB
 import { checkDuplicateItem } from '../utils/duplicateCheck';
 import { useSuitcaseActions } from './useSuitcaseActions';
 import { useSuitcaseEditorLogic } from './useSuitcaseEditorLogic';
+import { useSuitcaseDocumentSave } from '@/hooks/save/useSuitcaseDocumentSave';
+import { hasDraftWorkspaceInStorage, isDraftWorkspaceId, deleteGuestSuitcase } from '@/utils/guestSuitcaseHelper';
 import { useSuitcaseHiddenCategories } from './useSuitcaseHiddenCategories';
 import { useSuitcaseItemActions } from './useSuitcaseItemActions';
 import { useSuitcasePanelData } from './useSuitcasePanelData';
@@ -12,7 +14,6 @@ import { useSuitcaseUndo } from './useSuitcaseUndo';
 import { useSuitcaseUndoHandlers } from './useSuitcaseUndoHandlers';
 import { getSuitcaseItemProgress } from '../../suitcase/SuitcaseUtils';
 import { useSuitcaseAssociationFlow } from './useSuitcaseAssociationFlow';
-import { hasDraftWorkspaceInStorage, isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
 import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
 import { CATEGORY_ID_MAP, normalizeCategoryName } from '@/domain/packing/packingCategories';
@@ -46,6 +47,8 @@ export function useSuitcasePanelComposition({
     pushAction,
     undo,
     redo,
+    cancelUndo,
+    cancelRedo,
     resetStack,
     canUndo,
     canRedo,
@@ -56,6 +59,28 @@ export function useSuitcasePanelComposition({
   } = useUndoStack(30);
 
   const { activeTabId, setSelectedItemName, viewMode } = data.panelState;
+
+  const isGuestUser = !data.currentUser;
+
+  const suitcaseDocumentSave = useSuitcaseDocumentSave({
+    activeSuitcase: data.activeSuitcase,
+    isGuest: isGuestUser,
+    userId: data.currentUser?.id ?? null,
+    onDocumentSaved: (sc) => {
+      data.handleUpdateSuitcaseLocal(sc.id, sc);
+      if (!isDraftWorkspaceId(sc.id)) {
+        deleteGuestSuitcase();
+      }
+      void data.fetchUserSuitcases();
+    },
+    onSaveAsNavigate: (newId) => {
+      resetStack();
+      data.panelState.setActiveTabId(newId);
+      data.panelState.setViewMode('editor');
+      void data.fetchUserSuitcases();
+    },
+    enabled: viewMode === 'editor' && !!data.activeSuitcase && !isTdTemplate(data.activeSuitcase),
+  });
 
   useEffect(() => {
     resetStack();
@@ -75,6 +100,7 @@ export function useSuitcasePanelComposition({
             category_display_order: patch.category_display_order,
           },
         });
+        suitcaseDocumentSave.notifyLocalMutation();
       }
     },
   });
@@ -95,11 +121,14 @@ export function useSuitcasePanelComposition({
   const { performUndo, performRedo } = useSuitcaseUndo({
     undo,
     redo,
+    cancelUndo,
+    cancelRedo,
     isExecuting,
     beginExecution,
     endExecution,
     viewMode,
     ...data.mutations,
+    getActiveSuitcase: () => data.activeSuitcase ?? undefined,
     fetchUserSuitcases: data.fetchUserSuitcases,
     setHighlightItemId: data.panelState.setHighlightItemId,
     activeSuitcaseId: activeTabId,
@@ -113,6 +142,9 @@ export function useSuitcasePanelComposition({
   const itemActions = useSuitcaseItemActions({
     activeTabId: data.panelState.activeTabId,
     ...data.mutations,
+    checkDuplicateItem: (id, name, cat, scId, isUndo) => checkDuplicateItem(
+      id, name, cat, scId, data.panelState.activeTabId, data.userSuitcasesRef.current, isUndo
+    ),
     getActiveSuitcase: () => {
       const id = data.panelState.activeTabId;
       if (!id) return undefined;
@@ -130,11 +162,14 @@ export function useSuitcasePanelComposition({
     showToast: data.showToast,
     fetchBlacklist: data.fetchBlacklist,
     triggerBlacklistFlash: data.triggerBlacklistFlash,
+    onDocumentDirty: suitcaseDocumentSave.notifyLocalMutation,
+    onSuitcaseLocalUpdate: data.handleUpdateSuitcaseLocal,
   });
 
   const editorLogic = useSuitcaseEditorLogic({
     activeSuitcase: data.activeSuitcase,
     ...itemActions,
+    fetchBlacklist: data.fetchBlacklist,
     modalState: data.modalState,
     panelState: data.panelState,
     showToast: data.showToast,
@@ -158,12 +193,8 @@ export function useSuitcasePanelComposition({
     for (const item of toAdd) {
       await itemActions.handleAddItemConfirmed(suitcase.id, item.name, item.category);
     }
-    if (toAdd.length > 0) {
-      await data.fetchUserSuitcases();
-    }
   }, [
     data.activeSuitcase,
-    data.fetchUserSuitcases,
     hiddenCategories.enhancedHiddenCategoriesLogic,
     itemActions,
   ]);
@@ -180,15 +211,10 @@ export function useSuitcasePanelComposition({
   const associationFlow = useSuitcaseAssociationFlow({
     itinerary: data.itinerary,
     savedProjects: data.savedProjects,
-    itineraryId: data.itineraryId,
     isDiaryAssociable: data.isDiaryAssociable,
     currentUser: data.currentUser,
     userSuitcases: data.userSuitcases,
     guestSuitcase: data.guestSuitcase,
-    saveProject: (name) => data.saveProject(name),
-    persistGuestSuitcase: (userId, title) =>
-      data.mutations.persistGuestSuitcase(userId, null, title),
-    linkSuitcaseToTrip: data.mutations.linkSuitcaseToTrip,
     fetchLinkedIds: data.fetchLinkedIds,
     fetchUserSuitcases: data.fetchUserSuitcases,
     clearNewSuitcaseSession: data.panelState.clearNewSuitcaseSession,
@@ -279,6 +305,11 @@ export function useSuitcasePanelComposition({
     ...data.mutations,
     requestClose: requestWorkspacePause,
     handleLinkExisting: associationFlow.handleLinkExisting,
+    onDocumentDirty:
+      viewMode === 'editor' && data.activeSuitcase && !isTdTemplate(data.activeSuitcase)
+        ? suitcaseDocumentSave.notifyLocalMutation
+        : undefined,
+    onSuitcaseLocalUpdate: data.handleUpdateSuitcaseLocal,
   });
 
   const handleBackToSelector = useCallback(() => {
@@ -401,8 +432,9 @@ export function useSuitcasePanelComposition({
     panelInsetStyle,
     performUndo,
     performRedo,
-    canUndo,
-    canRedo,
+    canUndo: canUndo && suitcaseDocumentSave.phase !== 'saving',
+    canRedo: canRedo && suitcaseDocumentSave.phase !== 'saving',
+    suitcaseDocumentSave,
     handleBackToSelector,
     handleConfirmWorkspacePause,
     handleCancelWorkspacePause,

@@ -5,6 +5,10 @@ import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
 import { FilterSelect } from './components/FilterSelect';
 import { SearchBar } from './components/SearchBar';
 import { CitySummary } from '../../../types/index';
+import { HERO_COMPACT } from './heroCompactTokens';
+import { HeroCompactTypingField } from './components/HeroCompactTypingField';
+import { HERO_INSPIRATION_PHRASES } from './heroInspirationPhrases';
+import { useTypingCycle } from '../../../hooks/ui/useTypingCycle';
 
 interface HeroFilterModuleProps {
     continent: string;
@@ -18,6 +22,7 @@ interface HeroFilterModuleProps {
     heroImage: string;
     activeCategories: string[];
     selectedSeason?: string;
+    isMobileCompact?: boolean;
 
     uniqueZones: string[];
     filteredCities: CitySummary[];
@@ -79,15 +84,8 @@ const SEASON_OPTIONS = [
 ];
 
 export const HeroFilterModule = (props: HeroFilterModuleProps) => {
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 1024);
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
-
-    const heroLabelStyle = useDynamicStyles('hero_label', isMobile);
+    const isMobileCompact = props.isMobileCompact ?? false;
+    const heroLabelStyle = useDynamicStyles('hero_label', isMobileCompact);
 
     const continents = props.geoOptions?.continents || [];
     const nations = props.geoOptions?.nations || [];
@@ -141,8 +139,30 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
         );
     };
 
+    const handleSearchFocus = (focused: boolean) => {
+        props.setIsSearchFocused(focused);
+        if (focused && isMobileCompact) {
+            props.setIsFiltersExpanded(true);
+        }
+    };
+
+    const showCompactFilter = isMobileCompact && !props.isFiltersExpanded;
+    const showFullFilterContent = props.isFiltersExpanded || !isMobileCompact;
+
+    const inspirationText = useTypingCycle(HERO_INSPIRATION_PHRASES, !showCompactFilter);
+
     return (
-        <div id="tour-search-section" className={`col-span-12 lg:col-span-7 relative group shadow-2xl flex flex-col bg-slate-900 border border-slate-800 rounded-2xl transition-all duration-300 overflow-visible ${!props.isFiltersExpanded ? 'h-auto' : 'lg:h-full'}`} data-focus-surface="dimmed-background">
+        <div
+            id="tour-search-section"
+            className={`max-md:col-span-1 md:col-span-12 lg:col-span-7 min-w-0 relative group shadow-2xl flex flex-col bg-slate-900 border border-slate-800 rounded-2xl transition-all duration-300 ease-in-out overflow-visible ${
+                isMobileCompact
+                    ? 'h-auto'
+                    : !props.isFiltersExpanded
+                        ? 'h-auto'
+                        : 'lg:h-full'
+            }`}
+            data-focus-surface="dimmed-background"
+        >
 
             {/* BACKGROUND IMAGE WITH OVERLAY */}
             {props.heroImage && (
@@ -157,27 +177,83 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                 </div>
             )}
 
-<div className="relative z-10 flex flex-col h-full rounded-2xl">
-                {/* TOP CONTENT: PADDED */}
-                <div className="p-3 md:px-5 md:py-4 flex flex-col">
-                    {/* HEADER ROW */}
-                    <div
-                        className="flex justify-between items-center h-10 shrink-0 mb-0.5 lg:mb-0 cursor-pointer lg:cursor-default"
-                        onClick={() => props.setIsFiltersExpanded(!props.isFiltersExpanded)}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="w-1 h-7 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
-                            <h3 className={`${heroLabelStyle} drop-shadow-md`}>Trova la tua meta</h3>
-                        </div>
-
-                        {/* ICON SUMMARY (center) */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="pointer-events-auto">
-                                {renderSummary()}
+<div className={`relative z-home-hero-surface flex flex-col rounded-2xl min-h-0 ${showCompactFilter ? 'h-auto' : 'h-full'}`}>
+                {showCompactFilter ? (
+                    <div className={`${HERO_COMPACT.compactTwinStack} ${HERO_COMPACT.boxPadding} ${HERO_COMPACT.bodyGap}`}>
+                        <div
+                            className={`flex justify-between items-center cursor-pointer ${HERO_COMPACT.headerRowAi}`}
+                            onClick={() => props.setIsFiltersExpanded(!props.isFiltersExpanded)}
+                        >
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-1 h-5 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)] shrink-0" />
+                                <h3 className={`${heroLabelStyle} drop-shadow-md truncate`}>
+                                    Trova la tua meta
+                                </h3>
+                            </div>
+                            <div
+                                className="p-1.5 bg-slate-800/50 rounded-full border border-white/10 text-white backdrop-blur-sm shrink-0"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    props.setIsFiltersExpanded(!props.isFiltersExpanded);
+                                }}
+                            >
+                                {props.isFiltersExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                             </div>
                         </div>
 
-                        <div className="lg:hidden p-1.5 bg-slate-800/50 rounded-full border border-white/10 text-white backdrop-blur-sm">
+                        <HeroCompactTypingField
+                            text={inspirationText}
+                            variant="inspiration"
+                            aria-label="Suggerimento ispirazionale"
+                        />
+
+                        <div className="shrink-0">
+                            <SearchBar
+                                compact
+                                value={props.manualCitySearch}
+                                onChange={props.setManualCitySearch}
+                                isFocused={props.isSearchFocused}
+                                onFocus={handleSearchFocus}
+                                results={props.searchResults}
+                                onSelect={props.handleManualCitySelect}
+                                containerRef={props.searchRef}
+                            />
+                        </div>
+                    </div>
+                ) : (
+                <>
+                {/* TOP CONTENT: PADDED */}
+                <div className="flex flex-col p-3 md:px-5 md:py-4">
+                    {/* HEADER ROW */}
+                    <div
+                        className={`flex justify-between items-center shrink-0 cursor-pointer lg:cursor-default ${
+                            isMobileCompact ? 'h-8 mb-1' : 'h-10 mb-0.5 lg:mb-0'
+                        }`}
+                        onClick={() => props.setIsFiltersExpanded(!props.isFiltersExpanded)}
+                    >
+                        <div className="flex items-center gap-2 min-w-0">
+                            <div className={`bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)] shrink-0 ${isMobileCompact ? 'w-1 h-5' : 'w-1 h-7'}`} />
+                            <h3 className={`${heroLabelStyle} drop-shadow-md truncate`}>
+                                Trova la tua meta
+                            </h3>
+                        </div>
+
+                        {/* ICON SUMMARY (center) — hidden in mobile compact side-by-side */}
+                        {!showCompactFilter && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="pointer-events-auto">
+                                    {renderSummary()}
+                                </div>
+                            </div>
+                        )}
+
+                        <div
+                            className="lg:hidden p-1.5 bg-slate-800/50 rounded-full border border-white/10 text-white backdrop-blur-sm shrink-0"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                props.setIsFiltersExpanded(!props.isFiltersExpanded);
+                            }}
+                        >
                             {props.isFiltersExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </div>
 
@@ -190,22 +266,24 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                         </button>
                     </div>
 
-                    {/* MOBILE SEARCH BAR */}
+                    {/* TABLET ONLY — mobile compact uses the bottom-strip search when expanded */}
+                    {!isMobileCompact && (
                     <div className="lg:hidden mt-2">
                         <SearchBar
-                            className="mb-1"
+                            className="mb-0"
                             value={props.manualCitySearch}
                             onChange={props.setManualCitySearch}
                             isFocused={props.isSearchFocused}
-                            onFocus={props.setIsSearchFocused}
+                            onFocus={handleSearchFocus}
                             results={props.searchResults}
                             onSelect={props.handleManualCitySelect}
                             containerRef={props.searchRef}
                         />
                     </div>
+                    )}
 
                     {/* EXPANDABLE GEO FILTERS */}
-                    <div className={`mt-3.5 ${props.isFiltersExpanded ? 'flex' : 'hidden lg:flex'}`}>
+                    <div className={`mt-3.5 ${showFullFilterContent && props.isFiltersExpanded ? 'flex' : showFullFilterContent ? 'hidden lg:flex' : 'hidden'}`}>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-3 lg:gap-y-4 w-full">
                             <FilterSelect label="Continente" value={props.continent} options={continents} onChange={props.handleContinentChange} onReset={props.resetContinent} />
                             <FilterSelect label="Nazione" value={props.nation} options={nations} onChange={props.handleNationChange} onReset={props.resetNation} disabled={!props.continent} />
@@ -217,14 +295,16 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                     </div>
                 </div>
 
-                {/* BOTTOM STRIP: INTEGRATED, 100% WIDTH */}
-                <div className={`mt-auto bg-slate-950/60 backdrop-blur-md flex flex-col lg:flex-row items-stretch justify-between w-auto lg:mx-6 xl:mx-10 transition-all duration-300 rounded-xl overflow-visible ${props.isFiltersExpanded ? 'flex' : 'hidden lg:flex'}`}>
+                {/* BOTTOM STRIP: [ Tipologia | Cerca | Ispirazione ] — same row on mobile & desktop */}
+                <div className={`mt-auto bg-slate-950/60 backdrop-blur-md flex flex-row items-stretch justify-between w-auto max-md:mx-3 lg:mx-6 xl:mx-10 transition-all duration-300 ease-in-out rounded-xl overflow-visible ${
+                    showFullFilterContent && props.isFiltersExpanded ? 'flex' : showFullFilterContent ? 'hidden lg:flex' : 'hidden'
+                }`}>
 
                     {/* LEFT: TIPOLOGIA SECTION */}
-                    <div className="flex items-stretch lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-l-xl overflow-hidden">
-                        {/* Vertical Label */}
+                    <div className="flex items-stretch shrink-0 lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-l-xl overflow-hidden">
+                        {/* Vertical Label — left edge, rotated counter-clockwise (same as desktop) */}
                         <div
-                            className="hidden lg:flex items-center justify-center px-1 bg-slate-950/40 border-r border-slate-700/40 group/label cursor-help rounded-tl-xl rounded-bl-xl"
+                            className="flex items-center justify-center px-1 bg-slate-950/40 border-r border-slate-700/40 group/label cursor-help rounded-tl-xl rounded-bl-xl shrink-0"
                             title="Categoria territoriale della destinazione"
                         >
                             <span
@@ -233,11 +313,6 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                             >
                                 Tipologia
                             </span>
-                        </div>
-
-                        {/* Mobile Label */}
-                        <div className="lg:hidden flex items-center px-3 py-1 bg-slate-800/20 border-r border-slate-700/30">
-                            <span className="uppercase tracking-widest text-[8px] font-black text-amber-500">Tipologia</span>
                         </div>
 
                         {/* 3x2 Grid */}
@@ -264,7 +339,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                     </div>
 
                     {/* CENTER: SEARCH SECTION */}
-                    <div className="flex items-center min-w-0 relative group/search px-1 lg:px-1 xl:px-0 mx-1 lg:mx-1 xl:mx-2 lg:w-[260px] xl:flex-1">
+                    <div className="flex items-center min-w-0 flex-1 relative group/search px-1 mx-1 lg:mx-1 xl:mx-2 lg:w-[260px] xl:flex-1">
                     <div className="flex items-center bg-slate-950/40 border border-slate-700/30 rounded-xl h-9 md:h-10 w-full transition-all hover:border-slate-600/50 shadow-inner">
                             <div className="flex-1 min-w-0 h-full">
                                 <SearchBar
@@ -297,7 +372,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                     </div>
 
                     {/* RIGHT: ISPIRAZIONE SECTION */}
-                    <div className="flex items-stretch lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-r-xl overflow-hidden">
+                    <div className="flex items-stretch shrink-0 lg:w-[120px] xl:w-auto border border-slate-700/40 rounded-r-xl overflow-hidden">
                         {/* 3x2 Grid */}
                         <div className="grid grid-cols-3 grid-rows-2 w-[120px] md:w-[150px] lg:w-[120px] xl:w-[180px]">
                             {ISPIRAZIONE_OPTIONS.map((item, idx) => {
@@ -321,14 +396,9 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                             })}
                         </div>
 
-                        {/* Mobile Label */}
-                        <div className="lg:hidden flex items-center px-3 py-1 bg-slate-800/20 border-l border-slate-700/30 rounded-br-2xl">
-                            <span className="uppercase tracking-widest text-[8px] font-black text-indigo-400">Ispirazione</span>
-                        </div>
-
-                        {/* Vertical Label */}
+                        {/* Vertical Label — right edge, rotated clockwise (same as desktop) */}
                         <div
-                            className="hidden lg:flex items-center justify-center px-1 bg-slate-950/40 border-l border-slate-700/40 group/label cursor-help rounded-tr-xl rounded-br-xl"
+                            className="flex items-center justify-center px-1 bg-slate-950/40 border-l border-slate-700/40 group/label cursor-help rounded-tr-xl rounded-br-xl shrink-0"
                             title="Stile di viaggio che desideri vivere"
                         >
                             <span
@@ -340,6 +410,8 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                         </div>
                     </div>
                 </div>
+                </>
+                )}
             </div>
         </div>
     );

@@ -23,6 +23,9 @@ interface AiSuggestionsReviewStepProps {
   onAccept: (name: string, category: string) => Promise<void>;
   onReject: (name: string, category: string) => Promise<void>;
   onBackToSetup: () => void;
+  selectedForAcceptKeys?: Set<string>;
+  onToggleSelectForAccept?: (name: string, category: string) => void;
+  suggestionKey?: (name: string, category: string) => string;
 }
 
 function isAllQuotaZero(feedback: AiQuotaFeedback | null | undefined): boolean {
@@ -90,6 +93,9 @@ export const AiSuggestionsReviewStep: React.FC<AiSuggestionsReviewStepProps> = (
   onAccept,
   onReject,
   onBackToSetup,
+  selectedForAcceptKeys,
+  onToggleSelectForAccept,
+  suggestionKey,
 }) => {
   const isMobile = useMobileDetect();
   const helperStyle = useDynamicStyles('suitcase_text_support', isMobile);
@@ -200,7 +206,9 @@ export const AiSuggestionsReviewStep: React.FC<AiSuggestionsReviewStepProps> = (
                     )}
 
                     <div className="space-y-2">
-                      {items.map((s, idx) => (
+                      {items.map((s, idx) => {
+                        const key = suggestionKey?.(s.name, s.category) ?? `${s.category}::${s.name}`;
+                        return (
                         <AiSuggestionReviewRow
                           key={`${category}-${s.name}-${idx}`}
                           name={s.name}
@@ -209,8 +217,15 @@ export const AiSuggestionsReviewStep: React.FC<AiSuggestionsReviewStepProps> = (
                           tripRelevant={s.tripRelevant}
                           onAccept={() => onAccept(s.name, s.category)}
                           onReject={() => onReject(s.name, s.category)}
+                          isSelectedForAccept={selectedForAcceptKeys?.has(key) ?? false}
+                          onToggleSelectForAccept={
+                            onToggleSelectForAccept
+                              ? () => onToggleSelectForAccept(s.name, s.category)
+                              : undefined
+                          }
                         />
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );

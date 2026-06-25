@@ -132,11 +132,11 @@ const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = 
                 <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none"></div>
             </div>
 
-            <div className="absolute top-2 right-2 z-dropdown pointer-events-none">
+            <div className="absolute top-2 right-2 z-home-card-overlay pointer-events-none">
                 {badge}
             </div>
 
-            <div className="absolute top-3 left-4 z-dropdown flex flex-col items-start pr-12 pointer-events-none max-w-full">
+            <div className="absolute top-3 left-4 z-home-card-overlay flex flex-col items-start pr-12 pointer-events-none max-w-full">
                 <div className="mb-0.5">
                     <StarRating value={poi.rating} size="w-3 h-3" showValue={false} />
                 </div>
@@ -145,7 +145,7 @@ const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = 
                 </h4>
             </div>
 
-            <div className="absolute bottom-2 right-2 z-dropdown flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute bottom-2 right-2 z-home-card-overlay flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
                 <div
                     className="hidden lg:flex p-1.5 rounded-lg bg-black/50 hover:bg-indigo-600 text-slate-300 hover:text-white backdrop-blur-sm cursor-grab active:cursor-grabbing border border-white/10 transition-all shadow-lg"
                     draggable="true"
@@ -367,10 +367,10 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
         <div className="animate-in fade-in flex flex-col gap-0 w-full overflow-x-hidden">
 
             <div
-                className="shrink-0 lg:sticky lg:top-0 lg:z-10 lg:bg-[#020617] lg:pb-6 lg:pt-1 lg:border-b lg:border-slate-800/50 lg:shadow-2xl transition-all"
+                className="shrink-0 relative z-home-hero lg:sticky lg:top-0 lg:bg-[#020617] lg:pb-6 lg:pt-1 lg:border-b lg:border-slate-800/50 lg:shadow-2xl transition-all"
                 data-focus-surface={FOCUS_SURFACE_ATTR.dimmedBackground}
             >
-                <div className="mb-4 lg:mb-0">
+                <div className="mb-1 max-md:mb-0 lg:mb-0">
                     <HeroSection
                         activeCategories={heroProps.activeCategories}
                         setActiveCategories={heroProps.setActiveCategories}
@@ -385,7 +385,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                 </div>
             </div>
 
-            <div className="space-y-12 pb-10 pt-6" data-focus-surface={FOCUS_SURFACE_ATTR.dimmedBackground}>
+            <div className="space-y-12 pb-10 pt-2 md:pt-6" data-focus-surface={FOCUS_SURFACE_ATTR.dimmedBackground}>
 
                 <section>
                     <div className="flex flex-col lg:flex-row gap-4 xl:gap-6 items-start">

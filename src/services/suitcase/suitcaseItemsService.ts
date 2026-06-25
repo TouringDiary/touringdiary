@@ -28,6 +28,7 @@
     quantity?: number | null;
     ai_suggestion_context?: string | null;
     suggested_at?: string | null;
+    accepted_from_ai?: boolean | null;
   }
 
   /**
@@ -96,6 +97,7 @@
         is_ai_suggestion: metadata.is_ai_suggestion ?? false,
         quantity: metadata.quantity ?? 1,
         ai_suggestion_context: metadata.ai_suggestion_context ?? null,
+        accepted_from_ai: metadata.accepted_from_ai ?? false,
         ...suggestedAtInsertField(metadata.suggested_at),
       })
       .select()
@@ -192,6 +194,7 @@
       is_ai_suggestion: item.is_ai_suggestion ?? false,
       quantity: item.quantity ?? 1,
       ai_suggestion_context: item.ai_suggestion_context ?? null,
+      accepted_from_ai: item.accepted_from_ai ?? false,
       ...(item.suggested_at != null ? { suggested_at: item.suggested_at } : {}),
     }));
     return addSuitcaseItemsBulkAsync(dtos);

@@ -1,5 +1,5 @@
 import type { User } from '@/types/users';
-import { Z_FOCUS_COMPANION, Z_MODAL } from '@/constants/zIndex';
+import { Z_FOCUS_COMPANION } from '@/constants/zIndex';
 import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
 import { useFocusMode } from '@/focus';
 
@@ -212,12 +212,8 @@ export const Sidebar = ({
 
     if (mobileDiaryFullScreen) {
         return (
-            <div
-                id="tour-mobile-diary-overlay"
-                className="fixed top-[var(--header-height)] left-0 right-0 bottom-0 bg-slate-950 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5"
-                style={{ zIndex: Z_MODAL }}
-            >
-                <div className="flex-1 flex flex-col min-h-0 relative overflow-y-auto">
+            <div className="h-full min-h-0 flex flex-col overflow-hidden bg-slate-950">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                     <Suspense fallback={<DiarySkeleton />}>
                         <TravelDiary
                             user={user}
@@ -257,8 +253,7 @@ export const Sidebar = ({
 
                 <button
                     type="button"
-                    className="sticky bottom-0 h-12 bg-slate-900 border-t border-b border-slate-800 flex items-center justify-center px-4 shrink-0 cursor-pointer active:bg-slate-800 transition-colors shadow-[0_-8px_24px_rgba(0,0,0,0.45)] pointer-events-auto pb-safe"
-                    style={{ zIndex: Z_MODAL + 1 }}
+                    className="min-h-12 bg-slate-900 border-t border-b border-slate-800 flex items-center justify-center px-4 shrink-0 cursor-pointer active:bg-slate-800 transition-colors shadow-[0_-8px_24px_rgba(0,0,0,0.45)] pointer-events-auto pb-safe"
                     onClick={() => setMobileDiaryFullScreen?.(false)}
                     aria-label="Nascondi Diario"
                 >

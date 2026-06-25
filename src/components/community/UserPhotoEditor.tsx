@@ -156,7 +156,7 @@ export const UserPhotoEditor = ({ file, onSave, onCancel }: UserPhotoEditorProps
                         {/* FEED CARD MOCKUP OVERLAY */}
                         {showPreviewMode && (
                             <div className="absolute inset-0 pointer-events-none border border-slate-800 rounded-xl z-dropdown">
-                                <div className="absolute top-2 right-2 bg-black/40 backdrop-blur px-2 py-1 rounded-full text-white text-[10px] font-bold">❤️ 0</div>
+                                <div className="absolute top-2 right-2 bg-black/40 backdrop-blur px-2 py-1 rounded-full text-white text-[10px] font-normal tabular-nums inline-flex items-center gap-1"><span aria-hidden>❤️</span> 0</div>
                                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent pt-12">
                                     <div className="h-2 w-24 bg-white/50 rounded mb-2"></div>
                                     <div className="h-2 w-16 bg-white/30 rounded"></div>

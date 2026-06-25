@@ -2,6 +2,7 @@ import { Z_OVERLAY, Z_ADMIN_MODAL } from '@/constants/zIndex';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { CountBadge } from '@/components/ui/CountBadge';
 import { Terminal, Copy, CheckCircle, ExternalLink } from 'lucide-react';
 
 
@@ -98,15 +99,15 @@ SELECT 'Permessi DELETE aggiornati con successo.' as status;
 
                 <div className="mt-6 space-y-3 shrink-0">
                     <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs shrink-0">1</span>
+                        <CountBadge display="1" size="md" variant="neutral" className="w-6 h-6 min-w-[24px] shrink-0" />
                         <p>Clicca <strong>Copia SQL</strong> qui sopra.</p>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs shrink-0">2</span>
+                        <CountBadge display="2" size="md" variant="neutral" className="w-6 h-6 min-w-[24px] shrink-0" />
                         <p>Vai su <strong>Supabase Dashboard</strong> {'>'} <strong>SQL Editor</strong>.</p>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs shrink-0">3</span>
+                        <CountBadge display="3" size="md" variant="neutral" className="w-6 h-6 min-w-[24px] shrink-0" />
                         <p>Incolla ed esegui (Run). Poi riprova a cancellare.</p>
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Suitcase, SuitcaseItem, SuitcaseRejection } from '@/types/suitcase';
 import { UndoAction } from '@/hooks/useUndoStack';
 import { ToastVariant } from '@/types/toast';
+import type { AddSuitcaseItemMetadata, UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
 import { removeRejectionAsync, removeRejectionByNameAsync } from '@/services/suitcase/suitcaseRejectionsService';
 import {
   isDraftWorkspaceId,
@@ -9,6 +10,17 @@ import {
   removeDraftLocalRejectionByName,
 } from '@/utils/guestSuitcaseHelper';
 import { isEphemeralItemId } from '@/utils/runtimeItemId';
+import { getCategoryId, normalizeCategoryName } from '@/domain/packing/packingCategories';
+import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
+import {
+  appendItemToDisplayOrder,
+  cloneItemDisplayOrder,
+  getItemDisplayOrder,
+  isSameItemDisplayOrder,
+  moveItemBetweenCategoriesInOrder,
+  removeItemFromDisplayOrder,
+  swapItemsInCategoryOrder,
+} from '@/domain/packing/itemDisplayOrder';
 import type { CategoryDeleteModalTarget } from './useFloatingPanelModals';
 import {
   computeCategoryDeleteUpdates,
@@ -18,12 +30,73 @@ import {
   type CategoryDeleteSnapshot,
 } from '@/utils/suitcaseCategoryDelete';
 
+function toAddItemMetadata(
+  item: Pick<
+    SuitcaseItem,
+    | 'id'
+    | 'is_checked'
+    | 'is_ai_suggestion'
+    | 'quantity'
+    | 'ai_suggestion_context'
+    | 'suggested_at'
+    | 'accepted_from_ai'
+  >
+): AddSuitcaseItemMetadata {
+  return {
+    id: item.id,
+    is_checked: item.is_checked,
+    is_ai_suggestion: item.is_ai_suggestion,
+    quantity: item.quantity,
+    ai_suggestion_context: item.ai_suggestion_context,
+    suggested_at: item.suggested_at,
+    accepted_from_ai: item.accepted_from_ai,
+  };
+}
+
+function createRuntimeSuitcaseItem(
+  suitcaseId: string,
+  name: string,
+  category: string,
+  metadata: AddSuitcaseItemMetadata = {}
+): SuitcaseItem {
+  const itemId =
+    metadata.id && isEphemeralItemId(metadata.id)
+      ? metadata.id
+      : `draft-item-${Date.now()}`;
+  return {
+    id: itemId,
+    suitcase_id: suitcaseId,
+    name,
+    category: normalizeCategoryName(category),
+    is_checked: metadata.is_checked ?? false,
+    is_ai_suggestion: metadata.is_ai_suggestion ?? false,
+    quantity: metadata.quantity ?? 1,
+    ai_suggestion_context: metadata.ai_suggestion_context ?? null,
+    suggested_at: metadata.suggested_at ?? null,
+    accepted_from_ai: metadata.accepted_from_ai ?? false,
+  };
+}
+
+function withItemDisplayOrderUiState(
+  suitcase: Suitcase,
+  itemDisplayOrder: ReturnType<typeof getItemDisplayOrder>
+) {
+  return ensureUiStateForPersist({
+    ...suitcase,
+    ui_state: {
+      ...suitcase.ui_state,
+      hidden_category_ids: suitcase.ui_state?.hidden_category_ids ?? [],
+      item_display_order: itemDisplayOrder,
+    },
+  });
+}
+
 interface ItemActionsProps {
   activeTabId: string | null;
-  updateItem: (id: string, updates: Partial<SuitcaseItem>) => Promise<void>;
+  updateItem: (id: string, updates: UpdateSuitcaseItemDto) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   rejectItem: (suitcaseId: string, item: SuitcaseItem) => Promise<void>;
-  addItem: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
+  addItem: (suitcaseId: string, name: string, category: string, metadata?: AddSuitcaseItemMetadata) => Promise<SuitcaseItem | undefined>;
   updateSuitcase: (suitcaseId: string, updates: Partial<Suitcase>) => Promise<void>;
   getActiveSuitcase: () => Suitcase | undefined;
   getSuitcaseById?: (id: string) => Suitcase | undefined;
@@ -31,8 +104,18 @@ interface ItemActionsProps {
   pushAction: (action: UndoAction) => void;
   fetchUserSuitcases: () => Promise<void> | void;
   showToast: (message: string, description?: string, variant?: ToastVariant) => void;
-  fetchBlacklist?: () => Promise<void>;
+  fetchBlacklist?: (options?: { force?: boolean }) => Promise<void>;
   triggerBlacklistFlash?: () => void;
+  checkDuplicateItem: (
+    id: string,
+    name: string,
+    category: string,
+    suitcaseId: string | null,
+    isUndo?: boolean
+  ) => boolean;
+  /** Document save model: mutations stay local until flush. */
+  onDocumentDirty?: () => void;
+  onSuitcaseLocalUpdate?: (suitcaseId: string, updates: Partial<Suitcase>) => void;
 }
 
 export const useSuitcaseItemActions = ({
@@ -49,8 +132,41 @@ export const useSuitcaseItemActions = ({
   fetchUserSuitcases,
   showToast,
   fetchBlacklist,
-  triggerBlacklistFlash
+  triggerBlacklistFlash,
+  checkDuplicateItem,
+  onDocumentDirty,
+  onSuitcaseLocalUpdate,
 }: ItemActionsProps) => {
+
+  const applyDocumentMutation = useCallback(
+    async (
+      action: UndoAction,
+      persistFn?: () => Promise<void>
+    ) => {
+      handleStateSync(action, false, activeTabId);
+      if (onDocumentDirty) {
+        onDocumentDirty();
+        pushAction(action);
+        return;
+      }
+      if (persistFn) await persistFn();
+      await fetchUserSuitcases();
+      pushAction(action);
+    },
+    [activeTabId, fetchUserSuitcases, handleStateSync, onDocumentDirty, pushAction]
+  );
+
+  const persistItemDisplayOrder = useCallback(
+    async (suitcase: Suitcase, itemDisplayOrder: ReturnType<typeof getItemDisplayOrder>) => {
+      const mergedUiState = withItemDisplayOrderUiState(suitcase, itemDisplayOrder);
+      if (onDocumentDirty && onSuitcaseLocalUpdate) {
+        onSuitcaseLocalUpdate(suitcase.id, { ui_state: mergedUiState });
+        return;
+      }
+      await updateSuitcase(suitcase.id, { ui_state: mergedUiState });
+    },
+    [onDocumentDirty, onSuitcaseLocalUpdate, updateSuitcase]
+  );
 
   const persistCategoryDelete = useCallback(
     async (suitcaseId: string, suitcase: Suitcase, target: CategoryDeleteSnapshot['target']) => {
@@ -102,29 +218,18 @@ export const useSuitcaseItemActions = ({
         ui_state: updates.ui_state,
       });
 
-      for (const item of removedItems) {
-        await addItem(suitcaseId, item.name, item.category, {
-          is_checked: item.is_checked,
-          is_ai_suggestion: item.is_ai_suggestion,
-          quantity: item.quantity,
-          ai_suggestion_context: item.ai_suggestion_context,
-          suggested_at: item.suggested_at,
-        });
-      }
+      await Promise.all(
+        removedItems.map((item) =>
+          addItem(suitcaseId, item.name, item.category, toAddItemMetadata(item))
+        )
+      );
     },
     [addItem, updateSuitcase]
   );
 
-  const handleUpdateItemConfirmed = useCallback(async (itemId: string, updates: Partial<SuitcaseItem>, currentItem: SuitcaseItem) => {
+  const handleUpdateItemConfirmed = useCallback(async (itemId: string, updates: UpdateSuitcaseItemDto, currentItem: SuitcaseItem) => {
     try {
       if (updates.is_checked !== undefined) {
-        // 1. Persistenza DB
-        await updateItem(itemId, updates);
-        
-        // 2. Forza refresh dati dal database PRIMA del sync
-        await fetchUserSuitcases();
-
-        // 3. Preparazione azione per logica locale
         const action: UndoAction = {
           id: itemId,
           type: 'update',
@@ -137,17 +242,9 @@ export const useSuitcaseItemActions = ({
           timestamp: Date.now()
         };
 
-        // 4. Aggiornamento stato locale (Sync post-conferma)
-        handleStateSync(action, false, activeTabId);
-
-        // 5. Registrazione nello stack Undo
-        console.log("[UndoStack] registering action:", action);
-        pushAction(action);
+        await applyDocumentMutation(action, () => updateItem(itemId, updates));
       } else if (updates.quantity !== undefined) {
         const clampedQty = Math.max(1, updates.quantity ?? 1);
-        await updateItem(itemId, { quantity: clampedQty });
-        await fetchUserSuitcases();
-
         const action: UndoAction = {
           id: itemId,
           type: 'update',
@@ -160,16 +257,8 @@ export const useSuitcaseItemActions = ({
           timestamp: Date.now(),
         };
 
-        handleStateSync(action, false, activeTabId);
-        pushAction(action);
+        await applyDocumentMutation(action, () => updateItem(itemId, { quantity: clampedQty }));
       } else if (updates.accepted_from_ai === true) {
-        // 1. Persistenza DB (accepted_from_ai=true, is_ai_suggestion=false)
-        await updateItem(itemId, updates);
-        
-        // 2. Refresh dati
-        await fetchUserSuitcases();
-
-        // 3. Sync locale immediato
         const action: UndoAction = {
           id: itemId,
           type: 'update',
@@ -183,38 +272,91 @@ export const useSuitcaseItemActions = ({
           label: currentItem.name,
           timestamp: Date.now()
         };
+        await applyDocumentMutation(action, () => updateItem(itemId, updates));
+        if (!onDocumentDirty) {
+          showToast("Oggetto aggiunto", "L'oggetto è stato aggiunto alla valigia.", 'success');
+        }
+      } else if (updates.category !== undefined) {
+        const newCategory = normalizeCategoryName(updates.category);
+        const previousCategory = normalizeCategoryName(currentItem.category);
+        if (newCategory === previousCategory) return;
+
+        const suitcase = getActiveSuitcase();
+        if (!suitcase || !activeTabId) return;
+
+        const isDuplicate = checkDuplicateItem(
+          itemId,
+          currentItem.name,
+          newCategory,
+          activeTabId,
+          false
+        );
+        if (isDuplicate) {
+          showToast(`"${currentItem.name}" è già presente in ${newCategory}`, undefined, 'destructive');
+          return;
+        }
+
+        const sourceCategoryId = getCategoryId(previousCategory, suitcase.custom_categories);
+        const destCategoryId = getCategoryId(newCategory, suitcase.custom_categories);
+        const previousItemDisplayOrder = cloneItemDisplayOrder(getItemDisplayOrder(suitcase));
+        const newItemDisplayOrder = moveItemBetweenCategoriesInOrder(
+          previousItemDisplayOrder,
+          sourceCategoryId,
+          destCategoryId,
+          currentItem.name
+        );
+
+        const action: UndoAction = {
+          id: itemId,
+          type: 'update',
+          payload: {
+            field: 'category',
+            previousValue: previousCategory,
+            newValue: newCategory,
+            previousItemDisplayOrder,
+            newItemDisplayOrder,
+          },
+          label: currentItem.name,
+          timestamp: Date.now(),
+        };
+
+        if (onDocumentDirty) {
+          handleStateSync(action, false, activeTabId);
+          if (onSuitcaseLocalUpdate) {
+            onSuitcaseLocalUpdate(suitcase.id, {
+              ui_state: withItemDisplayOrderUiState(suitcase, newItemDisplayOrder),
+            });
+          }
+          onDocumentDirty();
+          pushAction(action);
+          showToast(`${currentItem.name} spostato in ${newCategory}.`, undefined, 'success');
+          return;
+        }
+
+        await Promise.all([
+          updateItem(itemId, { category: newCategory }),
+          persistItemDisplayOrder(suitcase, newItemDisplayOrder),
+        ]);
+        await fetchUserSuitcases();
+
         handleStateSync(action, false, activeTabId);
         pushAction(action);
-
-        showToast("Oggetto aggiunto", "L'oggetto è stato aggiunto alla valigia.", 'success');
+        showToast(`${currentItem.name} spostato in ${newCategory}.`, undefined, 'success');
       } else {
         await updateItem(itemId, updates);
         await fetchUserSuitcases();
       }
     } catch (err) {
       console.error("Update failed:", err);
-      fetchUserSuitcases();
+      void fetchUserSuitcases();
       throw err;
     }
-  }, [activeTabId, updateItem, handleStateSync, pushAction, fetchUserSuitcases, showToast]);
+  }, [activeTabId, updateItem, updateSuitcase, handleStateSync, pushAction, fetchUserSuitcases, showToast, checkDuplicateItem, getActiveSuitcase, persistItemDisplayOrder, onDocumentDirty, onSuitcaseLocalUpdate]);
 
   const handleDeleteItemConfirmed = useCallback(async (itemToDelete: SuitcaseItem) => {
     try {
       const id = itemToDelete.id;
-      
-      // 1. Persistenza DB
-      if (itemToDelete.is_ai_suggestion && activeTabId) {
-        await rejectItem(activeTabId, itemToDelete);
-        // Dopo un rifiuto, aggiorniamo anche la blacklist locale e attiviamo il flash
-        if (fetchBlacklist) await fetchBlacklist();
-        if (triggerBlacklistFlash) triggerBlacklistFlash();
-        showToast("Oggetto spostato nei rifiutati", "L'oggetto non verrà più suggerito per questa valigia.", 'success');
-      } else {
-        await deleteItem(id);
-      }
-      
-      // 2. Forza refresh dati dal database
-      await fetchUserSuitcases();
+      const suitcase = getActiveSuitcase();
 
       const action: UndoAction = {
         id,
@@ -222,53 +364,140 @@ export const useSuitcaseItemActions = ({
         payload: { ...itemToDelete },
         label: itemToDelete.name,
         timestamp: Date.now(),
-        // Command Pattern per gestire la coerenza della blacklist durante Undo/Redo
         ...(itemToDelete.is_ai_suggestion ? {
           inverse: async (payload) => {
-            await addItem(activeTabId!, payload.name, payload.category, { ...payload, id: payload.id });
+            await addItem(activeTabId!, payload.name, payload.category, toAddItemMetadata(payload));
             if (activeTabId && isDraftWorkspaceId(activeTabId)) {
               removeDraftLocalRejectionByName(activeTabId, payload.name);
             } else {
               await removeRejectionByNameAsync(activeTabId!, payload.name);
             }
             handleStateSync(action, true, activeTabId);
-            if (fetchBlacklist) await fetchBlacklist();
+            if (fetchBlacklist) await fetchBlacklist({ force: true });
             showToast(`Suggerimento ripristinato: ${payload.name}`, undefined, 'success');
           },
           apply: async (payload) => {
-            // 1. Riesegui il reject (aggiunge a blacklist e rimuove da valigia)
             await rejectItem(activeTabId!, payload);
-            // 2. Sincronizza lo stato locale e UI
             handleStateSync(action, false, activeTabId);
-            if (fetchBlacklist) await fetchBlacklist();
+            if (fetchBlacklist) await fetchBlacklist({ force: true });
             showToast(`Suggerimento rimosso: ${payload.name}`, undefined, 'destructive');
           }
         } : {})
       };
 
-      // 3. Aggiornamento stato locale (Sync)
-      handleStateSync(action, false, activeTabId);
+      if (onDocumentDirty) {
+        if (suitcase && activeTabId && onSuitcaseLocalUpdate) {
+          const categoryId = getCategoryId(itemToDelete.category, suitcase.custom_categories);
+          const nextOrder = removeItemFromDisplayOrder(
+            getItemDisplayOrder(suitcase),
+            categoryId,
+            itemToDelete.name
+          );
+          onSuitcaseLocalUpdate(suitcase.id, {
+            ui_state: withItemDisplayOrderUiState(suitcase, nextOrder),
+          });
+        }
+        handleStateSync(action, false, activeTabId);
+        onDocumentDirty();
+        pushAction(action);
+        if (itemToDelete.is_ai_suggestion && activeTabId) {
+          // Le rejection sono entità indipendenti: vanno persistite subito,
+          // anche nel percorso document-dirty, perché non fanno parte del
+          // payload di salvataggio della valigia.
+          try {
+            await rejectItem(activeTabId, itemToDelete);
+          } catch (e) {
+            console.error('[handleDeleteItemConfirmed] rejection persist failed:', e);
+          }
+          if (fetchBlacklist) await fetchBlacklist({ force: true });
+          if (triggerBlacklistFlash) triggerBlacklistFlash();
+          showToast("Oggetto spostato nei rifiutati", "L'oggetto non verrà più suggerito per questa valigia.", 'success');
+        }
+        return;
+      }
 
-      // 4. Registrazione nello stack Undo
-      console.log("[UndoStack] registering action:", action);
+      if (suitcase && activeTabId) {
+        const categoryId = getCategoryId(itemToDelete.category, suitcase.custom_categories);
+        const nextOrder = removeItemFromDisplayOrder(
+          getItemDisplayOrder(suitcase),
+          categoryId,
+          itemToDelete.name
+        );
+        await persistItemDisplayOrder(suitcase, nextOrder);
+      }
+
+      if (itemToDelete.is_ai_suggestion && activeTabId) {
+        await rejectItem(activeTabId, itemToDelete);
+        if (fetchBlacklist) await fetchBlacklist({ force: true });
+        if (triggerBlacklistFlash) triggerBlacklistFlash();
+        showToast("Oggetto spostato nei rifiutati", "L'oggetto non verrà più suggerito per questa valigia.", 'success');
+      } else {
+        await deleteItem(id);
+      }
+
+      await fetchUserSuitcases();
+      handleStateSync(action, false, activeTabId);
       pushAction(action);
     } catch (err) {
       console.error("Delete failed:", err);
-      fetchUserSuitcases();
+      void fetchUserSuitcases();
       throw err;
     }
-  }, [activeTabId, deleteItem, rejectItem, addItem, handleStateSync, pushAction, fetchUserSuitcases, fetchBlacklist, showToast]);
+  }, [activeTabId, deleteItem, rejectItem, addItem, handleStateSync, pushAction, fetchUserSuitcases, fetchBlacklist, showToast, getActiveSuitcase, persistItemDisplayOrder, triggerBlacklistFlash, onDocumentDirty, onSuitcaseLocalUpdate]);
 
   const handleAddItemConfirmed = useCallback(async (
     suitcaseId: string,
     name: string,
     category: string,
-    metadata?: Partial<SuitcaseItem>
+    metadata?: AddSuitcaseItemMetadata
   ) => {
     try {
+      const suitcase = getActiveSuitcase();
+
+      if (onDocumentDirty) {
+        const res = createRuntimeSuitcaseItem(suitcaseId, name, category, metadata);
+        const action: UndoAction = {
+          id: res.id,
+          type: 'add',
+          payload: { ...res },
+          label: name,
+          timestamp: Date.now(),
+        };
+
+        handleStateSync(action, false, activeTabId);
+
+        if (suitcase && onSuitcaseLocalUpdate) {
+          const categoryId = getCategoryId(category, suitcase.custom_categories);
+          const nextOrder = appendItemToDisplayOrder(
+            getItemDisplayOrder(suitcase),
+            categoryId,
+            name
+          );
+          onSuitcaseLocalUpdate(suitcaseId, {
+            ui_state: withItemDisplayOrderUiState(suitcase, nextOrder),
+          });
+        }
+
+        onDocumentDirty();
+        pushAction(action);
+        return res;
+      }
+
       const res = await addItem(suitcaseId, name, category, metadata);
       if (res) {
-        // 2. Forza refresh dati dal database
+        if (suitcase) {
+          const categoryId = getCategoryId(category, suitcase.custom_categories);
+          const nextOrder = appendItemToDisplayOrder(
+            getItemDisplayOrder(suitcase),
+            categoryId,
+            name
+          );
+          await persistItemDisplayOrder(
+            { ...suitcase, suitcase_items: [...(suitcase.suitcase_items ?? []), res] },
+            nextOrder
+          );
+        }
+
         await fetchUserSuitcases();
 
         const action: UndoAction = {
@@ -279,20 +508,51 @@ export const useSuitcaseItemActions = ({
           timestamp: Date.now()
         };
 
-        // 3. Aggiornamento stato locale (Sync)
         handleStateSync(action, false, activeTabId);
-
-        // 4. Registrazione nello stack Undo
-        console.log("[UndoStack] registering action:", action);
         pushAction(action);
         return res;
       }
     } catch (err) {
       console.error("Add item failed:", err);
-      fetchUserSuitcases();
+      void fetchUserSuitcases();
       throw err;
     }
-  }, [activeTabId, addItem, handleStateSync, pushAction, fetchUserSuitcases]);
+  }, [activeTabId, addItem, handleStateSync, pushAction, fetchUserSuitcases, getActiveSuitcase, persistItemDisplayOrder, onDocumentDirty, onSuitcaseLocalUpdate]);
+
+  const handleSwapItemsInCategory = useCallback(
+    async (
+      categoryId: string,
+      draggedName: string,
+      targetName: string,
+      visibleNamesInOrder: string[]
+    ) => {
+      const suitcase = getActiveSuitcase();
+      if (!suitcase || !activeTabId) return;
+
+      const previousOrder = cloneItemDisplayOrder(getItemDisplayOrder(suitcase));
+      const nextOrder = swapItemsInCategoryOrder(
+        previousOrder,
+        categoryId,
+        draggedName,
+        targetName,
+        visibleNamesInOrder
+      );
+
+      if (isSameItemDisplayOrder(previousOrder, nextOrder)) return;
+
+      if (onDocumentDirty && onSuitcaseLocalUpdate) {
+        onSuitcaseLocalUpdate(suitcase.id, {
+          ui_state: withItemDisplayOrderUiState(suitcase, nextOrder),
+        });
+        onDocumentDirty();
+        return;
+      }
+
+      await persistItemDisplayOrder(suitcase, nextOrder);
+      await fetchUserSuitcases();
+    },
+    [activeTabId, fetchUserSuitcases, getActiveSuitcase, onDocumentDirty, onSuitcaseLocalUpdate, persistItemDisplayOrder]
+  );
 
   const handleRestoreFromBlacklist = useCallback(async (rejection: SuitcaseRejection) => {
     if (!activeTabId) return;
@@ -311,8 +571,10 @@ export const useSuitcaseItemActions = ({
         }
 
         // 3. Refresh dati
-        await fetchUserSuitcases();
-        if (fetchBlacklist) await fetchBlacklist();
+        await Promise.all([
+          Promise.resolve(fetchUserSuitcases()),
+          ...(fetchBlacklist ? [fetchBlacklist({ force: true })] : []),
+        ]);
 
         // 4. Registrazione Undo (Simmetrica al Reject)
         const action: UndoAction = {
@@ -325,13 +587,12 @@ export const useSuitcaseItemActions = ({
             // Undo del Restore = Reject (rimuovi da valigia + aggiungi a blacklist)
             await rejectItem(activeTabId!, payload);
             handleStateSync(action, true, activeTabId);
-            if (fetchBlacklist) await fetchBlacklist();
+            if (fetchBlacklist) await fetchBlacklist({ force: true });
             showToast(`Oggetto rimosso: ${payload.name}`, undefined, 'destructive');
           },
           apply: async (payload) => {
             await addItem(activeTabId!, payload.name, payload.category, {
-              ...payload,
-              id: payload.id,
+              ...toAddItemMetadata(payload),
               is_ai_suggestion: true,
             });
             if (activeTabId && isDraftWorkspaceId(activeTabId)) {
@@ -340,7 +601,7 @@ export const useSuitcaseItemActions = ({
               await removeRejectionByNameAsync(activeTabId!, payload.name);
             }
             handleStateSync(action, false, activeTabId);
-            if (fetchBlacklist) await fetchBlacklist();
+            if (fetchBlacklist) await fetchBlacklist({ force: true });
             showToast(`Oggetto ripristinato: ${payload.name}`, undefined, 'success');
           },
         };
@@ -363,7 +624,7 @@ export const useSuitcaseItemActions = ({
       } else {
         await removeRejectionAsync(rejectionId);
       }
-      if (fetchBlacklist) await fetchBlacklist();
+      if (fetchBlacklist) await fetchBlacklist({ force: true });
       showToast("Suggerimenti riattivati", "L'oggetto potrà essere nuovamente proposto dai suggerimenti AI.", 'success');
     } catch (err) {
       console.error("Remove from blacklist failed:", err);
@@ -445,6 +706,7 @@ export const useSuitcaseItemActions = ({
     handleUpdateItemConfirmed,
     handleDeleteItemConfirmed,
     handleAddItemConfirmed,
+    handleSwapItemsInCategory,
     handleDeleteCategoryConfirmed,
     handleRestoreFromBlacklist,
     handleRemoveFromBlacklist

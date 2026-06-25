@@ -5,6 +5,7 @@ import { SponsorRequest, CitySummary } from '../../../types/index';
 import { PLAN_TYPES, PlanType } from '../../../constants/planTypes';
 import { getDismissedAlerts, dismissPartnerAlert, getSponsorRating } from '../../../services/sponsorService';
 import { PaginationControls } from '../../common/PaginationControls';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface SponsorTableProps {
     requests: SponsorRequest[]; 
@@ -197,7 +198,18 @@ export const SponsorTable = ({
                                         <h3 className="text-2xl font-bold text-white cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => onOpenCrm({ profileId: req.profileId, vat: req.vatNumber, email: req.email || req.requesterEmail, requestId: req.id })}>{req.companyName}</h3>
                                         {isActivity && <div className="ml-3 bg-blue-900/40 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-bold text-blue-300 uppercase tracking-wide flex items-center gap-1.5" title="Profilo Attività/Bottega"><ShoppingBag className="w-3 h-3"/> Vetrina</div>}
                                         {/* UNREAD INDICATOR */}
-                                        {totalUnreadCount > 0 && <span className="bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse ml-2 cursor-pointer" onClick={() => onOpenCrm({ profileId: req.profileId, vat: req.vatNumber, email: req.email || req.requesterEmail, requestId: req.id })}><Mail className="w-3 h-3"/> {totalUnreadCount}</span>}
+                                        {totalUnreadCount > 0 && (
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center gap-1 ml-2 cursor-pointer"
+                                                onClick={() => onOpenCrm({ profileId: req.profileId, vat: req.vatNumber, email: req.email || req.requesterEmail, requestId: req.id })}
+                                            >
+                                                <span className="inline-flex items-center gap-1 bg-rose-600 text-white text-xs px-2 py-0.5 rounded-full animate-pulse font-normal">
+                                                    <Mail className="w-3 h-3" />
+                                                    <CountBadge count={totalUnreadCount} size="sm" variant="white" className="bg-transparent text-white border-0 min-w-0 px-0 shadow-none" />
+                                                </span>
+                                            </button>
+                                        )}
                                     </div>
 
                                     <div className="text-base text-slate-300 mb-4 flex flex-wrap gap-4">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Edit2, Trash2, ChevronLeft, Link2, Layout, Undo2, Redo2, CloudOff, CalendarDays, Clock3 } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Suitcase } from '@/types/suitcase';
@@ -6,18 +6,11 @@ import { TemplateCategoryIcon } from './SuitcaseUtils';
 import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
 import { isSessionReadOnly } from '@/utils/suitcaseDomain';
 import type { SuitcasePanelViewMode } from '../SuitcaseFloatingPanel/types/panelViewMode';
-
-const formatSuitcaseDateTime = (iso: string) =>
-  new Date(iso)
-    .toLocaleString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-    .replace(',', '');
+import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
+import { DocumentSaveStatus } from '@/components/save/DocumentSaveStatus';
+import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
+import { formatItalianDateTime } from '@/utils/dateFormatters';
 
 interface SuitcaseHeaderProps {
   viewMode: SuitcasePanelViewMode;
@@ -44,6 +37,16 @@ interface SuitcaseHeaderProps {
   performRedo: () => Promise<boolean>;
   canUndo: boolean;
   canRedo: boolean;
+  isGuest?: boolean;
+  onGuestSaveAction?: () => void;
+  onSave?: () => void;
+  onSaveAs?: () => void;
+  onAutosaveToggle?: (enabled: boolean) => void;
+  savePhase?: DocumentSavePhase;
+  lastSavedAt?: number | null;
+  lastSaveError?: string | null;
+  autosaveEnabled?: boolean;
+  canUseAutosave?: boolean;
 }
 
 export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
@@ -70,17 +73,35 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
   performUndo,
   performRedo,
   canUndo,
-  canRedo
+  canRedo,
+  isGuest = false,
+  onGuestSaveAction,
+  onSave,
+  onSaveAs,
+  onAutosaveToggle,
+  savePhase = 'never_saved',
+  lastSavedAt = null,
+  lastSaveError = null,
+  autosaveEnabled = false,
+  canUseAutosave = false,
 }) => {
   const isDetailView = viewMode === 'editor' || viewMode === 'viewer';
   const isReadOnlySession =
     isDetailView && activeSuitcase
       ? isSessionReadOnly(activeSuitcase, viewMode)
       : false;
+  const [openMetadataHint, setOpenMetadataHint] = useState<'created' | 'updated' | null>(null);
+  const createdHintRef = useRef<HTMLDivElement>(null);
+  const updatedHintRef = useRef<HTMLDivElement>(null);
+
+  const serverSavedAt =
+    activeSuitcase?.updated_at && !Number.isNaN(Date.parse(activeSuitcase.updated_at))
+      ? Date.parse(activeSuitcase.updated_at)
+      : null;
 
   return (
     <div className="flex flex-col shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-white/10 z-header relative">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 h-20 md:h-24 w-full gap-2 md:gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 min-h-[4.25rem] py-2 md:py-0 md:h-24 w-full gap-2 md:gap-4">
         <div className="flex items-center gap-3 md:gap-4 min-w-0 justify-self-start">
           {isDetailView ? (
             <button 
@@ -99,11 +120,148 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
           <div className="flex flex-col min-w-0">
             {isDetailView && activeSuitcase ? (
               <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2 md:gap-4 flex-wrap min-w-0 w-full">
+                {/* Mobile: titolo + salvataggio a sinistra; matita/dischetto con icone metadati sotto */}
+                <div className="flex items-start gap-2 min-w-0 w-full md:hidden">
+                  <TemplateCategoryIcon
+                    template={activeSuitcase}
+                    className="text-2xl shrink-0 flex items-center justify-center"
+                  />
+                  <div className="grid flex-1 min-w-0 grid-cols-[minmax(0,1fr)_1.375rem_1.375rem] gap-x-1 gap-y-0.5 items-center">
+                    {isEditingTitle && !isReadOnlySession ? (
+                      <input
+                        ref={titleInputRef}
+                        value={tempTitle}
+                        onChange={(e) => onTitleChange(e.target.value)}
+                        onBlur={onSaveTitle}
+                        onKeyDown={(e) => e.key === 'Enter' && onSaveTitle()}
+                        className="col-span-3 bg-slate-800 border border-indigo-500/50 rounded-lg px-3 py-1 text-base font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 w-full min-w-0"
+                        autoFocus
+                      />
+                    ) : (
+                      <h2
+                        onClick={isReadOnlySession ? undefined : onEditTitle}
+                        className={`col-start-1 row-start-1 text-base font-bold text-slate-50 truncate min-w-0 ${
+                          isReadOnlySession ? '' : 'cursor-pointer hover:text-indigo-400 transition-colors'
+                        }`}
+                      >
+                        {activeSuitcase.title}
+                      </h2>
+                    )}
+
+                    {!isReadOnlySession && !isEditingTitle && (
+                      <button
+                        type="button"
+                        onClick={onEditTitle}
+                        className="col-start-2 row-start-1 justify-self-center p-0.5 rounded text-slate-400 hover:text-indigo-400 hover:bg-white/5 transition-colors"
+                        title="Modifica nome"
+                        aria-label="Modifica nome"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    {viewMode === 'editor' &&
+                      !isReadOnlySession &&
+                      !isEditingTitle &&
+                      onSave &&
+                      onSaveAs &&
+                      onAutosaveToggle && (
+                        <div className="col-start-3 row-start-1 justify-self-center">
+                          <SaveMenuPopover
+                            isGuest={isGuest}
+                            autosaveEnabled={autosaveEnabled}
+                            canUseAutosave={canUseAutosave}
+                            onSave={onSave}
+                            onSaveAs={onSaveAs}
+                            onAutosaveToggle={onAutosaveToggle}
+                            onGuestAction={onGuestSaveAction ?? (() => {})}
+                            disabled={savePhase === 'saving'}
+                            className="shrink-0"
+                          />
+                        </div>
+                      )}
+
+                    <div className="col-start-1 row-start-2 row-span-2 self-start min-w-0">
+                      <DocumentSaveStatus
+                        phase={savePhase}
+                        lastSavedAt={lastSavedAt}
+                        lastError={lastSaveError}
+                        isGuest={isGuest}
+                        fallbackSavedAt={serverSavedAt}
+                        dateFormat="datetime"
+                        layout="stacked"
+                        className="text-[11px] font-medium leading-tight"
+                      />
+                    </div>
+
+                    {activeSuitcase.created_at && (
+                      <div ref={createdHintRef} className="col-start-2 row-start-3 justify-self-center self-start shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenMetadataHint((current) =>
+                              current === 'created' ? null : 'created'
+                            )
+                          }
+                          className={`p-0.5 rounded text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors ${
+                            openMetadataHint === 'created' ? 'bg-white/5 text-slate-300' : ''
+                          }`}
+                          title="Data creazione"
+                          aria-label="Data creazione"
+                          aria-expanded={openMetadataHint === 'created'}
+                        >
+                          <CalendarDays className="w-3 h-3" aria-hidden />
+                        </button>
+                        <AnchoredPopover
+                          isOpen={openMetadataHint === 'created'}
+                          onClose={() => setOpenMetadataHint(null)}
+                          anchorRef={createdHintRef}
+                          align="right"
+                          className="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl px-2.5 py-1.5 text-[10px] font-medium text-slate-300 tabular-nums whitespace-nowrap"
+                        >
+                          Creata il {formatItalianDateTime(activeSuitcase.created_at)}
+                        </AnchoredPopover>
+                      </div>
+                    )}
+
+                    {activeSuitcase.updated_at && (
+                      <div ref={updatedHintRef} className="col-start-3 row-start-3 justify-self-center self-start shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenMetadataHint((current) =>
+                              current === 'updated' ? null : 'updated'
+                            )
+                          }
+                          className={`p-0.5 rounded text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors ${
+                            openMetadataHint === 'updated' ? 'bg-white/5 text-slate-300' : ''
+                          }`}
+                          title="Data modifica"
+                          aria-label="Data modifica"
+                          aria-expanded={openMetadataHint === 'updated'}
+                        >
+                          <Clock3 className="w-3 h-3" aria-hidden />
+                        </button>
+                        <AnchoredPopover
+                          isOpen={openMetadataHint === 'updated'}
+                          onClose={() => setOpenMetadataHint(null)}
+                          anchorRef={updatedHintRef}
+                          align="right"
+                          className="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl px-2.5 py-1.5 text-[10px] font-medium text-slate-300 tabular-nums whitespace-nowrap"
+                        >
+                          Modificata il {formatItalianDateTime(activeSuitcase.updated_at)}
+                        </AnchoredPopover>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Desktop: layout originale */}
+                <div className="hidden md:flex items-center gap-4 flex-wrap min-w-0 w-full">
                   <div className="flex items-center gap-2 group min-w-0 flex-1">
-                    <TemplateCategoryIcon 
-                      template={activeSuitcase} 
-                      className="text-2xl md:text-3xl shrink-0 flex items-center justify-center" 
+                    <TemplateCategoryIcon
+                      template={activeSuitcase}
+                      className="text-3xl shrink-0 flex items-center justify-center"
                     />
                     {isEditingTitle && !isReadOnlySession ? (
                       <input
@@ -112,13 +270,13 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                         onChange={(e) => onTitleChange(e.target.value)}
                         onBlur={onSaveTitle}
                         onKeyDown={(e) => e.key === 'Enter' && onSaveTitle()}
-                        className="bg-slate-800 border border-indigo-500/50 rounded-lg px-3 py-1 text-base md:text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 w-full max-w-[200px] md:max-w-[400px]"
+                        className="bg-slate-800 border border-indigo-500/50 rounded-lg px-3 py-1 text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 w-full max-w-[400px]"
                         autoFocus
                       />
                     ) : (
-                      <h2 
+                      <h2
                         onClick={isReadOnlySession ? undefined : onEditTitle}
-                        className={`text-base md:text-2xl font-bold text-slate-50 truncate flex items-center gap-2 min-w-0 ${
+                        className={`text-2xl font-bold text-slate-50 truncate flex items-center gap-2 min-w-0 ${
                           isReadOnlySession ? '' : 'cursor-pointer hover:text-indigo-400 transition-colors'
                         }`}
                       >
@@ -128,23 +286,50 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                         )}
                       </h2>
                     )}
+                    {viewMode === 'editor' && !isReadOnlySession && onSave && onSaveAs && onAutosaveToggle && (
+                      <SaveMenuPopover
+                        isGuest={isGuest}
+                        autosaveEnabled={autosaveEnabled}
+                        canUseAutosave={canUseAutosave}
+                        onSave={onSave}
+                        onSaveAs={onSaveAs}
+                        onAutosaveToggle={onAutosaveToggle}
+                        onGuestAction={onGuestSaveAction ?? (() => {})}
+                        disabled={savePhase === 'saving'}
+                        className="shrink-0"
+                      />
+                    )}
                   </div>
                 </div>
 
-                {activeSuitcase.created_at && (
-                  <div className="flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-3 md:gap-4 text-[10px] font-semibold text-slate-300 tabular-nums ml-1">
-                    <span className="flex items-center gap-1.5">
-                      <span title="Data creazione">
-                        <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+                <div className="hidden md:block ml-1 min-w-0">
+                  <DocumentSaveStatus
+                    phase={savePhase}
+                    lastSavedAt={lastSavedAt}
+                    lastError={lastSaveError}
+                    isGuest={isGuest}
+                    fallbackSavedAt={serverSavedAt}
+                    dateFormat="datetime"
+                    className="!normal-case !tracking-normal text-slate-500 font-medium"
+                  />
+                </div>
+
+                {(activeSuitcase.created_at || activeSuitcase.updated_at) && (
+                  <div className="hidden md:flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-3 md:gap-4 text-[10px] font-semibold text-slate-300 tabular-nums ml-1">
+                    {activeSuitcase.created_at && (
+                      <span className="flex items-center gap-1.5">
+                        <span title="Data creazione">
+                          <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+                        </span>
+                        <span>{formatItalianDateTime(activeSuitcase.created_at)}</span>
                       </span>
-                      <span>{formatSuitcaseDateTime(activeSuitcase.created_at)}</span>
-                    </span>
+                    )}
                     {activeSuitcase.updated_at && (
                       <span className="flex items-center gap-1.5">
                         <span title="Ultima modifica">
                           <Clock3 className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
                         </span>
-                        <span>{formatSuitcaseDateTime(activeSuitcase.updated_at)}</span>
+                        <span>{formatItalianDateTime(activeSuitcase.updated_at)}</span>
                       </span>
                     )}
                   </div>
@@ -262,7 +447,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
             </>
           )}
 
-          {saveStatus && (
+          {saveStatus && !lastSavedAt && (
             <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 mr-2 shadow-lg shadow-emerald-500/5">
               <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{saveStatus}</span>
             </div>

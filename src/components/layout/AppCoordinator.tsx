@@ -10,6 +10,7 @@ import { ModalLoading } from '../common/ModalLoading';
 import { useInteraction } from '../../context/InteractionContext';
 import { usePartnerIntegrations } from '../../hooks/usePartnerIntegrations';
 import { FocusModeProvider, FocusOverlay, WorkspaceHost } from '@/focus';
+import { useAppExitProtection } from '@/hooks/save/useAppExitProtection';
 
 const AdminDashboard = React.lazy(() => import('../admin/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const RemoveItemModal = React.lazy(() => import('../modals/RemoveItemModal').then(module => ({ default: module.RemoveItemModal })));
@@ -17,22 +18,14 @@ const RemoveItemModal = React.lazy(() => import('../modals/RemoveItemModal').the
 export const AppCoordinator = () => {
 
     useReferralTracking();
+    useAppExitProtection();
 
     const { user, setUser, completeOnboarding } = useUser();
     const { viewMode, setViewMode } = useNavigation();
-
-    let setInteractionUser: ((userId: string) => void) | null = null;
-    try {
-        const interaction = useInteraction();
-        setInteractionUser = interaction.setInteractionUser;
-    } catch (e) {
-        // context non ancora pronto → ignora
-    }
+    const { setInteractionUser } = useInteraction();
 
     useEffect(() => {
-        if (!user || !user.id) return;
-        if (!setInteractionUser) return;
-
+        if (!user?.id) return;
         setInteractionUser(user.id);
     }, [user, setInteractionUser]);
 
@@ -47,6 +40,7 @@ export const AppCoordinator = () => {
 
     const { integrations, loading } = usePartnerIntegrations();
     useEffect(() => {
+        if (!import.meta.env.DEV) return;
         if (!loading && integrations && Object.keys(integrations).length > 0) {
             console.log('[AppCoordinator] Partner Integrations caricate con successo:', integrations);
         } else if (!loading) {

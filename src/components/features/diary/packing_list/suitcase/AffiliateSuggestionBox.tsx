@@ -7,7 +7,7 @@ import { PartnerIntegration } from '@/types/partners';
 import { normalizeItemName } from '@/utils/tagDerivation';
 import { affiliateTrackingService } from '@/services/affiliateTrackingService';
 import { ResolvedAffiliateProductLink, ResolvedAffiliateProduct } from '@/types/suitcase';
-import { resolveAffiliateProductImage } from './SuitcaseUtils';
+import { resolveAffiliateProductImage, resolveAffiliatePartnerDisplay } from './SuitcaseUtils';
 
 interface AffiliateSuggestionBoxProps {
   activeSuitcase: Suitcase | null;
@@ -233,6 +233,11 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
     [compatiblePartners, primaryPartner]
   );
 
+  const partnerDisplay = useMemo(
+    () => resolveAffiliatePartnerDisplay(finalSuggestion, integrations?.partners),
+    [finalSuggestion, integrations?.partners]
+  );
+
   const getAffiliateLink = (partner: PartnerIntegration) => {
     // 1. Check for specific partner link override
     const partnerLink = (finalSuggestion.product_links || []).find((l: ResolvedAffiliateProductLink) => l.partner_id === partner.id);
@@ -264,47 +269,49 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
   }, [finalSuggestion, primaryPartner, adminSuitcasePlaceholders, failedImages]);
 
   return (
-    <div className="bg-[#0b0f19]/80 backdrop-blur-md rounded-[20px] border border-white/5 p-4 flex flex-col gap-4 relative overflow-hidden group">
+    <div className="bg-[#0b0f19]/80 backdrop-blur-md rounded-[20px] border border-white/5 p-4 h-full min-h-0 flex flex-col gap-4 relative group">
       {/* HEADER */}
-      <div className="flex items-center gap-2.5">
+      <div className="shrink-0 flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
           <ShoppingBag className="w-3.5 h-3.5 text-indigo-400" />
         </div>
         <h4 className="text-[10px] xl:text-[12px] font-black text-indigo-400/80 uppercase tracking-widest">Consigli utili</h4>
       </div>
 
-      {/* IMAGE PLACEHOLDER */}
-      <div className="w-full aspect-video rounded-xl bg-[#06080d]/60 border border-white/5 flex flex-col items-center justify-center gap-2 relative overflow-hidden group-hover:border-indigo-500/20 transition-all duration-500">
-        <div className="absolute inset-0 bg-gradient-to-t from-[#06080d] to-transparent opacity-80" />
-        {displayImage ? (
-          <img
-            src={displayImage}
-            alt={finalSuggestion.name}
-            className="w-full h-full object-cover relative z-floating-panel drop-shadow-2xl"
-            onError={(e) => {
-              const src = (e.target as HTMLImageElement).src;
-              if (src) {
-                setFailedImages(prev => {
-                  const next = new Set(prev);
-                  next.add(src);
-                  return next;
-                });
-              }
-            }}
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-2 relative z-floating-panel opacity-30 text-slate-300">
-            <ImageIcon className="w-8 h-8" />
-            <span className="text-[10px] xl:text-[12px] font-black uppercase tracking-widest">No Image</span>
-          </div>
-        )}
+      {/* IMAGE PLACEHOLDER — si riduce se lo spazio verticale è limitato */}
+      <div className="shrink min-h-0 flex-1 basis-0 w-full flex items-start justify-center overflow-hidden">
+        <div className="w-full aspect-video max-h-full rounded-xl bg-[#06080d]/60 border border-white/5 flex flex-col items-center justify-center gap-2 relative overflow-hidden group-hover:border-indigo-500/20 transition-all duration-500">
+          <div className="absolute inset-0 bg-gradient-to-t from-[#06080d] to-transparent opacity-80" />
+          {displayImage ? (
+            <img
+              src={displayImage}
+              alt={finalSuggestion.name}
+              className="w-full h-full object-cover relative z-floating-panel drop-shadow-2xl"
+              onError={(e) => {
+                const src = (e.target as HTMLImageElement).src;
+                if (src) {
+                  setFailedImages(prev => {
+                    const next = new Set(prev);
+                    next.add(src);
+                    return next;
+                  });
+                }
+              }}
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-2 relative z-floating-panel opacity-30 text-slate-300">
+              <ImageIcon className="w-8 h-8" />
+              <span className="text-[10px] xl:text-[12px] font-black uppercase tracking-widest">No Image</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* META INFO */}
-      <div className="flex flex-col gap-2.5">
+      <div className="shrink-0 flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <div className="px-1.5 py-0.5 select-none rounded bg-indigo-600/20 border border-indigo-500/20 text-[8px] xl:text-[10px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-1.5 line-clamp-1 border-dotted">
-            {primaryPartner?.label || 'Partner'} Suggestion
+            {partnerDisplay.badgeLabel}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <div className="flex items-center gap-0.5 text-amber-500">
@@ -322,8 +329,10 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
         </h3>
 
         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
 
-        {/* PRIMARY BUTTON */}
+      {/* FOOTER CTA — shrink-0, mai compresso dal flex layout */}
+      <div className="shrink-0 flex flex-col gap-2.5 mt-auto">
         {primaryPartner && (
           <button
             onClick={() => {
@@ -335,13 +344,13 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
                   category: finalSuggestion.category || 'gear',
                   productId: finalSuggestion.id
                 });
-                window.open(link, '_blank');
+                window.open(link, '_blank', 'noopener,noreferrer');
               }
             }}
             className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-[0_0_20px_rgba(79,70,229,0.2)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)] transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
           >
             <span className="text-xs font-black text-white uppercase tracking-widest relative z-floating-panel truncate">
-              Scopri su {primaryPartner.label}
+              {partnerDisplay.scopriCtaLabel}
             </span>
             <ExternalLink className="w-3.5 h-3.5 text-indigo-100 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform relative z-floating-panel shrink-0" />
           </button>
@@ -367,7 +376,7 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
                         category: finalSuggestion.category || 'gear',
                         productId: finalSuggestion.id
                       });
-                      window.open(link, '_blank');
+                      window.open(link, '_blank', 'noopener,noreferrer');
                     }
                   }}
                   className="h-8 group/logo relative flex items-center justify-center transition-transform hover:scale-110 active:scale-95"

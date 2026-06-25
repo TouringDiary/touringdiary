@@ -1,7 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
-import type { CategoryStatusFilter } from './SuitcaseUtils';
+import {
+  SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS,
+  type CategoryStatusFilter,
+} from './SuitcaseUtils';
 
 interface CategoryStatusFilterDropdownProps {
   value: CategoryStatusFilter;
@@ -46,7 +49,7 @@ export const CategoryStatusFilterDropdown: React.FC<CategoryStatusFilterDropdown
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={`Filtro categorie: ${selected.label}`}
-        className={`shrink-0 self-center flex items-center gap-1 px-2 py-1.5 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${ACTIVE_TRIGGER_CLASS[value]}`}
+        className={`${SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS} gap-1 px-2 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${ACTIVE_TRIGGER_CLASS[value]}`}
         title={`Filtro: ${selected.label}`}
       >
         <ChevronDown

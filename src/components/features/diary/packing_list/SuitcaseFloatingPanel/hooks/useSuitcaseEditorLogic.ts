@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
 import { Suitcase, SuitcaseItem, SuitcaseRejection } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 import { UndoAction } from '@/hooks/useUndoStack';
@@ -7,11 +8,18 @@ import { ToastVariant } from '@/types/toast';
 
 interface EditorLogicProps {
   activeSuitcase: Suitcase | null;
-  handleUpdateItemConfirmed: (itemId: string, updates: Partial<SuitcaseItem>, currentItem: SuitcaseItem) => Promise<void>;
+  handleUpdateItemConfirmed: (itemId: string, updates: UpdateSuitcaseItemDto, currentItem: SuitcaseItem) => Promise<void>;
   handleDeleteItemConfirmed: (itemToDelete: SuitcaseItem) => Promise<void>;
   handleAddItemConfirmed: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
+  handleSwapItemsInCategory: (
+    categoryId: string,
+    draggedName: string,
+    targetName: string,
+    visibleNamesInOrder: string[]
+  ) => Promise<void>;
   handleRestoreFromBlacklist: (rejection: SuitcaseRejection) => Promise<void>;
   handleRemoveFromBlacklist: (rejectionId: string, name: string) => Promise<void>;
+  fetchBlacklist?: (options?: { force?: boolean }) => Promise<void>;
   modalState: any;
   panelState: any;
   showToast: (message: string, description?: string, variant?: ToastVariant) => void;
@@ -23,8 +31,10 @@ export const useSuitcaseEditorLogic = ({
   handleUpdateItemConfirmed,
   handleDeleteItemConfirmed,
   handleAddItemConfirmed,
+  handleSwapItemsInCategory,
   handleRestoreFromBlacklist,
   handleRemoveFromBlacklist,
+  fetchBlacklist,
   modalState,
   panelState,
   showToast,
@@ -51,12 +61,16 @@ export const useSuitcaseEditorLogic = ({
     }, 2500);
   }, [panelState]);
 
-  const onUpdateItem = useCallback(async (itemId: string, updates: Partial<SuitcaseItem>) => {
+  const onUpdateItem = useCallback(async (itemId: string, updates: UpdateSuitcaseItemDto) => {
     if (!activeSuitcase) return;
     const item = activeSuitcase.suitcase_items?.find(i => i.id === itemId);
     if (!item) return;
 
-    if (updates.is_checked !== undefined || updates.quantity !== undefined) {
+    if (
+      updates.is_checked !== undefined ||
+      updates.quantity !== undefined ||
+      updates.category !== undefined
+    ) {
       triggerItemHighlight(itemId);
     }
 
@@ -102,7 +116,8 @@ export const useSuitcaseEditorLogic = ({
 
   const onOpenBlacklist = useCallback(() => {
     modalState.setShowBlacklistModal(true);
-  }, [modalState]);
+    void fetchBlacklist?.();
+  }, [fetchBlacklist, modalState]);
 
   const onDeleteCategory = useCallback((category: { id: string; name: string; source: string }) => {
     if (!activeSuitcase) return;
@@ -123,6 +138,7 @@ export const useSuitcaseEditorLogic = ({
     onSelectItem,
     onOpenBlacklist,
     onDeleteCategory,
+    onSwapItemsInCategory: handleSwapItemsInCategory,
     onRestoreFromBlacklist: handleRestoreFromBlacklist,
     onRemoveFromBlacklist: handleRemoveFromBlacklist
   };

@@ -4,6 +4,7 @@ import { Trophy } from 'lucide-react';
 import { User as UserType } from '../../types/index';
 import { refreshUsersCache } from '../../services/userService';
 import { getCurrentLevel } from '../../services/gamificationService';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface RankingTabProps {
     user: UserType;
@@ -34,7 +35,12 @@ export const RankingTab = ({ user }: RankingTabProps) => {
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-full bg-slate-800 border-4 border-indigo-500 flex items-center justify-center text-xl font-bold text-white shadow-lg relative">
                             {user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} className="w-full h-full rounded-full object-cover" /> : user.name.charAt(0)}
-                            <div className="absolute -bottom-2 -right-2 bg-indigo-500 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-slate-900">{getCurrentLevel(user.xp).level}</div>
+                            <CountBadge
+                                display={String(getCurrentLevel(user.xp).level)}
+                                size="md"
+                                variant="level"
+                                position="overlay-br"
+                            />
                         </div>
                         <div><h3 className="text-xl font-bold text-white">La tua posizione</h3><p className="text-indigo-300 text-sm">Hai {user.xp || 0} XP • Livello {getCurrentLevel(user.xp).name}</p></div>
                     </div>

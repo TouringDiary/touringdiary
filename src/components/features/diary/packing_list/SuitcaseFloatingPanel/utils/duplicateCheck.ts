@@ -1,3 +1,4 @@
+import { normalizeCategoryName } from '@/domain/packing/packingCategories';
 import { Suitcase } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 
@@ -8,7 +9,7 @@ export const checkDuplicateItem = (
   suitcaseId: string | null, 
   activeTabId: string | null,
   userSuitcases: Suitcase[],
-  isUndo = false
+  _isUndo = false
 ) => {
   const targetId = suitcaseId || activeTabId;
   if (!targetId) return true;
@@ -16,11 +17,13 @@ export const checkDuplicateItem = (
   if (!suitcase) return true;
   
   const items = suitcase.suitcase_items || [];
+  const targetCategory = normalizeCategoryName(category);
+  const normalizedName = normalizeItemName(name);
 
-  // Se l'ID è lo stesso stiamo probabilmente cercando di ripristinare proprio quell'item.
-  // In caso di Undo, non dobbiamo considerarlo un duplicato di se stesso.
-  return items.some(i => 
-    (i.id === id && !isUndo) || 
-    (i.id !== id && normalizeItemName(i.name) === normalizeItemName(name) && i.category === category)
+  return items.some(
+    (item) =>
+      item.id !== id &&
+      normalizeItemName(item.name) === normalizedName &&
+      normalizeCategoryName(item.category) === targetCategory
   );
 };

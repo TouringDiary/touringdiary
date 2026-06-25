@@ -1,5 +1,3 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { useDynamicStyles } from '../../../../hooks/useDynamicStyles';
@@ -49,8 +47,8 @@ export const FilterSelect = ({ label, value, onChange, onReset, options, disable
     const selectedLabel = options.find(o => o.value === value)?.label || 'Seleziona...';
 
     return (
-        <div className={`relative min-w-0 group/select ${isOpen ? 'z-popover' : ''}`} ref={containerRef}>
-            <label className={`${labelStyle} absolute -top-1.5 left-2 bg-slate-900 px-1 z-10 leading-none pointer-events-none`}>{label}</label>
+        <div className={`relative min-w-0 group/select ${isOpen ? 'z-home-hero-popover' : ''}`} ref={containerRef}>
+            <label className={`${labelStyle} absolute -top-1.5 left-2 bg-slate-900 px-1 z-home-hero-surface leading-none pointer-events-none`}>{label}</label>
             <div className="relative">
                 <button
                     type="button"
@@ -66,7 +64,7 @@ export const FilterSelect = ({ label, value, onChange, onReset, options, disable
                     <button 
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onReset(); }}
-                        className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 p-1 rounded-full hover:bg-slate-800 transition-colors z-dropdown"
+                        className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 p-1 rounded-full hover:bg-slate-800 transition-colors z-home-hero-surface"
                         title={`Resetta ${label}`}
                     >
                         <X className="w-3 h-3" />
@@ -75,8 +73,7 @@ export const FilterSelect = ({ label, value, onChange, onReset, options, disable
 
                 {isOpen && !disabled && (
                     <div 
-                        className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar w-full min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
-                        style={{ zIndex: Z_MODAL_NESTED }}
+                        className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar w-full min-w-[140px] animate-in fade-in zoom-in-95 duration-100 z-home-hero-popover"
                     >
                         {options.map(opt => (
                             <button

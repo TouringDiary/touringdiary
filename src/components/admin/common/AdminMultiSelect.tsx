@@ -2,7 +2,7 @@ import { Z_MODAL_NESTED } from '@/constants/zIndex';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, X, CheckSquare, Square, Filter } from 'lucide-react';
-
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface Option {
     value: string;
@@ -68,9 +68,7 @@ export const AdminMultiSelect = ({ label, icon, options, selectedValues, onChang
                 {icon || <Filter className="w-3.5 h-3.5"/>}
                 <span className="truncate max-w-[100px]">{label}</span>
                 {badgeCount > 0 && (
-                    <span className="bg-white text-indigo-600 px-1.5 rounded-full text-[9px] min-w-[16px] text-center">
-                        {badgeCount}
-                    </span>
+                    <CountBadge count={badgeCount} size="xs" variant="white" shape="pill" />
                 )}
                 <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''} opacity-50`}/>
             </button>

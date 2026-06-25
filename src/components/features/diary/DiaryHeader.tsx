@@ -16,6 +16,8 @@ import { DiaryHeaderDateRange } from './header/DiaryHeaderDateRange';
 import { DiaryHeaderTabs } from './header/DiaryHeaderTabs';
 import { DiaryHeaderInvalidDateModal } from './header/DiaryHeaderInvalidDateModal';
 
+import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
+
 interface DiaryHeaderProps {
     itinerary: Itinerary;
     user: User;
@@ -27,8 +29,15 @@ interface DiaryHeaderProps {
     onSetName: (name: string) => void;
     onDateChange: (type: 'startDate' | 'endDate', val: string) => void;
     onLoadProject: (p: Itinerary) => void;
-    onSaveAction: () => void;
+    onSave: () => void;
     onSaveAs: () => void;
+    savePhase: DocumentSavePhase;
+    lastSavedAt: number | null;
+    lastSaveError: string | null;
+    autosaveEnabled: boolean;
+    canUseAutosave: boolean;
+    onAutosaveToggle: (enabled: boolean) => void;
+    isDocumentDirty: boolean;
     onPrint: () => void;
     onClear: () => void;
     onPublish: () => void;
@@ -55,13 +64,14 @@ const formatDateForDisplay = (dateString: string | null): string => {
 
 export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     itinerary, user, savedProjects, highlightDates, activeTab, days, minDateStr,
-    onSetName, onDateChange, onLoadProject, onSaveAction, onSaveAs, onPrint, onClear, onPublish, onOpenAiPlanner, onOpenRoadbook, onOpenPackingList, setActiveTab, onDeleteProject,
+    onSetName, onDateChange, onLoadProject, onSave, onSaveAs, savePhase, lastSavedAt, lastSaveError,
+    autosaveEnabled, canUseAutosave, onAutosaveToggle, isDocumentDirty,
+    onPrint, onClear, onPublish, onOpenAiPlanner, onOpenRoadbook, onOpenPackingList, setActiveTab, onDeleteProject,
     onUndo, onRedo, canUndo, canRedo
 }) => {
     const { refreshItineraryData, syncCloudDrafts } = useItinerary(); 
     const { openModal } = useModal(); 
     
-    const [saveMenuOpen, setSaveMenuOpen] = useState(false);
     const [loadMenuOpen, setLoadMenuOpen] = useState(false);
     const [shareMenuOpen, setShareMenuOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -78,8 +88,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     const { getText: getUnsavedLoadMsg } = useSystemMessage('modal_unsaved_changes_load_diary');
     
     const [shouldFlashSuitcase, setShouldFlashSuitcase] = useState(false);
-    const prevItemsLength = useRef(itinerary.items.length);
-    
+        
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 1024);
@@ -91,7 +100,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     const titleConfig = useDynamicContent('diary_title', isMobile);
     
     const tabsContainerRef = useRef<HTMLDivElement>(null);
-    const saveMenuRef = useRef<HTMLDivElement>(null);
     const loadMenuRef = useRef<HTMLDivElement>(null);
     const shareMenuRef = useRef<HTMLDivElement>(null);
 
@@ -157,36 +165,8 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     const [isInvalidRangeModalOpen, setIsInvalidRangeModalOpen] = useState(false);
     const [pendingProjectToLoad, setPendingProjectToLoad] = useState<Itinerary | null>(null);
 
-    const isDirty = () => {
-        const original = savedProjects.find(p => p.id === itinerary.id);
-        if (!original) {
-            return Boolean(
-                itinerary.name ||
-                itinerary.startDate ||
-                itinerary.endDate ||
-                itinerary.items.length > 0
-            );
-        }
-        
-        if (itinerary.name !== original.name) return true;
-        if (itinerary.startDate !== original.startDate) return true;
-        if (itinerary.endDate !== original.endDate) return true;
-        if (itinerary.items.length !== original.items.length) return true;
-        
-        for (let i = 0; i < itinerary.items.length; i++) {
-            const item = itinerary.items[i];
-            const origItem = original.items[i];
-            if (!origItem) return true;
-            if (item.id !== origItem.id) return true;
-            if (item.notes !== origItem.notes) return true;
-            if (item.timeSlotStr !== origItem.timeSlotStr) return true;
-            if (item.customIcon !== origItem.customIcon) return true;
-        }
-        return false;
-    };
-
     const handleLoadProjectIntercept = (p: Itinerary) => {
-        if (isDirty()) {
+        if (isDocumentDirty) {
             setPendingProjectToLoad(p);
         } else {
             onLoadProject(p);
@@ -261,8 +241,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
             openModal('auth');
             return;
         }
-        onSaveAction();
-        setSaveMenuOpen(false);
+        onSave();
     };
 
     const handleSaveAs = () => {
@@ -271,7 +250,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
             return;
         }
         onSaveAs();
-        setSaveMenuOpen(false);
     };
 
     const handleExportClick = () => {
@@ -377,13 +355,16 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                     savedProjects={savedProjects}
                     onLoadProject={handleLoadProjectIntercept}
                     handleDeleteClick={handleDeleteClick}
-                    saveMenuOpen={saveMenuOpen}
-                    setSaveMenuOpen={setSaveMenuOpen}
-                    saveMenuRef={saveMenuRef}
                     isGuest={isGuest}
                     openModal={openModal}
-                    handleSave={handleSave}
-                    handleSaveAs={handleSaveAs}
+                    onSave={handleSave}
+                    onSaveAs={handleSaveAs}
+                    onAutosaveToggle={onAutosaveToggle}
+                    savePhase={savePhase}
+                    lastSavedAt={lastSavedAt}
+                    lastSaveError={lastSaveError}
+                    autosaveEnabled={autosaveEnabled}
+                    canUseAutosave={canUseAutosave}
                     handleExportClick={handleExportClick}
                     shareMenuOpen={shareMenuOpen}
                     setShareMenuOpen={setShareMenuOpen}

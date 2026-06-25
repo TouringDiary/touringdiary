@@ -57,6 +57,29 @@ export const CATEGORY_EMOJI: Record<SystemCategoryName, string> = {
   Animali: '🐾',
 };
 
+/** Sigle a 3 lettere per le categorie sistema (toolbar valigia). */
+export const CATEGORY_SHORT_LABELS: Record<SystemCategoryName, string> = {
+  Abbigliamento: 'ABB',
+  Igiene: 'IGI',
+  Documenti: 'DOC',
+  Elettronica: 'ELE',
+  Farmaci: 'FAR',
+  Accessori: 'ACC',
+  Extra: 'EXT',
+  Bambini: 'BAM',
+  Animali: 'ANI',
+};
+
+export function getCategoryShortLabel(categoryName: string): string {
+  const normalized = normalizeCategoryName(categoryName);
+  if (isSystemCategoryName(normalized)) {
+    return CATEGORY_SHORT_LABELS[normalized];
+  }
+  const letters = normalized.replace(/[^a-zA-ZÀ-ÿ]/g, '');
+  const source = letters.length >= 3 ? letters : normalized;
+  return source.slice(0, 3).toUpperCase();
+}
+
 /** Alias legacy (suitcase_items) e tag semantici affiliate → nome canonico */
 export const LEGACY_CATEGORY_ALIASES: Record<string, SystemCategoryName> = {
   'accessori & organizzazione': 'Accessori',

@@ -13,6 +13,7 @@ import { SponsorModals } from './sponsor/SponsorModals';
 import { User } from '../../types/users';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { AdminPageHeader } from './common/AdminPageHeader';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface SponsorManagerProps {
     currentUser?: User;
@@ -166,8 +167,9 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                 className="!mb-6"
                 badge={
                     (stats?.pending ?? 0) > 0 ? (
-                        <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                            {stats?.pending} DA GESTIRE
+                        <span className="inline-flex items-center gap-1.5 bg-rose-600 text-white text-xs px-2 py-1 rounded-full shadow-lg animate-pulse font-normal uppercase tracking-wide">
+                            <CountBadge count={stats?.pending ?? 0} size="sm" variant="white" className="bg-white/20 text-white border-0 min-w-[18px]" />
+                            DA GESTIRE
                         </span>
                     ) : undefined
                 }
@@ -240,7 +242,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                             className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? `${TAB_COLOR_CLASSES[tab.color]} text-white shadow-lg` : 'text-slate-500 hover:text-white'}`}
                         >
                             {tab.label}
-                            {count !== null && count > 0 && <span className="bg-white text-black px-1.5 rounded-full text-[9px]">{count}</span>}
+                            {count !== null && count > 0 && <CountBadge count={count} size="xs" variant="white-black" shape="pill" />}
                         </button>
                         );
                     })}

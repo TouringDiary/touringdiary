@@ -76,8 +76,8 @@ export const CommunityItinerariesTab = ({ user, onViewItinerary }: CommunityItin
                                 <ImageWithFallback src={it.coverImage} alt={it.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
                                 <div className="absolute top-2 right-2 z-dropdown">
-                                     <button onClick={(e) => { e.stopPropagation(); handleLikeItinerary(it.id); }} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold shadow-lg transition-all ${isLiked ? 'bg-rose-600 text-white scale-110' : 'bg-black/40 hover:bg-black/60 text-white backdrop-blur-md border border-white/10'}`}>
-                                        <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-white' : ''}`}/> {it.votes}
+                                     <button onClick={(e) => { e.stopPropagation(); handleLikeItinerary(it.id); }} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-normal shadow-lg transition-all ${isLiked ? 'bg-rose-600 text-white scale-110' : 'bg-black/40 hover:bg-black/60 text-white backdrop-blur-md border border-white/10'}`}>
+                                        <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-white' : ''}`}/> <span className="tabular-nums leading-none">{it.votes}</span>
                                      </button>
                                 </div>
                                 <div className="absolute bottom-3 left-3 flex items-center gap-2">

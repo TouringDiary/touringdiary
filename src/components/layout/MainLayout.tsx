@@ -93,14 +93,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                 }
 
                 mobileNav={
-                    <MobileNavBar 
-                        activeSection={mobileActiveSection}
-                        onOpenDiary={() => setMobileDiaryFullScreen(true)}
-                        onOpenGlobal={(section) => openModal('global', { section })}
-                        onOpenRankings={() => openModal('fullRankings')}
-                        isVisible={isUiVisible}
-                        onExpandUi={() => setIsUiVisible(true)}
-                    />
+                    !mobileDiaryFullScreen ? (
+                        <MobileNavBar 
+                            activeSection={mobileActiveSection}
+                            onOpenDiary={() => setMobileDiaryFullScreen(true)}
+                            onOpenGlobal={(section) => openModal('global', { section })}
+                            onOpenRankings={() => openModal('fullRankings')}
+                            isVisible={isUiVisible}
+                            onExpandUi={() => setIsUiVisible(true)}
+                        />
+                    ) : undefined
                 }
             >
                 <div 
@@ -119,7 +121,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
             {(mobileDiaryFullScreen || mobileShowWeather) && (
                 <div 
                     id={mobileDiaryFullScreen ? "tour-mobile-diary-overlay" : "weather-overlay"}
-                    className="fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-modal"
+                    className={
+                        mobileDiaryFullScreen
+                            ? "fixed top-[var(--header-height)] left-0 right-0 z-modal bg-slate-950 flex flex-col overflow-hidden h-[calc(100dvh-var(--header-height))] max-h-[calc(100dvh-var(--header-height))] animate-in slide-in-from-bottom-5"
+                            : "fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-modal bg-slate-950"
+                    }
                 >
                     <Sidebar 
                         onViewPoiDetail={(poi) => openModal('poiDetail', { poi })} 

@@ -82,6 +82,35 @@ export const applyStandardSeedToSuitcaseInMemory = async (
 };
 
 /**
+ * Persiste item_display_order su valigia esistente (merge con ui_state corrente).
+ */
+export const persistItemDisplayOrderAsync = async (
+  suitcaseId: string,
+  itemDisplayOrder: SuitcaseUiState['item_display_order']
+): Promise<void> => {
+  const { data, error: fetchError } = await supabase
+    .from('suitcases')
+    .select('ui_state')
+    .eq('id', suitcaseId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const parsed = parseUiState(data?.ui_state);
+  const merged: SuitcaseUiState = {
+    ...parsed,
+    item_display_order: itemDisplayOrder ?? {},
+  };
+
+  const { error } = await supabase
+    .from('suitcases')
+    .update({ ui_state: serializeUiState(merged) })
+    .eq('id', suitcaseId);
+
+  if (error) throw error;
+};
+
+/**
  * Persiste category_setup, hidden_category_ids, dismissed e display order su valigia esistente.
  */
 export const persistCategoryVisibilityAsync = async (
@@ -106,6 +135,7 @@ export const persistCategoryVisibilityAsync = async (
     hidden_category_ids: patch.hidden_category_ids ?? parsed.hidden_category_ids,
     dismissed_category_ids: patch.dismissed_category_ids ?? parsed.dismissed_category_ids ?? [],
     category_display_order: patch.category_display_order ?? parsed.category_display_order ?? [],
+    item_display_order: parsed.item_display_order,
   };
 
   const { error } = await supabase

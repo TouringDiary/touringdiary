@@ -145,6 +145,8 @@ export interface SuitcaseUiState {
   dismissed_category_ids?: string[];
   /** Ordine visualizzazione categorie (id sistema + custom) — MACROFASE C */
   category_display_order?: string[];
+  /** Ordine visualizzazione oggetti per categoria (categoryId → normalizedItemName[]) */
+  item_display_order?: Record<string, string[]>;
 }
 
 /** Rifiuto AI memorizzato localmente su workspace draft (pre-save). */

@@ -49,8 +49,20 @@ interface AiSuggestionsModalProps {
 
 const DEFAULT_UNIFORM_LIMIT = 3;
 
+function buildSuggestionKey(name: string, category: string): string {
+  return `${category}::${name}`;
+}
+
 const FOOTER_SECONDARY_BTN_CLASS =
   'text-[10px] font-black text-slate-400 uppercase tracking-widest';
+
+/** Dimensioni condivise per i CTA del footer review (Accetta selezione / Tutti / Rifiuta Tutti). */
+const FOOTER_REVIEW_ACTION_BTN_CLASS =
+  'inline-flex items-center justify-center min-w-[10.25rem] px-8 py-4 rounded-2xl border box-border text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed';
+
+const FOOTER_REVIEW_ACCEPT_BTN_CLASS = `${FOOTER_REVIEW_ACTION_BTN_CLASS} border-transparent bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-500/20 active:scale-95`;
+
+const FOOTER_REVIEW_REJECT_BTN_CLASS = `${FOOTER_REVIEW_ACTION_BTN_CLASS} border-rose-500/30 bg-rose-600/10 text-rose-400 hover:bg-rose-600/20`;
 
 const TITLE_FALLBACK_DESKTOP =
   'text-xl font-display font-bold text-white uppercase tracking-wide leading-none';
@@ -82,6 +94,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   const [showAddCategoryDropdown, setShowAddCategoryDropdown] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState<'accept-all' | 'reject-all' | null>(null);
   const [isBulkRunning, setIsBulkRunning] = useState(false);
+  const [selectedForAcceptKeys, setSelectedForAcceptKeys] = useState<Set<string>>(new Set());
 
   const isMobile = useMobileDetect();
   const titleStyle = useDynamicStyles('suitcase_title', isMobile);
@@ -101,6 +114,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
       setRemovedCategories([]);
       setBulkConfirm(null);
       setIsBulkRunning(false);
+      setSelectedForAcceptKeys(new Set());
     }
   }, [isOpen]);
 
@@ -122,6 +136,58 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
 
   const pendingSuggestions = suggestions.filter(s => s.status === 'pending');
   const bulkDisabled = isGenerating || isBulkRunning || pendingSuggestions.length === 0;
+  const selectedPendingCount = pendingSuggestions.filter((s) =>
+    selectedForAcceptKeys.has(buildSuggestionKey(s.name, s.category))
+  ).length;
+  const hasPartialSelection =
+    selectedPendingCount > 0 && selectedPendingCount < pendingSuggestions.length;
+
+  const handleToggleSelectForAccept = (name: string, category: string) => {
+    const key = buildSuggestionKey(name, category);
+    setSelectedForAcceptKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleRejectSuggestion = async (name: string, category: string) => {
+    const key = buildSuggestionKey(name, category);
+    setSelectedForAcceptKeys((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    await onReject(name, category);
+  };
+
+  const runAcceptSelected = async () => {
+    const toAccept = pendingSuggestions.filter((s) =>
+      selectedForAcceptKeys.has(buildSuggestionKey(s.name, s.category))
+    );
+    if (toAccept.length === 0) return;
+
+    setIsBulkRunning(true);
+    try {
+      for (const s of toAccept) {
+        await onAccept(s.name, s.category);
+      }
+      setSelectedForAcceptKeys(new Set());
+      showToast?.(
+        toAccept.length === 1 ? 'Suggerimento accettato' : `${toAccept.length} suggerimenti accettati`,
+        'Gli oggetti sono stati aggiunti alla valigia.',
+        'success'
+      );
+      onClose();
+    } finally {
+      setIsBulkRunning(false);
+    }
+  };
 
   const handleDismiss = () => {
     if (isBulkRunning) return;
@@ -282,13 +348,19 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               exhaustedCategories={exhaustedCategories}
               onShowMore={onShowMore}
               onAccept={onAccept}
-              onReject={onReject}
-              onBackToSetup={() => setStep('setup')}
+              onReject={handleRejectSuggestion}
+              onBackToSetup={() => {
+                setSelectedForAcceptKeys(new Set());
+                setStep('setup');
+              }}
+              selectedForAcceptKeys={selectedForAcceptKeys}
+              onToggleSelectForAccept={handleToggleSelectForAccept}
+              suggestionKey={buildSuggestionKey}
             />
           )}
         </div>
 
-        <div className="px-8 py-6 border-t border-white/5 bg-slate-900/50 shrink-0 flex items-center justify-between gap-4">
+        <div className="px-4 sm:px-8 py-6 border-t border-white/5 bg-slate-900/50 shrink-0 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between min-w-0">
           {step === 'setup' ? (
             <>
               <button
@@ -339,25 +411,36 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               <button
                 onClick={() => setStep('setup')}
                 disabled={isBulkRunning}
-                className={`px-6 py-3 rounded-xl ${FOOTER_SECONDARY_BTN_CLASS} hover:text-white transition-colors disabled:opacity-50`}
+                className={`px-6 py-3 rounded-xl ${FOOTER_SECONDARY_BTN_CLASS} hover:text-white transition-colors disabled:opacity-50 shrink-0`}
               >
                 Indietro
               </button>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setBulkConfirm('reject-all')}
-                  disabled={bulkDisabled}
-                  className="px-6 py-3 rounded-xl bg-rose-600/10 border border-rose-500/30 text-rose-400 text-[10px] font-black uppercase tracking-widest hover:bg-rose-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Rifiuta Tutti
-                </button>
-                <button
-                  onClick={() => setBulkConfirm('accept-all')}
-                  disabled={bulkDisabled}
-                  className="px-8 py-4 rounded-2xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-indigo-500/20 transition-all active:scale-95"
-                >
-                  Accetta Tutti
-                </button>
+              <div className="flex flex-col items-stretch gap-2 shrink-0 min-w-0 w-full sm:w-auto sm:ml-auto">
+                {hasPartialSelection && (
+                  <button
+                    onClick={runAcceptSelected}
+                    disabled={isBulkRunning}
+                    className={`w-full ${FOOTER_REVIEW_ACCEPT_BTN_CLASS}`}
+                  >
+                    {isBulkRunning ? 'Elaborazione...' : 'Accetta selezione'}
+                  </button>
+                )}
+                <div className="flex items-stretch gap-3 justify-end w-full sm:w-auto">
+                  <button
+                    onClick={() => setBulkConfirm('reject-all')}
+                    disabled={bulkDisabled}
+                    className={`flex-1 sm:flex-none ${FOOTER_REVIEW_REJECT_BTN_CLASS}`}
+                  >
+                    Rifiuta Tutti
+                  </button>
+                  <button
+                    onClick={() => setBulkConfirm('accept-all')}
+                    disabled={bulkDisabled}
+                    className={`flex-1 sm:flex-none ${FOOTER_REVIEW_ACCEPT_BTN_CLASS}`}
+                  >
+                    Accetta Tutti
+                  </button>
+                </div>
               </div>
             </>
           )}

@@ -14,7 +14,7 @@ export const OptionalCategoriesPanel: React.FC<OptionalCategoriesPanelProps> = (
   readOnly = false,
 }) => (
   <div className="bg-slate-950/40 rounded-3xl border border-white/10 py-4 px-5 shadow-lg shadow-black/25 ring-1 ring-white/10 min-h-[5.5rem]">
-    <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 px-1">
+    <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-3 px-1">
       Categorie disponibili
     </h4>
     {categories.length === 0 ? (

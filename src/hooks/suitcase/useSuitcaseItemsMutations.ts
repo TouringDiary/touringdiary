@@ -1,10 +1,10 @@
-import { PostgrestError } from '@supabase/supabase-js';
 import {
   updateSuitcaseItemAsync,
   addSuitcaseItemAsync,
   deleteSuitcaseItemAsync,
   persistSuitcaseItemsFromRuntimeAsync,
-  AddSuitcaseItemMetadata
+  AddSuitcaseItemMetadata,
+  UpdateSuitcaseItemDto,
 } from '@/services/suitcase/suitcaseItemsService';
 import {
   addRejectionAsync
@@ -39,7 +39,15 @@ import { getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
 import { deleteSuitcase } from './useSuitcaseCrud';
 import { unlinkSuitcase, linkSuitcaseToTrip } from './useSuitcaseLinking';
 
-const updateDraftWorkspaceItem = (itemId: string, updates: Partial<SuitcaseItem>) => {
+function getPostgrestErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return undefined;
+  }
+  const code = Reflect.get(error, 'code');
+  return typeof code === 'string' ? code : undefined;
+}
+
+const updateDraftWorkspaceItem = (itemId: string, updates: UpdateSuitcaseItemDto) => {
   const draftSc = getGuestSuitcase();
   if (!draftSc?.suitcase_items) return;
 
@@ -50,7 +58,7 @@ const updateDraftWorkspaceItem = (itemId: string, updates: Partial<SuitcaseItem>
 };
 
 export const useSuitcaseItemsMutations = () => {
-  const updateItem = async (itemId: string, updates: Partial<SuitcaseItem>) => {
+  const updateItem = async (itemId: string, updates: UpdateSuitcaseItemDto) => {
     if (isEphemeralItemId(itemId)) {
       updateDraftWorkspaceItem(itemId, updates);
       return;
@@ -74,6 +82,7 @@ export const useSuitcaseItemsMutations = () => {
         quantity: metadata.quantity ?? 1,
         ai_suggestion_context: metadata.ai_suggestion_context || null,
         suggested_at: metadata.suggested_at || null,
+        accepted_from_ai: metadata.accepted_from_ai ?? false,
       };
     }
     return await addSuitcaseItemAsync(suitcaseId, name, category, metadata);
@@ -101,8 +110,7 @@ export const useSuitcaseItemsMutations = () => {
         item.ai_suggestion_context || null
       );
     } catch (e) {
-      const err = e as PostgrestError;
-      if (err?.code === '23505') {
+      if (getPostgrestErrorCode(e) === '23505') {
         console.warn("[rejectItem] Item already in blacklist, proceeding with deletion.");
       } else {
         console.error("[rejectItem] Critical failure during rejection persistence:", e);
@@ -207,8 +215,7 @@ export const useSuitcaseItemsMutations = () => {
             rejection.ai_suggestion_context ?? null
           );
         } catch (e) {
-          const err = e as PostgrestError;
-          if (err?.code !== '23505') {
+          if (getPostgrestErrorCode(e) !== '23505') {
             throw e;
           }
         }

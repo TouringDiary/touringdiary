@@ -11,6 +11,7 @@ import { useInteraction } from '../../../context/InteractionContext';
 import { calculateDistance } from '../../../services/geo';
 import { getPoiCategoryLabel } from '../../../utils/common';
 import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { CategorySponsorColumn } from './CategorySponsorColumn';
 import { CompactDiscoveryCard } from '../ShowcaseCards';
 
@@ -27,9 +28,9 @@ const CATEGORY_TO_TAB_MAP: Record<string, string> = {
 };
 
 // --- COMPONENTE SEARCH ESTRATTO ---
-const SearchInput = ({ value, onChange, isMobile = false }: { value: string, onChange: (val: string) => void, isMobile?: boolean }) => {
+const SearchInput = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => {
     return (
-        <div className={`relative group flex items-center bg-[#0f172a] border border-slate-800 rounded-xl shadow-inner transition-all hover:border-slate-600 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/50 ${isMobile ? 'w-full h-11' : 'h-11 w-full max-w-sm'}`}>
+        <div className="relative group flex items-center bg-[#0f172a] border border-slate-800 rounded-xl shadow-inner transition-all hover:border-slate-600 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/50 h-11 w-full min-w-0 md:max-w-sm">
             <div className="pl-3 pr-2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
                 <Search className="w-4 h-4" />
             </div>
@@ -85,6 +86,7 @@ export const CityCategoryTab = ({
 }: CityCategoryTabProps) => {
     const { itinerary } = useItinerary();
     const { hasUserLiked, toggleLike } = useInteraction();
+    const isMobile = useMobileDetect();
     
     // Filters - DEFAULT SORT CHANGED TO 'interest'
     const [searchTerm, setSearchTerm] = useState('');
@@ -306,18 +308,18 @@ export const CityCategoryTab = ({
             <div className={`
                 flex flex-col border-b border-slate-800 bg-[#020617]/95 backdrop-blur-md z-dropdown transition-all duration-300 shadow-xl shrink-0
                 relative lg:sticky lg:top-0
-                ${isUiVisible === false && window.innerWidth >= 1024 ? '-translate-y-full opacity-0 pointer-events-none absolute w-full' : ''}
+                ${isUiVisible === false && !isMobile ? '-translate-y-full opacity-0 pointer-events-none absolute w-full' : ''}
             `}>
                 <div className="flex flex-col gap-2 p-3">
                     
-                    {/* RIGA 1: TOOLBAR */}
-                    <div className="flex flex-col md:flex-row gap-2 md:items-center justify-between">
+                    {/* TOOLBAR — mobile: singola riga; md+: layout a tre zone */}
+                    <div className="flex flex-row gap-2 items-center justify-between w-full md:items-center">
                         
                         {/* LEFT: CONTRIBUISCI */}
-                        <div className="relative shrink-0 w-full md:w-1/4" ref={contribMenuRef}>
+                        <div className="relative shrink-0 md:w-1/4" ref={contribMenuRef}>
                              <button 
                                 onClick={() => setShowContribMenu(!showContribMenu)}
-                                className="w-full md:w-auto h-11 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-500 border border-slate-700 hover:border-amber-500/50 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 shadow-sm px-4"
+                                className="h-11 shrink-0 w-auto whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-500 border border-slate-700 hover:border-amber-500/50 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 shadow-sm px-4 md:w-auto"
                             >
                                 <Plus className="w-3.5 h-3.5"/> Contribuisci
                             </button>
@@ -333,17 +335,17 @@ export const CityCategoryTab = ({
                         </div>
                         
                         {/* CENTER: SEARCH */}
-                        <div className="flex-1 md:px-4 flex justify-center">
-                            <SearchInput value={searchTerm} onChange={setSearchTerm} isMobile={false} />
+                        <div className="flex-1 min-w-0 md:px-4 flex justify-center">
+                            <SearchInput value={searchTerm} onChange={setSearchTerm} />
                         </div>
                         
                         {/* RIGHT: TOOLS (SORT & FILTER) */}
-                        <div className="flex gap-2 w-full md:w-1/4 justify-end">
+                        <div className="flex gap-2 shrink-0 md:w-1/4 justify-end">
                             {/* SORT */}
-                            <div className="relative flex-1 md:flex-none" ref={sortMenuRef}>
+                            <div className="relative shrink-0" ref={sortMenuRef}>
                                  <button 
                                     onClick={() => setShowSortMenu(!showSortMenu)} 
-                                    className={`h-11 w-full md:w-auto px-4 rounded-xl border flex items-center justify-center gap-2 transition-all bg-slate-900 border-slate-700 text-slate-300 hover:text-white`}
+                                    className="h-11 shrink-0 w-auto px-4 rounded-xl border flex items-center justify-center gap-2 transition-all bg-slate-900 border-slate-700 text-slate-300 hover:text-white"
                                 >
                                     <ArrowDownAZ className="w-4 h-4"/>
                                     <span className="hidden md:inline text-[10px] font-bold uppercase">Ordina</span>
@@ -366,7 +368,7 @@ export const CityCategoryTab = ({
                             {/* FILTERS */}
                             <button 
                                 onClick={() => setIsFilterDrawerOpen(true)} 
-                                className={`flex-1 md:flex-none h-11 px-4 flex items-center justify-center gap-2 rounded-xl border transition-all text-[10px] font-bold uppercase tracking-wider ${activeFilterCount > 0 ? 'bg-indigo-600 border-indigo-500 text-white shadow-md' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'}`}
+                                className={`shrink-0 h-11 px-4 flex items-center justify-center gap-2 rounded-xl border transition-all text-[10px] font-bold uppercase tracking-wider md:flex-none ${activeFilterCount > 0 ? 'bg-indigo-600 border-indigo-500 text-white shadow-md' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'}`}
                             >
                                 <SlidersHorizontal className="w-3.5 h-3.5"/> 
                                 <span className="hidden md:inline">Filtri</span> 

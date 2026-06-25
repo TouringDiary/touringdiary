@@ -52,41 +52,45 @@ class DesignEditorBoundary extends React.Component<
 }
 
 const SideEditorPanel: React.FC<{
-    rule: StyleRule | null;
+    baseKey: string;
+    desktopRule: StyleRule;
+    mobileRule: StyleRule | null;
+    editedRules: Record<string, StyleRule> | null;
     isSaving: boolean;
-    onRuleChange: (updatedRule: StyleRule) => void;
+    onRuleChange: (ruleKey: string, updatedRule: StyleRule) => void;
     onClose: () => void;
     onSave: (rule: StyleRule) => void;
-    componentKey: string;
-}> = ({ rule, onRuleChange, onClose, onSave, isSaving, componentKey }) => {
-    const [localRule, setLocalRule] = useState(rule);
+}> = ({ baseKey, desktopRule, mobileRule, editedRules, onRuleChange, onClose, onSave, isSaving }) => {
     const [deviceView, setDeviceView] = useState<'mobile' | 'desktop'>('desktop');
 
+    const activeRuleKey = deviceView === 'mobile' ? `${baseKey}_mobile` : baseKey;
+
+    const resolveRule = useCallback((view: 'mobile' | 'desktop'): StyleRule | null => {
+        const key = view === 'mobile' ? `${baseKey}_mobile` : baseKey;
+        if (editedRules?.[key]) return editedRules[key];
+        return view === 'mobile' ? mobileRule : desktopRule;
+    }, [baseKey, desktopRule, editedRules, mobileRule]);
+
+    const [localRule, setLocalRule] = useState<StyleRule | null>(() => resolveRule('desktop'));
+
     useEffect(() => {
-        console.log('[SideEditorPanel] rule prop →', {
-            component_key: rule?.component_key ?? 'NULL',
-            section: rule?.section ?? 'NULL',
-            element_name: rule?.element_name ?? 'NULL',
-            isNull: rule === null,
-        });
-        setLocalRule(rule);
-    }, [rule]);
+        setLocalRule(resolveRule(deviceView));
+    }, [deviceView, resolveRule]);
 
     const handleSyncAndSave = () => {
         if (localRule) {
-            onRuleChange(localRule);
+            onRuleChange(activeRuleKey, localRule);
             onSave(localRule);
         }
     };
 
     if (!localRule) {
-        console.warn('[SideEditorPanel] localRule is null — rendering nothing. rule prop:', rule);
+        console.warn('[SideEditorPanel] localRule is null — rendering nothing. baseKey:', baseKey, 'deviceView:', deviceView);
         return null;
     }
 
-    console.log('[SideEditorPanel] render | key:', localRule.component_key, '| section:', localRule.section, '| componentKey:', componentKey);
-
     const isMobile = deviceView === 'mobile';
+    const canEditMobile = Boolean(mobileRule || editedRules?.[`${baseKey}_mobile`]);
 
     // Portal to document.body so the panel is not subject to any ancestor
     // overflow-hidden / overflow-y-auto clipping, and so backdrop-filter on
@@ -112,25 +116,37 @@ const SideEditorPanel: React.FC<{
                             <button onClick={onClose} className="text-slate-300 hover:text-white">
                                 <ArrowLeft size={20} />
                             </button>
-                            <h2 className="text-lg font-semibold text-white">{localRule.element_name}</h2>
+                            <h2 className="text-lg font-semibold text-white">
+                                {localRule.element_name}
+                                <span className="ml-2 text-xs font-normal text-slate-400 uppercase tracking-wider">
+                                    {deviceView}
+                                </span>
+                            </h2>
                         </div>
                         <div className="flex items-center gap-2 p-1 bg-slate-800 rounded-lg">
-                            <button onClick={() => setDeviceView('mobile')} className={`p-2 rounded-md ${deviceView === 'mobile' ? 'bg-slate-700 shadow-sm text-indigo-400' : 'text-slate-400'}`}><Smartphone size={20} /></button>
+                            <button
+                                onClick={() => canEditMobile && setDeviceView('mobile')}
+                                disabled={!canEditMobile}
+                                title={canEditMobile ? 'Modifica stile mobile' : 'Regola mobile non disponibile'}
+                                className={`p-2 rounded-md ${deviceView === 'mobile' ? 'bg-slate-700 shadow-sm text-indigo-400' : 'text-slate-400'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                            >
+                                <Smartphone size={20} />
+                            </button>
                             <button onClick={() => setDeviceView('desktop')} className={`p-2 rounded-md ${deviceView === 'desktop' ? 'bg-slate-700 shadow-sm text-indigo-400' : 'text-slate-400'}`}><Monitor size={20} /></button>
                         </div>
                     </div>
 
                     <div className="p-8 bg-slate-900 flex-grow flex items-center justify-center border-b border-slate-800">
                        <div className="border border-slate-700 rounded-lg bg-slate-800">
-                         <DesignEditorBoundary label={`Preview:${componentKey}`}>
-                             <ComponentPreviewHost rule={localRule} componentKey={componentKey} isLarge={true} isMobile={isMobile} />
+                         <DesignEditorBoundary label={`Preview:${baseKey}`}>
+                             <ComponentPreviewHost rule={localRule} componentKey={activeRuleKey} isLarge={true} isMobile={isMobile} />
                          </DesignEditorBoundary>
                        </div>
                     </div>
                     
                     <div className="flex-shrink-0 p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                         <h3 className="text-xl font-bold mb-4 text-white">Editor Proprietà CSS</h3>
-                        <DesignEditorBoundary label={`StyleEditor:${componentKey}`}>
+                        <DesignEditorBoundary label={`StyleEditor:${baseKey}`}>
                             <StyleEditor rule={localRule} onChange={setLocalRule} />
                         </DesignEditorBoundary>
                     </div>
@@ -158,7 +174,7 @@ const DesignSystemSettings: React.FC = () => {
     
     const [originalRules, setOriginalRules] = useState<Record<string, StyleRule> | null>(null);
     const [editedRules, setEditedRules] = useState<Record<string, StyleRule> | null>(null);
-    const [selectedKey, setSelectedKey] = useState<string | null>(null);
+    const [selectedBaseKey, setSelectedBaseKey] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('');
     
     const [isSaving, setIsSaving] = useState(false);
@@ -166,19 +182,16 @@ const DesignSystemSettings: React.FC = () => {
     const [rebuildError, setRebuildError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (configs?.design_system_rules) {
-            // Cast architetturalmente corretto: ConfigContext popola design_system_rules
-            // come Record<string, StyleRule> via getDesignSystemRules() → StyleRule[].
-            const source = configs.design_system_rules as Record<string, StyleRule>;
+        const source = configs.design_system_rules;
+        if (!source) return;
 
-            const rulesMap = Object.entries(source).reduce<Record<string, StyleRule>>((acc, [key, value]) => {
-                acc[key] = { ...value, component_key: key, section: value.section ?? 'uncategorized' };
-                return acc;
-            }, {});
-    
-            setOriginalRules(JSON.parse(JSON.stringify(rulesMap)));
-            setEditedRules(JSON.parse(JSON.stringify(rulesMap)));
-        }
+        const rulesMap = Object.entries(source).reduce<Record<string, StyleRule>>((acc, [key, value]) => {
+            acc[key] = { ...value, component_key: key, section: value.section ?? 'uncategorized' };
+            return acc;
+        }, {});
+
+        setOriginalRules(structuredClone(rulesMap));
+        setEditedRules(structuredClone(rulesMap));
     }, [configs]);
 
     // ── Deriva TABS e conteggi di sezione da editedRules.
@@ -238,14 +251,18 @@ const DesignSystemSettings: React.FC = () => {
     }, [editedRules, currentTab]);
 
 
-    const currentRule = useMemo(() => {
-        return editedRules && selectedKey ? editedRules[selectedKey] : null;
-    }, [editedRules, selectedKey]);
+    const selectedEditorContext = useMemo(() => {
+        if (!editedRules || !selectedBaseKey) return null;
+        return {
+            baseKey: selectedBaseKey,
+            desktop: editedRules[selectedBaseKey] ?? null,
+            mobile: editedRules[`${selectedBaseKey}_mobile`] ?? null,
+        };
+    }, [editedRules, selectedBaseKey]);
     
-    const handleRuleChange = useCallback((updatedRule: StyleRule) => {
-        if (!selectedKey) return;
-        setEditedRules(prev => prev ? { ...prev, [selectedKey]: updatedRule } : null);
-    }, [selectedKey]);
+    const handleRuleChange = useCallback((ruleKey: string, updatedRule: StyleRule) => {
+        setEditedRules(prev => prev ? { ...prev, [ruleKey]: updatedRule } : null);
+    }, []);
     
     const handleRebuildCache = useCallback(async () => {
         setIsRebuilding(true);
@@ -262,21 +279,23 @@ const DesignSystemSettings: React.FC = () => {
     }, [refreshConfig]);
 
     const handleSaveChanges = async (ruleToSave: StyleRule) => {
-        if (!originalRules || !selectedKey) return;
+        if (!originalRules) return;
 
-        const ruleToUpdate = ruleToSave;
-        if (JSON.stringify(ruleToUpdate) === JSON.stringify(originalRules[selectedKey])) {
-            setSelectedKey(null);
+        const saveKey = ruleToSave.component_key;
+        if (!saveKey) return;
+
+        if (JSON.stringify(ruleToSave) === JSON.stringify(originalRules[saveKey])) {
+            setSelectedBaseKey(null);
             return;
         }
 
         setIsSaving(true);
 
         try {
-            await updateDesignSystemRule(ruleToUpdate);
+            await updateDesignSystemRule(ruleToSave);
             await rebuildDesignSystemCache();
             await refreshConfig();
-            setSelectedKey(null);
+            setSelectedBaseKey(null);
         } catch (err) {
             console.error("Failed to save design settings:", err);
             // In a real app, show a toast or notification to the user
@@ -362,7 +381,7 @@ const DesignSystemSettings: React.FC = () => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="bg-slate-800 rounded-lg border border-slate-700">
                                                 <div className="flex items-center gap-2 mb-2 text-xs text-slate-400 px-3 pt-2"><Monitor size={14} /> Desktop</div>
-                                                <ComponentPreviewHost rule={desktop} componentKey={key} isLarge={false} isMobile={false} />
+                                                <ComponentPreviewHost rule={desktop} componentKey={desktop.component_key} isLarge={false} isMobile={false} />
                                             </div>
                                             {mobile && (
                                                 <div className="bg-slate-800 rounded-lg border border-slate-700">
@@ -374,8 +393,8 @@ const DesignSystemSettings: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onClick={() => {
-                                            console.log('[DesignSystem] Modifica →', key, '| rule in editedRules:', editedRules?.[key]);
-                                            setSelectedKey(key);
+                                            console.log('[DesignSystem] Modifica →', key, '| desktop:', editedRules?.[key], '| mobile:', editedRules?.[`${key}_mobile`]);
+                                            setSelectedBaseKey(key);
                                         }} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
                                             <Wand2 size={16} /> Modifica
                                             <ChevronRight size={16} />
@@ -402,14 +421,16 @@ const DesignSystemSettings: React.FC = () => {
                 </div>
             </div>
             
-            {selectedKey && (
+            {selectedEditorContext?.desktop && (
                 <SideEditorPanel
-                    rule={currentRule}
+                    baseKey={selectedEditorContext.baseKey}
+                    desktopRule={selectedEditorContext.desktop}
+                    mobileRule={selectedEditorContext.mobile}
+                    editedRules={editedRules}
                     isSaving={isSaving}
                     onRuleChange={handleRuleChange}
-                    onClose={() => setSelectedKey(null)}
+                    onClose={() => setSelectedBaseKey(null)}
                     onSave={handleSaveChanges}
-                    componentKey={selectedKey}
                 />
             )}
         </div>

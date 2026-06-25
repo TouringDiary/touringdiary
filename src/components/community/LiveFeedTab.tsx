@@ -8,6 +8,7 @@ import { compressImage } from '../../utils/common';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { fetchCommunityPhotos, uploadCommunityPhoto, deletePhotoSubmissionInDb, updatePhotoData } from '../../services/photoService';
 import { analyzeImageSafety, generateImageCaption } from '../../services/ai/aiVision';
+import { CountBadge } from '@/components/ui/CountBadge';
 import { getFullManifestAsync } from '../../services/cityService';
 import { useModal } from '../../context/ModalContext';
 import { useInteraction } from '../../context/InteractionContext';
@@ -430,7 +431,7 @@ export const LiveFeedTab = ({ user, onUserUpdate }: LiveFeedTabProps) => {
                                     </button>
                                 </div>
                             )}
-                            <div className="absolute top-4 right-4 z-dropdown"><button onClick={(e) => { e.stopPropagation(); toggleLiveSnapHeart(heroSnap.id); }} className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/20 transition-all active:scale-95 hover:bg-black/60 shadow-lg"><Heart className={`w-5 h-5 ${getLiveSnapStatus(heroSnap).isLiked ? 'fill-rose-500 text-rose-500' : 'text-white'}`} /><span className="text-white font-bold text-sm">{getLiveSnapStatus(heroSnap).count}</span></button></div>
+                            <div className="absolute top-4 right-4 z-dropdown"><button onClick={(e) => { e.stopPropagation(); toggleLiveSnapHeart(heroSnap.id); }} className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/20 transition-all active:scale-95 hover:bg-black/60 shadow-lg"><Heart className={`w-5 h-5 ${getLiveSnapStatus(heroSnap).isLiked ? 'fill-rose-500 text-rose-500' : 'text-white'}`} /><CountBadge count={getLiveSnapStatus(heroSnap).count} size="md" variant="white" className="bg-transparent text-white border-0 min-w-0 px-0 shadow-none text-sm" /></button></div>
                             <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 flex justify-between items-end z-dropdown pointer-events-none"><div className="max-w-3xl"><div className="flex items-center gap-2 mb-1"><div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold text-white shadow-lg border border-indigo-400">{heroSnap.user.charAt(0)}</div><span className="text-base font-bold text-white shadow-black drop-shadow-md">{heroSnap.user}</span></div>{heroSnap.description && <p className="text-sm md:text-lg text-slate-200 italic font-serif">"{heroSnap.description}"</p>}</div></div>
                         </div>
                     </div>

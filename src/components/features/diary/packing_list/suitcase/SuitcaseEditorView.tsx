@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Plus, Trash2, Check, Package, ChevronUp, ChevronDown, Eye, CheckSquare, CloudOff } from 'lucide-react';
-import { ItemCategoryIcon, filterCategoriesByStatus, getIncompleteItemCount, getSuitcaseItemProgress, CategoryStatusFilter } from './SuitcaseUtils';
+import { Plus, FolderX, Check, Package, ChevronUp, ChevronDown, Eye, CheckSquare, CloudOff } from 'lucide-react';
+import {
+  ItemCategoryIcon,
+  filterCategoriesByStatus,
+  getIncompleteItemCount,
+  getSuitcaseItemProgress,
+  CategoryStatusFilter,
+  SUITCASE_CATEGORY_SECTION_SHELL_CLASS,
+  SUITCASE_CATEGORY_SECTION_HEADER_CLASS,
+} from './SuitcaseUtils';
+import { buildGroupedItemsByCategory } from '@/domain/packing/itemDisplayOrder';
 import {
   buildDisplayCategories,
   enableOptionalSystemCategory,
@@ -13,11 +22,13 @@ import {
 } from '@/domain/packing/categorySetup';
 import { normalizeCategoryName } from '@/domain/packing/packingCategories';
 import { Suitcase, SuitcaseItem, RuntimeAffiliateProduct } from '@/types/suitcase';
+import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
 import { AiSuggestion, AiQuotaFeedback } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
 import { GetAiCandidatesOptions } from '@/hooks/useSuitcaseSystem';
 import { SuitcaseItemRow } from './SuitcaseItemRow';
 import { CategorySuggestionPanel } from './CategorySuggestionPanel';
 import { SuitcaseSidePanel } from './SuitcaseSidePanel';
+import { SuitcaseMobileSuggestionsDrawer } from './SuitcaseMobileSuggestionsDrawer';
 import { normalizeItemName } from '@/utils/tagDerivation';
 import { SuitcaseToast } from '../SuitcaseFloatingPanel/components/SuitcaseToast';
 import { AiSuggestionsModal } from './AiSuggestionsModal';
@@ -35,6 +46,9 @@ import {
 
 import { ToastVariant, CATEGORY_ADDED_TOAST } from '@/types/toast';
 
+/** Soglia px dal top dello scrollport per considerare una sezione "attiva". */
+const ACTIVE_CATEGORY_THRESHOLD = 8;
+
 interface HiddenCategories {
   enhancedHiddenCategoriesLogic: {
     toggleCategory: (id: string) => void;
@@ -51,7 +65,7 @@ interface HiddenCategories {
 interface SuitcaseEditorViewProps {
   suitcase: Suitcase;
   readOnly?: boolean;
-  onUpdateItem: (itemId: string, updates: Partial<SuitcaseItem>) => void;
+  onUpdateItem: (itemId: string, updates: UpdateSuitcaseItemDto) => void;
   onDeleteItem: (itemId: string) => void;
   onAddItem: (category: string, name: string) => void;
   onUpdateSuitcase: (updates: Partial<Suitcase>) => void;
@@ -82,6 +96,12 @@ interface SuitcaseEditorViewProps {
   selectedItemName: string | null;
   onSelectItem: (name: string | null) => void;
   onDeleteCategory?: (category: { id: string; name: string; source: string }) => void;
+  onSwapItemsInCategory?: (
+    categoryId: string,
+    draggedName: string,
+    targetName: string,
+    visibleNamesInOrder: string[]
+  ) => void;
   onActivateOptionalCategory?: (categoryId: string) => void | Promise<void>;
   hiddenCategories: HiddenCategories;
   showToast?: (message: string, description?: string, variant?: ToastVariant) => void;
@@ -123,6 +143,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   selectedItemName,
   onSelectItem,
   onDeleteCategory,
+  onSwapItemsInCategory,
   onActivateOptionalCategory,
   hiddenCategories,
   showToast,
@@ -214,7 +235,25 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
 
   const resolvedIsHidden = useTdOverlayMode ? overlayIsHidden : isHidden;
   
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const syncSidebarOpen = (event: MediaQueryListEvent) => {
+      setIsSidebarOpen(event.matches);
+    };
+
+    mediaQuery.addEventListener('change', syncSidebarOpen);
+    return () => {
+      mediaQuery.removeEventListener('change', syncSidebarOpen);
+    };
+  }, []);
+
   const [newItemName, setNewItemName] = useState("");
   const [activeCategoryForAdd, setActiveCategoryForAdd] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
@@ -223,9 +262,14 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   const [showIconPicker, setShowIconPicker] = useState(false);
   const categorySectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [highlightedCategoryId, setHighlightedCategoryId] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [categoryStatusFilter, setCategoryStatusFilter] = useState<CategoryStatusFilter>('all');
+  const dragItemIdRef = useRef<string | null>(null);
+  const dragCategoryIdRef = useRef<string | null>(null);
+  const dragMovedRef = useRef(false);
+  const [dropTarget, setDropTarget] = useState<{ categoryId: string; index: number } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -282,12 +326,80 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   const visibleCategoryIds = visibleCategories.map((cat) => cat.id);
   const aiInitialCategories = getEnabledSystemCategoryNames(displaySuitcase);
 
-  const groupedItems = allCategories.reduce((acc: Record<string, SuitcaseItem[]>, cat) => {
-    acc[cat.name] = (displaySuitcase.suitcase_items || []).filter(
-      item => normalizeCategoryName(item.category) === cat.name || item.category === cat.name
-    );
-    return acc;
-  }, {});
+  const groupedItems = useMemo(
+    () => buildGroupedItemsByCategory(displaySuitcase, buildDisplayCategories(displaySuitcase)),
+    [displaySuitcase]
+  );
+
+  const resetItemDragState = useCallback(() => {
+    dragItemIdRef.current = null;
+    dragCategoryIdRef.current = null;
+    dragMovedRef.current = false;
+    setDropTarget(null);
+  }, []);
+
+  const handleItemDragStart = useCallback(
+    (categoryId: string, itemId: string) => (e: React.DragEvent) => {
+      if (readOnly) return;
+      dragItemIdRef.current = itemId;
+      dragCategoryIdRef.current = categoryId;
+      dragMovedRef.current = false;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', itemId);
+    },
+    [readOnly]
+  );
+
+  const handleItemDragOver = useCallback(
+    (categoryId: string, index: number) => (e: React.DragEvent) => {
+      if (readOnly || !dragItemIdRef.current || dragCategoryIdRef.current !== categoryId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      dragMovedRef.current = true;
+      setDropTarget({ categoryId, index });
+    },
+    [readOnly]
+  );
+
+  const handleItemDragLeave = useCallback(
+    (categoryId: string, index: number) => (e: React.DragEvent) => {
+      const related = e.relatedTarget as Node | null;
+      if (related && e.currentTarget.contains(related)) return;
+      setDropTarget((current) =>
+        current?.categoryId === categoryId && current.index === index ? null : current
+      );
+    },
+    []
+  );
+
+  const handleItemDrop = useCallback(
+    (categoryId: string, categoryName: string, targetIndex: number) => (e: React.DragEvent) => {
+      e.preventDefault();
+      const draggedId = dragItemIdRef.current;
+      if (readOnly || !draggedId || dragCategoryIdRef.current !== categoryId) {
+        resetItemDragState();
+        return;
+      }
+      const items = groupedItems[categoryName] ?? [];
+      const draggedItem = items.find((entry) => entry.id === draggedId);
+      const targetItem = items[targetIndex];
+      if (
+        draggedItem &&
+        targetItem &&
+        draggedItem.id !== targetItem.id &&
+        onSwapItemsInCategory
+      ) {
+        onSwapItemsInCategory(
+          categoryId,
+          draggedItem.name,
+          targetItem.name,
+          items.map((entry) => entry.name)
+        );
+      }
+      resetItemDragState();
+    },
+    [groupedItems, onSwapItemsInCategory, readOnly, resetItemDragState]
+  );
 
   const incompleteCountsByCategoryId = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -302,6 +414,47 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
     [visibleCategories, groupedItems, categoryStatusFilter]
   );
 
+  const filteredVisibleCategoryIds = useMemo(
+    () => filteredVisibleCategories.map((cat) => cat.id),
+    [filteredVisibleCategories]
+  );
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || filteredVisibleCategoryIds.length === 0) {
+      setActiveCategoryId(null);
+      return;
+    }
+
+    const updateActiveCategory = () => {
+      const containerTop = container.getBoundingClientRect().top;
+      let nextActiveId = filteredVisibleCategoryIds[0];
+
+      for (const categoryId of filteredVisibleCategoryIds) {
+        const section = categorySectionRefs.current[categoryId];
+        if (!section) continue;
+
+        const sectionTop = section.getBoundingClientRect().top - containerTop;
+        if (sectionTop <= ACTIVE_CATEGORY_THRESHOLD) {
+          nextActiveId = categoryId;
+        } else {
+          break;
+        }
+      }
+
+      setActiveCategoryId((current) => (current === nextActiveId ? current : nextActiveId));
+    };
+
+    updateActiveCategory();
+    container.addEventListener('scroll', updateActiveCategory, { passive: true });
+    window.addEventListener('resize', updateActiveCategory);
+
+    return () => {
+      container.removeEventListener('scroll', updateActiveCategory);
+      window.removeEventListener('resize', updateActiveCategory);
+    };
+  }, [filteredVisibleCategoryIds]);
+
   const suitcaseProgress = useMemo(
     () => getSuitcaseItemProgress(displaySuitcase.suitcase_items),
     [displaySuitcase.suitcase_items]
@@ -314,7 +467,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
 
     const containerTop = container.getBoundingClientRect().top;
     const sectionTop = section.getBoundingClientRect().top;
-    const scrollOffset = 12;
+    const scrollOffset = 0;
 
     container.scrollTo({
       top: Math.max(0, container.scrollTop + (sectionTop - containerTop) - scrollOffset),
@@ -397,7 +550,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   const canUseTemplateAction =
     !!onUseTemplate && isTdTemplate(suitcase) && panelViewMode === 'viewer';
 
-  return (    <div className="flex flex-col lg:flex-row gap-0 items-stretch w-full h-full lg:min-h-0 lg:overflow-y-hidden lg:overflow-x-visible bg-transparent">
+  return (    <div className="relative flex flex-col lg:flex-row gap-0 items-stretch w-full h-full lg:min-h-0 lg:overflow-y-hidden lg:overflow-x-visible bg-transparent">
       {/* LEFT: Items List */}
       <div className="flex-1 w-full h-full flex flex-col min-h-0 overflow-hidden lg:overflow-visible">
         <SuitcaseEditorToolbar
@@ -408,6 +561,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           blacklistCount={blacklistCount}
           isBlacklistFlashing={isBlacklistFlashing}
           visibleCategories={filteredVisibleCategories}
+          activeCategoryId={activeCategoryId}
           incompleteCountsByCategoryId={incompleteCountsByCategoryId}
           categoryStatusFilter={categoryStatusFilter}
           onCategoryStatusFilterChange={setCategoryStatusFilter}
@@ -504,7 +658,8 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         )}
         
         {/* LISTA CATEGORIE VISIBILI */}
-        {filteredVisibleCategories.map(cat => {
+        <div className="suitcase-category-sections space-y-4">
+        {filteredVisibleCategories.map((cat) => {
           const catCheckedCount = groupedItems[cat.name].filter(i => i.is_checked).length;
           const catTotalCount = groupedItems[cat.name].length;
           const catPerc = catTotalCount > 0 ? Math.round((catCheckedCount / catTotalCount) * 100) : 0;
@@ -513,27 +668,28 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           return (
             <div
               key={cat.id}
+              data-category-id={cat.id}
               ref={(el) => {
                 categorySectionRefs.current[cat.id] = el;
               }}
-              className={`bg-slate-900/40 rounded-3xl border border-white/5 lg:overflow-hidden shadow-2xl shadow-black/20 group/section scroll-mt-4 transition-shadow duration-300 ${
+              className={`${SUITCASE_CATEGORY_SECTION_SHELL_CLASS} group/section scroll-mt-4 transition-shadow duration-300 overflow-visible ${
                 highlightedCategoryId === cat.id
                   ? 'ring-2 ring-indigo-500/60 shadow-indigo-500/20'
                   : ''
               }`}
             >
             {/* Category Header Bar */}
-            <div className="bg-slate-800/40 px-5 py-2.5 border-b border-white/5 flex items-center justify-between gap-3">
+            <div className={SUITCASE_CATEGORY_SECTION_HEADER_CLASS}>
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className="flex flex-col gap-px shrink-0 rounded-md border border-white/10 bg-slate-900/60 p-px"
+                  className="flex flex-col gap-px shrink-0 rounded-md border border-white/10 p-px"
                   role="group"
                   aria-label="Ordine categoria"
                 >
                   <button
                     onClick={() => !readOnly && moveCategory(cat.id, 'up', visibleCategoryIds)}
                     disabled={readOnly || visibleCategoryIds.indexOf(cat.id) <= 0}
-                    className="w-7 h-7 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-7 h-7 rounded bg-slate-900/50 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Sposta categoria su'}
                   >
                     <ChevronUp className="w-3 h-3" />
@@ -541,7 +697,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                   <button
                     onClick={() => !readOnly && moveCategory(cat.id, 'down', visibleCategoryIds)}
                     disabled={readOnly || visibleCategoryIds.indexOf(cat.id) >= visibleCategoryIds.length - 1}
-                    className="w-7 h-7 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-7 h-7 rounded bg-slate-900/50 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Sposta categoria giù'}
                   >
                     <ChevronDown className="w-3 h-3" />
@@ -564,18 +720,18 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                   <button
                     onClick={() => !readOnly && setActiveCategoryForAdd(cat.name === activeCategoryForAdd ? null : cat.name)}
                     disabled={readOnly}
-                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-indigo-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    className="w-9 h-9 rounded-full bg-slate-900/50 hover:bg-white/10 text-indigo-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Aggiungi oggetto'}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4.5 h-4.5" />
                   </button>
                   <button
                     onClick={() => !readOnly && toggleCategory(cat.id)}
                     disabled={readOnly}
-                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-rose-400/80"
+                    className="w-9 h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-rose-400/80"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
                   >
-                    <Eye className="w-3.5 h-3.5" />
+                    <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() =>
@@ -587,17 +743,17 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                       })
                     }
                     disabled={readOnly}
-                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-slate-400"
+                    className="w-9 h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-slate-400"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Elimina definitivamente la categoria'}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <FolderX className="w-4 h-4" />
                   </button>
               </div>
             </div>
 
               <div className="p-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {groupedItems[cat.name].map(item => (
+                  {groupedItems[cat.name].map((item, itemIndex) => (
                     <SuitcaseItemRow
                       key={item.id}
                       item={item}
@@ -609,6 +765,17 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                       onLinkBuildSearch={onLinkBuildSearch}
                       isSelected={selectedItemName === item.name}
                       onSelect={() => onSelectItem(item.name === selectedItemName ? null : item.name)}
+                      moveTargets={visibleCategories.filter((target) => target.name !== cat.name)}
+                      onMoveToCategory={(targetName) => onUpdateItem(item.id, { category: targetName })}
+                      reorderEnabled={!readOnly && !!onSwapItemsInCategory}
+                      isDragTarget={
+                        dropTarget?.categoryId === cat.id && dropTarget.index === itemIndex
+                      }
+                      onDragStart={handleItemDragStart(cat.id, item.id)}
+                      onDragOver={handleItemDragOver(cat.id, itemIndex)}
+                      onDragLeave={handleItemDragLeave(cat.id, itemIndex)}
+                      onDrop={handleItemDrop(cat.id, cat.name, itemIndex)}
+                      onDragEnd={resetItemDragState}
                     />
                   ))}
 
@@ -646,6 +813,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         })}
         </div>
         </div>
+        </div>
       </div>
 
       {/* RIGHT: Sidebar Suggestions Unificata (Sticky & Collapsible) */}
@@ -654,7 +822,6 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         isOpen={isSidebarOpen} 
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         sticky={true}
-        className="hidden lg:flex"
       >
         <CategorySuggestionPanel
           category={selectedItemData?.category || 'General'}
@@ -672,6 +839,27 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           onLinkBuildSearch={onLinkBuildSearch}
         />
       </SuitcaseSidePanel>
+
+      <SuitcaseMobileSuggestionsDrawer
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        <CategorySuggestionPanel
+          category={selectedItemData?.category || 'General'}
+          selectedItem={selectedItemData ? {
+            name: selectedItemData.name,
+            category: selectedItemData.category,
+            tags: selectedItemData.affiliate_tags || []
+          } : null}
+          itemMap={itemMap}
+          categoryMap={categoryMap}
+          overrides={overrides}
+          globalMap={globalMap}
+          placeholders={placeholders}
+          onLinkBuild={onLinkBuild}
+          onLinkBuildSearch={onLinkBuildSearch}
+        />
+      </SuitcaseMobileSuggestionsDrawer>
 
       <AiSuggestionsModal
         isOpen={showAiModal}

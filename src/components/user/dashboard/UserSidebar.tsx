@@ -2,6 +2,7 @@
 import React from 'react';
 import { User, Bell, Wallet, BarChart3, Store, Settings, LogOut, Users, MessageSquare, Briefcase, Map } from 'lucide-react';
 import { useBusinessContext } from '@/context/BusinessContext';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface Props {
     activeTab: string;
@@ -33,7 +34,7 @@ export const UserSidebar = ({ activeTab, onTabChange, isBusiness, unreadCount, o
             
             <button onClick={() => onTabChange('notifications')} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between font-bold text-lg transition-all ${activeTab === 'notifications' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
                 <div className="flex items-center gap-3"><Bell className="w-5 h-5"/> Notifiche</div>
-                {unreadCount > 0 && <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-black shadow-sm">{unreadCount}</span>}
+                {unreadCount > 0 && <CountBadge count={unreadCount} size="md" variant="red" shape="pill" />}
             </button>
             
             <button onClick={() => onTabChange('wallet')} className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-lg transition-all ${activeTab === 'wallet' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
@@ -54,9 +55,7 @@ export const UserSidebar = ({ activeTab, onTabChange, isBusiness, unreadCount, o
                         <div className="flex items-center justify-between px-2">
                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Le Tue Attività</label>
                             {userBusinesses.length > 1 && (
-                                <span className="text-[10px] bg-slate-800 text-indigo-400 px-2 py-0.5 rounded-full font-black border border-slate-700">
-                                    {userBusinesses.length}
-                                </span>
+                                <CountBadge count={userBusinesses.length} size="sm" variant="neutral" shape="pill" className="text-indigo-400 border border-slate-700 bg-slate-800" />
                             )}
                         </div>
                     </div>
@@ -76,7 +75,7 @@ export const UserSidebar = ({ activeTab, onTabChange, isBusiness, unreadCount, o
                     {!isBusiness && <div className="h-px bg-slate-800 my-2"></div>}
                     <button onClick={() => onTabChange('messages')} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between font-bold text-lg transition-all ${activeTab === 'messages' ? 'bg-blue-600 text-white shadow-md border border-blue-500' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
                          <div className="flex items-center gap-3"><MessageSquare className="w-5 h-5"/> Supporto Partner</div>
-                         {unreadMessagesCount > 0 && <span className="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-black animate-pulse shadow-sm">{unreadMessagesCount}</span>}
+                         {unreadMessagesCount > 0 && <CountBadge count={unreadMessagesCount} size="md" variant="rose-500" shape="pill" pulse />}
                     </button>
                     <div className="h-px bg-slate-800 my-2"></div>
                 </>

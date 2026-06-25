@@ -7,6 +7,7 @@ import { modifyItinerary } from '../../services/ai/aiPlanner';
 import { aiErrorUserMessage, isAiEdgeError } from '../../services/ai/aiEdgeErrors';
 import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
 import { AiRuntimeBanner } from '../ai/AiRuntimeBanner';
+import { CountBadge } from '@/components/ui/CountBadge';
 import { getCityDetails, getFullManifestAsync } from '../../services/cityService';
 
 interface Props {
@@ -93,7 +94,7 @@ export const AiPlannerTimeline = ({ onApply, onReset, activeStyles }: Props) => 
                     return (
                         <div key={i} className={`relative pl-4 ${isDayHeader ? 'mt-12' : ''}`}>
                             {(i === 0 || isDayHeader) && (
-                                <div className="mb-6 text-[12px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-4"><div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-indigo-400 border border-slate-700 shadow-lg">0{item.dayIndex + 1}</div>Giorno {item.dayIndex + 1}<div className="h-px flex-1 bg-slate-800"></div></div>
+                                <div className="mb-6 text-[12px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-4"><CountBadge display={`0${item.dayIndex + 1}`} size="lg" variant="neutral" className="w-8 h-8 min-w-[32px] text-indigo-400 bg-slate-800 border border-slate-700 shadow-lg" />Giorno {item.dayIndex + 1}<div className="h-px flex-1 bg-slate-800"></div></div>
                             )}
                             {distance !== null && distance > 0 && (
                                 <div className="absolute left-[-2px] top-[-10px] z-dropdown transform -translate-y-1/2 ml-8"><div className="flex items-center gap-1.5 bg-[#020617] border border-slate-800 px-2 py-0.5 rounded-full shadow-lg"><Navigation className="w-2.5 h-2.5 text-indigo-400 transform rotate-45" /><span className="text-[10px] font-mono font-bold text-slate-400">{distance} km</span></div></div>

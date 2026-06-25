@@ -6,6 +6,7 @@ import { User } from '@supabase/supabase-js';
 import { ResolvedAffiliateProduct } from '@/types/suitcase';
 import {
   normalizeAllSuitcases,
+  SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS,
   SUITCASE_TOOLBAR_SHELL_CLASS,
   sortSuitcaseList,
   type SuitcaseListSortMode,
@@ -19,6 +20,7 @@ import { SuitcaseStatusBox } from './SuitcaseStatusBox';
 import { AffiliateSuggestionBox } from './AffiliateSuggestionBox';
 import { DashboardActionGroup } from './DashboardActionGroup';
 import { SuitcaseSidePanel } from './SuitcaseSidePanel';
+import { SuitcaseMobileSuggestionsDrawer } from './SuitcaseMobileSuggestionsDrawer';
 import { SuitcaseOnboardingBox } from './SuitcaseOnboardingBox';
 import { SuitcaseToast } from '../SuitcaseFloatingPanel/components/SuitcaseToast';
 
@@ -114,6 +116,86 @@ const TEMPLATE_FAVORITES_SORT_OPTION = {
   label: 'Preferiti',
 };
 
+type TemplateSourceFilter = 'all' | 'td' | 'user';
+
+const TEMPLATE_SOURCE_FILTER_OPTIONS: { value: TemplateSourceFilter; label: string }[] = [
+  { value: 'all', label: 'ALL' },
+  { value: 'td', label: 'TD' },
+  { value: 'user', label: 'USER' },
+];
+
+const TemplateSourceFilterDropdown: React.FC<{
+  value: TemplateSourceFilter;
+  onChange: (value: TemplateSourceFilter) => void;
+}> = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const selectedLabel =
+    TEMPLATE_SOURCE_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? 'ALL';
+
+  const handleSelect = (next: TemplateSourceFilter) => {
+    onChange(next);
+    setIsOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label="Filtra template"
+        className={`${SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS} gap-2 px-3 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 hover:bg-slate-800 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40`}
+        title="Filtra template"
+      >
+        <span className="text-[10px] font-black uppercase tracking-wider text-slate-200">
+          {selectedLabel}
+        </span>
+        <ChevronDown
+          className={`w-4 h-4 shrink-0 opacity-80 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+      </button>
+
+      <AnchoredPopover
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        anchorRef={triggerRef}
+        align="right"
+        role="listbox"
+        className="min-w-[11.5rem] rounded-xl border border-white/10 bg-slate-950/98 backdrop-blur-md shadow-2xl shadow-black/40 py-1.5 overflow-hidden pointer-events-auto"
+      >
+        {TEMPLATE_SOURCE_FILTER_OPTIONS.map((option) => {
+          const isSelected = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              onClick={() => handleSelect(option.value)}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors ${
+                isSelected
+                  ? 'bg-indigo-500/15 text-indigo-100'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <span className="w-4 shrink-0 flex items-center justify-center">
+                {isSelected ? <Check className="w-3.5 h-3.5 text-indigo-400" aria-hidden /> : null}
+              </span>
+              <span className="text-[11px] md:text-xs font-bold leading-snug uppercase tracking-wide">
+                {option.label}
+              </span>
+            </button>
+          );
+        })}
+      </AnchoredPopover>
+    </>
+  );
+};
+
 const SuitcaseListSortDropdown: React.FC<{
   value: SuitcaseListSortMode;
   onChange: (value: SuitcaseListSortMode) => void;
@@ -139,7 +221,7 @@ const SuitcaseListSortDropdown: React.FC<{
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label="Ordina lista"
-        className="shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 hover:bg-slate-800 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 min-h-[36px]"
+        className={`${SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS} gap-2 px-3 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 hover:bg-slate-800 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40`}
         title="Ordina lista"
       >
         <ArrowDownUp className="w-4 h-4 shrink-0 opacity-80" aria-hidden />
@@ -239,8 +321,27 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   isGuest = false,
   onLogin
 }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const syncSidebarOpen = (event: MediaQueryListEvent) => {
+      setIsSidebarOpen(event.matches);
+    };
+
+    mediaQuery.addEventListener('change', syncSidebarOpen);
+    return () => {
+      mediaQuery.removeEventListener('change', syncSidebarOpen);
+    };
+  }, []);
+
   const [listSortMode, setListSortMode] = React.useState<SuitcaseListSortMode>('updated_at');
+  const [templateSourceFilter, setTemplateSourceFilter] = React.useState<TemplateSourceFilter>('all');
 
   const isStartTab = sourceTab === 'start';
 
@@ -261,13 +362,23 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
     return tpl.user_id === currentUser?.id;
   });
 
+  const sourceFilteredTemplates = React.useMemo(() => {
+    if (templateSourceFilter === 'td') {
+      return filteredTemplates.filter(isTdTemplate);
+    }
+    if (templateSourceFilter === 'user') {
+      return filteredTemplates.filter(isUserTemplate);
+    }
+    return filteredTemplates;
+  }, [filteredTemplates, templateSourceFilter]);
+
   const rawDisplayList =
     sourceTab === 'trip'
       ? tripSuitcases
       : sourceTab === 'saved'
         ? savedSuitcases
         : sourceTab === 'default'
-          ? filteredTemplates
+          ? sourceFilteredTemplates
           : [];
 
   const effectiveSortMode: SuitcaseListSortMode =
@@ -296,9 +407,32 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
 
   const showProgress = sourceTab === 'trip' && hasActiveDiary && tripSuitcases.length > 0;
   const showOnboarding = isStartTab;
+  const showMobileSuggestions = !isStartTab;
+
+  const templatePreviewElement = (
+    <TemplatePreview
+      template={previewTarget}
+      sourceTab={sourceTab as Exclude<SuitcaseSourceTab, 'start'>}
+      onAddCategory={onAddCategory}
+      onDeleteCategory={
+        sourceTab !== 'default' && onDeleteCategory && previewTarget
+          ? (category) => onDeleteCategory(previewTarget.id, category)
+          : undefined
+      }
+      onUpdateSuitcaseLocal={onUpdateSuitcaseLocal}
+      categorySetupOverlay={
+        previewTarget ? templatePreviewOverlays[previewTarget.id] : undefined
+      }
+      onCategorySetupOverlayChange={
+        previewTarget && onTemplatePreviewOverlayChange
+          ? (updater) => onTemplatePreviewOverlayChange(previewTarget.id, updater)
+          : undefined
+      }
+    />
+  );
 
   return (
-    <div className="w-full h-full flex flex-col lg:flex-row relative overflow-hidden lg:overflow-x-visible lg:overflow-y-hidden">
+    <div className="w-full h-full flex flex-col lg:flex-row relative overflow-hidden lg:overflow-x-visible lg:overflow-y-hidden min-h-0">
 
       {/* ── AREA SINISTRA (Contenuto Principale) ── */}
       <div className="flex-1 flex flex-col min-h-0 relative z-floating-panel w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -357,17 +491,15 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
         </div>
 
         <div
-          className={`flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar ${
+          className={`flex-1 flex flex-col min-h-0 ${
             isStartTab
-              ? 'flex-1 gap-2 px-4 pb-4 md:px-6 md:pb-5 lg:px-10 lg:pb-6 lg:pr-6'
-              : 'gap-4 px-4 pb-4 md:px-6 md:pb-6 lg:px-10 lg:pb-10 lg:pr-6'
+              ? 'overflow-y-auto custom-scrollbar gap-4 max-lg:gap-4 px-4 pb-6 md:px-6 md:pb-5 lg:px-10 lg:pb-6 lg:pr-6'
+              : 'overflow-hidden lg:overflow-y-auto lg:custom-scrollbar gap-0 lg:gap-4 px-4 pb-2 md:px-6 lg:px-10 lg:pb-10 lg:pr-6'
           }`}
         >
 
-        {/* Toast localizzato sopra la lista */}
         <SuitcaseToast {...toast} />
 
-        {/* WORKSPACE GUEST LOCALE — fuori da tab Salvate */}
         {guestSuitcase && onContinueGuestSuitcase && (
           <div className="w-full shrink-0 animate-in fade-in slide-in-from-top-2 duration-500">
             <button
@@ -394,27 +526,8 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
           </div>
         )}
 
-        {/* RIGA 3: STATUS STRIP / ONBOARDING */}
-        {showProgress && (
-          <div className="w-full shrink-0 animate-in fade-in slide-in-from-right-8 duration-700 delay-100">
-            <div className="flex items-center gap-3 mb-2 px-1">
-              <div className="w-1 h-5 bg-amber-500 rounded-full" />
-              <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">
-                Avanzamento Valigia
-              </h3>
-            </div>
-            <SuitcaseStatusBox
-              suitcases={tripSuitcases}
-              onOpenSuitcase={onOpenSuitcase}
-              onHoverSuitcase={onHover}
-              onSelectSuitcase={(id) => onHover(id)}
-              activeTabId={activeTabId}
-            />
-          </div>
-        )}
-
         {showOnboarding && (
-          <div className="w-full flex-1 flex flex-col min-h-0">
+          <div className="w-full shrink-0 flex flex-col lg:flex-1 lg:min-h-0">
             <SuitcaseOnboardingBox
               onCreateSuitcase={onCreateSuitcase}
               onCreateTemplate={onCreateTemplate}
@@ -427,13 +540,28 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
           </div>
         )}
 
-        {/* RIGA 4: COLONNE LISTE E PREVIEW — solo tab operativi (non Inizia) */}
         {!isStartTab && (
-        <div className="flex-1 flex flex-col lg:flex-row gap-8 min-h-0 min-w-0 lg:items-start">
+        <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-8 min-h-0 min-w-0 lg:items-start">
 
-          <div 
-            className="flex flex-col lg:w-[45%] xl:w-[40%] min-w-0 transition-all duration-500 rounded-xl"
-          >
+          <div className="flex-[2] min-h-0 flex flex-col min-w-0 lg:flex-none lg:w-[45%] xl:w-[40%] transition-all duration-500 rounded-xl">
+            {showProgress && (
+              <div className="w-full shrink-0 mb-3 animate-in fade-in slide-in-from-right-8 duration-700 delay-100 max-lg:mb-2">
+                <div className="flex items-center gap-3 mb-2 px-1">
+                  <div className="w-1 h-5 bg-amber-500 rounded-full" />
+                  <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">
+                    Avanzamento Valigia
+                  </h3>
+                </div>
+                <SuitcaseStatusBox
+                  suitcases={tripSuitcases}
+                  onOpenSuitcase={onOpenSuitcase}
+                  onHoverSuitcase={onHover}
+                  onSelectSuitcase={(id) => onHover(id)}
+                  activeTabId={activeTabId}
+                />
+              </div>
+            )}
+
             <div className="flex items-center justify-between mb-1 px-1 shrink-0 gap-2 min-h-[36px]">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-1 h-5 bg-amber-500 rounded-full shrink-0" />
@@ -441,14 +569,22 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                   {sourceTab === 'default' ? 'Template' : 'Valigie'}
                 </h3>
               </div>
-              <SuitcaseListSortDropdown
-                value={effectiveSortMode}
-                onChange={setListSortMode}
-                showFavoritesOption={sourceTab === 'default'}
-              />
+              <div className="flex items-center gap-2 shrink-0">
+                {sourceTab === 'default' && (
+                  <TemplateSourceFilterDropdown
+                    value={templateSourceFilter}
+                    onChange={setTemplateSourceFilter}
+                  />
+                )}
+                <SuitcaseListSortDropdown
+                  value={effectiveSortMode}
+                  onChange={setListSortMode}
+                  showFavoritesOption={sourceTab === 'default'}
+                />
+              </div>
             </div>
 
-            <div className="pr-2 animate-in fade-in duration-500">
+            <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-visible lg:flex-none pr-2 animate-in fade-in duration-500 max-lg:custom-scrollbar">
               <div className="space-y-2">
                 {displayList.length === 0 ? (
                   <div className="py-12 text-center bg-slate-950/20 rounded-2xl border border-dashed border-slate-800">
@@ -457,6 +593,18 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                     ) : sourceTab === 'default' && globalTemplatesFetchError ? (
                       <p className="text-xs text-slate-500">
                         Template non disponibili al momento. Riprova tra poco.
+                      </p>
+                    ) : sourceTab === 'default' && templateSourceFilter === 'user' && isGuest ? (
+                      <p className="text-xs text-slate-500">
+                        Accedi per vedere i tuoi template personali.
+                      </p>
+                    ) : sourceTab === 'default' && templateSourceFilter === 'user' ? (
+                      <p className="text-xs text-slate-500">
+                        Non hai ancora creato template personali.
+                      </p>
+                    ) : sourceTab === 'default' && templateSourceFilter === 'td' ? (
+                      <p className="text-xs text-slate-500">
+                        Nessun template Touring Diary disponibile.
                       </p>
                     ) : sourceTab === 'default' ? (
                       <p className="text-xs text-slate-500">Nessun template disponibile.</p>
@@ -516,7 +664,22 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
             </div>
           </div>
 
-          {/* COLONNA 2: CONTENUTO PREVIEW */}
+          <div className="flex-[1] min-h-0 flex flex-col border-t border-white/10 pt-3 lg:hidden animate-in fade-in slide-in-from-right-4 duration-700">
+            <div className="flex items-center justify-between mb-1 px-1 shrink-0 gap-2 min-h-[36px]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-1 h-5 bg-amber-500 rounded-full shrink-0" />
+                <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em] truncate">
+                  {sourceTab === 'default' ? 'Contenuto Template' : 'Contenuto Valigia'}
+                </h3>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
+              <div key={previewTarget?.id} className="animate-in fade-in duration-300">
+                {templatePreviewElement}
+              </div>
+            </div>
+          </div>
+
           <div className="hidden lg:flex flex-col flex-1 min-w-0 animate-in fade-in slide-in-from-right-4 duration-700">
             <div className="flex items-center justify-between mb-1 px-1 shrink-0 gap-2 min-h-[36px]">
               <div className="flex items-center gap-3 min-w-0">
@@ -527,28 +690,9 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
               </div>
               <div className="shrink-0 min-h-[36px] min-w-[64px]" aria-hidden />
             </div>
-
             <div className="pr-2">
               <div key={previewTarget?.id} className="animate-in fade-in duration-300">
-                <TemplatePreview
-                  template={previewTarget}
-                  sourceTab={sourceTab}
-                  onAddCategory={onAddCategory}
-                  onDeleteCategory={
-                    sourceTab !== 'default' && onDeleteCategory && previewTarget
-                      ? (category) => onDeleteCategory(previewTarget.id, category)
-                      : undefined
-                  }
-                  onUpdateSuitcaseLocal={onUpdateSuitcaseLocal}
-                  categorySetupOverlay={
-                    previewTarget ? templatePreviewOverlays[previewTarget.id] : undefined
-                  }
-                  onCategorySetupOverlayChange={
-                    previewTarget && onTemplatePreviewOverlayChange
-                      ? (updater) => onTemplatePreviewOverlayChange(previewTarget.id, updater)
-                      : undefined
-                  }
-                />
+                {templatePreviewElement}
               </div>
             </div>
           </div>
@@ -557,12 +701,13 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
         </div>
       </div>
 
-      {/* ── AREA DESTRA (Suggerimenti Unificati Edge-to-Edge) ── */}
+      {/* ── AREA DESTRA (Suggerimenti affiliate — desktop rail) ── */}
       <SuitcaseSidePanel
         isCollapsible={true}
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="border-none"
+        sticky={true}
+        className="border-none shrink-0 lg:shrink-0"
       >
         <AffiliateSuggestionBox
           activeSuitcase={activeSuitcaseForSuggestions || tripSuitcases[0] || null}
@@ -576,6 +721,25 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
           onLinkBuildSearch={onLinkBuildSearch}
         />
       </SuitcaseSidePanel>
+
+      {showMobileSuggestions && (
+      <SuitcaseMobileSuggestionsDrawer
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        <AffiliateSuggestionBox
+          activeSuitcase={activeSuitcaseForSuggestions || tripSuitcases[0] || null}
+          itemMap={itemMap}
+          categoryMap={categoryMap}
+          overrides={overrides}
+          globalMap={globalMap}
+          placeholders={placeholders}
+          adminSuitcasePlaceholders={adminSuitcasePlaceholders}
+          onLinkBuild={onLinkBuild}
+          onLinkBuildSearch={onLinkBuildSearch}
+        />
+      </SuitcaseMobileSuggestionsDrawer>
+      )}
 
     </div>
   );

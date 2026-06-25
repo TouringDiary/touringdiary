@@ -4,13 +4,14 @@ import React, { useRef, useState, useImperativeHandle, forwardRef, useEffect } f
 interface Props {
   children?: React.ReactNode;
   className?: string;
+  onScroll?: React.UIEventHandler<HTMLDivElement>;
 }
 
 export interface DraggableSliderHandle {
     scroll: (direction: 'left' | 'right') => void;
 }
 
-export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(({ children, className = '' }, ref) => {
+export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(({ children, className = '', onScroll }, ref) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [isDown, setIsDown] = useState(false);
     
@@ -132,6 +133,7 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(({ child
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
+                onScroll={onScroll}
                 
                 className={`
                     flex gap-4 overflow-x-auto hide-scrollbar select-none 

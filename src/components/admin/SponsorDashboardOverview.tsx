@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart2, Search, ArrowUpDown, ChevronUp, ChevronDown, Mail } from 'lucide-react';
 import { SponsorRequest } from '../../types/index';
 import { getFullManifestAsync } from '../../services/cityService';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface DashboardProps {
     requests: SponsorRequest[];
@@ -75,7 +76,7 @@ export const SponsorDashboardOverview = ({ requests, onNavigate }: DashboardProp
     const StatusCell = ({ count, unread, status, cityId, colorText }: any) => (
         <div className={`w-full h-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg transition-colors group/cell ${count > 0 ? 'hover:bg-white/5' : 'opacity-30'}`}>
             <button onClick={() => onNavigate(cityId, status, false)} className={`flex-1 flex items-center justify-center h-8 rounded hover:bg-white/10 text-lg font-bold ${count > 0 ? colorText : 'text-slate-600'}`}>{count}</button>
-            <button onClick={() => onNavigate(cityId, status, true)} disabled={unread === 0} className={`relative w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 ${unread > 0 ? 'cursor-pointer' : 'opacity-0'}`}><Mail className={`w-4 h-4 ${unread > 0 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}/>{unread > 0 && <span className="absolute top-0 right-0 bg-rose-600 text-white text-[9px] font-bold h-3.5 w-3.5 rounded-full flex items-center justify-center border border-slate-900">{unread}</span>}</button>
+            <button onClick={() => onNavigate(cityId, status, true)} disabled={unread === 0} className={`relative w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 ${unread > 0 ? 'cursor-pointer' : 'opacity-0'}`}><Mail className={`w-4 h-4 ${unread > 0 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}/>{unread > 0 && <CountBadge count={unread} size="xs" variant="rose" position="overlay-tr" className="top-0 right-0 translate-x-0 translate-y-0" />}</button>
         </div>
     );
 

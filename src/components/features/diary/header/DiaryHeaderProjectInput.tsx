@@ -1,7 +1,11 @@
 import React from 'react';
-import { FolderOpen, RefreshCw, Trash2, Save, FilePlus2, Printer, Share2, Facebook, Copy } from 'lucide-react';
+import { FolderOpen, RefreshCw, Trash2, Printer, Share2, Facebook, Copy } from 'lucide-react';
 import { Itinerary } from '@/types';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
+import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
+import { DocumentSaveStatus } from '@/components/save/DocumentSaveStatus';
+import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
+import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
 
 interface DiaryHeaderProjectInputProps {
     itinerary: Itinerary;
@@ -15,13 +19,16 @@ interface DiaryHeaderProjectInputProps {
     savedProjects: Itinerary[];
     onLoadProject: (p: Itinerary) => void;
     handleDeleteClick: (e: React.MouseEvent, id: string) => void;
-    saveMenuOpen: boolean;
-    setSaveMenuOpen: (v: boolean) => void;
-    saveMenuRef: React.RefObject<HTMLDivElement>;
     isGuest: boolean;
     openModal: (type: string) => void;
-    handleSave: () => void;
-    handleSaveAs: () => void;
+    onSave: () => void;
+    onSaveAs: () => void;
+    onAutosaveToggle: (enabled: boolean) => void;
+    savePhase: DocumentSavePhase;
+    lastSavedAt: number | null;
+    lastSaveError: string | null;
+    autosaveEnabled: boolean;
+    canUseAutosave: boolean;
     handleExportClick: () => void;
     shareMenuOpen: boolean;
     setShareMenuOpen: (v: boolean) => void;
@@ -31,10 +38,14 @@ interface DiaryHeaderProjectInputProps {
 
 export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = ({
     itinerary, onSetName, loadMenuOpen, handleLoadMenuOpen, loadMenuRef, handleRefreshData, isRefreshing, isSyncing, savedProjects, onLoadProject, handleDeleteClick,
-    saveMenuOpen, setSaveMenuOpen, saveMenuRef, isGuest, openModal, handleSave, handleSaveAs, handleExportClick, shareMenuOpen, setShareMenuOpen, shareMenuRef, onClear
+    isGuest, openModal, onSave, onSaveAs, onAutosaveToggle, savePhase, lastSavedAt, lastSaveError, autosaveEnabled, canUseAutosave,
+    handleExportClick, shareMenuOpen, setShareMenuOpen, shareMenuRef, onClear
 }) => {
+    const openGuestAuth = () => openModal('auth');
+
     return (
-        <div className="flex gap-2 items-center h-8">
+        <div className="flex flex-col gap-1 w-full">
+            <div className="flex gap-2 items-center h-8">
             <div className="bg-slate-800/50 p-1 rounded border border-slate-700/50 flex items-center flex-1 min-w-0">
                 <div className="px-2 w-full truncate">
                     <input 
@@ -88,28 +99,16 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                     </AnchoredPopover>
                 </div>
                 
-                <div ref={saveMenuRef}>
-                    <button onClick={() => {
-                         if (isGuest) openModal('auth');
-                         else setSaveMenuOpen(!saveMenuOpen);
-                    }} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${saveMenuOpen ? 'bg-slate-800 text-white' : ''}`}>
-                        <Save className="w-[16.5px] h-[16.5px]" />
-                    </button>
-                    <AnchoredPopover
-                        isOpen={saveMenuOpen}
-                        onClose={() => setSaveMenuOpen(false)}
-                        anchorRef={saveMenuRef}
-                        align="right"
-                        className="w-36 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-right"
-                    >
-                        <button onClick={handleSave} className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2">
-                            <Save className="w-3 h-3 text-emerald-500"/> Salva
-                        </button>
-                        <button onClick={handleSaveAs} className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700">
-                            <FilePlus2 className="w-3 h-3 text-amber-500"/> Salva come...
-                        </button>
-                    </AnchoredPopover>
-                </div>
+                <SaveMenuPopover
+                    isGuest={isGuest}
+                    autosaveEnabled={autosaveEnabled}
+                    canUseAutosave={canUseAutosave}
+                    onSave={onSave}
+                    onSaveAs={onSaveAs}
+                    onAutosaveToggle={onAutosaveToggle}
+                    onGuestAction={openGuestAuth}
+                    disabled={savePhase === 'saving'}
+                />
 
                 <button onClick={handleExportClick} className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 p-1.5 rounded-full transition-colors" title="Esporta / Stampa">
                     <Printer className="w-[16.5px] h-[16.5px]" />
@@ -141,6 +140,17 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                     <Trash2 className="w-[16.5px] h-[16.5px]" />
                 </button>
             </div>
+            </div>
+            <DocumentSaveStatus
+                phase={savePhase}
+                lastSavedAt={lastSavedAt}
+                lastError={lastSaveError}
+                isGuest={isGuest}
+                className="pl-1"
+            />
+            {isGuest && (
+                <p className="text-[10px] text-slate-500 pl-1">{GUEST_SAVE_MESSAGE}</p>
+            )}
         </div>
     );
 };

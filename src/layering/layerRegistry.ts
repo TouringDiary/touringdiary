@@ -12,6 +12,8 @@
  * FOCUS WORKSPACE STACK (9000–9399):
  *  focusDim (9000) dims inline dimmedBackground surfaces.
  *  focusCompanion (9100), globalChrome (9200), focusActive (9300) bypass workspace dim.
+ *  focusActive elevates to modalNested (12000) when companion is at modal tier — see
+ *  src/layering/resolveWorkspacePanelZIndex.ts (mobile diary fullscreen).
  *  Modal/preview uses separate overlay tier at 14000 (modalDim).
  *
  * BACKDROP-FILTER WARNING:
@@ -23,6 +25,10 @@
 export type LayerTier =
   | 'base'
   | 'stickyInScroll'
+  | 'homeCardOverlay'
+  | 'homeHeroSurface'
+  | 'homeHeroPopover'
+  | 'homeHero'
   | 'focusDim'
   | 'focusCompanion'
   | 'globalChrome'
@@ -66,6 +72,46 @@ export const LAYER_REGISTRY: Record<LayerTier, LayerSpec> = {
     portalTarget: 'inline',
     escHandling: 'none',
   },
+  homeCardOverlay: {
+    z: 10,
+    owner: 'CityCard, HomeSideSponsorCard',
+    description:
+      'Local overlay on card media (badges, sponsor labels). Stays within card stacking; ' +
+      'must NOT use Z_DROPDOWN — badges are not global popovers. ' +
+      'Numeric value matches homeHeroSurface (10) but different stacking context — never competes.',
+    bypassesOverlay: false,
+    portalTarget: 'inline',
+    escHandling: 'none',
+  },
+  homeHeroSurface: {
+    z: 10,
+    owner: 'HeroFilterModule, HeroAiModule',
+    description:
+      'Hero content above decorative backgrounds. z is relative to Z_HOME_HERO shell only. ' +
+      'Numeric value matches homeCardOverlay (10) but different stacking context — never competes.',
+    bypassesOverlay: false,
+    portalTarget: 'inline',
+    escHandling: 'none',
+  },
+  homeHeroPopover: {
+    z: 20,
+    owner: 'Hero FilterSelect, SearchBar, MultiFilterSelect',
+    description:
+      'Open filters, search results, and inline hero controls above hero surface. ' +
+      'Local to Z_HOME_HERO — no portal required.',
+    bypassesOverlay: false,
+    portalTarget: 'inline',
+    escHandling: 'none',
+  },
+  homeHero: {
+    z: 200,
+    owner: 'HomeContent.tsx hero wrapper',
+    description:
+      'Home hero sticky shell. Above scrolling cards and card badges; below focus workspace stack.',
+    bypassesOverlay: false,
+    portalTarget: 'inline',
+    escHandling: 'none',
+  },
   focusDim: {
     z: 9000,
     owner: 'FocusOverlay (workspace mode)',
@@ -100,7 +146,8 @@ export const LAYER_REGISTRY: Record<LayerTier, LayerSpec> = {
     z: 9300,
     owner: 'WorkspaceHost → SuitcaseFloatingPanel (+ future workspaces)',
     description:
-      'Primary workspace panel during UIMode=workspace. NOT a classic modal.',
+      'Primary workspace panel during UIMode=workspace. NOT a classic modal. ' +
+      'Runtime z-index: src/layering/resolveWorkspacePanelZIndex.ts (Workspace Elevation Policy).',
     bypassesOverlay: true,
     portalTarget: 'body',
     escHandling: 'stack',
@@ -231,4 +278,6 @@ export const FOCUS_MODE_POLICY = {
   provider: 'FocusModeProvider',
   overlay: 'FocusOverlay (workspaceDim | modalDim | none)',
   workspaceHost: 'WorkspaceHost',
+  workspaceElevation: 'src/layering/resolveWorkspacePanelZIndex.ts',
+  workspaceShellGeometry: 'src/layering/resolveWorkspaceShellGeometry.ts',
 } as const;

@@ -5,7 +5,7 @@ import { normalizeItemName } from '@/utils/tagDerivation';
 import { useConfig } from '@/context/ConfigContext';
 import { SETTINGS_KEYS } from '@/services/settingsService';
 import { ResolvedAffiliateProduct } from '@/types/suitcase';
-import { ItemCategoryIcon, resolveAffiliateProductImage } from './SuitcaseUtils';
+import { ItemCategoryIcon, resolveAffiliateProductImage, resolveAffiliatePartnerDisplay } from './SuitcaseUtils';
 import { affiliateTrackingService } from '@/services/affiliateTrackingService';
 
 interface CategorySuggestionPanelProps {
@@ -87,6 +87,15 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
   const finalProduct = selectedItem ? productToShow : activeGlobalProducts[activeIndex];
   const isFeatured = !selectedItem;
 
+  const partnerIntegrations = configs?.[SETTINGS_KEYS.PARTNER_INTEGRATIONS];
+  const partnerDisplay = useMemo(
+    () =>
+      finalProduct
+        ? resolveAffiliatePartnerDisplay(finalProduct, partnerIntegrations)
+        : null,
+    [finalProduct, partnerIntegrations]
+  );
+
   // Fallback Image Logic (4 Levels Centralized)
   const displayImage = useMemo(() => {
     return resolveAffiliateProductImage({
@@ -101,10 +110,10 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
     <div
       onMouseEnter={() => setIsHoveringPanel(true)}
       onMouseLeave={() => setIsHoveringPanel(false)}
-      className="w-full h-full bg-[#0b0f19]/40 backdrop-blur-sm rounded-[20px] border border-white/5 overflow-hidden flex flex-col group/panel transition-all duration-500 hover:border-indigo-500/30 shadow-2xl shadow-black/40"
+      className="w-full h-full min-h-0 bg-[#0b0f19]/40 backdrop-blur-sm rounded-[20px] border border-white/5 flex flex-col group/panel transition-all duration-500 hover:border-indigo-500/30 shadow-2xl shadow-black/40"
     >
       {/* Header Badge */}
-      <div className="p-4 pb-0 flex items-center justify-between">
+      <div className="shrink-0 p-4 pb-0 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={`p-1.5 rounded-lg ${isFeatured ? 'bg-amber-500/10 text-amber-500' : 'bg-indigo-500/10 text-indigo-400'}`}>
             <ShoppingBag className="w-3.5 h-3.5" />
@@ -133,48 +142,46 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
       </div>
 
       {finalProduct ? (
-        <div className="flex-1 p-4 flex flex-col">
-          {/* Product Image Section */}
-          <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-950 border border-white/5 mb-4 group/img shadow-inner flex items-center justify-center">
-            {displayImage ? (
-              <img
-                src={displayImage}
-                alt={finalProduct.name}
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover/img:scale-110"
-                onError={(e) => {
-                  const src = (e.target as HTMLImageElement).src;
-                  if (src) {
-                    setFailedImages(prev => {
-                      const next = new Set(prev);
-                      next.add(src);
-                      return next;
-                    });
-                  }
-                }}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center text-slate-800">
-                <ItemCategoryIcon category={selectedItem?.category || category} className="w-16 h-16 opacity-20" />
+        <>
+          <div className="flex-1 min-h-0 flex flex-col px-4 pt-4 overflow-hidden">
+            {/* Product Image Section — si riduce se lo spazio verticale è limitato */}
+            <div className="relative min-h-0 flex-1 basis-0 w-full mb-4 flex items-start justify-center overflow-hidden">
+              <div className="relative aspect-square h-full max-w-full w-auto max-h-full rounded-2xl overflow-hidden bg-slate-950 border border-white/5 group/img shadow-inner flex items-center justify-center">
+                {displayImage ? (
+                  <img
+                    src={displayImage}
+                    alt={finalProduct.name}
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover/img:scale-110"
+                    onError={(e) => {
+                      const src = (e.target as HTMLImageElement).src;
+                      if (src) {
+                        setFailedImages(prev => {
+                          const next = new Set(prev);
+                          next.add(src);
+                          return next;
+                        });
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-slate-800">
+                    <ItemCategoryIcon category={selectedItem?.category || category} className="w-16 h-16 opacity-20" />
+                  </div>
+                )}
+                {finalProduct.price && (
+                  <div className="absolute top-3 right-3 px-2 py-1 rounded-xl bg-orange-500 text-white text-[11px] font-black shadow-lg shadow-orange-500/20">
+                    €{finalProduct.price}
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent opacity-0 group-hover/panel:opacity-100 transition-opacity duration-700" />
               </div>
-            )}
-            {finalProduct.price && (
-              <div className="absolute top-3 right-3 px-2 py-1 rounded-xl bg-orange-500 text-white text-[11px] font-black shadow-lg shadow-orange-500/20">
-                €{finalProduct.price}
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent opacity-0 group-hover/panel:opacity-100 transition-opacity duration-700" />
-          </div>
+            </div>
 
-          {/* Info Section */}
-          <div className="flex-1 space-y-4 flex flex-col justify-between">
-            <div className="space-y-2">
+            {/* Meta — non comprime il footer CTA */}
+            <div className="shrink-0 space-y-2">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[9px] font-black uppercase tracking-tighter text-indigo-500 bg-indigo-500/10 px-1.5 py-0.5 rounded">
-                  {(() => {
-                    const providerId = finalProduct.provider || 'amazon';
-                    const partner = configs?.[SETTINGS_KEYS.PARTNER_INTEGRATIONS]?.[providerId];
-                    return partner?.label || (providerId.charAt(0).toUpperCase() + providerId.slice(1)) + ' Partner';
-                  })()}
+                  {partnerDisplay?.badgeLabel ?? 'Offerta consigliata'}
                 </span>
                 <div className="flex items-center gap-0.5 text-amber-400">
                   {[...Array(5)].map((_, i) => (
@@ -188,8 +195,11 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                 {finalProduct.name}
               </h3>
             </div>
+          </div>
 
-            <div className="space-y-3 pt-4 border-t border-white/5">
+          {/* Footer CTA — shrink-0, mai compresso dal flex layout */}
+          <div className="shrink-0 px-4 pb-4 pt-4 border-t border-white/5">
+            <div className="space-y-3">
               <a
                 href={(() => {
                   const pid = finalProduct.product_id || "";
@@ -213,11 +223,7 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                 className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-white flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-orange-500/20 group/btn"
               >
                 <span>
-                  {(() => {
-                    const providerId = finalProduct.provider || 'amazon';
-                    const partner = configs?.[SETTINGS_KEYS.PARTNER_INTEGRATIONS]?.[providerId];
-                    return `Vai su ${partner?.label || (providerId.charAt(0).toUpperCase() + providerId.slice(1))}`;
-                  })()}
+                  {partnerDisplay?.ctaLabel ?? 'Scopri il prodotto'}
                 </span>
                 <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
               </a>
@@ -226,7 +232,7 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
               </p>
             </div>
           </div>
-        </div>
+        </>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
           <div className="w-16 h-16 rounded-3xl bg-slate-800/50 flex items-center justify-center border border-white/5 shadow-inner">
@@ -243,7 +249,7 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
 
       {/* Persistence indicator for carousel */}
       {isFeatured && activeGlobalProducts.length > 1 && (
-        <div className="px-4 pb-4 flex gap-1 justify-center">
+        <div className="shrink-0 px-4 pb-3 flex gap-1 justify-center">
           {activeGlobalProducts.map((_, idx) => (
             <div
               key={idx}

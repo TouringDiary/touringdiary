@@ -9,6 +9,7 @@ import { SponsorFilters, type SponsorFilterOption } from './SponsorFilters';
 import { addNotification } from '../../services/notificationService';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { AdminPageHeader } from './common/AdminPageHeader';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 const ReviewDetailOverlay = ({ review, onClose }: { review: Review, onClose: () => void }) => {
     return (
@@ -229,8 +230,9 @@ export const ItineraryManager = () => {
                 accent="amber"
                 badge={
                     pendingReviewsCount > 0 ? (
-                        <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                            {pendingReviewsCount} IN ATTESA
+                        <span className="inline-flex items-center gap-1.5 bg-rose-600 text-white text-xs px-2 py-1 rounded-full shadow-lg animate-pulse font-normal uppercase tracking-wide">
+                            <CountBadge count={pendingReviewsCount} size="sm" variant="white" className="bg-white/20 text-white border-0 min-w-[18px]" />
+                            IN ATTESA
                         </span>
                     ) : undefined
                 }
@@ -260,7 +262,7 @@ export const ItineraryManager = () => {
                 <button onClick={() => setMainView('itineraries')} className={`flex-1 py-3 rounded-lg text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-3 transition-all ${mainView === 'itineraries' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}><LayoutList className="w-4 h-4"/> ITINERARI</button>
                 <button onClick={() => setMainView('reviews')} className={`flex-1 py-3 rounded-lg text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-3 transition-all ${mainView === 'reviews' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}>
                     <MessageSquare className="w-4 h-4"/> RECENSIONI
-                     {pendingReviewsCount > 0 && <span className="bg-white text-black text-[10px] px-1.5 py-0.5 rounded-full">{pendingReviewsCount}</span>}
+                     {pendingReviewsCount > 0 && <CountBadge count={pendingReviewsCount} size="sm" variant="white-black" shape="pill" />}
                 </button>
             </div>
             <div className="flex-1 overflow-hidden flex flex-col min-h-0 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl">

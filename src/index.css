@@ -19,26 +19,31 @@
 
   --nav-width: 5rem;
 
-  --z-error-boundary: 99999;
-  --z-toast: 16000;
-  --z-lightbox-close: 15200;
-  --z-lightbox-content: 15100;
-  --z-lightbox: 15000;
-  --z-overlay: 14000;
-  --z-overlay-backdrop: 13900;
-  --z-admin-modal-top: 13200;
-  --z-admin-modal-nested: 13100;
-  --z-admin-modal: 13000;
-  --z-modal-nested: 12000;
-  --z-modal: 11000;
-  --z-popover: 10500;
-  --z-dropdown: 10000;
-  --z-focus-active: 9300;
-  --z-global-chrome: 9200;
-  --z-focus-companion: 9100;
-  --z-focus-dim: 9000;
-  /* @deprecated alias — use --z-focus-companion */
-  --z-floating-panel: 9100;
+  /* Tailwind v4 z-index utilities: --z-index-* → z-* classes (see layerRegistry.ts) */
+  --z-index-error-boundary: 99999;
+  --z-index-toast: 16000;
+  --z-index-lightbox-close: 15200;
+  --z-index-lightbox-content: 15100;
+  --z-index-lightbox: 15000;
+  --z-index-overlay: 14000;
+  --z-index-overlay-backdrop: 13900;
+  --z-index-admin-modal-top: 13200;
+  --z-index-admin-modal-nested: 13100;
+  --z-index-admin-modal: 13000;
+  --z-index-modal-nested: 12000;
+  --z-index-modal: 11000;
+  --z-index-popover: 10500;
+  --z-index-dropdown: 10000;
+  --z-index-focus-active: 9300;
+  --z-index-global-chrome: 9200;
+  --z-index-focus-companion: 9100;
+  --z-index-focus-dim: 9000;
+  /* @deprecated alias — use --z-index-focus-companion / z-focus-companion */
+  --z-index-floating-panel: 9100;
+  --z-index-home-hero: 200;
+  --z-index-home-hero-popover: 20;
+  --z-index-home-hero-surface: 10;
+  --z-index-home-card-overlay: 10;
 }
 
 :root {
@@ -116,6 +121,10 @@
   .font-handwriting {
     font-family: "Caveat", cursive;
   }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @utility td-modal-overlay {

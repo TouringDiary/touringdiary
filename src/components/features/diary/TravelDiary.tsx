@@ -53,6 +53,20 @@ export const TravelDiary = ({
     };
 
     useEffect(() => {
+        const preloadSuitcasePanelChunk = () => {
+            void import('@/components/features/diary/packing_list/SuitcaseFloatingPanel');
+        };
+
+        if (typeof requestIdleCallback !== 'undefined') {
+            const idleId = requestIdleCallback(preloadSuitcasePanelChunk, { timeout: 3000 });
+            return () => cancelIdleCallback(idleId);
+        }
+
+        const timeoutId = window.setTimeout(preloadSuitcasePanelChunk, 1500);
+        return () => window.clearTimeout(timeoutId);
+    }, []);
+
+    useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
             if (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable) return;
@@ -125,8 +139,21 @@ export const TravelDiary = ({
                 onSetName={(name) => setters.setItinerary(prev => ({ ...prev, name }))}
                 onDateChange={actions.handleDateChange}
                 onLoadProject={actions.loadProject}
-                onSaveAction={() => { if (!itinerary.name) setters.setSaveAsModalOpen(true); else actions.saveProject(); }}
+                onSave={() => {
+                    if (state.documentSave.needsNameForSave()) {
+                        setters.setSaveAsModalOpen(true);
+                    } else {
+                        void state.documentSave.save();
+                    }
+                }}
                 onSaveAs={() => setters.setSaveAsModalOpen(true)}
+                savePhase={state.documentSave.phase}
+                lastSavedAt={state.documentSave.lastSavedAt}
+                lastSaveError={state.documentSave.lastError}
+                autosaveEnabled={state.documentSave.autosaveEnabled}
+                canUseAutosave={state.documentSave.canUseAutosave}
+                onAutosaveToggle={state.documentSave.setAutosaveEnabled}
+                isDocumentDirty={state.documentSave.isDirty}
                 onPrint={onPrint}
                 onClear={() => setters.setClearModalOpen(true)}
                 onPublish={actions.handlePublish}
@@ -142,7 +169,7 @@ export const TravelDiary = ({
             />
 
             <div
-                className="flex-1 overflow-y-auto relative justify-center diary-grid-bg transition-colors duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]"
+                className="flex-1 min-h-0 overflow-y-auto relative justify-center diary-grid-bg transition-colors duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]"
                 onDragEnter={actions.handleDragEnter}
                 onDragLeave={actions.handleDragLeave}
                 onDragOver={(e) => e.preventDefault()}

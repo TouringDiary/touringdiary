@@ -7,6 +7,7 @@ import { getUnreadCount } from '@/services/notificationService';
 import { useModal } from '@/context/ModalContext';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { BrandLogo } from '../common/BrandLogo';
+import { CountBadge } from '@/components/ui/CountBadge';
 import { NarrativeCompass } from './NarrativeCompass';
 import { HeaderCreditsIndicator } from './HeaderCreditsIndicator';
 import { useNavigate } from 'react-router-dom';
@@ -220,9 +221,14 @@ export const Header = ({
             )}
             
             {unreadCount > 0 && (
-                <div className="absolute -top-2 -right-2 min-w-[20px] h-[20px] bg-rose-600 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-slate-950 pointer-events-none animate-in zoom-in px-1 leading-none shadow-sm z-floating-panel">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                </div>
+                <CountBadge
+                    count={unreadCount}
+                    max={9}
+                    size="md"
+                    variant="rose"
+                    className="absolute -top-2 -right-2 pointer-events-none animate-in zoom-in z-floating-panel"
+                    aria-hidden
+                />
             )}
         </div>
         
@@ -280,9 +286,7 @@ export const Header = ({
                                         {user.role !== 'guest' && <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-indigo-400 transition-colors">Vedi Profilo</span>}
                                     </div>
                                     {unreadCount > 0 && (
-                                        <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-                                            {unreadCount > 9 ? '9+' : unreadCount}
-                                        </span>
+                                        <CountBadge count={unreadCount} max={9} size="sm" variant="rose" shape="pill" pulse />
                                     )}
                                 </button>
                             </div>

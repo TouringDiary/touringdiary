@@ -66,13 +66,11 @@ export const loadGlobalCache = async (): Promise<void> => {
                 settingsCache.set(setting.key, setting.value);
               }
             }
-            if (apiData.designSystem) {
-              designRulesCache = apiData.designSystem;
-            }
+            // Design rules are loaded exclusively via getDesignSystemRules() so
+            // bootstrap snapshots cannot overwrite a fresher post-save Supabase fetch.
             console.log(
               `[Cache] Bootstrap loaded from API in ${Date.now() - startTime}ms.`,
-              settingsCache.size, "settings,",
-              designRulesCache?.length || 0, "design rules"
+              settingsCache.size, "settings"
             );
             return; // Successo via API -> Esci
           }
@@ -194,7 +192,7 @@ export const saveSetting = async (key: string, value: any): Promise<any> => {
 export const getDesignSystemRules = async (): Promise<StyleRule[]> => {
   // Se abbiamo i dati in cache (caricati dal bootstrap API), usiamoli
   if (designRulesCache && designRulesCache.length > 0) {
-    console.log("[DesignSystem] Using cached rules from bootstrap");
+    console.log("[DesignSystem] Using cached design rules (in-memory cache)");
     return designRulesCache;
   }
 

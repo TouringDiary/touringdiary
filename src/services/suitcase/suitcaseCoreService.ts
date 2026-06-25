@@ -58,6 +58,7 @@ export const parseUiState = (json: unknown): SuitcaseUiState => {
     category_setup?: unknown;
     dismissed_category_ids?: unknown;
     category_display_order?: unknown;
+    item_display_order?: unknown;
   };
   const result: SuitcaseUiState = { hidden_category_ids: [] };
 
@@ -83,6 +84,19 @@ export const parseUiState = (json: unknown): SuitcaseUiState => {
 
   if (obj.category_display_order !== undefined) {
     result.category_display_order = parseStringArray(obj.category_display_order, 'category_display_order');
+  }
+
+  if (obj.item_display_order !== undefined && obj.item_display_order !== null) {
+    if (typeof obj.item_display_order !== 'object' || Array.isArray(obj.item_display_order)) {
+      throw new Error('[suitcaseCoreService] Errore di validazione: ui_state.item_display_order deve essere un oggetto.');
+    }
+    const orderMap: Record<string, string[]> = {};
+    for (const [categoryId, value] of Object.entries(obj.item_display_order as Record<string, unknown>)) {
+      orderMap[categoryId] = parseStringArray(value, `item_display_order.${categoryId}`);
+    }
+    if (Object.keys(orderMap).length > 0) {
+      result.item_display_order = orderMap;
+    }
   }
 
   if (obj.category_setup !== undefined && obj.category_setup !== null) {
@@ -153,6 +167,9 @@ export const serializeUiState = (
   }
   if (uiState.category_display_order && uiState.category_display_order.length > 0) {
     payload.category_display_order = uiState.category_display_order;
+  }
+  if (uiState.item_display_order && Object.keys(uiState.item_display_order).length > 0) {
+    payload.item_display_order = uiState.item_display_order;
   }
   return payload as Json;
 };

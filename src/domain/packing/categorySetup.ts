@@ -7,6 +7,7 @@ import {
   normalizeCategoryName,
   SystemCategoryName,
 } from './packingCategories';
+import { getItemDisplayOrder } from '@/domain/packing/itemDisplayOrder';
 import { Suitcase, SuitcaseItem, SuitcaseUiState } from '@/types/suitcase';
 import type { CategorySetupEntry, CategorySetupMap } from './categorySetupTypes';
 
@@ -120,6 +121,7 @@ export function ensureUiStateForPersist(suitcase: Suitcase): SuitcaseUiState {
     category_setup: materialized.setup,
     dismissed_category_ids: materialized.dismissed_category_ids,
     category_display_order: materialized.category_display_order,
+    item_display_order: getItemDisplayOrder(suitcase),
   };
 }
 

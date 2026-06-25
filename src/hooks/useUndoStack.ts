@@ -133,6 +133,26 @@ export function useUndoStack<T>(maxSize = 30) {
     return actionToReturn;
   }, []);
 
+  const cancelUndo = useCallback(() => {
+    setState((prev) => {
+      if (prev.pointer >= prev.history.length - 1) return prev;
+      return {
+        ...prev,
+        pointer: prev.pointer + 1,
+      };
+    });
+  }, []);
+
+  const cancelRedo = useCallback(() => {
+    setState((prev) => {
+      if (prev.pointer < 0) return prev;
+      return {
+        ...prev,
+        pointer: prev.pointer - 1,
+      };
+    });
+  }, []);
+
   const resetStack = useCallback(() => {
     setState({ history: [], pointer: -1 });
   }, []);
@@ -145,6 +165,8 @@ export function useUndoStack<T>(maxSize = 30) {
     pushAction, 
     undo, 
     redo,
+    cancelUndo,
+    cancelRedo,
     resetStack,
     isExecuting,
     beginExecution,
@@ -154,5 +176,5 @@ export function useUndoStack<T>(maxSize = 30) {
     hasPersistentUndo,
     historySize: state.history.length,
     currentPointer: state.pointer
-  }), [pushAction, undo, redo, resetStack, isExecuting, beginExecution, endExecution, state.pointer, state.history.length, hasPersistentUndo]);
+  }), [pushAction, undo, redo, cancelUndo, cancelRedo, resetStack, isExecuting, beginExecution, endExecution, state.pointer, state.history.length, hasPersistentUndo]);
 }

@@ -4,9 +4,11 @@ import { Itinerary } from '@/types';
 import { Suitcase } from '@/types/suitcase';
 import { ToastVariant } from '@/types/toast';
 import {
-  executeSuitcaseDiaryAssociation,
-  SuitcaseAssociationError,
-} from '@/services/suitcase/associateSuitcaseWithDiary';
+  prepareForAssociation,
+} from '@/services/suitcase/prepareForAssociation';
+import { getDocumentSaveController } from '@/domain/save/documentSaveRegistry';
+import { linkSuitcaseToTripAsync } from '@/services/suitcase/suitcaseLinkingService';
+import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import { isAssociableSuitcase } from '@/utils/suitcaseDomain';
 import {
   associationCaseToModalVariant,
@@ -54,16 +56,12 @@ export interface RequestAssociationOptions {
 interface AssociationFlowProps {
   itinerary: Itinerary;
   savedProjects: Itinerary[];
-  itineraryId: string | null;
   isDiaryAssociable: boolean;
   currentUser: User | null;
   userSuitcases: Suitcase[];
   guestSuitcase?: Suitcase | null;
-  saveProject: (name?: string) => Promise<string | null>;
-  persistGuestSuitcase: (userId: string, title?: string) => Promise<Suitcase | null>;
-  linkSuitcaseToTrip: (itId: string, scId: string, userId: string) => Promise<void>;
   fetchLinkedIds: (overrideItineraryId?: string) => Promise<void>;
-  fetchUserSuitcases: () => void;
+  fetchUserSuitcases: () => Promise<void> | void;
   clearNewSuitcaseSession: () => void;
   setShowAssociationModal: (value: boolean) => void;
   setActiveTabId: (id: string | null) => void;
@@ -75,14 +73,10 @@ interface AssociationFlowProps {
 export const useSuitcaseAssociationFlow = ({
   itinerary,
   savedProjects,
-  itineraryId,
   isDiaryAssociable,
   currentUser,
   userSuitcases,
   guestSuitcase,
-  saveProject,
-  persistGuestSuitcase,
-  linkSuitcaseToTrip,
   fetchLinkedIds,
   fetchUserSuitcases,
   clearNewSuitcaseSession,
@@ -115,7 +109,7 @@ export const useSuitcaseAssociationFlow = ({
       associationCase: AssociationCase
     ) => {
       await fetchLinkedIds(result.itineraryId);
-      fetchUserSuitcases();
+      void fetchUserSuitcases();
       clearNewSuitcaseSession();
 
       if (navigation === 'editor') {
@@ -161,53 +155,63 @@ export const useSuitcaseAssociationFlow = ({
         return;
       }
 
-      const diaryPersisted = isDiaryPersisted(itinerary, savedProjects);
-      const suitcasePersisted = isSuitcasePersisted(suitcaseId);
-      const associationCase = resolveAssociationCase(diaryPersisted, suitcasePersisted);
-      const effectiveItineraryId = diaryPersisted ? itinerary.id : itineraryId;
+      const diaryController = getDocumentSaveController('diary');
+      const suitcaseController = getDocumentSaveController('suitcase-active');
+
+      if (!diaryController || !suitcaseController) {
+        showToast('Associazione non riuscita', 'Sistema di salvataggio non pronto. Riprova.', 'destructive');
+        return;
+      }
+
       const successNavigation = pendingSuccessNavigationRef.current;
+
+      const associationCase = resolveAssociationCase(
+        isDiaryPersisted(itinerary, savedProjects),
+        isSuitcasePersisted(suitcaseId)
+      );
 
       setIsAssociating(true);
       try {
-        const result = await executeSuitcaseDiaryAssociation({
-          associationCase,
-          userId: currentUser.id,
-          itineraryId: effectiveItineraryId,
+        const readiness = await prepareForAssociation({
+          isGuest: false,
+          onLoginRequired,
+          diaryController,
+          suitcaseController,
+          itinerary,
+          savedProjects,
           suitcaseId,
           diaryName: names?.diaryName ?? itinerary.name,
           suitcaseName: names?.suitcaseName ?? pendingSuitcaseTitle,
-          deps: {
-            saveDiary: async (name) => {
-              const savedId = await saveProject(name);
-              if (!savedId) {
-                throw new SuitcaseAssociationError(
-                  'Impossibile salvare il diario. Riprova.',
-                  'save-diary'
-                );
-              }
-              return savedId;
-            },
-            persistGuestSuitcase: async (userId, title) => {
-              const persisted = await persistGuestSuitcase(userId, title);
-              if (!persisted) {
-                throw new SuitcaseAssociationError(
-                  'Impossibile salvare la valigia. Riprova.',
-                  'persist-suitcase'
-                );
-              }
-              return persisted;
-            },
-            linkSuitcaseToTrip,
-          },
+          isSuitcaseNeverSaved: (id) => isDraftWorkspaceId(id),
         });
+
+        if (readiness.ready === false) {
+          if (readiness.reason === 'needs_name') {
+            return;
+          }
+          if (readiness.reason === 'error') {
+            showToast('Associazione non riuscita', 'Risolvi gli errori di salvataggio prima di collegare.', 'destructive');
+          }
+          return;
+        }
+
+        await linkSuitcaseToTripAsync(
+          readiness.itineraryId,
+          readiness.suitcaseId,
+          currentUser.id
+        );
 
         setLinkModalOpen(false);
         setPendingSuitcaseId(null);
         setPendingSuitcaseTitle('');
-        await applyAssociationSuccess(result, successNavigation, associationCase);
+        await applyAssociationSuccess(
+          { itineraryId: readiness.itineraryId, suitcaseId: readiness.suitcaseId },
+          successNavigation,
+          associationCase
+        );
       } catch (error) {
         const message =
-          error instanceof SuitcaseAssociationError
+          error instanceof Error
             ? error.message
             : 'Associazione non riuscita. Riprova.';
         showToast('Associazione non riuscita', message, 'destructive');
@@ -221,11 +225,7 @@ export const useSuitcaseAssociationFlow = ({
       applyAssociationSuccess,
       currentUser?.id,
       itinerary,
-      itineraryId,
-      linkSuitcaseToTrip,
       onLoginRequired,
-      persistGuestSuitcase,
-      saveProject,
       savedProjects,
       showToast,
     ]

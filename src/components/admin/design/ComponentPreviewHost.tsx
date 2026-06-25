@@ -24,15 +24,21 @@ const PREVIEW_TEXT: Record<string, string> = {
     admin_h2: 'Impostazioni e Dati',
     admin_card_title: 'Gestione Città',
     hero_title: 'La Tua Guida Definitiva',
-    hero_label: 'Scopri il mondo, un passo alla volta.',
+    hero_label: 'Trova la tua meta',
+    ai_title: 'Il Tuo Consulente',
     hero_button: "Inizia l'esplorazione",
     city_card_title: 'Roma',
     city_card_sub: "Capitale d'Italia",
     diary_title: 'Diario di Viaggio',
 };
 
-const resolveText = (rule: StyleRule, key: string): string =>
-    rule.preview_text || PREVIEW_TEXT[key] || key;
+// preview_text dal DB è la fonte di verità per l'editor; PREVIEW_TEXT solo se assente.
+const resolveText = (rule: StyleRule, key: string): string => {
+    const trimmed = rule.preview_text?.trim();
+    if (trimmed) return trimmed;
+    const baseKey = key.replace(/_mobile$/, '');
+    return PREVIEW_TEXT[baseKey] ?? PREVIEW_TEXT[key] ?? key;
+};
 
 // ── Typography fallback ───────────────────────────────────────────────────────
 //
@@ -86,29 +92,6 @@ const AdminPreview: React.FC<PreviewProps> = ({ rule, styleClass, componentKey }
         </div>
     </div>
 );
-
-// Composite: styleClass = classe live per l'elemento in editing.
-// Gli altri elementi usano la cache via useDynamicStyles.
-const HeroPreview: React.FC<PreviewProps> = ({ styleClass, componentKey, isMobile }) => {
-    const cachedLabel  = useDynamicStyles('hero_label',  isMobile);
-    const cachedTitle  = useDynamicStyles('hero_title',  isMobile);
-    const cachedButton = useDynamicStyles('hero_button', isMobile);
-
-    const labelClass  = componentKey === 'hero_label'  ? styleClass : cachedLabel;
-    const titleClass  = componentKey === 'hero_title'  ? styleClass : cachedTitle;
-    const buttonClass = componentKey === 'hero_button' ? styleClass : cachedButton;
-
-    const activeRing = (key: string) =>
-        componentKey === key ? 'outline-2 outline-dashed outline-indigo-500' : '';
-
-    return (
-        <div className="w-full flex flex-col items-center justify-center gap-2 text-center p-6 bg-slate-800 rounded-lg">
-            <div className={`${labelClass}  ${activeRing('hero_label')}  break-words`}>{PREVIEW_TEXT.hero_label}</div>
-            <h1  className={`${titleClass}  ${activeRing('hero_title')}  break-words`}>{PREVIEW_TEXT.hero_title}</h1>
-            <button className={`${buttonClass} ${activeRing('hero_button')} break-words`}>{PREVIEW_TEXT.hero_button}</button>
-        </div>
-    );
-};
 
 const CityCardPreview: React.FC<PreviewProps> = ({ styleClass, componentKey, isMobile }) => {
     const cachedTitle = useDynamicStyles('city_card_title', isMobile);
@@ -196,7 +179,6 @@ const PREVIEW_REGISTRY: RegistryEntry[] = [
     { strategy: 'prefix',  prefix: 'journey_',      component: JourneyPreview  },
     { strategy: 'prefix',  prefix: 'diary_',        component: DiaryPreview    },
     { strategy: 'prefix',  prefix: 'admin_',        component: AdminPreview    },
-    { strategy: 'prefix',  prefix: 'hero_',         component: HeroPreview     },
     { strategy: 'default',                           component: GenericPreview  },
 ];
 

@@ -4,6 +4,7 @@ import { Lock, LayoutDashboard, Settings, CalendarDays, Map, Store, TrendingUp, 
 import { User } from '../../../types/users';
 import { getRoleLabel } from '../../../services/userService';
 import { useAdminStyles } from '../../../hooks/useAdminStyles';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface AdminSidebarProps {
     isOpen: boolean;
@@ -59,9 +60,14 @@ export const AdminSidebar = ({
                 <span>{label}</span>
             </div>
             {badgeCount && badgeCount > 0 ? (
-                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm animate-pulse ${id === 'sponsors' ? 'bg-red-600 text-white ring-2 ring-red-400' : 'bg-rose-600 text-white'}`}>
-                    {badgeCount > 99 ? '9+' : badgeCount}
-                </span>
+                <CountBadge
+                    count={badgeCount}
+                    max={99}
+                    size="md"
+                    variant={id === 'sponsors' ? 'red-ring' : 'rose'}
+                    shape="pill"
+                    pulse
+                />
             ) : null}
         </button>
     );

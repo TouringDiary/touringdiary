@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, User, ShieldCheck, MessageSquare, Briefcase, ChevronRight, Check, CheckCheck } from 'lucide-react';
 import { User as UserType, SponsorRequest, PartnerLog } from '../../../types/index';
 import { sendUserMessage, markUserLogsAsRead } from '../../../services/sponsorService';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface UserMessagesTabProps {
     user: UserType;
@@ -91,7 +92,7 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
                                 <div className="flex justify-between items-center text-xs text-slate-400">
                                     <span className="truncate max-w-[80%]">{req.cityId}</span>
                                     {unreadCount > 0 && (
-                                        <span className="bg-rose-600 text-white text-[10px] font-black px-1.5 rounded-full min-w-[18px] text-center animate-pulse">{unreadCount}</span>
+                                        <CountBadge count={unreadCount} size="sm" variant="rose" shape="pill" pulse />
                                     )}
                                 </div>
                                 <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"/>

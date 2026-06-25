@@ -49,7 +49,7 @@ const GuidePanel: React.FC<GuidePanelProps> = ({
       'flex flex-col min-h-0',
       accent ? SUITCASE_GUIDE_SUGGESTIONS_SHELL_CLASS : SUITCASE_DASHBOARD_PANEL_SHELL_CLASS,
       compact ? SUITCASE_GUIDE_COMPACT_PADDING_CLASS : SUITCASE_DASHBOARD_PANEL_PADDING_CLASS,
-      grow ? 'flex-1' : 'shrink-0',
+      grow ? 'flex-1 max-lg:flex-none' : 'shrink-0',
     ].join(' ')}
     aria-label={ariaLabel}
   >
@@ -68,7 +68,7 @@ const SUGGESTIONS_COPY =
 export const SuitcaseDashboardGuideColumn: React.FC = () => {
   return (
     <aside
-      className="w-full lg:w-[280px] xl:w-[300px] shrink-0 flex flex-col min-h-0 lg:h-full lg:self-stretch gap-3 md:gap-4"
+      className="w-full lg:w-[280px] xl:w-[300px] shrink-0 flex flex-col min-h-0 max-lg:gap-4 lg:h-full lg:self-stretch gap-3 md:gap-4"
       aria-label="Guida rapida alla dashboard"
     >
       <GuidePanel aria-label="La dashboard" grow>
@@ -79,7 +79,7 @@ export const SuitcaseDashboardGuideColumn: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-col flex-1 min-h-0 justify-center divide-y divide-white/[0.06]">
+        <div className="flex flex-col flex-1 min-h-0 max-lg:flex-none justify-center max-lg:justify-start divide-y divide-white/[0.06]">
           <GuideItem
             icon={<TripIcon className="w-4 h-4" aria-hidden />}
             title="Diario"

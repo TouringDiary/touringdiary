@@ -7,6 +7,7 @@ import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSl
 import { LightboxData } from './GalleryLightbox';
 // CORREZIONE: Usa il percorso relativo per garantire una singola istanza del context
 import { useInteraction } from '../../../context/InteractionContext';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface PhotoCardProps {
     photo: PhotoSubmission;
@@ -169,7 +170,7 @@ export const GalleryGrid = ({
                     ) : (
                         [...Array(3)].map((_, idx) => (
                             <div key={`empty-${idx}`} className="snap-center flex-shrink-0 w-[50vw] md:w-[280px] h-[150px] relative rounded-xl overflow-hidden border border-slate-800 bg-slate-900/30 flex flex-col items-center justify-center gap-2 group transition-all">
-                                <div className="absolute top-2 left-2 z-floating-panel bg-slate-800/80 backdrop-blur px-2 py-0.5 rounded-full text-slate-500 font-bold text-[10px] border border-slate-700">#{idx + 1}</div>
+                                <CountBadge display={`#${idx + 1}`} size="sm" variant="dark" position="overlay-tl" className="z-floating-panel backdrop-blur" />
                                 <Camera className="w-6 h-6 text-slate-700 group-hover:text-slate-600 transition-colors"/>
                                 <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">In Arrivo</span>
                             </div>

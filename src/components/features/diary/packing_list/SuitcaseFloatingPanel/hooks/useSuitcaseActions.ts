@@ -84,6 +84,8 @@ interface ActionsProps {
   setPendingMergeSources: (v: Suitcase[] | null) => void;
   handleLinkExisting: (suitcaseId: string) => Promise<void>;
   templatePreviewOverlays?: Record<string, CategorySetupMap>;
+  onDocumentDirty?: () => void;
+  onSuitcaseLocalUpdate?: (suitcaseId: string, updates: Partial<Suitcase>) => void;
 }
 
 export const useSuitcaseActions = ({
@@ -140,6 +142,8 @@ export const useSuitcaseActions = ({
   setPendingMergeSources,
   handleLinkExisting,
   templatePreviewOverlays = {},
+  onDocumentDirty,
+  onSuitcaseLocalUpdate,
 }: ActionsProps) => {
 
   const openNewSuitcaseEditor = (suitcase: Suitcase) => {
@@ -472,6 +476,12 @@ export const useSuitcaseActions = ({
 
   const handleSaveSuitcaseTitle = async () => {
     if (!activeTabId || !tempTitle.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    if (onDocumentDirty && onSuitcaseLocalUpdate) {
+      onSuitcaseLocalUpdate(activeTabId, { title: tempTitle.trim() });
+      onDocumentDirty();
       setIsEditingTitle(false);
       return;
     }

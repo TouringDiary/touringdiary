@@ -7,7 +7,6 @@ import type { SuitcaseSourceTab } from '../types/sourceTab';
 
 interface LifecycleProps {
   itineraryId: string | null;
-  fetchGlobalTemplates: () => void;
   activeTabId: string | null;
   setActiveTabId: (id: string | null) => void;
   viewMode: SuitcasePanelViewMode;
@@ -19,7 +18,6 @@ interface LifecycleProps {
 
 export const useSuitcaseLifecycle = ({
   itineraryId,
-  fetchGlobalTemplates,
   activeTabId,
   setActiveTabId,
   viewMode,
@@ -52,11 +50,10 @@ export const useSuitcaseLifecycle = ({
     }
   }, [itineraryId]);
 
-  // Initializations
+  // Linked ids: caricamento iniziale e refresh su cambio itineraryId (via fetchLinkedIds).
   useEffect(() => {
-    fetchGlobalTemplates();
     fetchLinkedIds();
-  }, [fetchGlobalTemplates, fetchLinkedIds]);
+  }, [fetchLinkedIds]);
 
   // Il filtraggio e la selezione dei tab sono ora delegati a useSuitcasePanelData
   // per garantire un'unica sorgente di verità e prevenire render loop.

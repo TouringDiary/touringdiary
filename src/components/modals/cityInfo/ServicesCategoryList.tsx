@@ -4,6 +4,7 @@ import { Plus, Info, MapPin, ArrowLeft, Phone, Globe, Check, Box, Lightbulb, Pen
 import { CityService, SuggestionType } from '@/types';
 import { getServicesConfig } from '../../../constants/services';
 import { affiliateTrackingService } from '../../../services/affiliateTrackingService';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface ServicesCategoryListProps {
     servicesList: CityService[];
@@ -113,7 +114,10 @@ export const ServicesCategoryList = ({
                 <h3 className={`text-3xl font-display font-bold uppercase tracking-wide ${activeCatInfo?.color}`}>
                     {activeCatInfo?.label}
                 </h3>
-                <span className="ml-auto text-xs font-bold bg-slate-800 text-slate-400 px-3 py-1 rounded-full">{servicesList.length} Risultati</span>
+                <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-normal bg-slate-800 text-slate-400 px-3 py-1 rounded-full">
+                    <CountBadge count={servicesList.length} size="sm" variant="neutral" className="bg-slate-700 text-slate-300 border-0 min-w-[18px]" />
+                    Risultati
+                </span>
             </div>
 
             {servicesList.length === 0 ? (

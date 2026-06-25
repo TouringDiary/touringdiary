@@ -6,6 +6,7 @@ import { RegenerateConfirmModal } from './RegenerateConfirmModal';
 import { useAdminExport } from '../../../hooks/useAdminExport';
 import { AdminMultiSelect } from '../common/AdminMultiSelect';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface PoiToolbarProps {
     state: {
@@ -340,7 +341,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({ state, counts, actions, 
                             >
                                 <cat.icon className="w-4 h-4" />
                                 <span className="text-[10px] font-black uppercase tracking-wide">{cat.label}</span>
-                                <span className={`text-[9px] px-1.5 rounded-full ${isActive ? 'bg-black/20' : 'bg-slate-800'}`}>{count}</span>
+                                <CountBadge count={count} size="xs" variant={isActive ? 'neutral-active' : 'neutral'} shape="pill" />
                             </button>
                         );
                     })}

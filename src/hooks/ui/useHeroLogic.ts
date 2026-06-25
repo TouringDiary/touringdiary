@@ -5,6 +5,7 @@ import { aiErrorUserMessage, isAiEdgeError } from '../../services/ai/aiEdgeError
 import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
 import { getSetting, SETTINGS_KEYS } from '../../services/settingsService';
 import { getUniqueCityTypes, getActiveContinents, getActiveNations, getActiveRegions, getActiveTouristZones } from '../../services/geoRegistryService';
+import { useTypingCycle } from './useTypingCycle';
 
 interface UseHeroLogicProps {
     cityManifest: CitySummary[];
@@ -84,11 +85,9 @@ export const useHeroLogic = ({
 
     // --- STATE: VISUALS (TYPING & HERO) ---
     const [heroImage, setHeroImage] = useState<string>('');
-    const [typingText, setTypingText] = useState('');
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [loopNum, setLoopNum] = useState(0);
-    const [typingSpeed, setTypingSpeed] = useState(100);
     const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+
+    const typingText = useTypingCycle(aiSuggestions, Boolean(aiResponse || isAiLoading));
 
 
 
@@ -282,35 +281,6 @@ export const useHeroLogic = ({
         window.addEventListener('mousedown', handleClickOutside);
         return () => window.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    // --- EFFECT: Typing Animation ---
-    useEffect(() => {
-        if (aiResponse || isAiLoading || aiSuggestions.length === 0) return;
-
-        const handleType = () => {
-            const i = loopNum % aiSuggestions.length;
-            const fullText = aiSuggestions[i];
-
-            setTypingText(isDeleting 
-                ? fullText.substring(0, typingText.length - 1) 
-                : fullText.substring(0, typingText.length + 1)
-            );
-
-            let speed = isDeleting ? 30 : 60;
-            if (!isDeleting && typingText === fullText) {
-                speed = 2500; 
-                setIsDeleting(true);
-            } else if (isDeleting && typingText === '') {
-                setIsDeleting(false);
-                setLoopNum(loopNum + 1);
-                speed = 500;
-            }
-            setTypingSpeed(speed);
-        };
-
-        const timer = setTimeout(handleType, typingSpeed);
-        return () => clearTimeout(timer);
-    }, [typingText, isDeleting, loopNum, typingSpeed, aiResponse, isAiLoading, aiSuggestions]);
 
     // --- HANDLERS: Filters ---
     const handleContinentChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setContinent(e.target.value); setNation(''); setRegion(''); setSelectedZone(''); setSelectedCity(''); };

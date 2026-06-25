@@ -8,6 +8,7 @@ import { AnomalyRecord, PointOfInterest } from '../../../types/index';
 import { ScheduleMatrix } from './ScheduleMatrix';
 import { analyzeSchedule } from '../../../utils/scheduleUtils'; 
 import { ImageWithFallback } from '../../common/ImageWithFallback';
+import { CountBadge } from '@/components/ui/CountBadge';
 import { AdminPoiModal } from '../AdminPoiModal';
 import { useAdminData } from '../../../hooks/useAdminData'; 
 
@@ -216,7 +217,7 @@ export const AnomalyInspector = ({
                     >
                         <Filter className="w-3.5 h-3.5"/> 
                         {activeFiltersCount > 0 ? activeFilterLabel : 'Filtri Avanzati'}
-                        {activeFiltersCount > 0 && <span className="bg-white text-indigo-600 px-1.5 rounded-full text-[9px] min-w-[1.2rem] text-center ml-1">{activeFiltersCount}</span>}
+                        {activeFiltersCount > 0 && <CountBadge count={activeFiltersCount} size="sm" variant="white" shape="pill" className="ml-1" />}
                     </button>
 
                     <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 overflow-x-auto max-w-full">

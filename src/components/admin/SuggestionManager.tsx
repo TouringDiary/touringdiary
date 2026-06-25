@@ -7,6 +7,7 @@ import { SuggestionReviewModal } from '../modals/SuggestionReviewModal';
 import { User } from '../../types/users';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { AdminPageHeader } from './common/AdminPageHeader';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface Props {
     onUserUpdate?: (user: User) => void;
@@ -94,8 +95,9 @@ export const SuggestionManager = ({ onUserUpdate }: Props) => {
                 className="!mb-6"
                 badge={
                     pendingCount > 0 ? (
-                        <span className="bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                            {pendingCount} NUOVE
+                        <span className="inline-flex items-center gap-1.5 bg-rose-600 text-white text-xs px-2 py-1 rounded-full shadow-lg animate-pulse font-normal uppercase tracking-wide">
+                            <CountBadge count={pendingCount} size="sm" variant="white" className="bg-white/20 text-white border-0 min-w-[18px]" />
+                            NUOVE
                         </span>
                     ) : undefined
                 }

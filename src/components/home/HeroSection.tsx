@@ -2,6 +2,7 @@
 import React from 'react';
 import { CitySummary } from '../../types/index';
 import { useHeroLogic } from '../../hooks/ui/useHeroLogic';
+import { useMobileCompact } from '../../hooks/ui/useMobileCompact';
 import { HeroFilterModule } from './hero/HeroFilterModule';
 import { HeroAiModule } from './hero/HeroAiModule';
 
@@ -18,6 +19,8 @@ interface HeroSectionProps {
 }
 
 export const HeroSection = (props: HeroSectionProps) => {
+    const isMobileCompact = useMobileCompact();
+
     // --- BUSINESS LOGIC (HOOK) ---
     const {
         continent, setContinent,
@@ -62,8 +65,38 @@ export const HeroSection = (props: HeroSectionProps) => {
         }
     }, [filteredCities, props.onFilteredCitiesChange]);
 
+    const handleSetFiltersExpanded = React.useCallback(
+        (expanded: boolean) => {
+            setIsFiltersExpanded(expanded);
+            if (expanded && isMobileCompact) {
+                setIsAiExpanded(false);
+            }
+        },
+        [isMobileCompact, setIsFiltersExpanded, setIsAiExpanded]
+    );
+
+    const handleSetAiExpanded = React.useCallback(
+        (expanded: boolean) => {
+            setIsAiExpanded(expanded);
+            if (expanded && isMobileCompact) {
+                setIsFiltersExpanded(false);
+            }
+        },
+        [isMobileCompact, setIsFiltersExpanded, setIsAiExpanded]
+    );
+
+    const mobileHeroExpanded = isMobileCompact && (isFiltersExpanded || isAiExpanded);
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[16rem] transition-all duration-500 ease-in-out">
+        <div
+            className={`grid gap-2 md:gap-4 transition-all duration-300 ease-in-out lg:grid-cols-12 lg:h-[16rem] ${
+                isMobileCompact
+                    ? mobileHeroExpanded
+                        ? 'grid-cols-1'
+                        : 'grid-cols-2 items-stretch'
+                    : 'grid-cols-1'
+            }`}
+        >
             
             {/* SINISTRA: FILTRI & RICERCA */}
             <HeroFilterModule 
@@ -79,6 +112,7 @@ export const HeroSection = (props: HeroSectionProps) => {
                 heroImage={heroImage}
                 activeCategories={props.activeCategories}
                 selectedSeason={selectedSeason}
+                isMobileCompact={isMobileCompact}
 
                 // Data
                 uniqueZones={uniqueZones}
@@ -90,7 +124,7 @@ export const HeroSection = (props: HeroSectionProps) => {
                 searchRef={searchRef}
 
                 // Handlers
-                setIsFiltersExpanded={setIsFiltersExpanded}
+                setIsFiltersExpanded={handleSetFiltersExpanded}
                 setManualCitySearch={setManualCitySearch}
                 setIsSearchFocused={setIsSearchFocused}
                 handleContinentChange={handleContinentChange}
@@ -119,7 +153,8 @@ export const HeroSection = (props: HeroSectionProps) => {
                 typingText={typingText}
                 aiQuery={aiQuery}
                 aiRuntimeStatus={aiRuntimeStatus}
-                setIsAiExpanded={setIsAiExpanded}
+                isMobileCompact={isMobileCompact}
+                setIsAiExpanded={handleSetAiExpanded}
                 setAiQuery={setAiQuery}
                 setAiResponse={setAiResponse}
                 handleAiSubmit={handleAiSubmit}

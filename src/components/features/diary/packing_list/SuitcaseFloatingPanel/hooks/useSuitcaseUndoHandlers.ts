@@ -1,11 +1,12 @@
 import { UndoAction } from '@/hooks/useUndoStack';
 import { useFloatingPanelUndoIntegration } from './useFloatingPanelUndoIntegration';
 import { SuitcaseItem } from '@/types/suitcase';
+import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
 
 import { ToastVariant } from '@/types/toast';
 
 interface UndoHandlersProps {
-  updateItem: (id: string, updates: Partial<SuitcaseItem>) => Promise<void>;
+  updateItem: (id: string, updates: UpdateSuitcaseItemDto) => Promise<void>;
   addItem: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
   deleteItem: (id: string) => Promise<void>;
   fetchUserSuitcases: () => Promise<void> | void;

@@ -4,6 +4,12 @@
  * Authoritative numerical values. Semantics and ownership are defined in
  * src/layering/layerRegistry.ts — refer there before adding new tiers.
  *
+ * ── Home page stack (local + shell) ───────────────────────────────────────
+ *    10   homeCardOverlay    — badge/overlay sopra immagine card (locale alla card)
+ *    10   homeHeroSurface    — contenuto Hero sopra sfondi decorativi (locale alla Hero)
+ *    20   homeHeroPopover    — dropdown/ricerca Hero sopra la shell Hero (locale)
+ *   200   homeHero           — shell Hero sticky; sopra card e badge in scroll
+ *
  * ── Focus workspace stack (9000–9399) ─────────────────────────────────────
  *   9000  focusDim          — workspace dim overlay (FocusOverlay, workspace mode)
  *   9100  focusCompanion    — portaled diary + sponsor rail (Sidebar)
@@ -31,6 +37,21 @@ export const Z_BASE = 0;
 // ── Tier: stickyInScroll (local to scroll container only) ─────────────────────
 export const Z_STICKY_IN_SCROLL = 100;
 
+// ── Home page stack ───────────────────────────────────────────────────────────
+// Z_HOME_CARD_OVERLAY and Z_HOME_HERO_SURFACE both use 10 intentionally: they belong to
+// different stacking contexts (card media vs. hero shell) and never compete with each other.
+/** Overlay locale su immagine card (badge, titoli sponsor). Non compete con la Hero. */
+export const Z_HOME_CARD_OVERLAY = 10;
+
+/** Shell Hero in HomeContent — sopra card e badge durante lo scroll. CSS: z-home-hero */
+export const Z_HOME_HERO = 200;
+
+/** Contenuto Hero sopra sfondi/blob decorativi. Locale alla shell Hero. CSS: z-home-hero-surface. Per la semantica e le motivazioni del valore condiviso con Z_HOME_CARD_OVERLAY, vedere layerRegistry.ts. */
+export const Z_HOME_HERO_SURFACE = 10;
+
+/** Dropdown filtri, risultati ricerca e controlli aperti nella Hero. Locale alla shell Hero. */
+export const Z_HOME_HERO_POPOVER = 20;
+
 // ── Focus workspace stack ─────────────────────────────────────────────────────
 /** Workspace dim overlay. Dims dimmedBackground; bypassed by companion/chrome/active. */
 export const Z_FOCUS_DIM = 9000;
@@ -41,7 +62,10 @@ export const Z_FOCUS_COMPANION = 9100;
 /** News ticker + header. Above workspace dim; geometrically above overlay top edge. */
 export const Z_GLOBAL_CHROME = 9200;
 
-/** Primary workspace panel (SuitcaseFloatingPanel, future workspaces). */
+/**
+ * Primary workspace panel (SuitcaseFloatingPanel, future workspaces).
+ * Elevates to Z_MODAL_NESTED when companion is modal-tier — resolveWorkspacePanelZIndex().
+ */
 export const Z_FOCUS_ACTIVE = 9300;
 
 /**

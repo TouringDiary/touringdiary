@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SuitcaseItem } from '@/types/suitcase';
 import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
 import { SuitcaseHeader } from '../suitcase/SuitcaseHeader';
@@ -10,6 +10,7 @@ import { CategorySetupConfigurationModal } from '../suitcase/CategorySetupConfig
 import { isAssociableSuitcase, isTdTemplate } from '@/utils/suitcaseDomain';
 import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import type { SuitcasePanelComposition } from './hooks/useSuitcasePanelComposition';
+import { SaveAsModal } from '@/components/modals/SaveAsModal';
 
 interface Props {
   composition: SuitcasePanelComposition;
@@ -41,7 +42,11 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
     handleCancelWorkspacePause,
     handleConfirmAssociateSaved,
     handleActivateOptionalCategory,
+    suitcaseDocumentSave,
   } = composition;
+
+  const [suitcaseSaveAsOpen, setSuitcaseSaveAsOpen] = useState(false);
+  const isGuest = !data.currentUser || data.currentUser.role === 'guest';
 
   if (showLoadingShell) {
     return (
@@ -131,11 +136,41 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         performRedo={performRedo}
         canUndo={canUndo}
         canRedo={canRedo}
+        isGuest={isGuest}
+        onGuestSaveAction={handleLogin}
+        onSave={() => {
+          if (suitcaseDocumentSave.isSuitcaseNeverSaved()) {
+            setSuitcaseSaveAsOpen(true);
+          } else {
+            void suitcaseDocumentSave.save();
+          }
+        }}
+        onSaveAs={() => setSuitcaseSaveAsOpen(true)}
+        onAutosaveToggle={suitcaseDocumentSave.setAutosaveEnabled}
+        savePhase={suitcaseDocumentSave.phase}
+        lastSavedAt={suitcaseDocumentSave.lastSavedAt}
+        lastSaveError={suitcaseDocumentSave.lastError}
+        autosaveEnabled={suitcaseDocumentSave.autosaveEnabled}
+        canUseAutosave={suitcaseDocumentSave.canUseAutosave}
       />
+      {suitcaseSaveAsOpen && data.activeSuitcase && (
+        <SaveAsModal
+          isOpen={suitcaseSaveAsOpen}
+          onClose={() => setSuitcaseSaveAsOpen(false)}
+          onConfirm={async (name) => {
+            const isFirst = suitcaseDocumentSave.isSuitcaseNeverSaved();
+            if (isFirst) {
+              await suitcaseDocumentSave.save({ name });
+            } else {
+              await suitcaseDocumentSave.saveAs(name);
+            }
+            setSuitcaseSaveAsOpen(false);
+          }}
+          currentName={data.activeSuitcase.title}
+        />
+      )}
       <div className="flex flex-1 flex-col min-h-0 overflow-x-visible overflow-y-hidden">
-        <div className={`flex flex-1 flex-col min-h-0 overflow-x-visible p-0 ${
-          data.panelState.viewMode === 'selector' ? 'overflow-y-auto' : 'overflow-y-hidden'
-        }`}>
+        <div className="flex flex-1 flex-col min-h-0 overflow-x-visible overflow-y-hidden p-0">
           {data.isLoadingUser && data.panelState.viewMode === 'selector' && (
             <div className="text-center text-slate-400 py-12">Caricamento valigie...</div>
           )}
@@ -276,7 +311,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
                 if (data.activeSuitcase) {
                   // Passiamo solo i dati necessari al dominio, senza mockItem fittizi
                   await data.mutations.rejectItem(data.activeSuitcase.id, { name, category });
-                  await data.fetchBlacklist();
+                  await data.fetchBlacklist({ force: true });
                   data.setAiSuggestions(prev => prev.map(s => s.name === name ? { ...s, status: 'rejected' } : s));
                 }
               }}

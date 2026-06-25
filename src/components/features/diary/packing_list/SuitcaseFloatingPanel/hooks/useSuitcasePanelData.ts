@@ -35,6 +35,7 @@ import {
 } from '@/utils/guestSuitcaseHelper';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
 import { resolveDefaultSuitcaseTab } from '../types/sourceTab';
+import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
 export {
   resolveInitialSuitcaseTab,
@@ -109,7 +110,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
   /**
    * 2. Template globali
    */
-  const { globalTemplates, fetchGlobalTemplates, isLoading: isLoadingGlobalTemplates, fetchError: globalTemplatesFetchError } = useGlobalTemplates();
+  const { globalTemplates, isLoading: isLoadingGlobalTemplates, fetchError: globalTemplatesFetchError } = useGlobalTemplates();
 
   /**
    * 3. Lifecycle
@@ -124,7 +125,6 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     fetchLinkedIds
   } = useSuitcaseLifecycle({
     itineraryId: itineraryId || null,
-    fetchGlobalTemplates,
     activeTabId: panelState.activeTabId,
     setActiveTabId: panelState.setActiveTabId,
     viewMode: panelState.viewMode,
@@ -178,6 +178,7 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
   const [isFetchingBlacklist, setIsFetchingBlacklist] = useState(false);
   const [isBlacklistFlashing, setIsBlacklistFlashing] = useState(false);
   const blacklistFlashTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const blacklistLoadedForIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -187,30 +188,43 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     };
   }, []);
 
+  useEffect(() => {
+    setBlacklistItems([]);
+    blacklistLoadedForIdRef.current = null;
+  }, [activeSuitcase?.id]);
+
   const triggerBlacklistFlash = useCallback(() => {
     if (blacklistFlashTimeoutRef.current) clearTimeout(blacklistFlashTimeoutRef.current);
     setIsBlacklistFlashing(true);
     blacklistFlashTimeoutRef.current = setTimeout(() => setIsBlacklistFlashing(false), 2000);
   }, []);
 
-  const fetchBlacklist = useCallback(async () => {
-    if (!activeSuitcase?.id) {
+  const fetchBlacklist = useCallback(async (options?: { force?: boolean }) => {
+    const suitcaseId = activeSuitcase?.id;
+    if (!suitcaseId) {
       setBlacklistItems([]);
+      blacklistLoadedForIdRef.current = null;
       return;
     }
 
-    if (isDraftWorkspaceId(activeSuitcase.id)) {
+    if (!options?.force && blacklistLoadedForIdRef.current === suitcaseId) {
+      return;
+    }
+
+    if (isDraftWorkspaceId(suitcaseId)) {
       const draft = getGuestSuitcase();
       const locals =
-        draft?.id === activeSuitcase.id ? getDraftLocalRejections(draft) : [];
-      setBlacklistItems(mapDraftLocalRejectionsToRuntime(locals, activeSuitcase.id));
+        draft?.id === suitcaseId ? getDraftLocalRejections(draft) : [];
+      setBlacklistItems(mapDraftLocalRejectionsToRuntime(locals, suitcaseId));
+      blacklistLoadedForIdRef.current = suitcaseId;
       return;
     }
 
     setIsFetchingBlacklist(true);
     try {
-      const rejections = await getRejectionsBySuitcaseAsync(activeSuitcase.id);
+      const rejections = await getRejectionsBySuitcaseAsync(suitcaseId);
       setBlacklistItems(rejections);
+      blacklistLoadedForIdRef.current = suitcaseId;
     } catch (e) {
       console.error("[useSuitcasePanelData] Error fetching blacklist:", e);
     } finally {
@@ -218,9 +232,10 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     }
   }, [activeSuitcase?.id]);
 
+  // Carica blacklist al cambio valigia attiva — badge toolbar corretto senza aprire Rifiutati.
   useEffect(() => {
-    fetchBlacklist();
-  }, [fetchBlacklist]);
+    void fetchBlacklist();
+  }, [activeSuitcase?.id, fetchBlacklist]);
 
   /**
    * 7. Readiness selectors
@@ -328,8 +343,16 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
     panelState.activeTabId,
   ]);
 
+  const prevPanelViewModeRef = useRef<SuitcasePanelViewMode | null>(null);
+
+  // Refresh selector: solo al ritorno da editor/viewer (mount iniziale coperto da lifecycle + useUserSuitcases).
   useEffect(() => {
+    const prevViewMode = prevPanelViewModeRef.current;
+    prevPanelViewModeRef.current = panelState.viewMode;
+
     if (panelState.viewMode !== 'selector') return;
+    if (prevViewMode === null || prevViewMode === 'selector') return;
+
     void fetchLinkedIds();
     void fetchUserSuitcases();
   }, [panelState.viewMode, fetchLinkedIds, fetchUserSuitcases]);

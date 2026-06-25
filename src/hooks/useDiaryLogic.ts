@@ -5,6 +5,8 @@ import { publishUserItinerary } from '../services/dataService';
 import { User, ItineraryItem } from '../types/index';
 import { useUndoStack, UndoAction } from './useUndoStack';
 import { useDiaryUndo } from './useDiaryUndo';
+import { useDiaryDocumentSave } from './save/useDiaryDocumentSave';
+import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
 
 interface UseDiaryLogicProps {
     user: User;
@@ -18,6 +20,8 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         itinerary, setItinerary, removeItem, highlightDates, setHighlightDates, 
         highlightedItemId, setHighlightedItemId, updateDayStyle, saveProject, savedProjects, loadProject, clearItinerary, addItem, deleteProject 
     } = useItinerary();
+
+    const isGuest = user.role === 'guest';
 
     // --- LOCAL STATE ---
     const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
@@ -57,7 +61,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     }, []);
 
     // --- UNDO/REDO STACK ---
-    const { pushAction, undo, redo, canUndo, canRedo, beginExecution, endExecution, isExecuting } = useUndoStack<any>(50);
+    const { pushAction, undo, redo, canUndo, canRedo, beginExecution, endExecution, isExecuting, resetStack } = useUndoStack<any>(50);
     const { performUndo, performRedo } = useDiaryUndo({
         undo,
         redo,
@@ -68,6 +72,16 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         isExecuting,
         beginExecution,
         endExecution
+    });
+
+    const documentSave = useDiaryDocumentSave({
+        itinerary,
+        savedProjects,
+        isGuest,
+        saveProject,
+        onSaveAsNavigate: () => {
+            resetStack();
+        },
     });
 
     // --- EFFECTS ---
@@ -115,19 +129,19 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     // Wrapper per Save Project per mostrare il modale di successo
     const handleSaveProject = useCallback(async (nameOverride?: string, isSaveAs?: boolean): Promise<string | null> => {
         try {
-            const savedId = await saveProject(nameOverride, isSaveAs);
-            if (savedId) {
-                setToastMessage({ title: "Salvataggio completato!", xp: 0 });
+            if (isGuest) return null;
+            if (isSaveAs && nameOverride) {
+                return await documentSave.saveAs(nameOverride);
             }
-            return savedId;
-        } catch (e: any) {
-            console.error("Save error:", e);
-            setToastMessage({ title: "Errore durante il salvataggio in cloud!", xp: 0 });
-            // Timeout per far scomparire il messaggio di errore
-            setTimeout(() => setToastMessage(null), 4000);
+            if (documentSave.needsNameForSave() && !nameOverride) {
+                return null;
+            }
+            return await documentSave.save({ name: nameOverride });
+        } catch (e: unknown) {
+            console.error('Save error:', e);
             return null;
         }
-    }, [saveProject]);
+    }, [documentSave, isGuest]);
 
     const handleDateChange = useCallback((type: 'startDate' | 'endDate', newValue: string) => {
         const currentStart = itinerary.startDate;
@@ -444,8 +458,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             diaryToast,
             isDraggingOver,
             memoTargetItem,
-            canUndo,
-            canRedo
+            canUndo: canUndo && documentSave.phase !== 'saving',
+            canRedo: canRedo && documentSave.phase !== 'saving',
+            documentSave,
+            guestSaveMessage: GUEST_SAVE_MESSAGE,
         },
 
         // Setters

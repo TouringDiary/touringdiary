@@ -2,10 +2,16 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { getCachedSetting, SETTINGS_KEYS, saveSetting, loadGlobalCache } from '../services/settingsService';
 import type { StyleRule } from '../types/designSystem';
 
+/** Runtime config bag: settings keys + typed design-system maps. */
+export type AppConfigs = {
+  design_system_rules?: Record<string, StyleRule>;
+  design_system?: { components: Record<string, StyleRule> };
+  [key: string]: any;
+};
 
 // Tipizzazione per le configurazioni
 type ConfigContextType = {
-  configs: { [key: string]: any };
+  configs: AppConfigs;
   isLoading: boolean;
   refreshConfig: () => Promise<void>;
   updateSetting: (key: string, value: any) => Promise<void>;
@@ -26,7 +32,7 @@ export const useConfig = () => {
 
 // Componente Provider
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [configs, setConfigs] = useState<{ [key: string]: any }>({});
+  const [configs, setConfigs] = useState<AppConfigs>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const loadConfig = useCallback(async () => {
@@ -37,7 +43,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       await loadGlobalCache();
 
-      const newConfigs: { [key: string]: any } = {};
+      const newConfigs: AppConfigs = {};
 
       const allKeys = Object.values(SETTINGS_KEYS).filter(Boolean);
 
@@ -53,11 +59,12 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const rules = await Promise.race([
           getDesignSystemRules(),
           new Promise<StyleRule[]>(resolve => setTimeout(() => resolve([]), 3000))
-        ]) as StyleRule[];
+        ]);
 
-
-        const rulesMap = (rules as StyleRule[]).reduce((acc: any, rule: any) => {
-          acc[rule.component_key] = rule;
+        const rulesMap = rules.reduce<Record<string, StyleRule>>((acc, rule) => {
+          if (rule.component_key) {
+            acc[rule.component_key] = rule;
+          }
           return acc;
         }, {});
 

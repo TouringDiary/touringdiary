@@ -4,6 +4,11 @@ import {
   materializeCategorySetupForWrite,
   setCategoryEnabled,
 } from '@/domain/packing/categorySetup';
+import {
+  cloneItemDisplayOrder,
+  getItemDisplayOrder,
+  removeCategoryFromDisplayOrder,
+} from '@/domain/packing/itemDisplayOrder';
 import { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
 
 export type CategoryDeleteTarget = {
@@ -19,6 +24,7 @@ export type CategoryDeleteSnapshot = {
   previousHiddenCategoryIds: string[];
   previousDismissedCategoryIds: string[];
   previousCategoryDisplayOrder: string[];
+  previousItemDisplayOrder: Record<string, string[]>;
   previousCategorySetup: CategorySetupMap;
 };
 
@@ -35,6 +41,7 @@ export function createCategoryDeleteSnapshot(
     previousHiddenCategoryIds: [...materialized.hidden_category_ids],
     previousDismissedCategoryIds: [...materialized.dismissed_category_ids],
     previousCategoryDisplayOrder: [...materialized.category_display_order],
+    previousItemDisplayOrder: cloneItemDisplayOrder(getItemDisplayOrder(suitcase)),
     previousCategorySetup: { ...materialized.setup },
   };
 }
@@ -47,6 +54,10 @@ export function computeCategoryDeleteUpdates(
   const materialized = materializeCategorySetupForWrite(suitcase);
   const customCategories = suitcase.custom_categories ?? [];
   const nextItems = items.filter((item) => item.category !== target.name);
+  const nextItemDisplayOrder = removeCategoryFromDisplayOrder(
+    getItemDisplayOrder(suitcase),
+    target.id
+  );
 
   if (target.source === 'user') {
     return {
@@ -62,6 +73,7 @@ export function computeCategoryDeleteUpdates(
         category_display_order: materialized.category_display_order.filter(
           (id) => id !== target.id
         ),
+        item_display_order: nextItemDisplayOrder,
       },
     };
   }
@@ -78,6 +90,7 @@ export function computeCategoryDeleteUpdates(
       category_display_order: materialized.category_display_order.filter(
         (id) => id !== target.id
       ),
+      item_display_order: nextItemDisplayOrder,
     },
   };
 }
@@ -92,6 +105,7 @@ export function computeCategoryRestoreUpdates(
       hidden_category_ids: snapshot.previousHiddenCategoryIds,
       dismissed_category_ids: snapshot.previousDismissedCategoryIds,
       category_display_order: snapshot.previousCategoryDisplayOrder,
+      item_display_order: snapshot.previousItemDisplayOrder,
       category_setup: snapshot.previousCategorySetup,
     },
   };

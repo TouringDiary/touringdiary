@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, RotateCcw } from 'lucide-react';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
 
 interface HiddenCategoriesPanelProps {
@@ -16,17 +16,20 @@ export const HiddenCategoriesPanel: React.FC<HiddenCategoriesPanelProps> = ({
   readOnly = false,
 }) => (
   <div className="bg-slate-950/40 rounded-3xl border border-white/10 py-4 px-5 shadow-lg shadow-black/25 ring-1 ring-white/10 min-h-[5.5rem]">
-    <div className="flex items-center justify-between mb-3 px-1">
-      <h4 className="text-[10px] font-black text-rose-400/90 uppercase tracking-widest flex items-center gap-2">
-        Categorie nascoste <EyeOff className="w-3.5 h-3.5 text-rose-400/80" />
+    <div className="flex items-center justify-between gap-2 mb-3 px-1 min-w-0">
+      <h4 className="text-[11px] font-black text-rose-400/90 uppercase tracking-widest flex items-center gap-2 min-w-0 whitespace-nowrap">
+        <span className="truncate">Categorie nascoste</span>
+        <EyeOff className="w-3.5 h-3.5 text-rose-400/80 shrink-0" aria-hidden />
       </h4>
       {!readOnly && categories.length > 0 && (
         <button
           type="button"
           onClick={onRestoreAll}
-          className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider"
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+          title="Ripristina tutte le categorie"
+          aria-label="Ripristina tutte le categorie"
         >
-          Ripristina tutte
+          <RotateCcw className="w-3.5 h-3.5" aria-hidden />
         </button>
       )}
     </div>

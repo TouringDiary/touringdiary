@@ -1,12 +1,13 @@
 
-import React, { useEffect, useState } from 'react';
-import { MapPin, Users } from 'lucide-react';
+import React from 'react';
+import { MapPin } from 'lucide-react';
 import { CitySummary } from '../../types/index';
 import { calculateDistance } from '../../services/geo';
 import { formatVisitors } from '../../utils/common';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { StarRating } from '../common/StarRating';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 interface CityCardProps {
     city: CitySummary;
@@ -25,6 +26,38 @@ const BADGE_MAP: Record<string, { text: string, style: string }> = {
     'destination': { text: 'DESTINAZIONE TOP', style: 'bg-indigo-600 text-white border-b border-l border-indigo-800' },
 };
 
+const DNA_ICONS: Record<string, string> = {
+    'mare': '🌊', 'montagna': '⛰️', 'laghi_fiumi': '💧',
+    'cultura': '🏛️', 'borghi': '🏰', 'weekend': '✨',
+    'monument': '🏛️', 'nature': '🌿', 'food': '🍷',
+    'leisure': '🎉', 'hotel': '🏨', 'discovery': '🧭',
+};
+
+const CityDnaIcons = ({ types }: { types: string[] }) => (
+    <div className="flex items-center gap-0.5 shrink-0" aria-label="DNA della città">
+        {types.slice(0, 4).map((type, idx) => (
+            <span key={idx} className="text-[10px] md:text-xs leading-none" title={type}>
+                {DNA_ICONS[type] || '📍'}
+            </span>
+        ))}
+        {types.length > 4 && (
+            <span className="text-[8px] md:text-[9px] text-slate-500 font-bold leading-none" title={`+${types.length - 4} altre categorie`}>
+                +{types.length - 4}
+            </span>
+        )}
+    </div>
+);
+
+const VisitorMiniBadge = ({ visitors }: { visitors: number }) => (
+    <div
+        className="flex flex-col items-center justify-center leading-none bg-black/75 backdrop-blur-sm border border-white/15 rounded-br-lg px-1.5 py-0.5 shadow-lg"
+        title={`${formatVisitors(visitors)} visite`}
+    >
+        <span className="text-[6px] md:text-[7px] uppercase text-slate-400 font-bold tracking-wide">Visite</span>
+        <span className="text-[9px] md:text-[10px] font-mono font-bold text-amber-400 tabular-nums">{formatVisitors(visitors)}</span>
+    </div>
+);
+
 const getBadgeConfig = (dbBadge?: string, forcedBadge?: string) => {
     if (forcedBadge) {
         const normForced = forcedBadge.toLowerCase();
@@ -42,13 +75,7 @@ const getBadgeConfig = (dbBadge?: string, forcedBadge?: string) => {
 };
 
 export const CityCard: React.FC<CityCardProps> = ({ city, onClick, userLocation, forcedBadge, className, priority = false }) => {
-    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
-
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 1024);
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
+    const isMobile = useMobileDetect();
 
     const cardTitleStyle = useDynamicStyles('city_card_title', isMobile);
     const cardSubStyle = useDynamicStyles('city_card_sub', isMobile);
@@ -69,8 +96,11 @@ export const CityCard: React.FC<CityCardProps> = ({ city, onClick, userLocation,
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 grayscale-[10%] group-hover:grayscale-0"
                     priority={priority}
                 />
+                <div className="absolute top-0 left-0 z-home-card-overlay">
+                    <VisitorMiniBadge visitors={city.visitors} />
+                </div>
                 {badge && (
-                    <div className="absolute top-0 right-0 z-dropdown group-hover:scale-110 transition-transform origin-top-right">
+                    <div className="absolute top-0 right-0 z-home-card-overlay group-hover:scale-110 transition-transform origin-top-right">
                         <div className={`px-2 py-1 text-[8px] md:text-[9px] font-bold uppercase leading-tight text-center shadow-md rounded-bl-lg ${badge.style}`}>{badge.text}</div>
                     </div>
                 )}
@@ -88,35 +118,12 @@ export const CityCard: React.FC<CityCardProps> = ({ city, onClick, userLocation,
                         {city.zone}
                     </p>
                     <p className="text-[9px] md:text-[9px] text-slate-400 font-medium opacity-80 truncate mt-0.5">{city.description}</p>
-                    {city.cityTypes && city.cityTypes.length > 0 && (
-                        <div className="flex items-center gap-1 mt-1">
-                            {city.cityTypes.slice(0, 4).map((type, idx) => {
-                                const DNA_ICONS: Record<string, string> = {
-                                    'mare': '🌊', 'montagna': '⛰️', 'laghi_fiumi': '💧', 
-                                    'cultura': '🏛️', 'borghi': '🏰', 'weekend': '✨',
-                                    'monument': '🏛️', 'nature': '🌿', 'food': '🍷', 
-                                    'leisure': '🎉', 'hotel': '🏨', 'discovery': '🧭'
-                                };
-                                return (
-                                    <span key={idx} className="text-[10px] md:text-xs" title={type}>
-                                        {DNA_ICONS[type] || '📍'}
-                                    </span>
-                                );
-                            })}
-                            {city.cityTypes.length > 4 && (
-                                <span className="text-[8px] md:text-[9px] text-slate-500 font-bold ml-0.5" title={`+${city.cityTypes.length - 4} altre categorie`}>
-                                    +{city.cityTypes.length - 4}
-                                </span>
-                            )}
-                        </div>
-                    )}
                 </div>
-                <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/50 mt-0.5 shrink-0">
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/50 mt-0.5 shrink-0 gap-1">
                     <StarRating value={city.rating} size="w-2.5 md:w-3 h-2.5 md:h-3" />
-                    <div className="flex flex-col items-end leading-none">
-                        <span className="text-[7px] md:text-[8px] uppercase text-slate-600 font-bold">Visite</span>
-                        <span className="text-[10px] md:text-xs font-mono font-bold text-slate-300">{formatVisitors(city.visitors)}</span>
-                    </div>
+                    {city.cityTypes && city.cityTypes.length > 0 && (
+                        <CityDnaIcons types={city.cityTypes} />
+                    )}
                 </div>
             </div>
         </div>

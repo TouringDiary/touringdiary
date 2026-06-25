@@ -4,6 +4,7 @@ import { Heart } from 'lucide-react';
 import { PhotoSubmission, RankedItemMixin } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { useInteraction } from '../../context/InteractionContext';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface PhotoGridProps {
     photos: (PhotoSubmission & RankedItemMixin)[];
@@ -28,9 +29,7 @@ const PhotoGridItem: React.FC<{
     return (
         <div onClick={() => onClick(photo.url)} className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer border border-slate-800 hover:border-indigo-500 transition-all shadow-lg">
             <ImageWithFallback src={photo.url} alt={photo.description || 'Foto'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-            <div className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full text-white font-black text-xs border border-white/10 z-floating-panel">
-                #{rank}
-            </div>
+            <CountBadge display={`#${rank}`} size="lg" variant="rank" position="overlay-tl" className="w-8 h-8 min-w-[32px] text-xs" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-90 transition-opacity"></div>
             <div className="absolute top-0 inset-x-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="bg-black/60 backdrop-blur-sm rounded-lg p-1.5 border border-white/10">

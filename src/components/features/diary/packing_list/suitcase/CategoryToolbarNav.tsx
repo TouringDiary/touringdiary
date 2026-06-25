@@ -1,13 +1,21 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
+import { getCategoryShortLabel } from '@/domain/packing/packingCategories';
 import type { CategoryStatusFilter } from './SuitcaseUtils';
-import { ItemCategoryIcon, SUITCASE_TOOLBAR_ICON_BTN_CLASS, SUITCASE_TOOLBAR_ICON_SIZE_CLASS } from './SuitcaseUtils';
+import {
+  ItemCategoryIcon,
+  SUITCASE_TOOLBAR_ICON_BTN_CLASS,
+  SUITCASE_TOOLBAR_ICON_SIZE_CLASS,
+  SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS,
+} from './SuitcaseUtils';
 import { CategoryStatusFilterDropdown } from './CategoryStatusFilter';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 interface CategoryToolbarNavProps {
   categories: DisplayCategory[];
   readOnly?: boolean;
+  activeCategoryId?: string | null;
   onNavigate: (categoryId: string) => void;
   onReorder: (categoryId: string, targetIndex: number) => void;
   incompleteCountsByCategoryId?: Record<string, number>;
@@ -20,18 +28,21 @@ const SUPPRESS_CLICK_MS = 150;
 const SCROLL_PAGE_RATIO = 0.7;
 
 const SCROLL_TRACK_CLASS =
-  'flex items-center gap-1 min-w-0 flex-1 overflow-x-auto overflow-y-visible pt-2 pb-0.5 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
+  'flex items-end gap-1 min-w-0 flex-1 overflow-x-auto overflow-y-visible pt-2 pb-0.5 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
 
 const NAV_ARROW_BTN_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} p-2 bg-slate-950/95 border-white/15 text-slate-500 shadow-inner hover:text-indigo-300 hover:bg-slate-800 hover:border-white/30`;
 
-const NAV_CATEGORY_BTN_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} p-2 bg-slate-800/50 border-white/10 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/15`;
+const NAV_CATEGORY_BTN_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 min-w-[2.75rem] bg-slate-800/50 border-white/10 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/15`;
 
-const CATEGORY_BADGE_CLASS =
-  'absolute -top-1.5 -right-1.5 z-20 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold border-2 border-slate-950 shadow-md shadow-red-950/50 pointer-events-none leading-none tabular-nums';
+const NAV_CATEGORY_BTN_ACTIVE_CLASS =
+  'bg-indigo-500/15 border-indigo-500/35 text-indigo-200 hover:bg-indigo-500/20 hover:text-indigo-100 hover:border-indigo-500/40';
+
+const ADD_CATEGORY_BTN_CLASS = `${NAV_CATEGORY_BTN_CLASS} border-indigo-500/25 text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300 hover:border-indigo-500/35 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-800/50 disabled:hover:text-indigo-400/60`;
 
 export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
   categories,
   readOnly = false,
+  activeCategoryId = null,
   onNavigate,
   onReorder,
   incompleteCountsByCategoryId = {},
@@ -168,7 +179,7 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
   );
 
   return (
-    <div className="flex items-center gap-1 w-full min-w-0 overflow-visible py-1 px-1.5 rounded-xl bg-slate-900/40 border border-white/10 shadow-sm shadow-black/10">
+    <>
       {onCategoryStatusFilterChange && (
         <CategoryStatusFilterDropdown
           value={categoryStatusFilter}
@@ -192,11 +203,17 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
           type="button"
           onClick={onAddCategory}
           disabled={readOnly}
-          className={`${NAV_CATEGORY_BTN_CLASS} bg-indigo-600/10 border-indigo-500/25 text-indigo-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-500/40 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-600/10 disabled:hover:text-indigo-400 shrink-0`}
+          className={`${ADD_CATEGORY_BTN_CLASS} relative overflow-visible shrink-0`}
           title={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
           aria-label={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
         >
-          <Plus className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
+          <Plus className={SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
+          <span
+            className="text-[8px] font-black uppercase tracking-wider leading-none text-indigo-400/80"
+            aria-hidden
+          >
+            NEW
+          </span>
         </button>
       )}
 
@@ -212,6 +229,8 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
           const isDragging = draggingId === cat.id;
           const isDropTarget = dropTargetIndex === index && draggingId !== cat.id;
           const incompleteCount = incompleteCountsByCategoryId[cat.id] ?? 0;
+          const isActive = activeCategoryId === cat.id;
+          const shortLabel = getCategoryShortLabel(cat.name);
 
           return (
             <button
@@ -229,10 +248,10 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
               onDrop={handleDrop(index)}
               onKeyDown={handleKeyDown(index)}
               className={`${NAV_CATEGORY_BTN_CLASS} relative overflow-visible shrink-0 ${
-                isDragging ? 'opacity-40 scale-95' : ''
-              } ${isDropTarget ? 'ring-2 ring-indigo-500/60 border-indigo-500/40' : ''} ${
-                !readOnly ? 'cursor-grab active:cursor-grabbing' : ''
-              }`}
+                isActive ? NAV_CATEGORY_BTN_ACTIVE_CLASS : ''
+              } ${isDragging ? 'opacity-40 scale-95' : ''} ${
+                isDropTarget ? 'ring-2 ring-indigo-500/60 border-indigo-500/40' : ''
+              } ${!readOnly ? 'cursor-grab active:cursor-grabbing' : ''}`}
               title={
                 incompleteCount > 0
                   ? `${cat.name} (${incompleteCount} da completare)`
@@ -243,16 +262,30 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
                   ? `${cat.name}, ${incompleteCount} oggetti da completare`
                   : cat.name
               }
+              aria-current={isActive ? 'true' : undefined}
             >
               <ItemCategoryIcon
                 category={cat.name}
                 iconKey={cat.icon_key}
-                className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS}
+                className={SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS}
               />
+              <span
+                className={`text-[8px] font-black uppercase tracking-wider leading-none ${
+                  isActive ? 'text-amber-400' : 'text-slate-500'
+                }`}
+                aria-hidden
+              >
+                {shortLabel}
+              </span>
               {incompleteCount > 0 && (
-                <span className={CATEGORY_BADGE_CLASS} aria-hidden>
-                  {incompleteCount > 99 ? '99+' : incompleteCount}
-                </span>
+                <CountBadge
+                  count={incompleteCount}
+                  max={99}
+                  size="sm"
+                  variant="red"
+                  position="overlay-tr"
+                  aria-hidden
+                />
               )}
             </button>
           );
@@ -269,6 +302,6 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
       >
         <ChevronRight className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
       </button>
-    </div>
+    </>
   );
 };

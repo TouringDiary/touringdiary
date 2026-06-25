@@ -27,6 +27,11 @@ import {
   Tent, Anchor, Bike, Rocket, FlaskConical, Target,
   Eye, EyeOff
 } from 'lucide-react';
+import {
+  buildCountBadgeClassName,
+  getCountBadgeLabelAdjustClass,
+  formatCompactCount,
+} from '@/utils/countBadge';
 
 export { ADMIN_CATEGORY_OPTIONS };
 
@@ -81,8 +86,15 @@ export const sortSuitcaseList = (
   return sorted;
 };
 
+/**
+ * Conta gli oggetti non ancora spuntati nella categoria.
+ * Esclude i suggerimenti AI in attesa di accettazione (is_ai_suggestion === true
+ * e accepted_from_ai !== true): queste sono proposte, non oggetti reali della valigia.
+ */
 export const getIncompleteItemCount = (items: SuitcaseItem[] | undefined | null): number =>
-  (items || []).filter((i) => !i.is_checked).length;
+  (items || []).filter(
+    (i) => !i.is_checked && !(i.is_ai_suggestion && !i.accepted_from_ai)
+  ).length;
 
 export const filterCategoriesByStatus = <T extends { id: string; name: string }>(
   categories: T[],
@@ -179,7 +191,10 @@ export const ItemCategoryIcon: React.FC<{ category: string; iconKey?: string; cl
   return <span className={`${className} flex items-center justify-center`}>{emoji}</span>;
 };
 
-export const TemplateCategoryIcon: React.FC<{ template: any; className?: string }> = ({ template, className }) => {
+export const TemplateCategoryIcon: React.FC<{
+  template: Pick<Suitcase, 'icon' | 'title'>;
+  className?: string;
+}> = ({ template, className }) => {
   if (template.icon && template.icon !== "🎒") {
     return (
       <span
@@ -363,9 +378,163 @@ export const resolveAffiliateProductImage = ({
   return null;
 };
 
+/** Provider interni admin — non mostrati come brand in UI. */
+const TECHNICAL_AFFILIATE_PROVIDER_IDS = new Set(['manual']);
+
+type PartnerIntegrationsMap = Record<string, { label?: string } | undefined>;
+
+export interface AffiliatePartnerDisplay {
+  badgeLabel: string;
+  ctaLabel: string;
+  scopriCtaLabel: string;
+}
+
+/**
+ * Risolve etichette utente per badge/CTA affiliate.
+ * Se `provider` è tecnico (`manual`), usa partner reali da link o preferred_partners.
+ */
+export const resolveAffiliatePartnerDisplay = (
+  product: Pick<
+    ResolvedAffiliateProduct,
+    'provider' | 'preferred_partners' | 'product_links' | 'product_id'
+  >,
+  partnerIntegrations?: PartnerIntegrationsMap | null
+): AffiliatePartnerDisplay => {
+  const integrations = partnerIntegrations ?? {};
+
+  const labelForPartnerId = (id: string): string | null => {
+    if (TECHNICAL_AFFILIATE_PROVIDER_IDS.has(id)) return null;
+    const partner = integrations[id];
+    if (partner?.label) return partner.label;
+    return id.charAt(0).toUpperCase() + id.slice(1);
+  };
+
+  const withPartner = (label: string): AffiliatePartnerDisplay => ({
+    badgeLabel: label,
+    ctaLabel: `Vai su ${label}`,
+    scopriCtaLabel: `Scopri su ${label}`,
+  });
+
+  for (const link of product.product_links ?? []) {
+    const partnerId = link.partner_id;
+    if (!partnerId) continue;
+    const label = labelForPartnerId(partnerId);
+    if (label) return withPartner(label);
+  }
+
+  for (const partnerId of product.preferred_partners ?? []) {
+    const label = labelForPartnerId(partnerId);
+    if (label) return withPartner(label);
+  }
+
+  const providerId = product.provider || 'amazon';
+  if (!TECHNICAL_AFFILIATE_PROVIDER_IDS.has(providerId)) {
+    const label = labelForPartnerId(providerId) ?? 'Partner';
+    return withPartner(label);
+  }
+
+  if (product.product_id?.startsWith('search:')) {
+    return {
+      badgeLabel: 'Suggerimento',
+      ctaLabel: 'Cerca prodotto',
+      scopriCtaLabel: 'Cerca prodotto',
+    };
+  }
+
+  const hasDirectLink = (product.product_links ?? []).some((link) => Boolean(link.url_override));
+  if (hasDirectLink) {
+    return {
+      badgeLabel: 'Offerta consigliata',
+      ctaLabel: 'Apri l\'offerta',
+      scopriCtaLabel: 'Scopri l\'offerta',
+    };
+  }
+
+  return {
+    badgeLabel: 'Offerta consigliata',
+    ctaLabel: 'Scopri il prodotto',
+    scopriCtaLabel: 'Scopri il prodotto',
+  };
+};
+
 /** Shell condivisa per toolbar dashboard ed editor valigia. */
 export const SUITCASE_TOOLBAR_SHELL_CLASS =
   'shrink-0 flex items-center justify-between gap-3 md:gap-4 px-4 md:px-6 lg:px-10 py-2.5 bg-slate-900/95 backdrop-blur-md border-b border-white/10 min-w-0';
+
+/** Raggio condiviso card sezione categoria (editor valigia / template). */
+export const SUITCASE_CATEGORY_SECTION_RADIUS_CLASS = 'rounded-2xl md:rounded-3xl';
+
+/** Raggio superiore header — deve restare allineato a {@link SUITCASE_CATEGORY_SECTION_RADIUS_CLASS}. */
+export const SUITCASE_CATEGORY_SECTION_TOP_RADIUS_CLASS = 'rounded-t-2xl md:rounded-t-3xl';
+
+/**
+ * Shell esterna card sezione categoria.
+ * Bordo + ring inset + shadow per gerarchia visiva netta rispetto a righe oggetto (border-white/5).
+ */
+export const SUITCASE_CATEGORY_SECTION_SHELL_CLASS = [
+  SUITCASE_CATEGORY_SECTION_RADIUS_CLASS,
+  'bg-slate-900/40',
+  'border border-slate-500/50',
+  'ring-1 ring-inset ring-white/[0.08]',
+  'shadow-lg shadow-black/40',
+].join(' ');
+
+/**
+ * Header sticky sezione categoria.
+ * Il raggio superiore è obbligatorio: senza di esso lo sfondo opaco copre gli angoli arrotondati della shell.
+ */
+export const SUITCASE_CATEGORY_SECTION_HEADER_CLASS = [
+  'sticky top-0 z-20',
+  SUITCASE_CATEGORY_SECTION_TOP_RADIUS_CLASS,
+  'bg-slate-800/95 backdrop-blur-md',
+  'px-5 py-2.5',
+  'border-b border-white/8',
+  'flex items-center justify-between gap-3',
+  'shadow-sm shadow-black/20',
+].join(' ');
+
+/** @deprecated Usare {@link SUITCASE_CATEGORY_SECTION_SHELL_CLASS}. */
+export const SUITCASE_CATEGORY_SECTION_BORDER_CLASS = 'border border-slate-500/50';
+
+/** Separatore verticale tra gruppi toolbar editor. */
+export const SUITCASE_TOOLBAR_GROUP_DIVIDER_CLASS =
+  'self-center h-8 w-px shrink-0 bg-white/10 mx-2 sm:mx-3';
+
+/** @deprecated Usare {@link CountBadge} — mantenuto per compatibilità toolbar valigia. */
+export const SUITCASE_COUNT_BADGE_RED_CLASS = buildCountBadgeClassName({
+  size: 'sm',
+  variant: 'red',
+  position: 'overlay-tr',
+});
+
+/** @deprecated Usare {@link CountBadge} — mantenuto per compatibilità toolbar valigia. */
+export const SUITCASE_COUNT_BADGE_INDIGO_CLASS = buildCountBadgeClassName({
+  size: 'sm',
+  variant: 'indigo',
+  position: 'overlay-tr',
+});
+
+/** @deprecated Usare {@link CountBadge} con prop `max`. */
+export const getSuitcaseCountBadgeSizeClass = (count: number): string =>
+  getCountBadgeLabelAdjustClass(formatCompactCount(count, 99));
+
+/** Altezza e allineamento trigger dropdown compatto (riferimento: filtro ALL toolbar categorie). */
+export const SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS =
+  'shrink-0 self-center flex items-center h-7';
+
+/** Pulsante icona quadrato compatto per toolbar categorie (stessa dimensione del toggle modifica). */
+export const SUITCASE_TOOLBAR_ICON_BTN_CLASS =
+  'shrink-0 flex items-center justify-center p-2.5 rounded-xl border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed';
+
+/** Pulsante modalità toolbar — stato attivo (editor / modifica). */
+export const SUITCASE_VIEW_MODE_BTN_EDITOR_ACTIVE_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} bg-rose-500/15 border-rose-500/40 text-rose-200 shadow-sm shadow-rose-500/15`;
+
+export const SUITCASE_VIEW_MODE_BTN_EDITOR_IDLE_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} bg-slate-800/20 border-white/5 text-slate-500 opacity-65 hover:opacity-90 hover:text-slate-300 hover:bg-slate-800/40`;
+
+/** Pulsante modalità toolbar — stato attivo (viewer / visualizzazione). */
+export const SUITCASE_VIEW_MODE_BTN_VIEWER_ACTIVE_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} bg-sky-500/15 border-sky-500/40 text-sky-200 shadow-sm shadow-sky-500/15`;
+
+export const SUITCASE_VIEW_MODE_BTN_VIEWER_IDLE_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} bg-slate-800/20 border-white/5 text-slate-500 opacity-65 hover:opacity-90 hover:text-slate-300 hover:bg-slate-800/40`;
 
 /** Pulsante base toolbar valigia (stati attivi/disabled via classi aggiuntive). */
 export const SUITCASE_TOOLBAR_BTN_CLASS =
@@ -378,6 +547,5 @@ export const SUITCASE_VIEW_MODE_ACTION_BTN_CLASS =
 /** Dimensione icona unificata per pulsanti toolbar editor valigia. */
 export const SUITCASE_TOOLBAR_ICON_SIZE_CLASS = 'w-4 h-4 md:w-5 md:h-5';
 
-/** Pulsante icona quadrato compatto per toolbar categorie (stessa dimensione del toggle modifica). */
-export const SUITCASE_TOOLBAR_ICON_BTN_CLASS =
-  'shrink-0 flex items-center justify-center p-2.5 rounded-xl border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed';
+/** Icone leggermente più grandi nella barra navigazione categorie. */
+export const SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS = 'w-[18px] h-[18px] md:w-[22px] md:h-[22px]';
