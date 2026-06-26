@@ -292,7 +292,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         >
 
             {/* 1. HEADER CITTÀ (IMMAGINE HERO) */}
-            <div className="shrink-0 z-floating-panel relative">
+            <div className="shrink-0 z-local-raised relative">
                 <CityHeader city={displayCity} onOpenInfo={(t) => setActiveModal(t)} onOpenPatron={() => setActiveModal('patron')} onOpenSurroundings={() => setActiveModal('province')} onOpenCulture={() => setActiveModal('culture')} onOpenShop={() => onOpenShop()} onOpenSponsor={() => onOpenSponsor()} onOpenHistory={() => setActiveModal('history')} onToggleLocation={onToggleLocation} isLocationActive={!!userLocation} />
             </div>
 
@@ -309,7 +309,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
             )}
 
             {/* 2. TAB NAVIGATION - NOT STICKY ON MOBILE */}
-            <div className="sticky top-0 z-dropdown bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl shrink-0">
+            <div className="sticky top-0 z-local-sticky bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl shrink-0">
                 {/* DESKTOP TABS */}
                 <div className="hidden md:flex flex-nowrap justify-center gap-0 overflow-x-auto no-scrollbar px-1 w-full">
                     {TABS.map((tab) => {
@@ -318,7 +318,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                         return (
                             <React.Fragment key={tab.id}>
                                 <button onClick={() => handleTabChange(tab.id)} className={`flex-shrink-0 py-3 px-3 text-sm font-bold uppercase tracking-wider transition-all relative group whitespace-nowrap ${isActive ? 'text-orange-500' : 'text-yellow-400 hover:text-orange-500'}`}>
-                                    <span className="flex items-center gap-1.5 relative z-floating-panel">
+                                    <span className="flex items-center gap-1.5 relative z-local-raised">
                                         <Icon className={`w-4 h-4 ${isActive ? 'text-orange-500' : 'text-yellow-400 group-hover:text-orange-500'}`} />
                                         {tab.label}
                                     </span>

@@ -19,7 +19,11 @@
 
   --nav-width: 5rem;
 
-  /* Tailwind v4 z-index utilities: --z-index-* → z-* classes (see layerRegistry.ts) */
+  /* Tailwind v4 z-index utilities: --z-index-* → z-* classes (see layerRegistry.ts)
+   * LAYER SYSTEM: two classes — LOCAL (0–999, confined) and GLOBAL (9000+, portaled).
+   * Rules & ownership: src/layering/layerRegistry.ts. Values: src/constants/zIndex.ts. */
+
+  /* ── GLOBAL STACK (9000+) — root/body context, portaled or fixed chrome ─────── */
   --z-index-error-boundary: 99999;
   --z-index-toast: 16000;
   --z-index-lightbox-close: 15200;
@@ -32,7 +36,8 @@
   --z-index-admin-modal: 13000;
   --z-index-modal-nested: 12000;
   --z-index-modal: 11000;
-  --z-index-popover: 10500;
+  /* Single anchored-menu tier. z-dropdown is a deprecated alias of z-popover. */
+  --z-index-popover: 10000;
   --z-index-dropdown: 10000;
   --z-index-focus-active: 9300;
   --z-index-global-chrome: 9200;
@@ -40,7 +45,17 @@
   --z-index-focus-dim: 9000;
   /* @deprecated alias — use --z-index-focus-companion / z-focus-companion */
   --z-index-floating-panel: 9100;
+
+  /* ── LOCAL STACK (0–999) — confined to a component's own stacking context ───── */
+  --z-index-local-drawer: 300;
   --z-index-home-hero: 200;
+  --z-index-local-sticky: 100;
+  --z-index-local-flyout: 40;
+  --z-index-local-chrome: 30;
+  --z-index-local-overlay: 20;
+  --z-index-local-raised: 10;
+  /* @deprecated local aliases — use z-local-* */
+  --z-index-sticky-in-scroll: 100;
   --z-index-home-hero-popover: 20;
   --z-index-home-hero-surface: 10;
   --z-index-home-card-overlay: 10;

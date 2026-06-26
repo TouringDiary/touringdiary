@@ -550,7 +550,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   const canUseTemplateAction =
     !!onUseTemplate && isTdTemplate(suitcase) && panelViewMode === 'viewer';
 
-  return (    <div className="relative flex flex-col lg:flex-row gap-0 items-stretch w-full h-full lg:min-h-0 lg:overflow-y-hidden lg:overflow-x-visible bg-transparent">
+  return (    <div className="relative flex flex-col lg:flex-row gap-0 items-stretch w-full h-full lg:min-h-0 lg:overflow-y-hidden lg:overflow-x-visible bg-slate-900 lg:bg-transparent">
       {/* LEFT: Items List */}
       <div className="flex-1 w-full h-full flex flex-col min-h-0 overflow-hidden lg:overflow-visible">
         <SuitcaseEditorToolbar
@@ -573,6 +573,9 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           panelViewMode={panelViewMode}
           onSetViewMode={onSetViewMode}
           onUseTemplate={onUseTemplate}
+          checkedCount={suitcaseProgress.checked}
+          totalCount={suitcaseProgress.total}
+          progressPerc={suitcaseProgress.percentage}
         />
         <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 lg:px-10 pb-4 md:pb-6 lg:pb-10 lg:pr-6 custom-scrollbar relative">
         <div className="pt-6 space-y-8">
@@ -716,22 +719,22 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1 md:gap-2 shrink-0">
                   <button
                     onClick={() => !readOnly && setActiveCategoryForAdd(cat.name === activeCategoryForAdd ? null : cat.name)}
                     disabled={readOnly}
-                    className="w-9 h-9 rounded-full bg-slate-900/50 hover:bg-white/10 text-indigo-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-white/10 text-indigo-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Aggiungi oggetto'}
                   >
-                    <Plus className="w-4.5 h-4.5" />
+                    <Plus className="w-4 h-4 md:w-4.5 md:h-4.5" />
                   </button>
                   <button
                     onClick={() => !readOnly && toggleCategory(cat.id)}
                     disabled={readOnly}
-                    className="w-9 h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-rose-400/80"
+                    className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-rose-400/80"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
                   >
-                    <Eye className="w-4 h-4" />
+                    <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   </button>
                   <button
                     onClick={() =>
@@ -743,10 +746,10 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                       })
                     }
                     disabled={readOnly}
-                    className="w-9 h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-slate-400"
+                    className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-slate-400"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Elimina definitivamente la categoria'}
                   >
-                    <FolderX className="w-4 h-4" />
+                    <FolderX className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   </button>
               </div>
             </div>

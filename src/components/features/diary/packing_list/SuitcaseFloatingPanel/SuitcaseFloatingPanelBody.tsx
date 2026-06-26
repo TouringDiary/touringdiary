@@ -30,9 +30,6 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
     associationFlow,
     handleLinkBuild,
     handleLinkBuildSearch,
-    totalCount,
-    checkedCount,
-    progressPerc,
     performUndo,
     performRedo,
     canUndo,
@@ -115,9 +112,6 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         isEditingTitle={data.isEditingTitle}
         tempTitle={data.tempTitle}
         titleInputRef={data.titleInputRef}
-        checkedCount={checkedCount}
-        totalCount={totalCount}
-        progressPerc={progressPerc}
         saveStatus={data.saveStatus}
         isLinkedToItinerary={data.linkedSuitcaseIds?.includes(data.panelState.activeTabId || '') || false}
         onEditTitle={actions.startEditingTitle}
@@ -169,7 +163,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
           currentName={data.activeSuitcase.title}
         />
       )}
-      <div className="flex flex-1 flex-col min-h-0 overflow-x-visible overflow-y-hidden">
+      <div className="flex flex-1 flex-col min-h-0 overflow-x-visible overflow-y-hidden bg-slate-900">
         <div className="flex flex-1 flex-col min-h-0 overflow-x-visible overflow-y-hidden p-0">
           {data.isLoadingUser && data.panelState.viewMode === 'selector' && (
             <div className="text-center text-slate-400 py-12">Caricamento valigie...</div>

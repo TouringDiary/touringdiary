@@ -2,7 +2,7 @@ import { Z_DROPDOWN } from '@/constants/zIndex';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, LogIn, Lock, X, Menu, Info, Send, ShieldCheck, BookOpen, MapPin, CloudSun, Loader2, User as UserIcon, PanelLeftOpen, PanelLeftClose, Sparkles, LogOut, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, LogIn, Lock, X, Menu, Info, Send, ShieldCheck, BookOpen, MapPin, CloudSun, Loader2, User as UserIcon, PanelLeftOpen, PanelLeftClose, Sparkles, LogOut, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { getUnreadCount } from '@/services/notificationService'; 
 import { useModal } from '@/context/ModalContext';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
@@ -21,13 +21,19 @@ import { useNavigation } from '@/context/useNavigation';
 import { useAppRouter } from '@/hooks/useAppRouter';
 import { useFocusMode } from '@/focus';
 
+type StaticPage = 'about' | 'contacts' | 'privacy' | 'terms';
+
+type StaticMenuItem =
+    | { divider: true }
+    | { id: StaticPage; label: string; Icon: LucideIcon };
+
 export interface HeaderProps {
     // Props residue solo se strettamente UI/locali
     onBack: () => void;
     onGoHome: () => void;
     showBack: boolean;
     onAdmin: () => void;
-    onOpenStaticPage: (page: 'about' | 'contacts' | 'terms' | 'privacy') => void;
+    onOpenStaticPage: (page: StaticPage) => void;
     onOpenProfile?: () => void;
     activeCityId: string | null;
     flashHelp?: boolean; 
@@ -104,7 +110,7 @@ export const Header = ({
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const STATIC_MENU_ITEMS = [
+  const STATIC_MENU_ITEMS: StaticMenuItem[] = [
     { id: 'about', label: 'Chi Siamo', Icon: Info },
     { id: 'contacts', label: 'Contatti', Icon: Send },
     { divider: true },
@@ -147,7 +153,7 @@ export const Header = ({
              className="cursor-pointer group shrink-0 active:scale-95 transition-transform"
              title="Torna alla Home"
         >
-             <BrandLogo className="h-10 md:h-12" variant="light" showText={!isMobile || !showBack} />
+             <BrandLogo className="h-10 md:h-12" variant="light" showText={true} />
         </div>
 
         {showBack && (
@@ -308,7 +314,7 @@ export const Header = ({
                             </div>
                             
                             {STATIC_MENU_ITEMS.map((item, index) => (
-                                item.divider ? <div key={`div-${index}`} className="h-px bg-slate-800 my-1"></div> : <button key={item.id} onClick={() => {onOpenStaticPage(item.id as any); setIsMenuOpen(false);}} className="px-4 py-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 flex items-center gap-3 group transition-colors text-left w-full">{/* @ts-ignore */}<item.Icon className="w-4 h-4 text-slate-500 group-hover:text-amber-500 transition-colors" /><span className="font-bold group-hover:text-white transition-colors">{item.label}</span></button>
+                                'divider' in item ? <div key={`div-${index}`} className="h-px bg-slate-800 my-1"></div> : <button key={item.id} onClick={() => {onOpenStaticPage(item.id); setIsMenuOpen(false);}} className="px-4 py-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 flex items-center gap-3 group transition-colors text-left w-full"><item.Icon className="w-4 h-4 text-slate-500 group-hover:text-amber-500 transition-colors" /><span className="font-bold group-hover:text-white transition-colors">{item.label}</span></button>
                             ))}
                             
                             {user.role !== 'guest' && (

@@ -10,9 +10,8 @@ export const CompassExploreButton: React.FC<{ onClick: (e: React.MouseEvent) => 
     <div className="flex items-center justify-center">
       <Compass className="w-4 h-4 text-amber-500 group-hover:rotate-45 transition-transform duration-500" />
     </div>
-    <span className="text-[10px] font-black uppercase tracking-[0.1em] text-amber-500">
-      <span className="md:hidden">Dintorni</span>
-      <span className="hidden md:inline">Scopri dintorni</span>
+    <span className="hidden md:inline text-[10px] font-black uppercase tracking-[0.1em] text-amber-500">
+      Scopri dintorni
     </span>
   </button>
 );

@@ -1,5 +1,3 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Filter, X, ArrowDownAZ, ArrowUpAZ, Star, Plus, Crosshair, Search, SlidersHorizontal, ChevronDown, PenTool, Award, MapPin, TrendingUp, Heart, ArrowUp, ArrowDown, Coins } from 'lucide-react';
@@ -306,7 +304,7 @@ export const CityCategoryTab = ({
 
             {/* HEADER CONTROLLI (2 RIGHE) - RELATIVE SU MOBILE PER SCROLLARE VIA */}
             <div className={`
-                flex flex-col border-b border-slate-800 bg-[#020617]/95 backdrop-blur-md z-dropdown transition-all duration-300 shadow-xl shrink-0
+                flex flex-col border-b border-slate-800 bg-[#020617]/95 backdrop-blur-md z-local-sticky transition-all duration-300 shadow-xl shrink-0
                 relative lg:sticky lg:top-0
                 ${isUiVisible === false && !isMobile ? '-translate-y-full opacity-0 pointer-events-none absolute w-full' : ''}
             `}>
@@ -327,8 +325,7 @@ export const CityCategoryTab = ({
                             </button>
                             {showContribMenu && (
                                 <div 
-                                    className="absolute top-full left-0 mt-2 w-full md:w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-left"
-                                    style={{ zIndex: Z_MODAL_NESTED }}
+                                    className="absolute top-full left-0 mt-2 w-full md:w-48 z-local-flyout bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-left"
                                 >
                                     <button onClick={() => handleProtectedAction(() => onOpenSuggestion('new_place'))} className="w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center gap-3 hover:bg-slate-800 text-emerald-400 transition-colors border-b border-slate-800/50"><Plus className="w-3.5 h-3.5"/> Nuovo Luogo</button>
                                     <button onClick={() => handleProtectedAction(() => onOpenSuggestion('edit_info'))} className="w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center gap-3 hover:bg-slate-800 text-indigo-400 transition-colors"><PenTool className="w-3.5 h-3.5"/> Modifica Luogo</button>
@@ -354,8 +351,7 @@ export const CityCategoryTab = ({
                                 </button>
                                 {showSortMenu && (
                                     <div 
-                                        className="absolute top-full right-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-right"
-                                        style={{ zIndex: Z_MODAL_NESTED }}
+                                        className="absolute top-full right-0 mt-2 w-48 z-local-flyout bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-right"
                                     >
                                         <div className="px-3 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800 mb-1">Ordina Per</div>
                                         <SortItem id="votes" label="Popolarità" icon={Heart} />
@@ -450,7 +446,6 @@ export const CityCategoryTab = ({
                             user={user}
                             onOpenAuth={onOpenAuth}
                             onOpenReview={onOpenReview}
-                            scrollContainerRef={useRef(null)} // Dummy ref
                             onAdminEdit={onAdminEdit}
                          />
                          

@@ -247,7 +247,7 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
                     </div>
                 </div>
                 <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden relative border-r border-slate-800/50">
-                    <div className="lg:hidden p-4 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-800/50 shrink-0 bg-[#020617] sticky top-0 z-dropdown">
+                    <div className="lg:hidden p-4 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-800/50 shrink-0 bg-[#020617] sticky top-0 z-local-sticky">
                         {menuItems.map(item => {
                             const isActive = activeTopCategory === item.id;
                             const Icon = item.icon;
@@ -306,7 +306,7 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
 
     return (
         <div className="flex flex-col h-auto lg:h-full pt-2 overflow-visible lg:overflow-hidden custom-scrollbar">
-            <div className="flex items-center justify-between px-1 bg-[#020617] py-2 border-b border-slate-800/50 shadow-lg shrink-0 lg:sticky lg:top-0 z-dropdown">
+            <div className="flex items-center justify-between px-1 bg-[#020617] py-2 border-b border-slate-800/50 shadow-lg shrink-0 lg:sticky lg:top-0 z-local-sticky">
                 <div className="flex bg-[#0f172a] border border-slate-800 rounded-lg shadow-xl overflow-hidden h-8">
                     <button onClick={() => setVetrinaSubTab('novita')} className={`px-4 h-full text-[9px] font-bold uppercase tracking-wider transition-colors border-r border-slate-800 ${vetrinaSubTab === 'novita' ? 'bg-amber-600 text-white' : 'text-yellow-400 hover:text-orange-500 hover:bg-slate-800'}`}>NOVITÀ</button>
                     <button onClick={() => setVetrinaSubTab('community')} className={`px-4 h-full text-[9px] font-bold uppercase tracking-wider transition-colors border-r border-slate-800 ${vetrinaSubTab === 'community' ? 'bg-indigo-600 text-white' : 'text-yellow-400 hover:text-orange-500 hover:bg-slate-800'}`}>TOP 5 | COMMUNITY</button>

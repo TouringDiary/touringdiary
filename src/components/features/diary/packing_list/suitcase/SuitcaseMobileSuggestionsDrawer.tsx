@@ -1,6 +1,5 @@
 import React from 'react';
 import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
-import { Z_MODAL } from '@/constants/zIndex';
 
 interface SuitcaseMobileSuggestionsDrawerProps {
   children: React.ReactNode;
@@ -10,9 +9,21 @@ interface SuitcaseMobileSuggestionsDrawerProps {
 }
 
 const TOGGLE_BAR_CLASS =
-  'w-full h-11 shrink-0 bg-slate-900 border-slate-800 flex items-center justify-center gap-2 px-4 cursor-pointer active:bg-slate-800 transition-colors shadow-md';
+  'w-full h-11 shrink-0 bg-slate-900 border-slate-800 flex items-center justify-center gap-2 px-4 cursor-pointer active:bg-slate-800 transition-colors shadow-md touch-manipulation';
 
-/** Mobile-only (< lg) full-workspace suggestions drawer. Desktop uses SuitcaseSidePanel. */
+/**
+ * Mobile-only (< lg) suggestions drawer rendered inside the workspace editor area.
+ *
+ * Layout: the wrapper is `absolute inset-0` over the editor body, so the panel
+ * expands from the bottom toggle bar up to immediately below the page header.
+ *
+ * Stacking: this is an in-surface LOCAL drawer (z-local-drawer / Z_LOCAL_DRAWER). It
+ * stays above the editor list content (including its sticky category headers) yet is
+ * confined to the Valigia workspace surface — never portaled. See the localDrawer tier
+ * in src/layering/layerRegistry.ts. The wrapper is pointer-events-none so taps fall
+ * through to the list, while the interactive surfaces (toggle bar / open panel)
+ * re-enable pointer events explicitly.
+ */
 export const SuitcaseMobileSuggestionsDrawer: React.FC<SuitcaseMobileSuggestionsDrawerProps> = ({
   children,
   title = 'Suggerimenti',
@@ -21,10 +32,9 @@ export const SuitcaseMobileSuggestionsDrawer: React.FC<SuitcaseMobileSuggestions
 }) => {
   return (
     <div
-      className={`lg:hidden absolute inset-0 z-50 flex flex-col pointer-events-none ${
+      className={`lg:hidden absolute inset-0 z-local-drawer flex flex-col pointer-events-none ${
         isOpen ? '' : 'justify-end'
       }`}
-      aria-hidden={false}
     >
       {isOpen ? (
         <div className="flex flex-1 flex-col min-h-0 pointer-events-auto bg-[#030508] border-t border-white/10 animate-in slide-in-from-bottom-4 duration-300">
@@ -32,7 +42,6 @@ export const SuitcaseMobileSuggestionsDrawer: React.FC<SuitcaseMobileSuggestions
             type="button"
             onClick={onToggle}
             className={`${TOGGLE_BAR_CLASS} border-b shrink-0`}
-            style={{ zIndex: Z_MODAL }}
             aria-expanded
             aria-label="Nascondi suggerimenti"
             title="Nascondi suggerimenti"
@@ -61,7 +70,6 @@ export const SuitcaseMobileSuggestionsDrawer: React.FC<SuitcaseMobileSuggestions
           type="button"
           onClick={onToggle}
           className={`${TOGGLE_BAR_CLASS} border-t pointer-events-auto`}
-          style={{ zIndex: Z_MODAL }}
           aria-expanded={false}
           aria-label="Mostra suggerimenti"
           title="Mostra suggerimenti"

@@ -41,7 +41,7 @@ export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
                         <input 
                             type="text"
                             placeholder="GG/MM/AAAA"
-                            className="w-full h-full bg-transparent text-sm font-bold text-center text-white focus:outline-none font-mono" 
+                            className="w-full h-full bg-transparent text-xs md:text-sm font-bold text-center text-white focus:outline-none font-mono pr-7 md:pr-0" 
                             value={displayStartDate} 
                             onChange={(e) => setDisplayStartDate(e.target.value)}
                             onBlur={(e) => handleDateBlur(e, 'startDate')}
@@ -89,7 +89,7 @@ export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
                         <input 
                             type="text"
                             placeholder="GG/MM/AAAA"
-                            className="w-full h-full bg-transparent text-sm font-bold text-center text-white focus:outline-none font-mono" 
+                            className="w-full h-full bg-transparent text-xs md:text-sm font-bold text-center text-white focus:outline-none font-mono pr-7 md:pr-0" 
                             value={displayEndDate} 
                             onChange={(e) => setDisplayEndDate(e.target.value)}
                             onBlur={(e) => handleDateBlur(e, 'endDate')}

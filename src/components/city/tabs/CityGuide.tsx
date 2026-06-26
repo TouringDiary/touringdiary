@@ -1,14 +1,12 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { MapPin, Navigation, Star, ThumbsUp, Plus, Crosshair, Award, GripHorizontal, Check, Box, ShoppingCart, Edit3, Loader2, TrendingUp, Coins } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MapPin, Navigation, Star, ThumbsUp, Plus, Crosshair, Award, GripHorizontal, Check, Box, ShoppingCart, Edit3, Loader2, TrendingUp } from 'lucide-react';
 import { PointOfInterest, User } from '@/types';
 import { PLAN_TYPES } from '@/constants/planTypes';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import { calculateDistance } from '@/services/geo';
 import { openMap, open3DView, getPoiColorStyle, getSubCategoryLabel } from '@/utils/common';
-import { StarRating } from '@/components/common/StarRating';
 import { useInteraction } from '../../../context/InteractionContext';
-import { useVirtualWindow } from '@/hooks/useVirtualWindow';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles'; 
 import { getCachedSetting, SETTINGS_KEYS } from '@/services/settingsService';
 
@@ -33,7 +31,23 @@ const PriceLevelIndicator = ({ level }: { level?: number }) => {
     );
 };
 
-const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemInItinerary, referencePoint, userLocation, onSetReference, isMobile, onOpenAuth, onOpenReview, user, onAdminEdit }: any) => {
+interface PoiListItemProps {
+    poi: PointOfInterest;
+    onOpenDetail: (poi: PointOfInterest) => void;
+    onOpenShop: (poi: PointOfInterest) => void;
+    onAddToItinerary: (poi: PointOfInterest) => void;
+    isItemInItinerary: (id: string) => boolean;
+    referencePoint: { lat: number; lng: number; name: string; id?: string } | null;
+    userLocation: { lat: number; lng: number } | null;
+    onSetReference: (e: React.MouseEvent, poi: PointOfInterest) => void;
+    isMobile: boolean;
+    onOpenAuth: () => void;
+    onOpenReview: (poi: PointOfInterest) => void;
+    user?: User;
+    onAdminEdit?: (poi: PointOfInterest) => void;
+}
+
+const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemInItinerary, referencePoint, userLocation, onSetReference, isMobile, onOpenAuth, onOpenReview, user, onAdminEdit }: PoiListItemProps) => {
     const { hasUserVoted, toggleVote } = useInteraction();
     
     const titleStyle = useDynamicStyles('poi_card_title', isMobile);
@@ -161,7 +175,7 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                     {poi.isSponsored && <div className="absolute top-2 left-2"><span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase border shadow-lg ${poi.planType === PLAN_TYPES.REGIONAL_ACTIVITY ? 'bg-amber-500 text-black border-amber-300' : 'bg-white text-slate-900 border-slate-200'}`}><Award className="w-2.5 h-2.5"/> SPONSOR</span></div>}
                     
                     {distFromUser !== null && (
-                        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-dropdown w-max max-w-[90%] pointer-events-none">
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-local-overlay w-max max-w-[90%] pointer-events-none">
                             <span className={`flex items-center justify-center gap-0.5 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded-full border border-emerald-500/50 shadow-lg whitespace-nowrap ring-1 ring-black/50 ${distanceBadgeStyle || 'text-[8px] md:text-[9px] font-black text-emerald-300'}`}>
                                 <Navigation className="w-2 h-2 fill-current transform rotate-45"/> {distFromUser}km
                             </span>
@@ -267,14 +281,13 @@ interface CityGuideProps {
     user?: User;
     onOpenAuth: () => void;
     onOpenReview: (poi: PointOfInterest) => void;
-    scrollContainerRef: React.RefObject<HTMLDivElement>;
     onAdminEdit?: (poi: PointOfInterest) => void;
 }
 
 export const CityGuide = ({ 
     pois, sponsors, userLocation, onAddToItinerary, isItemInItinerary, 
     referencePoint, onSetReference, onOpenDetail, onOpenShop, onOpenSponsor,
-    isSidebarOpen, user, onOpenAuth, onOpenReview, scrollContainerRef, onAdminEdit 
+    isSidebarOpen, user, onOpenAuth, onOpenReview, onAdminEdit 
 }: CityGuideProps) => {
     
     const [isMobile, setIsMobile] = useState(false);

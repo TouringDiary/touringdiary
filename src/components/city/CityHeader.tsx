@@ -63,22 +63,10 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
     return (
         <div className="relative w-full h-[18.5rem] md:h-[19rem] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 transition-all group/header">
 
-            {/* CSS Animation Keyframes for Metal Shine */}
-            <style>{`
-          @keyframes metal-shine {
-              0% { background-position: 0% 50%; }
-              50% { background-position: 100% 50%; }
-              100% { background-position: 0% 50%; }
-          }
-          .animate-metal {
-              background: linear-gradient(270deg, #cbd5e1, #e2e8f0, #fcd34d, #f59e0b, #e2e8f0, #cbd5e1);
-              background-size: 400% 400%;
-              animation: metal-shine 6s ease infinite;
-          }
-      `}</style>
+            {/* `animate-metal` is defined globally as a @utility in src/index.css (shared with ShopHeader). */}
 
             {/* --- DESKTOP LEFT PANEL (INFO) --- */}
-            <div className="hidden md:flex absolute left-0 top-0 bottom-0 w-[221px] bg-[#020617] py-6 px-2 flex-col justify-center gap-4 border-r border-slate-800 z-dropdown">
+            <div className="hidden md:flex absolute left-0 top-0 bottom-0 w-[221px] bg-[#020617] py-6 px-2 flex-col justify-center gap-4 border-r border-slate-800 z-local-chrome">
                 <div className="flex flex-col items-center justify-center w-full">
                     <div className="flex items-center gap-2 mb-1 justify-center w-full px-2">
                         {/* DYNAMIC TITLE STYLE APPLIED HERE */}
@@ -134,7 +122,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             </div>
 
             {/* --- MOBILE TEXT OVERLAY --- */}
-            <div className="md:hidden absolute inset-0 z-floating-panel p-5 pt-8 pointer-events-none flex flex-col justify-between">
+            <div className="md:hidden absolute inset-0 z-local-raised p-5 pt-8 pointer-events-none flex flex-col justify-between">
 
                 <div className="shrink-0 mt-6">
                     {/* DYNAMIC TITLE STYLE APPLIED HERE TOO (Mobile version automatically handled by hook) */}
@@ -149,7 +137,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             </div>
 
             {/* --- MOBILE TOP RIGHT CLUSTER --- */}
-            <div className="md:hidden absolute top-4 right-4 z-dropdown flex flex-col items-end gap-3 pointer-events-auto">
+            <div className="md:hidden absolute top-4 right-4 z-local-overlay flex flex-col items-end gap-3 pointer-events-auto">
                 <div className="flex items-center gap-2">
                     <button onClick={handleShare} className="bg-slate-800/80 p-2 rounded-xl border border-white/10 shadow-2xl text-white active:scale-90 transition-transform backdrop-blur-md">
                         <Share2 className="w-4 h-4" />
@@ -168,7 +156,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                 top-16 libera il cluster, bottom-4 si allinea alla barra. justify-between
                 distribuisce i 3 pulsanti nello spazio reale dell'hero. La colonna è SEMPRE
                 composta da WEB · PATRONO · STORIA: WEB è disabilitato se manca il sito. */}
-            <div className="md:hidden absolute top-16 bottom-4 right-3 z-dropdown pointer-events-auto flex flex-col items-center justify-between">
+            <div className="md:hidden absolute top-16 bottom-4 right-3 z-local-overlay pointer-events-auto flex flex-col items-center justify-between">
                 <button
                     onClick={handleOfficialWebsiteClick}
                     disabled={!hasWebsite}
@@ -208,7 +196,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             </div>
 
             {/* --- DESKTOP ACTION BAR --- */}
-            <div className="hidden md:flex absolute top-4 left-[calc(221px+1rem)] right-4 z-dropdown pointer-events-none justify-between items-start">
+            <div className="hidden md:flex absolute top-4 left-[calc(221px+1rem)] right-4 z-local-overlay pointer-events-none justify-between items-start">
                 <div className="flex gap-2 pointer-events-auto">
                     <button onClick={onOpenShop} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl border border-indigo-400/50 shadow-2xl flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:scale-95 group">
                         <ShoppingCart className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
@@ -230,7 +218,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
 
             {/* --- DESKTOP DNA PANEL --- */}
             {city.classificationExplainability && Object.keys(city.classificationExplainability).length > 0 && (
-                <div className="hidden md:flex absolute left-[calc(221px+1rem)] top-1/2 -translate-y-1/2 z-dropdown flex-col gap-1.5 bg-slate-950/70 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-auto min-w-[160px] max-w-[200px] transition-all hover:bg-slate-950/90 hover:border-indigo-500/50">
+                <div className="hidden md:flex absolute left-[calc(221px+1rem)] top-1/2 -translate-y-1/2 z-local-chrome flex-col gap-1.5 bg-slate-950/70 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-auto min-w-[160px] max-w-[200px] transition-all hover:bg-slate-950/90 hover:border-indigo-500/50">
                     <div className="flex items-center gap-1.5 mb-1 border-b border-white/10 pb-2">
                         <Info className="w-3.5 h-3.5 text-indigo-400" />
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-200">DNA Città</span>
@@ -247,7 +235,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             )}
 
             {/* --- MOBILE SECONDARY NAV PILL (COMPACTED — leaves a right lane for the quick-actions column) --- */}
-            <div className="md:hidden absolute bottom-4 left-2 right-[4.75rem] z-dropdown pointer-events-auto">
+            <div className="md:hidden absolute bottom-4 left-2 right-[4.75rem] z-local-chrome pointer-events-auto">
                 <div className="bg-slate-950/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-700/50 shadow-2xl grid grid-cols-4 gap-0.5 w-full">
                     {[
                         { id: 'tour_operators', label: 'Tour Op.', icon: Bus, action: () => onOpenInfo('tour_operators') },
@@ -268,13 +256,13 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             </div>
 
             {/* --- DESKTOP SECONDARY NAV --- */}
-            <div className="hidden md:flex absolute bottom-4 left-[calc(221px+1rem)] z-dropdown pointer-events-none">
+            <div className="hidden md:flex absolute bottom-4 left-[calc(221px+1rem)] z-local-overlay pointer-events-none">
                 <button onClick={onOpenCulture} className="pointer-events-auto bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl border border-emerald-400/50 shadow-2xl flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:scale-95 group">
                     <BookOpen className="w-4 h-4 text-white group-hover:scale-110 transition-transform" />
                     <span className="text-xs font-black uppercase tracking-wider">Angolo Cultura</span>
                 </button>
             </div>
-            <div className="hidden md:flex absolute bottom-4 right-4 z-dropdown pointer-events-auto">
+            <div className="hidden md:flex absolute bottom-4 right-4 z-local-chrome pointer-events-auto">
                 <div className="bg-slate-950/90 backdrop-blur-md p-1 rounded-xl border border-slate-700/50 shadow-2xl">
                     <div className="flex items-center gap-0.5">
                         {[

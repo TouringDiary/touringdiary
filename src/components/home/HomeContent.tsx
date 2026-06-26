@@ -50,6 +50,23 @@ const ISPIRAZIONI_CATEGORIES = [
     { id: 'editor', label: 'SCELTA EDITORIALE', color: 'text-purple-500', badge: 'editor' },
 ];
 
+/**
+ * Stile unico del pulsante ESPLORA, riutilizzato in tutte le sezioni della Home.
+ * Allineato al pulsante "In Evidenza": compatto, font dal Design System (btn_explore),
+ * dimensione/padding/altezza identici ovunque (nessun h-full che lo stira).
+ */
+const EXPLORE_BTN_CLASS =
+    'text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-600 transition-colors flex items-center gap-1.5 uppercase font-bold tracking-wide group shrink-0';
+
+const ExploreButton: React.FC<{ onClick: (e: React.MouseEvent) => void; isMobile: boolean }> = ({ onClick, isMobile }) => {
+    const btnStyle = useDynamicStyles('btn_explore', isMobile);
+    return (
+        <button onClick={onClick} className={`${btnStyle} ${EXPLORE_BTN_CLASS}`}>
+            <ZoomIn className="w-3.5 h-3.5 text-amber-500 group-hover:text-white transition-colors" /> ESPLORA
+        </button>
+    );
+};
+
 const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, onScrollRight, subtitleConfig }: any) => {
     const [isMobile, setIsMobile] = useState(false);
 
@@ -61,7 +78,6 @@ const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, 
     }, []);
 
     const titleStyle = useDynamicStyles('section_title', isMobile);
-    const btnStyle = useDynamicStyles('btn_explore', isMobile);
 
     return (
         <div className="mb-4">
@@ -80,9 +96,7 @@ const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, 
                             <button onClick={onScrollRight} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
                         </div>
                     )}
-                    <button onClick={onExplore} className={`${btnStyle} bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-600 transition-colors flex items-center gap-1.5 group h-full`}>
-                        <ZoomIn className="w-3.5 h-3.5 text-amber-500 group-hover:text-white transition-colors" /> ESPLORA
-                    </button>
+                    <ExploreButton onClick={onExplore} isMobile={isMobile} />
                 </div>
             </div>
             {subtitleConfig?.text && (
@@ -194,7 +208,6 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
     }, []);
 
     const titleStyle = useDynamicStyles('section_title', isMobile);
-    const btnStyle = useDynamicStyles('btn_explore', isMobile);
 
     // NEW: USE DYNAMIC CONTENT FOR SUBTITLES
     const featuredSubtitle = useDynamicContent('home_featured_subtitle', isMobile);
@@ -403,9 +416,10 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                                             <button onClick={() => featuredRef.current?.scroll('left')} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4" /></button>
                                             <button onClick={() => featuredRef.current?.scroll('right')} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
                                         </div>
-                                        <button onClick={() => onExploreSection(dynamicAllCities, "Ispirazioni di Viaggio", <Grid className="w-5 h-5 text-indigo-500" />, ISPIRAZIONI_CATEGORIES)} className={`${btnStyle} text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-600 transition-colors flex items-center gap-1.5 uppercase font-bold tracking-wide group shrink-0`}>
-                                            <ZoomIn className="w-3.5 h-3.5 text-amber-500 group-hover:text-white transition-colors" /> ESPLORA
-                                        </button>
+                                        <ExploreButton
+                                            onClick={() => onExploreSection(dynamicAllCities, "Ispirazioni di Viaggio", <Grid className="w-5 h-5 text-indigo-500" />, ISPIRAZIONI_CATEGORIES)}
+                                            isMobile={isMobile}
+                                        />
                                     </div>
                                 </div>
                                 {featuredSubtitle.text && (

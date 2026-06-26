@@ -487,7 +487,7 @@ export const SUITCASE_CATEGORY_SECTION_HEADER_CLASS = [
   'sticky top-0 z-20',
   SUITCASE_CATEGORY_SECTION_TOP_RADIUS_CLASS,
   'bg-slate-800/95 backdrop-blur-md',
-  'px-5 py-2.5',
+  'px-3 md:px-5 py-2 md:py-2.5',
   'border-b border-white/8',
   'flex items-center justify-between gap-3',
   'shadow-sm shadow-black/20',

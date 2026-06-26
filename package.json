@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "lint:layers": "tsx scripts/check-layers.ts",
     "lint:scripts": "tsc -p tsconfig.scripts.json --noEmit",
     "lint:packing": "tsc -p tsconfig.packing.json --noEmit",
     "packing:catalog:build": "tsx scripts/build-packing-domain-catalog.ts",

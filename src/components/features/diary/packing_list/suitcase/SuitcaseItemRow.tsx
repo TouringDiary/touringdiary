@@ -143,7 +143,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         </button>
       )}
 
-      <div className="flex items-center gap-2 sm:gap-3 p-3 flex-1 min-w-0">
+      <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-2.5 flex-1 min-w-0">
 
       {readOnly ? (
         <span
@@ -207,7 +207,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
 
       {!item.is_ai_suggestion && !readOnly && (
         <div
-          className="flex items-center shrink-0 rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden"
+          className="flex flex-col-reverse md:flex-row items-stretch md:items-center shrink-0 rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden"
           onClick={(e) => e.stopPropagation()}
           role="group"
           aria-label="Quantità"
@@ -216,7 +216,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
             type="button"
             onClick={() => adjustQuantity(-1)}
             disabled={getEffectiveQuantity() <= 1}
-            className="flex items-center justify-center w-8 h-8 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
+            className="flex items-center justify-center w-9 h-7 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
             aria-label="Diminuisci quantità"
           >
             <Minus className="w-3.5 h-3.5" />
@@ -233,13 +233,13 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
                 e.currentTarget.blur();
               }
             }}
-            className="w-8 md:w-7 h-8 md:h-7 bg-transparent border-x border-white/10 text-center text-sm font-semibold text-slate-200 focus:outline-none focus:bg-white/5"
+            className="w-9 md:w-7 h-7 md:h-7 bg-transparent border-y border-x-0 md:border-y-0 md:border-x border-white/10 text-center text-sm font-semibold text-slate-200 focus:outline-none focus:bg-white/5"
             aria-label="Quantità oggetto"
           />
           <button
             type="button"
             onClick={() => adjustQuantity(1)}
-            className="flex items-center justify-center w-8 h-8 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all touch-manipulation"
+            className="flex items-center justify-center w-9 h-7 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all touch-manipulation"
             aria-label="Aumenta quantità"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -277,7 +277,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         </a>
       )}
 
-      {!readOnly && moveTargets && moveTargets.length > 0 && onMoveToCategory && (
+      {!readOnly && item.is_ai_suggestion && moveTargets && moveTargets.length > 0 && onMoveToCategory && (
         <MoveItemCategoryPopover
           targets={moveTargets}
           onSelect={onMoveToCategory}
@@ -321,18 +321,26 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         </div>
       ) : (
         !readOnly && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(item.id);
-            }}
-            className="shrink-0 flex items-center justify-center min-w-[36px] min-h-[36px] w-9 h-9 md:w-8 md:h-8 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all touch-manipulation"
-            title="Rimuovi"
-            aria-label="Rimuovi oggetto"
-          >
-            <MinusCircle className="w-4 h-4" />
-          </button>
+          <div className="flex flex-col md:flex-row items-center gap-1 shrink-0">
+            {moveTargets && moveTargets.length > 0 && onMoveToCategory && (
+              <MoveItemCategoryPopover
+                targets={moveTargets}
+                onSelect={onMoveToCategory}
+              />
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(item.id);
+              }}
+              className="shrink-0 flex items-center justify-center min-w-[36px] min-h-[36px] w-9 h-9 md:w-8 md:h-8 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all touch-manipulation"
+              title="Rimuovi"
+              aria-label="Rimuovi oggetto"
+            >
+              <MinusCircle className="w-4 h-4" />
+            </button>
+          </div>
         )
       )}
 

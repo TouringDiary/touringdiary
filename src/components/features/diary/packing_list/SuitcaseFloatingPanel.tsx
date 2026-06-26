@@ -1,4 +1,3 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { useUI } from '@/context/UIContext';
 import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
 import { resolveWorkspaceShellGeometry } from '@/layering/resolveWorkspaceShellGeometry';
@@ -27,7 +26,6 @@ export const SuitcaseFloatingPanel: React.FC<Props> = ({
   const panelZIndex = resolveWorkspacePanelZIndex(
     resolveCompanionSurfaceTier({ mobileDiaryFullScreen })
   );
-  const isElevated = panelZIndex === Z_MODAL_NESTED;
 
   const closeAttemptRef = useRef<() => void>(() => {});
   const [suppressShellEscape, setSuppressShellEscape] = useState(false);
@@ -56,7 +54,6 @@ export const SuitcaseFloatingPanel: React.FC<Props> = ({
       ref={shell.panelRef}
       data-testid="suitcase-root"
       data-focus-surface={FOCUS_SURFACE_ATTR.focusActive}
-      data-workspace-elevated={isElevated ? 'true' : undefined}
       className={`
         fixed bottom-0 left-0 right-0 flex flex-col min-h-0 lg:h-[70vh] pointer-events-auto
         bg-slate-900 border-t border-indigo-500/20 rounded-t-3xl shadow-2xl

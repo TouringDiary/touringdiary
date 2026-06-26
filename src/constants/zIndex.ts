@@ -1,114 +1,169 @@
 /**
- * Z-index constants — Touring Diary
+ * Z-index constants — Touring Diary Layer System
  *
- * Authoritative numerical values. Semantics and ownership are defined in
- * src/layering/layerRegistry.ts — refer there before adding new tiers.
+ * AUTHORITATIVE NUMERIC VALUES. Semantics, ownership, allowed/forbidden users and
+ * portal policy are documented in src/layering/layerRegistry.ts — read it before
+ * adding, changing or using any tier.
  *
- * ── Home page stack (local + shell) ───────────────────────────────────────
- *    10   homeCardOverlay    — badge/overlay sopra immagine card (locale alla card)
- *    10   homeHeroSurface    — contenuto Hero sopra sfondi decorativi (locale alla Hero)
- *    20   homeHeroPopover    — dropdown/ricerca Hero sopra la shell Hero (locale)
- *   200   homeHero           — shell Hero sticky; sopra card e badge in scroll
+ * ──────────────────────────────────────────────────────────────────────────────
+ * THE LAYER SYSTEM IN ONE RULE
+ * ──────────────────────────────────────────────────────────────────────────────
+ * Layers are split into two classes:
  *
- * ── Focus workspace stack (9000–9399) ─────────────────────────────────────
- *   9000  focusDim          — workspace dim overlay (FocusOverlay, workspace mode)
- *   9100  focusCompanion    — portaled diary + sponsor rail (Sidebar)
- *   9200  globalChrome      — news ticker + header shell (AppShell)
- *   9300  focusActive       — workspace panels: Valigia, future Roadbook/Planner
+ *   • LOCAL  (0–999)     — live INSIDE a component's own stacking context. Their
+ *                          value is meaningful ONLY among siblings. They are capped
+ *                          below the global band by the page Containment Boundary
+ *                          (AppRouter wrapper: `isolation: isolate`). NEVER portaled.
  *
- * ── Consumer stack (10000+) ─────────────────────────────────────────────────
- *  10000  dropdown          — header menus, inline chrome popovers (z-dropdown)
- *  10500  popover           — anchored / inline dropdowns
- *  11000  modal             — classic fullscreen consumer modals (NOT workspaces)
- *  12000  modalNested       — nested confirmations, portaled pickers
- *  13000  adminModal        — admin slide-over panel
- *  13100  adminModalNested
- *  13200  adminModalTop
- *  13900  overlayBackdrop   — spare
- *  14000  overlay           — modal/preview dim overlay (FocusOverlay, modal mode)
- *  15000  lightbox
- *  16000  toast
- *  99999  errorBoundary     — crash overlay ONLY
+ *   • GLOBAL (9000+)     — live in the document/body root stacking context. Single
+ *                          ordered scale. ALWAYS portaled to document.body (or part
+ *                          of the fixed app chrome). Portaling == promotion to global.
+ *
+ * Hard rules (see layerRegistry.ts → ARCHITECTURAL_RULES):
+ *   1. A local component MUST NOT use a global tier.
+ *   2. A global component MUST NOT use a local tier.
+ *   3. NO numeric z-index in components (`z-10`, `z-[999]`, `zIndex: 50`). Use a
+ *      semantic token / CSS class only. Enforced by `npm run lint:layers`.
+ *   4. New layers are added HERE + in index.css + documented in layerRegistry.ts
+ *      BEFORE use. No ad-hoc tiers in components.
  */
 
-// ── Tier: base ────────────────────────────────────────────────────────────────
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ LOCAL STACK (0–999) — confined to a component's own stacking context       ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+/** Document flow: media, decorative backgrounds, normal content. Implicit default. */
 export const Z_BASE = 0;
 
-// ── Tier: stickyInScroll (local to scroll container only) ─────────────────────
-export const Z_STICKY_IN_SCROLL = 100;
+/**
+ * The surface's OWN primary content sitting above its OWN background/media, within the
+ * SAME surface. Non-interactive, in-flow content — NOT a stamped marker/control.
+ * CSS: z-local-raised. e.g. hero title over hero image, card text over card media,
+ * NearbyCitiesRow content over its own gradient.
+ * Discriminator vs overlay: this is the surface's content, not a detached marker.
+ */
+export const Z_LOCAL_RAISED = 10;
 
-// ── Home page stack ───────────────────────────────────────────────────────────
-// Z_HOME_CARD_OVERLAY and Z_HOME_HERO_SURFACE both use 10 intentionally: they belong to
-// different stacking contexts (card media vs. hero shell) and never compete with each other.
-/** Overlay locale su immagine card (badge, titoli sponsor). Non compete con la Hero. */
+/**
+ * Detached MARKERS / CONTROLS stamped on top of media — without their own grouping
+ * surface. Badges, labels and individual floating controls.
+ * CSS: z-local-overlay. e.g. sponsor/distance/"Novità" badges, like & add buttons,
+ * hero action-button clusters with a transparent container.
+ * Discriminator vs chrome: NO own opaque container surface (just bare markers/controls).
+ */
+export const Z_LOCAL_OVERLAY = 20;
+
+/**
+ * Opaque LOCAL CHROME with its OWN grouping surface: floating panels, nav/menu bars,
+ * toolbars and pills that have their own background and frame a region over the media.
+ * CSS: z-local-chrome. e.g. CityHeader info side-panel, "DNA Città" panel, secondary
+ * nav pills/bars.
+ * Discriminator vs overlay: HAS an own opaque container surface (a panel/bar, not a badge).
+ */
+export const Z_LOCAL_CHROME = 30;
+
+/**
+ * Locally-anchored menu opened from local chrome and rendered WITHIN the parent's
+ * bounds (NOT portaled). Sits ABOVE local chrome so a menu opened from a bar covers it.
+ * CSS: z-local-flyout. e.g. inline Sort / Contribute menus.
+ * If the menu must escape an overflow-hidden / isolated ancestor → promote to Z_POPOVER.
+ */
+export const Z_LOCAL_FLYOUT = 40;
+
+/**
+ * Sticky bar pinned to an edge of a scroll container while siblings scroll.
+ * CSS: z-local-sticky. e.g. city tab bar, section headers, home hero sticky shell.
+ * Value is relative to the scroll container, never to the document root.
+ */
+export const Z_LOCAL_STICKY = 100;
+
+/**
+ * In-surface DRAWER / covering panel that overlays its SIBLING content (including sticky
+ * headers) WITHIN a parent surface — confined, never portaled. Above Z_LOCAL_STICKY.
+ * CSS: z-local-drawer. e.g. SuitcaseMobileSuggestionsDrawer over the Valigia editor body.
+ * Discriminator vs global modal/overlay: a drawer that must cover the whole APP is global
+ * (portal + modal/overlay), NOT this tier.
+ */
+export const Z_LOCAL_DRAWER = 300;
+
+// ── Deprecated local aliases (kept for incremental migration — DO NOT use in new code) ──
+/** @deprecated Use Z_LOCAL_STICKY. */
+export const Z_STICKY_IN_SCROLL = Z_LOCAL_STICKY;
+/** @deprecated Use Z_LOCAL_RAISED. */
+export const Z_HOME_HERO_SURFACE = 10;
+/** @deprecated Use Z_LOCAL_OVERLAY. */
 export const Z_HOME_CARD_OVERLAY = 10;
-
-/** Shell Hero in HomeContent — sopra card e badge durante lo scroll. CSS: z-home-hero */
+/** @deprecated Use Z_LOCAL_FLYOUT. */
+export const Z_HOME_HERO_POPOVER = 20;
+/** @deprecated Use Z_LOCAL_STICKY. Home hero sticky shell (specialised localSticky; fold into localSticky). */
 export const Z_HOME_HERO = 200;
 
-/** Contenuto Hero sopra sfondi/blob decorativi. Locale alla shell Hero. CSS: z-home-hero-surface. Per la semantica e le motivazioni del valore condiviso con Z_HOME_CARD_OVERLAY, vedere layerRegistry.ts. */
-export const Z_HOME_HERO_SURFACE = 10;
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ GLOBAL STACK (9000+) — root/body context, portaled or fixed app chrome     ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
 
-/** Dropdown filtri, risultati ricerca e controlli aperti nella Hero. Locale alla shell Hero. */
-export const Z_HOME_HERO_POPOVER = 20;
-
-// ── Focus workspace stack ─────────────────────────────────────────────────────
+// ── Focus workspace band (9000–9399) ──────────────────────────────────────────
 /** Workspace dim overlay. Dims dimmedBackground; bypassed by companion/chrome/active. */
 export const Z_FOCUS_DIM = 9000;
 
-/** Portaled diary + sponsor during workspace focus. Above Z_FOCUS_DIM. */
+/** Portaled diary + sponsor rail during workspace focus. Above Z_FOCUS_DIM. */
 export const Z_FOCUS_COMPANION = 9100;
 
-/** News ticker + header. Above workspace dim; geometrically above overlay top edge. */
+/** News ticker + header + mobile nav. Persistent app chrome. */
 export const Z_GLOBAL_CHROME = 9200;
 
-/**
- * Primary workspace panel (SuitcaseFloatingPanel, future workspaces).
- * Elevates to Z_MODAL_NESTED when companion is modal-tier — resolveWorkspacePanelZIndex().
- */
+/** Primary workspace panel (Valigia, future Roadbook/Planner). NOT a modal. */
 export const Z_FOCUS_ACTIVE = 9300;
 
-/**
- * @deprecated Use Z_FOCUS_COMPANION. Kept for incremental migration of CSS classes.
- */
+/** @deprecated Use Z_FOCUS_COMPANION. Kept for incremental migration of CSS classes. */
 export const Z_FLOATING_PANEL = Z_FOCUS_COMPANION;
 
-// ── Tier: dropdown (inline chrome popovers) ───────────────────────────────────
-/** Header menus and inline chrome popovers. CSS class: z-dropdown */
-export const Z_DROPDOWN = 10000;
+// ── Anchored transient menus (single tier) ────────────────────────────────────
+/**
+ * Anchored, dismiss-on-outside transient menus: header menus, inline dropdowns,
+ * anchored popovers. Portaled to body. CSS class: z-popover.
+ */
+export const Z_POPOVER = 10000;
 
-// ── Tier: popover ─────────────────────────────────────────────────────────────
-export const Z_POPOVER = 10500;
+/** @deprecated Use Z_POPOVER. Same tier (anchored transient menu). CSS: z-dropdown. */
+export const Z_DROPDOWN = Z_POPOVER;
 
-// ── Tier: modal (classic fullscreen — NOT workspace focus) ────────────────────
+// ── Modal surface (consumer) ──────────────────────────────────────────────────
+/**
+ * Classic fullscreen consumer modal panel. Rendered INSIDE the modal backdrop
+ * (td-modal-overlay at Z_OVERLAY) — so this value is local to that backdrop's
+ * stacking context, NOT a global competitor. Does NOT include workspace panels.
+ */
 export const Z_MODAL = 11000;
 
-// ── Tier: modalNested ─────────────────────────────────────────────────────────
+/** Nested confirmation / picker stacked above a modal panel (local to modal backdrop). */
 export const Z_MODAL_NESTED = 12000;
 
-// ── Tier: adminModal ──────────────────────────────────────────────────────────
+// ── Admin super-band (separate view-mode) ─────────────────────────────────────
+// Admin Dashboard is its own top-level view-mode; admin modals do not coexist with
+// consumer modals as dashboards. NOTE: a few consumer suitcase tabs borrow these
+// tiers (tech-debt — see layerRegistry.ts → MIGRATION_NOTES).
 export const Z_ADMIN_MODAL = 13000;
 export const Z_ADMIN_MODAL_NESTED = 13100;
 export const Z_ADMIN_MODAL_TOP = 13200;
 
-// ── Tier: overlayBackdrop (spare) ─────────────────────────────────────────────
+// ── Top global surfaces ───────────────────────────────────────────────────────
+/** Spare backdrop tier. */
 export const Z_OVERLAY_BACKDROP = 13900;
 
-// ── Tier: overlay (modal / preview dim) ───────────────────────────────────────
 /**
- * Modal & preview dimming backdrop (FocusOverlay modalDim).
- * CRITICAL: backdrop-filter MUST be conditional on active state when using
- * a persistent DOM node — workspace/modal overlays mount/unmount instead.
+ * Modal & preview dimming backdrop (FocusOverlay modalDim + td-modal-overlay).
+ * CRITICAL: backdrop-filter MUST be conditional on active state for persistent nodes.
  */
 export const Z_OVERLAY = 14000;
 
-// ── Tier: lightbox ────────────────────────────────────────────────────────────
+/** Full-viewport media lightbox. Above modals. */
 export const Z_LIGHTBOX = 15000;
 export const Z_LIGHTBOX_CONTENT = 15100;
 export const Z_LIGHTBOX_CLOSE = 15200;
 
-// ── Tier: toast ───────────────────────────────────────────────────────────────
+/** Non-blocking notification toasts. Above all interactive surfaces. */
 export const Z_TOAST = 16000;
 
-// ── Tier: errorBoundary ───────────────────────────────────────────────────────
+/** Crash overlay ONLY. NEVER use for UI layering. */
 export const Z_ERROR_BOUNDARY = 99999;

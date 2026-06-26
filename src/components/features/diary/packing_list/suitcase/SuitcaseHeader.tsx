@@ -1,15 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React from 'react';
 import { Edit2, Trash2, ChevronLeft, Link2, Layout, Undo2, Redo2, CloudOff, CalendarDays, Clock3 } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Suitcase } from '@/types/suitcase';
 import { TemplateCategoryIcon } from './SuitcaseUtils';
-import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
 import { isSessionReadOnly } from '@/utils/suitcaseDomain';
 import type { SuitcasePanelViewMode } from '../SuitcaseFloatingPanel/types/panelViewMode';
 import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
 import { DocumentSaveStatus } from '@/components/save/DocumentSaveStatus';
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
-import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { formatItalianDateTime } from '@/utils/dateFormatters';
 
 interface SuitcaseHeaderProps {
@@ -18,9 +16,6 @@ interface SuitcaseHeaderProps {
   isEditingTitle: boolean;
   tempTitle: string;
   titleInputRef: React.RefObject<HTMLInputElement>;
-  checkedCount: number;
-  totalCount: number;
-  progressPerc: number;
   saveStatus: string | null;
   isLinkedToItinerary: boolean;
   isDiaryAssociable?: boolean;
@@ -55,9 +50,6 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
   isEditingTitle,
   tempTitle,
   titleInputRef,
-  checkedCount,
-  totalCount,
-  progressPerc,
   saveStatus,
   isLinkedToItinerary,
   isDiaryAssociable = true,
@@ -90,10 +82,6 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
     isDetailView && activeSuitcase
       ? isSessionReadOnly(activeSuitcase, viewMode)
       : false;
-  const [openMetadataHint, setOpenMetadataHint] = useState<'created' | 'updated' | null>(null);
-  const createdHintRef = useRef<HTMLDivElement>(null);
-  const updatedHintRef = useRef<HTMLDivElement>(null);
-
   const serverSavedAt =
     activeSuitcase?.updated_at && !Number.isNaN(Date.parse(activeSuitcase.updated_at))
       ? Date.parse(activeSuitcase.updated_at)
@@ -120,13 +108,13 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
           <div className="flex flex-col min-w-0">
             {isDetailView && activeSuitcase ? (
               <div className="flex flex-col gap-1">
-                {/* Mobile: titolo + salvataggio a sinistra; matita/dischetto con icone metadati sotto */}
-                <div className="flex items-start gap-2 min-w-0 w-full md:hidden">
-                  <TemplateCategoryIcon
-                    template={activeSuitcase}
-                    className="text-2xl shrink-0 flex items-center justify-center"
-                  />
-                  <div className="grid flex-1 min-w-0 grid-cols-[minmax(0,1fr)_1.375rem_1.375rem] gap-x-1 gap-y-0.5 items-center">
+                {/* Mobile: nome + matita/floppy a destra (posizione stabile); date impilate sotto */}
+                <div className="flex flex-col gap-1 min-w-0 w-full md:hidden">
+                  <div className="flex items-center gap-2 min-w-0 w-full">
+                    <TemplateCategoryIcon
+                      template={activeSuitcase}
+                      className="text-2xl shrink-0 flex items-center justify-center"
+                    />
                     {isEditingTitle && !isReadOnlySession ? (
                       <input
                         ref={titleInputRef}
@@ -134,13 +122,13 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                         onChange={(e) => onTitleChange(e.target.value)}
                         onBlur={onSaveTitle}
                         onKeyDown={(e) => e.key === 'Enter' && onSaveTitle()}
-                        className="col-span-3 bg-slate-800 border border-indigo-500/50 rounded-lg px-3 py-1 text-base font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 w-full min-w-0"
+                        className="flex-1 min-w-0 bg-slate-800 border border-indigo-500/50 rounded-lg px-2 py-1 text-base font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                         autoFocus
                       />
                     ) : (
                       <h2
                         onClick={isReadOnlySession ? undefined : onEditTitle}
-                        className={`col-start-1 row-start-1 text-base font-bold text-slate-50 truncate min-w-0 ${
+                        className={`flex-1 min-w-0 text-base font-bold text-slate-50 truncate ${
                           isReadOnlySession ? '' : 'cursor-pointer hover:text-indigo-400 transition-colors'
                         }`}
                       >
@@ -148,11 +136,11 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       </h2>
                     )}
 
-                    {!isReadOnlySession && !isEditingTitle && (
+                    {!isReadOnlySession && (
                       <button
                         type="button"
                         onClick={onEditTitle}
-                        className="col-start-2 row-start-1 justify-self-center p-0.5 rounded text-slate-400 hover:text-indigo-400 hover:bg-white/5 transition-colors"
+                        className="shrink-0 p-0.5 rounded text-slate-400 hover:text-indigo-400 hover:bg-white/5 transition-colors"
                         title="Modifica nome"
                         aria-label="Modifica nome"
                       >
@@ -162,97 +150,46 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
 
                     {viewMode === 'editor' &&
                       !isReadOnlySession &&
-                      !isEditingTitle &&
                       onSave &&
                       onSaveAs &&
                       onAutosaveToggle && (
-                        <div className="col-start-3 row-start-1 justify-self-center">
-                          <SaveMenuPopover
-                            isGuest={isGuest}
-                            autosaveEnabled={autosaveEnabled}
-                            canUseAutosave={canUseAutosave}
-                            onSave={onSave}
-                            onSaveAs={onSaveAs}
-                            onAutosaveToggle={onAutosaveToggle}
-                            onGuestAction={onGuestSaveAction ?? (() => {})}
-                            disabled={savePhase === 'saving'}
-                            className="shrink-0"
-                          />
-                        </div>
+                        <SaveMenuPopover
+                          isGuest={isGuest}
+                          autosaveEnabled={autosaveEnabled}
+                          canUseAutosave={canUseAutosave}
+                          onSave={onSave}
+                          onSaveAs={onSaveAs}
+                          onAutosaveToggle={onAutosaveToggle}
+                          onGuestAction={onGuestSaveAction ?? (() => {})}
+                          disabled={savePhase === 'saving'}
+                          className="shrink-0"
+                        />
                       )}
+                  </div>
 
-                    <div className="col-start-1 row-start-2 row-span-2 self-start min-w-0">
-                      <DocumentSaveStatus
-                        phase={savePhase}
-                        lastSavedAt={lastSavedAt}
-                        lastError={lastSaveError}
-                        isGuest={isGuest}
-                        fallbackSavedAt={serverSavedAt}
-                        dateFormat="datetime"
-                        layout="stacked"
-                        className="text-[11px] font-medium leading-tight"
-                      />
-                    </div>
-
+                  <div className="flex flex-col gap-0.5 min-w-0">
                     {activeSuitcase.created_at && (
-                      <div ref={createdHintRef} className="col-start-2 row-start-3 justify-self-center self-start shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenMetadataHint((current) =>
-                              current === 'created' ? null : 'created'
-                            )
-                          }
-                          className={`p-0.5 rounded text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors ${
-                            openMetadataHint === 'created' ? 'bg-white/5 text-slate-300' : ''
-                          }`}
-                          title="Data creazione"
-                          aria-label="Data creazione"
-                          aria-expanded={openMetadataHint === 'created'}
-                        >
-                          <CalendarDays className="w-3 h-3" aria-hidden />
-                        </button>
-                        <AnchoredPopover
-                          isOpen={openMetadataHint === 'created'}
-                          onClose={() => setOpenMetadataHint(null)}
-                          anchorRef={createdHintRef}
-                          align="right"
-                          className="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl px-2.5 py-1.5 text-[10px] font-medium text-slate-300 tabular-nums whitespace-nowrap"
-                        >
-                          Creata il {formatItalianDateTime(activeSuitcase.created_at)}
-                        </AnchoredPopover>
-                      </div>
+                      <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 tabular-nums">
+                        <CalendarDays className="w-3 h-3 shrink-0 text-slate-500" aria-hidden />
+                        <span className="truncate">Creata il {formatItalianDateTime(activeSuitcase.created_at)}</span>
+                      </span>
                     )}
-
                     {activeSuitcase.updated_at && (
-                      <div ref={updatedHintRef} className="col-start-3 row-start-3 justify-self-center self-start shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenMetadataHint((current) =>
-                              current === 'updated' ? null : 'updated'
-                            )
-                          }
-                          className={`p-0.5 rounded text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors ${
-                            openMetadataHint === 'updated' ? 'bg-white/5 text-slate-300' : ''
-                          }`}
-                          title="Data modifica"
-                          aria-label="Data modifica"
-                          aria-expanded={openMetadataHint === 'updated'}
-                        >
-                          <Clock3 className="w-3 h-3" aria-hidden />
-                        </button>
-                        <AnchoredPopover
-                          isOpen={openMetadataHint === 'updated'}
-                          onClose={() => setOpenMetadataHint(null)}
-                          anchorRef={updatedHintRef}
-                          align="right"
-                          className="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl px-2.5 py-1.5 text-[10px] font-medium text-slate-300 tabular-nums whitespace-nowrap"
-                        >
-                          Modificata il {formatItalianDateTime(activeSuitcase.updated_at)}
-                        </AnchoredPopover>
-                      </div>
+                      <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 tabular-nums">
+                        <Clock3 className="w-3 h-3 shrink-0 text-slate-500" aria-hidden />
+                        <span className="truncate">Modificata il {formatItalianDateTime(activeSuitcase.updated_at)}</span>
+                      </span>
                     )}
+                    <DocumentSaveStatus
+                      phase={savePhase}
+                      lastSavedAt={lastSavedAt}
+                      lastError={lastSaveError}
+                      isGuest={isGuest}
+                      fallbackSavedAt={serverSavedAt}
+                      dateFormat="datetime"
+                      layout="stacked"
+                      className="text-[10px] font-medium leading-tight"
+                    />
                   </div>
                 </div>
 
@@ -349,16 +286,8 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
           </div>
         </div>
 
-        <div className="justify-self-center shrink-0 px-1 flex md:hidden">
-          {isDetailView && activeSuitcase ? (
-            <SuitcaseToolbarProgressBox
-              checkedCount={checkedCount}
-              totalCount={totalCount}
-              progressPerc={progressPerc}
-              variant="header"
-            />
-          ) : null}
-        </div>
+        {/* Avanzamento spostato nella toolbar (riga 2) su mobile. Segnaposto per stabilità griglia. */}
+        <div className="justify-self-center shrink-0 md:hidden" aria-hidden />
 
         <div className="flex items-center gap-2 md:gap-3 justify-self-end shrink-0 md:col-start-3">
           {isDetailView && activeSuitcase && viewMode === 'editor' && !isReadOnlySession && (

@@ -47,7 +47,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onOpenLightbox, onOpenAuth
                 draggable={false} 
             />
             
-            <div className="absolute top-2 right-2 z-dropdown">
+            <div className="absolute top-2 right-2 z-local-overlay">
                  <button 
                     onClick={handleLikeClick}
                     className={`flex items-center gap-1 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] font-bold border transition-colors bg-black/40 border-white/10 hover:bg-black/60 cursor-pointer`}
@@ -64,7 +64,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onOpenLightbox, onOpenAuth
                 </button>
             </div>
             
-            {photo.status === 'pending' && <div className="absolute top-2 left-2 z-dropdown bg-amber-500/90 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-lg border border-amber-300/50">In Attesa</div>}
+            {photo.status === 'pending' && <div className="absolute top-2 left-2 z-local-overlay bg-amber-500/90 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-lg border border-amber-300/50">In Attesa</div>}
             
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-none">
                 <span className="text-[10px] text-white font-bold truncate">{photo.description || photo.locationName}</span>
@@ -144,7 +144,7 @@ export const GalleryGrid = ({
              </div>
 
              {/* TOP SLIDER (OFFICIAL OR COMMUNITY) */}
-             <div className="relative group/slider shrink-0 pt-2 pb-2 bg-[#020617] z-floating-panel px-4 md:px-8">
+             <div className="relative group/slider shrink-0 pt-2 pb-2 bg-[#020617] z-local-raised px-4 md:px-8">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className={`p-1.5 rounded-lg ${activeTab === 'official' ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'}`}>
@@ -170,7 +170,7 @@ export const GalleryGrid = ({
                     ) : (
                         [...Array(3)].map((_, idx) => (
                             <div key={`empty-${idx}`} className="snap-center flex-shrink-0 w-[50vw] md:w-[280px] h-[150px] relative rounded-xl overflow-hidden border border-slate-800 bg-slate-900/30 flex flex-col items-center justify-center gap-2 group transition-all">
-                                <CountBadge display={`#${idx + 1}`} size="sm" variant="dark" position="overlay-tl" className="z-floating-panel backdrop-blur" />
+                                <CountBadge display={`#${idx + 1}`} size="sm" variant="dark" position="overlay-tl" className="z-local-overlay backdrop-blur" />
                                 <Camera className="w-6 h-6 text-slate-700 group-hover:text-slate-600 transition-colors"/>
                                 <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">In Arrivo</span>
                             </div>

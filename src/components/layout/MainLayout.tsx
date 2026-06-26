@@ -105,9 +105,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                     ) : undefined
                 }
             >
+                {/*
+                  * isolate: confina il contenuto di pagina (Home/Città) in un proprio
+                  * stacking context. Così qualunque z-index interno (anche tier alti
+                  * legacy) resta capato sotto la fascia focus (Diario 9100 / Valigia 9300),
+                  * che sono portalati/fratelli nel body. Nessun elemento di pagina può
+                  * più emergere sopra i workspace. ModalManager è fratello (fuori da
+                  * questo wrapper) e mantiene la sua fascia consumer 11000+.
+                  */}
                 <div 
                     className={`
-                        w-full h-full flex flex-col overflow-hidden relative
+                        isolate w-full h-full flex flex-col overflow-hidden relative
                         transition-[padding] duration-300 ease-in-out
                         px-4 ${isSidebarOpen ? 'md:px-0' : 'md:px-8 lg:px-16'}
                     `}
@@ -123,8 +131,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                     id={mobileDiaryFullScreen ? "tour-mobile-diary-overlay" : "weather-overlay"}
                     className={
                         mobileDiaryFullScreen
-                            ? "fixed top-[var(--header-height)] left-0 right-0 z-modal bg-slate-950 flex flex-col overflow-hidden h-[calc(100dvh-var(--header-height))] max-h-[calc(100dvh-var(--header-height))] animate-in slide-in-from-bottom-5"
-                            : "fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-modal bg-slate-950"
+                            ? "fixed top-[var(--header-height)] left-0 right-0 z-focus-companion bg-slate-950 flex flex-col overflow-hidden h-[calc(100dvh-var(--header-height))] max-h-[calc(100dvh-var(--header-height))] animate-in slide-in-from-bottom-5"
+                            : "fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-focus-companion bg-slate-950"
                     }
                 >
                     <Sidebar 
