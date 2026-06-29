@@ -83,7 +83,7 @@ export const TripSuitcaseSection: React.FC<TripSuitcaseSectionProps> = ({
           <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-40 transition-opacity">
             <Sparkles className="w-12 h-12 text-indigo-400" />
           </div>
-          <div className="relative z-floating-panel">
+          <div className="relative z-local-raised">
             <div className="flex items-center gap-2 mb-3">
               <span className="px-2 py-0.5 rounded-full bg-indigo-500 text-white text-[9px] font-black uppercase tracking-wider">Magic Pack</span>
               <h4 className="text-sm font-bold text-white">Valigia suggerita</h4>

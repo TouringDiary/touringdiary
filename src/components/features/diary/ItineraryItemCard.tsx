@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     MapPin, Navigation, Landmark, Utensils, Bed, ShoppingBag, Sun, Scan, Music, 
-    MessageSquare, ArrowRightLeft, Trash2, Clock, X,
+    ArrowRightLeft, Trash2, Clock, X, Route,
     // Nuove icone per diversificazione
     StickyNote, Plane, Train, Car, Bus, Anchor, Coffee, Camera, Trees, Footprints
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { useSystemMessage } from '@/hooks/useSystemMessage';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
+import { TL_LINE_X, TL_RAIL_W, TL_ARC_REACH } from './timelineLayout';
 
 
 // COSTANTE ALTEZZA RIGA (h-7 di Tailwind = 1.75rem)
@@ -42,17 +43,49 @@ const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 });
 
-const getCategoryIcon = (category: PoiCategory) => {
+const getCategoryIcon = (category: PoiCategory, cls = "w-4 h-4") => {
     switch (category) {
-        case 'monument': return <Landmark className="w-4 h-4" />;
-        case 'food': return <Utensils className="w-4 h-4" />;
-        case 'hotel': return <Bed className="w-4 h-4" />;
-        case 'shop': return <ShoppingBag className="w-4 h-4" />;
-        case 'nature': return <Sun className="w-4 h-4" />;
-        case 'discovery': return <Scan className="w-4 h-4" />;
-        case 'leisure': return <Music className="w-4 h-4" />;
-        default: return <MapPin className="w-4 h-4" />;
+        case 'monument': return <Landmark className={cls} />;
+        case 'food': return <Utensils className={cls} />;
+        case 'hotel': return <Bed className={cls} />;
+        case 'shop': return <ShoppingBag className={cls} />;
+        case 'nature': return <Sun className={cls} />;
+        case 'discovery': return <Scan className={cls} />;
+        case 'leisure': return <Music className={cls} />;
+        default: return <MapPin className={cls} />;
     }
+};
+
+// --- MEZZI DI TRASPORTO (scelta manuale per ogni spostamento) ---
+interface TransportMode { key: string; emoji: string; label: string; }
+const TRANSPORT_MODES: TransportMode[] = [
+    { key: 'walk',      emoji: '🚶', label: 'A piedi' },
+    { key: 'bike',      emoji: '🚲', label: 'Bicicletta' },
+    { key: 'scooter',   emoji: '🛵', label: 'Scooter' },
+    { key: 'motorbike', emoji: '🏍️', label: 'Moto' },
+    { key: 'car',       emoji: '🚗', label: 'Auto' },
+    { key: 'taxi',      emoji: '🚕', label: 'Taxi' },
+    { key: 'bus',       emoji: '🚌', label: 'Autobus' },
+    { key: 'train',     emoji: '🚆', label: 'Treno' },
+    { key: 'subway',    emoji: '🚇', label: 'Metropolitana' },
+    { key: 'tram',      emoji: '🚋', label: 'Tram' },
+    { key: 'ferry',     emoji: '🚤', label: 'Traghetto' },
+    { key: 'boat',      emoji: '⛵', label: 'Barca' },
+    { key: 'plane',     emoji: '✈️', label: 'Aereo' },
+];
+
+const getTransportMode = (key?: string): TransportMode | undefined =>
+    key ? TRANSPORT_MODES.find(m => m.key === key) : undefined;
+
+// Distanza in stile diario: "850 m", "3,1 km", "25 km", "740 km"
+const formatTimelineDistance = (km: number | null): string => {
+    if (km === null || km <= 0) return '';
+    if (km < 1) {
+        const meters = Math.max(10, Math.round((km * 1000) / 10) * 10);
+        return `${meters} m`;
+    }
+    if (km < 10) return `${km.toFixed(1).replace('.', ',')} km`;
+    return `${Math.round(km)} km`;
 };
 
 const formatDurationCompact = (duration: string) => {
@@ -83,6 +116,7 @@ interface ItineraryItemCardProps {
     onTimeChange: (id: string, time: string, dayIdx: number) => void;
     onIconClick: (id: string | null) => void;
     onIconSelect: (id: string, iconKey: string) => void;
+    onTransportSelect: (id: string, mode: string) => void;
     onViewDetail: (poi: PointOfInterest) => void;
     onRemove: (id: string) => void;
     onNoteChange: (id: string, text: string) => void;
@@ -91,23 +125,25 @@ interface ItineraryItemCardProps {
     innerRef: React.Ref<HTMLDivElement>;
     itemIndex: number;
     alignSide: 'left' | 'right';
+    isFirstNode?: boolean;
+    isLastNode?: boolean;
 }
 
 export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({ 
-    item, dayIndex, distanceFromPrev, isBridge, prevItemRows, userLocation, isHighlighted, 
+    item, dayIndex, distanceFromPrev, prevItemRows, userLocation, isHighlighted, 
     editingTimeId, iconPickerOpen, isMobile,
-    onSetEditingTime, onTimeChange, onIconClick, onIconSelect, onViewDetail, onRemove, onNoteChange, onItemDrop, onMobileMoveClick,
-    innerRef, alignSide
+    onSetEditingTime, onTimeChange, onIconClick, onIconSelect, onTransportSelect, onViewDetail, onRemove, onNoteChange, onItemDrop, onMobileMoveClick,
+    innerRef, isFirstNode, isLastNode
 }) => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [isEditingNote, setIsEditingNote] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [transportOpen, setTransportOpen] = useState(false);
     const { getText: getDeleteText } = useSystemMessage('confirm_delete_diary_item');
 
     // --- HOOKS STILI DINAMICI ---
     const timeSlotStyle = useDynamicStyles('diary_time_slot', isMobile);
     const poiNameStyle = useDynamicStyles('diary_poi_name', isMobile);
-    const distanceStyle = useDynamicStyles('diary_distance', isMobile);
     const durationStyle = useDynamicStyles('diary_duration', isMobile);
 
     useEffect(() => {
@@ -132,41 +168,35 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
     const handleNoteKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); setIsEditingNote(false); } };
 
     const iconAnchorRef = useRef<HTMLDivElement>(null);
+    const transportAnchorRef = useRef<HTMLButtonElement>(null);
 
     const rowHeightClass = "h-[1.75rem]";
     const showSecondRow = !!(item.poi.address || !item.isCustom || item.poi.visitDuration);
-    
-    // POSIZIONE ORIZZONTALE UNIFICATA (Linea + Badge)
-    const horizontalPosition = alignSide === 'left' ? '30%' : '70%';
 
-    const halfRow = ROW_HEIGHT_REM / 2; 
-    const safePrevRows = prevItemRows || 1; 
-    
-    const hasBadge = distanceFromPrev !== null;
-    
-    // Calcolo altezza della riga di connessione (include lo spazio delle righe precedenti)
-    const heightCalc = hasBadge 
-        ? `calc(${safePrevRows * ROW_HEIGHT_REM}rem - ${halfRow}rem)` 
-        : `calc(${safePrevRows * ROW_HEIGHT_REM}rem)`;
+    // --- GEOMETRIA TIMELINE 3.0 ---
+    // La linea verticale ospita SOLO le tappe (icona categoria al centro della card).
+    // Lo spostamento "si stacca" dalla linea con un piccolo arco morbido verso sinistra.
+    const safePrevRows = prevItemRows || 1;
+    const myRows = showSecondRow ? 2 : 1;
 
-    const lineStyle: React.CSSProperties = {
-        position: 'absolute',
-        top: `calc(-${safePrevRows * ROW_HEIGHT_REM}rem + ${halfRow}rem)`, 
-        height: heightCalc,
-        left: horizontalPosition, // USO VARIABILE UNIFICATA
-        transform: 'translateX(-50%)',
-        zIndex: 0,
-        borderLeftWidth: '2px', 
-        borderLeftStyle: 'dashed',
-        borderColor: '#ef4444', 
-        pointerEvents: 'none'
-    };
-    
-    const showLine = isBridge;
+    // Geometria orizzontale calcolata (vedi timelineLayout.ts): linea, raggio della curva
+    // e larghezza del binario derivano dall'ingombro reale degli elementi.
+    const LINE_X = TL_LINE_X;
 
-    const renderCustomIcon = () => {
+    const nodeCenterRem = (myRows * ROW_HEIGHT_REM) / 2;               // centro verticale della tappa
+    const prevCenterRem = -(safePrevRows * ROW_HEIGHT_REM) / 2;        // centro tappa precedente (sopra)
+    const connectorPx = (nodeCenterRem - prevCenterRem) * 16;          // altezza dell'arco (px)
+    const movementMidRem = (prevCenterRem + nodeCenterRem) / 2;        // punto medio fra le due tappe
+
+    // Lo "spostamento" esiste solo se c'è un tragitto reale verso questa tappa.
+    const hasMovement = distanceFromPrev !== null && distanceFromPrev > 0 && !item.isCustom;
+
+    const transport = getTransportMode(item.transportMode);
+    const distanceLabel = formatTimelineDistance(distanceFromPrev);
+
+    const renderCustomIcon = (cls = "w-4 h-4 text-stone-600") => {
         const Icon = CUSTOM_ICONS[item.customIcon || 'note'] || StickyNote;
-        return <Icon className="w-4 h-4 text-stone-600"/>;
+        return <Icon className={cls}/>;
     };
     
     const renderInfoBox = () => {
@@ -208,48 +238,81 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                 </>
             )}
 
-            {/* COLUMN 1: LINEA ROSSA, BADGE DISTANZA E DIVISORE LATERALE */}
-            <div className="w-14 shrink-0 bg-stone-300/20 relative overflow-visible z-floating-panel">
-                <div className="absolute right-0 top-0 bottom-0 w-px bg-blue-600 z-0"></div>
-                
-                {/* LINEA ROSSA TRATTEGGIATA */}
-                {showLine && <div style={lineStyle}></div>}
-                
-                {/* BADGE DISTANZA - POSIZIONATO SULLA STESSA VERTICALE DELLA LINEA */}
-                {distanceFromPrev !== null && (
-                    <div 
-                        className="absolute z-modal pointer-events-none" 
-                        style={{ 
-                            top: '0', 
-                            left: horizontalPosition, // USO VARIABILE UNIFICATA: Segue sempre la linea
-                            transform: `translate(-50%, -50%) rotate(-90deg)`
-                        }}
-                    >
-                        <div className={`
-                            bg-[#e7e5e4] border border-red-500 text-red-600
-                            px-1 py-0.5 rounded-sm shadow-sm flex items-center justify-center 
-                            leading-none whitespace-nowrap z-modal
-                            ${distanceStyle} 
-                            ${distanceFromPrev > 50 ? 'bg-orange-100 text-orange-600 border-orange-500' : ''}
-                        `}>
-                            {distanceFromPrev} KM
-                        </div>
-                    </div>
+            {/* COLUMN 1: TIMELINE — larghezza calcolata; il contenuto inizia esattamente dopo */}
+            <div
+                className="shrink-0 relative overflow-visible z-floating-panel pointer-events-none"
+                style={{ width: `${TL_RAIL_W}px` }}
+            >
+                {/* LINEA VERTICALE CONTINUA (riferimento principale) */}
+                <div className="absolute top-0 bottom-0 w-[2px] -translate-x-1/2 bg-stone-300 z-0" style={{ left: `${LINE_X}px` }} />
+
+                {/* NODO INIZIALE */}
+                {isFirstNode && (
+                    <div className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10" style={{ left: `${LINE_X}px` }} />
                 )}
-            </div>
-            
-            {/* COLUMN 2: ICON + CONTENT */}
-            <div className="flex-1 min-w-0 flex pointer-events-none z-floating-panel">
-                
-                {/* 2A. ICONA */}
-                <div className="w-10 flex items-center justify-center relative z-dropdown pointer-events-auto border-r border-stone-300/30 shrink-0 bg-[#e7e5e4]/50 backdrop-blur-[1px] h-full">
-                     {item.isCustom ? (
+
+                {/* NODO FINALE */}
+                {isLastNode && (
+                    <div className="absolute bottom-0 -translate-x-1/2 translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10" style={{ left: `${LINE_X}px` }} />
+                )}
+
+                {/* SPOSTAMENTO — la curva parte dalla linea, esce a sinistra e SOSTIENE l'icona del mezzo;
+                    la distanza vive SULLA linea, nel vuoto fra le due tappe (niente colonne extra) */}
+                {hasMovement && (
+                    <>
+                        <svg
+                            className="absolute overflow-visible z-10 pointer-events-none"
+                            width={LINE_X}
+                            height={connectorPx}
+                            viewBox={`0 0 ${LINE_X} ${connectorPx}`}
+                            fill="none"
+                            style={{ left: 0, top: `${prevCenterRem}rem` }}
+                        >
+                            <path
+                                d={`M ${LINE_X} ${connectorPx / 2 + 2} Q ${LINE_X} ${connectorPx / 2 - 12} ${LINE_X - TL_ARC_REACH} ${connectorPx / 2 - 12}`}
+                                stroke="#a8a29e"
+                                strokeWidth="1"
+                                strokeDasharray="3 3"
+                                strokeLinecap="round"
+                            />
+                        </svg>
+
+                        {/* ICONA MEZZO — appoggiata sull'estremità sinistra della curva */}
+                        <button
+                            ref={transportAnchorRef}
+                            onClick={(e) => { e.stopPropagation(); setTransportOpen(o => !o); }}
+                            className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-[#f5f5f4] border border-stone-300 shadow-sm flex items-center justify-center transition-colors hover:border-amber-500 hover:bg-amber-50"
+                            style={{ left: `${LINE_X - TL_ARC_REACH}px`, top: `calc(${movementMidRem}rem - 12px)` }}
+                            title={transport ? `Mezzo: ${transport.label}` : 'Scegli il mezzo di trasporto'}
+                        >
+                            {transport
+                                ? <span className="text-[13px] leading-none">{transport.emoji}</span>
+                                : <Route className="w-3.5 h-3.5 text-stone-400" />}
+                        </button>
+
+                        {/* DISTANZA — centrata SULLA linea verticale, fra le due tappe */}
+                        <span
+                            className="absolute -translate-x-1/2 -translate-y-1/2 z-20 px-1 rounded bg-[#e7e5e4] text-[9px] md:text-[10px] font-semibold text-stone-500 leading-none whitespace-nowrap"
+                            style={{ left: `${LINE_X}px`, top: `${movementMidRem}rem` }}
+                        >
+                            {distanceLabel}
+                        </span>
+                    </>
+                )}
+
+                {/* NODO "TAPPA RAGGIUNTA" — icona categoria, prominente, al centro delle due righe, SULLA linea */}
+                <div
+                    className="absolute -translate-x-1/2 -translate-y-1/2 z-30"
+                    style={{ left: `${LINE_X}px`, top: `${nodeCenterRem}rem` }}
+                >
+                    {item.isCustom ? (
                         <div ref={iconAnchorRef}>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onIconClick(iconPickerOpen === item.id ? null : item.id); }} 
-                                className="hover:text-amber-700 transition-colors text-stone-700 flex items-center justify-center bg-[#e7e5e4] rounded-full p-1 border border-stone-300 shadow-sm"
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onIconClick(iconPickerOpen === item.id ? null : item.id); }}
+                                className="pointer-events-auto w-9 h-9 rounded-full bg-[#e7e5e4] border border-stone-300 shadow-sm flex items-center justify-center text-stone-700 transition-colors hover:text-amber-700 hover:border-amber-500"
+                                title="Cambia icona"
                             >
-                                {renderCustomIcon()}
+                                {renderCustomIcon("w-5 h-5 text-stone-600")}
                             </button>
                             <AnchoredPopover
                                 isOpen={iconPickerOpen === item.id}
@@ -262,7 +325,7 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                                     <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Icona Nota</span>
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); onIconClick(null); }}
-                                        className="p-1 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
+                                        className="p-1 text-stone-400 hover:text-stone-700 transition-colors rounded-full hover:bg-stone-200"
                                         title="Chiudi"
                                     >
                                         <X className="w-3.5 h-3.5" />
@@ -278,14 +341,64 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                             </AnchoredPopover>
                         </div>
                     ) : (
-                        <div className={`flex items-center justify-center bg-[#e7e5e4] rounded-full p-1 border border-stone-300 shadow-sm ${item.completed ? 'text-emerald-700' : 'text-stone-700'}`}>
-                            {getCategoryIcon(item.poi.category)}
-                        </div>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onViewDetail(item.poi); }}
+                            className={`pointer-events-auto w-9 h-9 rounded-full bg-[#e7e5e4] border shadow-sm flex items-center justify-center transition-colors hover:text-amber-700 hover:border-amber-500 ${item.completed ? 'text-emerald-700 border-emerald-300' : 'text-stone-700 border-stone-300'}`}
+                            title={item.poi.name}
+                        >
+                            {getCategoryIcon(item.poi.category, "w-5 h-5")}
+                        </button>
                     )}
                 </div>
 
-                {/* 2B. CONTENT ROWS - SFONDO TRASPARENTE */}
-                <div className="flex-1 flex flex-col min-w-0 bg-transparent">
+                {/* POPOVER SCELTA MEZZO DI TRASPORTO */}
+                {hasMovement && (
+                    <AnchoredPopover
+                        isOpen={transportOpen}
+                        onClose={() => setTransportOpen(false)}
+                        anchorRef={transportAnchorRef}
+                        align="left"
+                        className="bg-[#f5f5f4] border border-stone-300 shadow-xl rounded-lg p-2 w-56"
+                    >
+                        <div className="flex justify-between items-center mb-2 px-1 border-b border-stone-200 pb-1">
+                            <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Mezzo di trasporto</span>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setTransportOpen(false); }}
+                                className="p-1 text-stone-400 hover:text-stone-700 transition-colors rounded-full hover:bg-stone-200"
+                                title="Chiudi"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1">
+                            {TRANSPORT_MODES.map(m => (
+                                <button
+                                    key={m.key}
+                                    onClick={() => { onTransportSelect(item.id, m.key); setTransportOpen(false); }}
+                                    className={`h-9 rounded flex items-center justify-center text-lg leading-none transition-colors ${item.transportMode === m.key ? 'bg-amber-100 ring-1 ring-amber-400' : 'hover:bg-stone-200'}`}
+                                    title={m.label}
+                                >
+                                    <span>{m.emoji}</span>
+                                </button>
+                            ))}
+                        </div>
+                        {item.transportMode && (
+                            <button
+                                onClick={() => { onTransportSelect(item.id, ''); setTransportOpen(false); }}
+                                className="mt-2 w-full text-[10px] font-semibold text-stone-500 hover:text-stone-800 py-1.5 rounded hover:bg-stone-200 transition-colors uppercase tracking-wider"
+                            >
+                                Rimuovi mezzo
+                            </button>
+                        )}
+                    </AnchoredPopover>
+                )}
+            </div>
+
+            {/* COLUMN 2: CONTENUTO (orario · nome · indirizzo) */}
+            <div className="flex-1 min-w-0 flex bg-transparent pointer-events-none z-floating-panel">
+
+                {/* CONTENUTO (orario · nome · indirizzo) */}
+                <div className="flex-1 min-w-0 flex flex-col">
                     <div className={`${rowHeightClass} flex items-center relative z-floating-panel w-full`}>
                         
                         {/* TIME SLOT */}

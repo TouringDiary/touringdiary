@@ -39,9 +39,12 @@ export function useDocumentSaveController<TSnapshot>({
   const [phase, setPhase] = useState<DocumentSavePhase>('never_saved');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [autosaveEnabled, setAutosaveEnabledState] = useState<boolean>(() =>
-    getStorageItem<boolean>(autosavePreferenceKey, true)
-  );
+  const [autosaveEnabled, setAutosaveEnabledState] = useState<boolean>(() => {
+    // Preferenza persistita; se assente parte da OFF (nuovi diari). Dopo il primo salvataggio
+    // manuale viene attivata automaticamente — vedi runSave.
+    const stored = getStorageItem<boolean | null>(autosavePreferenceKey, null);
+    return stored ?? false;
+  });
 
   const baselineRef = useRef<TSnapshot | null>(null);
   const phaseRef = useRef<DocumentSavePhase>('never_saved');
@@ -123,6 +126,10 @@ export function useDocumentSaveController<TSnapshot>({
     setPhase('saving');
     setLastError(null);
 
+    // Nuovo diario: al primo salvataggio manuale attiva Auto-save (ON). I diari già esistenti non passano da qui.
+    const shouldEnableAutosaveAfter =
+      !!options?.force && !options?.asCopy && isNeverSavedRef.current();
+
     const savePromise = (async () => {
       try {
         const result = await persistRef.current(snapshot, {
@@ -138,6 +145,11 @@ export function useDocumentSaveController<TSnapshot>({
         onPersistedRef.current?.(result, snapshot);
         baselineRef.current = snapshot;
         setLastSavedAt(Date.now());
+
+        if (shouldEnableAutosaveAfter) {
+          setAutosaveEnabledState(true);
+          setStorageItem(autosavePreferenceKey, true);
+        }
 
         const currentAfterSave = getSnapshotRef.current();
         if (!snapshotsEqual(currentAfterSave, snapshot)) {
@@ -163,7 +175,7 @@ export function useDocumentSaveController<TSnapshot>({
 
     inFlightRef.current = savePromise;
     return savePromise;
-  }, [clearDebounce, getDocumentId, isGuest]);
+  }, [autosavePreferenceKey, clearDebounce, getDocumentId, isGuest]);
 
   const flush = useCallback(() => runSave({ force: true }), [runSave]);
 

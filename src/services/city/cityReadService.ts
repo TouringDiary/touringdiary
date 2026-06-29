@@ -345,27 +345,44 @@ export const buildVirtualCity = async (
     centerCoords: { lat: number, lng: number },
     radiusKm: number,
     manifest: CitySummary[],
-    baseCity?: CityDetails
+    /**
+     * Opzioni di costruzione:
+     * - `baseCity`: attiva la modalità fusione "Tutto Incluso" mantenendo l'identità della città base.
+     * - `selectedCityIds`: sottoinsieme opzionale di città (per id) da includere nella fusione.
+     *   Quando assente, viene usato l'intero raggio (comportamento storico Around Me).
+     *   Cambia SOLO quali città vengono elaborate: la logica di fusione resta invariata.
+     */
+    options: { baseCity?: CityDetails; selectedCityIds?: string[] } = {}
 ): Promise<CityDetails | null> => {
+    const { baseCity, selectedCityIds } = options;
     try {
-        const nearbyCities = manifest
+        const inRadius = manifest
             .filter(c => c.status === 'published')
             .filter(c => {
                 const dist = calculateDistance(centerCoords.lat, centerCoords.lng, c.coords.lat, c.coords.lng);
                 return dist <= radiusKm;
             });
 
+        const selectedSet = selectedCityIds && selectedCityIds.length > 0 ? new Set(selectedCityIds) : null;
+        const nearbyCities = selectedSet ? inRadius.filter(c => selectedSet.has(c.id)) : inRadius;
+
         if (nearbyCities.length === 0 && !baseCity) return null;
 
-        const cityIds = nearbyCities.map(c => c.id);
+        // Modalità di costruzione esplicita (dominio): fusione "Tutto Incluso" vs "Around Me".
+        const mode: 'merge' | 'around-me' = baseCity ? 'merge' : 'around-me';
+        const isMergedMode = mode === 'merge';
+
+        // In modalità fusione i contenuti della città base sono sempre inclusi,
+        // insieme a quelli delle (sole) città selezionate.
+        const cityIds = isMergedMode
+            ? Array.from(new Set([baseCity!.id, ...nearbyCities.map(c => c.id)]))
+            : nearbyCities.map(c => c.id);
 
         const [allPois, allEvents, allGuides] = await Promise.all([
             getPoisByCityIds(cityIds),
             Promise.all(cityIds.map(id => getCityEvents(id))).then(res => res.flat()),
             Promise.all(cityIds.map(id => getCityGuides(id))).then(res => res.flat())
         ]);
-
-        const isMergedMode = !!baseCity;
 
         const virtualCity: CityDetails = {
             id: isMergedMode ? baseCity.id : 'around-me-virtual',
@@ -393,6 +410,7 @@ export const buildVirtualCity = async (
             status: 'published',
             tags: [],
             hasGeneratedContent: true,
+            isVirtual: true,
             details: {
                 subtitle: isMergedMode ? (baseCity.details.subtitle || '') : `${nearbyCities.length} Città vicine`,
                 heroImage: isMergedMode ? baseCity.details.heroImage : (nearbyCities[0]?.imageUrl || ''),

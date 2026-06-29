@@ -22,7 +22,7 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
 }) => {
   return (
     <div 
-      className={`hidden lg:flex flex-col shrink-0 self-stretch lg:border-l border-white/10 bg-[#030508] lg:bg-[#030508]/80 lg:h-full lg:min-h-0 relative z-30 overflow-visible transition-all duration-500 ease-in-out ${
+      className={`hidden lg:flex flex-col shrink-0 self-stretch lg:border-l border-white/10 bg-[#030508] lg:bg-[#030508]/80 lg:h-full lg:min-h-0 relative z-local-chrome overflow-visible transition-all duration-500 ease-in-out ${
         sticky ? 'lg:sticky lg:top-0' : ''
       } ${
         isOpen 
@@ -34,7 +34,7 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
         <button
           type="button"
           onClick={onToggle}
-          className="hidden lg:flex absolute -left-3 top-12 w-6 h-6 bg-amber-500 rounded-full border border-slate-900 items-center justify-center text-slate-950 hover:bg-amber-400 transition-colors z-dropdown shadow-lg shadow-amber-500/20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
+          className="hidden lg:flex absolute -left-3 top-12 w-6 h-6 bg-amber-500 rounded-full border border-slate-900 items-center justify-center text-slate-950 hover:bg-amber-400 transition-colors z-local-overlay shadow-lg shadow-amber-500/20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
           aria-label={isOpen ? 'Chiudi suggerimenti' : 'Apri suggerimenti'}
           title={isOpen ? 'Chiudi Suggerimenti' : 'Apri Suggerimenti'}
         >

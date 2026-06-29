@@ -1,16 +1,11 @@
 
-import React, { useRef, useState } from 'react';
-import { Medal, Trophy, Map, ChevronRight, FileText, Utensils, Landmark, ShoppingBag, Monitor, Star, Shield, Lock, ArrowUp, Zap, Plus, Minus, Trash2, Briefcase } from 'lucide-react';
-import { User, Reward, RewardCategory, Itinerary, SuggestionRequest } from '../../../types/index';
-import { Suitcase } from '@/types/suitcase';
+import React, { useRef } from 'react';
+import { Medal, Trophy, ChevronRight, FileText, Utensils, Landmark, ShoppingBag, Monitor, Star, Shield, Lock, ArrowUp } from 'lucide-react';
+import { User, Reward, RewardCategory, SuggestionRequest } from '../../../types/index';
 import { LevelInfo } from '../../../services/gamificationService';
 import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
 import { getRoleLabel } from '../../../services/userService';
-import { useUser } from '@/context/UserContext';
-import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
-import { useItinerary } from '@/context/ItineraryContext';
 import { safeArray } from '../../../utils/safeTypes';
-import { useUserTemplates } from '@/hooks/useSuitcaseSystem';
 
 interface Props {
     user: User;
@@ -20,11 +15,7 @@ interface Props {
     catalogRewards: Reward[];
     myRewards: any[];
     onClaimReward: (reward: Reward, isUnlocked: boolean) => void;
-    savedProjects: Itinerary[];
-    onLoadProject: (p: Itinerary) => void;
-    userSuitcases?: Suitcase[];
     suggestions: SuggestionRequest[];
-    onExpandSection: (sec: 'trips' | 'reports') => void;
     onClose: () => void;
 }
 
@@ -39,49 +30,17 @@ const getCategoryTheme = (cat: RewardCategory) => {
 };
 
 export const UserOverviewTab = ({
-    user, currentLevel, currentXP, progress, catalogRewards, myRewards, onClaimReward,
-    savedProjects, onLoadProject, userSuitcases: propSuitcases, suggestions, onExpandSection, onClose
+    user, currentLevel, currentXP, progress, catalogRewards, myRewards, onClaimReward, suggestions
 }: Props) => {
-    // SECURITY FIX: Fetch suitcases if not passed as props (FeatureModals fix)
-    const { templates: hookSuitcases } = useUserTemplates(user.id);
-    const userSuitcases = safeArray<Suitcase>(propSuitcases && propSuitcases.length > 0 ? propSuitcases : hookSuitcases);
-
-    const { setUser } = useUser();
-    const { deleteProject } = useItinerary();
-
     // Sliders Refs
     const unlockedSliderRef = useRef<DraggableSliderHandle>(null);
     const lockedSliderRef = useRef<DraggableSliderHandle>(null);
-
-    // Delete State
-    const [projectToDelete, setProjectToDelete] = useState<{ id: string, name: string } | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
 
     const displayName = user.name.replace(/\s*\(.*?\)\s*/g, '').trim();
 
     // SPLIT LOGIC
     const unlockedRewards = catalogRewards.filter(r => currentLevel.level >= r.requiredLevel);
     const lockedRewards = catalogRewards.filter(r => currentLevel.level < r.requiredLevel).sort((a, b) => a.requiredLevel - b.requiredLevel);
-
-    const isAdminAll = user.role === 'admin_all';
-
-    const handleDeleteClick = (e: React.MouseEvent, proj: any) => {
-        e.stopPropagation();
-        setProjectToDelete({ id: proj.id, name: proj.name });
-    };
-
-    const confirmDeleteProject = async () => {
-        if (!projectToDelete) return;
-        setIsDeleting(true);
-        try {
-            await deleteProject(projectToDelete.id);
-            setProjectToDelete(null);
-        } catch (e) {
-            console.error("Delete failed", e);
-        } finally {
-            setIsDeleting(false);
-        }
-    };
 
     const renderRewardCard = (reward: Reward, isUnlocked: boolean) => {
         // Mappatura icone base per anteprima
@@ -128,17 +87,6 @@ export const UserOverviewTab = ({
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-10 relative">
-
-            {/* DELETE MODAL */}
-            <DeleteConfirmationModal
-                isOpen={!!projectToDelete}
-                onClose={() => setProjectToDelete(null)}
-                onConfirm={confirmDeleteProject}
-                title="Eliminare Viaggio?"
-                message={`Vuoi davvero eliminare "${projectToDelete?.name}"? L'azione è irreversibile.`}
-                isDeleting={isDeleting}
-                variant="danger"
-            />
 
             {/* 1. HEADER PROFILO & XP BAR */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-2xl border border-slate-700 relative overflow-hidden shadow-xl">
@@ -224,91 +172,12 @@ export const UserOverviewTab = ({
                 </DraggableSlider>
             </div>
 
-            {/* 4. I MIEI VIAGGI + LE MIE VALIGIE — 50/50 on desktop, stacked on mobile */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* ── I Miei Viaggi (left) ── */}
-                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl overflow-hidden group relative">
-                    <div className="flex justify-between items-center mb-4 relative z-floating-panel">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-900/20 rounded-lg text-indigo-400"><Map className="w-6 h-6" /></div>
-                            <div>
-                                <h3 className="text-xl font-bold text-white">I Miei Viaggi</h3>
-                                <p className="text-slate-400 text-sm">{safeArray<Itinerary>(savedProjects).length} itinerari salvati</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* LISTA VIAGGI CON DELETE */}
-                    <div className="space-y-3 relative z-floating-panel max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                        {savedProjects.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-floating-panel">
-                                {savedProjects.slice(0, 4).map(proj => (
-                                    <div key={proj.id} className="p-4 bg-slate-950/50 rounded-xl border border-slate-800 hover:border-amber-500/30 transition-all flex justify-between items-center group/item">
-                                        <div className="cursor-pointer" onClick={() => onLoadProject(proj)}>
-                                            <div className="text-sm font-bold text-white mb-1 group-hover/item:text-amber-400 transition-colors line-clamp-1">{proj.name || 'Senza Nome'}</div>
-                                            <div className="text-[10px] text-slate-500 flex items-center gap-2">
-                                                <span>{new Date(proj.createdAt).toLocaleDateString()}</span>
-                                                <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
-                                                <span>{proj.items.length} tappe</span>
-                                            </div>
-                                        </div>
-                                        <button 
-                                            onClick={(e) => handleDeleteClick(e, proj)}
-                                            className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover/item:opacity-100"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 bg-slate-950/30 rounded-xl border border-slate-800 border-dashed relative z-floating-panel">
-                                <Map className="w-10 h-10 text-slate-700 mx-auto mb-2 opacity-50" />
-                                <p className="text-slate-500 text-xs italic">Ancora nessun viaggio salvato nel tuo diario.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* ── Le Mie Valigie (right) ── */}
-                <div className="bg-gradient-to-br from-indigo-900/20 to-slate-900 p-6 rounded-2xl border border-indigo-500/20 shadow-xl group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Briefcase className="w-24 h-24 text-indigo-400" /></div>
-                    <div className="flex justify-between items-center mb-6 relative z-floating-panel">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400"><Briefcase className="w-6 h-6" /></div>
-                            <div>
-                                <h3 className="text-xl font-bold text-white">Le Mie Valigie</h3>
-                                <p className="text-slate-400 text-sm">Gestisci i tuoi modelli di viaggio.</p>
-                            </div>
-                        </div>
-                        <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold py-1.5 px-3 rounded-lg uppercase tracking-wider transition-all shadow-lg">Gestisci tutto</button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-floating-panel">
-                        {userSuitcases.length > 0 ? userSuitcases.slice(0, 4).map(s => (
-                            <div key={s.id} className="p-3 bg-slate-950/50 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition-all flex items-center gap-3">
-                                <span className="text-2xl">{s.icon}</span>
-                                <div>
-                                    <div className="text-sm font-bold text-white line-clamp-1">{s.title}</div>
-                                    <div className="text-[10px] text-slate-500">{s.suitcase_items?.length || 0} oggetti</div>
-                                </div>
-                            </div>
-                        )) : (
-                            <div className="col-span-2 text-center py-10 bg-slate-950/30 rounded-xl border border-slate-800 border-dashed">
-                                <Briefcase className="w-10 h-10 text-slate-700 mx-auto mb-2 opacity-50" />
-                                <p className="text-slate-500 text-xs italic">Nessun modello di valigia salvato.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* ── Le Mie Segnalazioni (full width below) ── */}
-                <div onClick={() => onExpandSection('reports')} className="md:col-span-2 bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-indigo-500/50 cursor-pointer transition-all group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><FileText className="w-24 h-24" /></div>
-                    <h3 className="text-xl font-bold text-white mb-2 relative z-floating-panel">Le Mie Segnalazioni</h3>
-                    <p className="text-slate-400 text-sm relative z-floating-panel mb-4">{safeArray<SuggestionRequest>(suggestions).length} contributi inviati alla community.</p>
-                    <div className="flex items-center text-indigo-400 text-xs font-bold uppercase tracking-wider relative z-floating-panel group-hover:translate-x-1 transition-transform">Visualizza stato <ChevronRight className="w-4 h-4" /></div>
-                </div>
+            {/* 4. LE MIE SEGNALAZIONI */}
+            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10"><FileText className="w-24 h-24" /></div>
+                <h3 className="text-xl font-bold text-white mb-2 relative z-floating-panel">Le Mie Segnalazioni</h3>
+                <p className="text-slate-400 text-sm relative z-floating-panel mb-4">{safeArray<SuggestionRequest>(suggestions).length} contributi inviati alla community.</p>
+                <div className="flex items-center text-indigo-400 text-xs font-bold uppercase tracking-wider relative z-floating-panel">Grazie per il tuo contributo <ChevronRight className="w-4 h-4" /></div>
             </div>
         </div>
     );

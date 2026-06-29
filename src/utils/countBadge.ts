@@ -2,6 +2,7 @@ export type CountBadgeSize = 'xs' | 'sm' | 'md' | 'lg';
 export type CountBadgeVariant =
   | 'red'
   | 'indigo'
+  | 'amber'
   | 'rose'
   | 'rose-500'
   | 'red-ring'
@@ -59,6 +60,7 @@ const SIZE_CLASSES: Record<CountBadgeSize, string> = {
 const VARIANT_CLASSES: Record<CountBadgeVariant, string> = {
   red: 'bg-red-600 text-white shadow-md shadow-red-950/50',
   indigo: 'bg-indigo-500 text-white shadow-md shadow-indigo-950/50',
+  amber: 'bg-amber-500 text-white shadow-md shadow-amber-950/50',
   rose: 'bg-rose-600 text-white shadow-sm',
   'rose-500': 'bg-rose-500 text-white shadow-sm',
   'red-ring': 'bg-red-600 text-white ring-2 ring-red-400 shadow-sm',

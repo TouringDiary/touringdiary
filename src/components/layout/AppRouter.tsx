@@ -39,7 +39,7 @@ const MainContent: React.FC = () => {
         activeCityId, activeShopId, virtualCity, isBuildingVirtual,
         currentCityTab, activeCategories, selectedZone, selectedSeason,
         setActiveCategories, setSelectedZone, setSelectedSeason,
-        navigateToCity, goBack, goHome, handleAroundMeTrigger,
+        navigateToCity, goBack, goHome, handleAroundMeTrigger, handleMergeCities,
         openShopFromPoi, handleNavigateGlobal, targetShopVat, setActivePreview,
     } = useNavigation();
 
@@ -163,6 +163,7 @@ const MainContent: React.FC = () => {
                     cityManifest={publicManifest}
                     isSidebarOpen={isSidebarOpen}
                     preloadedCity={virtualCity}
+                    onMergeCities={handleMergeCities}
                     isUiVisible={isUiVisible}
                 />
             </Suspense>
@@ -189,6 +190,7 @@ const MainContent: React.FC = () => {
                     onOpenAuth={() => openModal('auth')}
                     cityManifest={publicManifest}
                     isSidebarOpen={isSidebarOpen}
+                    onMergeCities={handleMergeCities}
                     isUiVisible={isUiVisible}
                 />
             </Suspense>

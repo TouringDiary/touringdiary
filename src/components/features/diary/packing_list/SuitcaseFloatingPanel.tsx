@@ -1,6 +1,7 @@
 import { useUI } from '@/context/UIContext';
 import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
 import { resolveWorkspaceShellGeometry } from '@/layering/resolveWorkspaceShellGeometry';
+import { SLIDE_PANEL_TRANSITION_CLASS, slidePanelEaseClass, slidePanelTransformClass } from '@/constants/slidePanelMotion';
 import {
   resolveCompanionSurfaceTier,
   resolveWorkspacePanelZIndex,
@@ -11,16 +12,21 @@ import { SuitcaseFloatingPanelBody } from './SuitcaseFloatingPanel/SuitcaseFloat
 import { useFloatingPanelShellLifecycle } from './SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
 import { useSuitcasePanelComposition } from './SuitcaseFloatingPanel/hooks/useSuitcasePanelComposition';
 
+export type SuitcasePanelInitialAction = 'create-suitcase' | 'create-template';
+
 interface Props {
   itineraryId: string | null;
   cityType?: string;
   suitcaseId?: string | null;
+  /** Avvia automaticamente una pipeline esistente all'apertura (riuso, nessuna logica nuova). */
+  initialAction?: SuitcasePanelInitialAction | null;
 }
 
 export const SuitcaseFloatingPanel: React.FC<Props> = ({
   itineraryId,
   cityType,
   suitcaseId,
+  initialAction,
 }) => {
   const { mobileDiaryFullScreen, isMobile } = useUI();
   const panelZIndex = resolveWorkspacePanelZIndex(
@@ -40,6 +46,7 @@ export const SuitcaseFloatingPanel: React.FC<Props> = ({
     itineraryId,
     cityType,
     suitcaseId,
+    initialAction,
     requestClose: shell.requestClose,
     registerCloseAttempt: (handler) => {
       closeAttemptRef.current = handler;
@@ -57,13 +64,13 @@ export const SuitcaseFloatingPanel: React.FC<Props> = ({
       className={`
         fixed bottom-0 left-0 right-0 flex flex-col min-h-0 lg:h-[70vh] pointer-events-auto
         bg-slate-900 border-t border-indigo-500/20 rounded-t-3xl shadow-2xl
-        transition-transform duration-500
-        ${shell.isPanelRaised ? 'translate-y-0' : 'translate-y-full'}
-        ${shell.isClosing ? 'ease-in' : 'ease-out'}
+        ${SLIDE_PANEL_TRANSITION_CLASS}
+        ${slidePanelTransformClass(shell.isPanelRaised)}
+        ${slidePanelEaseClass(shell.isClosing)}
       `}
       style={{
         zIndex: panelZIndex,
-        ...resolveWorkspaceShellGeometry(isMobile),
+        ...resolveWorkspaceShellGeometry(isMobile, !mobileDiaryFullScreen),
         ...composition.panelInsetStyle,
       }}
     >

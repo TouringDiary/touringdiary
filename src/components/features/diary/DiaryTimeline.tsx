@@ -5,6 +5,7 @@ import { Itinerary, ItineraryItem, PointOfInterest, CitySummary } from '@/types'
 import { useSystemMessage } from '@/hooks/useSystemMessage';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { DiaryDay } from './DiaryDay';
+import { getCityDisplayName, isPlaceholderCityId } from './cityName';
 
 export interface DiaryTimelineProps {
     itinerary: Itinerary;
@@ -30,6 +31,7 @@ export interface DiaryTimelineProps {
     onSetEditingTime: (id: string | null) => void;
     onIconClick: (id: string | null) => void;
     onIconSelect: (id: string, iconKey: string) => void;
+    onTransportSelect: (id: string, mode: string) => void;
     onNoteChange: (id: string, text: string) => void;
     onDayDrop: (e: React.DragEvent, dayIdx: number, time?: string) => void;
     onItemDrop: (e: React.DragEvent, dayIdx: number, time: string) => void;
@@ -79,17 +81,7 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
         }
     };
     
-    // --- HELPER LOGICA GLOBALE ---
-
-    const getCityDisplayName = (id: string) => {
-        if (!id || typeof id !== 'string' || id === 'unknown' || id === 'custom') return '';
-        if (id.startsWith('City ')) return ''; // Prevenzione assoluta rendering in UI
-        if (props.cityManifest) {
-             const found = props.cityManifest.find(c => String(c.id) === String(id));
-             if (found) return found.name;
-        }
-        return id.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    };
+    const cityName = (id: string) => getCityDisplayName(id, props.cityManifest);
 
     const activeItems = props.activeTab === 'all' 
         ? props.itinerary.items 
@@ -97,20 +89,20 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
 
     const uniqueCityIds = Array.from(new Set(activeItems.map(i => {
            let cid = i.cityId;
-           if (typeof cid === 'string' && cid.startsWith('City ') && i.poi?.cityId) {
+           if (typeof cid === 'string' && isPlaceholderCityId(cid) && i.poi?.cityId) {
                cid = i.poi.cityId;
            }
            return cid;
     })))
         .filter(id => {
             if (!id || typeof id !== 'string' || id === 'unknown' || id === 'custom') return false;
-            if (id.startsWith('City ')) return false;
+            if (isPlaceholderCityId(id)) return false;
             return true;
         }) as string[];
 
     // --- SMART TRUNCATION LOGIC ---
     useEffect(() => {
-        const handleResize = () => {
+        const measure = () => {
             if (!containerRef.current || !ghostRef.current || !dotsGhostRef.current || uniqueCityIds.length === 0) return;
             
             const containerWidth = containerRef.current.offsetWidth;
@@ -135,10 +127,21 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
             setVisibleCitiesCount(count || 1);
         };
 
+        // Coalescing: durante resize continui il ResizeObserver può scattare molte volte;
+        // accorpiamo le misurazioni a una per frame (e annulliamo il rAF pendente al cleanup).
+        let rafId: number | null = null;
+        const handleResize = () => {
+            if (rafId !== null) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(measure);
+        };
+
         const observer = new ResizeObserver(handleResize);
         if (containerRef.current) observer.observe(containerRef.current);
-        handleResize();
-        return () => observer.disconnect();
+        measure();
+        return () => {
+            if (rafId !== null) cancelAnimationFrame(rafId);
+            observer.disconnect();
+        };
     }, [uniqueCityIds]);
 
     return (
@@ -153,7 +156,7 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                     <div ref={ghostRef} className="absolute invisible opacity-0 pointer-events-none flex whitespace-nowrap font-handwriting text-sm md:text-xl font-bold">
                         {uniqueCityIds.map((id, idx) => (
                             <span key={id} className="ghost-city-item px-1">
-                                {getCityDisplayName(id)}{idx < uniqueCityIds.length - 1 ? ',' : ''}
+                                {cityName(id)}{idx < uniqueCityIds.length - 1 ? ',' : ''}
                             </span>
                         ))}
                     </div>
@@ -173,7 +176,7 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                                                 onClick={() => props.onCityClick(id)} 
                                                 className="hover:underline hover:text-amber-600 transition-colors"
                                             >
-                                                {getCityDisplayName(id)}
+                                                {cityName(id)}
                                             </button>
                                             {idx < Math.min(uniqueCityIds.length, visibleCitiesCount) - 1 && <span className="mr-1">,</span>}
                                         </span>
@@ -210,7 +213,7 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                                                         }}
                                                         className="text-left text-sm text-slate-200 hover:text-amber-500 hover:bg-amber-500/10 px-2 py-1.5 rounded-lg transition-all block w-full"
                                                     >
-                                                        {getCityDisplayName(id)}
+                                                        {cityName(id)}
                                                     </button>
                                                 ))}
                                             </div>

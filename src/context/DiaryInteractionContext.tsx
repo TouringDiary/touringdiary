@@ -8,7 +8,7 @@ interface DiaryInteractionContextType {
     confirmAddToItinerary: (pendingPoi: PointOfInterest, dayIndex: number, timeSlotStr: string) => void;
     handleSmartDrop: (dayIndex: number, dataStr: string, targetTime?: string) => void;
     handleItemMoveOrEditRequest: (item: ItineraryItem, targetDayIndex: number, targetTime: string, forceSwap?: boolean) => void;
-    resolveConflict: (item: ItineraryItem, dayIdx: number, conflictingItem: ItineraryItem, action: 'changeTime' | 'swap', newTime?: string) => void;
+    resolveConflict: (item: ItineraryItem, dayIdx: number, conflictingItem: ItineraryItem, action: 'changeTime' | 'swap', newTime?: string, swapTimes?: { itemTime: string; conflictTime: string }) => void;
     resolveDuplicate: (poi: PointOfInterest, dayIdx: number, timeSlot: string, existingItem: ItineraryItem, action: 'add' | 'replace') => void;
 }
 

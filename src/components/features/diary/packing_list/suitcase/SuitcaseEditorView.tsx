@@ -26,6 +26,7 @@ import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsSer
 import { AiSuggestion, AiQuotaFeedback } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
 import { GetAiCandidatesOptions } from '@/hooks/useSuitcaseSystem';
 import { SuitcaseItemRow } from './SuitcaseItemRow';
+import { SwipeToDelete } from '@/components/common/SwipeToDelete';
 import { CategorySuggestionPanel } from './CategorySuggestionPanel';
 import { SuitcaseSidePanel } from './SuitcaseSidePanel';
 import { SuitcaseMobileSuggestionsDrawer } from './SuitcaseMobileSuggestionsDrawer';
@@ -326,9 +327,12 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   const visibleCategoryIds = visibleCategories.map((cat) => cat.id);
   const aiInitialCategories = getEnabledSystemCategoryNames(displaySuitcase);
 
+  // `allCategories` è già `buildDisplayCategories(displaySuitcase)`: lo riusiamo per evitare una
+  // seconda chiamata. La dipendenza resta `displaySuitcase` (allCategories ne è derivato in modo puro),
+  // quindi la memoizzazione è identica a prima.
   const groupedItems = useMemo(
-    () => buildGroupedItemsByCategory(displaySuitcase, buildDisplayCategories(displaySuitcase)),
-    [displaySuitcase]
+    () => buildGroupedItemsByCategory(displaySuitcase, allCategories),
+    [displaySuitcase] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const resetItemDragState = useCallback(() => {
@@ -663,8 +667,9 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         {/* LISTA CATEGORIE VISIBILI */}
         <div className="suitcase-category-sections space-y-4">
         {filteredVisibleCategories.map((cat) => {
-          const catCheckedCount = groupedItems[cat.name].filter(i => i.is_checked).length;
-          const catTotalCount = groupedItems[cat.name].length;
+          const items = groupedItems[cat.name] ?? [];
+          const catCheckedCount = items.filter(i => i.is_checked).length;
+          const catTotalCount = items.length;
           const catPerc = catTotalCount > 0 ? Math.round((catCheckedCount / catTotalCount) * 100) : 0;
           const isCatComplete = catTotalCount > 0 && catCheckedCount === catTotalCount;
 
@@ -731,7 +736,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                   <button
                     onClick={() => !readOnly && toggleCategory(cat.id)}
                     disabled={readOnly}
-                    className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-rose-400/80"
+                    className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-amber-500/10 text-amber-400/80 hover:text-amber-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-amber-400/80"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
                   >
                     <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
@@ -749,38 +754,50 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                     className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-slate-400"
                     title={readOnly ? 'Non disponibile in sola lettura' : 'Elimina definitivamente la categoria'}
                   >
-                    <FolderX className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    <FolderX className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-500" />
                   </button>
               </div>
             </div>
 
               <div className="p-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {groupedItems[cat.name].map((item, itemIndex) => (
-                    <SuitcaseItemRow
+                  {items.map((item, itemIndex) => {
+                    // Regola di dominio: lo swipe-to-delete (mobile/tablet < lg → ItemDeleteConfirmationModal)
+                    // è attivo solo sugli oggetti normali ed editabili. I suggerimenti AI mantengono i
+                    // controlli espliciti Accetta/Rifiuta; in sola lettura non si elimina nulla.
+                    const canSwipeDelete = !readOnly && !item.is_ai_suggestion;
+                    return (
+                    <SwipeToDelete
                       key={item.id}
-                      item={item}
-                      readOnly={readOnly}
-                      onUpdate={onUpdateItem}
-                      onDelete={onDeleteItem}
-                      highlightId={highlightItemId}
-                      override={overrides[normalizeItemName(item.name)]}
-                      onLinkBuildSearch={onLinkBuildSearch}
-                      isSelected={selectedItemName === item.name}
-                      onSelect={() => onSelectItem(item.name === selectedItemName ? null : item.name)}
-                      moveTargets={visibleCategories.filter((target) => target.name !== cat.name)}
-                      onMoveToCategory={(targetName) => onUpdateItem(item.id, { category: targetName })}
-                      reorderEnabled={!readOnly && !!onSwapItemsInCategory}
-                      isDragTarget={
-                        dropTarget?.categoryId === cat.id && dropTarget.index === itemIndex
-                      }
-                      onDragStart={handleItemDragStart(cat.id, item.id)}
-                      onDragOver={handleItemDragOver(cat.id, itemIndex)}
-                      onDragLeave={handleItemDragLeave(cat.id, itemIndex)}
-                      onDrop={handleItemDrop(cat.id, cat.name, itemIndex)}
-                      onDragEnd={resetItemDragState}
-                    />
-                  ))}
+                      className="rounded-xl"
+                      disabled={!canSwipeDelete}
+                      onDelete={() => onDeleteItem(item.id)}
+                    >
+                      <SuitcaseItemRow
+                        item={item}
+                        readOnly={readOnly}
+                        onUpdate={onUpdateItem}
+                        onDelete={onDeleteItem}
+                        highlightId={highlightItemId}
+                        override={overrides[normalizeItemName(item.name)]}
+                        onLinkBuildSearch={onLinkBuildSearch}
+                        isSelected={selectedItemName === item.name}
+                        onSelect={() => onSelectItem(item.name === selectedItemName ? null : item.name)}
+                        moveTargets={visibleCategories.filter((target) => target.name !== cat.name)}
+                        onMoveToCategory={(targetName) => onUpdateItem(item.id, { category: targetName })}
+                        reorderEnabled={!readOnly && !!onSwapItemsInCategory}
+                        isDragTarget={
+                          dropTarget?.categoryId === cat.id && dropTarget.index === itemIndex
+                        }
+                        onDragStart={handleItemDragStart(cat.id, item.id)}
+                        onDragOver={handleItemDragOver(cat.id, itemIndex)}
+                        onDragLeave={handleItemDragLeave(cat.id, itemIndex)}
+                        onDrop={handleItemDrop(cat.id, cat.name, itemIndex)}
+                        onDragEnd={resetItemDragState}
+                      />
+                    </SwipeToDelete>
+                    );
+                  })}
 
                   {activeCategoryForAdd === cat.name && !readOnly && (
                     <div className="flex items-center gap-2 p-2.5 rounded-xl border border-indigo-500/30 bg-slate-900/60 animate-in fade-in slide-in-from-top-1 shadow-lg shadow-indigo-500/10 h-[50px]">
@@ -827,6 +844,8 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         sticky={true}
       >
         <CategorySuggestionPanel
+          // 'General' è solo un fallback UI quando nessun oggetto è selezionato:
+          // non è una categoria del dominio.
           category={selectedItemData?.category || 'General'}
           selectedItem={selectedItemData ? {
             name: selectedItemData.name,
@@ -848,6 +867,8 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
       >
         <CategorySuggestionPanel
+          // 'General' è solo un fallback UI quando nessun oggetto è selezionato:
+          // non è una categoria del dominio.
           category={selectedItemData?.category || 'General'}
           selectedItem={selectedItemData ? {
             name: selectedItemData.name,

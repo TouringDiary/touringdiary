@@ -68,7 +68,7 @@ export const SavedSuitcasesSection: React.FC<SavedSuitcasesSectionProps> = ({
               onAssociate={onRequestAssociate}
               onDelete={onDeleteSuitcase}
               onDuplicate={onDuplicateSuitcase}
-              onMouseEnter={() => onHover(s.id)}
+              onSelect={() => onHover(s.id)}
               currentUser={currentUser}
             />
           ))}

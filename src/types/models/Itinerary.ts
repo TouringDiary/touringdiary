@@ -33,7 +33,13 @@ export interface ItineraryItem {
   completed?: boolean;
   isCustom?: boolean;
   customIcon?: string;
-  
+
+  // --- TIMELINE 3.0 ---
+  // Mezzo di trasporto scelto manualmente per il segmento che PORTA a questa tappa.
+  // Es. 'walk' | 'bike' | 'scooter' | 'motorbike' | 'car' | 'taxi' | 'bus' | 'train'
+  //     | 'subway' | 'tram' | 'ferry' | 'boat' | 'plane'. Se assente, segmento neutro.
+  transportMode?: string;
+
   // --- DIARY 2.0 FIELDS ---
   // Se true, l'item non appare nella timeline verticale ma nella sezione "Risorse & Contatti" (Footer)
   isResource?: boolean; 

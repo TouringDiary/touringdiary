@@ -286,7 +286,7 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
             <img
               src={displayImage}
               alt={finalSuggestion.name}
-              className="w-full h-full object-cover relative z-floating-panel drop-shadow-2xl"
+              className="w-full h-full object-cover relative z-local-raised drop-shadow-2xl"
               onError={(e) => {
                 const src = (e.target as HTMLImageElement).src;
                 if (src) {
@@ -299,7 +299,7 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
               }}
             />
           ) : (
-            <div className="flex flex-col items-center gap-2 relative z-floating-panel opacity-30 text-slate-300">
+            <div className="flex flex-col items-center gap-2 relative z-local-raised opacity-30 text-slate-300">
               <ImageIcon className="w-8 h-8" />
               <span className="text-[10px] xl:text-[12px] font-black uppercase tracking-widest">No Image</span>
             </div>
@@ -349,10 +349,10 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
             }}
             className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-[0_0_20px_rgba(79,70,229,0.2)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)] transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
           >
-            <span className="text-xs font-black text-white uppercase tracking-widest relative z-floating-panel truncate">
+            <span className="text-xs font-black text-white uppercase tracking-widest relative z-local-raised truncate">
               {partnerDisplay.scopriCtaLabel}
             </span>
-            <ExternalLink className="w-3.5 h-3.5 text-indigo-100 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform relative z-floating-panel shrink-0" />
+            <ExternalLink className="w-3.5 h-3.5 text-indigo-100 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform relative z-local-raised shrink-0" />
           </button>
         )}
 

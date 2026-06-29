@@ -1,4 +1,4 @@
-/** Shared layout tokens for side-by-side mobile hero twin boxes. */
+/** Shared layout tokens for stacked mobile/tablet hero modules. */
 export const HERO_COMPACT = {
     boxPadding: 'p-3',
     headerRow: 'h-8 mb-2 shrink-0',
@@ -7,7 +7,13 @@ export const HERO_COMPACT = {
     /** Flexible spacer above the bottom field stack (filter box, expanded layouts). */
     body: 'flex-1 min-h-0 min-w-0',
     bodyGap: 'gap-2',
-    /** Mobile twin-box stack: header + field rows (matches filter + AI layout). */
+    /** Stacked hero: collapsed bar (title + chevron only). */
+    collapsedBar:
+        'flex items-center justify-between gap-2 min-h-[44px] px-3 py-2.5 cursor-pointer rounded-2xl transition-colors hover:bg-slate-800/30 active:bg-slate-800/50',
+    expandDuration: 'duration-500',
+    expandEase: 'ease-out',
+    contentFadeDuration: 'duration-300',
+    /** Mobile twin-box stack: header + field rows (legacy reference). */
     compactTwinStack: 'flex flex-col shrink-0',
     fieldHeight: 'h-11',
     fieldRadius: 'rounded-xl',

@@ -287,4 +287,11 @@ export interface CityDetails extends CitySummary {
 
         idealFor?: string[];
     };
+
+    /**
+     * Marca una città costruita in memoria da `buildVirtualCity` (Around Me / fusione
+     * "Tutto Incluso"). Non esiste su DB: identifica il dominio "Virtual City",
+     * concetto distinto dal semplice preload.
+     */
+    isVirtual?: boolean;
 }

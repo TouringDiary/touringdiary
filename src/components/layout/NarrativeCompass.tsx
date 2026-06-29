@@ -27,7 +27,7 @@ export const NarrativeCompass = ({ activeCityId }: NarrativeCompassProps) => {
     const containerStyle = useDynamicStyles('journey_container');
     const baseTextStyle = useDynamicStyles('journey_text_base');
     const activeTextStyle = useDynamicStyles('journey_text_active');
-    const mobileTextStyle = useDynamicStyles('journey_text_mobile');
+    const mobileTextStyle = useDynamicStyles('journey_text_active', true);
     
     const mobileDotStyle = useDynamicStyles('journey_dot_mobile');
     const dividerStyle = useDynamicStyles('journey_divider'); 
@@ -150,16 +150,16 @@ export const NarrativeCompass = ({ activeCityId }: NarrativeCompassProps) => {
                 })}
             </div>
 
-            <div className="md:hidden flex flex-col items-center justify-center gap-1 animate-in fade-in slide-in-from-top-2 duration-500">
-                <span className={`${mobileTextStyle} drop-shadow-md`}>
+            <div className="md:hidden relative w-full h-full flex flex-col items-center justify-center gap-0.5 animate-in fade-in slide-in-from-top-2 duration-500">
+                <span className={`${mobileTextStyle} drop-shadow-md leading-none`}>
                     {currentPhase}
                 </span>
                 
-                <span className={`${currentConfig.style} opacity-80`}>
+                <span className={`${currentConfig.style} opacity-80 leading-none`}>
                      {currentConfig.text}
                 </span>
 
-                <div className="flex items-center gap-1.5 mt-1">
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
                     {PHASES.map((_, idx) => {
                         const isActive = idx === currentIndex;
                         return (

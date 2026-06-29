@@ -484,7 +484,7 @@ export const SUITCASE_CATEGORY_SECTION_SHELL_CLASS = [
  * Il raggio superiore è obbligatorio: senza di esso lo sfondo opaco copre gli angoli arrotondati della shell.
  */
 export const SUITCASE_CATEGORY_SECTION_HEADER_CLASS = [
-  'sticky top-0 z-20',
+  'sticky top-0 z-local-sticky',
   SUITCASE_CATEGORY_SECTION_TOP_RADIUS_CLASS,
   'bg-slate-800/95 backdrop-blur-md',
   'px-3 md:px-5 py-2 md:py-2.5',

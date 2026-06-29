@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Eye, EyeOff, CheckSquare, MinusCircle, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ListRestart, FolderPlus, Eye, EyeOff, CheckSquare, MinusCircle, Trash2 } from 'lucide-react';
 import { TemplateCategoryIcon, ItemCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
 import {
   buildDisplayCategories,
@@ -20,7 +20,7 @@ import { isTdTemplate } from '@/utils/suitcaseDomain';
 import { composeTdTemplateItemsAsync, ensureTdTemplateCategorySetup } from '@/services/suitcase/packingCompositionService';
 import { HiddenCategoriesPanel } from './HiddenCategoriesPanel';
 import { OptionalCategoriesPanel } from './OptionalCategoriesPanel';
-import { AnchoredPopover } from '@/components/common/AnchoredPopover';
+import { CategoryMobileDialog } from './CategoryMobileDialog';
 import { DraggableSlider } from '@/components/common/DraggableSlider';
 import { CarouselPositionIndicator } from '@/components/ui/CarouselPositionIndicator';
 
@@ -92,8 +92,6 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
   const [optionalPopoverOpen, setOptionalPopoverOpen] = useState(false);
   const [hiddenPopoverOpen, setHiddenPopoverOpen] = useState(false);
   const [categoryCarouselProgress, setCategoryCarouselProgress] = useState(0);
-  const optionalTriggerRef = useRef<HTMLButtonElement>(null);
-  const hiddenTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!editableTemplate) {
@@ -216,7 +214,9 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
   };
 
   const handleDeactivateOptional = (categoryId: string) => {
-    if (!resolvedBaseTemplate || !onCategorySetupOverlayChange) return;
+    // Coerente con le altre action (activate/restore/showAll): disponibile solo in overlay mode,
+    // mai in read-only o fuori overlay. Il gate su `useOverlayMode` rispecchia quello delle altre.
+    if (!useOverlayMode || !resolvedBaseTemplate || !onCategorySetupOverlayChange) return;
     onCategorySetupOverlayChange((prevOverlay) => {
       const base = resolveCategorySetup(resolvedBaseTemplate);
       const next = setCategoryEnabled({ ...base, ...prevOverlay }, categoryId, false);
@@ -277,7 +277,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
               e.stopPropagation();
               handleDeactivateOptional(cat.id);
             }}
-            className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/60 text-slate-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:text-emerald-300 transition-all z-floating-panel max-lg:top-1 max-lg:right-1 max-lg:p-0.5 max-lg:rounded-md"
+            className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/60 text-slate-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:text-emerald-300 transition-all z-local-overlay max-lg:top-1 max-lg:right-1 max-lg:p-0.5 max-lg:rounded-md"
             title={`Disattiva ${cat.name}`}
             aria-label={`Disattiva ${cat.name}`}
           >
@@ -286,7 +286,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
         )}
 
         {!useOverlayMode && (
-          <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 lg:group-hover:opacity-100 transition-all z-floating-panel max-lg:top-1 max-lg:right-1">
+          <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 lg:group-hover:opacity-100 transition-all z-local-overlay max-lg:top-1 max-lg:right-1">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -294,7 +294,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                 toggleCategory(cat.id);
               }}
               disabled={isReadOnly}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-900/70 text-rose-400 hover:text-rose-300 hover:bg-rose-500/15 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-rose-400 disabled:hover:bg-slate-900/70 max-lg:w-6 max-lg:h-6 max-lg:rounded-md"
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-900/70 text-amber-400 hover:text-amber-300 hover:bg-amber-500/15 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-amber-400 disabled:hover:bg-slate-900/70 max-lg:w-6 max-lg:h-6 max-lg:rounded-md"
               title={isReadOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
               aria-label={isReadOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
             >
@@ -317,7 +317,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                 title="Elimina categoria"
                 aria-label={`Elimina categoria ${cat.name}`}
               >
-                <Trash2 className="w-3 h-3 max-lg:w-2.5 max-lg:h-2.5" />
+                <Trash2 className="w-3 h-3 max-lg:w-2.5 max-lg:h-2.5 text-red-500" />
               </button>
             )}
           </div>
@@ -376,24 +376,23 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
               onClick={() => !isReadOnly && onAddCategory(template.id)}
               disabled={isReadOnly}
               className="hidden lg:flex w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/40 items-center justify-center shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-500/10 disabled:hover:border-indigo-500/20"
-              title={isReadOnly ? 'Non disponibile per i template TD' : 'Aggiungi categoria'}
+              title={isReadOnly ? 'Non disponibile per i template TD' : 'Crea categoria'}
             >
-              <Plus className="w-7 h-7" />
+              <FolderPlus className="w-7 h-7 text-emerald-500" />
             </button>
           )}
 
           <div className="lg:hidden flex items-end gap-1.5 shrink-0">
             <div className="flex flex-col items-center gap-0.5">
               <button
-                ref={optionalTriggerRef}
                 type="button"
                 onClick={() => setOptionalPopoverOpen((open) => !open)}
                 aria-expanded={optionalPopoverOpen}
                 aria-haspopup="dialog"
-                aria-label="Categorie attive"
+                aria-label="Categorie disponibili"
                 className="relative w-9 h-9 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 flex items-center justify-center transition-all"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <ListRestart className="w-4 h-4" />
                 {availableOptionalCategories.length > 0 && (
                   <CountBadge
                     count={availableOptionalCategories.length}
@@ -406,15 +405,12 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                 )}
               </button>
               <span className="text-[6px] font-black uppercase tracking-wider text-emerald-400 leading-none">
-                Attive
+                Disponibili
               </span>
             </div>
-            <AnchoredPopover
+            <CategoryMobileDialog
               isOpen={optionalPopoverOpen}
               onClose={() => setOptionalPopoverOpen(false)}
-              anchorRef={optionalTriggerRef}
-              align="right"
-              className="w-[min(18rem,calc(100vw-2rem))] pointer-events-auto"
             >
               <OptionalCategoriesPanel
                 categories={availableOptionalCategories}
@@ -424,40 +420,36 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                 }}
                 readOnly={previewSectionsReadOnly}
               />
-            </AnchoredPopover>
+            </CategoryMobileDialog>
 
             <div className="flex flex-col items-center gap-0.5">
               <button
-                ref={hiddenTriggerRef}
                 type="button"
                 onClick={() => setHiddenPopoverOpen((open) => !open)}
                 aria-expanded={hiddenPopoverOpen}
                 aria-haspopup="dialog"
                 aria-label="Categorie nascoste"
-                className="relative w-9 h-9 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 flex items-center justify-center transition-all"
+                className="relative w-9 h-9 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/40 flex items-center justify-center transition-all"
               >
                 <EyeOff className="w-3.5 h-3.5" />
                 {hiddenCategories.length > 0 && (
                   <CountBadge
                     count={hiddenCategories.length}
                     size="xs"
-                    variant="rose"
+                    variant="amber"
                     position="overlay-corner"
                     className="scale-90"
                     aria-hidden
                   />
                 )}
               </button>
-              <span className="text-[6px] font-black uppercase tracking-wider text-rose-400 leading-none">
+              <span className="text-[6px] font-black uppercase tracking-wider text-amber-400 leading-none">
                 Nascoste
               </span>
             </div>
-            <AnchoredPopover
+            <CategoryMobileDialog
               isOpen={hiddenPopoverOpen}
               onClose={() => setHiddenPopoverOpen(false)}
-              anchorRef={hiddenTriggerRef}
-              align="right"
-              className="w-[min(18rem,calc(100vw-2rem))] pointer-events-auto"
             >
               <HiddenCategoriesPanel
                 categories={hiddenCategories}
@@ -471,18 +463,18 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                 }}
                 readOnly={previewSectionsReadOnly}
               />
-            </AnchoredPopover>
+            </CategoryMobileDialog>
 
             {onAddCategory && !useOverlayMode && (
               <div className="flex flex-col items-center gap-0.5">
                 <button
                   onClick={() => !isReadOnly && onAddCategory(template.id)}
                   disabled={isReadOnly}
-                  aria-label="Aggiungi categoria"
+                  aria-label="Crea categoria"
                   className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/40 flex items-center justify-center shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-500/10 disabled:hover:border-indigo-500/20"
-                  title={isReadOnly ? 'Non disponibile per i template TD' : 'Aggiungi categoria'}
+                  title={isReadOnly ? 'Non disponibile per i template TD' : 'Crea categoria'}
                 >
-                  <Plus className="w-4 h-4" />
+                  <FolderPlus className="w-4 h-4 text-emerald-500" />
                 </button>
                 <span className="text-[6px] font-black uppercase tracking-wider text-indigo-400 leading-none">
                   Aggiungi

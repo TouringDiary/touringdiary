@@ -1,8 +1,9 @@
 import React from 'react';
-import { Edit2, Trash2, ChevronLeft, Link2, Layout, Undo2, Redo2, CloudOff, CalendarDays, Clock3 } from 'lucide-react';
+import { Edit2, Trash2, ChevronLeft, Link2, Layout, Undo2, Redo2, CloudOff, CalendarDays } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Suitcase } from '@/types/suitcase';
 import { TemplateCategoryIcon } from './SuitcaseUtils';
+import { DashboardActionGroup } from './DashboardActionGroup';
 import { isSessionReadOnly } from '@/utils/suitcaseDomain';
 import type { SuitcasePanelViewMode } from '../SuitcaseFloatingPanel/types/panelViewMode';
 import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
@@ -28,6 +29,12 @@ interface SuitcaseHeaderProps {
   onUnlink: () => void;
   onLink?: () => void;
   onBackToSelector: () => void;
+  /** Selector view only — mobile/tablet create actions hosted next to the close button. */
+  onCreateSuitcase?: () => void;
+  onCreateTemplate?: () => void;
+  onOpenRecommendedSuitcase?: () => void;
+  showRecommendedSuitcase?: boolean;
+  isCreatingSuitcase?: boolean;
   performUndo: () => Promise<boolean>;
   performRedo: () => Promise<boolean>;
   canUndo: boolean;
@@ -62,6 +69,11 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
   onUnlink,
   onLink,
   onBackToSelector,
+  onCreateSuitcase,
+  onCreateTemplate,
+  onOpenRecommendedSuitcase,
+  showRecommendedSuitcase = false,
+  isCreatingSuitcase = false,
   performUndo,
   performRedo,
   canUndo,
@@ -88,20 +100,20 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
       : null;
 
   return (
-    <div className="flex flex-col shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-white/10 z-header relative">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 min-h-[4.25rem] py-2 md:py-0 md:h-24 w-full gap-2 md:gap-4">
+    <div className="flex flex-col shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-white/10 relative">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 min-h-[3.75rem] py-1.5 md:py-0 md:h-24 w-full gap-2 md:gap-4">
         <div className="flex items-center gap-3 md:gap-4 min-w-0 justify-self-start">
           {isDetailView ? (
             <button 
               onClick={onBackToSelector}
-              className="p-2.5 -ml-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-all group"
+              className="p-2 md:p-2.5 -ml-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-all group"
               title="Torna alla selezione"
             >
-              <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
+              <ChevronLeft className="w-5 h-5 md:w-6 md:h-6 group-hover:-translate-x-0.5 transition-transform" />
             </button>
           ) : (
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
-              <Layout className="w-6 h-6" />
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
+              <Layout className="w-5 h-5 md:w-6 md:h-6" />
             </div>
           )}
 
@@ -113,7 +125,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                   <div className="flex items-center gap-2 min-w-0 w-full">
                     <TemplateCategoryIcon
                       template={activeSuitcase}
-                      className="text-2xl shrink-0 flex items-center justify-center"
+                      className="text-xl shrink-0 flex items-center justify-center"
                     />
                     {isEditingTitle && !isReadOnlySession ? (
                       <input
@@ -174,12 +186,6 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                         <span className="truncate">Creata il {formatItalianDateTime(activeSuitcase.created_at)}</span>
                       </span>
                     )}
-                    {activeSuitcase.updated_at && (
-                      <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 tabular-nums">
-                        <Clock3 className="w-3 h-3 shrink-0 text-slate-500" aria-hidden />
-                        <span className="truncate">Modificata il {formatItalianDateTime(activeSuitcase.updated_at)}</span>
-                      </span>
-                    )}
                     <DocumentSaveStatus
                       phase={savePhase}
                       lastSavedAt={lastSavedAt}
@@ -187,8 +193,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       isGuest={isGuest}
                       fallbackSavedAt={serverSavedAt}
                       dateFormat="datetime"
-                      layout="stacked"
-                      className="text-[10px] font-medium leading-tight"
+                      className="!normal-case !tracking-normal text-[10px] font-medium text-slate-400"
                     />
                   </div>
                 </div>
@@ -251,35 +256,25 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                   />
                 </div>
 
-                {(activeSuitcase.created_at || activeSuitcase.updated_at) && (
+                {activeSuitcase.created_at && (
                   <div className="hidden md:flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-3 md:gap-4 text-[10px] font-semibold text-slate-300 tabular-nums ml-1">
-                    {activeSuitcase.created_at && (
-                      <span className="flex items-center gap-1.5">
-                        <span title="Data creazione">
-                          <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
-                        </span>
-                        <span>{formatItalianDateTime(activeSuitcase.created_at)}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span title="Data creazione">
+                        <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
                       </span>
-                    )}
-                    {activeSuitcase.updated_at && (
-                      <span className="flex items-center gap-1.5">
-                        <span title="Ultima modifica">
-                          <Clock3 className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
-                        </span>
-                        <span>{formatItalianDateTime(activeSuitcase.updated_at)}</span>
-                      </span>
-                    )}
+                      <span>Creata il {formatItalianDateTime(activeSuitcase.created_at)}</span>
+                    </span>
                   </div>
                 )}
               </div>
             ) : (
-              <h2 className="text-lg md:text-2xl font-bold text-white tracking-tight">Le mie Valigie</h2>
+              <h2 className="text-base md:text-2xl font-bold text-white tracking-tight">Le mie Valigie</h2>
             )}
             
             {!isDetailView && (
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                  Gestione bagagli e template
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] whitespace-nowrap">
+                  Gestione bagagli
                 </span>
               </div>
             )}
@@ -295,7 +290,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
               {isLinkedToItinerary ? (
                 <button
                   onClick={onUnlink}
-                  className="flex items-center gap-0 md:gap-2 p-2.5 md:px-4 md:py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all group shadow-lg shadow-emerald-500/5"
+                  className="flex items-center gap-0 md:gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all group shadow-lg shadow-emerald-500/5"
                   title="Scollega dal diario"
                   aria-label="Scollega dal diario"
                 >
@@ -306,7 +301,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                 <button
                   onClick={onLink}
                   disabled={!isDiaryAssociable}
-                  className={`flex items-center gap-0 md:gap-2 p-2.5 md:px-4 md:py-2 rounded-xl border border-white/10 transition-all shadow-lg ${
+                  className={`flex items-center gap-0 md:gap-2 p-2 md:px-4 md:py-2 rounded-xl border border-white/10 transition-all shadow-lg ${
                     isDiaryAssociable
                       ? 'bg-slate-800 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-400 hover:border-indigo-500/20'
                       : 'bg-slate-800/50 text-slate-600 opacity-50 cursor-not-allowed'
@@ -327,7 +322,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                 </button>
               ) : onLink && !isAssociable ? (
                 <div
-                  className="flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10"
+                  className="flex items-center gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10"
                   title="I template non possono essere collegati al diario"
                 >
                   <Layout className="w-4 h-4 text-slate-500" />
@@ -336,7 +331,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                   </span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10">
+                <div className="flex items-center gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10">
                   <CloudOff className="w-4 h-4 text-slate-500" />
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden md:inline">Offline</span>
                 </div>
@@ -347,7 +342,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                   type="button"
                   onClick={performUndo}
                   disabled={!canUndo}
-                  className={`p-2.5 transition-all ${canUndo ? 'text-slate-300 hover:bg-white/10 hover:text-white' : 'text-slate-600 opacity-50 cursor-not-allowed'}`}
+                  className={`p-2 md:p-2.5 transition-all ${canUndo ? 'text-slate-300 hover:bg-white/10 hover:text-white' : 'text-slate-600 opacity-50 cursor-not-allowed'}`}
                   title="Annulla (Ctrl+Z)"
                   aria-label="Annulla"
                 >
@@ -358,7 +353,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                   type="button"
                   onClick={performRedo}
                   disabled={!canRedo}
-                  className={`p-2.5 transition-all ${canRedo ? 'text-slate-300 hover:bg-white/10 hover:text-white' : 'text-slate-600 opacity-50 cursor-not-allowed'}`}
+                  className={`p-2 md:p-2.5 transition-all ${canRedo ? 'text-slate-300 hover:bg-white/10 hover:text-white' : 'text-slate-600 opacity-50 cursor-not-allowed'}`}
                   title="Ripristina (Ctrl+Y)"
                   aria-label="Ripristina"
                 >
@@ -368,7 +363,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
 
               <button
                 onClick={onDelete}
-                className="p-2.5 rounded-xl bg-slate-800/50 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 border border-white/10 hover:border-rose-500/20 transition-all shadow-lg"
+                className="p-2 md:p-2.5 rounded-xl bg-slate-800/50 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 border border-white/10 hover:border-rose-500/20 transition-all shadow-lg"
                 title="Elimina valigia"
               >
                 <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
@@ -379,6 +374,24 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
           {saveStatus && !lastSavedAt && (
             <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 mr-2 shadow-lg shadow-emerald-500/5">
               <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{saveStatus}</span>
+            </div>
+          )}
+
+          {/*
+            * Selector view, mobile/tablet (< lg): le azioni di creazione vivono qui accanto
+            * alla X per liberare la riga dei tab della Dashboard. Su desktop restano nella
+            * toolbar della Dashboard, quindi qui sono lg:hidden. Riuso diretto di
+            * DashboardActionGroup (stessi pulsanti, incluso "Crea Valigia Personalizzata").
+            */}
+          {!isDetailView && onCreateSuitcase && onCreateTemplate && (
+            <div className="lg:hidden">
+              <DashboardActionGroup
+                isCreating={isCreatingSuitcase}
+                onCreateSuitcase={onCreateSuitcase}
+                onCreateTemplate={onCreateTemplate}
+                onOpenRecommendedSuitcase={onOpenRecommendedSuitcase}
+                showRecommendedSuitcase={showRecommendedSuitcase}
+              />
             </div>
           )}
 

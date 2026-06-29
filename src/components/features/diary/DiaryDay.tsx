@@ -7,6 +7,7 @@ import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { ItineraryItemCard } from './ItineraryItemCard';
 import { DiaryResourceCard } from './DiaryResourceCard';
 import { DiaryMemoCard } from './DiaryMemoCard';
+import { getCityDisplayName, isPlaceholderCityId } from './cityName';
 
 
 // COSTANTI UI LOCALI
@@ -48,6 +49,7 @@ interface DiaryDayProps {
     onSetEditingTime: (id: string | null) => void;
     onIconClick: (id: string | null) => void;
     onIconSelect: (id: string, iconKey: string) => void;
+    onTransportSelect: (id: string, mode: string) => void;
     onNoteChange: (id: string, text: string) => void;
     onItemDrop: (e: React.DragEvent, dayIdx: number, time: string) => void;
     onMobileMoveClick: (item: ItineraryItem) => void;
@@ -59,7 +61,7 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     day, dayIndex, items, dayStyleClass, isMobile, dayRefs, itemRefs, cityManifest,
     userLocation, highlightedItemId, editingTimeId, iconPickerOpen, colorPickerOpen,
     onAddNote, onColorPickerToggle, onColorSelect, onDayDrop,
-    onViewDetail, onRemoveItem, onTimeChange, onSetEditingTime, onIconClick, onIconSelect, onNoteChange, onItemDrop, onMobileMoveClick, onCreateMemo, onMemoClick
+    onViewDetail, onRemoveItem, onTimeChange, onSetEditingTime, onIconClick, onIconSelect, onTransportSelect, onNoteChange, onItemDrop, onMobileMoveClick, onCreateMemo, onMemoClick
 }) => {
     
     // Connessione corretta allo stile configurato
@@ -71,30 +73,19 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
     // Stato locale per evidenziare la Drop Zone specifica
     const [isOverDropZone, setIsOverDropZone] = useState(false);
 
-    // Gestione Nomi Città per Label Giorno
-    const getCityDisplayName = (id: string) => {
-        if (!id || typeof id !== 'string' || id === 'unknown' || id === 'custom') return '';
-        if (/City\s*\d+/i.test(id)) return '';
-        if (cityManifest) {
-             const found = cityManifest.find(c => String(c.id) === String(id));
-             if (found) return found.name;
-        }
-        return id.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    };
-
     const uniqueCityIds = Array.from(new Set(items.map(i => {
            let cid = i.cityId;
-           if (typeof cid === 'string' && /City\s*\d+/i.test(cid) && i.poi?.cityId) {
+           if (typeof cid === 'string' && isPlaceholderCityId(cid) && i.poi?.cityId) {
                cid = i.poi.cityId;
            }
            return cid;
     })))
         .filter(id => {
             if (!id || typeof id !== 'string' || id === 'unknown' || id === 'custom') return false;
-            if (/City\s*\d+/i.test(id)) return false;
+            if (isPlaceholderCityId(id)) return false;
             return true;
         }) as string[];
-    const dayCityStr = uniqueCityIds.map(id => getCityDisplayName(id)).filter(Boolean).join(', ');
+    const dayCityStr = uniqueCityIds.map(id => getCityDisplayName(id, cityManifest)).filter(Boolean).join(', ');
 
     // --- STEP 3: SEPARAZIONE TIMELINE / RISORSE ---
     const timelineItems = items.filter(i => !i.isResource).sort((a,b) => a.timeSlotStr.localeCompare(b.timeSlotStr));
@@ -199,6 +190,9 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
             {/* CONTAINER LISTA ITEMS: NO GAP per allineamento griglia */}
             <div className="pt-0 px-2 flex flex-col gap-0 bg-transparent">
                 {timelineItems.map((item, idx) => {
+                    const isFirstNode = idx === 0;
+                    const isLastNode = idx === timelineItems.length - 1;
+
                     if (item.type === 'memo') {
                         return (
                             <DiaryMemoCard 
@@ -210,6 +204,8 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
                                 onSetEditingTime={onSetEditingTime}
                                 editingTimeId={editingTimeId}
                                 onTimeChange={(id, time) => onTimeChange(id, time, dayIndex)}
+                                isFirstNode={isFirstNode}
+                                isLastNode={isLastNode}
                             />
                         );
                     }
@@ -246,12 +242,15 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
                             onTimeChange={onTimeChange} 
                             onIconClick={onIconClick} 
                             onIconSelect={onIconSelect} 
+                            onTransportSelect={onTransportSelect}
                             onViewDetail={onViewDetail} 
                             onRemove={onRemoveItem} 
                             onNoteChange={onNoteChange} 
                             onItemDrop={onItemDrop} 
                             itemIndex={idx}
                             alignSide={alignments[idx]} 
+                            isFirstNode={isFirstNode}
+                            isLastNode={isLastNode}
                         />
                     );
                 })}

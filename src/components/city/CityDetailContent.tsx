@@ -90,6 +90,7 @@ interface CityDetailContentProps {
     cityManifest: CitySummary[];
     isSidebarOpen?: boolean;
     preloadedCity?: CityDetails | null;
+    onMergeCities?: (baseCity: CityDetails, radius: number, selectedCityIds: string[]) => void;
     isUiVisible?: boolean;
 }
 
@@ -118,7 +119,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
     onRemoveFromItinerary, onOpenPoiDetail, onOpenReview, onSwitchCity,
     onOpenSponsor, initialTab = 'vetrina', onTabChange,
     onOpenShop, onOpenAuth, cityManifest, isSidebarOpen, preloadedCity,
-    isUiVisible = true
+    onMergeCities, isUiVisible = true
 }) => {
 
     // --- CONTEXT HOOKS ---
@@ -252,12 +253,13 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         }
     };
 
-    const handleMergeTrigger = (isActive: boolean, radius: number) => {
-        if (isActive) {
-            const event = new CustomEvent('trigger-merge-mode', { detail: { cityId: city?.id, radius } });
-            window.dispatchEvent(event);
-        } else {
-            if (onSwitchCity && city) onSwitchCity(city.id);
+    const handleMergeTrigger = (isActive: boolean, radius: number, selectedCityIds: string[]) => {
+        if (isActive && city) {
+            // Fusione "Tutto Incluso": riusa la logica esistente (buildVirtualCity)
+            // passando SOLO le città selezionate dall'utente.
+            onMergeCities?.(city, radius, selectedCityIds);
+        } else if (onSwitchCity && city) {
+            onSwitchCity(city.id);
         }
         setActiveModal('none');
     };
@@ -282,7 +284,9 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         </div>
     );
 
-    const isVirtual = city.id === 'around-me-virtual' || (preloadedCity && preloadedCity.id === city.id);
+    // Virtual City = informazione di dominio (flag stampato da buildVirtualCity),
+    // unica fonte autorevole. NON il preload, NON l'ID legacy.
+    const isVirtual = !!city.isVirtual;
 
     return (
         <div

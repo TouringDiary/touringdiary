@@ -10,7 +10,8 @@ interface TemplateRowProps {
   isPreferred: boolean;
   isHovered: boolean;
   isCloning: boolean;
-  onHover: () => void;
+  /** Seleziona la riga e aggiorna l'anteprima (preview). Non apre il viewer. */
+  onSelect: () => void;
   onView: () => void;
   onTogglePreference: () => void;
   onUse: () => void;
@@ -25,7 +26,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
   isPreferred,
   isHovered,
   isCloning,
-  onHover,
+  onSelect,
   onView,
   onTogglePreference,
   onUse,
@@ -52,15 +53,15 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
   const actionBtnClass =
     'flex-1 flex items-center justify-center h-full min-h-[32px] max-h-[32px] shrink-0 border-r border-white/10 transition-all last:border-r-0 cursor-pointer';
 
-  const handleContentClick = () => {
-    onView();
-  };
+  // Click/seleziona riga: aggiorna solo l'anteprima (stesso callback dell'hover).
+  // L'apertura del viewer avviene ESCLUSIVAMENTE dal pulsante con l'icona occhio.
+  const handleSelect = () => onSelect();
 
-  // Accessibilità: Enter e Space aprono la visualizzazione (parte destra della card).
+  // Accessibilità: Enter e Space selezionano la riga (aggiornano l'anteprima).
   const handleContentKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      handleContentClick();
+      handleSelect();
     }
   };
 
@@ -69,10 +70,10 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
       role="option"
       aria-selected={isHovered}
       className={containerClass}
-      onMouseEnter={onHover}
+      onMouseEnter={onSelect}
     >
       <div
-        className={`w-[96px] shrink-0 flex flex-col border-r border-white/5 overflow-hidden bg-white/[0.03] cursor-default ${
+        className={`w-[96px] shrink-0 flex flex-col border-r border-white/10 overflow-hidden bg-white/[0.03] cursor-default ${
           isHovered ? 'bg-indigo-500/10' : ''
         }`}
       >
@@ -187,18 +188,23 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
       <div
         role="button"
         tabIndex={0}
-        onClick={handleContentClick}
+        onClick={handleSelect}
         onKeyDown={handleContentKeyDown}
-        onFocus={onHover}
+        onFocus={onSelect}
         className="flex-1 flex flex-col min-w-0 relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-r-xl group/content"
       >
-        <div
-          className="absolute top-2 right-2 z-10 flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900/70 border border-white/10 text-slate-400 opacity-70 group-hover/content:opacity-100 group-hover/content:text-indigo-300 transition-all pointer-events-none"
-          title="Clicca per visualizzare"
-          aria-hidden
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onView();
+          }}
+          className="absolute top-2 right-2 z-local-overlay flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900/70 border border-white/10 text-slate-400 opacity-80 hover:opacity-100 hover:text-indigo-300 hover:border-indigo-500/40 transition-all cursor-pointer"
+          title="Visualizza template"
+          aria-label="Visualizza template"
         >
           <Eye className="w-4 h-4" />
-        </div>
+        </button>
 
         <div className="flex-1 flex flex-col justify-center px-4 leading-tight min-h-0">
           <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate pr-9">

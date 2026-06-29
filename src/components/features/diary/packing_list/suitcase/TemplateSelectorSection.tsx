@@ -55,7 +55,7 @@ export const TemplateSelectorSection: React.FC<TemplateSelectorSectionProps> = (
                 isPreferred={isPreferred}
                 isHovered={isHovered}
                 isCloning={isCloning}
-                onHover={() => onHover(tpl.id)}
+                onSelect={() => onHover(tpl.id)}
                 onView={() => onViewTemplate(tpl.id)}
                 onTogglePreference={() => onTogglePreference(tpl.id, !isPreferred)}
                 onUse={() => onUseTemplate(tpl.id)}

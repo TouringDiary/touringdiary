@@ -9,6 +9,8 @@ import { MobileNavBar } from './MobileNavBar';
 import { AppRouter } from './AppRouter';
 import { ModalManager } from './ModalManager';
 import { OnboardingWizard } from './OnboardingWizard';
+import { useControlledSlidePanel } from '@/hooks/ui/useControlledSlidePanel';
+import { SLIDE_PANEL_TRANSITION_CLASS, slidePanelEaseClass, slidePanelTransformClass } from '@/constants/slidePanelMotion';
 
 // CONTEXT CONSUMER
 import { useUser } from '@/context/UserContext';
@@ -31,6 +33,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
     
     // RECUPERO LOGICA DIARIO
     const { handleSmartDrop } = useDiaryInteractionsContext();
+
+    const diaryShell = useControlledSlidePanel(mobileDiaryFullScreen);
 
     // Mobile Nav Active State Calculation
     let mobileActiveSection = null;
@@ -126,18 +130,43 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                 <ModalManager />
             </AppShell>
             
-            {(mobileDiaryFullScreen || mobileShowWeather) && (
-                <div 
-                    id={mobileDiaryFullScreen ? "tour-mobile-diary-overlay" : "weather-overlay"}
-                    className={
-                        mobileDiaryFullScreen
-                            ? "fixed top-[var(--header-height)] left-0 right-0 z-focus-companion bg-slate-950 flex flex-col overflow-hidden h-[calc(100dvh-var(--header-height))] max-h-[calc(100dvh-var(--header-height))] animate-in slide-in-from-bottom-5"
-                            : "fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-focus-companion bg-slate-950"
-                    }
+            {diaryShell.shouldRender && (
+                <div
+                    id="tour-mobile-diary-overlay"
+                    ref={diaryShell.panelRef}
+                    className={`
+                        fixed top-[var(--header-height)] left-0 right-0 z-focus-companion bg-slate-950 flex flex-col overflow-hidden
+                        h-[calc(100dvh-var(--header-height))] max-h-[calc(100dvh-var(--header-height))]
+                        ${SLIDE_PANEL_TRANSITION_CLASS}
+                        ${slidePanelTransformClass(diaryShell.isPanelRaised)}
+                        ${slidePanelEaseClass(diaryShell.isClosing)}
+                    `}
                 >
                     <Sidebar 
                         onViewPoiDetail={(poi) => openModal('poiDetail', { poi })} 
-                        onDayDrop={handleSmartDrop} // FIXED: Passed here too for mobile overlay
+                        onDayDrop={handleSmartDrop}
+                        onOpenFullRankings={() => openModal('fullRankings')} 
+                        onOpenSponsor={() => openModal('sponsor', { sponsorTier: 'gold' })} 
+                        onOpenGlobal={(section) => openModal('global', { section })} 
+                        onPrint={() => window.print()} 
+                        onCityClick={(id) => { closeModal(); navigateToCity(id); }} 
+                        activeCityId={activeCityId}
+                        onAddToItinerary={(poi) => openModal('add', { poi })}
+                        onOpenAiPlanner={() => openModal('aiPlanner')}
+                        onOpenRoadbook={() => openModal('roadbook')}
+                        keepDiaryMountedDuringTransition={diaryShell.shouldRender}
+                    />
+                </div>
+            )}
+
+            {mobileShowWeather && (
+                <div 
+                    id="weather-overlay"
+                    className="fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-focus-companion bg-slate-950"
+                >
+                    <Sidebar 
+                        onViewPoiDetail={(poi) => openModal('poiDetail', { poi })} 
+                        onDayDrop={handleSmartDrop}
                         onOpenFullRankings={() => openModal('fullRankings')} 
                         onOpenSponsor={() => openModal('sponsor', { sponsorTier: 'gold' })} 
                         onOpenGlobal={(section) => openModal('global', { section })} 

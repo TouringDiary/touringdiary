@@ -12,6 +12,8 @@ import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { CategorySponsorColumn } from './CategorySponsorColumn';
 import { CompactDiscoveryCard } from '../ShowcaseCards';
+import { AdPlaceholder } from '../../common/AdPlaceholder';
+import { AnchoredPopover } from '../../common/AnchoredPopover';
 
 
 // --- MAPPING CATEGORIA -> TAB ---
@@ -26,7 +28,7 @@ const CATEGORY_TO_TAB_MAP: Record<string, string> = {
 };
 
 // --- COMPONENTE SEARCH ESTRATTO ---
-const SearchInput = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => {
+const SearchInput = ({ value, onChange, placeholder = 'Cerca luogo...' }: { value: string, onChange: (val: string) => void, placeholder?: string }) => {
     return (
         <div className="relative group flex items-center bg-[#0f172a] border border-slate-800 rounded-xl shadow-inner transition-all hover:border-slate-600 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/50 h-11 w-full min-w-0 md:max-w-sm">
             <div className="pl-3 pr-2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
@@ -36,7 +38,7 @@ const SearchInput = ({ value, onChange }: { value: string, onChange: (val: strin
                 type="text" 
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder="Cerca luogo..."
+                placeholder={placeholder}
                 className="w-full bg-transparent border-none outline-none text-xs text-white placeholder-slate-500 font-medium h-full rounded-r-xl pr-8"
             />
             {value && (
@@ -124,15 +126,14 @@ export const CityCategoryTab = ({
 
     const referenceDistanceStyle = useDynamicStyles('city_reference_distance');
     const sortMenuRef = useRef<HTMLDivElement>(null);
-    const contribMenuRef = useRef<HTMLDivElement>(null);
+    // Il menu "Contribuisci" è portalato (AnchoredPopover) per uscire dagli antenati
+    // con overflow/isolate/z-0; l'ancora è il pulsante stesso.
+    const contribBtnRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
                 setShowSortMenu(false);
-            }
-            if (contribMenuRef.current && !contribMenuRef.current.contains(event.target as Node)) {
-                setShowContribMenu(false);
             }
         };
         window.addEventListener('mousedown', handleClickOutside);
@@ -158,6 +159,39 @@ export const CityCategoryTab = ({
         toggleLike(poi.id);
     };
 
+    // Slot sponsor mobile: mostra la card se lo sponsor esiste, altrimenti il
+    // placeholder "Partner" (stessa logica di CityShowcaseTab e delle colonne desktop),
+    // così a fondo pagina è SEMPRE presente un box sponsor anche senza contratti attivi.
+    const renderMobileSponsorSlot = (sponsor: PointOfInterest | null, tier: 'gold' | 'silver') => {
+        if (sponsor) {
+            return (
+                <div className="h-40 w-full">
+                    <CompactDiscoveryCard
+                        poi={sponsor}
+                        onOpenDetail={onOpenPoiDetail}
+                        onAddToItinerary={onAddToItinerary}
+                        onLike={() => handleLike(sponsor)}
+                        isLiked={hasUserLiked(sponsor.id)}
+                        fluid={true}
+                        verticalStretch={true}
+                        userLocation={userLocation}
+                    />
+                </div>
+            );
+        }
+        return (
+            <div className="h-40 w-full">
+                <AdPlaceholder
+                    variant={tier}
+                    vertical
+                    label={`Partner ${tier === 'gold' ? 'Gold' : 'Silver'}`}
+                    className="h-full w-full"
+                    onClick={() => onOpenSponsor(tier)}
+                />
+            </div>
+        );
+    };
+
     const handleProtectedAction = (action: () => void) => {
         if (!user || user.role === 'guest') {
             onOpenAuth();
@@ -176,6 +210,11 @@ export const CityCategoryTab = ({
     };
 
     const activeFilterCount = advancedFilters.subCategory.length + (advancedFilters.minRating > 0 ? 1 : 0) + (advancedFilters.interest !== 'all' ? 1 : 0) + (advancedFilters.priceLevel.length > 0 ? 1 : 0);
+
+    // Placeholder contestuale alla tab corrente (es. "Cerca Destinazioni...").
+    const searchPlaceholder = currentCategory && currentCategory !== 'all'
+        ? `Cerca ${getPoiCategoryLabel(currentCategory)}...`
+        : 'Cerca luogo...';
 
     const handleResetFilters = (e: React.MouseEvent) => {
         e.stopPropagation(); 
@@ -314,8 +353,9 @@ export const CityCategoryTab = ({
                     <div className="flex flex-row gap-2 items-center justify-between w-full md:items-center">
                         
                         {/* LEFT: CONTRIBUISCI */}
-                        <div className="relative shrink-0 md:w-1/4" ref={contribMenuRef}>
+                        <div className="relative shrink-0 md:w-1/4">
                              <button 
+                                ref={contribBtnRef}
                                 onClick={() => setShowContribMenu(!showContribMenu)}
                                 className="h-11 shrink-0 max-md:w-11 max-md:px-0 w-auto whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-500 border border-slate-700 hover:border-amber-500/50 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 shadow-sm px-4 md:w-auto"
                                 aria-label="Contribuisci"
@@ -323,19 +363,22 @@ export const CityCategoryTab = ({
                                 <Plus className="w-3.5 h-3.5"/>
                                 <span className="hidden md:inline">Contribuisci</span>
                             </button>
-                            {showContribMenu && (
-                                <div 
-                                    className="absolute top-full left-0 mt-2 w-full md:w-48 z-local-flyout bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-left"
-                                >
-                                    <button onClick={() => handleProtectedAction(() => onOpenSuggestion('new_place'))} className="w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center gap-3 hover:bg-slate-800 text-emerald-400 transition-colors border-b border-slate-800/50"><Plus className="w-3.5 h-3.5"/> Nuovo Luogo</button>
-                                    <button onClick={() => handleProtectedAction(() => onOpenSuggestion('edit_info'))} className="w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center gap-3 hover:bg-slate-800 text-indigo-400 transition-colors"><PenTool className="w-3.5 h-3.5"/> Modifica Luogo</button>
-                                </div>
-                            )}
+                            <AnchoredPopover
+                                isOpen={showContribMenu}
+                                onClose={() => setShowContribMenu(false)}
+                                anchorRef={contribBtnRef}
+                                align="left"
+                                role="menu"
+                                className="w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 origin-top-left"
+                            >
+                                <button onClick={() => { setShowContribMenu(false); handleProtectedAction(() => onOpenSuggestion('new_place')); }} className="w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center gap-3 hover:bg-slate-800 text-emerald-400 transition-colors border-b border-slate-800/50"><Plus className="w-3.5 h-3.5"/> Nuovo Luogo</button>
+                                <button onClick={() => { setShowContribMenu(false); handleProtectedAction(() => onOpenSuggestion('edit_info')); }} className="w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center gap-3 hover:bg-slate-800 text-indigo-400 transition-colors"><PenTool className="w-3.5 h-3.5"/> Modifica Luogo</button>
+                            </AnchoredPopover>
                         </div>
                         
                         {/* CENTER: SEARCH */}
                         <div className="flex-1 min-w-0 md:px-4 flex justify-center">
-                            <SearchInput value={searchTerm} onChange={setSearchTerm} />
+                            <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder={searchPlaceholder} />
                         </div>
                         
                         {/* RIGHT: TOOLS (SORT & FILTER) */}
@@ -456,36 +499,12 @@ export const CityCategoryTab = ({
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">PARTNER</span>
                                 <div className="h-px flex-1 bg-amber-600/40"></div>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  {goldSponsors.slice(0, 2).map((s, i) => (
-                                     <div key={s.id} className="h-40">
-                                         <CompactDiscoveryCard 
-                                            poi={s} 
-                                            onOpenDetail={onOpenPoiDetail} 
-                                            onAddToItinerary={onAddToItinerary} 
-                                            onLike={() => handleLike(s)} 
-                                            isLiked={hasUserLiked(s.id)} 
-                                            fluid={true} 
-                                            verticalStretch={true} 
-                                            userLocation={userLocation}
-                                         />
-                                     </div>
-                                  ))}
-                                  
-                                  {silverSponsors.length > 0 && (
-                                     <div className="h-40 col-span-1 sm:col-span-2">
-                                        <CompactDiscoveryCard 
-                                            poi={silverSponsors[0]} 
-                                            onOpenDetail={onOpenPoiDetail} 
-                                            onAddToItinerary={onAddToItinerary} 
-                                            onLike={() => handleLike(silverSponsors[0])} 
-                                            isLiked={hasUserLiked(silverSponsors[0].id)} 
-                                            fluid={true} 
-                                            verticalStretch={true} 
-                                            userLocation={userLocation}
-                                         />
-                                     </div>
-                                  )}
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                  {renderMobileSponsorSlot(goldSponsors[0] || null, 'gold')}
+                                  {renderMobileSponsorSlot(goldSponsors[1] || null, 'gold')}
+                              </div>
+                              <div className="w-full">
+                                  {renderMobileSponsorSlot(silverSponsors[0] || null, 'silver')}
                               </div>
                          </div>
                     </div>

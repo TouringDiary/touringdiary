@@ -59,6 +59,12 @@ export interface SidebarProps {
     onAddToItinerary?: (poi: PointOfInterest) => void;
     onOpenAiPlanner?: () => void;
     onOpenRoadbook?: () => void;
+    /**
+     * Mantiene montata la vista Diario mobile anche quando `mobileDiaryFullScreen` è già `false`.
+     * Usato dall'overlay a scorrimento per conservare il contenuto durante l'animazione di uscita
+     * (evita il container vuoto che continua ad animarsi).
+     */
+    keepDiaryMountedDuringTransition?: boolean;
 }
 
 export const Sidebar = ({
@@ -66,7 +72,8 @@ export const Sidebar = ({
     onPrint, onCityClick, externalZoneFilter, activeCityId,
     onAddToItinerary,
     onOpenAiPlanner,
-    onOpenRoadbook
+    onOpenRoadbook,
+    keepDiaryMountedDuringTransition = false
 }: SidebarProps) => {
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
@@ -210,7 +217,7 @@ export const Sidebar = ({
         );
     }
 
-    if (mobileDiaryFullScreen) {
+    if (mobileDiaryFullScreen || keepDiaryMountedDuringTransition) {
         return (
             <div className="h-full min-h-0 flex flex-col overflow-hidden bg-slate-950">
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">

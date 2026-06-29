@@ -7,6 +7,7 @@ import { useUndoStack, UndoAction } from './useUndoStack';
 import { useDiaryUndo } from './useDiaryUndo';
 import { useDiaryDocumentSave } from './save/useDiaryDocumentSave';
 import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
+import { LAYOUT } from '@/constants/layout';
 
 interface UseDiaryLogicProps {
     user: User;
@@ -51,6 +52,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         visible: false
     });
     const diaryToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const xpToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const showDiaryToast = useCallback((message: string) => {
         if (diaryToastTimeoutRef.current) clearTimeout(diaryToastTimeoutRef.current);
@@ -58,6 +60,13 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         diaryToastTimeoutRef.current = setTimeout(() => {
             setDiaryToast(prev => ({ ...prev, visible: false }));
         }, 3000);
+    }, []);
+
+    // Toast XP/Memo: stesso pattern gestito (ref + cleanup) del DiaryToast, niente timer orfani.
+    const showXpToast = useCallback((payload: { title: string; xp: number }, duration: number) => {
+        if (xpToastTimeoutRef.current) clearTimeout(xpToastTimeoutRef.current);
+        setToastMessage(payload);
+        xpToastTimeoutRef.current = setTimeout(() => setToastMessage(null), duration);
     }, []);
 
     // --- UNDO/REDO STACK ---
@@ -88,7 +97,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
 
     useEffect(() => {
         const checkMobile = () => {
-             setIsMobile(window.innerWidth < 768);
+             setIsMobile(window.innerWidth < LAYOUT.BREAKPOINTS.MD);
         };
         checkMobile();
         window.addEventListener('resize', checkMobile);
@@ -100,6 +109,9 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         return () => {
             if (diaryToastTimeoutRef.current) {
                 clearTimeout(diaryToastTimeoutRef.current);
+            }
+            if (xpToastTimeoutRef.current) {
+                clearTimeout(xpToastTimeoutRef.current);
             }
         };
     }, []);
@@ -290,6 +302,27 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         setIconPickerOpen(null);
     }, [itinerary.items, setItinerary, pushAction]);
 
+    const handleTransportSelect = useCallback((id: string, mode: string) => {
+        const newValue = mode || undefined;
+        const item = itinerary.items.find(i => i.id === id);
+        if (item && item.transportMode !== newValue) {
+            pushAction({
+                id,
+                type: 'update',
+                payload: {
+                    field: 'transportMode',
+                    newValue,
+                    previousValue: item.transportMode
+                },
+                label: 'Mezzo di trasporto'
+            });
+        }
+        setItinerary(prev => ({
+            ...prev,
+            items: prev.items.map(i => i.id === id ? { ...i, transportMode: newValue } : i)
+        }));
+    }, [itinerary.items, setItinerary, pushAction]);
+
     const handleNoteChange = useCallback((id: string, text: string) => {
         const item = itinerary.items.find(i => i.id === id);
         // Usiamo un piccolo debounce o controllo per evitare troppi push durante la digitazione?
@@ -326,9 +359,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         const result = await publishUserItinerary(itinerary, user);
         if (result.success && result.updatedUser) {
             if (onUserUpdate) onUserUpdate(result.updatedUser);
-            setToastMessage({ title: 'Itinerario Pubblicato!', xp: 100 });
-            // Qui lasciamo il timeout perché è un feedback rapido XP
-            setTimeout(() => setToastMessage(null), 4000);
+            showXpToast({ title: 'Itinerario Pubblicato!', xp: 100 }, 4000);
         }
     };
     
@@ -354,9 +385,8 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         
         addItem(newMemo);
         setMemoTargetItem(null);
-        setToastMessage({ title: 'Memo aggiunto al diario!', xp: 0 });
-        setTimeout(() => setToastMessage(null), 2000);
-    }, [memoTargetItem, addItem]);
+        showXpToast({ title: 'Memo aggiunto al diario!', xp: 0 }, 2000);
+    }, [memoTargetItem, addItem, showXpToast]);
     
     const handleMemoClick = useCallback((linkedId: string) => {
         const el = document.getElementById(`resource-${linkedId}`);
@@ -425,7 +455,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
                     previousItems: [...itinerary.items]
                 };
             }
-        } catch (e) {}
+        } catch {}
 
         onDayDropProp(idx, dataStr, time); 
         setIsDraggingOver(false); 
@@ -505,6 +535,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             handleDayDrop,
             onTimeChange: handleTimeChange,
             onIconSelect: handleIconSelect,
+            onTransportSelect: handleTransportSelect,
             onNoteChange: handleNoteChange
         }
     };

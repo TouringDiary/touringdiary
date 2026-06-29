@@ -94,8 +94,11 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
     return quantity;
   };
 
+  // Calcolato una sola volta per render e riutilizzato (stepper + stato disabled).
+  const effectiveQuantity = getEffectiveQuantity();
+
   const adjustQuantity = (delta: number) => {
-    const next = Math.max(1, getEffectiveQuantity() + delta);
+    const next = Math.max(1, effectiveQuantity + delta);
     setQuantityInput(null);
     if (next !== quantity) {
       onUpdate(item.id, { quantity: next });
@@ -143,7 +146,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         </button>
       )}
 
-      <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-2.5 flex-1 min-w-0">
+      <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1.5 lg:py-2.5 flex-1 min-w-0 min-h-[4rem] lg:min-h-0">
 
       {readOnly ? (
         <span
@@ -169,7 +172,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
           </button>
           <span
             role="tooltip"
-            className="pointer-events-none absolute top-[calc(100%+4px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover/checkbox:opacity-100 group-focus-within/checkbox:opacity-100 transition-opacity duration-100 z-floating-panel shadow-lg"
+            className="pointer-events-none absolute top-[calc(100%+4px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover/checkbox:opacity-100 group-focus-within/checkbox:opacity-100 transition-opacity duration-100 z-local-overlay shadow-lg"
           >
             Non disponibile in sola lettura
           </span>
@@ -197,8 +200,11 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         </button>
       )}
 
+      {/* NOME + QUANTITÀ: su mobile/tablet la quantità va SOTTO il nome (riga compatta);
+          su desktop (lg+) restano in linea come prima. */}
+      <div className="flex-1 min-w-0 flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
       <span
-        className={`flex-1 min-w-0 text-base font-medium transition-colors flex items-center gap-2 ${
+        className={`min-w-0 lg:flex-1 text-base font-medium transition-colors flex items-center gap-2 ${
           item.is_checked ? 'text-slate-400' : 'text-slate-200'
         }`}
       >
@@ -207,7 +213,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
 
       {!item.is_ai_suggestion && !readOnly && (
         <div
-          className="flex flex-col-reverse md:flex-row items-stretch md:items-center shrink-0 rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden"
+          className="flex flex-row items-center self-start lg:self-auto shrink-0 rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden"
           onClick={(e) => e.stopPropagation()}
           role="group"
           aria-label="Quantità"
@@ -215,8 +221,8 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
           <button
             type="button"
             onClick={() => adjustQuantity(-1)}
-            disabled={getEffectiveQuantity() <= 1}
-            className="flex items-center justify-center w-9 h-7 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
+            disabled={effectiveQuantity <= 1}
+            className="flex items-center justify-center w-9 h-6 md:w-8 lg:w-7 lg:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
             aria-label="Diminuisci quantità"
           >
             <Minus className="w-3.5 h-3.5" />
@@ -233,19 +239,20 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
                 e.currentTarget.blur();
               }
             }}
-            className="w-9 md:w-7 h-7 md:h-7 bg-transparent border-y border-x-0 md:border-y-0 md:border-x border-white/10 text-center text-sm font-semibold text-slate-200 focus:outline-none focus:bg-white/5"
+            className="w-10 md:w-9 lg:w-7 h-6 lg:h-7 bg-transparent border-x border-y-0 border-white/10 text-center text-sm font-semibold text-slate-200 focus:outline-none focus:bg-white/5"
             aria-label="Quantità oggetto"
           />
           <button
             type="button"
             onClick={() => adjustQuantity(1)}
-            className="flex items-center justify-center w-9 h-7 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all touch-manipulation"
+            className="flex items-center justify-center w-9 h-6 md:w-8 lg:w-7 lg:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all touch-manipulation"
             aria-label="Aumenta quantità"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
+      </div>
 
       {override && (
         <a
@@ -321,20 +328,21 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         </div>
       ) : (
         !readOnly && (
-          <div className="flex flex-col md:flex-row items-center gap-1 shrink-0">
+          <div className="flex flex-col md:flex-row items-center gap-1 shrink-0 empty:hidden">
             {moveTargets && moveTargets.length > 0 && onMoveToCategory && (
               <MoveItemCategoryPopover
                 targets={moveTargets}
                 onSelect={onMoveToCategory}
               />
             )}
+            {/* Cestino solo desktop (>= lg): su mobile/tablet si elimina con lo swipe della riga */}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(item.id);
               }}
-              className="shrink-0 flex items-center justify-center min-w-[36px] min-h-[36px] w-9 h-9 md:w-8 md:h-8 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all touch-manipulation"
+              className="shrink-0 hidden lg:flex items-center justify-center min-w-[36px] min-h-[36px] w-9 h-9 md:w-8 md:h-8 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all touch-manipulation"
               title="Rimuovi"
               aria-label="Rimuovi oggetto"
             >

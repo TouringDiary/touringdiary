@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { useModal } from '@/context/ModalContext';
 import { useUndoStack } from '@/hooks/useUndoStack';
 import { buildProductAffiliateLink, buildAffiliateLink, getPartnerById, resolveBestPartner } from '@/services/partnerIntegrationService';
@@ -27,6 +27,7 @@ interface UseSuitcasePanelCompositionOptions {
   itineraryId: string | null;
   cityType?: string;
   suitcaseId?: string | null;
+  initialAction?: 'create-suitcase' | 'create-template' | null;
   requestClose: () => void;
   registerCloseAttempt?: (handler: () => void) => void;
   onOverlayModalOpenChange?: (open: boolean) => void;
@@ -36,6 +37,7 @@ export function useSuitcasePanelComposition({
   itineraryId: propItineraryId,
   cityType,
   suitcaseId,
+  initialAction,
   requestClose,
   registerCloseAttempt,
   onOverlayModalOpenChange,
@@ -311,6 +313,27 @@ export function useSuitcasePanelComposition({
         : undefined,
     onSuitcaseLocalUpdate: data.handleUpdateSuitcaseLocal,
   });
+
+  // Avvio automatico di una pipeline di creazione esistente (riuso degli handler della Dashboard Valigia).
+  // L'intento iniziale è uno stato "da consumare": una volta eseguito viene azzerato, così l'effect
+  // non si rieseguirà anche se gli handler cambiano identità o se isLoadingUser oscilla.
+  const { handleCreateNew, handleCreateTemplate } = actions;
+  const [pendingInitialAction, setPendingInitialAction] = useState(initialAction ?? null);
+  // Risincronizza l'intento da consumare quando cambia `initialAction` (es. riapertura del modal
+  // senza smontaggio del componente). La semantica "consume once" resta invariata: dopo il consumo
+  // pendingInitialAction torna null e questo effect riarma solo a un nuovo cambio di initialAction.
+  useEffect(() => {
+    setPendingInitialAction(initialAction ?? null);
+  }, [initialAction]);
+  useEffect(() => {
+    if (!pendingInitialAction || data.isLoadingUser) return;
+    setPendingInitialAction(null);
+    if (pendingInitialAction === 'create-suitcase') {
+      void handleCreateNew();
+    } else if (pendingInitialAction === 'create-template') {
+      void handleCreateTemplate();
+    }
+  }, [pendingInitialAction, data.isLoadingUser, handleCreateNew, handleCreateTemplate]);
 
   const handleBackToSelector = useCallback(() => {
     const isExistingPersisted =

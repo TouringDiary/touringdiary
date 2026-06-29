@@ -120,6 +120,14 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         onClose={actions.handleClose}
         onDelete={() => data.modalState.setSuitcaseToDelete(data.panelState.activeTabId)}
         onUnlink={() => data.panelState.activeTabId && data.modalState.setSuitcaseToUnlink(data.panelState.activeTabId)}
+        onCreateSuitcase={actions.handleCreateNew}
+        onCreateTemplate={actions.handleCreateTemplate}
+        onOpenRecommendedSuitcase={actions.handleOpenRecommendedSuitcase}
+        showRecommendedSuitcase={
+          !!data.currentUser &&
+          !!data.itineraryId &&
+          (data.itineraryCityTypes?.length ?? 0) > 0
+        }
         isDiaryAssociable={data.isDiaryAssociable}
         isAssociable={
           data.activeSuitcase ? isAssociableSuitcase(data.activeSuitcase) : false

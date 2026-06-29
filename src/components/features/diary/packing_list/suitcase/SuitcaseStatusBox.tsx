@@ -31,7 +31,7 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
       : 'grid-cols-1';
 
   return (
-    <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/5 p-3 sm:p-4 w-full grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 lg:gap-4 items-stretch animate-in fade-in zoom-in duration-500">
+    <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/5 p-2 sm:p-4 w-full grid grid-cols-1 min-[420px]:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 items-stretch animate-in fade-in zoom-in duration-500">
       <SuitcaseToolbarProgressBox
         checkedCount={globalStats.checked}
         totalCount={globalStats.total}
@@ -55,7 +55,7 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
               onClick={() => (onSelectSuitcase ? onSelectSuitcase(s.id) : onOpenSuitcase(s.id))}
               onMouseEnter={() => onHoverSuitcase(s.id)}
               onMouseLeave={() => onHoverSuitcase(null)}
-              className={`flex flex-col justify-center gap-2 h-full min-h-[4.5rem] px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+              className={`flex flex-col justify-center gap-1 sm:gap-2 h-full min-h-[2.75rem] sm:min-h-[4.5rem] px-3 py-1.5 sm:py-2.5 rounded-xl border transition-all cursor-pointer ${
                 isActive
                   ? 'bg-indigo-500/10 border-indigo-500/30 text-white'
                   : 'bg-slate-950/40 border-white/5 hover:border-white/10 hover:bg-slate-800 text-slate-400'

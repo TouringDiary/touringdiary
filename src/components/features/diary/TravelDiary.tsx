@@ -91,7 +91,7 @@ export const TravelDiary = ({
     }, [setters, overlayKind, workspaceId]);
 
     return (
-        <div ref={containerRef} className="h-full flex flex-col rounded-sm shadow-xl overflow-hidden border border-slate-600 relative group/diary bg-[#e7e5e4] select-none">
+        <div ref={containerRef} className="isolate h-full flex flex-col rounded-sm shadow-xl overflow-hidden border border-slate-600 relative group/diary bg-[#e7e5e4] select-none">
             <style>{`
                 .diary-grid-bg { background-image: linear-gradient(transparent calc(1.75rem - 1px), #d6d3d1 calc(1.75rem - 1px)); background-size: 100% 1.75rem; background-color: #e7e5e4; background-attachment: local; overscroll-behavior-y: contain; }
             `}</style>
@@ -198,6 +198,7 @@ export const TravelDiary = ({
                         onSetEditingTime={setters.setEditingTimeId}
                         onIconClick={setters.setIconPickerOpen}
                         onIconSelect={actions.onIconSelect}
+                        onTransportSelect={actions.onTransportSelect}
                         onNoteChange={actions.onNoteChange}
                         onDayDrop={actions.handleDayDrop}
                         onItemDrop={(e, idx, time) => actions.handleDayDrop(e, idx, time)}

@@ -85,7 +85,7 @@ export const FULL_SYSTEM_RULES = [
     { section: 'journey', element_name: 'Linea Connessione (Inattiva)', component_key: 'journey_line_inactive', font_family: 'font-sans', text_size: 'text-xs', font_weight: 'font-normal', text_transform: 'none', tracking: 'tracking-normal', color_class: 'bg-slate-700', effect_class: 'none', preview_text: '---' },
 
     // --- BUSSOLA (MOBILE) ---
-    { section: 'journey', element_name: 'Testo Fase (Mobile)', component_key: 'journey_text_mobile', font_family: 'font-sans', text_size: 'text-xs', font_weight: 'font-black', text_transform: 'uppercase', tracking: 'tracking-widest', color_class: 'text-white', effect_class: 'drop-shadow-md', preview_text: 'SCOPERTA' },
+    { section: 'journey', element_name: 'Testo Fase (Attivo) (Mobile)', component_key: 'journey_text_active_mobile', font_family: 'font-sans', text_size: 'text-xs', font_weight: 'font-black', text_transform: 'uppercase', tracking: 'tracking-widest', color_class: 'text-white', effect_class: 'drop-shadow-md', preview_text: 'SCOPERTA' },
     { section: 'journey', element_name: 'Pallino Indicatore (Mobile)', component_key: 'journey_dot_mobile', font_family: 'font-sans', text_size: 'text-xs', font_weight: 'font-bold', text_transform: 'none', tracking: 'tracking-normal', color_class: 'bg-white', effect_class: 'shadow-sm', preview_text: '•' },
     
     { section: 'journey', element_name: 'Descrizione: Scoperta (Mobile)', component_key: 'journey_desc_scoperta_mobile', font_family: 'font-sans', text_size: 'text-[10px]', font_weight: 'font-medium', text_transform: 'normal-case', tracking: 'tracking-wide', color_class: 'text-amber-500', effect_class: 'none', preview_text: 'Esplora le mete migliori' },

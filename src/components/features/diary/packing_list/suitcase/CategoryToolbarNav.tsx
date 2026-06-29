@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FolderPlus } from 'lucide-react';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
 import { getCategoryShortLabel } from '@/domain/packing/packingCategories';
 import type { CategoryStatusFilter } from './SuitcaseUtils';
@@ -207,7 +207,7 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
           title={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
           aria-label={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
         >
-          <Plus className={SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
+          <FolderPlus className={`${SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS} text-emerald-500`} aria-hidden />
           <span
             className="text-[8px] font-black uppercase tracking-wider leading-none text-indigo-400/80"
             aria-hidden

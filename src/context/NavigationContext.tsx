@@ -41,6 +41,7 @@ interface NavigationContextType {
     goHome: () => void;
     handleNavigateGlobal: (section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => void;
     handleAroundMeTrigger: (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => void;
+    handleMergeCities: (baseCity: CityDetails, radius: number, selectedCityIds: string[]) => void;
     resolveCityIdFromSlug: (slug: string) => string | null;
     
     // Setters
@@ -171,6 +172,17 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
         }
     };
 
+    // Fusione "Tutto Incluso": riusa buildVirtualCity (logica di fusione invariata),
+    // limitandola alla città base + alle sole città selezionate dall'utente.
+    const handleMergeCities = async (baseCity: CityDetails, radius: number, selectedCityIds: string[]) => {
+        setIsBuildingVirtual(true);
+        const virtual = await buildVirtualCity(baseCity.coords, radius, cityManifest, { baseCity, selectedCityIds });
+        if (isMounted.current) {
+            setVirtualCity(virtual);
+            setIsBuildingVirtual(false);
+        }
+    };
+
     const goBack = () => {
         // 1. Se c'è una modale aperta, la chiudiamo (comportamento standard UX)
         if (modalContext.activeModal) { 
@@ -288,6 +300,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
             goHome,
             handleNavigateGlobal,
             handleAroundMeTrigger,
+            handleMergeCities,
             resolveCityIdFromSlug,
             
             // Setters

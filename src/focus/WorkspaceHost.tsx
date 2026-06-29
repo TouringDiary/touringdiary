@@ -29,6 +29,7 @@ export const WorkspaceHost: React.FC = () => {
             itineraryId={modalProps?.itineraryId || null}
             cityType={modalProps?.cityType}
             suitcaseId={modalProps?.suitcaseId}
+            initialAction={modalProps?.initialAction}
           />
         </Suspense>
       );

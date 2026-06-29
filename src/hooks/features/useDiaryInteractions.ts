@@ -125,15 +125,18 @@ export const useDiaryInteractions = (
     };
 
     // 4. RESOLVE CONFLICT (From Modal)
-    const resolveConflict = (item: ItineraryItem, dayIdx: number, conflictingItem: ItineraryItem, action: 'changeTime' | 'swap', newTime?: string) => {
+    const resolveConflict = (item: ItineraryItem, dayIdx: number, conflictingItem: ItineraryItem, action: 'changeTime' | 'swap', newTime?: string, swapTimes?: { itemTime: string; conflictTime: string }) => {
         if (action === 'swap') {
             const itemExists = itinerary.items.some(i => i.id === item.id);
             if (itemExists) {
+                // Orari di destinazione scelti dall'utente; fallback allo scambio "secco" (comportamento storico).
+                const itemTime = swapTimes?.itemTime ?? conflictingItem.timeSlotStr;
+                const conflictTime = swapTimes?.conflictTime ?? item.timeSlotStr;
                 setItinerary(prev => ({ 
                     ...prev, 
                     items: prev.items.map(i => 
-                        i.id === item.id ? { ...i, dayIndex: dayIdx, timeSlotStr: conflictingItem.timeSlotStr } : 
-                        i.id === conflictingItem.id ? { ...i, dayIndex: item.dayIndex, timeSlotStr: item.timeSlotStr } : i
+                        i.id === item.id ? { ...i, dayIndex: dayIdx, timeSlotStr: itemTime } : 
+                        i.id === conflictingItem.id ? { ...i, dayIndex: item.dayIndex, timeSlotStr: conflictTime } : i
                     )
                 }));
             } else {

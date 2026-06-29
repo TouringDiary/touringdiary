@@ -24,7 +24,7 @@ export const SuitcaseToolbarProgressBox: React.FC<SuitcaseToolbarProgressBoxProp
     <div
       className={`shrink-0 flex flex-col items-stretch gap-1 rounded-xl border shadow-lg shadow-black/25 ring-1 ring-white/10 ${className} ${
         isPanels
-          ? 'bg-slate-950/40 border-white/10 px-4 py-4 min-h-[5.5rem] justify-center'
+          ? 'bg-slate-950/40 border-white/10 px-4 py-2 sm:py-4 min-h-[3.25rem] sm:min-h-[5.5rem] justify-center'
           : isHeader
             ? 'bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-950 border-white/15 px-2.5 py-1 min-w-[5.5rem] md:min-w-[6.5rem]'
             : 'self-center bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-950 border-white/15 px-2.5 py-1.5 md:px-3 min-w-[6.5rem] md:min-w-[7.5rem]'

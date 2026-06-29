@@ -14,7 +14,7 @@ interface Props {
     currentCity: CityDetails;
     onSelectCity: (id: string) => void;
     liveManifest: CitySummary[];
-    onToggleMerge?: (isActive: boolean, radius: number) => void;
+    onToggleMerge?: (isActive: boolean, radius: number, selectedCityIds: string[]) => void;
     isMergeActive?: boolean;
 }
 
@@ -28,6 +28,18 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
     
     const [maxDistance, setMaxDistance] = useState(25); // Default 25km
     const [mergeEnabled, setMergeEnabled] = useState(isMergeActive);
+    // Selezione città per la fusione: di default TUTTE selezionate. Tracciamo le sole
+    // città DESELEZIONATE, così le nuove città che entrano nel raggio restano incluse.
+    const [deselectedIds, setDeselectedIds] = useState<Set<string>>(new Set());
+
+    // Riallinea la selezione (default: tutte incluse) ad ogni apertura, cambio città
+    // o cambio raggio: evita che deselectedIds sopravviva tra aperture diverse del modal.
+    // Il reset ha senso solo a modal aperto (a modal chiuso lo stato non viene letto).
+    useEffect(() => {
+        if (!isOpen) return;
+        // Se è già vuoto, riusa il riferimento esistente: React salta update e render.
+        setDeselectedIds(prev => (prev.size === 0 ? prev : new Set()));
+    }, [isOpen, currentCity?.id, maxDistance]);
 
     const nearbyCities = useMemo(() => {
         if (!currentCity || !liveManifest) return [];
@@ -78,11 +90,26 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
         scrollRef.current.scrollLeft = scrollLeft - walk;
     };
 
+    const isCitySelected = (cityId: string) => !deselectedIds.has(cityId);
+
+    const toggleCitySelection = (cityId: string) => {
+        setDeselectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(cityId)) next.delete(cityId);
+            else next.add(cityId);
+            return next;
+        });
+    };
+
     const handleCardClick = (cityId: string) => {
-        if (!isDragging) {
-            onSelectCity(cityId);
-            onClose();
+        if (isDragging) return;
+        // In Modalità Tutto Incluso il tap sulla card cura la selezione (non naviga).
+        if (mergeEnabled) {
+            toggleCitySelection(cityId);
+            return;
         }
+        onSelectCity(cityId);
+        onClose();
     };
 
     const handleToggle = () => {
@@ -91,9 +118,13 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
     };
 
     const handleConfirm = () => {
-        // Applica la logica e chiude
+        // Applica la logica e chiude. La fusione esistente resta invariata:
+        // cambia SOLO l'insieme di città passato (solo quelle selezionate).
         if (onToggleMerge) {
-            onToggleMerge(mergeEnabled, maxDistance);
+            const selectedCityIds = nearbyCities
+                .filter(c => !deselectedIds.has(c.id))
+                .map(c => c.id);
+            onToggleMerge(mergeEnabled, maxDistance, selectedCityIds);
         }
         onClose();
     };
@@ -231,17 +262,32 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
                                     onMouseMove={handleMouseMove} 
                                     className={`flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-hide snap-x ${isDown ? 'cursor-grabbing snap-none' : 'cursor-grab snap-mandatory'}`}
                                 >
-                                    {nearbyCities.map(city => (
+                                    {nearbyCities.map(city => {
+                                        const selected = isCitySelected(city.id);
+                                        return (
                                         <div 
                                             key={city.id} 
                                             onClick={() => handleCardClick(city.id)} 
-                                            className={`snap-center flex-shrink-0 w-60 md:w-72 ${cardHeightClass} bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden cursor-pointer group hover:border-amber-500/50 transition-all hover:shadow-2xl hover:shadow-amber-900/10 relative flex flex-col hover:-translate-y-1`}
+                                            className={`snap-center flex-shrink-0 w-60 md:w-72 ${cardHeightClass} bg-slate-900 rounded-2xl border overflow-hidden cursor-pointer group transition-all hover:shadow-2xl hover:shadow-amber-900/10 relative flex flex-col hover:-translate-y-1 ${mergeEnabled && !selected ? 'border-slate-800 opacity-40 grayscale' : mergeEnabled && selected ? 'border-indigo-500/60' : 'border-slate-800 hover:border-amber-500/50'}`}
                                         >
                                             {/* IMMAGINE CITTÀ */}
                                             <div className="h-36 md:h-44 overflow-hidden relative border-b border-slate-800 shrink-0">
                                                 <ImageWithFallback src={city.imageUrl} alt={city.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100"/>
                                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80"></div>
-                                                
+
+                                                {/* CHECKBOX SELEZIONE — solo in Modalità Tutto Incluso */}
+                                                {mergeEnabled && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); toggleCitySelection(city.id); }}
+                                                        aria-pressed={selected}
+                                                        aria-label={selected ? `Escludi ${city.name} dalla fusione` : `Includi ${city.name} nella fusione`}
+                                                        className={`absolute top-2 left-2 z-local-overlay w-7 h-7 rounded-lg flex items-center justify-center border shadow-lg transition-all active:scale-95 ${selected ? 'bg-indigo-500 border-indigo-400 text-white' : 'bg-slate-950/80 border-slate-500 text-transparent hover:border-indigo-400'}`}
+                                                    >
+                                                        <Check className="w-4 h-4 stroke-[3]"/>
+                                                    </button>
+                                                )}
+
                                                 <div className="absolute top-2 right-2 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-400 border border-amber-500/30 shadow-lg flex items-center gap-1">
                                                     <Navigation className="w-2.5 h-2.5 fill-current transform rotate-45"/> 
                                                     {city.distance.toFixed(1)} km
@@ -271,14 +317,15 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
                                                 </div>
 
                                                 <div className="pt-2 mt-auto border-t border-slate-800 flex items-center justify-between h-8 shrink-0">
-                                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest group-hover:text-white transition-colors">Visita</span>
+                                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest group-hover:text-white transition-colors">{mergeEnabled ? (selected ? 'Inclusa' : 'Esclusa') : 'Visita'}</span>
                                                     <div className="bg-slate-800 p-1 rounded-full text-slate-400 group-hover:bg-amber-600 group-hover:text-white transition-all transform group-hover:translate-x-1">
                                                         <ArrowRight className="w-3 h-3"/>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="text-center py-10 md:py-20 text-slate-500 italic bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed flex flex-col items-center justify-center gap-4 mx-auto w-full h-full">
@@ -303,37 +350,37 @@ export const ProvinceModal = ({ isOpen, onClose, currentCity, onSelectCity, live
                     {/* SEPARATOR 2 (BOTTOM) */}
                     <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-700 to-transparent my-4 shrink-0"></div>
 
-                    {/* BOTTOM: ROW WITH TOGGLE AND OK BUTTON */}
-                    <div className="flex items-stretch gap-3 mb-2">
-                        {/* TOGGLE "TUTTO INCLUSO" (COMPATTATO E UNA RIGA) */}
+                    {/* BOTTOM: TOGGLE + OK — verticale su mobile, in linea da tablet/desktop */}
+                    <div className="flex flex-col md:flex-row items-stretch gap-3 mb-2">
+                        {/* TOGGLE "TUTTO INCLUSO" */}
                         <div 
                             onClick={handleToggle}
-                            className={`flex-1 flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all shadow-lg group hover:border-indigo-500/50 ${mergeEnabled ? 'bg-indigo-900/10 border-indigo-500/40' : 'bg-slate-900 border-slate-800'}`}
+                            className={`flex-1 flex items-center gap-3 md:gap-4 p-4 rounded-2xl border cursor-pointer transition-all shadow-lg group hover:border-indigo-500/50 ${mergeEnabled ? 'bg-indigo-900/10 border-indigo-500/40' : 'bg-slate-900 border-slate-800'}`}
                         >
                             {/* SWITCH UI - COMPACT */}
                             <div className={`w-11 h-6 rounded-full p-1 transition-colors flex items-center shrink-0 ${mergeEnabled ? 'bg-indigo-500' : 'bg-slate-700'}`}>
                                 <div className={`w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-300 ${mergeEnabled ? 'translate-x-5' : 'translate-x-0'}`}></div>
                             </div>
 
-                            {/* TEXT CONTENT - SINGLE LINE */}
-                            <div className="flex-1 flex items-center gap-3 overflow-hidden">
+                            {/* TEXT CONTENT - colonna su mobile, riga su desktop */}
+                            <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
                                 <div className="flex items-center gap-2 shrink-0">
                                     <h4 className={`text-sm md:text-base font-bold uppercase tracking-wide whitespace-nowrap ${mergeEnabled ? 'text-indigo-300' : 'text-white'}`}>
                                         Modalità "Tutto Incluso"
                                     </h4>
                                     {mergeEnabled && <Layers className="w-4 h-4 text-indigo-400 animate-pulse"/>}
                                 </div>
-                                <div className="w-px h-4 bg-slate-700 shrink-0"></div>
-                                <p className="text-xs md:text-sm text-slate-300 leading-none truncate w-full">
-                                    Touring Diary fonderà i contenuti delle città nei "DINTORNI" in un'unica lista esplorabile.
+                                <div className="hidden md:block w-px h-4 bg-slate-700 shrink-0"></div>
+                                <p className="text-xs md:text-sm text-slate-300 leading-snug md:leading-none md:truncate w-full">
+                                    I contenuti delle città selezionate saranno fusi in un'unica lista esplorabile!
                                 </p>
                             </div>
                         </div>
 
-                        {/* TASTO OK - RESTYLING "PIÙ DECENTE" */}
+                        {/* TASTO OK - full width su mobile */}
                         <button
                             onClick={handleConfirm}
-                            className="px-8 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                            className="w-full md:w-auto px-8 py-3.5 md:py-0 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
                             OK <Check className="w-5 h-5"/>
                         </button>

@@ -2,6 +2,7 @@
 import React from 'react';
 import { Paperclip, Link2, Trash2 } from 'lucide-react';
 import { ItineraryItem } from '@/types';
+import { TL_LINE_X, TL_RAIL_W } from './timelineLayout';
 
 interface DiaryMemoCardProps {
     item: ItineraryItem;
@@ -11,6 +12,8 @@ interface DiaryMemoCardProps {
     isMobile: boolean;
     editingTimeId: string | null;
     onTimeChange: (id: string, time: string) => void;
+    isFirstNode?: boolean;
+    isLastNode?: boolean;
 }
 
 const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
@@ -20,28 +23,33 @@ const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
 });
 
 export const DiaryMemoCard: React.FC<DiaryMemoCardProps> = ({ 
-    item, onMemoClick, onRemove, onSetEditingTime, isMobile, editingTimeId, onTimeChange 
+    item, onMemoClick, onRemove, onSetEditingTime, isMobile, editingTimeId, onTimeChange,
+    isFirstNode, isLastNode
 }) => {
     
-    // LAYOUT RIGIDO PER ALLINEAMENTO GRIGLIA
-    // Deve rispecchiare ItineraryItemCard:
-    // 1. Spaziatore Sx (Linea Rossa): w-14
-    // 2. Colonna Icona: w-10
-    // 3. Colonna Orario: w-12
-    // 4. Colonna Contenuto: Flex-1
+    // LAYOUT RIGIDO PER ALLINEAMENTO GRIGLIA — rispecchia ItineraryItemCard:
+    // 1. Timeline (linea + nodo): w-14
+    // 2. Colonna Orario: w-12
+    // 3. Colonna Contenuto: Flex-1
 
     return (
         <div className="flex w-full h-[1.75rem] group relative z-floating-panel mb-0 items-center">
             
-            {/* 1. SPAZIATORE SX (Salta la colonna KM/Linea) */}
-            <div className="w-14 shrink-0"></div>
-
-            {/* 2. COLONNA ICONA (Allineata con icone POI) */}
-            <div className="w-10 flex items-center justify-center shrink-0 h-full">
-                <Paperclip className="w-[14px] h-[14px] text-slate-400 transform -rotate-45"/>
+            {/* 1. TIMELINE RAIL: stessa geometria calcolata delle tappe; il nodo è SULLA linea */}
+            <div className="shrink-0 relative h-full pointer-events-none" style={{ width: `${TL_RAIL_W}px` }}>
+                <div className="absolute top-0 bottom-0 w-[2px] -translate-x-1/2 bg-stone-300 z-0" style={{ left: `${TL_LINE_X}px` }} />
+                {isFirstNode && (
+                    <div className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10" style={{ left: `${TL_LINE_X}px` }} />
+                )}
+                {isLastNode && (
+                    <div className="absolute bottom-0 -translate-x-1/2 translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10" style={{ left: `${TL_LINE_X}px` }} />
+                )}
+                <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-[#e7e5e4] border border-stone-300 shadow-sm flex items-center justify-center z-20" style={{ left: `${TL_LINE_X}px` }}>
+                    <Paperclip className="w-4 h-4 text-stone-500 transform -rotate-45"/>
+                </div>
             </div>
 
-            {/* 3. COLONNA ORARIO & CONTENUTO */}
+            {/* 2. COLONNA ORARIO & CONTENUTO */}
             <div className="flex-1 flex items-center gap-0 min-w-0 h-full">
                 
                 {/* 3a. ORARIO */}
@@ -82,7 +90,7 @@ export const DiaryMemoCard: React.FC<DiaryMemoCardProps> = ({
 
                     <button 
                         onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-                        className="p-1 text-slate-300 hover:text-red-500 rounded transition-colors opacity-0 group-hover/card:opacity-100"
+                        className="p-1 text-slate-300 hover:text-stone-700 rounded transition-colors opacity-0 group-hover/card:opacity-100"
                         title="Rimuovi Memo"
                     >
                         <Trash2 className="w-3 h-3"/>

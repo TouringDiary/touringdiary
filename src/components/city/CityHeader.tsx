@@ -24,6 +24,11 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
     const { details } = city;
     const { share } = useShare();
 
+    // Modalità "Tutto Incluso": città virtuale fusa (mantiene l'id della città base),
+    // distinta dall'esplorazione "Around Me" (id 'around-me-virtual'). Solo presentazione.
+    const isMergedTerritory = !!city.isVirtual && city.id !== 'around-me-virtual';
+    const displayName = isMergedTerritory ? `${city.name} e Dintorni` : city.name;
+
     // Rilevamento Mobile per stili dinamici
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
@@ -71,7 +76,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                     <div className="flex items-center gap-2 mb-1 justify-center w-full px-2">
                         {/* DYNAMIC TITLE STYLE APPLIED HERE */}
                         <h1 className={`${titleStyle || 'text-4xl font-bold font-display text-white'} text-center break-words max-w-full leading-none`}>
-                            {city.name}
+                            {displayName}
                         </h1>
                     </div>
                     <div className="flex h-1 w-8 shadow-sm rounded-sm overflow-hidden flex-shrink-0 border border-white/10 mb-2">
@@ -127,7 +132,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                 <div className="shrink-0 mt-6">
                     {/* DYNAMIC TITLE STYLE APPLIED HERE TOO (Mobile version automatically handled by hook) */}
                     <h1 className={`${titleStyle || 'text-[26px] font-bold font-display text-white'} leading-none drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] shadow-black`} style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.9)' }}>
-                        {city.name}
+                        {displayName}
                     </h1>
                     <div className="h-0.5 w-10 bg-gradient-to-r from-green-500 via-white to-red-500 my-2 shadow-lg"></div>
                     {/* Slightly smaller subtitle */}

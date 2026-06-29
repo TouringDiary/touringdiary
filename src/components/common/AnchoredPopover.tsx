@@ -1,5 +1,5 @@
 import { Z_MODAL_NESTED } from '@/constants/zIndex';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { AnchoredAlign, useAnchoredPortalPosition } from '@/hooks/useAnchoredPortalPosition';
@@ -39,9 +39,19 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
     onMouseLeave,
 }) => {
     const popoverRef = useRef<HTMLDivElement>(null);
-    const pos = useAnchoredPortalPosition(anchorRef, isOpen, align);
+    const { position, ready, remeasure } = useAnchoredPortalPosition(anchorRef, isOpen, align, undefined, popoverRef);
 
     useGlobalModalEscape(isOpen && closeOnEscape, onClose);
+
+    // Misurazione DETERMINISTICA: appena il portale è montato (position calcolata + ref popolato),
+    // ricalcoliamo sincronamente PRIMA del paint. Così `ready` diventa true subito, senza dipendere
+    // dalla corsa con il requestAnimationFrame: il popover non resta mai bloccato invisibile e appare
+    // già nella posizione finale clampata (nessuno "scatto", nessun taglio ai bordi su mobile).
+    useLayoutEffect(() => {
+        if (isOpen && position && !ready && popoverRef.current) {
+            remeasure();
+        }
+    }, [isOpen, position, ready, remeasure]);
 
     useEffect(() => {
         if (!isOpen || !closeOnClickOutside) return;
@@ -55,15 +65,18 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
         return () => document.removeEventListener('pointerdown', handlePointerDown, true);
     }, [isOpen, closeOnClickOutside, onClose, anchorRef]);
 
-    if (!isOpen || !pos || typeof document === 'undefined') return null;
+    if (!isOpen || !position || typeof document === 'undefined') return null;
 
+    // Finché la posizione non è "finale" (clamp/flip applicati dal posizionatore), il popover resta
+    // montato ma invisibile: viene misurato a layout completo (offsetWidth ignora opacity) e rivelato
+    // con l'animazione d'ingresso direttamente nella posizione corretta, senza scatti né tagli.
     return createPortal(
         <div
             ref={popoverRef}
             role={role}
             aria-modal={false}
-            className={`fixed animate-in fade-in zoom-in-95 ${align === 'center' ? '-translate-x-1/2' : ''} ${className}`}
-            style={{ zIndex: Z_MODAL_NESTED, ...pos }}
+            className={`fixed ${align === 'center' ? '-translate-x-1/2' : ''} ${ready ? 'animate-in fade-in zoom-in-95' : 'opacity-0 pointer-events-none'} ${className}`}
+            style={{ zIndex: Z_MODAL_NESTED, ...position }}
             onClick={(e) => e.stopPropagation()}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}

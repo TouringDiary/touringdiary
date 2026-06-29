@@ -238,7 +238,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
 
   return createPortal(
     <div
-      className="td-modal-overlay fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300"
+      className="td-modal-overlay flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300"
       style={{ zIndex: Z_OVERLAY }}
       onClick={onClose}
       role="presentation"
@@ -246,7 +246,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
       <div
         ref={dialogPanelRef}
         tabIndex={-1}
-        className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.75)] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 flex flex-col max-h-[94vh] sm:max-h-[90vh] overflow-hidden outline-none"
+        className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.75)] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 flex flex-col max-h-[calc(100dvh-var(--header-height)-env(safe-area-inset-bottom,0px)-0.5rem)] sm:max-h-[calc(100dvh-var(--header-height)-2rem)] overflow-hidden outline-none pb-safe sm:pb-0"
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -258,7 +258,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
           variant="primary"
           position="absolute"
           withEscape={false}
-          className="top-5 right-5 sm:top-6 sm:right-6 z-10"
+          className="top-5 right-5 sm:top-6 sm:right-6 z-local-overlay"
         />
 
         <div className="flex items-center gap-4 px-6 sm:px-8 py-5 sm:py-6 border-b border-white/5 shrink-0 pr-14">

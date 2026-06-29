@@ -45,6 +45,12 @@ interface SuitcaseDashboardProps {
 
   // Interactions
   activeTabId: string | null;
+  /**
+   * NB semantica: identifica l'elemento SELEZIONATO per l'anteprima (preview), non un semplice
+   * stato di hover. Da quando il click sulla riga seleziona la preview (e il viewer si apre solo
+   * dall'icona occhio), questo id guida sia l'evidenziazione `isActive`/`isHovered` sia il
+   * `previewTarget`. Nome storico mantenuto per non propagare il rename lungo tutta la catena.
+   */
   hoveredItemId: string | null;
   currentUser: User | null;
   isCloning: boolean;
@@ -54,6 +60,7 @@ interface SuitcaseDashboardProps {
   onViewSuitcase: (id: string) => void;
   onUnlinkSuitcase: (id: string) => void;
   onDeleteSuitcase: (id: string) => void;
+  /** Seleziona l'elemento per l'anteprima (preview). Nome storico: in realtà è "select". */
   onHover: (id: string | null) => void;
   onTogglePreference: (id: string, preferred: boolean) => void;
   onUseTemplate: (id: string) => void;
@@ -435,9 +442,17 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
     <div className="w-full h-full flex flex-col lg:flex-row relative overflow-hidden lg:overflow-x-visible lg:overflow-y-hidden min-h-0">
 
       {/* ── AREA SINISTRA (Contenuto Principale) ── */}
-      <div className="flex-1 flex flex-col min-h-0 relative z-floating-panel w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/*
+        * Nessun z-index qui: replica l'architettura dell'Editor Valigia
+        * (SuitcaseEditorView), dove l'area lista NON ha z-index così che il
+        * SuitcaseMobileSuggestionsDrawer (z-local-drawer) — fratello e successivo
+        * nel DOM — riceva i tap della barra "Mostra suggerimenti". Usare un tier
+        * globale (z-floating-panel = focusCompanion 9100) sovrastava il drawer
+        * (z-local-drawer 300) rendendo il pulsante non cliccabile su mobile.
+        */}
+      <div className="flex-1 flex flex-col min-h-0 relative w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-        <div className={`${SUITCASE_TOOLBAR_SHELL_CLASS} mb-2.5`}>
+        <div className={`${SUITCASE_TOOLBAR_SHELL_CLASS} mb-1 lg:mb-2.5`}>
           <div className="flex flex-1 min-w-0 items-center justify-center overflow-x-auto bg-slate-800/60 rounded-xl border border-white/10 p-1">
             <div className="flex items-center shrink-0">
             {SUITCASE_DASHBOARD_TAB_ORDER.map((tab) => {
@@ -481,20 +496,31 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
             </div>
           </div>
 
-          <DashboardActionGroup
-            isCreating={isCreatingSuitcase}
-            onCreateSuitcase={onCreateSuitcase}
-            onCreateTemplate={onCreateTemplate}
-            onOpenRecommendedSuitcase={onOpenRecommendedSuitcase}
-            showRecommendedSuitcase={showRecommendedSuitcase}
-          />
+          {/*
+            * Desktop (>= lg): azioni di creazione nella toolbar.
+            * Mobile/tablet (< lg): spostate nell'header del pannello (SuitcaseHeader), accanto
+            * alla X, così la riga dei tab usa tutta la larghezza disponibile.
+            */}
+          <div className="hidden lg:flex">
+            <DashboardActionGroup
+              isCreating={isCreatingSuitcase}
+              onCreateSuitcase={onCreateSuitcase}
+              onCreateTemplate={onCreateTemplate}
+              onOpenRecommendedSuitcase={onOpenRecommendedSuitcase}
+              showRecommendedSuitcase={showRecommendedSuitcase}
+            />
+          </div>
         </div>
 
         <div
           className={`flex-1 flex flex-col min-h-0 ${
             isStartTab
               ? 'overflow-y-auto custom-scrollbar gap-4 max-lg:gap-4 px-4 pb-6 md:px-6 md:pb-5 lg:px-10 lg:pb-6 lg:pr-6'
-              : 'overflow-hidden lg:overflow-y-auto lg:custom-scrollbar gap-0 lg:gap-4 px-4 pb-2 md:px-6 lg:px-10 lg:pb-10 lg:pr-6'
+              // Nessuna compensazione manuale: la barra "Mostra suggerimenti"
+              // (SuitcaseMobileSuggestionsDrawer collapsedLayout="docked") è ora un fratello
+              // in-flow del layout, quindi la distribuzione flex riserva la sua altezza da
+              // sola. Qui resta solo il padding di respiro del contenuto.
+              : 'overflow-hidden lg:overflow-y-auto lg:custom-scrollbar gap-0 lg:gap-4 px-4 pb-4 md:px-6 lg:px-10 lg:pb-10 lg:pr-6'
           }`}
         >
 
@@ -541,13 +567,17 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
         )}
 
         {!isStartTab && (
-        <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-8 min-h-0 min-w-0 lg:items-start">
+        <div className="flex-1 flex flex-col lg:flex-row gap-2 lg:gap-8 min-h-0 min-w-0 lg:items-start">
 
+          {/* flex-[2]: su mobile (<lg) la colonna lista e la colonna "Contenuto" sono entrambe
+            * flex-[2] → rapporto 1:1 VOLUTO lista/contenuto. Su desktop la colonna passa a
+            * lg:flex-none + larghezza fissa, quindi questo valore vale solo per lo stacked layout.
+            * Non riportare a flex-[1]: spezzerebbe il bilanciamento mobile concordato. */}
           <div className="flex-[2] min-h-0 flex flex-col min-w-0 lg:flex-none lg:w-[45%] xl:w-[40%] transition-all duration-500 rounded-xl">
             {showProgress && (
-              <div className="w-full shrink-0 mb-3 animate-in fade-in slide-in-from-right-8 duration-700 delay-100 max-lg:mb-2">
-                <div className="flex items-center gap-3 mb-2 px-1">
-                  <div className="w-1 h-5 bg-amber-500 rounded-full" />
+              <div className="w-full shrink-0 mb-3 animate-in fade-in slide-in-from-right-8 duration-700 delay-100 max-lg:mb-2 max-lg:rounded-2xl max-lg:border max-lg:border-white/10 max-lg:bg-slate-950/30 max-lg:p-2.5">
+                <div className="flex items-center gap-3 mb-1 sm:mb-2 px-1">
+                  <div className="w-1 h-4 sm:h-5 bg-amber-500 rounded-full" />
                   <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">
                     Avanzamento Valigia
                   </h3>
@@ -562,6 +592,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
               </div>
             )}
 
+            <div className="flex-1 min-h-0 flex flex-col lg:contents max-lg:rounded-2xl max-lg:border max-lg:border-white/10 max-lg:bg-slate-950/30 max-lg:p-2">
             <div className="flex items-center justify-between mb-1 px-1 shrink-0 gap-2 min-h-[36px]">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-1 h-5 bg-amber-500 rounded-full shrink-0" />
@@ -625,7 +656,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                           isPreferred={isPreferred}
                           isHovered={hoveredItemId === tpl.id}
                           isCloning={isCloning}
-                          onHover={() => onHover(tpl.id)}
+                          onSelect={() => onHover(tpl.id)}
                           onView={() => onViewSuitcase(tpl.id)}
                           onTogglePreference={() => onTogglePreference(tpl.id, !isPreferred)}
                           onUse={() => onUseTemplate(tpl.id)}
@@ -655,27 +686,41 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                         onDuplicate={onDuplicateEntity}
                         onAssociate={sourceTab === 'saved' ? onRequestAssociate : undefined}
                         onUnlink={sourceTab === 'trip' ? onUnlinkSuitcase : undefined}
-                        onMouseEnter={() => onHover(tpl.id)}
+                        onSelect={() => onHover(tpl.id)}
                       />
                     );
                   })
                 )}
               </div>
             </div>
+            </div>
           </div>
 
-          <div className="flex-[1] min-h-0 flex flex-col border-t border-white/10 pt-3 lg:hidden animate-in fade-in slide-in-from-right-4 duration-700">
-            <div className="flex items-center justify-between mb-1 px-1 shrink-0 gap-2 min-h-[36px]">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-1 h-5 bg-amber-500 rounded-full shrink-0" />
-                <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em] truncate">
-                  {sourceTab === 'default' ? 'Contenuto Template' : 'Contenuto Valigia'}
-                </h3>
+          {/*
+            * Background opaco proprio (bg-slate-900, coerente col resto della Dashboard /
+            * pannello Valigia): la sezione mobile "Contenuto Valigia / Template" non deve
+            * lasciare intravedere il Diario sottostante. Il negative margin + padding ricompone
+            * l'opaco a tutta larghezza annullando il px-4 del contenitore scrollabile padre.
+            * Sopra questo backing opaco montiamo il box "recessed" (border + rounded + bg
+            * traslucido) per allineare il linguaggio visivo a quello della sezione superiore.
+            *
+            * flex-[2]: insieme alla colonna lista (anch'essa flex-[2]) realizza il rapporto 1:1
+            * lista/contenuto VOLUTO sul layout mobile (<lg). Non riportare a flex-[1].
+            */}
+          <div className="flex-[2] min-h-0 flex flex-col bg-slate-900 -mx-4 px-4 pt-2 pb-2 md:-mx-6 md:px-6 lg:hidden animate-in fade-in slide-in-from-right-4 duration-700">
+            <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-white/10 bg-slate-950/30 p-2">
+              <div className="flex items-center justify-between mb-1 px-1 shrink-0 gap-2 min-h-[36px]">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-1 h-5 bg-amber-500 rounded-full shrink-0" />
+                  <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em] truncate">
+                    {sourceTab === 'default' ? 'Contenuto Template' : 'Contenuto Valigia'}
+                  </h3>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
-              <div key={previewTarget?.id} className="animate-in fade-in duration-300">
-                {templatePreviewElement}
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
+                <div key={previewTarget?.id} className="animate-in fade-in duration-300">
+                  {templatePreviewElement}
+                </div>
               </div>
             </div>
           </div>
@@ -726,6 +771,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
       <SuitcaseMobileSuggestionsDrawer
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        collapsedLayout="docked"
       >
         <AffiliateSuggestionBox
           activeSuitcase={activeSuitcaseForSuggestions || tripSuitcases[0] || null}

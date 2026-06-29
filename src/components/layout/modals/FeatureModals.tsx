@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useInteraction } from '../../../context/InteractionContext';
 import { ModalManagerExternalProps } from '../ModalManagerTypes';
 import { PointOfInterest } from '@/types';
+import { getDaysArray } from '@/utils/common';
 
 // Lazy Imports
 const PoiDetailModal = React.lazy(() => import('@/components/modals/PoiDetailModal').then(module => ({ default: module.PoiDetailModal })));
@@ -30,15 +31,23 @@ const QuotaExceededModal = React.lazy(() => import('@/components/modals/QuotaExc
 
 interface FeatureModalsProps extends ModalManagerExternalProps {
     activeModal: string | null;
+    // Payload eterogeneo per-modale: la sorgente (ModalContext) è dynamic-typed e diversi campi
+    // alimentano prop con union obbligatorie (es. GlobalSectionView.section). Non esiste un
+    // ModalPayloadMap condiviso: tipizzarlo in modo stretto richiederebbe cast/forzature qui.
     modalProps: any;
     closeModal: () => void;
-    openModal: (type: string, props?: any) => void;
+    openModal: (type: string, props?: Record<string, unknown>) => void;
     onAroundMeTrigger: (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => void;
 }
 
 export const FeatureModals = (props: FeatureModalsProps) => {
     const { activeModal, modalProps, closeModal, openModal, user, itinerary } = props;
     const { submitReview } = useInteraction();
+
+    const diaryDays = useMemo(
+        () => getDaysArray(itinerary.startDate, itinerary.endDate),
+        [itinerary.startDate, itinerary.endDate],
+    );
 
     const handleToggleItinerary = (poi: PointOfInterest) => {
         const exists = itinerary.items.some((i: any) => i.poi.id === poi.id);
@@ -108,10 +117,10 @@ export const FeatureModals = (props: FeatureModalsProps) => {
                 <AddToItineraryModal isOpen={true} onClose={closeModal} onConfirm={(day, time) => { props.onConfirmAdd(modalProps.poi, day, time); }} onRemove={(id) => { props.onRemoveItem(id); }} poi={modalProps.poi} startDate={itinerary.startDate} endDate={itinerary.endDate} existingItems={itinerary.items} onDateSet={props.onSetItineraryDates} />
             )}
             {activeModal === 'conflict' && modalProps.conflict && (
-                <TimeConflictModal isOpen={true} onClose={closeModal} item={modalProps.conflict.item} targetDayIndex={modalProps.conflict.targetDayIndex} conflictingItem={modalProps.conflict.conflictingItem} existingItemsInTargetDay={itinerary.items.filter((i:any) => i.dayIndex === modalProps.conflict.targetDayIndex)} onConfirm={(newTime) => props.onResolveConflict(modalProps.conflict.item, modalProps.conflict.targetDayIndex, modalProps.conflict.conflictingItem, 'changeTime', newTime)} onSwap={() => props.onResolveConflict(modalProps.conflict.item, modalProps.conflict.targetDayIndex, modalProps.conflict.conflictingItem, 'swap')} />
+                <TimeConflictModal isOpen={true} onClose={closeModal} item={modalProps.conflict.item} targetDayIndex={modalProps.conflict.targetDayIndex} conflictingItem={modalProps.conflict.conflictingItem} allItems={itinerary.items} onConfirm={(newTime) => props.onResolveConflict(modalProps.conflict.item, modalProps.conflict.targetDayIndex, modalProps.conflict.conflictingItem, 'changeTime', newTime)} onSwap={(itemTime, conflictTime) => props.onResolveConflict(modalProps.conflict.item, modalProps.conflict.targetDayIndex, modalProps.conflict.conflictingItem, 'swap', undefined, { itemTime, conflictTime })} />
             )}
             {activeModal === 'duplicate' && modalProps.duplicate && (
-                <DuplicateResolutionModal isOpen={true} onClose={closeModal} newItemPoi={modalProps.duplicate.poi} existingItem={modalProps.duplicate.existingItem} targetDayIndex={modalProps.duplicate.dayIndex} targetTime={modalProps.duplicate.timeSlotStr} onAddDuplicate={() => props.onResolveDuplicate(modalProps.duplicate.poi, modalProps.duplicate.dayIndex, modalProps.duplicate.timeSlotStr, modalProps.duplicate.existingItem, 'add')} onReplace={() => props.onResolveDuplicate(modalProps.duplicate.poi, modalProps.duplicate.dayIndex, modalProps.duplicate.timeSlotStr, modalProps.duplicate.existingItem, 'replace')} />
+                <DuplicateResolutionModal isOpen={true} onClose={closeModal} newItemPoi={modalProps.duplicate.poi} existingItem={modalProps.duplicate.existingItem} targetDayIndex={modalProps.duplicate.dayIndex} targetTime={modalProps.duplicate.timeSlotStr} days={diaryDays} onAddDuplicate={(dayIndex: number) => props.onResolveDuplicate(modalProps.duplicate.poi, dayIndex, modalProps.duplicate.timeSlotStr, modalProps.duplicate.existingItem, 'add')} onReplace={(dayIndex: number) => props.onResolveDuplicate(modalProps.duplicate.poi, dayIndex, modalProps.duplicate.timeSlotStr, modalProps.duplicate.existingItem, 'replace')} />
             )}
 
             {/* --- POI & REVIEWS (UNIFIED MODAL) --- */}

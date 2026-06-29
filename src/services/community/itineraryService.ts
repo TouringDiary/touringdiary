@@ -2,6 +2,17 @@ import { supabase } from '../supabaseClient';
 import { PremadeItinerary, Itinerary } from '../../types/index';
 import { User } from '../../types/users';
 import { UUID_REGEX } from '../../utils/uuid';
+import type { Json } from '../../types/supabase';
+
+/**
+ * Confine di serializzazione verso il DB.
+ *
+ * Le entità di dominio (es. ItineraryItem → PointOfInterest) non sono strutturalmente
+ * assegnabili al tipo `Json` generato da Supabase, pur essendo perfettamente serializzabili.
+ * Normalizziamo qui il valore in una struttura JSON pura (stesso payload che Supabase
+ * invierebbe comunque), ottenendo un valore type-safe per le colonne `Json`.
+ */
+const toDbJson = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? null));
 
 export interface ItineraryFilters {
     type?: 'official' | 'community' | 'ai';
@@ -68,7 +79,7 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
             duration_days: duration > 0 ? duration : 1,
             type: 'personal',
             status: 'draft',
-            items_json: packedData,
+            items_json: toDbJson(packedData),
             main_city: itinerary.items[0]?.cityId || 'Campania',
             suitcase_id: itinerary.suitcase_id || null,
             created_at: new Date(itinerary.createdAt).toISOString(),
@@ -141,6 +152,7 @@ export const getUserDrafts = async (userId: string): Promise<Itinerary[]> => {
                 endDate: endDate,
                 items: items, 
                 createdAt: new Date(db.created_at).getTime(),
+                updatedAt: db.updated_at ? new Date(db.updated_at).getTime() : undefined,
                 dayStyles: {}, 
                 roadbook: [],
                 suitcase_id: db.suitcase_id || null
@@ -433,7 +445,7 @@ export const publishUserItinerary = async (itinerary: Itinerary, user: User) => 
         rating: 0, votes: 0,
         continent: 'Europa', nation: 'Italia', region: 'Campania', zone: 'Campania',
         main_city: itinerary.items[0]?.cityId || 'Campania',
-        items_json: itinerary.items,
+        items_json: toDbJson(itinerary.items),
         created_at: new Date().toISOString()
     };
 

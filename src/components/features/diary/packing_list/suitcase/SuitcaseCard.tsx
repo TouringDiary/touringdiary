@@ -24,7 +24,8 @@ interface SuitcaseCardProps {
   onDuplicate?: (id: string) => void;
   onAssociate?: (id: string) => void;
   onUnlink?: (id: string) => void;
-  onMouseEnter?: () => void;
+  /** Seleziona la riga e aggiorna l'anteprima (preview). Non apre il viewer. */
+  onSelect?: () => void;
 }
 
 const actionBtnClass =
@@ -45,7 +46,7 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
   onDuplicate,
   onAssociate,
   onUnlink,
-  onMouseEnter,
+  onSelect,
 }) => {
   const isOwner =
     currentUser?.id === suitcase.user_id ||
@@ -80,18 +81,20 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
           ariaLabel: 'Elimina valigia',
         };
 
-  const handleView = () => onView(suitcase.id);
+  // Click/seleziona riga: aggiorna solo l'anteprima (preview).
+  // L'apertura del viewer avviene ESCLUSIVAMENTE dal pulsante con l'icona occhio.
+  const handleSelect = () => onSelect?.();
 
   const handleContentKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      handleView();
+      handleSelect();
     }
   };
 
   return (
     <div
-      onMouseEnter={onMouseEnter}
+      onMouseEnter={onSelect}
       className={`flex items-stretch overflow-hidden rounded-xl border transition-all text-left group relative min-h-0 shrink-0 w-full ${
         isActive
           ? 'bg-indigo-500/10 border-indigo-500/50 shadow-[0_0_25px_rgba(99,102,241,0.1)]'
@@ -99,7 +102,7 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
       }`}
     >
       <div
-        className={`w-[96px] shrink-0 flex flex-col border-r border-white/5 overflow-hidden bg-white/[0.03] cursor-default ${
+        className={`w-[96px] shrink-0 flex flex-col border-r border-white/10 overflow-hidden bg-white/[0.03] cursor-default ${
           isActive ? 'bg-indigo-500/10' : ''
         }`}
       >
@@ -116,7 +119,7 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
             ASSOCIA
             <span
               role="tooltip"
-              className="pointer-events-none absolute bottom-[calc(100%+4px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover/cta:opacity-100 group-focus-visible/cta:opacity-100 transition-opacity duration-100 z-50 shadow-lg normal-case tracking-normal font-medium"
+              className="pointer-events-none absolute bottom-[calc(100%+4px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover/cta:opacity-100 group-focus-visible/cta:opacity-100 transition-opacity duration-100 z-local-overlay shadow-lg normal-case tracking-normal font-medium"
             >
               Associa questa valigia al Diario.
             </span>
@@ -208,18 +211,23 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
       <div
         role="button"
         tabIndex={0}
-        onClick={handleView}
+        onClick={handleSelect}
         onKeyDown={handleContentKeyDown}
-        onFocus={onMouseEnter}
+        onFocus={onSelect}
         className="flex-1 flex flex-col min-w-0 relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-r-xl group/content"
       >
-        <div
-          className="absolute top-2 right-2 z-10 flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900/70 border border-white/10 text-slate-400 opacity-70 group-hover/content:opacity-100 group-hover/content:text-indigo-300 transition-all pointer-events-none"
-          title="Clicca per visualizzare"
-          aria-hidden
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onView(suitcase.id);
+          }}
+          className="absolute top-2 right-2 z-local-overlay flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900/70 border border-white/10 text-slate-400 opacity-80 hover:opacity-100 hover:text-indigo-300 hover:border-indigo-500/40 transition-all cursor-pointer"
+          title="Visualizza valigia"
+          aria-label="Visualizza valigia"
         >
           <Eye className="w-4 h-4" />
-        </div>
+        </button>
         <div className="flex-1 flex flex-col justify-center px-4 leading-tight min-h-0">
           <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate">
             {suitcase.title}

@@ -209,12 +209,12 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
         )}
       </div>
 
-      {/* MOBILE (<768px): riga 2 (Suggerimenti/Rifiutati · avanzamento · Visualizza/Modifica) + riga 3 (categorie) */}
+      {/* MOBILE (<768px): riga 2 ([Suggerimenti|Rifiutati] | [avanzamento centrato] | [Visualizza|Modifica]) + riga 3 (categorie) */}
       <div className="flex flex-col gap-2 w-full min-w-0 md:hidden">
-        <div className="flex items-center gap-1.5 w-full min-w-0">
+        <div className="grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-1.5 w-full min-w-0">
           <div className="flex items-center gap-1 shrink-0">{suggerimentiButtons}</div>
           <div className="h-8 w-px shrink-0 bg-white/10" aria-hidden />
-          <div className="shrink-0">
+          <div className="flex justify-center min-w-0">
             <SuitcaseToolbarProgressBox
               checkedCount={checkedCount}
               totalCount={totalCount}
@@ -222,11 +222,15 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
               variant="header"
             />
           </div>
-          <div className="flex-1" aria-hidden />
-          {modalitaButtons && (
+          {modalitaButtons ? (
             <>
               <div className="h-8 w-px shrink-0 bg-white/10" aria-hidden />
               <div className="flex items-center gap-1 shrink-0">{modalitaButtons}</div>
+            </>
+          ) : (
+            <>
+              <div aria-hidden />
+              <div aria-hidden />
             </>
           )}
         </div>

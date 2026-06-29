@@ -19,7 +19,7 @@ export interface ModalManagerExternalProps {
     onConfirmAdd: (poi: PointOfInterest, day: number, time: string) => void;
     onRemoveItem: (id: string) => void;
     onSetItineraryDates: (s: string, e: string) => void;
-    onResolveConflict: (item: ItineraryItem, dayIdx: number, conflictingItem: ItineraryItem, action: 'changeTime' | 'swap', time?: string) => void;
+    onResolveConflict: (item: ItineraryItem, dayIdx: number, conflictingItem: ItineraryItem, action: 'changeTime' | 'swap', time?: string, swapTimes?: { itemTime: string; conflictTime: string }) => void;
     onResolveDuplicate: (poi: PointOfInterest, dayIdx: number, timeSlot: string, existingItem: ItineraryItem, action: 'add' | 'replace') => void;
     onRemoveSingle: (id: string) => void;
     onRemoveAll: (items: ItineraryItem[]) => void;

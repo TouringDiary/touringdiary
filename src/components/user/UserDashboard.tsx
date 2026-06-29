@@ -1,13 +1,13 @@
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Briefcase, User, ArrowLeft, Loader2, Zap, Star, ShoppingBag, Eye, TrendingUp, BarChart3, Store } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { User as UserType, CitySummary, Itinerary, SuggestionRequest } from '../../types/index';
 import { PLAN_TYPES } from '@/constants/planTypes';
 import { Suitcase } from '@/types/suitcase';
-import { useItinerary } from '@/context/ItineraryContext';
 import { BusinessShopManager } from './BusinessShopManager';
 import { getCurrentLevel, getNextLevelProgress } from '../../services/gamificationService';
 import { useUserDashboardData } from '../../hooks/useUserDashboardData';
@@ -25,6 +25,7 @@ import { UserNotificationsTab } from './dashboard/UserNotificationsTab';
 import { UserReferralTab } from './dashboard/UserReferralTab';
 import { UserMessagesTab } from './dashboard/UserMessagesTab'; // NEW IMPORT
 import { UserSuitcasesTab } from './dashboard/UserSuitcasesTab';
+import { UserTripsTab } from './dashboard/UserTripsTab';
 
 interface Props {
     isOpen: boolean;
@@ -61,14 +62,12 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
     }, [location.pathname]);
 
     const [activeTab, setActiveTab] = useState<string>(urlTab); 
-    const [expandedSection, setExpandedSection] = useState<'none' | 'trips' | 'reports'>('none');
     
     // NEW: Mobile View State
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     const { openModal } = useModal();
-    const { savedProjects, loadProject } = useItinerary();
     
     // CUSTOM HOOK: Data Management
     const { 
@@ -119,7 +118,6 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
-        setExpandedSection('none');
         if (isMobile) setMobileView('content');
 
         // AGGIORNAMENTO URL (Sincronizzato con V4 Canonical Builder)
@@ -129,29 +127,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
         navigate(canonicalPath);
     };
 
-    const renderExpandedSection = () => {
-        if (expandedSection === 'trips' || activeTab === 'trips') return (
-            <div className="flex flex-col h-full animate-in slide-in-from-right-4 duration-300">
-                <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
-                    {expandedSection !== 'none' && (
-                        <button onClick={() => setExpandedSection('none')} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><ArrowLeft className="w-6 h-6"/></button>
-                    )}
-                    <h3 className="text-2xl font-bold text-white">I Miei Viaggi Salvati</h3>
-                </div>
-                <div className="space-y-3 overflow-y-auto custom-scrollbar">
-                    {savedProjects.map(proj => (
-                        <div key={proj.id} onClick={() => { loadProject(proj); onClose(); }} className="group flex justify-between items-center p-5 bg-slate-900 rounded-xl border border-slate-800 hover:border-amber-500/50 transition-all cursor-pointer">
-                            <div><h4 className="font-bold text-white text-lg group-hover:text-amber-400 transition-colors mb-1">{proj.name || 'Senza Nome'}</h4><div className="text-sm text-slate-400">{new Date(proj.createdAt).toLocaleDateString()} • {proj.items.length} tappe</div></div>
-                        </div>
-                    ))}
-                    {savedProjects.length === 0 && <div className="py-20 text-center text-slate-500 italic">Ancora nessun viaggio nel tuo diario.</div>}
-                </div>
-            </div>
-        );
-        return null;
-    };
-
-    return (
+    return createPortal(
         <div className="td-modal-overlay !p-0 md:!p-4 bg-black/60 backdrop-blur-sm" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
             <div 
                 className="relative bg-[#020617] w-full max-w-5xl h-full md:h-[85vh] md:rounded-2xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 pointer-events-auto"
@@ -325,7 +301,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
 
                             {activeTab === 'bottega' && isBusiness && ( isLoading ? <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-4"><Loader2 className="w-10 h-10 animate-spin text-indigo-500"/><p>Caricamento bottega...</p></div> : myShop ? <BusinessShopManager shop={myShop} onUpdate={refreshData}/> : <div className="text-center py-20 text-slate-500">Configura la tua vetrina.</div>)}
                             
-                            {activeTab === 'overview_user' && (expandedSection !== 'none' ? renderExpandedSection() : (
+                            {activeTab === 'overview_user' && (
                                 <UserOverviewTab 
                                     user={user}
                                     currentLevel={currentLevel}
@@ -334,18 +310,14 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
                                     catalogRewards={catalogRewards}
                                     myRewards={myRewards}
                                     onClaimReward={onClaimRewardWrapper}
-                                    savedProjects={savedProjects}
-                                    onLoadProject={(p) => { loadProject(p); onClose(); }}
-                                    userSuitcases={userSuitcases}
                                     suggestions={suggestions}
-                                    onExpandSection={setExpandedSection}
                                     onClose={onClose}
                                 />
-                            ))}
+                            )}
 
                             {(activeTab === 'trips' || activeTab === 'suitcases') && (
                                 <div className="animate-in fade-in duration-300">
-                                    {activeTab === 'trips' && renderExpandedSection()}
+                                    {activeTab === 'trips' && <UserTripsTab onClose={onClose} />}
                                     {activeTab === 'suitcases' && <UserSuitcasesTab user={user} />}
                                 </div>
                             )}
@@ -391,6 +363,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

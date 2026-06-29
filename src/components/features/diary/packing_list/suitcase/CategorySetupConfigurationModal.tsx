@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Briefcase, Loader2, FolderPlus, Trash2 } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
@@ -338,7 +338,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
 
   return createPortal(
     <div
-      className="td-modal-overlay fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300"
+      className="td-modal-overlay flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300"
       style={{ zIndex: Z_OVERLAY }}
       onClick={onClose}
     >
@@ -348,7 +348,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
         role="dialog"
         aria-modal="true"
         aria-labelledby="category-setup-title"
-        className="relative w-full max-w-3xl bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.75)] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 flex flex-col max-h-[94vh] sm:max-h-[90vh] overflow-hidden outline-none"
+        className="relative w-full max-w-3xl bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.75)] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 flex flex-col max-h-[calc(100dvh-var(--header-height)-env(safe-area-inset-bottom,0px)-0.5rem)] sm:max-h-[calc(100dvh-var(--header-height)-2rem)] overflow-hidden outline-none pb-safe sm:pb-0"
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -357,7 +357,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
           variant="primary"
           position="absolute"
           withEscape={false}
-          className="top-5 right-5 sm:top-6 sm:right-6 z-10"
+          className="top-5 right-5 sm:top-6 sm:right-6 z-local-overlay"
         />
 
         <div className="flex items-center gap-4 px-6 sm:px-8 py-5 sm:py-6 border-b border-white/5 shrink-0 pr-14">
@@ -500,7 +500,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
                   }}
                   className="flex items-center gap-2 w-full min-h-[44px] px-4 py-2 text-sm font-semibold text-indigo-400 hover:bg-white/[0.03] transition-colors"
                 >
-                  <Plus className="w-4 h-4 shrink-0" />
+                  <FolderPlus className="w-4 h-4 shrink-0 text-emerald-500" />
                   Aggiungi categoria
                 </button>
               )}
