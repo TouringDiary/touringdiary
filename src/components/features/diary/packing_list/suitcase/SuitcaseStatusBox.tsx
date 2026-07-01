@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Suitcase } from '@/types/suitcase';
 import { getSuitcaseItemProgress } from './SuitcaseUtils';
 import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
+import { SuitcaseAscentProgressIndicator } from './SuitcaseAscentProgressIndicator';
 
 interface SuitcaseStatusBoxProps {
   suitcases: Suitcase[];
@@ -38,6 +39,7 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
         progressPerc={globalStats.percentage}
         variant="panels"
         className="w-full h-full min-w-0"
+        mobileSingleRow
       />
 
       <div
@@ -49,29 +51,44 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
           const { percentage: perc } = getSuitcaseItemProgress(s.suitcase_items);
           const isActive = activeTabId === s.id;
 
+          const dotClass = `w-1.5 h-1.5 rounded-full shrink-0 ${
+            perc === 100
+              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+              : 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]'
+          }`;
+
           return (
             <div
               key={s.id}
               onClick={() => (onSelectSuitcase ? onSelectSuitcase(s.id) : onOpenSuitcase(s.id))}
               onMouseEnter={() => onHoverSuitcase(s.id)}
               onMouseLeave={() => onHoverSuitcase(null)}
-              className={`flex flex-col justify-center gap-1 sm:gap-2 h-full min-h-[2.75rem] sm:min-h-[4.5rem] px-3 py-1.5 sm:py-2.5 rounded-xl border transition-all cursor-pointer ${
+              className={`flex flex-col justify-center h-full rounded-xl border transition-all cursor-pointer px-2.5 py-1.5 min-h-0 lg:px-3 lg:py-2.5 lg:min-h-[4.5rem] ${
                 isActive
                   ? 'bg-indigo-500/10 border-indigo-500/30 text-white'
                   : 'bg-slate-950/40 border-white/5 hover:border-white/10 hover:bg-slate-800 text-slate-400'
               }`}
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <div
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    perc === 100
-                      ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
-                      : 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]'
-                  }`}
-                />
-                <span className="text-[10px] font-bold line-clamp-2 leading-snug">{s.title}</span>
+              {/* Mobile (<lg): nome + % su una riga, barra avanzamento sotto */}
+              <div className="flex lg:hidden flex-col gap-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={dotClass} />
+                  <span className="text-[10px] font-bold leading-snug truncate flex-1 min-w-0">
+                    {s.title}
+                  </span>
+                  <span className="text-[10px] font-black tabular-nums text-white shrink-0">{perc}%</span>
+                </div>
+                <SuitcaseAscentProgressIndicator progressPerc={perc} />
               </div>
-              <span className="text-[10px] font-black tabular-nums text-white self-end">{perc}%</span>
+
+              {/* Desktop (lg+): layout originale invariato */}
+              <div className="hidden lg:flex lg:flex-col lg:gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={dotClass} />
+                  <span className="text-[10px] font-bold line-clamp-2 leading-snug">{s.title}</span>
+                </div>
+                <span className="text-[10px] font-black tabular-nums text-white self-end">{perc}%</span>
+              </div>
             </div>
           );
         })}

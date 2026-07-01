@@ -8,7 +8,6 @@ const hasAiGenerationLogs = (city: CityDetails): boolean =>
     Array.isArray(city.details.generationLogs) && city.details.generationLogs.length > 0;
 
 export const useAdminCityEditorLogic = () => {
-    console.log('[CE-D:LOGIC-ENTER]');
     const { city, isLoading, isSaving, isDirty, previewRequest, clearPreviewRequest, saveCity } = useCityEditor();
 
     const [activeTab, setActiveTab] = useState<'general' | 'ratings' | 'culture' | 'info' | 'media' | 'pois' | 'logs'>('general');

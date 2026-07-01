@@ -13,7 +13,6 @@ import {
 import { CategoryToolbarNav } from './CategoryToolbarNav';
 import { CountBadge } from '@/components/ui/CountBadge';
 import { SuitcaseToolbarGroup } from './SuitcaseToolbarGroup';
-import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
 
 interface SuitcaseEditorToolbarProps {
   readOnly: boolean;
@@ -35,10 +34,6 @@ interface SuitcaseEditorToolbarProps {
   panelViewMode: 'viewer' | 'editor';
   onSetViewMode?: (mode: 'viewer' | 'editor') => void;
   onUseTemplate?: () => void;
-  /** Avanzamento valigia — mostrato nella riga 2 della toolbar su mobile. */
-  checkedCount: number;
-  totalCount: number;
-  progressPerc: number;
 }
 
 const EDITOR_TOOLBAR_SHELL_CLASS =
@@ -66,9 +61,6 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
   panelViewMode,
   onSetViewMode,
   onUseTemplate,
-  checkedCount,
-  totalCount,
-  progressPerc,
 }) => {
   const aiTitle = readOnly
     ? 'Non disponibile in sola lettura'
@@ -128,7 +120,10 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
     </>
   );
 
-  const categoryNav = (
+  // `statusFilterPlacement` controlla SOLO la posizione del filtro stato nella riga:
+  // - desktop ≥lg → 'start': dropdown con etichetta a inizio riga (comportamento invariato);
+  // - layout compatto <lg → 'inline-end': pulsante sola-icona fra le categorie e la freccia destra.
+  const renderCategoryNav = (statusFilterPlacement: 'start' | 'inline-end') => (
     <CategoryToolbarNav
       categories={visibleCategories}
       readOnly={readOnly}
@@ -139,6 +134,7 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
       categoryStatusFilter={categoryStatusFilter}
       onCategoryStatusFilterChange={onCategoryStatusFilterChange}
       onAddCategory={onAddCategory}
+      statusFilterPlacement={statusFilterPlacement}
     />
   );
 
@@ -188,8 +184,9 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
 
   return (
     <div className={EDITOR_TOOLBAR_SHELL_CLASS}>
-      {/* DESKTOP / TABLET ≥768px: layout originale a riga unica (invariato) */}
-      <div className="hidden md:grid grid-cols-[1fr_auto_1fr] items-center w-full gap-2 sm:gap-3 min-w-0">
+      {/* DESKTOP ≥1024px (lg): layout a riga unica con Suggerimenti e Modalità in toolbar.
+          Su <lg (mobile + tablet) Suggerimenti confluisce nel menu "Azione" dell'header. */}
+      <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center w-full gap-2 sm:gap-3 min-w-0">
         <SuitcaseToolbarGroup label="Suggerimenti" align="start" showDividerAfter>
           {suggerimentiButtons}
         </SuitcaseToolbarGroup>
@@ -199,7 +196,7 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
           align="center"
           className="min-w-0 max-w-[min(100%,20rem)] sm:max-w-[min(100%,28rem)] md:max-w-[min(100%,36rem)] lg:max-w-[min(100%,48rem)]"
         >
-          {categoryNav}
+          {renderCategoryNav('start')}
         </SuitcaseToolbarGroup>
 
         {modalitaButtons && (
@@ -209,33 +206,10 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
         )}
       </div>
 
-      {/* MOBILE (<768px): riga 2 ([Suggerimenti|Rifiutati] | [avanzamento centrato] | [Visualizza|Modifica]) + riga 3 (categorie) */}
-      <div className="flex flex-col gap-2 w-full min-w-0 md:hidden">
-        <div className="grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-1.5 w-full min-w-0">
-          <div className="flex items-center gap-1 shrink-0">{suggerimentiButtons}</div>
-          <div className="h-8 w-px shrink-0 bg-white/10" aria-hidden />
-          <div className="flex justify-center min-w-0">
-            <SuitcaseToolbarProgressBox
-              checkedCount={checkedCount}
-              totalCount={totalCount}
-              progressPerc={progressPerc}
-              variant="header"
-            />
-          </div>
-          {modalitaButtons ? (
-            <>
-              <div className="h-8 w-px shrink-0 bg-white/10" aria-hidden />
-              <div className="flex items-center gap-1 shrink-0">{modalitaButtons}</div>
-            </>
-          ) : (
-            <>
-              <div aria-hidden />
-              <div aria-hidden />
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-1 w-full min-w-0">{categoryNav}</div>
-      </div>
+      {/* MOBILE + TABLET (<1024px): solo la riga categorie (freccia destra + filtro sola-icona).
+          Avanzamento e toggle Visualizza/Modifica vivono ora nell'header (più spazio verticale).
+          I Suggerimenti vivono nel menu "Azione" dell'header. */}
+      <div className="flex items-center gap-1 w-full min-w-0 lg:hidden">{renderCategoryNav('inline-end')}</div>
     </div>
   );
 };

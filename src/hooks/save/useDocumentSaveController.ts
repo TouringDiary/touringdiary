@@ -86,14 +86,28 @@ export function useDocumentSaveController<TSnapshot>({
     return 'dirty';
   }, []);
 
-  const markDirty = useCallback(() => {
+  const markDirty = useCallback((forceExplicit = false) => {
     if (!enabled) return;
     if (phaseRef.current === 'saving') return;
     const next = computePhaseFromSnapshot();
-    if (next !== 'dirty') return;
-    if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
-    setPhase('dirty');
-    setLastError(null);
+    if (next === 'dirty') {
+      if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
+      setPhase('dirty');
+      setLastError(null);
+      return;
+    }
+    // `forceExplicit` proviene da una mutazione locale appena applicata
+    // (notifyLocalMutation): lo snapshot letto qui può precedere il commit React,
+    // quindi `computePhaseFromSnapshot` restituirebbe ancora 'synced' e il segnale
+    // andrebbe perso. Onoriamo il segnale solo se il documento è già persistito
+    // (le bozze non fanno autosave); l'effetto di ricomputo post-commit riporta
+    // a 'synced' se la mutazione non ha prodotto differenze reali, e runSave
+    // protegge comunque da salvataggi no-op.
+    if (forceExplicit && !isNeverSavedRef.current()) {
+      if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
+      setPhase('dirty');
+      setLastError(null);
+    }
   }, [computePhaseFromSnapshot, enabled]);
 
   const setBaseline = useCallback((snapshot: TSnapshot) => {
@@ -270,6 +284,7 @@ export function useDocumentSaveController<TSnapshot>({
       awaitInFlight,
       isSaving,
       cancelPendingAutosave,
+      getPhase: () => phaseRef.current,
     }),
     [
       phase,

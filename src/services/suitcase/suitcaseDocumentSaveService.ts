@@ -129,6 +129,8 @@ export async function syncSuitcaseItemsDiff(
   const resultItems: SuitcaseItem[] = [];
 
   for (const item of currentItems) {
+    // Id effimero (es. draft-item-* da createRuntimeSuitcaseItem) → INSERT.
+    // Id persistente non in baseline → ramo UPDATE senza INSERT (item mai creato su DB).
     if (!item.id || isEphemeralItemId(item.id)) {
       const created = await addSuitcaseItemAsync(suitcaseId, item.name, item.category, {
         is_checked: item.is_checked,

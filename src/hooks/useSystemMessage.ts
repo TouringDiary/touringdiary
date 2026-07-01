@@ -1,25 +1,40 @@
 
 import { useState, useEffect } from 'react';
-import { getSystemMessagesAsync, SystemMessageTemplate } from '../services/communicationService';
-
-// Cache in memoria per evitare chiamate continue al DB
-let messagesCache: SystemMessageTemplate[] = [];
+import {
+    getSystemMessagesAsync,
+    SystemMessageTemplate,
+    SYSTEM_MESSAGES_UPDATED_EVENT,
+} from '../services/communicationService';
 
 export const useSystemMessage = (key: string) => {
     const [template, setTemplate] = useState<SystemMessageTemplate | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let cancelled = false;
+
+        // La cache in-memory (con invalidazione + singleton promise) vive in
+        // communicationService: qui non manteniamo una copia locale, così dopo un
+        // salvataggio nessun componente resta agganciato a un template obsoleto.
         const load = async () => {
-            console.log("[SystemMessages] called from: useSystemMessage.ts (key:", key, ")");
-            if (messagesCache.length === 0) {
-                messagesCache = await getSystemMessagesAsync();
-            }
-            const found = messagesCache.find(m => m.key === key);
+            const messages = await getSystemMessagesAsync();
+            if (cancelled) return;
+            const found = messages.find(m => m.key === key);
             setTemplate(found || null);
             setLoading(false);
         };
+
         load();
+
+        // Quando un template viene salvato/eliminato la cache del service viene
+        // invalidata ed emette questo evento: ri-leggiamo i dati aggiornati.
+        const handleUpdate = () => { load(); };
+        window.addEventListener(SYSTEM_MESSAGES_UPDATED_EVENT, handleUpdate);
+
+        return () => {
+            cancelled = true;
+            window.removeEventListener(SYSTEM_MESSAGES_UPDATED_EVENT, handleUpdate);
+        };
     }, [key]);
 
     const formatMessage = (variables: Record<string, string | number>) => {

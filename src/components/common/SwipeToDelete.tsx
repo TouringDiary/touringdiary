@@ -14,8 +14,21 @@ interface SwipeToDeleteProps {
   disabled?: boolean;
   /** Applied to the swipe viewport so it matches the row shape (rounding, etc.). */
   className?: string;
+  /**
+   * Geometry of the reveal strip (the band that grows on the right during the swipe).
+   * Defaults to `inset-y-0` (full height, square) to preserve the original look for every
+   * existing consumer. Pass a vertical inset + rounding (e.g. `inset-y-[10%] rounded-xl`)
+   * to obtain a shorter, rounded band that sits inside the row instead of a flush rectangle.
+   */
+  revealClassName?: string;
   /** Label shown on the red reveal background. */
   label?: string;
+  /**
+   * Layout dell'etichetta nella fascia di reveal.
+   * `false` (default): icona + testo impilati (caption sotto al cestino) — invariato per le tappe.
+   * `true`: icona + testo sulla stessa riga, più compatto, per righe strette come le NOTE.
+   */
+  inlineLabel?: boolean;
 }
 
 /** Horizontal travel (px) at full reveal. */
@@ -42,7 +55,9 @@ export const SwipeToDelete: React.FC<SwipeToDeleteProps> = ({
   children,
   disabled = false,
   className = '',
+  revealClassName = 'inset-y-0',
   label = 'Elimina',
+  inlineLabel = false,
 }) => {
   const isBelowLg = useBelowLg();
   const [offset, setOffset] = useState(0);
@@ -118,20 +133,46 @@ export const SwipeToDelete: React.FC<SwipeToDeleteProps> = ({
     swiped.current = false;
   };
 
+  // ── Feedback visivo progressivo (SOLO estetico: non tocca gesture, soglie o trigger) ──
+  // A riposo la fascia ha larghezza 0 → invisibile. Durante lo swipe lo sfondo evolve da un
+  // neutro tenue (stone) verso il rosso "danger", diventando pienamente rosso solo in
+  // prossimità della soglia di eliminazione; l'icona/etichetta sfumano in ingresso.
+  const swipeProgress = Math.min(1, Math.abs(offset) / REVEAL_WIDTH);
+  const dangerT = (Math.min(1, swipeProgress / TRIGGER_RATIO)) ** 2; // ease-in: resta neutro più a lungo
+  const mixChannel = (from: number, to: number) => Math.round(from + (to - from) * dangerT);
+  // stone-400 (#a8a29e) → rose-600 (#e11d48): transizione calda, niente toni "fangosi".
+  const revealBg = `rgb(${mixChannel(168, 225)} ${mixChannel(162, 29)} ${mixChannel(158, 72)})`;
+  const contentOpacity = Math.min(1, swipeProgress / 0.2);
+  const armed = Math.abs(offset) >= REVEAL_WIDTH * TRIGGER_RATIO;
+
   return (
-    <div className={`relative overflow-hidden ${className}`} style={{ touchAction: 'pan-y' }}>
+    // Clip orizzontale SOLO durante lo swipe: a riposo l'overflow resta visibile così gli
+    // elementi della timeline che sporgono di proposito sopra la riga (es. l'icona del mezzo,
+    // posizionata nel varco fra due tappe) non vengono tagliati su mobile/tablet. Lo scroll
+    // orizzontale a riposo è comunque contenuto dal contenitore padre (giorno / lista valigia).
+    <div className={`relative ${dragging ? 'overflow-hidden' : ''} ${className}`} style={{ touchAction: 'pan-y' }}>
       {/*
-        * Red action strip anchored to the right, as wide as the swipe distance: it occupies
-        * exactly the gap left by the translated row, so it never bleeds through translucent
-        * rows. The trash + label slide into view progressively (clipped by overflow-hidden).
+        * Action strip ancorato a destra, largo quanto la distanza di swipe: occupa esattamente
+        * il varco lasciato dalla riga traslata. Il colore evolve da neutro a rosso col drag, così
+        * a riposo non resta alcuna fascia rossa permanente. Icona + label scorrono in vista.
         */}
       <div
         aria-hidden
-        className="absolute inset-y-0 right-0 flex items-center justify-end gap-2 pr-4 bg-rose-800 text-white overflow-hidden"
-        style={{ width: Math.abs(offset) }}
+        className={`absolute right-0 flex items-center justify-end pr-3 text-white overflow-hidden ${revealClassName}`}
+        style={{ width: Math.abs(offset), backgroundColor: revealBg }}
       >
-        <Trash2 className="w-5 h-5 shrink-0" />
-        <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap">{label}</span>
+        {/* Reveal limitato a REVEAL_WIDTH (96px): in orizzontale "ELIMINA TAPPA" non entra a
+            un corpo leggibile, quindi icona + caption impilate sono il pattern corretto (non un
+            ripiego). Niente padding "magici": il margine destro è il solo pr-3 del contenitore. */}
+        <div
+          className={`flex items-center justify-center transition-transform duration-150 ${
+            inlineLabel ? 'flex-row gap-1.5' : 'flex-col gap-0.5'
+          }`}
+          style={{ opacity: contentOpacity, transform: `scale(${armed ? 1.06 : 1})` }}
+        >
+          <Trash2 className="w-3.5 h-3.5 shrink-0" />
+          <span className="text-[10px] font-black uppercase tracking-tight leading-none whitespace-nowrap">{label}</span>
+        </div>
       </div>
 
       <div

@@ -169,7 +169,9 @@ export function useSuitcaseDocumentSave({
   }, [activeSuitcase?.id, activeSuitcase?.title, controller, enabled, activeSuitcase]);
 
   const notifyLocalMutation = useCallback(() => {
-    controller.markDirty();
+    // Segnale esplicito di mutazione locale: forza il dirty anche se lo snapshot
+    // non riflette ancora il commit React (stesso flusso per desktop/tablet/mobile).
+    controller.markDirty(true);
   }, [controller]);
 
   const onBaselineSynced = useCallback((sc: Suitcase) => {

@@ -64,12 +64,6 @@ interface CityEditorContextType {
 
 const CityEditorContext = createContext<CityEditorContextType | undefined>(undefined);
 
-export const __CE_DEBUG__ = {
-    moduleUrl: import.meta.url,
-    moduleId: Math.random().toString(36).slice(2, 8),
-    ctx: CityEditorContext,
-};
-
 interface ProviderProps {
     children?: ReactNode;
     cityId: string;
@@ -78,7 +72,6 @@ interface ProviderProps {
 }
 
 export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveError }: ProviderProps) => {
-    console.log('[CE-A:PROVIDER-MOUNT]', { moduleId: __CE_DEBUG__.moduleId, ctx: __CE_DEBUG__.ctx, cityId });
     const { getFullCity, saveFullCity, cities, refreshManifest } = useAdminData();
     
     const [city, setCity] = useState<CityDetails | null>(null);
@@ -217,8 +210,6 @@ export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveErro
         setPreviewRequest({ type: 'none' });
     }, []);
 
-    console.log('[CE-C:PROVIDER-RENDER]', { moduleId: __CE_DEBUG__.moduleId, ctx: __CE_DEBUG__.ctx, isLoading, hasCity: !!city });
-
     return (
         <CityEditorContext.Provider value={{
             city,
@@ -243,16 +234,9 @@ export const CityEditorProvider = ({ children, cityId, onSaveSuccess, onSaveErro
 };
 
 export const useCityEditor = () => {
-    console.log('[CE-B:CONSUMER-HOOK]', {
-        moduleId: __CE_DEBUG__.moduleId,
-        ctx: __CE_DEBUG__.ctx,
-        stack: new Error().stack?.split('\n').slice(1, 4).join(' | '),
-    });
     const context = useContext(CityEditorContext);
     if (!context) {
-        throw new Error(
-            `[CE-CRASH] moduleId=${__CE_DEBUG__.moduleId} ctx=${String(__CE_DEBUG__.ctx)}`
-        );
+        throw new Error('useCityEditor must be used within a CityEditorProvider');
     }
     return context;
 };

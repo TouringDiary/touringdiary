@@ -135,7 +135,6 @@ export const useSuitcaseUndo = ({
   );
 
   const executeAction = useCallback(async (action: UndoAction, inverse: boolean) => {
-    console.log("[useSuitcaseUndo] Executing action:", action.type, "Inverse:", inverse, "ID:", action.id);
     beginExecution();
     try {
       if (inverse && action.inverse) {

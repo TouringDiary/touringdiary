@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { randomUUID } from '../utils/runtimeId';
+import type { Json } from '../types/supabase';
 
 export type AIModelType = 'flash' | 'pro';
 
@@ -8,6 +10,23 @@ export interface AIUsageResult {
     reason?: string;
     source?: string;
 }
+
+/**
+ * Payload restituito dalla RPC `consume_ai_credits`.
+ * I tipi Supabase generati la tipizzano genericamente come `Json`
+ * (vedi `consume_ai_credits` in src/types/supabase.ts), quindi qui descriviamo
+ * esattamente i campi letti dal client per leggerli in modo type-safe.
+ */
+type ConsumeAiCreditsResult = {
+    allowed?: boolean;
+    source?: string;
+    reason?: string;
+};
+
+const isConsumeAiCreditsResult = (
+    value: Json | null
+): value is ConsumeAiCreditsResult =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const getCurrentModelCosts = async () => {
     // Note: Do not implement recalculation logic yet, only support reading values.
@@ -59,7 +78,7 @@ export const getGuestId = (): string => {
     const KEY = 'td_guest_uuid';
     let id = localStorage.getItem(KEY);
     if (!id) {
-        id = crypto.randomUUID();
+        id = randomUUID();
         localStorage.setItem(KEY, id);
     }
     return id;
@@ -82,19 +101,21 @@ export const incrementAiUsage = async (userId: string | null, modelType: AIModel
             return { allowed: false, warning: false, reason: 'Internal database error' };
         }
 
-        if (data?.allowed) {
+        const result = isConsumeAiCreditsResult(data) ? data : null;
+
+        if (result?.allowed) {
             return { 
                 allowed: true, 
                 warning: false, 
-                source: data.source,
-                reason: data.reason
+                source: result.source,
+                reason: result.reason
             };
         }
 
         return { 
             allowed: false, 
             warning: false, 
-            reason: data?.reason || 'CREDITS_EXHAUSTED' 
+            reason: result?.reason || 'CREDITS_EXHAUSTED' 
         };
 
     } catch (err) {

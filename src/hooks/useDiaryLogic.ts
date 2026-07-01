@@ -2,12 +2,15 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useItinerary } from '@/context/ItineraryContext';
 import { publishUserItinerary } from '../services/dataService';
-import { User, ItineraryItem } from '../types/index';
+import { User, ItineraryItem, Itinerary } from '../types/index';
+import type { DiaryNotesDocument } from '../types/models/DiaryNotes';
 import { useUndoStack, UndoAction } from './useUndoStack';
 import { useDiaryUndo } from './useDiaryUndo';
 import { useDiaryDocumentSave } from './save/useDiaryDocumentSave';
 import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
+import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { LAYOUT } from '@/constants/layout';
+import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
 
 interface UseDiaryLogicProps {
     user: User;
@@ -28,7 +31,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
     const [colorPickerOpen, setColorPickerOpen] = useState<number | null>(null);
     const [iconPickerOpen, setIconPickerOpen] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'all' | number>('all');
+    const [activeTab, setActiveTab] = useState<DiaryActiveTab>('all');
     const [isMobile, setIsMobile] = useState(false);
     
     // Drag & Drop State
@@ -351,6 +354,37 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         }));
     }, [itinerary.items, setItinerary, pushAction]);
 
+    const handleDiaryNotesChange = useCallback((document: DiaryNotesDocument) => {
+        setItinerary(prev => {
+            const previousValue = prev.diaryNotes ?? null;
+            if (snapshotsEqual(previousValue, document)) {
+                return prev;
+            }
+            pushAction({
+                id: 'diary-notes',
+                type: 'diaryNotes',
+                payload: {
+                    previousValue,
+                    newValue: document,
+                },
+                label: 'Note di viaggio',
+                merge: true,
+                groupId: 'diary-notes',
+            });
+            return { ...prev, diaryNotes: document };
+        });
+    }, [setItinerary, pushAction]);
+
+    const handleLoadProject = useCallback((project: Itinerary) => {
+        loadProject(project);
+        resetStack();
+    }, [loadProject, resetStack]);
+
+    const handleClearItinerary = useCallback(() => {
+        clearItinerary();
+        resetStack();
+    }, [clearItinerary, resetStack]);
+
     const handlePublish = async () => {
         if (user.role === 'guest' || !itinerary.items.length || !itinerary.name) {
             console.warn("Accedi e dai un nome al viaggio per pubblicare.");
@@ -517,9 +551,9 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             removeItem: handleRemoveItem,
             updateDayStyle,
             saveProject: handleSaveProject, // WRAPPED!
-            loadProject,
+            loadProject: handleLoadProject,
             deleteProject, 
-            clearItinerary,
+            clearItinerary: handleClearItinerary,
             handleDateChange,
             confirmDateChange, 
             handleAddNote,
@@ -536,7 +570,8 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             onTimeChange: handleTimeChange,
             onIconSelect: handleIconSelect,
             onTransportSelect: handleTransportSelect,
-            onNoteChange: handleNoteChange
+            onNoteChange: handleNoteChange,
+            handleDiaryNotesChange,
         }
     };
 };

@@ -16,6 +16,7 @@ import { isTdTemplate, isUserTemplate, getDraftWorkspaceKind } from '@/utils/sui
 import { SuitcaseCard } from './SuitcaseCard';
 import { TemplateRow } from './TemplateRow';
 import { TemplatePreview } from './TemplatePreview';
+import { CarouselPositionIndicator } from '@/components/ui/CarouselPositionIndicator';
 import { SuitcaseStatusBox } from './SuitcaseStatusBox';
 import { AffiliateSuggestionBox } from './AffiliateSuggestionBox';
 import { DashboardActionGroup } from './DashboardActionGroup';
@@ -350,6 +351,27 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   const [listSortMode, setListSortMode] = React.useState<SuitcaseListSortMode>('updated_at');
   const [templateSourceFilter, setTemplateSourceFilter] = React.useState<TemplateSourceFilter>('all');
 
+  // Stato del carosello categorie riportato da TemplatePreview (fonte di verità nel figlio):
+  // serve solo a montare il CarouselPositionIndicator nell'intestazione del box "Contenuto…".
+  const [previewCarousel, setPreviewCarousel] = React.useState<{ progress: number; count: number }>(
+    { progress: 0, count: 0 }
+  );
+
+  // Bail-out: aggiorna lo stato (→ re-render del Dashboard) solo quando il valore mostrato cambia
+  // davvero. Restituendo `prev` quando progress/count sono identici, React salta il re-render —
+  // così cadono gli update inutili (eventi di scroll duplicati, l'istanza nascosta di
+  // TemplatePreview che riporta sempre lo stesso (0, count), assestamento a fine scroll), mentre
+  // ogni reale spostamento del thumb continua a propagarsi. Reference stabile (useCallback) così
+  // l'effetto di report nel figlio non si ri-attiva ad ogni render del parent.
+  const handlePreviewCarouselChange = React.useCallback(
+    (next: { progress: number; count: number }) => {
+      setPreviewCarousel((prev) =>
+        prev.progress === next.progress && prev.count === next.count ? prev : next
+      );
+    },
+    []
+  );
+
   const isStartTab = sourceTab === 'start';
 
   const pausedDraftKind = guestSuitcase ? getDraftWorkspaceKind(guestSuitcase) : 'suitcase';
@@ -435,6 +457,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
           ? (updater) => onTemplatePreviewOverlayChange(previewTarget.id, updater)
           : undefined
       }
+      onCarouselStateChange={handlePreviewCarouselChange}
     />
   );
 
@@ -516,11 +539,11 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
           className={`flex-1 flex flex-col min-h-0 ${
             isStartTab
               ? 'overflow-y-auto custom-scrollbar gap-4 max-lg:gap-4 px-4 pb-6 md:px-6 md:pb-5 lg:px-10 lg:pb-6 lg:pr-6'
-              // Nessuna compensazione manuale: la barra "Mostra suggerimenti"
-              // (SuitcaseMobileSuggestionsDrawer collapsedLayout="docked") è ora un fratello
-              // in-flow del layout, quindi la distribuzione flex riserva la sua altezza da
-              // sola. Qui resta solo il padding di respiro del contenuto.
-              : 'overflow-hidden lg:overflow-y-auto lg:custom-scrollbar gap-0 lg:gap-4 px-4 pb-4 md:px-6 lg:px-10 lg:pb-10 lg:pr-6'
+              // Mobile (<lg): scroll verticale unico di pagina (AVANZAMENTO → VALIGIE → CONTENUTO),
+              // le sezioni fluiscono ad altezza naturale e non in pannelli a scroll interno.
+              // La barra "Mostra suggerimenti" (SuitcaseMobileSuggestionsDrawer collapsedLayout="docked")
+              // resta un fratello in-flow del layout, fuori da questo contenitore scrollabile.
+              : 'overflow-y-auto custom-scrollbar gap-3 lg:gap-4 px-4 pb-4 md:px-6 lg:px-10 lg:pb-10 lg:pr-6'
           }`}
         >
 
@@ -567,15 +590,14 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
         )}
 
         {!isStartTab && (
-        <div className="flex-1 flex flex-col lg:flex-row gap-2 lg:gap-8 min-h-0 min-w-0 lg:items-start">
+        <div className="flex flex-col lg:flex-1 lg:flex-row gap-3 lg:gap-8 lg:min-h-0 min-w-0 lg:items-start">
 
-          {/* flex-[2]: su mobile (<lg) la colonna lista e la colonna "Contenuto" sono entrambe
-            * flex-[2] → rapporto 1:1 VOLUTO lista/contenuto. Su desktop la colonna passa a
-            * lg:flex-none + larghezza fissa, quindi questo valore vale solo per lo stacked layout.
-            * Non riportare a flex-[1]: spezzerebbe il bilanciamento mobile concordato. */}
-          <div className="flex-[2] min-h-0 flex flex-col min-w-0 lg:flex-none lg:w-[45%] xl:w-[40%] transition-all duration-500 rounded-xl">
+          {/* Mobile (<lg): colonna ad altezza naturale che impila AVANZAMENTO + VALIGIE nel
+            * flusso di pagina scrollabile (nessuno scroll interno). Su desktop torna a larghezza
+            * fissa affiancata (lg:flex-none + lg:w-[45%]) con i propri vincoli min-h-0. */}
+          <div className="flex flex-col min-w-0 lg:min-h-0 lg:flex-none lg:w-[45%] xl:w-[40%] transition-all duration-500 rounded-xl">
             {showProgress && (
-              <div className="w-full shrink-0 mb-3 animate-in fade-in slide-in-from-right-8 duration-700 delay-100 max-lg:mb-2 max-lg:rounded-2xl max-lg:border max-lg:border-white/10 max-lg:bg-slate-950/30 max-lg:p-2.5">
+              <div className="w-full shrink-0 mb-3 animate-in fade-in slide-in-from-right-8 duration-700 delay-100 max-lg:mb-2">
                 <div className="flex items-center gap-3 mb-1 sm:mb-2 px-1">
                   <div className="w-1 h-4 sm:h-5 bg-amber-500 rounded-full" />
                   <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">
@@ -592,7 +614,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
               </div>
             )}
 
-            <div className="flex-1 min-h-0 flex flex-col lg:contents max-lg:rounded-2xl max-lg:border max-lg:border-white/10 max-lg:bg-slate-950/30 max-lg:p-2">
+            <div className="flex flex-col lg:contents max-lg:rounded-2xl max-lg:border max-lg:border-white/10 max-lg:bg-slate-950/30 max-lg:p-2">
             <div className="flex items-center justify-between mb-1 px-1 shrink-0 gap-2 min-h-[36px]">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-1 h-5 bg-amber-500 rounded-full shrink-0" />
@@ -607,15 +629,19 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                     onChange={setTemplateSourceFilter}
                   />
                 )}
-                <SuitcaseListSortDropdown
-                  value={effectiveSortMode}
-                  onChange={setListSortMode}
-                  showFavoritesOption={sourceTab === 'default'}
-                />
+                {/* Ordinamento valigie: gestione riservata al Desktop (pannello dedicato).
+                    Su mobile la sezione non è presente, quindi il pulsante è nascosto (<lg). */}
+                <div className="hidden lg:block">
+                  <SuitcaseListSortDropdown
+                    value={effectiveSortMode}
+                    onChange={setListSortMode}
+                    showFavoritesOption={sourceTab === 'default'}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-visible lg:flex-none pr-2 animate-in fade-in duration-500 max-lg:custom-scrollbar">
+            <div className="overflow-visible lg:flex-none lg:min-h-0 pr-2 animate-in fade-in duration-500">
               <div className="space-y-2">
                 {displayList.length === 0 ? (
                   <div className="py-12 text-center bg-slate-950/20 rounded-2xl border border-dashed border-slate-800">
@@ -697,18 +723,15 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
           </div>
 
           {/*
-            * Background opaco proprio (bg-slate-900, coerente col resto della Dashboard /
-            * pannello Valigia): la sezione mobile "Contenuto Valigia / Template" non deve
-            * lasciare intravedere il Diario sottostante. Il negative margin + padding ricompone
-            * l'opaco a tutta larghezza annullando il px-4 del contenitore scrollabile padre.
-            * Sopra questo backing opaco montiamo il box "recessed" (border + rounded + bg
-            * traslucido) per allineare il linguaggio visivo a quello della sezione superiore.
-            *
-            * flex-[2]: insieme alla colonna lista (anch'essa flex-[2]) realizza il rapporto 1:1
-            * lista/contenuto VOLUTO sul layout mobile (<lg). Non riportare a flex-[1].
+            * Sezione mobile "Contenuto Valigia / Template" (terzo blocco impilato, dopo
+            * AVANZAMENTO e VALIGIE). Ad altezza naturale: scorre col resto della pagina, niente
+            * scroll interno.
+            * Background opaco proprio (bg-slate-900, coerente col resto della Dashboard / pannello
+            * Valigia) così da non lasciare intravedere il Diario sottostante; il negative margin +
+            * padding ricompone l'opaco a tutta larghezza annullando il px-4 del contenitore padre.
             */}
-          <div className="flex-[2] min-h-0 flex flex-col bg-slate-900 -mx-4 px-4 pt-2 pb-2 md:-mx-6 md:px-6 lg:hidden animate-in fade-in slide-in-from-right-4 duration-700">
-            <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-white/10 bg-slate-950/30 p-2">
+          <div className="flex flex-col bg-slate-900 -mx-4 px-4 pt-2 pb-2 md:-mx-6 md:px-6 lg:hidden animate-in fade-in slide-in-from-right-4 duration-700">
+            <div className="flex flex-col rounded-2xl border border-white/10 bg-slate-950/30 p-2">
               <div className="flex items-center justify-between mb-1 px-1 shrink-0 gap-2 min-h-[36px]">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-1 h-5 bg-amber-500 rounded-full shrink-0" />
@@ -716,8 +739,16 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
                     {sourceTab === 'default' ? 'Contenuto Template' : 'Contenuto Valigia'}
                   </h3>
                 </div>
+                {/* Indicatore posizione carosello categorie allineato a destra dell'intestazione
+                    (lo stato arriva da TemplatePreview via onCarouselStateChange). Mobile-only:
+                    l'intero blocco è già lg:hidden. */}
+                <CarouselPositionIndicator
+                  count={previewCarousel.count}
+                  progress={previewCarousel.progress}
+                  className="shrink-0"
+                />
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
+              <div className="pr-2">
                 <div key={previewTarget?.id} className="animate-in fade-in duration-300">
                   {templatePreviewElement}
                 </div>

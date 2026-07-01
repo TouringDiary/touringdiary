@@ -62,44 +62,36 @@ export const useAppInitialization = (viewMode: string) => {
 
         // Listener reattivo per cambi di sessione
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session) => {
-            console.log(`[TRACE_LOGOUT] Auth Event Received: ${event}`, session ? 'Session Present' : 'No Session');
-            
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || (event as string) === 'USER_UPDATED') {
-                console.log("[TRACE_LOGOUT] Sincronizzazione utente attiva...");
                 await syncUserState(session);
             } else if (event === 'SIGNED_OUT' || (event as string) === 'USER_DELETED') {
-                console.log("[TRACE_LOGOUT] SIGNED_OUT intercettato: reset a Guest.");
                 setUser(getGuestUser());
             }
         });
 
         // Inizializzazione sessione (solo al primo mount)
         const initUserSession = async () => {
-            console.log("[TRACE_LOGOUT] Inizio initUserSession...");
             if (isAuthOperationInProgress) {
-                console.warn("[TRACE_LOGOUT] Operazione Auth in corso, skip initUserSession.");
                 return;
             }
 
             try {
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                console.log("[TRACE_LOGOUT] getSession result:", session ? 'Sessione Trovata' : 'Nessuna Sessione', sessionError || '');
-                
+                const { data: { session } } = await supabase.auth.getSession();
+
                 if (session) {
                     const nowSec = Math.floor(Date.now() / 1000);
                     const isExpired = session.expires_at && session.expires_at <= nowSec;
-                    console.log("[TRACE_LOGOUT] Sessione scaduta?", isExpired);
 
                     if (!isExpired) {
                         await syncUserState(session);
                     } else if (!sessionRecoveryAttemptedRef.current) {
                         sessionRecoveryAttemptedRef.current = true;
-                        console.warn("[TRACE_LOGOUT] Sessione scaduta, forzo signOut.");
                         await supabase.auth.signOut();
                     }
                 }
             } catch (e) {
-                console.error("[TRACE_LOGOUT] Error in initUserSession:", e);
+                // Mantenuto: error handling reale dell'inizializzazione sessione.
+                console.error("[AppInit] Error in initUserSession:", e);
             }
         };
 

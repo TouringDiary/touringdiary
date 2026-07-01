@@ -8,6 +8,7 @@ import {
 } from '@/services/suitcaseService';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
+import { randomUUID } from '@/utils/runtimeId';
 
 /**
  * Merges multiple templates by flattening items, deduplicating by normalized name,
@@ -28,7 +29,7 @@ export const mergeTemplateItems = (templates: Suitcase[]): SuitcaseItem[] => {
       seen.add(key);
       merged.push({
         ...item,
-        id: crypto.randomUUID(), // Temp ID for UI usage
+        id: randomUUID(), // Temp ID for UI usage
         is_checked: false,
         is_ai_suggestion: false
       });

@@ -11,6 +11,7 @@ import {
 import { AffiliateProductLink } from '../../types/partners';
 import { Row, Insert } from '../../types/domain/index';
 import { normalizeItemName } from '../../utils/tagDerivation';
+import { randomUUID } from '../../utils/runtimeId';
 
 // =============================================================================
 // SECTION 1 — INTERNAL BOUNDARY TYPES
@@ -201,7 +202,7 @@ export const fetchAffiliateGearAsync = async (
   if (error) throw error;
 
   const enabledPartnerSet = new Set(enabledPartnerIds);
-  const normalizedSuitcaseItemNames = suitcaseItemNames.map(normalizeItemName);
+  const normalizedSuitcaseItemNames = suitcaseItemNames.map((name) => normalizeItemName(name));
 
   return (data ?? [])
     .filter(row => {
@@ -519,7 +520,7 @@ export const upsertAffiliateProductLinksBulkFromDtosAsync = async (
 ): Promise<Row<'affiliate_product_links'>[]> => {
   const now = new Date().toISOString();
   const links: Insert<'affiliate_product_links'>[] = dtos.map(dto => ({
-    id: dto.id ?? crypto.randomUUID(),
+    id: dto.id ?? randomUUID(),
     product_id: dto.productId,
     partner_id: dto.partnerId,
     query: dto.searchQuery,

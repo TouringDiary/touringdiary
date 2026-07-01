@@ -1,6 +1,7 @@
 
 import { PointOfInterest } from './City';
 import { Review } from '../shared';
+import type { DiaryNotesDocument } from './DiaryNotes';
 
 // Interface for Roadbook Data persistence
 export interface RoadbookSegment {
@@ -52,7 +53,8 @@ export interface ItineraryItem {
 }
 
 export interface Itinerary {
-  id: string;
+  /** `null` finché il diario non ha un id persistito (bozza locale / mai salvato). */
+  id: string | null;
   userId?: string; // NEW: Traccia il proprietario anche nel LocalStorage
   name: string;
   startDate: string | null;
@@ -61,8 +63,25 @@ export interface Itinerary {
   createdAt: number;
   updatedAt?: number;
   dayStyles?: Record<number, string>; 
-  roadbook?: RoadbookDay[]; 
+  roadbook?: RoadbookDay[];
+  /** Area NOTE unica del diario (JSON Tiptap/ProseMirror). */
+  diaryNotes?: DiaryNotesDocument | null;
   suitcase_id?: string | null;
+}
+
+/** Stato iniziale vuoto del Diario — unico punto per evitare divergenze tra reset e mount. */
+export function createEmptyItinerary(): Itinerary {
+  return {
+    id: null,
+    name: '',
+    startDate: null,
+    endDate: null,
+    items: [],
+    createdAt: Date.now(),
+    dayStyles: {},
+    roadbook: [],
+    diaryNotes: null,
+  };
 }
 
 export interface PremadeItinerary {

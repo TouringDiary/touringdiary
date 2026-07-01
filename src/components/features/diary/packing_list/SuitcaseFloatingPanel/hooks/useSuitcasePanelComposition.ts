@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useModal } from '@/context/ModalContext';
 import { useUndoStack } from '@/hooks/useUndoStack';
 import { buildProductAffiliateLink, buildAffiliateLink, getPartnerById, resolveBestPartner } from '@/services/partnerIntegrationService';
@@ -9,7 +9,7 @@ import { useSuitcaseDocumentSave } from '@/hooks/save/useSuitcaseDocumentSave';
 import { hasDraftWorkspaceInStorage, isDraftWorkspaceId, deleteGuestSuitcase } from '@/utils/guestSuitcaseHelper';
 import { useSuitcaseHiddenCategories } from './useSuitcaseHiddenCategories';
 import { useSuitcaseItemActions } from './useSuitcaseItemActions';
-import { useSuitcasePanelData } from './useSuitcasePanelData';
+import { useSuitcasePanelData, type SeedItemsLocallyFn } from './useSuitcasePanelData';
 import { useSuitcaseUndo } from './useSuitcaseUndo';
 import { useSuitcaseUndoHandlers } from './useSuitcaseUndoHandlers';
 import { getSuitcaseItemProgress } from '../../suitcase/SuitcaseUtils';
@@ -22,6 +22,7 @@ import {
   materializeCategorySetupForWrite,
 } from '@/domain/packing/categorySetup';
 import { buildMissingStandardSeedItems } from '@/services/suitcase/packingSeedService';
+import { normalizeItemName } from '@/utils/tagDerivation';
 
 interface UseSuitcasePanelCompositionOptions {
   itineraryId: string | null;
@@ -42,7 +43,10 @@ export function useSuitcasePanelComposition({
   registerCloseAttempt,
   onOverlayModalOpenChange,
 }: UseSuitcasePanelCompositionOptions) {
-  const data = useSuitcasePanelData(propItineraryId, cityType, suitcaseId);
+  const seedItemsLocallyRef = useRef<SeedItemsLocallyFn | null>(null);
+  const data = useSuitcasePanelData(propItineraryId, cityType, suitcaseId, {
+    seedItemsLocallyRef,
+  });
   const { openModal } = useModal();
 
   const {
@@ -73,7 +77,7 @@ export function useSuitcasePanelComposition({
       if (!isDraftWorkspaceId(sc.id)) {
         deleteGuestSuitcase();
       }
-      void data.fetchUserSuitcases();
+      // Non rifare fetch: sovrascriverebbe mutazioni locali non ancora nel baseline.
     },
     onSaveAsNavigate: (newId) => {
       resetStack();
@@ -168,6 +172,49 @@ export function useSuitcasePanelComposition({
     onSuitcaseLocalUpdate: data.handleUpdateSuitcaseLocal,
   });
 
+  const usesLocalDocumentSeed =
+    viewMode === 'editor' &&
+    !!data.activeSuitcase &&
+    !isGuestUser &&
+    !isTdTemplate(data.activeSuitcase) &&
+    !isDraftWorkspaceId(data.activeSuitcase.id);
+
+  seedItemsLocallyRef.current = usesLocalDocumentSeed
+    ? async (candidates, context) => {
+        if (!data.activeSuitcase) return 0;
+        for (const candidate of candidates) {
+          await itemActions.handleAddItemConfirmed(
+            data.activeSuitcase.id,
+            candidate.name,
+            candidate.category,
+            {
+              is_ai_suggestion: true,
+              ai_suggestion_context: context ?? null,
+              suggested_at: new Date().toISOString(),
+            }
+          );
+        }
+        return candidates.length;
+      }
+    : null;
+
+  const lastAutosaveErrorToastRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (suitcaseDocumentSave.phase !== 'error' || !suitcaseDocumentSave.lastError) {
+      if (suitcaseDocumentSave.phase !== 'error') {
+        lastAutosaveErrorToastRef.current = null;
+      }
+      return;
+    }
+    if (lastAutosaveErrorToastRef.current === suitcaseDocumentSave.lastError) return;
+    lastAutosaveErrorToastRef.current = suitcaseDocumentSave.lastError;
+    data.showToast(
+      'Salvataggio non riuscito',
+      suitcaseDocumentSave.lastError,
+      'destructive'
+    );
+  }, [data.showToast, suitcaseDocumentSave.lastError, suitcaseDocumentSave.phase]);
+
   const editorLogic = useSuitcaseEditorLogic({
     activeSuitcase: data.activeSuitcase,
     ...itemActions,
@@ -177,6 +224,62 @@ export function useSuitcasePanelComposition({
     showToast: data.showToast,
     pushAction,
   });
+
+  const resolveActiveSuitcase = useCallback(() => {
+    const id = data.panelState.activeTabId;
+    if (!id) return undefined;
+    return (
+      data.userSuitcasesRef.current.find((suitcase) => suitcase.id === id) ??
+      data.globalTemplates.find((template) => template.id === id)
+    );
+  }, [data.globalTemplates, data.panelState.activeTabId, data.userSuitcasesRef]);
+
+  /** Handler unico per accettazione suggerimenti AI (review modal, desktop/mobile/tablet). */
+  const handleAcceptAiSuggestion = useCallback(
+    async (name: string, category: string) => {
+      const suitcase = resolveActiveSuitcase();
+      if (!suitcase) return;
+
+      const existing = suitcase.suitcase_items?.find(
+        (item) =>
+          normalizeItemName(item.name) === normalizeItemName(name) &&
+          !!item.is_ai_suggestion &&
+          !item.accepted_from_ai
+      );
+
+      if (existing) {
+        await itemActions.handleUpdateItemConfirmed(
+          existing.id,
+          { is_ai_suggestion: false, accepted_from_ai: true },
+          existing
+        );
+      } else {
+        await itemActions.handleAddItemConfirmed(suitcase.id, name, category, {
+          accepted_from_ai: true,
+          is_ai_suggestion: false,
+        });
+      }
+
+      data.setAiSuggestions((prev) =>
+        prev.map((s) => (s.name === name ? { ...s, status: 'accepted' as const } : s))
+      );
+    },
+    [data.setAiSuggestions, itemActions, resolveActiveSuitcase]
+  );
+
+  const handleRejectAiSuggestion = useCallback(
+    async (name: string, category: string) => {
+      const suitcase = resolveActiveSuitcase();
+      if (!suitcase) return;
+
+      await data.mutations.rejectItem(suitcase.id, { name, category });
+      await data.fetchBlacklist({ force: true });
+      data.setAiSuggestions((prev) =>
+        prev.map((s) => (s.name === name ? { ...s, status: 'rejected' as const } : s))
+      );
+    },
+    [data.fetchBlacklist, data.mutations, data.setAiSuggestions, resolveActiveSuitcase]
+  );
 
   const handleActivateOptionalCategory = useCallback(async (categoryId: string) => {
     const suitcase = data.activeSuitcase;
@@ -227,40 +330,62 @@ export function useSuitcasePanelComposition({
     onLoginRequired: handleLogin,
   });
 
-  const requestWorkspacePause = useCallback(() => {
+  // Chiusura unificata (X / ESC / Indietro): se ci sono modifiche non salvate apre il dialogo
+  // unico "Modifiche non salvate" (Salva / Annulla le modifiche / Continua a modificare),
+  // altrimenti chiude direttamente. Sostituisce il vecchio flusso "Metti in pausa".
+  const requestCloseGuarded = useCallback(() => {
     const m = data.modalState;
-    if (m.showPauseWorkspaceModal) return;
-    if (m.showAssociationModal) return;
-    if (m.showDraftOverwriteModal) return;
-    if (m.showCategorySetupModal) return;
-    if (m.showRecommendedSuitcaseModal) return;
-    if (m.suitcaseToDelete !== null || m.suitcaseToUnlink !== null) return;
-    if (m.itemToDelete !== null) return;
-    if (m.categoryToDelete !== null) return;
-    if (m.showBlacklistModal) return;
-    if (associationFlow.linkModalOpen) return;
+    // Un solo punto di verità per "c'è già un modale che intercetta la chiusura": finché uno di
+    // questi è aperto la X/ESC/Indietro li chiude per primi e non deve avviare il flusso di uscita.
+    // Aggiungendo nuovi modal in futuro basta estenderne l'elenco qui.
+    const hasBlockingModalOpen =
+      m.showUnsavedChangesModal ||
+      m.showAssociationModal ||
+      m.showDraftOverwriteModal ||
+      m.showCategorySetupModal ||
+      m.showRecommendedSuitcaseModal ||
+      m.suitcaseToDelete !== null ||
+      m.suitcaseToUnlink !== null ||
+      m.itemToDelete !== null ||
+      m.categoryToDelete !== null ||
+      m.showBlacklistModal ||
+      associationFlow.linkModalOpen;
 
-    const hasActiveEditingSession =
-      hasDraftWorkspaceInStorage() ||
-      (data.panelState.viewMode === 'editor' && data.panelState.activeTabId !== null);
+    if (hasBlockingModalOpen) return;
 
-    if (!hasActiveEditingSession) {
+    const activeId = data.panelState.activeTabId;
+    const inEditor = data.panelState.viewMode === 'editor' && activeId !== null;
+    const isDraft = activeId ? isDraftWorkspaceId(activeId) : false;
+    const savePhase = suitcaseDocumentSave.phase;
+    // Consideriamo "modifiche non salvate" solo bozza/dirty/error: sono gli stati in cui esiste
+    // davvero lavoro non persistito da proteggere alla chiusura. La fase `saving` è volutamente
+    // esclusa perché un salvataggio è già in corso ed è gestito dal flusso di salvataggio
+    // (al suo completamento la fase diventa idle o error, e in error rientriamo nel guard).
+    const hasUnsavedChanges =
+      inEditor &&
+      (isDraft ||
+        hasDraftWorkspaceInStorage() ||
+        savePhase === 'dirty' ||
+        savePhase === 'error');
+
+    if (!hasUnsavedChanges) {
       requestClose();
       return;
     }
 
-    m.setShowPauseWorkspaceModal(true);
+    m.setShowUnsavedChangesModal(true);
   }, [
     associationFlow.linkModalOpen,
     data.modalState,
     data.panelState.activeTabId,
     data.panelState.viewMode,
     requestClose,
+    suitcaseDocumentSave.phase,
   ]);
 
   useEffect(() => {
-    registerCloseAttempt?.(requestWorkspacePause);
-  }, [registerCloseAttempt, requestWorkspacePause]);
+    registerCloseAttempt?.(requestCloseGuarded);
+  }, [registerCloseAttempt, requestCloseGuarded]);
 
   useLayoutEffect(() => {
     const m = data.modalState;
@@ -273,14 +398,24 @@ export function useSuitcasePanelComposition({
     onOverlayModalOpenChange,
   ]);
 
-  const handleConfirmWorkspacePause = useCallback(() => {
-    data.modalState.setShowPauseWorkspaceModal(false);
-    requestClose();
-  }, [data.modalState, requestClose]);
-
-  const handleCancelWorkspacePause = useCallback(() => {
-    data.modalState.setShowPauseWorkspaceModal(false);
+  // "Continua a modificare": chiude solo il dialogo, resta nell'editor.
+  const handleCancelUnsavedChanges = useCallback(() => {
+    data.modalState.setShowUnsavedChangesModal(false);
   }, [data.modalState]);
+
+  // "Annulla le modifiche": nessuna pausa. Se è una bozza locale viene abbandonata, così le
+  // modifiche sono davvero scartate e non riproposte alla riapertura; poi chiude il pannello.
+  const handleDiscardAndExit = useCallback(() => {
+    data.modalState.setShowUnsavedChangesModal(false);
+    const activeId = data.panelState.activeTabId;
+    if (activeId && isDraftWorkspaceId(activeId)) {
+      deleteGuestSuitcase();
+      data.panelState.clearNewSuitcaseSession();
+    } else if (hasDraftWorkspaceInStorage()) {
+      deleteGuestSuitcase();
+    }
+    requestClose();
+  }, [data.modalState, data.panelState, requestClose]);
 
   const handleConfirmAssociateSaved = useCallback(async () => {
     const suitcaseId = data.modalState.suitcaseToAssociate;
@@ -305,7 +440,7 @@ export function useSuitcasePanelComposition({
     ...data.panelState,
     ...data.modalState,
     ...data.mutations,
-    requestClose: requestWorkspacePause,
+    requestClose: requestCloseGuarded,
     handleLinkExisting: associationFlow.handleLinkExisting,
     onDocumentDirty:
       viewMode === 'editor' && data.activeSuitcase && !isTdTemplate(data.activeSuitcase)
@@ -335,18 +470,34 @@ export function useSuitcasePanelComposition({
     }
   }, [pendingInitialAction, data.isLoadingUser, handleCreateNew, handleCreateTemplate]);
 
-  const handleBackToSelector = useCallback(() => {
+  const handleBackToSelector = useCallback(async () => {
     const isExistingPersisted =
       activeTabId &&
       !isDraftWorkspaceId(activeTabId) &&
       !data.panelState.isNewSuitcaseSession;
 
+    await suitcaseDocumentSave.awaitInFlight();
+
+    // La conferma "salvato" deve riflettere lo stato REALE del SaveController:
+    // - 'synced'  → l'autosalvataggio ha persistito davvero → toast di successo;
+    // - 'error'   → il salvataggio è fallito → toast di errore esplicito (mai un falso successo);
+    // - 'dirty'/'saving' → operazione non ancora conclusa → nessun annuncio definitivo.
     if (isExistingPersisted && hasPersistentUndo) {
-      data.showToast(
-        SUITCASE_MODIFIED_TOAST.message,
-        SUITCASE_MODIFIED_TOAST.description,
-        'success'
-      );
+      const phase = suitcaseDocumentSave.getPhase();
+      if (phase === 'synced') {
+        data.showToast(
+          SUITCASE_MODIFIED_TOAST.message,
+          SUITCASE_MODIFIED_TOAST.description,
+          'success'
+        );
+      } else if (phase === 'error') {
+        data.showToast(
+          'Salvataggio non riuscito',
+          suitcaseDocumentSave.lastError ||
+            'Le ultime modifiche non sono state salvate. Riprova.',
+          'destructive'
+        );
+      }
     }
 
     actions.handleBackToSelector();
@@ -356,6 +507,7 @@ export function useSuitcasePanelComposition({
     data.panelState.isNewSuitcaseSession,
     data.showToast,
     hasPersistentUndo,
+    suitcaseDocumentSave,
   ]);
 
   const isDataReady = !data.isLoadingUser && data.linkedSuitcaseIds !== null;
@@ -459,10 +611,13 @@ export function useSuitcasePanelComposition({
     canRedo: canRedo && suitcaseDocumentSave.phase !== 'saving',
     suitcaseDocumentSave,
     handleBackToSelector,
-    handleConfirmWorkspacePause,
-    handleCancelWorkspacePause,
+    handleDiscardAndExit,
+    handleCancelUnsavedChanges,
+    forceClose: requestClose,
     handleConfirmAssociateSaved,
     handleActivateOptionalCategory,
+    handleAcceptAiSuggestion,
+    handleRejectAiSuggestion,
   };
 }
 

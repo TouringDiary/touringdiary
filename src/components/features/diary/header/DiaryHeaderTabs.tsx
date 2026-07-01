@@ -1,10 +1,12 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw, RotateCw } from 'lucide-react';
+import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
+import { isDayTab } from '@/domain/diary/diaryActiveTab';
 
 interface DiaryHeaderTabsProps {
     days: Date[];
-    activeTab: 'all' | number;
-    setActiveTab: (tab: 'all' | number) => void;
+    activeTab: DiaryActiveTab;
+    setActiveTab: (tab: DiaryActiveTab) => void;
     scrollTabs: (direction: 'left' | 'right') => void;
     tabsContainerRef: React.RefObject<HTMLDivElement>;
     onUndo?: () => void;
@@ -32,13 +34,20 @@ export const DiaryHeaderTabs: React.FC<DiaryHeaderTabsProps> = ({
                     <button 
                         key={index} 
                         onClick={() => setActiveTab(index)} 
-                        className={`flex-shrink-0 px-2 py-0.5 rounded text-[9px] font-bold uppercase border transition-colors duration-150 ${activeTab === index ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'}`}
+                        className={`flex-shrink-0 px-2 py-0.5 rounded text-[9px] font-bold uppercase border transition-colors duration-150 ${isDayTab(activeTab) && activeTab === index ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'}`}
                     >
                         DAY {index + 1}
                     </button>
                 ))}
             </div>
             <button onClick={() => scrollTabs('right')} className="p-0.5 text-slate-500 hover:text-white"><ChevronRight className="w-3 h-3"/></button>
+
+            <button
+                onClick={() => setActiveTab('notes')}
+                className={`flex-shrink-0 px-2 py-0.5 rounded text-[9px] font-bold uppercase border transition-colors duration-150 ml-1 ${activeTab === 'notes' ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'}`}
+            >
+                NOTE
+            </button>
 
             {/* Visual Separator */}
             <div className="mx-2 h-4 w-px bg-slate-700" />

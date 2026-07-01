@@ -24,6 +24,7 @@ const diarySnapshot = (itinerary: Itinerary) => ({
   items: itinerary.items,
   dayStyles: itinerary.dayStyles,
   roadbook: itinerary.roadbook,
+  diaryNotes: itinerary.diaryNotes ?? null,
 });
 
 export function useDiaryDocumentSave({

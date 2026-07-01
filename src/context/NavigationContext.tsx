@@ -232,6 +232,8 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
 
     // Ad ogni variazione REALE del pathname, eseguiamo la tabula rasa degli stati volatili
     useEffect(() => {
+        let scrollFrame: number | undefined;
+
         if (router.pathname !== lastPathnameRef.current) {
             // --- WORKSPACE & ADMIN EXCLUSION GUARD ---
             // Se stiamo navigando all'interno del dominio admin o dashboard (workspace), 
@@ -246,30 +248,38 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
 
             if (isInternalAdminNav || isInternalDashboardNav) {
                 lastPathnameRef.current = router.pathname;
-                return;
+            } else {
+                // Sincronizziamo il bootstrap mode del UserContext ad ogni cambio path (reattivo, no polling)
+                syncMode(router.pathname);
+                
+                // 1. Chiudiamo eventuali modali o overlay persistenti
+                modalContext.closeModal();
+
+                // 2. Resettiamo la Virtual City (Around Me / Merged)
+                setVirtualCity(null);
+
+                // 3. Resettiamo le preview aperte
+                router.setActivePreview(CLOSED_NAVIGATION_PREVIEW);
+
+                // 4. Riportiamo il tab della città allo stato iniziale 'vetrina'
+                router.setCurrentCityTab('vetrina');
+
+                // 5. Scroll in cima alla nuova pagina.
+                //    Eseguito qui (effect legato al pathname committato da React Router) e
+                //    dopo il paint via requestAnimationFrame: elimina la race del vecchio
+                //    setTimeout(0) in navigateToCity, che poteva scrollare prima che il
+                //    nuovo contenuto fosse renderizzato.
+                scrollFrame = requestAnimationFrame(() => window.scrollTo(0, 0));
+
+                lastPathnameRef.current = router.pathname;
             }
-
-            // Sincronizziamo il bootstrap mode del UserContext ad ogni cambio path (reattivo, no polling)
-            syncMode(router.pathname);
-
-            console.log(`[NavigationSync] Pathname changed to ${router.pathname}. Performing cleanup.`);
-            
-            // 1. Chiudiamo eventuali modali o overlay persistenti
-            modalContext.closeModal();
-            console.log(`[OverlayCleanup] Modals closed.`);
-
-            // 2. Resettiamo la Virtual City (Around Me / Merged)
-            setVirtualCity(null);
-            console.log(`[OverlayCleanup] Virtual City destroyed.`);
-
-            // 3. Resettiamo le preview aperte
-            router.setActivePreview(CLOSED_NAVIGATION_PREVIEW);
-
-            // 4. Riportiamo il tab della città allo stato iniziale 'vetrina'
-            router.setCurrentCityTab('vetrina');
-
-            lastPathnameRef.current = router.pathname;
         }
+
+        return () => {
+            if (scrollFrame !== undefined) {
+                cancelAnimationFrame(scrollFrame);
+            }
+        };
     }, [router.pathname, modalContext, router]);
 
     return (

@@ -22,6 +22,13 @@ interface CategoryToolbarNavProps {
   categoryStatusFilter?: CategoryStatusFilter;
   onCategoryStatusFilterChange?: (filter: CategoryStatusFilter) => void;
   onAddCategory?: () => void;
+  /**
+   * Posizione del filtro stato (ALL/INCOMPLETE/COMPLETE) all'interno della riga:
+   * - 'start' (default): dropdown con etichetta a inizio riga → desktop ≥lg, invariato;
+   * - 'inline-end': pulsante sola-icona come ULTIMO elemento (dopo la freccia destra) → layout compatto <lg;
+   * - 'none': non renderizzato.
+   */
+  statusFilterPlacement?: 'start' | 'inline-end' | 'none';
 }
 
 const SUPPRESS_CLICK_MS = 150;
@@ -31,6 +38,11 @@ const SCROLL_TRACK_CLASS =
   'flex items-end gap-1 min-w-0 flex-1 overflow-x-auto overflow-y-visible pt-2 pb-0.5 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
 
 const NAV_ARROW_BTN_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} p-2 bg-slate-950/95 border-white/15 text-slate-500 shadow-inner hover:text-indigo-300 hover:bg-slate-800 hover:border-white/30`;
+
+// Pulsante filtro sola-icona del layout compatto: STESSE dimensioni delle frecce ma colore
+// PRIMARIO del Design System (riusa l'accent indigo già usato per la categoria attiva), così è
+// subito riconoscibile come azione distinta dalla navigazione. Niente colori hardcoded nuovi.
+const FILTER_ICON_BTN_BASE_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} p-2 shadow-inner`;
 
 const NAV_CATEGORY_BTN_CLASS = `${SUITCASE_TOOLBAR_ICON_BTN_CLASS} flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 min-w-[2.75rem] bg-slate-800/50 border-white/10 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/15`;
 
@@ -49,6 +61,7 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
   categoryStatusFilter = 'all',
   onCategoryStatusFilterChange,
   onAddCategory,
+  statusFilterPlacement = 'start',
 }) => {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
@@ -178,26 +191,45 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
     [categories.length, focusButtonAt]
   );
 
+  // Rendering del filtro stato centralizzato: trigger e varianti per ogni posizione sono definiti
+  // qui, una sola volta. I call-site nel JSX sono semplici ancore di layout; per aggiungere una
+  // nuova posizione basta estendere questo helper in un unico punto.
+  const renderStatusFilter = (at: 'start' | 'inline-end') => {
+    if (statusFilterPlacement !== at || !onCategoryStatusFilterChange) return null;
+    const isInlineEnd = at === 'inline-end';
+    return (
+      <CategoryStatusFilterDropdown
+        value={categoryStatusFilter}
+        onChange={onCategoryStatusFilterChange}
+        iconOnly={isInlineEnd}
+        triggerClassName={
+          isInlineEnd ? `${FILTER_ICON_BTN_BASE_CLASS} ${NAV_CATEGORY_BTN_ACTIVE_CLASS}` : undefined
+        }
+        iconClassName={isInlineEnd ? SUITCASE_TOOLBAR_ICON_SIZE_CLASS : undefined}
+      />
+    );
+  };
+
+  // Freccia destra estratta perché la sua posizione dipende dal layout:
+  // - desktop ('start'): subito dopo la freccia sinistra → cluster di navigazione [< >] a inizio
+  //   riga, con il filtro a seguire e la lista categorie per ultima ([< > ▼ALL categorie]);
+  // - compatto ('inline-end'): a destra della lista, prima del filtro ([< categorie > ▼ALL]).
+  // Stesso identico comportamento (scrollCategories('right')) in entrambi i casi.
+  const rightArrowButton = (
+    <button
+      type="button"
+      onClick={() => scrollCategories('right')}
+      className={NAV_ARROW_BTN_CLASS}
+      title="Scorri categorie a destra"
+      aria-label="Scorri categorie a destra"
+      disabled={categories.length === 0}
+    >
+      <ChevronRight className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
+    </button>
+  );
+
   return (
     <>
-      {onCategoryStatusFilterChange && (
-        <CategoryStatusFilterDropdown
-          value={categoryStatusFilter}
-          onChange={onCategoryStatusFilterChange}
-        />
-      )}
-
-      <button
-        type="button"
-        onClick={() => scrollCategories('left')}
-        className={NAV_ARROW_BTN_CLASS}
-        title="Scorri categorie a sinistra"
-        aria-label="Scorri categorie a sinistra"
-        disabled={categories.length === 0}
-      >
-        <ChevronLeft className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
-      </button>
-
       {onAddCategory && (
         <button
           type="button"
@@ -216,6 +248,21 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
           </span>
         </button>
       )}
+
+      <button
+        type="button"
+        onClick={() => scrollCategories('left')}
+        className={NAV_ARROW_BTN_CLASS}
+        title="Scorri categorie a sinistra"
+        aria-label="Scorri categorie a sinistra"
+        disabled={categories.length === 0}
+      >
+        <ChevronLeft className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
+      </button>
+
+      {/* Desktop ('start'): freccia destra accanto alla sinistra, poi il filtro, poi la lista. */}
+      {statusFilterPlacement === 'start' && rightArrowButton}
+      {renderStatusFilter('start')}
 
       <div
         ref={scrollTrackRef}
@@ -292,16 +339,10 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={() => scrollCategories('right')}
-        className={NAV_ARROW_BTN_CLASS}
-        title="Scorri categorie a destra"
-        aria-label="Scorri categorie a destra"
-        disabled={categories.length === 0}
-      >
-        <ChevronRight className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
-      </button>
+      {/* Compatto ('inline-end'): freccia destra dopo la lista, poi il filtro sola-icona. */}
+      {statusFilterPlacement !== 'start' && rightArrowButton}
+
+      {renderStatusFilter('inline-end')}
     </>
   );
 };

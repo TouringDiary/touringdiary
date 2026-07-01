@@ -2,6 +2,8 @@ import { Z_DROPDOWN } from '@/constants/zIndex';
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Itinerary, ItineraryItem, PointOfInterest, CitySummary } from '@/types';
+import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
+import { isDayTab } from '@/domain/diary/diaryActiveTab';
 import { useSystemMessage } from '@/hooks/useSystemMessage';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { DiaryDay } from './DiaryDay';
@@ -10,7 +12,7 @@ import { getCityDisplayName, isPlaceholderCityId } from './cityName';
 export interface DiaryTimelineProps {
     itinerary: Itinerary;
     days: Date[];
-    activeTab: 'all' | number;
+    activeTab: DiaryActiveTab;
     userLocation: { lat: number; lng: number } | null;
     highlightedItemId: string | null;
     editingTimeId: string | null;
@@ -44,7 +46,11 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
     const [daySelectorOpen, setDaySelectorOpen] = useState<'note' | 'palette' | null>(null);
     const [cityTooltipOpen, setCityTooltipOpen] = useState(false);
     const [visibleCitiesCount, setVisibleCitiesCount] = useState(10);
-    const { getText: getPopoverMsg } = useSystemMessage('popover_select_day_for_action');
+    // Due finestre contestuali DISTINTE → due chiavi DS distinte (non più una generica
+    // "Seleziona giorno" condivisa). Ognuna ricade su un titolo/sottotitolo chiaro e
+    // specifico finché un admin non la personalizza dal Design System.
+    const { getText: getAddNoteMsg } = useSystemMessage('popover_add_note_select_day');
+    const { getText: getDayColorMsg } = useSystemMessage('popover_change_day_color_select_day');
     const noteAnchorRef = useRef<HTMLDivElement>(null);
     const paletteAnchorRef = useRef<HTMLDivElement>(null);
     const cityDotsAnchorRef = useRef<HTMLDivElement>(null);
@@ -83,9 +89,11 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
     
     const cityName = (id: string) => getCityDisplayName(id, props.cityManifest);
 
-    const activeItems = props.activeTab === 'all' 
-        ? props.itinerary.items 
-        : props.itinerary.items.filter(i => i.dayIndex === props.activeTab);
+    const activeItems = props.activeTab === 'all'
+        ? props.itinerary.items
+        : isDayTab(props.activeTab)
+            ? props.itinerary.items.filter(i => i.dayIndex === props.activeTab)
+            : [];
 
     const uniqueCityIds = Array.from(new Set(activeItems.map(i => {
            let cid = i.cityId;
@@ -240,7 +248,7 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                 <div ref={noteAnchorRef}>
                     <button 
                         onClick={() => {
-                            if (props.activeTab !== 'all') {
+                            if (isDayTab(props.activeTab)) {
                                 props.onAddNote(props.activeTab);
                             } else {
                                 setDaySelectorOpen(daySelectorOpen === 'note' ? null : 'note');
@@ -255,8 +263,8 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                         isOpen={daySelectorOpen === 'note'}
                         onClose={() => setDaySelectorOpen(null)}
                         anchorRef={noteAnchorRef}
-                        title={getPopoverMsg().title || "Seleziona Giorno"}
-                        body={getPopoverMsg().body || "Scegli il giorno per la nota."}
+                        title={getAddNoteMsg().title || "Aggiungi una nota"}
+                        body={getAddNoteMsg().body || "Scegli a quale giorno del viaggio aggiungere la nota."}
                         days={props.days}
                         onSelect={(idx) => {
                             props.onAddNote(idx);
@@ -270,7 +278,7 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                 <div ref={paletteAnchorRef}>
                     <button 
                         onClick={() => {
-                            if (props.activeTab !== 'all') {
+                            if (isDayTab(props.activeTab)) {
                                 props.onColorPickerToggle(props.colorPickerOpen === props.activeTab ? null : props.activeTab);
                             } else {
                                 setDaySelectorOpen(daySelectorOpen === 'palette' ? null : 'palette');
@@ -285,8 +293,8 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                         isOpen={daySelectorOpen === 'palette'}
                         onClose={() => setDaySelectorOpen(null)}
                         anchorRef={paletteAnchorRef}
-                        title={getPopoverMsg().title || "Seleziona Giorno"}
-                        body={getPopoverMsg().body || "Scegli il giorno per il colore."}
+                        title={getDayColorMsg().title || "Modifica colore giorno"}
+                        body={getDayColorMsg().body || "Scegli a quale giorno del viaggio cambiare il colore."}
                         days={props.days}
                         onSelect={(idx) => {
                             props.onColorPickerToggle(idx);
@@ -312,7 +320,7 @@ export const DiaryTimeline: React.FC<DiaryTimelineProps> = (props) => {
                         items={props.itinerary.items.filter(i => i.dayIndex === idx)}
                         dayStyleClass={props.itinerary.dayStyles?.[idx]}
                     />
-                )) : (typeof props.activeTab === 'number' && props.days[props.activeTab] ? (
+                )) : (isDayTab(props.activeTab) && props.days[props.activeTab] ? (
                     <DiaryDay 
                         key={props.activeTab}
                         {...props}

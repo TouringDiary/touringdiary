@@ -22,7 +22,6 @@ import { HiddenCategoriesPanel } from './HiddenCategoriesPanel';
 import { OptionalCategoriesPanel } from './OptionalCategoriesPanel';
 import { CategoryMobileDialog } from './CategoryMobileDialog';
 import { DraggableSlider } from '@/components/common/DraggableSlider';
-import { CarouselPositionIndicator } from '@/components/ui/CarouselPositionIndicator';
 
 interface TemplatePreviewProps {
   template: Suitcase | null;
@@ -35,6 +34,13 @@ interface TemplatePreviewProps {
   onCategorySetupOverlayChange?: (
     updater: (prev: CategorySetupMap) => CategorySetupMap
   ) => void;
+  /**
+   * Riporta al parent lo stato del carosello categorie (avanzamento scroll + numero di tile) così
+   * che il `CarouselPositionIndicator` possa essere renderizzato nell'intestazione del box padre.
+   * La fonte di verità resta `categoryCarouselProgress` qui dentro: questo è solo un report in sola
+   * lettura, nessuna logica del carosello viene spostata o duplicata.
+   */
+  onCarouselStateChange?: (state: { progress: number; count: number }) => void;
 }
 
 const PREVIEW_LABELS: Record<'trip' | 'saved' | 'default', string> = {
@@ -52,6 +58,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
   readOnly: readOnlyProp,
   categorySetupOverlay,
   onCategorySetupOverlayChange,
+  onCarouselStateChange,
 }) => {
   const isTd = template ? isTdTemplate(template) : false;
   const isReadOnly = readOnlyProp ?? isTd;
@@ -253,6 +260,15 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
     setCategoryCarouselProgress(0);
   }, [template?.id, visibleCategories.length]);
 
+  // Report (sola lettura) dello stato del carosello verso il parent, che monta l'indicatore
+  // nell'intestazione del box. Nessuna logica spostata: si limita a rispecchiare lo stato locale.
+  useEffect(() => {
+    onCarouselStateChange?.({
+      progress: categoryCarouselProgress,
+      count: visibleCategories.length,
+    });
+  }, [categoryCarouselProgress, visibleCategories.length, onCarouselStateChange]);
+
   if (!template || !editableTemplate) {
     return (
       <div className="flex items-center justify-center text-slate-600 text-xs italic rounded-xl border border-dashed border-slate-800 p-6 text-center h-full">
@@ -352,7 +368,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
 
   return (
     <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4 space-y-3 sticky top-4 max-lg:p-2 max-lg:space-y-2 max-lg:static max-lg:top-auto">
-      <div className="flex items-start gap-3 pb-3 border-b border-slate-800 max-lg:gap-2 max-lg:pb-2">
+      <div className="flex items-start gap-3 pb-3 border-b border-slate-800 max-lg:gap-2 max-lg:pb-1.5">
         <div className="p-2 rounded-xl bg-slate-800/50 flex items-center justify-center w-11 h-11 text-xl shrink-0 max-lg:p-1.5 max-lg:rounded-lg max-lg:w-8 max-lg:h-8 max-lg:text-base">
           <TemplateCategoryIcon template={template} />
         </div>
@@ -382,7 +398,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
             </button>
           )}
 
-          <div className="lg:hidden flex items-end gap-1.5 shrink-0">
+          <div className="lg:hidden flex items-end gap-1 shrink-0">
             <div className="flex flex-col items-center gap-0.5">
               <button
                 type="button"
@@ -390,9 +406,9 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                 aria-expanded={optionalPopoverOpen}
                 aria-haspopup="dialog"
                 aria-label="Categorie disponibili"
-                className="relative w-9 h-9 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 flex items-center justify-center transition-all"
+                className="relative w-8 h-8 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 flex items-center justify-center transition-all"
               >
-                <ListRestart className="w-4 h-4" />
+                <ListRestart className="w-3.5 h-3.5" />
                 {availableOptionalCategories.length > 0 && (
                   <CountBadge
                     count={availableOptionalCategories.length}
@@ -429,9 +445,9 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                 aria-expanded={hiddenPopoverOpen}
                 aria-haspopup="dialog"
                 aria-label="Categorie nascoste"
-                className="relative w-9 h-9 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/40 flex items-center justify-center transition-all"
+                className="relative w-8 h-8 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/40 flex items-center justify-center transition-all"
               >
-                <EyeOff className="w-3.5 h-3.5" />
+                <EyeOff className="w-3 h-3" />
                 {hiddenCategories.length > 0 && (
                   <CountBadge
                     count={hiddenCategories.length}
@@ -471,10 +487,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                   onClick={() => !isReadOnly && onAddCategory(template.id)}
                   disabled={isReadOnly}
                   aria-label="Crea categoria"
-                  className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/40 flex items-center justify-center shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-500/10 disabled:hover:border-indigo-500/20"
+                  className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/40 flex items-center justify-center shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-500/10 disabled:hover:border-indigo-500/20"
                   title={isReadOnly ? 'Non disponibile per i template TD' : 'Crea categoria'}
                 >
-                  <FolderPlus className="w-4 h-4 text-emerald-500" />
+                  <FolderPlus className="w-3.5 h-3.5 text-emerald-500" />
                 </button>
                 <span className="text-[6px] font-black uppercase tracking-wider text-indigo-400 leading-none">
                   Aggiungi
@@ -506,7 +522,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
           ))}
         </div>
 
-        <div className="lg:hidden flex flex-col gap-2">
+        <div className="lg:hidden">
           <DraggableSlider className="gap-2" onScroll={handleCategoryCarouselScroll}>
             {visibleCategories.map((cat) => (
               <div key={cat.id} className="snap-start shrink-0">
@@ -514,11 +530,6 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
               </div>
             ))}
           </DraggableSlider>
-          <CarouselPositionIndicator
-            count={visibleCategories.length}
-            progress={categoryCarouselProgress}
-            className="pt-0.5"
-          />
         </div>
       </div>
     </div>

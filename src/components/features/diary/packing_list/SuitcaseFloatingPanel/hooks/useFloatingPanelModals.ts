@@ -23,7 +23,9 @@ export const useFloatingPanelModals = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
   const [showDraftOverwriteModal, setShowDraftOverwriteModal] = useState(false);
-  const [showPauseWorkspaceModal, setShowPauseWorkspaceModal] = useState(false);
+  // Dialogo unico "Modifiche non salvate" mostrato alla chiusura (X / ESC / Indietro)
+  // quando esistono modifiche non salvate. Sostituisce il vecchio flusso "Metti in pausa".
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
   const [showRecommendedSuitcaseModal, setShowRecommendedSuitcaseModal] = useState(false);
   const [showCategorySetupModal, setShowCategorySetupModal] = useState(false);
   const [pendingWorkspaceCreate, setPendingWorkspaceCreate] = useState<PendingWorkspaceCreate | null>(null);
@@ -43,7 +45,7 @@ export const useFloatingPanelModals = () => {
     isDeleting, setIsDeleting,
     showBlacklistModal, setShowBlacklistModal,
     showDraftOverwriteModal, setShowDraftOverwriteModal,
-    showPauseWorkspaceModal, setShowPauseWorkspaceModal,
+    showUnsavedChangesModal, setShowUnsavedChangesModal,
     showRecommendedSuitcaseModal, setShowRecommendedSuitcaseModal,
     showCategorySetupModal, setShowCategorySetupModal,
     pendingWorkspaceCreate, setPendingWorkspaceCreate,

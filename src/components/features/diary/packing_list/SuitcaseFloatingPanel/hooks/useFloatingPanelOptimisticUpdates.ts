@@ -36,16 +36,17 @@ export const useFloatingPanelStateSync = (setUserSuitcases: React.Dispatch<React
             if (items.some(i => i.id === action.id)) return suitcase;
             return {
               ...suitcase,
-              suitcase_items: [...items, { 
-                id: action.id, 
+              suitcase_items: [...items, {
+                id: action.id,
                 suitcase_id: suitcase.id,
                 name: action.label,
                 category: action.payload.category,
-                is_checked: action.payload.is_checked || false,
-                is_ai_suggestion: action.payload.is_ai_suggestion || false,
-                quantity: action.payload.quantity || 1,
-                ai_suggestion_context: action.payload.ai_suggestion_context || null,
-                suggested_at: action.payload.suggested_at || null
+                is_checked: action.payload.is_checked ?? false,
+                is_ai_suggestion: action.payload.is_ai_suggestion ?? false,
+                quantity: action.payload.quantity ?? 1,
+                ai_suggestion_context: action.payload.ai_suggestion_context ?? null,
+                suggested_at: action.payload.suggested_at ?? null,
+                accepted_from_ai: action.payload.accepted_from_ai ?? false,
               } as SuitcaseItem]
             };
           }
@@ -56,16 +57,17 @@ export const useFloatingPanelStateSync = (setUserSuitcases: React.Dispatch<React
             if (items.some(i => i.id === action.id)) return suitcase;
             return {
               ...suitcase,
-              suitcase_items: [...items, { 
-                id: action.id, 
+              suitcase_items: [...items, {
+                id: action.id,
                 suitcase_id: suitcase.id,
                 name: action.label,
                 category: action.payload.category,
-                is_checked: action.payload.is_checked || false,
-                is_ai_suggestion: action.payload.is_ai_suggestion || false,
-                quantity: action.payload.quantity || 1,
-                ai_suggestion_context: action.payload.ai_suggestion_context || null,
-                suggested_at: action.payload.suggested_at || null
+                is_checked: action.payload.is_checked ?? false,
+                is_ai_suggestion: action.payload.is_ai_suggestion ?? false,
+                quantity: action.payload.quantity ?? 1,
+                ai_suggestion_context: action.payload.ai_suggestion_context ?? null,
+                suggested_at: action.payload.suggested_at ?? null,
+                accepted_from_ai: action.payload.accepted_from_ai ?? false,
               } as SuitcaseItem]
             };
           } else { // Redo Delete = Remove Item

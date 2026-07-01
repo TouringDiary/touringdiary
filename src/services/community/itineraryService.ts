@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
-import { PremadeItinerary, Itinerary } from '../../types/index';
+import { PremadeItinerary, Itinerary, ItineraryItem } from '../../types/index';
+import { isDiaryNotesDocument } from '../../types/models/DiaryNotes';
 import { User } from '../../types/users';
 import { UUID_REGEX } from '../../utils/uuid';
 import type { Json } from '../../types/supabase';
@@ -13,6 +14,60 @@ import type { Json } from '../../types/supabase';
  * invierebbe comunque), ottenendo un valore type-safe per le colonne `Json`.
  */
 const toDbJson = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? null));
+
+type PackedDiaryFields = Pick<
+  Itinerary,
+  'items' | 'startDate' | 'endDate' | 'dayStyles' | 'diaryNotes' | 'roadbook'
+>;
+
+function buildPackedDiaryData(itinerary: Itinerary): PackedDiaryFields {
+  return {
+    items: itinerary.items,
+    startDate: itinerary.startDate,
+    endDate: itinerary.endDate,
+    dayStyles: itinerary.dayStyles || {},
+    diaryNotes: itinerary.diaryNotes ?? null,
+    roadbook: itinerary.roadbook ?? [],
+  };
+}
+
+function unpackDiaryData(rawJson: unknown, durationDays: number): PackedDiaryFields {
+  let items: ItineraryItem[] = [];
+  let startDate: string | null = null;
+  let endDate: string | null = null;
+  let dayStyles: Record<number, string> = {};
+  let diaryNotes: Itinerary['diaryNotes'] = null;
+  let roadbook: Itinerary['roadbook'] = [];
+
+  if (Array.isArray(rawJson)) {
+    items = rawJson;
+    const today = new Date();
+    startDate = today.toISOString().split('T')[0];
+    const end = new Date(today);
+    end.setDate(today.getDate() + (durationDays || 1) - 1);
+    endDate = end.toISOString().split('T')[0];
+  } else if (rawJson && typeof rawJson === 'object') {
+    const data = rawJson as Record<string, unknown>;
+    if (Array.isArray(data.items)) {
+      items = data.items;
+    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    startDate = typeof data.startDate === 'string' ? data.startDate : todayStr;
+    endDate = typeof data.endDate === 'string' ? data.endDate : todayStr;
+    const rawDayStyles = data.dayStyles;
+    if (rawDayStyles !== null && typeof rawDayStyles === 'object' && !Array.isArray(rawDayStyles)) {
+      dayStyles = rawDayStyles as Record<number, string>;
+    }
+    if (isDiaryNotesDocument(data.diaryNotes)) {
+      diaryNotes = data.diaryNotes;
+    }
+    if (Array.isArray(data.roadbook)) {
+      roadbook = data.roadbook;
+    }
+  }
+
+  return { items, startDate, endDate, dayStyles, diaryNotes, roadbook };
+}
 
 export interface ItineraryFilters {
     type?: 'official' | 'community' | 'ai';
@@ -64,12 +119,7 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
         const end = itinerary.endDate ? new Date(itinerary.endDate).getTime() : Date.now();
         const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-        // Impacchettiamo items E date nel JSON
-        const packedData = {
-            items: itinerary.items,
-            startDate: itinerary.startDate,
-            endDate: itinerary.endDate
-        };
+        const packedData = buildPackedDiaryData(itinerary);
 
         const payload = {
             id: itinerary.id, 
@@ -86,10 +136,15 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
             updated_at: new Date().toISOString()
         };
 
-        // Upsert gestisce sia INSERT che UPDATE
-        const { error } = await supabase
+        // Upsert gestisce sia INSERT che UPDATE.
+        // Richiediamo SEMPRE la rappresentazione scritta (`.select()`): se la RLS blocca la
+        // scrittura (es. sessione/JWT non allineati, account senza sessione attiva), PostgREST
+        // non restituisce un errore ma filtra la riga → `data` resta vuoto. Senza questa verifica
+        // il salvataggio fallirebbe in silenzio e la UI mostrerebbe un falso "Salvato".
+        const { data, error } = await supabase
             .from('itineraries')
-            .upsert(payload, { onConflict: 'id' });
+            .upsert(payload, { onConflict: 'id' })
+            .select('id');
 
         if (error) {
             if (error.message === 'TypeError: Failed to fetch' || error.message?.includes('fetch')) {
@@ -99,7 +154,13 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
             }
             throw error;
         }
-        
+
+        if (!data || data.length === 0) {
+            // Nessuna riga persistita pur senza errore: la RLS ha bloccato la scrittura.
+            console.error("[Cloud] Salvataggio bloccato dalla RLS: nessuna riga scritta.");
+            throw new Error("Salvataggio non riuscito: sessione non valida o permessi insufficienti.");
+        }
+
         return true;
     } catch (e: any) {
         console.error("[Cloud] Eccezione Salvataggio:", e);
@@ -125,24 +186,10 @@ export const getUserDrafts = async (userId: string): Promise<Itinerary[]> => {
         if (error) throw error;
 
         return (data || []).map((db: any) => {
-            const rawJson = db.items_json;
-            let items = [];
-            let startDate = null;
-            let endDate = null;
-
-            if (Array.isArray(rawJson)) {
-                items = rawJson;
-                const today = new Date();
-                startDate = today.toISOString().split('T')[0];
-                const end = new Date(today);
-                end.setDate(today.getDate() + (db.duration_days || 1) - 1);
-                endDate = end.toISOString().split('T')[0];
-            } else if (rawJson && typeof rawJson === 'object') {
-                items = rawJson.items || [];
-                const todayStr = new Date().toISOString().split('T')[0];
-                startDate = rawJson.startDate || todayStr;
-                endDate = rawJson.endDate || todayStr;
-            }
+            const { items, startDate, endDate, dayStyles, diaryNotes, roadbook } = unpackDiaryData(
+                db.items_json,
+                db.duration_days
+            );
 
             return {
                 id: db.id,
@@ -153,8 +200,9 @@ export const getUserDrafts = async (userId: string): Promise<Itinerary[]> => {
                 items: items, 
                 createdAt: new Date(db.created_at).getTime(),
                 updatedAt: db.updated_at ? new Date(db.updated_at).getTime() : undefined,
-                dayStyles: {}, 
-                roadbook: [],
+                dayStyles: dayStyles,
+                diaryNotes,
+                roadbook,
                 suitcase_id: db.suitcase_id || null
             };
         });

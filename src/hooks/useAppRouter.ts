@@ -100,12 +100,10 @@ export const useAppRouter = () => {
 
     const activeCityId = useMemo(() => {
         if (!citySlug) {
-            console.log(`[NavigationSync] No city slug found. State: HOME`);
             return null;
         }
         // Lookup atomico slug -> id
         const target = cityManifest.find(c => c.slug === citySlug || c.id === citySlug);
-        console.log(`[NavigationSync] Slug: ${citySlug} -> activeCityId: ${target?.id || 'NOT_FOUND'}`);
         return target?.id || null;
     }, [citySlug, cityManifest]);
 
@@ -145,7 +143,6 @@ export const useAppRouter = () => {
     // --- ACTIONS ---
 
     const navigateToCity = (targetCityId: string, targetTab: string = 'vetrina') => {
-        console.log(`[NavigationSync] Navigating to city: ${targetCityId}`);
         const targetCity = cityManifest.find((c) => c.id === targetCityId);
         if (!targetCity) return;
 
@@ -164,9 +161,9 @@ export const useAppRouter = () => {
         setActivePreview((prev) => ({ ...prev, isOpen: false })); 
         setCurrentCityTab(targetTab); 
         
-        console.log(`[OverlayCleanup] Resetting UI state for new city: ${targetCityId}`);
+        // Lo scroll-to-top è gestito centralmente dall'effect sul pathname in
+        // NavigationContext (dopo il commit del route + paint), evitando race condition.
         navigate(newPath);
-        setTimeout(() => window.scrollTo(0, 0), 0);
     };
 
     const openShop = () => {

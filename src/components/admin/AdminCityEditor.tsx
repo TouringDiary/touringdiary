@@ -50,7 +50,6 @@ const AdminToast = ({ message, type, onClose }: { message: string, type: 'succes
 // --- CONTENUTO INTERNO (ORCHESTRATORE) ---
 
 const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, currentUser: User }) => {
-    console.log('[CE-E:ORCHESTRATOR-RENDER]');
     // Logica di gestione stato centralizzata nell'hook
     const { 
         city, isLoading, isSaving, previewRequest, isDirty,
@@ -263,7 +262,6 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
 };
 
 export const AdminCityEditor = ({ cityId, onBack, currentUser }: { cityId: string, onBack: () => void, currentUser: User }) => {
-    console.log('[CE-F:WRAPPER-RENDER]', { cityId });
     return (
         <CityEditorProvider cityId={cityId}>
             <EditorOrchestrator onBack={onBack} currentUser={currentUser} />

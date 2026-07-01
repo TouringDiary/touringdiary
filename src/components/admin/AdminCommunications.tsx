@@ -31,7 +31,6 @@ export const AdminCommunications = () => {
     }, []);
 
     const refreshData = async () => {
-        console.log("[SystemMessages] called from: AdminCommunications.tsx");
         const [l, t] = await Promise.all([getCommunicationLogsAsync(), getSystemMessagesAsync()]);
         setLogs(l);
         setTemplates(t);

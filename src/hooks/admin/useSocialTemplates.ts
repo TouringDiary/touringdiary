@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SocialTemplate, SocialLayoutConfig } from '../../types/index';
 import { SystemMessageTemplate, getSystemMessagesAsync, saveSystemMessageAsync } from '../../services/communicationService';
 import { getSocialTemplates, saveSocialTemplate, deleteSocialTemplate } from '../../services/socialMarketingService';
+import { randomUUID } from '../../utils/runtimeId';
 
 export const useSocialTemplates = () => {
     // Data State
@@ -24,7 +25,6 @@ export const useSocialTemplates = () => {
         setIsLoading(true);
         try {
             // Parallel Fetch
-            console.log("[SystemMessages] called from: useSocialTemplates.ts");
             const [tpls, msgs] = await Promise.all([
                 getSocialTemplates(),
                 getSystemMessagesAsync()
@@ -62,7 +62,7 @@ export const useSocialTemplates = () => {
         setIsSaving(true);
         try {
             const newTpl: any = {
-                id: activeTemplate?.id || crypto.randomUUID(),
+                id: activeTemplate?.id || randomUUID(),
                 name: name,
                 bgUrl: bgUrl,
                 layoutConfig: layout,

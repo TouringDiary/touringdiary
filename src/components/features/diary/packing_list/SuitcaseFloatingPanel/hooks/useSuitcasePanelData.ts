@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, type MutableRefObject } from 'react';
 import {
   useUserSuitcases,
   useSuitcaseItemsMutations,
@@ -44,8 +44,21 @@ export {
 } from '../types/sourceTab';
 export type { SuitcaseSourceTab } from '../types/sourceTab';
 
-export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?: string, initialSuitcaseId?: string | null) => {
+export type SeedItemsLocallyFn = (
+  candidates: { name: string; category: string }[],
+  context?: string
+) => Promise<number>;
 
+export interface SuitcasePanelDataOptions {
+  seedItemsLocallyRef?: MutableRefObject<SeedItemsLocallyFn | null>;
+}
+
+export const useSuitcasePanelData = (
+  propItineraryId: string | null,
+  _cityType?: string,
+  initialSuitcaseId?: string | null,
+  panelOptions?: SuitcasePanelDataOptions
+) => {
   const { itinerary, savedProjects, saveProject } = useItinerary();
   const { cityManifest } = useUser();
   const itineraryId = itinerary?.id ?? propItineraryId ?? null;
@@ -427,7 +440,8 @@ export const useSuitcasePanelData = (propItineraryId: string | null, _cityType?:
       itinerary,
       fetchUserSuitcases,
       setSaveStatus,
-      showToast
+      showToast,
+      seedItemsLocallyRef: panelOptions?.seedItemsLocallyRef,
     });
 
   /**

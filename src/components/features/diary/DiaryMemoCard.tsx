@@ -37,15 +37,15 @@ export const DiaryMemoCard: React.FC<DiaryMemoCardProps> = ({
             
             {/* 1. TIMELINE RAIL: stessa geometria calcolata delle tappe; il nodo è SULLA linea */}
             <div className="shrink-0 relative h-full pointer-events-none" style={{ width: `${TL_RAIL_W}px` }}>
-                <div className="absolute top-0 bottom-0 w-[2px] -translate-x-1/2 bg-stone-300 z-0" style={{ left: `${TL_LINE_X}px` }} />
+                <div className="absolute top-0 bottom-0 w-[2px] -translate-x-1/2 bg-stone-300 lg:bg-stone-400 z-0" style={{ left: `${TL_LINE_X}px` }} />
                 {isFirstNode && (
                     <div className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10" style={{ left: `${TL_LINE_X}px` }} />
                 )}
                 {isLastNode && (
                     <div className="absolute bottom-0 -translate-x-1/2 translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10" style={{ left: `${TL_LINE_X}px` }} />
                 )}
-                <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-[#e7e5e4] border border-stone-300 shadow-sm flex items-center justify-center z-20" style={{ left: `${TL_LINE_X}px` }}>
-                    <Paperclip className="w-4 h-4 text-stone-500 transform -rotate-45"/>
+                <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-[27px] h-[27px] lg:w-[23px] lg:h-[23px] rounded-full bg-[#e7e5e4] border border-stone-300 shadow-sm flex items-center justify-center z-20" style={{ left: `${TL_LINE_X}px` }}>
+                    <Paperclip className="w-3 h-3 text-stone-500 transform -rotate-45"/>
                 </div>
             </div>
 

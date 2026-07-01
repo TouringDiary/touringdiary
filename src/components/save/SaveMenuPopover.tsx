@@ -9,7 +9,7 @@ interface SaveMenuPopoverProps {
   onSave: () => void;
   onSaveAs: () => void;
   onAutosaveToggle: (enabled: boolean) => void;
-  onGuestAction: () => void;
+  onGuestAction?: () => void;
   disabled?: boolean;
   className?: string;
 }
@@ -31,7 +31,7 @@ export const SaveMenuPopover: React.FC<SaveMenuPopoverProps> = ({
   const handleSave = () => {
     setOpen(false);
     if (isGuest) {
-      onGuestAction();
+      onGuestAction?.();
       return;
     }
     onSave();
@@ -40,7 +40,7 @@ export const SaveMenuPopover: React.FC<SaveMenuPopoverProps> = ({
   const handleSaveAs = () => {
     setOpen(false);
     if (isGuest) {
-      onGuestAction();
+      onGuestAction?.();
       return;
     }
     onSaveAs();

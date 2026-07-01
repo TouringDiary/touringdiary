@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, Dispatch, SetStateAction } from 'react';
 import { UndoAction } from './useUndoStack';
 import { Itinerary, ItineraryItem } from '@/types';
+import type { DiaryNotesDocument } from '@/types/models/DiaryNotes';
 
 interface DiaryUndoProps {
   undo: () => UndoAction | null;
@@ -34,7 +35,6 @@ export const useDiaryUndo = ({
   }, [undo, redo]);
 
   const executeAction = useCallback(async (action: UndoAction, inverse: boolean) => {
-    console.log("[useDiaryUndo] Executing action:", action.type, "Inverse:", inverse, "ID:", action.id);
     beginExecution();
     try {
       if (inverse && action.inverse) {
@@ -110,6 +110,18 @@ export const useDiaryUndo = ({
           if (inverse) showToast("Operazione annullata");
           else showToast("Operazione ripristinata");
           break;
+
+        case 'diaryNotes': {
+          const { newValue, previousValue } = payload as {
+            newValue: DiaryNotesDocument | null;
+            previousValue: DiaryNotesDocument | null;
+          };
+          const notesValue = inverse ? previousValue : newValue;
+          setItinerary(prev => ({ ...prev, diaryNotes: notesValue }));
+          if (inverse) showToast("Operazione annullata");
+          else showToast("Operazione ripristinata");
+          break;
+        }
 
         default:
           console.warn("[useDiaryUndo] Unknown action type:", type);

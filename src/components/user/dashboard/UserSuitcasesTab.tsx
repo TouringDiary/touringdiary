@@ -100,6 +100,7 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
       <SwipeToDelete
         key={entity.id}
         className="rounded-2xl"
+        revealClassName="inset-y-[10%] rounded-2xl"
         onDelete={() => setDeletingEntity({ id: entity.id, title: entity.title, isTemplate })}
       >
         <div

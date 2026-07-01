@@ -16,21 +16,41 @@ interface ErrorBoundaryState {
 
 const isIgnorableError = (error: any): boolean => {
     const msg = String(error?.message || error || '').toLowerCase();
-    
-    // Lista di errori tecnici dell'ambiente cloud/editor da ignorare
+
+    // Solo errori AMBIENTALI (HMR, chunk loading, browser extension, ResizeObserver,
+    // Google Maps, rete, quota AI). Ogni pattern è specifico per evitare di
+    // silenziare crash reali dell'applicazione.
     const ignoredSubstrings = [
+      // ResizeObserver: warning benigno del layout, non un crash
       'resizeobserver loop',
-      'import', // Errori di importazione dinamica temporanei
-      'loading chunk', // Chunk non trovati (rete)
-      'google is not defined', // Maps/GenAI non caricati
-      '_.zb', // Google Maps internals
-      'unexpected token', // Spesso errori di parsing HMR
-      'cancelled', // Promise cancellate
-      'user aborted',
+
+      // Chunk/dynamic import falliti per rete o HMR (Vite):
+      // pattern specifici, NON il generico 'import' o 'unexpected token'.
+      'loading chunk',                 // webpack/vite chunk non raggiungibile
+      'failed to fetch dynamically imported module',
+      'error loading dynamically imported module',
+      'importing a module script failed', // Safari dynamic import via rete
+      "unexpected token '<'",          // chunk servito come HTML (404/HMR) invece di JS
+
+      // Google Maps / GenAI non ancora caricati (script esterno async)
+      'google is not defined',
+      '_.zb',                          // Google Maps internals
+
+      // Estensioni del browser che iniettano codice nella pagina
+      'extension context invalidated',
+      'chrome-extension://',
+      'moz-extension://',
+
+      // Rete / richieste annullate
       'networkerror',
       'failed to fetch',
-      'load failed',
-      'quota', // Errori di quota AI non devono crashare la UI
+      'load failed',                   // Safari: fetch di rete fallito
+      'user aborted',
+      'the operation was aborted',
+      'aborterror',
+
+      // Quota AI esaurita: non deve far crashare la UI
+      'quota',
       '429'
     ];
 

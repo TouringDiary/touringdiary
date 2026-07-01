@@ -69,9 +69,7 @@ const MainContent: React.FC = () => {
                     onClose={() => goHome()} 
                     user={user} 
                     onLogout={async () => { 
-                        console.log("[TRACE_LOGOUT] Dashboard: trigger onLogout.");
                         await handleLogout(); 
-                        console.log("[TRACE_LOGOUT] Dashboard: handleLogout finito, navigazione alla home...");
                         goHome(); 
                     }} 
                     onNavigate={handleNavigateGlobal}

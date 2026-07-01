@@ -8,6 +8,11 @@ interface DashboardActionGroupProps {
   onCreateTemplate: () => void;
   onOpenRecommendedSuitcase?: () => void;
   showRecommendedSuitcase?: boolean;
+  /**
+   * Versione leggermente più piccola SOLO su mobile (< sm); da `sm` in su torna identica
+   * all'originale, così tablet e desktop restano invariati. Usata nell'header selector mobile.
+   */
+  compact?: boolean;
 }
 
 export interface IconActionButtonProps {
@@ -18,7 +23,16 @@ export interface IconActionButtonProps {
   loading?: boolean;
   className: string;
   icon: LucideIcon;
+  /** Riduce leggermente padding/icona solo su mobile (< sm). */
+  compact?: boolean;
 }
+
+/**
+ * Variante compatta SOLO mobile del pulsante toolbar: rispecchia SUITCASE_TOOLBAR_BTN_CLASS
+ * ma con padding/gap ridotti sotto `sm`; da `sm` in su i valori coincidono con l'originale.
+ */
+const SUITCASE_TOOLBAR_BTN_COMPACT_CLASS =
+  'flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed';
 
 /** Varianti colore condivise per gli IconActionButton (identità unica del Design System). */
 export const ICON_ACTION_INDIGO_CLASS =
@@ -42,15 +56,19 @@ export const IconActionButton: React.FC<IconActionButtonProps> = ({
   loading = false,
   className,
   icon: Icon,
-}) => (
+  compact = false,
+}) => {
+  const baseBtnClass = compact ? SUITCASE_TOOLBAR_BTN_COMPACT_CLASS : SUITCASE_TOOLBAR_BTN_CLASS;
+  const iconSizeClass = compact ? 'w-3.5 h-3.5 sm:w-4 sm:h-4' : 'w-4 h-4';
+  return (
   <button
     type="button"
     onClick={onClick}
     disabled={disabled || loading}
     aria-label={label}
-    className={`relative group ${SUITCASE_TOOLBAR_BTN_CLASS} disabled:opacity-50 ${className}`}
+    className={`relative group ${baseBtnClass} disabled:opacity-50 ${className}`}
   >
-    {loading ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Icon className="w-4 h-4" aria-hidden />}
+    {loading ? <Loader2 className={`${iconSizeClass} animate-spin`} aria-hidden /> : <Icon className={iconSizeClass} aria-hidden />}
     <span
       role="tooltip"
       className="pointer-events-none absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-100 z-local-overlay shadow-lg"
@@ -58,7 +76,8 @@ export const IconActionButton: React.FC<IconActionButtonProps> = ({
       {label}
     </span>
   </button>
-);
+  );
+};
 
 export const DashboardActionGroup: React.FC<DashboardActionGroupProps> = ({
   isCreating,
@@ -66,15 +85,17 @@ export const DashboardActionGroup: React.FC<DashboardActionGroupProps> = ({
   onCreateTemplate,
   onOpenRecommendedSuitcase,
   showRecommendedSuitcase = false,
+  compact = false,
 }) => {
   return (
-    <div className="flex items-center gap-2 shrink-0">
+    <div className={`flex items-center ${compact ? 'gap-1.5 sm:gap-2' : 'gap-2'} shrink-0`}>
       <IconActionButton
         label="Crea valigia"
         onClick={onCreateSuitcase}
         disabled={isCreating}
         icon={Plus}
         className={ICON_ACTION_INDIGO_CLASS}
+        compact={compact}
       />
 
       {showRecommendedSuitcase && onOpenRecommendedSuitcase && (
@@ -84,6 +105,7 @@ export const DashboardActionGroup: React.FC<DashboardActionGroupProps> = ({
           disabled={isCreating}
           icon={Sparkles}
           className={ICON_ACTION_AMBER_CLASS}
+          compact={compact}
         />
       )}
 
@@ -93,6 +115,7 @@ export const DashboardActionGroup: React.FC<DashboardActionGroupProps> = ({
         disabled={isCreating}
         icon={Layout}
         className={ICON_ACTION_SLATE_CLASS}
+        compact={compact}
       />
     </div>
   );

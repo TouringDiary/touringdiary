@@ -62,6 +62,11 @@
 }
 
 :root {
+  /* Il sito è interamente dark (html.dark). Dichiararlo esplicitamente evita che i browser
+   * mobile (Chrome Android "Auto dark theme" / WebView force-dark, iOS) applichino un
+   * rimappamento automatico dei colori che scuriva i background bianchi — causa per cui la
+   * banda bianca del tricolore spariva su mobile mostrando lo sfondo scuro. */
+  color-scheme: dark;
   --active-sidebar-width: var(--width-sidebar);
   --header-height: 64px;
 }

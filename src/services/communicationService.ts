@@ -106,6 +106,22 @@ export const logCommunicationAsync = async (logData: Omit<AdminMessageLog, 'id' 
 let systemMessagesCache: SystemMessageTemplate[] | null = null;
 let pendingMessagesPromise: Promise<SystemMessageTemplate[]> | null = null;
 
+/**
+ * Evento globale emesso quando la cache dei system messages viene invalidata
+ * (dopo un salvataggio o una cancellazione). I consumatori già montati
+ * (es. useSystemMessage) lo ascoltano per ri-leggere i template aggiornati
+ * senza attendere un refresh completo della pagina.
+ */
+export const SYSTEM_MESSAGES_UPDATED_EVENT = 'system-messages-updated';
+
+const invalidateSystemMessagesCache = (): void => {
+    systemMessagesCache = null;
+    pendingMessagesPromise = null;
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(SYSTEM_MESSAGES_UPDATED_EVENT));
+    }
+};
+
 export const getSystemMessagesAsync = async (): Promise<SystemMessageTemplate[]> => {
     // 1. Se abbiamo il dato in cache, lo restituiamo subito
     if (systemMessagesCache) return systemMessagesCache;
@@ -195,8 +211,8 @@ export const saveSystemMessageAsync = async (msg: SystemMessageTemplate): Promis
         const { error } = await supabase.from('system_messages').upsert(payload);
         if (error) throw error;
         
-        // Invalidazione Cache
-        systemMessagesCache = null;
+        // Invalidazione Cache + notifica ai consumatori montati
+        invalidateSystemMessagesCache();
         
         return true;
     } catch (e) {
@@ -210,8 +226,8 @@ export const deleteSystemMessageAsync = async (key: string): Promise<boolean> =>
         const { error } = await supabase.from('system_messages').delete().eq('key', key);
         if (error) throw error;
         
-        // Invalidazione Cache
-        systemMessagesCache = null;
+        // Invalidazione Cache + notifica ai consumatori montati
+        invalidateSystemMessagesCache();
 
         return true;
     } catch (e) {

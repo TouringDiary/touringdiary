@@ -14,6 +14,7 @@ export * from './models/City';
 export * from './models/Sponsor';
 export * from './models/Media';
 export * from './models/Itinerary';
+export * from './models/DiaryNotes';
 export * from './models/Social';
 
 // Marketing & Pricing Configuration

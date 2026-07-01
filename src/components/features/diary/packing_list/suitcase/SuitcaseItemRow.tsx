@@ -49,6 +49,9 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
 }) => {
   const quantity = item.quantity ?? 1;
   const [quantityInput, setQuantityInput] = useState<string | null>(null);
+  const [isPressingGrip, setIsPressingGrip] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
   const [isFadingHighlight, setIsFadingHighlight] = useState(false);
   const wasHighlightedRef = useRef(false);
   const isActiveHighlight = highlightId === item.id;
@@ -107,6 +110,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
 
   return (
     <div
+      ref={rowRef}
       onClick={onSelect}
       onDragOver={reorderEnabled ? onDragOver : undefined}
       onDragLeave={reorderEnabled ? onDragLeave : undefined}
@@ -123,18 +127,32 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
                 : item.is_checked
                   ? 'bg-emerald-500/[0.03] border-emerald-500/15'
                   : 'bg-slate-800/40 border-white/5 hover:border-white/10 hover:bg-slate-800/60'
-      }`}
+      } ${isPressingGrip ? 'ring-2 ring-indigo-400/50 bg-slate-800/70 shadow-lg shadow-indigo-500/10' : ''} ${isDragging ? 'opacity-50' : ''}`}
     >
       {!readOnly && reorderEnabled && (
         <button
           type="button"
           draggable
+          onPointerDown={() => setIsPressingGrip(true)}
+          onPointerUp={() => setIsPressingGrip(false)}
+          onPointerCancel={() => setIsPressingGrip(false)}
+          onPointerLeave={() => setIsPressingGrip(false)}
           onDragStart={(e) => {
             e.stopPropagation();
+            // L'intera riga diventa l'anteprima di trascinamento (non solo il grip): così
+            // si vede chiaramente quale oggetto si sta spostando. Il cursore resta agganciato
+            // al punto in cui si è iniziato a trascinare.
+            if (rowRef.current) {
+              const rect = rowRef.current.getBoundingClientRect();
+              e.dataTransfer.setDragImage(rowRef.current, e.clientX - rect.left, e.clientY - rect.top);
+            }
+            setIsDragging(true);
             onDragStart?.(e);
           }}
           onDragEnd={(e) => {
             e.stopPropagation();
+            setIsPressingGrip(false);
+            setIsDragging(false);
             onDragEnd?.();
           }}
           onClick={(e) => e.stopPropagation()}
@@ -328,7 +346,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         </div>
       ) : (
         !readOnly && (
-          <div className="flex flex-col md:flex-row items-center gap-1 shrink-0 empty:hidden">
+          <div className="flex flex-col md:flex-row items-center gap-1 shrink-0 empty:hidden mr-1.5 lg:mr-0">
             {moveTargets && moveTargets.length > 0 && onMoveToCategory && (
               <MoveItemCategoryPopover
                 targets={moveTargets}

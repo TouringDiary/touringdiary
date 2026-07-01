@@ -3,6 +3,7 @@
   import { mapDbSuitcaseItemRowToRuntime } from './suitcaseCoreService';
   import { normalizeCategoryName } from '../../domain/packing/packingCategories';
   import { isEphemeralItemId } from '../../utils/runtimeItemId';
+  import { randomUUID } from '../../utils/runtimeId';
 
   // =============================================================================
   // WRITE DTOs — Suitcase Items
@@ -89,7 +90,7 @@
     const { data, error } = await supabase
       .from('suitcase_items')
       .insert({
-        id: metadata.id && !isEphemeralItemId(metadata.id) ? metadata.id : crypto.randomUUID(),
+        id: metadata.id && !isEphemeralItemId(metadata.id) ? metadata.id : randomUUID(),
         suitcase_id: suitcaseId,
         name,
         category: normalizeCategoryName(category),
@@ -116,7 +117,7 @@
     dtos: AddSuitcaseItemDto[]
   ): Promise<SuitcaseItem[]> => {
     const rows = dtos.map(dto => ({
-      id: dto.id && !isEphemeralItemId(dto.id) ? dto.id : crypto.randomUUID(),
+      id: dto.id && !isEphemeralItemId(dto.id) ? dto.id : randomUUID(),
       suitcase_id: dto.suitcase_id,
       name: dto.name,
       category: normalizeCategoryName(dto.category),

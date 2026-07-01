@@ -360,7 +360,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                                 className={`col-start-5 row-start-1 row-span-2 flex flex-col items-center justify-center rounded-xl border transition-all shadow-md active:scale-95 ${isActive ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
                             >
                                 <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                                <span className="text-[8px] font-black uppercase text-center leading-none">FOTO</span>
+                                <span className="text-[8px] font-black uppercase text-center leading-none">GALLERIA</span>
                             </button>
                         );
                     })}

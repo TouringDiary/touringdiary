@@ -1,6 +1,5 @@
 import React from 'react';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { ItemDeleteConfirmationModal } from '../../suitcase/ItemDeleteConfirmationModal';
 import { AssociationConfirmationModal } from '../../suitcase/AssociationConfirmationModal';
 import { LinkSuitcaseModal } from '../../suitcase/LinkSuitcaseModal';
@@ -28,8 +27,6 @@ interface ModalsProps {
   defaultSuitcaseName?: string;
   onLinkModalConfirm?: (values: { diaryName?: string; suitcaseName?: string }) => void;
   onLinkModalCancel?: () => void;
-  onConfirmWorkspacePause?: () => void;
-  onCancelWorkspacePause?: () => void;
   isTemplateDraftSession?: boolean;
   pausedDraftKind?: 'suitcase' | 'user_template';
   onConfirmAssociateSaved?: () => void;
@@ -55,21 +52,12 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
   defaultSuitcaseName = '',
   onLinkModalConfirm,
   onLinkModalCancel,
-  onConfirmWorkspacePause,
-  onCancelWorkspacePause,
   isTemplateDraftSession = false,
   pausedDraftKind,
   onConfirmAssociateSaved,
 }) => {
-  const pauseIsTemplate =
+  const storedDraftIsTemplate =
     isTemplateDraftSession || pausedDraftKind === 'user_template';
-  const pauseEntityLabel = pauseIsTemplate ? 'template' : 'valigia';
-  const storedDraftIsTemplate = pauseIsTemplate;
-
-  useGlobalModalEscape(
-    modalState.showPauseWorkspaceModal === true,
-    () => onCancelWorkspacePause?.()
-  );
 
   return (
     <>
@@ -90,21 +78,6 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
           if (isAssociating) return;
           modalState.setSuitcaseToAssociate(null);
         }}
-      />
-
-      <DeleteConfirmationModal
-        isOpen={modalState.showPauseWorkspaceModal}
-        title={`Mettere in pausa ${pauseEntityLabel === 'template' ? 'il template' : 'la valigia'}?`}
-        message={
-          pauseIsTemplate
-            ? 'Il template verrà messo in pausa.\n\nPotrai riprendere le modifiche successivamente da questo dispositivo.\n\nTi consigliamo di salvare il template prima di chiudere o cambiare la sessione per non perdere il lavoro svolto.'
-            : 'La valigia verrà messa in pausa.\n\nPotrai riprendere le modifiche successivamente da questo dispositivo.\n\nTi consigliamo di salvare la valigia prima di chiudere o cambiare la sessione per non perdere il lavoro svolto.'
-        }
-        confirmLabel="Metti in pausa"
-        cancelLabel="Annulla"
-        variant="info"
-        onConfirm={() => onConfirmWorkspacePause?.()}
-        onClose={() => onCancelWorkspacePause?.()}
       />
 
       <DeleteConfirmationModal

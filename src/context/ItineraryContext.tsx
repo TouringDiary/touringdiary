@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { Itinerary, ItineraryItem, PointOfInterest, PremadeItinerary, RoadbookDay } from '../types/index';
+import { Itinerary, ItineraryItem, PointOfInterest, PremadeItinerary, RoadbookDay, createEmptyItinerary } from '../types/index';
 import { User } from '../types/users';
 import { getPoisByIds } from '../services/cityService';
 import { getStorageItem, setStorageItem } from '../services/storageService';
@@ -8,6 +8,7 @@ import { saveUserDraft, getUserDrafts, deleteUserDraft } from '../services/commu
 import { useUser } from './UserContext';
 
 import { ItineraryStorageManager } from '../services/itineraryStorageManager';
+import { randomUUID } from '../utils/runtimeId';
 
 interface ItineraryContextType {
     itinerary: Itinerary;
@@ -39,9 +40,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
     const user = userContext?.user;
     const prevUserIdRef = useRef<string>(user?.id || 'guest');
 
-    const [itinerary, setItinerary] = useState<Itinerary>({
-        id: null, name: '', startDate: null, endDate: null, items: [], createdAt: Date.now(), dayStyles: {}, roadbook: []
-    });
+    const [itinerary, setItinerary] = useState<Itinerary>(createEmptyItinerary);
     const [savedProjects, setSavedProjects] = useState<Itinerary[]>([]);
     const [highlightDates, setHighlightDates] = useState(false);
     const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
@@ -57,7 +56,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
     }, [user?.id, user?.role]);
 
     const clearItinerary = useCallback(() => {
-        setItinerary({ id: null, name: '', startDate: null, endDate: null, items: [], createdAt: Date.now(), dayStyles: {}, roadbook: [] });
+        setItinerary(createEmptyItinerary());
         setHighlightedItemId(null);
     }, []);
 
@@ -106,7 +105,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
 
         if (isTempId || isGhostId || isSaveAsNewCopy) {
             console.log("[Itinerary] Generating fresh UUID for project (Temp, Ghost, or SaveAs with new name detected)");
-            targetId = crypto.randomUUID();
+            targetId = randomUUID();
         }
 
         const saveObject: Itinerary = {
@@ -235,7 +234,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         const end = new Date(start);
         end.setDate(start.getDate() + template.durationDays - 1);
 
-        const newId = crypto.randomUUID();
+        const newId = randomUUID();
 
         setItinerary({
             id: newId,
@@ -246,7 +245,8 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
             items: newItems,
             createdAt: Date.now(),
             dayStyles: {},
-            roadbook: []
+            roadbook: [],
+            diaryNotes: null,
         });
     }, [user.id]);
 

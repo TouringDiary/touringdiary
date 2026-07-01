@@ -259,7 +259,7 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
             {/* DROP ZONE ESPLICITA SEMPRE VISIBILE (1 RIGA H-7) */}
             <div 
                 className={`
-                    w-full flex items-center justify-center transition-all duration-300 ${ROW_H} border-2 border-dashed
+                    w-full flex items-center justify-center transition-all duration-300 ${isMobile ? 'h-14' : ROW_H} border-2 border-dashed
                     ${isOverDropZone 
                         ? 'border-indigo-600 bg-indigo-200 text-indigo-900 shadow-inner scale-[1.01]' 
                         : 'border-indigo-400/70 bg-indigo-100/50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-500'}
@@ -268,12 +268,23 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
                 onDragEnter={handleDropZoneEnter}
                 onDragLeave={handleDropZoneLeave}
                 onDrop={handleDropZoneDrop}>
-                <div className="flex items-center gap-2 pointer-events-none select-none">
-                    <PlusCircle className={`w-3.5 h-3.5 ${isOverDropZone ? 'animate-bounce' : ''}`}/>
-                    <span className="text-[9px] font-black uppercase tracking-widest">
-                        {isOverDropZone ? 'Rilascia qui' : 'Nuova Tappa'}
+                {/* MOBILE (diario a schermo intero): qui NON esiste drag&drop. Mostriamo un unico
+                    suggerimento centrato, con l'icona "+" integrata DENTRO la frase (vicina al testo),
+                    così appare come un singolo hint UX e non come icona + testo "spezzati".
+                    Desktop e tablet mantengono il layout/testo originale (icona a sinistra). */}
+                {!isOverDropZone && isMobile ? (
+                    <span className="text-[10px] font-semibold leading-snug text-center text-balance px-3 pointer-events-none select-none">
+                        Qui compariranno le tappe del tuo viaggio.<br />
+                        Usa il pulsante <PlusCircle className="inline-block align-middle w-3.5 h-3.5 mx-0.5" /> ADD della scheda del luogo desiderato!
                     </span>
-                </div>
+                ) : (
+                    <div className="flex items-center gap-2 pointer-events-none select-none">
+                        <PlusCircle className={`w-3.5 h-3.5 shrink-0 ${isOverDropZone ? 'animate-bounce' : ''}`}/>
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                            {isOverDropZone ? 'Rilascia qui' : 'Nuova Tappa'}
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* SPACER RIGA VUOTA (PER MANTENERE BASELINE) */}

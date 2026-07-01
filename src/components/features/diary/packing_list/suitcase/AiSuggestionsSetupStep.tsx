@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { Plus, LayoutGrid, Settings2, ListChecks, ChevronDown, X, Check, Hash, Layers } from 'lucide-react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { Plus, Minus, LayoutGrid, Settings2, ListChecks, ChevronDown, Check, Hash, Layers } from 'lucide-react';
 import { ItemCategoryIcon } from './SuitcaseUtils';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useCloseOnEscape } from '@/hooks/useCloseOnEscape';
 import { getSystemCategoryOrderIndexExact, SystemCategoryName } from '@/domain/packing/packingCategories';
 import { clampCategoryLimit } from '@/hooks/useSuitcaseSystem';
 
@@ -19,6 +20,8 @@ const HELPER_TEXT_CLASS = 'text-[12.5px] text-slate-400 font-medium';
 const MODE_CARD_TITLE_FALLBACK = 'text-[14px] font-bold leading-snug font-sans';
 const EMPTY_STATE_FALLBACK = 'text-[12px] text-slate-500 font-normal italic';
 const CATEGORY_CHIP_FALLBACK = 'text-[12.5px] font-bold font-sans';
+const DROPDOWN_PANEL_CLASS =
+  'absolute top-full left-0 mt-2 w-64 max-w-[calc(100vw-3rem)] max-h-64 overflow-y-auto custom-scrollbar bg-slate-800 border border-white/10 rounded-2xl shadow-2xl z-local-flyout py-2 animate-in fade-in slide-in-from-top-2 duration-200';
 
 interface AiSuggestionsSetupStepProps {
   selectedCategories: string[];
@@ -65,6 +68,76 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
   const emptyStateStyle = useDynamicStyles('suitcase_empty_state', isMobile);
   const categoryChipStyle = useDynamicStyles('suitcase_category_chip', isMobile);
 
+  const [showSelectedDropdown, setShowSelectedDropdown] = useState(false);
+  const [showAvailableDropdown, setShowAvailableDropdown] = useState(false);
+
+  const selectedDropdownRef = useRef<HTMLDivElement>(null);
+  const addCategoryDropdownRef = useRef<HTMLDivElement>(null);
+  const availableDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Chiusura coerente delle dropdown del componente: click esterno (stesso
+  // pattern di FilterSelect) + ESC (hook condiviso useCloseOnEscape).
+  useEffect(() => {
+    if (!showSelectedDropdown && !showAddCategoryDropdown && !showAvailableDropdown) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        showSelectedDropdown &&
+        selectedDropdownRef.current &&
+        !selectedDropdownRef.current.contains(target)
+      ) {
+        setShowSelectedDropdown(false);
+      }
+      if (
+        showAddCategoryDropdown &&
+        addCategoryDropdownRef.current &&
+        !addCategoryDropdownRef.current.contains(target)
+      ) {
+        onToggleDropdown();
+      }
+      if (
+        showAvailableDropdown &&
+        availableDropdownRef.current &&
+        !availableDropdownRef.current.contains(target)
+      ) {
+        setShowAvailableDropdown(false);
+      }
+    };
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => window.removeEventListener('mousedown', handlePointerDown);
+  }, [showSelectedDropdown, showAddCategoryDropdown, showAvailableDropdown, onToggleDropdown]);
+
+  useCloseOnEscape(() => setShowSelectedDropdown(false), showSelectedDropdown);
+  useCloseOnEscape(onToggleDropdown, showAddCategoryDropdown);
+  useCloseOnEscape(() => setShowAvailableDropdown(false), showAvailableDropdown);
+
+  // Apertura mutuamente esclusiva: aprendo una dropdown si chiudono le altre.
+  const toggleSelectedDropdown = () => {
+    const willOpen = !showSelectedDropdown;
+    setShowSelectedDropdown(willOpen);
+    if (willOpen) {
+      setShowAvailableDropdown(false);
+      if (showAddCategoryDropdown) onToggleDropdown();
+    }
+  };
+
+  const toggleAddCategoryDropdown = () => {
+    if (!showAddCategoryDropdown) {
+      setShowSelectedDropdown(false);
+      setShowAvailableDropdown(false);
+    }
+    onToggleDropdown();
+  };
+
+  const toggleAvailableDropdown = () => {
+    const willOpen = !showAvailableDropdown;
+    setShowAvailableDropdown(willOpen);
+    if (willOpen) {
+      setShowSelectedDropdown(false);
+      if (showAddCategoryDropdown) onToggleDropdown();
+    }
+  };
+
   const sectionHeadingClassName = `${SECTION_HEADING_LAYOUT_CLASS} ${labelStyle || SECTION_HEADING_FALLBACK}`;
   const modeCardTitleClassName = modeCardTitleStyle || MODE_CARD_TITLE_FALLBACK;
   const emptyStateClassName = emptyStateStyle || EMPTY_STATE_FALLBACK;
@@ -96,29 +169,54 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
           <span className={SECTION_COUNTER_CLASS}>{selectedCategories.length} attive</span>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {selectedCategories.map(cat => (
-            <div
-              key={cat}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 border border-indigo-500 text-white shadow-lg shadow-indigo-500/20 ${categoryChipClassName} animate-in zoom-in-90 duration-200`}
+        <div className="flex flex-wrap items-start gap-2">
+          <div className="relative" ref={selectedDropdownRef}>
+            <button
+              type="button"
+              onClick={toggleSelectedDropdown}
+              aria-expanded={showSelectedDropdown}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 border border-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 text-[13px] font-bold"
             >
-              <ItemCategoryIcon category={cat} className="w-4 h-4" />
-              {cat}
-              <button
-                type="button"
-                onClick={() => onRemoveCategory(cat)}
-                aria-label={`Rimuovi categoria ${cat}`}
-                className="ml-1 flex shrink-0 items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
-              >
-                <X className="w-3 h-3 stroke-[3]" />
-              </button>
-            </div>
-          ))}
+              <LayoutGrid className="w-4 h-4" />
+              Categorie selezionate ({selectedCategories.length})
+              <ChevronDown className={`w-3 h-3 transition-transform ${showSelectedDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showSelectedDropdown && (
+              <div className={DROPDOWN_PANEL_CLASS}>
+                {selectedCategories.length > 0 ? (
+                  selectedCategories.map(cat => (
+                    <div
+                      key={cat}
+                      className="w-full px-4 py-2 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors"
+                    >
+                      <span className={`flex items-center gap-3 min-w-0 ${categoryChipClassName} text-slate-200`}>
+                        <ItemCategoryIcon category={cat} className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{cat}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveCategory(cat)}
+                        aria-label={`Rimuovi categoria ${cat}`}
+                        className="flex shrink-0 items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                      >
+                        <Minus className="w-3.5 h-3.5 stroke-[3]" />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className={`px-4 py-2 ${emptyStateClassName}`}>
+                    Nessuna categoria selezionata.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {availableCategories.length > 0 && (
-            <div className="relative">
+            <div className="relative" ref={addCategoryDropdownRef}>
               <button
-                onClick={onToggleDropdown}
+                onClick={toggleAddCategoryDropdown}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/5 border border-white/5 text-slate-300 hover:border-white/10 hover:text-slate-200 transition-all text-[13px] font-bold"
               >
                 <Plus className="w-4 h-4" />
@@ -159,24 +257,41 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
         </div>
 
         {sortedRemovedCategories.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {sortedRemovedCategories.map(cat => (
-              <div
-                key={cat}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800/80 border border-white/10 text-slate-300 ${categoryChipClassName} animate-in zoom-in-90 duration-200`}
-              >
-                <ItemCategoryIcon category={cat} className="w-4 h-4 opacity-70" />
-                {cat}
-                <button
-                  type="button"
-                  onClick={() => onRestoreCategory(cat)}
-                  aria-label={`Ripristina categoria ${cat}`}
-                  className="ml-1 flex shrink-0 items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
-                >
-                  <Plus className="w-3 h-3 stroke-[3]" />
-                </button>
+          <div className="relative" ref={availableDropdownRef}>
+            <button
+              type="button"
+              onClick={toggleAvailableDropdown}
+              aria-expanded={showAvailableDropdown}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/5 border border-white/5 text-slate-300 hover:border-white/10 hover:text-slate-200 transition-all text-[13px] font-bold"
+            >
+              <Layers className="w-4 h-4" />
+              Aggiungi categoria
+              <ChevronDown className={`w-3 h-3 transition-transform ${showAvailableDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showAvailableDropdown && (
+              <div className={DROPDOWN_PANEL_CLASS}>
+                {sortedRemovedCategories.map(cat => (
+                  <div
+                    key={cat}
+                    className="w-full px-4 py-2 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors"
+                  >
+                    <span className={`flex items-center gap-3 min-w-0 ${categoryChipClassName} text-slate-200`}>
+                      <ItemCategoryIcon category={cat} className="w-4 h-4 opacity-70 shrink-0" />
+                      <span className="truncate">{cat}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onRestoreCategory(cat)}
+                      aria-label={`Aggiungi categoria ${cat}`}
+                      className="flex shrink-0 items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         ) : (
           <p className={emptyStateClassName}>

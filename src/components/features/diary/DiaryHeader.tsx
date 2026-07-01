@@ -17,13 +17,14 @@ import { DiaryHeaderTabs } from './header/DiaryHeaderTabs';
 import { DiaryHeaderInvalidDateModal } from './header/DiaryHeaderInvalidDateModal';
 
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
+import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
 
 interface DiaryHeaderProps {
     itinerary: Itinerary;
     user: User;
     savedProjects: Itinerary[];
     highlightDates: boolean;
-    activeTab: 'all' | number;
+    activeTab: DiaryActiveTab;
     days: Date[];
     minDateStr: string;
     onSetName: (name: string) => void;
@@ -44,7 +45,7 @@ interface DiaryHeaderProps {
     onOpenAiPlanner?: () => void;
     onOpenRoadbook?: () => void;
     onOpenPackingList?: () => void;
-    setActiveTab: (tab: 'all' | number) => void;
+    setActiveTab: (tab: DiaryActiveTab) => void;
     onDeleteProject: (id: string) => void;
     onUndo?: () => void;
     onRedo?: () => void;

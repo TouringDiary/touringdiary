@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 
-export type UndoActionType = 'update' | 'add' | 'delete' | 'selection' | 'move';
+export type UndoActionType = 'update' | 'add' | 'delete' | 'selection' | 'move' | 'diaryNotes';
 
 export interface UndoAction<T = any> {
   id: string;
@@ -37,11 +37,6 @@ export function useUndoStack<T>(maxSize = 30) {
 
   const isExecuting = useCallback(() => isExecutingRef.current, []);
 
-  useEffect(() => {
-    console.log("[UndoStack] Hook Instance Created (Mount)");
-    return () => console.log("[UndoStack] Hook Instance Destroyed (Unmount)");
-  }, []);
-
   // Mantieni un riferimento sincronizzato per letture immediate e stabili
   const stateRef = useRef(state);
   useEffect(() => {
@@ -63,7 +58,6 @@ export function useUndoStack<T>(maxSize = 30) {
       return;
     }
 
-    console.log("[UndoStack] pushAction:", safeAction);
     setState(prev => {
       // Inizia la nuova storia dal puntatore corrente (tronca rami redo)
       const newHistory = prev.history.slice(0, prev.pointer + 1);
@@ -71,8 +65,13 @@ export function useUndoStack<T>(maxSize = 30) {
 
       // Smart Merge Logic (consecutive actions with same groupId)
       if (safeAction.merge && last && last.merge && last.groupId === safeAction.groupId) {
-        console.log("[UndoStack] Merging action into groupId:", safeAction.groupId);
-        newHistory[newHistory.length - 1] = safeAction;
+        const lastPayload = last.payload as { previousValue?: unknown; newValue?: unknown };
+        const nextPayload = safeAction.payload as { previousValue?: unknown; newValue?: unknown };
+        const mergedPayload =
+          lastPayload?.previousValue !== undefined && nextPayload?.newValue !== undefined
+            ? { ...safeAction.payload, previousValue: lastPayload.previousValue }
+            : safeAction.payload;
+        newHistory[newHistory.length - 1] = { ...safeAction, payload: mergedPayload };
       } else {
         newHistory.push(safeAction);
       }
@@ -98,7 +97,6 @@ export function useUndoStack<T>(maxSize = 30) {
     // Guardrail Deterministico Sincrono
     if (current.pointer < 0) return null;
 
-    console.log("[UndoDebug] undo triggered from:", new Error().stack);
     const actionToReturn = current.history[current.pointer];
     
     setState(prev => {
@@ -109,7 +107,6 @@ export function useUndoStack<T>(maxSize = 30) {
       };
     });
     
-    console.log("[UndoStack] undo returning action:", actionToReturn);
     return actionToReturn;
   }, []);
 

@@ -12,6 +12,8 @@ import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { useSystemMessage } from '@/hooks/useSystemMessage';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
+import { SwipeToDelete } from '@/components/common/SwipeToDelete';
+import { useBelowLg } from '@/hooks/ui/useBelowLg';
 import { TL_LINE_X, TL_RAIL_W, TL_ARC_REACH } from './timelineLayout';
 
 
@@ -140,6 +142,9 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [transportOpen, setTransportOpen] = useState(false);
     const { getText: getDeleteText } = useSystemMessage('confirm_delete_diary_item');
+    // Su mobile/tablet (sotto lg) la tappa si elimina con lo swipe (come Valigia/Template):
+    // niente X inline, si riusa il componente condiviso SwipeToDelete.
+    const isBelowLg = useBelowLg();
 
     // --- HOOKS STILI DINAMICI ---
     const timeSlotStyle = useDynamicStyles('diary_time_slot', isMobile);
@@ -214,6 +219,7 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
     });
 
     return (
+        <SwipeToDelete onDelete={() => setShowDeleteConfirm(true)} label={item.isCustom ? "Elimina" : "Elimina tappa"} inlineLabel={item.isCustom} revealClassName="inset-y-[10%] rounded-xl">
         <div 
             ref={innerRef} 
             draggable={!isMobile} 
@@ -243,8 +249,10 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                 className="shrink-0 relative overflow-visible z-floating-panel pointer-events-none"
                 style={{ width: `${TL_RAIL_W}px` }}
             >
-                {/* LINEA VERTICALE CONTINUA (riferimento principale) */}
-                <div className="absolute top-0 bottom-0 w-[2px] -translate-x-1/2 bg-stone-300 z-0" style={{ left: `${LINE_X}px` }} />
+                {/* LINEA VERTICALE CONTINUA (riferimento principale).
+                    Su desktop (lg) i nodi sono più piccoli e la linea è leggermente più scura,
+                    così torna ben visibile fra una tappa e l'altra. */}
+                <div className="absolute top-0 bottom-0 w-[2px] -translate-x-1/2 bg-stone-300 lg:bg-stone-400 z-0" style={{ left: `${LINE_X}px` }} />
 
                 {/* NODO INIZIALE */}
                 {isFirstNode && (
@@ -281,13 +289,13 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                         <button
                             ref={transportAnchorRef}
                             onClick={(e) => { e.stopPropagation(); setTransportOpen(o => !o); }}
-                            className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-[#f5f5f4] border border-stone-300 shadow-sm flex items-center justify-center transition-colors hover:border-amber-500 hover:bg-amber-50"
+                            className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 z-20 w-[27px] h-[27px] lg:w-[23px] lg:h-[23px] rounded-full bg-[#f5f5f4] border border-stone-300 shadow-sm flex items-center justify-center transition-colors hover:border-amber-500 hover:bg-amber-50"
                             style={{ left: `${LINE_X - TL_ARC_REACH}px`, top: `calc(${movementMidRem}rem - 12px)` }}
                             title={transport ? `Mezzo: ${transport.label}` : 'Scegli il mezzo di trasporto'}
                         >
                             {transport
-                                ? <span className="text-[13px] leading-none">{transport.emoji}</span>
-                                : <Route className="w-3.5 h-3.5 text-stone-400" />}
+                                ? <span className="text-[12px] lg:text-[11px] leading-none">{transport.emoji}</span>
+                                : <Route className="w-3 h-3 text-stone-400" />}
                         </button>
 
                         {/* DISTANZA — centrata SULLA linea verticale, fra le due tappe */}
@@ -309,10 +317,10 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                         <div ref={iconAnchorRef}>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onIconClick(iconPickerOpen === item.id ? null : item.id); }}
-                                className="pointer-events-auto w-9 h-9 rounded-full bg-[#e7e5e4] border border-stone-300 shadow-sm flex items-center justify-center text-stone-700 transition-colors hover:text-amber-700 hover:border-amber-500"
+                                className="pointer-events-auto w-[27px] h-[27px] lg:w-[23px] lg:h-[23px] rounded-full bg-[#e7e5e4] border border-stone-300 shadow-sm flex items-center justify-center text-stone-700 transition-colors hover:text-amber-700 hover:border-amber-500"
                                 title="Cambia icona"
                             >
-                                {renderCustomIcon("w-5 h-5 text-stone-600")}
+                                {renderCustomIcon("w-3 h-3 text-stone-600")}
                             </button>
                             <AnchoredPopover
                                 isOpen={iconPickerOpen === item.id}
@@ -343,10 +351,10 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                     ) : (
                         <button
                             onClick={(e) => { e.stopPropagation(); onViewDetail(item.poi); }}
-                            className={`pointer-events-auto w-9 h-9 rounded-full bg-[#e7e5e4] border shadow-sm flex items-center justify-center transition-colors hover:text-amber-700 hover:border-amber-500 ${item.completed ? 'text-emerald-700 border-emerald-300' : 'text-stone-700 border-stone-300'}`}
+                            className={`pointer-events-auto w-[27px] h-[27px] lg:w-[23px] lg:h-[23px] rounded-full bg-[#e7e5e4] border shadow-sm flex items-center justify-center transition-colors hover:text-amber-700 hover:border-amber-500 ${item.completed ? 'text-emerald-700 border-emerald-300' : 'text-stone-700 border-stone-300'}`}
                             title={item.poi.name}
                         >
-                            {getCategoryIcon(item.poi.category, "w-5 h-5")}
+                            {getCategoryIcon(item.poi.category, "w-3 h-3")}
                         </button>
                     )}
                 </div>
@@ -397,8 +405,11 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
             {/* COLUMN 2: CONTENUTO (orario · nome · indirizzo) */}
             <div className="flex-1 min-w-0 flex bg-transparent pointer-events-none z-floating-panel">
 
-                {/* CONTENUTO (orario · nome · indirizzo) */}
-                <div className="flex-1 min-w-0 flex flex-col">
+                {/* CONTENUTO (orario · nome · indirizzo).
+                    Il bordo destro vive QUI, sul contenitore di tutte le righe, così risulta
+                    continuo per l'intera altezza della tappa (2 righe per i POI, 1 per le note)
+                    invece di apparire spezzato riga per riga. */}
+                <div className="flex-1 min-w-0 flex flex-col border-r border-stone-300/40">
                     <div className={`${rowHeightClass} flex items-center relative z-floating-panel w-full`}>
                         
                         {/* TIME SLOT */}
@@ -440,16 +451,17 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                             )}
                         </div>
                         
-                        <div className="flex items-center justify-end z-dropdown gap-1 shrink-0 pl-1 pr-1 pointer-events-auto">
+                        <div className={`flex items-center justify-end z-dropdown gap-1 shrink-0 pl-1 pointer-events-auto ${isMobile ? 'pr-11' : 'pr-1'}`}>
                             {userDist && (<div className="flex items-center gap-0.5 text-[8px] md:text-[10px] font-bold text-emerald-600 bg-emerald-100/50 px-1 rounded border border-emerald-500/30 whitespace-nowrap shrink-0"><Navigation className="w-2.5 h-2.5 fill-current transform rotate-45"/> {userDist}km</div>)}
-                            {isMobile && (<button onClick={() => onMobileMoveClick(item)} className="p-1 text-indigo-500 hover:text-indigo-700 transition-colors w-8 flex justify-center border-r border-stone-300/50"><ArrowRightLeft className="w-3.5 h-3.5" /></button>)}
-                            <button 
-                                onClick={() => setShowDeleteConfirm(true)} 
-                                className={`${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-all duration-150 p-1 text-stone-400 hover:text-red-500 cursor-pointer w-8 flex justify-center items-center pointer-events-auto`} 
-                                title="Elimina Tappa"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
+                            {!isBelowLg && (
+                                <button 
+                                    onClick={() => setShowDeleteConfirm(true)} 
+                                    className="opacity-0 group-hover:opacity-100 transition-all duration-150 p-1 text-stone-400 hover:text-red-500 cursor-pointer w-8 flex justify-center items-center pointer-events-auto" 
+                                    title="Elimina Tappa"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     </div>
                     
@@ -459,7 +471,7 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                                 {renderInfoBox()}
                             </div>
                             
-                            <div className="flex-1 flex items-center min-w-0 h-full overflow-hidden pl-2 pointer-events-auto pr-9">
+                            <div className={`flex-1 flex items-center min-w-0 h-full overflow-hidden pl-2 pointer-events-auto ${isMobile ? 'pr-11' : 'pr-9'}`}>
                                 {item.poi.address ? (
                                     <button 
                                         onClick={() => openMap(item.poi.coords.lat, item.poi.coords.lng)} 
@@ -475,6 +487,19 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* PULSANTE SPOSTA (mobile): posizionato in assoluto e centrato verticalmente
+                sull'INTERO blocco (1 riga per le note, 2 per le tappe). Spostato leggermente a
+                sinistra dal bordo destro così resta sempre staccato dalla barra grigia dello swipe. */}
+            {isMobile && (
+                <button
+                    onClick={() => onMobileMoveClick(item)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-dropdown pointer-events-auto flex items-center justify-center w-7 h-6 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-sm hover:bg-indigo-100 hover:text-indigo-700 hover:border-indigo-300 active:scale-95 transition-all"
+                    title="Sposta tappa in un altro giorno"
+                >
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                </button>
+            )}
 
             {/* MODALE CONFERMA ELIMINAZIONE (DARK GLASS DESIGN) */}
             <DeleteConfirmationModal
@@ -492,6 +517,7 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                 icon={<Trash2 className="w-8 h-8 text-red-500"/>}
             />
         </div>
+        </SwipeToDelete>
     );
 };
 

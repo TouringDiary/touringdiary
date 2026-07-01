@@ -4,6 +4,7 @@ import { getStorageItem, setStorageItem } from './storageService';
 import { supabase } from './supabaseClient';
 import type { DatabaseRewardCatalog, DatabaseXpAction, DatabaseUserReward } from '../types/database';
 import type { LevelInfo, Reward, RewardCategory, XpRule, UserReward } from '../types/index';
+import { randomUUID } from '../utils/runtimeId';
 
 export type { LevelInfo, Reward, RewardCategory, XpRule, UserReward };
 
@@ -230,7 +231,7 @@ const syncUserRewards = async (userId: string): Promise<UserReward[]> => {
 export const claimReward = (userId: string, userName: string, reward: Reward): UserReward => {
     const uniqueSuffix = Math.floor(1000 + Math.random() * 9000);
     const code = `TD-${reward.category.substring(0,3).toUpperCase()}-${uniqueSuffix}`;
-    const instanceId = crypto.randomUUID();
+    const instanceId = randomUUID();
     const dateClaimed = new Date().toISOString();
 
     const newReward: UserReward = {

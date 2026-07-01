@@ -70,7 +70,6 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
             alreadyLoadedRef.current = true;
 
             setIsLoading(true);
-            console.log("[SystemMessages] called from: OnboardingWizard.tsx");
             try {
                 // Fetch di TUTTI i messaggi (aggira la cache del singolo hook)
                 const allMessages = await getSystemMessagesAsync();

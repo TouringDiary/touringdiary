@@ -10,6 +10,7 @@ import {
   removeDraftLocalRejectionByName,
 } from '@/utils/guestSuitcaseHelper';
 import { isEphemeralItemId } from '@/utils/runtimeItemId';
+import { randomUUID } from '@/utils/runtimeId';
 import { getCategoryId, normalizeCategoryName } from '@/domain/packing/packingCategories';
 import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
 import {
@@ -53,6 +54,16 @@ function toAddItemMetadata(
   };
 }
 
+/**
+ * Factory per item aggiunti in locale nel flusso document-save (editor valigia).
+ *
+ * Invariante di dominio: l'id restituito deve sempre essere effimero
+ * (`isEphemeralItemId(id) === true`), così `syncSuitcaseItemsDiff` tratta
+ * l'item come INSERT e non come UPDATE su una riga DB inesistente.
+ *
+ * Un id persistente (UUID DB) passato in metadata.id verrebbe rigenerato:
+ * preservarlo qui romperebbe il diff (ramo UPDATE senza baseline → nessun insert).
+ */
 function createRuntimeSuitcaseItem(
   suitcaseId: string,
   name: string,
@@ -62,7 +73,7 @@ function createRuntimeSuitcaseItem(
   const itemId =
     metadata.id && isEphemeralItemId(metadata.id)
       ? metadata.id
-      : `draft-item-${Date.now()}`;
+      : `draft-item-${randomUUID()}`;
   return {
     id: itemId,
     suitcase_id: suitcaseId,

@@ -197,7 +197,6 @@ export const getFullManifestAsync = async (
             const apiRes = await response.json();
             if (apiRes.success && apiRes.data) {
                 dbData = apiRes.data;
-                console.log("[CityReadService] Manifest caricato da API locale");
             }
         }
     } catch (apiError) {
@@ -215,7 +214,6 @@ export const getFullManifestAsync = async (
             return [];
         }
         dbData = (data || []) as DatabaseCityRouteView[];
-        console.log("[CityReadService] Manifest caricato via seo_city_routes (Supabase)");
     }
 
     // Caricamento e costruzione mappa zone turistiche per risoluzione dei nomi basati su ID
@@ -233,8 +231,6 @@ export const getFullManifestAsync = async (
     if (onlyPublished) {
         result = result.filter(c => c.status === 'published');
     }
-
-    console.log("[Manifest Loader]", result.length, result.map(c => c.name));
 
     setInCache(CACHE_KEY, result, LONG_CACHE_TTL);
     return result;
@@ -296,9 +292,6 @@ export const getCityDetails = async (
                 if (!result) return null;
 
                 setInCache(CACHE_KEY, result);
-                console.log(
-                    `[CityReadService] getCityDetails caricato da API locale per: ${result.name}`
-                );
                 return result;
             }
         }

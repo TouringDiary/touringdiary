@@ -87,7 +87,7 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                                         </button>
                                         <button 
                                             onClick={(e) => handleDeleteClick(e, p.id || '')} 
-                                            className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100"
+                                            className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                                             title="Elimina"
                                         >
                                             <Trash2 className="w-3.5 h-3.5"/>

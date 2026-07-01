@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SuitcaseItem } from '@/types/suitcase';
 import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
 import { SuitcaseHeader } from '../suitcase/SuitcaseHeader';
@@ -11,6 +11,8 @@ import { isAssociableSuitcase, isTdTemplate } from '@/utils/suitcaseDomain';
 import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import type { SuitcasePanelComposition } from './hooks/useSuitcasePanelComposition';
 import { SaveAsModal } from '@/components/modals/SaveAsModal';
+import { UnsavedChangesModal } from '@/components/modals/UnsavedChangesModal';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 
 interface Props {
   composition: SuitcasePanelComposition;
@@ -35,15 +37,60 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
     canUndo,
     canRedo,
     handleBackToSelector,
-    handleConfirmWorkspacePause,
-    handleCancelWorkspacePause,
+    handleDiscardAndExit,
+    handleCancelUnsavedChanges,
+    forceClose,
     handleConfirmAssociateSaved,
     handleActivateOptionalCategory,
+    handleAcceptAiSuggestion,
+    handleRejectAiSuggestion,
     suitcaseDocumentSave,
   } = composition;
 
   const [suitcaseSaveAsOpen, setSuitcaseSaveAsOpen] = useState(false);
+  // Quando "Salva" dal dialogo "Modifiche non salvate" richiede un nome (documento mai salvato),
+  // apriamo SaveAs e, a salvataggio riuscito, chiudiamo il pannello.
+  const [pendingExitAfterSave, setPendingExitAfterSave] = useState(false);
+  // Stato del modale AI sollevato qui: permette di aprirlo sia dalla toolbar (desktop)
+  // sia dal menu "Azione" nell'header (mobile/tablet). Reset all'uscita dalla modalità editor.
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const isGuest = !data.currentUser || data.currentUser.role === 'guest';
+
+  // ESC chiude (annulla) il dialogo unico "Modifiche non salvate" senza uscire dal pannello.
+  useGlobalModalEscape(
+    data.modalState.showUnsavedChangesModal === true,
+    handleCancelUnsavedChanges
+  );
+
+  // "Salva" dal dialogo di chiusura: per ospiti rimanda al login, per documenti mai salvati apre
+  // SaveAs (richiede un nome), altrimenti salva e poi chiude il pannello.
+  const handleUnsavedSaveAndExit = async () => {
+    if (isGuest) {
+      data.modalState.setShowUnsavedChangesModal(false);
+      handleLogin();
+      return;
+    }
+    if (suitcaseDocumentSave.isSuitcaseNeverSaved()) {
+      setPendingExitAfterSave(true);
+      data.modalState.setShowUnsavedChangesModal(false);
+      setSuitcaseSaveAsOpen(true);
+      return;
+    }
+    const savedId = await suitcaseDocumentSave.save();
+    data.modalState.setShowUnsavedChangesModal(false);
+    if (savedId) forceClose();
+  };
+
+  useEffect(() => {
+    if (data.panelState.viewMode !== 'editor' && aiModalOpen) {
+      setAiModalOpen(false);
+    }
+  }, [data.panelState.viewMode, aiModalOpen]);
+
+  // Chiude il modale AI anche quando cambia la valigia attiva (evita che resti aperto su un altro documento).
+  useEffect(() => {
+    setAiModalOpen(false);
+  }, [data.activeSuitcase?.id]);
 
   if (showLoadingShell) {
     return (
@@ -80,11 +127,21 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         defaultSuitcaseName={associationFlow.defaultSuitcaseName}
         onLinkModalConfirm={associationFlow.handleLinkModalConfirm}
         onLinkModalCancel={associationFlow.handleLinkModalCancel}
-        onConfirmWorkspacePause={handleConfirmWorkspacePause}
-        onCancelWorkspacePause={handleCancelWorkspacePause}
         onConfirmAssociateSaved={handleConfirmAssociateSaved}
         isTemplateDraftSession={actions.isTemplateDraftSession}
         pausedDraftKind={data.guestSuitcase ? data.guestSuitcase.workspace_kind ?? 'suitcase' : undefined}
+      />
+
+      <UnsavedChangesModal
+        isOpen={data.modalState.showUnsavedChangesModal}
+        message="Hai modifiche non salvate. Cosa vuoi fare?"
+        confirmLabel="Salva"
+        discardLabel="Annulla le modifiche"
+        cancelLabel="Continua a modificare"
+        isProcessing={suitcaseDocumentSave.phase === 'saving'}
+        onSaveAndExit={handleUnsavedSaveAndExit}
+        onDiscard={handleDiscardAndExit}
+        onCancel={handleCancelUnsavedChanges}
       />
 
       <RecommendedSuitcaseModal
@@ -154,19 +211,50 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         lastSaveError={suitcaseDocumentSave.lastError}
         autosaveEnabled={suitcaseDocumentSave.autosaveEnabled}
         canUseAutosave={suitcaseDocumentSave.canUseAutosave}
+        onOpenAiModal={() => setAiModalOpen(true)}
+        onOpenBlacklist={editorLogic.onOpenBlacklist}
+        blacklistCount={data.blacklistCount}
+        isSeedingAi={data.isSeedingAi}
+        isBlacklistFlashing={data.isBlacklistFlashing}
+        checkedCount={composition.checkedCount}
+        totalCount={composition.totalCount}
+        progressPerc={composition.progressPerc}
+        panelViewMode={data.panelState.viewMode === 'viewer' ? 'viewer' : 'editor'}
+        canToggleViewMode={!!data.activeSuitcase && !isTdTemplate(data.activeSuitcase)}
+        onSetViewMode={(mode) => data.panelState.setViewMode(mode)}
+        canUseTemplateAction={
+          !!data.activeSuitcase &&
+          isTdTemplate(data.activeSuitcase) &&
+          data.panelState.viewMode === 'viewer'
+        }
+        onUseTemplate={
+          data.activeSuitcase && isTdTemplate(data.activeSuitcase)
+            ? () => actions.handleUseTemplate(data.activeSuitcase!.id)
+            : undefined
+        }
       />
       {suitcaseSaveAsOpen && data.activeSuitcase && (
         <SaveAsModal
           isOpen={suitcaseSaveAsOpen}
-          onClose={() => setSuitcaseSaveAsOpen(false)}
+          onClose={() => {
+            setSuitcaseSaveAsOpen(false);
+            setPendingExitAfterSave(false);
+          }}
           onConfirm={async (name) => {
             const isFirst = suitcaseDocumentSave.isSuitcaseNeverSaved();
-            if (isFirst) {
-              await suitcaseDocumentSave.save({ name });
-            } else {
-              await suitcaseDocumentSave.saveAs(name);
+            const savedId = isFirst
+              ? await suitcaseDocumentSave.save({ name })
+              : await suitcaseDocumentSave.saveAs(name);
+            // Chiudi il modal solo dopo un salvataggio realmente completato (id valorizzato);
+            // in caso di fallimento (null) il modal resta aperto.
+            if (savedId) {
+              setSuitcaseSaveAsOpen(false);
+              // Se il salvataggio nasce dal dialogo di chiusura, esci dal pannello.
+              if (pendingExitAfterSave) {
+                setPendingExitAfterSave(false);
+                forceClose();
+              }
             }
-            setSuitcaseSaveAsOpen(false);
           }}
           currentName={data.activeSuitcase.title}
         />
@@ -300,23 +388,8 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               onSeedAi={data.handleSeedAi}
               isSeedingAi={data.isSeedingAi}
               aiSuggestions={data.aiSuggestions}
-              onAcceptAiSuggestion={async (name, category) => {
-                if (data.activeSuitcase) {
-                  await itemActions.handleAddItemConfirmed(data.activeSuitcase.id, name, category, {
-                    accepted_from_ai: true,
-                    is_ai_suggestion: false,
-                  });
-                  data.setAiSuggestions(prev => prev.map(s => s.name === name ? { ...s, status: 'accepted' } : s));
-                }
-              }}
-              onRejectAiSuggestion={async (name, category) => {
-                if (data.activeSuitcase) {
-                  // Passiamo solo i dati necessari al dominio, senza mockItem fittizi
-                  await data.mutations.rejectItem(data.activeSuitcase.id, { name, category });
-                  await data.fetchBlacklist({ force: true });
-                  data.setAiSuggestions(prev => prev.map(s => s.name === name ? { ...s, status: 'rejected' } : s));
-                }
-              }}
+              onAcceptAiSuggestion={handleAcceptAiSuggestion}
+              onRejectAiSuggestion={handleRejectAiSuggestion}
               onShowMoreAi={data.handleShowMoreAi}
               hasMoreAi={data.hasMoreAi}
               aiQuotaFeedback={data.aiQuotaFeedback}
@@ -353,6 +426,8 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
                   ? () => actions.handleUseTemplate(data.activeSuitcase!.id)
                   : undefined
               }
+              aiModalOpen={aiModalOpen}
+              onAiModalOpenChange={setAiModalOpen}
             />
           )}
         </div>

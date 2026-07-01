@@ -221,16 +221,6 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
     const [heroFilteredCities, setHeroFilteredCities] = useState<CitySummary[] | null>(null);
     const [seasonalRanking, setSeasonalRanking] = useState<{ city_id: string, seasonal_score: number }[]>([]);
 
-    // [DIAGNOSTICA PRODUCTION-READY]
-    useEffect(() => {
-        console.log("[HomeContent Debug] Props Audit:", {
-            featured: featuredCities.length,
-            mostVisited: mostVisitedCities.length,
-            allMostVisited: allMostVisitedCities?.length,
-            destinations: destinationCities.length
-        });
-    }, [featuredCities, mostVisitedCities, allMostVisitedCities, destinationCities]);
-
     const dynamicAllCities = useMemo(() => {
         return heroFilteredCities || allMostVisitedCities || mostVisitedCities || [];
     }, [heroFilteredCities, allMostVisitedCities, mostVisitedCities]);

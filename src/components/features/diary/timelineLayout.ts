@@ -14,10 +14,16 @@
  * coerenti fra ItineraryItemCard e DiaryMemoCard.
  */
 
-/** ⌀ del cerchio della tappa (icona POI) — elemento PRIMARIO della timeline. */
-export const TL_NODE = 36;
-/** ⌀ del cerchio del mezzo di trasporto — più piccolo della tappa, ma con respiro. */
-export const TL_TRANSPORT = 28;
+/**
+ * ⌀ unico dei cerchi della timeline: tappe (POI) e spostamenti hanno la STESSA dimensione
+ * finale, così da appartenere visivamente allo stesso componente grafico.
+ * Tenuto compatto per liberare spazio orizzontale a favore del contenuto.
+ * NB: questo è l'INGOMBRO geometrico (spaziatura, archi, larghezza del binario); i cerchi
+ *     VISIBILI nelle card sono volutamente un filo più piccoli (vedi classi `w-[..]`) per
+ *     alleggerire la timeline, SENZA alterare la geometria qui calcolata.
+ */
+export const TL_NODE = 30;
+export const TL_TRANSPORT = 30;
 
 /** Margine di sicurezza a sinistra del binario. */
 const TL_LANE_MARGIN = 4;

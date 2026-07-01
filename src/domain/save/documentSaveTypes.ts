@@ -35,7 +35,7 @@ export interface DocumentSaveController {
   autosaveEnabled: boolean;
   canUseAutosave: boolean;
   isGuest: boolean;
-  markDirty: () => void;
+  markDirty: (forceExplicit?: boolean) => void;
   save: (options?: { name?: string }) => Promise<string | null>;
   saveAs: (name: string) => Promise<string | null>;
   flush: () => Promise<string | null>;
@@ -45,6 +45,7 @@ export interface DocumentSaveController {
   awaitInFlight: () => Promise<void>;
   isSaving: () => boolean;
   cancelPendingAutosave: () => void;
+  getPhase: () => DocumentSavePhase;
 }
 
 export const AUTOSAVE_PREF_KEYS = {

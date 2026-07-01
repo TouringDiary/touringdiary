@@ -274,11 +274,11 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                             category={poi.category}
                             className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                         />
-                        <div>
-                            <h4 className="text-white font-bold text-sm mb-1">{poi.name}</h4>
-                            <div className="flex items-center gap-1 text-xs text-slate-400">
-                                <MapPin className="w-3 h-3 text-amber-500"/>
-                                <span className="truncate max-w-[200px]">{poi.address || "Indirizzo non disponibile"}</span>
+                        <div className="min-w-0">
+                            <h4 className="text-white font-bold text-sm mb-1 break-words">{poi.name}</h4>
+                            <div className="flex items-start gap-1 text-xs text-slate-400">
+                                <MapPin className="w-3 h-3 text-amber-500 shrink-0 mt-0.5"/>
+                                <span className="line-clamp-2 break-words leading-snug">{poi.address || "Indirizzo non disponibile"}</span>
                             </div>
                         </div>
                     </div>

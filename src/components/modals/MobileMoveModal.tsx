@@ -56,16 +56,18 @@ export const MobileMoveModal = ({ isOpen, onClose, onConfirm, item, days, allIte
 
     // Uso createPortal per garantire che il modale sia sempre sopra tutto (z-index reale rispetto al viewport)
     return createPortal(
-        <div className="td-modal-overlay flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-auto bg-black/90 backdrop-blur-md animate-in fade-in" style={{ zIndex: Z_OVERLAY }}>
-            <div className="absolute inset-0 pointer-events-auto" onClick={onClose}></div>
-
+        <div
+            className="td-modal-overlay bg-black/90 backdrop-blur-md animate-in fade-in p-4"
+            style={{ zIndex: Z_OVERLAY }}
+            onClick={onClose}
+        >
             <div 
-                className="relative bg-slate-900 w-full max-w-sm rounded-t-[2rem] sm:rounded-2xl border-t border-x border-slate-700 sm:border shadow-2xl flex flex-col animate-in slide-in-from-bottom-10 sm:zoom-in-95 pb-safe sm:pb-0 overflow-hidden pointer-events-auto" 
+                className="relative bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden max-h-[90dvh] pointer-events-auto" 
                 style={{ zIndex: Z_MODAL }}
                 onClick={(e) => e.stopPropagation()}
             >
                 
-                <div className="flex justify-between items-center p-5 border-b border-slate-800 bg-[#0f172a]">
+                <div className="shrink-0 flex justify-between items-center p-5 border-b border-slate-800 bg-[#0f172a]">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-indigo-900/30 rounded-lg border border-indigo-500/30">
                             <ArrowRightLeft className="w-5 h-5 text-indigo-400"/>
@@ -78,7 +80,7 @@ export const MobileMoveModal = ({ isOpen, onClose, onConfirm, item, days, allIte
                     <CloseButton onClose={onClose} variant="primary" />
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
                     
                     {/* Day Selection */}
                     <div className="space-y-2">

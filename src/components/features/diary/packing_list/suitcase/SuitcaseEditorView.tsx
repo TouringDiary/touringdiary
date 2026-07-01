@@ -44,11 +44,17 @@ import {
   composeTdTemplateItemsAsync,
   ensureTdTemplateCategorySetup,
 } from '@/services/suitcase/packingCompositionService';
+import { useBelowLg } from '@/hooks/ui/useBelowLg';
+import { useHideOnScrollDown } from '@/hooks/ui/useHideOnScrollDown';
 
 import { ToastVariant, CATEGORY_ADDED_TOAST } from '@/types/toast';
 
-/** Soglia px dal top dello scrollport per considerare una sezione "attiva". */
-const ACTIVE_CATEGORY_THRESHOLD = 8;
+/**
+ * Tolleranza sub-pixel per riconoscere il fondo dello scroll: scrollTop/clientHeight/scrollHeight
+ * possono essere frazionari (zoom, DPI, scrollbar nascoste) e non combaciare al pixel esatto.
+ * 1px è il minimo che assorbe questo arrotondamento senza mascherare scroll reali.
+ */
+const SCROLL_BOTTOM_EPSILON_PX = 1;
 
 interface HiddenCategories {
   enhancedHiddenCategoriesLogic: {
@@ -119,6 +125,10 @@ interface SuitcaseEditorViewProps {
   onCategorySetupOverlayChange?: (
     updater: (prev: CategorySetupMap) => CategorySetupMap
   ) => void;
+  /** Apertura del modale AI controllata dall'esterno (es. dal menu "Azione" nell'header).
+   *  Se non fornita, il componente usa uno stato locale (comportamento legacy). */
+  aiModalOpen?: boolean;
+  onAiModalOpenChange?: (open: boolean) => void;
 }
 
 export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
@@ -166,6 +176,8 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   onUseTemplate,
   categorySetupOverlay,
   onCategorySetupOverlayChange,
+  aiModalOpen,
+  onAiModalOpenChange,
 }) => {
   const isTd = isTdTemplate(suitcase);
   const guestDraftIsTemplate = getDraftWorkspaceKind(suitcase) === 'user_template';
@@ -257,12 +269,23 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
 
   const [newItemName, setNewItemName] = useState("");
   const [activeCategoryForAdd, setActiveCategoryForAdd] = useState<string | null>(null);
-  const [showAiModal, setShowAiModal] = useState(false);
+  // Apertura modale AI: controllata dall'esterno se forniti i props, altrimenti stato locale.
+  const [internalAiModalOpen, setInternalAiModalOpen] = useState(false);
+  const showAiModal = aiModalOpen ?? internalAiModalOpen;
+  const setShowAiModal = onAiModalOpenChange ?? setInternalAiModalOpen;
   const [newCatName, setNewCatName] = useState("");
   const [newCatIcon, setNewCatIcon] = useState("Package");
   const [showIconPicker, setShowIconPicker] = useState(false);
   const categorySectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  // Barra categorie "intelligente" (solo <lg, vista editor/viewer): si nasconde scorrendo
+  // verso il basso e riappare scorrendo verso l'alto, riusando il container scrollabile esistente.
+  // Il gate è esplicitamente legato sia al breakpoint sia alla modalità della vista: così il
+  // dominio della feature è chiaro e non si attiva da solo se SuitcaseEditorView verrà riusato altrove.
+  const isBelowLg = useBelowLg();
+  const enableSmartToolbar =
+    isBelowLg && (panelViewMode === 'viewer' || panelViewMode === 'editor');
+  const isToolbarHidden = useHideOnScrollDown(scrollContainerRef, enableSmartToolbar);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [highlightedCategoryId, setHighlightedCategoryId] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -431,18 +454,42 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
     }
 
     const updateActiveCategory = () => {
-      const containerTop = container.getBoundingClientRect().top;
-      let nextActiveId = filteredVisibleCategoryIds[0];
+      const ids = filteredVisibleCategoryIds;
 
-      for (const categoryId of filteredVisibleCategoryIds) {
+      // Caso fondo scroll: le ultime categorie possono essere troppo basse per diventare mai la
+      // sezione predominante o per risalire verso il top. Quando la viewport ha raggiunto il fondo
+      // (e c'è davvero spazio scrollabile) si evidenzia sempre l'ultima categoria, che è quella
+      // realmente in vista. Senza questo caso l'highlight resterebbe "indietro" di alcune voci.
+      const isScrolledToBottom =
+        container.scrollHeight > container.clientHeight &&
+        container.scrollTop + container.clientHeight >=
+          container.scrollHeight - SCROLL_BOTTOM_EPSILON_PX;
+
+      if (isScrolledToBottom) {
+        const lastId = ids[ids.length - 1];
+        setActiveCategoryId((current) => (current === lastId ? current : lastId));
+        return;
+      }
+
+      // Caso generale: si evidenzia la categoria con la maggiore area effettivamente visibile nella
+      // viewport (intersezione sezione↔scrollport). È robusto con categorie molto alte o molto basse
+      // e non dipende da soglie/offset fissi, quindi segue lo scroll senza salti né ritardi.
+      const containerRect = container.getBoundingClientRect();
+      let nextActiveId = ids[0];
+      let maxVisibleHeight = -1;
+
+      for (const categoryId of ids) {
         const section = categorySectionRefs.current[categoryId];
         if (!section) continue;
 
-        const sectionTop = section.getBoundingClientRect().top - containerTop;
-        if (sectionTop <= ACTIVE_CATEGORY_THRESHOLD) {
+        const rect = section.getBoundingClientRect();
+        const visibleTop = Math.max(rect.top, containerRect.top);
+        const visibleBottom = Math.min(rect.bottom, containerRect.bottom);
+        const visibleHeight = visibleBottom - visibleTop;
+
+        if (visibleHeight > maxVisibleHeight) {
+          maxVisibleHeight = visibleHeight;
           nextActiveId = categoryId;
-        } else {
-          break;
         }
       }
 
@@ -557,30 +604,42 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   return (    <div className="relative flex flex-col lg:flex-row gap-0 items-stretch w-full h-full lg:min-h-0 lg:overflow-y-hidden lg:overflow-x-visible bg-slate-900 lg:bg-transparent">
       {/* LEFT: Items List */}
       <div className="flex-1 w-full h-full flex flex-col min-h-0 overflow-hidden lg:overflow-visible">
-        <SuitcaseEditorToolbar
-          readOnly={readOnly}
-          isSeedingAi={isSeedingAi}
-          onOpenAiModal={() => setShowAiModal(true)}
-          onOpenBlacklist={onOpenBlacklist}
-          blacklistCount={blacklistCount}
-          isBlacklistFlashing={isBlacklistFlashing}
-          visibleCategories={filteredVisibleCategories}
-          activeCategoryId={activeCategoryId}
-          incompleteCountsByCategoryId={incompleteCountsByCategoryId}
-          categoryStatusFilter={categoryStatusFilter}
-          onCategoryStatusFilterChange={setCategoryStatusFilter}
-          onNavigateToCategory={handleNavigateToCategory}
-          onReorderCategory={handleReorderCategory}
-          onAddCategory={() => setIsAddingNewCategory(true)}
-          canToggleViewMode={canToggleViewMode}
-          canUseTemplateAction={canUseTemplateAction}
-          panelViewMode={panelViewMode}
-          onSetViewMode={onSetViewMode}
-          onUseTemplate={onUseTemplate}
-          checkedCount={suitcaseProgress.checked}
-          totalCount={suitcaseProgress.total}
-          progressPerc={suitcaseProgress.percentage}
-        />
+        {/* Wrapper "barra intelligente": su <lg collassa con transizione fluida (grid-rows + opacity,
+            nessun layout shift); su ≥lg resta sempre visibile e in overflow-visible (niente clipping
+            di badge/popover). La logica di direzione vive in useHideOnScrollDown.
+            IMPORTANTE: la doppia struttura (outer `grid grid-template-rows` + inner `overflow-hidden min-h-0`)
+            è ciò che permette di animare l'altezza da 1fr a 0fr in modo fluido SENZA layout shift.
+            Non semplificare rimuovendo il wrapper: senza questo schema la transizione tornerebbe a
+            "saltare" l'altezza del contenuto. */}
+        <div
+          className={`shrink-0 grid transition-[grid-template-rows,opacity] duration-300 ease-out lg:grid-rows-[1fr] lg:opacity-100 ${
+            isToolbarHidden ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
+          }`}
+        >
+          <div className="overflow-hidden lg:overflow-visible min-h-0">
+            <SuitcaseEditorToolbar
+              readOnly={readOnly}
+              isSeedingAi={isSeedingAi}
+              onOpenAiModal={() => setShowAiModal(true)}
+              onOpenBlacklist={onOpenBlacklist}
+              blacklistCount={blacklistCount}
+              isBlacklistFlashing={isBlacklistFlashing}
+              visibleCategories={filteredVisibleCategories}
+              activeCategoryId={activeCategoryId}
+              incompleteCountsByCategoryId={incompleteCountsByCategoryId}
+              categoryStatusFilter={categoryStatusFilter}
+              onCategoryStatusFilterChange={setCategoryStatusFilter}
+              onNavigateToCategory={handleNavigateToCategory}
+              onReorderCategory={handleReorderCategory}
+              onAddCategory={() => setIsAddingNewCategory(true)}
+              canToggleViewMode={canToggleViewMode}
+              canUseTemplateAction={canUseTemplateAction}
+              panelViewMode={panelViewMode}
+              onSetViewMode={onSetViewMode}
+              onUseTemplate={onUseTemplate}
+            />
+          </div>
+        </div>
         <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 lg:px-10 pb-4 md:pb-6 lg:pb-10 lg:pr-6 custom-scrollbar relative">
         <div className="pt-6 space-y-8">
           {/* Toast localizzato sopra la lista */}
@@ -614,21 +673,24 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           </div>
         )}
 
-        {(availableOptionalCategories.length > 0 || hiddenCategoriesList.length > 0) && (
-          <div className="grid grid-cols-1 gap-3 md:hidden">
-            <OptionalCategoriesPanel
-              categories={availableOptionalCategories}
-              onActivate={handleActivateOptional}
-              readOnly={categorySectionsReadOnly}
-            />
-            <HiddenCategoriesPanel
-              categories={hiddenCategoriesList}
-              onRestore={handleRestoreHiddenCategory}
-              onRestoreAll={handleShowAllHidden}
-              readOnly={categorySectionsReadOnly}
-            />
-          </div>
-        )}
+        {/* Mobile (<md): "Categorie disponibili" e "Categorie nascoste" sono SEMPRE presenti
+            all'inizio del contenuto scrollabile, identiche a Template/desktop (gli stessi pannelli
+            condivisi gestiscono già lo stato vuoto con "Nessuna categoria"). Niente guard sui dati,
+            così Valigie e Template si comportano allo stesso modo. Non sono sticky: scorrono col
+            contenuto. */}
+        <div className="grid grid-cols-1 gap-3 md:hidden">
+          <OptionalCategoriesPanel
+            categories={availableOptionalCategories}
+            onActivate={handleActivateOptional}
+            readOnly={categorySectionsReadOnly}
+          />
+          <HiddenCategoriesPanel
+            categories={hiddenCategoriesList}
+            onRestore={handleRestoreHiddenCategory}
+            onRestoreAll={handleShowAllHidden}
+            readOnly={categorySectionsReadOnly}
+          />
+        </div>
 
         <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 items-stretch">
           <OptionalCategoriesPanel
@@ -770,6 +832,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
                     <SwipeToDelete
                       key={item.id}
                       className="rounded-xl"
+                      revealClassName="inset-y-[10%] rounded-xl"
                       disabled={!canSwipeDelete}
                       onDelete={() => onDeleteItem(item.id)}
                     >

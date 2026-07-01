@@ -50,31 +50,45 @@ export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
         </div>
         <div className="flex flex-col min-w-0">
           <span className={`${itemPrimaryStyle || "text-base font-bold text-white"} truncate`}>{name}</span>
-          <span className={ROW_CATEGORY_LABEL_CLASS}>{category}</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={`${ROW_CATEGORY_LABEL_CLASS} truncate`}>{category}</span>
+            {tripRelevant && status === 'pending' && (
+              <span
+                className={`inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-400/30 ${ROW_RECOMMENDED_BADGE_CLASS} text-violet-200`}
+                title="Consigliato in base al tuo itinerario"
+              >
+                <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                <span className="hidden sm:inline">Consigliato</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {tripRelevant && status === 'pending' && (
-          <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-400/30 ${ROW_RECOMMENDED_BADGE_CLASS} text-violet-200`}
-            title="Consigliato in base al tuo itinerario"
-          >
-            <Sparkles className="w-2.5 h-2.5" />
-            Consigliato
-          </span>
-        )}
         {status === 'pending' && (
           <>
             <button
-              onClick={onReject}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onReject();
+              }}
               className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 transition-all"
               title="Rifiuta (Blacklist)"
             >
               <X className="w-4 h-4" />
             </button>
             <button
-              onClick={useSelectionMode ? onToggleSelectForAccept : onAccept}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (useSelectionMode) {
+                  onToggleSelectForAccept?.();
+                } else {
+                  onAccept();
+                }
+              }}
               className={`p-2 rounded-lg transition-all ${
                 useSelectionMode && isSelectedForAccept
                   ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'

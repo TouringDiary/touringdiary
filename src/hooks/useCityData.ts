@@ -19,7 +19,6 @@ export const useCityData = (cityId: string | null) => {
 
     // Cancella eventuale fetch precedente ancora in corso
     if (abortControllerRef.current) {
-      console.log(`[FetchAbort] Aborting previous request for city data.`);
       abortControllerRef.current.abort();
     }
 
@@ -32,13 +31,6 @@ export const useCityData = (cityId: string | null) => {
 
     try {
       const data = await getCityDetails(cityId, controller.signal, { peopleAudience: 'public' });
-      console.log('[CITY_TRACE] useCityData result', {
-        requestedCityId: cityId,
-        receivedId: data?.id,
-        hasCoords: !!data?.coords,
-        hasDetails: !!data?.details,
-        cityName: data?.name
-      });
       setCity(data);
       if (!data) {
         setError('Dati città non disponibili.');
@@ -46,7 +38,6 @@ export const useCityData = (cityId: string | null) => {
     } catch (err: any) {
       // Ignora silenziosamente gli errori di cancellazione (AbortError)
       if (err.name === 'AbortError') {
-        console.log(`[FetchAbort] Request for city ${cityId} was aborted.`);
         return;
       }
       console.error(err);

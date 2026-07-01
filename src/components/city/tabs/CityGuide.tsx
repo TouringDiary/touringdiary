@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, Star, ThumbsUp, Plus, Crosshair, Award, GripHorizontal, Check, Box, ShoppingCart, Edit3, Loader2, TrendingUp } from 'lucide-react';
+import { MapPin, Navigation, Star, ThumbsUp, Plus, Crosshair, Award, GripHorizontal, Check, Box, ShoppingCart, Edit3, Loader2, TrendingUp, PencilLine } from 'lucide-react';
 import { PointOfInterest, User } from '@/types';
 import { PLAN_TYPES } from '@/constants/planTypes';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
@@ -258,7 +258,7 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                     <span className={sideLabelClass}>{localVotes}</span>
                 </button>
                 <button onClick={handleReviewClick} className={`${sideBtnClass} text-slate-500 hover:text-amber-400`} title="Valuta">
-                    <Star className={sideIconClass}/>
+                    <PencilLine className={sideIconClass}/>
                     <span className={sideLabelClass}>VALUTA</span>
                 </button>
             </div>

@@ -102,12 +102,6 @@ export const NearbyCitiesRow: React.FC<Props> = ({ currentCity, allCities, onExp
   const mobilePopoverRef = useRef<HeaderPopoverHandle>(null);
 
   const nearby = useMemo(() => {
-    console.log('[CITY_TRACE] NearbyCitiesRow input', {
-      id: currentCity?.id,
-      name: currentCity?.name,
-      coords: currentCity?.coords,
-      hasCoords: !!currentCity?.coords
-    });
     const candidateCities = allCities.filter(c => c.id !== currentCity.id);
 
     const withDistance = candidateCities.map(c => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Briefcase, Layout, type LucideIcon } from 'lucide-react';
+import { BookOpen, Briefcase, Compass, Layout, type LucideIcon } from 'lucide-react';
 import type { SuitcaseSourceTab } from '../SuitcaseFloatingPanel/types/sourceTab';
 
 /** Shell condiviso per i pannelli Inizia e La dashboard. */
@@ -29,6 +29,7 @@ export const SUITCASE_GUIDE_SUGGESTIONS_SHELL_CLASS =
   'rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/40 via-slate-900/55 to-slate-950/50 backdrop-blur-md shadow-xl shadow-indigo-950/20';
 
 const TAB_ICONS: Partial<Record<SuitcaseSourceTab, LucideIcon>> = {
+  start: Compass,
   trip: BookOpen,
   saved: Briefcase,
   default: Layout,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type { MutableRefObject } from 'react';
 import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { Itinerary } from '@/types';
 import {
@@ -11,6 +12,8 @@ import {
 import { getSystemCategoryOrderIndexExact, SystemCategoryName } from '@/domain/packing/packingCategories';
 import { deriveItineraryTags, normalizeItemName } from '@/utils/tagDerivation';
 import { ToastVariant } from '@/types/toast';
+import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
+import type { SeedItemsLocallyFn } from './useSuitcasePanelData';
 
 export interface AiSuggestion {
   name: string;
@@ -173,6 +176,7 @@ interface SuggestionsProps {
   fetchUserSuitcases: () => void;
   setSaveStatus: (s: string | null) => void;
   showToast: (message: string, description?: string, variant?: ToastVariant) => void;
+  seedItemsLocallyRef?: MutableRefObject<SeedItemsLocallyFn | null>;
 }
 
 export const useSuitcaseSuggestions = ({
@@ -183,7 +187,8 @@ export const useSuitcaseSuggestions = ({
   itinerary,
   fetchUserSuitcases,
   setSaveStatus,
-  showToast
+  showToast,
+  seedItemsLocallyRef,
 }: SuggestionsProps) => {
   const [mergedSuggestedItems, setMergedSuggestedItems] = useState<SuitcaseItem[]>([]);
   const [suggestedTemplates, setSuggestedTemplates] = useState<Suitcase[]>([]);
@@ -268,39 +273,67 @@ export const useSuitcaseSuggestions = ({
       }));
 
       if (mode === 'direct') {
-        const candidates = quotaActive
-          ? await getAiCandidates(
-              activeSuitcase.id,
-              tags,
-              itemsForAi,
-              categories,
-              activeSuitcase,
-              options
-            )
-          : undefined;
+        const localSeed = seedItemsLocallyRef?.current;
+        const useLocalDocumentSeed =
+          !!localSeed && !isDraftWorkspaceId(activeSuitcase.id);
 
-        if (quotaActive && !isSessionCurrent()) return;
+        let count = 0;
+        let feedback: AiQuotaFeedback | null = null;
 
-        const feedback = candidates
-          ? buildQuotaFeedback(categories, options, candidates)
-          : null;
+        if (useLocalDocumentSeed) {
+          const candidates = await getAiCandidates(
+            activeSuitcase.id,
+            tags,
+            itemsForAi,
+            categories,
+            activeSuitcase,
+            options
+          );
+          if (!isSessionCurrent()) return;
 
-        const count = await seedAiSuggestions(
-          activeSuitcase.id,
-          tags,
-          itemsForAi,
-          context,
-          categories,
-          activeSuitcase,
-          options,
-          candidates
-        );
+          feedback = buildQuotaFeedback(categories, options, candidates);
+          if (candidates.length > 0) {
+            count = await localSeed(candidates, context);
+          }
+        } else {
+          const candidates = quotaActive
+            ? await getAiCandidates(
+                activeSuitcase.id,
+                tags,
+                itemsForAi,
+                categories,
+                activeSuitcase,
+                options
+              )
+            : undefined;
+
+          if (quotaActive && !isSessionCurrent()) return;
+
+          feedback = candidates
+            ? buildQuotaFeedback(categories, options, candidates)
+            : null;
+
+          count = await seedAiSuggestions(
+            activeSuitcase.id,
+            tags,
+            itemsForAi,
+            context,
+            categories,
+            activeSuitcase,
+            options,
+            candidates
+          );
+          if (!isSessionCurrent()) return;
+
+          if (count > 0) {
+            await fetchUserSuitcases();
+            if (!isSessionCurrent()) return;
+          }
+        }
+
         if (!isSessionCurrent()) return;
 
         if (count > 0) {
-          await fetchUserSuitcases();
-          if (!isSessionCurrent()) return;
-
           clearSaveStatusTimeout();
           setSaveStatus(`Aggiunti ${count} suggerimenti`);
           const statusSuitcaseId = targetSuitcaseId;

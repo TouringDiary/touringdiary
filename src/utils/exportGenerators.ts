@@ -1,7 +1,8 @@
 
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, Header, Footer, ImageRun, VerticalAlign } from 'docx';
 import FileSaver from 'file-saver';
-import { PreparedItinerary } from './pdfUtils'; 
+import { PreparedItinerary } from './pdfUtils';
+import { diaryNotesDocumentToPlainText } from '@/components/features/diary/notes/diaryNotesDocumentToPlainText';
 
 // --- CONFIGURAZIONE STILI WORD ---
 const STYLES = {
@@ -339,6 +340,28 @@ export const generateWordDocument = async (
         }));
     }
 
+    const diaryNotesText = diaryNotesDocumentToPlainText(itinerary.diaryNotes);
+    if (diaryNotesText) {
+        children.push(
+            new Paragraph({
+                text: "NOTE DI VIAGGIO",
+                heading: "Heading1",
+                alignment: AlignmentType.LEFT,
+                spacing: { before: 600, after: 300 },
+                border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: STYLES.GRAY_COLOR, space: 4 } },
+                pageBreakBefore: true,
+            })
+        );
+        diaryNotesText.split('\n').forEach((line) => {
+            children.push(
+                new Paragraph({
+                    children: [new TextRun({ text: line, size: STYLES.BODY_SIZE, color: STYLES.TEXT_COLOR })],
+                    spacing: { after: 80 },
+                })
+            );
+        });
+    }
+
     const doc = new Document({
         sections: [{
             properties: {},
@@ -408,6 +431,12 @@ export const generateTextFile = (itinerary: any, cityNamesMap: Record<string, st
              lines.push("");
         });
     });
+
+    const diaryNotesText = diaryNotesDocumentToPlainText(itinerary.diaryNotes);
+    if (diaryNotesText) {
+        lines.push('\n--- NOTE DI VIAGGIO ---');
+        lines.push(diaryNotesText);
+    }
     
     const text = lines.join("\n");
     if(returnString) return text;
