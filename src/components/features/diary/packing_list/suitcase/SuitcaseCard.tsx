@@ -1,9 +1,14 @@
 import React, { useMemo } from 'react';
 import { TemplateCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
-import { Trash2, Wrench, CheckSquare, Copy, Eye } from 'lucide-react';
+import { Trash2, Wrench, CheckSquare, Copy, Eye, Users } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { Suitcase } from '@/types/suitcase';
 import { formatItalianDateTime } from '@/utils/dateFormatters';
+import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
+import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
+import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
+import { isTdTemplate } from '@/utils/suitcaseDomain';
 
 export type SuitcaseCardVariant = 'trip' | 'saved';
 export type SuitcaseCardRemoveAction = 'delete' | 'unlink';
@@ -18,6 +23,8 @@ interface SuitcaseCardProps {
   isCloning?: boolean;
   isDiaryAssociable?: boolean;
   currentUser?: User | null;
+  isShared?: boolean;
+  showShareAction?: boolean;
   onOpen: (id: string) => void;
   onView: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -40,6 +47,8 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
   isCloning = false,
   isDiaryAssociable = true,
   currentUser,
+  isShared: isSharedProp = false,
+  showShareAction = true,
   onOpen,
   onView,
   onDelete,
@@ -48,9 +57,17 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
   onUnlink,
   onSelect,
 }) => {
+  const openCollaborationShare = useOpenCollaborationShare();
+  const resourceKind = resolveSuitcaseSharedResourceKind(suitcase);
+  const sharedFromHook = useSharedResourceIndicator(resourceKind, suitcase.id);
+  const isShared = isSharedProp || sharedFromHook;
+
   const isOwner =
     currentUser?.id === suitcase.user_id ||
     (!currentUser && (suitcase.user_id === 'guest' || suitcase.id.startsWith('guest-')));
+
+  const showShareCta =
+    showShareAction && isOwner && !!resourceKind && !isTdTemplate(suitcase);
 
   const progress = useMemo(
     () => getSuitcaseItemProgress(suitcase.suitcase_items),
@@ -162,6 +179,25 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
         </div>
 
         <div className="flex border-t border-white/10 mt-auto">
+          {showShareCta && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openCollaborationShare({
+                  kind: resourceKind!,
+                  resourceId: suitcase.id,
+                  resourceTitle: suitcase.title,
+                });
+              }}
+              className={`${actionBtnClass} text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10`}
+              title="Condividi valigia"
+              aria-label="Condividi valigia"
+            >
+              <Users className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {onDelete && isOwner && (
             <button
               type="button"
@@ -229,9 +265,12 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
           <Eye className="w-4 h-4" />
         </button>
         <div className="flex-1 flex flex-col justify-center px-4 leading-tight min-h-0">
-          <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate">
-            {suitcase.title}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0 pr-8">
+            <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate">
+              {suitcase.title}
+            </span>
+            {isShared && <SharedResourceIndicator />}
+          </div>
           {suitcase.created_at && (
             <div className="text-[9px] xl:text-[11px] text-slate-300 tabular-nums leading-snug">
               Creato il: {formatItalianDateTime(suitcase.created_at)}

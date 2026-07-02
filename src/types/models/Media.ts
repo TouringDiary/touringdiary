@@ -60,7 +60,14 @@ export interface CommunityPost {
     replies?: CommunityReply[];
 }
 
-export type NotificationType = 'system' | 'reply_qa' | 'suggestion_approved' | 'reward_unlocked' | 'system_alert' | 'info';
+export type NotificationType =
+  | 'system'
+  | 'reply_qa'
+  | 'suggestion_approved'
+  | 'reward_unlocked'
+  | 'system_alert'
+  | 'info'
+  | 'collaboration';
 
 export interface AppNotification {
     id: string;
@@ -71,10 +78,13 @@ export interface AppNotification {
     date: string;
     isRead: boolean;
     linkData?: {
-        section: 'community' | 'trips' | 'rewards' | 'profile' | 'city';
+        section: 'community' | 'trips' | 'rewards' | 'profile' | 'city' | 'collaboration';
         tab?: string;
         targetId?: string;
         poiId?: string;
+        inviteId?: string;
+        /** Kind della Risorsa Condivisibile (notifiche collaborazione). */
+        resourceKind?: 'diary' | 'suitcase' | 'user_template';
     };
 }
 

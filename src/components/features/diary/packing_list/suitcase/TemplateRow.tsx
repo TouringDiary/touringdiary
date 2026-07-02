@@ -1,8 +1,11 @@
 import React from 'react';
-import { Star, Sparkles, Trash2, Wrench, Copy, Eye } from 'lucide-react';
+import { Star, Sparkles, Trash2, Wrench, Copy, Eye, Users } from 'lucide-react';
 import { TemplateCategoryIcon } from './SuitcaseUtils';
 import { Suitcase } from '@/types/suitcase';
 import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
+import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
+import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
 
 interface TemplateRowProps {
   template: Suitcase;
@@ -36,6 +39,9 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
 }) => {
   const isTd = isTdTemplate(template);
   const isUser = isUserTemplate(template);
+  const openCollaborationShare = useOpenCollaborationShare();
+  const isShared = useSharedResourceIndicator(isUser ? 'user_template' : null, template.id);
+  const isOwner = template.user_id !== null && template.user_id !== 'guest';
 
   const containerClass = [
     'flex items-stretch overflow-hidden rounded-xl border transition-all text-left group relative outline-none min-h-0 shrink-0 w-full',
@@ -137,7 +143,25 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
 
           {isUser && (
             <>
-              {onDelete && (
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openCollaborationShare({
+                      kind: 'user_template',
+                      resourceId: template.id,
+                      resourceTitle: template.title,
+                    });
+                  }}
+                  className={`${actionBtnClass} text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10`}
+                  title="Condividi template"
+                  aria-label="Condividi template"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {onDelete && isOwner && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -151,7 +175,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
-              {onDuplicate && (
+              {onDuplicate && isOwner && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -207,8 +231,9 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
         </button>
 
         <div className="flex-1 flex flex-col justify-center px-4 leading-tight min-h-0">
-          <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate pr-9">
-            {template.title.replace(/^Template\s+/i, '')}
+          <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate pr-9 flex items-center gap-2">
+            <span className="truncate">{template.title.replace(/^Template\s+/i, '')}</span>
+            {isUser && isShared && <SharedResourceIndicator />}
           </span>
           <div
             className={`grid items-center min-w-0 mt-0.5 ${

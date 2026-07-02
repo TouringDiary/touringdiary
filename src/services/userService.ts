@@ -18,6 +18,7 @@ let ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
 };
 
 // --- HELPER REFERRAL ---
+// Codice leggibile per l'utente; l'unicità è garantita dal vincolo DB su referral_code.
 const generateReferralCode = (firstName: string): string => {
     const cleanName = firstName.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 5);
     const suffix = Math.random().toString(36).substring(2, 5).toUpperCase();
@@ -35,6 +36,14 @@ const isUserStatus = (status: unknown): status is UserStatus =>
     typeof status === 'string' && USER_STATUSES.includes(status as UserStatus);
 
 import { DbProfile } from '../types/domain/index';
+import {
+    resolveReferralCodeToUserId,
+    updateProfileAvatarUrl,
+    uploadProfileAvatar,
+    USERNAME_TAKEN_MESSAGE,
+    resolveProfileSlug,
+    checkUsernameAvailability,
+} from './profileService';
 
 /**
  * Converte un riga del database (p) nell'interfaccia User del frontend.
@@ -69,7 +78,6 @@ export const mapProfileToUser = (p: DbProfile): User => {
 export const refreshUsersCache = async (): Promise<User[]> => {
     try {
         let data: DbProfile[] | null = null;
-        let source = 'API';
 
         // 1. TENTA IL CARICAMENTO TRAMITE API PROXY (Local Server)
         try {
@@ -101,7 +109,6 @@ export const refreshUsersCache = async (): Promise<User[]> => {
 
         // 2. FALLBACK A SUPABASE (Original Logic)
         if (!data) {
-            source = 'Supabase';
             const { data: supaData, error } = await supabase
                 .from('profiles')
                 .select('*');
@@ -109,8 +116,6 @@ export const refreshUsersCache = async (): Promise<User[]> => {
             if (error) throw error;
             data = supaData;
         }
-
-        console.log(`[UserService] Profiles loaded from ${source}:`, data?.length);
 
         const mappedUsers: User[] = (data || []).map(p => mapProfileToUser(p));
 
@@ -164,9 +169,7 @@ export const getUserIdByEmail = async (email: string): Promise<string | null> =>
  */
 export const devLogin = async (email: string): Promise<{ success: boolean; session?: unknown; error?: string }> => {
     try {
-        console.log("[QuickLogin] devLogin start");
         const url = `${import.meta.env.VITE_API_URL}/api/dev/login`;
-        console.log("[QuickLogin] fetch start", url);
 
         const response = await fetch(url, {
             method: "POST",
@@ -203,8 +206,6 @@ export const devLogin = async (email: string): Promise<{ success: boolean; sessi
                 typedData.access_token &&
                 typedData.refresh_token
             ) {
-                console.log("[devLogin] Session received from server");
-
                 setAuthOperationInProgress(true);
 
                 try {
@@ -269,8 +270,6 @@ export const getCurrentUserProfile = async (token?: string): Promise<User | null
 
         if (!accessToken) return null;
 
-        console.log("[userService] Fetching profile via proxy with token...");
-
         const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/me`, {
             headers: {
                 'Authorization': `Bearer ${accessToken}`
@@ -304,11 +303,6 @@ export const getCurrentUserProfile = async (token?: string): Promise<User | null
                 'id' in payload.user
             ) {
                 const mappedUser = mapProfileToUser(payload.user);
-
-                console.log(
-                    "[userService] Profile mapped successfully:",
-                    mappedUser.name
-                );
 
                 return mappedUser;
             }
@@ -347,14 +341,27 @@ export const authenticateUser = async (
     return { success: true, user };
 };
 
+export interface RegisterUserInput {
+    name: string;
+    email: string;
+    password: string;
+    username?: string;
+    role?: string;
+    firstName?: string;
+    lastName?: string;
+    isTestAccount?: boolean;
+    referredBy?: string;
+    referralCode?: string;
+    avatarFile?: File | null;
+}
+
 export const registerUser = async (
-    userData: { name: string, email: string, password: string, role?: string, firstName?: string, lastName?: string, isTestAccount?: boolean, referredBy?: string }
+    userData: RegisterUserInput
 ): Promise<{ user: User | null; success?: boolean; error: string | null }> => {
     // Se abbiamo un ruolo specifico e siamo in modalità Admin (determinata dal contesto di chiamata)
     // usiamo l'endpoint server-side per saltare la conferma email.
     if (userData.role) {
         try {
-            console.log("[registerUser] Invio payload admin:", userData);
             const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/create-user`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -394,7 +401,27 @@ export const registerUser = async (
             `${mergedData.firstName ?? ''} ${mergedData.lastName ?? ''}`.trim() ||
             mergedData.email.split('@')[0];
 
+        const slugResolved = resolveProfileSlug(userData.username ?? '');
+        if ('error' in slugResolved) {
+            return { user: null, error: slugResolved.error };
+        }
+
+        const { slug } = slugResolved;
+        const availability = await checkUsernameAvailability(userData.username ?? '');
+        if (availability.status === 'taken') {
+            return { user: null, error: USERNAME_TAKEN_MESSAGE };
+        }
+        if (availability.status === 'error') {
+            console.error('[registerUser] slug availability check failed');
+            return { user: null, error: 'Impossibile verificare la disponibilità del Nome utente. Riprova.' };
+        }
+
         const referralCode = generateReferralCode(safeName);
+
+        let referredBy = userData.referredBy;
+        if (!referredBy && userData.referralCode) {
+            referredBy = (await resolveReferralCodeToUserId(userData.referralCode)) ?? undefined;
+        }
 
         const { data, error: profileError } = await supabase
             .from('profiles')
@@ -405,19 +432,38 @@ export const registerUser = async (
                 role: 'user',
                 status: 'active',
                 referral_code: referralCode,
-                referred_by: userData.referredBy
+                referred_by: referredBy ?? null,
+                slug,
             })
             .select()
             .single();
 
         if (profileError) {
             console.error("Fallimento creazione profilo:", profileError.message);
+            if (profileError.code === '23505') {
+                return { user: null, error: USERNAME_TAKEN_MESSAGE };
+            }
             return { user: null, error: "Impossibile creare il profilo utente dopo la registrazione." };
         }
 
-        const newUser = mapProfileToUser(data);
+        let newUser = mapProfileToUser(data);
 
-        usersCache.push(newUser);
+        if (userData.avatarFile) {
+            const avatarUrl = await uploadProfileAvatar(newUser.id, userData.avatarFile);
+            if (avatarUrl) {
+                const avatarResult = await updateProfileAvatarUrl(newUser.id, avatarUrl);
+                if (avatarResult.success) {
+                    newUser = { ...newUser, avatar: avatarUrl };
+                }
+            }
+        }
+
+        const existingIndex = usersCache.findIndex((u) => u.id === newUser.id);
+        if (existingIndex >= 0) {
+            usersCache[existingIndex] = newUser;
+        } else {
+            usersCache.push(newUser);
+        }
 
         return { success: true, user: newUser, error: null };
 
@@ -443,7 +489,9 @@ export const updateUser = async (updatedUser: User): Promise<void> => {
             xp: updatedUser.xp,
             company_name: updatedUser.companyName,
             vat_number: updatedUser.vatNumber,
-            unlocked_rewards: updatedUser.unlockedRewards
+            unlocked_rewards: updatedUser.unlockedRewards,
+            slug: updatedUser.slug ?? null,
+            avatar_url: updatedUser.avatar ?? null,
         })
         .eq('id', updatedUser.id)
         .select();

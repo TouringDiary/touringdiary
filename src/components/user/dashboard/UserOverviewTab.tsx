@@ -6,6 +6,7 @@ import { LevelInfo } from '../../../services/gamificationService';
 import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
 import { getRoleLabel } from '../../../services/userService';
 import { safeArray } from '../../../utils/safeTypes';
+import { UserAvatar } from '@/components/user/profile/UserAvatar';
 
 interface Props {
     user: User;
@@ -94,11 +95,14 @@ export const UserOverviewTab = ({
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-4">
                             <div className="relative">
-                                <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-2xl font-bold text-white shadow-2xl border-4 border-slate-800 overflow-hidden">{user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} className="w-full h-full object-cover" /> : user.name.charAt(0)}</div>
+                                <UserAvatar name={user.name} avatarUrl={user.avatar} size="lg" className="border-4 border-slate-800 shadow-2xl" />
                                 <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-slate-900 text-xl border-2 border-slate-700 rounded-full flex items-center justify-center shadow-lg">{currentLevel.icon}</div>
                             </div>
                             <div>
                                 <h2 className="text-2xl md:text-3xl font-display font-bold text-white leading-tight">{displayName}</h2>
+                                {user.slug && (
+                                    <p className="text-sm text-slate-400 mt-1">@{user.slug}</p>
+                                )}
                                 <div className="flex flex-wrap items-center gap-2 mt-2">
                                     {/* BADGE RUOLO SISTEMA */}
                                     {user.role !== 'user' && (

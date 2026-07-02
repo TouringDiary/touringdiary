@@ -5,6 +5,7 @@ import { Itinerary, User } from '@/types';
 import { useItinerary } from '@/context/ItineraryContext';
 import { useDynamicContent } from '@/hooks/useDynamicContent'; 
 import { useModal } from '@/context/ModalContext';
+import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { useSystemMessage } from '../../../hooks/useSystemMessage';
 
@@ -187,7 +188,8 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     onUndo, onRedo, canUndo, canRedo, popoverBoundaryRef
 }) => {
     const { syncCloudDrafts } = useItinerary(); 
-    const { openModal } = useModal(); 
+    const { openModal } = useModal();
+    const openCollaborationShare = useOpenCollaborationShare(); 
     
     const [loadMenuOpen, setLoadMenuOpen] = useState(false);
     const [shareMenuOpen, setShareMenuOpen] = useState(false);
@@ -285,19 +287,15 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     };
 
     useEffect(() => {
-        if (itinerary.items.length > 0) {
-            setShouldFlashRoadbook(true);
-            const timer = setTimeout(() => setShouldFlashRoadbook(false), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [itinerary.items.length]);
+        if (itinerary.items.length === 0) return;
 
-    useEffect(() => {
-        if (itinerary.items.length > 0) {
-            setShouldFlashSuitcase(true);
-            const timer = setTimeout(() => setShouldFlashSuitcase(false), 3000);
-            return () => clearTimeout(timer);
-        }
+        setShouldFlashRoadbook(true);
+        setShouldFlashSuitcase(true);
+        const timer = setTimeout(() => {
+            setShouldFlashRoadbook(false);
+            setShouldFlashSuitcase(false);
+        }, 3000);
+        return () => clearTimeout(timer);
     }, [itinerary.items.length]);
 
     // Menu click-outside: handled by AnchoredPopover in DiaryHeaderProjectInput (portaled).
@@ -338,6 +336,14 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 
     const isGuest = user.role === 'guest';
     const canPublish = itinerary.items.length > 0 && itinerary.name && !isGuest;
+
+    const handleCollaborativeShare = () => {
+        openCollaborationShare({
+            kind: 'diary',
+            resourceId: itinerary.id,
+            resourceTitle: itinerary.name || 'Diario di Viaggio',
+        });
+    };
 
     const handleSave = () => {
         if (isGuest) {
@@ -445,6 +451,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                         onOpenRoadbook={onOpenRoadbook}
                         onOpenAiPlanner={onOpenAiPlanner}
                         onPublish={onPublish}
+                        onCollaborativeShare={handleCollaborativeShare}
                         canPublish={canPublish}
                         isGuest={isGuest}
                         shouldFlashSuitcase={shouldFlashSuitcase}

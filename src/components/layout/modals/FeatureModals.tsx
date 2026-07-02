@@ -26,6 +26,11 @@ const PoiClaimModal = React.lazy(() => import('@/components/modals/PoiClaimModal
 const ExportModal = React.lazy(() => import('@/components/modals/ExportModal').then(module => ({ default: module.ExportModal })));
 const EmptyDiaryModal = React.lazy(() => import('@/components/modals/EmptyDiaryModal').then(module => ({ default: module.EmptyDiaryModal })));
 const ShareModal = React.lazy(() => import('@/components/modals/ShareModal').then(module => ({ default: module.ShareModal })));
+const CollaborationShareModal = React.lazy(() =>
+    import('@/components/collaboration/CollaborationShareModal').then((module) => ({
+        default: module.CollaborationShareModal,
+    }))
+);
 const BuyCreditsModal = React.lazy(() => import('@/components/modals/BuyCreditsModal').then(module => ({ default: module.BuyCreditsModal })));
 const QuotaExceededModal = React.lazy(() => import('@/components/modals/QuotaExceededModal').then(module => ({ default: module.QuotaExceededModal })));
 
@@ -151,6 +156,16 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             {/* --- SOCIAL & DISCOVERY --- */}
             {activeModal === 'share' && (
                 <ShareModal isOpen={true} onClose={closeModal} title={modalProps.title} text={modalProps.text} url={modalProps.url} />
+            )}
+            {activeModal === 'collaborationShare' && modalProps.kind && modalProps.resourceId && (
+                <CollaborationShareModal
+                    isOpen={true}
+                    onClose={closeModal}
+                    user={user}
+                    kind={modalProps.kind}
+                    resourceId={modalProps.resourceId}
+                    resourceTitle={modalProps.resourceTitle ?? ''}
+                />
             )}
             {activeModal === 'global' && (
                 <GlobalSectionView isOpen={true} section={modalProps.section} initialTab={modalProps.tab} initialSelectedPostId={modalProps.id} onClose={closeModal} user={user} onUserUpdate={props.onUserUpdate} onOpenAuth={() => openModal('auth', { returnTo: 'global', returnProps: modalProps })} />

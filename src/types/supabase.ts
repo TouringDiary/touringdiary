@@ -2434,6 +2434,64 @@ export type Database = {
           },
         ]
       }
+      resource_invites: {
+        Row: {
+          created_at: string
+          id: string
+          invitee_id: string
+          inviter_id: string
+          responded_at: string | null
+          role: Database["public"]["Enums"]["collaborative_member_role"]
+          shared_resource_id: string
+          status: Database["public"]["Enums"]["resource_invite_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invitee_id: string
+          inviter_id: string
+          responded_at?: string | null
+          role: Database["public"]["Enums"]["collaborative_member_role"]
+          shared_resource_id: string
+          status?: Database["public"]["Enums"]["resource_invite_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invitee_id?: string
+          inviter_id?: string
+          responded_at?: string | null
+          role?: Database["public"]["Enums"]["collaborative_member_role"]
+          shared_resource_id?: string
+          status?: Database["public"]["Enums"]["resource_invite_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_invites_invitee_id_fkey"
+            columns: ["invitee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_invites_inviter_id_fkey"
+            columns: ["inviter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_invites_shared_resource_id_fkey"
+            columns: ["shared_resource_id"]
+            isOneToOne: false
+            referencedRelation: "shared_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           approved_at: string | null
@@ -2516,6 +2574,86 @@ export type Database = {
           type?: string | null
         }
         Relationships: []
+      }
+      shared_resource_members: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["collaborative_member_role"]
+          shared_resource_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["collaborative_member_role"]
+          shared_resource_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["collaborative_member_role"]
+          shared_resource_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_resource_members_shared_resource_id_fkey"
+            columns: ["shared_resource_id"]
+            isOneToOne: false
+            referencedRelation: "shared_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_resource_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_resources: {
+        Row: {
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["shared_resource_kind"]
+          owner_id: string
+          resource_id: string
+          sharing_mode: Database["public"]["Enums"]["sharing_mode"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["shared_resource_kind"]
+          owner_id: string
+          resource_id: string
+          sharing_mode?: Database["public"]["Enums"]["sharing_mode"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["shared_resource_kind"]
+          owner_id?: string
+          resource_id?: string
+          sharing_mode?: Database["public"]["Enums"]["sharing_mode"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_resources_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shop_products: {
         Row: {
@@ -3389,6 +3527,7 @@ export type Database = {
           icon: string | null
           id: string
           is_user_template: boolean
+          last_modified_by: string | null
           source_template_id: string | null
           title: string
           ui_state: Json | null
@@ -3401,6 +3540,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_user_template?: boolean
+          last_modified_by?: string | null
           source_template_id?: string | null
           title: string
           ui_state?: Json | null
@@ -3413,6 +3553,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_user_template?: boolean
+          last_modified_by?: string | null
           source_template_id?: string | null
           title?: string
           ui_state?: Json | null
@@ -3420,6 +3561,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "suitcases_last_modified_by_fkey"
+            columns: ["last_modified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "suitcases_source_template_id_fkey"
             columns: ["source_template_id"]
@@ -3620,6 +3768,42 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_notifications: {
         Row: {
@@ -4392,6 +4576,7 @@ export type Database = {
         | "sponsor"
         | "promo"
         | "referral"
+      collaborative_member_role: "collaborator" | "viewer"
       media_status: "real" | "placeholder" | "missing"
       plan_segment: "BUSINESS" | "TRAVELER"
       plan_type:
@@ -4402,7 +4587,10 @@ export type Database = {
         | "TOUR_GUIDE"
         | "PRO_USER"
         | "PRO_USER_PLUS"
+      resource_invite_status: "pending" | "accepted" | "rejected" | "revoked"
       sponsor_message_direction: "admin" | "partner" | "system"
+      shared_resource_kind: "diary" | "suitcase" | "user_template"
+      sharing_mode: "collaborative" | "personal"
       subscription_status: "ACTIVE" | "EXPIRED" | "CANCELLED" | "PENDING"
     }
     CompositeTypes: {
@@ -4540,6 +4728,7 @@ export const Constants = {
         "promo",
         "referral",
       ],
+      collaborative_member_role: ["collaborator", "viewer"],
       media_status: ["real", "placeholder", "missing"],
       plan_segment: ["BUSINESS", "TRAVELER"],
       plan_type: [
@@ -4551,7 +4740,10 @@ export const Constants = {
         "PRO_USER",
         "PRO_USER_PLUS",
       ],
+      resource_invite_status: ["pending", "accepted", "rejected", "revoked"],
       sponsor_message_direction: ["admin", "partner", "system"],
+      shared_resource_kind: ["diary", "suitcase", "user_template"],
+      sharing_mode: ["collaborative", "personal"],
       subscription_status: ["ACTIVE", "EXPIRED", "CANCELLED", "PENDING"],
     },
   },

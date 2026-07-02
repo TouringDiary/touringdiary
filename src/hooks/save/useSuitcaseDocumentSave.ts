@@ -10,6 +10,8 @@ import {
   syncSuitcaseItemsDiff,
 } from '@/services/suitcase/suitcaseDocumentSaveService';
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
+import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
+import { notifySharedResourceContentModified } from '@/services/collaboration/collaborationNotificationService';
 
 interface UseSuitcaseDocumentSaveOptions {
   activeSuitcase: Suitcase | null | undefined;
@@ -107,6 +109,19 @@ export function useSuitcaseDocumentSave({
       // or functions — structuredClone is safe for baseline copies.
       baselineSuitcaseRef.current = structuredClone(savedSuitcase);
       onDocumentSaved(savedSuitcase);
+
+      const resourceKind = resolveSuitcaseSharedResourceKind(savedSuitcase);
+      if (resourceKind && wasPersisted) {
+        void notifySharedResourceContentModified(
+          userId,
+          resourceKind,
+          savedSuitcase.id,
+          savedSuitcase.title
+        ).catch((notificationError) => {
+          console.error('[useSuitcaseDocumentSave] notifySharedResourceContentModified:', notificationError);
+        });
+      }
+
       return result;
     },
     [onDocumentSaved, onSaveAsNavigate, userId]

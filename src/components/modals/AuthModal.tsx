@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Mail, Lock, User, ArrowRight, CheckCircle, AlertCircle, Loader2, Zap, Shield, Briefcase, UserCheck, Gift } from 'lucide-react';
 import { authenticateUser, registerUser, refreshUsersCache, devLogin } from '../../services/userService';
+import type { RegisterUserInput } from '../../services/userService';
+import { ProfileIdentityFields } from '../user/profile/ProfileIdentityFields';
+import { validateUsernameForSubmit } from '@/services/profileService';
 import { addNotification } from '../../services/notificationService'; 
 import { User as UserType } from '../../types/users';
 import { getSessionItem, removeSessionItem } from '../../services/storageService';
@@ -31,6 +34,9 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
     const [password, setPassword] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [username, setUsername] = useState('');
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     
     // Referral State (Step 2)
     const [referralCode, setReferralCode] = useState('');
@@ -43,41 +49,61 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
     const { getText: getWelcomeMsg } = useSystemMessage('auth_welcome');
     const welcomeMsg = getWelcomeMsg();
 
+    const resetRegistrationFormFields = () => {
+        setFirstName('');
+        setLastName('');
+        setUsername('');
+        setAvatarFile(null);
+        setAvatarPreview(null);
+    };
+
+    const resetAuthModalOnOpen = () => {
+        setView('login');
+        setError(null);
+        setIsLoading(false);
+        setEmail('');
+        setPassword('');
+        resetRegistrationFormFields();
+
+        const pendingRef = getSessionItem('pending_referral_code');
+        if (pendingRef) {
+            setReferralCode(pendingRef);
+            setHasPendingReferral(true);
+        } else {
+            setReferralCode('');
+            setHasPendingReferral(false);
+        }
+
+        refreshUsersCache().then(allUsers => {
+            let testAccounts = allUsers.filter(u => u.isTestAccount === true);
+            if (testAccounts.length === 0) {
+                testAccounts = allUsers.filter(u => u.role === 'admin_all' || u.role === 'admin_limited').slice(0, 5);
+            }
+            const sortedTests = testAccounts.sort((a, b) => {
+                const roleOrder: Record<string, number> = { 'admin_all': 0, 'admin_limited': 1, 'business': 2, 'user': 3 };
+                return (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
+            });
+            setDemoUsers(sortedTests.slice(0, 8));
+        });
+    };
+
     useEffect(() => {
         if (isOpen) {
-            setView('login');
-            setError(null);
-            setIsLoading(false);
-            setEmail('');
-            setPassword('');
-            setFirstName('');
-            setLastName('');
-            
-            // CHECK REFERRAL CODE IN SESSION STORAGE (SAFE)
-            const pendingRef = getSessionItem('pending_referral_code');
-            if (pendingRef) {
-                setReferralCode(pendingRef);
-                setHasPendingReferral(true);
-            } else {
-                setReferralCode('');
-                setHasPendingReferral(false);
-            }
-            
-            refreshUsersCache().then(allUsers => {
-                let testAccounts = allUsers.filter(u => u.isTestAccount === true);
-                if (testAccounts.length === 0) {
-                    testAccounts = allUsers.filter(u => u.role === 'admin_all' || u.role === 'admin_limited').slice(0, 5);
-                }
-                const sortedTests = testAccounts.sort((a, b) => {
-                    const roleOrder: Record<string, number> = { 'admin_all': 0, 'admin_limited': 1, 'business': 2, 'user': 3 };
-                    return (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
-                });
-                setDemoUsers(sortedTests.slice(0, 8));
-            });
+            resetAuthModalOnOpen();
         }
     }, [isOpen]);
 
     useGlobalModalEscape(isOpen, onClose);
+
+    useEffect(() => {
+        if (!avatarFile) {
+            setAvatarPreview(null);
+            return;
+        }
+        const url = URL.createObjectURL(avatarFile);
+        setAvatarPreview(url);
+        return () => URL.revokeObjectURL(url);
+    }, [avatarFile]);
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value.replace(/\s/g, '').trim();
@@ -113,6 +139,12 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
             return;
         }
 
+        const usernameValidation = await validateUsernameForSubmit(username);
+        if (usernameValidation) {
+            setError(usernameValidation);
+            return;
+        }
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
              setError("Formato email non valido. Controlla di aver inserito '@' e il dominio.");
@@ -122,16 +154,18 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
         setIsLoading(true);
         
         // Passiamo referralCode al servizio
-        const cleanData = {
+        const cleanData: RegisterUserInput = {
             name: `${firstName.trim()} ${lastName.trim()}`,
             firstName: firstName.trim(),
             lastName: lastName.trim(),
             email: email.trim().toLowerCase(),
             password: password,
-            referralCode: referralCode.trim().toUpperCase() || undefined
+            username: username.trim(),
+            referralCode: referralCode.trim().toUpperCase() || undefined,
+            avatarFile,
         };
         
-        const result = await (registerUser as any)(cleanData);
+        const result = await registerUser(cleanData);
 
         if (result.success && result.user) {
             // Successo: Rimuovi codice dalla sessione
@@ -388,6 +422,15 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
                                                 />
                                             </div>
                                         </div>
+
+                                        <ProfileIdentityFields
+                                            displayName={`${firstName} ${lastName}`.trim() || 'Utente'}
+                                            username={username}
+                                            onUsernameChange={setUsername}
+                                            avatarPreviewUrl={avatarPreview}
+                                            onAvatarFileChange={setAvatarFile}
+                                            avatarRecommended
+                                        />
 
                                         {/* REFERRAL CODE INPUT */}
                                         <div className="space-y-1 animate-in fade-in slide-in-from-top-2">

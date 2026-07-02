@@ -1,8 +1,55 @@
 import React from 'react';
 import { SuitcaseCard } from './SuitcaseCard';
 import { Suitcase } from '@/types/suitcase';
+import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
 
 import { TemplatePreview } from './TemplatePreview';
+
+const SavedSuitcaseCard: React.FC<{
+  suitcase: Suitcase;
+  isActive: boolean;
+  isCloning: boolean;
+  isDiaryAssociable: boolean;
+  currentUser?: SavedSuitcasesSectionProps['currentUser'];
+  onOpenSuitcase: (id: string) => void;
+  onViewSuitcase: (id: string) => void;
+  onRequestAssociate?: (id: string) => void;
+  onDeleteSuitcase: (id: string) => void;
+  onDuplicateSuitcase?: (id: string) => void;
+  onSelect: () => void;
+}> = ({
+  suitcase,
+  isActive,
+  isCloning,
+  isDiaryAssociable,
+  currentUser,
+  onOpenSuitcase,
+  onViewSuitcase,
+  onRequestAssociate,
+  onDeleteSuitcase,
+  onDuplicateSuitcase,
+  onSelect,
+}) => {
+  const isShared = useSharedResourceIndicator('suitcase', suitcase.id);
+
+  return (
+    <SuitcaseCard
+      suitcase={suitcase}
+      variant="saved"
+      isActive={isActive}
+      isCloning={isCloning}
+      isDiaryAssociable={isDiaryAssociable}
+      isShared={isShared}
+      onOpen={onOpenSuitcase}
+      onView={onViewSuitcase}
+      onAssociate={onRequestAssociate}
+      onDelete={onDeleteSuitcase}
+      onDuplicate={onDuplicateSuitcase}
+      onSelect={onSelect}
+      currentUser={currentUser}
+    />
+  );
+};
 
 interface SavedSuitcasesSectionProps {
   savedSuitcases: Suitcase[];
@@ -55,21 +102,20 @@ export const SavedSuitcasesSection: React.FC<SavedSuitcasesSectionProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 items-start relative max-w-[1280px] mx-auto w-full px-4 lg:px-0">
         {/* Lista valigie */}
         <div className="flex flex-col gap-3">
-          {savedSuitcases.map(s => (
-            <SuitcaseCard
+          {savedSuitcases.map((s) => (
+            <SavedSuitcaseCard
               key={s.id}
               suitcase={s}
-              variant="saved"
               isActive={hoveredItemId === s.id}
               isCloning={isCloning}
               isDiaryAssociable={isDiaryAssociable}
-              onOpen={onOpenSuitcase}
-              onView={onViewSuitcase}
-              onAssociate={onRequestAssociate}
-              onDelete={onDeleteSuitcase}
-              onDuplicate={onDuplicateSuitcase}
-              onSelect={() => onHover(s.id)}
               currentUser={currentUser}
+              onOpenSuitcase={onOpenSuitcase}
+              onViewSuitcase={onViewSuitcase}
+              onRequestAssociate={onRequestAssociate}
+              onDeleteSuitcase={onDeleteSuitcase}
+              onDuplicateSuitcase={onDuplicateSuitcase}
+              onSelect={() => onHover(s.id)}
             />
           ))}
         </div>

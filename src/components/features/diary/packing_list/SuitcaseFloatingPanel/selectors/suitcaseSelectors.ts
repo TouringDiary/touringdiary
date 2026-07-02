@@ -51,9 +51,7 @@ export const useSuitcaseSelectors = (
   const userOwnedTemplates = useMemo(() => {
     if (!userId) return [];
     return userSuitcases
-      .filter(
-        (s) => s.user_id === userId && isUserTemplate(s) && !isDraftWorkspaceId(s.id)
-      )
+      .filter((s) => isUserTemplate(s) && !isDraftWorkspaceId(s.id))
       .sort(
         (a, b) =>
           new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime()

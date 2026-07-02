@@ -185,6 +185,12 @@ export interface Suitcase {
   user_id: string | null;
   created_at?: string;
   updated_at?: string;
+  /** Ultimo utente che ha modificato la risorsa (§21). */
+  last_modified_by?: string | null;
+  /** Nome visualizzato del creatore (arricchito dal service layer). */
+  created_by_name?: string | null;
+  /** Nome visualizzato dell'ultimo modificatore (arricchito dal service layer). */
+  last_modified_by_name?: string | null;
   source_template_id?: string | null;
   custom_categories?: SuitcaseCategory[];
   ui_state?: SuitcaseUiState;

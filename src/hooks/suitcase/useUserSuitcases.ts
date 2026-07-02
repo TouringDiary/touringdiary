@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchUserSuitcasesAsync } from '@/services/suitcaseService';
+import { fetchAccessibleSuitcasesForUserAsync } from '@/services/suitcaseService';
 import { Suitcase } from '@/types/suitcase';
 import { isDraftWorkspaceId, preserveDraftLocalStorageFields } from '@/utils/guestSuitcaseHelper';
 
@@ -19,7 +19,7 @@ export const useUserSuitcases = (userId: string | undefined) => {
 
       // Solo se l'utente ha un UUID effettivo scarichiamo da Supabase
       if (userId && userId !== 'guest') {
-        const data = await fetchUserSuitcasesAsync(userId);
+        const data = await fetchAccessibleSuitcasesForUserAsync(userId);
         finalSuitcases = [...data];
       }
       

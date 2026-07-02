@@ -26,6 +26,8 @@ const listContentKey = (values?: string[] | null) =>
   (values ?? []).slice().sort().join('\0');
 
 const itemContentKey = (item: SuitcaseItem) =>
+  // ai_suggestion_context e suggested_at sono impostati solo in INSERT (addSuitcaseItemAsync);
+  // updateSuitcaseItemAsync non li include nel payload — immutabili dopo la creazione nel diff.
   `${item.name}|${item.category}|${item.quantity ?? 1}|${!!item.is_checked}|${!!item.is_ai_suggestion}|${item.accepted_from_ai ?? ''}|${listContentKey(item.affiliate_tags)}|${listContentKey(item.poi_triggers)}`;
 
 /**
@@ -66,16 +68,21 @@ async function createSuitcaseFromSnapshot(
 async function updateSuitcaseMetadataFromSnapshot(
   suitcaseId: string,
   snapshot: Suitcase,
-  title: string
+  title: string,
+  lastModifiedById: string
 ): Promise<void> {
   const normalizedUi = ensureUiStateForPersist(snapshot);
-  await updateSuitcaseAsync(suitcaseId, {
-    title,
-    icon: snapshot.icon,
-    custom_categories: snapshot.custom_categories,
-    ui_state: normalizedUi,
-    source_template_id: snapshot.source_template_id,
-  });
+  await updateSuitcaseAsync(
+    suitcaseId,
+    {
+      title,
+      icon: snapshot.icon,
+      custom_categories: snapshot.custom_categories,
+      ui_state: normalizedUi,
+      source_template_id: snapshot.source_template_id,
+    },
+    { lastModifiedById }
+  );
 }
 
 /**
@@ -102,7 +109,7 @@ export async function saveSuitcaseDocumentAsync(
     return createSuitcaseFromSnapshot(snapshot, userId, resolvedTitle);
   }
 
-  await updateSuitcaseMetadataFromSnapshot(documentId, snapshot, resolvedTitle);
+  await updateSuitcaseMetadataFromSnapshot(documentId, snapshot, resolvedTitle, userId);
   return { id: documentId };
 }
 

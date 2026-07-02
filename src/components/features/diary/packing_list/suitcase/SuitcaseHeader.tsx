@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Edit2, Trash2, ChevronLeft, Link2, Layout, Undo2, Redo2, CloudOff, CalendarDays, Search, Wrench, Save, Sparkles } from 'lucide-react';
+import { Edit2, Trash2, ChevronLeft, Link2, Layout, Undo2, Redo2, CloudOff, CalendarDays, Search, Wrench, Save, Sparkles, Users } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Suitcase } from '@/types/suitcase';
 import { TemplateCategoryIcon } from './SuitcaseUtils';
@@ -75,6 +75,9 @@ interface SuitcaseHeaderProps {
   onSetViewMode?: (mode: 'viewer' | 'editor') => void;
   canUseTemplateAction?: boolean;
   onUseTemplate?: () => void;
+  onShare?: () => void;
+  showShareButton?: boolean;
+  canDeleteResource?: boolean;
 }
 
 export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
@@ -127,6 +130,9 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
   onSetViewMode,
   canUseTemplateAction = false,
   onUseTemplate,
+  onShare,
+  showShareButton = false,
+  canDeleteResource = true,
 }) => {
   const isDetailView = viewMode === 'editor' || viewMode === 'viewer';
   const isReadOnlySession =
@@ -459,6 +465,19 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
 
               {undoRedoGroup}
 
+              {showShareButton && onShare && (
+                <button
+                  type="button"
+                  onClick={onShare}
+                  className="flex items-center justify-center p-2.5 rounded-xl bg-slate-800/50 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-300 border border-white/10 hover:border-indigo-500/20 transition-all shadow-lg"
+                  title="Condividi"
+                  aria-label="Condividi"
+                >
+                  <Users className="w-5 h-5" />
+                </button>
+              )}
+
+              {canDeleteResource && (
               <button
                 onClick={onDelete}
                 className="flex items-center justify-center p-2.5 rounded-xl bg-slate-800/50 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 border border-white/10 hover:border-rose-500/20 transition-all shadow-lg"
@@ -466,6 +485,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+              )}
             </div>
           )}
 
@@ -511,7 +531,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                     savePhase={savePhase}
                     isGuest={isGuest}
                     onGuestSaveAction={onGuestSaveAction}
-                    onDelete={onDelete}
+                    onDelete={canDeleteResource ? onDelete : undefined}
                     isLinkedToItinerary={isLinkedToItinerary}
                     isAssociable={isAssociable}
                     isDiaryAssociable={isDiaryAssociable}

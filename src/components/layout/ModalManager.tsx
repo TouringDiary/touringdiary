@@ -16,6 +16,8 @@ import { ModalLoading } from '../common/ModalLoading';
 import { CoreModals } from './modals/CoreModals';
 import { AdminModals } from './modals/AdminModals';
 import { FeatureModals } from './modals/FeatureModals';
+import { COLLABORATION_RETURN_TO } from '@/collaboration/guestGate';
+import { userNeedsUsername } from '@/domain/profile/username';
 import { ModalManagerExternalProps } from './ModalManagerTypes';
 
 export const ModalManager = () => {
@@ -45,16 +47,54 @@ export const ModalManager = () => {
     const { city: activeCityDetails } = useCityData(activeCityId);
 
     // 3. HANDLERS ADATTATI
-    const handleAuthSuccess = (u: User) => {
-        setUser(u);
-        if (modalProps.returnTo === 'dashboard') {
+    const resumeAfterIdentitySetup = useCallback((u: User) => {
+        const pendingReturnTo = modalProps.returnTo;
+        const pendingReturnProps = modalProps.returnProps;
+
+        if (pendingReturnTo === 'dashboard') {
             closeModal();
             handleNavigateGlobal('profile', undefined, undefined, { slug: u.slug });
-        } else if (modalProps.returnTo) {
-            openModal(modalProps.returnTo, modalProps.returnProps);
-        } else {
-            closeModal();
+            return;
         }
+        if (pendingReturnTo === COLLABORATION_RETURN_TO) {
+            closeModal();
+            const resumeProps = pendingReturnProps as {
+                kind?: string;
+                resourceId?: string;
+                resourceTitle?: string;
+            } | undefined;
+            if (resumeProps?.kind && resumeProps?.resourceId) {
+                openModal('collaborationShare', {
+                    kind: resumeProps.kind,
+                    resourceId: resumeProps.resourceId,
+                    resourceTitle: resumeProps.resourceTitle ?? '',
+                });
+            }
+            return;
+        }
+        if (pendingReturnTo) {
+            openModal(pendingReturnTo, pendingReturnProps);
+            return;
+        }
+        closeModal();
+    }, [modalProps.returnTo, modalProps.returnProps, closeModal, openModal, handleNavigateGlobal]);
+
+    const handleAuthSuccess = (u: User) => {
+        setUser(u);
+        if (userNeedsUsername(u.slug)) {
+            openModal('setUsername', {
+                returnTo: modalProps.returnTo,
+                returnProps: modalProps.returnProps,
+                mandatory: true,
+            });
+            return;
+        }
+        resumeAfterIdentitySetup(u);
+    };
+
+    const handleUsernameComplete = (u: User) => {
+        setUser(u);
+        resumeAfterIdentitySetup(u);
     };
 
     const handleCloseAuth = () => {
@@ -143,6 +183,8 @@ export const ModalManager = () => {
                 onConfirmGps={confirmGpsFromModal}
                 onAuthSuccess={handleAuthSuccess}
                 onCloseAuth={handleCloseAuth}
+                user={user}
+                onUsernameComplete={handleUsernameComplete}
             />
 
             <AdminModals

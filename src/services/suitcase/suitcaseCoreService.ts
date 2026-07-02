@@ -6,9 +6,82 @@ import { CategorySetupEntry } from '../../domain/packing/categorySetupTypes';
 import { getDefaultCategorySetupForNewEntity } from '../../domain/packing/categorySetup';
 import { normalizeCategoryName } from '../../domain/packing/packingCategories';
 import { resolveRuntimeIsTemplate } from '../../utils/suitcaseDomain';
+import { fetchCollaborativeSuitcaseIdsForMember } from '../collaboration/suitcaseCollaborationService';
 
 type RawSuitcase = Database['public']['Tables']['suitcases']['Row'];
 type RawSuitcaseItem = Database['public']['Tables']['suitcase_items']['Row'];
+
+type ProfileNameRow = { name: string | null };
+
+type SuitcaseQueryRow = RawSuitcase & {
+  suitcase_items?: RawSuitcaseItem[] | null;
+  itinerary_suitcases?: { itinerary_id: string }[] | null;
+  owner_profile?: ProfileNameRow | ProfileNameRow[] | null;
+  last_modifier_profile?: ProfileNameRow | ProfileNameRow[] | null;
+};
+
+const SUITCASE_ITEMS_SELECT = `
+  id,
+  name,
+  category,
+  suitcase_id,
+  is_checked,
+  is_ai_suggestion,
+  quantity,
+  ai_suggestion_context,
+  suggested_at,
+  created_at,
+  accepted_from_ai,
+  affiliate_tags,
+  poi_triggers
+`;
+
+const SUITCASE_DETAIL_SELECT = `
+  id,
+  title,
+  icon,
+  user_id,
+  is_user_template,
+  itinerary_suitcases(itinerary_id),
+  source_template_id,
+  custom_categories,
+  ui_state,
+  created_at,
+  updated_at,
+  last_modified_by,
+  owner_profile:profiles!suitcases_user_id_fkey(name),
+  last_modifier_profile:profiles!suitcases_last_modified_by_fkey(name),
+  suitcase_items!suitcase_items_suitcase_id_fkey(${SUITCASE_ITEMS_SELECT})
+`;
+
+function profileName(
+  profile: ProfileNameRow | ProfileNameRow[] | null | undefined
+): string | null {
+  if (!profile) return null;
+  if (Array.isArray(profile)) return profile[0]?.name ?? null;
+  return profile.name;
+}
+
+function mapSuitcaseQueryRowToRuntime(row: SuitcaseQueryRow): Suitcase {
+  const rawItems = Array.isArray(row.suitcase_items) ? row.suitcase_items : [];
+  const rawItineraries = Array.isArray(row.itinerary_suitcases)
+    ? row.itinerary_suitcases
+    : [];
+  const itinerary_suitcases = rawItineraries.map((it) => {
+    if (!it || typeof it.itinerary_id !== 'string') {
+      throw new Error('[suitcaseCoreService] Errore di validazione: itinerary_id non valido o mancante.');
+    }
+    return { itinerary_id: it.itinerary_id };
+  });
+
+  const suitcase = mapDbSuitcaseRowToRuntime(row, rawItems, itinerary_suitcases);
+  return {
+    ...suitcase,
+    last_modified_by: row.last_modified_by ?? null,
+    created_by_name: profileName(row.owner_profile),
+    last_modified_by_name: profileName(row.last_modifier_profile),
+  };
+}
 
 /**
  * Normalizzatore e parser sicuro per custom_categories.
@@ -210,6 +283,7 @@ export const mapDbSuitcaseToRuntimeSuitcase = (
     user_id: dbSuitcase.user_id,
     created_at: dbSuitcase.created_at,
     updated_at: dbSuitcase.updated_at,
+    last_modified_by: dbSuitcase.last_modified_by,
     source_template_id: dbSuitcase.source_template_id,
     custom_categories: parseCustomCategories(dbSuitcase.custom_categories),
     ui_state: parseUiState(dbSuitcase.ui_state),
@@ -238,6 +312,7 @@ export const mapDbSuitcaseRowToRuntime = (
     user_id: row.user_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    last_modified_by: row.last_modified_by,
     source_template_id: row.source_template_id,
     custom_categories: row.custom_categories,
     ui_state: row.ui_state,
@@ -294,56 +369,51 @@ export const mapDbSuitcaseItemRowToRuntime = (row: RawSuitcaseItem): SuitcaseIte
 export const fetchUserSuitcasesAsync = async (userId: string): Promise<Suitcase[]> => {
   const { data, error } = await supabase
     .from('suitcases')
-    .select(`
-      id,
-      title,
-      icon,
-      user_id,
-      is_user_template,
-      itinerary_suitcases(itinerary_id),
-      source_template_id,
-      custom_categories,
-      ui_state,
-      created_at,
-      updated_at,
-      suitcase_items!suitcase_items_suitcase_id_fkey(
-        id,
-        name,
-        category,
-        suitcase_id,
-        is_checked,
-        is_ai_suggestion,
-        quantity,
-        ai_suggestion_context,
-        suggested_at,
-        created_at,
-        accepted_from_ai,
-        affiliate_tags,
-        poi_triggers
-      )
-    `)
+    .select(SUITCASE_DETAIL_SELECT)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
   if (!data) {
-    throw new Error("[suitcaseCoreService] fetchUserSuitcasesAsync ha restituito data null.");
+    throw new Error('[suitcaseCoreService] fetchUserSuitcasesAsync ha restituito data null.');
   }
 
-  return data.map(item => {
-    const rawItems = Array.isArray(item.suitcase_items) ? item.suitcase_items : [];
-    const rawItineraries = Array.isArray(item.itinerary_suitcases)
-      ? item.itinerary_suitcases
-      : [];
-    const itinerary_suitcases = rawItineraries.map(it => {
-      if (!it || typeof it.itinerary_id !== 'string') {
-        throw new Error("[suitcaseCoreService] Errore di validazione: itinerary_id non valido o mancante.");
-      }
-      return { itinerary_id: it.itinerary_id };
-    });
+  return (data as SuitcaseQueryRow[]).map(mapSuitcaseQueryRowToRuntime);
+};
 
-    return mapDbSuitcaseRowToRuntime(item, rawItems, itinerary_suitcases);
-  });
+/**
+ * Recupera valigie/template per ID (es. condivisi in modalità collaborativa).
+ */
+export const fetchSuitcasesByIdsAsync = async (suitcaseIds: string[]): Promise<Suitcase[]> => {
+  if (suitcaseIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('suitcases')
+    .select(SUITCASE_DETAIL_SELECT)
+    .in('id', suitcaseIds)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  if (!data) {
+    throw new Error('[suitcaseCoreService] fetchSuitcasesByIdsAsync ha restituito data null.');
+  }
+
+  return (data as SuitcaseQueryRow[]).map(mapSuitcaseQueryRowToRuntime);
+};
+
+/**
+ * Valigie/template di proprietà + condivisi in modalità collaborativa (§15, §16).
+ */
+export const fetchAccessibleSuitcasesForUserAsync = async (userId: string): Promise<Suitcase[]> => {
+  const owned = await fetchUserSuitcasesAsync(userId);
+  const sharedIds = await fetchCollaborativeSuitcaseIdsForMember(userId);
+  const ownedIds = new Set(owned.map((suitcase) => suitcase.id));
+  const missingSharedIds = sharedIds.filter((id) => !ownedIds.has(id));
+
+  if (missingSharedIds.length === 0) return owned;
+
+  const shared = await fetchSuitcasesByIdsAsync(missingSharedIds);
+  return [...owned, ...shared];
 };
 
 export interface CreateSuitcaseOptions {
@@ -413,13 +483,18 @@ export const cloneSuitcaseAsync = async (
 /**
  * Aggiorna i dettagli di una valigia (es. titolo, icone, custom_categories, ui_state).
  */
-export const updateSuitcaseAsync = async (suitcaseId: string, updates: Partial<Suitcase>): Promise<void> => {
+export const updateSuitcaseAsync = async (
+  suitcaseId: string,
+  updates: Partial<Suitcase>,
+  options?: { lastModifiedById?: string }
+): Promise<void> => {
   const payload: {
     title?: string;
     icon?: string | null;
     custom_categories?: Json;
     ui_state?: Json;
     source_template_id?: string | null;
+    last_modified_by?: string;
   } = {};
 
   if (updates.title !== undefined) payload.title = updates.title;
@@ -434,6 +509,7 @@ export const updateSuitcaseAsync = async (suitcaseId: string, updates: Partial<S
       serializeUiState(updates.ui_state);
   }
   if (updates.source_template_id !== undefined) payload.source_template_id = updates.source_template_id;
+  if (options?.lastModifiedById) payload.last_modified_by = options.lastModifiedById;
 
   const { error } = await supabase
     .from('suitcases')
@@ -467,6 +543,9 @@ export const deleteSuitcaseAsync = async (suitcaseId: string): Promise<void> => 
 
 /**
  * Recupera le valigie associate a un itinerario (trip).
+ * Allineata alla pipeline standard (SUITCASE_DETAIL_SELECT + mapSuitcaseQueryRowToRuntime)
+ * tramite fetchSuitcasesByIdsAsync: stesso mapper, stessi campi (owner_profile,
+ * last_modifier_profile, created_by_name, last_modified_by_name), embed items in un'unica query.
  */
 export const fetchTripSuitcasesAsync = async (itineraryId: string): Promise<Suitcase[]> => {
   const { data: linkData, error: linkErr } = await supabase
@@ -477,21 +556,5 @@ export const fetchTripSuitcasesAsync = async (itineraryId: string): Promise<Suit
   if (!linkData || linkData.length === 0) return [];
 
   const suitcaseIds = linkData.map(l => l.suitcase_id);
-  const { data: suitcasesData, error: err } = await supabase
-    .from('suitcases')
-    .select('*')
-    .in('id', suitcaseIds);
-  if (err) throw err;
-  if (!suitcasesData || suitcasesData.length === 0) return [];
-
-  const { data: itemsData, error: itemsErr } = await supabase
-    .from('suitcase_items')
-    .select('*')
-    .in('suitcase_id', suitcaseIds);
-  if (itemsErr) throw itemsErr;
-
-  return suitcasesData.map(item => {
-    const dbItems = (itemsData || []).filter(si => si.suitcase_id === item.id);
-    return mapDbSuitcaseRowToRuntime(item, dbItems);
-  });
+  return fetchSuitcasesByIdsAsync(suitcaseIds);
 };

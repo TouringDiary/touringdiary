@@ -13,6 +13,9 @@ import type { SuitcasePanelComposition } from './hooks/useSuitcasePanelCompositi
 import { SaveAsModal } from '@/components/modals/SaveAsModal';
 import { UnsavedChangesModal } from '@/components/modals/UnsavedChangesModal';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { useResourcePermission } from '@/hooks/useResourcePermission';
+import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
 
 interface Props {
   composition: SuitcasePanelComposition;
@@ -55,6 +58,43 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
   // sia dal menu "Azione" nell'header (mobile/tablet). Reset all'uscita dalla modalità editor.
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const isGuest = !data.currentUser || data.currentUser.role === 'guest';
+  const openCollaborationShare = useOpenCollaborationShare();
+
+  const activeResourceKind = data.activeSuitcase
+    ? resolveSuitcaseSharedResourceKind(data.activeSuitcase)
+    : null;
+  const { permission: activeResourcePermission } = useResourcePermission(
+    activeResourceKind,
+    data.activeSuitcase?.id ?? null,
+    data.currentUser?.id
+  );
+
+  const canModifyActiveSuitcase =
+    !data.activeSuitcase ||
+    isTdTemplate(data.activeSuitcase) ||
+    activeResourcePermission?.capabilities.canModifyContent !== false;
+
+  const openSuitcaseWithPermission = (id: string, preferredMode: 'viewer' | 'editor') => {
+    data.panelState.clearNewSuitcaseSession();
+    data.panelState.setActiveTabId(id);
+    data.panelState.setViewMode(preferredMode);
+  };
+
+  useEffect(() => {
+    if (!data.activeSuitcase || !activeResourcePermission) return;
+    if (
+      !activeResourcePermission.capabilities.canModifyContent &&
+      data.panelState.viewMode === 'editor' &&
+      !isTdTemplate(data.activeSuitcase)
+    ) {
+      data.panelState.setViewMode('viewer');
+    }
+  }, [
+    data.activeSuitcase,
+    activeResourcePermission,
+    data.panelState.viewMode,
+    data.panelState,
+  ]);
 
   // ESC chiude (annulla) il dialogo unico "Modifiche non salvate" senza uscire dal pannello.
   useGlobalModalEscape(
@@ -220,8 +260,30 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         totalCount={composition.totalCount}
         progressPerc={composition.progressPerc}
         panelViewMode={data.panelState.viewMode === 'viewer' ? 'viewer' : 'editor'}
-        canToggleViewMode={!!data.activeSuitcase && !isTdTemplate(data.activeSuitcase)}
+        canToggleViewMode={
+          !!data.activeSuitcase &&
+          !isTdTemplate(data.activeSuitcase) &&
+          (activeResourcePermission?.capabilities.canModifyContent ?? true)
+        }
         onSetViewMode={(mode) => data.panelState.setViewMode(mode)}
+        showShareButton={
+          !!activeResourceKind &&
+          (activeResourcePermission?.capabilities.canManageCollaboration ?? false)
+        }
+        onShare={
+          data.activeSuitcase && activeResourceKind
+            ? () => {
+                const suitcase = data.activeSuitcase;
+                if (!suitcase) return;
+                openCollaborationShare({
+                  kind: activeResourceKind,
+                  resourceId: suitcase.id,
+                  resourceTitle: suitcase.title,
+                });
+              }
+            : undefined
+        }
+        canDeleteResource={activeResourcePermission?.capabilities.canDeleteResource ?? true}
         canUseTemplateAction={
           !!data.activeSuitcase &&
           isTdTemplate(data.activeSuitcase) &&
@@ -275,25 +337,19 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               hoveredItemId={data.panelState.hoveredItemId}
               onLinkSuitcase={actions.handleLinkExisting}
               onViewSuitcase={(id) => {
-                data.panelState.clearNewSuitcaseSession();
-                data.panelState.setActiveTabId(id);
                 data.panelState.setHoveredItemId(id);
-                data.panelState.setViewMode('viewer');
+                openSuitcaseWithPermission(id, 'viewer');
               }}
               onOpenSuitcase={(id) => {
                 const entity =
                   data.userSuitcases.find((s) => s.id === id) ??
                   data.globalTemplates.find((s) => s.id === id);
+                data.panelState.setHoveredItemId(id);
                 if (entity && isTdTemplate(entity)) {
-                  data.panelState.clearNewSuitcaseSession();
-                  data.panelState.setActiveTabId(id);
-                  data.panelState.setHoveredItemId(id);
-                  data.panelState.setViewMode('viewer');
+                  openSuitcaseWithPermission(id, 'viewer');
                   return;
                 }
-                data.panelState.clearNewSuitcaseSession();
-                data.panelState.setActiveTabId(id);
-                data.panelState.setViewMode('editor');
+                openSuitcaseWithPermission(id, 'editor');
               }}
               onUnlinkSuitcase={(id) => data.modalState.setSuitcaseToUnlink(id)}
               onDeleteSuitcase={(id) => data.modalState.setSuitcaseToDelete(id)}
@@ -366,7 +422,8 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               suitcase={data.activeSuitcase}
               readOnly={
                 data.panelState.viewMode === 'viewer' ||
-                isTdTemplate(data.activeSuitcase)
+                isTdTemplate(data.activeSuitcase) ||
+                !canModifyActiveSuitcase
               }
               categorySetupOverlay={
                 isTdTemplate(data.activeSuitcase)

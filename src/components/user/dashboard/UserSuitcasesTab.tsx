@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, LayoutTemplate, Calendar, PencilLine, Pencil, Copy, Trash2, Loader2 } from 'lucide-react';
+import { Briefcase, LayoutTemplate, Calendar, PencilLine, Pencil, Copy, Trash2, Loader2, Users } from 'lucide-react';
 import { useUserTemplates, deleteSuitcase } from '@/hooks/useSuitcaseSystem';
 import { duplicateSuitcaseEntityAsync } from '@/services/suitcaseService';
 import { isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
@@ -7,6 +7,10 @@ import { formatItalianDateTime } from '@/utils/dateFormatters';
 import { User } from '@/types';
 import { Suitcase } from '@/types/suitcase';
 import { useModal } from '@/context/ModalContext';
+import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
+import type { SharedResourceKind } from '@/domain/collaboration';
+import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import { SwipeToDelete } from '../../common/SwipeToDelete';
 import {
@@ -25,6 +29,107 @@ type SuitcaseTab = 'valigie' | 'template';
 
 const sortByUpdated = (a: Suitcase, b: Suitcase) =>
   new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime();
+
+interface UserSuitcaseEntityCardProps {
+  entity: Suitcase;
+  duplicatingId: string | null;
+  onEdit: (id: string) => void;
+  onDuplicate: (entity: Suitcase) => void;
+  onDelete: (entity: Suitcase) => void;
+}
+
+const UserSuitcaseEntityCard: React.FC<UserSuitcaseEntityCardProps> = ({
+  entity,
+  duplicatingId,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}) => {
+  const isTemplate = isUserTemplate(entity);
+  const resourceKind: SharedResourceKind = isTemplate ? 'user_template' : 'suitcase';
+  const isShared = useSharedResourceIndicator(resourceKind, entity.id);
+  const openCollaborationShare = useOpenCollaborationShare();
+
+  const titleHover = isTemplate ? 'group-hover:text-indigo-400' : 'group-hover:text-amber-400';
+  const accentBorder = isTemplate ? 'hover:border-indigo-500/40' : 'hover:border-amber-500/40';
+  const editTooltip = isTemplate ? 'Modifica Template' : 'Modifica Valigia';
+  const duplicateTooltip = isTemplate ? 'Duplica Template' : 'Duplica Valigia';
+  const deleteTooltip = isTemplate ? 'Elimina Template' : 'Elimina Valigia';
+
+  return (
+    <SwipeToDelete
+      className="rounded-2xl"
+      revealClassName="inset-y-[10%] rounded-2xl"
+      onDelete={() => onDelete(entity)}
+    >
+      <div
+        className={`group flex flex-col sm:flex-row sm:items-center gap-2.5 lg:gap-4 p-3 lg:p-5 bg-slate-900/80 rounded-2xl border border-slate-800 ${accentBorder} transition-all`}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-2 lg:mb-3">
+            <span className="text-2xl drop-shadow-md shrink-0">{entity.icon}</span>
+            <h3 className={`text-lg font-bold text-white leading-tight truncate ${titleHover} transition-colors`}>
+              {entity.title}
+            </h3>
+            {isShared && <SharedResourceIndicator />}
+          </div>
+
+          <div className="grid grid-cols-[auto_auto] items-center gap-x-2.5 gap-y-1 lg:gap-y-1.5 w-fit pl-0.5">
+            <span title="Data Creazione" className="flex items-center" aria-label="Data Creazione">
+              <Calendar className="w-3.5 h-3.5 text-slate-500" aria-hidden />
+            </span>
+            <span className="text-xs text-slate-300 font-medium tabular-nums">
+              {entity.created_at ? formatItalianDateTime(entity.created_at) : '—'}
+            </span>
+
+            <span title="Data Modifica" className="flex items-center" aria-label="Data Modifica">
+              <PencilLine className="w-3.5 h-3.5 text-slate-500" aria-hidden />
+            </span>
+            <span className="text-xs text-slate-300 font-medium tabular-nums">
+              {entity.updated_at ? formatItalianDateTime(entity.updated_at) : '—'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 shrink-0">
+          <IconActionButton
+            label="Condividi"
+            icon={Users}
+            className={ICON_ACTION_INDIGO_CLASS}
+            onClick={() =>
+              openCollaborationShare({
+                kind: resourceKind,
+                resourceId: entity.id,
+                resourceTitle: entity.title,
+              })
+            }
+          />
+          <IconActionButton
+            label={editTooltip}
+            icon={Pencil}
+            className={ICON_ACTION_SLATE_CLASS}
+            onClick={() => onEdit(entity.id)}
+          />
+          <IconActionButton
+            label={duplicateTooltip}
+            icon={Copy}
+            className={ICON_ACTION_INDIGO_CLASS}
+            loading={duplicatingId === entity.id}
+            onClick={() => onDuplicate(entity)}
+          />
+          <div className="hidden lg:block">
+            <IconActionButton
+              label={deleteTooltip}
+              icon={Trash2}
+              className={ICON_ACTION_DANGER_CLASS}
+              onClick={() => onDelete(entity)}
+            />
+          </div>
+        </div>
+      </div>
+    </SwipeToDelete>
+  );
+};
 
 export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
   const { templates: allUserSuitcases, isLoading, fetchTemplates } = useUserTemplates(user.id);
@@ -86,82 +191,22 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
     }
   };
 
-  const renderEntityCard = (entity: Suitcase) => {
-    const isTemplate = isUserTemplate(entity);
-    const titleHover = isTemplate ? 'group-hover:text-indigo-400' : 'group-hover:text-amber-400';
-    const accentBorder = isTemplate ? 'hover:border-indigo-500/40' : 'hover:border-amber-500/40';
-    const editTooltip = isTemplate ? 'Modifica Template' : 'Modifica Valigia';
-    const duplicateTooltip = isTemplate ? 'Duplica Template' : 'Duplica Valigia';
-    const deleteTooltip = isTemplate ? 'Elimina Template' : 'Elimina Valigia';
-
-    return (
-      // Mobile/tablet (< lg): swipe verso sinistra per eliminare (apre la conferma esistente).
-      // Desktop: passthrough, l'eliminazione resta sul pulsante cestino.
-      <SwipeToDelete
-        key={entity.id}
-        className="rounded-2xl"
-        revealClassName="inset-y-[10%] rounded-2xl"
-        onDelete={() => setDeletingEntity({ id: entity.id, title: entity.title, isTemplate })}
-      >
-        <div
-          className={`group flex flex-col sm:flex-row sm:items-center gap-2.5 lg:gap-4 p-3 lg:p-5 bg-slate-900/80 rounded-2xl border border-slate-800 ${accentBorder} transition-all`}
-        >
-          {/* INFO */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-2 lg:mb-3">
-              <span className="text-2xl drop-shadow-md shrink-0">{entity.icon}</span>
-              <h3 className={`text-lg font-bold text-white leading-tight truncate ${titleHover} transition-colors`}>
-                {entity.title}
-              </h3>
-            </div>
-
-            {/* Date incolonnate: icona (con tooltip) | valore */}
-            <div className="grid grid-cols-[auto_auto] items-center gap-x-2.5 gap-y-1 lg:gap-y-1.5 w-fit pl-0.5">
-              <span title="Data Creazione" className="flex items-center" aria-label="Data Creazione">
-                <Calendar className="w-3.5 h-3.5 text-slate-500" aria-hidden />
-              </span>
-              <span className="text-xs text-slate-300 font-medium tabular-nums">
-                {entity.created_at ? formatItalianDateTime(entity.created_at) : '—'}
-              </span>
-
-              <span title="Data Modifica" className="flex items-center" aria-label="Data Modifica">
-                <PencilLine className="w-3.5 h-3.5 text-slate-500" aria-hidden />
-              </span>
-              <span className="text-xs text-slate-300 font-medium tabular-nums">
-                {entity.updated_at ? formatItalianDateTime(entity.updated_at) : '—'}
-              </span>
-            </div>
-          </div>
-
-          {/* AZIONI (sinistra → destra: Modifica, Duplica, Elimina) */}
-          <div className="flex items-center justify-end gap-2 shrink-0">
-            <IconActionButton
-              label={editTooltip}
-              icon={Pencil}
-              className={ICON_ACTION_SLATE_CLASS}
-              onClick={() => handleEdit(entity.id)}
-            />
-            <IconActionButton
-              label={duplicateTooltip}
-              icon={Copy}
-              className={ICON_ACTION_INDIGO_CLASS}
-              loading={duplicatingId === entity.id}
-              onClick={() => handleDuplicate(entity)}
-            />
-            {/* Cestino solo desktop (>= lg): su mobile/tablet si usa lo swipe */}
-            <div className="hidden lg:block">
-              <IconActionButton
-                label={deleteTooltip}
-                icon={Trash2}
-                className={ICON_ACTION_DANGER_CLASS}
-                onClick={() => setDeletingEntity({ id: entity.id, title: entity.title, isTemplate })}
-              />
-            </div>
-          </div>
-        </div>
-      </SwipeToDelete>
-    );
-  };
+  const renderEntityCard = (entity: Suitcase) => (
+    <UserSuitcaseEntityCard
+      key={entity.id}
+      entity={entity}
+      duplicatingId={duplicatingId}
+      onEdit={handleEdit}
+      onDuplicate={handleDuplicate}
+      onDelete={(item) =>
+        setDeletingEntity({
+          id: item.id,
+          title: item.title,
+          isTemplate: isUserTemplate(item),
+        })
+      }
+    />
+  );
 
   if (isLoading) {
     return (

@@ -1,11 +1,12 @@
 import React from 'react';
-import { Briefcase, Map, Sparkles, Globe } from 'lucide-react';
+import { Briefcase, Globe, Map, Sparkles, Users } from 'lucide-react';
 
 interface DiaryHeaderToolbarProps {
     onOpenPackingList?: () => void;
     onOpenRoadbook?: () => void;
     onOpenAiPlanner?: () => void;
     onPublish: () => void;
+    onCollaborativeShare?: () => void;
     canPublish: boolean;
     isGuest: boolean;
     shouldFlashSuitcase: boolean;
@@ -15,8 +16,34 @@ interface DiaryHeaderToolbarProps {
 }
 
 export const DiaryHeaderToolbar: React.FC<DiaryHeaderToolbarProps> = ({
-    onOpenPackingList, onOpenRoadbook, onOpenAiPlanner, onPublish, canPublish, isGuest, shouldFlashSuitcase, shouldFlashRoadbook, itineraryItemsLength, openModal
+    onOpenPackingList,
+    onOpenRoadbook,
+    onOpenAiPlanner,
+    onPublish,
+    onCollaborativeShare,
+    canPublish,
+    isGuest,
+    shouldFlashSuitcase,
+    shouldFlashRoadbook,
+    itineraryItemsLength,
+    openModal,
 }) => {
+    const handleCommunityPublish = () => {
+        if (canPublish) {
+            onPublish();
+            return;
+        }
+        if (isGuest) {
+            openModal('auth');
+        }
+    };
+
+    const handleCollaborativeShare = () => {
+        if (onCollaborativeShare) {
+            onCollaborativeShare();
+        }
+    };
+
     return (
         <div className="flex items-center gap-1 shrink-0">
 
@@ -35,11 +62,24 @@ export const DiaryHeaderToolbar: React.FC<DiaryHeaderToolbarProps> = ({
                     <Sparkles className="w-5 h-5" />
                 </button>
             )}
+
+            <button
+                type="button"
+                onClick={handleCollaborativeShare}
+                className="p-1.5 rounded-lg shadow-md flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white"
+                title="Condividi"
+                aria-label="Condividi con altri utenti"
+            >
+                <Users className="w-5 h-5" />
+            </button>
+
             <button 
-                onClick={() => { if(canPublish) onPublish(); else if(isGuest) openModal('auth'); }} 
+                type="button"
+                onClick={handleCommunityPublish}
                 disabled={!canPublish && !isGuest} 
-                className={`p-1.5 rounded-lg shadow-md flex items-center justify-center ${canPublish || isGuest ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-800 text-slate-500 opacity-60 cursor-not-allowed border border-slate-700'}`} 
-                title="Condividi con la Community"
+                className={`p-1.5 rounded-lg shadow-md flex items-center justify-center ${canPublish || isGuest ? 'bg-slate-700 hover:bg-slate-600 text-white border border-slate-600' : 'bg-slate-800 text-slate-500 opacity-60 cursor-not-allowed border border-slate-700'}`} 
+                title="Pubblica nella Community"
+                aria-label="Pubblica nella Community"
             >
                 <Globe className="w-5 h-5" />
             </button>
