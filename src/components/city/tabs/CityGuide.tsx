@@ -8,7 +8,8 @@ import { calculateDistance } from '@/services/geo';
 import { openMap, open3DView, getPoiColorStyle, getSubCategoryLabel } from '@/utils/common';
 import { useInteraction } from '../../../context/InteractionContext';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles'; 
-import { getCachedSetting, SETTINGS_KEYS } from '@/services/settingsService';
+import { getCategoryPlaceholders } from '@/services/settingsService';
+import { resolvePoiDisplayImageUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 
 const PriceLevelIndicator = ({ level }: { level?: number }) => {
     const MAX_LEVEL = 5;
@@ -89,9 +90,11 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
         onOpenReview(poi);
     };
 
-    // MODIFICA 2: Logica di fallback corretta
-    const placeholders = getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
-    const imageUrl = poi.imageUrl || (placeholders ? placeholders[poi.category] : undefined);
+    const imageUrl = resolvePoiDisplayImageUrl({
+        imageUrl: poi.imageUrl,
+        category: poi.category,
+        categoryPlaceholders: getCategoryPlaceholders(),
+    });
 
     const sideBtnClass = "flex-1 flex flex-col items-center justify-center gap-1 transition-colors";
     const sideIconClass = "w-4 h-4 md:w-5 md:h-5";

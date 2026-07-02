@@ -3,12 +3,16 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { FileText, Image as ImageIcon, Printer, Download, LayoutList, AlertTriangle, Loader2, Sparkles, CheckSquare, Square, QrCode, Edit3, Link } from 'lucide-react';
+import { FileText, Image as ImageIcon, Printer, Download, LayoutList, AlertTriangle, Loader2, Sparkles, CheckSquare, Square, QrCode, Edit3, Link, type LucideIcon } from 'lucide-react';
 import { useItinerary } from '@/context/ItineraryContext';
 import FileSaver from 'file-saver';
 import { prepareItineraryForPdf, PreparedItinerary, CityVisualInfo } from '../../utils/pdfUtils'; 
+import { logPdfImagePipeline, runWithPdfPipelineWarningCapture, summarizeProcessedImage } from '../../utils/pdfImagePipelineLog';
 import { generateWordDocument, generateTextFile } from '../../utils/exportGenerators'; 
 import { useLogoRasterizer } from '../../hooks/useLogoRasterizer';
+import { normalizeDiaryNotesState } from '@/domain/diary/diaryNotesState';
+import { diaryNotesHasMeaningfulContent } from '@/components/features/diary/notes/diaryNotesDocumentToPlainText';
+import type { DiaryNotesNode } from '@/types/models/DiaryNotes';
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -16,6 +20,46 @@ interface ExportModalProps {
 }
 
 type ExportFormat = 'pdf' | 'docx' | 'txt';
+const EXPORT_FORMATS: ExportFormat[] = ['pdf', 'docx', 'txt'];
+
+type ExportOptionKey =
+    | 'details'
+    | 'photos'
+    | 'qrCodes'
+    | 'summary'
+    | 'notes'
+    | 'resources'
+    | 'travelNotes';
+
+/** Formati in cui ciascuna opzione è semanticamente applicabile (TXT è solo testo piano). */
+const EXPORT_OPTION_FORMATS: Record<ExportOptionKey, readonly ExportFormat[]> = {
+    details: ['pdf', 'docx'],
+    photos: ['pdf', 'docx'],
+    qrCodes: ['pdf', 'docx'],
+    summary: ['pdf', 'docx'],
+    notes: ['pdf', 'docx'],
+    resources: ['pdf', 'docx'],
+    travelNotes: ['pdf', 'docx'], // TXT: sempre incluse nel dump testuale (generateTextFile)
+};
+
+/** Opzioni la cui riga UI è omessa (non solo disabilitata) se il formato non le supporta. */
+const EXPORT_OPTIONS_HIDDEN_WHEN_UNSUPPORTED = new Set<ExportOptionKey>(['travelNotes']);
+
+const isExportOptionApplicable = (key: ExportOptionKey, format: ExportFormat): boolean =>
+    EXPORT_OPTION_FORMATS[key].includes(format);
+
+/** True se la riga opzione va renderizzata; false = formato non supportato e riga nascosta. */
+const shouldRenderExportOption = (key: ExportOptionKey, format: ExportFormat): boolean =>
+    !EXPORT_OPTIONS_HIDDEN_WHEN_UNSUPPORTED.has(key) || isExportOptionApplicable(key, format);
+
+interface OptionRowProps {
+    label: string;
+    icon: LucideIcon;
+    active: boolean;
+    onClick: () => void;
+    desc: string;
+    disabled?: boolean;
+}
 
 export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
     const { itinerary } = useItinerary();
@@ -30,7 +74,8 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
         summary: true, 
         details: true,
         notes: true,
-        resources: true
+        resources: true,
+        travelNotes: false
     });
 
     const [isPreparing, setIsPreparing] = useState(false);
@@ -42,16 +87,28 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
     const [cityNamesMap, setCityNamesMap] = useState<Record<string, string>>({});
 
 
-    // RESET & INIT
+    // RESET & INIT — solo all'apertura del modale.
+    // itinerary.diaryNotes è letto qui intenzionalmente ma NON va nelle dipendenze:
+    // includerlo rilancerebbe l'effect a ogni autosave/undo/sync con modale aperto
+    // e resetterebbe le opzioni scelte manualmente dall'utente.
     useEffect(() => {
-        if (isOpen) {
-            setFormat('pdf');
-            setIsPreparing(false);
-            setPreparedDoc(null);
-            setCityNamesMap({});
-            // Prepara subito per mostrare qualcosa (genera tutto una volta)
-            startPdfPreparation(true); 
-        }
+        if (!isOpen) return;
+
+        setFormat('pdf');
+        setIsPreparing(false);
+        setPreparedDoc(null);
+        setCityNamesMap({});
+        setOptions({
+            photos: true,
+            qrCodes: true,
+            summary: true,
+            details: true,
+            notes: true,
+            resources: true,
+            travelNotes: diaryNotesHasMeaningfulContent(itinerary.diaryNotes),
+        });
+        // Prepara subito per mostrare qualcosa (genera tutto una volta)
+        startPdfPreparation(true);
     }, [isOpen]);
 
     useGlobalModalEscape(isOpen, onClose);
@@ -88,6 +145,20 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                 (pct) => setProgress(pct)
             );
             setPreparedDoc(prepared);
+            logPdfImagePipeline({
+                stage: 'exportModal:prepared',
+                extra: {
+                    totalItems: prepared.items.length,
+                    itemsWithProcessedImage: prepared.items.filter((item) => Boolean(item.processedImage)).length,
+                    itemsWithImageUrlButNoProcessedImage: prepared.items
+                        .filter((item) => item.poi?.imageUrl && !item.processedImage)
+                        .map((item) => ({
+                            itemId: item.id,
+                            poiName: item.poi?.name,
+                            imageUrl: item.poi?.imageUrl,
+                        })),
+                },
+            });
         } catch (e: any) {
             console.error("PDF Prep Error", e);
             setGenError(`Errore dati: ${e.message}`);
@@ -120,13 +191,45 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                     import('../pdf/TravelDocument'),
                 ]);
 
-                const blob = await pdf(
-                    <TravelDocument
-                        itinerary={preparedDoc}
-                        logoBase64={logoBase64 || ''}
-                        options={options}
-                    />
-                ).toBlob();
+                const timelineItems = preparedDoc.items.filter((item) => !item.isResource);
+                for (const item of timelineItems) {
+                    const snapshotImageUrl = item.poi?.imageUrl?.trim() || '';
+                    if (!snapshotImageUrl && !item.processedImage) continue;
+
+                    logPdfImagePipeline({
+                        stage: 'exportModal:pdf-handoff',
+                        itemId: item.id,
+                        poiName: item.poi?.name,
+                        imageUrl: snapshotImageUrl || undefined,
+                        optionsPhotos: options.photos,
+                        hasImageUrl: Boolean(snapshotImageUrl),
+                        ...summarizeProcessedImage(item.processedImage),
+                        extra: {
+                            processedImagePresentInPreparedDoc: Boolean(item.processedImage),
+                            snapshotImageUrl: snapshotImageUrl || undefined,
+                            renderConditionMet: Boolean(options.photos && item.processedImage),
+                        },
+                    });
+                }
+
+                logPdfImagePipeline({
+                    stage: 'exportModal:pdf-generate-start',
+                    optionsPhotos: options.photos,
+                    extra: {
+                        timelineItems: timelineItems.length,
+                        handoffWithProcessedImage: timelineItems.filter((item) => item.processedImage).length,
+                    },
+                });
+
+                const blob = await runWithPdfPipelineWarningCapture(() =>
+                    pdf(
+                        <TravelDocument
+                            itinerary={preparedDoc}
+                            logoBase64={logoBase64 || ''}
+                            options={options}
+                        />
+                    ).toBlob(),
+                );
                 FileSaver.saveAs(blob, buildFilename('pdf'));
             } catch (e: any) {
                 console.error("PDF GENERATION ERROR:", e);
@@ -155,6 +258,100 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
             const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
             FileSaver.saveAs(blob, buildFilename('txt'));
         }
+    };
+
+    const renderNoteInline = (node: DiaryNotesNode, key: string): React.ReactNode => {
+        if (node.type !== 'text') {
+            return node.content?.map((child, index) => renderNoteInline(child, `${key}-${index}`)) ?? null;
+        }
+
+        const marks = node.marks ?? [];
+        const href = marks.find(mark => mark.type === 'link')?.attrs?.href;
+        const textColor = marks.find(mark => mark.type === 'textStyle')?.attrs?.color;
+        let content: React.ReactNode = typeof href === 'string' && href !== node.text
+            ? `${node.text ?? ''} (${href})`
+            : node.text;
+
+        if (marks.some(mark => mark.type === 'bold')) content = <strong key={`${key}-b`}>{content}</strong>;
+        if (marks.some(mark => mark.type === 'italic')) content = <em key={`${key}-i`}>{content}</em>;
+        if (marks.some(mark => mark.type === 'strike')) content = <s key={`${key}-s`}>{content}</s>;
+        if (marks.some(mark => mark.type === 'underline')) content = <u key={`${key}-u`}>{content}</u>;
+        if (typeof textColor === 'string') {
+            content = <span key={`${key}-c`} style={{ color: textColor }}>{content}</span>;
+        }
+
+        return <span key={key}>{content}</span>;
+    };
+
+    const renderNoteBlock = (node: DiaryNotesNode, key: string): React.ReactNode => {
+        if (node.type === 'heading') {
+            return (
+                <h3 key={key} className="text-base font-bold text-slate-900 mt-4 mb-2">
+                    {node.content?.map((child, index) => renderNoteInline(child, `${key}-${index}`))}
+                </h3>
+            );
+        }
+
+        if (node.type === 'paragraph') {
+            return (
+                <p key={key} className="text-sm text-slate-700 leading-relaxed mb-2">
+                    {node.content?.map((child, index) => renderNoteInline(child, `${key}-${index}`))}
+                </p>
+            );
+        }
+
+        if (node.type === 'bulletList' || node.type === 'orderedList') {
+            const ListTag = node.type === 'orderedList' ? 'ol' : 'ul';
+            return (
+                <ListTag key={key} className={`text-sm text-slate-700 mb-3 pl-5 ${node.type === 'orderedList' ? 'list-decimal' : 'list-disc'}`}>
+                    {node.content?.map((item, index) => (
+                        <li key={`${key}-${index}`} className="mb-1">
+                            {item.content?.map((child, childIndex) => renderNoteBlock(child, `${key}-${index}-${childIndex}`))}
+                        </li>
+                    ))}
+                </ListTag>
+            );
+        }
+
+        if (node.type === 'taskList') {
+            return (
+                <div key={key} className="space-y-1 mb-3">
+                    {node.content?.map((item, index) => (
+                        <div key={`${key}-${index}`} className="flex gap-2 text-sm text-slate-700">
+                            <span className="font-mono">{item.attrs?.checked === true ? '[x]' : '[ ]'}</span>
+                            <div>{item.content?.map((child, childIndex) => renderNoteBlock(child, `${key}-${index}-${childIndex}`))}</div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        return node.content?.map((child, index) => renderNoteBlock(child, `${key}-${index}`)) ?? null;
+    };
+
+    const renderTravelNotesPreview = () => {
+        if (!itinerary.diaryNotes) return null;
+        const notesState = normalizeDiaryNotesState(itinerary.diaryNotes);
+
+        return (
+            <div className="mt-12 pt-8 border-t-2 border-slate-200">
+                <h2 className="text-2xl font-bold text-amber-600 border-b-2 border-amber-600 pb-2 mb-6">
+                    NOTE DI VIAGGIO
+                </h2>
+                {notesState.tabs.map((tab, tabIndex) => (
+                    <section key={tab.id} className="mb-8 pb-6 border-b border-slate-100">
+                        <h3 className="text-xl font-bold text-slate-900 mb-4">{tab.title}</h3>
+                        {tab.document.content.length > 0 ? (
+                            tab.document.content.map((node, nodeIndex) =>
+                                renderNoteBlock(node, `note-${tabIndex}-${nodeIndex}`),
+                            )
+                        ) : (
+                            <p className="text-sm italic text-slate-400">Nessun contenuto.</p>
+                        )}
+                    </section>
+                ))}
+            </div>
+        );
     };
 
     const renderHtmlPreview = () => {
@@ -265,6 +462,8 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                         </table>
                     </div>
                 )}
+
+                {options.travelNotes && renderTravelNotesPreview()}
             </div>
         );
     };
@@ -279,7 +478,13 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                 onClick={(e) => e.stopPropagation()}
             >
                 
-                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
+                <CloseButton
+                    onClose={onClose}
+                    variant="primary"
+                    position="absolute"
+                    className="top-3 right-3 md:top-4 md:right-4 z-10"
+                    withEscape={false}
+                />
 
                 {/* COLONNA SINISTRA */}
                 <div className="w-full md:w-1/3 border-r border-slate-800 bg-[#0f172a] p-6 flex flex-col overflow-y-auto custom-scrollbar">
@@ -297,8 +502,8 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                     <div className="mb-6">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-3">Formato</label>
                         <div className="grid grid-cols-3 gap-2">
-                            {['pdf', 'docx', 'txt'].map((fmt) => (
-                                <button key={fmt} onClick={() => setFormat(fmt as any)} className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${format === fmt ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'}`}>
+                            {EXPORT_FORMATS.map((fmt) => (
+                                <button key={fmt} onClick={() => setFormat(fmt)} className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${format === fmt ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'}`}>
                                     <FileText className="w-5 h-5"/> <span className="text-[10px] font-bold uppercase">{fmt}</span>
                                 </button>
                             ))}
@@ -308,12 +513,15 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                     <div className="mb-auto">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-3">Opzioni</label>
                         <div className="space-y-2">
-                             <OptionRow label="Diario Visuale" icon={LayoutList} active={options.details} onClick={() => toggleOption('details')} desc="Timeline completa." disabled={format==='txt'}/>
-                             <OptionRow label="Foto Luoghi" icon={ImageIcon} active={options.photos} onClick={() => toggleOption('photos')} desc="Immagini nella timeline." disabled={format==='txt'}/>
-                             <OptionRow label="Codici QR" icon={QrCode} active={options.qrCodes} onClick={() => toggleOption('qrCodes')} desc="Link rapidi ai luoghi." disabled={format==='txt'}/>
-                             <OptionRow label="Riepilogo" icon={FileText} active={options.summary} onClick={() => toggleOption('summary')} desc="Panoramica del viaggio." disabled={format==='txt'}/>
-                             <OptionRow label="Note Personali" icon={Edit3} active={options.notes} onClick={() => toggleOption('notes')} desc="Le tue annotazioni." disabled={format==='txt'}/>
-                             <OptionRow label="Risorse" icon={Link} active={options.resources} onClick={() => toggleOption('resources')} desc="Link e contatti utili." disabled={format==='txt'}/>
+                             <OptionRow label="Diario Visuale" icon={LayoutList} active={options.details} onClick={() => toggleOption('details')} desc="Timeline completa." disabled={!isExportOptionApplicable('details', format)}/>
+                             <OptionRow label="Foto Luoghi" icon={ImageIcon} active={options.photos} onClick={() => toggleOption('photos')} desc="Immagini nella timeline." disabled={!isExportOptionApplicable('photos', format)}/>
+                             <OptionRow label="Codici QR" icon={QrCode} active={options.qrCodes} onClick={() => toggleOption('qrCodes')} desc="Link rapidi ai luoghi." disabled={!isExportOptionApplicable('qrCodes', format)}/>
+                             <OptionRow label="Riepilogo" icon={FileText} active={options.summary} onClick={() => toggleOption('summary')} desc="Panoramica del viaggio." disabled={!isExportOptionApplicable('summary', format)}/>
+                             <OptionRow label="Note Personali" icon={Edit3} active={options.notes} onClick={() => toggleOption('notes')} desc="Le tue annotazioni." disabled={!isExportOptionApplicable('notes', format)}/>
+                             <OptionRow label="Risorse" icon={Link} active={options.resources} onClick={() => toggleOption('resources')} desc="Link e contatti utili." disabled={!isExportOptionApplicable('resources', format)}/>
+                             {shouldRenderExportOption('travelNotes', format) && (
+                                 <OptionRow label="Includi Note di Viaggio" icon={Edit3} active={options.travelNotes} onClick={() => toggleOption('travelNotes')} desc="Pagine finali con tutte le tab." />
+                             )}
                         </div>
                     </div>
 
@@ -361,7 +569,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
     );
 };
 
-const OptionRow = ({ label, icon: Icon, active, onClick, desc, disabled }: any) => (
+const OptionRow = ({ label, icon: Icon, active, onClick, desc, disabled }: OptionRowProps) => (
     <div 
         onClick={!disabled ? onClick : undefined}
         className={`flex items-center justify-between p-3 rounded-xl border transition-all ${disabled ? 'opacity-40 cursor-not-allowed border-slate-800' : 'cursor-pointer hover:bg-slate-800 hover:border-slate-600 border-slate-800'}`}

@@ -122,6 +122,10 @@ export const getCachedSetting = <T>(key: string): T | null => {
   return settingsCache.get(key) as T | null;
 };
 
+/** Placeholder immagine per categoria POI (`global_settings.category_placeholders`). */
+export const getCategoryPlaceholders = (): Record<string, string> | null =>
+  getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
+
 export const getSettings = async (): Promise<GlobalSetting[]> => {
   const { data, error } = await supabase
     .from('global_settings')
@@ -171,6 +175,10 @@ export const getSetting = async <T>(key: string): Promise<T | null> => {
   
   return value;
 };
+
+/** Versione async per flussi non-React/export: attende bootstrap o fallback Supabase. */
+export const getCategoryPlaceholdersAsync = (): Promise<Record<string, string> | null> =>
+  getSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
 
 export const saveSetting = async (key: string, value: any): Promise<any> => {
   const { data, error } = await supabase.from('global_settings').update({ value, updated_at: new Date().toISOString() }).eq('key', key).select().single();

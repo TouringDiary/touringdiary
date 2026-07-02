@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { CheckCircle, Trophy } from 'lucide-react';
+import { CheckCircle, Trophy, RefreshCw } from 'lucide-react';
 import { PointOfInterest, User, CitySummary } from '@/types';
 import { getDaysArray } from '@/utils/common';
 import { useItinerary } from '@/context/ItineraryContext';
@@ -13,6 +13,8 @@ import { DiaryNotesPanel } from './notes';
 import { DiaryEmptyState } from './DiaryEmptyState';
 import { DiaryModals } from './DiaryModals';
 import { SuitcaseToast } from './packing_list/SuitcaseFloatingPanel/components/SuitcaseToast';
+import { useDiaryPoiCatalogUpdatePrompt } from '@/hooks/useDiaryPoiCatalogUpdatePrompt';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { getDiaryFlagGradient } from './nationFlag';
 
 interface TravelDiaryProps {
@@ -36,6 +38,14 @@ export const TravelDiary = ({
         itinerary, savedProjects, highlightDates, highlightedItemId,
         state, setters, actions,
     } = useDiaryLogic({ user, onUserUpdate, onDayDropProp: onDayDrop });
+
+    const { setItinerary } = useItinerary();
+
+    const poiCatalogUpdate = useDiaryPoiCatalogUpdatePrompt({
+        itinerary,
+        savedProjects,
+        setItinerary,
+    });
 
     const { openModal } = useModal();
     const { overlayKind, workspaceId } = useFocusMode();
@@ -174,6 +184,20 @@ export const TravelDiary = ({
 
             <SuitcaseToast visible={state.diaryToast.visible} message={state.diaryToast.message} />
 
+            <DeleteConfirmationModal
+                isOpen={poiCatalogUpdate.isOpen}
+                onClose={poiCatalogUpdate.dismissPrompt}
+                onConfirm={() => { void poiCatalogUpdate.confirmPrompt(); }}
+                title="Aggiornamenti disponibili"
+                message={'Sono disponibili aggiornamenti per alcuni luoghi presenti in questo diario.\nVuoi aggiornare i dati mantenendo invariati i tuoi appunti e le tue note personali?'}
+                confirmLabel="Aggiorna"
+                cancelLabel="Non ora"
+                variant="info"
+                isDeleting={poiCatalogUpdate.isApplying}
+                loadingLabel="Aggiornamento..."
+                icon={<RefreshCw className="w-8 h-8 text-indigo-500" />}
+            />
+
             {/* Barra "bandiera": colori della nazione dei POI del diario (default Italia).
                 Resa come singolo gradient con stop netti — robusta e identica su desktop/mobile
                 (il color-scheme:dark globale evita l'auto-dark del bianco sui browser mobile). */}
@@ -186,6 +210,7 @@ export const TravelDiary = ({
             <DiaryHeader
                 itinerary={itinerary}
                 user={user}
+                popoverBoundaryRef={containerRef}
                 savedProjects={savedProjects}
                 highlightDates={highlightDates}
                 activeTab={state.activeTab}
@@ -225,7 +250,7 @@ export const TravelDiary = ({
 
             <div
                 ref={scrollAreaRef}
-                className="flex-1 min-h-0 overflow-y-auto relative justify-center diary-grid-bg transition-colors duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]"
+                className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto relative diary-grid-bg transition-colors duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]"
                 onDragEnter={actions.handleDragEnter}
                 onDragLeave={actions.handleDragLeave}
                 onDragOver={(e) => e.preventDefault()}
@@ -234,14 +259,16 @@ export const TravelDiary = ({
                 {days.length > 0 ? (
                     <>
                         {notesPanelMounted && (
+                            // Montato una sola volta (preserva editor/focus); `hidden` è solo CSS —
+                            // nessun observer o polling aggiuntivo: Tiptap resta idle finché non c'è input.
                             <div
-                                className={`w-full max-w-3xl mx-auto select-text ${isNotesActive ? '' : 'hidden'}`}
+                                className={`w-full min-w-0 min-h-full flex flex-col max-w-full md:max-w-5xl md:mx-auto select-text ${isNotesActive ? '' : 'hidden'}`}
                                 aria-hidden={!isNotesActive}
                             >
                                 <DiaryNotesPanel
                                     isActive={isNotesActive}
-                                    document={itinerary.diaryNotes}
-                                    onDocumentChange={actions.handleDiaryNotesChange}
+                                    notesState={itinerary.diaryNotes}
+                                    onNotesStateChange={actions.handleDiaryNotesChange}
                                 />
                             </div>
                         )}

@@ -17,7 +17,7 @@ export const DiaryNotesChecklistStatsBar: React.FC<DiaryNotesChecklistStatsBarPr
 
   return (
     <div
-      className="mb-3 rounded-sm border border-stone-200/80 bg-stone-50/90 px-3 py-2 text-xs text-stone-600"
+      className="mb-1 mx-1 sm:mx-1.5 rounded-sm border border-stone-200/80 bg-stone-50/90 px-2 py-1.5 text-[10px] sm:text-[0.8125rem] text-stone-600"
       role="status"
       aria-live="polite"
       aria-atomic="true"

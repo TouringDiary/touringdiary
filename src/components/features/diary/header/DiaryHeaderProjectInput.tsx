@@ -1,11 +1,11 @@
 import React from 'react';
-import { FolderOpen, RefreshCw, Trash2, Printer, Share2, Facebook, Copy } from 'lucide-react';
+import { Calendar, FolderOpen, MapPin, PencilLine, RefreshCw, Trash2, Printer, Share2, Facebook, Copy } from 'lucide-react';
 import { Itinerary } from '@/types';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
-import { DocumentSaveStatus } from '@/components/save/DocumentSaveStatus';
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
 import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
+import { formatItalianDateTimeWithSeconds, isValidTimestamp } from '@/utils/dateFormatters';
 
 interface DiaryHeaderProjectInputProps {
     itinerary: Itinerary;
@@ -13,8 +13,6 @@ interface DiaryHeaderProjectInputProps {
     loadMenuOpen: boolean;
     handleLoadMenuOpen: () => void;
     loadMenuRef: React.RefObject<HTMLDivElement>;
-    handleRefreshData: () => Promise<void>;
-    isRefreshing: boolean;
     isSyncing: boolean;
     savedProjects: Itinerary[];
     onLoadProject: (p: Itinerary) => void;
@@ -25,8 +23,6 @@ interface DiaryHeaderProjectInputProps {
     onSaveAs: () => void;
     onAutosaveToggle: (enabled: boolean) => void;
     savePhase: DocumentSavePhase;
-    lastSavedAt: number | null;
-    lastSaveError: string | null;
     autosaveEnabled: boolean;
     canUseAutosave: boolean;
     handleExportClick: () => void;
@@ -34,12 +30,13 @@ interface DiaryHeaderProjectInputProps {
     setShareMenuOpen: (v: boolean) => void;
     shareMenuRef: React.RefObject<HTMLDivElement>;
     onClear: () => void;
+    popoverBoundaryRef?: React.RefObject<HTMLElement | null>;
 }
 
 export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = ({
-    itinerary, onSetName, loadMenuOpen, handleLoadMenuOpen, loadMenuRef, handleRefreshData, isRefreshing, isSyncing, savedProjects, onLoadProject, handleDeleteClick,
-    isGuest, openModal, onSave, onSaveAs, onAutosaveToggle, savePhase, lastSavedAt, lastSaveError, autosaveEnabled, canUseAutosave,
-    handleExportClick, shareMenuOpen, setShareMenuOpen, shareMenuRef, onClear
+    itinerary, onSetName, loadMenuOpen, handleLoadMenuOpen, loadMenuRef, isSyncing, savedProjects, onLoadProject, handleDeleteClick,
+    isGuest, openModal, onSave, onSaveAs, onAutosaveToggle, savePhase, autosaveEnabled, canUseAutosave,
+    handleExportClick, shareMenuOpen, setShareMenuOpen, shareMenuRef, onClear, popoverBoundaryRef,
 }) => {
     const openGuestAuth = () => openModal('auth');
 
@@ -67,12 +64,10 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                         isOpen={loadMenuOpen}
                         onClose={() => handleLoadMenuOpen()}
                         anchorRef={loadMenuRef}
+                        boundaryRef={popoverBoundaryRef}
                         align="left"
-                        className="w-64 max-w-[calc(100vw-1rem)] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-left"
+                        className="w-80 sm:w-[22rem] max-w-[calc(100vw-1rem)] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-left"
                     >
-                        <button onClick={handleRefreshData} className="w-full text-left px-3 py-3 text-xs font-bold text-emerald-400 hover:text-white hover:bg-slate-700 flex items-center gap-2 border-b border-slate-700/50">
-                            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`}/> Aggiorna Dati
-                        </button>
                         <div className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-700 flex justify-between">
                             <span>Progetti Salvati</span>
                             {isSyncing && <RefreshCw className="w-3 h-3 animate-spin"/>}
@@ -80,14 +75,48 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                         {savedProjects.length > 0 ? (
                             <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                 {savedProjects.map((p, idx) => (
-                                    <div key={p.id || idx} className="flex items-center border-b border-slate-700/50 last:border-0 hover:bg-slate-700/50 transition-colors group">
-                                        <button onClick={() => { onLoadProject(p); handleLoadMenuOpen(); }} className="flex-1 text-left px-3 py-2 text-xs text-slate-300 hover:text-white truncate">
-                                            <span className="font-bold block truncate">{p.name || 'Senza Nome'}</span>
-                                            <span className="text-[9px] text-slate-500">{(p.items || []).length} tappe • {new Date(p.createdAt || 0).toLocaleDateString()}</span>
+                                    <div key={p.id || idx} className="flex items-stretch border-b border-slate-700/50 last:border-0 hover:bg-slate-700/50 transition-colors group">
+                                        <button
+                                            onClick={() => { onLoadProject(p); handleLoadMenuOpen(); }}
+                                            className="flex-1 text-left px-3 py-2.5 text-xs text-slate-300 hover:text-white min-w-0"
+                                        >
+                                            <div className="flex items-center justify-between gap-2 mb-1.5 min-w-0">
+                                                <span className="font-bold truncate text-slate-200">
+                                                    {p.name || 'Senza Nome'}
+                                                </span>
+                                                <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-semibold text-slate-400 tabular-nums">
+                                                    <MapPin className="w-3 h-3 shrink-0" aria-hidden />
+                                                    {(p.items || []).length} Tappe
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-start gap-1.5 text-[9px] text-slate-500">
+                                                    <Calendar className="w-3 h-3 shrink-0 text-slate-500 mt-px" aria-hidden />
+                                                    <span className="leading-snug">
+                                                        Data Creazione:{' '}
+                                                        <span className="text-slate-400 tabular-nums whitespace-nowrap">
+                                                            {isValidTimestamp(p.createdAt)
+                                                                ? formatItalianDateTimeWithSeconds(p.createdAt)
+                                                                : '—'}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-start gap-1.5 text-[9px] text-slate-500">
+                                                    <PencilLine className="w-3 h-3 shrink-0 text-slate-500 mt-px" aria-hidden />
+                                                    <span className="leading-snug">
+                                                        Ultimo Salvataggio:{' '}
+                                                        <span className="text-slate-400 tabular-nums whitespace-nowrap">
+                                                            {isValidTimestamp(p.updatedAt)
+                                                                ? formatItalianDateTimeWithSeconds(p.updatedAt)
+                                                                : '—'}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </button>
                                         <button 
                                             onClick={(e) => handleDeleteClick(e, p.id || '')} 
-                                            className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                                            className="self-center p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 shrink-0"
                                             title="Elimina"
                                         >
                                             <Trash2 className="w-3.5 h-3.5"/>
@@ -141,13 +170,6 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                 </button>
             </div>
             </div>
-            <DocumentSaveStatus
-                phase={savePhase}
-                lastSavedAt={lastSavedAt}
-                lastError={lastSaveError}
-                isGuest={isGuest}
-                className="pl-1"
-            />
             {isGuest && (
                 <p className="text-[10px] text-slate-500 pl-1">{GUEST_SAVE_MESSAGE}</p>
             )}

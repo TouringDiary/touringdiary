@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useItinerary } from '@/context/ItineraryContext';
 import { publishUserItinerary } from '../services/dataService';
 import { User, ItineraryItem, Itinerary } from '../types/index';
-import type { DiaryNotesDocument } from '../types/models/DiaryNotes';
+import type { DiaryNotesState } from '../types/models/DiaryNotes';
 import { useUndoStack, UndoAction } from './useUndoStack';
 import { useDiaryUndo } from './useDiaryUndo';
 import { useDiaryDocumentSave } from './save/useDiaryDocumentSave';
@@ -354,10 +354,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         }));
     }, [itinerary.items, setItinerary, pushAction]);
 
-    const handleDiaryNotesChange = useCallback((document: DiaryNotesDocument) => {
+    const handleDiaryNotesChange = useCallback((notesState: DiaryNotesState) => {
         setItinerary(prev => {
             const previousValue = prev.diaryNotes ?? null;
-            if (snapshotsEqual(previousValue, document)) {
+            if (snapshotsEqual(previousValue, notesState)) {
                 return prev;
             }
             pushAction({
@@ -365,13 +365,13 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
                 type: 'diaryNotes',
                 payload: {
                     previousValue,
-                    newValue: document,
+                    newValue: notesState,
                 },
                 label: 'Note di viaggio',
                 merge: true,
                 groupId: 'diary-notes',
             });
-            return { ...prev, diaryNotes: document };
+            return { ...prev, diaryNotes: notesState };
         });
     }, [setItinerary, pushAction]);
 

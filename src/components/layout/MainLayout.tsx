@@ -10,6 +10,7 @@ import { AppRouter } from './AppRouter';
 import { ModalManager } from './ModalManager';
 import { OnboardingWizard } from './OnboardingWizard';
 import { useControlledSlidePanel } from '@/hooks/ui/useControlledSlidePanel';
+import { useMobileDiaryOverlayGeometry } from '@/hooks/ui/useMobileDiaryOverlayGeometry';
 import { SLIDE_PANEL_TRANSITION_CLASS, slidePanelEaseClass, slidePanelTransformClass } from '@/constants/slidePanelMotion';
 
 // CONTEXT CONSUMER
@@ -35,6 +36,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
     const { handleSmartDrop } = useDiaryInteractionsContext();
 
     const diaryShell = useControlledSlidePanel(mobileDiaryFullScreen);
+    const usesVisualViewportGeometry = useMobileDiaryOverlayGeometry(
+        diaryShell.panelRef,
+        isMobile && diaryShell.shouldRender,
+    );
 
     // Mobile Nav Active State Calculation
     let mobileActiveSection = null;
@@ -135,8 +140,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                     id="tour-mobile-diary-overlay"
                     ref={diaryShell.panelRef}
                     className={`
-                        fixed top-[var(--header-height)] left-0 right-0 z-focus-companion bg-slate-950 flex flex-col overflow-hidden
-                        h-[calc(100dvh-var(--header-height))] max-h-[calc(100dvh-var(--header-height))]
+                        fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-focus-companion bg-slate-950 flex flex-col overflow-hidden
+                        ${usesVisualViewportGeometry ? '' : 'h-[calc(100dvh-var(--header-height))] max-h-[calc(100dvh-var(--header-height))]'}
                         ${SLIDE_PANEL_TRANSITION_CLASS}
                         ${slidePanelTransformClass(diaryShell.isPanelRaised)}
                         ${slidePanelEaseClass(diaryShell.isClosing)}

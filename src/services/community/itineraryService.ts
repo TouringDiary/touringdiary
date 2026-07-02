@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { PremadeItinerary, Itinerary, ItineraryItem } from '../../types/index';
-import { isDiaryNotesDocument } from '../../types/models/DiaryNotes';
+import { normalizeDiaryNotesState } from '../../domain/diary/diaryNotesState';
 import { User } from '../../types/users';
 import { UUID_REGEX } from '../../utils/uuid';
 import type { Json } from '../../types/supabase';
@@ -26,7 +26,12 @@ function buildPackedDiaryData(itinerary: Itinerary): PackedDiaryFields {
     startDate: itinerary.startDate,
     endDate: itinerary.endDate,
     dayStyles: itinerary.dayStyles || {},
-    diaryNotes: itinerary.diaryNotes ?? null,
+    // Scrittura canonica: garantisce sempre uno DiaryNotesState valido nel DB,
+    // anche se l'istanza in memoria è parziale o ancora in formato legacy.
+    diaryNotes:
+      itinerary.diaryNotes != null
+        ? normalizeDiaryNotesState(itinerary.diaryNotes)
+        : null,
     roadbook: itinerary.roadbook ?? [],
   };
 }
@@ -58,8 +63,11 @@ function unpackDiaryData(rawJson: unknown, durationDays: number): PackedDiaryFie
     if (rawDayStyles !== null && typeof rawDayStyles === 'object' && !Array.isArray(rawDayStyles)) {
       dayStyles = rawDayStyles as Record<number, string>;
     }
-    if (isDiaryNotesDocument(data.diaryNotes)) {
-      diaryNotes = data.diaryNotes;
+    if (data.diaryNotes != null) {
+      // Normalizzazione in lettura: gestisce automaticamente formato legacy
+      // (DiaryNotesDocument), nuovo DiaryNotesState (qualsiasi versione con forma valida)
+      // e valori null/mancenti — produce uno stato canonico in memoria.
+      diaryNotes = normalizeDiaryNotesState(data.diaryNotes);
     }
     if (Array.isArray(data.roadbook)) {
       roadbook = data.roadbook;

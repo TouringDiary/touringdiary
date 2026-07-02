@@ -206,13 +206,13 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
         onClick={() => onSetViewMode(isViewer ? 'editor' : 'viewer')}
         className={MOBILE_ACTION_BTN_CLASS}
         aria-pressed={!isViewer}
-        aria-label={isViewer ? 'Visualizza' : 'Modifica'}
-        title={isViewer ? 'Visualizza' : 'Modifica'}
+        aria-label={isViewer ? 'Modifica' : 'Visualizza'}
+        title={isViewer ? 'Modifica' : 'Visualizza'}
       >
         {isViewer ? (
-          <Search className="w-4 h-4 md:w-5 md:h-5 shrink-0" aria-hidden />
-        ) : (
           <Wrench className="w-4 h-4 md:w-5 md:h-5 shrink-0" aria-hidden />
+        ) : (
+          <Search className="w-4 h-4 md:w-5 md:h-5 shrink-0" aria-hidden />
         )}
       </button>
     ) : null;

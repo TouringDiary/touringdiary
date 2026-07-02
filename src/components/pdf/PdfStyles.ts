@@ -209,7 +209,9 @@ export const styles = StyleSheet.create({
   inlineImage: {
     width: 100,
     height: 60,
-    marginBottom: 6
+    marginBottom: 6,
+    flexShrink: 0,
+    objectFit: 'cover',
   },
 
   notesBox: {

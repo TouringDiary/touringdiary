@@ -117,6 +117,14 @@ export function useDocumentSaveController<TSnapshot>({
     setPhase(computePhaseFromSnapshot());
   }, [computePhaseFromSnapshot]);
 
+  const seedLastSavedAt = useCallback((at: number) => {
+    setLastSavedAt((prev) => prev ?? at);
+  }, []);
+
+  const restoreLastSavedAt = useCallback((at: number) => {
+    setLastSavedAt(at);
+  }, []);
+
   const resetBaseline = useCallback(() => {
     setBaseline(getSnapshotRef.current());
   }, [setBaseline]);
@@ -281,6 +289,8 @@ export function useDocumentSaveController<TSnapshot>({
       setAutosaveEnabled,
       resetBaseline,
       setBaseline,
+      seedLastSavedAt,
+      restoreLastSavedAt,
       awaitInFlight,
       isSaving,
       cancelPendingAutosave,
@@ -300,6 +310,8 @@ export function useDocumentSaveController<TSnapshot>({
       setAutosaveEnabled,
       resetBaseline,
       setBaseline,
+      seedLastSavedAt,
+      restoreLastSavedAt,
       awaitInFlight,
       isSaving,
       cancelPendingAutosave,

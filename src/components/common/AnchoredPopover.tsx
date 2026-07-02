@@ -11,6 +11,8 @@ export interface AnchoredPopoverProps {
     children: React.ReactNode;
     align?: AnchoredAlign;
     className?: string;
+    /** Optional layout boundary — popover is clamped inside this element (and the viewport). */
+    boundaryRef?: React.RefObject<HTMLElement | null>;
     /** Register close on ESC via LIFO stack (default true). */
     closeOnEscape?: boolean;
     /** Close when pointer down occurs outside popover + anchor (default true). */
@@ -32,6 +34,7 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
     children,
     align = 'right',
     className = '',
+    boundaryRef,
     closeOnEscape = true,
     closeOnClickOutside = true,
     role = 'dialog',
@@ -39,7 +42,14 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
     onMouseLeave,
 }) => {
     const popoverRef = useRef<HTMLDivElement>(null);
-    const { position, ready, remeasure } = useAnchoredPortalPosition(anchorRef, isOpen, align, undefined, popoverRef);
+    const { position, ready, remeasure } = useAnchoredPortalPosition(
+        anchorRef,
+        isOpen,
+        align,
+        undefined,
+        popoverRef,
+        boundaryRef,
+    );
 
     useGlobalModalEscape(isOpen && closeOnEscape, onClose);
 

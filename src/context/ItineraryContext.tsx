@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Itinerary, ItineraryItem, PointOfInterest, PremadeItinerary, RoadbookDay, createEmptyItinerary } from '../types/index';
 import { User } from '../types/users';
-import { getPoisByIds } from '../services/cityService';
 import { getStorageItem, setStorageItem } from '../services/storageService';
 import { saveUserDraft, getUserDrafts, deleteUserDraft } from '../services/communityService';
 import { useUser } from './UserContext';
@@ -28,7 +27,6 @@ interface ItineraryContextType {
     clearItinerary: () => void;
     importPremadeItinerary: (template: PremadeItinerary, startDate?: string) => Promise<void>;
     findFreeSlot: (dayIndex: number) => string | null;
-    refreshItineraryData: () => Promise<void>;
     syncCloudDrafts: (userId: string) => Promise<void>;
 }
 
@@ -270,38 +268,8 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         return `${newH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     };
 
-    const refreshItineraryData = async () => {
-        if (itinerary.items.length === 0) return;
-
-        try {
-            const idsToFetch = itinerary.items
-                .filter(item => !item.isCustom && item.poi && item.poi.id)
-                .map(item => item.poi.id);
-
-            if (idsToFetch.length === 0) return;
-
-            const freshPois = await getPoisByIds(idsToFetch);
-
-            const updatedItems = itinerary.items.map((item) => {
-                if (item.isCustom) return item;
-                const freshPoi = freshPois.find(p => p.id === item.poi.id);
-                if (freshPoi) {
-                    return { ...item, poi: freshPoi };
-                }
-                return item;
-            });
-
-            setItinerary(prev => ({ ...prev, items: updatedItems }));
-            console.log("Dati diario aggiornati dal Cloud!");
-
-        } catch (e) {
-            console.error("Refresh itinerary error:", e);
-            console.error("Errore durante l'aggiornamento dei dati.");
-        }
-    };
-
     return (
-        <ItineraryContext.Provider value={{ itinerary, setItinerary, savedProjects, saveProject, loadProject, deleteProject, highlightDates, setHighlightDates, highlightedItemId, setHighlightedItemId, addItem, removeItem, updateDayStyle, updateRoadbook, clearItinerary, importPremadeItinerary, findFreeSlot, refreshItineraryData, syncCloudDrafts }}>
+        <ItineraryContext.Provider value={{ itinerary, setItinerary, savedProjects, saveProject, loadProject, deleteProject, highlightDates, setHighlightDates, highlightedItemId, setHighlightedItemId, addItem, removeItem, updateDayStyle, updateRoadbook, clearItinerary, importPremadeItinerary, findFreeSlot, syncCloudDrafts }}>
             {children}
         </ItineraryContext.Provider>
     );

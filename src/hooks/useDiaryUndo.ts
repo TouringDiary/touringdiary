@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef, Dispatch, SetStateAction } from 'react';
 import { UndoAction } from './useUndoStack';
 import { Itinerary, ItineraryItem } from '@/types';
-import type { DiaryNotesDocument } from '@/types/models/DiaryNotes';
+import type { DiaryNotesState } from '@/types/models/DiaryNotes';
 
 interface DiaryUndoProps {
   undo: () => UndoAction | null;
@@ -113,8 +113,8 @@ export const useDiaryUndo = ({
 
         case 'diaryNotes': {
           const { newValue, previousValue } = payload as {
-            newValue: DiaryNotesDocument | null;
-            previousValue: DiaryNotesDocument | null;
+            newValue: DiaryNotesState | null;
+            previousValue: DiaryNotesState | null;
           };
           const notesValue = inverse ? previousValue : newValue;
           setItinerary(prev => ({ ...prev, diaryNotes: notesValue }));

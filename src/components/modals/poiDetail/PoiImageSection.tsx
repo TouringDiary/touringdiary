@@ -5,7 +5,8 @@ import { PointOfInterest, User } from '@/types';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { getUnifiedReviews } from '../../../services/communityService';
-import { getCachedSetting, SETTINGS_KEYS } from '../../../services/settingsService';
+import { getCategoryPlaceholders } from '../../../services/settingsService';
+import { resolvePoiDisplayImageUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 import { galleryDisplayUrls } from '../../../utils/media';
 
 interface PoiImageSectionProps {
@@ -27,9 +28,11 @@ export const PoiImageSection = ({
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [allReviews, setAllReviews] = useState<any[]>([]);
 
-    // LOGICA IMMAGINE CON FALLBACK
-    const placeholders = getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
-    const mainImageUrl = poi.imageUrl || (placeholders ? placeholders[poi.category] : undefined);
+    const mainImageUrl = resolvePoiDisplayImageUrl({
+        imageUrl: poi.imageUrl,
+        category: poi.category,
+        categoryPlaceholders: getCategoryPlaceholders(),
+    });
 
     const images = useMemo(() => {
         const fromGallery = galleryDisplayUrls(poi.gallery);

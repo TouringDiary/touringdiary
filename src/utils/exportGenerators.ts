@@ -2,7 +2,7 @@
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, Header, Footer, ImageRun, VerticalAlign } from 'docx';
 import FileSaver from 'file-saver';
 import { PreparedItinerary } from './pdfUtils';
-import { diaryNotesDocumentToPlainText } from '@/components/features/diary/notes/diaryNotesDocumentToPlainText';
+import { diaryNotesToPlainText } from '@/components/features/diary/notes/diaryNotesDocumentToPlainText';
 
 // --- CONFIGURAZIONE STILI WORD ---
 const STYLES = {
@@ -52,7 +52,7 @@ const base64ToUint8Array = (base64: string): Uint8Array | null => {
 
 export const generateWordDocument = async (
     itinerary: PreparedItinerary, 
-    options: { photos: boolean, qrCodes: boolean, summary: boolean, details: boolean, notes: boolean, resources: boolean },
+    options: { photos: boolean, qrCodes: boolean, summary: boolean, details: boolean, notes: boolean, resources: boolean, travelNotes?: boolean },
     logoBase64?: string,
     cityNamesMap: Record<string, string> = {} // NEW: Mappa ID -> Nome Reale
 ) => {
@@ -340,7 +340,7 @@ export const generateWordDocument = async (
         }));
     }
 
-    const diaryNotesText = diaryNotesDocumentToPlainText(itinerary.diaryNotes);
+    const diaryNotesText = options.travelNotes ? diaryNotesToPlainText(itinerary.diaryNotes) : '';
     if (diaryNotesText) {
         children.push(
             new Paragraph({
@@ -432,7 +432,9 @@ export const generateTextFile = (itinerary: any, cityNamesMap: Record<string, st
         });
     });
 
-    const diaryNotesText = diaryNotesDocumentToPlainText(itinerary.diaryNotes);
+    const diaryNotesText = diaryNotesToPlainText(itinerary.diaryNotes);
+    // Il TXT è un dump testuale completo: le Note di Viaggio sono sempre incluse se presenti
+    // (non governate da options.travelNotes, riservata a PDF/Word).
     if (diaryNotesText) {
         lines.push('\n--- NOTE DI VIAGGIO ---');
         lines.push(diaryNotesText);

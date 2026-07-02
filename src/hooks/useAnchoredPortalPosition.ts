@@ -32,18 +32,49 @@ export interface AnchoredPortalState {
  * Recalculates on scroll (capture), resize, and anchor layout shifts (ResizeObserver).
  *
  * Viewport collision: when `popoverRef` is provided (and the popover has been measured),
- * the computed coordinates are clamped so the panel stays fully inside the viewport, and
- * flipped above the anchor when there is no room below. The alignment contract is preserved
- * (right stays right-anchored, center stays center-anchored): only the magnitude is adjusted,
- * and ONLY when the panel would otherwise overflow. Without `popoverRef` the behavior is
+ * the computed coordinates are clamped so the panel stays fully inside the viewport and,
+ * when `boundaryRef` is set, inside that element's bounding box (intersection of both).
+ * Flipped above the anchor when there is no room below. Without `popoverRef` the behavior is
  * identical to before (no clamping).
  */
+function normalizeAxis(min: number, max: number): { min: number; max: number } {
+    if (min <= max) return { min, max };
+    const mid = (min + max) / 2;
+    return { min: mid, max: mid };
+}
+
+function getClampBounds(
+    margin: number,
+    boundaryRef?: RefObject<HTMLElement | null>,
+): { minX: number; maxX: number; minY: number; maxY: number } {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let minX = margin;
+    let maxX = vw - margin;
+    let minY = margin;
+    let maxY = vh - margin;
+
+    const boundary = boundaryRef?.current;
+    if (boundary) {
+        const rect = boundary.getBoundingClientRect();
+        minX = Math.max(minX, rect.left + margin);
+        maxX = Math.min(maxX, rect.right - margin);
+        minY = Math.max(minY, rect.top + margin);
+        maxY = Math.min(maxY, rect.bottom - margin);
+    }
+
+    const x = normalizeAxis(minX, maxX);
+    const y = normalizeAxis(minY, maxY);
+    return { minX: x.min, maxX: x.max, minY: y.min, maxY: y.max };
+}
+
 export function useAnchoredPortalPosition(
     anchorRef: RefObject<HTMLElement | null>,
     isActive: boolean,
     align: AnchoredAlign = 'right',
     margin = 6,
     popoverRef?: RefObject<HTMLElement | null>,
+    boundaryRef?: RefObject<HTMLElement | null>,
 ): AnchoredPortalState {
     const [state, setState] = useState<{ position: AnchoredPortalPosition | null; ready: boolean }>({
         position: null,
@@ -58,7 +89,7 @@ export function useAnchoredPortalPosition(
         if (!el) return;
         const rect = el.getBoundingClientRect();
         const vw = window.innerWidth;
-        const vh = window.innerHeight;
+        const { minX, maxX, minY, maxY } = getClampBounds(margin, boundaryRef);
 
         const pop = popoverRef?.current ?? null;
         // offsetWidth/Height (not getBoundingClientRect) on purpose: the popover mounts with an
@@ -73,11 +104,11 @@ export function useAnchoredPortalPosition(
         // Vertical: place below the anchor; flip above only if it would overflow the bottom.
         let top = rect.bottom + margin;
         if (canClamp) {
-            if (top + ph > vh - margin) {
+            if (top + ph > maxY) {
                 const above = rect.top - margin - ph;
-                top = above >= margin ? above : Math.max(margin, vh - ph - margin);
+                top = above >= minY ? above : Math.max(minY, maxY - ph);
             }
-            top = Math.max(margin, Math.min(top, vh - ph - margin));
+            top = Math.max(minY, Math.min(top, maxY - ph));
         }
 
         // "ready" = la posizione corrente è quella finale: o è stata misurata/clampata,
@@ -88,21 +119,21 @@ export function useAnchoredPortalPosition(
         if (align === 'right') {
             let right = vw - rect.right;
             if (canClamp) {
-                // left edge = vw - right - pw ; keep it >= margin and right edge <= vw - margin
-                right = Math.max(margin, Math.min(right, vw - pw - margin));
+                // left edge = vw - right - pw ; keep within [minX, maxX]
+                right = Math.max(vw - maxX, Math.min(right, vw - minX - pw));
             }
             next = { top, right };
         } else if (align === 'center') {
             let centerX = rect.left + rect.width / 2;
             if (canClamp) {
-                // popover is translated by -50%, so clamp the center so both edges stay in view
-                centerX = Math.max(margin + pw / 2, Math.min(centerX, vw - margin - pw / 2));
+                // popover is translated by -50%, so clamp the center so both edges stay in bounds
+                centerX = Math.max(minX + pw / 2, Math.min(centerX, maxX - pw / 2));
             }
             next = { top, left: centerX };
         } else {
             let left = rect.left;
             if (canClamp) {
-                left = Math.max(margin, Math.min(left, vw - pw - margin));
+                left = Math.max(minX, Math.min(left, maxX - pw));
             }
             next = { top, left };
         }
@@ -123,7 +154,7 @@ export function useAnchoredPortalPosition(
             }
             return { position: next, ready };
         });
-    }, [anchorRef, align, margin, popoverRef, clampingExpected]);
+    }, [anchorRef, align, margin, popoverRef, boundaryRef, clampingExpected]);
 
     useEffect(() => {
         if (!isActive || !anchorRef.current) {
@@ -138,6 +169,8 @@ export function useAnchoredPortalPosition(
             resizeObserver = new ResizeObserver(() => update());
             const anchorEl = anchorRef.current;
             if (anchorEl) resizeObserver.observe(anchorEl);
+            const boundaryEl = boundaryRef?.current;
+            if (boundaryEl) resizeObserver.observe(boundaryEl);
             // The popover is usually NOT mounted yet on the first effect run: it only renders once
             // `position` is set (one render later). Observe it now if it already exists; the reliable
             // synchronous measure happens in the consumer's useLayoutEffect (remeasure), and the rAF
@@ -167,7 +200,7 @@ export function useAnchoredPortalPosition(
             window.removeEventListener('resize', onResize);
             resizeObserver?.disconnect();
         };
-    }, [isActive, anchorRef, popoverRef, update]);
+    }, [isActive, anchorRef, popoverRef, boundaryRef, update]);
 
     return { position: state.position, ready: state.ready, remeasure: update };
 }

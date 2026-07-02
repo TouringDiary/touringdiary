@@ -1,14 +1,31 @@
 import React, { useEffect, useRef } from 'react';
+import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { TaskList, TaskItem } from '@tiptap/extension-list';
+import { TaskList } from '@tiptap/extension-list';
+import { DiaryNotesTaskItem } from './diaryNotesTaskItem';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
 import type { DiaryNotesDocument } from '@/types/models/DiaryNotes';
 import { isDiaryNotesDocument, normalizeDiaryNotes } from '@/types/models/DiaryNotes';
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { DiaryNotesToolbar } from './DiaryNotesToolbar';
+import { DiaryNotesLinkBubbleMenu } from './DiaryNotesLinkBubbleMenu';
+import {
+  createDiaryNotesLinkClickPlugin,
+  dismissDiaryNotesLinkUi,
+  restoreDiaryNotesEditorInputMode,
+} from './diaryNotesLinkUtils';
 import './diaryNotesEditor.css';
+
+const DiaryNotesLinkInteraction = Extension.create({
+  name: 'diaryNotesLinkInteraction',
+  addProseMirrorPlugins() {
+    return [createDiaryNotesLinkClickPlugin()];
+  },
+});
 
 export const DIARY_NOTES_PLACEHOLDER =
   'Scrivi qui appunti, promemoria e tutto ciò che vuoi ricordare del tuo viaggio.';
@@ -41,14 +58,17 @@ export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(({
       }),
       Link.configure({
         openOnClick: false,
+        enableClickSelection: false,
         HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
       }),
+      TextStyle,
+      Color,
       Placeholder.configure({
         placeholder: DIARY_NOTES_PLACEHOLDER,
         emptyEditorClass: 'is-editor-empty',
       }),
       TaskList,
-      TaskItem.configure({
+      DiaryNotesTaskItem.configure({
         nested: false,
         a11y: {
           checkboxLabel: (node, checked) => {
@@ -58,6 +78,7 @@ export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(({
           },
         },
       }),
+      DiaryNotesLinkInteraction,
     ],
     content: normalizeDiaryNotes(document),
     editorProps: {
@@ -80,17 +101,28 @@ export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(({
     const next = normalizeDiaryNotes(document);
     if (snapshotsEqual(editor.getJSON(), next)) return;
 
+    const hadFocus = editor.isFocused;
+
+    // Cambio tab / sync esterna: emitUpdate: false evita onUpdate ridondanti verso il parent.
+    // undoRedo è disabilitato nello StarterKit → nessuna history interna Tiptap da gestire.
     editor.commands.setContent(next, { emitUpdate: false });
-    // Reset dopo sostituzione esterna (clear, load, undo/redo): il documento vuoto
-    // deve poter ricevere di nuovo il focus iniziale a fine testo.
+    dismissDiaryNotesLinkUi(editor);
+
+    // Cursore e selezione intenzionali: se l'utente stava scrivendo, focus a fine documento;
+    // altrimenti il dismiss sopra ha già azzerato selezione e chiuso il BubbleMenu link.
+    if (hadFocus && isActive) {
+      editor.commands.focus('end', { scrollIntoView: false });
+    }
+
     hasInitialFocusedRef.current = false;
-  }, [document, editor]);
+  }, [document, editor, isActive]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
 
     if (!isActive) {
       hadEditorFocusRef.current = editor.isFocused;
+      dismissDiaryNotesLinkUi(editor);
       return;
     }
 
@@ -111,10 +143,38 @@ export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(({
     return () => cancelAnimationFrame(frameId);
   }, [isActive, editor]);
 
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+
+    const syncLinkTitles = () => {
+      editor.view.dom.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((anchor) => {
+        const href = anchor.getAttribute('href');
+        if (href) anchor.setAttribute('title', href);
+      });
+    };
+
+    const syncLinkUiState = () => {
+      syncLinkTitles();
+      if (!editor.isActive('link')) {
+        restoreDiaryNotesEditorInputMode(editor);
+      }
+    };
+
+    editor.on('update', syncLinkUiState);
+    editor.on('selectionUpdate', syncLinkUiState);
+    syncLinkUiState();
+
+    return () => {
+      editor.off('update', syncLinkUiState);
+      editor.off('selectionUpdate', syncLinkUiState);
+    };
+  }, [editor]);
+
   return (
-    <div className="diary-notes-editor flex flex-col min-h-[12rem]" data-diary-notes-editor>
+    <div className="diary-notes-editor flex flex-col flex-1 min-h-0" data-diary-notes-editor>
       <DiaryNotesToolbar editor={editor} />
-      <EditorContent editor={editor} className="flex-1 min-h-0" />
+      {editor && !editor.isDestroyed && <DiaryNotesLinkBubbleMenu editor={editor} />}
+      <EditorContent editor={editor} className="diary-notes-editor-content flex-1 min-h-0" />
     </div>
   );
 });

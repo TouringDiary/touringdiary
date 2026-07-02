@@ -1,69 +1,40 @@
-
-import { useState, useEffect } from 'react';
-
+import { createElement, useEffect, useState } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { ExportLogo } from '@/components/export/ExportLogo';
 
 /**
- * Hook che renderizza il componente `ExportLogo` in una stringa SVG,
- * lo disegna su un canvas e lo converte in un'immagine PNG Base64.
- * Questo assicura un logo consistente e di alta qualità per tutti gli export.
+ * Rasterizza `ExportLogo` su canvas e restituisce PNG base64 per export PDF/DOCX.
  */
 export const useLogoRasterizer = () => {
     const [logoBase64, setLogoBase64] = useState<string | undefined>(undefined);
 
     useEffect(() => {
-        // 1. Renderizza il componente React ExportLogo in una stringa SVG statica.
-        // Questo assicura che usiamo sempre il componente corretto e aggiornato.
-        const svgString = `
-        <svg width="360" height="52" viewBox="0 0 360 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="360" height="52" rx="12" fill="#ffffff"/>
-            <text x="20" y="34"
-        font-family="Helvetica, Arial, sans-serif"
-        font-size="24"
-        font-weight="700"
-        fill="#1e293b">
-        TOURING DIARY
-            </text>
-            </rect>
-        </svg>
-        `;
-
-        // 2. Crea un'immagine dall'SVG per disegnarla sul canvas.
+        const svgString = renderToStaticMarkup(createElement(ExportLogo));
         const img = new Image();
-        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
 
-        // 3. Quando l'immagine SVG è caricata, la disegna sul canvas.
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            // Usiamo le dimensioni del logo, con un moltiplicatore 2x per una qualità superiore (retina).
             canvas.width = 360 * 2;
             canvas.height = 52 * 2;
             const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                
-                // 4. Converte il contenuto del canvas in un'immagine PNG Base64.
-                setLogoBase64(canvas.toDataURL('image/png'));
+            if (!ctx) {
+                console.error(
+                    "Errore: Impossibile ottenere il contesto 2D del canvas per la rasterizzazione del logo.",
+                );
+                return;
             }
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            setLogoBase64(canvas.toDataURL('image/png'));
         };
 
-        // Gestione di eventuali errori nel caricamento dell'immagine SVG
         img.onerror = () => {
-            console.error("Errore: Impossibile caricare l'immagine SVG del logo per la rasterizzazione.");
-            // Fallback: logo testuale via canvas se l'SVG fallisce
-            const canvas = document.createElement('canvas');
-            canvas.width = 360;
-            canvas.height = 52;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#1e293b';
-                ctx.font = 'bold 24px Helvetica';
-                ctx.fillText('TOURING DIARY', 10, 35);
-                setLogoBase64(canvas.toDataURL('image/png'));
-            }
+            console.error(
+                "Errore: Impossibile caricare l'immagine SVG del logo per la rasterizzazione.",
+                { svgLength: svgString.length },
+            );
         };
     }, []);
 

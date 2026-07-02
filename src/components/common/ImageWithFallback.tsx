@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Image as ImageIcon, Loader2 } from 'lucide-react';
 import { getOptimizedImageUrl, ImageSize } from '../../utils/imageOptimizer';
-import { getCachedSetting } from '../../services/settingsService';
-import { SETTINGS_KEYS } from '../../services/settingsService';
+import { getCategoryPlaceholders } from '../../services/settingsService';
+import { resolveCategoryPlaceholderUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 
 interface Props {
   src?: string;
@@ -45,42 +45,35 @@ export const ImageWithFallback = ({
   const [hasError, setHasError] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // --- MODIFICA ARCHITETTURALE --- 
-  const fallbackSrc = useMemo(() => {
-    const placeholders = getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
-    if (!placeholders || typeof placeholders !== 'object') return '';
-    return placeholders[category] || '';
-  }, [category]);
+  const fallbackSrc = useMemo(
+    () =>
+      resolveCategoryPlaceholderUrl({
+        category,
+        categoryPlaceholders: getCategoryPlaceholders(),
+      }) ?? '',
+    [category],
+  );
 
-  // Se non c'è una 'src', usa direttamente il fallback. Altrimenti, ottimizza la 'src'.
   const primarySrc = src ? getOptimizedImageUrl(src, size) : fallbackSrc;
-  // --- FINE MODIFICA ---
 
   const sourceToUse = hasError ? fallbackSrc : primarySrc;
 
-  // Quando viene passata una nuova immagine principale, resettiamo l'errore per riprovare
   useEffect(() => {
     setHasError(false);
   }, [primarySrc]);
 
   useEffect(() => {
-    // Reset dello stato caricamento per l'URL effettivo
     setIsLoaded(false);
 
-    // Controllo per cache del browser:
-    // Se l'immagine è già stata caricata (es. da cache), img.complete è true.
     if (imgRef.current?.complete) {
-        // Un'immagine rotta potrebbe avere complete=true ma naturalWidth=0
         if (imgRef.current.naturalWidth > 0) {
             setIsLoaded(true);
         } else if (imgRef.current.naturalWidth === 0 && imgRef.current.src) {
-            // Se l'immagine è completa ma width è 0, potrebbe essere un errore di caricamento (es. 404 ritornato istantaneamente)
             setHasError(true);
         }
     }
   }, [sourceToUse]);
 
-  // Mostra errore finale solo se TUTTE le sorgenti (src e fallback) hanno fallito o sono assenti
   const showFinalError = (hasError && !fallbackSrc) || !sourceToUse;
 
   if (showFinalError) {

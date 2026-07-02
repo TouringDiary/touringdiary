@@ -42,6 +42,10 @@ export interface DocumentSaveController {
   setAutosaveEnabled: (enabled: boolean) => void;
   resetBaseline: () => void;
   setBaseline: (snapshot: unknown) => void;
+  /** Imposta lastSavedAt solo se ancora assente (es. diario già persistito caricato in sessione). */
+  seedLastSavedAt: (at: number) => void;
+  /** Imposta lastSavedAt al caricamento/cambio documento (sovrascrive il valore precedente). */
+  restoreLastSavedAt: (at: number) => void;
   awaitInFlight: () => Promise<void>;
   isSaving: () => boolean;
   cancelPendingAutosave: () => void;

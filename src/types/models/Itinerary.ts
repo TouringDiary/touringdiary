@@ -1,7 +1,7 @@
 
 import { PointOfInterest } from './City';
 import { Review } from '../shared';
-import type { DiaryNotesDocument } from './DiaryNotes';
+import type { DiaryNotesState } from './DiaryNotes';
 
 // Interface for Roadbook Data persistence
 export interface RoadbookSegment {
@@ -64,8 +64,8 @@ export interface Itinerary {
   updatedAt?: number;
   dayStyles?: Record<number, string>; 
   roadbook?: RoadbookDay[];
-  /** Area NOTE unica del diario (JSON Tiptap/ProseMirror). */
-  diaryNotes?: DiaryNotesDocument | null;
+  /** Area NOTE del diario — collezione di tab con documenti Tiptap/ProseMirror. */
+  diaryNotes?: DiaryNotesState | null;
   suitcase_id?: string | null;
 }
 

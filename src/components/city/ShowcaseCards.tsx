@@ -8,7 +8,8 @@ import { StarRating } from '../common/StarRating';
 import { useItinerary } from '@/context/ItineraryContext';
 import { calculateDistance } from '../../services/geo';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
-import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService'; // IMPORT CORRETTO
+import { getCategoryPlaceholders } from '../../services/settingsService';
+import { resolvePoiDisplayImageUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 
 // --- TYPES ---
 interface UniversalCardProps {
@@ -104,9 +105,11 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
         : null;
     const showDistance = distanceRel !== null;
 
-    // LOGICA FALLBACK IMMAGINE
-    const placeholders = getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
-    const imageUrl = poi.imageUrl || (placeholders ? placeholders[poi.category] : undefined);
+    const imageUrl = resolvePoiDisplayImageUrl({
+        imageUrl: poi.imageUrl,
+        category: poi.category,
+        categoryPlaceholders: getCategoryPlaceholders(),
+    });
 
     // --- LAYOUT: HORIZONTAL (Top 5 Lists) ---
     if (variant === 'horizontal') {

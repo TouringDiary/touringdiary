@@ -16,6 +16,9 @@ interface UseDiaryDocumentSaveOptions {
   onSaveAsNavigate?: (id: string) => void;
 }
 
+const getPersistedSavedAt = (itinerary: Itinerary): number | undefined =>
+  itinerary.updatedAt ?? itinerary.createdAt;
+
 const diarySnapshot = (itinerary: Itinerary) => ({
   id: itinerary.id,
   name: itinerary.name,
@@ -102,6 +105,8 @@ export function useDiaryDocumentSave({
       const baseline = savedProjects.find((p) => p.id === itinerary.id);
       if (!baseline) return;
       controller.setBaseline(diarySnapshot(baseline));
+      const savedAt = getPersistedSavedAt(baseline);
+      if (savedAt) controller.restoreLastSavedAt(savedAt);
       baselineSourceRef.current = 'savedProjects';
       prevSnapshotRef.current = diarySnapshot(itinerary);
       return;
@@ -111,6 +116,8 @@ export function useDiaryDocumentSave({
       const baseline = savedProjects.find((p) => p.id === itinerary.id);
       if (!baseline) return;
       controller.setBaseline(diarySnapshot(baseline));
+      const savedAt = getPersistedSavedAt(baseline);
+      if (savedAt) controller.restoreLastSavedAt(savedAt);
       baselineSourceRef.current = 'savedProjects';
     } else {
       controller.setBaseline(diarySnapshot(itinerary));
