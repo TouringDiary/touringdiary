@@ -1,6 +1,8 @@
 
 import { useItinerary } from '@/context/ItineraryContext';
 import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
+import { stampItineraryItemAuthor } from '@/domain/diary/diaryAuthorTracking';
 import { PointOfInterest, ItineraryItem } from '../../types/index';
 
 export const useDiaryInteractions = (
@@ -9,6 +11,11 @@ export const useDiaryInteractions = (
 ) => {
     const { itinerary, setItinerary, setHighlightedItemId, addItem, removeItem, findFreeSlot, setHighlightDates } = useItinerary();
     const { openModal, closeModal } = useModal();
+    const { user } = useUser();
+    const authorId = user?.role !== 'guest' ? user?.id : undefined;
+
+    const stampNewItem = (item: ItineraryItem): ItineraryItem =>
+        stampItineraryItemAuthor(item, authorId);
 
     // 1. ADD ITEM LOGIC (Button Click)
     const confirmAddToItinerary = (pendingPoi: PointOfInterest, dayIndex: number, timeSlotStr: string) => {
@@ -50,7 +57,7 @@ export const useDiaryInteractions = (
         if (conflict) { 
             openModal('conflict', { conflict: { item: newItem, targetDayIndex: dayIndex, targetTime: timeSlotStr, conflictingItem: conflict } }); 
         } else { 
-            addItem(newItem); 
+            addItem(stampNewItem(newItem)); 
             closeModal(); 
             if (window.innerWidth < 768) setMobileDiaryFullScreen(true); 
         }
@@ -152,7 +159,7 @@ export const useDiaryInteractions = (
                 }));
             } else {
                 const itemToAdd = { ...item, timeSlotStr: newTime };
-                addItem(itemToAdd);
+                addItem(stampNewItem(itemToAdd));
             }
         }
         closeModal();
@@ -178,7 +185,7 @@ export const useDiaryInteractions = (
                 completed: false,
                 isResource
             };
-            addItem(newItem);
+            addItem(stampNewItem(newItem));
         } else {
             const targetCityId = poi.cityId || activeCityId || 'unknown';
             const newItem: ItineraryItem = {
@@ -190,7 +197,7 @@ export const useDiaryInteractions = (
                 completed: false,
                 isResource
             };
-            addItem(newItem);
+            addItem(stampNewItem(newItem));
         }
         closeModal();
     };

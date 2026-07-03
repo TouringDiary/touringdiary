@@ -121,8 +121,8 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
   );
 
   // `statusFilterPlacement` controlla SOLO la posizione del filtro stato nella riga:
-  // - desktop ≥lg → 'start': dropdown con etichetta a inizio riga (comportamento invariato);
-  // - layout compatto <lg → 'inline-end': pulsante sola-icona fra le categorie e la freccia destra.
+  // - desktop ≥lg → 'start': [ALL < NEW categorie >];
+  // - layout compatto <lg → 'inline-end': [NEW < categorie > ▼ALL].
   const renderCategoryNav = (statusFilterPlacement: 'start' | 'inline-end') => (
     <CategoryToolbarNav
       categories={visibleCategories}

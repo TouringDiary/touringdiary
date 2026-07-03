@@ -6,11 +6,13 @@ import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { isDiaryPersisted, isDiaryTempId } from '@/utils/suitcaseAssociation';
 import { registerDocumentExitGate, controllerToExitRegistration } from '@/focus/exitGate/documentExitRegistry';
 import { registerDocumentSaveController } from '@/domain/save/documentSaveRegistry';
+import { notifySharedResourceContentModified } from '@/services/collaboration/collaborationNotificationService';
 
 interface UseDiaryDocumentSaveOptions {
   itinerary: Itinerary;
   savedProjects: Itinerary[];
   isGuest: boolean;
+  userId: string | null;
   saveProject: (name?: string, isSaveAs?: boolean) => Promise<string | null>;
   onSaved?: (id: string) => void;
   onSaveAsNavigate?: (id: string) => void;
@@ -34,6 +36,7 @@ export function useDiaryDocumentSave({
   itinerary,
   savedProjects,
   isGuest,
+  userId,
   saveProject,
   onSaved,
   onSaveAsNavigate,
@@ -65,10 +68,22 @@ export function useDiaryDocumentSave({
         onSaveAsNavigate?.(id);
       } else {
         onSaved?.(id);
+        const wasPersisted =
+          !!options.documentId && !isDiaryTempId(options.documentId);
+        if (userId && wasPersisted) {
+          void notifySharedResourceContentModified(
+            userId,
+            'diary',
+            id,
+            name
+          ).catch((notificationError) => {
+            console.error('[useDiaryDocumentSave] notifySharedResourceContentModified:', notificationError);
+          });
+        }
       }
       return { id };
     },
-    [onSaveAsNavigate, onSaved, saveProject]
+    [onSaveAsNavigate, onSaved, saveProject, userId]
   );
 
   const controller = useDocumentSaveController({

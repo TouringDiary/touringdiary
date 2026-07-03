@@ -1567,6 +1567,7 @@ export type Database = {
           duration_days: number | null
           id: string
           items_json: Json | null
+          last_modified_by: string | null
           main_city: string | null
           nation: string | null
           rating: number | null
@@ -1591,6 +1592,7 @@ export type Database = {
           duration_days?: number | null
           id?: string
           items_json?: Json | null
+          last_modified_by?: string | null
           main_city?: string | null
           nation?: string | null
           rating?: number | null
@@ -1615,6 +1617,7 @@ export type Database = {
           duration_days?: number | null
           id?: string
           items_json?: Json | null
+          last_modified_by?: string | null
           main_city?: string | null
           nation?: string | null
           rating?: number | null
@@ -2620,6 +2623,8 @@ export type Database = {
       shared_resources: {
         Row: {
           created_at: string
+          edit_locked_at: string | null
+          edit_locked_by: string | null
           id: string
           kind: Database["public"]["Enums"]["shared_resource_kind"]
           owner_id: string
@@ -2629,6 +2634,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          edit_locked_at?: string | null
+          edit_locked_by?: string | null
           id?: string
           kind: Database["public"]["Enums"]["shared_resource_kind"]
           owner_id: string
@@ -2638,6 +2645,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          edit_locked_at?: string | null
+          edit_locked_by?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["shared_resource_kind"]
           owner_id?: string
@@ -4261,6 +4270,22 @@ export type Database = {
       clone_suitcase_master: {
         Args: { p_new_title?: string; p_source_id: string }
         Returns: string
+      }
+      can_access_collaborative_diary: {
+        Args: { p_itinerary_id: string; p_require_collaborator?: boolean }
+        Returns: boolean
+      }
+      get_shared_resource_edit_lock_holder: {
+        Args: { p_shared_resource_id: string }
+        Returns: string
+      }
+      release_shared_resource_edit_lock: {
+        Args: { p_shared_resource_id: string }
+        Returns: boolean
+      }
+      try_acquire_shared_resource_edit_lock: {
+        Args: { p_shared_resource_id: string }
+        Returns: boolean
       }
       consume_ai_credits:
         | {

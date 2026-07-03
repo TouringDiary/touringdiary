@@ -77,3 +77,12 @@ export async function verifyShareableResourceOwnership(
 ): Promise<string | null> {
   return OWNERSHIP_VERIFIERS[kind](resourceId, ownerId);
 }
+
+/** Proprietario dell'entità sottostante (valigia, template utente, diario). */
+export async function isShareableResourceOwner(
+  kind: SharedResourceKind,
+  resourceId: string,
+  userId: string
+): Promise<boolean> {
+  return (await verifyShareableResourceOwnership(kind, resourceId, userId)) === null;
+}

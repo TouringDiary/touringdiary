@@ -24,8 +24,8 @@ interface CategoryToolbarNavProps {
   onAddCategory?: () => void;
   /**
    * Posizione del filtro stato (ALL/INCOMPLETE/COMPLETE) all'interno della riga:
-   * - 'start' (default): dropdown con etichetta a inizio riga → desktop ≥lg, invariato;
-   * - 'inline-end': pulsante sola-icona come ULTIMO elemento (dopo la freccia destra) → layout compatto <lg;
+   * - 'start' (default): desktop ≥lg → [ALL < NEW categorie >];
+   * - 'inline-end': layout compatto <lg → [NEW < categorie > ▼ALL];
    * - 'none': non renderizzato.
    */
   statusFilterPlacement?: 'start' | 'inline-end' | 'none';
@@ -210,11 +210,7 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
     );
   };
 
-  // Freccia destra estratta perché la sua posizione dipende dal layout:
-  // - desktop ('start'): subito dopo la freccia sinistra → cluster di navigazione [< >] a inizio
-  //   riga, con il filtro a seguire e la lista categorie per ultima ([< > ▼ALL categorie]);
-  // - compatto ('inline-end'): a destra della lista, prima del filtro ([< categorie > ▼ALL]).
-  // Stesso identico comportamento (scrollCategories('right')) in entrambi i casi.
+  // Freccia destra: ultimo elemento nel layout desktop; in compatto resta dopo le categorie (invariato).
   const rightArrowButton = (
     <button
       type="button"
@@ -228,121 +224,160 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
     </button>
   );
 
-  return (
-    <>
-      {onAddCategory && (
-        <button
-          type="button"
-          onClick={onAddCategory}
-          disabled={readOnly}
-          className={`${ADD_CATEGORY_BTN_CLASS} relative overflow-visible shrink-0`}
-          title={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
-          aria-label={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
-        >
-          <FolderPlus className={`${SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS} text-emerald-500`} aria-hidden />
-          <span
-            className="text-[8px] font-black uppercase tracking-wider leading-none text-indigo-400/80"
-            aria-hidden
-          >
-            NEW
-          </span>
-        </button>
-      )}
+  // Freccia sinistra: secondo elemento nel layout desktop (dopo ALL); in compatto resta dopo NEW.
+  const leftArrowButton = (
+    <button
+      type="button"
+      onClick={() => scrollCategories('left')}
+      className={NAV_ARROW_BTN_CLASS}
+      title="Scorri categorie a sinistra"
+      aria-label="Scorri categorie a sinistra"
+      disabled={categories.length === 0}
+    >
+      <ChevronLeft className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
+    </button>
+  );
 
+  const newCategoryButton =
+    onAddCategory ? (
       <button
         type="button"
-        onClick={() => scrollCategories('left')}
-        className={NAV_ARROW_BTN_CLASS}
-        title="Scorri categorie a sinistra"
-        aria-label="Scorri categorie a sinistra"
-        disabled={categories.length === 0}
+        onClick={onAddCategory}
+        disabled={readOnly}
+        className={`${ADD_CATEGORY_BTN_CLASS} relative overflow-visible shrink-0`}
+        title={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
+        aria-label={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
       >
-        <ChevronLeft className={SUITCASE_TOOLBAR_ICON_SIZE_CLASS} aria-hidden />
+        <FolderPlus className={`${SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS} text-emerald-500`} aria-hidden />
+        <span
+          className="text-[8px] font-black uppercase tracking-wider leading-none text-indigo-400/80"
+          aria-hidden
+        >
+          NEW
+        </span>
       </button>
+    ) : null;
 
-      {/* Desktop ('start'): freccia destra accanto alla sinistra, poi il filtro, poi la lista. */}
-      {statusFilterPlacement === 'start' && rightArrowButton}
-      {renderStatusFilter('start')}
+  const categoryScrollTrack = (
+    <div
+      ref={scrollTrackRef}
+      className={SCROLL_TRACK_CLASS}
+      role="toolbar"
+      aria-orientation="horizontal"
+      aria-label="Navigazione categorie"
+      onDragLeave={handleContainerDragLeave}
+    >
+      {categories.map((cat, index) => {
+        const isDragging = draggingId === cat.id;
+        const isDropTarget = dropTargetIndex === index && draggingId !== cat.id;
+        const incompleteCount = incompleteCountsByCategoryId[cat.id] ?? 0;
+        const isActive = activeCategoryId === cat.id;
+        const shortLabel = getCategoryShortLabel(cat.name);
 
-      <div
-        ref={scrollTrackRef}
-        className={SCROLL_TRACK_CLASS}
-        role="toolbar"
-        aria-orientation="horizontal"
-        aria-label="Navigazione categorie"
-        onDragLeave={handleContainerDragLeave}
-      >
-        {categories.map((cat, index) => {
-          const isDragging = draggingId === cat.id;
-          const isDropTarget = dropTargetIndex === index && draggingId !== cat.id;
-          const incompleteCount = incompleteCountsByCategoryId[cat.id] ?? 0;
-          const isActive = activeCategoryId === cat.id;
-          const shortLabel = getCategoryShortLabel(cat.name);
-
-          return (
-            <button
-              key={cat.id}
-              ref={(el) => {
-                buttonRefs.current[index] = el;
-              }}
-              type="button"
-              draggable={!readOnly}
-              onClick={() => handleNavigateClick(cat.id)}
-              onDragStart={handleDragStart(cat.id)}
-              onDragEnd={handleDragEnd}
-              onDragOver={handleDragOver(index)}
-              onDragLeave={handleDragLeave(index)}
-              onDrop={handleDrop(index)}
-              onKeyDown={handleKeyDown(index)}
-              className={`${NAV_CATEGORY_BTN_CLASS} relative overflow-visible shrink-0 ${
-                isActive ? NAV_CATEGORY_BTN_ACTIVE_CLASS : ''
-              } ${isDragging ? 'opacity-40 scale-95' : ''} ${
-                isDropTarget ? 'ring-2 ring-indigo-500/60 border-indigo-500/40' : ''
-              } ${!readOnly ? 'cursor-grab active:cursor-grabbing' : ''}`}
-              title={
-                incompleteCount > 0
-                  ? `${cat.name} (${incompleteCount} da completare)`
-                  : cat.name
-              }
-              aria-label={
-                incompleteCount > 0
-                  ? `${cat.name}, ${incompleteCount} oggetti da completare`
-                  : cat.name
-              }
-              aria-current={isActive ? 'true' : undefined}
+        return (
+          <button
+            key={cat.id}
+            ref={(el) => {
+              buttonRefs.current[index] = el;
+            }}
+            type="button"
+            draggable={!readOnly}
+            onClick={() => handleNavigateClick(cat.id)}
+            onDragStart={handleDragStart(cat.id)}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver(index)}
+            onDragLeave={handleDragLeave(index)}
+            onDrop={handleDrop(index)}
+            onKeyDown={handleKeyDown(index)}
+            className={`${NAV_CATEGORY_BTN_CLASS} relative overflow-visible shrink-0 ${
+              isActive ? NAV_CATEGORY_BTN_ACTIVE_CLASS : ''
+            } ${isDragging ? 'opacity-40 scale-95' : ''} ${
+              isDropTarget ? 'ring-2 ring-indigo-500/60 border-indigo-500/40' : ''
+            } ${!readOnly ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            title={
+              incompleteCount > 0
+                ? `${cat.name} (${incompleteCount} da completare)`
+                : cat.name
+            }
+            aria-label={
+              incompleteCount > 0
+                ? `${cat.name}, ${incompleteCount} oggetti da completare`
+                : cat.name
+            }
+            aria-current={isActive ? 'true' : undefined}
+          >
+            <ItemCategoryIcon
+              category={cat.name}
+              iconKey={cat.icon_key}
+              className={SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS}
+            />
+            <span
+              className={`text-[8px] font-black uppercase tracking-wider leading-none ${
+                isActive ? 'text-amber-400' : 'text-slate-500'
+              }`}
+              aria-hidden
             >
-              <ItemCategoryIcon
-                category={cat.name}
-                iconKey={cat.icon_key}
-                className={SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS}
-              />
-              <span
-                className={`text-[8px] font-black uppercase tracking-wider leading-none ${
-                  isActive ? 'text-amber-400' : 'text-slate-500'
-                }`}
+              {shortLabel}
+            </span>
+            {incompleteCount > 0 && (
+              <CountBadge
+                count={incompleteCount}
+                max={99}
+                size="sm"
+                variant="red"
+                position="overlay-tr"
                 aria-hidden
-              >
-                {shortLabel}
-              </span>
-              {incompleteCount > 0 && (
-                <CountBadge
-                  count={incompleteCount}
-                  max={99}
-                  size="sm"
-                  variant="red"
-                  position="overlay-tr"
-                  aria-hidden
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
 
-      {/* Compatto ('inline-end'): freccia destra dopo la lista, poi il filtro sola-icona. */}
-      {statusFilterPlacement !== 'start' && rightArrowButton}
+  type ToolbarSlot =
+    | 'statusFilterStart'
+    | 'leftArrow'
+    | 'newCategory'
+    | 'categories'
+    | 'rightArrow'
+    | 'statusFilterInlineEnd';
 
-      {renderStatusFilter('inline-end')}
+  const DESKTOP_SLOT_ORDER: ToolbarSlot[] = [
+    'statusFilterStart',
+    'leftArrow',
+    'newCategory',
+    'categories',
+    'rightArrow',
+  ];
+
+  const COMPACT_SLOT_ORDER: ToolbarSlot[] = [
+    'newCategory',
+    'leftArrow',
+    'categories',
+    'rightArrow',
+    'statusFilterInlineEnd',
+  ];
+
+  const toolbarSlots: Record<ToolbarSlot, React.ReactNode> = {
+    statusFilterStart: renderStatusFilter('start'),
+    leftArrow: leftArrowButton,
+    newCategory: newCategoryButton,
+    categories: categoryScrollTrack,
+    rightArrow: rightArrowButton,
+    statusFilterInlineEnd: renderStatusFilter('inline-end'),
+  };
+
+  const slotOrder =
+    statusFilterPlacement === 'start' ? DESKTOP_SLOT_ORDER : COMPACT_SLOT_ORDER;
+
+  return (
+    <>
+      {slotOrder.map((slot) => {
+        const node = toolbarSlots[slot];
+        if (!node) return null;
+        return <React.Fragment key={slot}>{node}</React.Fragment>;
+      })}
     </>
   );
 };

@@ -14,12 +14,22 @@ export function defaultTabTitle(index: number): string {
   return `Nota ${index}`;
 }
 
-export function createDiaryNoteTab(title: string, document?: DiaryNotesDocument): DiaryNoteTab {
-  return {
+import {
+  stampDiaryNoteTabCreated,
+  stampDiaryNoteTabModified,
+} from '@/domain/diary/diaryAuthorTracking';
+
+export function createDiaryNoteTab(
+  title: string,
+  document?: DiaryNotesDocument,
+  createdBy?: string
+): DiaryNoteTab {
+  const tab: DiaryNoteTab = {
     id: randomUUID(),
     title,
     document: document ?? { ...EMPTY_DIARY_NOTES_DOCUMENT, content: [] },
   };
+  return createdBy ? stampDiaryNoteTabCreated(tab, createdBy) : tab;
 }
 
 export function createDefaultDiaryNotesState(): DiaryNotesState {
@@ -123,17 +133,20 @@ export function setActiveTabId(state: DiaryNotesState, tabId: string): DiaryNote
 export function updateActiveTabDocument(
   state: DiaryNotesState,
   document: DiaryNotesDocument,
+  lastModifiedBy?: string,
 ): DiaryNotesState {
   return {
     ...state,
-    tabs: state.tabs.map((tab) =>
-      tab.id === state.activeTabId ? { ...tab, document } : tab,
-    ),
+    tabs: state.tabs.map((tab) => {
+      if (tab.id !== state.activeTabId) return tab;
+      const updated = { ...tab, document };
+      return lastModifiedBy ? stampDiaryNoteTabModified(updated, lastModifiedBy) : updated;
+    }),
   };
 }
 
-export function addDiaryNoteTab(state: DiaryNotesState): DiaryNotesState {
-  const tab = createDiaryNoteTab(nextTabTitle(state));
+export function addDiaryNoteTab(state: DiaryNotesState, createdBy?: string): DiaryNotesState {
+  const tab = createDiaryNoteTab(nextTabTitle(state), undefined, createdBy);
   return {
     ...state,
     activeTabId: tab.id,

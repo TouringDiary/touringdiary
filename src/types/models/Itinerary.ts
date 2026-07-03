@@ -50,6 +50,10 @@ export interface ItineraryItem {
   
   // Se è un memo collegato a una risorsa (es. "Chiama Mario"), questo ID punta alla risorsa nel footer
   linkedResourceId?: string;
+
+  /** Conservazione autore (§21) — POI aggiunto da. Nessuna UI in Fase 6. */
+  addedBy?: string;
+  addedAt?: string;
 }
 
 export interface Itinerary {
@@ -62,6 +66,8 @@ export interface Itinerary {
   items: ItineraryItem[];
   createdAt: number;
   updatedAt?: number;
+  /** Ultimo modificatore persistito su DB (§21). */
+  lastModifiedBy?: string;
   dayStyles?: Record<number, string>; 
   roadbook?: RoadbookDay[];
   /** Area NOTE del diario — collezione di tab con documenti Tiptap/ProseMirror. */

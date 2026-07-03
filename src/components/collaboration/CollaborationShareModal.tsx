@@ -424,7 +424,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               searchQuery={searchQuery}
               searchResults={searchResults}
               isSubmitting={isSubmitting}
-              canChangeSharingMode={kind === 'suitcase'}
+              canChangeSharingMode={kind === 'suitcase' || kind === 'diary'}
               onSharingModeChange={handleSharingModeChange}
               onSelectedRoleChange={setSelectedRole}
               onSearchQueryChange={setSearchQuery}

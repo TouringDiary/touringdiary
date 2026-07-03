@@ -38,6 +38,9 @@ interface SuitcaseCardProps {
 const actionBtnClass =
   'flex-1 flex items-center justify-center h-[32px] border-r border-white/10 transition-all last:border-r-0 cursor-pointer';
 
+const cornerOverlayBtnClass =
+  'absolute z-local-overlay flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900/70 border border-white/10 text-slate-400 opacity-80 hover:opacity-100 transition-all cursor-pointer';
+
 export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
   suitcase,
   variant,
@@ -66,7 +69,7 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
     currentUser?.id === suitcase.user_id ||
     (!currentUser && (suitcase.user_id === 'guest' || suitcase.id.startsWith('guest-')));
 
-  const showShareCta =
+  const canShare =
     showShareAction && isOwner && !!resourceKind && !isTdTemplate(suitcase);
 
   const progress = useMemo(
@@ -108,6 +111,11 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
       handleSelect();
     }
   };
+
+  const canDelete = !!onDelete && isOwner;
+  const showDeleteOverlay = canDelete;
+  const showViewOverlay = !canDelete;
+  const showViewInActionBar = canDelete;
 
   return (
     <div
@@ -179,40 +187,6 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
         </div>
 
         <div className="flex border-t border-white/10 mt-auto">
-          {showShareCta && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                openCollaborationShare({
-                  kind: resourceKind!,
-                  resourceId: suitcase.id,
-                  resourceTitle: suitcase.title,
-                });
-              }}
-              className={`${actionBtnClass} text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10`}
-              title="Condividi valigia"
-              aria-label="Condividi valigia"
-            >
-              <Users className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {onDelete && isOwner && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(suitcase.id);
-              }}
-              className={`${actionBtnClass} text-slate-400 hover:text-red-400 hover:bg-red-400/10`}
-              title={removeLabels.title}
-              aria-label={removeLabels.ariaLabel}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-
           {onDuplicate && isOwner && (
             <button
               type="button"
@@ -226,6 +200,21 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
               aria-label="Duplica valigia"
             >
               <Copy className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {showViewInActionBar && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onView(suitcase.id);
+              }}
+              className={`${actionBtnClass} text-slate-400 hover:text-indigo-300 hover:border-indigo-500/40 hover:bg-white/5`}
+              title="Visualizza valigia"
+              aria-label="Visualizza valigia"
+            >
+              <Eye className="w-3.5 h-3.5" />
             </button>
           )}
 
@@ -252,18 +241,33 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
         onFocus={onSelect}
         className="flex-1 flex flex-col min-w-0 relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-r-xl group/content"
       >
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onView(suitcase.id);
-          }}
-          className="absolute top-2 right-2 z-local-overlay flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900/70 border border-white/10 text-slate-400 opacity-80 hover:opacity-100 hover:text-indigo-300 hover:border-indigo-500/40 transition-all cursor-pointer"
-          title="Visualizza valigia"
-          aria-label="Visualizza valigia"
-        >
-          <Eye className="w-4 h-4" />
-        </button>
+        {showDeleteOverlay ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete!(suitcase.id);
+            }}
+            className={`${cornerOverlayBtnClass} top-2 right-2 hover:text-red-400 hover:border-red-500/40`}
+            title={removeLabels.title}
+            aria-label={removeLabels.ariaLabel}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        ) : showViewOverlay ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView(suitcase.id);
+            }}
+            className={`${cornerOverlayBtnClass} top-2 right-2 hover:text-indigo-300 hover:border-indigo-500/40`}
+            title="Visualizza valigia"
+            aria-label="Visualizza valigia"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+        ) : null}
         <div className="flex-1 flex flex-col justify-center px-4 leading-tight min-h-0">
           <div className="flex items-center gap-1.5 min-w-0 pr-8">
             <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate">
@@ -297,6 +301,25 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
           </div>
         </div>
       </div>
+
+      {canShare && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openCollaborationShare({
+              kind: resourceKind!,
+              resourceId: suitcase.id,
+              resourceTitle: suitcase.title,
+            });
+          }}
+          className={`${cornerOverlayBtnClass} bottom-2 right-2 hover:text-indigo-300 hover:border-indigo-500/40`}
+          title="Condividi valigia"
+          aria-label="Condividi valigia"
+        >
+          <Users className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 };

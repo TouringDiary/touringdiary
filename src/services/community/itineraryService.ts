@@ -4,6 +4,8 @@ import { normalizeDiaryNotesState } from '../../domain/diary/diaryNotesState';
 import { User } from '../../types/users';
 import { UUID_REGEX } from '../../utils/uuid';
 import type { Json } from '../../types/supabase';
+import { canUserModifyResource } from '../collaboration/permissionService';
+import { fetchCollaborativeDiaryIdsForMember } from '../collaboration/diaryCollaborationService';
 
 /**
  * Confine di serializzazione verso il DB.
@@ -77,6 +79,39 @@ function unpackDiaryData(rawJson: unknown, durationDays: number): PackedDiaryFie
   return { items, startDate, endDate, dayStyles, diaryNotes, roadbook };
 }
 
+function mapDbRowToItinerary(db: {
+  id: string;
+  user_id: string | null;
+  title: string | null;
+  duration_days: number | null;
+  items_json: unknown;
+  created_at: string | null;
+  updated_at: string | null;
+  suitcase_id: string | null;
+  last_modified_by?: string | null;
+}): Itinerary {
+  const { items, startDate, endDate, dayStyles, diaryNotes, roadbook } = unpackDiaryData(
+    db.items_json,
+    db.duration_days ?? 1
+  );
+
+  return {
+    id: db.id,
+    userId: db.user_id ?? undefined,
+    name: db.title ?? '',
+    startDate,
+    endDate,
+    items,
+    createdAt: db.created_at ? new Date(db.created_at).getTime() : Date.now(),
+    updatedAt: db.updated_at ? new Date(db.updated_at).getTime() : undefined,
+    lastModifiedBy: db.last_modified_by ?? undefined,
+    dayStyles,
+    diaryNotes,
+    roadbook,
+    suitcase_id: db.suitcase_id ?? null,
+  };
+}
+
 export interface ItineraryFilters {
     type?: 'official' | 'community' | 'ai';
     continent?: string;
@@ -129,6 +164,45 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
 
         const packedData = buildPackedDiaryData(itinerary);
 
+        const { data: existingRow } = await supabase
+            .from('itineraries')
+            .select('user_id')
+            .eq('id', itinerary.id)
+            .maybeSingle();
+
+        const isCollaborativeMemberSave =
+            !!existingRow?.user_id &&
+            existingRow.user_id !== realUserId;
+
+        if (isCollaborativeMemberSave) {
+            const canModify = await canUserModifyResource(realUserId, 'diary', itinerary.id!);
+            if (!canModify) {
+                throw new Error('Permessi insufficienti per modificare questo Diario condiviso.');
+            }
+
+            const collaborativePayload = {
+                title: itinerary.name || 'Viaggio Senza Nome',
+                description: 'Bozza salvata',
+                duration_days: duration > 0 ? duration : 1,
+                items_json: toDbJson(packedData),
+                main_city: itinerary.items[0]?.cityId || 'Campania',
+                updated_at: new Date().toISOString(),
+                last_modified_by: realUserId,
+            };
+
+            const { data, error } = await supabase
+                .from('itineraries')
+                .update(collaborativePayload)
+                .eq('id', itinerary.id)
+                .select('id');
+
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error('Salvataggio non riuscito: sessione non valida o permessi insufficienti.');
+            }
+            return true;
+        }
+
         const payload = {
             id: itinerary.id, 
             user_id: realUserId, 
@@ -141,7 +215,8 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
             main_city: itinerary.items[0]?.cityId || 'Campania',
             suitcase_id: itinerary.suitcase_id || null,
             created_at: new Date(itinerary.createdAt).toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            last_modified_by: realUserId,
         };
 
         // Upsert gestisce sia INSERT che UPDATE.
@@ -193,31 +268,48 @@ export const getUserDrafts = async (userId: string): Promise<Itinerary[]> => {
             
         if (error) throw error;
 
-        return (data || []).map((db: any) => {
-            const { items, startDate, endDate, dayStyles, diaryNotes, roadbook } = unpackDiaryData(
-                db.items_json,
-                db.duration_days
-            );
-
-            return {
-                id: db.id,
-                userId: db.user_id,
-                name: db.title,
-                startDate: startDate, 
-                endDate: endDate,
-                items: items, 
-                createdAt: new Date(db.created_at).getTime(),
-                updatedAt: db.updated_at ? new Date(db.updated_at).getTime() : undefined,
-                dayStyles: dayStyles,
-                diaryNotes,
-                roadbook,
-                suitcase_id: db.suitcase_id || null
-            };
-        });
+        return (data || []).map((db) => mapDbRowToItinerary(db));
     } catch (e) {
         console.error("Errore recupero bozze cloud:", e);
         return [];
     }
+};
+
+/** Diari condivisi in modalità Collaborativa accessibili come membro (§13). */
+export const fetchDiariesByIds = async (diaryIds: string[]): Promise<Itinerary[]> => {
+    if (diaryIds.length === 0) return [];
+
+    try {
+        const { data, error } = await supabase
+            .from('itineraries')
+            .select('*')
+            .in('id', diaryIds)
+            .eq('type', 'personal')
+            .order('updated_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map((db) => mapDbRowToItinerary(db));
+    } catch (e) {
+        console.error('Errore recupero diari condivisi:', e);
+        return [];
+    }
+};
+
+/**
+ * Diari di proprietà + condivisi in modalità Collaborativa (§13).
+ */
+export const getAccessibleDiariesForUser = async (userId: string): Promise<Itinerary[]> => {
+    const [owned, sharedIds] = await Promise.all([
+        getUserDrafts(userId),
+        fetchCollaborativeDiaryIdsForMember(userId),
+    ]);
+    const ownedIds = new Set(owned.map((diary) => diary.id).filter((id): id is string => !!id));
+    const missingSharedIds = sharedIds.filter((id) => !ownedIds.has(id));
+
+    if (missingSharedIds.length === 0) return owned;
+
+    const shared = await fetchDiariesByIds(missingSharedIds);
+    return [...owned, ...shared];
 };
 
 // FIX CRITICO: Cancellazione robusta che evita check di sessione superflui

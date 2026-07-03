@@ -39,6 +39,9 @@ export const SETTINGS_KEYS = {
 
   // Onboarding & UX Flow
   ONBOARDING_CONFIG: 'onboarding_config',
+
+  // Storage & quote (Fase 10 allegati workspace — configurazione admin, nessun hardcode)
+  STORAGE_LIMITS: 'storage_limits',
 };
 
 // --- CACHE IN MEMORIA & LOCK ---

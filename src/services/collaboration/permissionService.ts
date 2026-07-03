@@ -12,6 +12,7 @@ import {
   getSharedResourceMember,
   countSharedResourceMembers,
 } from './sharedResourceAclService';
+import { isShareableResourceOwner } from './sharedResourceOwnershipVerifiers';
 
 export interface ResolvePermissionOptions {
   /** ACL workspace per risorsa (Fase 7). Default `none` = nessun contesto workspace. */
@@ -32,6 +33,20 @@ export async function resolveResourcePermission(
   const resource = await getShareableResource(kind, resourceId);
 
   if (!resource) {
+    // Caso A: risorsa personale non ancora nel registro shared_resources — permessi da ownership.
+    const isOwner = await isShareableResourceOwner(kind, resourceId, userId);
+    if (isOwner) {
+      return buildResolvedPermission({
+        accessLevel: 'owner',
+        isOwner: true,
+        isShared: false,
+        sharingMode: null,
+        resourceRole: null,
+        workspaceAccess,
+      });
+    }
+
+    // Caso C: nessun registro e utente non proprietario.
     return buildResolvedPermission({
       accessLevel: 'none',
       isOwner: false,

@@ -59,6 +59,15 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
   const actionBtnClass =
     'flex-1 flex items-center justify-center h-full min-h-[32px] max-h-[32px] shrink-0 border-r border-white/10 transition-all last:border-r-0 cursor-pointer';
 
+  const cornerOverlayBtnClass =
+    'absolute z-local-overlay flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900/70 border border-white/10 text-slate-400 opacity-80 hover:opacity-100 transition-all cursor-pointer';
+
+  const canDelete = !!onDelete && isOwner && isUser;
+  const canShare = isUser && isOwner;
+  const showDeleteOverlay = canDelete;
+  const showViewOverlay = !canDelete;
+  const showViewInActionBar = canDelete;
+
   // Click/seleziona riga: aggiorna solo l'anteprima (stesso callback dell'hover).
   // L'apertura del viewer avviene ESCLUSIVAMENTE dal pulsante con l'icona occhio.
   const handleSelect = () => onSelect();
@@ -143,38 +152,6 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
 
           {isUser && (
             <>
-              {isOwner && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openCollaborationShare({
-                      kind: 'user_template',
-                      resourceId: template.id,
-                      resourceTitle: template.title,
-                    });
-                  }}
-                  className={`${actionBtnClass} text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10`}
-                  title="Condividi template"
-                  aria-label="Condividi template"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {onDelete && isOwner && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                  }}
-                  className={`${actionBtnClass} text-slate-500 hover:text-red-400 hover:bg-red-400/10`}
-                  title="Elimina template"
-                  aria-label="Elimina template"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
               {onDuplicate && isOwner && (
                 <button
                   type="button"
@@ -188,6 +165,20 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
                   aria-label="Duplica template"
                 >
                   <Copy className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {showViewInActionBar && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onView();
+                  }}
+                  className={`${actionBtnClass} text-slate-400 hover:text-indigo-300 hover:border-indigo-500/40 hover:bg-white/5`}
+                  title="Visualizza template"
+                  aria-label="Visualizza template"
+                >
+                  <Eye className="w-3.5 h-3.5" />
                 </button>
               )}
               {onOpen && (
@@ -217,18 +208,33 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
         onFocus={onSelect}
         className="flex-1 flex flex-col min-w-0 relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-r-xl group/content"
       >
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onView();
-          }}
-          className="absolute top-2 right-2 z-local-overlay flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900/70 border border-white/10 text-slate-400 opacity-80 hover:opacity-100 hover:text-indigo-300 hover:border-indigo-500/40 transition-all cursor-pointer"
-          title="Visualizza template"
-          aria-label="Visualizza template"
-        >
-          <Eye className="w-4 h-4" />
-        </button>
+        {showDeleteOverlay ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete!();
+            }}
+            className={`${cornerOverlayBtnClass} top-2 right-2 hover:text-red-400 hover:border-red-500/40`}
+            title="Elimina template"
+            aria-label="Elimina template"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        ) : showViewOverlay ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView();
+            }}
+            className={`${cornerOverlayBtnClass} top-2 right-2 hover:text-indigo-300 hover:border-indigo-500/40`}
+            title="Visualizza template"
+            aria-label="Visualizza template"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+        ) : null}
 
         <div className="flex-1 flex flex-col justify-center px-4 leading-tight min-h-0">
           <span className="text-[13.5px] font-bold text-slate-100 group-hover:text-white truncate pr-9 flex items-center gap-2">
@@ -269,6 +275,25 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
           )}
         </div>
       </div>
+
+      {canShare && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openCollaborationShare({
+              kind: 'user_template',
+              resourceId: template.id,
+              resourceTitle: template.title,
+            });
+          }}
+          className={`${cornerOverlayBtnClass} bottom-2 right-2 hover:text-indigo-300 hover:border-indigo-500/40`}
+          title="Condividi template"
+          aria-label="Condividi template"
+        >
+          <Users className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 };

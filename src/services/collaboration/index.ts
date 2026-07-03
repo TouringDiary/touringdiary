@@ -41,6 +41,16 @@ export {
 
 export { blockUser, unblockUser, areUsersBlocked, listBlockedUserIds } from './userBlockService';
 
+export {
+  fetchCollaborativeDiaryIdsForMember,
+} from './diaryCollaborationService';
+
+export {
+  tryAcquireDiaryEditLock,
+  releaseDiaryEditLock,
+  getDiaryEditLockHolder,
+} from './diaryLockService';
+
 export type { ResolvePermissionOptions } from './permissionService';
 export type { RegisterShareableResourceResult } from './sharedResourceService';
 export type { SetSharedResourceMemberResult } from './sharedResourceAclService';

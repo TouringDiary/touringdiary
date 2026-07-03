@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { StickyNote } from 'lucide-react';
 import type { DiaryNotesDocument, DiaryNotesState } from '@/types/models/DiaryNotes';
+import { useUser } from '@/context/UserContext';
 import {
   addDiaryNoteTab,
   getActiveTabDocument,
@@ -27,6 +28,9 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
   onNotesStateChange,
   isActive = true,
 }) => {
+  const { user } = useUser();
+  const authorId = user?.role !== 'guest' ? user?.id : undefined;
+
   const state = useMemo(
     () => normalizeDiaryNotesState(notesState),
     [notesState],
@@ -36,9 +40,9 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
 
   const handleDocumentChange = useCallback(
     (document: DiaryNotesDocument) => {
-      onNotesStateChange(updateActiveTabDocument(state, document));
+      onNotesStateChange(updateActiveTabDocument(state, document, authorId));
     },
-    [onNotesStateChange, state],
+    [authorId, onNotesStateChange, state],
   );
 
   const handleSelectTab = useCallback(
@@ -49,8 +53,8 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
   );
 
   const handleAddTab = useCallback(() => {
-    onNotesStateChange(addDiaryNoteTab(state));
-  }, [onNotesStateChange, state]);
+    onNotesStateChange(addDiaryNoteTab(state, authorId));
+  }, [authorId, onNotesStateChange, state]);
 
   const handleRenameTab = useCallback(
     (tabId: string, title: string) => {

@@ -1,4 +1,4 @@
-import { Z_DROPDOWN } from '@/constants/zIndex';
+import { Z_POPOVER } from '@/constants/zIndex';
 import React, { useRef, useState, useEffect } from 'react';
 import { AlertTriangle, Check, Cloud, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import { Itinerary, User } from '@/types';
@@ -6,6 +6,8 @@ import { useItinerary } from '@/context/ItineraryContext';
 import { useDynamicContent } from '@/hooks/useDynamicContent'; 
 import { useModal } from '@/context/ModalContext';
 import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
+import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { useSystemMessage } from '../../../hooks/useSystemMessage';
 
@@ -21,6 +23,7 @@ import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
 import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
 import { formatItalianTime, formatItalianTimeWithSeconds } from '@/utils/dateFormatters';
 import { useBelowLg } from '@/hooks/ui/useBelowLg';
+import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
 
 interface DiaryHeaderProps {
     itinerary: Itinerary;
@@ -189,7 +192,11 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 }) => {
     const { syncCloudDrafts } = useItinerary(); 
     const { openModal } = useModal();
-    const openCollaborationShare = useOpenCollaborationShare(); 
+    const openCollaborationShare = useOpenCollaborationShare();
+    const isDiaryShared = useSharedResourceIndicator(
+        itinerary.id ? 'diary' : null,
+        itinerary.id
+    );
     
     const [loadMenuOpen, setLoadMenuOpen] = useState(false);
     const [shareMenuOpen, setShareMenuOpen] = useState(false);
@@ -338,6 +345,10 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     const canPublish = itinerary.items.length > 0 && itinerary.name && !isGuest;
 
     const handleCollaborativeShare = () => {
+        if (!itinerary.id || !isDiaryPersisted(itinerary, savedProjects)) {
+            alert('Salva il diario prima di condividerlo con altri utenti.');
+            return;
+        }
         openCollaborationShare({
             kind: 'diary',
             resourceId: itinerary.id,
@@ -372,7 +383,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     const targetProjectName = savedProjects.find(p => p.id === deleteTargetId)?.name || 'questo diario';
 
     return (
-        <div className="p-3 border-b border-stone-300 bg-slate-900 shadow-sm relative no-print-bg flex-shrink-0 transition-all" style={{ zIndex: Z_DROPDOWN }}>
+        <div className="p-3 border-b border-stone-300 bg-slate-900 shadow-sm relative no-print-bg flex-shrink-0 transition-all" style={{ zIndex: Z_POPOVER }}>
             <DeleteConfirmationModal 
                 isOpen={!!deleteTargetId}
                 onClose={() => setDeleteTargetId(null)}
@@ -436,6 +447,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                         <h3 className={`${titleConfig.style} leading-none min-w-0 truncate`}>
                             {titleConfig.text || (isMobile ? 'Diario' : 'Diario di Viaggio')}
                         </h3>
+                        {isDiaryShared && <SharedResourceIndicator />}
                         <DiaryHeaderSaveBadge
                             documentId={itinerary.id}
                             phase={savePhase}

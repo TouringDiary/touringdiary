@@ -550,6 +550,10 @@ La fase è **terminata** quando:
 
 ---
 
+I limiti di storage e le tipologie di file consentite saranno configurati tramite il sistema esistente "Impostazioni Globali" dell'Admin Panel. Nessun valore dovrà essere hardcoded nei servizi applicativi; i moduli consumeranno esclusivamente configurazioni centralizzate.
+
+Quando implementerete davvero i limiti storage (Fase 10), eviterei un nuovo storageLimitsConfigService dedicato. Integrerei i limiti direttamente nel sistema già esistente di Impostazioni Globali / ConfigContext, così tutti i moduli consumano la stessa fonte di configurazione e non iniziate a proliferare servizi di configurazione separati.
+
 ## Fase 10 — Profilo collaborativo, attività, autore, allegati e Admin
 
 ### Obiettivo

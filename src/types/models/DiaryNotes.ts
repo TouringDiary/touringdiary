@@ -35,6 +35,11 @@ export interface DiaryNoteTab {
   id: string;
   title: string;
   document: DiaryNotesDocument;
+  /** Conservazione autore (§21) — nessuna UI in Fase 6. */
+  createdBy?: string;
+  createdAt?: string;
+  lastModifiedBy?: string;
+  lastModifiedAt?: string;
 }
 
 /** Stato persistente dell'area NOTE — collezione di tab con tab attivo. */

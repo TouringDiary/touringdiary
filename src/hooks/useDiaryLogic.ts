@@ -11,6 +11,7 @@ import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { LAYOUT } from '@/constants/layout';
 import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
+import { stampItineraryItemAuthor } from '@/domain/diary/diaryAuthorTracking';
 
 interface UseDiaryLogicProps {
     user: User;
@@ -90,6 +91,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         itinerary,
         savedProjects,
         isGuest,
+        userId: user?.id ?? null,
         saveProject,
         onSaveAsNavigate: () => {
             resetStack();
@@ -406,7 +408,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     const handleConfirmAddMemo = useCallback((dayIndex: number, timeSlotStr: string) => {
         if (!memoTargetItem) return;
         
-        const newMemo: ItineraryItem = {
+        const newMemo: ItineraryItem = stampItineraryItemAuthor({
             id: `memo-${Date.now()}`,
             cityId: memoTargetItem.cityId,
             dayIndex,
@@ -415,12 +417,12 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             type: 'memo',
             linkedResourceId: memoTargetItem.id, 
             isResource: false 
-        };
+        }, user?.role !== 'guest' ? user?.id : undefined);
         
         addItem(newMemo);
         setMemoTargetItem(null);
         showXpToast({ title: 'Memo aggiunto al diario!', xp: 0 }, 2000);
-    }, [memoTargetItem, addItem, showXpToast]);
+    }, [memoTargetItem, addItem, showXpToast, user?.id, user?.role]);
     
     const handleMemoClick = useCallback((linkedId: string) => {
         const el = document.getElementById(`resource-${linkedId}`);

@@ -2,6 +2,7 @@ import type { SharedResourceKind } from '@/domain/collaboration';
 import { isSharedResourceKind } from '@/domain/collaboration';
 import { supabase } from '@/services/supabaseClient';
 import { duplicateSuitcaseEntityAsync } from '@/services/suitcaseService';
+import { randomUUID } from '@/utils/runtimeId';
 
 export type DuplicateSharedResourceForInviteeResult =
   | { success: true; copiedResourceId: string }
@@ -75,8 +76,63 @@ async function duplicateSuitcaseTableEntityForInvitee(
 }
 
 /**
+ * Modalità Personale (§4.2, §14): copia completa del Diario incluso Tab Note.
+ * Non copia collegamenti valigia (`suitcase_id`, pivot `itinerary_suitcases`).
+ */
+async function duplicateDiaryForInvitee(
+  resourceId: string,
+  ownerId: string,
+  inviteeId: string
+): Promise<DuplicateSharedResourceForInviteeResult> {
+  const { data: source, error } = await supabase
+    .from('itineraries')
+    .select(
+      'id, user_id, title, description, duration_days, type, status, items_json, main_city'
+    )
+    .eq('id', resourceId)
+    .eq('user_id', ownerId)
+    .eq('type', 'personal')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[personalShareService] duplicateDiaryForInvitee:', error.message);
+    return { success: false, error: 'Impossibile verificare il Diario da copiare.' };
+  }
+  if (!source) {
+    return { success: false, error: 'Diario non trovato o accesso negato.' };
+  }
+
+  const copiedResourceId = randomUUID();
+  const now = new Date().toISOString();
+  const copiedItemsJson =
+    source.items_json != null ? JSON.parse(JSON.stringify(source.items_json)) : null;
+
+  const { error: insertError } = await supabase.from('itineraries').insert({
+    id: copiedResourceId,
+    user_id: inviteeId,
+    title: source.title ?? 'Diario',
+    description: source.description ?? 'Bozza salvata',
+    duration_days: source.duration_days ?? 1,
+    type: 'personal',
+    status: source.status ?? 'draft',
+    items_json: copiedItemsJson,
+    main_city: source.main_city,
+    suitcase_id: null,
+    created_at: now,
+    updated_at: now,
+    last_modified_by: inviteeId,
+  });
+
+  if (insertError) {
+    console.error('[personalShareService] duplicateDiaryForInvitee insert:', insertError.message);
+    return { success: false, error: 'Impossibile creare la copia personale del Diario.' };
+  }
+
+  return { success: true, copiedResourceId };
+}
+
+/**
  * Modalità Personale (§4.2): copia completa indipendente per il destinatario.
- * Valigie e Template Utente in Fase 4; Diario in Fase 6.
  */
 export async function duplicateSharedResourceForInvitee(
   kind: SharedResourceKind,
@@ -89,10 +145,7 @@ export async function duplicateSharedResourceForInvitee(
   }
 
   if (kind === 'diary') {
-    return {
-      success: false,
-      error: 'La condivisione personale del Diario sarà disponibile nella prossima fase.',
-    };
+    return duplicateDiaryForInvitee(resourceId, ownerId, inviteeId);
   }
 
   if (isSuitcaseTableEntityKind(kind)) {

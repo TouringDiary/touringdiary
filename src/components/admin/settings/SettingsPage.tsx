@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Palette, Puzzle, Link, Settings } from 'lucide-react';
+import { Palette, Puzzle, Link, Settings, HardDrive } from 'lucide-react';
 import { useConfig } from '@/context/ConfigContext';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
 import { PartnerIntegrationsPanel } from './PartnerIntegrationsPanel';
@@ -11,6 +11,7 @@ const TABS = [
     { id: 'design_system', label: 'Design System', icon: Palette },
     { id: 'poi_categories_config', label: 'Categorie POI', icon: Puzzle },
     { id: 'partner_integrations', label: 'Integrazioni Partner', icon: Link },
+    { id: 'storage_limits', label: 'Limiti Storage', icon: HardDrive },
 ];
 
 export const SettingsPage: React.FC = () => {

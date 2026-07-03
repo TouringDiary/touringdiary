@@ -1,6 +1,6 @@
 import { Itinerary, User } from '../types/index';
 import { getStorageItem, setStorageItem } from './storageService';
-import { saveUserDraft, getUserDrafts, deleteUserDraft } from './communityService';
+import { saveUserDraft, getAccessibleDiariesForUser, deleteUserDraft } from './communityService';
 
 /**
  * Storage Manager Centralizzato
@@ -26,7 +26,7 @@ export const ItineraryStorageManager = {
         } else {
             // UTENTE LOGGATO: Usa Database Supabase
             try {
-                const drafts = await getUserDrafts(user.id);
+                const drafts = await getAccessibleDiariesForUser(user.id);
                 const ghosts = getStorageItem<string[]>(GHOST_STORAGE_KEY, []);
                 const cloudDrafts = drafts.filter(d => !ghosts.includes(d.id));
                 
@@ -94,7 +94,7 @@ export const ItineraryStorageManager = {
                 
                 if (!success) {
                     // Se la cancellazione fallisce (es. count=0), verifichiamo se l'elemento esiste ancora.
-                    const fresh = await getUserDrafts(user.id);
+                    const fresh = await getAccessibleDiariesForUser(user.id);
                     if (!fresh.find(p => p.id === cleanId)) {
                         // Successo effettivo (non esiste più)
                         return true;

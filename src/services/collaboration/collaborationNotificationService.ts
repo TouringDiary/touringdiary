@@ -67,7 +67,13 @@ export async function notifySharedResourceContentModified(
   resourceId: string,
   resourceTitle: string
 ): Promise<void> {
-  if (resourceKind !== 'suitcase' && resourceKind !== 'user_template') return;
+  if (
+    resourceKind !== 'suitcase' &&
+    resourceKind !== 'user_template' &&
+    resourceKind !== 'diary'
+  ) {
+    return;
+  }
 
   const resource = await getShareableResource(resourceKind, resourceId);
   if (!resource || resource.sharingMode !== 'collaborative') return;
@@ -80,15 +86,19 @@ export async function notifySharedResourceContentModified(
   }
   recipientIds.delete(actorId);
 
-  const title =
-    resourceKind === 'suitcase'
-      ? `${actorName} ha modificato la Valigia`
-      : `${actorName} ha modificato il Template`;
+  let title: string;
+  let body: string;
 
-  const body =
-    resourceKind === 'suitcase'
-      ? `La valigia "${resourceTitle}" è stata aggiornata.`
-      : `Il template "${resourceTitle}" è stato aggiornato.`;
+  if (resourceKind === 'diary') {
+    title = `${actorName} ha aggiornato il Diario condiviso`;
+    body = `Il diario "${resourceTitle}" è stato aggiornato.`;
+  } else if (resourceKind === 'suitcase') {
+    title = `${actorName} ha modificato la Valigia`;
+    body = `La valigia "${resourceTitle}" è stata aggiornata.`;
+  } else {
+    title = `${actorName} ha modificato il Template`;
+    body = `Il template "${resourceTitle}" è stato aggiornato.`;
+  }
 
   await Promise.all(
     [...recipientIds].map((recipientId) =>
