@@ -6,6 +6,7 @@ import type {
 import {
   deriveResourceCapabilities,
   resolveEffectiveAccessLevel,
+  applyPersonalModeWorkspaceContentRules,
 } from '@/domain/collaboration';
 import { getShareableResource } from './sharedResourceService';
 import {
@@ -13,10 +14,13 @@ import {
   countSharedResourceMembers,
 } from './sharedResourceAclService';
 import { isShareableResourceOwner } from './sharedResourceOwnershipVerifiers';
+import { getWorkspaceResourceAccessForUser } from './workspaceAccessLookup';
 
 export interface ResolvePermissionOptions {
   /** ACL workspace per risorsa (Fase 7). Default `none` = nessun contesto workspace. */
   workspaceAccess?: WorkspaceResourceAccess;
+  /** Se impostato, risolve automaticamente l'ACL workspace dal database. */
+  workspaceId?: string;
 }
 
 /**
@@ -29,11 +33,19 @@ export async function resolveResourcePermission(
   resourceId: string,
   options: ResolvePermissionOptions = {}
 ): Promise<ResolvedResourcePermission> {
-  const workspaceAccess = options.workspaceAccess ?? 'none';
+  let workspaceAccess = options.workspaceAccess ?? 'none';
+  if (options.workspaceId && workspaceAccess === 'none') {
+    workspaceAccess = await getWorkspaceResourceAccessForUser(
+      userId,
+      options.workspaceId,
+      kind,
+      resourceId
+    );
+  }
+
   const resource = await getShareableResource(kind, resourceId);
 
   if (!resource) {
-    // Caso A: risorsa personale non ancora nel registro shared_resources — permessi da ownership.
     const isOwner = await isShareableResourceOwner(kind, resourceId, userId);
     if (isOwner) {
       return buildResolvedPermission({
@@ -46,7 +58,18 @@ export async function resolveResourcePermission(
       });
     }
 
-    // Caso C: nessun registro e utente non proprietario.
+    if (workspaceAccess !== 'none') {
+      const permission = buildResolvedPermission({
+        accessLevel: resolveEffectiveAccessLevel(false, null, workspaceAccess),
+        isOwner: false,
+        isShared: false,
+        sharingMode: null,
+        resourceRole: null,
+        workspaceAccess,
+      });
+      return applyPersonalModeWorkspaceContentRules(permission, false);
+    }
+
     return buildResolvedPermission({
       accessLevel: 'none',
       isOwner: false,
@@ -59,16 +82,27 @@ export async function resolveResourcePermission(
 
   const isOwner = resource.ownerId === userId;
 
-  // Modalità Personale (§4.2, §15): solo il proprietario accede all'istanza originale.
   if (resource.sharingMode === 'personal' && !isOwner) {
-    return buildResolvedPermission({
-      accessLevel: 'none',
+    if (workspaceAccess === 'none') {
+      return buildResolvedPermission({
+        accessLevel: 'none',
+        isOwner: false,
+        isShared: false,
+        sharingMode: resource.sharingMode,
+        resourceRole: null,
+        workspaceAccess,
+      });
+    }
+
+    const permission = buildResolvedPermission({
+      accessLevel: resolveEffectiveAccessLevel(false, null, workspaceAccess),
       isOwner: false,
       isShared: false,
       sharingMode: resource.sharingMode,
       resourceRole: null,
       workspaceAccess,
     });
+    return applyPersonalModeWorkspaceContentRules(permission, false);
   }
 
   const member = isOwner ? null : await getSharedResourceMember(resource.id, userId);
@@ -78,7 +112,7 @@ export async function resolveResourcePermission(
   const memberCount = await countSharedResourceMembers(resource.id);
   const isShared = memberCount > 0;
 
-  return buildResolvedPermission({
+  const permission = buildResolvedPermission({
     accessLevel,
     isOwner,
     isShared,
@@ -86,6 +120,8 @@ export async function resolveResourcePermission(
     resourceRole,
     workspaceAccess,
   });
+
+  return applyPersonalModeWorkspaceContentRules(permission, isOwner);
 }
 
 function buildResolvedPermission(input: {

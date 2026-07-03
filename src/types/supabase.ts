@@ -3956,6 +3956,261 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_invite_permissions: {
+        Row: {
+          access_level: Database["public"]["Enums"]["workspace_resource_access"]
+          id: string
+          invite_id: string
+          kind: Database["public"]["Enums"]["shared_resource_kind"]
+          resource_id: string
+        }
+        Insert: {
+          access_level: Database["public"]["Enums"]["workspace_resource_access"]
+          id?: string
+          invite_id: string
+          kind: Database["public"]["Enums"]["shared_resource_kind"]
+          resource_id: string
+        }
+        Update: {
+          access_level?: Database["public"]["Enums"]["workspace_resource_access"]
+          id?: string
+          invite_id?: string
+          kind?: Database["public"]["Enums"]["shared_resource_kind"]
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invite_permissions_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_invites: {
+        Row: {
+          created_at: string
+          id: string
+          invitee_id: string
+          inviter_id: string
+          responded_at: string | null
+          status: Database["public"]["Enums"]["resource_invite_status"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invitee_id: string
+          inviter_id: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["resource_invite_status"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invitee_id?: string
+          inviter_id?: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["resource_invite_status"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invites_invitee_id_fkey"
+            columns: ["invitee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_invites_inviter_id_fkey"
+            columns: ["inviter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_invites_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_members: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_resource_permissions: {
+        Row: {
+          access_level: Database["public"]["Enums"]["workspace_resource_access"]
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+          workspace_resource_id: string
+        }
+        Insert: {
+          access_level?: Database["public"]["Enums"]["workspace_resource_access"]
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+          workspace_resource_id: string
+        }
+        Update: {
+          access_level?: Database["public"]["Enums"]["workspace_resource_access"]
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+          workspace_resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_resource_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_resource_permissions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_resource_permissions_workspace_resource_id_fkey"
+            columns: ["workspace_resource_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_resources: {
+        Row: {
+          added_by: string
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["shared_resource_kind"]
+          resource_id: string
+          workspace_id: string
+        }
+        Insert: {
+          added_by: string
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["shared_resource_kind"]
+          resource_id: string
+          workspace_id: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["shared_resource_kind"]
+          resource_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_resources_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_resources_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          settings: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          settings?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          settings?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspaces_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       active_continents: {
@@ -4617,6 +4872,7 @@ export type Database = {
       shared_resource_kind: "diary" | "suitcase" | "user_template"
       sharing_mode: "collaborative" | "personal"
       subscription_status: "ACTIVE" | "EXPIRED" | "CANCELLED" | "PENDING"
+      workspace_resource_access: "none" | "viewer" | "collaborator"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4770,6 +5026,7 @@ export const Constants = {
       shared_resource_kind: ["diary", "suitcase", "user_template"],
       sharing_mode: ["collaborative", "personal"],
       subscription_status: ["ACTIVE", "EXPIRED", "CANCELLED", "PENDING"],
+      workspace_resource_access: ["none", "viewer", "collaborator"],
     },
   },
 } as const
