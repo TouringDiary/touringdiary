@@ -12,6 +12,7 @@ import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { LAYOUT } from '@/constants/layout';
 import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
 import { stampItineraryItemAuthor } from '@/domain/diary/diaryAuthorTracking';
+import { useCollaborationLive, useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
 
 interface UseDiaryLogicProps {
     user: User;
@@ -27,6 +28,14 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     } = useItinerary();
 
     const isGuest = user.role === 'guest';
+    const collaborationReadOnly = useCollaborationReadOnly();
+    const collaborationLive = useCollaborationLive();
+
+    const guardCollaborativeWrite = useCallback(() => {
+        if (collaborationReadOnly) return true;
+        collaborationLive.notifyLocalActivity();
+        return false;
+    }, [collaborationLive, collaborationReadOnly]);
 
     // --- LOCAL STATE ---
     const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
@@ -75,7 +84,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
 
     // --- UNDO/REDO STACK ---
     const { pushAction, undo, redo, canUndo, canRedo, beginExecution, endExecution, isExecuting, resetStack } = useUndoStack<any>(50);
-    const { performUndo, performRedo } = useDiaryUndo({
+    const { performUndo: diaryPerformUndo, performRedo: diaryPerformRedo } = useDiaryUndo({
         undo,
         redo,
         setItinerary,
@@ -86,6 +95,16 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         beginExecution,
         endExecution
     });
+
+    const performUndo = useCallback(async () => {
+        if (guardCollaborativeWrite()) return false;
+        return diaryPerformUndo();
+    }, [diaryPerformUndo, guardCollaborativeWrite]);
+
+    const performRedo = useCallback(async () => {
+        if (guardCollaborativeWrite()) return false;
+        return diaryPerformRedo();
+    }, [diaryPerformRedo, guardCollaborativeWrite]);
 
     const documentSave = useDiaryDocumentSave({
         itinerary,
@@ -161,6 +180,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     }, [documentSave, isGuest]);
 
     const handleDateChange = useCallback((type: 'startDate' | 'endDate', newValue: string) => {
+        if (guardCollaborativeWrite()) return;
         const currentStart = itinerary.startDate;
         const currentEnd = itinerary.endDate;
         
@@ -187,9 +207,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         } else {
             setItinerary(prev => ({ ...prev, [type]: newValue }));
         }
-    }, [itinerary.startDate, itinerary.endDate, itinerary.items, setItinerary]);
+    }, [itinerary.startDate, itinerary.endDate, itinerary.items, setItinerary, guardCollaborativeWrite]);
 
     const confirmDateChange = useCallback(() => {
+        if (guardCollaborativeWrite()) return;
         if (!warningModal) return;
         
         const { type, value } = warningModal;
@@ -215,9 +236,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         });
         
         setWarningModal(null);
-    }, [warningModal, setItinerary]);
+    }, [warningModal, setItinerary, guardCollaborativeWrite]);
 
     const handleAddNote = useCallback((dayIndex: number, skipUndo = false) => {
+        if (guardCollaborativeWrite()) return;
         const id = `note-${Date.now()}`;
         const newItem: ItineraryItem = {
             id, 
@@ -250,9 +272,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
 
         setItinerary(prev => ({ ...prev, items: [...prev.items, newItem] }));
         setHighlightedItemId(id);
-    }, [setItinerary, setHighlightedItemId, pushAction]);
+    }, [setItinerary, setHighlightedItemId, pushAction, guardCollaborativeWrite]);
 
     const handleRemoveItem = useCallback((id: string, skipUndo = false) => {
+        if (guardCollaborativeWrite()) return;
         const itemToRemove = itinerary.items.find(i => i.id === id);
         if (itemToRemove && !skipUndo) {
             pushAction({
@@ -263,9 +286,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             });
         }
         removeItem(id);
-    }, [itinerary.items, removeItem, pushAction]);
+    }, [itinerary.items, removeItem, pushAction, guardCollaborativeWrite]);
 
     const handleTimeChange = useCallback((id: string, time: string, dayIdx: number) => {
+        if (guardCollaborativeWrite()) return;
         const item = itinerary.items.find(i => i.id === id);
         if (item && item.timeSlotStr !== time) {
             pushAction({
@@ -284,9 +308,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             items: prev.items.map(i => i.id === id ? { ...i, timeSlotStr: time } : i) 
         })); 
         setHighlightedItemId(id);
-    }, [itinerary.items, setItinerary, setHighlightedItemId, pushAction]);
+    }, [itinerary.items, setItinerary, setHighlightedItemId, pushAction, guardCollaborativeWrite]);
 
     const handleIconSelect = useCallback((id: string, icon: string) => {
+        if (guardCollaborativeWrite()) return;
         const item = itinerary.items.find(i => i.id === id);
         if (item && item.customIcon !== icon) {
             pushAction({
@@ -305,9 +330,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             items: prev.items.map(i => i.id === id ? { ...i, customIcon: icon } : i)
         })); 
         setIconPickerOpen(null);
-    }, [itinerary.items, setItinerary, pushAction]);
+    }, [itinerary.items, setItinerary, pushAction, guardCollaborativeWrite]);
 
     const handleTransportSelect = useCallback((id: string, mode: string) => {
+        if (guardCollaborativeWrite()) return;
         const newValue = mode || undefined;
         const item = itinerary.items.find(i => i.id === id);
         if (item && item.transportMode !== newValue) {
@@ -326,9 +352,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             ...prev,
             items: prev.items.map(i => i.id === id ? { ...i, transportMode: newValue } : i)
         }));
-    }, [itinerary.items, setItinerary, pushAction]);
+    }, [itinerary.items, setItinerary, pushAction, guardCollaborativeWrite]);
 
     const handleNoteChange = useCallback((id: string, text: string) => {
+        if (guardCollaborativeWrite()) return;
         const item = itinerary.items.find(i => i.id === id);
         // Usiamo un piccolo debounce o controllo per evitare troppi push durante la digitazione?
         // Il requisito dice "modifica testo nota", tipicamente si pusha al blur o dopo pausa.
@@ -354,9 +381,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             ...prev, 
             items: prev.items.map(i => i.id === id ? { ...i, poi: { ...i.poi, description: text } } : i)
         }));
-    }, [itinerary.items, setItinerary, pushAction]);
+    }, [itinerary.items, setItinerary, pushAction, guardCollaborativeWrite]);
 
     const handleDiaryNotesChange = useCallback((notesState: DiaryNotesState) => {
+        if (guardCollaborativeWrite()) return;
         setItinerary(prev => {
             const previousValue = prev.diaryNotes ?? null;
             if (snapshotsEqual(previousValue, notesState)) {
@@ -375,17 +403,28 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             });
             return { ...prev, diaryNotes: notesState };
         });
-    }, [setItinerary, pushAction]);
+    }, [setItinerary, pushAction, guardCollaborativeWrite]);
+
+    const guardedUpdateDayStyle = useCallback((dayIndex: number, className: string) => {
+        if (guardCollaborativeWrite()) return;
+        updateDayStyle(dayIndex, className);
+    }, [guardCollaborativeWrite, updateDayStyle]);
 
     const handleLoadProject = useCallback((project: Itinerary) => {
         loadProject(project);
         resetStack();
     }, [loadProject, resetStack]);
 
+    const handleDeleteProject = useCallback((id: string) => {
+        if (guardCollaborativeWrite()) return;
+        return deleteProject(id);
+    }, [deleteProject, guardCollaborativeWrite]);
+
     const handleClearItinerary = useCallback(() => {
+        if (guardCollaborativeWrite()) return;
         clearItinerary();
         resetStack();
-    }, [clearItinerary, resetStack]);
+    }, [clearItinerary, resetStack, guardCollaborativeWrite]);
 
     const handlePublish = async () => {
         if (user.role === 'guest' || !itinerary.items.length || !itinerary.name) {
@@ -406,6 +445,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     }, []);
 
     const handleConfirmAddMemo = useCallback((dayIndex: number, timeSlotStr: string) => {
+        if (guardCollaborativeWrite()) return;
         if (!memoTargetItem) return;
         
         const newMemo: ItineraryItem = stampItineraryItemAuthor({
@@ -422,7 +462,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         addItem(newMemo);
         setMemoTargetItem(null);
         showXpToast({ title: 'Memo aggiunto al diario!', xp: 0 }, 2000);
-    }, [memoTargetItem, addItem, showXpToast, user?.id, user?.role]);
+    }, [memoTargetItem, addItem, showXpToast, user?.id, user?.role, guardCollaborativeWrite]);
     
     const handleMemoClick = useCallback((linkedId: string) => {
         const el = document.getElementById(`resource-${linkedId}`);
@@ -454,6 +494,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     }, []);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
+        if (guardCollaborativeWrite()) return;
         e.preventDefault();
         e.stopPropagation();
         
@@ -467,18 +508,20 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
 
         dragCounter.current = 0;
         setIsDraggingOver(false);
-    }, [onDayDropProp]);
+    }, [onDayDropProp, guardCollaborativeWrite]);
 
     const handleContainerDrop = useCallback((e: React.DragEvent) => {
+        if (guardCollaborativeWrite()) return;
         e.preventDefault(); 
         let data = e.dataTransfer.getData('application/json'); 
         if (!data) data = e.dataTransfer.getData('text/plain');
         if(data) onDayDropProp(0, data); 
         dragCounter.current = 0;
         setIsDraggingOver(false);
-    }, [onDayDropProp]);
+    }, [onDayDropProp, guardCollaborativeWrite]);
 
     const handleDayDrop = useCallback((e: React.DragEvent, idx: number, time?: string) => {
+        if (guardCollaborativeWrite()) return;
         let dataStr = e.dataTransfer.getData('application/json');
         if(!dataStr) dataStr = e.dataTransfer.getData('text/plain');
         
@@ -500,7 +543,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         // Aggiorniamo l'azione di move con il nuovo stato dopo il drop
         // Nota: onDayDropProp è asincrono o causa re-render. 
         // È meglio catturare lo stato in useDiaryUndo confrontando gli array.
-    }, [onDayDropProp, itinerary.items]);
+    }, [onDayDropProp, itinerary.items, guardCollaborativeWrite]);
 
     return {
         // Data State from Context
@@ -528,6 +571,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             canRedo: canRedo && documentSave.phase !== 'saving',
             documentSave,
             guestSaveMessage: GUEST_SAVE_MESSAGE,
+            collaborationReadOnly,
         },
 
         // Setters
@@ -551,10 +595,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         // Logic Actions
         actions: {
             removeItem: handleRemoveItem,
-            updateDayStyle,
+            updateDayStyle: guardedUpdateDayStyle,
             saveProject: handleSaveProject, // WRAPPED!
             loadProject: handleLoadProject,
-            deleteProject, 
+            deleteProject: handleDeleteProject,
             clearItinerary: handleClearItinerary,
             handleDateChange,
             confirmDateChange, 

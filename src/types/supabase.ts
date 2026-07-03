@@ -4534,6 +4534,14 @@ export type Database = {
         Args: { p_shared_resource_id: string }
         Returns: string
       }
+      get_shared_resource_edit_lock_state: {
+        Args: { p_shared_resource_id: string }
+        Returns: Json
+      }
+      refresh_shared_resource_edit_lock: {
+        Args: { p_shared_resource_id: string }
+        Returns: boolean
+      }
       release_shared_resource_edit_lock: {
         Args: { p_shared_resource_id: string }
         Returns: boolean

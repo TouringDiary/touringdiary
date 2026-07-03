@@ -34,18 +34,21 @@ export interface DiaryNotesEditorProps {
   document: DiaryNotesDocument | null | undefined;
   onDocumentChange: (document: DiaryNotesDocument) => void;
   isActive?: boolean;
+  readOnly?: boolean;
 }
 
 export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(({
   document,
   onDocumentChange,
   isActive = true,
+  readOnly = false,
 }) => {
   const hadEditorFocusRef = useRef(false);
   const hasInitialFocusedRef = useRef(false);
 
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2] },
@@ -110,12 +113,12 @@ export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(({
 
     // Cursore e selezione intenzionali: se l'utente stava scrivendo, focus a fine documento;
     // altrimenti il dismiss sopra ha già azzerato selezione e chiuso il BubbleMenu link.
-    if (hadFocus && isActive) {
+    if (hadFocus && isActive && !readOnly) {
       editor.commands.focus('end', { scrollIntoView: false });
     }
 
     hasInitialFocusedRef.current = false;
-  }, [document, editor, isActive]);
+  }, [document, editor, isActive, readOnly]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
@@ -134,14 +137,25 @@ export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(({
         return;
       }
 
-      if (!hasInitialFocusedRef.current && editor.isEmpty) {
+      if (!hasInitialFocusedRef.current && editor.isEmpty && !readOnly) {
         editor.commands.focus('end', { scrollIntoView: false });
         hasInitialFocusedRef.current = true;
       }
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [isActive, editor]);
+  }, [isActive, editor, readOnly]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.setEditable(!readOnly);
+    if (readOnly) {
+      dismissDiaryNotesLinkUi(editor);
+      if (editor.isFocused) {
+        editor.commands.blur();
+      }
+    }
+  }, [editor, readOnly]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;

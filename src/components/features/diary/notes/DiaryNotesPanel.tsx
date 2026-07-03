@@ -13,6 +13,7 @@ import {
 import { DiaryNotesEditor } from './DiaryNotesEditor';
 import { DiaryNotesChecklistStatsBar } from './DiaryNotesChecklistStatsBar';
 import { DiaryNotesTabs } from './DiaryNotesTabs';
+import { useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
 
 export interface DiaryNotesPanelProps {
   notesState: DiaryNotesState | null | undefined;
@@ -30,6 +31,7 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
 }) => {
   const { user } = useUser();
   const authorId = user?.role !== 'guest' ? user?.id : undefined;
+  const collaborationReadOnly = useCollaborationReadOnly();
 
   const state = useMemo(
     () => normalizeDiaryNotesState(notesState),
@@ -53,14 +55,16 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
   );
 
   const handleAddTab = useCallback(() => {
+    if (collaborationReadOnly) return;
     onNotesStateChange(addDiaryNoteTab(state, authorId));
-  }, [authorId, onNotesStateChange, state]);
+  }, [authorId, collaborationReadOnly, onNotesStateChange, state]);
 
   const handleRenameTab = useCallback(
     (tabId: string, title: string) => {
+      if (collaborationReadOnly) return;
       onNotesStateChange(renameDiaryNoteTab(state, tabId, title));
     },
-    [onNotesStateChange, state],
+    [collaborationReadOnly, onNotesStateChange, state],
   );
 
   return (
@@ -90,6 +94,7 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
           document={activeDocument}
           onDocumentChange={handleDocumentChange}
           isActive={isActive}
+          readOnly={collaborationReadOnly}
         />
       </div>
     </div>

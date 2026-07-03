@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef, useState } from 'react';
+import React, { useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import { CheckCircle, Trophy, RefreshCw } from 'lucide-react';
 import { PointOfInterest, User, CitySummary } from '@/types';
 import { getDaysArray } from '@/utils/common';
@@ -16,6 +16,13 @@ import { SuitcaseToast } from './packing_list/SuitcaseFloatingPanel/components/S
 import { useDiaryPoiCatalogUpdatePrompt } from '@/hooks/useDiaryPoiCatalogUpdatePrompt';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { getDiaryFlagGradient } from './nationFlag';
+import { CollaborationLiveProvider } from '@/context/CollaborationLiveContext';
+import { useCollaborationLive } from '@/context/CollaborationLiveContext';
+import { useResourcePermission } from '@/hooks/useResourcePermission';
+import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
+import { fetchDiariesByIds } from '@/services/community/itineraryService';
+import { CollaborationLiveBar } from '@/components/collaboration/live/CollaborationLiveBar';
+import { CollaborationLockBanner } from '@/components/collaboration/live/CollaborationLockBanner';
 
 interface TravelDiaryProps {
     user: User;
@@ -30,14 +37,86 @@ interface TravelDiaryProps {
     cityManifest?: CitySummary[];
 }
 
-export const TravelDiary = ({
+export const TravelDiary = (props: TravelDiaryProps) => {
+    const { itinerary, savedProjects, loadProject } = useItinerary();
+    const isGuest = props.user.role === 'guest';
+    const { permission } = useResourcePermission(
+        itinerary.id ? 'diary' : null,
+        itinerary.id ?? null,
+        isGuest ? null : props.user.id
+    );
+    const canModify = permission?.capabilities.canModifyContent ?? true;
+    const isPersisted = isDiaryPersisted(itinerary, savedProjects);
+    const [wantsEdit, setWantsEdit] = useState(true);
+    const autoSaveRef = useRef<() => Promise<void>>(async () => undefined);
+    const isDirtyRef = useRef(false);
+
+    useEffect(() => {
+        setWantsEdit(true);
+    }, [itinerary.id]);
+
+    const handleRemoteRefresh = useCallback(async () => {
+        if (!itinerary.id || isDirtyRef.current) return;
+        const diaries = await fetchDiariesByIds([itinerary.id]);
+        if (diaries[0]) {
+            loadProject(diaries[0]);
+        }
+    }, [itinerary.id, loadProject]);
+
+    return (
+        <CollaborationLiveProvider
+            kind="diary"
+            resourceId={itinerary.id ?? null}
+            resourceTitle={itinerary.name}
+            userId={isGuest ? null : props.user.id}
+            userDisplayName={props.user.name ?? 'Utente'}
+            canModifyContent={canModify && isPersisted}
+            isEditSessionActive={canModify && isPersisted && wantsEdit}
+            onAutoSaveBeforeLockRelease={async () => {
+                await autoSaveRef.current();
+            }}
+            onExitEditMode={() => setWantsEdit(false)}
+            onRemoteContentRefresh={handleRemoteRefresh}
+        >
+            <TravelDiaryContent
+                {...props}
+                autoSaveRef={autoSaveRef}
+                isDirtyRef={isDirtyRef}
+                wantsEdit={wantsEdit}
+                onRetryEdit={() => setWantsEdit(true)}
+            />
+        </CollaborationLiveProvider>
+    );
+};
+
+interface TravelDiaryContentProps extends TravelDiaryProps {
+    autoSaveRef: React.MutableRefObject<() => Promise<void>>;
+    isDirtyRef: React.MutableRefObject<boolean>;
+    wantsEdit: boolean;
+    onRetryEdit: () => void;
+}
+
+const TravelDiaryContent = ({
     user, onViewDetail, onDayDrop, onPrint, onCityClick,
     userLocation, onOpenAiPlanner, onUserUpdate, onOpenRoadbook, cityManifest,
-}: TravelDiaryProps) => {
+    autoSaveRef, isDirtyRef, onRetryEdit,
+}: TravelDiaryContentProps) => {
     const {
         itinerary, savedProjects, highlightDates, highlightedItemId,
         state, setters, actions,
     } = useDiaryLogic({ user, onUserUpdate, onDayDropProp: onDayDrop });
+
+    const collaborationLive = useCollaborationLive();
+
+    useEffect(() => {
+        autoSaveRef.current = async () => {
+            if (state.documentSave.needsNameForSave()) return;
+            await state.documentSave.save();
+        };
+    }, [autoSaveRef, state.documentSave]);
+
+    // documentSave.isDirty è già phaseHasUnsavedChanges(phase) in useDiaryDocumentSave (include saving).
+    isDirtyRef.current = state.documentSave.isDirty;
 
     const { setItinerary } = useItinerary();
 
@@ -207,6 +286,26 @@ export const TravelDiary = ({
                 role="presentation"
             />
 
+            {(collaborationLive.isEnabled || collaborationLive.lockBlockedMessage) && (
+                <div className="px-3 md:px-4 py-2 space-y-2 bg-[#e7e5e4] border-b border-stone-300/80 shrink-0">
+                    {collaborationLive.isEnabled && (
+                        <CollaborationLiveBar
+                            peers={collaborationLive.presencePeers}
+                            editingStatusMessage={collaborationLive.editingStatusMessage}
+                        />
+                    )}
+                    {collaborationLive.lockBlockedMessage && (
+                        <CollaborationLockBanner
+                            message={collaborationLive.lockBlockedMessage}
+                            onRetry={() => {
+                                onRetryEdit();
+                                void collaborationLive.retryAcquireLock();
+                            }}
+                        />
+                    )}
+                </div>
+            )}
+
             <DiaryHeader
                 itinerary={itinerary}
                 user={user}
@@ -216,7 +315,10 @@ export const TravelDiary = ({
                 activeTab={state.activeTab}
                 days={days}
                 minDateStr={minDateStr}
-                onSetName={(name) => setters.setItinerary(prev => ({ ...prev, name }))}
+                onSetName={(name) => {
+                    if (state.collaborationReadOnly) return;
+                    setters.setItinerary((prev) => ({ ...prev, name }));
+                }}
                 onDateChange={actions.handleDateChange}
                 onLoadProject={actions.loadProject}
                 onSave={() => {

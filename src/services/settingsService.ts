@@ -42,6 +42,9 @@ export const SETTINGS_KEYS = {
 
   // Storage & quote (Fase 10 allegati workspace — configurazione admin, nessun hardcode)
   STORAGE_LIMITS: 'storage_limits',
+
+  // Collaborazione live — lock timeout e heartbeat (§18.1)
+  COLLABORATION_LIVE_CONFIG: 'collaboration_live_config',
 };
 
 // --- CACHE IN MEMORIA & LOCK ---

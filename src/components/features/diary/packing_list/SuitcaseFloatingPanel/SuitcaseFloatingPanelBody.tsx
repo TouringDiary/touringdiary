@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SuitcaseItem } from '@/types/suitcase';
 import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
 import { SuitcaseHeader } from '../suitcase/SuitcaseHeader';
@@ -16,9 +16,19 @@ import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { useResourcePermission } from '@/hooks/useResourcePermission';
 import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
 import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
+import { CollaborationLiveProvider } from '@/context/CollaborationLiveContext';
+import { useCollaborationLive, useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
+import { CollaborationLiveBar } from '@/components/collaboration/live/CollaborationLiveBar';
+import { CollaborationLockBanner } from '@/components/collaboration/live/CollaborationLockBanner';
+import { useUser } from '@/context/UserContext';
+import { phaseHasUnsavedChanges } from '@/domain/save/documentSaveTypes';
 
 interface Props {
   composition: SuitcasePanelComposition;
+}
+
+interface SuitcaseFloatingPanelBodyContentProps extends Props {
+  canModifyActiveSuitcase: boolean;
 }
 
 export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
@@ -50,15 +60,110 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
     suitcaseDocumentSave,
   } = composition;
 
+  const { user: appUser } = useUser();
+  const isGuest = appUser.role === 'guest';
+  const activeResourceKind = data.activeSuitcase
+    ? resolveSuitcaseSharedResourceKind(data.activeSuitcase)
+    : null;
+  const { permission: activeResourcePermission } = useResourcePermission(
+    activeResourceKind,
+    data.activeSuitcase?.id ?? null,
+    isGuest ? null : appUser.id
+  );
+
+  const canModifyActiveSuitcase =
+    !data.activeSuitcase ||
+    isTdTemplate(data.activeSuitcase) ||
+    activeResourcePermission?.capabilities.canModifyContent !== false;
+
+  const isDirtyRef = useRef(false);
+  const suitcaseHasUnsavedChanges = phaseHasUnsavedChanges(suitcaseDocumentSave.phase);
+  useEffect(() => {
+    isDirtyRef.current = suitcaseHasUnsavedChanges;
+  }, [suitcaseHasUnsavedChanges]);
+
+  if (showLoadingShell) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center min-h-0">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+          <div className="text-slate-500 font-black tracking-[0.2em] text-[10px] uppercase">
+            Caricamento Dashboard...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <CollaborationLiveProvider
+      kind={activeResourceKind}
+      resourceId={data.activeSuitcase?.id ?? null}
+      resourceTitle={data.activeSuitcase?.title}
+      userId={isGuest ? null : appUser.id}
+      userDisplayName={appUser.name ?? 'Utente'}
+      canModifyContent={canModifyActiveSuitcase && !!data.activeSuitcase && !isTdTemplate(data.activeSuitcase)}
+      isEditSessionActive={
+        data.panelState.viewMode === 'editor' &&
+        canModifyActiveSuitcase &&
+        !!data.activeSuitcase &&
+        !isTdTemplate(data.activeSuitcase)
+      }
+      onAutoSaveBeforeLockRelease={async () => {
+        await suitcaseDocumentSave.save();
+      }}
+      onExitEditMode={() => data.panelState.setViewMode('viewer')}
+      onRemoteContentRefresh={async () => {
+        if (isDirtyRef.current) return;
+        await data.fetchUserSuitcases();
+      }}
+    >
+      <SuitcaseFloatingPanelBodyContent
+        composition={composition}
+        canModifyActiveSuitcase={canModifyActiveSuitcase}
+      />
+    </CollaborationLiveProvider>
+  );
+};
+
+const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyContentProps> = ({
+  composition,
+  canModifyActiveSuitcase,
+}) => {
+  const {
+    data,
+    actions,
+    itemActions,
+    editorLogic,
+    hiddenCategories,
+    handleConfirmAssociation,
+    handleSaveOnly,
+    handleLogin,
+    associationFlow,
+    handleLinkBuild,
+    handleLinkBuildSearch,
+    performUndo,
+    performRedo,
+    canUndo,
+    canRedo,
+    handleBackToSelector,
+    handleDiscardAndExit,
+    handleCancelUnsavedChanges,
+    forceClose,
+    handleConfirmAssociateSaved,
+    handleActivateOptionalCategory,
+    handleAcceptAiSuggestion,
+    handleRejectAiSuggestion,
+    suitcaseDocumentSave,
+  } = composition;
+
   const [suitcaseSaveAsOpen, setSuitcaseSaveAsOpen] = useState(false);
-  // Quando "Salva" dal dialogo "Modifiche non salvate" richiede un nome (documento mai salvato),
-  // apriamo SaveAs e, a salvataggio riuscito, chiudiamo il pannello.
   const [pendingExitAfterSave, setPendingExitAfterSave] = useState(false);
-  // Stato del modale AI sollevato qui: permette di aprirlo sia dalla toolbar (desktop)
-  // sia dal menu "Azione" nell'header (mobile/tablet). Reset all'uscita dalla modalità editor.
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const isGuest = !data.currentUser || data.currentUser.role === 'guest';
   const openCollaborationShare = useOpenCollaborationShare();
+  const collaborationLive = useCollaborationLive();
+  const collaborationReadOnly = useCollaborationReadOnly();
 
   const activeResourceKind = data.activeSuitcase
     ? resolveSuitcaseSharedResourceKind(data.activeSuitcase)
@@ -68,11 +173,6 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
     data.activeSuitcase?.id ?? null,
     data.currentUser?.id
   );
-
-  const canModifyActiveSuitcase =
-    !data.activeSuitcase ||
-    isTdTemplate(data.activeSuitcase) ||
-    activeResourcePermission?.capabilities.canModifyContent !== false;
 
   const openSuitcaseWithPermission = (id: string, preferredMode: 'viewer' | 'editor') => {
     data.panelState.clearNewSuitcaseSession();
@@ -132,19 +232,6 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
     setAiModalOpen(false);
   }, [data.activeSuitcase?.id]);
 
-  if (showLoadingShell) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-0">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
-          <div className="text-slate-500 font-black tracking-[0.2em] text-[10px] uppercase">
-            Caricamento Dashboard...
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <SuitcaseModals
@@ -202,6 +289,26 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
         onConfirm={actions.handleConfirmCategorySetup}
         onClose={actions.handleCancelCategorySetup}
       />
+
+      {(collaborationLive.isEnabled || collaborationLive.lockBlockedMessage) && (
+        <div className="px-4 md:px-6 py-2 space-y-2 border-b border-white/5 shrink-0">
+          {collaborationLive.isEnabled && (
+            <CollaborationLiveBar
+              peers={collaborationLive.presencePeers}
+              editingStatusMessage={collaborationLive.editingStatusMessage}
+            />
+          )}
+          {collaborationLive.lockBlockedMessage && (
+            <CollaborationLockBanner
+              message={collaborationLive.lockBlockedMessage}
+              onRetry={() => {
+                data.panelState.setViewMode('editor');
+                void collaborationLive.retryAcquireLock();
+              }}
+            />
+          )}
+        </div>
+      )}
 
       <SuitcaseHeader
         viewMode={data.panelState.viewMode}
@@ -423,7 +530,8 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
               readOnly={
                 data.panelState.viewMode === 'viewer' ||
                 isTdTemplate(data.activeSuitcase) ||
-                !canModifyActiveSuitcase
+                !canModifyActiveSuitcase ||
+                collaborationReadOnly
               }
               categorySetupOverlay={
                 isTdTemplate(data.activeSuitcase)

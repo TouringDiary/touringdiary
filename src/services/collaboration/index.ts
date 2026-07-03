@@ -105,6 +105,16 @@ export {
   getDiaryEditLockHolder,
 } from './diaryLockService';
 
+export {
+  tryAcquireSharedResourceEditLock,
+  refreshSharedResourceEditLock,
+  releaseSharedResourceEditLock,
+  getSharedResourceEditLockHolder,
+  getSharedResourceEditLockState,
+} from './sharedResourceLockService';
+
+export { resolveCollaborationLiveConfig } from './collaborationLiveConfig';
+
 export type { ResolvePermissionOptions } from './permissionService';
 export type { RegisterShareableResourceResult } from './sharedResourceService';
 export type { SetSharedResourceMemberResult } from './sharedResourceAclService';
