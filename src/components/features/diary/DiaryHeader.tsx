@@ -6,6 +6,8 @@ import { useItinerary } from '@/context/ItineraryContext';
 import { useDynamicContent } from '@/hooks/useDynamicContent'; 
 import { useModal } from '@/context/ModalContext';
 import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { useResourceWorkspaces } from '@/hooks/useResourceWorkspaces';
 import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
 import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
@@ -193,6 +195,11 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     const { syncCloudDrafts } = useItinerary(); 
     const { openModal } = useModal();
     const openCollaborationShare = useOpenCollaborationShare();
+    const openCollaborationWorkspace = useOpenCollaborationWorkspace();
+    const { workspaces: diaryWorkspaces } = useResourceWorkspaces(
+        itinerary.id ? 'diary' : null,
+        itinerary.id
+    );
     const isDiaryShared = useSharedResourceIndicator(
         itinerary.id ? 'diary' : null,
         itinerary.id
@@ -356,6 +363,11 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
         });
     };
 
+    const handleOpenWorkspace = () => {
+        if (!itinerary.id || diaryWorkspaces.length === 0) return;
+        openCollaborationWorkspace({ workspaceId: diaryWorkspaces[0].id });
+    };
+
     const handleSave = () => {
         if (isGuest) {
             openModal('auth');
@@ -462,6 +474,8 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                         onOpenPackingList={onOpenPackingList}
                         onOpenRoadbook={onOpenRoadbook}
                         onOpenAiPlanner={onOpenAiPlanner}
+                        onOpenWorkspace={handleOpenWorkspace}
+                        showWorkspaceButton={Boolean(itinerary.id && diaryWorkspaces.length > 0)}
                         onPublish={onPublish}
                         onCollaborativeShare={handleCollaborativeShare}
                         canPublish={canPublish}

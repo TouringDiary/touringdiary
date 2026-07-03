@@ -19,6 +19,32 @@ export const SLIDE_PANEL_TRANSITION_CLASS = 'transition-transform duration-500';
 export const slidePanelEaseClass = (isClosing: boolean): string =>
   isClosing ? 'ease-in' : 'ease-out';
 
+/** Asse di scorrimento del pannello slide. */
+export type SlidePanelAxis = 'x' | 'y';
+
+const OFF_SCREEN_BY_AXIS: Record<SlidePanelAxis, string> = {
+  y: 'translate-y-full',
+  x: 'translate-x-full',
+};
+
+const OPEN_BY_AXIS: Record<SlidePanelAxis, string> = {
+  y: 'translate-y-0',
+  x: 'translate-x-0',
+};
+
+/**
+ * Classe transform condivisa: fuori schermo sull'asse indicato → aperto a 0.
+ * `y`: dal basso (default storico). `x`: da destra.
+ */
+export const slidePanelTransformClassByAxis = (
+  axis: SlidePanelAxis,
+  isRaised: boolean
+): string => (isRaised ? OPEN_BY_AXIS[axis] : OFF_SCREEN_BY_AXIS[axis]);
+
 /** Posizione: a riposo fuori schermo in basso, da aperto a 0. */
 export const slidePanelTransformClass = (isRaised: boolean): string =>
-  isRaised ? 'translate-y-0' : 'translate-y-full';
+  slidePanelTransformClassByAxis('y', isRaised);
+
+/** @deprecated Preferire {@link slidePanelTransformClassByAxis}('x', …). Mantenuto per retrocompatibilità. */
+export const slidePanelTransformClassFromRight = (isRaised: boolean): string =>
+  slidePanelTransformClassByAxis('x', isRaised);

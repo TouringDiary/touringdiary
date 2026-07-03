@@ -1,10 +1,12 @@
 import React from 'react';
-import { Briefcase, Globe, Map, Sparkles, Users } from 'lucide-react';
+import { Briefcase, Globe, Layers, Map, Sparkles, Users } from 'lucide-react';
 
 interface DiaryHeaderToolbarProps {
     onOpenPackingList?: () => void;
     onOpenRoadbook?: () => void;
     onOpenAiPlanner?: () => void;
+    onOpenWorkspace?: () => void;
+    showWorkspaceButton?: boolean;
     onPublish: () => void;
     onCollaborativeShare?: () => void;
     canPublish: boolean;
@@ -19,6 +21,8 @@ export const DiaryHeaderToolbar: React.FC<DiaryHeaderToolbarProps> = ({
     onOpenPackingList,
     onOpenRoadbook,
     onOpenAiPlanner,
+    onOpenWorkspace,
+    showWorkspaceButton = false,
     onPublish,
     onCollaborativeShare,
     canPublish,
@@ -72,6 +76,18 @@ export const DiaryHeaderToolbar: React.FC<DiaryHeaderToolbarProps> = ({
             >
                 <Users className="w-5 h-5" />
             </button>
+
+            {showWorkspaceButton && onOpenWorkspace && (
+                <button
+                    type="button"
+                    onClick={onOpenWorkspace}
+                    className="hidden lg:flex p-1.5 rounded-lg shadow-md items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white"
+                    title="Workspace"
+                    aria-label="Apri Workspace"
+                >
+                    <Layers className="w-5 h-5" />
+                </button>
+            )}
 
             <button 
                 type="button"

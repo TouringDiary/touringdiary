@@ -1,5 +1,5 @@
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import type { User } from '@/types/users';
@@ -19,6 +19,7 @@ import {
   getShareableResource,
   listResourceInvites,
   listSharedResourceMembers,
+  listWorkspacesForUser,
   removeSharedResourceMember,
   resendResourceInvite,
   revokeResourceInvite,
@@ -26,7 +27,15 @@ import {
   sendResourceInvite,
   setSharedResourceMember,
   updateShareableResourceMode,
+  suggestWorkspaceCompositionFromResource,
+  createWorkspaceWithComposition,
+  addResourceToExistingWorkspace,
+  sendWorkspaceInvite,
+  resolveWorkspaceResourceLabels,
 } from '@/services/collaboration';
+import type { WorkspaceCompositionResource } from '@/services/collaboration';
+import type { WorkspaceResourceLabel } from '@/services/collaboration';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import { CollaborationManagementView } from './CollaborationManagementView';
 import { CollaborationShareWizard } from './CollaborationShareWizard';
@@ -37,6 +46,7 @@ import {
   type PendingInvite,
   type SharePath,
   type WizardStep,
+  type WorkspacePendingInvite,
 } from './collaborationSharePresentation';
 
 export interface CollaborationShareModalProps {
@@ -74,9 +84,52 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   const [selectedRole, setSelectedRole] = useState<CollaborativeMemberRole>('collaborator');
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [workspaceDescription, setWorkspaceDescription] = useState('');
+  const [suggestedComposition, setSuggestedComposition] = useState<WorkspaceCompositionResource[]>([]);
+  const [compositionLabels, setCompositionLabels] = useState<WorkspaceResourceLabel[]>([]);
+  const [selectedCompositionKeys, setSelectedCompositionKeys] = useState<Set<string>>(new Set());
+  const [userWorkspaces, setUserWorkspaces] = useState<Awaited<ReturnType<typeof listWorkspacesForUser>>>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [workspacePendingInvites, setWorkspacePendingInvites] = useState<WorkspacePendingInvite[]>([]);
+
+  const openCollaborationWorkspace = useOpenCollaborationWorkspace();
+
+  const resetWizardTransientState = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setActionError(null);
+    setPendingInvites([]);
+    setWorkspacePendingInvites([]);
+    setSelectedWorkspaceId(null);
+  }, []);
+
+  const runSubmittingAction = useCallback(async (action: () => Promise<void>) => {
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await action();
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
   const kindLabel = getSharedResourceKindLabel(kind);
   const resourceLabel = resourceTitle.trim() || kindLabel;
-  const wizardTitle = getWizardStepTitle(wizardStep);
+  const wizardTitle = getWizardStepTitle(wizardStep, sharePath);
+
+  const loadWorkspaceWizardData = useCallback(async () => {
+    const composition = await suggestWorkspaceCompositionFromResource(kind, resourceId);
+    setSuggestedComposition(composition);
+    const labels = await resolveWorkspaceResourceLabels(composition);
+    setCompositionLabels(labels);
+    setSelectedCompositionKeys(
+      new Set(composition.map((resource) => `${resource.kind}:${resource.resourceId}`))
+    );
+    setWorkspaceName(resourceTitle.trim() || getSharedResourceKindLabel(kind));
+    const workspaces = await listWorkspacesForUser(user.id);
+    setUserWorkspaces(workspaces);
+  }, [kind, resourceId, resourceTitle, user.id]);
 
   const refreshCollaborationState = useCallback(async () => {
     setIsLoading(true);
@@ -116,12 +169,9 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
 
   useEffect(() => {
     if (!isOpen) return;
-    setSearchQuery('');
-    setSearchResults([]);
-    setActionError(null);
-    setPendingInvites([]);
+    resetWizardTransientState();
     refreshCollaborationState();
-  }, [isOpen, refreshCollaborationState]);
+  }, [isOpen, refreshCollaborationState, resetWizardTransientState]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -142,6 +192,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
           ...invites
             .filter((invite) => invite.status === 'pending')
             .map((invite) => invite.inviteeId),
+          ...workspacePendingInvites.map((invite) => invite.userId),
         ]);
         setSearchResults(results.filter((result) => !excluded.has(result.id)));
       } finally {
@@ -150,17 +201,24 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     }, 300);
 
     return () => window.clearTimeout(timer);
-  }, [searchQuery, isOpen, user.id, pendingInvites, members, invites]);
+  }, [searchQuery, isOpen, user.id, pendingInvites, members, invites, workspacePendingInvites]);
 
   useGlobalModalEscape(isOpen, onClose);
 
-  const handlePathContinue = () => {
+  const handlePathContinue = async () => {
     setActionError(null);
     if (sharePath === 'simple') {
       setWizardStep('mode');
       return;
     }
-    setWizardStep('workspace_notice');
+    if (sharePath === 'create_workspace') {
+      await loadWorkspaceWizardData();
+      setWizardStep('workspace_setup');
+      return;
+    }
+    const workspaces = await listWorkspacesForUser(user.id);
+    setUserWorkspaces(workspaces);
+    setWizardStep('workspace_select');
   };
 
   const handleModeContinue = () => {
@@ -172,11 +230,134 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     setActionError(null);
     if (wizardStep === 'invite') setWizardStep('mode');
     else if (wizardStep === 'mode') setWizardStep('path');
+    else if (wizardStep === 'workspace_invite') setWizardStep('workspace_composition');
+    else if (wizardStep === 'workspace_composition') setWizardStep('workspace_setup');
+    else if (wizardStep === 'workspace_setup') setWizardStep('path');
+    else if (wizardStep === 'workspace_select') setWizardStep('path');
   };
 
-  const handleUseSimpleShare = () => {
-    setSharePath('simple');
-    setWizardStep('mode');
+  const handleWorkspaceSetupContinue = () => {
+    if (!workspaceName.trim()) {
+      setActionError('Il nome del Workspace è obbligatorio.');
+      return;
+    }
+    setActionError(null);
+    setWizardStep('workspace_composition');
+  };
+
+  const handleWorkspaceCompositionContinue = () => {
+    if (selectedCompositionKeys.size === 0) {
+      setActionError('Seleziona almeno una risorsa per il Workspace.');
+      return;
+    }
+    setActionError(null);
+    setWizardStep('workspace_invite');
+  };
+
+  const handleWorkspaceSelectContinue = async () => {
+    if (!selectedWorkspaceId) {
+      setActionError('Seleziona un Workspace.');
+      return;
+    }
+    await runSubmittingAction(async () => {
+      const result = await addResourceToExistingWorkspace(selectedWorkspaceId, user.id, {
+        kind,
+        resourceId,
+      });
+      if (!result.success) {
+        setActionError(result.error ?? 'Impossibile collegare la risorsa.');
+        return;
+      }
+      onClose();
+      openCollaborationWorkspace({ workspaceId: selectedWorkspaceId });
+    });
+  };
+
+  const selectedComposition = useMemo(
+    () =>
+      suggestedComposition.filter((resource) =>
+        selectedCompositionKeys.has(`${resource.kind}:${resource.resourceId}`)
+      ),
+    [suggestedComposition, selectedCompositionKeys]
+  );
+
+  const buildWorkspaceInvitePermissions = useCallback(
+    () =>
+      selectedComposition.map((resource) => ({
+        kind: resource.kind,
+        resourceId: resource.resourceId,
+        accessLevel: 'collaborator' as const,
+      })),
+    [selectedComposition]
+  );
+
+  const handleToggleCompositionResource = (
+    resourceKind: WorkspaceCompositionResource['kind'],
+    resourceId: string
+  ) => {
+    const key = `${resourceKind}:${resourceId}`;
+    setSelectedCompositionKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleAddWorkspacePendingInvite = (result: CollaborationUserSearchResult) => {
+    setWorkspacePendingInvites((current) => [
+      ...current,
+      {
+        userId: result.id,
+        name: result.name,
+        slug: result.slug,
+        permissions: buildWorkspaceInvitePermissions(),
+      },
+    ]);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleRemoveWorkspacePendingInvite = (userId: string) => {
+    setWorkspacePendingInvites((current) => current.filter((invite) => invite.userId !== userId));
+  };
+
+  const handleCreateWorkspace = async () => {
+    if (selectedComposition.length === 0) {
+      setActionError('Seleziona almeno una risorsa.');
+      return;
+    }
+
+    await runSubmittingAction(async () => {
+      const createResult = await createWorkspaceWithComposition(user.id, {
+        name: workspaceName.trim(),
+        description: workspaceDescription.trim() || undefined,
+        resources: selectedComposition,
+      });
+
+      if (createResult.success !== true) {
+        setActionError(createResult.error);
+        return;
+      }
+
+      const workspace = createResult.workspace;
+
+      for (const pending of workspacePendingInvites) {
+        const inviteResult = await sendWorkspaceInvite(
+          user.id,
+          workspace.id,
+          { userId: pending.userId },
+          pending.permissions
+        );
+        if (inviteResult.success !== true) {
+          setActionError(inviteResult.error);
+          return;
+        }
+      }
+
+      onClose();
+      openCollaborationWorkspace({ workspaceId: workspace.id });
+    });
   };
 
   const handleAddPendingInvite = (result: CollaborationUserSearchResult) => {
@@ -203,9 +384,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       return;
     }
 
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
+    await runSubmittingAction(async () => {
       const registerResult = await ensureShareableResource(
         kind,
         resourceId,
@@ -244,16 +423,12 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       }
 
       await refreshCollaborationState();
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleRoleChange = async (memberUserId: string, role: CollaborativeMemberRole) => {
     if (!sharedResource) return;
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
+    await runSubmittingAction(async () => {
       const result = await setSharedResourceMember(
         sharedResource.id,
         user.id,
@@ -265,62 +440,46 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
         return;
       }
       await refreshCollaborationState();
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleRevokeMember = async (memberUserId: string) => {
     if (!sharedResource) return;
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
+    await runSubmittingAction(async () => {
       const result = await removeSharedResourceMember(sharedResource.id, user.id, memberUserId);
       if (!result.success) {
         setActionError(result.error ?? 'Impossibile revocare l\'accesso.');
         return;
       }
       await refreshCollaborationState();
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
+    await runSubmittingAction(async () => {
       const result = await revokeResourceInvite(user.id, inviteId);
       if (result.success !== true) {
         setActionError(result.error);
         return;
       }
       await refreshCollaborationState();
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleResendInvite = async (inviteId: string) => {
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
+    await runSubmittingAction(async () => {
       const result = await resendResourceInvite(user.id, inviteId);
       if (result.success !== true) {
         setActionError(result.error);
         return;
       }
       await refreshCollaborationState();
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleSharingModeChange = async (mode: SharingMode) => {
     if (!sharedResource || sharedResource.sharingMode === mode) return;
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
+    await runSubmittingAction(async () => {
       const result = await updateShareableResourceMode(sharedResource.id, user.id, mode);
       if (!result.success) {
         setActionError(result.error ?? 'Impossibile aggiornare la modalità.');
@@ -328,15 +487,11 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       }
       setSharingMode(mode);
       await refreshCollaborationState();
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleManagementInvite = async (target: CollaborationUserSearchResult) => {
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
+    await runSubmittingAction(async () => {
       const result = await sendResourceInvite(
         user.id,
         kind,
@@ -351,9 +506,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       setSearchQuery('');
       setSearchResults([]);
       await refreshCollaborationState();
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   if (!isOpen) return null;
@@ -408,12 +561,27 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               searchResults={searchResults}
               isSearching={isSearching}
               pendingInvites={pendingInvites}
+              workspaceName={workspaceName}
+              workspaceDescription={workspaceDescription}
+              suggestedComposition={suggestedComposition}
+              compositionLabels={compositionLabels}
+              selectedCompositionKeys={selectedCompositionKeys}
+              userWorkspaces={userWorkspaces}
+              selectedWorkspaceId={selectedWorkspaceId}
+              workspacePendingInvites={workspacePendingInvites}
+              workspaceDefaultAccess="collaborator"
               onSharePathChange={setSharePath}
               onSharingModeChange={setSharingMode}
               onSelectedRoleChange={setSelectedRole}
               onSearchQueryChange={setSearchQuery}
               onAddPendingInvite={handleAddPendingInvite}
               onRemovePendingInvite={handleRemovePendingInvite}
+              onWorkspaceNameChange={setWorkspaceName}
+              onWorkspaceDescriptionChange={setWorkspaceDescription}
+              onToggleCompositionResource={handleToggleCompositionResource}
+              onSelectWorkspace={setSelectedWorkspaceId}
+              onAddWorkspacePendingInvite={handleAddWorkspacePendingInvite}
+              onRemoveWorkspacePendingInvite={handleRemoveWorkspacePendingInvite}
             />
           ) : (
             <CollaborationManagementView
@@ -448,13 +616,17 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
           <CollaborationWizardFooter
             view={view}
             wizardStep={wizardStep}
+            sharePath={sharePath}
             isSubmitting={isSubmitting}
             onClose={onClose}
             onPathContinue={handlePathContinue}
             onModeContinue={handleModeContinue}
             onSendInvites={handleSendInvites}
+            onWorkspaceSetupContinue={handleWorkspaceSetupContinue}
+            onWorkspaceCompositionContinue={handleWorkspaceCompositionContinue}
+            onWorkspaceSelectContinue={handleWorkspaceSelectContinue}
+            onCreateWorkspace={handleCreateWorkspace}
             onBack={handleWizardBack}
-            onUseSimpleShare={handleUseSimpleShare}
           />
         )}
       </div>

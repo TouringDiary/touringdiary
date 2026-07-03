@@ -20,6 +20,11 @@
  */
 
 import type { NavigationViewMode } from '@/types/navigationViewMode';
+import {
+  FOCUS_ACTIVE_OWNERS,
+  FOCUS_WORKSPACE_LABELS,
+  type FocusActiveOwner,
+} from './focusWorkspacePresentation';
 
 export type UIMode = 'home' | 'workspace' | 'modal' | 'preview' | 'immersive';
 
@@ -36,7 +41,7 @@ interface WorkspaceDefinitionBase {
   id: string;
   modalKey: string;
   label: string;
-  focusActiveOwner: string;
+  focusActiveOwner: FocusActiveOwner;
 }
 
 /** Registry of workspace-style focus sessions (NOT classic modals). */
@@ -44,8 +49,14 @@ export const WORKSPACE_REGISTRY = {
   packingList: {
     id: 'packingList',
     modalKey: 'packingList',
-    label: 'Valigia',
-    focusActiveOwner: 'SuitcaseFloatingPanel',
+    label: FOCUS_WORKSPACE_LABELS.packingList,
+    focusActiveOwner: FOCUS_ACTIVE_OWNERS.packingList,
+  },
+  collaborationWorkspace: {
+    id: 'collaborationWorkspace',
+    modalKey: 'collaborationWorkspace',
+    label: FOCUS_WORKSPACE_LABELS.collaborationWorkspace,
+    focusActiveOwner: FOCUS_ACTIVE_OWNERS.collaborationWorkspace,
   },
 } as const satisfies Record<string, WorkspaceDefinitionBase>;
 
@@ -64,6 +75,7 @@ type WorkspaceByModalKey = {
 
 const WORKSPACE_BY_MODAL_KEY: WorkspaceByModalKey = {
   packingList: 'packingList',
+  collaborationWorkspace: 'collaborationWorkspace',
 };
 
 function isWorkspaceModalKey(key: string): key is WorkspaceModalKey {

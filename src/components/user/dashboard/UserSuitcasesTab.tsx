@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, LayoutTemplate, Calendar, PencilLine, Pencil, Copy, Trash2, Loader2, Users } from 'lucide-react';
+import { Briefcase, LayoutTemplate, Calendar, PencilLine, Pencil, Copy, Trash2, Loader2, Users, Layers } from 'lucide-react';
 import { useUserTemplates, deleteSuitcase } from '@/hooks/useSuitcaseSystem';
 import { duplicateSuitcaseEntityAsync } from '@/services/suitcaseService';
 import { isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
@@ -8,6 +8,8 @@ import { User } from '@/types';
 import { Suitcase } from '@/types/suitcase';
 import { useModal } from '@/context/ModalContext';
 import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { useResourceWorkspaces } from '@/hooks/useResourceWorkspaces';
 import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
@@ -49,6 +51,8 @@ const UserSuitcaseEntityCard: React.FC<UserSuitcaseEntityCardProps> = ({
   const resourceKind: SharedResourceKind = isTemplate ? 'user_template' : 'suitcase';
   const isShared = useSharedResourceIndicator(resourceKind, entity.id);
   const openCollaborationShare = useOpenCollaborationShare();
+  const openCollaborationWorkspace = useOpenCollaborationWorkspace();
+  const { workspaces } = useResourceWorkspaces(resourceKind, entity.id);
 
   const titleHover = isTemplate ? 'group-hover:text-indigo-400' : 'group-hover:text-amber-400';
   const accentBorder = isTemplate ? 'hover:border-indigo-500/40' : 'hover:border-amber-500/40';
@@ -104,6 +108,14 @@ const UserSuitcaseEntityCard: React.FC<UserSuitcaseEntityCardProps> = ({
               })
             }
           />
+          {workspaces.length > 0 && (
+            <IconActionButton
+              label="Workspace"
+              icon={Layers}
+              className={ICON_ACTION_INDIGO_CLASS}
+              onClick={() => openCollaborationWorkspace({ workspaceId: workspaces[0].id })}
+            />
+          )}
           <IconActionButton
             label={editTooltip}
             icon={Pencil}

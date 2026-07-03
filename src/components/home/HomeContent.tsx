@@ -17,6 +17,7 @@ import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { useDynamicContent } from '@/hooks/useDynamicContent';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useGps } from '@/context/GpsContext';
+import { WorkspaceQuickAccess } from '@/components/collaboration/workspace/WorkspaceQuickAccess';
 
 interface HeroSectionProps {
     activeCategories: string[];
@@ -389,6 +390,10 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
             </div>
 
             <div className="space-y-12 pb-10 pt-2 md:pt-6" data-focus-surface={FOCUS_SURFACE_ATTR.dimmedBackground}>
+
+                <div className="px-4 md:px-6">
+                    <WorkspaceQuickAccess className="max-w-md" />
+                </div>
 
                 <section>
                     <div className="flex flex-col lg:flex-row gap-4 xl:gap-6 items-start">

@@ -59,10 +59,16 @@ export const ModalManager = () => {
         if (pendingReturnTo === COLLABORATION_RETURN_TO) {
             closeModal();
             const resumeProps = pendingReturnProps as {
+                intent?: string;
+                workspaceId?: string;
                 kind?: string;
                 resourceId?: string;
                 resourceTitle?: string;
             } | undefined;
+            if (resumeProps?.intent === 'workspace' && resumeProps.workspaceId) {
+                openModal('collaborationWorkspace', { workspaceId: resumeProps.workspaceId });
+                return;
+            }
             if (resumeProps?.kind && resumeProps?.resourceId) {
                 openModal('collaborationShare', {
                     kind: resumeProps.kind,

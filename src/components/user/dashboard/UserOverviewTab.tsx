@@ -7,6 +7,7 @@ import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSl
 import { getRoleLabel } from '../../../services/userService';
 import { safeArray } from '../../../utils/safeTypes';
 import { UserAvatar } from '@/components/user/profile/UserAvatar';
+import { WorkspaceQuickAccess } from '@/components/collaboration/workspace/WorkspaceQuickAccess';
 
 interface Props {
     user: User;
@@ -133,6 +134,8 @@ export const UserOverviewTab = ({
                     </div>
                 </div>
             </div>
+
+            <WorkspaceQuickAccess className="px-1" />
 
             {/* 2. RICOMPENSE SBLOCCATE */}
             {unlockedRewards.length > 0 && (

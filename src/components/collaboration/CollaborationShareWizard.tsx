@@ -1,8 +1,10 @@
 import React from 'react';
 import { FolderPlus, Layers, Loader2, Search, UserPlus, Users } from 'lucide-react';
-import type { CollaborativeMemberRole, SharingMode } from '@/domain/collaboration';
+import type { CollaborativeMemberRole, SharingMode, Workspace } from '@/domain/collaboration';
 import { COLLABORATIVE_MEMBER_ROLES } from '@/domain/collaboration';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
+import type { WorkspaceCompositionResource } from '@/services/collaboration';
+import type { WorkspaceResourceLabel } from '@/services/collaboration';
 import { OptionCard } from './OptionCard';
 import {
   MODE_LABELS,
@@ -10,7 +12,16 @@ import {
   type PendingInvite,
   type SharePath,
   type WizardStep,
+  type WorkspacePendingInvite,
 } from './collaborationSharePresentation';
+import {
+  WorkspaceCompositionStep,
+  WorkspaceInviteSearch,
+  WorkspaceInviteStep,
+  WorkspaceSelectStep,
+  WorkspaceSetupStep,
+} from './WorkspaceShareWizardSteps';
+import { WORKSPACE_ACCESS_LABELS } from './workspace/workspacePresentation';
 
 export interface CollaborationShareWizardProps {
   wizardStep: WizardStep;
@@ -21,12 +32,30 @@ export interface CollaborationShareWizardProps {
   searchResults: CollaborationUserSearchResult[];
   isSearching: boolean;
   pendingInvites: PendingInvite[];
+  workspaceName: string;
+  workspaceDescription: string;
+  suggestedComposition: WorkspaceCompositionResource[];
+  compositionLabels: WorkspaceResourceLabel[];
+  selectedCompositionKeys: Set<string>;
+  userWorkspaces: Workspace[];
+  selectedWorkspaceId: string | null;
+  workspacePendingInvites: WorkspacePendingInvite[];
+  workspaceDefaultAccess: 'collaborator';
   onSharePathChange: (path: SharePath) => void;
   onSharingModeChange: (mode: SharingMode) => void;
   onSelectedRoleChange: (role: CollaborativeMemberRole) => void;
   onSearchQueryChange: (query: string) => void;
   onAddPendingInvite: (result: CollaborationUserSearchResult) => void;
   onRemovePendingInvite: (userId: string) => void;
+  onWorkspaceNameChange: (value: string) => void;
+  onWorkspaceDescriptionChange: (value: string) => void;
+  onToggleCompositionResource: (
+    kind: WorkspaceCompositionResource['kind'],
+    resourceId: string
+  ) => void;
+  onSelectWorkspace: (workspaceId: string) => void;
+  onAddWorkspacePendingInvite: (result: CollaborationUserSearchResult) => void;
+  onRemoveWorkspacePendingInvite: (userId: string) => void;
 }
 
 export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> = ({
@@ -38,12 +67,26 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   searchResults,
   isSearching,
   pendingInvites,
+  workspaceName,
+  workspaceDescription,
+  suggestedComposition,
+  compositionLabels,
+  selectedCompositionKeys,
+  userWorkspaces,
+  selectedWorkspaceId,
+  workspacePendingInvites,
   onSharePathChange,
   onSharingModeChange,
   onSelectedRoleChange,
   onSearchQueryChange,
   onAddPendingInvite,
   onRemovePendingInvite,
+  onWorkspaceNameChange,
+  onWorkspaceDescriptionChange,
+  onToggleCompositionResource,
+  onSelectWorkspace,
+  onAddWorkspacePendingInvite,
+  onRemoveWorkspacePendingInvite,
 }) => (
   <>
     {wizardStep === 'path' && (
@@ -193,13 +236,46 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
       </div>
     )}
 
-    {wizardStep === 'workspace_notice' && (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100 leading-relaxed">
-        <p className="font-semibold text-amber-50 mb-2">Workspace in arrivo</p>
-        <p>
-          La creazione e la gestione dei Workspace saranno disponibili nelle prossime fasi del sistema
-          di collaborazione. Per ora puoi utilizzare la <strong>condivisione semplice</strong>.
-        </p>
+    {wizardStep === 'workspace_setup' && (
+      <WorkspaceSetupStep
+        workspaceName={workspaceName}
+        workspaceDescription={workspaceDescription}
+        onNameChange={onWorkspaceNameChange}
+        onDescriptionChange={onWorkspaceDescriptionChange}
+      />
+    )}
+
+    {wizardStep === 'workspace_composition' && (
+      <WorkspaceCompositionStep
+        suggestedComposition={suggestedComposition}
+        resourceLabels={compositionLabels}
+        selectedKeys={selectedCompositionKeys}
+        onToggleResource={onToggleCompositionResource}
+      />
+    )}
+
+    {wizardStep === 'workspace_select' && (
+      <WorkspaceSelectStep
+        workspaces={userWorkspaces}
+        selectedWorkspaceId={selectedWorkspaceId}
+        onSelect={onSelectWorkspace}
+      />
+    )}
+
+    {wizardStep === 'workspace_invite' && (
+      <div className="space-y-4">
+        <WorkspaceInviteStep
+          pendingInvites={workspacePendingInvites}
+          defaultAccessLabel={WORKSPACE_ACCESS_LABELS.collaborator}
+          onRemoveInvite={onRemoveWorkspacePendingInvite}
+        />
+        <WorkspaceInviteSearch
+          searchQuery={searchQuery}
+          searchResults={searchResults}
+          isSearching={isSearching}
+          onSearchQueryChange={onSearchQueryChange}
+          onAddInvite={onAddWorkspacePendingInvite}
+        />
       </div>
     )}
   </>

@@ -89,6 +89,17 @@ export {
 } from './diaryCollaborationService';
 
 export {
+  resolveWorkspaceResourceLabels,
+  findWorkspaceResourceLabel,
+  buildWorkspaceResourceLabelMap,
+  fetchCollaborationUserProfiles,
+} from './workspaceResourcePresentation';
+export type {
+  WorkspaceResourceLabel,
+  CollaborationUserProfileSummary,
+} from './workspaceResourcePresentation';
+
+export {
   tryAcquireDiaryEditLock,
   releaseDiaryEditLock,
   getDiaryEditLockHolder,
