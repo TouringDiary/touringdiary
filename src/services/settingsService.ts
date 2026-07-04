@@ -45,6 +45,9 @@ export const SETTINGS_KEYS = {
 
   // Collaborazione live — lock timeout e heartbeat (§18.1)
   COLLABORATION_LIVE_CONFIG: 'collaboration_live_config',
+
+  // Motore workspace/collaborazione — governance globale (Fase 10 Admin)
+  WORKSPACE_ENGINE_CONFIG: 'workspace_engine_config',
 };
 
 // --- CACHE IN MEMORIA & LOCK ---

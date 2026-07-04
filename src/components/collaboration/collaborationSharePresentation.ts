@@ -2,9 +2,11 @@ import type { CollaborativeMemberRole, ResourceInvite, SharingMode } from '@/dom
 import type { WorkspaceResourcePermissionEntry } from '@/domain/collaboration';
 
 export type SharePath = 'simple' | 'create_workspace' | 'add_workspace';
+export type ShareIntent = 'duplicate_and_share' | 'share_current';
 export type WizardStep =
   | 'path'
   | 'mode'
+  | 'share_intent'
   | 'invite'
   | 'workspace_setup'
   | 'workspace_composition'
@@ -46,6 +48,7 @@ export interface WorkspacePendingInvite {
 export function getWizardStepTitle(wizardStep: WizardStep, sharePath?: SharePath): string {
   if (wizardStep === 'path') return 'Come vuoi condividere?';
   if (wizardStep === 'mode') return 'Scegli la modalità';
+  if (wizardStep === 'share_intent') return 'Cosa vuoi condividere?';
   if (wizardStep === 'invite') return 'Invita collaboratori';
   if (wizardStep === 'workspace_setup') return 'Configura il Workspace';
   if (wizardStep === 'workspace_composition') return 'Composizione risorse';

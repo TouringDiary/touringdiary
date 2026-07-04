@@ -10,6 +10,7 @@ export interface CollaborationWizardFooterProps {
   onClose: () => void;
   onPathContinue: () => void;
   onModeContinue: () => void;
+  onShareIntentContinue: () => void;
   onSendInvites: () => void;
   onWorkspaceSetupContinue: () => void;
   onWorkspaceCompositionContinue: () => void;
@@ -36,6 +37,7 @@ function resolveWizardPrimaryAction(
     CollaborationWizardFooterProps,
     | 'onPathContinue'
     | 'onModeContinue'
+    | 'onShareIntentContinue'
     | 'onSendInvites'
     | 'onWorkspaceSetupContinue'
     | 'onWorkspaceCompositionContinue'
@@ -50,6 +52,13 @@ function resolveWizardPrimaryAction(
       return { label: 'Continua', onClick: handlers.onPathContinue };
     case 'mode':
       return { label: 'Continua', onClick: handlers.onModeContinue };
+    case 'share_intent':
+      return {
+        label: 'Continua',
+        onClick: handlers.onShareIntentContinue,
+        disabled: isSubmitting,
+        showSpinner: isSubmitting,
+      };
     case 'invite':
       if (isWorkspacePath) return null;
       return {
@@ -89,6 +98,7 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
   onClose,
   onPathContinue,
   onModeContinue,
+  onShareIntentContinue,
   onSendInvites,
   onWorkspaceSetupContinue,
   onWorkspaceCompositionContinue,
@@ -103,6 +113,7 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
   const primaryAction = resolveWizardPrimaryAction(wizardStep, sharePath, isSubmitting, {
     onPathContinue,
     onModeContinue,
+    onShareIntentContinue,
     onSendInvites,
     onWorkspaceSetupContinue,
     onWorkspaceCompositionContinue,

@@ -10,7 +10,7 @@ Benvenuti nella documentazione tecnica sintetica di TouringDiary. Questa cartell
 *Panoramica globale, tipologie utenti e layer tecnologici.*
 
 ### 🚀 [02_RUNTIME_DATA_FLOW.md](file:///c:/TouringDiary/AI_CONTEXT_MASTER/02_RUNTIME_DATA_FLOW.md)
-*Le 10 pipeline fondamentali: dall'AI Chat all'attivazione sponsor.*
+*Le 11 pipeline fondamentali: dall'AI Chat alla condivisione collaborativa.*
 
 ### 📊 [03_DATABASE_SCHEMA.md](file:///c:/TouringDiary/AI_CONTEXT_MASTER/03_DATABASE_SCHEMA.md)
 *Mappa delle tabelle, relazioni, campi JSON e RPC critiche.*

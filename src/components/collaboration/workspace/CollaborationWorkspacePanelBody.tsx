@@ -25,6 +25,8 @@ import {
 import { WorkspaceResourcesSection } from './WorkspaceResourcesSection';
 import { WorkspaceMembersSection } from './WorkspaceMembersSection';
 import { WorkspaceInvitesSection } from './WorkspaceInvitesSection';
+import { CollaborationActivityFeed } from '@/components/collaboration/live/CollaborationActivityFeed';
+import { WorkspaceAttachmentsSection } from './WorkspaceAttachmentsSection';
 
 export interface CollaborationWorkspacePanelBodyProps {
   workspaceId: string;
@@ -243,7 +245,7 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
       </header>
 
       <nav className="flex gap-1 px-4 py-2 border-b border-slate-800 shrink-0">
-        {(['resources', 'members', 'invites'] as WorkspacePanelTab[]).map((tab) => (
+        {(['resources', 'members', 'invites', 'activity', 'attachments'] as WorkspacePanelTab[]).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -303,6 +305,14 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
 
         {activeTab === 'invites' && !dashboard.isOwner && (
           <p className="text-sm text-slate-500">Solo il proprietario può gestire gli inviti.</p>
+        )}
+
+        {activeTab === 'activity' && (
+          <CollaborationActivityFeed workspaceId={workspaceId} />
+        )}
+
+        {activeTab === 'attachments' && (
+          <WorkspaceAttachmentsSection workspaceId={workspaceId} user={user} />
         )}
 
         {actionError && (

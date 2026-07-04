@@ -18,9 +18,10 @@ Il modulo Admin Operations fornisce gli strumenti necessari alla redazione e agl
 *   **Staging Area**: Permette la validazione dei dati prima del "Push to Live".
 
 ### 3. Settings System (Global Config)
-*   **Logica**: Modifica parametri runtime (es. Manutenzione on/off, configurazione Onboarding).
+*   **Logica**: Modifica parametri runtime (es. Manutenzione on/off, configurazione Onboarding, **motore Workspace**).
 *   **Tabella**: `global_settings`, `system_messages`.
-*   **UI**: `SettingsManager.tsx`.
+*   **UI**: `SettingsPage.tsx` (tab **Workspace** → `WorkspaceEngineSettingsPanel.tsx` per engine, lock live e `storage_limits`).
+*   **Dettaglio collaborazione**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` § Admin.
 
 ### 4. Export System
 *   **Funzioni**: Generazione report in CSV, JSON o PDF per utenti e admin.

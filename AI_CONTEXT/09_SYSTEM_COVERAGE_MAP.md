@@ -36,6 +36,7 @@ Questo documento fornisce un indice della copertura documentale rispetto al codi
 | **User Onboarding**   | [x] | [ ] | [ ] | Allineato in `25_USER_ONBOARDING_SYSTEM.md` |
 | **Affiliate System**   | [ ] | [x] | [ ] | Allineato in `26_AFFILIATE_TRACKING_SYSTEM.md` |
 | **Review System**      | [ ] | [x] | [ ] | Allineato in `27_USER_REVIEW_SYSTEM.md` |
+| **Collaboration & Workspace** | [x] | [ ] | [ ] | Allineato in `28_COLLABORATION_WORKSPACE_SYSTEM.md` (v1 Fase 10) |
 
 ---
 
@@ -63,8 +64,8 @@ I seguenti file/moduli sono presenti nel codice ma non hanno ancora una sezione 
 
 ## STATO ALLINEAMENTO SCHEMA DB
 
-*   **Tabelle Documentate**: `profiles`, `cities`, `pois`, `itineraries`, `sponsors`, `sponsor_requests`, `subscriptions`, `pricing_versions`, `user_ai_credits`, `credit_transactions`, `ai_global_usage`, `xp_actions`, `rewards_catalog`, `badges`, `community_posts`, `live_snaps`, `pois_staging`, `notifications`, `communication_logs`, `system_messages`, `obs_poi_anomalies`.
-*   **Tabelle NON Documentate**: `communication_logs` (partecipazione), `obs_city_quality_metrics`.
+*   **Tabelle Documentate**: `profiles`, `cities`, `pois`, `itineraries`, `sponsors`, `sponsor_requests`, `subscriptions`, `pricing_versions`, `user_ai_credits`, `credit_transactions`, `ai_global_usage`, `xp_actions`, `rewards_catalog`, `badges`, `community_posts`, `live_snaps`, `pois_staging`, `notifications`, `communication_logs`, `system_messages`, `obs_poi_anomalies`, `shared_resources`, `workspaces`, `workspace_attachments`, `collaboration_domain_events`, `user_friends`, `user_friend_requests`, `user_blocks`.
+*   **Tabelle NON Documentate**: `communication_logs` (partecipazione), `obs_city_quality_metrics`, dettaglio RLS per-tabella collaborazione (vedi DOC 28).
 
 ---
 

@@ -1,5 +1,6 @@
 import { supabase } from '@/services/supabaseClient';
 import { addNotification } from '@/services/notificationService';
+import { shouldDeliverCollaborationNotification } from './collaborationNotificationPrefsService';
 import { getWorkspace } from './workspaceService';
 
 async function getProfileName(userId: string): Promise<string> {
@@ -11,18 +12,36 @@ async function getProfileName(userId: string): Promise<string> {
   return data?.name?.trim() || 'Un collaboratore';
 }
 
+async function notifyIfAllowed(
+  userId: string,
+  category: 'invites' | 'resource_updates' | 'workspace_updates' | 'friend_requests',
+  title: string,
+  message: string,
+  linkData?: Parameters<typeof addNotification>[4]
+): Promise<void> {
+  if (!(await shouldDeliverCollaborationNotification(userId, category))) return;
+  await addNotification(userId, 'collaboration', title, message, linkData);
+}
+
 export async function notifyWorkspaceInviteReceived(
   inviteeId: string,
   inviterName: string,
   workspaceName: string,
-  inviteId: string
+  inviteId: string,
+  workspaceId: string
 ): Promise<void> {
-  await addNotification(
+  await notifyIfAllowed(
     inviteeId,
-    'collaboration',
+    'invites',
     `${inviterName} ti ha invitato`,
     `Hai ricevuto un invito al workspace "${workspaceName}".`,
-    { section: 'collaboration', inviteId, targetId: inviteId }
+    {
+      section: 'collaboration',
+      intent: 'workspace',
+      workspaceId,
+      inviteId,
+      targetId: inviteId,
+    }
   );
 }
 
@@ -30,14 +49,21 @@ export async function notifyWorkspaceInviteAccepted(
   ownerId: string,
   inviteeName: string,
   workspaceName: string,
-  inviteId: string
+  inviteId: string,
+  workspaceId: string
 ): Promise<void> {
-  await addNotification(
+  await notifyIfAllowed(
     ownerId,
-    'collaboration',
+    'workspace_updates',
     `${inviteeName} ha accettato il tuo invito`,
     `Ora partecipa al workspace "${workspaceName}".`,
-    { section: 'collaboration', inviteId, targetId: inviteId }
+    {
+      section: 'collaboration',
+      intent: 'workspace',
+      workspaceId,
+      inviteId,
+      targetId: inviteId,
+    }
   );
 }
 
@@ -45,14 +71,21 @@ export async function notifyWorkspaceInviteRejected(
   ownerId: string,
   inviteeName: string,
   workspaceName: string,
-  inviteId: string
+  inviteId: string,
+  workspaceId: string
 ): Promise<void> {
-  await addNotification(
+  await notifyIfAllowed(
     ownerId,
-    'collaboration',
+    'workspace_updates',
     `${inviteeName} ha rifiutato il tuo invito`,
     `L'invito al workspace "${workspaceName}" non è stato accettato.`,
-    { section: 'collaboration', inviteId, targetId: inviteId }
+    {
+      section: 'collaboration',
+      intent: 'workspace',
+      workspaceId,
+      inviteId,
+      targetId: inviteId,
+    }
   );
 }
 
@@ -73,13 +106,15 @@ export async function notifyWorkspaceSuitcaseAdded(
     .maybeSingle();
   const suitcaseTitle = suitcaseRow?.title?.trim() || 'Valigia';
 
-  await addNotification(
+  await notifyIfAllowed(
     workspace.ownerId,
-    'collaboration',
+    'workspace_updates',
     `${actorName} ha aggiunto una Valigia al workspace`,
     `"${suitcaseTitle}" è stata collegata al workspace "${workspace.name}".`,
     {
       section: 'collaboration',
+      intent: 'workspace',
+      workspaceId,
       targetId: workspaceId,
       resourceKind: 'suitcase',
     }

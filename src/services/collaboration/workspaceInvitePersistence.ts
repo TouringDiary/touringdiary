@@ -8,19 +8,39 @@ import {
 export async function fetchInvitePermissions(
   inviteId: string
 ): Promise<WorkspaceResourcePermissionEntry[]> {
+  const map = await fetchInvitePermissionsByInviteIds([inviteId]);
+  return map.get(inviteId) ?? [];
+}
+
+export async function fetchInvitePermissionsByInviteIds(
+  inviteIds: string[]
+): Promise<Map<string, WorkspaceResourcePermissionEntry[]>> {
+  const result = new Map<string, WorkspaceResourcePermissionEntry[]>();
+  if (inviteIds.length === 0) return result;
+
   const { data, error } = await supabase
     .from('workspace_invite_permissions')
     .select('*')
-    .eq('invite_id', inviteId);
+    .in('invite_id', inviteIds);
 
   if (error) {
-    console.error('[workspaceInviteService] fetchInvitePermissions:', error.message);
-    return [];
+    console.error('[workspaceInvitePersistence] fetchInvitePermissionsByInviteIds:', error.message);
+    return result;
   }
 
-  return (data ?? [])
-    .map(mapWorkspaceInvitePermissionRow)
-    .filter((entry): entry is WorkspaceResourcePermissionEntry => entry !== null);
+  for (const inviteId of inviteIds) {
+    result.set(inviteId, []);
+  }
+
+  for (const row of data ?? []) {
+    const entry = mapWorkspaceInvitePermissionRow(row);
+    if (!entry) continue;
+    const list = result.get(row.invite_id) ?? [];
+    list.push(entry);
+    result.set(row.invite_id, list);
+  }
+
+  return result;
 }
 
 export async function loadWorkspaceInvite(inviteId: string): Promise<WorkspaceInvite | null> {

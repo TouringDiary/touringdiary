@@ -79,5 +79,21 @@ Il processo di importazione è diviso in fasi atomiche per garantire la qualità
 
 ---
 
+## 6. IMPOSTAZIONI GLOBALI — TAB WORKSPACE (Fase 10)
+
+In **Admin Panel → Impostazioni Globali → Workspace** (`SettingsPage.tsx`, `WorkspaceEngineSettingsPanel.tsx`):
+
+*   **Motore collaborazione**: abilitazione globale, presenza live, Shared Resource Kind abilitati, categorie notifiche collaborative (default piattaforma).
+*   **Lock live**: timeout e heartbeat (`collaboration_live_config`).
+*   **Storage**: limiti allegati (`storage_limits`) — unica fonte per quote workspace/account/file.
+
+Tutte le chiavi persistono in `global_settings` e sono lette via `ConfigContext` / `settingsService.ts`. **Non** esiste un servizio config dedicato per storage o engine.
+
+Governance globale del motore collaborativo; **non** sostituisce ACL per risorsa (owner/collaborator per singola entità).
+
+Dettaglio architetturale: `28_COLLABORATION_WORKSPACE_SYSTEM.md`.
+
+---
+
 > [!IMPORTANT]
 > L'amministratore deve monitorare periodicamente la `Ai Economics Dashboard` (Modulo `ai_economics`) per verificare che i costi di Google Vertex AI non superino l'MRR generato dalle sottoscrizioni.

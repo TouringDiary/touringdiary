@@ -25,6 +25,7 @@ import {
   collaborationLockTimeoutMs,
   resolveCollaborationLiveConfig,
 } from '@/services/collaboration/collaborationLiveConfig';
+import { resolveWorkspaceEngineConfig } from '@/services/collaboration/workspaceEngineConfigService';
 import { supabase } from '@/services/supabaseClient';
 
 export interface UseCollaborationLiveSessionOptions {
@@ -87,6 +88,10 @@ export function useCollaborationLiveSession(
     () => resolveCollaborationLiveConfig(configs[SETTINGS_KEYS.COLLABORATION_LIVE_CONFIG]),
     [configs]
   );
+  const livePresenceEnabled = useMemo(
+    () => resolveWorkspaceEngineConfig(configs[SETTINGS_KEYS.WORKSPACE_ENGINE_CONFIG]).livePresenceEnabled,
+    [configs]
+  );
 
   const [sharedResourceId, setSharedResourceId] = useState<string | null>(null);
   const [sharingMode, setSharingMode] = useState<'collaborative' | 'personal' | null>(null);
@@ -110,6 +115,7 @@ export function useCollaborationLiveSession(
   onExitEditModeRef.current = onExitEditMode;
 
   const isCollaborativeSession =
+    livePresenceEnabled &&
     !!kind &&
     !!resourceId &&
     !!userId &&
@@ -462,20 +468,24 @@ export function useCollaborationLiveSession(
       .catch((error) => logAsyncFailure('presenceTrack', error));
   }, [holdsLock, isEditSessionActive, userDisplayName, userId]);
 
-  // Resolve profile names for lock holder + presence
-  useEffect(() => {
+  // Resolve profile names for lock holder + presence (skip refetch if user set unchanged)
+  const presenceUserIdsKey = useMemo(() => {
     const ids = new Set<string>();
     if (lockHolderId) ids.add(lockHolderId);
     for (const peer of presencePeers) ids.add(peer.userId);
+    return [...ids].sort().join(',');
+  }, [lockHolderId, presencePeers]);
 
-    if (ids.size === 0) {
+  useEffect(() => {
+    if (!presenceUserIdsKey) {
       setProfileNames({});
       return;
     }
 
+    const ids = presenceUserIdsKey.split(',').filter(Boolean);
     let cancelled = false;
     detach(
-      fetchCollaborationUserProfiles([...ids]).then((profiles) => {
+      fetchCollaborationUserProfiles(ids).then((profiles) => {
         if (cancelled) return;
         const names: Record<string, string> = {};
         for (const [id, profile] of Object.entries(profiles)) {
@@ -489,7 +499,7 @@ export function useCollaborationLiveSession(
     return () => {
       cancelled = true;
     };
-  }, [lockHolderId, presencePeers]);
+  }, [presenceUserIdsKey]);
 
   const lockHolderName = lockHolderId ? profileNames[lockHolderId] ?? 'Un collaboratore' : null;
   const isLockedByOther = !!lockHolderId && lockHolderId !== userId;

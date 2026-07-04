@@ -8,6 +8,10 @@ import {
 } from '@/collaboration/guestGate';
 import { userNeedsUsername } from '@/domain/profile/username';
 import type { SharedResourceKind } from '@/domain/collaboration';
+import {
+  isCollaborationEngineEnabled,
+  isSharedResourceKindEnabled,
+} from '@/services/collaboration/workspaceEngineConfigService';
 
 export interface CollaborationShareTarget {
   kind: SharedResourceKind;
@@ -32,6 +36,10 @@ export function useOpenCollaborationShare() {
           returnTo: COLLABORATION_RETURN_TO,
           returnProps: target,
         });
+        return;
+      }
+
+      if (!isCollaborationEngineEnabled() || !isSharedResourceKindEnabled(target.kind)) {
         return;
       }
 

@@ -2334,6 +2334,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           city: string | null
+          collaboration_notification_preferences: Json
           company_name: string | null
           created_at: string | null
           email: string | null
@@ -2354,6 +2355,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           city?: string | null
+          collaboration_notification_preferences?: Json
           company_name?: string | null
           created_at?: string | null
           email?: string | null
@@ -2374,6 +2376,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           city?: string | null
+          collaboration_notification_preferences?: Json
           company_name?: string | null
           created_at?: string | null
           email?: string | null
@@ -2660,6 +2663,70 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collaboration_domain_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          domain: string
+          event_type: string
+          id: string
+          kind: Database["public"]["Enums"]["shared_resource_kind"] | null
+          payload: Json
+          resource_id: string | null
+          shared_resource_id: string | null
+          summary: string
+          workspace_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          domain?: string
+          event_type: string
+          id?: string
+          kind?: Database["public"]["Enums"]["shared_resource_kind"] | null
+          payload?: Json
+          resource_id?: string | null
+          shared_resource_id?: string | null
+          summary: string
+          workspace_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          domain?: string
+          event_type?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["shared_resource_kind"] | null
+          payload?: Json
+          resource_id?: string | null
+          shared_resource_id?: string | null
+          summary?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaboration_domain_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaboration_domain_events_shared_resource_id_fkey"
+            columns: ["shared_resource_id"]
+            isOneToOne: false
+            referencedRelation: "shared_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaboration_domain_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -3814,6 +3881,84 @@ export type Database = {
           },
         ]
       }
+      user_friend_requests: {
+        Row: {
+          addressee_id: string
+          created_at: string
+          id: string
+          requester_id: string
+          responded_at: string | null
+          status: Database["public"]["Enums"]["friend_request_status"]
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string
+          id?: string
+          requester_id: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["friend_request_status"]
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string
+          id?: string
+          requester_id?: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["friend_request_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_friend_requests_addressee_id_fkey"
+            columns: ["addressee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_friend_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_friends: {
+        Row: {
+          created_at: string
+          friend_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          friend_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          friend_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_friends_friend_id_fkey"
+            columns: ["friend_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_friends_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_notifications: {
         Row: {
           created_at: string | null
@@ -3955,6 +4100,54 @@ export type Database = {
           xp_amount?: number
         }
         Relationships: []
+      }
+      workspace_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          uploaded_by: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          uploaded_by: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          mime_type?: string
+          size_bytes?: number
+          storage_path?: string
+          uploaded_by?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_attachments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspace_invite_permissions: {
         Row: {
@@ -4865,6 +5058,7 @@ export type Database = {
         | "promo"
         | "referral"
       collaborative_member_role: "collaborator" | "viewer"
+      friend_request_status: "pending" | "accepted" | "rejected"
       media_status: "real" | "placeholder" | "missing"
       plan_segment: "BUSINESS" | "TRAVELER"
       plan_type:
@@ -5018,6 +5212,7 @@ export const Constants = {
         "referral",
       ],
       collaborative_member_role: ["collaborator", "viewer"],
+      friend_request_status: ["pending", "accepted", "rejected"],
       media_status: ["real", "placeholder", "missing"],
       plan_segment: ["BUSINESS", "TRAVELER"],
       plan_type: [

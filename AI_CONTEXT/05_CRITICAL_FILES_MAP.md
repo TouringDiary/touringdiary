@@ -443,6 +443,84 @@ Può bloccare export guida viaggio.
 
 ---
 
+# LAYER COLLABORATION & WORKSPACE (v1 — Fase 10)
+
+
+## src/services/collaboration/
+
+Ruolo
+
+Motore collaborativo: shared resource ACL, workspace, inviti, amici, eventi dominio, allegati, notifiche collaborative.
+
+
+File critici:
+
+`sharedResourceService.ts`  
+`workspaceService.ts`  
+`workspaceInviteService.ts`  
+`resourceInviteService.ts`  
+`domainEventService.ts`  
+`workspaceAttachmentService.ts`  
+`friendService.ts`  
+`workspaceEngineConfigService.ts`  
+`collaborationNotificationService.ts`
+
+
+Impatto modifiche
+
+Può compromettere condivisione, workspace, RLS e sync permessi.
+
+
+---
+
+## src/components/collaboration/CollaborationShareModal.tsx
+
+Ruolo
+
+Wizard condivisione (duplica/condividi, workspace, inviti).
+
+
+Impatto modifiche
+
+Può alterare flusso condivisione e race condition su refresh stato.
+
+
+---
+
+## src/hooks/collaboration/useCollaborationLiveSession.ts
+
+Ruolo
+
+Presenza live, lock edit, refresh remoto (Fase 9).
+
+
+Dipende da:
+
+`collaboration_live_config`  
+`workspace_engine_config` (livePresenceEnabled)
+
+
+Impatto modifiche
+
+Può bloccare editing collaborativo o causare conflitti lock.
+
+
+---
+
+## src/context/ConfigContext.tsx (collaborazione)
+
+Ruolo
+
+Fornisce `global_settings` inclusi `workspace_engine_config`, `storage_limits`, `collaboration_live_config`.
+
+
+Impatto modifiche
+
+Può disabilitare globalmente collaborazione o alterare limiti storage.
+
+
+---
+
 # LAYER EDGE FUNCTIONS (SERVER-SIDE CRITICO)
 
 

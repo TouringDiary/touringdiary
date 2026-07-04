@@ -22,6 +22,7 @@ L'architettura è basata su uno stack moderno:
 *   **AI Engine**: Orchestrazione prompt, gestione token, log di utilizzo e consumo crediti in tempo reale.
 *   **Business Engine**: Gestione abbonamenti (Stripe), sponsorizzazioni, marketplace e tracciamento affiliazioni.
 *   **Community & Gamification**: Sistema di XP, badge, recensioni certificate e condivisione media.
+*   **Collaboration & Workspace** (v1, Fase 10): Condivisione Diario/Valigia/Template, workspace multi-risorsa, amicizie, allegati e presenza live. Dettaglio: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 
 ## COMPONENTI ARCHITETTURALI
 *   **Services**: `cityService.ts`, `aiService.ts`, `sponsorService.ts`, `trackingService.ts`.

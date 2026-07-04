@@ -115,6 +115,51 @@ export {
 
 export { resolveCollaborationLiveConfig } from './collaborationLiveConfig';
 
+export {
+  resolveWorkspaceEngineConfig,
+  isCollaborationEngineEnabled,
+  isSharedResourceKindEnabled,
+} from './workspaceEngineConfigService';
+
+export {
+  recordCollaborationDomainEvent,
+  listCollaborationEventsForWorkspace,
+  listCollaborationEventsForResource,
+} from './domainEventService';
+
+export {
+  sendFriendRequest,
+  acceptFriendRequest,
+  rejectFriendRequest,
+  removeFriend,
+  listFriends,
+  listIncomingFriendRequests,
+  listOutgoingFriendRequests,
+  searchUsersForFriendRequest,
+} from './friendService';
+
+export {
+  getCollaborationNotificationPrefs,
+  updateCollaborationNotificationPrefs,
+  shouldDeliverCollaborationNotification,
+} from './collaborationNotificationPrefsService';
+
+export { loadSharingProfileOverview } from './collaborationProfileService';
+export type { SharingProfileOverview, SharingProfileResourceRow } from './collaborationProfileService';
+
+export {
+  duplicateSharedResourceForOwner,
+} from './personalShareService';
+
+export {
+  listWorkspaceAttachments,
+  uploadWorkspaceAttachment,
+  deleteWorkspaceAttachment,
+  resolveStorageLimitsConfig,
+} from './workspaceAttachmentService';
+
+export { syncSharedResourceAccessFromWorkspacePermission } from './workspaceMemberAclSync';
+
 export type { ResolvePermissionOptions } from './permissionService';
 export type { RegisterShareableResourceResult } from './sharedResourceService';
 export type { SetSharedResourceMemberResult } from './sharedResourceAclService';

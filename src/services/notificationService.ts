@@ -63,7 +63,7 @@ export const fetchNotificationsAsync = async (userId: string): Promise<AppNotifi
             message: n.message,
             date: n.date,
             isRead: n.is_read,
-            linkData: n.link_data
+            linkData: n.link_data as AppNotification['linkData']
         }));
         
         // Aggiorna cache globale
@@ -150,7 +150,7 @@ export const addNotification = async (
                 message: data.message,
                 date: data.date,
                 isRead: data.is_read,
-                linkData: data.link_data
+                linkData: data.link_data as AppNotification['linkData']
             };
             notificationsCache = [mapped, ...notificationsCache];
         }

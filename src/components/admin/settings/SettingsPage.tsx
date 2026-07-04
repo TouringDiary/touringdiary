@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Palette, Puzzle, Link, Settings, HardDrive } from 'lucide-react';
+import { Palette, Puzzle, Link, Settings, FolderKanban } from 'lucide-react';
 import { useConfig } from '@/context/ConfigContext';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
 import { PartnerIntegrationsPanel } from './PartnerIntegrationsPanel';
+import { WorkspaceEngineSettingsPanel } from './WorkspaceEngineSettingsPanel';
 import DesignSystemSettings from '../design/DesignSystemSettings';
 import { AdminPageHeader } from '../common/AdminPageHeader';
 
@@ -11,9 +12,8 @@ const TABS = [
     { id: 'design_system', label: 'Design System', icon: Palette },
     { id: 'poi_categories_config', label: 'Categorie POI', icon: Puzzle },
     { id: 'partner_integrations', label: 'Integrazioni Partner', icon: Link },
-    { id: 'storage_limits', label: 'Limiti Storage', icon: HardDrive },
+    { id: 'workspace_engine', label: 'Workspace', icon: FolderKanban },
 ];
-
 export const SettingsPage: React.FC = () => {
     const { configs, isLoading, refreshConfig } = useConfig();
     const [activeTab, setActiveTab] = useState('design_system');
@@ -52,6 +52,8 @@ export const SettingsPage: React.FC = () => {
             <div className="flex-1 overflow-y-auto">
                 {activeTab === 'design_system' ? (
                     <DesignSystemSettings />
+                ) : activeTab === 'workspace_engine' ? (
+                    <WorkspaceEngineSettingsPanel onSaveSuccess={refreshConfig} />
                 ) : activeTab === 'partner_integrations' && activeConfigData ? (
                     <PartnerIntegrationsPanel 
                         key={activeTab}

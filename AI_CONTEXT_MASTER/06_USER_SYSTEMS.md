@@ -37,6 +37,17 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 *   **Service**: `mediaService.ts`, `useCityGallery.ts`.
 *   **UI**: `PreviewGallery.tsx`.
 
+### 7. User Dashboard (Profilo)
+*   **Componente**: `UserDashboard.tsx` — routing tab via `useAppRouter` (URL: `/profilo/condivisione`, `/profilo/amici`, ecc.).
+*   **Tab Fase 10**: `UserSharingTab` (Condivisione), `UserFriendsTab` (Amici).
+*   **Impostazioni**: `UserSettingsTab` — sezione «Notifiche collaborazione» persistente su `profiles.collaboration_notification_preferences`.
+*   **Notifiche**: `UserNotificationsTab` — notifiche `collaboration`, deep link workspace.
+
+### 8. Collaboration & Workspace (v1 — Fase 10)
+*   **Dettaglio**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` (single source of truth).
+*   **Moduli**: shared resource ACL, workspace, amici (`user_friends` ≠ `user_blocks`), eventi dominio, allegati bucket privato, wizard condivisione.
+*   **Services**: `src/services/collaboration/`.
+
 ---
 
 ## PIPELINE RUNTIME (Gamification & XP)
@@ -52,3 +63,4 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 
 ## TABELLE DATABASE COINVOLTE
 *   `profiles`, `reviews`, `notifications`, `xp_actions`, `community_posts`.
+*   **Collaborazione (Fase 10)**: `shared_resources`, `workspaces`, `user_friends`, `user_friend_requests`, `user_blocks`, `collaboration_domain_events`, `workspace_attachments` — vedi `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.

@@ -26,6 +26,8 @@ import { UserReferralTab } from './dashboard/UserReferralTab';
 import { UserMessagesTab } from './dashboard/UserMessagesTab'; // NEW IMPORT
 import { UserSuitcasesTab } from './dashboard/UserSuitcasesTab';
 import { UserTripsTab } from './dashboard/UserTripsTab';
+import { UserSharingTab } from './dashboard/UserSharingTab';
+import { UserFriendsTab } from './dashboard/UserFriendsTab';
 
 interface Props {
     isOpen: boolean;
@@ -189,7 +191,6 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
                                                 key={biz.id}
                                                 onClick={() => {
                                                     const targetId = biz.slug || biz.id;
-                                                    console.log('[UserDashboard] Switching to:', targetId);
                                                     switchBusiness(targetId);
                                                 }}
                                                 className={`
@@ -356,6 +357,12 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
                                     setUnreadCount={setUnreadCount}
                                 />
                             )}
+
+                            {activeTab === 'sharing' && (
+                                <UserSharingTab user={user} onClose={onClose} />
+                            )}
+
+                            {activeTab === 'friends' && <UserFriendsTab user={user} />}
 
                             {activeTab === 'settings' && <UserSettingsTab />}
 

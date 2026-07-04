@@ -11,6 +11,8 @@ export const USER_DASHBOARD_TABS = {
     overview_user: 'profilo',
     trips: 'viaggi',
     suitcases: 'valigie',
+    sharing: 'condivisione',
+    friends: 'amici',
     notifications: 'notifiche',
     wallet: 'wallet',
     referral: 'amico',

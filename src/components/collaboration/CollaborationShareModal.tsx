@@ -1,5 +1,5 @@
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import type { User } from '@/types/users';
@@ -33,6 +33,7 @@ import {
   sendWorkspaceInvite,
   resolveWorkspaceResourceLabels,
 } from '@/services/collaboration';
+import { duplicateSharedResourceForOwner } from '@/services/collaboration/personalShareService';
 import type { WorkspaceCompositionResource } from '@/services/collaboration';
 import type { WorkspaceResourceLabel } from '@/services/collaboration';
 import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
@@ -44,6 +45,7 @@ import {
   getWizardStepTitle,
   type ModalView,
   type PendingInvite,
+  type ShareIntent,
   type SharePath,
   type WizardStep,
   type WorkspacePendingInvite,
@@ -70,6 +72,9 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   const [wizardStep, setWizardStep] = useState<WizardStep>('path');
   const [sharePath, setSharePath] = useState<SharePath>('simple');
   const [sharingMode, setSharingMode] = useState<SharingMode>('collaborative');
+  const [shareIntent, setShareIntent] = useState<ShareIntent>('duplicate_and_share');
+  const [effectiveResourceId, setEffectiveResourceId] = useState(resourceId);
+  const [hasAppliedShareDuplicate, setHasAppliedShareDuplicate] = useState(false);
   const [sharedResource, setSharedResource] = useState<SharedResource | null>(null);
   const [members, setMembers] = useState<SharedResourceMemberWithProfile[]>([]);
   const [invites, setInvites] = useState<ResourceInvite[]>([]);
@@ -95,6 +100,31 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
 
   const openCollaborationWorkspace = useOpenCollaborationWorkspace();
 
+  const isOpenRef = useRef(isOpen);
+  const effectiveResourceIdRef = useRef(resourceId);
+  const asyncGenerationRef = useRef(0);
+  const searchGenerationRef = useRef(0);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
+    effectiveResourceIdRef.current = effectiveResourceId;
+  }, [effectiveResourceId]);
+
+  const isAsyncStale = useCallback((generation: number, expectedResourceId?: string): boolean => {
+    if (generation !== asyncGenerationRef.current) return true;
+    if (!isOpenRef.current) return true;
+    if (
+      expectedResourceId !== undefined &&
+      expectedResourceId !== effectiveResourceIdRef.current
+    ) {
+      return true;
+    }
+    return false;
+  }, []);
+
   const resetWizardTransientState = useCallback(() => {
     setSearchQuery('');
     setSearchResults([]);
@@ -118,60 +148,106 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   const resourceLabel = resourceTitle.trim() || kindLabel;
   const wizardTitle = getWizardStepTitle(wizardStep, sharePath);
 
-  const loadWorkspaceWizardData = useCallback(async () => {
-    const composition = await suggestWorkspaceCompositionFromResource(kind, resourceId);
-    setSuggestedComposition(composition);
-    const labels = await resolveWorkspaceResourceLabels(composition);
-    setCompositionLabels(labels);
-    setSelectedCompositionKeys(
-      new Set(composition.map((resource) => `${resource.kind}:${resource.resourceId}`))
-    );
-    setWorkspaceName(resourceTitle.trim() || getSharedResourceKindLabel(kind));
-    const workspaces = await listWorkspacesForUser(user.id);
-    setUserWorkspaces(workspaces);
-  }, [kind, resourceId, resourceTitle, user.id]);
+  const loadWorkspaceWizardData = useCallback(
+    async (resourceIdOverride?: string, generation = asyncGenerationRef.current) => {
+      const resourceIdForWizard = resourceIdOverride ?? effectiveResourceIdRef.current;
+      const composition = await suggestWorkspaceCompositionFromResource(kind, resourceIdForWizard);
+      if (isAsyncStale(generation, resourceIdForWizard)) return;
 
-  const refreshCollaborationState = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const resource = await getShareableResource(kind, resourceId);
-      const memberList = resource ? await listSharedResourceMembers(resource.id) : [];
-      const inviteList = await listResourceInvites(kind, resourceId, user.id);
+      setSuggestedComposition(composition);
+      const labels = await resolveWorkspaceResourceLabels(composition);
+      if (isAsyncStale(generation, resourceIdForWizard)) return;
 
-      setSharedResource(resource);
-      setMembers(memberList);
-      setInvites(inviteList);
+      setCompositionLabels(labels);
+      setSelectedCompositionKeys(
+        new Set(composition.map((resource) => `${resource.kind}:${resource.resourceId}`))
+      );
+      setWorkspaceName(resourceTitle.trim() || getSharedResourceKindLabel(kind));
 
-      const hasCollaboration =
-        memberList.length > 0 ||
-        inviteList.some((invite) =>
-          ['pending', 'accepted', 'rejected'].includes(invite.status)
-        );
+      const workspaces = await listWorkspacesForUser(user.id);
+      if (isAsyncStale(generation, resourceIdForWizard)) return;
 
-      if (hasCollaboration) {
-        setView('management');
-        if (resource?.sharingMode) setSharingMode(resource.sharingMode);
-      } else {
-        setView('wizard');
-        setWizardStep('path');
-        setSharePath('simple');
-        setSharingMode(resource?.sharingMode ?? 'collaborative');
-        setPendingInvites([]);
-      }
-    } catch (loadError) {
-      console.error('[CollaborationShareModal] refresh:', loadError);
-      setError('Impossibile caricare lo stato della condivisione.');
-    } finally {
-      setIsLoading(false);
+      setUserWorkspaces(workspaces);
+    },
+    [isAsyncStale, kind, resourceTitle, user.id]
+  );
+
+  const resolveShareTargetResourceId = useCallback(async (): Promise<string | null> => {
+    if (shareIntent === 'share_current' || hasAppliedShareDuplicate) {
+      return effectiveResourceId;
     }
-  }, [kind, resourceId, user.id]);
+
+    const duplicateResult = await duplicateSharedResourceForOwner(kind, effectiveResourceId, user.id);
+    if (duplicateResult.success === false) {
+      setActionError(duplicateResult.error);
+      return null;
+    }
+
+    setEffectiveResourceId(duplicateResult.copiedResourceId);
+    effectiveResourceIdRef.current = duplicateResult.copiedResourceId;
+    setHasAppliedShareDuplicate(true);
+    return duplicateResult.copiedResourceId;
+  }, [effectiveResourceId, hasAppliedShareDuplicate, kind, shareIntent, user.id]);
+
+  const refreshCollaborationState = useCallback(
+    async (generation = asyncGenerationRef.current, loadResourceId = effectiveResourceIdRef.current) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const resource = await getShareableResource(kind, loadResourceId);
+        if (isAsyncStale(generation, loadResourceId)) return;
+
+        const memberList = resource ? await listSharedResourceMembers(resource.id) : [];
+        if (isAsyncStale(generation, loadResourceId)) return;
+
+        const inviteList = await listResourceInvites(kind, loadResourceId, user.id);
+        if (isAsyncStale(generation, loadResourceId)) return;
+
+        setSharedResource(resource);
+        setMembers(memberList);
+        setInvites(inviteList);
+
+        const hasCollaboration =
+          memberList.length > 0 ||
+          inviteList.some((invite) =>
+            ['pending', 'accepted', 'rejected'].includes(invite.status)
+          );
+
+        if (hasCollaboration) {
+          setView('management');
+          if (resource?.sharingMode) setSharingMode(resource.sharingMode);
+        } else {
+          setView('wizard');
+          setWizardStep('path');
+          setSharePath('simple');
+          setSharingMode(resource?.sharingMode ?? 'collaborative');
+          setPendingInvites([]);
+        }
+      } catch (loadError) {
+        if (isAsyncStale(generation, loadResourceId)) return;
+        console.error('[CollaborationShareModal] refresh:', loadError);
+        setError('Impossibile caricare lo stato della condivisione.');
+      } finally {
+        if (!isAsyncStale(generation, loadResourceId)) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [isAsyncStale, kind, user.id]
+  );
 
   useEffect(() => {
     if (!isOpen) return;
+
+    asyncGenerationRef.current += 1;
+    const generation = asyncGenerationRef.current;
+
+    setEffectiveResourceId(resourceId);
+    effectiveResourceIdRef.current = resourceId;
+    setHasAppliedShareDuplicate(false);
     resetWizardTransientState();
-    refreshCollaborationState();
-  }, [isOpen, refreshCollaborationState, resetWizardTransientState]);
+    void refreshCollaborationState(generation, resourceId);
+  }, [isOpen, resourceId, refreshCollaborationState, resetWizardTransientState]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -181,10 +257,15 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       return;
     }
 
+    searchGenerationRef.current += 1;
+    const searchGeneration = searchGenerationRef.current;
+
     const timer = window.setTimeout(async () => {
       setIsSearching(true);
       try {
         const results = await searchUsersForCollaborationInvite(user.id, trimmed);
+        if (searchGeneration !== searchGenerationRef.current || !isOpenRef.current) return;
+
         const excluded = new Set([
           user.id,
           ...pendingInvites.map((invite) => invite.userId),
@@ -196,7 +277,9 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
         ]);
         setSearchResults(results.filter((result) => !excluded.has(result.id)));
       } finally {
-        setIsSearching(false);
+        if (searchGeneration === searchGenerationRef.current) {
+          setIsSearching(false);
+        }
       }
     }, 300);
 
@@ -211,25 +294,45 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       setWizardStep('mode');
       return;
     }
+    setWizardStep('share_intent');
+  };
+
+  const handleShareIntentContinue = async () => {
+    setActionError(null);
     if (sharePath === 'create_workspace') {
-      await loadWorkspaceWizardData();
+      const targetId = await resolveShareTargetResourceId();
+      if (!targetId) return;
+      await loadWorkspaceWizardData(targetId, asyncGenerationRef.current);
       setWizardStep('workspace_setup');
       return;
     }
-    const workspaces = await listWorkspacesForUser(user.id);
-    setUserWorkspaces(workspaces);
-    setWizardStep('workspace_select');
+    if (sharePath === 'add_workspace') {
+      const targetId = await resolveShareTargetResourceId();
+      if (!targetId) return;
+      const workspaces = await listWorkspacesForUser(user.id);
+      setUserWorkspaces(workspaces);
+      setWizardStep('workspace_select');
+      return;
+    }
+    setWizardStep('invite');
   };
 
   const handleModeContinue = () => {
     setActionError(null);
+    if (sharingMode === 'collaborative') {
+      setWizardStep('share_intent');
+      return;
+    }
     setWizardStep('invite');
   };
 
   const handleWizardBack = () => {
     setActionError(null);
-    if (wizardStep === 'invite') setWizardStep('mode');
-    else if (wizardStep === 'mode') setWizardStep('path');
+    if (wizardStep === 'invite') {
+      setWizardStep(sharingMode === 'collaborative' ? 'share_intent' : 'mode');
+    } else if (wizardStep === 'share_intent') {
+      setWizardStep(sharePath === 'simple' ? 'mode' : 'path');
+    } else if (wizardStep === 'mode') setWizardStep('path');
     else if (wizardStep === 'workspace_invite') setWizardStep('workspace_composition');
     else if (wizardStep === 'workspace_composition') setWizardStep('workspace_setup');
     else if (wizardStep === 'workspace_setup') setWizardStep('path');
@@ -260,9 +363,12 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       return;
     }
     await runSubmittingAction(async () => {
+      const targetResourceId = await resolveShareTargetResourceId();
+      if (!targetResourceId || !selectedWorkspaceId) return;
+
       const result = await addResourceToExistingWorkspace(selectedWorkspaceId, user.id, {
         kind,
-        resourceId,
+        resourceId: targetResourceId,
       });
       if (!result.success) {
         setActionError(result.error ?? 'Impossibile collegare la risorsa.');
@@ -329,10 +435,22 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     }
 
     await runSubmittingAction(async () => {
+      const targetResourceId = await resolveShareTargetResourceId();
+      if (!targetResourceId) return;
+
+      const compositionForWorkspace =
+        sharePath === 'create_workspace' && hasAppliedShareDuplicate
+          ? selectedComposition.map((resource) =>
+              resource.kind === kind && resource.resourceId === resourceId
+                ? { kind, resourceId: targetResourceId }
+                : resource
+            )
+          : selectedComposition;
+
       const createResult = await createWorkspaceWithComposition(user.id, {
         name: workspaceName.trim(),
         description: workspaceDescription.trim() || undefined,
-        resources: selectedComposition,
+        resources: compositionForWorkspace,
       });
 
       if (createResult.success !== true) {
@@ -385,9 +503,15 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     }
 
     await runSubmittingAction(async () => {
+      const targetResourceId =
+        sharingMode === 'collaborative'
+          ? await resolveShareTargetResourceId()
+          : effectiveResourceId;
+      if (!targetResourceId) return;
+
       const registerResult = await ensureShareableResource(
         kind,
-        resourceId,
+        targetResourceId,
         user.id,
         sharingMode
       );
@@ -412,7 +536,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
         const result = await sendResourceInvite(
           user.id,
           kind,
-          resourceId,
+          targetResourceId,
           { userId: pending.userId },
           pending.role
         );
@@ -556,6 +680,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               wizardStep={wizardStep}
               sharePath={sharePath}
               sharingMode={sharingMode}
+              shareIntent={shareIntent}
               selectedRole={selectedRole}
               searchQuery={searchQuery}
               searchResults={searchResults}
@@ -572,6 +697,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               workspaceDefaultAccess="collaborator"
               onSharePathChange={setSharePath}
               onSharingModeChange={setSharingMode}
+              onShareIntentChange={setShareIntent}
               onSelectedRoleChange={setSelectedRole}
               onSearchQueryChange={setSearchQuery}
               onAddPendingInvite={handleAddPendingInvite}
@@ -621,6 +747,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
             onClose={onClose}
             onPathContinue={handlePathContinue}
             onModeContinue={handleModeContinue}
+            onShareIntentContinue={() => void runSubmittingAction(handleShareIntentContinue)}
             onSendInvites={handleSendInvites}
             onWorkspaceSetupContinue={handleWorkspaceSetupContinue}
             onWorkspaceCompositionContinue={handleWorkspaceCompositionContinue}

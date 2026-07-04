@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { User, Bell, Wallet, BarChart3, Store, Settings, LogOut, Users, MessageSquare, Briefcase, Map } from 'lucide-react';
+import { User, Bell, Wallet, BarChart3, Store, Settings, LogOut, Users, MessageSquare, Briefcase, Map, Share2, UserPlus } from 'lucide-react';
 import { useBusinessContext } from '@/context/BusinessContext';
 import { CountBadge } from '@/components/ui/CountBadge';
 
@@ -30,6 +30,14 @@ export const UserSidebar = ({ activeTab, onTabChange, isBusiness, unreadCount, o
             
             <button onClick={() => onTabChange('suitcases')} className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-lg transition-all ${activeTab === 'suitcases' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
                 <Briefcase className="w-5 h-5"/> Le mie Valigie
+            </button>
+
+            <button onClick={() => onTabChange('sharing')} className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-lg transition-all ${activeTab === 'sharing' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+                <Share2 className="w-5 h-5"/> Condivisione
+            </button>
+
+            <button onClick={() => onTabChange('friends')} className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-lg transition-all ${activeTab === 'friends' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+                <UserPlus className="w-5 h-5"/> Amici
             </button>
             
             <button onClick={() => onTabChange('notifications')} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between font-bold text-lg transition-all ${activeTab === 'notifications' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>

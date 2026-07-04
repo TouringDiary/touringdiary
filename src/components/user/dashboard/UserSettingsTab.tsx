@@ -17,6 +17,11 @@ import {
 } from '@/services/profileService';
 import { mapProfileToUser } from '@/services/userService';
 import { supabase } from '@/services/supabaseClient';
+import {
+  getCollaborationNotificationPrefs,
+  updateCollaborationNotificationPrefs,
+} from '@/services/collaboration/collaborationNotificationPrefsService';
+import type { CollaborationNotificationCategoryPrefs } from '@/domain/collaboration/workspaceEngineConfig';
 
 interface SettingCardProps {
     icon: LucideIcon;
@@ -49,8 +54,12 @@ const SettingCard = ({ icon: Icon, title, desc, children, badge }: SettingCardPr
     </div>
 );
 
-const Toggle = ({ active, onToggle }: ToggleProps) => (
-    <button onClick={onToggle} className={`w-12 h-6 rounded-full p-1 transition-all duration-300 relative ${active ? 'bg-indigo-600' : 'bg-slate-800'}`}>
+const Toggle = ({ active, onToggle, disabled = false }: ToggleProps & { disabled?: boolean }) => (
+    <button
+        onClick={onToggle}
+        disabled={disabled}
+        className={`w-12 h-6 rounded-full p-1 transition-all duration-300 relative ${active ? 'bg-indigo-600' : 'bg-slate-800'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+    >
         <div className={`w-4 h-4 rounded-full bg-white transition-all shadow-md ${active ? 'translate-x-6' : 'translate-x-0'}`}></div>
     </button>
 );
@@ -70,6 +79,19 @@ export const UserSettingsTab = () => {
     const [profileError, setProfileError] = useState<string | null>(null);
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileSuccess, setProfileSuccess] = useState(false);
+    const [collabNotifPrefs, setCollabNotifPrefs] = useState<CollaborationNotificationCategoryPrefs | null>(null);
+
+    useEffect(() => {
+        if (!user?.id) return;
+        void getCollaborationNotificationPrefs(user.id).then(setCollabNotifPrefs);
+    }, [user?.id]);
+
+    const toggleCollabPref = async (key: keyof CollaborationNotificationCategoryPrefs) => {
+        if (!user?.id || !collabNotifPrefs) return;
+        const next = { ...collabNotifPrefs, [key]: !collabNotifPrefs[key] };
+        setCollabNotifPrefs(next);
+        await updateCollaborationNotificationPrefs(user.id, next);
+    };
 
     useEffect(() => {
         setUsername(user.slug ?? '');
@@ -224,12 +246,33 @@ export const UserSettingsTab = () => {
             </div>
             <div className="space-y-4">
                 <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Notifiche</h5>
-                <SettingCard icon={Bell} title="Notifiche App" desc="Ricevi avvisi su risposte Q&A e promozioni.">
-                    <Toggle active={settingsConfig.notifPush} onToggle={() => setSettingsConfig({...settingsConfig, notifPush: !settingsConfig.notifPush})} />
+                <SettingCard icon={Bell} title="Notifiche App" desc="Ricevi avvisi su risposte Q&A e promozioni." badge="Prossimamente">
+                    <Toggle active={settingsConfig.notifPush} disabled onToggle={() => {}} />
                 </SettingCard>
-                <SettingCard icon={Mail} title="Newsletter" desc="Ricevi approfondimenti culturali e novità via email.">
-                    <Toggle active={settingsConfig.notifEmail} onToggle={() => setSettingsConfig({...settingsConfig, notifEmail: !settingsConfig.notifEmail})} />
+                <SettingCard icon={Mail} title="Newsletter" desc="Ricevi approfondimenti culturali e novità via email." badge="Prossimamente">
+                    <Toggle active={settingsConfig.notifEmail} disabled onToggle={() => {}} />
                 </SettingCard>
+                {collabNotifPrefs && (
+                    <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-3">
+                        <h4 className="text-sm font-bold text-white">Notifiche collaborazione</h4>
+                        {(
+                            [
+                                ['invites', 'Inviti'],
+                                ['resource_updates', 'Aggiornamenti risorse'],
+                                ['workspace_updates', 'Aggiornamenti workspace'],
+                                ['friend_requests', 'Richieste di amicizia'],
+                            ] as const
+                        ).map(([key, label]) => (
+                            <label key={key} className="flex items-center justify-between text-sm text-slate-300">
+                                <span>{label}</span>
+                                <Toggle
+                                    active={collabNotifPrefs[key]}
+                                    onToggle={() => void toggleCollabPref(key)}
+                                />
+                            </label>
+                        ))}
+                    </div>
+                )}
             </div>
             <div className="pt-8 border-t border-slate-800 flex justify-center">
                 <button className="flex items-center gap-2 text-red-500 hover:text-red-400 font-bold uppercase text-xs tracking-widest">

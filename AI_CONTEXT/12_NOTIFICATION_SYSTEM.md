@@ -32,3 +32,4 @@ TouringDiary avvisa l'utente quando riceve un benvenuto, quando i suoi contenuti
 *   **Sponsor System**: Notifiche ai partner per l'approvazione delle richieste.
 *   **Community Media**: Notifiche all'utente quando una sua foto viene approvata dagli admin.
 *   **Admin Dashboard**: Strumenti per inviare notifiche massive (via `communicationService`).
+*   **Collaboration System** (Fase 10): Notifiche tipo `collaboration` via `collaborationNotificationService.ts` (inviti, aggiornamenti risorsa/workspace, amicizie). Rispettano `profiles.collaboration_notification_preferences`. Link workspace: `link_data.intent = 'workspace'` + `workspaceId` (`UserNotificationsTab` → `useOpenCollaborationWorkspace`). Polling tab notifiche: 30s, sospeso con `document.hidden`.

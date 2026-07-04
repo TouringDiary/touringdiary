@@ -35,9 +35,18 @@ Il database di TouringDiary è progettato per gestire relazioni complesse tra en
 *   **`rewards_catalog`**: Premi riscattabili tramite XP.
 *   **`community_posts`**: Post social e domande della community.
 
+### Collaboration & Workspace (v1 — Fase 10)
+*   **`shared_resources` / `shared_resource_members` / `resource_invites`**: ACL condivisione risorsa singola (Diario, Valigia, Template).
+*   **`workspaces`** (+ `workspace_members`, `workspace_resources`, permessi, inviti): composizione multi-risorsa.
+*   **`user_friend_requests` / `user_friends`**: amicizie (enum `friend_request_status`).
+*   **`user_blocks`**: blocco utenti (indipendente dalle amicizie).
+*   **`collaboration_domain_events`**: motore eventi dominio (feed attività, estendibile).
+*   **`workspace_attachments`**: metadati allegati; file in bucket Storage privato `workspace-attachments`.
+*   **`profiles.collaboration_notification_preferences`**: preferenze notifiche collaborative (jsonb).
+
 ### System Configuration
 *   **`system_messages`**: Template per onboarding e messaggi mascot (campo JSON `ui_config`).
-*   **`global_settings`**: Configurazioni dinamiche della piattaforma (campo JSON `value`).
+*   **`global_settings`**: Configurazioni dinamiche della piattaforma (campo JSON `value`). Chiavi collaborazione Fase 10: `workspace_engine_config`, `storage_limits`, `collaboration_live_config`.
 *   **`analytics_events`**: Registro eventi per BI e tracciamento errori.
 
 ---

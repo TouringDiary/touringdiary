@@ -20,6 +20,7 @@ import { CollaborationLiveProvider } from '@/context/CollaborationLiveContext';
 import { useCollaborationLive, useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
 import { CollaborationLiveBar } from '@/components/collaboration/live/CollaborationLiveBar';
 import { CollaborationLockBanner } from '@/components/collaboration/live/CollaborationLockBanner';
+import { CollaborationLastEditorLine } from '@/components/collaboration/CollaborationLastEditorLine';
 import { useUser } from '@/context/UserContext';
 import { phaseHasUnsavedChanges } from '@/domain/save/documentSaveTypes';
 
@@ -65,6 +66,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
   const activeResourceKind = data.activeSuitcase
     ? resolveSuitcaseSharedResourceKind(data.activeSuitcase)
     : null;
+  const activeSuitcaseIsTdTemplate = data.activeSuitcase ? isTdTemplate(data.activeSuitcase) : false;
   const { permission: activeResourcePermission } = useResourcePermission(
     activeResourceKind,
     data.activeSuitcase?.id ?? null,
@@ -73,7 +75,7 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
 
   const canModifyActiveSuitcase =
     !data.activeSuitcase ||
-    isTdTemplate(data.activeSuitcase) ||
+    activeSuitcaseIsTdTemplate ||
     activeResourcePermission?.capabilities.canModifyContent !== false;
 
   const isDirtyRef = useRef(false);
@@ -102,14 +104,15 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
       resourceTitle={data.activeSuitcase?.title}
       userId={isGuest ? null : appUser.id}
       userDisplayName={appUser.name ?? 'Utente'}
-      canModifyContent={canModifyActiveSuitcase && !!data.activeSuitcase && !isTdTemplate(data.activeSuitcase)}
+      canModifyContent={canModifyActiveSuitcase && !!data.activeSuitcase && !activeSuitcaseIsTdTemplate}
       isEditSessionActive={
         data.panelState.viewMode === 'editor' &&
         canModifyActiveSuitcase &&
         !!data.activeSuitcase &&
-        !isTdTemplate(data.activeSuitcase)
+        !activeSuitcaseIsTdTemplate
       }
       onAutoSaveBeforeLockRelease={async () => {
+        // Ignoriamo il valore restituito: serve solo persistere il contenuto prima del rilascio lock.
         await suitcaseDocumentSave.save();
       }}
       onExitEditMode={() => data.panelState.setViewMode('viewer')}
@@ -168,6 +171,7 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
   const activeResourceKind = data.activeSuitcase
     ? resolveSuitcaseSharedResourceKind(data.activeSuitcase)
     : null;
+  const activeSuitcaseIsTdTemplate = data.activeSuitcase ? isTdTemplate(data.activeSuitcase) : false;
   const { permission: activeResourcePermission } = useResourcePermission(
     activeResourceKind,
     data.activeSuitcase?.id ?? null,
@@ -185,7 +189,7 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
     if (
       !activeResourcePermission.capabilities.canModifyContent &&
       data.panelState.viewMode === 'editor' &&
-      !isTdTemplate(data.activeSuitcase)
+      !activeSuitcaseIsTdTemplate
     ) {
       data.panelState.setViewMode('viewer');
     }
@@ -293,10 +297,13 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
       {(collaborationLive.isEnabled || collaborationLive.lockBlockedMessage) && (
         <div className="px-4 md:px-6 py-2 space-y-2 border-b border-white/5 shrink-0">
           {collaborationLive.isEnabled && (
-            <CollaborationLiveBar
-              peers={collaborationLive.presencePeers}
-              editingStatusMessage={collaborationLive.editingStatusMessage}
-            />
+            <>
+              <CollaborationLiveBar
+                peers={collaborationLive.presencePeers}
+                editingStatusMessage={collaborationLive.editingStatusMessage}
+              />
+              <CollaborationLastEditorLine editorName={data.activeSuitcase?.last_modified_by_name} />
+            </>
           )}
           {collaborationLive.lockBlockedMessage && (
             <CollaborationLockBanner
@@ -369,7 +376,7 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
         panelViewMode={data.panelState.viewMode === 'viewer' ? 'viewer' : 'editor'}
         canToggleViewMode={
           !!data.activeSuitcase &&
-          !isTdTemplate(data.activeSuitcase) &&
+          !activeSuitcaseIsTdTemplate &&
           (activeResourcePermission?.capabilities.canModifyContent ?? true)
         }
         onSetViewMode={(mode) => data.panelState.setViewMode(mode)}
@@ -393,11 +400,11 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
         canDeleteResource={activeResourcePermission?.capabilities.canDeleteResource ?? true}
         canUseTemplateAction={
           !!data.activeSuitcase &&
-          isTdTemplate(data.activeSuitcase) &&
+          activeSuitcaseIsTdTemplate &&
           data.panelState.viewMode === 'viewer'
         }
         onUseTemplate={
-          data.activeSuitcase && isTdTemplate(data.activeSuitcase)
+          data.activeSuitcase && activeSuitcaseIsTdTemplate
             ? () => actions.handleUseTemplate(data.activeSuitcase!.id)
             : undefined
         }
@@ -529,17 +536,17 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
               suitcase={data.activeSuitcase}
               readOnly={
                 data.panelState.viewMode === 'viewer' ||
-                isTdTemplate(data.activeSuitcase) ||
+                activeSuitcaseIsTdTemplate ||
                 !canModifyActiveSuitcase ||
                 collaborationReadOnly
               }
               categorySetupOverlay={
-                isTdTemplate(data.activeSuitcase)
+                activeSuitcaseIsTdTemplate
                   ? data.templatePreviewOverlays[data.activeSuitcase.id]
                   : undefined
               }
               onCategorySetupOverlayChange={
-                isTdTemplate(data.activeSuitcase)
+                activeSuitcaseIsTdTemplate
                   ? (updater) =>
                       data.updateTemplatePreviewOverlay(data.activeSuitcase!.id, updater)
                   : undefined
@@ -587,7 +594,7 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
               }
               onSetViewMode={(mode) => data.panelState.setViewMode(mode)}
               onUseTemplate={
-                isTdTemplate(data.activeSuitcase)
+                activeSuitcaseIsTdTemplate
                   ? () => actions.handleUseTemplate(data.activeSuitcase!.id)
                   : undefined
               }

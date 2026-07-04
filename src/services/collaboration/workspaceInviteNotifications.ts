@@ -25,7 +25,8 @@ export async function notifyWorkspaceInviteReceivedForSentInvite(
       inviteeId,
       inviterProfile?.name?.trim() || 'Un collaboratore',
       workspace?.name ?? 'Workspace',
-      inviteId
+      inviteId,
+      workspaceId
     );
   } catch (notificationError) {
     console.error('[workspaceInviteService] notifyWorkspaceInviteReceived:', notificationError);
@@ -36,7 +37,8 @@ export async function notifyWorkspaceInviteAcceptedForInvitee(
   workspaceOwnerId: string,
   inviteeId: string,
   workspaceName: string,
-  inviteId: string
+  inviteId: string,
+  workspaceId: string
 ): Promise<void> {
   const { data: inviteeProfile } = await supabase
     .from('profiles')
@@ -49,7 +51,8 @@ export async function notifyWorkspaceInviteAcceptedForInvitee(
       workspaceOwnerId,
       inviteeProfile?.name?.trim() || 'Un collaboratore',
       workspaceName,
-      inviteId
+      inviteId,
+      workspaceId
     );
   } catch (notificationError) {
     console.error('[workspaceInviteService] notifyWorkspaceInviteAccepted:', notificationError);
@@ -74,7 +77,8 @@ export async function notifyWorkspaceInviteRejectedForInvitee(
       workspace.ownerId,
       inviteeProfile?.name?.trim() || 'Un collaboratore',
       workspace.name,
-      inviteId
+      inviteId,
+      workspace.id
     );
   } catch (notificationError) {
     console.error('[workspaceInviteService] notifyWorkspaceInviteRejected:', notificationError);

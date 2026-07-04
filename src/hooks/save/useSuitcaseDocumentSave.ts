@@ -12,6 +12,8 @@ import {
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
 import { notifySharedResourceContentModified } from '@/services/collaboration/collaborationNotificationService';
+import { recordCollaborationDomainEvent } from '@/services/collaboration/domainEventService';
+import { listWorkspacesContainingResource } from '@/services/collaboration/workspaceCompositionService';
 
 interface UseSuitcaseDocumentSaveOptions {
   activeSuitcase: Suitcase | null | undefined;
@@ -120,6 +122,21 @@ export function useSuitcaseDocumentSave({
         ).catch((notificationError) => {
           console.error('[useSuitcaseDocumentSave] notifySharedResourceContentModified:', notificationError);
         });
+        void listWorkspacesContainingResource(resourceKind, savedSuitcase.id)
+          .then((workspaces) => {
+            void recordCollaborationDomainEvent({
+              eventType: 'resource.content_updated',
+              actorId: userId,
+              kind: resourceKind,
+              resourceId: savedSuitcase.id,
+              // Primo workspace collegato: il feed attività è per-workspace; se assente, evento senza workspace.
+              workspaceId: workspaces[0]?.id,
+              summary: `${resourceKind === 'user_template' ? 'Template' : 'Valigia'} "${savedSuitcase.title}" aggiornata`,
+            });
+          })
+          .catch((eventError) => {
+            console.error('[useSuitcaseDocumentSave] recordCollaborationDomainEvent:', eventError);
+          });
       }
 
       return result;

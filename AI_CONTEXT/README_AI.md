@@ -120,6 +120,17 @@ live_snaps
 photo_likes  
 
 
+Collaboration & Workspace Engine (v1):
+
+shared_resources  
+workspaces  
+collaboration_domain_events  
+friendService  
+workspaceAttachmentService  
+CollaborationShareModal  
+(DOC 28)
+
+
 Ranking Engine:
 
 rankingService  

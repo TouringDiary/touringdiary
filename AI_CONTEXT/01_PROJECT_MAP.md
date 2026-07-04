@@ -357,3 +357,33 @@ database
 DESCRIZIONE SEMPLICE
 
 Permette modifiche UI senza deploy codice.
+
+
+---
+
+# 14. 🤝 DOMINIO COLLABORATION & WORKSPACE (v1 — Fase 10)
+
+Sistema condivisione e workspace verificato da codice (Fasi 1–10 concluse).
+
+Componenti:
+
+• src/services/collaboration/
+• CollaborationShareModal
+• UserSharingTab / UserFriendsTab
+
+
+Pipeline:
+
+condivisione wizard
+→ shared resource / workspace
+→ inviti + notifiche + eventi dominio
+
+
+Documentazione completa:
+
+AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md
+
+
+DESCRIZIONE SEMPLICE
+
+Permette di condividere Diario e Valigia con collaboratori, organizzare workspace e gestire amicizie.

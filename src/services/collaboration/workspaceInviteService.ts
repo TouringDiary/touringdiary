@@ -10,6 +10,7 @@ import type { InviteTarget } from './resourceInviteService';
 import { resolveInviteeId, validateInvitee } from './workspaceInviteValidation';
 import {
   fetchInvitePermissions,
+  fetchInvitePermissionsByInviteIds,
   loadWorkspaceInvite,
   restoreWorkspaceInvitePermissions,
   rollbackWorkspaceMembership,
@@ -19,6 +20,7 @@ import {
   notifyWorkspaceInviteReceivedForSentInvite,
   notifyWorkspaceInviteRejectedForInvitee,
 } from './workspaceInviteNotifications';
+import { syncSharedResourceAccessFromWorkspacePermission } from './workspaceMemberAclSync';
 
 export type WorkspaceInviteResult =
   | { success: true; invite: WorkspaceInvite }
@@ -48,8 +50,10 @@ export async function listWorkspaceInvites(
   }
 
   const invites: WorkspaceInvite[] = [];
-  for (const row of data ?? []) {
-    const permissions = await fetchInvitePermissions(row.id);
+  const rows = data ?? [];
+  const permissionsByInvite = await fetchInvitePermissionsByInviteIds(rows.map((row) => row.id));
+  for (const row of rows) {
+    const permissions = permissionsByInvite.get(row.id) ?? [];
     const invite = mapWorkspaceInviteRow(row, permissions);
     if (invite) invites.push(invite);
   }
@@ -72,8 +76,10 @@ export async function listPendingWorkspaceInvitesForUser(
   }
 
   const invites: WorkspaceInvite[] = [];
-  for (const row of data ?? []) {
-    const permissions = await fetchInvitePermissions(row.id);
+  const rows = data ?? [];
+  const permissionsByInvite = await fetchInvitePermissionsByInviteIds(rows.map((row) => row.id));
+  for (const row of rows) {
+    const permissions = permissionsByInvite.get(row.id) ?? [];
     const invite = mapWorkspaceInviteRow(row, permissions);
     if (invite) invites.push(invite);
   }
@@ -199,6 +205,7 @@ export async function sendWorkspaceInvite(
   if (permissionsError) {
     console.error('[workspaceInviteService] sendWorkspaceInvite permissions:', permissionsError.message);
     if (previousInviteStatus) {
+      // Rollback logico: ripristina stato e permessi dell'invito precedente.
       await supabase
         .from('workspace_invites')
         .update({
@@ -218,7 +225,11 @@ export async function sendWorkspaceInvite(
     return { success: false, error: 'Dati invito non validi.' };
   }
 
-  await notifyWorkspaceInviteReceivedForSentInvite(ownerId, inviteeId, workspaceId, invite.id);
+  void notifyWorkspaceInviteReceivedForSentInvite(ownerId, inviteeId, workspaceId, invite.id).catch(
+    (notificationError) => {
+      console.error('[workspaceInviteService] notifyWorkspaceInviteReceived:', notificationError);
+    }
+  );
 
   return { success: true, invite };
 }
@@ -247,6 +258,13 @@ async function applyInvitePermissionsToMember(
     if (!result.success) {
       return result.error ?? 'Impossibile applicare i permessi.';
     }
+
+    await syncSharedResourceAccessFromWorkspacePermission(
+      entry.kind,
+      entry.resourceId,
+      userId,
+      entry.accessLevel
+    );
   }
   return null;
 }
@@ -320,12 +338,15 @@ export async function acceptWorkspaceInvite(
     return { success: false, error: 'Dati invito non validi.' };
   }
 
-  await notifyWorkspaceInviteAcceptedForInvitee(
+  void notifyWorkspaceInviteAcceptedForInvitee(
     workspace.ownerId,
     inviteeId,
     workspace.name,
-    inviteId
-  );
+    inviteId,
+    workspace.id
+  ).catch((notificationError) => {
+    console.error('[workspaceInviteService] notifyWorkspaceInviteAccepted:', notificationError);
+  });
 
   return { success: true, invite: accepted };
 }
@@ -370,7 +391,11 @@ export async function rejectWorkspaceInvite(
     return { success: false, error: 'Dati invito non validi.' };
   }
 
-  await notifyWorkspaceInviteRejectedForInvitee(workspace, inviteeId, inviteId);
+  void notifyWorkspaceInviteRejectedForInvitee(workspace, inviteeId, inviteId).catch(
+    (notificationError) => {
+      console.error('[workspaceInviteService] notifyWorkspaceInviteRejected:', notificationError);
+    }
+  );
 
   return { success: true, invite: rejected };
 }

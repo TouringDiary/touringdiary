@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderPlus, Layers, Loader2, Search, UserPlus, Users } from 'lucide-react';
+import { Copy, FolderPlus, Layers, Loader2, Search, Share2, UserPlus, Users, AlertTriangle } from 'lucide-react';
 import type { CollaborativeMemberRole, SharingMode, Workspace } from '@/domain/collaboration';
 import { COLLABORATIVE_MEMBER_ROLES } from '@/domain/collaboration';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
@@ -10,6 +10,7 @@ import {
   MODE_LABELS,
   ROLE_LABELS,
   type PendingInvite,
+  type ShareIntent,
   type SharePath,
   type WizardStep,
   type WorkspacePendingInvite,
@@ -27,6 +28,7 @@ export interface CollaborationShareWizardProps {
   wizardStep: WizardStep;
   sharePath: SharePath;
   sharingMode: SharingMode;
+  shareIntent: ShareIntent;
   selectedRole: CollaborativeMemberRole;
   searchQuery: string;
   searchResults: CollaborationUserSearchResult[];
@@ -43,6 +45,7 @@ export interface CollaborationShareWizardProps {
   workspaceDefaultAccess: 'collaborator';
   onSharePathChange: (path: SharePath) => void;
   onSharingModeChange: (mode: SharingMode) => void;
+  onShareIntentChange: (intent: ShareIntent) => void;
   onSelectedRoleChange: (role: CollaborativeMemberRole) => void;
   onSearchQueryChange: (query: string) => void;
   onAddPendingInvite: (result: CollaborationUserSearchResult) => void;
@@ -62,6 +65,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   wizardStep,
   sharePath,
   sharingMode,
+  shareIntent,
   selectedRole,
   searchQuery,
   searchResults,
@@ -77,6 +81,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   workspacePendingInvites,
   onSharePathChange,
   onSharingModeChange,
+  onShareIntentChange,
   onSelectedRoleChange,
   onSearchQueryChange,
   onAddPendingInvite,
@@ -112,6 +117,39 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
           description="Collega la risorsa a un Workspace che hai già creato."
           icon={<Layers className="w-5 h-5" />}
         />
+      </div>
+    )}
+
+    {wizardStep === 'share_intent' && (
+      <div className="space-y-3">
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Scegli se condividere la risorsa attuale o una copia dedicata alla collaborazione.
+          La tua versione personale può restare invariata come archivio o modello.
+        </p>
+        <OptionCard
+          selected={shareIntent === 'duplicate_and_share'}
+          onSelect={() => onShareIntentChange('duplicate_and_share')}
+          title="Duplica e condividi (consigliato)"
+          description="Verrà creata una copia della risorsa. La tua risorsa personale rimarrà invariata e potrai continuare ad utilizzarla come modello personale."
+          icon={<Copy className="w-5 h-5" />}
+          recommended
+        />
+        <OptionCard
+          selected={shareIntent === 'share_current'}
+          onSelect={() => onShareIntentChange('share_current')}
+          title="Condividi questa risorsa"
+          description="Condividerai direttamente la risorsa attuale. Da questo momento tutte le modifiche effettuate dai collaboratori verranno applicate a questa stessa risorsa."
+          icon={<Share2 className="w-5 h-5" />}
+        />
+        {shareIntent === 'share_current' && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200/90">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+            <p>
+              Attenzione: i collaboratori modificheranno la stessa risorsa che usi nel tuo spazio
+              personale. Per tenerne una copia invariata, scegli «Duplica e condividi».
+            </p>
+          </div>
+        )}
       </div>
     )}
 

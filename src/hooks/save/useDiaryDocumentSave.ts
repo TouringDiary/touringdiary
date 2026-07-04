@@ -7,6 +7,8 @@ import { isDiaryPersisted, isDiaryTempId } from '@/utils/suitcaseAssociation';
 import { registerDocumentExitGate, controllerToExitRegistration } from '@/focus/exitGate/documentExitRegistry';
 import { registerDocumentSaveController } from '@/domain/save/documentSaveRegistry';
 import { notifySharedResourceContentModified } from '@/services/collaboration/collaborationNotificationService';
+import { recordCollaborationDomainEvent } from '@/services/collaboration/domainEventService';
+import { listWorkspacesContainingResource } from '@/services/collaboration/workspaceCompositionService';
 
 interface UseDiaryDocumentSaveOptions {
   itinerary: Itinerary;
@@ -79,6 +81,21 @@ export function useDiaryDocumentSave({
           ).catch((notificationError) => {
             console.error('[useDiaryDocumentSave] notifySharedResourceContentModified:', notificationError);
           });
+          void listWorkspacesContainingResource('diary', id)
+            .then((workspaces) => {
+              void recordCollaborationDomainEvent({
+                eventType: 'resource.content_updated',
+                actorId: userId,
+                kind: 'diary',
+                resourceId: id,
+                // Primo workspace collegato: il feed attività è per-workspace; se assente, evento senza workspace.
+                workspaceId: workspaces[0]?.id,
+                summary: `Diario "${name}" aggiornato`,
+              });
+            })
+            .catch((eventError) => {
+              console.error('[useDiaryDocumentSave] recordCollaborationDomainEvent:', eventError);
+            });
         }
       }
       return { id };

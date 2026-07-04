@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Bell, MessageCircle, Info, ArrowRight } from 'lucide-react';
 import { AppNotification } from '../../../types/index';
-import { markAsRead, markAllAsRead, fetchNotificationsAsync } from '../../../services/notificationService'; // IMPORT FETCH ASYNC
+import { markAsRead, markAllAsRead, fetchNotificationsAsync } from '../../../services/notificationService';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
 
 interface Props {
     userId: string;
@@ -16,20 +17,34 @@ interface Props {
 
 export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNavigate, onClose, setNotifications, setUnreadCount }: Props) => {
     const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
+    const openWorkspace = useOpenCollaborationWorkspace();
 
-    // FETCH REAL DATA ON MOUNT
+    // FETCH REAL DATA ON MOUNT + polling ogni 30s (sospeso in background)
     useEffect(() => {
         const load = async () => {
              const data = await fetchNotificationsAsync(userId);
              setNotifications(data);
              setUnreadCount(data.filter(n => !n.isRead).length);
         };
-        load();
-        
-        // Polling leggero ogni 30 sec per nuovi messaggi
-        const interval = setInterval(load, 30000);
-        return () => clearInterval(interval);
-    }, [userId]);
+
+        const refreshIfVisible = () => {
+            if (document.hidden) return;
+            void load();
+        };
+
+        refreshIfVisible();
+
+        const interval = window.setInterval(refreshIfVisible, 30000);
+        const onVisibilityChange = () => {
+            if (!document.hidden) void load();
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
+        return () => {
+            window.clearInterval(interval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    }, [userId, setNotifications, setUnreadCount]);
 
     const handleNotificationClick = async (notif: AppNotification) => {
         await markAsRead(notif.id);
@@ -46,7 +61,12 @@ export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNav
 
     const handleNotifAction = (notif: AppNotification) => {
         if (notif.linkData) {
-            const { section, tab, targetId, poiId } = notif.linkData;
+            const { section, tab, targetId, poiId, intent, workspaceId } = notif.linkData;
+            if (intent === 'workspace' && workspaceId) {
+                onClose();
+                openWorkspace({ workspaceId });
+                return;
+            }
             onNavigate(section, tab, targetId, poiId ? { poiId } : undefined);
             onClose();
         }
