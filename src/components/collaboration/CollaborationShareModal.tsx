@@ -41,6 +41,7 @@ import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import { CollaborationManagementView } from './CollaborationManagementView';
 import { CollaborationShareWizard } from './CollaborationShareWizard';
 import { CollaborationWizardFooter } from './CollaborationWizardFooter';
+import { WizardStepIndicator } from './WizardStepIndicator';
 import {
   getWizardStepTitle,
   type ModalView,
@@ -428,11 +429,13 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     setWorkspacePendingInvites((current) => current.filter((invite) => invite.userId !== userId));
   };
 
-  const handleCreateWorkspace = async () => {
+  const handleCreateWorkspace = async (options?: { skipInvites?: boolean }) => {
     if (selectedComposition.length === 0) {
       setActionError('Seleziona almeno una risorsa.');
       return;
     }
+
+    const invitesToSend = options?.skipInvites ? [] : workspacePendingInvites;
 
     await runSubmittingAction(async () => {
       const targetResourceId = await resolveShareTargetResourceId();
@@ -460,7 +463,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
 
       const workspace = createResult.workspace;
 
-      for (const pending of workspacePendingInvites) {
+      for (const pending of invitesToSend) {
         const inviteResult = await sendWorkspaceInvite(
           user.id,
           workspace.id,
@@ -664,6 +667,14 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
           <CloseButton onClose={onClose} />
         </div>
 
+        {view === 'wizard' && !isLoading && !error && (
+          <WizardStepIndicator
+            wizardStep={wizardStep}
+            sharePath={sharePath}
+            sharingMode={sharingMode}
+          />
+        )}
+
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-3">
@@ -752,7 +763,8 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
             onWorkspaceSetupContinue={handleWorkspaceSetupContinue}
             onWorkspaceCompositionContinue={handleWorkspaceCompositionContinue}
             onWorkspaceSelectContinue={handleWorkspaceSelectContinue}
-            onCreateWorkspace={handleCreateWorkspace}
+            onCreateWorkspace={() => void handleCreateWorkspace()}
+            onCreateWorkspaceLater={() => void handleCreateWorkspace({ skipInvites: true })}
             onBack={handleWizardBack}
           />
         )}

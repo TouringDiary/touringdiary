@@ -167,3 +167,79 @@ export function renameDiaryNoteTab(
     tabs: state.tabs.map((tab) => (tab.id === tabId ? { ...tab, title: trimmed } : tab)),
   };
 }
+
+function cloneDocument(document: DiaryNotesDocument): DiaryNotesDocument {
+  return JSON.parse(JSON.stringify(document)) as DiaryNotesDocument;
+}
+
+export function duplicateDiaryNoteTab(
+  state: DiaryNotesState,
+  tabId: string,
+  createdBy?: string,
+): DiaryNotesState {
+  const source = state.tabs.find((tab) => tab.id === tabId);
+  if (!source) return state;
+
+  const copyTitle = `Copia di ${source.title}`;
+  const tab = createDiaryNoteTab(copyTitle, cloneDocument(source.document), createdBy);
+  const sourceIndex = state.tabs.findIndex((t) => t.id === tabId);
+  const tabs = [...state.tabs];
+  tabs.splice(sourceIndex + 1, 0, tab);
+
+  return {
+    ...state,
+    activeTabId: tab.id,
+    tabs,
+  };
+}
+
+export function deleteDiaryNoteTab(state: DiaryNotesState, tabId: string): DiaryNotesState {
+  if (state.tabs.length <= 1) return state;
+
+  const index = state.tabs.findIndex((tab) => tab.id === tabId);
+  if (index < 0) return state;
+
+  const tabs = state.tabs.filter((tab) => tab.id !== tabId);
+  let activeTabId = state.activeTabId;
+  if (activeTabId === tabId) {
+    const nextIndex = Math.min(index, tabs.length - 1);
+    activeTabId = tabs[nextIndex].id;
+  }
+
+  return { ...state, activeTabId, tabs };
+}
+
+export function moveDiaryNoteTab(
+  state: DiaryNotesState,
+  tabId: string,
+  targetIndex: number,
+): DiaryNotesState {
+  const fromIndex = state.tabs.findIndex((tab) => tab.id === tabId);
+  if (fromIndex < 0) return state;
+
+  const tabs = [...state.tabs];
+  const [moved] = tabs.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(targetIndex, tabs.length));
+  tabs.splice(clamped, 0, moved);
+
+  return { ...state, tabs };
+}
+
+/** Sposta il tab immediatamente prima di `beforeTabId`. */
+export function moveDiaryNoteTabBefore(
+  state: DiaryNotesState,
+  tabId: string,
+  beforeTabId: string,
+): DiaryNotesState {
+  if (tabId === beforeTabId) return state;
+  const fromIndex = state.tabs.findIndex((tab) => tab.id === tabId);
+  const toIndex = state.tabs.findIndex((tab) => tab.id === beforeTabId);
+  if (fromIndex < 0 || toIndex < 0) return state;
+  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+  return moveDiaryNoteTab(state, tabId, insertAt);
+}
+
+/** Sposta il tab in ultima posizione. */
+export function moveDiaryNoteTabToEnd(state: DiaryNotesState, tabId: string): DiaryNotesState {
+  return moveDiaryNoteTab(state, tabId, state.tabs.length - 1);
+}

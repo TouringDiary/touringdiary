@@ -56,3 +56,45 @@ export function getWizardStepTitle(wizardStep: WizardStep, sharePath?: SharePath
   if (wizardStep === 'workspace_invite') return 'Invita al Workspace';
   return 'Workspace';
 }
+
+/** Etichette brevi per lo step indicator. */
+export function getWizardStepShortLabel(step: WizardStep): string {
+  switch (step) {
+    case 'path': return 'Percorso';
+    case 'mode': return 'Modalità';
+    case 'share_intent': return 'Dettagli';
+    case 'invite': return 'Inviti';
+    case 'workspace_setup': return 'Setup';
+    case 'workspace_composition': return 'Risorse';
+    case 'workspace_select': return 'Workspace';
+    case 'workspace_invite': return 'Inviti';
+    default: return '';
+  }
+}
+
+/**
+ * Step effettivi del wizard in base al percorso scelto.
+ * `shareIntent` influisce solo sul ramo collaborative (share_intent extra).
+ */
+export function getWizardSteps(
+  sharePath: SharePath,
+  sharingMode: SharingMode,
+): WizardStep[] {
+  if (sharePath === 'add_workspace') {
+    return ['path', 'share_intent', 'workspace_select'];
+  }
+  if (sharePath === 'create_workspace') {
+    return [
+      'path',
+      'share_intent',
+      'workspace_setup',
+      'workspace_composition',
+      'workspace_invite',
+    ];
+  }
+  // simple
+  if (sharingMode === 'collaborative') {
+    return ['path', 'mode', 'share_intent', 'invite'];
+  }
+  return ['path', 'mode', 'invite'];
+}

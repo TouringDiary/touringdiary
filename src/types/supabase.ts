@@ -1572,6 +1572,7 @@ export type Database = {
           nation: string | null
           rating: number | null
           region: string | null
+          source_diary_id: string | null
           status: string | null
           suitcase_id: string | null
           tags: string[] | null
@@ -1597,6 +1598,7 @@ export type Database = {
           nation?: string | null
           rating?: number | null
           region?: string | null
+          source_diary_id?: string | null
           status?: string | null
           suitcase_id?: string | null
           tags?: string[] | null
@@ -1622,6 +1624,7 @@ export type Database = {
           nation?: string | null
           rating?: number | null
           region?: string | null
+          source_diary_id?: string | null
           status?: string | null
           suitcase_id?: string | null
           tags?: string[] | null
@@ -1633,6 +1636,13 @@ export type Database = {
           zone?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "itineraries_source_diary_id_fkey"
+            columns: ["source_diary_id"]
+            isOneToOne: false
+            referencedRelation: "itineraries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "itineraries_suitcase_fk"
             columns: ["suitcase_id"]
@@ -4697,6 +4707,10 @@ export type Database = {
       add_user_xp: {
         Args: { p_amount: number; p_user_id: string }
         Returns: undefined
+      }
+      publish_diary_to_community: {
+        Args: { p_source_diary_id: string }
+        Returns: Json
       }
       can_manage_shop: { Args: { p_shop_id: string }; Returns: boolean }
       can_manage_sponsor: { Args: { p_sponsor_id: string }; Returns: boolean }

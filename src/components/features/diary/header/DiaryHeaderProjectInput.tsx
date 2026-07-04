@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, FolderOpen, MapPin, PencilLine, RefreshCw, Trash2, Printer, Share2, Facebook, Copy } from 'lucide-react';
+import { Calendar, Check, FolderOpen, Globe, MapPin, PencilLine, RefreshCw, Trash2, Printer, Share2, Users } from 'lucide-react';
 import { Itinerary } from '@/types';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
@@ -30,15 +30,42 @@ interface DiaryHeaderProjectInputProps {
     setShareMenuOpen: (v: boolean) => void;
     shareMenuRef: React.RefObject<HTMLDivElement>;
     onClear: () => void;
+    onCollaborativeShare: () => void;
+    onPublishRequest: () => void;
+    canPublish: boolean;
+    isAlreadyPublished: boolean;
     popoverBoundaryRef?: React.RefObject<HTMLElement | null>;
 }
+
+const SHARE_ITEM_CLASS =
+    'w-full text-left px-3 py-2.5 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
 export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = ({
     itinerary, onSetName, loadMenuOpen, handleLoadMenuOpen, loadMenuRef, isSyncing, savedProjects, onLoadProject, handleDeleteClick,
     isGuest, openModal, onSave, onSaveAs, onAutosaveToggle, savePhase, autosaveEnabled, canUseAutosave,
-    handleExportClick, shareMenuOpen, setShareMenuOpen, shareMenuRef, onClear, popoverBoundaryRef,
+    handleExportClick, shareMenuOpen, setShareMenuOpen, shareMenuRef, onClear,
+    onCollaborativeShare, onPublishRequest, canPublish, isAlreadyPublished,
+    popoverBoundaryRef,
 }) => {
     const openGuestAuth = () => openModal('auth');
+
+    const handleShareCollaborative = () => {
+        setShareMenuOpen(false);
+        if (isGuest) {
+            openGuestAuth();
+            return;
+        }
+        onCollaborativeShare();
+    };
+
+    const handleShareCommunity = () => {
+        setShareMenuOpen(false);
+        if (isGuest) {
+            openGuestAuth();
+            return;
+        }
+        onPublishRequest();
+    };
 
     return (
         <div className="flex flex-col gap-1 w-full">
@@ -57,7 +84,7 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
 
             <div className="flex items-center gap-1.5 shrink-0">
                 <div ref={loadMenuRef}>
-                    <button onClick={handleLoadMenuOpen} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${loadMenuOpen ? 'bg-slate-800 text-white' : ''}`} title="Apri/Carica">
+                    <button onClick={handleLoadMenuOpen} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${loadMenuOpen ? 'bg-slate-800 text-white' : ''}`} title="Apri/Carica" aria-label="Apri/Carica">
                         <FolderOpen className="w-[16.5px] h-[16.5px]" />
                     </button>
                     <AnchoredPopover
@@ -118,6 +145,7 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                                             onClick={(e) => handleDeleteClick(e, p.id || '')} 
                                             className="self-center p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 shrink-0"
                                             title="Elimina"
+                                            aria-label="Elimina"
                                         >
                                             <Trash2 className="w-3.5 h-3.5"/>
                                         </button>
@@ -139,33 +167,60 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                     disabled={savePhase === 'saving'}
                 />
 
-                <button onClick={handleExportClick} className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 p-1.5 rounded-full transition-colors" title="Esporta / Stampa">
+                <button onClick={handleExportClick} className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 p-1.5 rounded-full transition-colors" title="Esporta / Stampa" aria-label="Esporta / Stampa">
                     <Printer className="w-[16.5px] h-[16.5px]" />
                 </button>
                 
                 <div ref={shareMenuRef}>
-                    <button onClick={() => setShareMenuOpen(!shareMenuOpen)} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${shareMenuOpen ? 'bg-slate-800 text-white' : ''}`}>
+                    <button onClick={() => setShareMenuOpen(!shareMenuOpen)} className={`text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition-colors ${shareMenuOpen ? 'bg-slate-800 text-white' : ''}`} title="Condividi" aria-label="Condividi">
                         <Share2 className="w-[16.5px] h-[16.5px]" />
                     </button>
                     <AnchoredPopover
                         isOpen={shareMenuOpen}
                         onClose={() => setShareMenuOpen(false)}
                         anchorRef={shareMenuRef}
+                        boundaryRef={popoverBoundaryRef}
                         align="right"
-                        className="w-32 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-right"
+                        className="w-52 sm:w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-right"
                     >
-                        <button className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2">
-                            <Facebook className="w-3 h-3 text-blue-500"/> Facebook
+                        <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                            Condivisione
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleShareCollaborative}
+                            className={SHARE_ITEM_CLASS}
+                        >
+                            <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" aria-hidden />
+                            Condividi con altri utenti
                         </button>
-                        <button className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700">
-                            <Copy className="w-3 h-3 text-emerald-500"/> Copia Link
-                        </button>
+                        {isAlreadyPublished ? (
+                            <div
+                                className={`${SHARE_ITEM_CLASS} text-slate-400 cursor-default hover:bg-transparent`}
+                                role="status"
+                                aria-live="polite"
+                            >
+                                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden />
+                                Già pubblicato
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleShareCommunity}
+                                disabled={!canPublish && !isGuest}
+                                className={SHARE_ITEM_CLASS}
+                                title={!canPublish && !isGuest ? 'Aggiungi tappe e un nome al viaggio' : undefined}
+                            >
+                                <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden />
+                                Pubblica nella Community
+                            </button>
+                        )}
                     </AnchoredPopover>
                 </div>
 
                 <div className="w-px h-4 bg-slate-700 mx-1"></div>
                 
-                <button onClick={onClear} className="text-slate-400 hover:text-red-400 hover:bg-slate-800 p-1.5 rounded-full transition-colors">
+                <button onClick={onClear} className="text-slate-400 hover:text-red-400 hover:bg-slate-800 p-1.5 rounded-full transition-colors" aria-label="Svuota diario">
                     <Trash2 className="w-[16.5px] h-[16.5px]" />
                 </button>
             </div>

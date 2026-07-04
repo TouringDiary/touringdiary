@@ -20,6 +20,7 @@ import { DiaryHeaderProjectInput } from './header/DiaryHeaderProjectInput';
 import { DiaryHeaderDateRange } from './header/DiaryHeaderDateRange';
 import { DiaryHeaderTabs } from './header/DiaryHeaderTabs';
 import { DiaryHeaderInvalidDateModal } from './header/DiaryHeaderInvalidDateModal';
+import { PublishCommunityModal } from './PublishCommunityModal';
 
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
 import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
@@ -49,7 +50,12 @@ interface DiaryHeaderProps {
     isDocumentDirty: boolean;
     onPrint: () => void;
     onClear: () => void;
-    onPublish: () => void;
+    onPublishRequest: () => void;
+    onConfirmPublish: () => void;
+    publishModalOpen: boolean;
+    onPublishModalClose: () => void;
+    isPublishing: boolean;
+    isAlreadyPublished: boolean;
     onOpenAiPlanner?: () => void;
     onOpenRoadbook?: () => void;
     onOpenPackingList?: () => void;
@@ -189,7 +195,9 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     itinerary, user, savedProjects, highlightDates, activeTab, days, minDateStr,
     onSetName, onDateChange, onLoadProject, onSave, onSaveAs, savePhase, lastSavedAt, lastSaveError,
     autosaveEnabled, canUseAutosave, onAutosaveToggle, isDocumentDirty,
-    onPrint, onClear, onPublish, onOpenAiPlanner, onOpenRoadbook, onOpenPackingList, setActiveTab, onDeleteProject,
+    onPrint, onClear, onPublishRequest, onConfirmPublish,
+    publishModalOpen, onPublishModalClose, isPublishing, isAlreadyPublished,
+    onOpenAiPlanner, onOpenRoadbook, onOpenPackingList, setActiveTab, onDeleteProject,
     onUndo, onRedo, canUndo, canRedo, popoverBoundaryRef
 }) => {
     const { syncCloudDrafts } = useItinerary(); 
@@ -314,10 +322,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 
     // Menu click-outside: handled by AnchoredPopover in DiaryHeaderProjectInput (portaled).
 
-    const scrollTabs = (direction: 'left' | 'right') => {
-        if (tabsContainerRef.current) tabsContainerRef.current.scrollBy({ left: direction === 'left' ? -100 : 100, behavior: 'smooth' });
-    };
-
     const handleLoadMenuOpen = () => {
         const newState = !loadMenuOpen;
         setLoadMenuOpen(newState);
@@ -350,6 +354,8 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 
     const isGuest = user.role === 'guest';
     const canPublish = itinerary.items.length > 0 && itinerary.name && !isGuest;
+    const canPublishCommunity =
+        canPublish && isDiaryPersisted(itinerary, savedProjects) && !isAlreadyPublished;
 
     const handleCollaborativeShare = () => {
         if (!itinerary.id || !isDiaryPersisted(itinerary, savedProjects)) {
@@ -396,6 +402,13 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 
     return (
         <div className="p-3 border-b border-stone-300 bg-slate-900 shadow-sm relative no-print-bg flex-shrink-0 transition-all" style={{ zIndex: Z_POPOVER }}>
+            <PublishCommunityModal
+                isOpen={publishModalOpen}
+                onClose={onPublishModalClose}
+                onConfirm={onConfirmPublish}
+                isPublishing={isPublishing}
+            />
+
             <DeleteConfirmationModal 
                 isOpen={!!deleteTargetId}
                 onClose={() => setDeleteTargetId(null)}
@@ -476,14 +489,9 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                         onOpenAiPlanner={onOpenAiPlanner}
                         onOpenWorkspace={handleOpenWorkspace}
                         showWorkspaceButton={Boolean(itinerary.id && diaryWorkspaces.length > 0)}
-                        onPublish={onPublish}
-                        onCollaborativeShare={handleCollaborativeShare}
-                        canPublish={canPublish}
-                        isGuest={isGuest}
                         shouldFlashSuitcase={shouldFlashSuitcase}
                         shouldFlashRoadbook={shouldFlashRoadbook}
                         itineraryItemsLength={itinerary.items.length}
-                        openModal={openModal}
                     />
                 </div>
 
@@ -510,6 +518,10 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                     setShareMenuOpen={setShareMenuOpen}
                     shareMenuRef={shareMenuRef}
                     onClear={onClear}
+                    onCollaborativeShare={handleCollaborativeShare}
+                    onPublishRequest={onPublishRequest}
+                    canPublish={canPublishCommunity}
+                    isAlreadyPublished={isAlreadyPublished}
                     popoverBoundaryRef={popoverBoundaryRef}
                 />
 
@@ -536,7 +548,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                         days={days}
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
-                        scrollTabs={scrollTabs}
                         tabsContainerRef={tabsContainerRef}
                         onUndo={onUndo}
                         onRedo={onRedo}

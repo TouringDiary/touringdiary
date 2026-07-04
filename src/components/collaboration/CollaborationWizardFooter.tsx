@@ -16,6 +16,7 @@ export interface CollaborationWizardFooterProps {
   onWorkspaceCompositionContinue: () => void;
   onWorkspaceSelectContinue: () => void;
   onCreateWorkspace: () => void;
+  onCreateWorkspaceLater: () => void;
   onBack: () => void;
 }
 
@@ -80,7 +81,7 @@ function resolveWizardPrimaryAction(
       };
     case 'workspace_invite':
       return {
-        label: 'Crea Workspace',
+        label: 'Continua',
         onClick: handlers.onCreateWorkspace,
         disabled: isSubmitting,
         showSpinner: isSubmitting,
@@ -104,22 +105,40 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
   onWorkspaceCompositionContinue,
   onWorkspaceSelectContinue,
   onCreateWorkspace,
+  onCreateWorkspaceLater,
   onBack,
 }) => {
   const showBack =
     wizardStep !== 'path' &&
     !(wizardStep === 'workspace_setup' && sharePath === 'add_workspace');
 
-  const primaryAction = resolveWizardPrimaryAction(wizardStep, sharePath, isSubmitting, {
-    onPathContinue,
-    onModeContinue,
-    onShareIntentContinue,
-    onSendInvites,
-    onWorkspaceSetupContinue,
-    onWorkspaceCompositionContinue,
-    onWorkspaceSelectContinue,
-    onCreateWorkspace,
-  });
+  const isWorkspaceInviteStep = wizardStep === 'workspace_invite';
+
+  const primaryAction = isWorkspaceInviteStep
+    ? null
+    : resolveWizardPrimaryAction(wizardStep, sharePath, isSubmitting, {
+        onPathContinue,
+        onModeContinue,
+        onShareIntentContinue,
+        onSendInvites,
+        onWorkspaceSetupContinue,
+        onWorkspaceCompositionContinue,
+        onWorkspaceSelectContinue,
+        onCreateWorkspace,
+      });
+
+  const workspaceInviteContinue = isWorkspaceInviteStep
+    ? resolveWizardPrimaryAction('workspace_invite', sharePath, isSubmitting, {
+        onPathContinue,
+        onModeContinue,
+        onShareIntentContinue,
+        onSendInvites,
+        onWorkspaceSetupContinue,
+        onWorkspaceCompositionContinue,
+        onWorkspaceSelectContinue,
+        onCreateWorkspace,
+      })
+    : null;
 
   return (
     <div className="p-5 border-t border-slate-800 flex flex-wrap gap-2 justify-end shrink-0">
@@ -132,6 +151,29 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
               className="px-4 py-2 rounded-lg text-sm text-slate-300 hover:text-white"
             >
               Indietro
+            </button>
+          )}
+
+          {isWorkspaceInviteStep && (
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={onCreateWorkspaceLater}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 disabled:opacity-50"
+            >
+              Più tardi
+            </button>
+          )}
+
+          {workspaceInviteContinue && (
+            <button
+              type="button"
+              disabled={workspaceInviteContinue.disabled}
+              onClick={workspaceInviteContinue.onClick}
+              className={PRIMARY_BUTTON_CLASS}
+            >
+              {workspaceInviteContinue.showSpinner && <Loader2 className="w-4 h-4 animate-spin" />}
+              {workspaceInviteContinue.label}
             </button>
           )}
 

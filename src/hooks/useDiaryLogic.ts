@@ -1,18 +1,19 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useItinerary } from '@/context/ItineraryContext';
-import { publishUserItinerary } from '../services/dataService';
+import { publishUserItinerary, isDiaryPublishedToCommunity } from '../services/dataService';
 import { User, ItineraryItem, Itinerary } from '../types/index';
 import type { DiaryNotesState } from '../types/models/DiaryNotes';
-import { useUndoStack, UndoAction } from './useUndoStack';
+import { useUndoStack } from './useUndoStack';
 import { useDiaryUndo } from './useDiaryUndo';
 import { useDiaryDocumentSave } from './save/useDiaryDocumentSave';
 import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { LAYOUT } from '@/constants/layout';
 import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
-import { stampItineraryItemAuthor } from '@/domain/diary/diaryAuthorTracking';
+import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 import { useCollaborationLive, useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
+import { stampItineraryItemAuthor } from '@/domain/diary/diaryAuthorTracking';
 
 interface UseDiaryLogicProps {
     user: User;
@@ -57,6 +58,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     
     // MEMO STATE
     const [memoTargetItem, setMemoTargetItem] = useState<ItineraryItem | null>(null);
+
+    const [publishModalOpen, setPublishModalOpen] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
+    const [isAlreadyPublished, setIsAlreadyPublished] = useState(false);
     
     // Feedback State
     const [toastMessage, setToastMessage] = useState<{title: string, xp: number} | null>(null);
@@ -431,12 +436,54 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             console.warn("Accedi e dai un nome al viaggio per pubblicare.");
             return;
         }
-        const result = await publishUserItinerary(itinerary, user);
-        if (result.success && result.updatedUser) {
-            if (onUserUpdate) onUserUpdate(result.updatedUser);
-            showXpToast({ title: 'Itinerario Pubblicato!', xp: 100 }, 4000);
+        setIsPublishing(true);
+        try {
+            const result = await publishUserItinerary(itinerary, user);
+            if (result.alreadyPublished) {
+                setIsAlreadyPublished(true);
+                showDiaryToast('Questo diario è già stato pubblicato nella Community.');
+                return;
+            }
+            if (result.success && result.updatedUser) {
+                if (onUserUpdate) onUserUpdate(result.updatedUser);
+                setIsAlreadyPublished(true);
+                setPublishModalOpen(false);
+                const xp = result.xpAwarded ?? 0;
+                // XP Toast e Diary Toast sono intenzionalmente indipendenti: il primo
+                // comunica la ricompensa gamification, il secondo conferma l'esito
+                // dell'operazione. Entrambi devono convivere.
+                showXpToast({ title: 'Itinerario Pubblicato!', xp }, 4000);
+                showDiaryToast('Diario pubblicato correttamente nella Community.');
+            }
+        } catch (error) {
+            console.error('[useDiaryLogic] Errore durante la pubblicazione del diario:', error);
+            showDiaryToast('Pubblicazione non riuscita.');
+        } finally {
+            setIsPublishing(false);
         }
     };
+
+    const handleRequestPublish = useCallback(() => {
+        if (user.role === 'guest') return;
+        if (isAlreadyPublished) return;
+        if (!isDiaryPersisted(itinerary, savedProjects)) {
+            alert('Salva il diario prima di pubblicarlo nella Community.');
+            return;
+        }
+        setPublishModalOpen(true);
+    }, [user.role, isAlreadyPublished, itinerary, savedProjects]);
+
+    useEffect(() => {
+        if (!itinerary.id || user.role === 'guest') {
+            setIsAlreadyPublished(false);
+            return;
+        }
+        let cancelled = false;
+        isDiaryPublishedToCommunity(itinerary.id).then((published) => {
+            if (!cancelled) setIsAlreadyPublished(published);
+        });
+        return () => { cancelled = true; };
+    }, [itinerary.id, user.role]);
     
     // MEMO LOGIC START
     
@@ -572,6 +619,9 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             documentSave,
             guestSaveMessage: GUEST_SAVE_MESSAGE,
             collaborationReadOnly,
+            publishModalOpen,
+            isPublishing,
+            isAlreadyPublished,
         },
 
         // Setters
@@ -588,6 +638,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             setHighlightedItemId,
             setToastMessage,
             setMemoTargetItem,
+            setPublishModalOpen,
             performUndo,
             performRedo
         },
@@ -604,6 +655,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             confirmDateChange, 
             handleAddNote,
             handlePublish,
+            handleRequestPublish,
             handleOpenMemoConfig, 
             handleConfirmAddMemo, 
             handleMemoClick, 

@@ -1,0 +1,137 @@
+/**
+ * Tab header Diario (ALL / DAY / NOTE).
+ * Quadrato icona flush a sinistra, altezza piena; testo uniforme e centrato.
+ */
+.diary-header-tab {
+  box-sizing: border-box;
+  --diary-header-tab-icon-size: calc(1.75rem - 2px);
+  display: inline-flex;
+  flex-shrink: 0;
+  width: max-content;
+  max-width: none;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  height: 1.75rem;
+  padding: 0;
+  margin: 0;
+  font-size: 0.75rem; /* 12px — uniforme su tutti i tab */
+  line-height: 1;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  transition: color 150ms, background-color 150ms, border-color 150ms;
+}
+
+.diary-header-tab--all {
+  letter-spacing: 0.05em; /* tracking-wider */
+}
+
+.diary-header-tab__icon-well {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 var(--diary-header-tab-icon-size);
+  width: var(--diary-header-tab-icon-size);
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  border-right: 1px solid transparent;
+  border-top-left-radius: calc(0.25rem - 1px);
+  border-bottom-left-radius: calc(0.25rem - 1px);
+}
+
+.diary-header-tab__icon {
+  display: block;
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.diary-header-tab__label {
+  display: flex;
+  flex: 0 0 auto;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.5rem;
+  line-height: 1;
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.diary-header-tab--active {
+  background-color: rgb(217 119 6); /* amber-600 */
+  border-color: rgb(217 119 6);
+  color: white;
+}
+
+.diary-header-tab--active .diary-header-tab__icon-well {
+  background-color: rgb(180 83 9); /* amber-700 */
+  border-right-color: rgb(217 119 6 / 0.55);
+}
+
+.diary-header-tab--inactive {
+  background-color: rgb(30 41 59); /* slate-800 */
+  border-color: rgb(51 65 85); /* slate-700 */
+  color: rgb(148 163 184); /* slate-400 */
+}
+
+.diary-header-tab--inactive .diary-header-tab__icon-well {
+  background-color: rgb(15 23 42); /* slate-900 */
+  border-right-color: rgb(51 65 85); /* slate-700 */
+}
+
+.diary-header-tab--inactive:hover {
+  background-color: rgb(51 65 85); /* slate-700 */
+  color: white;
+}
+
+.diary-header-tab--inactive:hover .diary-header-tab__icon-well {
+  background-color: rgb(30 41 59); /* slate-800 */
+  border-right-color: rgb(71 85 105); /* slate-600 */
+}
+
+/* Mobile: tab ALL / DAY / NOTE solo testo — libera spazio per le frecce scroll */
+@media (max-width: 639px) {
+  .diary-header-tab--all .diary-header-tab__icon-well,
+  .diary-header-tab--day .diary-header-tab__icon-well,
+  .diary-header-tab--notes .diary-header-tab__icon-well {
+    display: none;
+  }
+}
+
+/* Frecce scroll DAY: visibili su mobile e desktop (≥1024px), nascoste su tablet (640–1023px) */
+.diary-header-tab-scroll-arrow {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  flex-shrink: 0;
+  padding: 0.125rem;
+  margin: 0;
+  color: rgb(100 116 139); /* slate-500 */
+}
+
+.diary-header-tab-scroll-arrow:hover {
+  color: white;
+}
+
+.diary-header-tab-scroll-arrow svg {
+  display: block;
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .diary-header-tab-scroll-arrow {
+    display: none;
+  }
+}

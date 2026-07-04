@@ -338,7 +338,12 @@ const TravelDiaryContent = ({
                 isDocumentDirty={state.documentSave.isDirty}
                 onPrint={onPrint}
                 onClear={() => setters.setClearModalOpen(true)}
-                onPublish={actions.handlePublish}
+                onPublishRequest={actions.handleRequestPublish}
+                onConfirmPublish={() => void actions.handlePublish()}
+                publishModalOpen={state.publishModalOpen}
+                onPublishModalClose={() => setters.setPublishModalOpen(false)}
+                isPublishing={state.isPublishing}
+                isAlreadyPublished={state.isAlreadyPublished}
                 onOpenAiPlanner={onOpenAiPlanner}
                 onOpenRoadbook={onOpenRoadbook}
                 onOpenPackingList={handleOpenPackingList}
@@ -364,7 +369,7 @@ const TravelDiaryContent = ({
                             // Montato una sola volta (preserva editor/focus); `hidden` è solo CSS —
                             // nessun observer o polling aggiuntivo: Tiptap resta idle finché non c'è input.
                             <div
-                                className={`w-full min-w-0 min-h-full flex flex-col max-w-full md:max-w-5xl md:mx-auto select-text ${isNotesActive ? '' : 'hidden'}`}
+                                className={`w-full min-w-0 h-full flex flex-col min-h-0 max-w-full md:max-w-5xl md:mx-auto select-text ${isNotesActive ? '' : 'hidden'}`}
                                 aria-hidden={!isNotesActive}
                             >
                                 <DiaryNotesPanel

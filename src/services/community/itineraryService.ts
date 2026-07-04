@@ -4,6 +4,7 @@ import { normalizeDiaryNotesState } from '../../domain/diary/diaryNotesState';
 import { User } from '../../types/users';
 import { UUID_REGEX } from '../../utils/uuid';
 import type { Json } from '../../types/supabase';
+import type { DbItinerary, Row } from '../../types/domain';
 import { canUserModifyResource } from '../collaboration/permissionService';
 import { fetchCollaborativeDiaryIdsForMember } from '../collaboration/diaryCollaborationService';
 
@@ -16,6 +17,97 @@ import { fetchCollaborativeDiaryIdsForMember } from '../collaboration/diaryColla
  * invierebbe comunque), ottenendo un valore type-safe per le colonne `Json`.
  */
 const toDbJson = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? null));
+
+type CommunityItineraryMetadataRow = Pick<
+  DbItinerary,
+  'id' | 'continent' | 'nation' | 'region' | 'zone' | 'main_city' | 'tags'
+>;
+
+type ItineraryLikeTargetRow = Pick<Row<'user_interactions'>, 'target_id'>;
+
+// Normalizzano le colonne testuali libere del DB (`string | null`) verso le union
+// letterali del dominio, con fallback sicuro se il valore non è tra quelli attesi.
+const ITINERARY_DIFFICULTIES: readonly PremadeItinerary['difficulty'][] = ['Relax', 'Moderato', 'Intenso'];
+const ITINERARY_TYPES: readonly PremadeItinerary['type'][] = ['official', 'community', 'ai'];
+const ITINERARY_STATUSES: readonly PremadeItinerary['status'][] = ['published', 'draft'];
+
+function toDifficulty(value: string | null): PremadeItinerary['difficulty'] {
+  return ITINERARY_DIFFICULTIES.includes(value as PremadeItinerary['difficulty'])
+    ? (value as PremadeItinerary['difficulty'])
+    : 'Moderato';
+}
+
+function toItineraryType(value: string | null): PremadeItinerary['type'] {
+  return ITINERARY_TYPES.includes(value as PremadeItinerary['type'])
+    ? (value as PremadeItinerary['type'])
+    : 'community';
+}
+
+function toStatus(value: string | null): PremadeItinerary['status'] {
+  return ITINERARY_STATUSES.includes(value as PremadeItinerary['status'])
+    ? (value as PremadeItinerary['status'])
+    : 'draft';
+}
+
+type PremadeItineraryItem = PremadeItinerary['items'][number];
+
+function isPremadeItineraryItem(value: Json): value is PremadeItineraryItem {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const item = value;
+  return (
+    typeof item.dayIndex === 'number' &&
+    typeof item.timeSlotStr === 'string' &&
+    typeof item.poiId === 'string' &&
+    typeof item.cityId === 'string' &&
+    (item.fallbackName === undefined || typeof item.fallbackName === 'string') &&
+    (item.note === undefined || typeof item.note === 'string')
+  );
+}
+
+/** Converte `items_json` (colonna `Json` Supabase) nel tipo dominio, senza cast. */
+function toPremadeItems(itemsJson: Json | null): PremadeItinerary['items'] {
+  if (itemsJson === null) return [];
+  if (!Array.isArray(itemsJson)) return [];
+  return itemsJson.filter(isPremadeItineraryItem);
+}
+
+function mapDbItineraryToPremade(db: DbItinerary): PremadeItinerary {
+  return {
+    id: db.id,
+    title: db.title ?? '',
+    description: db.description ?? '',
+    durationDays: db.duration_days ?? 0,
+    coverImage: db.cover_image ?? '',
+    tags: db.tags ?? [],
+    difficulty: toDifficulty(db.difficulty),
+    type: toItineraryType(db.type),
+    status: toStatus(db.status),
+    author: db.author_name ?? undefined,
+    date: db.created_at ?? undefined,
+    rating: db.rating ?? 0,
+    votes: db.votes ?? 0,
+    continent: db.continent ?? 'Europa',
+    nation: db.nation ?? 'Italia',
+    region: db.region ?? 'Campania',
+    zone: db.zone ?? '',
+    mainCity: db.main_city ?? '',
+    items: toPremadeItems(db.items_json),
+  };
+}
+
+function mapCommunityMetadataRow(db: CommunityItineraryMetadataRow): Partial<PremadeItinerary> {
+  return {
+    id: db.id,
+    continent: db.continent ?? 'Europa',
+    nation: db.nation ?? 'Italia',
+    region: db.region ?? 'Campania',
+    zone: db.zone ?? '',
+    mainCity: db.main_city ?? '',
+    tags: db.tags ?? [],
+  };
+}
 
 type PackedDiaryFields = Pick<
   Itinerary,
@@ -369,14 +461,7 @@ export const getCommunityItinerariesAsync = async (): Promise<PremadeItinerary[]
             .neq('type', 'personal'); 
         
         if (error) throw error;
-        return (data || []).map((db: any) => ({
-            id: db.id, title: db.title, description: db.description, durationDays: db.duration_days,
-            coverImage: db.cover_image, tags: db.tags || [], difficulty: db.difficulty,
-            type: db.type, status: db.status, author: db.author_name, date: db.created_at,
-            rating: db.rating || 0, votes: db.votes || 0, continent: db.continent || 'Europa',
-            nation: db.nation || 'Italia', region: db.region || 'Campania', zone: db.zone,
-            mainCity: db.main_city, items: db.items_json || [] 
-        }));
+        return (data || []).map(mapDbItineraryToPremade);
     } catch (e) {
         console.error("Errore fetch itinerari:", e);
         return [];
@@ -394,15 +479,7 @@ export const getCommunityItinerariesMetadataAsync = async (): Promise<Partial<Pr
             .eq('status', 'published'); 
         
         if (error) throw error;
-        return (data || []).map((db: any) => ({
-            id: db.id, 
-            continent: db.continent || 'Europa',
-            nation: db.nation || 'Italia', 
-            region: db.region || 'Campania', 
-            zone: db.zone,
-            mainCity: db.main_city, 
-            tags: db.tags || []
-        }));
+        return (data || []).map(mapCommunityMetadataRow);
     } catch (e) {
         console.error("Errore fetch metadata itinerari:", e);
         return [];
@@ -451,14 +528,7 @@ export const getFilteredCommunityItinerariesAsync = async (filters: ItineraryFil
         
         if (error) throw error;
         
-        return (data || []).map((db: any) => ({
-            id: db.id, title: db.title, description: db.description, durationDays: db.duration_days,
-            coverImage: db.cover_image, tags: db.tags || [], difficulty: db.difficulty,
-            type: db.type, status: db.status, author: db.author_name, date: db.created_at,
-            rating: db.rating || 0, votes: db.votes || 0, continent: db.continent || 'Europa',
-            nation: db.nation || 'Italia', region: db.region || 'Campania', zone: db.zone,
-            mainCity: db.main_city, items: db.items_json || [] 
-        }));
+        return (data || []).map(mapDbItineraryToPremade);
     } catch (e) {
         console.error("Errore fetch itinerari filtrati:", e);
         return [];
@@ -511,7 +581,7 @@ export const getUserItineraryLikes = async (userId: string): Promise<string[]> =
                 target_type: 'itinerary',
                 interaction_type: 'like'
   });   
-        return (data || []).map((row: any) => row.target_id);
+        return (data || []).map((row: ItineraryLikeTargetRow) => row.target_id);
     } catch (e) {
         return [];
     }
@@ -576,33 +646,87 @@ export const toggleItineraryLike = async (itineraryId: string, userId: string): 
     }
 };
 
-export const publishUserItinerary = async (itinerary: Itinerary, user: User) => {
-    await saveUserDraft(itinerary, user);
+export interface PublishItineraryResult {
+    success: boolean;
+    error?: string;
+    alreadyPublished?: boolean;
+    xpAwarded?: number;
+    updatedUser?: User;
+}
 
-    const payload = {
-        user_id: user.id,
-        title: itinerary.name,
-        description: `Itinerario creato da ${user.name}`,
-        duration_days: Math.ceil((new Date(itinerary.endDate || '').getTime() - new Date(itinerary.startDate || '').getTime()) / (1000 * 60 * 60 * 24)) + 1 || 1,
-        cover_image: itinerary.items[0]?.poi?.imageUrl || '',
-        tags: ['Community'],
-        difficulty: 'Moderato',
-        type: 'community',
-        status: 'published',
-        author_name: user.name,
-        rating: 0, votes: 0,
-        continent: 'Europa', nation: 'Italia', region: 'Campania', zone: 'Campania',
-        main_city: itinerary.items[0]?.cityId || 'Campania',
-        items_json: toDbJson(itinerary.items),
-        created_at: new Date().toISOString()
-    };
+/** Verifica se un diario personale è già stato pubblicato in Community. */
+export const isDiaryPublishedToCommunity = async (sourceDiaryId: string): Promise<boolean> => {
+    if (!sourceDiaryId || !UUID_REGEX.test(sourceDiaryId)) return false;
 
     try {
-        const { error } = await supabase.from('itineraries').insert(payload);
+        const { data, error } = await supabase
+            .from('itineraries')
+            .select('id')
+            .eq('source_diary_id', sourceDiaryId)
+            .eq('type', 'community')
+            .maybeSingle();
+
         if (error) throw error;
-        return { success: true, updatedUser: user };
+        return !!data;
     } catch (e) {
-        console.error("Errore pubblicazione", e);
-        return { success: false };
+        console.error('[itineraryService] isDiaryPublishedToCommunity:', e);
+        return false;
+    }
+};
+
+/**
+ * Pubblica un diario personale in Community tramite RPC atomica:
+ * anti-duplicato, insert snapshot indipendente, assegnazione XP reale.
+ */
+export const publishUserItinerary = async (
+    itinerary: Itinerary,
+    user: User,
+): Promise<PublishItineraryResult> => {
+    if (!user || user.role === 'guest' || !itinerary.id || !UUID_REGEX.test(itinerary.id)) {
+        return { success: false, error: 'Accedi e salva il diario prima di pubblicare.' };
+    }
+
+    if (!itinerary.items.length || !itinerary.name?.trim()) {
+        return { success: false, error: 'Aggiungi tappe e un nome al viaggio per pubblicare.' };
+    }
+
+    try {
+        await saveUserDraft(itinerary, user);
+
+        const { data, error } = await supabase.rpc('publish_diary_to_community', {
+            p_source_diary_id: itinerary.id,
+        });
+
+        if (error) {
+            const msg = error.message ?? '';
+            if (msg.includes('ALREADY_PUBLISHED') || error.code === '23505') {
+                return { success: false, alreadyPublished: true, error: 'Questo diario è già stato pubblicato.' };
+            }
+            if (msg.includes('FORBIDDEN')) {
+                return { success: false, error: 'Solo il proprietario può pubblicare questo diario.' };
+            }
+            throw error;
+        }
+
+        const result = data as {
+            success?: boolean;
+            xp_awarded?: number;
+            new_xp?: number;
+        } | null;
+
+        const xpAwarded = result?.xp_awarded ?? 0;
+        const newXp = result?.new_xp ?? (user.xp ?? 0) + xpAwarded;
+
+        return {
+            success: true,
+            xpAwarded,
+            updatedUser: { ...user, xp: newXp },
+        };
+    } catch (e) {
+        console.error('Errore pubblicazione', e);
+        return {
+            success: false,
+            error: e instanceof Error ? e.message : 'Pubblicazione non riuscita.',
+        };
     }
 };

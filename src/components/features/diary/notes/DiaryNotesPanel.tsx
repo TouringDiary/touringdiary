@@ -1,15 +1,20 @@
-import React, { useCallback, useMemo } from 'react';
-import { StickyNote } from 'lucide-react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { StickyNote, Trash2 } from 'lucide-react';
 import type { DiaryNotesDocument, DiaryNotesState } from '@/types/models/DiaryNotes';
 import { useUser } from '@/context/UserContext';
 import {
   addDiaryNoteTab,
+  deleteDiaryNoteTab,
+  duplicateDiaryNoteTab,
   getActiveTabDocument,
+  moveDiaryNoteTabBefore,
+  moveDiaryNoteTabToEnd,
   normalizeDiaryNotesState,
   renameDiaryNoteTab,
   setActiveTabId,
   updateActiveTabDocument,
 } from '@/domain/diary/diaryNotesState';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { DiaryNotesEditor } from './DiaryNotesEditor';
 import { DiaryNotesChecklistStatsBar } from './DiaryNotesChecklistStatsBar';
 import { DiaryNotesTabs } from './DiaryNotesTabs';
@@ -33,12 +38,16 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
   const authorId = user?.role !== 'guest' ? user?.id : undefined;
   const collaborationReadOnly = useCollaborationReadOnly();
 
+  const [deleteTabId, setDeleteTabId] = useState<string | null>(null);
+
   const state = useMemo(
     () => normalizeDiaryNotesState(notesState),
     [notesState],
   );
 
   const activeDocument = useMemo(() => getActiveTabDocument(state), [state]);
+
+  const deleteTargetTitle = state.tabs.find((t) => t.id === deleteTabId)?.title ?? 'questa nota';
 
   const handleDocumentChange = useCallback(
     (document: DiaryNotesDocument) => {
@@ -67,9 +76,51 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
     [collaborationReadOnly, onNotesStateChange, state],
   );
 
+  const handleDuplicateTab = useCallback(
+    (tabId: string) => {
+      if (collaborationReadOnly) return;
+      onNotesStateChange(duplicateDiaryNoteTab(state, tabId, authorId));
+    },
+    [authorId, collaborationReadOnly, onNotesStateChange, state],
+  );
+
+  const handleMoveTabBefore = useCallback(
+    (tabId: string, beforeTabId: string) => {
+      if (collaborationReadOnly) return;
+      onNotesStateChange(moveDiaryNoteTabBefore(state, tabId, beforeTabId));
+    },
+    [collaborationReadOnly, onNotesStateChange, state],
+  );
+
+  const handleMoveTabToEnd = useCallback(
+    (tabId: string) => {
+      if (collaborationReadOnly) return;
+      onNotesStateChange(moveDiaryNoteTabToEnd(state, tabId));
+    },
+    [collaborationReadOnly, onNotesStateChange, state],
+  );
+
+  const confirmDeleteTab = useCallback(() => {
+    if (!deleteTabId || collaborationReadOnly) return;
+    onNotesStateChange(deleteDiaryNoteTab(state, deleteTabId));
+    setDeleteTabId(null);
+  }, [collaborationReadOnly, deleteTabId, onNotesStateChange, state]);
+
   return (
-    <div className="w-full h-full min-w-0 flex flex-col min-h-0 px-1.5 py-1.5 sm:px-2 sm:py-2 select-text">
-      <header className="flex items-center gap-1.5 mb-1 shrink-0">
+    <div className="w-full flex-1 min-w-0 flex flex-col min-h-0 px-1.5 sm:px-2 select-text">
+      <DeleteConfirmationModal
+        isOpen={!!deleteTabId}
+        onClose={() => setDeleteTabId(null)}
+        onConfirm={confirmDeleteTab}
+        title="Eliminare definitivamente questa nota?"
+        message="Questa operazione non può essere annullata."
+        confirmLabel="Elimina"
+        cancelLabel="Annulla"
+        variant="danger"
+        icon={<Trash2 className="w-8 h-8 text-red-500" />}
+      />
+
+      <header className="h-7 flex items-center gap-1.5 shrink-0">
         <StickyNote className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" aria-hidden />
         <h2 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-600">
           Note di viaggio
@@ -82,10 +133,15 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
         onSelectTab={handleSelectTab}
         onAddTab={handleAddTab}
         onRenameTab={handleRenameTab}
+        onDuplicateTab={handleDuplicateTab}
+        onMoveTabBefore={handleMoveTabBefore}
+        onMoveTabToEnd={handleMoveTabToEnd}
+        onDeleteTab={setDeleteTabId}
+        readOnly={collaborationReadOnly}
       />
 
       <div
-        className="flex-1 min-h-0 flex flex-col mt-1 rounded-sm border border-stone-300/70 bg-white/95 shadow-inner"
+        className="flex-1 min-h-0 flex flex-col overflow-hidden mt-1 rounded-sm border border-stone-300/70 bg-white/95 shadow-inner"
         role="region"
         aria-label="Area note del diario"
       >

@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pencil, Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import type { DiaryNoteTab } from '@/types/models/DiaryNotes';
+import { HorizontalScrollStrip } from '@/components/common/HorizontalScrollStrip';
+import { DiaryNoteTabMenu } from './DiaryNoteTabMenu';
 
 interface DiaryNotesTabsProps {
   tabs: DiaryNoteTab[];
@@ -8,6 +10,11 @@ interface DiaryNotesTabsProps {
   onSelectTab: (tabId: string) => void;
   onAddTab: () => void;
   onRenameTab: (tabId: string, title: string) => void;
+  onDuplicateTab: (tabId: string) => void;
+  onMoveTabBefore: (tabId: string, beforeTabId: string) => void;
+  onMoveTabToEnd: (tabId: string) => void;
+  onDeleteTab: (tabId: string) => void;
+  readOnly?: boolean;
 }
 
 export const DiaryNotesTabs: React.FC<DiaryNotesTabsProps> = ({
@@ -16,17 +23,26 @@ export const DiaryNotesTabs: React.FC<DiaryNotesTabsProps> = ({
   onSelectTab,
   onAddTab,
   onRenameTab,
+  onDuplicateTab,
+  onMoveTabBefore,
+  onMoveTabToEnd,
+  onDeleteTab,
+  readOnly = false,
 }) => {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const scrollRef = useRef<HTMLDivElement>(null);
   const prevTabsLengthRef = useRef(tabs.length);
 
+  const tabOrderKey = tabs.map((tab) => tab.id).join('|');
+
   const startEditing = useCallback((tab: DiaryNoteTab) => {
+    if (readOnly) return;
     setEditingTabId(tab.id);
     setDraftTitle(tab.title);
-  }, []);
+  }, [readOnly]);
 
   const commitRename = useCallback(() => {
     if (!editingTabId) return;
@@ -50,7 +66,6 @@ export const DiaryNotesTabs: React.FC<DiaryNotesTabsProps> = ({
     }
   }, [editingTabId]);
 
-  // Porta in vista il tab attivo (es. dopo "+" con lista scrollabile).
   useEffect(() => {
     const tabAdded = tabs.length > prevTabsLengthRef.current;
     prevTabsLengthRef.current = tabs.length;
@@ -63,24 +78,50 @@ export const DiaryNotesTabs: React.FC<DiaryNotesTabsProps> = ({
       block: 'nearest',
       inline: 'nearest',
     });
-  }, [activeTabId, tabs.length]);
+  }, [activeTabId, tabs.length, tabOrderKey]);
+
+  const canDelete = tabs.length > 1;
+  const activeTab = useMemo(
+    () => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0],
+    [tabs, activeTabId],
+  );
 
   return (
-    <div
-      className="flex items-center gap-1 shrink-0 overflow-x-auto scroll-smooth pt-1.5 pb-1 [-webkit-overflow-scrolling:touch] scrollbar-hide"
-      role="tablist"
-      aria-label="Note del diario"
+    <HorizontalScrollStrip
+      className="diary-notes-tab-bar shrink-0"
+      scrollClassName="diary-notes-tab-bar__scroll"
+      scrollRef={scrollRef}
+      ariaLabel="Note del diario"
+      arrowClassName="diary-notes-tab-scroll-arrow hidden lg:inline-flex"
+      leading={
+        !readOnly ? (
+          <button
+            type="button"
+            onClick={onAddTab}
+            className="diary-notes-tab-add shrink-0 rounded border border-stone-300/90 bg-white/80 text-stone-500 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50/80 transition-colors"
+            title="Nuova nota"
+            aria-label="Crea nuova nota"
+          >
+            <Plus className="diary-notes-tab-add-icon" aria-hidden />
+          </button>
+        ) : undefined
+      }
+      trailing={
+        !readOnly && activeTab ? (
+          <DiaryNoteTabMenu
+            tab={activeTab}
+            allTabs={tabs}
+            canDelete={canDelete}
+            popoverAlign="right"
+            onRename={() => startEditing(activeTab)}
+            onDuplicate={() => onDuplicateTab(activeTab.id)}
+            onMoveBefore={(beforeId) => onMoveTabBefore(activeTab.id, beforeId)}
+            onMoveToEnd={() => onMoveTabToEnd(activeTab.id)}
+            onDelete={() => onDeleteTab(activeTab.id)}
+          />
+        ) : undefined
+      }
     >
-      <button
-        type="button"
-        onClick={onAddTab}
-        className="diary-notes-tab-add inline-flex items-center justify-center shrink-0 rounded border border-stone-300/90 bg-white/80 text-stone-500 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50/80 transition-colors"
-        title="Nuova nota"
-        aria-label="Crea nuova nota"
-      >
-        <Plus className="diary-notes-tab-add-icon" aria-hidden />
-      </button>
-
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         const isEditing = editingTabId === tab.id;
@@ -104,7 +145,7 @@ export const DiaryNotesTabs: React.FC<DiaryNotesTabsProps> = ({
                   cancelEditing();
                 }
               }}
-              className="diary-notes-tab-input shrink-0 rounded border border-amber-400 bg-white px-2 py-1 text-stone-800 outline-none ring-1 ring-amber-200"
+              className="diary-notes-tab-input shrink-0 rounded border border-amber-400 bg-white text-stone-800 outline-none ring-1 ring-amber-200"
               aria-label="Rinomina nota"
               maxLength={48}
             />
@@ -112,52 +153,33 @@ export const DiaryNotesTabs: React.FC<DiaryNotesTabsProps> = ({
         }
 
         return (
-          <div
+          <button
             key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
             ref={(el) => {
               if (el) tabRefs.current.set(tab.id, el);
               else tabRefs.current.delete(tab.id);
             }}
-            className="relative shrink-0 group/tab"
+            onClick={() => onSelectTab(tab.id)}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              startEditing(tab);
+            }}
+            className={`
+              diary-notes-tab shrink-0 rounded border transition-colors max-w-[10rem] sm:max-w-[12rem]
+              ${isActive
+                ? 'border-amber-400/90 bg-amber-50 text-amber-900 font-semibold'
+                : 'border-stone-300/70 bg-white/70 text-stone-600 hover:bg-stone-50 hover:text-stone-800'}
+            `}
+            title={`${tab.title} — doppio clic per rinominare`}
           >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => onSelectTab(tab.id)}
-              onDoubleClick={(e) => {
-                e.preventDefault();
-                startEditing(tab);
-              }}
-              className={`
-                diary-notes-tab inline-flex items-center gap-1 rounded border transition-colors max-w-[10rem] sm:max-w-[12rem]
-                ${isActive
-                  ? 'border-amber-400/90 bg-amber-50 text-amber-900 font-semibold'
-                  : 'border-stone-300/70 bg-white/70 text-stone-600 hover:bg-stone-50 hover:text-stone-800'}
-              `}
-              title={`${tab.title} — doppio clic per rinominare`}
-            >
-              <span className="truncate">{tab.title}</span>
-            </button>
-
-            {isActive && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startEditing(tab);
-                }}
-                className="diary-notes-tab-rename absolute top-0 -right-1 z-10 hidden sm:group-hover/tab:inline-flex items-center justify-center rounded-full bg-stone-700 text-white shadow-sm hover:bg-amber-700 transition-colors"
-                title="Rinomina nota"
-                aria-label={`Rinomina ${tab.title}`}
-              >
-                <Pencil className="w-2.5 h-2.5" aria-hidden />
-              </button>
-            )}
-          </div>
+            <span className="diary-notes-tab__label truncate">{tab.title}</span>
+          </button>
         );
       })}
-    </div>
+    </HorizontalScrollStrip>
   );
 };
 
