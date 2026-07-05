@@ -1,8 +1,11 @@
 import { FOUNDATION_DESIGN_RULES } from '../src/data/system/foundationDesignRules.ts';
 import fs from 'fs';
 
+const MIGRATION_BASENAME = '20260705120001_seed_foundation_design_system_rules';
+const MIGRATION_PATH = `supabase/migrations/${MIGRATION_BASENAME}.sql`;
+
 const esc = (v: unknown) =>
-  v == null || v === '' ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`;
+  v == null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`;
 
 const lines = FOUNDATION_DESIGN_RULES.map(
   (r) => `    (
@@ -23,7 +26,7 @@ const lines = FOUNDATION_DESIGN_RULES.map(
 );
 
 const sql = `-- =============================================================================
--- MIGRATION: 20260705120000_seed_foundation_design_system_rules.sql
+-- MIGRATION: ${MIGRATION_BASENAME}.sql
 -- DESCRIZIONE: Seed regole Foundation modali (prototipo approvato)
 -- SICUREZZA:   UPSERT su component_key
 -- =============================================================================
@@ -60,5 +63,5 @@ ON CONFLICT (component_key) DO UPDATE SET
     preview_text = EXCLUDED.preview_text;
 `;
 
-fs.writeFileSync('supabase/migrations/20260705120000_seed_foundation_design_system_rules.sql', sql);
-console.log(`Generated ${lines.length} foundation rules`);
+fs.writeFileSync(MIGRATION_PATH, sql);
+console.log(`Generated ${lines.length} foundation rules → ${MIGRATION_PATH}`);
