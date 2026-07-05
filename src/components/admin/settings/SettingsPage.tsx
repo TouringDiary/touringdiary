@@ -1,15 +1,17 @@
 
 import React, { useState } from 'react';
-import { Palette, Puzzle, Link, Settings, FolderKanban } from 'lucide-react';
+import { Palette, Puzzle, Link, Settings, FolderKanban, Layers } from 'lucide-react';
 import { useConfig } from '@/context/ConfigContext';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
 import { PartnerIntegrationsPanel } from './PartnerIntegrationsPanel';
 import { WorkspaceEngineSettingsPanel } from './WorkspaceEngineSettingsPanel';
 import DesignSystemSettings from '../design/DesignSystemSettings';
+import FoundationSettingsPanel from '../foundation/FoundationSettingsPanel';
 import { AdminPageHeader } from '../common/AdminPageHeader';
 
 const TABS = [
     { id: 'design_system', label: 'Design System', icon: Palette },
+    { id: 'foundation', label: 'Foundation', icon: Layers },
     { id: 'poi_categories_config', label: 'Categorie POI', icon: Puzzle },
     { id: 'partner_integrations', label: 'Integrazioni Partner', icon: Link },
     { id: 'workspace_engine', label: 'Workspace', icon: FolderKanban },
@@ -52,6 +54,8 @@ export const SettingsPage: React.FC = () => {
             <div className="flex-1 overflow-y-auto">
                 {activeTab === 'design_system' ? (
                     <DesignSystemSettings />
+                ) : activeTab === 'foundation' ? (
+                    <FoundationSettingsPanel />
                 ) : activeTab === 'workspace_engine' ? (
                     <WorkspaceEngineSettingsPanel onSaveSuccess={refreshConfig} />
                 ) : activeTab === 'partner_integrations' && activeConfigData ? (

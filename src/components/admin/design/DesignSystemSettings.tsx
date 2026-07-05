@@ -1,172 +1,17 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useConfig } from '@/context/ConfigContext';
 import type { StyleRule } from '../../../types/designSystem';
-import { Smartphone, Monitor, Save, Loader2, Wand2, ArrowLeft, ChevronRight, AlertTriangle, RefreshCw, X } from 'lucide-react';
+import { Smartphone, Monitor, Loader2, Wand2, ChevronRight, AlertTriangle, RefreshCw } from 'lucide-react';
 import { updateDesignSystemRule, rebuildDesignSystemCache } from '../../../services/settingsService';
-import { Z_ADMIN_MODAL } from '@/constants/zIndex';
-import StyleEditor from './StyleEditor';
 import ComponentPreviewHost from './ComponentPreviewHost';
+import { SideEditorPanel } from './SideEditorPanel';
 
 // ── Module-level helper — pure, no closure, never re-created on render. ──────
 // Semanticamente esplicito: no falsy coercion su stringa vuota.
 const getRuleSection = (rule: StyleRule): string => {
     const section = rule.section?.trim() ?? '';
     return section.length > 0 ? section : 'uncategorized';
-};
-
-// ── Error boundary temporanea per debug runtime del pannello editor. ──────────
-// Cattura crash React silenti nel subtree ComponentPreviewHost/StyleEditor
-// e li espone visibilmente + in console con stack trace completo.
-class DesignEditorBoundary extends React.Component<
-    { children: React.ReactNode; label: string },
-    { error: Error | null }
-> {
-    state = { error: null as Error | null };
-
-    static getDerivedStateFromError(error: Error) {
-        return { error };
-    }
-
-    componentDidCatch(error: Error, info: React.ErrorInfo) {
-        console.error(`[DesignEditorBoundary "${this.props.label}"] CRASH:`, error.message);
-        console.error(`[DesignEditorBoundary "${this.props.label}"] Stack:`, error.stack);
-        console.error(`[DesignEditorBoundary "${this.props.label}"] Component tree:`, info.componentStack);
-    }
-
-    render() {
-        if (this.state.error) {
-            return (
-                <div className="p-4 m-2 bg-red-950 border border-red-500 rounded-lg text-xs font-mono overflow-auto max-h-48">
-                    <p className="text-red-400 font-bold mb-1">⚠ CRASH [{this.props.label}]</p>
-                    <p className="text-red-300">{this.state.error.message}</p>
-                    <pre className="text-red-500 mt-2 text-[10px] whitespace-pre-wrap leading-tight">
-                        {this.state.error.stack?.split('\n').slice(0, 6).join('\n')}
-                    </pre>
-                </div>
-            );
-        }
-        return this.props.children;
-    }
-}
-
-const SideEditorPanel: React.FC<{
-    baseKey: string;
-    desktopRule: StyleRule;
-    mobileRule: StyleRule | null;
-    editedRules: Record<string, StyleRule> | null;
-    isSaving: boolean;
-    onRuleChange: (ruleKey: string, updatedRule: StyleRule) => void;
-    onClose: () => void;
-    onSave: (rule: StyleRule) => void;
-}> = ({ baseKey, desktopRule, mobileRule, editedRules, onRuleChange, onClose, onSave, isSaving }) => {
-    const [deviceView, setDeviceView] = useState<'mobile' | 'desktop'>('desktop');
-
-    const activeRuleKey = deviceView === 'mobile' ? `${baseKey}_mobile` : baseKey;
-
-    const resolveRule = useCallback((view: 'mobile' | 'desktop'): StyleRule | null => {
-        const key = view === 'mobile' ? `${baseKey}_mobile` : baseKey;
-        if (editedRules?.[key]) return editedRules[key];
-        return view === 'mobile' ? mobileRule : desktopRule;
-    }, [baseKey, desktopRule, editedRules, mobileRule]);
-
-    const [localRule, setLocalRule] = useState<StyleRule | null>(() => resolveRule('desktop'));
-
-    useEffect(() => {
-        setLocalRule(resolveRule(deviceView));
-    }, [deviceView, resolveRule]);
-
-    const handleSyncAndSave = () => {
-        if (localRule) {
-            onRuleChange(activeRuleKey, localRule);
-            onSave(localRule);
-        }
-    };
-
-    if (!localRule) {
-        console.warn('[SideEditorPanel] localRule is null — rendering nothing. baseKey:', baseKey, 'deviceView:', deviceView);
-        return null;
-    }
-
-    const isMobile = deviceView === 'mobile';
-    const canEditMobile = Boolean(mobileRule || editedRules?.[`${baseKey}_mobile`]);
-
-    // Portal to document.body so the panel is not subject to any ancestor
-    // overflow-hidden / overflow-y-auto clipping, and so backdrop-filter on
-    // #focus-overlay (z=14000) cannot blur it (the panel sits at Z_ADMIN_MODAL=13000
-    // but with the conditional backdrop-blur fix in AppCoordinator, admin mode
-    // never activates the blur layer regardless).
-    return createPortal(
-        <>
-            {/* Backdrop — below panel but above admin content */}
-            <div
-                className="fixed inset-0 bg-black/60"
-                style={{ zIndex: Z_ADMIN_MODAL - 100 }}
-                onClick={onClose}
-            />
-            {/* Slide-over panel — admin super-layer */}
-            <div
-                className="fixed top-0 right-0 h-full w-full max-w-2xl bg-slate-900 border-l border-slate-700 shadow-2xl transform transition-transform ease-in-out duration-300 translate-x-0"
-                style={{ zIndex: Z_ADMIN_MODAL }}
-            >
-                <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-center p-4 border-b border-slate-800">
-                        <div className='flex items-center gap-4'>
-                            <button onClick={onClose} className="text-slate-300 hover:text-white">
-                                <ArrowLeft size={20} />
-                            </button>
-                            <h2 className="text-lg font-semibold text-white">
-                                {localRule.element_name}
-                                <span className="ml-2 text-xs font-normal text-slate-400 uppercase tracking-wider">
-                                    {deviceView}
-                                </span>
-                            </h2>
-                        </div>
-                        <div className="flex items-center gap-2 p-1 bg-slate-800 rounded-lg">
-                            <button
-                                onClick={() => canEditMobile && setDeviceView('mobile')}
-                                disabled={!canEditMobile}
-                                title={canEditMobile ? 'Modifica stile mobile' : 'Regola mobile non disponibile'}
-                                className={`p-2 rounded-md ${deviceView === 'mobile' ? 'bg-slate-700 shadow-sm text-indigo-400' : 'text-slate-400'} disabled:opacity-30 disabled:cursor-not-allowed`}
-                            >
-                                <Smartphone size={20} />
-                            </button>
-                            <button onClick={() => setDeviceView('desktop')} className={`p-2 rounded-md ${deviceView === 'desktop' ? 'bg-slate-700 shadow-sm text-indigo-400' : 'text-slate-400'}`}><Monitor size={20} /></button>
-                        </div>
-                    </div>
-
-                    <div className="p-8 bg-slate-900 flex-grow flex items-center justify-center border-b border-slate-800">
-                       <div className="border border-slate-700 rounded-lg bg-slate-800">
-                         <DesignEditorBoundary label={`Preview:${baseKey}`}>
-                             <ComponentPreviewHost rule={localRule} componentKey={activeRuleKey} isLarge={true} isMobile={isMobile} />
-                         </DesignEditorBoundary>
-                       </div>
-                    </div>
-                    
-                    <div className="flex-shrink-0 p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
-                        <h3 className="text-xl font-bold mb-4 text-white">Editor Proprietà CSS</h3>
-                        <DesignEditorBoundary label={`StyleEditor:${baseKey}`}>
-                            <StyleEditor rule={localRule} onChange={setLocalRule} />
-                        </DesignEditorBoundary>
-                    </div>
-
-                    <div className="mt-auto p-4 bg-slate-900/80 border-t border-slate-800 backdrop-blur-sm flex justify-end items-center gap-4">
-                        <button onClick={onClose} className="text-slate-300 hover:text-white px-4 py-2 rounded-lg flex items-center gap-2"><X size={18}/> Annulla</button>
-                        <button
-                            onClick={handleSyncAndSave}
-                            disabled={isSaving}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-lg shadow-md flex items-center justify-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                            {isSaving ? 'Salvataggio...' : 'Salva e Chiudi'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </>,
-        document.body,
-    );
 };
 
 const DesignSystemSettings: React.FC = () => {
@@ -202,7 +47,9 @@ const DesignSystemSettings: React.FC = () => {
         const allRules = Object.values(editedRules);
         const baseRules = allRules.filter(r => !r.component_key.endsWith('_mobile'));
 
-        const sortedSections = [...new Set(allRules.map(getRuleSection))].sort((a, b) => {
+        const sortedSections = [...new Set(allRules.map(getRuleSection))]
+            .filter((s) => s !== 'foundation')
+            .sort((a, b) => {
             if (a === 'uncategorized') return 1;
             if (b === 'uncategorized') return -1;
             return a.localeCompare(b);
@@ -392,10 +239,7 @@ const DesignSystemSettings: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button onClick={() => {
-                                            console.log('[DesignSystem] Modifica →', key, '| desktop:', editedRules?.[key], '| mobile:', editedRules?.[`${key}_mobile`]);
-                                            setSelectedBaseKey(key);
-                                        }} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
+                                        <button onClick={() => setSelectedBaseKey(key)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
                                             <Wand2 size={16} /> Modifica
                                             <ChevronRight size={16} />
                                         </button>

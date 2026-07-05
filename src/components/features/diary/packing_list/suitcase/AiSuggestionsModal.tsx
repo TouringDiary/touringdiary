@@ -19,6 +19,8 @@ import { AiSuggestionsReviewStep } from './AiSuggestionsReviewStep';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { ToastVariant } from '@/types/toast';
 import {
@@ -106,6 +108,14 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   const titleStyle = useDynamicStyles('suitcase_title', isMobile);
   const subtitleStyle = useDynamicStyles('suitcase_text_support', isMobile);
   const titleFallback = isMobile ? TITLE_FALLBACK_MOBILE : TITLE_FALLBACK_DESKTOP;
+
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const footerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooter);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const headerIconBoxShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconBox);
 
   useEffect(() => {
     if (isOpen && selectedCategories.length === 0) {
@@ -299,12 +309,12 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
 
   return createPortal(
     <div
-      className="td-modal-overlay bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300 flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6"
+      className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
       onClick={handleDismiss}
     >
       <div
-        className="relative w-full max-w-2xl bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.8)] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 fade-in duration-300 flex flex-col max-h-[calc(100dvh-var(--header-height)-env(safe-area-inset-bottom,0px)-0.5rem)] sm:max-h-[90vh] pb-safe sm:pb-0"
+        className={containerShell}
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -314,12 +324,12 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
           disabled={isBulkRunning}
           variant="primary"
           position="absolute"
-          className="top-6 right-8"
+          className={closeOffsetShell}
         />
 
-        <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 shrink-0">
+        <div className={headerShell}>
           <div className="flex items-center gap-4 pr-12 min-w-0">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20 shrink-0">
+            <div className={headerIconBoxShell}>
               <Sparkles className={`w-6 h-6 ${isGenerating ? 'animate-spin' : ''}`} />
             </div>
             <div className="min-w-0">
@@ -333,7 +343,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain p-8 custom-scrollbar">
+        <div className={bodyShell}>
           {step === 'setup' ? (
             <AiSuggestionsSetupStep
               selectedCategories={selectedCategories}
@@ -376,7 +386,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
           )}
         </div>
 
-        <div className="px-4 sm:px-8 py-6 border-t border-white/5 bg-slate-900/50 shrink-0 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between min-w-0">
+        <div className={footerShell}>
           {step === 'setup' ? (
             <div className="flex items-center gap-3 w-full">
               <button

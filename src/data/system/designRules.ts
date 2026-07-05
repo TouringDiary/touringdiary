@@ -1,4 +1,5 @@
 import type { User } from '@/types/users';
+import { FOUNDATION_DESIGN_RULES } from './foundationDesignRules';
 
 
 export const FULL_SYSTEM_RULES = [
@@ -165,5 +166,8 @@ export const FULL_SYSTEM_RULES = [
     { section: 'suitcase', element_name: 'Testo Supporto (Mob)', component_key: 'suitcase_text_support_mobile', font_family: 'font-sans', text_size: 'text-[12.5px]', font_weight: 'font-medium', text_transform: 'normal-case', tracking: 'tracking-normal', color_class: 'text-slate-400', line_height: 'leading-normal', effect_class: 'none', preview_text: 'Seleziona le categorie...' },
     { section: 'suitcase', element_name: 'Titolo Card Modalità AI (Mob)', component_key: 'suitcase_mode_card_title_mobile', font_family: 'font-sans', text_size: 'text-[14px]', font_weight: 'font-bold', text_transform: 'normal-case', tracking: 'tracking-normal', line_height: 'leading-snug', effect_class: 'none', preview_text: 'Valuta ed inserisci' },
     { section: 'suitcase', element_name: 'Testo Empty State AI (Mob)', component_key: 'suitcase_empty_state_mobile', font_family: 'font-sans', css_class: 'text-[12px] font-normal italic', color_class: 'text-slate-500', effect_class: 'none', preview_text: 'Nessuna categoria disponibile.' },
-    { section: 'suitcase', element_name: 'Testo Chip Categoria AI (Mob)', component_key: 'suitcase_category_chip_mobile', font_family: 'font-sans', text_size: 'text-[12.5px]', font_weight: 'font-bold', text_transform: 'normal-case', tracking: 'tracking-normal', line_height: 'leading-none', effect_class: 'none', preview_text: 'Abbigliamento' }
+    { section: 'suitcase', element_name: 'Testo Chip Categoria AI (Mob)', component_key: 'suitcase_category_chip_mobile', font_family: 'font-sans', text_size: 'text-[12.5px]', font_weight: 'font-bold', text_transform: 'normal-case', tracking: 'tracking-normal', line_height: 'leading-none', effect_class: 'none', preview_text: 'Abbigliamento' },
+
+    // --- FOUNDATION (modali) — seed completo in foundationDesignRules.ts ---
+    ...FOUNDATION_DESIGN_RULES,
 ];

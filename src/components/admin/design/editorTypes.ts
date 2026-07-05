@@ -21,7 +21,7 @@ export interface StyleRuleEditorMeta {
      * 'typography': preview testo semplice su span (default).
      * 'html': preview HTML strutturato, usato per sezioni composite/typography.
      */
-    preview_kind?: 'typography';
+    preview_kind?: 'typography' | 'modal_shell' | 'modal_overlay' | 'modal_frame' | 'selectable_card' | 'button';
     /** HTML da renderizzare per preview_type === 'html'. */
     preview_content?: string;
     /**

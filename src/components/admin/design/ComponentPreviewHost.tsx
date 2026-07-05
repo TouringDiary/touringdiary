@@ -2,6 +2,14 @@ import React from 'react';
 import type { StyleRule } from '../../../types/designSystem';
 import type { StyleRuleEditorMeta } from './editorTypes';
 import { useDynamicStyles, constructClassName } from '../../../hooks/useDynamicStyles';
+import { getFoundationPreviewMetaForKey } from './foundation/foundationPreviewMeta';
+import {
+  FoundationButtonPreview,
+  FoundationModalFramePreview,
+  FoundationModalOverlayPreview,
+  FoundationModalShellPreview,
+  FoundationSelectableCardPreview,
+} from './foundation/FoundationPreviewComponents';
 
 // ── Preview Props ─────────────────────────────────────────────────────────────
 //
@@ -175,10 +183,16 @@ type RegistryEntry    = MetaBasedEntry | PrefixBasedEntry | DefaultEntry;
 
 const PREVIEW_REGISTRY: RegistryEntry[] = [
     { strategy: 'meta', metaKey: 'preview_kind', metaValue: 'typography', component: TypographyPreview },
+    { strategy: 'meta', metaKey: 'preview_kind', metaValue: 'modal_shell', component: FoundationModalShellPreview },
+    { strategy: 'meta', metaKey: 'preview_kind', metaValue: 'modal_overlay', component: FoundationModalOverlayPreview },
+    { strategy: 'meta', metaKey: 'preview_kind', metaValue: 'modal_frame', component: FoundationModalFramePreview },
+    { strategy: 'meta', metaKey: 'preview_kind', metaValue: 'selectable_card', component: FoundationSelectableCardPreview },
+    { strategy: 'meta', metaKey: 'preview_kind', metaValue: 'button', component: FoundationButtonPreview },
     { strategy: 'prefix',  prefix: 'city_card_',    component: CityCardPreview },
     { strategy: 'prefix',  prefix: 'journey_',      component: JourneyPreview  },
     { strategy: 'prefix',  prefix: 'diary_',        component: DiaryPreview    },
     { strategy: 'prefix',  prefix: 'admin_',        component: AdminPreview    },
+    { strategy: 'prefix',  prefix: 'foundation_btn_', component: FoundationButtonPreview },
     { strategy: 'default',                           component: GenericPreview  },
 ];
 
@@ -239,7 +253,7 @@ const ComponentPreviewHost: React.FC<ComponentPreviewHostProps> = ({
     isMobile = false,
 }) => {
     const styleClass    = constructClassName(rule);
-    const resolvedMeta  = meta ?? COMPONENT_PREVIEW_META[componentKey];
+    const resolvedMeta  = meta ?? COMPONENT_PREVIEW_META[componentKey] ?? getFoundationPreviewMetaForKey(componentKey);
     const PreviewComponent = resolvePreviewComponent(componentKey, resolvedMeta);
 
     const containerClasses = [

@@ -17,6 +17,8 @@ import { SuitcaseCategory } from '@/types/suitcase';
 import { CategoryIconPicker } from './CategoryIconPicker';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { getIconByName } from './SuitcaseUtils';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 
 export interface CategorySetupConfigurationResult {
   categorySetup: CategorySetupMap;
@@ -265,6 +267,9 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
 
   useGlobalModalEscape(isOpen, onClose);
 
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+
   useLayoutEffect(() => {
     if (!isOpen) return;
 
@@ -338,7 +343,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
 
   return createPortal(
     <div
-      className="td-modal-overlay flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300"
+      className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
       onClick={onClose}
     >
@@ -348,7 +353,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
         role="dialog"
         aria-modal="true"
         aria-labelledby="category-setup-title"
-        className="relative w-full max-w-3xl bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.75)] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 flex flex-col max-h-[calc(100dvh-var(--header-height)-env(safe-area-inset-bottom,0px)-0.5rem)] sm:max-h-[calc(100dvh-var(--header-height)-2rem)] overflow-hidden outline-none pb-safe sm:pb-0"
+        className={`${containerShell} max-w-3xl outline-none sm:max-h-[calc(100dvh-var(--header-height)-2rem)] shadow-[0_30px_100px_rgba(0,0,0,0.75)]`}
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
       >
