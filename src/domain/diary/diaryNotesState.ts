@@ -243,3 +243,32 @@ export function moveDiaryNoteTabBefore(
 export function moveDiaryNoteTabToEnd(state: DiaryNotesState, tabId: string): DiaryNotesState {
   return moveDiaryNoteTab(state, tabId, state.tabs.length - 1);
 }
+
+/** Raggruppamento undo per distinguere editing testo (merge) da operazioni strutturali. */
+export function getDiaryNotesUndoGrouping(
+  previous: DiaryNotesState | null,
+  next: DiaryNotesState,
+): { merge: boolean; groupId: string } {
+  if (!previous) {
+    return { merge: false, groupId: 'diary-notes-structure' };
+  }
+
+  const sameTabOrder =
+    previous.tabs.length === next.tabs.length &&
+    previous.tabs.every((tab, index) => tab.id === next.tabs[index]?.id);
+
+  const sameTitles =
+    sameTabOrder &&
+    previous.tabs.every((tab, index) => tab.title === next.tabs[index]?.title);
+
+  const sameActiveTab = previous.activeTabId === next.activeTabId;
+
+  if (!sameTabOrder || !sameTitles || !sameActiveTab) {
+    return { merge: false, groupId: 'diary-notes-structure' };
+  }
+
+  return {
+    merge: true,
+    groupId: `diary-notes-doc-${next.activeTabId}`,
+  };
+}

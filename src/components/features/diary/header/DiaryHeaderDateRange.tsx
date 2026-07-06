@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { CustomCalendar } from '@/components/common/CustomCalendar';
 import { Itinerary } from '@/types';
+import { DiaryHeaderUndoRedo } from './DiaryHeaderUndoRedo';
 
 interface DiaryHeaderDateRangeProps {
     itinerary: Itinerary;
@@ -19,10 +20,15 @@ interface DiaryHeaderDateRangeProps {
     setDisplayEndDate: (v: string) => void;
     isEndCalendarOpen: boolean;
     endMinDateStr: string;
+    onUndo?: () => void;
+    onRedo?: () => void;
+    canUndo?: boolean;
+    canRedo?: boolean;
 }
 
 export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
-    itinerary, displayStartDate, setDisplayStartDate, handleDateBlur, isStartCalendarOpen, setIsStartCalendarOpen, setIsEndCalendarOpen, minDateStr, handleLocalDateChange, setDateToClear, highlightDates, displayEndDate, setDisplayEndDate, isEndCalendarOpen, endMinDateStr
+    itinerary, displayStartDate, setDisplayStartDate, handleDateBlur, isStartCalendarOpen, setIsStartCalendarOpen, setIsEndCalendarOpen, minDateStr, handleLocalDateChange, setDateToClear, highlightDates, displayEndDate, setDisplayEndDate, isEndCalendarOpen, endMinDateStr,
+    onUndo, onRedo, canUndo, canRedo,
 }) => {
     // Anchor refs for portaled calendar positioning.
     // The calendar portals to document.body (escaping TravelDiary's overflow-hidden).
@@ -31,8 +37,9 @@ export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
     const endAnchorRef = useRef<HTMLDivElement>(null);
 
     return (
-        <div className="flex items-center gap-3">
-            <div className="flex-1" ref={startAnchorRef}>
+        <div className="flex items-center w-full min-w-0 gap-3">
+            <div className="flex flex-1 min-w-0 items-center gap-3">
+                <div className="flex-1 min-w-0" ref={startAnchorRef}>
                 <div className={`flex items-center bg-slate-800 rounded border h-9 overflow-hidden ${highlightDates ? 'border-red-500 ring-2 ring-red-500 animate-pulse' : 'border-slate-700'}`}>
                     <div className="h-full w-10 flex items-center justify-center border-r border-slate-600/50 bg-slate-900/30 shrink-0">
                          <span className="text-[10px] font-bold text-amber-500 uppercase leading-none">Dal</span>
@@ -80,7 +87,7 @@ export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
                     anchorRef={startAnchorRef}
                 />
             </div>
-            <div className="flex-1" ref={endAnchorRef}>
+            <div className="flex-1 min-w-0" ref={endAnchorRef}>
                 <div className={`flex items-center bg-slate-800 rounded border h-9 overflow-hidden ${highlightDates ? 'border-red-500 ring-2 ring-red-500 animate-pulse' : 'border-slate-700'}`}>
                     <div className="h-full w-10 flex items-center justify-center border-r border-slate-600/50 bg-slate-900/30 shrink-0">
                         <span className="text-[10px] font-bold text-amber-500 uppercase leading-none">Al</span>
@@ -126,6 +133,16 @@ export const DiaryHeaderDateRange: React.FC<DiaryHeaderDateRangeProps> = ({
                     onClose={() => setIsEndCalendarOpen(false)}
                     onClearRequest={() => setDateToClear('endDate')}
                     anchorRef={endAnchorRef}
+                />
+            </div>
+            </div>
+
+            <div className="flex shrink-0 items-center">
+                <DiaryHeaderUndoRedo
+                    onUndo={onUndo}
+                    onRedo={onRedo}
+                    canUndo={canUndo}
+                    canRedo={canRedo}
                 />
             </div>
         </div>

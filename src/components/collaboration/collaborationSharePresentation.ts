@@ -48,7 +48,7 @@ export interface WorkspacePendingInvite {
 export function getWizardStepTitle(wizardStep: WizardStep, sharePath?: SharePath): string {
   if (wizardStep === 'path') return 'Come vuoi condividere?';
   if (wizardStep === 'mode') return 'Scegli la modalità';
-  if (wizardStep === 'share_intent') return 'Cosa vuoi condividere?';
+  if (wizardStep === 'share_intent') return 'Elemento condiviso';
   if (wizardStep === 'invite') return 'Invita collaboratori';
   if (wizardStep === 'workspace_setup') return 'Configura il Workspace';
   if (wizardStep === 'workspace_composition') return 'Composizione risorse';

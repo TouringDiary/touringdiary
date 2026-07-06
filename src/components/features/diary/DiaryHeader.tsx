@@ -541,6 +541,10 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                     setDisplayEndDate={setDisplayEndDate}
                     isEndCalendarOpen={isEndCalendarOpen}
                     endMinDateStr={endMinDateStr}
+                    onUndo={onUndo}
+                    onRedo={onRedo}
+                    canUndo={canUndo}
+                    canRedo={canRedo}
                 />
                 
                 {days.length > 0 && (
@@ -549,10 +553,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
                         tabsContainerRef={tabsContainerRef}
-                        onUndo={onUndo}
-                        onRedo={onRedo}
-                        canUndo={canUndo}
-                        canRedo={canRedo}
                     />
                 )}
             </div>

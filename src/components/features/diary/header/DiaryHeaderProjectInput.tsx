@@ -192,7 +192,7 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                             className={SHARE_ITEM_CLASS}
                         >
                             <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" aria-hidden />
-                            Condividi con altri utenti
+                            Condividi
                         </button>
                         {isAlreadyPublished ? (
                             <div
@@ -212,7 +212,7 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                                 title={!canPublish && !isGuest ? 'Aggiungi tappe e un nome al viaggio' : undefined}
                             >
                                 <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden />
-                                Pubblica nella Community
+                                Pubblica in Community
                             </button>
                         )}
                     </AnchoredPopover>

@@ -14,6 +14,8 @@ import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
 import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 import { useCollaborationLive, useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
 import { stampItineraryItemAuthor } from '@/domain/diary/diaryAuthorTracking';
+import { getDiaryNotesUndoGrouping } from '@/domain/diary/diaryNotesState';
+import { randomUUID } from '@/utils/runtimeId';
 
 interface UseDiaryLogicProps {
     user: User;
@@ -390,25 +392,33 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
 
     const handleDiaryNotesChange = useCallback((notesState: DiaryNotesState) => {
         if (guardCollaborativeWrite()) return;
-        setItinerary(prev => {
-            const previousValue = prev.diaryNotes ?? null;
-            if (snapshotsEqual(previousValue, notesState)) {
-                return prev;
-            }
-            pushAction({
-                id: 'diary-notes',
-                type: 'diaryNotes',
-                payload: {
-                    previousValue,
-                    newValue: notesState,
-                },
-                label: 'Note di viaggio',
-                merge: true,
-                groupId: 'diary-notes',
-            });
-            return { ...prev, diaryNotes: notesState };
+
+        const previousValue = itinerary.diaryNotes ?? null;
+        if (snapshotsEqual(previousValue, notesState)) return;
+
+        const { merge, groupId } = getDiaryNotesUndoGrouping(previousValue, notesState);
+
+        // Per editing con merge, pushAction conserva il previousValue della prima azione
+        // del gruppo: digitazione rapida resta corretta anche se itinerary non è ancora
+        // ridisegnato tra un onUpdate e il successivo.
+        pushAction({
+            id: merge ? groupId : `diary-notes-${randomUUID()}`,
+            type: 'diaryNotes',
+            payload: {
+                previousValue,
+                newValue: notesState,
+            },
+            label: 'Note di viaggio',
+            merge,
+            groupId,
         });
-    }, [setItinerary, pushAction, guardCollaborativeWrite]);
+
+        setItinerary((prev) =>
+            snapshotsEqual(prev.diaryNotes ?? null, notesState)
+                ? prev
+                : { ...prev, diaryNotes: notesState },
+        );
+    }, [itinerary.diaryNotes, setItinerary, pushAction, guardCollaborativeWrite]);
 
     const guardedUpdateDayStyle = useCallback((dayIndex: number, className: string) => {
         if (guardCollaborativeWrite()) return;

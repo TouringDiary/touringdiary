@@ -97,6 +97,30 @@
   border-right-color: rgb(71 85 105); /* slate-600 */
 }
 
+.diary-header-tab--inactive:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.diary-header-tab--inactive:disabled:hover {
+  background-color: rgb(30 41 59); /* slate-800 */
+  border-color: rgb(51 65 85); /* slate-700 */
+  color: rgb(148 163 184); /* slate-400 */
+}
+
+/* Pulsanti icona (Undo / Redo) — stessa famiglia grafica dei tab, senza label */
+.diary-header-tab--icon-only {
+  width: 1.75rem;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.diary-header-tab--icon-only svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 /* Mobile: tab ALL / DAY / NOTE solo testo — libera spazio per le frecce scroll */
 @media (max-width: 639px) {
   .diary-header-tab--all .diary-header-tab__icon-well,

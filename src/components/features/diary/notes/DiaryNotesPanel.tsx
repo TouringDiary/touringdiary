@@ -112,8 +112,8 @@ export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
         isOpen={!!deleteTabId}
         onClose={() => setDeleteTabId(null)}
         onConfirm={confirmDeleteTab}
-        title="Eliminare definitivamente questa nota?"
-        message="Questa operazione non può essere annullata."
+        title="Eliminare definitivamente?"
+        message="L'operazione non può essere annullata."
         confirmLabel="Elimina"
         cancelLabel="Annulla"
         variant="danger"

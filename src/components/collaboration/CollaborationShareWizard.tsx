@@ -139,8 +139,8 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
       <div className="space-y-3">
         <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <p className={bodyTextShell}>
-          Scegli se condividere la risorsa attuale o una copia dedicata alla collaborazione.
-          La tua versione personale può restare invariata come archivio o modello.
+          Scegli se condividere questo elemento o una copia dedicata.
+          La tua versione personale può restare invariata o essere modificata in condivisione.
         </p>
         <OptionCard
           selected={shareIntent === 'duplicate_and_share'}
@@ -171,7 +171,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200/90">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
             <p>
-              Attenzione: i collaboratori modificheranno la stessa risorsa che usi nel tuo spazio
+              Attenzione: sarà modificato l'elemento del tuo spazio
               personale. Per tenerne una copia invariata, scegli «Condividi Duplicato».
             </p>
           </div>
