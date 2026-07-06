@@ -1,7 +1,11 @@
-import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
+import { Z_MODAL, Z_MODAL_NESTED, Z_OVERLAY } from '@/constants/zIndex';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Share2 } from 'lucide-react';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { User } from '@/types/users';
 import type {
   CollaborativeMemberRole,
@@ -23,7 +27,6 @@ import {
   removeSharedResourceMember,
   resendResourceInvite,
   revokeResourceInvite,
-  searchUsersForCollaborationInvite,
   sendResourceInvite,
   setSharedResourceMember,
   updateShareableResourceMode,
@@ -43,7 +46,6 @@ import { CollaborationShareWizard } from './CollaborationShareWizard';
 import { CollaborationWizardFooter } from './CollaborationWizardFooter';
 import { WizardStepIndicator } from './WizardStepIndicator';
 import {
-  getWizardStepTitle,
   type ModalView,
   type PendingInvite,
   type ShareIntent,
@@ -51,6 +53,7 @@ import {
   type WizardStep,
   type WorkspacePendingInvite,
 } from './collaborationSharePresentation';
+import { useCollaborationInviteSearch } from './useCollaborationInviteSearch';
 
 export interface CollaborationShareModalProps {
   isOpen: boolean;
@@ -85,9 +88,9 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<CollaborationUserSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [selectedRole, setSelectedRole] = useState<CollaborativeMemberRole>('collaborator');
+  const [revokeMemberTarget, setRevokeMemberTarget] = useState<SharedResourceMemberWithProfile | null>(null);
+  const [revokeInviteTarget, setRevokeInviteTarget] = useState<ResourceInvite | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
   const [workspaceName, setWorkspaceName] = useState('');
@@ -104,7 +107,44 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   const isOpenRef = useRef(isOpen);
   const effectiveResourceIdRef = useRef(resourceId);
   const asyncGenerationRef = useRef(0);
-  const searchGenerationRef = useRef(0);
+
+  const isMobile = useMobileDetect();
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const headerIconBoxShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconBox);
+  const headerIconGlyphShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconGlyph);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+
+  const handleClose = useCallback(() => {
+    if (isSubmitting) return;
+    onClose();
+  }, [isSubmitting, onClose]);
+
+  useGlobalModalEscape(isOpen, handleClose);
+
+  const excludedSearchUserIds = useMemo(
+    () => [
+      user.id,
+      ...pendingInvites.map((invite) => invite.userId),
+      ...members.map((member) => member.userId),
+      ...invites
+        .filter((invite) => invite.status === 'pending')
+        .map((invite) => invite.inviteeId),
+      ...workspacePendingInvites.map((invite) => invite.userId),
+    ],
+    [user.id, pendingInvites, members, invites, workspacePendingInvites]
+  );
+
+  const { searchResults, isSearching } = useCollaborationInviteSearch(
+    user.id,
+    isOpen,
+    searchQuery,
+    excludedSearchUserIds
+  );
 
   useEffect(() => {
     isOpenRef.current = isOpen;
@@ -128,7 +168,6 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
 
   const resetWizardTransientState = useCallback(() => {
     setSearchQuery('');
-    setSearchResults([]);
     setActionError(null);
     setPendingInvites([]);
     setWorkspacePendingInvites([]);
@@ -136,6 +175,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   }, []);
 
   const runSubmittingAction = useCallback(async (action: () => Promise<void>) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
@@ -143,11 +183,10 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     } finally {
       setIsSubmitting(false);
     }
-  }, []);
+  }, [isSubmitting]);
 
   const kindLabel = getSharedResourceKindLabel(kind);
   const resourceLabel = resourceTitle.trim() || kindLabel;
-  const wizardTitle = getWizardStepTitle(wizardStep, sharePath);
 
   const loadWorkspaceWizardData = useCallback(
     async (resourceIdOverride?: string, generation = asyncGenerationRef.current) => {
@@ -250,45 +289,6 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     void refreshCollaborationState(generation, resourceId);
   }, [isOpen, resourceId, refreshCollaborationState, resetWizardTransientState]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const trimmed = searchQuery.trim();
-    if (trimmed.length < 3 && !trimmed.includes('@')) {
-      setSearchResults([]);
-      return;
-    }
-
-    searchGenerationRef.current += 1;
-    const searchGeneration = searchGenerationRef.current;
-
-    const timer = window.setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const results = await searchUsersForCollaborationInvite(user.id, trimmed);
-        if (searchGeneration !== searchGenerationRef.current || !isOpenRef.current) return;
-
-        const excluded = new Set([
-          user.id,
-          ...pendingInvites.map((invite) => invite.userId),
-          ...members.map((member) => member.userId),
-          ...invites
-            .filter((invite) => invite.status === 'pending')
-            .map((invite) => invite.inviteeId),
-          ...workspacePendingInvites.map((invite) => invite.userId),
-        ]);
-        setSearchResults(results.filter((result) => !excluded.has(result.id)));
-      } finally {
-        if (searchGeneration === searchGenerationRef.current) {
-          setIsSearching(false);
-        }
-      }
-    }, 300);
-
-    return () => window.clearTimeout(timer);
-  }, [searchQuery, isOpen, user.id, pendingInvites, members, invites, workspacePendingInvites]);
-
-  useGlobalModalEscape(isOpen, onClose);
-
   const handlePathContinue = async () => {
     setActionError(null);
     if (sharePath === 'simple') {
@@ -310,7 +310,9 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     if (sharePath === 'add_workspace') {
       const targetId = await resolveShareTargetResourceId();
       if (!targetId) return;
+      const generation = asyncGenerationRef.current;
       const workspaces = await listWorkspacesForUser(user.id);
+      if (isAsyncStale(generation)) return;
       setUserWorkspaces(workspaces);
       setWizardStep('workspace_select');
       return;
@@ -328,6 +330,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   };
 
   const handleWizardBack = () => {
+    if (isSubmitting) return;
     setActionError(null);
     if (wizardStep === 'invite') {
       setWizardStep(sharingMode === 'collaborative' ? 'share_intent' : 'mode');
@@ -422,7 +425,6 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       },
     ]);
     setSearchQuery('');
-    setSearchResults([]);
   };
 
   const handleRemoveWorkspacePendingInvite = (userId: string) => {
@@ -492,7 +494,6 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       },
     ]);
     setSearchQuery('');
-    setSearchResults([]);
   };
 
   const handleRemovePendingInvite = (userId: string) => {
@@ -570,29 +571,6 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     });
   };
 
-  const handleRevokeMember = async (memberUserId: string) => {
-    if (!sharedResource) return;
-    await runSubmittingAction(async () => {
-      const result = await removeSharedResourceMember(sharedResource.id, user.id, memberUserId);
-      if (!result.success) {
-        setActionError(result.error ?? 'Impossibile revocare l\'accesso.');
-        return;
-      }
-      await refreshCollaborationState();
-    });
-  };
-
-  const handleRevokeInvite = async (inviteId: string) => {
-    await runSubmittingAction(async () => {
-      const result = await revokeResourceInvite(user.id, inviteId);
-      if (result.success !== true) {
-        setActionError(result.error);
-        return;
-      }
-      await refreshCollaborationState();
-    });
-  };
-
   const handleResendInvite = async (inviteId: string) => {
     await runSubmittingAction(async () => {
       const result = await resendResourceInvite(user.id, inviteId);
@@ -631,51 +609,115 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
         return;
       }
       setSearchQuery('');
-      setSearchResults([]);
       await refreshCollaborationState();
     });
   };
 
   if (!isOpen) return null;
 
+  const modalDescId = 'collaboration-share-desc';
+
   return createPortal(
-    <div
-      className="fixed inset-0 flex items-center justify-center p-4"
-      style={{ zIndex: Z_OVERLAY }}
-      role="presentation"
-    >
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden />
+    <>
+      <DeleteConfirmationModal
+        isOpen={revokeMemberTarget !== null}
+        onClose={() => { if (!isSubmitting) setRevokeMemberTarget(null); }}
+        onConfirm={() => {
+          const target = revokeMemberTarget;
+          if (!target || !sharedResource || isSubmitting) return;
+          void runSubmittingAction(async () => {
+            const result = await removeSharedResourceMember(
+              sharedResource.id,
+              user.id,
+              target.userId
+            );
+            if (!result.success) {
+              setActionError(result.error ?? "Impossibile revocare l'accesso.");
+              return;
+            }
+            setRevokeMemberTarget(null);
+            await refreshCollaborationState();
+          });
+        }}
+        title="Revocare accesso?"
+        message={
+          revokeMemberTarget
+            ? `Stai per revocare l'accesso di ${revokeMemberTarget.userName}.`
+            : ''
+        }
+        confirmLabel="Revoca"
+        isDeleting={isSubmitting}
+        zIndex={Z_MODAL_NESTED}
+      />
+      <DeleteConfirmationModal
+        isOpen={revokeInviteTarget !== null}
+        onClose={() => { if (!isSubmitting) setRevokeInviteTarget(null); }}
+        onConfirm={() => {
+          const target = revokeInviteTarget;
+          if (!target || isSubmitting) return;
+          void runSubmittingAction(async () => {
+            const result = await revokeResourceInvite(user.id, target.id);
+            if (result.success !== true) {
+              setActionError(result.error);
+              return;
+            }
+            setRevokeInviteTarget(null);
+            await refreshCollaborationState();
+          });
+        }}
+        title="Revocare invito?"
+        message="Stai per revocare questo invito in sospeso."
+        confirmLabel="Revoca"
+        isDeleting={isSubmitting}
+        zIndex={Z_MODAL_NESTED}
+      />
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="collaboration-share-title"
-        className="relative w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl"
-        style={{ zIndex: Z_MODAL }}
+        className={`td-modal-overlay ${overlayShell}`}
+        style={{ zIndex: Z_OVERLAY }}
+        onClick={handleClose}
       >
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-slate-800 shrink-0">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-1">
-              Condividi
-            </p>
-            <h2 id="collaboration-share-title" className="text-lg font-bold text-white truncate">
-              {view === 'management' ? 'Gestione collaborazione' : wizardTitle}
-            </h2>
-            <p className="text-xs text-slate-400 mt-1 truncate">
-              {kindLabel}: {resourceLabel}
-            </p>
-          </div>
-          <CloseButton onClose={onClose} />
-        </div>
-
-        {view === 'wizard' && !isLoading && !error && (
-          <WizardStepIndicator
-            wizardStep={wizardStep}
-            sharePath={sharePath}
-            sharingMode={sharingMode}
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="collaboration-share-title"
+          aria-describedby={modalDescId}
+          className={`${containerShell} max-w-lg`}
+          style={{ zIndex: Z_MODAL }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CloseButton
+            onClose={handleClose}
+            variant="primary"
+            position="absolute"
+            withEscape={false}
+            disableIfDirty={isSubmitting}
+            className={`${closeOffsetShell} z-local-overlay`}
           />
-        )}
+          <header className={headerShell}>
+            <div className="flex items-center gap-4 pr-12 min-w-0 w-full">
+              <div className={headerIconBoxShell}>
+                <Share2 className={headerIconGlyphShell} aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <h2 id="collaboration-share-title" className={`${modalTitleShell} mb-1`}>
+                  Condividi
+                </h2>
+                <p id={modalDescId} className={modalSubtitleShell}>
+                  {kindLabel}: {resourceLabel}
+                </p>
+              </div>
+            </div>
+          </header>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {view === 'wizard' && !isLoading && !error && (
+            <WizardStepIndicator
+              wizardStep={wizardStep}
+              sharePath={sharePath}
+              sharingMode={sharingMode}
+            />
+          )}
+
+          <div className={`${bodyShell} flex-1 overflow-y-auto min-h-0 space-y-4`}>
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
@@ -711,6 +753,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               onShareIntentChange={setShareIntent}
               onSelectedRoleChange={setSelectedRole}
               onSearchQueryChange={setSearchQuery}
+              isSubmitting={isSubmitting}
               onAddPendingInvite={handleAddPendingInvite}
               onRemovePendingInvite={handleRemovePendingInvite}
               onWorkspaceNameChange={setWorkspaceName}
@@ -728,14 +771,21 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               selectedRole={selectedRole}
               searchQuery={searchQuery}
               searchResults={searchResults}
+              isSearching={isSearching}
               isSubmitting={isSubmitting}
               canChangeSharingMode={kind === 'suitcase' || kind === 'diary'}
               onSharingModeChange={handleSharingModeChange}
               onSelectedRoleChange={setSelectedRole}
               onSearchQueryChange={setSearchQuery}
               onRoleChange={handleRoleChange}
-              onRevokeMember={handleRevokeMember}
-              onRevokeInvite={handleRevokeInvite}
+              onRevokeMember={(memberUserId) => {
+                const member = members.find((m) => m.userId === memberUserId);
+                if (member) setRevokeMemberTarget(member);
+              }}
+              onRevokeInvite={(inviteId) => {
+                const invite = invites.find((i) => i.id === inviteId);
+                if (invite) setRevokeInviteTarget(invite);
+              }}
               onResendInvite={handleResendInvite}
               onManagementInvite={handleManagementInvite}
             />
@@ -755,7 +805,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
             wizardStep={wizardStep}
             sharePath={sharePath}
             isSubmitting={isSubmitting}
-            onClose={onClose}
+            onClose={handleClose}
             onPathContinue={handlePathContinue}
             onModeContinue={handleModeContinue}
             onShareIntentContinue={() => void runSubmittingAction(handleShareIntentContinue)}
@@ -769,7 +819,8 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
           />
         )}
       </div>
-    </div>,
+    </div>
+    </>,
     document.body
   );
 };

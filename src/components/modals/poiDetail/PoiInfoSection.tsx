@@ -5,6 +5,7 @@ import { PointOfInterest } from '@/types';
 import { enrichAffiliateUrl, PartnerType } from '../../../utils/affiliateNetwork';
 import { affiliateTrackingService } from '../../../services/affiliateTrackingService';
 import { useShare } from '../../../hooks/useShare';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface PoiInfoSectionProps {
     poi: PointOfInterest;
@@ -29,6 +30,7 @@ const PriceHeaderBadge = ({ level }: { level: number }) => {
 };
 
 export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
     const { share } = useShare();
 
     const handleAffiliateClick = (e: React.MouseEvent, partner: PartnerType, rawUrl: string) => {
@@ -194,7 +196,7 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
                 <div className="lg:col-span-2 flex flex-col h-full justify-between">
                     <div className="space-y-4 flex-1">
                         <div className="flex justify-between items-center border-b border-slate-800 pb-1 mb-2">
-                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrizione</h4>
+                            <h4 className={filterSectionLabel10Style}>Descrizione</h4>
                             <button onClick={handleShare} className="text-[10px] font-bold uppercase text-indigo-400 hover:text-white flex items-center gap-1 transition-colors">
                                 <Share2 className="w-3 h-3" /> Condividi
                             </button>

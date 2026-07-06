@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 import type { SuitcaseSourceTab } from '../types/sourceTab';
+import { useBelowLg } from '@/hooks/ui/useBelowLg';
 
 export type { SuitcasePanelViewMode };
 export type { SuitcaseSourceTab };
@@ -19,16 +20,8 @@ export const useFloatingPanelState = (
   const [isNewSuitcaseSession, setIsNewSuitcaseSession] = useState(false);
   const [newSuitcaseId, setNewSuitcaseId] = useState<string | null>(null);
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
-  
-  const [isMobile, setIsMobile] = useState(() => 
-    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
-  );
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 1024);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useBelowLg();
 
   /** Invariante: isNewSuitcaseSession ↔ newSuitcaseId ↔ activeTabId (in editor nuova sessione). */
   const beginNewSuitcaseSession = useCallback((suitcaseId: string) => {

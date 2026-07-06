@@ -17,6 +17,7 @@ import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { useDynamicContent } from '@/hooks/useDynamicContent';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useGps } from '@/context/GpsContext';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 import { WorkspaceQuickAccess } from '@/components/collaboration/workspace/WorkspaceQuickAccess';
 
 interface HeroSectionProps {
@@ -51,32 +52,28 @@ const ISPIRAZIONI_CATEGORIES = [
     { id: 'editor', label: 'SCELTA EDITORIALE', color: 'text-purple-500', badge: 'editor' },
 ];
 
-/**
- * Stile unico del pulsante ESPLORA, riutilizzato in tutte le sezioni della Home.
- * Allineato al pulsante "In Evidenza": compatto, font dal Design System (btn_explore),
- * dimensione/padding/altezza identici ovunque (nessun h-full che lo stira).
- */
-const EXPLORE_BTN_CLASS =
-    'text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-600 transition-colors flex items-center gap-1.5 uppercase font-bold tracking-wide group shrink-0';
+const EXPLORE_BTN_LAYOUT =
+    'inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap';
 
-const ExploreButton: React.FC<{ onClick: (e: React.MouseEvent) => void; isMobile: boolean }> = ({ onClick, isMobile }) => {
-    const btnStyle = useDynamicStyles('btn_explore', isMobile);
+const ExploreButton: React.FC<{ onClick: (e: React.MouseEvent) => void }> = ({ onClick }) => {
+    const btnStyle = useDynamicStyles('btn_explore');
     return (
-        <button onClick={onClick} className={`${btnStyle} ${EXPLORE_BTN_CLASS}`}>
-            <ZoomIn className="w-3.5 h-3.5 text-amber-500 group-hover:text-white transition-colors" /> ESPLORA
+        <button
+            type="button"
+            onClick={onClick}
+            className={btnStyle ? `${EXPLORE_BTN_LAYOUT} ${btnStyle}` : EXPLORE_BTN_LAYOUT}
+        >
+            <ZoomIn
+                className="w-3.5 h-3.5 shrink-0 text-amber-500 group-hover:text-white transition-colors"
+                aria-hidden
+            />
+            <span>ESPLORA</span>
         </button>
     );
 };
 
 const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, onScrollRight, subtitleConfig }: any) => {
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768);
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
+    const isMobile = useMobileCompact();
 
     const titleStyle = useDynamicStyles('section_title', isMobile);
 
@@ -97,7 +94,7 @@ const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, 
                             <button onClick={onScrollRight} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
                         </div>
                     )}
-                    <ExploreButton onClick={onExplore} isMobile={isMobile} />
+                    <ExploreButton onClick={onExplore} />
                 </div>
             </div>
             {subtitleConfig?.text && (
@@ -199,14 +196,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
     const visitedRef = useRef<DraggableSliderHandle>(null);
     const sponsorContainerRef = useRef<HTMLDivElement>(null);
 
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768);
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
+    const isMobile = useMobileCompact();
 
     const titleStyle = useDynamicStyles('section_title', isMobile);
 
@@ -413,7 +403,6 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                                         </div>
                                         <ExploreButton
                                             onClick={() => onExploreSection(dynamicAllCities, "Ispirazioni di Viaggio", <Grid className="w-5 h-5 text-indigo-500" />, ISPIRAZIONI_CATEGORIES)}
-                                            isMobile={isMobile}
                                         />
                                     </div>
                                 </div>

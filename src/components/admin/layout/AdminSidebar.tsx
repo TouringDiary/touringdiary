@@ -3,7 +3,7 @@ import React from 'react';
 import { Lock, LayoutDashboard, Settings, CalendarDays, Map, Store, TrendingUp, Type, Palette, Lightbulb, FileText, Trophy, Camera, Newspaper, Megaphone, Users, ArrowLeft, Brush, Image as ImageIcon, Microscope, Database, Download, Zap, Euro, ShoppingBag, LucideIcon } from 'lucide-react';
 import { User } from '../../../types/users';
 import { getRoleLabel } from '../../../services/userService';
-import { useAdminStyles } from '../../../hooks/useAdminStyles';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { CountBadge } from '@/components/ui/CountBadge';
 
 interface AdminSidebarProps {
@@ -43,7 +43,7 @@ export const AdminSidebar = ({
     editingCityId
 }: AdminSidebarProps) => {
 
-    const { styles } = useAdminStyles();
+    const sidebarLinkClass = useDynamicStyles('admin_sidebar_link');
 
     const displayName = currentUser.name;
     const displayRole = getRoleLabel(currentUser.role);
@@ -53,7 +53,7 @@ export const AdminSidebar = ({
     const NavItem = ({ id, label, icon: Icon, active, badgeCount }: { id: string, label: string, icon: LucideIcon, active: boolean, badgeCount?: number }) => (
         <button
             onClick={() => { onNavigate(id); }}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all ${active ? 'bg-indigo-600 text-white shadow-md font-bold text-sm' : `${styles.admin_sidebar_link} hover:bg-slate-800 hover:text-white`}`}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all ${active ? 'bg-indigo-600 text-white shadow-md font-bold text-sm' : `${sidebarLinkClass} hover:bg-slate-800 hover:text-white`}`}
         >
             <div className="flex items-center gap-3">
                 <Icon className="w-4 h-4" />

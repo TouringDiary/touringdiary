@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Loader2, RefreshCw, XCircle } from 'lucide-react';
+import { RefreshCw, XCircle } from 'lucide-react';
 import type { WorkspaceInvite } from '@/domain/collaboration';
 import { getSharedResourceKindLabel, workspaceResourceKey } from '@/domain/collaboration';
 import type { WorkspaceResourceLabel } from '@/services/collaboration';
@@ -12,7 +12,7 @@ interface Props {
   inviteeProfiles: Record<string, { name: string; slug?: string }>;
   resourceLabels: WorkspaceResourceLabel[];
   isSubmitting: boolean;
-  onRevokeInvite: (inviteId: string) => void;
+  onRequestRevokeInvite: (inviteId: string) => void;
   onResendInvite: (inviteId: string) => void;
 }
 
@@ -21,7 +21,7 @@ export const WorkspaceInvitesSection: React.FC<Props> = ({
   inviteeProfiles,
   resourceLabels,
   isSubmitting,
-  onRevokeInvite,
+  onRequestRevokeInvite,
   onResendInvite,
 }) => {
   const labelByKey = useMemo(
@@ -62,7 +62,7 @@ export const WorkspaceInvitesSection: React.FC<Props> = ({
                   <button
                     type="button"
                     disabled={isSubmitting}
-                    onClick={() => onRevokeInvite(invite.id)}
+                    onClick={() => onRequestRevokeInvite(invite.id)}
                     className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                     title="Revoca invito"
                     aria-label="Revoca invito"
@@ -108,9 +108,3 @@ export const WorkspaceInvitesSection: React.FC<Props> = ({
   </div>
   );
 };
-
-export const WorkspaceInvitesLoading: React.FC = () => (
-  <div className="flex justify-center py-8 text-slate-500">
-    <Loader2 className="w-6 h-6 animate-spin" />
-  </div>
-);

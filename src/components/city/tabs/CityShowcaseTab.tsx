@@ -8,6 +8,7 @@ import { AdPlaceholder } from '../../common/AdPlaceholder';
 import { isPoiNew } from '../../../utils/common';
 import { useInteraction } from '../../../context/InteractionContext'; 
 import { CategorySponsorColumn } from './CategorySponsorColumn';
+import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
 
 type VetrinaSubTab = 'novita' | 'community' | 'natura';
 
@@ -63,6 +64,7 @@ const NATURE_MENU = [
 ];
 
 export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPoiDetail, onAddToItinerary, onOpenSponsor, onOpenSuggestion, user, onOpenAuth, userLocation }: Props) => {
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
     const { hasUserLiked, toggleLike } = useInteraction(); 
     const [vetrinaSubTab, setVetrinaSubTab] = useState<VetrinaSubTab>('novita');
     
@@ -259,7 +261,7 @@ export const CityShowcaseTab = ({ city, visibleAllPois, activeSponsors, onOpenPo
                     <div className="flex-1 h-auto lg:h-full overflow-visible lg:overflow-y-auto custom-scrollbar md:px-6 py-4 min-w-0">
                          <div className="flex items-center justify-between mb-6 px-1">
                             <div className="flex items-center gap-2"><activeItem.icon className={`w-4 h-4 ${activeItem.color}`} /><h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest">{activeItem.label}</h4></div>
-                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900 px-2 py-0.5 rounded border border-slate-800">TOP 5</div>
+                            <div className={`${filterSectionLabel10Style} bg-slate-900 px-2 py-0.5 rounded border border-slate-800`}>TOP 5</div>
                          </div>
                          <div className="flex flex-col gap-4 pb-20">
                             {top5Items.map((item, idx) => (

@@ -50,6 +50,10 @@ const typeRule = (
  */
 export const FOUNDATION_DESIGN_RULES: FoundationRuleSeed[] = [
   // ── Shell modale ──────────────────────────────────────────────────────────
+  // TODO(foundation-wave-3): valutare `foundation_modal_overlay_compact` (items-center su tutti i
+  // breakpoint) per eliminare gli override `!items-center` nelle modali compatte.
+  // TODO(foundation-wave-3): valutare centralizzazione delle chiamate shell (overlay/container/body/
+  // title/subtitle) se la proliferazione di useFoundationStyles diventa difficile da mantenere.
   shell(
     'Overlay (aspetto visivo)',
     'foundation_modal_overlay',
@@ -59,6 +63,8 @@ export const FOUNDATION_DESIGN_RULES: FoundationRuleSeed[] = [
   shell(
     'Contenitore modale',
     'foundation_modal_container',
+    // Shell grafica/layout only — il focus accessibile (outline-none, focus-visible:ring)
+    // resta responsabilità del componente quando il container è focusabile (tabIndex={-1}).
     'relative w-full max-w-2xl bg-slate-900 border border-white/10 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.8)] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 fade-in duration-300 flex flex-col max-h-[calc(100dvh-var(--header-height)-env(safe-area-inset-bottom,0px)-0.5rem)] sm:max-h-[90vh] pb-safe sm:pb-0',
     'Contenitore'
   ),

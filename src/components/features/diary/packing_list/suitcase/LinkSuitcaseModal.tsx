@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Briefcase, Link, Loader2 } from 'lucide-react';
 import { LinkModalVariant } from '@/utils/suitcaseAssociation';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
@@ -59,6 +60,8 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
   const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
   const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
 
+  useGlobalModalEscape(isOpen, onCancel);
+
   useEffect(() => {
     if (isOpen) {
       setDiaryName(defaultDiaryName);
@@ -86,14 +89,18 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
 
   return createPortal(
     <div
-      className={`td-modal-overlay ${overlayShell}`}
+      className={`td-modal-overlay ${overlayShell} !items-center`}
       style={{ zIndex: Z_MODAL_NESTED }}
       onClick={onCancel}
     >
       <div
-        className={`${containerShell} max-w-md outline-none`}
+        className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL_NESTED }}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="link-suitcase-title"
+        aria-describedby="link-suitcase-desc"
       >
         <CloseButton
           onClose={onCancel}
@@ -102,16 +109,16 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
           className={`${closeOffsetShell} z-local-overlay`}
         />
 
-        <div className={`${bodyShell} flex flex-col items-center text-center gap-6`}>
+        <div className={`${bodyShell} flex flex-col items-center text-center gap-4 min-h-0`}>
           <div className="w-20 h-20 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/30">
-            <Briefcase className="w-10 h-10 text-indigo-400" />
+            <Briefcase className="w-10 h-10 text-indigo-400" aria-hidden />
           </div>
 
           <div>
-            <h3 className={`${modalTitleShell} mb-3`}>
+            <h3 id="link-suitcase-title" className={`${modalTitleShell} mb-3`}>
               {copy.title}
             </h3>
-            <p className={`${modalSubtitleShell} leading-relaxed max-w-[300px] mx-auto`}>
+            <p id="link-suitcase-desc" className={`${modalSubtitleShell} leading-relaxed max-w-[300px] mx-auto`}>
               {copy.message}
             </p>
           </div>
@@ -127,7 +134,7 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
                   type="text"
                   value={diaryName}
                   onChange={(e) => setDiaryName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                   placeholder="Es. Vacanze Estive 2025"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && canSubmit) handleSubmit();
@@ -146,7 +153,7 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
                   type="text"
                   value={suitcaseName}
                   onChange={(e) => setSuitcaseName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                   placeholder="Es. Valigia Mare"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && canSubmit) handleSubmit();
@@ -157,6 +164,7 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
 
             <div className="flex flex-col gap-3 pt-2">
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={!canSubmit}
                 className={`w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest ${
@@ -164,14 +172,15 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
                 }`}
               >
                 {isSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                 ) : (
-                  <Link className="w-4 h-4" />
+                  <Link className="w-4 h-4" aria-hidden />
                 )}
                 {isSubmitting ? 'Associazione in corso...' : 'Salva e associa'}
               </button>
 
               <button
+                type="button"
                 onClick={onCancel}
                 disabled={isSubmitting}
                 className="w-full bg-slate-800/50 hover:bg-slate-800 text-slate-400 font-bold py-4 rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/5"

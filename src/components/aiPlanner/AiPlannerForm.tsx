@@ -131,6 +131,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
     const textStyle = useDynamicStyles('planner_text', isMobile);
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
 
     useEffect(() => {
         if (showDailyLogistics && aiSession.dailyLogistics.length === 0) {
@@ -380,7 +381,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
 
                             <div className="pt-2">
                                 <div className="flex justify-between items-end mb-2 px-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                    <label className={`${filterSectionLabel10Style} flex items-center gap-2`}>
                                         <Navigation className="w-3.5 h-3.5"/> DISTANZA MASSIMA SPOSTAMENTI
                                     </label>
                                     <span className="text-sm font-black text-indigo-400">{aiSession.globalMaxDistance} km</span>
@@ -459,7 +460,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
                     
                     <div className="pt-2">
                         <div className="flex justify-between items-end mb-2 px-1">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <label className={`${filterSectionLabel10Style} flex items-center gap-2`}>
                                 <Coffee className="w-3.5 h-3.5"/> Pausa Relax tra le tappe
                             </label>
                             <span className="text-sm font-black text-amber-500">{aiSession.bufferMinutes} min</span>

@@ -6,7 +6,7 @@ import {
     CheckCircle, AlertCircle, Trash2, Clock, Globe,
     ChevronRight, ArrowRight, ToggleLeft as Toggle, ToggleRight
 } from 'lucide-react';
-import { useAdminStyles } from '../../hooks/useAdminStyles';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { AdminPageHeader } from './common/AdminPageHeader';
 import { AdminSectionCard } from './common/AdminSectionCard';
 import * as aiAdmin from '../../services/aiAdminService';
@@ -28,7 +28,9 @@ type PlanLimitField = 'soft_daily_limit' | 'burst_allowed' | 'models';
 type PlanLimitValue = string | number | boolean | { flash: string | number; pro: string | number };
 
 export const AiLimitsControlCenter = () => {
-    const { styles } = useAdminStyles();
+    const pageSubtitleClass = useDynamicStyles('admin_page_subtitle');
+    const tableHeadClass = useDynamicStyles('admin_table_head');
+    const tableCellClass = useDynamicStyles('admin_table_cell');
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isUserListLoading, setIsUserListLoading] = useState(false);
     const [isSaving, setIsSaving] = useState<string | null>(null);
@@ -214,7 +216,7 @@ export const AiLimitsControlCenter = () => {
         return (
             <div className="flex flex-col items-center justify-center p-20 gap-4">
                 <Loader2 className="w-12 h-12 animate-spin text-indigo-500" />
-                <p className={styles.admin_page_subtitle}>Caricamento AI Limits Manager...</p>
+                <p className={pageSubtitleClass}>Caricamento AI Limits Manager...</p>
             </div>
         );
     }
@@ -367,12 +369,12 @@ export const AiLimitsControlCenter = () => {
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
                             <tr className="bg-slate-850">
-                                <th className={`p-4 border-b border-slate-800 ${styles.admin_table_head}`}>Piano & Durata</th>
-                                <th className={`p-4 border-b border-slate-800 text-center ${styles.admin_table_head}`}>3. Soft Daily Limit</th>
-                                <th className={`p-4 border-b border-slate-800 text-center ${styles.admin_table_head}`}>4. Flash Monthly</th>
-                                <th className={`p-4 border-b border-slate-800 text-center ${styles.admin_table_head}`}>4. Pro Monthly</th>
-                                <th className={`p-4 border-b border-slate-800 text-center ${styles.admin_table_head}`}>5. Burst Fallback</th>
-                                <th className={`p-4 border-b border-slate-800 text-right ${styles.admin_table_head}`}>Azioni</th>
+                                <th className={`p-4 border-b border-slate-800 ${tableHeadClass}`}>Piano & Durata</th>
+                                <th className={`p-4 border-b border-slate-800 text-center ${tableHeadClass}`}>3. Soft Daily Limit</th>
+                                <th className={`p-4 border-b border-slate-800 text-center ${tableHeadClass}`}>4. Flash Monthly</th>
+                                <th className={`p-4 border-b border-slate-800 text-center ${tableHeadClass}`}>4. Pro Monthly</th>
+                                <th className={`p-4 border-b border-slate-800 text-center ${tableHeadClass}`}>5. Burst Fallback</th>
+                                <th className={`p-4 border-b border-slate-800 text-right ${tableHeadClass}`}>Azioni</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
@@ -388,7 +390,7 @@ export const AiLimitsControlCenter = () => {
                                  
                                  return (
                                      <tr key={ver.id} className="hover:bg-slate-800/40 transition-colors">
-                                         <td className={`p-4 ${styles.admin_table_cell}`}>
+                                         <td className={`p-4 ${tableCellClass}`}>
                                              <div className="font-bold text-white">{plan?.name || 'Sconosciuto'}</div>
                                              <div className="text-[10px] text-slate-500 font-mono italic">{ver.duration_days} giorni - {ver.price}{ver.currency}</div>
                                          </td>

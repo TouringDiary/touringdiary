@@ -257,12 +257,13 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
       <div
         ref={dialogPanelRef}
         tabIndex={-1}
-        className={`${containerShell} max-w-lg outline-none`}
+        className={`${containerShell} max-w-lg outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="personalized-suitcase-title"
+        aria-describedby="personalized-suitcase-desc"
       >
         <CloseButton
           onClose={onClose}
@@ -281,7 +282,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
               <h2 id="personalized-suitcase-title" className={`${modalTitleShell} truncate`}>
                 Valigia Personalizzata
               </h2>
-              <p className={modalSubtitleShell}>
+              <p id="personalized-suitcase-desc" className={modalSubtitleShell}>
                 Combina template e valigie adatte al tuo viaggio.
               </p>
             </div>

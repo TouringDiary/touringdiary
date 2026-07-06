@@ -8,7 +8,7 @@ import { findWorkspaceResourceLabel } from '@/services/collaboration';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import type { WorkspacePendingInvite } from './collaborationSharePresentation';
 import { WORKSPACE_ACCESS_LABELS } from './workspace/workspacePresentation';
-import { WorkspaceResourcePermissionSelect } from './workspace/WorkspaceResourcePermissionSelect';
+import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
 
 interface WorkspaceSetupStepProps {
   workspaceName: string;
@@ -209,37 +209,13 @@ export const WorkspaceInviteSearch: React.FC<WorkspaceInviteSearchProps> = ({
   onSearchQueryChange,
   onAddInvite,
 }) => (
-  <div className="space-y-2">
-    <input
-      type="text"
-      value={searchQuery}
-      onChange={(e) => onSearchQueryChange(e.target.value)}
-      placeholder="Cerca per email o Nome utente"
-      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500"
-    />
-    {isSearching && <p className="text-xs text-slate-500">Ricerca...</p>}
-    {searchResults.map((result) => (
-      <button
-        key={result.id}
-        type="button"
-        onClick={() => onAddInvite(result)}
-        className="w-full flex items-center gap-3 rounded-lg border border-slate-800 px-3 py-2 text-left hover:bg-slate-800/80"
-      >
-        <span className="text-sm text-white">{result.name}</span>
-      </button>
-    ))}
-  </div>
+  <CollaborationUserInviteSearch
+    searchQuery={searchQuery}
+    onSearchQueryChange={onSearchQueryChange}
+    searchResults={searchResults}
+    isSearching={isSearching}
+    onSelectUser={onAddInvite}
+    placeholder="Cerca per email o Nome utente"
+    showSearchIcon={false}
+  />
 );
-
-export const WorkspacePermissionMatrixRow: React.FC<{
-  resourceTitle: string;
-  value: WorkspacePendingInvite['permissions'][number]['accessLevel'];
-  onChange: (value: WorkspacePendingInvite['permissions'][number]['accessLevel']) => void;
-}> = ({ resourceTitle, value, onChange }) => (
-  <div className="flex items-center justify-between gap-2">
-    <span className="text-xs text-slate-400 truncate">{resourceTitle}</span>
-    <WorkspaceResourcePermissionSelect value={value} onChange={onChange} />
-  </div>
-);
-
-export { WORKSPACE_ACCESS_LABELS };

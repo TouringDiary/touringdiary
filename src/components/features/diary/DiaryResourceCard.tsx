@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
-import { Phone, Eye, Trash2, Pin, Globe, Mail } from 'lucide-react';
+import React from 'react';
+import { Phone, Eye, Trash2, Pin, Globe } from 'lucide-react';
 import { ItineraryItem } from '@/types';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 
 interface DiaryResourceCardProps {
     item: ItineraryItem;
@@ -19,15 +20,8 @@ export const DiaryResourceCard: React.FC<DiaryResourceCardProps> = ({
     onRemove 
 }) => {
     const { poi } = item;
-    
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768);
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
 
+    const isMobile = useMobileCompact();
     const poiNameStyle = useDynamicStyles('diary_poi_name', isMobile);
 
     const typeLabel = poi.resourceType === 'guide' ? 'Guida Turistica' : 

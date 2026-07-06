@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, Plus, Edit3, Trash2, X, CheckCircle2, Layout } from 'lucide-react';
-import { Z_ADMIN_MODAL_NESTED } from '@/constants/zIndex';
+import { createPortal } from 'react-dom';
+import { Loader2, Plus, Edit3, Trash2, CheckCircle2, Layout } from 'lucide-react';
+import { Z_ADMIN_MODAL_NESTED, Z_OVERLAY } from '@/constants/zIndex';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { ADMIN_CATEGORY_OPTIONS } from '@/domain/packing/packingCategories';
 import { Suitcase } from '@/types/suitcase';
 import { fetchMasterTemplatesAsync } from '@/services/suitcase/suitcaseEditorialService';
@@ -26,6 +33,18 @@ export const TemplateSpecificItemsTab: React.FC = () => {
   const [items, setItems] = useState<PackingTemplateItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editing, setEditing] = useState<EditState | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PackingTemplateItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isMobile = useMobileDetect();
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+
+  const closeEditModal = useCallback(() => setEditing(null), []);
+  useGlobalModalEscape(editing !== null, closeEditModal);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -59,6 +78,20 @@ export const TemplateSpecificItemsTab: React.FC = () => {
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteTemplateSpecificItemAsync(deleteTarget.id);
+      setDeleteTarget(null);
+      await load();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>;
   }
@@ -84,6 +117,7 @@ export const TemplateSpecificItemsTab: React.FC = () => {
           </div>
           {selectedId && (
             <button
+              type="button"
               onClick={() => setEditing({ template_id: selectedId, category: 'Extra', name: '', sort_order: 0, is_active: true })}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-black rounded-xl"
             >
@@ -100,31 +134,66 @@ export const TemplateSpecificItemsTab: React.FC = () => {
                 <span className="text-[10px] text-slate-500 uppercase font-black block mt-0.5">{item.category}</span>
               </div>
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => setEditing({ ...item, template_id: item.template_id })} className="p-2 rounded-lg hover:bg-white/5 text-slate-500"><Edit3 className="w-3.5 h-3.5" /></button>
-                <button onClick={async () => { await deleteTemplateSpecificItemAsync(item.id); await load(); }} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => setEditing({ ...item, template_id: item.template_id })} className="p-2 rounded-lg hover:bg-white/5 text-slate-500"><Edit3 className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => { if (!isDeleting) setDeleteTarget(item); }} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>
           ))}
         </div>
       </main>
 
-      {editing && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: Z_ADMIN_MODAL_NESTED }}>
-          <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl p-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-white">{editing.id ? 'Modifica' : 'Nuovo'} Item Specifico</h3>
-              <button onClick={() => setEditing(null)} className="p-2 text-slate-500"><X className="w-5 h-5" /></button>
+      <DeleteConfirmationModal
+        isOpen={deleteTarget !== null}
+        onClose={() => { if (!isDeleting) setDeleteTarget(null); }}
+        onConfirm={() => { void handleConfirmDelete(); }}
+        title="Eliminare item specifico?"
+        message={deleteTarget ? `Stai per eliminare "${deleteTarget.name}" da questo template.` : ''}
+        isDeleting={isDeleting}
+        zIndex={Z_ADMIN_MODAL_NESTED}
+      />
+
+      {editing && createPortal(
+        <div
+          className={`td-modal-overlay ${overlayShell} !items-center`}
+          style={{ zIndex: Z_OVERLAY }}
+          onClick={closeEditModal}
+        >
+          <div
+            className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
+            style={{ zIndex: Z_ADMIN_MODAL_NESTED }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="template-specific-edit-title"
+            aria-describedby="template-specific-edit-desc"
+          >
+            <CloseButton
+              onClose={closeEditModal}
+              variant="primary"
+              position="absolute"
+              className={`${closeOffsetShell} z-local-overlay`}
+            />
+            <div className={`${bodyShell} min-h-0 space-y-6`}>
+              <h3 id="template-specific-edit-title" className={modalTitleShell}>
+                {editing.id ? 'Modifica' : 'Nuovo'} Item Specifico
+              </h3>
+              <p id="template-specific-edit-desc" className="sr-only">
+                Compila i campi dell&apos;item specifico e conferma per salvare.
+              </p>
+              <div className="space-y-4">
+                <input type="text" placeholder="Nome" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white" />
+                <select value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white">
+                  {ADMIN_CATEGORY_OPTIONS.map((c) => <option key={c}>{c}</option>)}
+                </select>
+                <input type="number" placeholder="Ordine" value={editing.sort_order} onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white" />
+              </div>
+              <button type="button" onClick={handleSave} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4" aria-hidden /> Conferma
+              </button>
             </div>
-            <div className="space-y-4">
-              <input type="text" placeholder="Nome" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white" />
-              <select value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white">
-                {ADMIN_CATEGORY_OPTIONS.map((c) => <option key={c}>{c}</option>)}
-              </select>
-              <input type="number" placeholder="Ordine" value={editing.sort_order} onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white" />
-            </div>
-            <button onClick={handleSave} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4" /> Conferma</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

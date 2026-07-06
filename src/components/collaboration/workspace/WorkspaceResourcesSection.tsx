@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BookOpen, Briefcase, ExternalLink, FileStack, Loader2, Trash2 } from 'lucide-react';
+import { BookOpen, Briefcase, ExternalLink, FileStack, Trash2 } from 'lucide-react';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { getSharedResourceKindLabel, workspaceResourceKey } from '@/domain/collaboration';
 import type { WorkspaceResource } from '@/domain/collaboration';
@@ -19,7 +19,7 @@ interface Props {
   isOwner: boolean;
   isSubmitting: boolean;
   onOpenResource: (kind: SharedResourceKind, resourceId: string) => void;
-  onRemoveResource: (workspaceResourceId: string) => void;
+  onRequestRemoveResource: (workspaceResourceId: string) => void;
 }
 
 export const WorkspaceResourcesSection: React.FC<Props> = ({
@@ -28,7 +28,7 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
   isOwner,
   isSubmitting,
   onOpenResource,
-  onRemoveResource,
+  onRequestRemoveResource,
 }) => {
   const labelByKey = useMemo(
     () => buildWorkspaceResourceLabelMap(resourceLabels),
@@ -75,7 +75,7 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
                   <button
                     type="button"
                     disabled={isSubmitting}
-                    onClick={() => onRemoveResource(resource.id)}
+                    onClick={() => onRequestRemoveResource(resource.id)}
                     className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                     title="Rimuovi dal Workspace"
                     aria-label="Rimuovi dal Workspace"
@@ -109,9 +109,3 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
   </div>
   );
 };
-
-export const WorkspaceResourcesLoading: React.FC = () => (
-  <div className="flex justify-center py-8 text-slate-500">
-    <Loader2 className="w-6 h-6 animate-spin" />
-  </div>
-);

@@ -7,6 +7,7 @@ import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
 import { useItinerary } from '@/context/ItineraryContext';
 import { affiliateTrackingService } from '../../../services/affiliateTrackingService';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface Props {
     city: CityDetails;
@@ -26,6 +27,8 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
     const [localReviews, setLocalReviews] = useState<any[]>([]);
 
     const operatorsList = city.details.tourOperators || [];
+
+    const filterSectionLabelStyle = useDynamicStyles('filter_section_title');
 
     useEffect(() => {
         const isDesktop = window.innerWidth >= 768;
@@ -203,7 +206,7 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
         <>
             <div className={`md:w-80 border-r border-slate-800 bg-[#0b0f1a] flex flex-col shrink-0 absolute md:relative inset-0 z-dropdown md:z-0 transition-transform duration-300 ${isMobile && mobileView === 'content' ? '-translate-x-full' : 'translate-x-0'}`}>
                 <div className="h-full flex flex-col">
-                     <div className="p-6 border-b border-slate-800 text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                     <div className={`p-6 border-b border-slate-800 ${filterSectionLabelStyle} flex items-center gap-2`}>
                         <Bus className="w-4 h-4"/> Operatori Disponibili
                      </div>
                      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">

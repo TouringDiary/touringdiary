@@ -13,6 +13,7 @@ import { useLogoRasterizer } from '../../hooks/useLogoRasterizer';
 import { normalizeDiaryNotesState } from '@/domain/diary/diaryNotesState';
 import { diaryNotesHasMeaningfulContent } from '@/components/features/diary/notes/diaryNotesDocumentToPlainText';
 import type { DiaryNotesNode } from '@/types/models/DiaryNotes';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -85,6 +86,8 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
     const [genError, setGenError] = useState<string | null>(null);
     
     const [cityNamesMap, setCityNamesMap] = useState<Record<string, string>>({});
+
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
 
 
     // RESET & INIT — solo all'apertura del modale.
@@ -500,7 +503,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                     </div>
 
                     <div className="mb-6">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-3">Formato</label>
+                        <label className={`${filterSectionLabel10Style} block mb-3`}>Formato</label>
                         <div className="grid grid-cols-3 gap-2">
                             {EXPORT_FORMATS.map((fmt) => (
                                 <button key={fmt} onClick={() => setFormat(fmt)} className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${format === fmt ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'}`}>
@@ -511,7 +514,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                     </div>
 
                     <div className="mb-auto">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-3">Opzioni</label>
+                        <label className={`${filterSectionLabel10Style} block mb-3`}>Opzioni</label>
                         <div className="space-y-2">
                              <OptionRow label="Diario Visuale" icon={LayoutList} active={options.details} onClick={() => toggleOption('details')} desc="Timeline completa." disabled={!isExportOptionApplicable('details', format)}/>
                              <OptionRow label="Foto Luoghi" icon={ImageIcon} active={options.photos} onClick={() => toggleOption('photos')} desc="Immagini nella timeline." disabled={!isExportOptionApplicable('photos', format)}/>

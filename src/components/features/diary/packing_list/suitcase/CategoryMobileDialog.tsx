@@ -63,7 +63,7 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
 
   return createPortal(
     <div
-      className={`td-modal-overlay lg:hidden ${overlayShell}`}
+      className={`td-modal-overlay lg:hidden ${overlayShell} !items-center`}
       onClick={onClose}
       style={{ zIndex: Z_OVERLAY }}
     >
@@ -71,8 +71,9 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-label="Pannello categorie valigia"
         tabIndex={-1}
-        className={`${containerShell} max-w-sm outline-none`}
+        className={`${containerShell} max-w-sm outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL_NESTED }}
         onClick={(e) => e.stopPropagation()}
       >

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Filter, LayoutGrid, ChevronRight, Calendar, Plus, Check, ChevronUp, ChevronDown, MapPin } from 'lucide-react';
 import { CityDetails, PointOfInterest } from '@/types';
 import { useItinerary } from '@/context/ItineraryContext';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface Props {
     city: CityDetails;
@@ -16,6 +17,8 @@ export const CityEventsTab = ({ city, onAddToItinerary, isMobile, setMobileView,
     const { itinerary } = useItinerary();
     const [activeEventFilter, setActiveEventFilter] = useState<string>('Tutti');
     const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+
+    const filterSectionLabelStyle = useDynamicStyles('filter_section_title');
 
     const getEventCategories = () => {
         const events = city.details.events || [];
@@ -32,7 +35,7 @@ export const CityEventsTab = ({ city, onAddToItinerary, isMobile, setMobileView,
             <div className="h-full flex flex-col">
                 <div className="p-6 border-b border-slate-800 flex items-center gap-3">
                     <Filter className="w-5 h-5 text-amber-500"/>
-                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">Filtra Eventi</span>
+                    <span className={filterSectionLabelStyle}>Filtra Eventi</span>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
                      <button 

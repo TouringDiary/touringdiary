@@ -1,11 +1,14 @@
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { AlertTriangle, ArrowRightLeft, ArrowRight, Clock } from 'lucide-react';
 import { ItineraryItem } from '../../types/index';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 interface TimeConflictModalProps {
     isOpen: boolean;
@@ -72,6 +75,16 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
     const [itemDestTime, setItemDestTime] = useState<string>(conflictingItem.timeSlotStr);
     const [conflictDestTime, setConflictDestTime] = useState<string>(item.timeSlotStr);
 
+    const isMobile = useMobileDetect();
+    const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+    const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+    const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
+    const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+    const footerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooter);
+    const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+    const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+    const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+
     useEffect(() => {
         if (isOpen) {
             setItemDestTime(conflictingItem.timeSlotStr);
@@ -82,42 +95,60 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
     // ESC Handling
     useGlobalModalEscape(isOpen, onClose);
 
+    const existingItemsInTargetDay = useMemo(
+        () => allItems.filter((i) => i.dayIndex === targetDayIndex),
+        [allItems, targetDayIndex],
+    );
+    const itemDestOccupied = useMemo(
+        () => allItems.filter(
+            (i) => i.dayIndex === targetDayIndex && i.id !== item.id && i.id !== conflictingItem.id,
+        ),
+        [allItems, targetDayIndex, item.id, conflictingItem.id],
+    );
+    const conflictDestOccupied = useMemo(
+        () => allItems.filter(
+            (i) => i.dayIndex === item.dayIndex && i.id !== item.id && i.id !== conflictingItem.id,
+        ),
+        [allItems, item.dayIndex, item.id, conflictingItem.id],
+    );
+
     if (!isOpen) return null;
 
-    const timeSlots = TIME_SLOTS;
-
-    // Tappe nei giorni di destinazione, escluse le due coinvolte nello scambio (si liberano a vicenda).
-    const existingItemsInTargetDay = allItems.filter((i) => i.dayIndex === targetDayIndex);
-    const itemDestOccupied = allItems.filter(
-        (i) => i.dayIndex === targetDayIndex && i.id !== item.id && i.id !== conflictingItem.id,
-    );
-    const conflictDestOccupied = allItems.filter(
-        (i) => i.dayIndex === item.dayIndex && i.id !== item.id && i.id !== conflictingItem.id,
-    );
-
     return createPortal(
-        <div className="td-modal-overlay !p-4 bg-black/95 backdrop-blur-md" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
-             <div 
-                className="relative bg-[#0f172a] w-full max-w-md rounded-3xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col pointer-events-auto"
+        <div
+            className={`td-modal-overlay ${overlayShell} !items-center`}
+            onClick={onClose}
+            style={{ zIndex: Z_OVERLAY }}
+        >
+             <div
+                className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 border-amber-500/30`}
                 style={{ zIndex: Z_MODAL }}
                 onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="time-conflict-title"
+                aria-describedby="time-conflict-desc"
             >
-                
-                {/* HEADER */}
-                <div className="flex justify-between items-start p-6 pb-4 border-b border-slate-800 bg-slate-900/50">
-                    <div className="flex items-start gap-4">
+                <CloseButton
+                    onClose={onClose}
+                    variant="primary"
+                    position="absolute"
+                    className={`${closeOffsetShell} z-local-overlay`}
+                />
+
+                <header className={headerShell}>
+                    <div className="flex items-start gap-4 pr-10 min-w-0">
                          <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20 shrink-0">
-                            <AlertTriangle className="w-8 h-8 text-amber-500 animate-pulse"/>
+                            <AlertTriangle className="w-8 h-8 text-amber-500 animate-pulse" aria-hidden />
                          </div>
-                         <div>
-                            <h3 className="text-2xl font-display font-black text-white leading-none mb-1">Conflitto Orario</h3>
-                            <p className="text-sm text-slate-400 font-medium">Spostamento tappa</p>
+                         <div className="min-w-0">
+                            <h3 id="time-conflict-title" className={`${modalTitleShell} leading-none`}>Conflitto Orario</h3>
+                            <p id="time-conflict-desc" className={`${modalSubtitleShell} mt-1`}>Spostamento tappa</p>
                          </div>
                     </div>
-                    <CloseButton onClose={onClose} variant="primary" className="-mt-2 -mr-2" />
-                </div>
+                </header>
 
-                <div className="p-6 overflow-y-auto custom-scrollbar">
+                <div className={`${bodyShell} min-h-0 overflow-y-auto custom-scrollbar`}>
                     
                     {/* ALERT BANNER */}
                     <div className="flex items-center justify-center mb-6">
@@ -168,6 +199,7 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
                     {/* ACTION 1: SWAP */}
                     <div className="mt-6 mb-8">
                         <button 
+                            type="button"
                             onClick={() => onSwap(itemDestTime, conflictDestTime)} 
                             className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-3 group active:scale-95 border border-indigo-400/20"
                         >
@@ -192,7 +224,7 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
                                 onChange={(e) => setSelectedTime(e.target.value)}
                                 className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white font-mono font-bold focus:border-amber-500 focus:outline-none appearance-none cursor-pointer"
                             >
-                                {timeSlots.map(time => {
+                                {TIME_SLOTS.map(time => {
                                     const conflict = existingItemsInTargetDay.find(i => i.timeSlotStr === time && i.id !== item.id);
                                     return (
                                         <option key={time} value={time} disabled={!!conflict} className={conflict ? "text-slate-600 bg-slate-900 italic" : "text-white font-bold"}>
@@ -202,18 +234,22 @@ export const TimeConflictModal = ({ isOpen, onClose, onConfirm, onSwap, item, ta
                                 })}
                             </select>
                         </div>
-                        <button onClick={() => onConfirm(selectedTime)} className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 rounded-xl transition-colors border border-slate-700 uppercase text-xs tracking-wider">
+                        <button type="button" onClick={() => onConfirm(selectedTime)} className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 rounded-xl transition-colors border border-slate-700 uppercase text-xs tracking-wider">
                             Conferma
                         </button>
                     </div>
 
                 </div>
 
-                <div className="p-4 border-t border-slate-800 bg-slate-950 text-center">
-                     <button onClick={onClose} className="text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors py-2">
+                <footer className={`${footerShell} text-center`}>
+                     <button
+                        type="button"
+                        onClick={onClose}
+                        className="text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors py-2"
+                     >
                         Annulla Operazione
                      </button>
-                </div>
+                </footer>
 
              </div>
         </div>,

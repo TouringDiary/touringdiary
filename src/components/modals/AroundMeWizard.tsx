@@ -9,6 +9,7 @@ import { CitySummary } from '../../types/index';
 import { calculateDistance } from '../../services/geo';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { DraggableSlider, DraggableSliderHandle } from '../common/DraggableSlider';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface Props {
     isOpen?: boolean;
@@ -116,6 +117,9 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
         setMode('gps');
     };
 
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
+    const filterHeaderTitleStyle = useDynamicStyles('filter_header_title');
+
     if (!isOpen) return null;
 
     return createPortal(
@@ -156,7 +160,7 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
                         </div>
                         <div>
                             {/* CHANGED: Text size reduced */}
-                            <h3 className="text-lg font-display font-bold text-white uppercase tracking-wide">Around Me</h3>
+                            <h3 className={filterHeaderTitleStyle}>Around Me</h3>
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Esplorazione Territoriale</p>
                         </div>
                     </div>
@@ -199,7 +203,7 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
                         <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
                             {mode === 'manual' && (
                                 <div className="space-y-2 relative" ref={searchRef}>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Punto di Partenza</label>
+                                    <label className={`${filterSectionLabel10Style} ml-1`}>Punto di Partenza</label>
                                     
                                     <div className="relative group">
                                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-500 transition-colors"/>
@@ -241,7 +245,7 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
                             {/* COMPACT RADIUS SLIDER */}
                             <div className="space-y-2 pt-1">
                                 <div className="flex justify-between items-end px-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Raggio di Ricerca</label>
+                                    <label className={filterSectionLabel10Style}>Raggio di Ricerca</label>
                                     <span className="text-xl font-mono font-black text-white bg-slate-800 px-3 py-0.5 rounded-lg border border-slate-700 shadow-lg">{radius} <span className="text-sm text-slate-400">km</span></span>
                                 </div>
                                 <div className="relative h-6 flex items-center">
@@ -271,7 +275,7 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
                     {mode === 'manual' && selectedCityId && (
                          <div className="pt-2 border-t border-slate-800/50">
                             <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                <h4 className={`${filterSectionLabel10Style} flex items-center gap-2`}>
                                     CITTÀ VICINE ({previewCities.length})
                                 </h4>
                                 <div className="flex gap-2">

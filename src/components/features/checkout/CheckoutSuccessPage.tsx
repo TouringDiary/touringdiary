@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2, Sparkles, ArrowRight, AlertCircle } from 'lucide
 import { supabase } from '@/services/supabaseClient';
 import { useUser } from '@/context/UserContext';
 import { getCurrentUserProfile } from '@/services/userService';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 export const CheckoutSuccessPage: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -14,6 +15,7 @@ export const CheckoutSuccessPage: React.FC = () => {
     
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [error, setError] = useState<string | null>(null);
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
 
     const finalizeCheckout = useCallback(async () => {
         if (!sessionId) {
@@ -109,7 +111,7 @@ export const CheckoutSuccessPage: React.FC = () => {
 
                             <div className="pt-4">
                                 <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ID Sessione</span>
+                                    <span className={filterSectionLabel10Style}>ID Sessione</span>
                                     <span className="text-[10px] font-mono text-slate-400 truncate ml-4 max-w-[200px]">{sessionId}</span>
                                 </div>
                             </div>

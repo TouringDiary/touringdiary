@@ -15,6 +15,7 @@ import { CityRow } from '../rankings/CityRow';
 import { PhotoGrid } from '../rankings/PhotoGrid';
 import { PoiList } from '../rankings/PoiList';
 import { RankingFilters, ALGO_CONFIG } from '../rankings/RankingFilters';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface Props {
     onClose: () => void;
@@ -40,6 +41,8 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
         // Pagination Props
         page, pageSize, totalItems, nextPage, prevPage
     } = useRankingsLogic();
+
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
 
     // ESC Key Management
     useGlobalModalEscape(isOpen, onClose);
@@ -132,7 +135,7 @@ export const FullRankingsModal = ({ onClose, onNavigateToCity, onOpenPoi, onOpen
                             {mainTab === 'cities' && (
                                 <table className="w-full text-left border-collapse">
                                     <thead className="bg-[#0f172a] sticky top-0 z-floating-panel shadow-sm border-b border-slate-800">
-                                        <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                        <tr className={filterSectionLabel10Style}>
                                             <th className="px-4 py-3 text-center cursor-pointer hover:text-white group" onClick={() => handleSort('rank')}><div className="flex justify-center items-center gap-1">Rank <SortIcon col="rank" /></div></th>
                                             <th className="px-4 py-3">Foto</th>
                                             <th className="px-4 py-3 cursor-pointer hover:text-white group" onClick={() => handleSort('name')}><div className="flex items-center gap-1">Città <SortIcon col="name" /></div></th>

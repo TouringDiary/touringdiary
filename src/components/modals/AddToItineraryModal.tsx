@@ -8,6 +8,30 @@ import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { PointOfInterest, ItineraryItem } from '../../types/index';
 import { getDaysArray } from '../../utils/common';
 import { ImageWithFallback } from '../common/ImageWithFallback';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+
+/** Slot orari a intervalli di 15 minuti — stessa griglia usata negli altri modali del Diario. */
+const DIARY_TIME_SLOTS: string[] = (() => {
+    const slots: string[] = [];
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 15) {
+            slots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+        }
+    }
+    return slots;
+})();
+
+function getLocalDateString(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+const MIN_DATE_STR = getLocalDateString();
 
 interface AddToItineraryModalProps {
     isOpen: boolean;
@@ -35,6 +59,14 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
     // ESC Handling
     useGlobalModalEscape(isOpen, onClose);
 
+    const isMobile = useMobileDetect();
+    const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+    const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+    const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+    const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+    const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+    const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+
     
     // NEW: Gestione manuale della vista date
     const [isEditingDates, setIsEditingDates] = useState(false);
@@ -42,16 +74,6 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
     // Local state for date initialization
     const [initStart, setInitStart] = useState('');
     const [initEnd, setInitEnd] = useState('');
-    
-    // Robust local date string
-    const getLocalDateString = () => {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-    };
-    const minDateStr = getLocalDateString();
     
     // Determina se è una risorsa (Guida, Operatore, Servizio)
     const isResource = poi?.resourceType === 'guide' || poi?.resourceType === 'operator' || poi?.resourceType === 'service';
@@ -75,8 +97,8 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
             }
             
             // Inizializza i campi data con i valori attuali o default
-            setInitStart(startDate || minDateStr);
-            setInitEnd(endDate || startDate || minDateStr);
+            setInitStart(startDate || MIN_DATE_STR);
+            setInitEnd(endDate || startDate || MIN_DATE_STR);
             
             setIsRemoving(false); 
         }
@@ -129,21 +151,14 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
         setIsEditingDates(false);
     };
 
-    // Generate time slots (15 min intervals)
-    const timeSlots = [];
-    for (let h = 0; h < 24; h++) {
-        for (let m = 0; m < 60; m += 15) {
-            const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-            timeSlots.push(timeStr);
-        }
-    }
-
     const currentDayIndex = getDayIndex(selectedDate);
+    const tripStartLabel = startDate ?? '';
+    const tripEndLabel = endDate ?? '';
 
     // --- RENDER CONTENT ---
     const modalContent = (
         <div 
-            className="td-modal-overlay !p-4 bg-black/90 backdrop-blur-sm animate-in fade-in"
+            className={`td-modal-overlay ${overlayShell} !items-center`}
             onClick={days.length > 0 ? onClose : undefined}
             style={{ zIndex: Z_OVERLAY }}
         >
@@ -151,17 +166,21 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
             {/* VIEW 1: DATE CONFIGURATION */}
             {(isEditingDates || days.length === 0) ? (
                 <div 
-                    className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6 pointer-events-auto"
+                    className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
                     style={{ zIndex: Z_MODAL }}
                     onClick={(e) => e.stopPropagation()}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="add-itinerary-dates-title"
+                    aria-describedby="add-itinerary-dates-desc"
                 >
-                    
+                    <div className={`${bodyShell} flex flex-col items-center text-center gap-4 min-h-0`}>
                     <div className="text-center mb-6">
                         <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Calendar className="w-8 h-8 text-amber-500"/>
+                            <Calendar className="w-8 h-8 text-amber-500" aria-hidden />
                         </div>
-                        <h3 className="text-xl font-display font-bold text-white mb-2">Configura il tuo Viaggio</h3>
-                        <p className="text-sm text-slate-400">
+                        <h3 id="add-itinerary-dates-title" className={`${modalTitleShell} mb-2`}>Configura il tuo Viaggio</h3>
+                        <p id="add-itinerary-dates-desc" className={modalSubtitleShell}>
                             Prima di aggiungere <strong className="text-white">{poi.name}</strong>, definisci le date del soggiorno.
                         </p>
                     </div>
@@ -172,7 +191,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                                 <label className="text-[10px] font-bold uppercase text-slate-500">Dal</label>
                                 <input 
                                     type="date" 
-                                    min={minDateStr}
+                                    min={MIN_DATE_STR}
                                     value={initStart}
                                     onChange={(e) => setInitStart(e.target.value)}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
@@ -182,7 +201,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                                 <label className="text-[10px] font-bold uppercase text-slate-500">Al</label>
                                 <input 
                                     type="date" 
-                                    min={initStart || minDateStr}
+                                    min={initStart || MIN_DATE_STR}
                                     value={initEnd}
                                     onChange={(e) => setInitEnd(e.target.value)}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
@@ -210,30 +229,35 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                             <CheckCircle className="w-4 h-4"/> Salva Date
                         </button>
                     </div>
+                    </div>
                 </div>
             ) : (
                 // VIEW 2: STANDARD ADD TO ITINERARY (With Dates Pre-set)
                 <div 
-                    className="relative bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 p-6 pointer-events-auto"
+                    className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
                     style={{ zIndex: Z_MODAL }}
                     onClick={(e) => e.stopPropagation()}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="add-itinerary-title"
+                    aria-describedby="add-itinerary-desc"
                 >
-                    
+                    <div className={`${bodyShell} min-h-0`}>
                     <div className="flex justify-between items-start mb-6 border-b border-slate-800 pb-4">
                         <div>
-                            <h3 className="text-xl font-display font-bold text-white flex items-center gap-2">
+                            <h3 id="add-itinerary-title" className={`${modalTitleShell} flex items-center gap-2`}>
                                  {isRemoving 
                                     ? 'Rimuovi Tappa' 
                                     : isResource ? (
                                         <>
-                                            <Briefcase className="w-5 h-5 text-indigo-400"/> Salva Contatto
+                                            <Briefcase className="w-5 h-5 text-indigo-400" aria-hidden /> Salva Contatto
                                         </>
                                     ) : (
                                         'Aggiungi Tappa'
                                     )
                                  }
                             </h3>
-                            <p className="text-xs text-slate-400 mt-1">
+                            <p id="add-itinerary-desc" className={`${modalSubtitleShell} mt-1`}>
                                 {isRemoving 
                                     ? 'Seleziona quale istanza eliminare' 
                                     : isResource 
@@ -245,16 +269,18 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                         <CloseButton 
                             onClose={onClose}
                             variant="primary"
+                            position="absolute"
+                            className={`${closeOffsetShell} z-local-overlay`}
                         />
                     </div>
 
                     {/* TRIP DATES INFO BAR */}
-                    {!isRemoving && (
+                    {!isRemoving && tripStartLabel && tripEndLabel && (
                         <div className="flex justify-between items-center bg-indigo-900/20 border border-indigo-500/20 p-3 rounded-xl mb-4">
                             <div className="flex items-center gap-2 text-indigo-300">
-                                <Calendar className="w-4 h-4"/>
+                                <Calendar className="w-4 h-4" aria-hidden />
                                 <span className="text-xs font-bold uppercase tracking-wide">
-                                    Viaggio: {getFormattedDate(startDate!)} - {getFormattedDate(endDate!)}
+                                    Viaggio: {getFormattedDate(tripStartLabel)} - {getFormattedDate(tripEndLabel)}
                                 </span>
                             </div>
                             <button 
@@ -347,7 +373,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                                                 onChange={(e) => setSelectedTime(e.target.value)}
                                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-amber-500 focus:outline-none cursor-pointer"
                                             >
-                                                {timeSlots.map(time => {
+                                                {DIARY_TIME_SLOTS.map(time => {
                                                     const conflict = existingItems.find(item => item.dayIndex === currentDayIndex && item.timeSlotStr === time);
                                                     const label = time + (conflict ? ` - Occupato` : '');
                                                     return (
@@ -381,6 +407,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                             </div>
                         </>
                     )}
+                    </div>
                 </div>
             )}
         </div>

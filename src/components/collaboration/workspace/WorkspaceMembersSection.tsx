@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Crown, Loader2, Search, Trash2, UserMinus } from 'lucide-react';
+import { Crown, UserMinus } from 'lucide-react';
 import type {
   WorkspaceMemberWithProfile,
   WorkspaceResource,
@@ -11,6 +11,7 @@ import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import type { WorkspaceResourceLabel } from '@/services/collaboration';
 import { buildWorkspaceResourceLabelMap } from '@/services/collaboration';
 import { WorkspaceResourcePermissionSelect } from './WorkspaceResourcePermissionSelect';
+import { CollaborationUserInviteSearch } from '../CollaborationUserInviteSearch';
 
 interface Props {
   resources: WorkspaceResource[];
@@ -25,7 +26,7 @@ interface Props {
   isSearching: boolean;
   onSearchQueryChange: (query: string) => void;
   onInviteUser: (target: CollaborationUserSearchResult) => void;
-  onRemoveMember: (userId: string) => void;
+  onRequestRemoveMember: (userId: string) => void;
   onUpdateMemberPermissions: (
     userId: string,
     permissions: WorkspaceResourcePermissionEntry[]
@@ -45,7 +46,7 @@ export const WorkspaceMembersSection: React.FC<Props> = ({
   isSearching,
   onSearchQueryChange,
   onInviteUser,
-  onRemoveMember,
+  onRequestRemoveMember,
   onUpdateMemberPermissions,
 }) => {
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
@@ -167,7 +168,7 @@ export const WorkspaceMembersSection: React.FC<Props> = ({
                         <button
                           type="button"
                           disabled={isSubmitting}
-                          onClick={() => onRemoveMember(member.userId)}
+                          onClick={() => onRequestRemoveMember(member.userId)}
                           className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                           title="Rimuovi membro"
                           aria-label="Rimuovi membro"
@@ -227,44 +228,14 @@ export const WorkspaceMembersSection: React.FC<Props> = ({
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
             Invita utente
           </h3>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
-              placeholder="Email o Nome utente"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500"
-            />
-          </div>
-          {isSearching && (
-            <p className="text-xs text-slate-500 flex items-center gap-2">
-              <Loader2 className="w-3 h-3 animate-spin" /> Ricerca...
-            </p>
-          )}
-          {searchResults.length > 0 && (
-            <div className="rounded-xl border border-slate-700 overflow-hidden divide-y divide-slate-800">
-              {searchResults.map((result) => (
-                <button
-                  key={result.id}
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => onInviteUser(result)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-800/80 transition-colors disabled:opacity-50"
-                >
-                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 text-xs font-bold shrink-0">
-                    {result.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{result.name}</p>
-                    {result.slug && (
-                      <p className="text-xs text-slate-500 truncate">@{result.slug}</p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <CollaborationUserInviteSearch
+            searchQuery={searchQuery}
+            onSearchQueryChange={onSearchQueryChange}
+            searchResults={searchResults}
+            isSearching={isSearching}
+            isSubmitting={isSubmitting}
+            onSelectUser={onInviteUser}
+          />
         </section>
       )}
     </div>

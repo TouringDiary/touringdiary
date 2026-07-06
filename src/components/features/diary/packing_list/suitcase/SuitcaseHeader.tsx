@@ -12,6 +12,7 @@ import { SuitcaseActionMenu } from './SuitcaseActionMenu';
 import { DocumentSaveStatus } from '@/components/save/DocumentSaveStatus';
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
 import { formatItalianDateTime } from '@/utils/dateFormatters';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 /**
  * Cella quadrata condivisa dei 4 pulsanti azione mobile (Undo, Redo, Visualizza/Modifica, Azione).
@@ -134,6 +135,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
   showShareButton = false,
   canDeleteResource = true,
 }) => {
+  const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
   const isDetailView = viewMode === 'editor' || viewMode === 'viewer';
   const isReadOnlySession =
     isDetailView && activeSuitcase
@@ -451,14 +453,14 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                   title="I template non possono essere collegati al diario"
                 >
                   <Layout className="w-4 h-4 text-slate-500" />
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden md:inline">
+                  <span className={`${filterSectionLabel10Style} hidden md:inline`}>
                     Template · Non associabile
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10">
                   <CloudOff className="w-4 h-4 text-slate-500" />
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden md:inline">Offline</span>
+                  <span className={`${filterSectionLabel10Style} hidden md:inline`}>Offline</span>
                 </div>
               )}
               </div>

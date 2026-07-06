@@ -1,5 +1,8 @@
 import React from 'react';
-import { Copy, FolderPlus, Layers, Loader2, Search, Share2, UserPlus, Users, AlertTriangle } from 'lucide-react';
+import { Copy, FolderPlus, Layers, Share2, UserPlus, Users, AlertTriangle } from 'lucide-react';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { CollaborativeMemberRole, SharingMode, Workspace } from '@/domain/collaboration';
 import { COLLABORATIVE_MEMBER_ROLES } from '@/domain/collaboration';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
@@ -9,6 +12,7 @@ import { OptionCard } from './OptionCard';
 import {
   MODE_LABELS,
   ROLE_LABELS,
+  getWizardStepTitle,
   type PendingInvite,
   type ShareIntent,
   type SharePath,
@@ -23,6 +27,7 @@ import {
   WorkspaceSetupStep,
 } from './WorkspaceShareWizardSteps';
 import { WORKSPACE_ACCESS_LABELS } from './workspace/workspacePresentation';
+import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
 
 export interface CollaborationShareWizardProps {
   wizardStep: WizardStep;
@@ -43,6 +48,7 @@ export interface CollaborationShareWizardProps {
   selectedWorkspaceId: string | null;
   workspacePendingInvites: WorkspacePendingInvite[];
   workspaceDefaultAccess: 'collaborator';
+  isSubmitting?: boolean;
   onSharePathChange: (path: SharePath) => void;
   onSharingModeChange: (mode: SharingMode) => void;
   onShareIntentChange: (intent: ShareIntent) => void;
@@ -92,29 +98,38 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   onSelectWorkspace,
   onAddWorkspacePendingInvite,
   onRemoveWorkspacePendingInvite,
-}) => (
+  isSubmitting = false,
+}) => {
+  const isMobile = useMobileDetect();
+  const sectionTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
+  const bodyTextShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.bodyText, isMobile);
+  const cardLabelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.cardLabel, isMobile);
+  const stepTitle = getWizardStepTitle(wizardStep, sharePath);
+
+  return (
   <>
     {wizardStep === 'path' && (
       <div className="space-y-3">
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <OptionCard
           selected={sharePath === 'simple'}
           onSelect={() => onSharePathChange('simple')}
-          title="Condivisione semplice"
-          description="Condividi solo questa risorsa, senza associarla a un Workspace."
+          title="Condivisione Semplice"
+          description="Condividi senza associarla a un Workspace."
           icon={<Users className="w-5 h-5" />}
         />
         <OptionCard
           selected={sharePath === 'create_workspace'}
           onSelect={() => onSharePathChange('create_workspace')}
-          title="Crea un nuovo Workspace"
-          description="Usa questa risorsa come punto di partenza per un nuovo progetto condiviso."
+          title="Crea Workspace e Condividi"
+          description="Crea un nuovo Workspace e condividi."
           icon={<FolderPlus className="w-5 h-5" />}
         />
         <OptionCard
           selected={sharePath === 'add_workspace'}
           onSelect={() => onSharePathChange('add_workspace')}
-          title="Aggiungi a un Workspace esistente"
-          description="Collega la risorsa a un Workspace che hai già creato."
+          title="Aggiungi ad un Workspace esistente"
+          description="Condividi in un Workspace già creato."
           icon={<Layers className="w-5 h-5" />}
         />
       </div>
@@ -122,23 +137,34 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
 
     {wizardStep === 'share_intent' && (
       <div className="space-y-3">
-        <p className="text-xs text-slate-400 leading-relaxed">
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
+        <p className={bodyTextShell}>
           Scegli se condividere la risorsa attuale o una copia dedicata alla collaborazione.
           La tua versione personale può restare invariata come archivio o modello.
         </p>
         <OptionCard
           selected={shareIntent === 'duplicate_and_share'}
           onSelect={() => onShareIntentChange('duplicate_and_share')}
-          title="Duplica e condividi (consigliato)"
-          description="Verrà creata una copia della risorsa. La tua risorsa personale rimarrà invariata e potrai continuare ad utilizzarla come modello personale."
+          title="Condividi Duplicato"
+          description={
+            <>
+              L&apos;elemento <span className="font-bold text-slate-300">duplicato</span> diventerà quello
+              condiviso.
+            </>
+          }
           icon={<Copy className="w-5 h-5" />}
           recommended
         />
         <OptionCard
           selected={shareIntent === 'share_current'}
           onSelect={() => onShareIntentChange('share_current')}
-          title="Condividi questa risorsa"
-          description="Condividerai direttamente la risorsa attuale. Da questo momento tutte le modifiche effettuate dai collaboratori verranno applicate a questa stessa risorsa."
+          title="Condividi Originale"
+          description={
+            <>
+              L&apos;elemento <span className="font-bold text-slate-300">originale</span> diventerà quello
+              condiviso.
+            </>
+          }
           icon={<Share2 className="w-5 h-5" />}
         />
         {shareIntent === 'share_current' && (
@@ -146,7 +172,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
             <p>
               Attenzione: i collaboratori modificheranno la stessa risorsa che usi nel tuo spazio
-              personale. Per tenerne una copia invariata, scegli «Duplica e condividi».
+              personale. Per tenerne una copia invariata, scegli «Condividi Duplicato».
             </p>
           </div>
         )}
@@ -155,32 +181,39 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
 
     {wizardStep === 'mode' && (
       <div className="space-y-3">
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <OptionCard
           selected={sharingMode === 'collaborative'}
           onSelect={() => onSharingModeChange('collaborative')}
-          title="Modalità Collaborativa"
-          description="Un solo oggetto condiviso. Le modifiche sono visibili a tutti gli utenti autorizzati."
+          title="Modalità Condivisa"
+          description="Lavoro condiviso* tra utenti."
           icon={<Users className="w-5 h-5" />}
         />
         <OptionCard
           selected={sharingMode === 'personal'}
           onSelect={() => onSharingModeChange('personal')}
           title="Modalità Personale"
-          description="Ogni destinatario riceve una copia completa e indipendente, senza sincronizzazione."
+          description="Ogni invitato riceve una copia personale."
           icon={<UserPlus className="w-5 h-5" />}
         />
+        <p className={bodyTextShell}>
+          * Le modifiche diventano visibili agli altri utenti dopo il salvataggio.
+        </p>
       </div>
     )}
 
     {wizardStep === 'invite' && (
       <div className="space-y-4">
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 text-xs text-slate-400">
-          Modalità <span className="text-indigo-300 font-semibold">{MODE_LABELS[sharingMode]}</span>
-          {sharingMode === 'personal' && (
-            <span className="block mt-1">
-              I destinatari riceveranno una copia personale al momento dell&apos;accettazione.
-            </span>
-          )}
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
+        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+          <div className={bodyTextShell}>
+            Modalità <span className="text-indigo-300 font-semibold">{MODE_LABELS[sharingMode]}</span>
+            {sharingMode === 'personal' && (
+              <span className="block mt-1">
+                I destinatari riceveranno una copia personale al momento dell&apos;accettazione.
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -204,43 +237,14 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
             Cerca utente
           </label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
-              placeholder="Email o Nome utente"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500"
-            />
-          </div>
-          {isSearching && (
-            <p className="text-xs text-slate-500 flex items-center gap-2">
-              <Loader2 className="w-3 h-3 animate-spin" /> Ricerca...
-            </p>
-          )}
-          {searchResults.length > 0 && (
-            <div className="rounded-xl border border-slate-700 overflow-hidden divide-y divide-slate-800">
-              {searchResults.map((result) => (
-                <button
-                  key={result.id}
-                  type="button"
-                  onClick={() => onAddPendingInvite(result)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-800/80 transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 text-xs font-bold shrink-0">
-                    {result.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-white truncate">{result.name}</div>
-                    {result.slug && (
-                      <div className="text-xs text-slate-400 truncate">@{result.slug}</div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <CollaborationUserInviteSearch
+            searchQuery={searchQuery}
+            onSearchQueryChange={onSearchQueryChange}
+            searchResults={searchResults}
+            isSearching={isSearching}
+            isSubmitting={isSubmitting}
+            onSelectUser={onAddPendingInvite}
+          />
         </div>
 
         {pendingInvites.length > 0 && (
@@ -254,7 +258,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
                 >
                   <div className="min-w-0">
                     <div className="text-sm text-white truncate">{pending.name}</div>
-                    <div className="text-xs text-slate-400">
+                    <div className={cardLabelShell}>
                       {ROLE_LABELS[pending.role]}
                       {pending.slug ? ` · @${pending.slug}` : ''}
                     </div>
@@ -275,33 +279,43 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
     )}
 
     {wizardStep === 'workspace_setup' && (
-      <WorkspaceSetupStep
+      <div className="space-y-3">
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
+        <WorkspaceSetupStep
         workspaceName={workspaceName}
         workspaceDescription={workspaceDescription}
         onNameChange={onWorkspaceNameChange}
         onDescriptionChange={onWorkspaceDescriptionChange}
       />
+      </div>
     )}
 
     {wizardStep === 'workspace_composition' && (
-      <WorkspaceCompositionStep
+      <div className="space-y-3">
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
+        <WorkspaceCompositionStep
         suggestedComposition={suggestedComposition}
         resourceLabels={compositionLabels}
         selectedKeys={selectedCompositionKeys}
         onToggleResource={onToggleCompositionResource}
       />
+      </div>
     )}
 
     {wizardStep === 'workspace_select' && (
-      <WorkspaceSelectStep
+      <div className="space-y-3">
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
+        <WorkspaceSelectStep
         workspaces={userWorkspaces}
         selectedWorkspaceId={selectedWorkspaceId}
         onSelect={onSelectWorkspace}
       />
+      </div>
     )}
 
     {wizardStep === 'workspace_invite' && (
       <div className="space-y-4">
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <WorkspaceInviteStep
           pendingInvites={workspacePendingInvites}
           defaultAccessLabel={WORKSPACE_ACCESS_LABELS.collaborator}
@@ -317,4 +331,5 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
       </div>
     )}
   </>
-);
+  );
+};

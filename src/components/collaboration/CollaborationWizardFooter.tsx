@@ -1,5 +1,7 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import type { ModalView, SharePath, WizardStep } from './collaborationSharePresentation';
 
 export interface CollaborationWizardFooterProps {
@@ -19,9 +21,6 @@ export interface CollaborationWizardFooterProps {
   onCreateWorkspaceLater: () => void;
   onBack: () => void;
 }
-
-const PRIMARY_BUTTON_CLASS =
-  'px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 flex items-center gap-2';
 
 interface WizardPrimaryAction {
   label: string;
@@ -69,12 +68,16 @@ function resolveWizardPrimaryAction(
         showSpinner: isSubmitting,
       };
     case 'workspace_setup':
-      return { label: 'Continua', onClick: handlers.onWorkspaceSetupContinue };
+      return { label: 'Continua', onClick: handlers.onWorkspaceSetupContinue, disabled: isSubmitting };
     case 'workspace_composition':
-      return { label: 'Continua', onClick: handlers.onWorkspaceCompositionContinue };
+      return {
+        label: 'Continua',
+        onClick: handlers.onWorkspaceCompositionContinue,
+        disabled: isSubmitting,
+      };
     case 'workspace_select':
       return {
-        label: 'Collega al Workspace',
+        label: 'Collega',
         onClick: handlers.onWorkspaceSelectContinue,
         disabled: isSubmitting,
         showSpinner: isSubmitting,
@@ -108,96 +111,76 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
   onCreateWorkspaceLater,
   onBack,
 }) => {
+  const footerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooter);
+  const footerActionsShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooterActions);
+  const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary);
+  const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
+
   const showBack =
     wizardStep !== 'path' &&
     !(wizardStep === 'workspace_setup' && sharePath === 'add_workspace');
 
-  const isWorkspaceInviteStep = wizardStep === 'workspace_invite';
-
-  const primaryAction = isWorkspaceInviteStep
-    ? null
-    : resolveWizardPrimaryAction(wizardStep, sharePath, isSubmitting, {
-        onPathContinue,
-        onModeContinue,
-        onShareIntentContinue,
-        onSendInvites,
-        onWorkspaceSetupContinue,
-        onWorkspaceCompositionContinue,
-        onWorkspaceSelectContinue,
-        onCreateWorkspace,
-      });
-
-  const workspaceInviteContinue = isWorkspaceInviteStep
-    ? resolveWizardPrimaryAction('workspace_invite', sharePath, isSubmitting, {
-        onPathContinue,
-        onModeContinue,
-        onShareIntentContinue,
-        onSendInvites,
-        onWorkspaceSetupContinue,
-        onWorkspaceCompositionContinue,
-        onWorkspaceSelectContinue,
-        onCreateWorkspace,
-      })
-    : null;
+  const primaryAction = resolveWizardPrimaryAction(wizardStep, sharePath, isSubmitting, {
+    onPathContinue,
+    onModeContinue,
+    onShareIntentContinue,
+    onSendInvites,
+    onWorkspaceSetupContinue,
+    onWorkspaceCompositionContinue,
+    onWorkspaceSelectContinue,
+    onCreateWorkspace,
+  });
 
   return (
-    <div className="p-5 border-t border-slate-800 flex flex-wrap gap-2 justify-end shrink-0">
-      {view === 'wizard' ? (
-        <>
-          {showBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="px-4 py-2 rounded-lg text-sm text-slate-300 hover:text-white"
-            >
-              Indietro
-            </button>
-          )}
+    <div className={`${footerShell} shrink-0`}>
+      <div className={footerActionsShell}>
+        {view === 'wizard' ? (
+          <>
+            {showBack && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={onBack}
+                className={btnCancelShell}
+              >
+                Indietro
+              </button>
+            )}
 
-          {isWorkspaceInviteStep && (
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={onCreateWorkspaceLater}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 disabled:opacity-50"
-            >
-              Più tardi
-            </button>
-          )}
+            {wizardStep === 'workspace_invite' && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={onCreateWorkspaceLater}
+                className={btnCancelShell}
+              >
+                Più tardi
+              </button>
+            )}
 
-          {workspaceInviteContinue && (
-            <button
-              type="button"
-              disabled={workspaceInviteContinue.disabled}
-              onClick={workspaceInviteContinue.onClick}
-              className={PRIMARY_BUTTON_CLASS}
-            >
-              {workspaceInviteContinue.showSpinner && <Loader2 className="w-4 h-4 animate-spin" />}
-              {workspaceInviteContinue.label}
-            </button>
-          )}
-
-          {primaryAction && (
-            <button
-              type="button"
-              disabled={primaryAction.disabled}
-              onClick={primaryAction.onClick}
-              className={PRIMARY_BUTTON_CLASS}
-            >
-              {primaryAction.showSpinner && <Loader2 className="w-4 h-4 animate-spin" />}
-              {primaryAction.label}
-            </button>
-          )}
-        </>
-      ) : (
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-white"
-        >
-          Chiudi
-        </button>
-      )}
+            {primaryAction && (
+              <button
+                type="button"
+                disabled={primaryAction.disabled}
+                onClick={primaryAction.onClick}
+                className={btnPrimaryShell}
+              >
+                {primaryAction.showSpinner && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
+                {primaryAction.label}
+              </button>
+            )}
+          </>
+        ) : (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={onClose}
+            className={btnCancelShell}
+          >
+            Chiudi
+          </button>
+        )}
+      </div>
     </div>
   );
 };

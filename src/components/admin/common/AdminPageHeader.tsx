@@ -1,10 +1,10 @@
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { useAdminStyles } from '@/hooks/useAdminStyles';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 /**
  * Layout-only page header orchestrator.
- * Typography, colors, icon sizing, radius, shadows → useAdminStyles / design_system_rules.
+ * Typography, colors, icon sizing, radius, shadows → useDynamicStyles / design_system_rules.
  * This file must not own visual Tailwind (font-*, text-*, bg-*, rounded-*, shadow-*, etc.).
  */
 
@@ -50,25 +50,29 @@ export const AdminPageHeader: React.FC<AdminPageHeaderProps> = ({
     className = '',
     as: HeadingTag = 'h2',
 }) => {
-    const { styles } = useAdminStyles();
+    const headerWrapperClass = useDynamicStyles('admin_page_header_wrapper');
+    const iconWrapperClass = useDynamicStyles('admin_page_icon_wrapper');
+    const iconGlyphClass = useDynamicStyles('admin_page_icon_glyph');
+    const pageTitleClass = useDynamicStyles('admin_page_title');
+    const pageSubtitleClass = useDynamicStyles('admin_page_subtitle');
     const iconAccentKey = `admin_page_icon_accent_${accent}` as AdminPageIconAccentKey;
-    const iconAccentClass = styles[iconAccentKey];
+    const iconAccentClass = useDynamicStyles(iconAccentKey);
 
     return (
         <div
-            className={`${ROOT_LAYOUT} ${styles.admin_page_header_wrapper} ${className}`.trim()}
+            className={`${ROOT_LAYOUT} ${headerWrapperClass} ${className}`.trim()}
         >
             <div className={TITLE_CLUSTER_LAYOUT}>
-                <div className={`${styles.admin_page_icon_wrapper} ${iconAccentClass}`}>
-                    <Icon className={styles.admin_page_icon_glyph} />
+                <div className={`${iconWrapperClass} ${iconAccentClass}`}>
+                    <Icon className={iconGlyphClass} />
                 </div>
                 <div>
                     <div className={TITLE_ROW_LAYOUT}>
-                        <HeadingTag className={styles.admin_page_title}>{title}</HeadingTag>
+                        <HeadingTag className={pageTitleClass}>{title}</HeadingTag>
                         {badge}
                     </div>
                     {subtitle ? (
-                        <p className={styles.admin_page_subtitle}>{subtitle}</p>
+                        <p className={pageSubtitleClass}>{subtitle}</p>
                     ) : null}
                 </div>
             </div>

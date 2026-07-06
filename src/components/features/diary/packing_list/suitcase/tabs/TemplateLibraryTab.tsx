@@ -1,6 +1,7 @@
 import { Z_ADMIN_MODAL_NESTED } from '@/constants/zIndex';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, Plus, Edit3, Trash2, Copy, Layout } from 'lucide-react';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { Suitcase } from '@/types/suitcase';
 import {
   fetchMasterTemplatesAsync,
@@ -13,6 +14,8 @@ import {
 export const TemplateLibraryTab: React.FC<{ selectedMasterId: string | null; onSelectMaster: (id: string | null) => void }> = ({ selectedMasterId, onSelectMaster }) => {
   const [masters, setMasters] = useState<Suitcase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -57,13 +60,17 @@ export const TemplateLibraryTab: React.FC<{ selectedMasterId: string | null; onS
   };
 
   const handleDeleteTemplate = async () => {
-    if (!selectedMasterId || !window.confirm('Eliminare definitivamente questo template?')) return;
+    if (!selectedMasterId) return;
+    setIsDeleting(true);
     try {
       await deleteMasterTemplateAsync(selectedMasterId);
+      setDeleteConfirmOpen(false);
       onSelectMaster(null);
       await fetchData();
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -73,6 +80,17 @@ export const TemplateLibraryTab: React.FC<{ selectedMasterId: string | null; onS
 
   return (
     <div className="flex h-full animate-in fade-in duration-500">
+      <DeleteConfirmationModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => { if (!isDeleting) setDeleteConfirmOpen(false); }}
+        onConfirm={() => { void handleDeleteTemplate(); }}
+        title="Eliminare template?"
+        message={currentMaster
+          ? `Stai per eliminare definitivamente il template "${currentMaster.title}".`
+          : 'Stai per eliminare definitivamente questo template.'}
+        isDeleting={isDeleting}
+        zIndex={Z_ADMIN_MODAL_NESTED}
+      />
       <aside className="w-80 shrink-0 bg-slate-900/50 border-r border-slate-800 lg:overflow-y-auto p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4 px-2">
           <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-600">Libreria Template</h2>
@@ -107,7 +125,13 @@ export const TemplateLibraryTab: React.FC<{ selectedMasterId: string | null; onS
                   </div>
                   <div className="flex gap-2">
                     <button onClick={handleDuplicate} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold rounded-xl border border-white/5 transition-all"><Copy className="w-3.5 h-3.5" /> Duplica</button>
-                    <button onClick={handleDeleteTemplate} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl border border-red-500/10 transition-all"><Trash2 className="w-3.5 h-3.5" /> Elimina</button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirmOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl border border-red-500/10 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Elimina
+                    </button>
                   </div>
                 </div>
                 <p className="text-sm text-slate-400">

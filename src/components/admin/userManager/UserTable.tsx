@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Loader2, ArrowUpDown, ChevronUp, ChevronDown, Edit3, UserX, UserCheck, Trash2, Shield, Briefcase, User as UserIcon, Zap, Brain, Activity } from 'lucide-react';
 import { User, UserRole } from '../../../types/users';
-import { useAdminStyles } from '../../../hooks/useAdminStyles'; 
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { useSystemMessage } from '../../../hooks/useSystemMessage';
 import { getUserAiLimits } from '../../../services/subscriptionService';
 import { getUsersUsageStats } from '../../../services/aiAdminService';
@@ -27,7 +27,8 @@ interface Props {
 
 export const UserTable = ({ users, isLoading, sortKey, sortDir, onSort, currentUserId, onEdit, onStatusToggle, onDelete, canManage, onExport }: Props) => {
     
-    const { styles } = useAdminStyles();
+    const tableHeadClass = useDynamicStyles('admin_table_head');
+    const tableCellClass = useDynamicStyles('admin_table_cell');
     const today = new Date().toISOString().split('T')[0];
     const [usageStats, setUsageStats] = useState<Record<string, { flash: number, pro: number }>>({});
     
@@ -134,11 +135,11 @@ export const UserTable = ({ users, isLoading, sortKey, sortDir, onSort, currentU
                 <table className="w-full text-left text-sm text-slate-400">
                     <thead className="sticky top-0 bg-slate-900/50 backdrop-blur-sm z-floating-panel">
                         <tr>
-                            <th className={`p-3 ${styles.admin_table_head}`} onClick={() => onSort('name')}>Utente <SortIcon colKey='name' /></th>
-                            <th className={`p-3 ${styles.admin_table_head}`} onClick={() => onSort('registrationDate')}>Registrato <SortIcon colKey='registrationDate' /></th>
-                            <th className={`p-3 text-center ${styles.admin_table_head}`}>AI Oggi (F/P)</th>
-                            <th className={`p-3 text-center ${styles.admin_table_head}`}>Quota</th>
-                            <th className={`p-3 text-center ${styles.admin_table_head}`}>Azioni</th>
+                            <th className={`p-3 ${tableHeadClass}`} onClick={() => onSort('name')}>Utente <SortIcon colKey='name' /></th>
+                            <th className={`p-3 ${tableHeadClass}`} onClick={() => onSort('registrationDate')}>Registrato <SortIcon colKey='registrationDate' /></th>
+                            <th className={`p-3 text-center ${tableHeadClass}`}>AI Oggi (F/P)</th>
+                            <th className={`p-3 text-center ${tableHeadClass}`}>Quota</th>
+                            <th className={`p-3 text-center ${tableHeadClass}`}>Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -146,7 +147,7 @@ export const UserTable = ({ users, isLoading, sortKey, sortDir, onSort, currentU
                             const uStats = usageStats[user.id] || { flash: 0, pro: 0 };
                             return (
                                 <tr key={user.id} className="border-t border-slate-800 hover:bg-slate-800/50">
-                                    <td className={`p-3 ${styles.admin_table_cell}`}>
+                                    <td className={`p-3 ${tableCellClass}`}>
                                         <div className="flex items-center gap-3">
                                         {getRoleBadge(user.role)}
                                         <div>
@@ -155,20 +156,20 @@ export const UserTable = ({ users, isLoading, sortKey, sortDir, onSort, currentU
                                         </div>
                                         </div>
                                     </td>
-                                    <td className={`p-3 ${styles.admin_table_cell}`}>
+                                    <td className={`p-3 ${tableCellClass}`}>
                                         <div>{new Date(user.registrationDate).toLocaleDateString()}</div>
                                         <div className="text-slate-500">Ultimo accesso: {user.lastAccess ? new Date(user.lastAccess).toLocaleDateString() : 'Mai'}</div>
                                     </td>
-                                    <td className={`p-3 text-center font-mono ${styles.admin_table_cell}`}>
+                                    <td className={`p-3 text-center font-mono ${tableCellClass}`}>
                                         <div>
                                             <span className="text-amber-400">{uStats.flash}</span> /
                                             <span className="text-purple-400"> {uStats.pro}</span>
                                         </div>
                                     </td>
-                                    <td className={`p-3 text-center font-mono ${styles.admin_table_cell}`}>
+                                    <td className={`p-3 text-center font-mono ${tableCellClass}`}>
                                         <UserAiLimitCell userId={user.id} />
                                     </td>
-                                    <td className={`p-3 ${styles.admin_table_cell}`}>
+                                    <td className={`p-3 ${tableCellClass}`}>
                                         <div className="flex items-center justify-center gap-1">
                                             <button 
                                                 onClick={() => onEdit(user)} 

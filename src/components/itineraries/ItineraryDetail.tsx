@@ -10,6 +10,7 @@ import { getCityDetails } from '../../services/cityService';
 import { useItinerary } from '@/context/ItineraryContext';
 import { PoiDetailModal } from '../modals/PoiDetailModal';
 import { useUser } from '@/context/UserContext';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 const prettify = (str: string) => str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
@@ -28,6 +29,7 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
     const [isFlipped, setIsFlipped] = useState(false);
     const [customStays, setCustomStays] = useState<any>({});
     const [resolvedItems, setResolvedItems] = useState<any[]>([]);
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
     const [availableHotels, setAvailableHotels] = useState<PointOfInterest[]>([]);
     
     const [previewPoi, setPreviewPoi] = useState<PointOfInterest | null>(null);
@@ -251,7 +253,7 @@ export const ItineraryDetail = ({ itinerary, onBack, onImportConfirm, userLocati
                                                         return (
                                                             <div key={dIdx} className="bg-slate-900 p-3 rounded-2xl border border-slate-800 space-y-3">
                                                                 <div className="flex justify-between items-center px-1">
-                                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Giorno {dIdx+1}</span>
+                                                                    <span className={filterSectionLabel10Style}>Giorno {dIdx+1}</span>
                                                                     <div className="flex gap-2">
                                                                         <button type="button" onClick={() => isStart ? clearStay(dIdx, 'start') : assignStay(dIdx, 'start', hotel)} className={`text-[9px] px-3 py-1.5 rounded-lg font-black uppercase transition-all ${isStart ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:text-white'}`}>Start</button>
                                                                         <button type="button" onClick={() => isEnd ? clearStay(dIdx, 'end') : assignStay(dIdx, 'end', hotel)} className={`text-[9px] px-3 py-1.5 rounded-lg font-black uppercase transition-all ${isEnd ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:text-white'}`}>End</button>

@@ -12,8 +12,6 @@ import { usePartnerIntegrations } from '../../hooks/usePartnerIntegrations';
 import { FocusModeProvider, FocusOverlay, WorkspaceHost } from '@/focus';
 import { useAppExitProtection } from '@/hooks/save/useAppExitProtection';
 import { UsernameRequiredGate } from '@/collaboration/UsernameRequiredGate';
-import { FoundationModalPrototypeDevHost } from '@/components/foundation/prototype/FoundationModalPrototypeDevHost';
-
 const AdminDashboard = React.lazy(() => import('../admin/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const RemoveItemModal = React.lazy(() => import('../modals/RemoveItemModal').then(module => ({ default: module.RemoveItemModal })));
 
@@ -106,8 +104,6 @@ export const AppCoordinator = () => {
 
             <FocusOverlay />
             <WorkspaceHost />
-            <FoundationModalPrototypeDevHost />
-
             {activeModal === 'removeSelection' && modalProps?.items && modalProps?.onRemoveSingle && modalProps?.onRemoveAll && (
                 <Suspense fallback={null}>
                     <RemoveItemModal

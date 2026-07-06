@@ -261,6 +261,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
   const iconTriggerRef = useRef<HTMLButtonElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dialogPanelRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   useGlobalModalEscape(isOpen, onClose);
 
@@ -282,10 +283,15 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
   useLayoutEffect(() => {
     if (!isOpen) return;
 
+    openerRef.current = (document.activeElement as HTMLElement | null) ?? null;
     setShowIconPicker(false);
     setShowAddForm(false);
     scrollContainerRef.current.scrollTop = 0;
     dialogPanelRef.current?.focus({ preventScroll: true });
+
+    return () => {
+      openerRef.current?.focus?.();
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -362,7 +368,8 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
         role="dialog"
         aria-modal="true"
         aria-labelledby="category-setup-title"
-        className={`${containerShell} max-w-3xl outline-none`}
+        aria-describedby="category-setup-desc"
+        className={`${containerShell} max-w-3xl outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -383,7 +390,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
               <h2 id="category-setup-title" className={`${modalTitleShell} truncate`}>
                 {title}
               </h2>
-              <p className={modalSubtitleShell}>
+              <p id="category-setup-desc" className={modalSubtitleShell}>
                 Attiva le categorie e scegli se precompilarle con gli oggetti consigliati.
               </p>
             </div>

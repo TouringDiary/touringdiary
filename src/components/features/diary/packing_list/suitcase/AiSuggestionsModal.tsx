@@ -307,6 +307,10 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
         className={containerShell}
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-suggestions-modal-title"
+        aria-describedby="ai-suggestions-modal-desc"
       >
         <CloseButton
           onClose={handleDismiss}
@@ -314,7 +318,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
           disabled={isBulkRunning}
           variant="primary"
           position="absolute"
-          className={closeOffsetShell}
+          className={`${closeOffsetShell} z-local-overlay`}
         />
 
         <div className={headerShell}>
@@ -326,8 +330,8 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               />
             </div>
             <div className="min-w-0">
-              <h3 className={`${modalTitleShell} mb-1`}>Suggerimenti AI</h3>
-              <p className={modalSubtitleShell}>
+              <h3 id="ai-suggestions-modal-title" className={`${modalTitleShell} mb-1`}>Suggerimenti AI</h3>
+              <p id="ai-suggestions-modal-desc" className={modalSubtitleShell}>
                 {step === 'setup'
                   ? 'Scegli categorie e quantità dei suggerimenti'
                   : 'Revisione suggerimenti per categoria'}

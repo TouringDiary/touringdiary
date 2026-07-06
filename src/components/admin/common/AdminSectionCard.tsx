@@ -1,9 +1,9 @@
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { useAdminStyles } from '@/hooks/useAdminStyles';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 /**
- * Thin shared admin section card — visual semantics via useAdminStyles / design_system_rules.
+ * Thin shared admin section card — visual semantics via useDynamicStyles / design_system_rules.
  * Layout orchestration only in this file (header row structure, body slot).
  */
 
@@ -26,23 +26,27 @@ export const AdminSectionCard: React.FC<AdminSectionCardProps> = ({
     className = '',
     children,
 }) => {
-    const { styles } = useAdminStyles();
+    const sectionCardClass = useDynamicStyles('admin_section_card');
+    const iconWrapperClass = useDynamicStyles('admin_section_card_icon_wrapper');
+    const iconGlyphClass = useDynamicStyles('admin_section_card_icon_glyph');
+    const sectionTitleClass = useDynamicStyles('admin_section_card_title');
+    const sectionSubtitleClass = useDynamicStyles('admin_section_card_subtitle');
     const showHeader = Boolean(title || Icon);
 
     return (
-        <div className={`${styles.admin_section_card} ${className}`.trim()}>
+        <div className={`${sectionCardClass} ${className}`.trim()}>
             {showHeader ? (
                 <div className={HEADER_LAYOUT}>
                     {Icon ? (
-                        <div className={styles.admin_section_card_icon_wrapper}>
-                            <Icon className={styles.admin_section_card_icon_glyph} />
+                        <div className={iconWrapperClass}>
+                            <Icon className={iconGlyphClass} />
                         </div>
                     ) : null}
                     {title ? (
                         <div>
-                            <h3 className={styles.admin_section_card_title}>{title}</h3>
+                            <h3 className={sectionTitleClass}>{title}</h3>
                             {subtitle ? (
-                                <p className={`${styles.admin_section_card_subtitle} mt-1 max-w-sm leading-relaxed`}>
+                                <p className={`${sectionSubtitleClass} mt-1 max-w-sm`}>
                                     {subtitle}
                                 </p>
                             ) : null}

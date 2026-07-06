@@ -1,5 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Loader2, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { User } from '@/types/users';
 import type {
   WorkspaceResourcePermissionEntry,
@@ -14,7 +20,6 @@ import {
   removeWorkspaceMember,
   resendWorkspaceInvite,
   revokeWorkspaceInvite,
-  searchUsersForCollaborationInvite,
   sendWorkspaceInvite,
   setWorkspaceResourcePermissionsForUser,
 } from '@/services/collaboration';
@@ -27,56 +32,81 @@ import { WorkspaceMembersSection } from './WorkspaceMembersSection';
 import { WorkspaceInvitesSection } from './WorkspaceInvitesSection';
 import { CollaborationActivityFeed } from '@/components/collaboration/live/CollaborationActivityFeed';
 import { WorkspaceAttachmentsSection } from './WorkspaceAttachmentsSection';
+import { useCollaborationInviteSearch } from '../useCollaborationInviteSearch';
+
+const WORKSPACE_PANEL_TABS: WorkspacePanelTab[] = [
+  'resources',
+  'members',
+  'invites',
+  'activity',
+  'attachments',
+];
 
 export interface CollaborationWorkspacePanelBodyProps {
   workspaceId: string;
   user: User;
   requestClose: () => void;
+  registerCloseHandler: (handler: () => void) => void;
 }
 
 export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePanelBodyProps> = ({
   workspaceId,
   user,
   requestClose,
+  registerCloseHandler,
 }) => {
   const dashboard = useWorkspaceDashboard(workspaceId, user.id);
   const { openResource } = useWorkspaceResourceNavigation();
+
+  const isMobile = useMobileDetect();
+  const sectionTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
 
   const [activeTab, setActiveTab] = useState<WorkspacePanelTab>('resources');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<CollaborationUserSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [removeResourceTargetId, setRemoveResourceTargetId] = useState<string | null>(null);
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<{ userId: string; name: string } | null>(
+    null
+  );
+  const [revokeInviteTargetId, setRevokeInviteTargetId] = useState<string | null>(null);
+
+  const excludedSearchUserIds = useMemo(
+    () => [
+      user.id,
+      dashboard.workspace?.ownerId,
+      ...dashboard.members.map((member) => member.userId),
+      ...dashboard.invites
+        .filter((invite) => invite.status === 'pending')
+        .map((invite) => invite.inviteeId),
+    ].filter((id): id is string => Boolean(id)),
+    [user.id, dashboard.workspace?.ownerId, dashboard.members, dashboard.invites]
+  );
+
+  const { searchResults, isSearching } = useCollaborationInviteSearch(
+    user.id,
+    Boolean(dashboard.workspace),
+    searchQuery,
+    excludedSearchUserIds
+  );
+
+  const hasPendingConfirm =
+    removeResourceTargetId !== null ||
+    removeMemberTarget !== null ||
+    revokeInviteTargetId !== null;
+
+  const guardedRequestClose = useCallback(() => {
+    if (isSubmitting || hasPendingConfirm) return;
+    requestClose();
+  }, [isSubmitting, hasPendingConfirm, requestClose]);
 
   useEffect(() => {
-    const trimmed = searchQuery.trim();
-    if (trimmed.length < 3 && !trimmed.includes('@')) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timer = window.setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const results = await searchUsersForCollaborationInvite(user.id, trimmed);
-        const excluded = new Set([
-          user.id,
-          dashboard.workspace?.ownerId,
-          ...dashboard.members.map((member) => member.userId),
-          ...dashboard.invites
-            .filter((invite) => invite.status === 'pending')
-            .map((invite) => invite.inviteeId),
-        ]);
-        setSearchResults(results.filter((result) => !excluded.has(result.id)));
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-
-    return () => window.clearTimeout(timer);
-  }, [searchQuery, user.id, dashboard.workspace?.ownerId, dashboard.members, dashboard.invites]);
+    registerCloseHandler(guardedRequestClose);
+  }, [registerCloseHandler, guardedRequestClose]);
 
   const buildDefaultPermissions = useCallback(
     (accessLevel: WorkspaceResourceAccess = 'collaborator'): WorkspaceResourcePermissionEntry[] =>
@@ -89,20 +119,25 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
   );
 
   const runSubmittingAction = useCallback(async (action: () => Promise<void>) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
       await action();
+    } catch (unexpectedError) {
+      console.error('[CollaborationWorkspacePanelBody] action:', unexpectedError);
+      setActionError('Si è verificato un errore imprevisto. Riprova.');
     } finally {
       setIsSubmitting(false);
     }
-  }, []);
+  }, [isSubmitting]);
 
   const handleRemoveResource = async (workspaceResourceId: string) => {
-    if (!dashboard.workspace) return;
+    if (!dashboard.workspace || isSubmitting) return;
+    const workspace = dashboard.workspace;
     await runSubmittingAction(async () => {
       const result = await removeWorkspaceResource(
-        dashboard.workspace!.id,
+        workspace.id,
         user.id,
         workspaceResourceId
       );
@@ -110,18 +145,21 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
         setActionError(result.error ?? 'Impossibile rimuovere la risorsa.');
         return;
       }
+      setRemoveResourceTargetId(null);
       await dashboard.refresh();
     });
   };
 
   const handleRemoveMember = async (memberUserId: string) => {
-    if (!dashboard.workspace) return;
+    if (!dashboard.workspace || isSubmitting) return;
+    const workspace = dashboard.workspace;
     await runSubmittingAction(async () => {
-      const result = await removeWorkspaceMember(dashboard.workspace!.id, user.id, memberUserId);
+      const result = await removeWorkspaceMember(workspace.id, user.id, memberUserId);
       if (!result.success) {
         setActionError(result.error ?? 'Impossibile rimuovere il membro.');
         return;
       }
+      setRemoveMemberTarget(null);
       await dashboard.refresh();
     });
   };
@@ -130,10 +168,11 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
     memberUserId: string,
     permissions: WorkspaceResourcePermissionEntry[]
   ) => {
-    if (!dashboard.workspace) return;
+    if (!dashboard.workspace || isSubmitting) return;
+    const workspace = dashboard.workspace;
     await runSubmittingAction(async () => {
       const result = await setWorkspaceResourcePermissionsForUser(
-        dashboard.workspace!.id,
+        workspace.id,
         user.id,
         memberUserId,
         permissions
@@ -151,10 +190,12 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
       setActionError('Aggiungi almeno una risorsa prima di invitare utenti.');
       return;
     }
+    if (isSubmitting) return;
+    const workspace = dashboard.workspace;
     await runSubmittingAction(async () => {
       const result = await sendWorkspaceInvite(
         user.id,
-        dashboard.workspace!.id,
+        workspace.id,
         { userId: target.id },
         buildDefaultPermissions('collaborator')
       );
@@ -163,24 +204,26 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
         return;
       }
       setSearchQuery('');
-      setSearchResults([]);
       setActiveTab('invites');
       await dashboard.refresh();
     });
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
+    if (isSubmitting) return;
     await runSubmittingAction(async () => {
       const result = await revokeWorkspaceInvite(user.id, inviteId);
       if (result.success !== true) {
         setActionError(result.error);
         return;
       }
+      setRevokeInviteTargetId(null);
       await dashboard.refresh();
     });
   };
 
   const handleResendInvite = async (inviteId: string) => {
+    if (isSubmitting) return;
     await runSubmittingAction(async () => {
       const result = await resendWorkspaceInvite(user.id, inviteId);
       if (result.success !== true) {
@@ -194,6 +237,18 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
   const handleOpenResource = async (kind: WorkspaceResourcePermissionEntry['kind'], resourceId: string) => {
     await openResource(kind, resourceId);
   };
+
+  const removeResourceLabel = useMemo(() => {
+    if (!removeResourceTargetId) return '';
+    const resource = dashboard.resources.find((r) => r.id === removeResourceTargetId);
+    if (!resource) return 'questa risorsa';
+    const label = dashboard.resourceLabels.find(
+      (entry) =>
+        workspaceResourceKey(entry.kind, entry.resourceId) ===
+        workspaceResourceKey(resource.kind, resource.resourceId)
+    );
+    return label?.title ?? resource.kind;
+  }, [removeResourceTargetId, dashboard.resources, dashboard.resourceLabels]);
 
   if (dashboard.isLoading && !dashboard.workspace) {
     return (
@@ -211,7 +266,7 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
         <p className="text-sm text-red-200">{dashboard.error ?? 'Workspace non disponibile.'}</p>
         <button
           type="button"
-          onClick={requestClose}
+          onClick={guardedRequestClose}
           className="text-sm text-slate-400 hover:text-white"
         >
           Chiudi
@@ -222,35 +277,86 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
 
   return (
     <>
-      <header className="flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-800 shrink-0">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-0.5">
-            Workspace
-          </p>
-          <h2 className="text-lg font-bold text-white truncate">{dashboard.workspace.name}</h2>
+      <DeleteConfirmationModal
+        isOpen={removeResourceTargetId !== null}
+        onClose={() => { if (!isSubmitting) setRemoveResourceTargetId(null); }}
+        onConfirm={() => {
+          if (!removeResourceTargetId) return;
+          void handleRemoveResource(removeResourceTargetId);
+        }}
+        title="Rimuovere risorsa?"
+        message={`Stai per scollegare "${removeResourceLabel}" da questo workspace.`}
+        confirmLabel="Rimuovi"
+        isDeleting={isSubmitting}
+        zIndex={Z_MODAL_NESTED}
+      />
+      <DeleteConfirmationModal
+        isOpen={removeMemberTarget !== null}
+        onClose={() => { if (!isSubmitting) setRemoveMemberTarget(null); }}
+        onConfirm={() => {
+          if (!removeMemberTarget) return;
+          void handleRemoveMember(removeMemberTarget.userId);
+        }}
+        title="Rimuovere membro?"
+        message={
+          removeMemberTarget
+            ? `Stai per rimuovere ${removeMemberTarget.name} dal workspace.`
+            : ''
+        }
+        confirmLabel="Rimuovi"
+        isDeleting={isSubmitting}
+        zIndex={Z_MODAL_NESTED}
+      />
+      <DeleteConfirmationModal
+        isOpen={revokeInviteTargetId !== null}
+        onClose={() => { if (!isSubmitting) setRevokeInviteTargetId(null); }}
+        onConfirm={() => {
+          if (!revokeInviteTargetId) return;
+          void handleRevokeInvite(revokeInviteTargetId);
+        }}
+        title="Revocare invito?"
+        message="Stai per revocare questo invito al workspace."
+        confirmLabel="Revoca"
+        isDeleting={isSubmitting}
+        zIndex={Z_MODAL_NESTED}
+      />
+
+      <header className="relative flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-800 shrink-0">
+        <div className="min-w-0 pr-10">
+          <p className={`${sectionTitleShell} text-indigo-400 mb-0.5`}>Workspace</p>
+          <h2 className={`${modalTitleShell} truncate`}>{dashboard.workspace.name}</h2>
           {dashboard.workspace.description && (
-            <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+            <p className={`${modalSubtitleShell} mt-0.5 line-clamp-2`}>
               {dashboard.workspace.description}
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={requestClose}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
-          aria-label="Chiudi workspace"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <CloseButton
+          onClose={guardedRequestClose}
+          variant="ghost"
+          position="absolute"
+          withEscape={false}
+          disableIfDirty={isSubmitting || hasPendingConfirm}
+          className={`${closeOffsetShell} z-local-overlay`}
+          title="Chiudi workspace"
+        />
       </header>
 
-      <nav className="flex gap-1 px-4 py-2 border-b border-slate-800 shrink-0">
-        {(['resources', 'members', 'invites', 'activity', 'attachments'] as WorkspacePanelTab[]).map((tab) => (
+      <nav
+        className="flex gap-1 px-4 py-2 border-b border-slate-800 shrink-0 overflow-x-auto"
+        role="tablist"
+        aria-label="Sezioni workspace"
+      >
+        {WORKSPACE_PANEL_TABS.map((tab) => (
           <button
             key={tab}
             type="button"
+            role="tab"
+            id={`workspace-tab-${tab}`}
+            aria-selected={activeTab === tab}
+            aria-controls={`workspace-tabpanel-${tab}`}
             onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shrink-0 ${
               activeTab === tab
                 ? 'bg-indigo-600 text-white'
                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'
@@ -261,7 +367,12 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
         ))}
       </nav>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
+      <div
+        className="flex-1 overflow-y-auto px-4 py-4 min-h-0"
+        role="tabpanel"
+        id={`workspace-tabpanel-${activeTab}`}
+        aria-labelledby={`workspace-tab-${activeTab}`}
+      >
         {activeTab === 'resources' && (
           <WorkspaceResourcesSection
             resources={dashboard.resources}
@@ -269,7 +380,7 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
             isOwner={dashboard.isOwner}
             isSubmitting={isSubmitting}
             onOpenResource={handleOpenResource}
-            onRemoveResource={handleRemoveResource}
+            onRequestRemoveResource={setRemoveResourceTargetId}
           />
         )}
 
@@ -287,7 +398,12 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
             isSearching={isSearching}
             onSearchQueryChange={setSearchQuery}
             onInviteUser={handleInviteUser}
-            onRemoveMember={handleRemoveMember}
+            onRequestRemoveMember={(memberUserId) => {
+              const member = dashboard.members.find((m) => m.userId === memberUserId);
+              if (member) {
+                setRemoveMemberTarget({ userId: member.userId, name: member.userName });
+              }
+            }}
             onUpdateMemberPermissions={handleUpdateMemberPermissions}
           />
         )}
@@ -298,7 +414,7 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
             inviteeProfiles={dashboard.inviteeProfiles}
             resourceLabels={dashboard.resourceLabels}
             isSubmitting={isSubmitting}
-            onRevokeInvite={handleRevokeInvite}
+            onRequestRevokeInvite={setRevokeInviteTargetId}
             onResendInvite={handleResendInvite}
           />
         )}
@@ -312,7 +428,11 @@ export const CollaborationWorkspacePanelBody: React.FC<CollaborationWorkspacePan
         )}
 
         {activeTab === 'attachments' && (
-          <WorkspaceAttachmentsSection workspaceId={workspaceId} user={user} />
+          <WorkspaceAttachmentsSection
+            workspaceId={workspaceId}
+            user={user}
+            isSubmitting={isSubmitting}
+          />
         )}
 
         {actionError && (

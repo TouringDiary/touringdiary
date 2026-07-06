@@ -7,6 +7,7 @@ import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
 import { useItinerary } from '@/context/ItineraryContext';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface Props {
     city: CityDetails;
@@ -25,6 +26,9 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [localReviews, setLocalReviews] = useState<any[]>([]);
     const [guidesList, setGuidesList] = useState<any[]>([]);
+
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
+    const filterSectionLabelStyle = useDynamicStyles('filter_section_title');
 
     useEffect(() => {
         let isMounted = true;
@@ -132,13 +136,13 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                             <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
-                                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Lingue Parlate</h4>
+                                <h4 className={`${filterSectionLabel10Style} mb-2`}>Lingue Parlate</h4>
                                 <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                                     {(guide.languages || []).map((l: string) => <span key={l} className="bg-slate-950 text-slate-300 px-3 py-1.5 rounded-lg text-sm font-mono border border-slate-800">{l}</span>)}
                                 </div>
                             </div>
                              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
-                                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Specialità</h4>
+                                <h4 className={`${filterSectionLabel10Style} mb-2`}>Specialità</h4>
                                 <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                                     {(guide.specialties || []).map((s: string) => <span key={s} className="bg-indigo-900/30 text-indigo-300 px-3 py-1.5 rounded-lg text-sm border border-indigo-500/20">{s}</span>)}
                                 </div>
@@ -210,7 +214,7 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
         <>
             <div className={`md:w-80 border-r border-slate-800 bg-[#0b0f1a] flex flex-col shrink-0 absolute md:relative inset-0 z-dropdown md:z-0 transition-transform duration-300 ${isMobile && mobileView === 'content' ? '-translate-x-full' : 'translate-x-0'}`}>
                 <div className="h-full flex flex-col">
-                     <div className="p-6 border-b border-slate-800 text-xs font-black uppercase tracking-widest text-slate-500">Guide Disponibili</div>
+                     <div className={`p-6 border-b border-slate-800 ${filterSectionLabelStyle}`}>Guide Disponibili</div>
                      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
                         {guidesList.map(guide => (
                             <button 

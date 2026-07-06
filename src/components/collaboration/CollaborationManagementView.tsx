@@ -1,10 +1,13 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { CollaborativeMemberRole, ResourceInvite, SharedResource, SharedResourceMemberWithProfile, SharingMode } from '@/domain/collaboration';
 import { SHARING_MODES } from '@/domain/collaboration';
 import { COLLABORATIVE_MEMBER_ROLES } from '@/domain/collaboration';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import { INVITE_STATUS_LABELS, MODE_LABELS, ROLE_LABELS } from './collaborationSharePresentation';
+import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
 
 export interface CollaborationManagementViewProps {
   sharedResource: SharedResource | null;
@@ -13,6 +16,7 @@ export interface CollaborationManagementViewProps {
   selectedRole: CollaborativeMemberRole;
   searchQuery: string;
   searchResults: CollaborationUserSearchResult[];
+  isSearching: boolean;
   isSubmitting: boolean;
   canChangeSharingMode?: boolean;
   onSharingModeChange?: (mode: SharingMode) => void;
@@ -32,6 +36,7 @@ export const CollaborationManagementView: React.FC<CollaborationManagementViewPr
   selectedRole,
   searchQuery,
   searchResults,
+  isSearching,
   isSubmitting,
   canChangeSharingMode = false,
   onSharingModeChange,
@@ -42,8 +47,13 @@ export const CollaborationManagementView: React.FC<CollaborationManagementViewPr
   onRevokeInvite,
   onResendInvite,
   onManagementInvite,
-}) => (
+}) => {
+  const isMobile = useMobileDetect();
+  const sectionTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
+
+  return (
   <div className="space-y-5">
+    <h3 className={sectionTitleShell}>Gestione collaborazione</h3>
     {sharedResource && (
       <section className="space-y-2">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Modalità</h3>
@@ -192,36 +202,15 @@ export const CollaborationManagementView: React.FC<CollaborationManagementViewPr
           </option>
         ))}
       </select>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchQueryChange(e.target.value)}
-          placeholder="Email o Nome utente"
-          className="w-full rounded-lg border border-slate-700 bg-slate-900 pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500"
-        />
-      </div>
-      {searchResults.length > 0 && (
-        <div className="rounded-xl border border-slate-700 overflow-hidden divide-y divide-slate-800">
-          {searchResults.map((result) => (
-            <button
-              key={result.id}
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => onManagementInvite(result)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-800/80 transition-colors disabled:opacity-50"
-            >
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-white truncate">{result.name}</div>
-                {result.slug && (
-                  <div className="text-xs text-slate-400 truncate">@{result.slug}</div>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+      <CollaborationUserInviteSearch
+        searchQuery={searchQuery}
+        onSearchQueryChange={onSearchQueryChange}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        isSubmitting={isSubmitting}
+        onSelectUser={onManagementInvite}
+      />
     </section>
   </div>
-);
+  );
+};

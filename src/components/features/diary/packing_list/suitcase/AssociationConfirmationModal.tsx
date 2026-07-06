@@ -57,14 +57,18 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
 
   return createPortal(
     <div
-      className={`td-modal-overlay ${overlayShell}`}
+      className={`td-modal-overlay ${overlayShell} !items-center`}
       style={{ zIndex: Z_MODAL_NESTED }}
       onClick={handleDismiss}
     >
       <div
-        className={`${containerShell} max-w-md outline-none`}
+        className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL_NESTED }}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="association-confirmation-title"
+        aria-describedby="association-confirmation-desc"
       >
         <CloseButton
           onClose={handleDismiss}
@@ -73,17 +77,17 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
           className={`${closeOffsetShell} z-local-overlay`}
         />
 
-        <div className={`${bodyShell} flex flex-col items-center text-center gap-6`}>
+        <div className={`${bodyShell} flex flex-col items-center text-center gap-4 min-h-0`}>
           <div className="w-20 h-20 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/30 relative">
             <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center border-2 border-slate-900 shadow-lg">
-              <Sparkles className="w-3 h-3 text-white" />
+              <Sparkles className="w-3 h-3 text-white" aria-hidden />
             </div>
-            <Briefcase className="w-10 h-10 text-indigo-400 animate-pulse" />
+            <Briefcase className="w-10 h-10 text-indigo-400 animate-pulse" aria-hidden />
           </div>
 
           <div>
-            <h3 className={`${modalTitleShell} mb-3`}>{title}</h3>
-            <p className={`${modalSubtitleShell} leading-relaxed max-w-[280px] mx-auto`}>
+            <h3 id="association-confirmation-title" className={`${modalTitleShell} mb-3`}>{title}</h3>
+            <p id="association-confirmation-desc" className={`${modalSubtitleShell} leading-relaxed max-w-[280px] mx-auto`}>
               {message}
             </p>
           </div>
@@ -92,6 +96,7 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
             {isGuest ? (
               <>
                 <button
+                  type="button"
                   onClick={onLogin}
                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest"
                 >
@@ -99,6 +104,7 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
                   Effettua Login
                 </button>
                 <button
+                  type="button"
                   onClick={onDiscard}
                   className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold py-4 rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-rose-500/20"
                 >
@@ -108,6 +114,7 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
             ) : hasActiveTrip && !isTemplateDraft ? (
               <>
                 <button
+                  type="button"
                   onClick={onConfirm}
                   disabled={isLinking || !isDiaryAssociable}
                   className={`w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest group ${(!isDiaryAssociable && !isLinking) ? 'opacity-50 cursor-not-allowed grayscale-[0.5]' : ''}`}
@@ -121,6 +128,7 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
                 </button>
 
                 <button
+                  type="button"
                   onClick={onClose}
                   className="w-full bg-slate-800/50 hover:bg-slate-800 text-slate-400 font-bold py-4 rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/5"
                 >
@@ -128,6 +136,7 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
                 </button>
 
                 <button
+                  type="button"
                   onClick={onDiscard}
                   className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold py-4 rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-rose-500/20"
                 >
@@ -137,14 +146,16 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
             ) : (
               <>
                 <button
+                  type="button"
                   onClick={onClose}
                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest"
                 >
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4" aria-hidden />
                   {isLinking ? 'Salvataggio...' : isTemplateDraft ? 'Salva template' : 'Salva Valigia'}
                 </button>
 
                 <button
+                  type="button"
                   onClick={onDiscard}
                   className="w-full bg-slate-800/50 hover:bg-slate-800 text-slate-400 font-bold py-4 rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/5"
                 >

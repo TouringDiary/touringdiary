@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, Plus, Edit3, Trash2, X, CheckCircle2, Search } from 'lucide-react';
-import { Z_ADMIN_MODAL_NESTED } from '@/constants/zIndex';
+import { createPortal } from 'react-dom';
+import { Loader2, Plus, Edit3, Trash2, CheckCircle2, Search } from 'lucide-react';
+import { Z_ADMIN_MODAL_NESTED, Z_OVERLAY } from '@/constants/zIndex';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { ADMIN_CATEGORY_OPTIONS } from '@/domain/packing/packingCategories';
 import {
   fetchAllAiCatalogAsync,
@@ -23,6 +30,18 @@ export const AiCatalogTab: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [search, setSearch] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<PackingAiCatalogItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isMobile = useMobileDetect();
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+
+  const closeEditModal = useCallback(() => setEditing(null), []);
+  useGlobalModalEscape(editing !== null, closeEditModal);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -56,6 +75,20 @@ export const AiCatalogTab: React.FC = () => {
       await load();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteAiCatalogItemAsync(deleteTarget.id);
+      setDeleteTarget(null);
+      await load();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -101,38 +134,75 @@ export const AiCatalogTab: React.FC = () => {
             </div>
             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               <button onClick={() => setEditing({ ...item, tags: [...item.tags] })} className="p-2 rounded-lg hover:bg-white/5 text-slate-500"><Edit3 className="w-3.5 h-3.5" /></button>
-              <button onClick={async () => {
-                if (!window.confirm(`Eliminare "${item.name}" dal catalogo AI?`)) return;
-                await deleteAiCatalogItemAsync(item.id);
-                await load();
-              }} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+              <button
+                type="button"
+                onClick={() => { if (!isDeleting) setDeleteTarget(item); }}
+                className="p-2 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         ))}
       </div>
 
-      {editing && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: Z_ADMIN_MODAL_NESTED }}>
-          <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl p-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-white">{editing.id ? 'Modifica' : 'Nuovo'} Catalogo AI</h3>
-              <button onClick={() => setEditing(null)} className="p-2 text-slate-500"><X className="w-5 h-5" /></button>
+      <DeleteConfirmationModal
+        isOpen={deleteTarget !== null}
+        onClose={() => { if (!isDeleting) setDeleteTarget(null); }}
+        onConfirm={() => { void handleConfirmDelete(); }}
+        title="Eliminare dal catalogo AI?"
+        message={deleteTarget ? `Stai per eliminare "${deleteTarget.name}" dal catalogo AI.` : ''}
+        isDeleting={isDeleting}
+        zIndex={Z_ADMIN_MODAL_NESTED}
+      />
+
+      {editing && createPortal(
+        <div
+          className={`td-modal-overlay ${overlayShell} !items-center`}
+          style={{ zIndex: Z_OVERLAY }}
+          onClick={closeEditModal}
+        >
+          <div
+            className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
+            style={{ zIndex: Z_ADMIN_MODAL_NESTED }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-catalog-edit-title"
+            aria-describedby="ai-catalog-edit-desc"
+          >
+            <CloseButton
+              onClose={closeEditModal}
+              variant="primary"
+              position="absolute"
+              className={`${closeOffsetShell} z-local-overlay`}
+            />
+            <div className={`${bodyShell} min-h-0 space-y-6`}>
+              <h3 id="ai-catalog-edit-title" className={modalTitleShell}>
+                {editing.id ? 'Modifica' : 'Nuovo'} Catalogo AI
+              </h3>
+              <p id="ai-catalog-edit-desc" className="sr-only">
+                Compila i campi del catalogo AI e conferma per salvare.
+              </p>
+              <div className="space-y-4">
+                <input type="text" placeholder="Nome" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white" />
+                <select value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white">
+                  {ADMIN_CATEGORY_OPTIONS.map((c) => <option key={c}>{c}</option>)}
+                </select>
+                <input type="text" placeholder="Tags (virgola)" value={editing.tags.join(', ')} onChange={(e) => setEditing({ ...editing, tags: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-indigo-400 font-mono" />
+                <input type="number" placeholder="Ordine" value={editing.sort_order} onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white" />
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input type="checkbox" checked={editing.is_active} onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })} />
+                  Attivo
+                </label>
+              </div>
+              <button type="button" onClick={handleSave} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4" aria-hidden /> Conferma
+              </button>
             </div>
-            <div className="space-y-4">
-              <input type="text" placeholder="Nome" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white" />
-              <select value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white">
-                {ADMIN_CATEGORY_OPTIONS.map((c) => <option key={c}>{c}</option>)}
-              </select>
-              <input type="text" placeholder="Tags (virgola)" value={editing.tags.join(', ')} onChange={(e) => setEditing({ ...editing, tags: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-indigo-400 font-mono" />
-              <input type="number" placeholder="Ordine" value={editing.sort_order} onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white" />
-              <label className="flex items-center gap-2 text-sm text-slate-300">
-                <input type="checkbox" checked={editing.is_active} onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })} />
-                Attivo
-              </label>
-            </div>
-            <button onClick={handleSave} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4" /> Conferma</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

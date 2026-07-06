@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ShoppingBag, Edit3, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Z_ADMIN_MODAL_NESTED } from '@/constants/zIndex';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { AffiliateProductLink, PartnerIntegration } from '@/types/partners';
 import { SuggestionProduct, ItemOverride } from '@/types/suitcase';
 import {
@@ -26,8 +28,36 @@ export const PartnerLinksPanel: React.FC<PartnerLinksPanelProps> = ({
   onLinksUpdated,
   detectPartnerFromUrl
 }) => {
+  const [linkToDelete, setLinkToDelete] = useState<AffiliateProductLink | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmDeleteLink = async () => {
+    if (!linkToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteAffiliateProductLinkAsync(linkToDelete.id);
+      setLinkToDelete(null);
+      const newLinks = await fetchAllAffiliateProductLinksAsync();
+      onLinksUpdated(newLinks);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="mt-4 pt-4 border-t border-white/5 space-y-6 animate-in slide-in-from-top-2 duration-300">
+      <DeleteConfirmationModal
+        isOpen={linkToDelete !== null}
+        onClose={() => { if (!isDeleting) setLinkToDelete(null); }}
+        onConfirm={() => { void handleConfirmDeleteLink(); }}
+        title="Rimuovere link?"
+        message="Stai per rimuovere questo link partner. L'operazione è immediata."
+        isDeleting={isDeleting}
+        confirmLabel="Rimuovi"
+        zIndex={Z_ADMIN_MODAL_NESTED}
+      />
       {groupedPartners.map(([groupName, partners]) => (
         <div key={groupName} className="space-y-3">
           <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500/80 mb-2 px-1">{groupName}</h4>
@@ -90,10 +120,11 @@ export const PartnerLinksPanel: React.FC<PartnerLinksPanelProps> = ({
 
                     <div className="flex items-center gap-1">
                       <button
+                        type="button"
                         onClick={async () => {
                           const url = prompt(`Incolla URL prodotto per ${partner.label}:`, link?.url_override || '');
                           if (url === null) return;
-                          
+
                           const imgOverride = prompt(`(Opzionale) Incolla URL immagine override per ${partner.label}:`, link?.image_override || '');
                           if (imgOverride === null) return;
 
@@ -119,14 +150,10 @@ export const PartnerLinksPanel: React.FC<PartnerLinksPanelProps> = ({
                       >
                         {hasLink ? <Edit3 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                       </button>
-                      {hasLink && (
+                      {hasLink && link && (
                         <button
-                          onClick={async () => {
-                            if (!confirm('Rimuovere questo link?')) return;
-                            await deleteAffiliateProductLinkAsync(link.id);
-                            const newLinks = await fetchAllAffiliateProductLinksAsync();
-                            onLinksUpdated(newLinks);
-                          }}
+                          type="button"
+                          onClick={() => setLinkToDelete(link)}
                           className="p-2 hover:bg-red-500/10 text-slate-600 hover:text-red-500 transition-all rounded-lg"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

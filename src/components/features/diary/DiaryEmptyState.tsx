@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Footprints, PlusCircle, Sparkles } from 'lucide-react';
 import { useDynamicContent } from '../../../hooks/useDynamicContent';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 
 interface DiaryEmptyStateProps {
     isDraggingOver?: boolean;
@@ -15,18 +16,9 @@ export const DiaryEmptyState = ({ isDraggingOver }: DiaryEmptyStateProps) => {
     const TRIPLE_ROW = "h-[5.25rem]"; // 5.25rem (Tripla riga)
 
     // Classe base per centrare il contenuto nel "rigo"
-    const CENTERED_ROW = "w-full flex items-center justify-center relative"; 
-    
-    // Rilevamento Mobile
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768);
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
+    const CENTERED_ROW = "w-full flex items-center justify-center relative";
 
-    // Hooks Design System
+    const isMobile = useMobileCompact();
     const badgeConfig = useDynamicContent('diary_badge', isMobile);
     const quoteConfig = useDynamicContent('diary_quote', isMobile);
     const ctaConfig = useDynamicContent('diary_cta', isMobile);

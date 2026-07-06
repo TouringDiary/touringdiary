@@ -36,8 +36,6 @@ export const CollaborationWorkspacePanel: React.FC<Props> = ({ workspaceId }) =>
     onCloseAttempt: () => closeAttemptRef.current(),
   });
 
-  closeAttemptRef.current = shell.requestClose;
-
   if (!shell.isPortalReady || !user || user.role === 'guest') return null;
 
   const geometry = resolveCollaborationWorkspaceShellGeometry(isMobile, !mobileDiaryFullScreen);
@@ -67,6 +65,9 @@ export const CollaborationWorkspacePanel: React.FC<Props> = ({ workspaceId }) =>
         workspaceId={workspaceId}
         user={user}
         requestClose={shell.requestClose}
+        registerCloseHandler={(handler) => {
+          closeAttemptRef.current = handler;
+        }}
       />
     </div>,
     document.body

@@ -2,6 +2,7 @@
 import React from 'react';
 import { Filter, ChevronRight, Plus, Siren, AlertCircle } from 'lucide-react';
 import { getServicesConfig } from '../../../constants/services';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 interface ServiceSidebarProps {
     activeServiceCategory: string;
@@ -12,12 +13,14 @@ export const ServiceSidebar = ({ activeServiceCategory, onCategoryChange }: Serv
     // Recupera la config dinamica (unisce DB + Icone)
     const SERVICES_CATEGORIES = getServicesConfig();
 
+    const filterSectionLabelStyle = useDynamicStyles('filter_section_title');
+
     return (
         <div className="h-full flex flex-col relative">
             {/* Header */}
             <div className="p-6 border-b border-slate-800 flex items-center gap-3 shrink-0">
                 <Filter className="w-5 h-5 text-amber-500"/>
-                <span className="text-xs font-black uppercase tracking-widest text-slate-500">Seleziona Categoria</span>
+                <span className={filterSectionLabelStyle}>Seleziona Categoria</span>
             </div>
             
             {/* Lista Scrollabile (Esclude Emergency) */}

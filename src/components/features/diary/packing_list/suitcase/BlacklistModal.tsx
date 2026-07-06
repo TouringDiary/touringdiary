@@ -6,6 +6,7 @@ import { Plus, Sparkles, Ghost } from 'lucide-react';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { SuitcaseRejection } from '@/types/suitcase';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
@@ -27,6 +28,7 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
   isFetching = false
 }) => {
   const isMobile = useMobileDetect();
+  const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
   const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
   const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
   const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
@@ -51,12 +53,13 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
       onClick={onClose}
     >
       <div
-        className={`${containerShell} max-w-2xl outline-none`}
+        className={`${containerShell} max-w-2xl outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL_NESTED }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="blacklist-modal-title"
+        aria-describedby="blacklist-modal-desc"
       >
         <CloseButton
           onClose={onClose}
@@ -75,7 +78,7 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
               <h3 id="blacklist-modal-title" className={`${modalTitleShell} truncate`}>
                 Oggetti rifiutati
               </h3>
-              <p className={modalSubtitleShell}>Blacklist Suggerimenti AI</p>
+              <p id="blacklist-modal-desc" className={modalSubtitleShell}>Blacklist Suggerimenti AI</p>
             </div>
           </div>
         </header>
@@ -100,7 +103,7 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
           {isFetching ? (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
               <div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Caricamento...</span>
+              <span className={filterSectionLabel10Style}>Caricamento...</span>
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center gap-4">
@@ -130,6 +133,7 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
 
                   <div className="flex w-full sm:w-auto items-center gap-3 sm:gap-4">
                     <button
+                      type="button"
                       onClick={() => onRestore(item)}
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 whitespace-nowrap shadow-lg shadow-indigo-500/5"
                       title="Aggiungi alla valigia"
@@ -139,6 +143,7 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => onRemove(item.id, item.name)}
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-all text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 hover:border-emerald-500/40 whitespace-nowrap"
                       title="Consenti nuovi suggerimenti"

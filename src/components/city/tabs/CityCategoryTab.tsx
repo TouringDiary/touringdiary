@@ -125,6 +125,7 @@ export const CityCategoryTab = ({
     const [showContribMenu, setShowContribMenu] = useState(false);
 
     const referenceDistanceStyle = useDynamicStyles('city_reference_distance');
+    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
     const sortMenuRef = useRef<HTMLDivElement>(null);
     // Il menu "Contribuisci" è portalato (AnchoredPopover) per uscire dagli antenati
     // con overflow/isolate/z-0; l'ancora è il pulsante stesso.
@@ -396,7 +397,7 @@ export const CityCategoryTab = ({
                                     <div 
                                         className="absolute top-full right-0 mt-2 w-48 z-local-flyout bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-right"
                                     >
-                                        <div className="px-3 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800 mb-1">Ordina Per</div>
+                                        <div className={`px-3 py-2 ${filterSectionLabel10Style} border-b border-slate-800 mb-1`}>Ordina Per</div>
                                         <SortItem id="votes" label="Popolarità" icon={Heart} />
                                         <SortItem id="interest" label="Interesse" icon={TrendingUp} />
                                         <SortItem id="rating" label="Valutazione" icon={Star} />
