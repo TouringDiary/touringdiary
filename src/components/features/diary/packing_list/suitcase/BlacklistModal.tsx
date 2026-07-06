@@ -5,6 +5,9 @@ import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Plus, Sparkles, Ghost } from 'lucide-react';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { SuitcaseRejection } from '@/types/suitcase';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 interface BlacklistModalProps {
   isOpen: boolean;
@@ -23,43 +26,77 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
   onRemove,
   isFetching = false
 }) => {
+  const isMobile = useMobileDetect();
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const footerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooter);
+  const footerActionsShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooterActions);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const headerIconBoxShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconBox);
+  const headerIconGlyphShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconGlyph);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+  const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
+
   useGlobalModalEscape(isOpen, onClose);
 
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300" style={{ zIndex: Z_MODAL_NESTED }}>
-      <div 
-        className="bg-slate-900 border border-white/10 p-5 md:p-7 rounded-3xl w-full max-w-2xl shadow-2xl relative animate-in zoom-in-95 duration-300 flex flex-col max-h-[85vh]"
+    <div
+      className={`td-modal-overlay ${overlayShell}`}
+      style={{ zIndex: Z_MODAL_NESTED }}
+      onClick={onClose}
+    >
+      <div
+        className={`${containerShell} max-w-2xl outline-none`}
         style={{ zIndex: Z_MODAL_NESTED }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="blacklist-modal-title"
       >
-        <div className="flex items-center gap-4 mb-5">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-            <Ghost className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-white font-display uppercase tracking-tight">Oggetti rifiutati</h3>
-            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">Blacklist Suggerimenti AI</p>
-          </div>
-        </div>
+        <CloseButton
+          onClose={onClose}
+          variant="primary"
+          position="absolute"
+          withEscape={false}
+          className={`${closeOffsetShell} z-local-overlay`}
+        />
 
-        <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 mb-5">
-          <p className="text-[12px] text-slate-400 mb-3 font-medium">
-            Questi oggetti sono stati esclusi dai suggerimenti per questa valigia.
-          </p>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
-              <span className="text-indigo-400">➕ AGGIUNGI</span>
-              <span className="opacity-50">→ in valigia</span>
+        <header className={headerShell}>
+          <div className="flex items-center gap-3 pr-10 min-w-0">
+            <div className={headerIconBoxShell}>
+              <Ghost className={headerIconGlyphShell} aria-hidden />
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
-              <span className="text-emerald-400">🟢 CONSENTI</span>
-              <span className="opacity-50">→ suggerimenti</span>
+            <div className="min-w-0">
+              <h3 id="blacklist-modal-title" className={`${modalTitleShell} truncate`}>
+                Oggetti rifiutati
+              </h3>
+              <p className={modalSubtitleShell}>Blacklist Suggerimenti AI</p>
             </div>
           </div>
-        </div>
+        </header>
 
-        <div className="overflow-y-auto custom-scrollbar pr-2 min-h-0">
+        <div className={`${bodyShell} space-y-5 min-h-0`}>
+          <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4">
+            <p className="text-[12px] text-slate-400 mb-3 font-medium">
+              Questi oggetti sono stati esclusi dai suggerimenti per questa valigia.
+            </p>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                <span className="text-indigo-400">➕ AGGIUNGI</span>
+                <span className="opacity-50">→ in valigia</span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                <span className="text-emerald-400">🟢 CONSENTI</span>
+                <span className="opacity-50">→ suggerimenti</span>
+              </div>
+            </div>
+          </div>
+
           {isFetching ? (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
               <div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
@@ -80,8 +117,8 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
           ) : (
             <div className="space-y-3">
               {items.map((item) => (
-                <div 
-                  key={item.id} 
+                <div
+                  key={item.id}
                   className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-indigo-500/30 transition-all gap-4"
                 >
                   <div className="flex flex-col">
@@ -90,7 +127,7 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
                     </span>
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{item.category}</span>
                   </div>
-                  
+
                   <div className="flex w-full sm:w-auto items-center gap-3 sm:gap-4">
                     <button
                       onClick={() => onRestore(item)}
@@ -100,7 +137,7 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
                       <Plus className="w-3.5 h-3.5" />
                       <span>Aggiungi</span>
                     </button>
-                    
+
                     <button
                       onClick={() => onRemove(item.id, item.name)}
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-all text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 hover:border-emerald-500/40 whitespace-nowrap"
@@ -116,16 +153,13 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
           )}
         </div>
 
-        <div className="mt-4 pt-5 border-t border-white/5 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-8 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 hover:border-white/10"
-          >
-            Chiudi
-          </button>
-        </div>
-
-        <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
+        <footer className={footerShell}>
+          <div className={footerActionsShell}>
+            <button type="button" onClick={onClose} className={btnCancelShell}>
+              Chiudi
+            </button>
+          </div>
+        </footer>
       </div>
     </div>,
     document.body

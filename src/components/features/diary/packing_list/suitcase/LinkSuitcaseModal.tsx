@@ -4,6 +4,9 @@ import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Briefcase, Link, Loader2 } from 'lucide-react';
 import { LinkModalVariant } from '@/utils/suitcaseAssociation';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 interface LinkSuitcaseModalProps {
   isOpen: boolean;
@@ -48,6 +51,14 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
   const [diaryName, setDiaryName] = useState(defaultDiaryName);
   const [suitcaseName, setSuitcaseName] = useState(defaultSuitcaseName);
 
+  const isMobile = useMobileDetect();
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+
   useEffect(() => {
     if (isOpen) {
       setDiaryName(defaultDiaryName);
@@ -75,27 +86,32 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
 
   return createPortal(
     <div
-      className="td-modal-overlay fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300"
+      className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_MODAL_NESTED }}
       onClick={onCancel}
     >
       <div
-        className="bg-slate-900 border border-indigo-500/30 p-8 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(99,102,241,0.2)] relative animate-in zoom-in-95 duration-300"
+        className={`${containerShell} max-w-md outline-none`}
         style={{ zIndex: Z_MODAL_NESTED }}
         onClick={(e) => e.stopPropagation()}
       >
-        <CloseButton onClose={onCancel} variant="primary" position="absolute" className="top-4 right-4" />
+        <CloseButton
+          onClose={onCancel}
+          variant="primary"
+          position="absolute"
+          className={`${closeOffsetShell} z-local-overlay`}
+        />
 
-        <div className="flex flex-col items-center text-center gap-6">
+        <div className={`${bodyShell} flex flex-col items-center text-center gap-6`}>
           <div className="w-20 h-20 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/30">
             <Briefcase className="w-10 h-10 text-indigo-400" />
           </div>
 
           <div>
-            <h3 className="text-2xl font-black text-white mb-3 font-display uppercase tracking-tight">
+            <h3 className={`${modalTitleShell} mb-3`}>
               {copy.title}
             </h3>
-            <p className="text-sm text-slate-400 leading-relaxed max-w-[300px] mx-auto">
+            <p className={`${modalSubtitleShell} leading-relaxed max-w-[300px] mx-auto`}>
               {copy.message}
             </p>
           </div>

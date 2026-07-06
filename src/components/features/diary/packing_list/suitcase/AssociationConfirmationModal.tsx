@@ -2,8 +2,10 @@ import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-
 import { Briefcase, Link, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 interface AssociationConfirmationModalProps {
   isOpen: boolean;
@@ -37,6 +39,14 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
   onLogin,
   isTemplateDraft = false,
 }) => {
+  const isMobile = useMobileDetect();
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+
   // Dismiss = chiudi modale senza azione primaria (resta in editor se onCancel è fornito).
   // Allineato a DeleteConfirmationModal: ESC e overlay via CloseButton, niente secondo listener ESC.
   const handleDismiss = () => {
@@ -45,20 +55,25 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
 
   if (!isOpen) return null;
 
-    return createPortal(
+  return createPortal(
     <div
-      className="td-modal-overlay fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300"
+      className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_MODAL_NESTED }}
       onClick={handleDismiss}
     >
-      <div 
-        className="bg-slate-900 border border-indigo-500/30 p-8 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(99,102,241,0.2)] relative animate-in zoom-in-95 duration-300"
+      <div
+        className={`${containerShell} max-w-md outline-none`}
         style={{ zIndex: Z_MODAL_NESTED }}
         onClick={(e) => e.stopPropagation()}
       >
+        <CloseButton
+          onClose={handleDismiss}
+          variant="primary"
+          position="absolute"
+          className={`${closeOffsetShell} z-local-overlay`}
+        />
 
-        <div className="flex flex-col items-center text-center gap-6">
-          {/* Icon Header */}
+        <div className={`${bodyShell} flex flex-col items-center text-center gap-6`}>
           <div className="w-20 h-20 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/30 relative">
             <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center border-2 border-slate-900 shadow-lg">
               <Sparkles className="w-3 h-3 text-white" />
@@ -67,8 +82,8 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
           </div>
 
           <div>
-            <h3 className="text-2xl font-black text-white mb-3 font-display uppercase tracking-tight">{title}</h3>
-            <p className="text-sm text-slate-400 leading-relaxed max-w-[280px] mx-auto">
+            <h3 className={`${modalTitleShell} mb-3`}>{title}</h3>
+            <p className={`${modalSubtitleShell} leading-relaxed max-w-[280px] mx-auto`}>
               {message}
             </p>
           </div>
@@ -139,14 +154,8 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
             )}
           </div>
         </div>
-
-        {/* Close hint */}
-        <CloseButton onClose={handleDismiss} variant="primary" position="absolute" className="top-4 right-4" />
       </div>
     </div>,
     document.body
   );
 };
-
-
-

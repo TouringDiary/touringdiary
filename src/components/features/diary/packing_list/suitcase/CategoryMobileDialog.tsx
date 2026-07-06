@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_OVERLAY, Z_MODAL_NESTED } from '@/constants/zIndex';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 
 interface CategoryMobileDialogProps {
   isOpen: boolean;
@@ -31,6 +33,10 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+
   useGlobalModalEscape(isOpen, onClose);
 
   useEffect(() => {
@@ -57,7 +63,7 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
 
   return createPortal(
     <div
-      className="td-modal-overlay lg:hidden bg-black/80 backdrop-blur-md animate-in fade-in p-4"
+      className={`td-modal-overlay lg:hidden ${overlayShell}`}
       onClick={onClose}
       style={{ zIndex: Z_OVERLAY }}
     >
@@ -66,7 +72,7 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
-        className="relative w-full max-w-sm max-h-[calc(100dvh-var(--header-height)-2rem)] flex flex-col outline-none animate-in zoom-in-95"
+        className={`${containerShell} max-w-sm outline-none`}
         style={{ zIndex: Z_MODAL_NESTED }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -77,7 +83,7 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
           withEscape={false}
           className="absolute -top-2 -right-2 z-10"
         />
-        <div className="min-h-0 overflow-y-auto custom-scrollbar">{children}</div>
+        <div className={`${bodyShell} min-h-0`}>{children}</div>
       </div>
     </div>,
     document.body

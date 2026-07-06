@@ -2,9 +2,11 @@ import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-
 import { Trash2, AlertTriangle, XCircle } from 'lucide-react';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 interface ItemDeleteConfirmationModalProps {
   isOpen: boolean;
@@ -23,6 +25,14 @@ export const ItemDeleteConfirmationModal: React.FC<ItemDeleteConfirmationModalPr
   category,
   isAiSuggestion = false
 }) => {
+  const isMobile = useMobileDetect();
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+  const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+
   useGlobalModalEscape(isOpen, onClose);
 
   useEffect(() => {
@@ -42,27 +52,36 @@ export const ItemDeleteConfirmationModal: React.FC<ItemDeleteConfirmationModalPr
     : <>Vuoi davvero eliminare <span className="text-white font-bold">{itemName}</span> dalla categoria <span className="text-indigo-400 font-bold">{category}</span>?</>;
   const confirmLabel = isAiSuggestion ? "Rifiuta Suggerimento" : "Elimina Oggetto";
   const Icon = isAiSuggestion ? XCircle : Trash2;
-  
 
-    return createPortal(
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300" style={{ zIndex: Z_MODAL_NESTED }}>
-      <div 
-        className={`bg-slate-900 border ${isAiSuggestion ? 'border-amber-500/30' : 'border-rose-500/30'} p-8 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(244,63,94,0.1)] relative animate-in zoom-in-95 duration-300`}
+  const variantBorderClass = isAiSuggestion ? 'border-amber-500/30' : 'border-rose-500/30';
+
+  return createPortal(
+    <div
+      className={`td-modal-overlay ${overlayShell}`}
+      style={{ zIndex: Z_MODAL_NESTED }}
+    >
+      <div
+        className={`${containerShell} max-w-md outline-none ${variantBorderClass}`}
         style={{ zIndex: Z_MODAL_NESTED }}
       >
+        <CloseButton
+          onClose={onClose}
+          variant="primary"
+          position="absolute"
+          className={`${closeOffsetShell} z-local-overlay`}
+        />
 
-        <div className="flex flex-col items-center text-center gap-6">
-          {/* Icon Header */}
+        <div className={`${bodyShell} flex flex-col items-center text-center gap-6`}>
           <div className={`w-20 h-20 rounded-full ${isAiSuggestion ? 'bg-amber-500/10 border-amber-500/30' : 'bg-rose-500/10 border-rose-500/30'} flex items-center justify-center border relative`}>
-            <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full ${isAiSuggestion ? 'bg-amber-500' : 'bg-amber-500'} flex items-center justify-center border-2 border-slate-900 shadow-lg`}>
+            <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center border-2 border-slate-900 shadow-lg">
               <AlertTriangle className="w-3 h-3 text-white" />
             </div>
             <Icon className={`w-10 h-10 ${isAiSuggestion ? 'text-amber-500' : 'text-rose-500'} animate-pulse`} />
           </div>
 
           <div>
-            <h3 className="text-2xl font-black text-white mb-3 font-display uppercase tracking-tight">{title}</h3>
-            <p className="text-sm text-slate-400 leading-relaxed max-w-[280px] mx-auto">
+            <h3 className={`${modalTitleShell} mb-3`}>{title}</h3>
+            <p className={`${modalSubtitleShell} leading-relaxed max-w-[280px] mx-auto`}>
               {description}
             </p>
           </div>
@@ -84,8 +103,6 @@ export const ItemDeleteConfirmationModal: React.FC<ItemDeleteConfirmationModalPr
             </button>
           </div>
         </div>
-
-        <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
       </div>
     </div>,
     document.body
