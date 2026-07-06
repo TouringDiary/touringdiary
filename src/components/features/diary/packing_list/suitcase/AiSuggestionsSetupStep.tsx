@@ -2,6 +2,8 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Plus, Minus, LayoutGrid, Settings2, ListChecks, ChevronDown, Check, Hash, Layers } from 'lucide-react';
 import { ItemCategoryIcon } from './SuitcaseUtils';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { useCloseOnEscape } from '@/hooks/useCloseOnEscape';
 import { getSystemCategoryOrderIndexExact, SystemCategoryName } from '@/domain/packing/packingCategories';
@@ -12,12 +14,7 @@ export type AiQuotaMode = 'uniform' | 'custom';
 const UNIFORM_PRESETS = [3, 5, 10] as const;
 
 const SECTION_HEADING_LAYOUT_CLASS = 'flex items-center gap-2';
-const SECTION_HEADING_FALLBACK =
-  'text-[11px] font-black uppercase tracking-[0.2em] text-amber-500 leading-none font-sans';
-const SECTION_ICON_CLASS = 'w-3.5 h-3.5 text-amber-500 shrink-0';
 const SECTION_COUNTER_CLASS = 'text-[10px] text-amber-500/75 font-bold';
-const HELPER_TEXT_CLASS = 'text-[12.5px] text-slate-400 font-medium';
-const MODE_CARD_TITLE_FALLBACK = 'text-[14px] font-bold leading-snug font-sans';
 const EMPTY_STATE_FALLBACK = 'text-[12px] text-slate-500 font-normal italic';
 const CATEGORY_CHIP_FALLBACK = 'text-[12.5px] font-bold font-sans';
 const DROPDOWN_PANEL_CLASS =
@@ -61,12 +58,26 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
   onSetCustomLimit,
 }) => {
   const isMobile = useMobileDetect();
-  const labelStyle = useDynamicStyles('suitcase_label_caps', isMobile);
-  const helperStyle = useDynamicStyles('suitcase_text_support', isMobile);
   const itemPrimaryStyle = useDynamicStyles('suitcase_item_primary', isMobile);
-  const modeCardTitleStyle = useDynamicStyles('suitcase_mode_card_title', isMobile);
   const emptyStateStyle = useDynamicStyles('suitcase_empty_state', isMobile);
   const categoryChipStyle = useDynamicStyles('suitcase_category_chip', isMobile);
+
+  const sectionTitle = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
+  const sectionTitleIcon = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitleIcon, isMobile);
+  const sectionDescription = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionDescription, isMobile);
+  const selectableCardBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardBase);
+  const selectableCardSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardSelected);
+  const selectableCardUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardUnselected);
+  const selectableCardHeaderRow = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardHeaderRow);
+  const selectableBadgeBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeBase);
+  const selectableBadgeSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeSelected);
+  const selectableBadgeUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeUnselected);
+  const selectableCheckIcon = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCheckIcon);
+  const selectableIconBoxBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxBase);
+  const selectableIconBoxSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxSelected);
+  const selectableIconBoxUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxUnselected);
+  const selectableCardTitle = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardTitle, isMobile);
+  const selectableCardDescription = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardDescription, isMobile);
 
   const [showSelectedDropdown, setShowSelectedDropdown] = useState(false);
   const [showAvailableDropdown, setShowAvailableDropdown] = useState(false);
@@ -138,8 +149,6 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
     }
   };
 
-  const sectionHeadingClassName = `${SECTION_HEADING_LAYOUT_CLASS} ${labelStyle || SECTION_HEADING_FALLBACK}`;
-  const modeCardTitleClassName = modeCardTitleStyle || MODE_CARD_TITLE_FALLBACK;
   const emptyStateClassName = emptyStateStyle || EMPTY_STATE_FALLBACK;
   const categoryChipClassName = categoryChipStyle || CATEGORY_CHIP_FALLBACK;
 
@@ -159,10 +168,11 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <h4 className={sectionHeadingClassName}>
-              <LayoutGrid className={SECTION_ICON_CLASS} /> Categorie Selezionate
+            <h4 className={SECTION_HEADING_LAYOUT_CLASS}>
+              <LayoutGrid className={sectionTitleIcon} aria-hidden />{' '}
+              <span className={sectionTitle}>Categorie Selezionate</span>
             </h4>
-            <p className={`${helperStyle || HELPER_TEXT_CLASS}`}>
+            <p className={sectionDescription}>
               Seleziona le categorie per cui desideri ricevere suggerimenti nella valigia.
             </p>
           </div>
@@ -246,10 +256,11 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <h4 className={sectionHeadingClassName}>
-              <Layers className={SECTION_ICON_CLASS} /> Categorie Disponibili
+            <h4 className={SECTION_HEADING_LAYOUT_CLASS}>
+              <Layers className={sectionTitleIcon} aria-hidden />{' '}
+              <span className={sectionTitle}>Categorie Disponibili</span>
             </h4>
-            <p className={`${helperStyle || HELPER_TEXT_CLASS}`}>
+            <p className={sectionDescription}>
               Categorie che puoi aggiungere ai suggerimenti. Clicca sul + per selezionarle.
             </p>
           </div>
@@ -302,10 +313,11 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
 
       <div className="space-y-4">
         <div className="space-y-1">
-          <h4 className={sectionHeadingClassName}>
-            <Hash className={SECTION_ICON_CLASS} /> Quantità suggerimenti
+          <h4 className={SECTION_HEADING_LAYOUT_CLASS}>
+            <Hash className={sectionTitleIcon} aria-hidden />{' '}
+            <span className={sectionTitle}>Quantità suggerimenti</span>
           </h4>
-          <p className={`${helperStyle || HELPER_TEXT_CLASS}`}>
+          <p className={sectionDescription}>
             Quanti oggetti suggeriti ricevere per ogni categoria attiva. Se il catalogo ne offre meno, verranno mostrati solo quelli disponibili.
           </p>
         </div>
@@ -391,63 +403,76 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
       </div>
 
       <div className="space-y-4">
-        <h4 className={sectionHeadingClassName}>
-          <Settings2 className={SECTION_ICON_CLASS} /> Suggerimenti in valigia
+        <h4 className={SECTION_HEADING_LAYOUT_CLASS}>
+          <Settings2 className={sectionTitleIcon} aria-hidden />{' '}
+          <span className={sectionTitle}>Suggerimenti in valigia</span>
         </h4>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
           <button
+            type="button"
             onClick={() => onSetMode('review')}
-            className={`p-5 rounded-3xl border text-left transition-all group relative flex flex-col h-full ${
-              mode === 'review'
-                ? 'bg-indigo-600/10 border-indigo-500/50 ring-1 ring-indigo-500/50'
-                : 'bg-white/5 border-white/5 hover:border-white/10'
+            aria-pressed={mode === 'review'}
+            className={`${selectableCardBase} ${
+              mode === 'review' ? selectableCardSelected : selectableCardUnselected
             }`}
           >
-            <div className={`absolute top-5 right-5 w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-              mode === 'review'
-                ? 'bg-indigo-500 border-indigo-500 shadow-lg shadow-indigo-500/40'
-                : 'border-white/10 bg-black/20'
-            }`}>
-              {mode === 'review' && <Check className="w-3 h-3 text-white stroke-[4]" />}
+            <div
+              className={`${selectableBadgeBase} ${
+                mode === 'review' ? selectableBadgeSelected : selectableBadgeUnselected
+              }`}
+            >
+              {mode === 'review' && <Check className={selectableCheckIcon} aria-hidden />}
             </div>
 
-            <div className="flex items-center gap-3 mb-3 min-h-[3rem] pr-7">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                mode === 'review' ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-slate-200'
-              }`}>
-                <ListChecks className="w-5 h-5" />
+            <div className={selectableCardHeaderRow}>
+              <div
+                className={`${selectableIconBoxBase} ${
+                  mode === 'review' ? selectableIconBoxSelected : selectableIconBoxUnselected
+                }`}
+              >
+                <ListChecks className="w-5 h-5" aria-hidden />
               </div>
-              <span className={`${modeCardTitleClassName} ${mode === 'review' ? 'text-white' : 'text-slate-300'}`}>Valuta ed inserisci</span>
+              <span className={`${selectableCardTitle} ${mode === 'review' ? 'text-white' : 'text-slate-300'}`}>
+                Valuta ed inserisci
+              </span>
             </div>
-            <p className={`${helperStyle || HELPER_TEXT_CLASS} leading-relaxed`}>Potrai valutare gli oggetti suggeriti prima di inserirli in valigia.</p>
+            <p className={`${selectableCardDescription} leading-relaxed font-normal`}>
+              Potrai valutare gli oggetti suggeriti prima di inserirli in valigia.
+            </p>
           </button>
 
           <button
+            type="button"
             onClick={() => onSetMode('direct')}
-            className={`p-5 rounded-3xl border text-left transition-all group relative flex flex-col h-full ${
-              mode === 'direct'
-                ? 'bg-indigo-600/10 border-indigo-500/50 ring-1 ring-indigo-500/50'
-                : 'bg-white/5 border-white/5 hover:border-white/10'
+            aria-pressed={mode === 'direct'}
+            className={`${selectableCardBase} ${
+              mode === 'direct' ? selectableCardSelected : selectableCardUnselected
             }`}
           >
-            <div className={`absolute top-5 right-5 w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-              mode === 'direct'
-                ? 'bg-indigo-500 border-indigo-500 shadow-lg shadow-indigo-500/40'
-                : 'border-white/10 bg-black/20'
-            }`}>
-              {mode === 'direct' && <Check className="w-3 h-3 text-white stroke-[4]" />}
+            <div
+              className={`${selectableBadgeBase} ${
+                mode === 'direct' ? selectableBadgeSelected : selectableBadgeUnselected
+              }`}
+            >
+              {mode === 'direct' && <Check className={selectableCheckIcon} aria-hidden />}
             </div>
 
-            <div className="flex items-center gap-3 mb-3 min-h-[3rem] pr-7">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                mode === 'direct' ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-slate-200'
-              }`}>
-                <Plus className="w-5 h-5" />
+            <div className={selectableCardHeaderRow}>
+              <div
+                className={`${selectableIconBoxBase} ${
+                  mode === 'direct' ? selectableIconBoxSelected : selectableIconBoxUnselected
+                }`}
+              >
+                <Plus className="w-5 h-5" aria-hidden />
               </div>
-              <span className={`${modeCardTitleClassName} ${mode === 'direct' ? 'text-white' : 'text-slate-300'}`}>Inserimento diretto</span>
+              <span className={`${selectableCardTitle} ${mode === 'direct' ? 'text-white' : 'text-slate-300'}`}>
+                Inserimento diretto
+              </span>
             </div>
-            <p className={`${helperStyle || HELPER_TEXT_CLASS} leading-relaxed`}>I suggerimenti verranno inseriti immediatamente in valigia.</p>
+            <p className={`${selectableCardDescription} leading-relaxed font-normal`}>
+              I suggerimenti verranno inseriti immediatamente in valigia.
+            </p>
           </button>
         </div>
       </div>

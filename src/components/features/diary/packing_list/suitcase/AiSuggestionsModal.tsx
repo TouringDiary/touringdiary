@@ -18,7 +18,6 @@ import {
 import { AiSuggestionsReviewStep } from './AiSuggestionsReviewStep';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
@@ -55,13 +54,6 @@ function buildSuggestionKey(name: string, category: string): string {
   return `${category}::${name}`;
 }
 
-const FOOTER_SECONDARY_BTN_CLASS =
-  'text-[10px] font-black text-slate-400 uppercase tracking-widest';
-
-/** Pulsante "indietro" compatto del footer review (freccia standard dell'app). */
-const FOOTER_REVIEW_BACK_BTN_CLASS =
-  'inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-xl border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:border-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
-
 /** Dimensioni condivise per i CTA azione del footer review, su un'unica riga. */
 const FOOTER_REVIEW_ACTION_BTN_CLASS =
   'inline-flex flex-1 items-center justify-center gap-1.5 px-3 py-3 rounded-xl border box-border text-[10px] font-black uppercase tracking-wide transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed';
@@ -71,11 +63,6 @@ const FOOTER_REVIEW_ACCEPT_BTN_CLASS = `${FOOTER_REVIEW_ACTION_BTN_CLASS} border
 const FOOTER_REVIEW_ACCEPT_ALL_BTN_CLASS = `${FOOTER_REVIEW_ACTION_BTN_CLASS} border-emerald-500/30 bg-emerald-600/10 text-emerald-400 hover:bg-emerald-600/20`;
 
 const FOOTER_REVIEW_REJECT_BTN_CLASS = `${FOOTER_REVIEW_ACTION_BTN_CLASS} border-rose-500/30 bg-rose-600/10 text-rose-400 hover:bg-rose-600/20`;
-
-const TITLE_FALLBACK_DESKTOP =
-  'text-xl font-display font-bold text-white uppercase tracking-wide leading-none';
-const TITLE_FALLBACK_MOBILE =
-  'text-lg font-display font-bold text-white uppercase tracking-wide leading-none';
 
 export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   isOpen,
@@ -105,17 +92,20 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   const [selectedForAcceptKeys, setSelectedForAcceptKeys] = useState<Set<string>>(new Set());
 
   const isMobile = useMobileDetect();
-  const titleStyle = useDynamicStyles('suitcase_title', isMobile);
-  const subtitleStyle = useDynamicStyles('suitcase_text_support', isMobile);
-  const titleFallback = isMobile ? TITLE_FALLBACK_MOBILE : TITLE_FALLBACK_DESKTOP;
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
 
   const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
   const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
   const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
   const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
   const footerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooter);
+  const footerActionsShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooterActions);
   const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
   const headerIconBoxShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconBox);
+  const headerIconGlyphShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconGlyph);
+  const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
+  const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary);
 
   useEffect(() => {
     if (isOpen && selectedCategories.length === 0) {
@@ -330,11 +320,14 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
         <div className={headerShell}>
           <div className="flex items-center gap-4 pr-12 min-w-0">
             <div className={headerIconBoxShell}>
-              <Sparkles className={`w-6 h-6 ${isGenerating ? 'animate-spin' : ''}`} />
+              <Sparkles
+                className={`${headerIconGlyphShell} ${isGenerating ? 'animate-spin' : ''}`}
+                aria-hidden
+              />
             </div>
             <div className="min-w-0">
-              <h3 className={`${titleStyle || titleFallback} mb-1`}>Suggerimenti AI</h3>
-              <p className={`${subtitleStyle || "text-[13.5px] text-slate-400 font-medium"}`}>
+              <h3 className={`${modalTitleShell} mb-1`}>Suggerimenti AI</h3>
+              <p className={modalSubtitleShell}>
                 {step === 'setup'
                   ? 'Scegli categorie e quantità dei suggerimenti'
                   : 'Revisione suggerimenti per categoria'}
@@ -388,17 +381,19 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
 
         <div className={footerShell}>
           {step === 'setup' ? (
-            <div className="flex items-center gap-3 w-full">
+            <div className={footerActionsShell}>
               <button
+                type="button"
                 onClick={onClose}
-                className="flex-1 px-6 py-4 rounded-xl border border-white/5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-white hover:border-white/10 transition-colors"
+                className={btnCancelShell}
               >
                 Annulla
               </button>
               <button
+                type="button"
                 onClick={handleGenerate}
                 disabled={selectedCategories.length === 0 || isGenerating}
-                className="flex-[2] px-8 py-4 rounded-2xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest whitespace-nowrap hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+                className={`${btnPrimaryShell} flex items-center justify-center gap-3`}
               >
                 <Sparkles className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
                 Genera
@@ -406,27 +401,29 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
             </div>
           ) : bulkConfirm ? (
             <>
-              <p className={`${subtitleStyle || "text-[13px] text-slate-400"} flex-1`}>
+              <p className={`${modalSubtitleShell} flex-1`}>
                 {bulkConfirm === 'accept-all'
                   ? `Accettare ${pendingSuggestions.length} suggerimenti e aggiungerli alla valigia?`
                   : `Rifiutare ${pendingSuggestions.length} suggerimenti e inserirli in blacklist?`}
               </p>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className={footerActionsShell}>
                 <button
+                  type="button"
                   onClick={() => setBulkConfirm(null)}
                   disabled={isBulkRunning}
-                  className={`px-6 py-3 rounded-xl ${FOOTER_SECONDARY_BTN_CLASS} hover:text-white transition-colors disabled:opacity-50`}
+                  className={btnCancelShell}
                 >
                   Annulla
                 </button>
                 <button
+                  type="button"
                   onClick={bulkConfirm === 'accept-all' ? runBulkAccept : runBulkReject}
                   disabled={isBulkRunning}
-                  className={`px-8 py-4 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={
                     bulkConfirm === 'accept-all'
-                      ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20'
-                      : 'bg-rose-600 hover:bg-rose-500 shadow-rose-500/20'
-                  }`}
+                      ? btnPrimaryShell
+                      : 'px-8 py-4 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed bg-rose-600 hover:bg-rose-500 shadow-rose-500/20'
+                  }
                 >
                   {isBulkRunning ? 'Elaborazione...' : 'Conferma'}
                 </button>
@@ -440,7 +437,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
                 disabled={isBulkRunning}
                 aria-label="Indietro"
                 title="Indietro"
-                className={FOOTER_REVIEW_BACK_BTN_CLASS}
+                className={btnCancelShell}
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>

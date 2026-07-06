@@ -9,6 +9,7 @@ import { TemplateCategoryIcon } from './SuitcaseUtils';
 import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 type ModalTab = 'templates' | 'suitcases';
 
@@ -22,14 +23,6 @@ interface RecommendedSuitcaseModalProps {
   userOwnedTemplates: Suitcase[];
   savedSuitcases: Suitcase[];
 }
-
-/** Allineato a CategorySetupConfigurationModal — shell condivisa tra modali valigia. */
-const MODAL_TITLE_CLASS =
-  'font-sans text-xl font-bold text-white tracking-normal leading-tight';
-const MODAL_SUBTITLE_CLASS =
-  'font-sans text-sm font-medium text-slate-200 leading-snug';
-const FOOTER_BTN_CLASS =
-  'font-sans text-[10px] font-black uppercase tracking-widest';
 
 const SUGGESTED_BADGE_CLASS =
   'inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-violet-500/25 text-violet-200 text-[8px] font-bold uppercase tracking-wider border border-violet-400/40 animate-pulse shadow-[0_0_8px_rgba(139,92,246,0.25)]';
@@ -84,8 +77,21 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
 
   useGlobalModalEscape(isOpen, onClose);
 
+  const isMobile = useMobileDetect();
   const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
   const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const footerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooter);
+  const footerActionsShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooterActions);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const headerIconBoxShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconBox);
+  const headerIconGlyphShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconGlyph);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+  const sectionTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
+  const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
+  const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary);
 
   const allTemplates = useMemo(
     () => [...globalTemplates, ...userOwnedTemplates],
@@ -251,7 +257,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
       <div
         ref={dialogPanelRef}
         tabIndex={-1}
-        className={`${containerShell} max-w-lg outline-none sm:max-h-[calc(100dvh-var(--header-height)-2rem)] shadow-[0_30px_100px_rgba(0,0,0,0.75)]`}
+        className={`${containerShell} max-w-lg outline-none`}
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -263,22 +269,24 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
           variant="primary"
           position="absolute"
           withEscape={false}
-          className="top-5 right-5 sm:top-6 sm:right-6 z-local-overlay"
+          className={`${closeOffsetShell} z-local-overlay`}
         />
 
-        <div className="flex items-center gap-4 px-6 sm:px-8 py-5 sm:py-6 border-b border-white/5 shrink-0 pr-14">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/25 shrink-0">
-            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
+        <header className={headerShell}>
+          <div className="flex items-center gap-3 pr-10 min-w-0">
+            <div className={headerIconBoxShell}>
+              <Sparkles className={headerIconGlyphShell} aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h2 id="personalized-suitcase-title" className={`${modalTitleShell} truncate`}>
+                Valigia Personalizzata
+              </h2>
+              <p className={modalSubtitleShell}>
+                Combina template e valigie adatte al tuo viaggio.
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 id="personalized-suitcase-title" className={`${MODAL_TITLE_CLASS} truncate`}>
-              Valigia Personalizzata
-            </h2>
-            <p className={`${MODAL_SUBTITLE_CLASS} mt-1.5`}>
-              Combina template e valigie adatte al tuo viaggio.
-            </p>
-          </div>
-        </div>
+        </header>
 
         <div className="shrink-0 px-6 sm:px-8 pt-4 pb-3">
           <div
@@ -317,13 +325,13 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
 
         <div
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto px-6 sm:px-8 py-4 sm:py-5 custom-scrollbar space-y-6 min-h-0"
+          className={`${bodyShell} space-y-6 min-h-0`}
         >
           {activeTab === 'templates' && (
             <>
               {suggestedTemplates.length > 0 && (
                 <section>
-                  <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3">
+                  <h4 className={`${sectionTitleShell} mb-3`}>
                     Suggeriti per il tuo viaggio
                   </h4>
                   <div className="space-y-2">
@@ -334,7 +342,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
 
               {(otherTdTemplates.length > 0 || otherUserTemplates.length > 0) && (
                 <section>
-                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">
+                  <h4 className={`${sectionTitleShell} mb-3`}>
                     Altri template disponibili
                   </h4>
                   <div className="space-y-2">
@@ -356,7 +364,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
             <>
               {savedSuitcases.length > 0 ? (
                 <section>
-                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">
+                  <h4 className={`${sectionTitleShell} mb-3`}>
                     Le tue valigie
                   </h4>
                   <div className="space-y-2">
@@ -372,24 +380,26 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
           )}
         </div>
 
-        <div className="px-6 sm:px-8 py-4 sm:py-5 border-t border-white/5 bg-slate-900/80 shrink-0 flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className={`px-5 py-2.5 rounded-xl ${FOOTER_BTN_CLASS} text-slate-400 hover:text-white transition-colors`}
-          >
-            Annulla
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={isSubmitting || selectedIds.size === 0}
-            className={`px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white ${FOOTER_BTN_CLASS} shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center gap-2`}
-          >
-            <Briefcase className="w-3.5 h-3.5" />
-            {isSubmitting ? 'Preparazione...' : 'Crea draft valigia'}
-          </button>
-        </div>
+        <footer className={footerShell}>
+          <div className={footerActionsShell}>
+            <button
+              type="button"
+              onClick={onClose}
+              className={btnCancelShell}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={isSubmitting || selectedIds.size === 0}
+              className={`${btnPrimaryShell} flex items-center justify-center gap-2`}
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              {isSubmitting ? 'Preparazione...' : 'Crea draft valigia'}
+            </button>
+          </div>
+        </footer>
       </div>
     </div>,
     document.body

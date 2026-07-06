@@ -19,6 +19,7 @@ import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { getIconByName } from './SuitcaseUtils';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 export interface CategorySetupConfigurationResult {
   categorySetup: CategorySetupMap;
@@ -44,17 +45,8 @@ const STATE_PILL_ON =
 const STATE_PILL_OFF =
   'bg-red-500/15 text-red-300/90 border-red-500/25 hover:bg-red-500/20';
 
-/** Token tipografici allineati a designRules `suitcase_*` — responsive solo Tailwind. */
-const MODAL_TITLE_CLASS =
-  'font-sans text-xl font-bold text-white tracking-normal leading-tight';
-const MODAL_SUBTITLE_CLASS =
-  'font-sans text-sm font-medium text-slate-200 leading-snug';
-const SECTION_LABEL_CLASS =
-  'font-sans text-xs sm:text-[12px] font-black uppercase tracking-widest sm:tracking-[0.16em] text-slate-300';
 const CATEGORY_NAME_CLASS =
   'font-sans text-[15px] sm:text-base font-bold text-white leading-none';
-const FOOTER_BTN_CLASS =
-  'font-sans text-[10px] font-black uppercase tracking-widest';
 
 const IosToggle: React.FC<{
   checked: boolean;
@@ -115,12 +107,17 @@ const StatePill: React.FC<{
 const SettingsSectionHeader: React.FC<{
   title: string;
   count: number;
-}> = ({ title, count }) => (
-  <h3 className={`${SECTION_LABEL_CLASS} mb-2.5 px-0.5`}>
-    {title}
-    <span className="ml-1.5 text-indigo-400/90 tabular-nums">({count})</span>
-  </h3>
-);
+}> = ({ title, count }) => {
+  const isMobile = useMobileDetect();
+  const sectionTitle = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
+
+  return (
+    <h3 className={`${sectionTitle} mb-2.5 px-0.5`}>
+      {title}
+      <span className="ml-1.5 text-indigo-400/90 tabular-nums">({count})</span>
+    </h3>
+  );
+};
 
 const SettingsGroup: React.FC<{ children: React.ReactNode; clip?: boolean }> = ({
   children,
@@ -267,8 +264,20 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
 
   useGlobalModalEscape(isOpen, onClose);
 
+  const isMobile = useMobileDetect();
   const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
   const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
+  const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
+  const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const footerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooter);
+  const footerActionsShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooterActions);
+  const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
+  const headerIconBoxShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconBox);
+  const headerIconGlyphShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconGlyph);
+  const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
+  const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+  const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
+  const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary);
 
   useLayoutEffect(() => {
     if (!isOpen) return;
@@ -353,7 +362,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
         role="dialog"
         aria-modal="true"
         aria-labelledby="category-setup-title"
-        className={`${containerShell} max-w-3xl outline-none sm:max-h-[calc(100dvh-var(--header-height)-2rem)] shadow-[0_30px_100px_rgba(0,0,0,0.75)]`}
+        className={`${containerShell} max-w-3xl outline-none`}
         style={{ zIndex: Z_MODAL }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -362,26 +371,28 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
           variant="primary"
           position="absolute"
           withEscape={false}
-          className="top-5 right-5 sm:top-6 sm:right-6 z-local-overlay"
+          className={`${closeOffsetShell} z-local-overlay`}
         />
 
-        <div className="flex items-center gap-4 px-6 sm:px-8 py-5 sm:py-6 border-b border-white/5 shrink-0 pr-14">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/25 shrink-0">
-            <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
+        <header className={headerShell}>
+          <div className="flex items-center gap-3 pr-10 min-w-0">
+            <div className={headerIconBoxShell}>
+              <Briefcase className={headerIconGlyphShell} aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h2 id="category-setup-title" className={`${modalTitleShell} truncate`}>
+                {title}
+              </h2>
+              <p className={modalSubtitleShell}>
+                Attiva le categorie e scegli se precompilarle con gli oggetti consigliati.
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 id="category-setup-title" className={`${MODAL_TITLE_CLASS} truncate`}>
-              {title}
-            </h2>
-            <p className={`${MODAL_SUBTITLE_CLASS} mt-1.5`}>
-              Attiva le categorie e scegli se precompilarle con gli oggetti consigliati.
-            </p>
-          </div>
-        </div>
+        </header>
 
         <div
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto px-6 sm:px-8 py-5 sm:py-6 custom-scrollbar space-y-6 min-h-0"
+          className={`${bodyShell} space-y-6 min-h-0`}
         >
           <SystemCategorySection
             title="Standard"
@@ -513,31 +524,33 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
           </section>
         </div>
 
-        <div className="px-6 sm:px-8 py-4 sm:py-5 border-t border-white/5 bg-slate-900/80 shrink-0 flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className={`px-5 py-2.5 rounded-xl ${FOOTER_BTN_CLASS} text-slate-400 hover:text-white transition-colors disabled:opacity-50`}
-          >
-            Annulla
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={isSubmitting}
-            className={`px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white ${FOOTER_BTN_CLASS} shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center gap-2`}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Attendere...
-              </>
-            ) : (
-              'Conferma'
-            )}
-          </button>
-        </div>
+        <footer className={footerShell}>
+          <div className={footerActionsShell}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className={btnCancelShell}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={isSubmitting}
+              className={`${btnPrimaryShell} flex items-center justify-center gap-2`}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Attendere...
+                </>
+              ) : (
+                'Conferma'
+              )}
+            </button>
+          </div>
+        </footer>
       </div>
     </div>,
     document.body
