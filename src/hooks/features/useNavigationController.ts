@@ -86,7 +86,7 @@ export const useNavigationController = (cityManifest: CitySummary[]) => {
         else if (section === 'auth') openModal('auth');
         else if (section === 'rewards') openModal('userDashboard', { tab: 'wallet' });
         else if (section === 'profile') openModal('userDashboard', { tab: tab || 'overview' });
-        else if (section === 'itineraries') openModal('itineraries');
+        else if (section === 'workspace') openModal('collaborationWorkspace');
         else if (section === 'community') openModal('global', { section: 'community', tab, id });
         else if (section === 'sponsors') openModal('global', { section: 'sponsors' });
         else if (section === 'around_me') openModal('aroundMe'); 

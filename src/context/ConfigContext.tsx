@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { getCachedSetting, SETTINGS_KEYS, saveSetting, loadGlobalCache } from '../services/settingsService';
 import type { StyleRule } from '../types/designSystem';
 
@@ -34,66 +34,86 @@ export const useConfig = () => {
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [configs, setConfigs] = useState<AppConfigs>({});
   const [isLoading, setIsLoading] = useState(true);
+  const loadInFlightRef = useRef<Promise<void> | null>(null);
 
-  const loadConfig = useCallback(async () => {
-    // Evitiamo caricamenti multipli se già in corso
-    console.log("[ConfigContext] Loading all configurations...");
-    setIsLoading(true);
-
-    try {
-      await loadGlobalCache();
-
-      const newConfigs: AppConfigs = {};
-
-      const allKeys = Object.values(SETTINGS_KEYS).filter(Boolean);
-
-      for (const key of allKeys) {
-        if (!key) continue;
-        const setting = getCachedSetting(key);
-        newConfigs[key] = (setting !== null && setting !== undefined) ? setting : null;
-      }
-
-      // ======================= 🔥 NUOVO DESIGN SYSTEM =======================
-      try {
-        const { getDesignSystemRules } = await import('../services/settingsService');
-        const rules = await Promise.race([
-          getDesignSystemRules(),
-          new Promise<StyleRule[]>(resolve => setTimeout(() => resolve([]), 3000))
-        ]);
-
-        const rulesMap = rules.reduce<Record<string, StyleRule>>((acc, rule) => {
-          if (rule.component_key) {
-            acc[rule.component_key] = rule;
-          }
-          return acc;
-        }, {});
-
-
-        newConfigs.design_system_rules = rulesMap;
-        newConfigs.design_system = { components: rulesMap };
-        console.log("[ConfigContext] Design system rules loaded.");
-      } catch (e) {
-        console.warn("[ConfigContext] Failed to load design_system_rules, continuing...", e);
-      }
-      // =====================================================================
-
-      setConfigs(newConfigs);
-      console.log("[ConfigContext] Configurations applied successfully.");
-    } catch (error) {
-      console.error("[ConfigContext] ERROR during loadConfig. Using fallback/empty state.", error);
-    } finally {
-      setIsLoading(false);
-      console.log("[ConfigContext] Bootstrap loading state cleared.");
+  const loadConfig = useCallback(async (options?: { showLoading?: boolean }) => {
+    if (loadInFlightRef.current) {
+      return loadInFlightRef.current;
     }
 
+    const showLoading = options?.showLoading !== false;
+
+    const run = (async () => {
+      console.log("[ConfigContext] Loading all configurations...");
+      if (showLoading) {
+        setIsLoading(true);
+      }
+
+      try {
+        await loadGlobalCache();
+
+        const newConfigs: AppConfigs = {};
+
+        const allKeys = Object.values(SETTINGS_KEYS).filter(Boolean);
+
+        for (const key of allKeys) {
+          if (!key) continue;
+          const setting = getCachedSetting(key);
+          newConfigs[key] = (setting !== null && setting !== undefined) ? setting : null;
+        }
+
+        // ======================= 🔥 NUOVO DESIGN SYSTEM =======================
+        try {
+          const { getDesignSystemRules } = await import('../services/settingsService');
+          const rules = await Promise.race([
+            getDesignSystemRules(),
+            new Promise<StyleRule[]>(resolve => setTimeout(() => resolve([]), 3000))
+          ]);
+
+          const rulesMap = rules.reduce<Record<string, StyleRule>>((acc, rule) => {
+            if (rule.component_key) {
+              acc[rule.component_key] = rule;
+            }
+            return acc;
+          }, {});
+
+
+          newConfigs.design_system_rules = rulesMap;
+          newConfigs.design_system = { components: rulesMap };
+          console.log("[ConfigContext] Design system rules loaded.");
+        } catch (e) {
+          console.warn("[ConfigContext] Failed to load design_system_rules, continuing...", e);
+        }
+        // =====================================================================
+
+        setConfigs(newConfigs);
+        console.log("[ConfigContext] Configurations applied successfully.");
+      } catch (error) {
+        console.error("[ConfigContext] ERROR during loadConfig. Using fallback/empty state.", error);
+      } finally {
+        if (showLoading) {
+          setIsLoading(false);
+          console.log("[ConfigContext] Bootstrap loading state cleared.");
+        }
+      }
+    })();
+
+    loadInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      if (loadInFlightRef.current === run) {
+        loadInFlightRef.current = null;
+      }
+    }
   }, []);
 
   useEffect(() => {
-    loadConfig();
+    loadConfig({ showLoading: true });
   }, [loadConfig]);
 
   const refreshConfig = async () => {
-    await loadConfig();
+    await loadConfig({ showLoading: false });
   };
 
   const updateSetting = async (key: string, value: any) => {

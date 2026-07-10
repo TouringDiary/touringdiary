@@ -23,9 +23,9 @@ export function resolveCompanionSurfaceTier(
  *
  * The primary workspace panel (Valigia) always sits at Z_FOCUS_ACTIVE (9300):
  * above the diary companion (Z_FOCUS_COMPANION, 9100) and the global header
- * (Z_GLOBAL_CHROME, 9200), but BELOW the header dropdown band (Z_DROPDOWN,
- * 10000) and intentional modals (Z_MODAL+). This guarantees the hamburger menu
- * is always reachable above open workspaces, per the layer registry.
+ * (Z_GLOBAL_CHROME, 9200), but BELOW portaled chrome menus (Z_POPOVER, 14500).
+ * Popover sits above modal dimming (Z_OVERLAY) so hamburger/header menus stay
+ * visible and interactive over open modals/wizards.
  *
  * Both companion tiers resolve to the same value: the mobile diary fullscreen
  * overlay also lives in the focus band (Z_FOCUS_COMPANION), so no modal-band

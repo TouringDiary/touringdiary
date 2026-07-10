@@ -208,13 +208,13 @@ export const SmartFilterDrawer = ({
     };
 
     return createPortal(
-        <>
+        <div className={`fixed inset-0 z-overlay ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
             <div 
-                className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-dropdown transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                className={`absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
                 onClick={onClose}
             ></div>
 
-            <div className={`fixed inset-y-0 right-0 w-80 md:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-modal transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`absolute inset-y-0 right-0 w-80 md:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-modal transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 
                 {/* HEADER */}
                 <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#0f172a] shrink-0">
@@ -502,7 +502,7 @@ export const SmartFilterDrawer = ({
                     </button>
                 </div>
             </div>
-        </>,
+        </div>,
         document.body
     );
 };

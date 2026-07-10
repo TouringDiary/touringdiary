@@ -1,7 +1,11 @@
-import type { WorkspaceAttachment, WorkspaceAttachmentWithUploader } from '@/domain/collaboration/workspaceAttachment';
+import type {
+  WorkspaceAttachment,
+  WorkspaceAttachmentCategory,
+  WorkspaceAttachmentWithUploader,
+} from '@/domain/collaboration/workspaceAttachment';
 import type { StorageLimitsConfig } from '@/domain/storage/storageLimits';
 import { supabase } from '@/services/supabaseClient';
-import { getWorkspace } from './workspaceService';
+import { isWorkspaceOwner } from './workspaceService';
 import { validateWorkspaceAttachmentFile } from '@/utils/fileValidation';
 import { recordCollaborationDomainEvent } from './domainEventService';
 import { getCachedSetting, SETTINGS_KEYS } from '@/services/settingsService';
@@ -32,6 +36,7 @@ function mapAttachmentRow(row: {
   storage_path: string;
   mime_type: string;
   size_bytes: number;
+  category?: WorkspaceAttachmentCategory | null;
   created_at: string;
 }): WorkspaceAttachment {
   return {
@@ -42,6 +47,7 @@ function mapAttachmentRow(row: {
     storagePath: row.storage_path,
     mimeType: row.mime_type,
     sizeBytes: row.size_bytes,
+    category: row.category ?? 'misc',
     createdAt: row.created_at,
   };
 }
@@ -63,13 +69,19 @@ async function getWorkspaceAttachmentBytes(workspaceId: string): Promise<number>
 }
 
 export async function listWorkspaceAttachments(
-  workspaceId: string
+  workspaceId: string,
+  category?: WorkspaceAttachmentCategory
 ): Promise<WorkspaceAttachmentWithUploader[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('workspace_attachments')
     .select('*, profiles:uploaded_by(name)')
-    .eq('workspace_id', workspaceId)
-    .order('created_at', { ascending: false });
+    .eq('workspace_id', workspaceId);
+
+  if (category) {
+    query = query.eq('category', category);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     console.error('[workspaceAttachmentService] listWorkspaceAttachments:', error.message);
@@ -88,8 +100,10 @@ export async function listWorkspaceAttachments(
 
 export async function uploadWorkspaceAttachment(
   workspaceId: string,
+  workspaceOwnerId: string,
   actorId: string,
-  file: File
+  file: File,
+  category: WorkspaceAttachmentCategory
 ): Promise<{ success: true; attachment: WorkspaceAttachment } | { success: false; error: string }> {
   const limits = resolveStorageLimitsConfig();
   if (!limits) {
@@ -105,11 +119,6 @@ export async function uploadWorkspaceAttachment(
     return { success: false, error: validation.error };
   }
 
-  const workspace = await getWorkspace(workspaceId);
-  if (!workspace) {
-    return { success: false, error: 'Workspace non trovato.' };
-  }
-
   const usedBytes = await getWorkspaceAttachmentBytes(workspaceId);
   if (usedBytes + file.size > limits.maxWorkspaceBytes) {
     return {
@@ -119,7 +128,7 @@ export async function uploadWorkspaceAttachment(
   }
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const storagePath = `${workspace.ownerId}/${workspaceId}/${crypto.randomUUID()}-${safeName}`;
+  const storagePath = `${workspaceOwnerId}/${workspaceId}/${crypto.randomUUID()}-${safeName}`;
 
   const { error: uploadError } = await supabase.storage
     .from(WORKSPACE_ATTACHMENTS_BUCKET)
@@ -142,6 +151,7 @@ export async function uploadWorkspaceAttachment(
       storage_path: storagePath,
       mime_type: validation.mimeType,
       size_bytes: file.size,
+      category,
     })
     .select('*')
     .single();
@@ -179,14 +189,14 @@ export async function deleteWorkspaceAttachment(
     return { success: false, error: 'Allegato non trovato.' };
   }
 
-  const workspace = await getWorkspace(workspaceId);
-  const canDelete =
-    data.uploaded_by === actorId ||
-    workspace?.ownerId === actorId;
+  const isOwner = await isWorkspaceOwner(workspaceId, actorId);
+  const canDelete = data.uploaded_by === actorId || isOwner;
 
   if (!canDelete) {
     return { success: false, error: 'Non puoi eliminare questo allegato.' };
   }
+
+  const fileName = data.file_name as string;
 
   const { error: deleteError } = await supabase
     .from('workspace_attachments')
@@ -197,7 +207,26 @@ export async function deleteWorkspaceAttachment(
     return { success: false, error: 'Impossibile eliminare l\'allegato.' };
   }
 
-  await supabase.storage.from(WORKSPACE_ATTACHMENTS_BUCKET).remove([data.storage_path]);
+  const { error: storageError } = await supabase.storage
+    .from(WORKSPACE_ATTACHMENTS_BUCKET)
+    .remove([data.storage_path as string]);
+
+  if (storageError) {
+    console.error(
+      '[workspaceAttachmentService] deleteWorkspaceAttachment storage remove:',
+      storageError.message,
+      { workspaceId, attachmentId, storagePath: data.storage_path, fileName },
+    );
+  }
+
+  await recordCollaborationDomainEvent({
+    eventType: 'workspace.attachment_removed',
+    actorId,
+    workspaceId,
+    summary: `Allegato rimosso: ${fileName}`,
+    payload: { attachmentId, fileName },
+  });
+
   return { success: true };
 }
 

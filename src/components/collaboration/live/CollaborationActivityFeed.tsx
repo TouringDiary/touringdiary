@@ -7,12 +7,14 @@ interface Props {
   workspaceId: string;
   className?: string;
   limit?: number;
+  layout?: 'legacy' | 'hub';
 }
 
 export const CollaborationActivityFeed: React.FC<Props> = ({
   workspaceId,
   className = '',
   limit = 30,
+  layout = 'legacy',
 }) => {
   const [events, setEvents] = useState<CollaborationDomainEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,6 +25,11 @@ export const CollaborationActivityFeed: React.FC<Props> = ({
       .then(setEvents)
       .finally(() => setIsLoading(false));
   }, [workspaceId, limit]);
+
+  const listClass =
+    layout === 'hub'
+      ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2'
+      : 'space-y-2';
 
   if (isLoading) {
     return (
@@ -42,14 +49,18 @@ export const CollaborationActivityFeed: React.FC<Props> = ({
   }
 
   return (
-    <ul className={`space-y-2 ${className}`}>
+    <ul className={`${listClass} ${className}`}>
       {events.map((event) => (
         <li
           key={event.id}
-          className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5 text-sm text-slate-200"
+          className={`rounded-lg border border-slate-800 bg-slate-900/40 text-sm text-slate-200 ${
+            layout === 'hub' ? 'px-3 py-2.5 flex flex-col min-h-[4.5rem]' : 'px-3 py-2.5'
+          }`}
         >
-          <p>{event.summary}</p>
-          <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+          <p className={layout === 'hub' ? 'text-xs leading-snug line-clamp-3 flex-1' : undefined}>
+            {event.summary}
+          </p>
+          <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 shrink-0">
             <Clock className="w-3 h-3" />
             {new Date(event.createdAt).toLocaleString()}
           </p>

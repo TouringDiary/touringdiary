@@ -289,6 +289,8 @@ export const useSuitcasePanelData = (
   const previousTripCount = useRef<number>(0);
   const previousSavedCount = useRef<number>(0);
   const hasInitializedTab = useRef(false);
+  /** Intent di apertura da modalProps — consumato una sola volta; la navigazione interna usa activeTabId. */
+  const appliedInitialSuitcaseIdRef = useRef<string | null>(null);
 
   const dataReady =
     !isLoadingUser &&
@@ -299,14 +301,20 @@ export const useSuitcasePanelData = (
   const savedCount = savedSuitcases.length;
 
   useEffect(() => {
-    if (initialSuitcaseId && dataReady) {
-      const entity =
-        userSuitcases.find((s) => s.id === initialSuitcaseId) ??
-        globalTemplates.find((s) => s.id === initialSuitcaseId);
-      panelState.setActiveTabId(initialSuitcaseId);
-      panelState.setViewMode(entity && isTdTemplate(entity) ? 'viewer' : 'editor');
-      hasInitializedTab.current = true;
+    if (!initialSuitcaseId) {
+      appliedInitialSuitcaseIdRef.current = null;
+      return;
     }
+    if (!dataReady || appliedInitialSuitcaseIdRef.current === initialSuitcaseId) return;
+
+    const entity =
+      userSuitcases.find((s) => s.id === initialSuitcaseId) ??
+      globalTemplates.find((s) => s.id === initialSuitcaseId);
+
+    panelState.setActiveTabId(initialSuitcaseId);
+    panelState.setViewMode(entity && isTdTemplate(entity) ? 'viewer' : 'editor');
+    hasInitializedTab.current = true;
+    appliedInitialSuitcaseIdRef.current = initialSuitcaseId;
   }, [initialSuitcaseId, dataReady, userSuitcases, globalTemplates]);
 
   useEffect(() => {

@@ -45,9 +45,13 @@ export {
   createWorkspace,
   getWorkspace,
   listWorkspacesForUser,
+  getWorkspaceMemberCounts,
   updateWorkspace,
   isWorkspaceOwner,
   isWorkspaceMember,
+  deleteWorkspace,
+  MAX_OWNED_WORKSPACES_PER_USER,
+  OWNED_WORKSPACE_LIMIT_MESSAGE,
 } from './workspaceService';
 
 export {
@@ -72,6 +76,15 @@ export {
 } from './workspaceCompositionService';
 
 export {
+  resolveWorkspaceCompositionBlueprint,
+  materializeWorkspaceComposition,
+  rollbackDuplicatedCompositionResources,
+  blueprintCandidatesToLabels,
+  type ResolveWorkspaceCompositionBlueprintInput,
+  type WorkspaceCompositionShareIntent,
+} from './workspaceComposition';
+
+export {
   sendWorkspaceInvite,
   acceptWorkspaceInvite,
   rejectWorkspaceInvite,
@@ -83,6 +96,8 @@ export {
   removeWorkspaceMember,
   updateWorkspaceInvitePermissions,
 } from './workspaceInviteService';
+
+export { leaveWorkspace } from './workspaceMemberService';
 
 export {
   fetchCollaborativeDiaryIdsForMember,

@@ -1,4 +1,4 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
+import { Z_POPOVER } from '@/constants/zIndex';
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
@@ -86,7 +86,7 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
             role={role}
             aria-modal={false}
             className={`fixed ${align === 'center' ? '-translate-x-1/2' : ''} ${ready ? 'animate-in fade-in zoom-in-95' : 'opacity-0 pointer-events-none'} ${className}`}
-            style={{ zIndex: Z_MODAL_NESTED, ...position }}
+            style={{ zIndex: Z_POPOVER, ...position }}
             onClick={(e) => e.stopPropagation()}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}

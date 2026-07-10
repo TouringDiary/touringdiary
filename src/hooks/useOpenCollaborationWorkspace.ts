@@ -7,9 +7,11 @@ import {
   requestCollaborationAuth,
 } from '@/collaboration/guestGate';
 import { userNeedsUsername } from '@/domain/profile/username';
+import type { WorkspacePanelSection } from '@/components/workspace/global/globalWorkspacePresentation';
 
 export interface CollaborationWorkspaceTarget {
-  workspaceId: string;
+  workspaceId?: string;
+  initialSection?: WorkspacePanelSection;
 }
 
 export function useOpenCollaborationWorkspace() {
@@ -17,7 +19,7 @@ export function useOpenCollaborationWorkspace() {
   const { user } = useUser();
 
   return useCallback(
-    (target: CollaborationWorkspaceTarget) => {
+    (target?: CollaborationWorkspaceTarget) => {
       if (isGuestUser(user)) {
         requestCollaborationAuth(openModal, 'workspace', target);
         return;
@@ -32,7 +34,7 @@ export function useOpenCollaborationWorkspace() {
         return;
       }
 
-      openModal('collaborationWorkspace', target);
+      openModal('collaborationWorkspace', target ?? {});
     },
     [openModal, user]
   );

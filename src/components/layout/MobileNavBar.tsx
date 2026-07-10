@@ -1,13 +1,13 @@
 
 import React from 'react';
-import { Map, Users, BookOpen, Radar, Store } from 'lucide-react';
+import { FolderKanban, Users, BookOpen, Radar, Store } from 'lucide-react';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { useUI } from '@/context/UIContext';
 
 interface MobileNavBarProps {
     activeSection: string | null;
     onOpenDiary: () => void;
-    onOpenGlobal: (section: 'itineraries' | 'community' | 'sponsors' | 'around_me') => void;
+    onOpenGlobal: (section: 'workspace' | 'community' | 'sponsors' | 'around_me') => void;
     onOpenRankings: () => void;
     isVisible?: boolean; 
     onExpandUi?: () => void; 
@@ -22,15 +22,15 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
             {/* FULL BAR MODE - Navigazione Completa */}
             <div 
                 id="tour-mobile-nav"
-                className={`md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#020617]/95 backdrop-blur-xl border-t border-slate-800 grid grid-cols-5 items-end z-dropdown pb-1 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out will-change-transform ${isUiVisible ? 'translate-y-0' : 'translate-y-[200%]'}`}
+                className={`lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#020617]/95 backdrop-blur-xl border-t border-slate-800 grid grid-cols-5 items-end z-global-chrome pb-1 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out will-change-transform ${isUiVisible ? 'translate-y-0' : 'translate-y-[200%]'}`}
             >
-                {/* 1. ITINERARI */}
+                {/* 1. WORKSPACE */}
                 <button 
-                    onClick={() => onOpenGlobal('itineraries')} 
-                    className={`flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'itineraries' ? 'text-indigo-400 bg-indigo-500/10 border-t-2 border-indigo-500' : 'text-slate-500 hover:text-indigo-400'}`}
+                    onClick={() => onOpenGlobal('workspace')} 
+                    className={`flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'workspace' ? 'text-indigo-400 bg-indigo-500/10 border-t-2 border-indigo-500' : 'text-slate-500 hover:text-indigo-400'}`}
                 >
-                    <Map className="w-5 h-5"/>
-                    <span className={labelStyle}>Itinerari</span>
+                    <FolderKanban className="w-5 h-5"/>
+                    <span className={labelStyle}>Workspace</span>
                 </button>
                 
                 {/* 2. SOCIAL */}
@@ -76,7 +76,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
             {/* COMPRESSED FAB MODE - Tasto Giallo Rotondo DIARIO */}
             {/* Appare quando la barra scompare, posizione bottom-right per ergonomia */}
             <div 
-                className={`md:hidden fixed bottom-6 right-6 z-dropdown transition-all duration-300 ease-out transform ${!isUiVisible ? 'translate-y-0 opacity-100 scale-100 pointer-events-auto' : 'translate-y-20 opacity-0 scale-50 pointer-events-none'}`}
+                className={`lg:hidden fixed bottom-6 right-6 z-dropdown transition-all duration-300 ease-out transform ${!isUiVisible ? 'translate-y-0 opacity-100 scale-100 pointer-events-auto' : 'translate-y-20 opacity-0 scale-50 pointer-events-none'}`}
             >
                 <button 
                     onClick={() => setIsUiVisible(true)}

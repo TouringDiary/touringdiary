@@ -72,6 +72,21 @@ export async function createWorkspaceWithComposition(
     memberPermissions?: WorkspaceMemberPermissionDraft[];
   }
 ): Promise<CreateWorkspaceWithCompositionResult> {
+  const resources = input.resources ?? [];
+  const diaryCount = resources.filter((resource) => resource.kind === 'diary').length;
+  if (diaryCount > 1) {
+    return {
+      success: false,
+      error: 'Il Workspace può contenere al massimo un Diario.',
+    };
+  }
+  if (resources.length === 0) {
+    return {
+      success: false,
+      error: 'Seleziona almeno una risorsa per il Workspace.',
+    };
+  }
+
   const createResult = await createWorkspace({
     ownerId,
     name: input.name,

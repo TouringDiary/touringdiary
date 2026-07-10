@@ -18,17 +18,22 @@ interface UseSuitcasePanelCloseOptions {
   isEntered: boolean;
   setIsClosing: (value: boolean) => void;
   onCloseComplete: () => void;
+  /** Proprietà CSS da attendere a fine transizione (default: translate/transform). */
+  closeTransitionProperties?: string[];
 }
 
 /**
  * Single animated close flow for the floating suitcase panel.
  * Waits for the CSS transform transition to finish before unmounting.
  */
+const DEFAULT_CLOSE_TRANSITION_PROPERTIES = ['translate', 'transform'];
+
 export function useSuitcasePanelClose({
   isClosing,
   isEntered,
   setIsClosing,
   onCloseComplete,
+  closeTransitionProperties = DEFAULT_CLOSE_TRANSITION_PROPERTIES,
 }: UseSuitcasePanelCloseOptions) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closePendingRef = useRef(false);
@@ -65,9 +70,11 @@ export function useSuitcasePanelClose({
 
     const onTransitionEnd = (event: TransitionEvent) => {
       if (event.target !== el) return;
-      // Tailwind translate-* animates the `translate` property (not `transform`).
       const prop = event.propertyName;
-      if (prop !== 'translate' && !prop.includes('transform')) return;
+      const matches = closeTransitionProperties.some(
+        (allowed) => prop === allowed || prop.includes(allowed),
+      );
+      if (!matches) return;
       if (!closePendingRef.current) return;
       finalizeClose();
     };
@@ -76,7 +83,7 @@ export function useSuitcasePanelClose({
     return () => {
       el.removeEventListener('transitionend', onTransitionEnd);
     };
-  }, [isClosing, isEntered, finalizeClose]);
+  }, [isClosing, isEntered, finalizeClose, closeTransitionProperties]);
 
   return {
     panelRef,

@@ -55,26 +55,28 @@ export const OptionCard: React.FC<OptionCardProps> = ({
       >
         {selected && <Check className={selectableCheckIcon} aria-hidden />}
       </div>
-      <div className={selectableCardHeaderRow}>
-        <div
-          className={`${selectableIconBoxBase} ${
-            selected ? selectableIconBoxSelected : selectableIconBoxUnselected
-          }`}
-        >
-          {icon}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`${selectableCardTitle} ${selected ? 'text-white' : 'text-slate-300'}`}>
-              {title}
-            </span>
-            {recommended && (
-              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-                Consigliato
-              </span>
-            )}
+      <div className="flex w-full flex-1 flex-col justify-center">
+        <div className={selectableCardHeaderRow}>
+          <div
+            className={`${selectableIconBoxBase} ${
+              selected ? selectableIconBoxSelected : selectableIconBoxUnselected
+            }`}
+          >
+            {icon}
           </div>
-          <p className={`${selectableCardDescription} mt-1 leading-relaxed font-normal`}>{description}</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`${selectableCardTitle} ${selected ? 'text-white' : 'text-slate-300'}`}>
+                {title}
+              </span>
+              {recommended && (
+                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                  Consigliato
+                </span>
+              )}
+            </div>
+            <p className={selectableCardDescription}>{description}</p>
+          </div>
         </div>
       </div>
     </button>

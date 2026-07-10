@@ -9,15 +9,14 @@ const SuitcaseFloatingPanel = React.lazy(() =>
   }))
 );
 
-const CollaborationWorkspacePanel = React.lazy(() =>
-  import('@/components/collaboration/workspace/CollaborationWorkspacePanel').then((module) => ({
-    default: module.CollaborationWorkspacePanel,
+const GlobalWorkspacePanel = React.lazy(() =>
+  import('@/components/workspace/global/GlobalWorkspacePanel').then((module) => ({
+    default: module.GlobalWorkspacePanel,
   }))
 );
 
 /**
  * Mounts workspace focus panels (NOT classic modals) based on active modal key.
- * Owns workspace session teardown: closeModal clears activeModal → overlay unmounts.
  */
 export const WorkspaceHost: React.FC = () => {
   const { activeModal, modalProps, closeModal } = useModal();
@@ -40,11 +39,11 @@ export const WorkspaceHost: React.FC = () => {
         </Suspense>
       );
     case 'collaborationWorkspace':
-      return modalProps?.workspaceId ? (
+      return (
         <Suspense fallback={null}>
-          <CollaborationWorkspacePanel workspaceId={modalProps.workspaceId} />
+          <GlobalWorkspacePanel />
         </Suspense>
-      ) : null;
+      );
     default:
       return null;
   }

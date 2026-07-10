@@ -1,11 +1,11 @@
 import type { User } from '@/types/users';
 import { Z_FOCUS_COMPANION } from '@/constants/zIndex';
 import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
-import { useFocusMode } from '@/focus';
+import { useFocusMode, workspaceUsesCompanionPortal } from '@/focus';
 
 import React, { useState, useMemo, useEffect, useLayoutEffect, useRef, Suspense } from 'react';
 import { createPortal } from 'react-dom';
-import { Map, Users, ArrowUpRight, Sun, Star, Snowflake, Waves, Mountain, Droplets, Wind, Castle, Bot, Sparkles, Leaf, Flower, Award, GripHorizontal, Plus, Check, BookOpen, ChevronDown, CloudSun, X, MapPin, Loader2 } from 'lucide-react';
+import { FolderKanban, Users, ArrowUpRight, Sun, Star, Snowflake, Waves, Mountain, Droplets, Wind, Castle, Bot, Sparkles, Leaf, Flower, Award, GripHorizontal, Plus, Check, BookOpen, ChevronDown, CloudSun, X, MapPin, Loader2 } from 'lucide-react';
 import { PointOfInterest, SponsorRequest, ResolvedSponsor } from '@/types';
 import { AdPlaceholder } from '@/components/common/AdPlaceholder';
 import { formatVisitors } from '@/utils/common';
@@ -22,6 +22,7 @@ import { useGps } from '@/context/GpsContext';
 import { useUI } from '@/context/UIContext';
 import { useNavigation } from '@/context/useNavigation';
 import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext';
+import { WorkspaceBinderTab } from '@/components/workspace/global/WorkspaceBinderTab';
 
 // --- LAZY IMPORT DEL DIARIO ---
 const TravelDiary = React.lazy(() => import('@/components/features/diary/TravelDiary').then(module => ({ default: module.TravelDiary })));
@@ -51,7 +52,7 @@ export interface SidebarProps {
     onDayDrop: (dayIndex: number, data: string, targetTime?: string) => void;
     onOpenFullRankings: () => void;
     onOpenSponsor: () => void;
-    onOpenGlobal: (section: 'itineraries' | 'community' | 'sponsors' | 'around_me') => void;
+    onOpenGlobal: (section: 'workspace' | 'community' | 'sponsors' | 'around_me') => void;
     onPrint: () => void;
     onCityClick: (id: string) => void;
     externalZoneFilter?: string;
@@ -65,6 +66,8 @@ export interface SidebarProps {
      * (evita il container vuoto che continua ad animarsi).
      */
     keepDiaryMountedDuringTransition?: boolean;
+    isWorkspacePanelOpen?: boolean;
+    onToggleWorkspacePanel?: () => void;
 }
 
 export const Sidebar = ({
@@ -73,7 +76,9 @@ export const Sidebar = ({
     onAddToItinerary,
     onOpenAiPlanner,
     onOpenRoadbook,
-    keepDiaryMountedDuringTransition = false
+    keepDiaryMountedDuringTransition = false,
+    isWorkspacePanelOpen = false,
+    onToggleWorkspacePanel,
 }: SidebarProps) => {
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
@@ -83,8 +88,8 @@ export const Sidebar = ({
     const { userLocation } = useGps();
     const { isSidebarOpen, mobileShowWeather, setMobileShowWeather, mobileDiaryFullScreen, setMobileDiaryFullScreen } = useUI();
     const { itinerary } = useItinerary();
-    const { activeModal, openModal, closeModal } = useModal();
-    const { isWorkspace } = useFocusMode();
+    const { openModal } = useModal();
+    const { isWorkspace, workspaceId } = useFocusMode();
 
     const [rankingSource, setRankingSource] = useState<'mix' | 'ai' | 'users'>('mix');
     const [activeContext, setActiveContext] = useState<string | null>(null);
@@ -145,7 +150,8 @@ export const Sidebar = ({
     const isSponsorInItinerary = sponsorPoi ? itinerary.items.some(i => i.poi.id === sponsorPoi.id) : false;
 
     // --- SHARED STATE & EFFECTS (Unconditional) ---
-    const isCompanionPortaled = isWorkspace && isSidebarOpen && mounted;
+    const isCompanionPortaled =
+        isWorkspace && workspaceUsesCompanionPortal(workspaceId) && isSidebarOpen && mounted;
 
     const diaryPanelRef = useRef<HTMLDivElement>(null);
     const companionShellRef = useRef<HTMLDivElement>(null);
@@ -289,16 +295,48 @@ export const Sidebar = ({
             >
 
 
-                {/* 1. GLOBAL BUTTONS */}
+                {/* 1. GLOBAL BUTTONS — posizioni Home invariate; Workspace = linguetta binder */}
                 <div id="tour-sidebar-buttons" className="grid grid-cols-3 gap-2 flex-shrink-0">
-                    <button onClick={() => openModal('itineraries')} className="bg-slate-900 hover:bg-slate-800 py-1.5 px-2 rounded-lg border border-slate-800 hover:border-amber-500/50 transition-all flex items-center justify-center gap-1.5 group h-8 min-w-0"><Map className="w-3.5 h-3.5 text-amber-500" /><span className="text-[9px] uppercase font-bold text-slate-400 group-hover:text-white truncate">Itinerari</span></button>
-                    <button onClick={() => onOpenGlobal('community')} className="bg-slate-900 hover:bg-slate-800 py-1.5 px-2 rounded-lg border border-slate-800 hover:border-emerald-500 transition-all flex items-center justify-center gap-1.5 group h-8 min-w-0"><Users className="w-3.5 h-3.5 text-emerald-500" /><span className="text-[9px] uppercase font-bold text-slate-400 group-hover:text-white truncate">Community</span></button>
-                    <button onClick={() => openModal('aroundMe')} className="bg-slate-900 hover:bg-slate-800 py-1.5 px-2 rounded-lg border border-slate-800 hover:border-blue-500/50 transition-all flex items-center justify-center gap-1.5 group h-8 min-w-0">
+                    {onToggleWorkspacePanel ? (
+                        <WorkspaceBinderTab
+                            isOpen={isWorkspacePanelOpen}
+                            onToggle={onToggleWorkspacePanel}
+                            variant="sidebar"
+                        />
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => onOpenGlobal('workspace')}
+                            className="bg-slate-900 hover:bg-slate-800 py-1.5 px-2 rounded-lg border border-slate-800 hover:border-indigo-500/50 transition-all flex items-center justify-center gap-1.5 group h-8 min-w-0"
+                        >
+                            <FolderKanban className="w-3.5 h-3.5 text-indigo-400" />
+                            <span className="text-[9px] uppercase font-bold text-slate-400 group-hover:text-white truncate">
+                                Workspace
+                            </span>
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => onOpenGlobal('community')}
+                        className="bg-slate-900 hover:bg-slate-800 py-1.5 px-2 rounded-lg border border-slate-800 hover:border-emerald-500 transition-all flex items-center justify-center gap-1.5 group h-8 min-w-0"
+                    >
+                        <Users className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-[9px] uppercase font-bold text-slate-400 group-hover:text-white truncate">
+                            Community
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => openModal('aroundMe')}
+                        className="bg-slate-900 hover:bg-slate-800 py-1.5 px-2 rounded-lg border border-slate-800 hover:border-blue-500/50 transition-all flex items-center justify-center gap-1.5 group h-8 min-w-0"
+                    >
                         <div className="relative w-4 h-4 flex items-center justify-center">
-                            <div className="absolute inset-0 border border-blue-500 rounded-full animate-spin-slow border-t-transparent opacity-70"></div>
+                            <div className="absolute inset-0 border border-blue-500 rounded-full animate-spin-slow border-t-transparent opacity-70" />
                             <MapPin className="w-2.5 h-2.5 text-blue-500 fill-current" />
                         </div>
-                        <span className="text-[9px] uppercase font-bold text-slate-400 group-hover:text-white truncate">Around Me</span>
+                        <span className="text-[9px] uppercase font-bold text-slate-400 group-hover:text-white truncate">
+                            Around Me
+                        </span>
                     </button>
                 </div>
 

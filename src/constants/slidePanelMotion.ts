@@ -45,6 +45,26 @@ export const slidePanelTransformClassByAxis = (
 export const slidePanelTransformClass = (isRaised: boolean): string =>
   slidePanelTransformClassByAxis('y', isRaised);
 
+/**
+ * Pannello binder (Workspace globale): espansione top-origin via max-height.
+ * Non usare translate-y — il pannello nasce sotto l'header e scende, non "sale" dal fondo.
+ */
+export const BINDER_PANEL_TRANSITION_CLASS = 'transition-[max-height] duration-500 overflow-hidden';
+
+export const binderPanelMaxHeightClass = (
+  isRaised: boolean,
+  isMobileViewport: boolean,
+  reserveBottomNav = true,
+): string => {
+  if (!isRaised) return 'max-h-0';
+  if (isMobileViewport) {
+    return reserveBottomNav
+      ? 'max-h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))]'
+      : 'max-h-[calc(100dvh-var(--header-height))]';
+  }
+  return 'max-h-[var(--workspace-panel-height)]';
+};
+
 /** @deprecated Preferire {@link slidePanelTransformClassByAxis}('x', …). Mantenuto per retrocompatibilità. */
 export const slidePanelTransformClassFromRight = (isRaised: boolean): string =>
   slidePanelTransformClassByAxis('x', isRaised);

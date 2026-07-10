@@ -181,8 +181,7 @@ export async function duplicateSharedResourceForInvitee(
 export async function duplicateSharedResourceForOwner(
   kind: SharedResourceKind,
   resourceId: string,
-  ownerId: string,
-  titleSuffix = ' (Condivisa)'
+  ownerId: string
 ): Promise<PersonalResourceDuplicateResult> {
   if (!isSharedResourceKind(kind)) {
     return { success: false, error: 'Tipo di risorsa non valido.' };
@@ -199,7 +198,7 @@ export async function duplicateSharedResourceForOwner(
       return { success: false, error: 'Diario non trovato o accesso negato.' };
     }
     const baseTitle = source?.title?.trim() || defaultTitleForKind('diary');
-    return duplicateDiaryCopy(resourceId, ownerId, ownerId, `${baseTitle}${titleSuffix}`);
+    return duplicateDiaryCopy(resourceId, ownerId, ownerId, baseTitle);
   }
 
   if (isSuitcaseTableEntityKind(kind)) {
@@ -222,7 +221,7 @@ export async function duplicateSharedResourceForOwner(
       resourceId,
       ownerId,
       ownerId,
-      `${baseTitle}${titleSuffix}`
+      baseTitle
     );
   }
 

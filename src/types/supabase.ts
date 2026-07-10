@@ -4113,6 +4113,7 @@ export type Database = {
       }
       workspace_attachments: {
         Row: {
+          category: Database["public"]["Enums"]["workspace_attachment_category"]
           created_at: string
           file_name: string
           id: string
@@ -4123,6 +4124,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          category?: Database["public"]["Enums"]["workspace_attachment_category"]
           created_at?: string
           file_name: string
           id?: string
@@ -4133,6 +4135,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          category?: Database["public"]["Enums"]["workspace_attachment_category"]
           created_at?: string
           file_name?: string
           id?: string
@@ -5089,6 +5092,12 @@ export type Database = {
       sharing_mode: "collaborative" | "personal"
       subscription_status: "ACTIVE" | "EXPIRED" | "CANCELLED" | "PENDING"
       workspace_resource_access: "none" | "viewer" | "collaborator"
+      workspace_attachment_category:
+        | "documents"
+        | "tickets"
+        | "bookings"
+        | "expenses"
+        | "misc"
     }
     CompositeTypes: {
       [_ in never]: never

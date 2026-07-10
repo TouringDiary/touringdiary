@@ -2,7 +2,9 @@
 
 Questo documento descrive l'architettura del **Sistema di Collaborazione e Workspace v1** di TouringDiary, verificata sul codice post-Fase 10.
 
-> **Specifica funzionale e roadmap**: `docs/collaboration/PIANO_DI_SVILUPPO.md` (fasi 1–10 concluse). Questo documento è la **single source of truth** architetturale in `AI_CONTEXT`.
+> **Specifica funzionale e roadmap**: `docs/collaboration/PIANO_DI_SVILUPPO.md` (fasi 1–10 concluse).  
+> **Pannello Workspace globale (hub UI)**: `docs/collaboration/GLOBAL_WORKSPACE_PANEL.md` — single source of truth per shell, sezioni e sessione hub.  
+> Questo documento è la **single source of truth** architetturale dati/servizi in `AI_CONTEXT`.
 
 ---
 
@@ -56,13 +58,13 @@ Il wizard di condivisione (`CollaborationShareModal`) espone esplicitamente:
 *   **UI**: `CollaborationActivityFeed.tsx` nel pannello workspace.
 *   **Trigger attuali**: salvataggio Diario/Valigia (`useDiaryDocumentSave`, `useSuitcaseDocumentSave`); upload allegati.
 
-### 7. Allegati Workspace (§12.6 — Fase 10)
-*   **Tabella**: `workspace_attachments`.
+### 7. Allegati Workspace (§12.6 — Fase 10 + hub globale Fase 5)
+*   **Tabella**: `workspace_attachments` con colonna `category` (`workspace_attachment_category`: documents, tickets, bookings, expenses, misc).
 *   **Bucket Storage**: `workspace-attachments` (**privato**).
-*   **Path**: `{ownerId}/{workspaceId}/{uuid}-{filename}`.
-*   **Service**: `workspaceAttachmentService.ts` (validazione MIME/firma, quote da `storage_limits`, URL firmati).
-*   **UI**: `WorkspaceAttachmentsSection.tsx`.
-*   **RLS delete allineata**: uploader, owner workspace, admin — tabella e `storage.objects` usano lo stesso modello (`user_owns_workspace` + `owner`/`owner_id`).
+*   **Path storage**: gestito internamente da `workspaceAttachmentService` (bucket privato `workspace-attachments`; dettaglio implementativo non parte del contratto UI).
+*   **Service**: `workspaceAttachmentService.ts` (list/upload per categoria, validazione MIME/firma, quote, URL firmati).
+*   **UI hub**: `AllegatiSection.tsx` + `AllegatiCategoryPanel.tsx` nel pannello globale (`docs/collaboration/GLOBAL_WORKSPACE_PANEL.md`).
+*   **RLS delete allineata**: uploader, owner workspace, admin.
 
 ### 8. Notifiche collaborative (§19 — Fase 10)
 *   **Service**: `collaborationNotificationService.ts`, `workspaceNotificationHelper.ts`.
@@ -109,7 +111,8 @@ Il wizard di condivisione (`CollaborationShareModal`) espone esplicitamente:
 | Componente | Ruolo |
 | :--- | :--- |
 | `CollaborationShareModal.tsx` | Wizard condivisione + gestione collaboratori |
-| `CollaborationWorkspacePanelBody.tsx` | Tab attività / allegati workspace |
+| `GlobalWorkspacePanel` / `GlobalWorkspacePanelBody` | Hub workspace globale (~95% width, 6 sezioni) — vedi `GLOBAL_WORKSPACE_PANEL.md` |
+| `WorkspacePanelContext.tsx` | Stato sessione hub (`WorkspacePanelProvider`) |
 | `UserSharingTab.tsx` | Profilo → Condivisione |
 | `UserFriendsTab.tsx` | Profilo → Amici |
 | `UserDashboard.tsx` | Routing tab dashboard (`useAppRouter`) |

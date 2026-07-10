@@ -191,9 +191,14 @@ export function workspaceOwnsKeyboardShortcuts(mode: UIMode): boolean {
   return mode === 'workspace';
 }
 
-/** Workspace focus requires sidebar expanded for stable companion layout. */
+/** Workspace focus requires sidebar expanded for stable companion layout (Valigia only). */
 export function workspaceRequiresStableSidebar(ctx: Pick<DerivedFocusState, 'workspaceId'>): boolean {
-  return ctx.workspaceId !== null;
+  return ctx.workspaceId === 'packingList';
+}
+
+/** Portaled diary companion during workspace focus — collaboration hub does not use it. */
+export function workspaceUsesCompanionPortal(workspaceId: WorkspaceId | null): boolean {
+  return workspaceId === 'packingList';
 }
 
 /** Whether the app shell supports focus policy derivation (workspace/modal/preview). */

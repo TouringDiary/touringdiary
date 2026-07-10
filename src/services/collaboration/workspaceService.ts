@@ -14,6 +14,12 @@ export interface CreateWorkspaceInput {
   settings?: Record<string, unknown>;
 }
 
+/** Vincolo business: massimo workspace di proprietà per utente (§7.1.1 GLOBAL_WORKSPACE_PANEL). */
+export const MAX_OWNED_WORKSPACES_PER_USER = 2;
+
+export const OWNED_WORKSPACE_LIMIT_MESSAGE =
+  'Hai raggiunto il limite massimo di 2 workspace di proprietà. Elimina un workspace per crearne uno nuovo.';
+
 export async function getWorkspace(workspaceId: string): Promise<Workspace | null> {
   const { data, error } = await supabase
     .from('workspaces')
@@ -65,12 +71,34 @@ export async function listWorkspacesForUser(userId: string): Promise<Workspace[]
   );
 }
 
+async function countOwnedWorkspaces(ownerId: string): Promise<number | null> {
+  const { count, error } = await supabase
+    .from('workspaces')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', ownerId);
+
+  if (error) {
+    console.error('[workspaceService] countOwnedWorkspaces:', error.message);
+    return null;
+  }
+
+  return count ?? 0;
+}
+
 export async function createWorkspace(
   input: CreateWorkspaceInput
 ): Promise<CreateWorkspaceResult> {
   const trimmedName = input.name.trim();
   if (!trimmedName) {
     return { success: false, error: 'Il nome del workspace è obbligatorio.' };
+  }
+
+  const ownedCount = await countOwnedWorkspaces(input.ownerId);
+  if (ownedCount === null) {
+    return { success: false, error: 'Impossibile verificare il limite workspace.' };
+  }
+  if (ownedCount >= MAX_OWNED_WORKSPACES_PER_USER) {
+    return { success: false, error: OWNED_WORKSPACE_LIMIT_MESSAGE };
   }
 
   const { data, error } = await supabase
@@ -134,14 +162,23 @@ export async function updateWorkspace(
 }
 
 export async function isWorkspaceOwner(workspaceId: string, userId: string): Promise<boolean> {
-  const workspace = await getWorkspace(workspaceId);
-  return workspace?.ownerId === userId;
+  const { data, error } = await supabase
+    .from('workspaces')
+    .select('id')
+    .eq('id', workspaceId)
+    .eq('owner_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[workspaceService] isWorkspaceOwner:', error.message);
+    return false;
+  }
+
+  return Boolean(data);
 }
 
 export async function isWorkspaceMember(workspaceId: string, userId: string): Promise<boolean> {
-  const workspace = await getWorkspace(workspaceId);
-  if (!workspace) return false;
-  if (workspace.ownerId === userId) return true;
+  if (await isWorkspaceOwner(workspaceId, userId)) return true;
 
   const { data, error } = await supabase
     .from('workspace_members')
@@ -158,7 +195,7 @@ export async function isWorkspaceMember(workspaceId: string, userId: string): Pr
   return Boolean(data);
 }
 
-/** Elimina un workspace (CASCADE su risorse, membri, permessi, inviti). Solo proprietario. */
+/** Elimina un workspace. Solo il proprietario indicato può completare l'operazione. */
 export async function deleteWorkspace(
   workspaceId: string,
   ownerId: string
@@ -179,4 +216,31 @@ export async function deleteWorkspace(
   }
 
   return { success: true };
+}
+
+/** Conteggio membri tabella `workspace_members` per workspace (owner non incluso). */
+export async function getWorkspaceMemberCounts(
+  workspaceIds: string[]
+): Promise<Record<string, number>> {
+  if (workspaceIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .in('workspace_id', workspaceIds);
+
+  if (error) {
+    console.error('[workspaceService] getWorkspaceMemberCounts:', error.message);
+    return {};
+  }
+
+  const counts: Record<string, number> = Object.fromEntries(
+    workspaceIds.map((id) => [id, 0])
+  );
+
+  for (const row of data ?? []) {
+    counts[row.workspace_id] += 1;
+  }
+
+  return counts;
 }

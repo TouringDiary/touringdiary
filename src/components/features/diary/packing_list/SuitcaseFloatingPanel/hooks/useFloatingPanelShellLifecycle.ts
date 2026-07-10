@@ -12,6 +12,8 @@ interface UseFloatingPanelShellLifecycleOptions {
   onCloseAttempt?: () => void;
   /** Disattiva ESC del panel quando una modale overlay figlia è aperta. */
   suppressEscape?: boolean;
+  /** Proprietà CSS da attendere a fine transizione chiusura. */
+  closeTransitionProperties?: string[];
 }
 
 export interface FloatingPanelShellLifecycle {
@@ -30,6 +32,7 @@ export function useFloatingPanelShellLifecycle({
   workspaceId,
   onCloseAttempt,
   suppressEscape = false,
+  closeTransitionProperties,
 }: UseFloatingPanelShellLifecycleOptions): FloatingPanelShellLifecycle {
   const [isPortalReady, setIsPortalReady] = useState(false);
   const [isEntered, setIsEntered] = useState(false);
@@ -51,6 +54,7 @@ export function useFloatingPanelShellLifecycle({
     isEntered,
     setIsClosing,
     onCloseComplete,
+    closeTransitionProperties,
   });
 
   const attemptClose = useCallback(() => {

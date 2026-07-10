@@ -10,6 +10,7 @@ export {
   shouldDismissWorkspaceOnViewModeChange,
   isAppFocusShell,
   workspaceRequiresStableSidebar,
+  workspaceUsesCompanionPortal,
   type KeyboardShortcutContext,
   WORKSPACE_REGISTRY,
   FOCUS_SURFACE_ATTR,

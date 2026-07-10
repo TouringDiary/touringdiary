@@ -1,5 +1,8 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { SharingMode } from '@/domain/collaboration';
 import {
   getWizardSteps,
@@ -19,6 +22,12 @@ export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
   sharePath,
   sharingMode,
 }) => {
+  const isMobile = useMobileDetect();
+  // Numeri e label condividono volontariamente foundation_card_label.
+  // Per controllarli separatamente in futuro va introdotto un nuovo token nel
+  // Foundation, non ricostruita localmente la regola esistente.
+  const stepTypographyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.cardLabel, isMobile);
+  const stepCheckIconShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCheckIcon);
   const steps = getWizardSteps(sharePath, sharingMode);
   const currentIndex = steps.indexOf(wizardStep);
 
@@ -47,7 +56,8 @@ export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
             <div className="flex flex-col items-center gap-1 min-w-0">
               <div
                 className={`
-                  w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors
+                  w-7 h-7 rounded-full flex items-center justify-center font-bold border transition-colors
+                  ${stepTypographyShell}
                   ${isCurrent ? 'bg-indigo-600 border-indigo-400 text-white ring-2 ring-indigo-500/40' : ''}
                   ${isCompleted ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-200' : ''}
                   ${isFuture ? 'bg-slate-800 border-slate-700 text-slate-500' : ''}
@@ -56,14 +66,14 @@ export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
                 title={getWizardStepShortLabel(step)}
               >
                 {isCompleted ? (
-                  <Check className="w-3 h-3" aria-hidden />
+                  <Check className={stepCheckIconShell} aria-hidden />
                 ) : (
                   <span>{index + 1}</span>
                 )}
               </div>
               <span
-                className={`hidden sm:block text-[8px] font-bold uppercase tracking-wider truncate max-w-[4.5rem] text-center ${
-                  isCurrent ? 'text-indigo-300' : isCompleted ? 'text-slate-400' : 'text-slate-600'
+                className={`hidden sm:block font-bold uppercase tracking-wider truncate max-w-[5rem] text-center ${stepTypographyShell} !text-[9px] ${
+                  isCurrent ? 'text-amber-400' : isCompleted ? 'text-slate-400' : 'text-slate-600'
                 }`}
               >
                 {getWizardStepShortLabel(step)}

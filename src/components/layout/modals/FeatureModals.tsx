@@ -17,7 +17,6 @@ const AiItineraryModal = React.lazy(() => import('@/components/modals/AiItinerar
 const RoadbookModal = React.lazy(() => import('@/components/modals/RoadbookModal').then(module => ({ default: module.RoadbookModal })));
 const SectionPreviewModal = React.lazy(() => import('@/components/modals/SectionPreviewModal').then(module => ({ default: module.SectionPreviewModal })));
 const SuggestionModal = React.lazy(() => import('@/components/modals/SuggestionModal').then(module => ({ default: module.SuggestionModal })));
-const ItinerariesModal = React.lazy(() => import('@/components/modals/ItinerariesModal').then(module => ({ default: module.ItinerariesModal })));
 const UserUpgradeModal = React.lazy(() => import('@/components/modals/UserUpgradeModal').then(module => ({ default: module.default })));
 const FullRankingsModal = React.lazy(() => import('@/components/modals/FullRankingsModal').then(module => ({ default: module.FullRankingsModal })));
 const GlobalSectionView = React.lazy(() => import('@/components/modals/GlobalSectionView').then(module => ({ default: module.GlobalSectionView })));
@@ -114,9 +113,6 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             )}
             {activeModal === 'emptyDiary' && (
                 <EmptyDiaryModal isOpen={true} onClose={closeModal} onOpenAuth={() => openModal('auth')} user={user} />
-            )}
-            {activeModal === 'itineraries' && (
-                <ItinerariesModal isOpen={true} onClose={closeModal} onViewPoiDetail={handleToggleItinerary} userLocation={props.userLocation} user={user} initialZoneFilter={modalProps.zone} onOpenAuth={() => openModal('auth', { returnTo: 'itineraries' })} />
             )}
             {activeModal === 'add' && modalProps.poi && (
                 <AddToItineraryModal isOpen={true} onClose={closeModal} onConfirm={(day, time) => { props.onConfirmAdd(modalProps.poi, day, time); }} onRemove={(id) => { props.onRemoveItem(id); }} poi={modalProps.poi} startDate={itinerary.startDate} endDate={itinerary.endDate} existingItems={itinerary.items} onDateSet={props.onSetItineraryDates} />

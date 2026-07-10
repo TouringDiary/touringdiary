@@ -11,6 +11,7 @@ export const COLLABORATION_EVENT_TYPES = [
   'resource.content_updated',
   'workspace.resource_linked',
   'workspace.attachment_added',
+  'workspace.attachment_removed',
   'workspace.member_joined',
 ] as const;
 

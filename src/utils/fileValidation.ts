@@ -86,3 +86,14 @@ export async function validateWorkspaceAttachmentFile(
 
   return { ok: true, mimeType: matched.mime };
 }
+
+/** Valore `accept` per input file — derivato da {@link WORKSPACE_ATTACHMENT_ALLOWED_TYPES}. */
+export function workspaceAttachmentAcceptAttribute(): string {
+  const extensions = new Set<string>();
+  for (const type of WORKSPACE_ATTACHMENT_ALLOWED_TYPES) {
+    for (const ext of type.extensions) {
+      extensions.add(`.${ext}`);
+    }
+  }
+  return [...extensions].sort().join(',');
+}

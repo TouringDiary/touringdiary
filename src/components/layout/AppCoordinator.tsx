@@ -10,6 +10,7 @@ import { ModalLoading } from '../common/ModalLoading';
 import { useInteraction } from '../../context/InteractionContext';
 import { usePartnerIntegrations } from '../../hooks/usePartnerIntegrations';
 import { FocusModeProvider, FocusOverlay, WorkspaceHost } from '@/focus';
+import { WorkspacePanelProvider } from '@/components/workspace/global/WorkspacePanelContext';
 import { useAppExitProtection } from '@/hooks/save/useAppExitProtection';
 import { UsernameRequiredGate } from '@/collaboration/UsernameRequiredGate';
 const AdminDashboard = React.lazy(() => import('../admin/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
@@ -52,6 +53,10 @@ export const AppCoordinator = () => {
 
     const { activeModal, modalProps, closeModal } = useModal();
     useUI();
+
+    const isWorkspacePanelOpen = activeModal === 'collaborationWorkspace';
+    const workspaceIdIntent = isWorkspacePanelOpen ? modalProps?.workspaceId : undefined;
+    const initialSectionIntent = isWorkspacePanelOpen ? modalProps?.initialSection : undefined;
 
     const renderLayout = () => {
         if (loading) {
@@ -99,22 +104,28 @@ export const AppCoordinator = () => {
 
     return (
         <FocusModeProvider>
-            <UsernameRequiredGate />
-            {renderLayout()}
+            <WorkspacePanelProvider
+                isPanelOpen={isWorkspacePanelOpen}
+                initialWorkspaceId={workspaceIdIntent}
+                initialSection={initialSectionIntent}
+            >
+                <UsernameRequiredGate />
+                {renderLayout()}
 
-            <FocusOverlay />
-            <WorkspaceHost />
-            {activeModal === 'removeSelection' && modalProps?.items && modalProps?.onRemoveSingle && modalProps?.onRemoveAll && (
-                <Suspense fallback={null}>
-                    <RemoveItemModal
-                        isOpen={true}
-                        onClose={closeModal}
-                        items={modalProps.items}
-                        onRemoveSingle={modalProps.onRemoveSingle}
-                        onRemoveAll={modalProps.onRemoveAll}
-                    />
-                </Suspense>
-            )}
+                <FocusOverlay />
+                <WorkspaceHost />
+                {activeModal === 'removeSelection' && modalProps?.items && modalProps?.onRemoveSingle && modalProps?.onRemoveAll && (
+                    <Suspense fallback={null}>
+                        <RemoveItemModal
+                            isOpen={true}
+                            onClose={closeModal}
+                            items={modalProps.items}
+                            onRemoveSingle={modalProps.onRemoveSingle}
+                            onRemoveAll={modalProps.onRemoveAll}
+                        />
+                    </Suspense>
+                )}
+            </WorkspacePanelProvider>
         </FocusModeProvider>
     );
 };

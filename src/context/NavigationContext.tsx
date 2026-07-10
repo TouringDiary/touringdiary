@@ -212,7 +212,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
             const targetSlug = extra?.slug || userContext?.user?.slug;
             navigate(router.buildDashboardPath(targetSlug));
         }
-        else if (section === 'itineraries') modalContext.openModal('itineraries');
+        else if (section === 'workspace') modalContext.openModal('collaborationWorkspace');
         else if (section === 'community') modalContext.openModal('global', { section: 'community', tab, id });
         else if (section === 'sponsors') modalContext.openModal('global', { section: 'sponsors' });
         else if (section === 'around_me') modalContext.openModal('aroundMe'); 

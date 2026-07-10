@@ -131,11 +131,24 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
     onCreateWorkspace,
   });
 
+  const showCancelOnPath = view === 'wizard' && wizardStep === 'path';
+
   return (
     <div className={`${footerShell} shrink-0`}>
       <div className={footerActionsShell}>
         {view === 'wizard' ? (
           <>
+            {showCancelOnPath && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={onClose}
+                className={btnCancelShell}
+              >
+                Annulla
+              </button>
+            )}
+
             {showBack && (
               <button
                 type="button"

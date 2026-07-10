@@ -42,7 +42,7 @@ export const useJourneyPhase = (activeCityId: string | null): JourneyPhase => {
         const hasItems = itinerary.items && itinerary.items.length > 0;
         
         // Modali espliciti di pianificazione
-        if (activeModal === 'aiPlanner' || activeModal === 'roadbook' || activeModal === 'itineraries' || activeModal === 'add' || activeModal === 'removeSelection' || activeModal === 'duplicate' || activeModal === 'conflict') {
+        if (activeModal === 'aiPlanner' || activeModal === 'roadbook' || activeModal === 'collaborationWorkspace' || activeModal === 'add' || activeModal === 'removeSelection' || activeModal === 'duplicate' || activeModal === 'conflict') {
             return 'PIANIFICA';
         }
 

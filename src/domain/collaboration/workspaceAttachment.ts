@@ -1,3 +1,18 @@
+export type WorkspaceAttachmentCategory =
+  | 'documents'
+  | 'tickets'
+  | 'bookings'
+  | 'expenses'
+  | 'misc';
+
+export const WORKSPACE_ATTACHMENT_CATEGORIES: WorkspaceAttachmentCategory[] = [
+  'documents',
+  'tickets',
+  'bookings',
+  'expenses',
+  'misc',
+];
+
 export interface WorkspaceAttachment {
   id: string;
   workspaceId: string;
@@ -6,6 +21,7 @@ export interface WorkspaceAttachment {
   storagePath: string;
   mimeType: string;
   sizeBytes: number;
+  category: WorkspaceAttachmentCategory;
   createdAt: string;
 }
 

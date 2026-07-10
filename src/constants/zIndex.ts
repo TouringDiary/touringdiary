@@ -118,16 +118,6 @@ export const Z_FOCUS_ACTIVE = 9300;
 /** @deprecated Use Z_FOCUS_COMPANION. Kept for incremental migration of CSS classes. */
 export const Z_FLOATING_PANEL = Z_FOCUS_COMPANION;
 
-// ── Anchored transient menus (single tier) ────────────────────────────────────
-/**
- * Anchored, dismiss-on-outside transient menus: header menus, inline dropdowns,
- * anchored popovers. Portaled to body. CSS class: z-popover.
- */
-export const Z_POPOVER = 10000;
-
-/** @deprecated Use Z_POPOVER. Same tier (anchored transient menu). CSS: z-dropdown. */
-export const Z_DROPDOWN = Z_POPOVER;
-
 // ── Modal surface (consumer) ──────────────────────────────────────────────────
 /**
  * Classic fullscreen consumer modal panel. Rendered INSIDE the modal backdrop
@@ -157,7 +147,19 @@ export const Z_OVERLAY_BACKDROP = 13900;
  */
 export const Z_OVERLAY = 14000;
 
-/** Full-viewport media lightbox. Above modals. */
+// ── Anchored transient menus (single tier) ────────────────────────────────────
+/**
+ * Anchored, dismiss-on-outside transient menus: header chrome, hamburger/profile
+ * menus, AnchoredPopover, SaveMenuPopover and equivalent portaled flyouts.
+ * Sits ABOVE modal dimming (Z_OVERLAY) so chrome menus stay visible over open
+ * modals/wizards; BELOW lightbox/toast. CSS class: z-popover.
+ */
+export const Z_POPOVER = 14500;
+
+/** @deprecated Use Z_POPOVER. Same tier (anchored transient menu). CSS: z-dropdown. */
+export const Z_DROPDOWN = Z_POPOVER;
+
+/** Full-viewport media lightbox. Above modals and popovers. */
 export const Z_LIGHTBOX = 15000;
 export const Z_LIGHTBOX_CONTENT = 15100;
 export const Z_LIGHTBOX_CLOSE = 15200;

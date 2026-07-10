@@ -15,11 +15,3 @@ export const WORKSPACE_ACCESS_LABELS: Record<WorkspaceResourceAccess, string> = 
   viewer: 'Visualizzatore',
   collaborator: 'Collaboratore',
 };
-
-export const WORKSPACE_FUTURE_MODULES = [
-  { id: 'documents', label: 'Documenti' },
-  { id: 'tickets', label: 'Biglietti' },
-  { id: 'bookings', label: 'Prenotazioni' },
-  { id: 'expenses', label: 'Spese' },
-  { id: 'attachments', label: 'Allegati' },
-] as const;

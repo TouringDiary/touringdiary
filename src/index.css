@@ -23,12 +23,15 @@
    * LAYER SYSTEM: two classes — LOCAL (0–999, confined) and GLOBAL (9000+, portaled).
    * Rules & ownership: src/layering/layerRegistry.ts. Values: src/constants/zIndex.ts. */
 
-  /* ── GLOBAL STACK (9000+) — root/body context, portaled or fixed chrome ─────── */
+  /* ── GLOBAL STACK (9000+) — root/body context, portaled or fixed chrome ───────
+   * Listed high → low. Values mirror src/constants/zIndex.ts (Rule R4). */
   --z-index-error-boundary: 99999;
   --z-index-toast: 16000;
   --z-index-lightbox-close: 15200;
   --z-index-lightbox-content: 15100;
   --z-index-lightbox: 15000;
+  --z-index-popover: 14500;
+  --z-index-dropdown: 14500;
   --z-index-overlay: 14000;
   --z-index-overlay-backdrop: 13900;
   --z-index-admin-modal-top: 13200;
@@ -36,9 +39,6 @@
   --z-index-admin-modal: 13000;
   --z-index-modal-nested: 12000;
   --z-index-modal: 11000;
-  /* Single anchored-menu tier. z-dropdown is a deprecated alias of z-popover. */
-  --z-index-popover: 10000;
-  --z-index-dropdown: 10000;
   --z-index-focus-active: 9300;
   --z-index-global-chrome: 9200;
   --z-index-focus-companion: 9100;
@@ -69,6 +69,10 @@
   color-scheme: dark;
   --active-sidebar-width: var(--width-sidebar);
   --header-height: 64px;
+  /* Valori allineati a src/constants/workspacePanelLayout.ts */
+  --workspace-panel-height: 17.5rem;
+  --workspace-binder-tab-height: 2rem;
+  --mobile-nav-height: 4rem;
 }
 
 @media (min-width: 1536px) {

@@ -6,8 +6,10 @@ import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { CollaborativeMemberRole, SharingMode, Workspace } from '@/domain/collaboration';
 import { COLLABORATIVE_MEMBER_ROLES } from '@/domain/collaboration';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
-import type { WorkspaceCompositionResource } from '@/services/collaboration';
-import type { WorkspaceResourceLabel } from '@/services/collaboration';
+import type {
+  WorkspaceCompositionBlueprint,
+  WorkspaceCompositionDraft,
+} from '@/domain/collaboration/workspaceComposition';
 import { OptionCard } from './OptionCard';
 import {
   MODE_LABELS,
@@ -41,9 +43,9 @@ export interface CollaborationShareWizardProps {
   pendingInvites: PendingInvite[];
   workspaceName: string;
   workspaceDescription: string;
-  suggestedComposition: WorkspaceCompositionResource[];
-  compositionLabels: WorkspaceResourceLabel[];
-  selectedCompositionKeys: Set<string>;
+  compositionBlueprint: WorkspaceCompositionBlueprint | null;
+  compositionDraft: WorkspaceCompositionDraft | null;
+  isExpandingCompositionDiary?: boolean;
   userWorkspaces: Workspace[];
   selectedWorkspaceId: string | null;
   workspacePendingInvites: WorkspacePendingInvite[];
@@ -58,10 +60,9 @@ export interface CollaborationShareWizardProps {
   onRemovePendingInvite: (userId: string) => void;
   onWorkspaceNameChange: (value: string) => void;
   onWorkspaceDescriptionChange: (value: string) => void;
-  onToggleCompositionResource: (
-    kind: WorkspaceCompositionResource['kind'],
-    resourceId: string
-  ) => void;
+  onSelectCompositionDiary: (diaryId: string | null) => void;
+  onToggleCompositionSuitcase: (suitcaseId: string) => void;
+  onToggleCompositionUserTemplate: (templateId: string) => void;
   onSelectWorkspace: (workspaceId: string) => void;
   onAddWorkspacePendingInvite: (result: CollaborationUserSearchResult) => void;
   onRemoveWorkspacePendingInvite: (userId: string) => void;
@@ -79,12 +80,13 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   pendingInvites,
   workspaceName,
   workspaceDescription,
-  suggestedComposition,
-  compositionLabels,
-  selectedCompositionKeys,
+  compositionBlueprint,
+  compositionDraft,
+  isExpandingCompositionDiary = false,
   userWorkspaces,
   selectedWorkspaceId,
   workspacePendingInvites,
+  workspaceDefaultAccess,
   onSharePathChange,
   onSharingModeChange,
   onShareIntentChange,
@@ -94,7 +96,9 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   onRemovePendingInvite,
   onWorkspaceNameChange,
   onWorkspaceDescriptionChange,
-  onToggleCompositionResource,
+  onSelectCompositionDiary,
+  onToggleCompositionSuitcase,
+  onToggleCompositionUserTemplate,
   onSelectWorkspace,
   onAddWorkspacePendingInvite,
   onRemoveWorkspacePendingInvite,
@@ -139,8 +143,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
       <div className="space-y-3">
         <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <p className={bodyTextShell}>
-          Scegli se condividere questo elemento o una copia dedicata.
-          La tua versione personale può restare invariata o essere modificata in condivisione.
+          Scegli se condividere questo elemento o una copia dedicata. <br/>
         </p>
         <OptionCard
           selected={shareIntent === 'duplicate_and_share'}
@@ -148,8 +151,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
           title="Condividi Duplicato"
           description={
             <>
-              L&apos;elemento <span className="font-bold text-slate-300">duplicato</span> diventerà quello
-              condiviso.
+              L&apos;elemento <strong>duplicato</strong> diventerà quello condiviso.
             </>
           }
           icon={<Copy className="w-5 h-5" />}
@@ -161,16 +163,15 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
           title="Condividi Originale"
           description={
             <>
-              L&apos;elemento <span className="font-bold text-slate-300">originale</span> diventerà quello
-              condiviso.
+              L&apos;elemento <strong>originale</strong> diventerà quello condiviso.
             </>
           }
           icon={<Share2 className="w-5 h-5" />}
         />
         {shareIntent === 'share_current' && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200/90">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
-            <p>
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" aria-hidden />
+            <p className={`${bodyTextShell} text-amber-200/90`}>
               Attenzione: sarà modificato l'elemento del tuo spazio
               personale. Per tenerne una copia invariata, scegli «Condividi Duplicato».
             </p>
@@ -197,7 +198,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
           icon={<UserPlus className="w-5 h-5" />}
         />
         <p className={bodyTextShell}>
-          * Le modifiche diventano visibili agli altri utenti dopo il salvataggio.
+          * Le modifiche diventano visibili agli altri utenti dopo ogni salvataggio.
         </p>
       </div>
     )}
@@ -290,15 +291,17 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
       </div>
     )}
 
-    {wizardStep === 'workspace_composition' && (
+    {wizardStep === 'workspace_composition' && compositionBlueprint && compositionDraft && (
       <div className="space-y-3">
         <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <WorkspaceCompositionStep
-        suggestedComposition={suggestedComposition}
-        resourceLabels={compositionLabels}
-        selectedKeys={selectedCompositionKeys}
-        onToggleResource={onToggleCompositionResource}
-      />
+          blueprint={compositionBlueprint}
+          draft={compositionDraft}
+          isExpandingDiary={isExpandingCompositionDiary}
+          onSelectDiary={onSelectCompositionDiary}
+          onToggleSuitcase={onToggleCompositionSuitcase}
+          onToggleUserTemplate={onToggleCompositionUserTemplate}
+        />
       </div>
     )}
 
@@ -318,7 +321,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
         <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <WorkspaceInviteStep
           pendingInvites={workspacePendingInvites}
-          defaultAccessLabel={WORKSPACE_ACCESS_LABELS.collaborator}
+          defaultAccessLabel={WORKSPACE_ACCESS_LABELS[workspaceDefaultAccess]}
           onRemoveInvite={onRemoveWorkspacePendingInvite}
         />
         <WorkspaceInviteSearch

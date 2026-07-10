@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { WifiOff } from 'lucide-react';
 import { AppShell } from './AppShell';
 import { NewsTicker } from './NewsTicker';
@@ -43,11 +43,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
 
     // Mobile Nav Active State Calculation
     let mobileActiveSection = null;
-    if (activeModal === 'itineraries') mobileActiveSection = 'itineraries';
+    if (activeModal === 'collaborationWorkspace') mobileActiveSection = 'workspace';
     else if (activeModal === 'global' && modalProps?.section === 'community') mobileActiveSection = 'community';
     else if (virtualCity || activeModal === 'aroundMe') mobileActiveSection = 'around_me'; 
     else if (activeModal === 'fullRankings') mobileActiveSection = 'rankings';
     else if (activeModal === 'global' && modalProps?.section === 'sponsors') mobileActiveSection = 'sponsors';
+
+    const isWorkspacePanelOpen = activeModal === 'collaborationWorkspace';
+
+    useEffect(() => {
+        if (isWorkspacePanelOpen && !isUiVisible) {
+            setIsUiVisible(true);
+        }
+    }, [isWorkspacePanelOpen, isUiVisible, setIsUiVisible]);
+
+    const toggleWorkspacePanel = () => {
+        if (isWorkspacePanelOpen) {
+            closeModal();
+            return;
+        }
+        openModal('collaborationWorkspace');
+    };
 
     return (
         <>
@@ -90,13 +106,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                             onDayDrop={handleSmartDrop} // FIXED: Passed the real handler
                             onOpenFullRankings={() => openModal('fullRankings')} 
                             onOpenSponsor={() => openModal('sponsor', { sponsorTier: 'gold' })} 
-                            onOpenGlobal={(section) => openModal('global', { section })} 
+                            onOpenGlobal={(section) => handleNavigateGlobal(section)} 
                             onPrint={() => window.print()} 
                             onCityClick={(id) => { closeModal(); navigateToCity(id); }} 
                             activeCityId={activeCityId}
                             onAddToItinerary={(poi) => openModal('add', { poi })}
                             onOpenAiPlanner={() => openModal('aiPlanner')}
                             onOpenRoadbook={() => openModal('roadbook')}
+                            isWorkspacePanelOpen={isWorkspacePanelOpen}
+                            onToggleWorkspacePanel={toggleWorkspacePanel}
                         />
                     </div>
                 }
@@ -126,7 +144,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                     className={`
                         isolate w-full h-full flex flex-col overflow-hidden relative
                         transition-[padding] duration-300 ease-in-out
-                        px-4 ${isSidebarOpen ? 'md:px-0' : 'md:px-8 lg:px-16'}
+                        px-4 pb-16 lg:pb-0 ${isSidebarOpen ? 'md:px-0' : 'md:px-8 lg:px-16'}
                     `}
                 >
                     <AppRouter />

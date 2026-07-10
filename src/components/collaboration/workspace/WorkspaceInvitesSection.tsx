@@ -12,7 +12,8 @@ interface Props {
   inviteeProfiles: Record<string, { name: string; slug?: string }>;
   resourceLabels: WorkspaceResourceLabel[];
   isSubmitting: boolean;
-  onRequestRevokeInvite: (inviteId: string) => void;
+  /** Se assente, il pulsante revoca non viene mostrato (es. Utenti Bloccati). */
+  onRequestRevokeInvite?: (inviteId: string) => void;
   onResendInvite: (inviteId: string) => void;
 }
 
@@ -58,7 +59,7 @@ export const WorkspaceInvitesSection: React.FC<Props> = ({
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {invite.status === 'pending' && (
+                {invite.status === 'pending' && onRequestRevokeInvite && (
                   <button
                     type="button"
                     disabled={isSubmitting}

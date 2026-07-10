@@ -61,12 +61,20 @@ export const ModalManager = () => {
             const resumeProps = pendingReturnProps as {
                 intent?: string;
                 workspaceId?: string;
+                initialSection?: string;
                 kind?: string;
                 resourceId?: string;
                 resourceTitle?: string;
             } | undefined;
-            if (resumeProps?.intent === 'workspace' && resumeProps.workspaceId) {
-                openModal('collaborationWorkspace', { workspaceId: resumeProps.workspaceId });
+            if (resumeProps?.intent === 'workspace') {
+                const {
+                    intent: _intent,
+                    kind: _kind,
+                    resourceId: _resourceId,
+                    resourceTitle: _resourceTitle,
+                    ...workspacePayload
+                } = resumeProps;
+                openModal('collaborationWorkspace', workspacePayload);
                 return;
             }
             if (resumeProps?.kind && resumeProps?.resourceId) {

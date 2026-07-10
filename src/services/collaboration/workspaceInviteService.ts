@@ -500,6 +500,38 @@ export async function removeWorkspaceMember(
     return { success: false, error: 'Membro non trovato.' };
   }
 
+  // Traccia l'ex-membro come utente bloccato per questo workspace (modello inviti esteso).
+  const { data: existingInvite } = await supabase
+    .from('workspace_invites')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('invitee_id', userId)
+    .maybeSingle();
+
+  if (existingInvite) {
+    const { error: revokeError } = await supabase
+      .from('workspace_invites')
+      .update({ status: 'revoked', inviter_id: ownerId, responded_at: null })
+      .eq('id', existingInvite.id);
+
+    if (revokeError) {
+      console.error('[workspaceInviteService] removeWorkspaceMember revoke invite:', revokeError.message);
+      return { success: false, error: 'Impossibile registrare l\'utente bloccato.' };
+    }
+  } else {
+    const { error: insertError } = await supabase.from('workspace_invites').insert({
+      workspace_id: workspaceId,
+      inviter_id: ownerId,
+      invitee_id: userId,
+      status: 'revoked',
+    });
+
+    if (insertError) {
+      console.error('[workspaceInviteService] removeWorkspaceMember blocked invite:', insertError.message);
+      return { success: false, error: 'Impossibile registrare l\'utente bloccato.' };
+    }
+  }
+
   return { success: true };
 }
 

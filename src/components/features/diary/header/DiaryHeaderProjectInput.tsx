@@ -1,8 +1,10 @@
 import React from 'react';
-import { Calendar, Check, FolderOpen, Globe, MapPin, PencilLine, RefreshCw, Trash2, Printer, Share2, Users } from 'lucide-react';
+import { Calendar, Check, FolderOpen, Globe, PencilLine, RefreshCw, Trash2, Printer, Share2, Users } from 'lucide-react';
 import { Itinerary } from '@/types';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
+import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
+import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
 import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
 import { formatItalianDateTimeWithSeconds, isValidTimestamp } from '@/utils/dateFormatters';
@@ -39,6 +41,76 @@ interface DiaryHeaderProjectInputProps {
 
 const SHARE_ITEM_CLASS =
     'w-full text-left px-3 py-2.5 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+
+interface SavedProjectListItemProps {
+    project: Itinerary;
+    onLoadProject: (p: Itinerary) => void;
+    onCloseMenu: () => void;
+    onDeleteProject: (e: React.MouseEvent, id: string) => void;
+}
+
+const SavedProjectListItem: React.FC<SavedProjectListItemProps> = ({
+    project,
+    onLoadProject,
+    onCloseMenu,
+    onDeleteProject,
+}) => {
+    const isShared = useSharedResourceIndicator(project.id ? 'diary' : null, project.id);
+    const stopCount = (project.items || []).length;
+
+    return (
+        <div className="flex items-stretch border-b border-slate-700/50 last:border-0 hover:bg-slate-700/50 transition-colors group">
+            <button
+                onClick={() => { onLoadProject(project); onCloseMenu(); }}
+                className="flex-1 text-left px-3 py-2.5 text-xs text-slate-300 hover:text-white min-w-0"
+            >
+                <div className="mb-1.5 min-w-0">
+                    <span className="font-bold truncate text-slate-200 block">
+                        {project.name || 'Senza Nome'}
+                    </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-start gap-1.5 text-[9px] text-slate-500">
+                        <Calendar className="w-3 h-3 shrink-0 text-slate-500 mt-px" aria-hidden />
+                        <span className="leading-snug">
+                            Data Creazione:{' '}
+                            <span className="text-slate-400 tabular-nums whitespace-nowrap">
+                                {isValidTimestamp(project.createdAt)
+                                    ? formatItalianDateTimeWithSeconds(project.createdAt)
+                                    : '—'}
+                            </span>
+                        </span>
+                    </div>
+                    <div className="flex items-start gap-1.5 text-[9px] text-slate-500">
+                        <PencilLine className="w-3 h-3 shrink-0 text-slate-500 mt-px" aria-hidden />
+                        <span className="leading-snug">
+                            Ultimo Salvataggio:{' '}
+                            <span className="text-slate-400 tabular-nums whitespace-nowrap">
+                                {isValidTimestamp(project.updatedAt)
+                                    ? formatItalianDateTimeWithSeconds(project.updatedAt)
+                                    : '—'}
+                            </span>
+                        </span>
+                    </div>
+                </div>
+            </button>
+            <div className="flex flex-col items-center justify-between shrink-0 py-2.5">
+                <button
+                    onClick={(e) => onDeleteProject(e, project.id || '')}
+                    className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                    title="Elimina"
+                    aria-label="Elimina"
+                >
+                    <Trash2 className="w-3.5 h-3.5"/>
+                </button>
+                <span className="inline-flex items-center gap-1 px-1 text-[9px] font-semibold text-slate-400 tabular-nums">
+                    {stopCount} Tappe
+                    {isShared && <SharedResourceIndicator />}
+                </span>
+            </div>
+        </div>
+    );
+};
 
 export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = ({
     itinerary, onSetName, loadMenuOpen, handleLoadMenuOpen, loadMenuRef, isSyncing, savedProjects, onLoadProject, handleDeleteClick,
@@ -102,54 +174,13 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                         {savedProjects.length > 0 ? (
                             <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                 {savedProjects.map((p, idx) => (
-                                    <div key={p.id || idx} className="flex items-stretch border-b border-slate-700/50 last:border-0 hover:bg-slate-700/50 transition-colors group">
-                                        <button
-                                            onClick={() => { onLoadProject(p); handleLoadMenuOpen(); }}
-                                            className="flex-1 text-left px-3 py-2.5 text-xs text-slate-300 hover:text-white min-w-0"
-                                        >
-                                            <div className="flex items-center justify-between gap-2 mb-1.5 min-w-0">
-                                                <span className="font-bold truncate text-slate-200">
-                                                    {p.name || 'Senza Nome'}
-                                                </span>
-                                                <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-semibold text-slate-400 tabular-nums">
-                                                    <MapPin className="w-3 h-3 shrink-0" aria-hidden />
-                                                    {(p.items || []).length} Tappe
-                                                </span>
-                                            </div>
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-start gap-1.5 text-[9px] text-slate-500">
-                                                    <Calendar className="w-3 h-3 shrink-0 text-slate-500 mt-px" aria-hidden />
-                                                    <span className="leading-snug">
-                                                        Data Creazione:{' '}
-                                                        <span className="text-slate-400 tabular-nums whitespace-nowrap">
-                                                            {isValidTimestamp(p.createdAt)
-                                                                ? formatItalianDateTimeWithSeconds(p.createdAt)
-                                                                : '—'}
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-start gap-1.5 text-[9px] text-slate-500">
-                                                    <PencilLine className="w-3 h-3 shrink-0 text-slate-500 mt-px" aria-hidden />
-                                                    <span className="leading-snug">
-                                                        Ultimo Salvataggio:{' '}
-                                                        <span className="text-slate-400 tabular-nums whitespace-nowrap">
-                                                            {isValidTimestamp(p.updatedAt)
-                                                                ? formatItalianDateTimeWithSeconds(p.updatedAt)
-                                                                : '—'}
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </button>
-                                        <button 
-                                            onClick={(e) => handleDeleteClick(e, p.id || '')} 
-                                            className="self-center p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 shrink-0"
-                                            title="Elimina"
-                                            aria-label="Elimina"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5"/>
-                                        </button>
-                                    </div>
+                                    <SavedProjectListItem
+                                        key={p.id || idx}
+                                        project={p}
+                                        onLoadProject={onLoadProject}
+                                        onCloseMenu={handleLoadMenuOpen}
+                                        onDeleteProject={handleDeleteClick}
+                                    />
                                 ))}
                             </div>
                         ) : <div className="px-3 py-4 text-xs text-slate-500 text-center italic">Nessun progetto</div>}

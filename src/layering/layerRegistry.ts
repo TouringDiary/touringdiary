@@ -300,20 +300,6 @@ export const LAYER_REGISTRY: Record<LayerTier, LayerSpec> = {
     escHandling: 'stack',
   },
 
-  // ── Anchored transient menus (single tier; absorbs legacy "dropdown") ──
-  popover: {
-    z: 10000,
-    class: 'global',
-    token: 'z-popover / Z_POPOVER (legacy alias: z-dropdown / Z_DROPDOWN)',
-    owner: 'Header menus, anchored dropdowns/popovers',
-    purpose: 'Anchored, dismiss-on-outside transient menus above chrome & workspaces, below modals.',
-    examples: 'Header menu, NearbyCitiesRow filter menu (portaled), any promoted local flyout.',
-    forbidden: 'Inline menus that fit within their parent — keep those local (localFlyout).',
-    portal: 'required',
-    bypassesOverlay: true,
-    escHandling: 'stack',
-  },
-
   // ── Consumer modal surface (panel values are local to the td-modal-overlay backdrop) ──
   modal: {
     z: 11000,
@@ -403,12 +389,35 @@ export const LAYER_REGISTRY: Record<LayerTier, LayerSpec> = {
     bypassesOverlay: true,
     escHandling: 'none',
   },
+
+  // ── Anchored transient menus (single tier; absorbs legacy "dropdown") ──
+  // Stack contract (semantic — do not infer from the z value):
+  //   above overlay, focusActive (and the focus workspace band)
+  //   below lightbox, toast
+  popover: {
+    z: 14500,
+    class: 'global',
+    token: 'z-popover / Z_POPOVER (legacy alias: z-dropdown / Z_DROPDOWN)',
+    owner: 'Header chrome menus, AnchoredPopover, SaveMenuPopover, portaled flyouts',
+    purpose:
+      'Anchored, dismiss-on-outside transient menus. ' +
+      'Stack contract: paints above overlay (modal dimming) and focusActive (workspace panels); ' +
+      'paints below lightbox and toast. ' +
+      'Chrome menus (hamburger, profile) and in-app portaled popovers share this tier.',
+    examples:
+      'Header hamburger menu, SaveMenuPopover, DiaryHeader load/share menus, NearbyCitiesRow filter menu (portaled).',
+    forbidden:
+      'Inline menus that fit within their parent — keep those local (localFlyout). Modal nested confirmations (modalNested).',
+    portal: 'required',
+    bypassesOverlay: true,
+    escHandling: 'stack',
+  },
   lightbox: {
     z: 15000,
     class: 'global',
     token: 'z-lightbox / Z_LIGHTBOX',
     owner: 'GalleryLightbox, ShopPage',
-    purpose: 'Full-viewport media lightbox above modals.',
+    purpose: 'Full-viewport media lightbox above modal dimming and portaled popovers.',
     examples: 'GalleryLightbox.',
     forbidden: 'Non-media-fullscreen surfaces.',
     portal: 'required',
