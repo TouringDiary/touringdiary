@@ -56,6 +56,18 @@ Se non è dimostrato dal codice, non entra nella documentazione.
 
 ---
 
+# MODELLO ID (DUAL-FAMILY)
+
+Prima di introdurre DEFAULT, cambiare tipo di PK, o “unificare” gli ID:
+
+1. Leggere `AI_CONTEXT/33_ID_MODEL_DUAL_FAMILY.md`.
+2. Ricordare: **territorio** → PK **text** (spesso senza DEFAULT, generate in app/RPC); **piattaforma** → PK **uuid** (spesso DEFAULT DB / `randomUUID`).
+3. **Non** migrare verso un modello unico senza decisione PO formale.
+4. Una macrofase «ID Governance» è solo **anticipata** (non approvata) — vedi DOC 33 e `01_EXECUTION_ROADMAP.md` §6.
+
+
+---
+
 # PROCESSO OBBLIGATORIO
 
 Prima di modificare qualsiasi file devono essere dichiarati:

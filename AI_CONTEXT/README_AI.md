@@ -136,6 +136,10 @@ Sponsor Security SSOT (audit, architettura, gate implementazione):
 
 AI_CONTEXT/29_SPONSOR_SECURITY_MASTERPLAN.md
 
+ID Model Dual-Family (territorial text vs platform UUID; ID Governance deferred):
+
+AI_CONTEXT/33_ID_MODEL_DUAL_FAMILY.md
+
 Platform Settings / Centro di Controllo SSOT (feature flag globali, testi configurabili, soglie):
 
 AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md

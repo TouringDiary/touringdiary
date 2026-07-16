@@ -5,6 +5,19 @@ Il database di TouringDiary è progettato per gestire relazioni complesse tra en
 
 ---
 
+## MODELLO PRIMARY KEY (DUAL-FAMILY)
+
+Registrazione architetturale 2026-07-16 — SSOT: `AI_CONTEXT/33_ID_MODEL_DUAL_FAMILY.md`.
+
+| Famiglia | Ambito tipico | Tipo PK | Generazione tipica |
+|----------|---------------|---------|-------------------|
+| **Territoriale** | `cities`, `pois`, `shops`, `shop_products` | **text** | App / registry / pipeline; spesso **senza** DEFAULT DB |
+| **Piattaforma** | `profiles`, `sponsors`, `sponsor_requests`, subscriptions, guide/operator, collab, packing | **uuid** | DEFAULT `gen_random_uuid()` e/o client `randomUUID` |
+
+**Non** è approvata una unificazione forzata degli ID. Eventuale futura «ID Governance» = solo regole/governance (non cambio modello), e solo dopo nuova ricognizione formale.
+
+---
+
 ## TABELLE PRINCIPALI
 
 ### Core Territorial

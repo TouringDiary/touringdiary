@@ -62,10 +62,11 @@ WF-01 (Completato) ──► WF-02 (Attivo)
 
 *Non compare in §3 finché non esiste `WORKFLOWS/WF_XX_*.md` e apertura ufficiale.*
 
-| WF previsto | Nome indicativo | SSOT / motivazione | Dipende da |
-|-------------|-----------------|-------------------|------------|
-| **WF-03** | Privacy avanzata | Gestione compliance estesa — DL-P09 DOC 30 | WF-02 |
-| *(da definire)* | Messaggistica unificata | Dominio autonomo — G-MSG-1 step 5, DOC 29 | WF-02 + review UI G-MSG-1 |
+| WF previsto | Nome | Stato decisione | Note |
+|-------------|------|-----------------|------|
+| **WF-03** | Privacy avanzata | Anticipazione | Gestione compliance estesa — DL-P09 DOC 30. Dipende da: WF-02. |
+| *(da definire)* | Messaggistica unificata | Anticipazione | Dominio autonomo — G-MSG-1 step 5, DOC 29. Dipende da: WF-02 + review UI G-MSG-1. |
+| *(da definire)* | ID Governance | Anticipazione (non approvata) | Consolidare **regole** del modello dual-family (text territoriale / UUID piattaforma) — **senza** migrare a un modello unico. SSOT: `AI_CONTEXT/33_ID_MODEL_DUAL_FAMILY.md` (DL-035 DOC 29). Nessuna dipendenza formale oggi; **non** interrompe WF-02. Prima dell’avvio: **nuova ricognizione obbligatoria** (Product Owner, ChatGPT e l’AI utilizzata nello sviluppo) su effort, benefici, nuovi domini/generatori, impatto WF completati, Governance Light vs Completa. |
 
 ---
 
@@ -77,3 +78,5 @@ WF-01 (Completato) ──► WF-02 (Attivo)
 | 1.0.1 | 2026-07-13 | Roadmap neutra — solo Workflow ufficialmente aperti |
 | 1.0.2 | 2026-07-14 | WF-01 Completato; apertura WF-02 Implementation Masterplan |
 | 1.0.3 | 2026-07-14 | §6 Anticipazioni WF-03 Privacy (DL-P09) |
+| 1.0.4 | 2026-07-16 | §6 anticipazione ID Governance (non approvata; gate rivalutazione) |
+| 1.0.5 | 2026-07-16 | §6 tabella anticipazioni uniforme; formulazione rivalutazione ID Governance stabilizzata |

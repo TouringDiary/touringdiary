@@ -772,6 +772,18 @@ Registrazione → username obbligatorio → username univoco → email obbligato
 
 ---
 
+### DL-035
+
+**Data:** 2026-07-16
+
+**Decisione (ricognizione ID — PO):** In sede di analisi del bug `activate_sponsor_from_request` (INSERT `pois` senza `id` → 23502) è stata confermata la coerenza del **modello dual-family** degli ID (territorio = PK **text**; piattaforma = PK **uuid**). **Non** è approvata una migrazione verso un modello unico di ID. Una possibile futura macrofase «ID Governance» (solo regole/governance, non cambio modello dati) è **registrata ma non approvata**; richiede nuova ricognizione congiunta prima di qualsiasi avvio.
+
+**Motivazione:** Preservare l’analisi senza interrompere WF-02; evitare unificazione forzata incompatibile con registry città / OSM / write path POI.
+
+**Impatto:** SSOT trasversale `AI_CONTEXT/33_ID_MODEL_DUAL_FAMILY.md`; bug fix immediato = soluzione A (RPC valorizza id text); nessun STEP/attività implementativa ID Governance in WF-02. Anticipazione non ufficiale in `01_EXECUTION_ROADMAP.md` §6.
+
+---
+
 ## Problemi confermati
 
 > **Nota — debito implementativo noto (B1–B10, A*, C*):** le voci sotto descrivono lo **stato attuale del sistema**, non un'analisi incompleta. Sono **debito implementativo accettato dal Product Owner** (DL-031), **coperto integralmente** dal piano Fasi 1–6 (§ *Implementazioni*) e **non impediscono** lo stato documento ***Pronto per Implementazione***. Restano obiettivo di chiusura del passaggio a ***Implementato***.
@@ -1694,6 +1706,7 @@ Contratto attivo: `expired` (runtime su scadenza).
 | 0.10.0 | 2026-07-14 | Riclassificazione verifiche pre-impl vs implementazione; DoD-2/DoD-8 ☑; Q1–Q9 gate *Pronto* vs *Implementato*; stato **Pronto per Implementazione**; WF-02 STEP-1 chiuso |
 | 0.10.1 | 2026-07-14 | Chiarezza audit vs progetto vs implementazione; nota debito B1–B10; § *Perché Pronto per Implementazione* |
 | 0.11.0 | 2026-07-14 | WF-02 Fase 2.1 implementata: contenimento P0 (RPC hardening, policy messages, INSERT anon, VT-SPONSOR-PUBLIC-READ); stato **Implementazione in Corso** |
+| 0.11.1 | 2026-07-16 | DL-035: ricognizione ID dual-family; puntamento a DOC 33; ID Governance non approvata |
 
 ---
 

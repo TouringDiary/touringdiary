@@ -16,7 +16,7 @@
 | **Owner** | PO + AI |
 | **Creato** | 2026-07-14 |
 | **Ultimo aggiornamento** | 2026-07-16 |
-| **Aggiornato da** | Chiusura formale WF-02 STEP-2 Fase 2.4 |
+| **Aggiornato da** | Registrazione DOC 33 / DL-035 — ID Governance non approvata; priorità bug fix attivazione |
 
 ---
 
@@ -631,6 +631,8 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Data | Decisione | Chi |
 |------|-----------|-----|
+| 2026-07-16 | Soluzione A implementata (migration `20260716162000_…`): RPC valorizza id text pois/shops; ID Governance resta non approvata | AI |
+| 2026-07-16 | Ricognizione ID dual-family documentata (DOC 33 / DL-035); **ID Governance non approvata** (nuova ricognizione obbligatoria prima di avvio); priorità sprint = bug fix attivazione Sponsor (soluzione A), poi ripresa Fase 2.5 | PO |
 | 2026-07-16 | Chiusura formale Fase 2.4; lint residuo dichiarato fuori scope; autorizzazione avvio Fase 2.5 | PO |
 | 2026-07-14 | Chiusura STEP-1; DOC 29 *Pronto per Implementazione*; autorizzazione avvio STEP-2 Fase 2.1 | PO |
 | 2026-07-14 | Chiusura decisioni PO DEC-A12/SUX/TERM e DEC-CC-SCOPE/CATALOG | PO |

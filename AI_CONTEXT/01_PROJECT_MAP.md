@@ -215,6 +215,10 @@ Sicurezza, audit e progettazione definitiva del dominio (SSOT):
 
 AI_CONTEXT/29_SPONSOR_SECURITY_MASTERPLAN.md
 
+Modello ID trasversale (territorio text / piattaforma UUID) — registrazione, non Workflow:
+
+AI_CONTEXT/33_ID_MODEL_DUAL_FAMILY.md
+
 
 ---
 
