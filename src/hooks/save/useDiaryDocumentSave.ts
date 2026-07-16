@@ -74,7 +74,6 @@ export function useDiaryDocumentSave({
           !!options.documentId && !isDiaryTempId(options.documentId);
         if (userId && wasPersisted) {
           void notifySharedResourceContentModified(
-            userId,
             'diary',
             id,
             name
@@ -85,7 +84,6 @@ export function useDiaryDocumentSave({
             .then((workspaces) => {
               void recordCollaborationDomainEvent({
                 eventType: 'resource.content_updated',
-                actorId: userId,
                 kind: 'diary',
                 resourceId: id,
                 // Primo workspace collegato: il feed attività è per-workspace; se assente, evento senza workspace.

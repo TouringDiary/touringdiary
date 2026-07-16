@@ -60,11 +60,14 @@ export const ModalManager = () => {
             closeModal();
             const resumeProps = pendingReturnProps as {
                 intent?: string;
+                entryMode?: string;
                 workspaceId?: string;
                 initialSection?: string;
                 kind?: string;
                 resourceId?: string;
                 resourceTitle?: string;
+                preselectedDiaryId?: string;
+                preselectedDiaryTitle?: string;
             } | undefined;
             if (resumeProps?.intent === 'workspace') {
                 const {
@@ -75,6 +78,14 @@ export const ModalManager = () => {
                     ...workspacePayload
                 } = resumeProps;
                 openModal('collaborationWorkspace', workspacePayload);
+                return;
+            }
+            if (resumeProps?.entryMode === 'create_workspace') {
+                openModal('collaborationShare', {
+                    entryMode: 'create_workspace',
+                    preselectedDiaryId: resumeProps.preselectedDiaryId,
+                    preselectedDiaryTitle: resumeProps.preselectedDiaryTitle,
+                });
                 return;
             }
             if (resumeProps?.kind && resumeProps?.resourceId) {

@@ -142,7 +142,9 @@ router.get("/sponsors", async (req, res) => {
     if (!supabaseAdmin) {
       return res.status(500).json({ success: false, error: "Supabase Admin client not initialized" });
     }
-    const { data, error } = await supabaseAdmin.from('sponsors').select('*');
+    const { data, error } = await supabaseAdmin.from('sponsors').select(
+      'id, city_id, company_name, contact_name, type, tier, status, start_date, end_date, plan, poi_category, poi_sub_category, poi_id, shop_id, guide_id, operator_id, address, pricing_version_id, request_id, created_at, updated_at'
+    );
     if (error) throw error;
     res.setHeader("Cache-Control", "no-store");
     res.json({ success: true, data: data || [] });

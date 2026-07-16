@@ -26,6 +26,32 @@ export type WorkspaceInviteResult =
   | { success: true; invite: WorkspaceInvite }
   | { success: false; error: string };
 
+/** Null = permessi validi (incluso array vuoto per inviti membership-only). */
+async function validateWorkspaceInvitePermissions(
+  workspaceId: string,
+  permissions: WorkspaceResourcePermissionEntry[]
+): Promise<string | null> {
+  if (!permissions.length) {
+    return null;
+  }
+
+  for (const entry of permissions) {
+    if (!isWorkspaceResourceAccess(entry.accessLevel)) {
+      return 'Livello di accesso non valido.';
+    }
+    const linked = await getWorkspaceResourceByKindAndId(
+      workspaceId,
+      entry.kind,
+      entry.resourceId
+    );
+    if (!linked) {
+      return 'Risorsa non presente nel workspace.';
+    }
+  }
+
+  return null;
+}
+
 export async function getWorkspaceInvite(inviteId: string): Promise<WorkspaceInvite | null> {
   return loadWorkspaceInvite(inviteId);
 }
@@ -95,22 +121,10 @@ export async function sendWorkspaceInvite(
   if (!(await isWorkspaceOwner(workspaceId, ownerId))) {
     return { success: false, error: 'Solo il proprietario del workspace può invitare.' };
   }
-  if (!permissions.length) {
-    return { success: false, error: 'Definisci almeno un permesso per risorsa.' };
-  }
 
-  for (const entry of permissions) {
-    if (!isWorkspaceResourceAccess(entry.accessLevel)) {
-      return { success: false, error: 'Livello di accesso non valido.' };
-    }
-    const linked = await getWorkspaceResourceByKindAndId(
-      workspaceId,
-      entry.kind,
-      entry.resourceId
-    );
-    if (!linked) {
-      return { success: false, error: 'Risorsa non presente nel workspace.' };
-    }
+  const permissionsError = await validateWorkspaceInvitePermissions(workspaceId, permissions);
+  if (permissionsError) {
+    return { success: false, error: permissionsError };
   }
 
   const inviteeId = await resolveInviteeId(target);
@@ -198,26 +212,28 @@ export async function sendWorkspaceInvite(
     access_level: entry.accessLevel,
   }));
 
-  const { error: permissionsError } = await supabase
-    .from('workspace_invite_permissions')
-    .insert(permissionRows);
+  if (permissionRows.length > 0) {
+    const { error: permissionsError } = await supabase
+      .from('workspace_invite_permissions')
+      .insert(permissionRows);
 
-  if (permissionsError) {
-    console.error('[workspaceInviteService] sendWorkspaceInvite permissions:', permissionsError.message);
-    if (previousInviteStatus) {
-      // Rollback logico: ripristina stato e permessi dell'invito precedente.
-      await supabase
-        .from('workspace_invites')
-        .update({
-          status: previousInviteStatus,
-          responded_at: existingInvite?.responded_at ?? null,
-        })
-        .eq('id', inviteRow.id);
-      await restoreWorkspaceInvitePermissions(inviteRow.id, previousInvitePermissions);
-    } else {
-      await supabase.from('workspace_invites').delete().eq('id', inviteRow.id);
+    if (permissionsError) {
+      console.error('[workspaceInviteService] sendWorkspaceInvite permissions:', permissionsError.message);
+      if (previousInviteStatus) {
+        // Rollback logico: ripristina stato e permessi dell'invito precedente.
+        await supabase
+          .from('workspace_invites')
+          .update({
+            status: previousInviteStatus,
+            responded_at: existingInvite?.responded_at ?? null,
+          })
+          .eq('id', inviteRow.id);
+        await restoreWorkspaceInvitePermissions(inviteRow.id, previousInvitePermissions);
+      } else {
+        await supabase.from('workspace_invites').delete().eq('id', inviteRow.id);
+      }
+      return { success: false, error: 'Impossibile salvare i permessi dell\'invito.' };
     }
-    return { success: false, error: 'Impossibile salvare i permessi dell\'invito.' };
   }
 
   const invite = await loadWorkspaceInvite(inviteRow.id);
@@ -551,6 +567,14 @@ export async function updateWorkspaceInvitePermissions(
     return { success: false, error: 'Solo gli inviti in attesa possono essere modificati.' };
   }
 
+  const permissionsError = await validateWorkspaceInvitePermissions(
+    invite.workspaceId,
+    permissions
+  );
+  if (permissionsError) {
+    return { success: false, error: permissionsError };
+  }
+
   const previousPermissions = invite.permissions;
 
   await supabase.from('workspace_invite_permissions').delete().eq('invite_id', inviteId);
@@ -562,11 +586,13 @@ export async function updateWorkspaceInvitePermissions(
     access_level: entry.accessLevel,
   }));
 
-  const { error } = await supabase.from('workspace_invite_permissions').insert(permissionRows);
-  if (error) {
-    console.error('[workspaceInviteService] updateWorkspaceInvitePermissions:', error.message);
-    await restoreWorkspaceInvitePermissions(inviteId, previousPermissions);
-    return { success: false, error: 'Impossibile aggiornare i permessi dell\'invito.' };
+  if (permissionRows.length > 0) {
+    const { error } = await supabase.from('workspace_invite_permissions').insert(permissionRows);
+    if (error) {
+      console.error('[workspaceInviteService] updateWorkspaceInvitePermissions:', error.message);
+      await restoreWorkspaceInvitePermissions(inviteId, previousPermissions);
+      return { success: false, error: 'Impossibile aggiornare i permessi dell\'invito.' };
+    }
   }
 
   const updated = await loadWorkspaceInvite(inviteId);

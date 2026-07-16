@@ -51,18 +51,46 @@ export const slidePanelTransformClass = (isRaised: boolean): string =>
  */
 export const BINDER_PANEL_TRANSITION_CLASS = 'transition-[max-height] duration-500 overflow-hidden';
 
+type BinderPanelRaisedVariant = 'desktop' | 'mobileWithNav' | 'mobileFull';
+
+const BINDER_PANEL_MAX_HEIGHT_RAISED: Record<BinderPanelRaisedVariant, string> = {
+  desktop: 'max-h-[var(--workspace-panel-height)]',
+  mobileWithNav: 'max-h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))]',
+  mobileFull: 'max-h-[calc(100dvh-var(--header-height))]',
+};
+
+const BINDER_PANEL_MIN_HEIGHT_RAISED: Record<BinderPanelRaisedVariant, string> = {
+  desktop: 'min-h-[var(--workspace-panel-height)]',
+  mobileWithNav: 'min-h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))]',
+  mobileFull: 'min-h-[calc(100dvh-var(--header-height))]',
+};
+
+function resolveBinderPanelRaisedVariant(
+  isMobileViewport: boolean,
+  reserveBottomNav: boolean,
+): BinderPanelRaisedVariant {
+  if (!isMobileViewport) return 'desktop';
+  return reserveBottomNav ? 'mobileWithNav' : 'mobileFull';
+}
+
+/** Max-height del pannello binder (animazione top-origin). */
 export const binderPanelMaxHeightClass = (
   isRaised: boolean,
   isMobileViewport: boolean,
   reserveBottomNav = true,
 ): string => {
   if (!isRaised) return 'max-h-0';
-  if (isMobileViewport) {
-    return reserveBottomNav
-      ? 'max-h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))]'
-      : 'max-h-[calc(100dvh-var(--header-height))]';
-  }
-  return 'max-h-[var(--workspace-panel-height)]';
+  return BINDER_PANEL_MAX_HEIGHT_RAISED[resolveBinderPanelRaisedVariant(isMobileViewport, reserveBottomNav)];
+};
+
+/** Min-height del pannello binder — stessa metrica del max quando aperto, per altezza fissa del hub. */
+export const binderPanelMinHeightClass = (
+  isRaised: boolean,
+  isMobileViewport: boolean,
+  reserveBottomNav = true,
+): string => {
+  if (!isRaised) return '';
+  return BINDER_PANEL_MIN_HEIGHT_RAISED[resolveBinderPanelRaisedVariant(isMobileViewport, reserveBottomNav)];
 };
 
 /** @deprecated Preferire {@link slidePanelTransformClassByAxis}('x', …). Mantenuto per retrocompatibilità. */

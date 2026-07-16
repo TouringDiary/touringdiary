@@ -1,7 +1,7 @@
 import { Z_MODAL, Z_MODAL_NESTED, Z_OVERLAY } from '@/constants/zIndex';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, Loader2, Share2 } from 'lucide-react';
+import { AlertCircle, FolderPlus, Loader2, Share2 } from 'lucide-react';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
@@ -14,6 +14,8 @@ import type {
   SharedResourceKind,
   SharedResourceMemberWithProfile,
   SharingMode,
+  Workspace,
+  WorkspaceResourcePermissionEntry,
 } from '@/domain/collaboration';
 import { getSharedResourceKindLabel } from '@/domain/collaboration';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
@@ -35,6 +37,7 @@ import {
   addResourceToExistingWorkspace,
   sendWorkspaceInvite,
   resolveWorkspaceCompositionBlueprint,
+  resolveWorkspaceCompositionCatalog,
   materializeWorkspaceComposition,
   rollbackDuplicatedCompositionResources,
 } from '@/services/collaboration';
@@ -42,6 +45,7 @@ import { duplicateSharedResourceForOwner } from '@/services/collaboration/person
 import type { WorkspaceCompositionResource } from '@/services/collaboration';
 import {
   createDefaultCompositionDraft,
+  countSelectedResources,
   draftToCompositionResources,
   validateWorkspaceCompositionDraft,
   type WorkspaceCompositionBlueprint,
@@ -58,34 +62,266 @@ import {
   type PendingInvite,
   type ShareIntent,
   type SharePath,
+  type WizardEntryMode,
   type WizardStep,
   type WorkspacePendingInvite,
+  buildDefaultWorkspaceInvitePermissions,
+  mapWorkspaceInvitePermissionsToMaterialized,
+  resolveCompositionResourceTitles,
+  syncWorkspacePendingInvitePermissions,
 } from './collaborationSharePresentation';
+import type { WorkspacePickedElement } from './WorkspaceShareWizardSteps';
 import { useCollaborationInviteSearch } from './useCollaborationInviteSearch';
+import { useCollaborationWizardNavigation } from './useCollaborationWizardNavigation';
+
+type WorkspaceList = Awaited<ReturnType<typeof listWorkspacesForUser>>;
+
+type StepResult<T> = { success: true; value: T } | { success: false; error: string };
+
+// =============================================================================
+// Entry loaders composizione — due flussi distinti, due resolver distinti
+//
+// | Loader                    | Entry mode        | Resolver                              |
+// |---------------------------|-------------------|---------------------------------------|
+// | loadCreateWorkspaceCatalog| create_workspace  | resolveWorkspaceCompositionCatalog    |
+// | loadWorkspaceWizardData   | share (+ share    | resolveWorkspaceCompositionBlueprint  |
+// |                           |  path workspace)  |                                       |
+// =============================================================================
+
+/**
+ * Entry loader — flusso «Crea Workspace» (`entryMode: 'create_workspace'`).
+ * Carica catalogo personale + draft iniziale.
+ * Restituisce `null` se la richiesta async non è più valida.
+ */
+async function loadCreateWorkspaceCatalog(
+  userId: string,
+  generation: number,
+  isStale: (generation: number) => boolean,
+  preselectedDiaryId?: string,
+): Promise<{
+  blueprint: WorkspaceCompositionBlueprint;
+  draft: WorkspaceCompositionDraft;
+  workspaces: WorkspaceList;
+} | null> {
+  const blueprint = await resolveWorkspaceCompositionCatalog({
+    ownerId: userId,
+    preselectedDiaryId,
+  });
+  if (isStale(generation)) return null;
+
+  const draft = createDefaultCompositionDraft(blueprint);
+  if (isStale(generation)) return null;
+
+  const workspaces = await listWorkspacesForUser(userId);
+  if (isStale(generation)) return null;
+
+  return { blueprint, draft, workspaces };
+}
+
+// -----------------------------------------------------------------------------
+// Composizione — merge draft e pipeline finalize create
+// -----------------------------------------------------------------------------
+
+/** Allinea la draft alla nuova blueprint, potando selezioni non più valide. */
+function mergeCompositionDraftWithBlueprint(
+  current: WorkspaceCompositionDraft | null,
+  nextBlueprint: WorkspaceCompositionBlueprint,
+  selectedDiaryId: string | null,
+): WorkspaceCompositionDraft {
+  const base = current ?? createDefaultCompositionDraft(nextBlueprint);
+  const nextSuitcaseIds = new Set(
+    [...base.selectedSuitcaseIds].filter((id) =>
+      nextBlueprint.suitcases.candidates.some((candidate) => candidate.resourceId === id)
+    )
+  );
+  const nextTemplateIds = new Set(
+    [...base.selectedUserTemplateIds].filter((id) =>
+      nextBlueprint.userTemplates.candidates.some((candidate) => candidate.resourceId === id)
+    )
+  );
+
+  if (nextBlueprint.seed.kind === 'suitcase') {
+    nextSuitcaseIds.add(nextBlueprint.seed.resourceId);
+  }
+  if (nextBlueprint.seed.kind === 'user_template') {
+    nextTemplateIds.add(nextBlueprint.seed.resourceId);
+  }
+
+  return {
+    ...base,
+    selectedDiaryId,
+    selectedSuitcaseIds: nextSuitcaseIds,
+    selectedUserTemplateIds: nextTemplateIds,
+  };
+}
+
+async function materializeSelectedComposition(input: {
+  hasSelectedResources: boolean;
+  ownerId: string;
+  shareIntent: ShareIntent;
+  draft: WorkspaceCompositionDraft;
+  blueprint: WorkspaceCompositionBlueprint;
+}): Promise<StepResult<WorkspaceCompositionResource[]>> {
+  if (!input.hasSelectedResources) {
+    return { success: true, value: [] };
+  }
+
+  const materializeResult = await materializeWorkspaceComposition({
+    ownerId: input.ownerId,
+    shareIntent: input.shareIntent,
+    draft: input.draft,
+    blueprint: input.blueprint,
+  });
+
+  if (materializeResult.success !== true) {
+    return { success: false, error: materializeResult.error };
+  }
+
+  return { success: true, value: materializeResult.resources };
+}
+
+async function createWorkspaceFromMaterialized(input: {
+  ownerId: string;
+  name: string;
+  description?: string;
+  resources: WorkspaceCompositionResource[];
+  rollbackDuplicatesOnFailure: boolean;
+}): Promise<StepResult<Workspace>> {
+  const createResult = await createWorkspaceWithComposition(input.ownerId, {
+    name: input.name,
+    description: input.description,
+    resources: input.resources,
+  });
+
+  if (createResult.success !== true) {
+    if (input.rollbackDuplicatesOnFailure) {
+      await rollbackDuplicatedCompositionResources(input.resources);
+    }
+    return { success: false, error: createResult.error };
+  }
+
+  return { success: true, value: createResult.workspace };
+}
+
+async function sendPendingWorkspaceInvites(input: {
+  ownerId: string;
+  workspaceId: string;
+  invites: WorkspacePendingInvite[];
+  mapPermissions?: (
+    permissions: WorkspaceResourcePermissionEntry[]
+  ) => WorkspaceResourcePermissionEntry[];
+}): Promise<StepResult<void>> {
+  for (const pending of input.invites) {
+    const permissions = input.mapPermissions
+      ? input.mapPermissions(pending.permissions)
+      : pending.permissions;
+
+    const inviteResult = await sendWorkspaceInvite(
+      input.ownerId,
+      input.workspaceId,
+      { userId: pending.userId },
+      permissions
+    );
+    if (inviteResult.success !== true) {
+      return { success: false, error: inviteResult.error };
+    }
+  }
+
+  return { success: true, value: undefined };
+}
+
+async function finalizeCreateWorkspacePipeline(input: {
+  hasSelectedResources: boolean;
+  ownerId: string;
+  shareIntent: ShareIntent;
+  draft: WorkspaceCompositionDraft;
+  blueprint: WorkspaceCompositionBlueprint;
+  workspaceName: string;
+  workspaceDescription?: string;
+  invitesToSend: WorkspacePendingInvite[];
+  compositionOriginals: Array<{ kind: SharedResourceKind; resourceId: string }>;
+}): Promise<StepResult<Workspace>> {
+  const materialized = await materializeSelectedComposition({
+    hasSelectedResources: input.hasSelectedResources,
+    ownerId: input.ownerId,
+    shareIntent: input.shareIntent,
+    draft: input.draft,
+    blueprint: input.blueprint,
+  });
+  if (materialized.success === false) {
+    return { success: false, error: materialized.error };
+  }
+
+  const materializedResources = materialized.value;
+  const created = await createWorkspaceFromMaterialized({
+    ownerId: input.ownerId,
+    name: input.workspaceName.trim(),
+    description: input.workspaceDescription,
+    resources: materializedResources,
+    rollbackDuplicatesOnFailure:
+      input.hasSelectedResources && input.shareIntent === 'duplicate_and_share',
+  });
+  if (created.success === false) {
+    return { success: false, error: created.error };
+  }
+
+  const invitePermissionsMapper = input.hasSelectedResources
+    ? (permissions: WorkspaceResourcePermissionEntry[]) =>
+        mapWorkspaceInvitePermissionsToMaterialized(
+          permissions,
+          input.compositionOriginals,
+          materializedResources
+        )
+    : undefined;
+
+  const invitesSent = await sendPendingWorkspaceInvites({
+    ownerId: input.ownerId,
+    workspaceId: created.value.id,
+    invites: input.invitesToSend,
+    mapPermissions: invitePermissionsMapper,
+  });
+  if (invitesSent.success === false) {
+    return { success: false, error: invitesSent.error };
+  }
+
+  return { success: true, value: created.value };
+}
 
 export interface CollaborationShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: User;
-  kind: SharedResourceKind;
-  resourceId: string;
-  resourceTitle: string;
+  entryMode?: WizardEntryMode;
+  kind?: SharedResourceKind;
+  resourceId?: string;
+  resourceTitle?: string;
+  preselectedDiaryId?: string;
+  preselectedDiaryTitle?: string;
+  workspaceId?: string;
 }
 
 export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = ({
   isOpen,
   onClose,
   user,
+  entryMode = 'share',
   kind,
   resourceId,
-  resourceTitle,
+  resourceTitle = '',
+  preselectedDiaryId,
+  preselectedDiaryTitle,
+  workspaceId,
 }) => {
+  const isCreateEntry = entryMode === 'create_workspace';
+  const isAddElementEntry = entryMode === 'add_element_to_workspace';
+  const [shareKind, setShareKind] = useState<SharedResourceKind>(kind ?? 'diary');
+  const shareResourceId = resourceId ?? '';
   const [view, setView] = useState<ModalView>('wizard');
   const [wizardStep, setWizardStep] = useState<WizardStep>('path');
   const [sharePath, setSharePath] = useState<SharePath>('simple');
   const [sharingMode, setSharingMode] = useState<SharingMode>('collaborative');
   const [shareIntent, setShareIntent] = useState<ShareIntent>('duplicate_and_share');
-  const [effectiveResourceId, setEffectiveResourceId] = useState(resourceId);
+  const [effectiveResourceId, setEffectiveResourceId] = useState(shareResourceId);
   const [hasAppliedShareDuplicate, setHasAppliedShareDuplicate] = useState(false);
   const [sharedResource, setSharedResource] = useState<SharedResource | null>(null);
   const [members, setMembers] = useState<SharedResourceMemberWithProfile[]>([]);
@@ -110,11 +346,12 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   const [userWorkspaces, setUserWorkspaces] = useState<Awaited<ReturnType<typeof listWorkspacesForUser>>>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [workspacePendingInvites, setWorkspacePendingInvites] = useState<WorkspacePendingInvite[]>([]);
+  const [pickedElement, setPickedElement] = useState<WorkspacePickedElement | null>(null);
 
   const openCollaborationWorkspace = useOpenCollaborationWorkspace();
 
   const isOpenRef = useRef(isOpen);
-  const effectiveResourceIdRef = useRef(resourceId);
+  const effectiveResourceIdRef = useRef(shareResourceId);
   const asyncGenerationRef = useRef(0);
   const compositionExpansionGenRef = useRef(0);
 
@@ -128,6 +365,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   const headerIconGlyphShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconGlyph);
   const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
   const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+  const inviteIntroTextShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.bodyText, isMobile);
 
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
@@ -185,6 +423,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     setSelectedWorkspaceId(null);
     setCompositionBlueprint(null);
     setCompositionDraft(null);
+    setPickedElement(null);
     setIsExpandingCompositionDiary(false);
   }, []);
 
@@ -199,26 +438,103 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     }
   }, [isSubmitting]);
 
-  const kindLabel = getSharedResourceKindLabel(kind);
+  const kindLabel = getSharedResourceKindLabel(shareKind);
   const resourceLabel = resourceTitle.trim() || kindLabel;
 
+  const {
+    skipShareIntent,
+    wizardSteps,
+    canShowWizardBack,
+    goToNextWizardStep,
+    handleWizardBack,
+  } = useCollaborationWizardNavigation({
+    entryMode,
+    sharePath,
+    sharingMode,
+    compositionDraft,
+    wizardStep,
+    setWizardStep,
+    isSubmitting,
+    setActionError,
+  });
+
+  /**
+   * Entry loader — flusso «Condividi» (`entryMode: 'share'`).
+   * Espande blueprint da seed risorsa via `resolveWorkspaceCompositionBlueprint`.
+   * Usato anche dal percorso share «Crea Workspace e Condividi» (non dal create dedicato).
+   */
   const loadWorkspaceWizardData = useCallback(
-    async (originResourceId: string, generation = asyncGenerationRef.current) => {
+    async (
+      seedKind: SharedResourceKind,
+      originResourceId: string,
+      generation = asyncGenerationRef.current
+    ) => {
       const blueprint = await resolveWorkspaceCompositionBlueprint({
-        seed: { kind, resourceId: originResourceId },
+        seed: { kind: seedKind, resourceId: originResourceId },
       });
       if (isAsyncStale(generation, originResourceId)) return;
 
       setCompositionBlueprint(blueprint);
       setCompositionDraft(createDefaultCompositionDraft(blueprint));
-      setWorkspaceName(resourceTitle.trim() || getSharedResourceKindLabel(kind));
+      setWorkspaceName(
+        isCreateEntry
+          ? ''
+          : resourceTitle.trim() || getSharedResourceKindLabel(seedKind)
+      );
 
       const workspaces = await listWorkspacesForUser(user.id);
       if (isAsyncStale(generation, originResourceId)) return;
 
       setUserWorkspaces(workspaces);
     },
-    [isAsyncStale, kind, resourceTitle, user.id]
+    [isAsyncStale, isCreateEntry, resourceTitle, user.id]
+  );
+
+  // -----------------------------------------------------------------------------
+  // Init — create_workspace dedicato (usa loadCreateWorkspaceCatalog)
+  // -----------------------------------------------------------------------------
+
+  const initializeCreateWorkspaceFlow = useCallback(
+    async (generation: number) => {
+      setView('wizard');
+      setWizardStep('workspace_setup');
+      setSharePath('create_workspace');
+      setSharingMode('collaborative');
+      setWorkspaceName('');
+      setWorkspaceDescription('');
+
+      const bootstrap = await loadCreateWorkspaceCatalog(
+        user.id,
+        generation,
+        isAsyncStale,
+        preselectedDiaryId?.trim(),
+      );
+      if (!bootstrap) return;
+
+      setCompositionBlueprint(bootstrap.blueprint);
+      setCompositionDraft(bootstrap.draft);
+      setUserWorkspaces(bootstrap.workspaces);
+    },
+    [isAsyncStale, preselectedDiaryId, user.id]
+  );
+
+  const initializeAddElementFlow = useCallback(
+    async (generation: number) => {
+      setView('wizard');
+      setWizardStep('pick_element');
+      setSharePath('add_workspace');
+      setSharingMode('collaborative');
+      setShareIntent('duplicate_and_share');
+      setPickedElement(null);
+
+      const bootstrap = await loadCreateWorkspaceCatalog(user.id, generation, isAsyncStale);
+      if (!bootstrap) return;
+
+      setCompositionBlueprint(bootstrap.blueprint);
+      setCompositionDraft(null);
+      setUserWorkspaces(bootstrap.workspaces);
+    },
+    [isAsyncStale, user.id]
   );
 
   const resolveShareTargetResourceId = useCallback(async (): Promise<string | null> => {
@@ -226,7 +542,11 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       return effectiveResourceId;
     }
 
-    const duplicateResult = await duplicateSharedResourceForOwner(kind, effectiveResourceId, user.id);
+    const duplicateResult = await duplicateSharedResourceForOwner(
+      shareKind,
+      effectiveResourceId,
+      user.id
+    );
     if (duplicateResult.success === false) {
       setActionError(duplicateResult.error);
       return null;
@@ -236,20 +556,20 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     effectiveResourceIdRef.current = duplicateResult.copiedResourceId;
     setHasAppliedShareDuplicate(true);
     return duplicateResult.copiedResourceId;
-  }, [effectiveResourceId, hasAppliedShareDuplicate, kind, shareIntent, user.id]);
+  }, [effectiveResourceId, hasAppliedShareDuplicate, shareIntent, shareKind, user.id]);
 
   const refreshCollaborationState = useCallback(
     async (generation = asyncGenerationRef.current, loadResourceId = effectiveResourceIdRef.current) => {
       setIsLoading(true);
       setError(null);
       try {
-        const resource = await getShareableResource(kind, loadResourceId);
+        const resource = await getShareableResource(shareKind, loadResourceId);
         if (isAsyncStale(generation, loadResourceId)) return;
 
         const memberList = resource ? await listSharedResourceMembers(resource.id) : [];
         if (isAsyncStale(generation, loadResourceId)) return;
 
-        const inviteList = await listResourceInvites(kind, loadResourceId, user.id);
+        const inviteList = await listResourceInvites(shareKind, loadResourceId, user.id);
         if (isAsyncStale(generation, loadResourceId)) return;
 
         setSharedResource(resource);
@@ -282,7 +602,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
         }
       }
     },
-    [isAsyncStale, kind, user.id]
+    [isAsyncStale, shareKind, user.id]
   );
 
   useEffect(() => {
@@ -291,12 +611,82 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     asyncGenerationRef.current += 1;
     const generation = asyncGenerationRef.current;
 
-    setEffectiveResourceId(resourceId);
-    effectiveResourceIdRef.current = resourceId;
-    setHasAppliedShareDuplicate(false);
     resetWizardTransientState();
-    void refreshCollaborationState(generation, resourceId);
-  }, [isOpen, resourceId, refreshCollaborationState, resetWizardTransientState]);
+
+    if (kind) {
+      setShareKind(kind);
+    }
+
+    if (isCreateEntry) {
+      setEffectiveResourceId(preselectedDiaryId ?? '');
+      effectiveResourceIdRef.current = preselectedDiaryId ?? '';
+      setHasAppliedShareDuplicate(false);
+      setIsLoading(true);
+      setError(null);
+      void (async () => {
+        try {
+          await initializeCreateWorkspaceFlow(generation);
+        } catch (loadError) {
+          if (!isAsyncStale(generation)) {
+            console.error('[CollaborationShareModal] create init:', loadError);
+            setError('Impossibile avviare la creazione del Workspace.');
+          }
+        } finally {
+          if (!isAsyncStale(generation)) {
+            setIsLoading(false);
+          }
+        }
+      })();
+      return;
+    }
+
+    if (isAddElementEntry) {
+      if (!workspaceId) {
+        setError('Workspace non disponibile.');
+        setIsLoading(false);
+        return;
+      }
+      setEffectiveResourceId('');
+      effectiveResourceIdRef.current = '';
+      setHasAppliedShareDuplicate(false);
+      setIsLoading(true);
+      setError(null);
+      void (async () => {
+        try {
+          await initializeAddElementFlow(generation);
+        } catch (loadError) {
+          if (!isAsyncStale(generation)) {
+            console.error('[CollaborationShareModal] add element init:', loadError);
+            setError('Impossibile avviare l\'aggiunta dell\'elemento.');
+          }
+        } finally {
+          if (!isAsyncStale(generation)) {
+            setIsLoading(false);
+          }
+        }
+      })();
+      return;
+    }
+
+    if (!shareResourceId) return;
+
+    setEffectiveResourceId(shareResourceId);
+    effectiveResourceIdRef.current = shareResourceId;
+    setHasAppliedShareDuplicate(false);
+    void refreshCollaborationState(generation, shareResourceId);
+  }, [
+    isOpen,
+    isCreateEntry,
+    isAddElementEntry,
+    preselectedDiaryId,
+    shareResourceId,
+    workspaceId,
+    initializeCreateWorkspaceFlow,
+    initializeAddElementFlow,
+    isAsyncStale,
+    refreshCollaborationState,
+    resetWizardTransientState,
+  ]);
 
   const handlePathContinue = async () => {
     setActionError(null);
@@ -309,8 +699,16 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
 
   const handleShareIntentContinue = async () => {
     setActionError(null);
+    if (isAddElementEntry) {
+      await handleAddElementToWorkspace();
+      return;
+    }
+    if (isCreateEntry) {
+      goToNextWizardStep();
+      return;
+    }
     if (sharePath === 'create_workspace') {
-      await loadWorkspaceWizardData(resourceId, asyncGenerationRef.current);
+      await loadWorkspaceWizardData(shareKind, shareResourceId, asyncGenerationRef.current);
       setWizardStep('workspace_setup');
       return;
     }
@@ -336,27 +734,13 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     setWizardStep('invite');
   };
 
-  const handleWizardBack = () => {
-    if (isSubmitting) return;
-    setActionError(null);
-    if (wizardStep === 'invite') {
-      setWizardStep(sharingMode === 'collaborative' ? 'share_intent' : 'mode');
-    } else if (wizardStep === 'share_intent') {
-      setWizardStep(sharePath === 'simple' ? 'mode' : 'path');
-    } else if (wizardStep === 'mode') setWizardStep('path');
-    else if (wizardStep === 'workspace_invite') setWizardStep('workspace_composition');
-    else if (wizardStep === 'workspace_composition') setWizardStep('workspace_setup');
-    else if (wizardStep === 'workspace_setup') setWizardStep('path');
-    else if (wizardStep === 'workspace_select') setWizardStep('path');
-  };
-
   const handleWorkspaceSetupContinue = () => {
     if (!workspaceName.trim()) {
       setActionError('Il nome del Workspace è obbligatorio.');
       return;
     }
     setActionError(null);
-    setWizardStep('workspace_composition');
+    goToNextWizardStep();
   };
 
   const handleWorkspaceCompositionContinue = () => {
@@ -366,14 +750,15 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     }
     const validationError = validateWorkspaceCompositionDraft(
       compositionDraft,
-      compositionBlueprint
+      compositionBlueprint,
+      { allowEmpty: isCreateEntry }
     );
     if (validationError) {
       setActionError(validationError);
       return;
     }
     setActionError(null);
-    setWizardStep('workspace_invite');
+    goToNextWizardStep();
   };
 
   const handleWorkspaceSelectContinue = async () => {
@@ -386,7 +771,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       if (!targetResourceId || !selectedWorkspaceId) return;
 
       const result = await addResourceToExistingWorkspace(selectedWorkspaceId, user.id, {
-        kind,
+        kind: shareKind,
         resourceId: targetResourceId,
       });
       if (!result.success) {
@@ -403,13 +788,20 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     return draftToCompositionResources(compositionDraft);
   }, [compositionDraft]);
 
+  const compositionInviteElements = useMemo(() => {
+    if (!compositionBlueprint) return [];
+    return resolveCompositionResourceTitles(compositionBlueprint, selectedComposition);
+  }, [compositionBlueprint, selectedComposition]);
+
+  useEffect(() => {
+    setWorkspacePendingInvites((current) => {
+      if (current.length === 0) return current;
+      return syncWorkspacePendingInvitePermissions(current, selectedComposition);
+    });
+  }, [selectedComposition]);
+
   const buildWorkspaceInvitePermissions = useCallback(
-    () =>
-      selectedComposition.map((resource) => ({
-        kind: resource.kind,
-        resourceId: resource.resourceId,
-        accessLevel: 'collaborator' as const,
-      })),
+    () => buildDefaultWorkspaceInvitePermissions(selectedComposition),
     [selectedComposition]
   );
 
@@ -426,35 +818,9 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
         if (generation !== compositionExpansionGenRef.current) return;
 
         setCompositionBlueprint(nextBlueprint);
-        setCompositionDraft((current) => {
-          const base = current ?? createDefaultCompositionDraft(nextBlueprint);
-          const nextSuitcaseIds = new Set(
-            [...base.selectedSuitcaseIds].filter((id) =>
-              nextBlueprint.suitcases.candidates.some((candidate) => candidate.resourceId === id)
-            )
-          );
-          const nextTemplateIds = new Set(
-            [...base.selectedUserTemplateIds].filter((id) =>
-              nextBlueprint.userTemplates.candidates.some(
-                (candidate) => candidate.resourceId === id
-              )
-            )
-          );
-
-          if (nextBlueprint.seed.kind === 'suitcase') {
-            nextSuitcaseIds.add(nextBlueprint.seed.resourceId);
-          }
-          if (nextBlueprint.seed.kind === 'user_template') {
-            nextTemplateIds.add(nextBlueprint.seed.resourceId);
-          }
-
-          return {
-            ...base,
-            selectedDiaryId,
-            selectedSuitcaseIds: nextSuitcaseIds,
-            selectedUserTemplateIds: nextTemplateIds,
-          };
-        });
+        setCompositionDraft((current) =>
+          mergeCompositionDraftWithBlueprint(current, nextBlueprint, selectedDiaryId)
+        );
       } finally {
         if (generation === compositionExpansionGenRef.current) {
           setIsExpandingCompositionDiary(false);
@@ -466,10 +832,17 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
 
   const handleSelectCompositionDiary = useCallback(
     (diaryId: string | null) => {
+      if (isCreateEntry) {
+        setCompositionDraft((current) =>
+          current ? { ...current, selectedDiaryId: diaryId } : current
+        );
+        return;
+      }
+
       if (!compositionBlueprint || compositionBlueprint.seed.kind === 'diary') return;
       void refreshCompositionBlueprint(compositionBlueprint.seed, diaryId);
     },
-    [compositionBlueprint, refreshCompositionBlueprint]
+    [compositionBlueprint, isCreateEntry, refreshCompositionBlueprint]
   );
 
   const handleToggleCompositionSuitcase = useCallback((suitcaseId: string) => {
@@ -509,6 +882,72 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     setWorkspacePendingInvites((current) => current.filter((invite) => invite.userId !== userId));
   };
 
+  const handleUpdateWorkspacePendingInvitePermission = useCallback(
+    (
+      userId: string,
+      kind: SharedResourceKind,
+      resourceId: string,
+      accessLevel: WorkspaceResourcePermissionEntry['accessLevel']
+    ) => {
+      setWorkspacePendingInvites((current) =>
+        current.map((invite) => {
+          if (invite.userId !== userId) return invite;
+
+          const hasEntry = invite.permissions.some(
+            (entry) => entry.kind === kind && entry.resourceId === resourceId
+          );
+          const permissions = hasEntry
+            ? invite.permissions.map((entry) =>
+                entry.kind === kind && entry.resourceId === resourceId
+                  ? { ...entry, accessLevel }
+                  : entry
+              )
+            : [...invite.permissions, { kind, resourceId, accessLevel }];
+
+          return { ...invite, permissions };
+        })
+      );
+    },
+    []
+  );
+
+  const handlePickElementContinue = () => {
+    if (!pickedElement) {
+      setActionError('Seleziona un elemento da aggiungere.');
+      return;
+    }
+    setShareKind(pickedElement.kind);
+    setEffectiveResourceId(pickedElement.resourceId);
+    effectiveResourceIdRef.current = pickedElement.resourceId;
+    setHasAppliedShareDuplicate(false);
+    setActionError(null);
+    goToNextWizardStep();
+  };
+
+  const handleAddElementToWorkspace = async () => {
+    if (!workspaceId || !pickedElement) {
+      setActionError('Workspace o elemento non disponibile.');
+      return;
+    }
+
+    await runSubmittingAction(async () => {
+      const targetResourceId = await resolveShareTargetResourceId();
+      if (!targetResourceId) return;
+
+      const result = await addResourceToExistingWorkspace(workspaceId, user.id, {
+        kind: pickedElement.kind,
+        resourceId: targetResourceId,
+      });
+      if (!result.success) {
+        setActionError(result.error ?? 'Impossibile collegare l\'elemento.');
+        return;
+      }
+
+      onClose();
+      openCollaborationWorkspace({ workspaceId });
+    });
+  };
+
   const handleCreateWorkspace = async (options?: { skipInvites?: boolean }) => {
     const draftSnapshot = compositionDraft;
     const blueprintSnapshot = compositionBlueprint;
@@ -524,7 +963,8 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
 
     const validationError = validateWorkspaceCompositionDraft(
       draftSnapshot,
-      blueprintSnapshot
+      blueprintSnapshot,
+      { allowEmpty: isCreateEntry }
     );
     if (validationError) {
       setActionError(validationError);
@@ -532,56 +972,28 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     }
 
     const invitesToSend = options?.skipInvites ? [] : [...workspacePendingInvitesSnapshot];
+    const hasSelectedResources = countSelectedResources(draftSnapshot) > 0;
+    const compositionOriginals = draftToCompositionResources(draftSnapshot);
 
     await runSubmittingAction(async () => {
-      const materializeResult = await materializeWorkspaceComposition({
+      const result = await finalizeCreateWorkspacePipeline({
+        hasSelectedResources,
         ownerId: user.id,
         shareIntent: shareIntentSnapshot,
         draft: draftSnapshot,
         blueprint: blueprintSnapshot,
+        workspaceName: workspaceNameSnapshot,
+        workspaceDescription: workspaceDescriptionSnapshot.trim() || undefined,
+        invitesToSend,
+        compositionOriginals,
       });
-
-      if (materializeResult.success !== true) {
-        setActionError(materializeResult.error);
+      if (result.success === false) {
+        setActionError(result.error);
         return;
-      }
-
-      const createResult = await createWorkspaceWithComposition(user.id, {
-        name: workspaceNameSnapshot.trim(),
-        description: workspaceDescriptionSnapshot.trim() || undefined,
-        resources: materializeResult.resources,
-      });
-
-      if (createResult.success !== true) {
-        if (shareIntentSnapshot === 'duplicate_and_share') {
-          await rollbackDuplicatedCompositionResources(materializeResult.resources);
-        }
-        setActionError(createResult.error);
-        return;
-      }
-
-      const workspace = createResult.workspace;
-      const invitePermissions = materializeResult.resources.map((resource) => ({
-        kind: resource.kind,
-        resourceId: resource.resourceId,
-        accessLevel: 'collaborator' as const,
-      }));
-
-      for (const pending of invitesToSend) {
-        const inviteResult = await sendWorkspaceInvite(
-          user.id,
-          workspace.id,
-          { userId: pending.userId },
-          invitePermissions
-        );
-        if (inviteResult.success !== true) {
-          setActionError(inviteResult.error);
-          return;
-        }
       }
 
       onClose();
-      openCollaborationWorkspace({ workspaceId: workspace.id });
+      openCollaborationWorkspace({ workspaceId: result.value.id });
     });
   };
 
@@ -616,7 +1028,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       if (!targetResourceId) return;
 
       const registerResult = await ensureShareableResource(
-        kind,
+        shareKind,
         targetResourceId,
         user.id,
         sharingMode
@@ -641,7 +1053,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
       for (const pending of pendingInvites) {
         const result = await sendResourceInvite(
           user.id,
-          kind,
+          shareKind,
           targetResourceId,
           { userId: pending.userId },
           pending.role
@@ -701,8 +1113,8 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     await runSubmittingAction(async () => {
       const result = await sendResourceInvite(
         user.id,
-        kind,
-        resourceId,
+        shareKind,
+        shareResourceId,
         { userId: target.id },
         selectedRole
       );
@@ -798,14 +1210,28 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
           <header className={headerShell}>
             <div className="flex items-center gap-4 pr-12 min-w-0 w-full">
               <div className={headerIconBoxShell}>
-                <Share2 className={headerIconGlyphShell} aria-hidden />
+                {isCreateEntry ? (
+                  <FolderPlus className={headerIconGlyphShell} aria-hidden />
+                ) : isAddElementEntry ? (
+                  <FolderPlus className={headerIconGlyphShell} aria-hidden />
+                ) : (
+                  <Share2 className={headerIconGlyphShell} aria-hidden />
+                )}
               </div>
               <div className="min-w-0">
                 <h2 id="collaboration-share-title" className={`${modalTitleShell} mb-1`}>
-                  Condividi
+                  {isCreateEntry
+                    ? 'Crea Workspace'
+                    : isAddElementEntry
+                      ? 'Aggiungi elemento'
+                      : 'Condividi'}
                 </h2>
                 <p id={modalDescId} className={modalSubtitleShell}>
-                  {resourceLabel}
+                  {isCreateEntry
+                    ? 'Configura il tuo spazio collaborativo'
+                    : isAddElementEntry
+                      ? 'Aggiungi un elemento personale al Workspace'
+                      : resourceLabel}
                 </p>
               </div>
             </div>
@@ -814,8 +1240,10 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
           {view === 'wizard' && !isLoading && !error && (
             <WizardStepIndicator
               wizardStep={wizardStep}
+              entryMode={entryMode}
               sharePath={sharePath}
               sharingMode={sharingMode}
+              skipShareIntent={skipShareIntent}
             />
           )}
 
@@ -833,6 +1261,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
           ) : view === 'wizard' ? (
             <CollaborationShareWizard
               wizardStep={wizardStep}
+              entryMode={entryMode}
               sharePath={sharePath}
               sharingMode={sharingMode}
               shareIntent={shareIntent}
@@ -845,11 +1274,13 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               workspaceDescription={workspaceDescription}
               compositionBlueprint={compositionBlueprint}
               compositionDraft={compositionDraft}
+              compositionInviteElements={compositionInviteElements}
+              pickedElement={pickedElement}
               isExpandingCompositionDiary={isExpandingCompositionDiary}
               userWorkspaces={userWorkspaces}
               selectedWorkspaceId={selectedWorkspaceId}
               workspacePendingInvites={workspacePendingInvites}
-              workspaceDefaultAccess="collaborator"
+              inviteIntroClassName={inviteIntroTextShell}
               onSharePathChange={setSharePath}
               onSharingModeChange={setSharingMode}
               onShareIntentChange={setShareIntent}
@@ -863,9 +1294,11 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               onSelectCompositionDiary={handleSelectCompositionDiary}
               onToggleCompositionSuitcase={handleToggleCompositionSuitcase}
               onToggleCompositionUserTemplate={handleToggleCompositionUserTemplate}
+              onPickElement={setPickedElement}
               onSelectWorkspace={setSelectedWorkspaceId}
               onAddWorkspacePendingInvite={handleAddWorkspacePendingInvite}
               onRemoveWorkspacePendingInvite={handleRemoveWorkspacePendingInvite}
+              onUpdateWorkspacePendingInvitePermission={handleUpdateWorkspacePendingInvitePermission}
             />
           ) : (
             <CollaborationManagementView
@@ -877,7 +1310,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               searchResults={searchResults}
               isSearching={isSearching}
               isSubmitting={isSubmitting}
-              canChangeSharingMode={kind === 'suitcase' || kind === 'diary'}
+              canChangeSharingMode={shareKind === 'suitcase' || shareKind === 'diary'}
               onSharingModeChange={handleSharingModeChange}
               onSelectedRoleChange={setSelectedRole}
               onSearchQueryChange={setSearchQuery}
@@ -907,7 +1340,10 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
           <CollaborationWizardFooter
             view={view}
             wizardStep={wizardStep}
+            entryMode={entryMode}
             sharePath={sharePath}
+            canShowBack={canShowWizardBack}
+            isFirstWizardStep={wizardSteps[0] === wizardStep}
             isSubmitting={isSubmitting}
             onClose={handleClose}
             onPathContinue={handlePathContinue}
@@ -916,6 +1352,7 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
             onSendInvites={handleSendInvites}
             onWorkspaceSetupContinue={handleWorkspaceSetupContinue}
             onWorkspaceCompositionContinue={handleWorkspaceCompositionContinue}
+            onPickElementContinue={handlePickElementContinue}
             onWorkspaceSelectContinue={handleWorkspaceSelectContinue}
             onCreateWorkspace={() => void handleCreateWorkspace()}
             onCreateWorkspaceLater={() => void handleCreateWorkspace({ skipInvites: true })}

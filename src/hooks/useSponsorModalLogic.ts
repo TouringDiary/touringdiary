@@ -69,7 +69,7 @@ export const useSponsorModalLogic = (
             targetRequest: targetActivationRequest,
             isShop: isActivationShop,
             isValid: activationValidation.isValid,
-            error: activationValidation.error,
+            error: activationValidation.isValid === false ? activationValidation.error : null,
             canSubmit: activationValidation.isValid
         },
         reject: {

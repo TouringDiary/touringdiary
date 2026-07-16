@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 import type { Sponsor, ResolvedSponsor, SponsorRequest } from '../../types/models/Sponsor';
-import { mapResolvedSponsor, mapDbSponsorToApp, SPONSOR_CONTRACT_SELECT, convertSponsorToPoi } from './sponsorResolvers';
+import { mapResolvedSponsor, SPONSOR_CONTRACT_SELECT, SPONSOR_PUBLIC_VITRINE_SELECT, convertSponsorToPoi, normalizeJoinedSponsorRow } from './sponsorResolvers';
 import { getTodayDateString } from './_internalTypes';
 import { PointOfInterest } from '../../types';
 
@@ -13,7 +13,7 @@ export const fetchActiveSponsorsResolvedAsync = async (cityId?: string): Promise
 
     let query = supabase
         .from('sponsors')
-        .select(SPONSOR_CONTRACT_SELECT)
+        .select(SPONSOR_PUBLIC_VITRINE_SELECT)
         .eq('status', 'approved')
         .lte('start_date', today)
         .gte('end_date', today);
@@ -29,7 +29,7 @@ export const fetchActiveSponsorsResolvedAsync = async (cityId?: string): Promise
         return [];
     }
 
-    return (data || []).map(mapResolvedSponsor);
+    return (data ?? []).map((row) => mapResolvedSponsor(normalizeJoinedSponsorRow(row)));
 };
 
 /**
@@ -103,43 +103,17 @@ export const getSponsorsByOwner = async (ownerId: string): Promise<ResolvedSpons
         return [];
     }
 
-    return (data || []).map(mapResolvedSponsor);
+    return (data ?? []).map((row) => mapResolvedSponsor(normalizeJoinedSponsorRow(row)));
 };
 
 /**
- * Crea un nuovo record 'sponsors' a partire da una 'sponsor_requests'.
- * Propaga obbligatoriamente l'identità UUID.
+ * @deprecated Mantenuta temporaneamente durante la migrazione DL-017 (Fase 2.3) esclusivamente
+ * per intercettare eventuali consumer legacy. Qualsiasi chiamata indica un percorso non migrato.
+ * Percorso corretto: {@link activateSponsorFromRequestAsync} in `sponsorActivationService.ts`.
+ * Rimozione completa quando non esisteranno più riferimenti nel codebase (grep `createSponsorFromRequest`).
  */
-export const createSponsorFromRequest = async (requestData: SponsorRequest): Promise<Sponsor> => {
-    const sponsorPayload = {
-        company_name: requestData.companyName,
-        vat_number: requestData.vatNumber,
-        email: requestData.email,
-        address: requestData.address,
-        city_id: requestData.cityId,
-        pricing_version_id: requestData.pricingVersionId,
-        status: 'approved',
-        owner_id: requestData.ownerId,
-        profile_id: requestData.profileId,
-        type: requestData.type,
-        request_id: requestData.id,
-        amount: requestData.amount,
-        start_date: requestData.startDate,
-        end_date: requestData.endDate
-    };
-
-    const { data, error } = await supabase
-        .from('sponsors')
-        .insert(sponsorPayload)
-        .select()
-        .single();
-
-    if (error) {
-        console.error("Errore durante la creazione dello sponsor da richiesta:", error);
-        throw new Error("Impossibile creare il record sponsor nel database.");
-    }
-
-    return mapDbSponsorToApp(data);
+export const createSponsorFromRequest = async (_requestData: SponsorRequest): Promise<Sponsor> => {
+    throw new Error('createSponsorFromRequest è deprecata. Usare activateSponsorFromRequestAsync.');
 };
 
 /**

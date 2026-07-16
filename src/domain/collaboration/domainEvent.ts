@@ -33,7 +33,6 @@ export interface CollaborationDomainEvent {
 
 export interface RecordCollaborationEventInput {
   eventType: CollaborationEventType | string;
-  actorId: string | null;
   summary: string;
   kind?: SharedResourceKind;
   resourceId?: string;

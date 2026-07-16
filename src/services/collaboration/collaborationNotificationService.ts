@@ -4,6 +4,7 @@ import { getShareableResource } from './sharedResourceService';
 import { listSharedResourceMembers } from './sharedResourceAclService';
 import { listWorkspacesContainingResource } from './workspaceCompositionService';
 import { shouldDeliverCollaborationNotification } from './collaborationNotificationPrefsService';
+import { resolveAuthenticatedUserId } from '@/services/auth/authIdentity';
 import { supabase } from '@/services/supabaseClient';
 
 async function getActorDisplayName(actorId: string): Promise<string> {
@@ -75,7 +76,6 @@ export async function notifyResourceInviteRejected(
 
 /** §19 — notifica ai collaboratori quando il contenuto viene modificato. */
 export async function notifySharedResourceContentModified(
-  actorId: string,
   resourceKind: SharedResourceKind,
   resourceId: string,
   resourceTitle: string
@@ -88,16 +88,19 @@ export async function notifySharedResourceContentModified(
     return;
   }
 
+  const resolvedActorId = await resolveAuthenticatedUserId();
+  if (!resolvedActorId) return;
+
   const resource = await getShareableResource(resourceKind, resourceId);
   if (!resource || resource.sharingMode !== 'collaborative') return;
 
-  const actorName = await getActorDisplayName(actorId);
+  const actorName = await getActorDisplayName(resolvedActorId);
   const members = await listSharedResourceMembers(resource.id);
   const recipientIds = new Set<string>([resource.ownerId]);
   for (const member of members) {
     recipientIds.add(member.userId);
   }
-  recipientIds.delete(actorId);
+  recipientIds.delete(resolvedActorId);
 
   const workspaces = await listWorkspacesContainingResource(resourceKind, resourceId);
   const primaryWorkspace = workspaces[0] ?? null;

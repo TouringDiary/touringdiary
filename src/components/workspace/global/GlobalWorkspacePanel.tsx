@@ -6,6 +6,7 @@ import { resolveGlobalWorkspacePanelGeometry } from '@/layering/resolveGlobalWor
 import {
   BINDER_PANEL_TRANSITION_CLASS,
   binderPanelMaxHeightClass,
+  binderPanelMinHeightClass,
   slidePanelEaseClass,
 } from '@/constants/slidePanelMotion';
 import { resolveWorkspacePanelZIndex, resolveCompanionSurfaceTier } from '@/layering/resolveWorkspacePanelZIndex';
@@ -47,6 +48,7 @@ export const GlobalWorkspacePanel: React.FC = () => {
         fixed flex flex-col min-h-0 pointer-events-auto origin-top
         ${BINDER_PANEL_TRANSITION_CLASS}
         ${binderPanelMaxHeightClass(shell.isPanelRaised, isMobile, reserveBottomNav)}
+        ${binderPanelMinHeightClass(shell.isPanelRaised, isMobile, reserveBottomNav)}
         ${slidePanelEaseClass(shell.isClosing)}
       `}
       style={{

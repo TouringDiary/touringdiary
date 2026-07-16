@@ -1,0 +1,48 @@
+---
+description: Report operativo obbligatorio a fine ogni attività di sviluppo
+alwaysApply: true
+---
+
+# Report operativo finale (obbligatorio)
+
+Alla conclusione di **qualsiasi** attività di sviluppo, manutenzione, bugfix, refactoring o aggiornamento documentale, la risposta deve **sempre** terminare con la sezione:
+
+```markdown
+## Report operativo
+```
+
+## Contenuto obbligatorio
+
+| Campo | Valore |
+|-------|--------|
+| **Workflow corrente** | `WF-XX — nome` oppure `Nessun Workflow attivo` |
+| **STEP corrente** | `STEP-N — nome` oppure `—` |
+| **Fase corrente** | Nome fase oppure `—` |
+| **Stato corrente** | Enum da `AI_DEV_WORKFLOW/02_GOVERNANCE.md` (stato Fase o Workflow vigente) |
+| **Avanzamento in questa attività** | `Nessuna fase conclusa` · `Fase conclusa` · `STEP concluso` · `Workflow concluso` |
+| **Prossima fase da eseguire** | Nome della prossima Fase concreta da avviare oppure `—` |
+| **Prossima attività consigliata** | Azione concreta successiva |
+
+### Documentazione (per ogni layer)
+
+- **AI_CONTEXT:** `Aggiornato` — [path] **oppure** `Non necessario` — [motivazione]
+- **AI_CONTEXT_MASTER:** idem
+- **AI_DEV_WORKFLOW:** idem
+
+Matrice tipo-modifica → `AI_DEV_WORKFLOW/README.md`. Schema completo → `AI_DEV_WORKFLOW/00_DEVELOPMENT_PROTOCOL.md` §15.
+
+Se un layer «non necessario» è in realtà obsoleto dopo l'attività, aggiornarlo prima di chiudere.
+
+## Checklist finale (prima di chiudere l'attività)
+
+Prima di considerare conclusa **qualsiasi** attività verificare sempre:
+
+- □ deliverable dell'attività completato
+- □ test completati (se applicabili)
+- □ documentazione AI_CONTEXT verificata
+- □ documentazione AI_CONTEXT_MASTER verificata
+- □ documentazione AI_DEV_WORKFLOW verificata
+- □ Workflow aggiornato (se applicabile)
+- □ STEP aggiornato (se applicabile)
+- □ Fase aggiornata (se applicabile)
+- □ Report operativo emesso

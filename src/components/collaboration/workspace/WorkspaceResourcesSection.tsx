@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BookOpen, Briefcase, ExternalLink, FileStack, Trash2 } from 'lucide-react';
+import { BookOpen, Briefcase, Copy, ExternalLink, FileStack, Trash2 } from 'lucide-react';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { getSharedResourceKindLabel, workspaceResourceKey } from '@/domain/collaboration';
 import type { WorkspaceResource } from '@/domain/collaboration';
@@ -19,6 +19,9 @@ interface Props {
   isSubmitting: boolean;
   onOpenResource: (kind: SharedResourceKind, resourceId: string) => void;
   onRequestRemoveResource: (workspaceResourceId: string) => void;
+  /** Salva una copia personale indipendente dal Workspace (hub Condivisione). */
+  onRequestSavePersonalCopy?: (kind: SharedResourceKind, resourceId: string) => void;
+  savingCopyResourceKey?: string | null;
   /** Override titolo sezione (default: Risorse nel Workspace). */
   sectionTitle?: string;
   /** hub = griglia orizzontale senza moduli futuri; legacy = lista verticale + moduli futuri. */
@@ -33,6 +36,8 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
   isSubmitting,
   onOpenResource,
   onRequestRemoveResource,
+  onRequestSavePersonalCopy,
+  savingCopyResourceKey = null,
   sectionTitle = 'Risorse nel Workspace',
   layout = 'legacy',
   hideRemoveActions = false,
@@ -80,7 +85,7 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
                       </p>
                     </div>
                   </div>
-                  <div className={`flex items-center gap-2 ${isHub ? 'mt-auto' : 'shrink-0'}`}>
+                  <div className={`flex items-center gap-2 ${isHub ? 'mt-auto flex-wrap' : 'shrink-0'}`}>
                     <button
                       type="button"
                       onClick={() => onOpenResource(resource.kind, resource.resourceId)}
@@ -89,6 +94,24 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
                       <ExternalLink className="w-3.5 h-3.5" />
                       Apri
                     </button>
+                    {onRequestSavePersonalCopy && (
+                      <button
+                        type="button"
+                        disabled={
+                          isSubmitting ||
+                          savingCopyResourceKey ===
+                            workspaceResourceKey(resource.kind, resource.resourceId)
+                        }
+                        onClick={() =>
+                          onRequestSavePersonalCopy(resource.kind, resource.resourceId)
+                        }
+                        className="shrink-0 flex items-center gap-1 rounded-lg border border-slate-600 bg-slate-800/80 hover:bg-slate-700/80 px-2.5 py-1.5 text-xs font-semibold text-slate-200 disabled:opacity-50"
+                        title="Salva una copia nel tuo spazio personale"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Salva una copia
+                      </button>
+                    )}
                     {isOwner && !hideRemoveActions && (
                       <button
                         type="button"

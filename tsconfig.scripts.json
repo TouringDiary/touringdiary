@@ -1,8 +1,28 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "resolveJsonModule": true
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "skipLibCheck": true,
+    "types": ["node"],
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src", "scripts"],
-  "exclude": ["supabase/functions"]
+  "include": [
+    "scripts/**/*",
+    "src/domain/packing/**/*",
+    "src/types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
+  ]
 }

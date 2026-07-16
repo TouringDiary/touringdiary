@@ -27,7 +27,7 @@ export async function resolveWorkspaceResourceLabels(
       ? supabase.from('itineraries').select('id, title').in('id', diaryIds)
       : Promise.resolve({ data: [], error: null }),
     suitcaseIds.length > 0
-      ? supabase.from('suitcases').select('id, title, is_template').in('id', suitcaseIds)
+      ? supabase.from('suitcases').select('id, title').in('id', suitcaseIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 

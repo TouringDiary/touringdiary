@@ -80,13 +80,6 @@ export async function createWorkspaceWithComposition(
       error: 'Il Workspace può contenere al massimo un Diario.',
     };
   }
-  if (resources.length === 0) {
-    return {
-      success: false,
-      error: 'Seleziona almeno una risorsa per il Workspace.',
-    };
-  }
-
   const createResult = await createWorkspace({
     ownerId,
     name: input.name,

@@ -20,6 +20,35 @@ import {
 } from '@/utils/suitcaseAssociation';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
+type SuitcaseSaveController = NonNullable<ReturnType<typeof getDocumentSaveController>>;
+
+interface SuitcaseSaveControllerResolution {
+  suitcasePersisted: boolean;
+  needsSuitcaseController: boolean;
+  suitcaseController: SuitcaseSaveController | undefined;
+}
+
+/**
+ * Regola di dominio: il SaveController valigia serve solo per bozze non persistite
+ * o per la valigia attualmente aperta in editor (flush modifiche prima del link).
+ */
+function resolveSuitcaseSaveControllerForAssociation(
+  suitcaseId: string,
+  activeEditorSuitcaseId: string | null,
+): SuitcaseSaveControllerResolution {
+  const rawSuitcaseController = getDocumentSaveController('suitcase-active');
+  const suitcasePersisted = isSuitcasePersisted(suitcaseId);
+  const suitcaseMatchesEditor =
+    activeEditorSuitcaseId !== null && activeEditorSuitcaseId === suitcaseId;
+  const needsSuitcaseController = !suitcasePersisted || suitcaseMatchesEditor;
+
+  return {
+    suitcasePersisted,
+    needsSuitcaseController,
+    suitcaseController: needsSuitcaseController ? rawSuitcaseController : undefined,
+  };
+}
+
 const ASSOCIATION_SUCCESS_TOAST: Record<
   AssociationCase,
   { message: string; description: string }
@@ -60,6 +89,7 @@ interface AssociationFlowProps {
   currentUser: User | null;
   userSuitcases: Suitcase[];
   guestSuitcase?: Suitcase | null;
+  activeEditorSuitcaseId?: string | null;
   fetchLinkedIds: (overrideItineraryId?: string) => Promise<void>;
   fetchUserSuitcases: () => Promise<void> | void;
   clearNewSuitcaseSession: () => void;
@@ -77,6 +107,7 @@ export const useSuitcaseAssociationFlow = ({
   currentUser,
   userSuitcases,
   guestSuitcase,
+  activeEditorSuitcaseId = null,
   fetchLinkedIds,
   fetchUserSuitcases,
   clearNewSuitcaseSession,
@@ -156,9 +187,15 @@ export const useSuitcaseAssociationFlow = ({
       }
 
       const diaryController = getDocumentSaveController('diary');
-      const suitcaseController = getDocumentSaveController('suitcase-active');
+      const { suitcasePersisted, needsSuitcaseController, suitcaseController } =
+        resolveSuitcaseSaveControllerForAssociation(suitcaseId, activeEditorSuitcaseId);
 
-      if (!diaryController || !suitcaseController) {
+      if (!diaryController) {
+        showToast('Associazione non riuscita', 'Sistema di salvataggio non pronto. Riprova.', 'destructive');
+        return;
+      }
+
+      if (needsSuitcaseController && !suitcaseController) {
         showToast('Associazione non riuscita', 'Sistema di salvataggio non pronto. Riprova.', 'destructive');
         return;
       }
@@ -167,7 +204,7 @@ export const useSuitcaseAssociationFlow = ({
 
       const associationCase = resolveAssociationCase(
         isDiaryPersisted(itinerary, savedProjects),
-        isSuitcasePersisted(suitcaseId)
+        suitcasePersisted
       );
 
       setIsAssociating(true);
@@ -187,6 +224,19 @@ export const useSuitcaseAssociationFlow = ({
 
         if (readiness.ready === false) {
           if (readiness.reason === 'needs_name') {
+            const modalVariant = associationCaseToModalVariant(associationCase);
+            if (modalVariant) {
+              setPendingSuitcaseId(suitcaseId);
+              setPendingSuitcaseTitle(resolveSuitcaseTitle(suitcaseId));
+              setLinkModalVariant(modalVariant);
+              setLinkModalOpen(true);
+            } else {
+              showToast(
+                'Associazione non riuscita',
+                'Nome mancante per completare l\'associazione.',
+                'destructive'
+              );
+            }
             return;
           }
           if (readiness.reason === 'error') {
@@ -221,7 +271,9 @@ export const useSuitcaseAssociationFlow = ({
       }
     },
     [
+      activeEditorSuitcaseId,
       pendingSuitcaseTitle,
+      resolveSuitcaseTitle,
       applyAssociationSuccess,
       currentUser?.id,
       itinerary,

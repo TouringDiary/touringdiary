@@ -4,6 +4,7 @@ import { Globe, FileText, MapPin, Eye, Link, Sparkles, Loader2, RefreshCw, Award
 import { useCityEditor } from '@/context/CityEditorContext';
 import { generateSingleField, generateCitySection } from '../../../../services/ai';
 import { saveCityDetails } from '../../../../services/cityService';
+import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
 import { AiFieldHelper } from '../../AiFieldHelper';
 import { BadgeType } from '../../../../types/index';
 import { openMap } from '../../../../utils/common';
@@ -64,7 +65,7 @@ export const TabGeneral = () => {
             if (statsData.seasonalVisitors) newDetails.seasonalVisitors = statsData.seasonalVisitors;
 
             const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Generali (in 0s)`;
-            newDetails.generationLogs = [...(newDetails.generationLogs || []), newLog];
+            newDetails.generationLogs = appendGenerationLogs(newDetails.generationLogs, [newLog]);
 
             updatedCity.details = newDetails;
             
@@ -86,18 +87,23 @@ export const TabGeneral = () => {
         if (!city.name) { alert("Inserisci nome città."); return; }
         setFieldLoading(field);
         try {
-            const result = await generateSingleField(city.name, field);
-            if (!result) throw new Error("No result");
-
             let updatedCity = { ...city };
-            
+
             if (field === 'website') {
+                const result = await generateSingleField(city.name, 'website');
+                if (!result) throw new Error("No result");
                 updatedCity.details = { ...updatedCity.details, officialWebsite: result };
             } else if (field === 'coords') {
+                const result = await generateSingleField(city.name, 'coords');
+                if (!result) throw new Error("No result");
                 updatedCity.coords = { lat: result.lat, lng: result.lng };
             } else if (field === 'subtitle') {
+                const result = await generateSingleField(city.name, 'subtitle');
+                if (!result) throw new Error("No result");
                 updatedCity.details = { ...updatedCity.details, subtitle: result };
             } else if (field === 'hierarchy') {
+                const result = await generateSingleField(city.name, 'hierarchy');
+                if (!result) throw new Error("No result");
                 if (result.continent) updatedCity.continent = result.continent;
                 if (result.nation) updatedCity.nation = result.nation;
                 if (result.adminRegion) updatedCity.adminRegion = result.adminRegion;

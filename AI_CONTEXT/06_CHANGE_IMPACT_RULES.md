@@ -257,12 +257,38 @@ pricing_versions
 
 # VERIFICHE OBBLIGATORIE SPONSOR SYSTEM
 
-Prima di modificare sponsor verificare:
+Prima di modificare sponsor consultare e aggiornare:
+
+AI_CONTEXT/29_SPONSOR_SECURITY_MASTERPLAN.md
+
+Per **metodo di sviluppo e stato avanzamento** consultare:
+
+AI_DEV_WORKFLOW/00_DEVELOPMENT_PROTOCOL.md  
+AI_DEV_WORKFLOW/03_PROJECT_STATUS.md
+
+Verificare anche:
 
 sponsor_requests  
 sponsors  
 subscriptions  
 sponsorActivationService
+
+
+---
+
+# VERIFICHE OBBLIGATORIE PLATFORM SETTINGS / CENTRO DI CONTROLLO
+
+Prima di modificare feature flag globali, testi piattaforma, soglie o Centro di Controllo:
+
+AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md
+
+Verificare anche:
+
+global_settings
+system_messages
+settingsService
+communicationService
+ConfigContext
 
 
 ---
@@ -299,6 +325,22 @@ importService
 stagingService  
 pois_staging
 
+
+---
+
+# AGGIORNAMENTO DOCUMENTAZIONE A FINE SVILUPPO
+
+Al termine di ogni sviluppo (Fase, STEP, Workflow o modifica significativa al codice), verificare **esplicitamente** se aggiornare:
+
+| Layer | Percorso | Quando aggiornare |
+|-------|----------|-------------------|
+| **AI_CONTEXT** | `AI_CONTEXT/` | Architettura, dominio, SSOT, gate, DoD di dominio, evidenze da codice/DB |
+| **AI_CONTEXT_MASTER** | `AI_CONTEXT_MASTER/` | Sintesi consolidata certificata da riallineare al codice |
+| **AI_DEV_WORKFLOW** | `AI_DEV_WORKFLOW/` | Stato avanzamento, roadmap, Workflow, report operativo |
+
+**Regola:** non aggiornare un layer se non necessario; dichiarare nel **report operativo finale** (`00_DEVELOPMENT_PROTOCOL.md` §15) — ultima sezione di ogni risposta operativa — cosa è stato aggiornato e cosa no (con motivazione).
+
+Matrice dettagliata per tipo di modifica → `AI_DEV_WORKFLOW/README.md` (sezione *Aggiornamento documentale a fine sviluppo*).
 
 ---
 

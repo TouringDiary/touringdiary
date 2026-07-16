@@ -18,7 +18,25 @@ import { sanitizeMediaStatus } from '../../utils/media';
  */
 export const SPONSOR_REQUEST_SELECT = `*,cities!city_id(*),pricing_versions!pricing_version_id(price,plans:plan_id(name,type))`;
 
-export const SPONSOR_CONTRACT_SELECT = `*,cities!city_id(*),pois!poi_id(name,description,image_url,image_status,coords_lat,coords_lng,category,sub_category,address,website,phone,opening_hours),shops!shop_id(name,slug,description,image_url,image_status,coords_lat,coords_lng,address,website,phone,opening_hours),city_guides!guide_id(name,slug,description,image_url,specialties,languages,phone,website),city_tour_operators!operator_id(name,slug,description,image_url,coords_lat,coords_lng,address,opening_hours),pricing_versions!pricing_version_id(price,plans:plan_id(name,type)),admin_notes,admin_notes_last_updated,request_id`;
+/** Colonne ammesse in lettura pubblica vetrina (VT-SPONSOR-PUBLIC-READ / DL-032). */
+export const SPONSOR_PUBLIC_VITRINE_COLUMNS =
+    'id,city_id,company_name,contact_name,type,tier,status,start_date,end_date,plan,poi_category,poi_sub_category,poi_id,shop_id,guide_id,operator_id,address,pricing_version_id,request_id,created_at,updated_at';
+
+const SPONSOR_PRICING_VERSION_JOIN =
+    'pricing_versions!pricing_version_id(price,plans:plan_id(name,type))';
+
+const SPONSOR_RESOURCE_JOIN_SELECT =
+    'cities!city_id(*),pois!poi_id(name,description,image_url,image_status,coords_lat,coords_lng,category,sub_category,address,website,phone,opening_hours),shops!shop_id(name,slug,description,image_url,image_status,coords_lat,coords_lng,address,website,phone,opening_hours),city_guides!guide_id(name,slug,description,image_url,specialties,languages,phone,website),city_tour_operators!operator_id(name,slug,description,image_url,coords_lat,coords_lng,address,opening_hours)';
+
+export const SPONSOR_PUBLIC_VITRINE_SELECT =
+    `${SPONSOR_PUBLIC_VITRINE_COLUMNS},${SPONSOR_RESOURCE_JOIN_SELECT},${SPONSOR_PRICING_VERSION_JOIN}`;
+
+/** Lista legacy attiva: colonne vetrina + tier da pricing_versions (senza join risorse). */
+export const SPONSOR_PUBLIC_LEGACY_LIST_SELECT =
+    `${SPONSOR_PUBLIC_VITRINE_COLUMNS},${SPONSOR_PRICING_VERSION_JOIN}`;
+
+export const SPONSOR_CONTRACT_SELECT =
+    `*,${SPONSOR_RESOURCE_JOIN_SELECT},${SPONSOR_PRICING_VERSION_JOIN},admin_notes,admin_notes_last_updated,request_id`;
 
 /**
  * Determina la categoria POI canonica in base al tipo di piano.
@@ -39,46 +57,102 @@ export const resolvePlanPoiCategory = (planType: PlanType): PointOfInterest['cat
 
 // --- NORMALIZATION MAPPERS (GOVERNANCE-DRIVEN) ---
 
-const isSponsorExpired = (status: string | null, endDate: string | null): boolean => {
+type NullableString = string | null | undefined;
+
+const toNullableString = (value: NullableString): string | null =>
+    value === undefined ? null : value;
+
+const toOptionalString = (value: NullableString): string | undefined => {
+    const normalized = toNullableString(value);
+    return normalized === null ? undefined : normalized;
+};
+
+type CityJoinRow = {
+    name: string | null;
+    continent: string | null;
+    nation: string | null;
+    admin_region: string | null;
+    zone: string | null;
+};
+
+export type SponsorJoinedCityFields = {
+    name: string;
+    continent: string;
+    nation: string;
+    admin_region: string;
+    zone: string;
+};
+
+/** Input mapper: riga piena o proiezione vetrina da PostgREST. */
+export type SponsorMapperInput = Partial<Omit<DatabaseJoinedSponsor, 'cities'>> & {
+    id: string;
+    cities?: CityJoinRow | SponsorJoinedCityFields | null;
+};
+
+/** Normalizza il join `cities` restituito da PostgREST (campi nullable) per DatabaseJoinedSponsor. */
+export const normalizeSponsorCityJoin = (
+    cities: CityJoinRow | SponsorJoinedCityFields | null | undefined
+): SponsorJoinedCityFields | null => {
+    if (!cities) return null;
+    return {
+        name: cities.name ?? '',
+        continent: cities.continent ?? '',
+        nation: cities.nation ?? '',
+        admin_region: cities.admin_region ?? '',
+        zone: cities.zone ?? '',
+    };
+};
+
+/** Allinea una riga join Supabase al contratto mapper senza cast. */
+export const normalizeJoinedSponsorRow = (row: SponsorMapperInput): SponsorMapperInput => ({
+    ...row,
+    cities: normalizeSponsorCityJoin(row.cities),
+});
+
+const isSponsorExpired = (status: NullableString, endDate: NullableString): boolean => {
     if (status !== 'approved' || !endDate) return false;
     const today = new Date().toISOString().split('T')[0];
     return endDate < today;
 };
 
-const normalizeSponsorStatus = (status: string | null): SponsorLifecycleStatus => {
+const normalizeSponsorStatus = (status: NullableString): SponsorLifecycleStatus => {
+    const normalized = toNullableString(status);
     const valid = SPONSOR_STATUS_VALUES as readonly string[];
-    return (status && valid.includes(status)) ? (status as SponsorLifecycleStatus) : 'pending';
+    return (normalized && valid.includes(normalized)) ? (normalized as SponsorLifecycleStatus) : 'pending';
 };
 
-const normalizeSponsorType = (type: string | null): PlanType => {
+const normalizeSponsorType = (type: NullableString): PlanType => {
+    const normalized = toNullableString(type);
     const valid = PLAN_TYPE_VALUES as readonly string[];
 
     return (
-        type && valid.includes(type)
-            ? (type as PlanType)
+        normalized && valid.includes(normalized)
+            ? (normalized as PlanType)
             : PLAN_TYPES.LOCAL_ACTIVITY
     );
 };
 
-const resolveSponsorTier = (tier: string | null): RuntimeTier => {
-    return resolvePlanTier(tier);
+const resolveSponsorTier = (tier: NullableString): RuntimeTier => {
+    return resolvePlanTier(toNullableString(tier));
 };
 
-const normalizePoiCategory = (cat: string | null): PointOfInterest['category'] => {
+const normalizePoiCategory = (cat: NullableString): PointOfInterest['category'] => {
+    const normalized = toNullableString(cat);
     const valid = POI_CATEGORY_VALUES as readonly string[];
-    return (cat && valid.includes(cat)) ? (cat as PointOfInterest['category']) : 'discovery';
+    return (normalized && valid.includes(normalized)) ? (normalized as PointOfInterest['category']) : 'discovery';
 };
 
-const normalizePoiSubCategory = (sub: string | null): PoiSubCategory | undefined => {
-    if (!sub) return undefined;
+const normalizePoiSubCategory = (sub: NullableString): PoiSubCategory | undefined => {
+    const normalized = toNullableString(sub);
+    if (!normalized) return undefined;
     const valid = POI_SUBCATEGORY_VALUES as readonly string[];
-    return (valid.includes(sub)) ? (sub as PoiSubCategory) : undefined;
+    return (valid.includes(normalized)) ? (normalized as PoiSubCategory) : undefined;
 };
 
 /**
  * Mappa un record della tabella 'sponsors' nel formato 'Sponsor' richiesto dall'App.
  */
-export const mapDbSponsorToApp = (dbSponsor: DatabaseJoinedSponsor): Sponsor => {
+export const mapDbSponsorToApp = (dbSponsor: SponsorMapperInput): Sponsor => {
     const isExpired = isSponsorExpired(dbSponsor.status, dbSponsor.end_date);
 
     return {
@@ -117,11 +191,11 @@ export const mapDbSponsorToApp = (dbSponsor: DatabaseJoinedSponsor): Sponsor => 
         adminNotesLastUpdated: dbSponsor.admin_notes_last_updated || undefined,
 
         // Geographic Identity (Resolved via Join)
-        continent: dbSponsor.cities?.continent,
-        country: dbSponsor.cities?.nation,
-        region: dbSponsor.cities?.admin_region,
-        touristZone: dbSponsor.cities?.zone,
-        city: dbSponsor.cities?.name,
+        continent: toOptionalString(dbSponsor.cities?.continent),
+        country: toOptionalString(dbSponsor.cities?.nation),
+        region: toOptionalString(dbSponsor.cities?.admin_region),
+        touristZone: toOptionalString(dbSponsor.cities?.zone),
+        city: toOptionalString(dbSponsor.cities?.name),
 
         // DUAL-KEY SLUG RESOLUTION
         slug: dbSponsor.shops?.slug || dbSponsor.city_guides?.slug || dbSponsor.city_tour_operators?.slug || undefined
@@ -131,7 +205,7 @@ export const mapDbSponsorToApp = (dbSponsor: DatabaseJoinedSponsor): Sponsor => 
 /**
  * Mappa il risultato di una query JOIN di Supabase in un oggetto ResolvedSponsor.
  */
-export const mapResolvedSponsor = (dbRow: DatabaseJoinedSponsor): ResolvedSponsor => {
+export const mapResolvedSponsor = (dbRow: SponsorMapperInput): ResolvedSponsor => {
     const sponsor = mapDbSponsorToApp(dbRow);
     let resolvedData: ResolvedSponsor['resolvedData'] = undefined;
 
@@ -233,6 +307,7 @@ export const convertSponsorToPoi = (sponsor: Sponsor | ResolvedSponsor): PointOf
  */
 export const mapDbSponsorRequestToApp = (dbRequest: DatabaseJoinedSponsorRequest): SponsorRequest => {
     const isExpired = isSponsorExpired(dbRequest.status, dbRequest.end_date);
+    const pricingPlanType = dbRequest.pricing_versions?.plans?.type;
 
     return {
         id: dbRequest.id,
@@ -262,7 +337,7 @@ export const mapDbSponsorRequestToApp = (dbRequest: DatabaseJoinedSponsorRequest
         profileId: dbRequest.profile_id || undefined,
         ownerId: dbRequest.owner_id || undefined,
         amount: Number(dbRequest.amount ?? dbRequest.pricing_versions?.price) || 0,
-        tier: resolveSponsorTier(dbRequest.pricing_versions?.plans?.type || dbRequest.tier),
+        tier: resolveSponsorTier(pricingPlanType ?? dbRequest.tier),
         startDate: dbRequest.start_date || '',
         endDate: dbRequest.end_date || '',
         isExpired,
@@ -277,7 +352,7 @@ export const mapDbSponsorRequestToApp = (dbRequest: DatabaseJoinedSponsorRequest
 /**
  * Mappa un record della tabella 'sponsors' nel formato 'SponsorRequest' richiesto dall'Admin UI.
  */
-export const mapDbSponsorToRequestApp = (dbSponsor: DatabaseJoinedSponsor): SponsorRequest => {
+export const mapDbSponsorToRequestApp = (dbSponsor: SponsorMapperInput): SponsorRequest => {
     const isExpired = isSponsorExpired(dbSponsor.status, dbSponsor.end_date);
 
     return {
@@ -304,10 +379,10 @@ export const mapDbSponsorToRequestApp = (dbSponsor: DatabaseJoinedSponsor): Spon
         requestId: dbSponsor.request_id || undefined,
         adminNotes: dbSponsor.admin_notes || undefined,
         adminNotesLastUpdated: dbSponsor.admin_notes_last_updated || undefined,
-        continent: dbSponsor.cities?.continent,
-        country: dbSponsor.cities?.nation,
-        region: dbSponsor.cities?.admin_region,
-        touristZone: dbSponsor.cities?.zone,
-        city: dbSponsor.cities?.name
+        continent: toOptionalString(dbSponsor.cities?.continent),
+        country: toOptionalString(dbSponsor.cities?.nation),
+        region: toOptionalString(dbSponsor.cities?.admin_region),
+        touristZone: toOptionalString(dbSponsor.cities?.zone),
+        city: toOptionalString(dbSponsor.cities?.name)
     };
 };

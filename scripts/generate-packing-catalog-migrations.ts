@@ -8,6 +8,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   expandStandardCatalog,
   PACKING_AI_CATALOG,
@@ -19,6 +20,7 @@ import {
 } from '../src/domain/packing/packingDomainCatalog';
 import { CATEGORY_ORDER, type SystemCategoryName } from '../src/domain/packing/packingCategories';
 
+/** SQL string escaping: raddoppia gli apostrofi per valori letterali in SQL generato. */
 function esc(s: string): string {
   return s.replace(/'/g, "''");
 }
@@ -26,10 +28,12 @@ function esc(s: string): string {
 const report = validatePackingDomainCatalog();
 if (!report.ok) {
   console.error('Catalogo non valido:', report.anomalies);
-  process.exit(1);
+  throw new Error('Catalogo packing non valido');
 }
 
-const migrationsDir = path.join('supabase', 'migrations');
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const migrationsDir = path.resolve(scriptDir, '..', 'supabase', 'migrations');
+fs.mkdirSync(migrationsDir, { recursive: true });
 
 // M0: Rinomina template TD legacy (DB reale → titoli canonici dominio)
 // Deve precedere M1: altrimenti M1 inserirebbe duplicati per Cultura/Business.
@@ -222,11 +226,11 @@ const files = [
 for (const [name, sql] of files) {
   const fp = path.join(migrationsDir, name);
   fs.writeFileSync(fp, sql);
-  console.log('Scritto:', fp);
+  console.info('Scritto:', fp);
 }
 
-console.log('\n=== GENERAZIONE MIGRATION ===');
-console.log('Standard:', standardRows.length);
-console.log('Template:', report.templateTotal);
-console.log('AI:', PACKING_AI_CATALOG.length);
-console.log('Legacy standard da disattivare: vedi UPDATE in M2');
+console.info('\n=== GENERAZIONE MIGRATION ===');
+console.info('Standard:', standardRows.length);
+console.info('Template:', report.templateTotal);
+console.info('AI:', PACKING_AI_CATALOG.length);
+console.info('Legacy standard da disattivare: vedi UPDATE in M2');

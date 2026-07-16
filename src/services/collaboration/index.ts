@@ -77,10 +77,12 @@ export {
 
 export {
   resolveWorkspaceCompositionBlueprint,
+  resolveWorkspaceCompositionCatalog,
   materializeWorkspaceComposition,
   rollbackDuplicatedCompositionResources,
   blueprintCandidatesToLabels,
   type ResolveWorkspaceCompositionBlueprintInput,
+  type ResolveWorkspaceCompositionCatalogInput,
   type WorkspaceCompositionShareIntent,
 } from './workspaceComposition';
 
@@ -164,6 +166,7 @@ export type { SharingProfileOverview, SharingProfileResourceRow } from './collab
 
 export {
   duplicateSharedResourceForOwner,
+  savePersonalCopyFromWorkspace,
 } from './personalShareService';
 
 export {

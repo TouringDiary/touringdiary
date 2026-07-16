@@ -7,6 +7,8 @@ export interface WorkspaceCompositionCandidate {
   resourceId: string;
   title: string;
   isSeed?: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export type WorkspaceCompositionDiaryMode = 'fixed' | 'single_optional';
@@ -62,12 +64,19 @@ export function countSelectedResources(draft: WorkspaceCompositionDraft): number
   return count;
 }
 
+export interface ValidateWorkspaceCompositionDraftOptions {
+  /** Consente composizione vuota (create Workspace dedicato). */
+  allowEmpty?: boolean;
+}
+
 export function validateWorkspaceCompositionDraft(
   draft: WorkspaceCompositionDraft,
-  blueprint: WorkspaceCompositionBlueprint
+  blueprint: WorkspaceCompositionBlueprint,
+  options?: ValidateWorkspaceCompositionDraftOptions,
 ): string | null {
   if (countSelectedResources(draft) === 0) {
-    return 'Seleziona almeno una risorsa per il Workspace.';
+    if (options?.allowEmpty) return null;
+    return 'Seleziona almeno un elemento per il Workspace.';
   }
 
   if (draft.selectedDiaryId) {
@@ -128,16 +137,38 @@ export function createDefaultCompositionDraft(
     selectedUserTemplateIds: new Set(),
   };
 
+  if (!blueprint.seed.resourceId) {
+    return draft;
+  }
+
   if (blueprint.seed.kind === 'diary') {
-    draft.selectedDiaryId = blueprint.seed.resourceId;
+    const isCandidate = blueprint.diary.candidates.some(
+      (candidate) => candidate.resourceId === blueprint.seed.resourceId
+    );
+    if (isCandidate) {
+      draft.selectedDiaryId = blueprint.seed.resourceId;
+    }
     return draft;
   }
 
   if (blueprint.seed.kind === 'suitcase') {
-    draft.selectedSuitcaseIds.add(blueprint.seed.resourceId);
+    if (
+      blueprint.suitcases.candidates.some(
+        (candidate) => candidate.resourceId === blueprint.seed.resourceId
+      )
+    ) {
+      draft.selectedSuitcaseIds.add(blueprint.seed.resourceId);
+    }
     return draft;
   }
 
-  draft.selectedUserTemplateIds.add(blueprint.seed.resourceId);
+  if (
+    blueprint.userTemplates.candidates.some(
+      (candidate) => candidate.resourceId === blueprint.seed.resourceId
+    )
+  ) {
+    draft.selectedUserTemplateIds.add(blueprint.seed.resourceId);
+  }
+
   return draft;
 }

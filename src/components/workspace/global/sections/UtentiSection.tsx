@@ -17,6 +17,7 @@ import type {
   CollaborationUserSearchResult,
   WorkspaceResourcePermissionEntry,
 } from '@/domain/collaboration';
+import { WORKSPACE_SECTION_PLACEHOLDER_CLASS } from '@/constants/workspacePanelLayout';
 
 const INVITE_DEBOUNCE_MS = 250;
 
@@ -149,7 +150,7 @@ export const UtentiSection: React.FC = () => {
 
   if (!activeWorkspaceId || !user || !dashboard.workspace) {
     return (
-      <div className="p-6 text-sm text-slate-500">
+      <div className={WORKSPACE_SECTION_PLACEHOLDER_CLASS}>
         Seleziona un workspace per gestire gli utenti.
       </div>
     );

@@ -4,6 +4,7 @@ import type {
 } from '@/domain/collaboration/domainEvent';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { isSharedResourceKind } from '@/domain/collaboration';
+import { resolveAuthenticatedUserId } from '@/services/auth/authIdentity';
 import { supabase } from '@/services/supabaseClient';
 import type { Json } from '@/types/supabase';
 
@@ -21,7 +22,7 @@ interface DomainEventRow {
   created_at: string;
 }
 
-function mapDomainEventRow(row: DomainEventRow): CollaborationDomainEvent {
+export function mapCollaborationDomainEventRow(row: DomainEventRow): CollaborationDomainEvent {
   return {
     id: row.id,
     domain: row.domain,
@@ -40,29 +41,30 @@ function mapDomainEventRow(row: DomainEventRow): CollaborationDomainEvent {
 /** Registra un evento nel motore dominio (§20). */
 export async function recordCollaborationDomainEvent(
   input: RecordCollaborationEventInput
-): Promise<CollaborationDomainEvent | null> {
-  const { data, error } = await supabase
-    .from('collaboration_domain_events')
-    .insert({
-      domain: 'collaboration',
-      event_type: input.eventType,
-      actor_id: input.actorId,
-      kind: input.kind ?? null,
-      resource_id: input.resourceId ?? null,
-      workspace_id: input.workspaceId ?? null,
-      shared_resource_id: input.sharedResourceId ?? null,
-      summary: input.summary,
-      payload: (input.payload ?? {}) as Json,
-    })
-    .select('*')
-    .single();
+): Promise<void> {
+  const actorId = await resolveAuthenticatedUserId();
+  if (!actorId) {
+    console.error(
+      '[domainEventService] recordCollaborationDomainEvent: utente autenticato non disponibile'
+    );
+    return;
+  }
+
+  const { error } = await supabase.from('collaboration_domain_events').insert({
+    domain: 'collaboration',
+    event_type: input.eventType,
+    actor_id: actorId,
+    kind: input.kind ?? null,
+    resource_id: input.resourceId ?? null,
+    workspace_id: input.workspaceId ?? null,
+    shared_resource_id: input.sharedResourceId ?? null,
+    summary: input.summary,
+    payload: (input.payload ?? {}) as Json,
+  });
 
   if (error) {
     console.error('[domainEventService] recordCollaborationDomainEvent:', error.message);
-    return null;
   }
-
-  return mapDomainEventRow(data as DomainEventRow);
 }
 
 export async function listCollaborationEventsForWorkspace(
@@ -81,7 +83,7 @@ export async function listCollaborationEventsForWorkspace(
     return [];
   }
 
-  return (data as DomainEventRow[]).map(mapDomainEventRow);
+  return (data as DomainEventRow[]).map(mapCollaborationDomainEventRow);
 }
 
 export async function listCollaborationEventsForResource(
@@ -102,5 +104,5 @@ export async function listCollaborationEventsForResource(
     return [];
   }
 
-  return (data as DomainEventRow[]).map(mapDomainEventRow);
+  return (data as DomainEventRow[]).map(mapCollaborationDomainEventRow);
 }

@@ -5,6 +5,10 @@ export {
   fetchLinkedSuitcaseIdsForDiary,
   fetchOperationalSuitcaseIdsForTemplate,
   fetchSuitcaseRowsByIds,
+  fetchOwnedPersonalDiariesForCatalog,
+  fetchOwnedOperationalSuitcasesForCatalog,
+  fetchOwnedUserTemplatesForCatalog,
+  fetchDiarySuitcasePairsForDiaryIds,
 } from './workspaceCompositionGraph';
 
 export {
@@ -12,6 +16,11 @@ export {
   blueprintCandidatesToLabels,
   type ResolveWorkspaceCompositionBlueprintInput,
 } from './resolveWorkspaceCompositionBlueprint';
+
+export {
+  resolveWorkspaceCompositionCatalog,
+  type ResolveWorkspaceCompositionCatalogInput,
+} from './resolveWorkspaceCompositionCatalog';
 
 export { materializeWorkspaceComposition, rollbackDuplicatedCompositionResources } from './materializeWorkspaceComposition';
 export type { WorkspaceCompositionShareIntent } from './materializeWorkspaceComposition';

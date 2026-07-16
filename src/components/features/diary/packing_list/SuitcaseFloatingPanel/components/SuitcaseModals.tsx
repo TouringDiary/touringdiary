@@ -29,7 +29,7 @@ interface ModalsProps {
   onLinkModalCancel?: () => void;
   isTemplateDraftSession?: boolean;
   pausedDraftKind?: 'suitcase' | 'user_template';
-  onConfirmAssociateSaved?: () => void;
+  onConfirmAssociateSaved?: () => void | Promise<void>;
 }
 
 export const SuitcaseModals: React.FC<ModalsProps> = ({
@@ -63,17 +63,17 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
     <>
       <DeleteConfirmationModal
         isOpen={modalState.suitcaseToAssociate !== null}
-        title="Associare questa valigia al Diario?"
+        title="Associare al Diario?"
         message={
           'La valigia verrà spostata nella sezione Diario.\n\n' +
-          'Se desideri riutilizzarla in futuro per più viaggi, è consigliabile trasformarla in un Template.'
+          'Se desideri riutilizzarla in futuro, è consigliabile duplicarla o trasformarla in un Template.'
         }
-        confirmLabel="Associa al diario"
+        confirmLabel="Associa"
         cancelLabel="Annulla"
         variant="info"
         isDeleting={isAssociating}
         loadingLabel="Associazione..."
-        onConfirm={() => onConfirmAssociateSaved?.()}
+        onConfirm={() => void onConfirmAssociateSaved?.()}
         onClose={() => {
           if (isAssociating) return;
           modalState.setSuitcaseToAssociate(null);

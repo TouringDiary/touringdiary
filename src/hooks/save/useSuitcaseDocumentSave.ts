@@ -115,7 +115,6 @@ export function useSuitcaseDocumentSave({
       const resourceKind = resolveSuitcaseSharedResourceKind(savedSuitcase);
       if (resourceKind && wasPersisted) {
         void notifySharedResourceContentModified(
-          userId,
           resourceKind,
           savedSuitcase.id,
           savedSuitcase.title
@@ -126,7 +125,6 @@ export function useSuitcaseDocumentSave({
           .then((workspaces) => {
             void recordCollaborationDomainEvent({
               eventType: 'resource.content_updated',
-              actorId: userId,
               kind: resourceKind,
               resourceId: savedSuitcase.id,
               // Primo workspace collegato: il feed attività è per-workspace; se assente, evento senza workspace.

@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Terminal, CheckCircle, AlertTriangle, Timer, ShieldAlert } from 'lucide-react';
 import { useCityEditor } from '@/context/CityEditorContext';
-import { ProcessLogModal } from '../../../cities/ProcessLogModal';
+import { appendGenerationLogs } from '@/services/city/parsers/content/parseLogs';
 
 // Helper parser locale
 const parseLogsToReport = (logs: string[]) => {
@@ -72,7 +72,9 @@ export const TabLogs = () => {
         if (hasManualOverride) {
             newLogs = newLogs.filter(log => !log.includes('[MANUAL_OVERRIDE_HAS_CONTENT]'));
         } else {
-            newLogs.push(`[${new Date().toISOString()}] ✅ [MANUAL_OVERRIDE_HAS_CONTENT] Forzatura manuale stato MANCANTE -> ONLINE`);
+            newLogs = appendGenerationLogs(newLogs, [
+                `[${new Date().toISOString()}] ✅ [MANUAL_OVERRIDE_HAS_CONTENT] Forzatura manuale stato MANCANTE -> ONLINE`,
+            ]);
         }
         updateDetailField('generationLogs', newLogs);
     };

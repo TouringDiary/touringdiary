@@ -12,7 +12,7 @@ import {
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import { useUser } from '@/context/UserContext';
 import { useItinerary } from '@/context/ItineraryContext';
-import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { useOpenCreateWorkspace } from '@/hooks/useOpenCreateWorkspace';
 import { isGuestUser } from '@/collaboration/guestGate';
 import { useModal } from '@/context/ModalContext';
 import { useWorkspacePanelState } from '../WorkspacePanelContext';
@@ -23,7 +23,7 @@ export const WorkspaceSection: React.FC = () => {
   const { user } = useUser();
   const { openModal } = useModal();
   const { itinerary } = useItinerary();
-  const openShare = useOpenCollaborationShare();
+  const openCreateWorkspace = useOpenCreateWorkspace();
   const { activeWorkspaceId, selectWorkspace, clearActiveWorkspace } = useWorkspacePanelState();
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -70,11 +70,10 @@ export const WorkspaceSection: React.FC = () => {
   const isOwnerLimitReached = owned.length >= MAX_OWNED_WORKSPACES_PER_USER;
 
   const handleCreateWorkspace = () => {
-    if (!itinerary.id || isOwnerLimitReached) return;
-    openShare({
-      kind: 'diary',
-      resourceId: itinerary.id,
-      resourceTitle: itinerary.name?.trim() || 'Diario di Viaggio',
+    if (isOwnerLimitReached) return;
+    openCreateWorkspace({
+      preselectedDiaryId: itinerary.id || undefined,
+      preselectedDiaryTitle: itinerary.name?.trim() || undefined,
     });
   };
 
@@ -185,7 +184,7 @@ export const WorkspaceSection: React.FC = () => {
   );
 
   return (
-    <div className="p-3 lg:p-4 h-full">
+    <div className="p-3 lg:p-4 h-full min-h-0 flex flex-col overflow-y-auto custom-scrollbar">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400">
           I tuoi Workspace
@@ -193,7 +192,7 @@ export const WorkspaceSection: React.FC = () => {
         <button
           type="button"
           onClick={handleCreateWorkspace}
-          disabled={!itinerary.id || isOwnerLimitReached}
+          disabled={isOwnerLimitReached}
           title={isOwnerLimitReached ? OWNED_WORKSPACE_LIMIT_MESSAGE : undefined}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
         >
@@ -214,7 +213,7 @@ export const WorkspaceSection: React.FC = () => {
           Caricamento...
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 flex-1 min-h-0">
           {renderColumn(
             'Workspace Proprietario',
             owned,

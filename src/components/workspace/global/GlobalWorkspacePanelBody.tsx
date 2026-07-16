@@ -1,8 +1,8 @@
 import React from 'react';
 import {
   WORKSPACE_OPERATIONAL_SECTIONS,
-  type WorkspacePanelSection,
 } from './globalWorkspacePresentation';
+import { WORKSPACE_HUB_TABPANEL_CLASS } from '@/constants/workspacePanelLayout';
 import { useWorkspacePanelState } from './WorkspacePanelContext';
 import { WorkspaceSectionNav } from './WorkspaceSectionNav';
 import { WorkspaceActiveContextBar } from './WorkspaceActiveContextBar';
@@ -28,40 +28,41 @@ export const GlobalWorkspacePanelBody: React.FC = () => {
 
   const renderSection = () => {
     const panelId = `workspace-hub-panel-${activeSection}`;
+    // Scroll delegato alle singole *Section* — vedi WORKSPACE_HUB_TABPANEL_CLASS in workspacePanelLayout.
     switch (activeSection) {
       case 'workspace':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`}>
+          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
             <WorkspaceSection />
           </div>
         );
       case 'condivisione':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`}>
+          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
             <CondivisioneSection />
           </div>
         );
       case 'attivita':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`}>
+          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
             <AttivitaSection />
           </div>
         );
       case 'allegati':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`}>
+          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
             <AllegatiSection />
           </div>
         );
       case 'utenti':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`}>
+          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
             <UtentiSection />
           </div>
         );
       case 'inviti':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`}>
+          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
             <InvitiSection />
           </div>
         );
@@ -91,7 +92,8 @@ export const GlobalWorkspacePanelBody: React.FC = () => {
           layout="bar"
         />
       )}
-      <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">{renderSection()}</div>
+      {/* Area sezione: altezza fissa ereditata dal binder; overflow solo nelle *Section*. */}
+      <div className="flex-1 min-h-0 overflow-hidden">{renderSection()}</div>
     </div>
   );
 };

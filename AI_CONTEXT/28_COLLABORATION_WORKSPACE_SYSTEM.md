@@ -1,108 +1,177 @@
-# 🤝 DOC 28: COLLABORATION & WORKSPACE SYSTEM (v1.0 — CERTIFIED, Fase 10)
+# 🤝 DOC 28: COLLABORATION & WORKSPACE SYSTEM (v2.0 — CERTIFIED)
 
-Questo documento descrive l'architettura del **Sistema di Collaborazione e Workspace v1** di TouringDiary, verificata sul codice post-Fase 10.
-
-> **Specifica funzionale e roadmap**: `docs/collaboration/PIANO_DI_SVILUPPO.md` (fasi 1–10 concluse).  
-> **Pannello Workspace globale (hub UI)**: `docs/collaboration/GLOBAL_WORKSPACE_PANEL.md` — single source of truth per shell, sezioni e sessione hub.  
-> Questo documento è la **single source of truth** architetturale dati/servizi in `AI_CONTEXT`.
+> **Single source of truth** per collaborazione e Workspace v1 — dati, servizi, regole funzionali, hub UI e wizard.
+> Verificato sul codice post-Fase 10 + hub globale + macrofase wizard (luglio 2026).
+> Storico implementativo: `docs/_archive/collaboration/`
 
 ---
 
 ## DESCRIZIONE SEMPLICE
 
-Gli utenti possono condividere Diario, Valigia e Template con altri collaboratori, organizzare risorse in **Workspace**, invitare partecipanti, vedere attività recenti, allegare file al workspace, gestire amicizie e preferenze notifiche. La configurazione globale del motore (limiti storage, tipi risorsa abilitati, presenza live) è centralizzata nell'Admin Panel.
+Gli utenti condividono Diario, Valigia e Template, organizzano risorse in **Workspace**, invitano collaboratori, allegano file, vedono attività e gestiscono amicizie e notifiche. L'hub Workspace globale è sempre disponibile dall'app; un unico wizard orchestra condivisione, creazione workspace e aggiunta elementi.
 
 ---
 
-## MODELLO ARCHITETTURALE (Scenario A)
+## REGOLE FUNZIONALI (v1 — certificate sul codice)
 
-Il Workspace collega la **stessa istanza** di risorsa (`workspace_resources.resource_id` = entità reale). Non esiste fork separato del dato.
+### Principi
 
-Il wizard di condivisione (`CollaborationShareModal`) espone esplicitamente:
-- **Duplica e condividi** (consigliato): copia personale invariata + condivisione della copia (`personalShareService.duplicateSharedResourceForOwner`).
-- **Condividi questa risorsa**: collaborazione sulla risorsa corrente.
+| Regola | Implementazione |
+|--------|-----------------|
+| **Scenario A** | Workspace collega la **stessa istanza** (`workspace_resources.resource_id` = entità reale). Nessun fork. |
+| **Risorse v1** | `diary`, `suitcase`, `user_template` (`shared_resource_kind`) |
+| **Modalità** | `collaborative` \| `personal` per risorsa |
+| **Ruoli risorsa** | Proprietario, Collaboratore, Visualizzatore (`CollaborativeMemberRole`) |
+| **ACL workspace per risorsa** | `none` \| `viewer` \| `collaborator` (`WorkspaceResourceAccess`) |
+| **Precedenza permessi (S2)** | Livello effettivo = **massimo** tra ACL risorsa e ACL workspace (`resolveEffectiveAccessLevel` in `permissions.ts`) |
+| **Inviti** | Due flussi: **invito a risorsa** (ruolo su risorsa) e **invito a workspace** (matrice permessi per risorsa nel workspace) — motore unico |
+| **Utenti bloccati** | `user_blocks` impedisce inviti/reciprocità (`userBlockService`) |
+| **Nome utente** | Obbligatorio per collaborare; termine UI: «Nome utente» (slug profilo) |
+| **Guest** | Flussi Condividi/Workspace bloccati → auth → ripresa intent dove possibile |
+| **Limite workspace** | Max **2** workspace di proprietà per utente (`MAX_OWNED_WORKSPACES_PER_USER`) |
+| **Community ≠ Condividi** | Percorsi UI distinti |
 
----
+### Condivisione — intenti wizard
 
-## MODULI PRINCIPALI
+| Intent | Comportamento |
+|--------|---------------|
+| **Duplica e condividi** | Copia personale invariata + condivisione copia (`duplicateSharedResourceForOwner`) |
+| **Condividi questa risorsa** | Collaborazione sulla risorsa corrente |
+| **Salva una copia** (hub) | Copia singolo elemento da workspace → `savePersonalCopyFromWorkspace` — nessun link automatico al workspace del richiedente |
 
-### 1. Shared Resource & ACL (Fasi 2–6)
-*   **Tabelle**: `shared_resources`, `shared_resource_members`, `resource_invites`.
-*   **Servizi**: `sharedResourceService.ts`, `sharedResourceAclService.ts`, `resourceInviteService.ts`, `permissionService.ts`.
-*   **Kind supportati v1**: `diary`, `suitcase`, `user_template` (enum `shared_resource_kind`).
+### Fuori scope v1
 
-### 2. Workspace (Fasi 7–8)
-*   **Tabelle**: `workspaces`, `workspace_members`, `workspace_resources`, `workspace_resource_permissions`, `workspace_invites`, `workspace_invite_permissions`.
-*   **Servizi**: `workspaceService.ts`, `workspaceCompositionService.ts`, `workspaceInviteService.ts`, `workspaceResourceService.ts`.
-*   **Helper RLS SQL**: `user_can_access_workspace`, `user_owns_workspace` (migration Fase 7).
-
-### 3. Live collaboration & Lock (Fase 9)
-*   **Config**: `global_settings.collaboration_live_config` → `collaborationLiveConfig.ts`.
-*   **Hook**: `useCollaborationLiveSession.ts` (presenza, lock edit; rispetta `livePresenceEnabled` da `workspace_engine_config`).
-*   **Servizi**: `sharedResourceLockService.ts`, `diaryLockService.ts`.
-
-### 4. Profilo Condivisione (§9.1 — Fase 10)
-*   **UI**: `UserSharingTab.tsx` (tab dashboard `condivisione`).
-*   **Service**: `collaborationProfileService.ts` → `loadSharingProfileOverview` (risorse owned/member, workspace, inviti in/out con azioni accetta/rifiuta).
-
-### 5. Sistema Amici (§9.2 — Fase 10)
-*   **Tabelle dedicate** (distinte da `user_blocks`): `user_friend_requests`, `user_friends`.
-*   **Enum**: `friend_request_status` (`pending`, `accepted`, `rejected`).
-*   **Service**: `friendService.ts` (richiesta, accettazione, rifiuto, lista, ricerca).
-*   **UI**: `UserFriendsTab.tsx` (tab `amici`: ricevute, inviate, amici, bloccati con sblocco).
-*   **Blocchi utenti**: `user_blocks` + `userBlockService.ts` — **solo** blocco; non gestisce amicizie.
-
-### 6. Motore eventi dominio (§20 — Fase 10)
-*   **Tabella**: `collaboration_domain_events` (estendibile oltre il feed attività).
-*   **Service**: `domainEventService.ts` (`recordCollaborationDomainEvent`, liste per workspace/risorsa).
-*   **UI**: `CollaborationActivityFeed.tsx` nel pannello workspace.
-*   **Trigger attuali**: salvataggio Diario/Valigia (`useDiaryDocumentSave`, `useSuitcaseDocumentSave`); upload allegati.
-
-### 7. Allegati Workspace (§12.6 — Fase 10 + hub globale Fase 5)
-*   **Tabella**: `workspace_attachments` con colonna `category` (`workspace_attachment_category`: documents, tickets, bookings, expenses, misc).
-*   **Bucket Storage**: `workspace-attachments` (**privato**).
-*   **Path storage**: gestito internamente da `workspaceAttachmentService` (bucket privato `workspace-attachments`; dettaglio implementativo non parte del contratto UI).
-*   **Service**: `workspaceAttachmentService.ts` (list/upload per categoria, validazione MIME/firma, quote, URL firmati).
-*   **UI hub**: `AllegatiSection.tsx` + `AllegatiCategoryPanel.tsx` nel pannello globale (`docs/collaboration/GLOBAL_WORKSPACE_PANEL.md`).
-*   **RLS delete allineata**: uploader, owner workspace, admin.
-
-### 8. Notifiche collaborative (§19 — Fase 10)
-*   **Service**: `collaborationNotificationService.ts`, `workspaceNotificationHelper.ts`.
-*   **Preferenze**: colonna `profiles.collaboration_notification_preferences` + `collaborationNotificationPrefsService.ts`.
-*   **UI preferenze**: `UserSettingsTab.tsx` (sezione «Notifiche collaborazione»).
-*   **UI consumo**: `UserNotificationsTab.tsx` — link workspace (`intent: 'workspace'`), polling 30s sospeso in background tab.
-
-### 9. Informazioni autore (§21 — Fase 10)
-*   **Tracking dati**: `diaryAuthorTracking.ts`, `last_modified_by` su `itineraries`/`suitcases`.
-*   **UI**: `CollaborationLastEditorLine.tsx` (Valigia collaborativa live).
-
-### 10. Admin — Motore Workspace (Fase 10)
-*   **UI**: `SettingsPage.tsx` → tab **Workspace** (`WorkspaceEngineSettingsPanel.tsx`).
-*   **Config via** `global_settings` + `ConfigContext` (nessun servizio config dedicato):
-    *   `workspace_engine_config` — collaborazione attiva, presenza live, kind abilitati, categorie notifiche default.
-    *   `collaboration_live_config` — timeout lock, heartbeat.
-    *   `storage_limits` — `maxAttachmentBytes`, `maxAccountBytes`, `maxWorkspaceBytes`.
-*   **Service lettura**: `workspaceEngineConfigService.ts`, `resolveStorageLimitsConfig()` in `workspaceAttachmentService.ts`.
+Lock granulare Diario oltre lock intero, admin workspace, trasferimento proprietà, allegati video, moduli Documenti/Biglietti/Prenotazioni come entità separate (categorie allegati workspace sì), commenti collaborativi.
 
 ---
 
-## PIPELINE RUNTIME: CONDIVISIONE SEMPLICE
+## WIZARD UNICO DI COLLABORAZIONE
 
-1. **Trigger**: Utente apre condivisione da Diario/Valigia (`useOpenCollaborationShare` → `CollaborationShareModal`).
-2. **Gate**: username obbligatorio; motore abilitato (`isCollaborationEngineEnabled`, `isSharedResourceKindEnabled`).
-3. **Wizard**: path → mode → share intent (duplica/condividi) → inviti.
-4. **Persistenza**: `ensureShareableResource` + `sendResourceInvite` / gestione membri.
-5. **Notifiche**: `collaborationNotificationService` filtra per preferenze utente.
+**Un solo orchestratore:** `CollaborationShareModal.tsx` — non tre wizard separati.
+
+### Entry mode (`WizardEntryMode`)
+
+| Mode | Apertura | Step iniziali |
+|------|----------|---------------|
+| `share` | Condividi su Diario/Valigia/Template (`useOpenCollaborationShare`) | `path` → … |
+| `create_workspace` | Crea Workspace da hub (`useOpenCreateWorkspace`) | `workspace_setup` → `workspace_composition` → … |
+| `add_element_to_workspace` | Aggiungi elemento (`useOpenAddElementToWorkspace`) | `pick_element` → `share_intent` |
+
+### Grafo step (`getWizardSteps` / `collaborationSharePresentation.ts`)
+
+| Contesto | Sequenza |
+|----------|----------|
+| `create_workspace` | setup → composition → [share_intent se elementi] → invite |
+| `add_element_to_workspace` | pick_element → share_intent |
+| `share` + simple + collaborative | path → mode → share_intent → invite |
+| `share` + simple + personal | path → mode → invite |
+| `share` + add_workspace | path → share_intent → workspace_select |
+| `share` + create_workspace | path → share_intent → setup → composition → invite |
+
+**Componenti:** `CollaborationShareWizard`, `WorkspaceShareWizardSteps`, `CollaborationWizardFooter`, `WizardStepIndicator`, `useCollaborationWizardNavigation`.
+
+**Post-success:** apertura hub `openCollaborationWorkspace({ workspaceId })`.
 
 ---
 
-## PIPELINE RUNTIME: WORKSPACE + ALLEGATI
+## HUB WORKSPACE GLOBALE
 
-1. **Creazione/collegamento**: `createWorkspaceWithComposition` / `addResourceToExistingWorkspace`.
-2. **Inviti workspace**: `workspaceInviteService` + sync ACL (`workspaceMemberAclSync.ts`).
-3. **Upload allegato**: validazione file → quota workspace → insert `workspace_attachments` + Storage bucket privato.
-4. **Delete allegato**: check service (uploader | owner workspace) → delete riga → `storage.remove`.
-5. **Attività**: eventi dominio visibili nel feed workspace.
+`WorkspacesModal` **rimosso**. Hub = `GlobalWorkspacePanel` via `WorkspaceHost` quando `activeModal === 'collaborationWorkspace'`.
+
+### Filosofia
+
+- Workspace = **area di lavoro**, non navigazione (Community/Around Me restano invariati).
+- Linguetta fisica sidebar (~95% larghezza desktop); pannello nasce dalla linguetta.
+- Selezione card workspace → ingresso automatico sezione **Condivisione**.
+- **D27:** chiusura pannello non azzera `activeWorkspaceId` (persiste fino ad Abbandona/Elimina/logout).
+
+### Sei sezioni (`globalWorkspacePresentation.ts`)
+
+| ID | Label | Componente | Richiede workspace attivo |
+|----|-------|------------|----------------------------|
+| `workspace` | Workspace | `WorkspaceSection.tsx` | No |
+| `condivisione` | Condivisione | `CondivisioneSection.tsx` | Sì |
+| `allegati` | Allegati | `AllegatiSection.tsx` | Sì |
+| `attivita` | Attività | `AttivitaSection.tsx` | Sì |
+| `utenti` | Utenti | `UtentiSection.tsx` | Sì |
+| `inviti` | Inviti | `InvitiSection.tsx` | No (user-scoped) |
+
+### Layout e motion
+
+| Costante | File | Valore / ruolo |
+|----------|------|----------------|
+| `WORKSPACE_GLOBAL_PANEL_WIDTH_RATIO` | `workspacePanelLayout.ts` | `0.95` |
+| `WORKSPACE_GLOBAL_PANEL_HEIGHT` | idem | `17.5rem` |
+| Binder animation | `slidePanelMotion.ts` | `max-height` top-origin, non translate-y |
+| Geometria | `resolveGlobalWorkspacePanelGeometry.ts` | Desktop centrato sotto header; mobile full width |
+
+### Entry points
+
+`useOpenCollaborationWorkspace`, `MainLayout.toggleWorkspacePanel`, `NavigationContext` (`section === 'workspace'`), deep link post-auth, `CollaborationShareModal` post-create.
+
+### Sessione
+
+`WorkspacePanelProvider` in `AppCoordinator`; `modalProps.workspaceId` / `initialSection` consume-once all'apertura; `useWorkspaceSessionEnd` + `workspaceSessionRegistry` per teardown.
+
+---
+
+## MODULI PRINCIPALI (dati e servizi)
+
+### 1. Shared Resource & ACL
+* **Tabelle:** `shared_resources`, `shared_resource_members`, `resource_invites`
+* **Servizi:** `sharedResourceService`, `sharedResourceAclService`, `resourceInviteService`, `permissionService`
+
+### 2. Workspace
+* **Tabelle:** `workspaces`, `workspace_members`, `workspace_resources`, `workspace_resource_permissions`, `workspace_invites`, `workspace_invite_permissions`
+* **Servizi:** `workspaceService`, `workspaceCompositionService`, `workspaceInviteService`, `workspaceResourceService`, `workspaceMemberAclSync`
+* **Composizione:** `materializeWorkspaceComposition`, `resolveWorkspaceCompositionCatalog`, `resolveWorkspaceCompositionBlueprint`
+
+### 3. Live & Lock
+* **Config:** `global_settings.collaboration_live_config`, `workspace_engine_config`
+* **Hook:** `useCollaborationLiveSession`
+* **Servizi:** `sharedResourceLockService`, `diaryLockService`
+
+### 4. Profilo, Amici, Eventi, Allegati, Notifiche, Autore, Admin
+*(Invariato rispetto a v1.0 — vedi sezioni 4–10 sotto)*
+
+### 4. Profilo Condivisione
+* `UserSharingTab.tsx`, `collaborationProfileService.ts`
+
+### 5. Sistema Amici
+* `user_friend_requests`, `user_friends` (≠ `user_blocks`)
+* `friendService.ts`, `UserFriendsTab.tsx`
+
+### 6. Motore eventi dominio
+* `collaboration_domain_events`, `domainEventService.ts`, `CollaborationActivityFeed.tsx`
+* Trigger: `useDiaryDocumentSave`, `useSuitcaseDocumentSave`, upload allegati
+
+### 7. Allegati Workspace
+* `workspace_attachments`, bucket privato `workspace-attachments`
+* `workspaceAttachmentService.ts`, `AllegatiSection.tsx`, categorie: documents, tickets, bookings, expenses, misc
+
+### 8. Notifiche collaborative
+* `collaborationNotificationService`, `profiles.collaboration_notification_preferences`
+
+### 9. Informazioni autore
+* `last_modified_by`, `CollaborationLastEditorLine.tsx`
+
+### 10. Admin — Motore Workspace
+* `WorkspaceEngineSettingsPanel.tsx` → `workspace_engine_config`, `storage_limits`, `collaboration_live_config`
+
+---
+
+## PIPELINE RUNTIME
+
+### Condivisione semplice
+1. `useOpenCollaborationShare` → gate username/engine/kind
+2. Wizard path/mode/intent/invite
+3. `ensureShareableResource` + inviti/membri
+4. Notifiche filtrate per preferenze
+
+### Workspace + allegati
+1. `createWorkspaceWithComposition` / `addResourceToExistingWorkspace`
+2. Inviti + sync ACL
+3. Salva copia / upload allegati / eventi dominio
 
 ---
 
@@ -110,52 +179,34 @@ Il wizard di condivisione (`CollaborationShareModal`) espone esplicitamente:
 
 | Componente | Ruolo |
 | :--- | :--- |
-| `CollaborationShareModal.tsx` | Wizard condivisione + gestione collaboratori |
-| `GlobalWorkspacePanel` / `GlobalWorkspacePanelBody` | Hub workspace globale (~95% width, 6 sezioni) — vedi `GLOBAL_WORKSPACE_PANEL.md` |
-| `WorkspacePanelContext.tsx` | Stato sessione hub (`WorkspacePanelProvider`) |
-| `UserSharingTab.tsx` | Profilo → Condivisione |
-| `UserFriendsTab.tsx` | Profilo → Amici |
-| `UserDashboard.tsx` | Routing tab dashboard (`useAppRouter`) |
-| `WorkspaceEngineSettingsPanel.tsx` | Admin → Impostazioni Globali → Workspace |
+| `CollaborationShareModal.tsx` | Wizard unico |
+| `GlobalWorkspacePanel` / `GlobalWorkspacePanelBody` | Hub globale |
+| `WorkspacePanelContext.tsx` | Stato sessione hub |
+| `CondivisioneSection.tsx` | Griglia elementi, Aggiungi, Salva copia |
+| `UserSharingTab` / `UserFriendsTab` | Profilo |
+| `WorkspaceEngineSettingsPanel.tsx` | Admin config |
 
 ---
 
 ## TABELLE DATABASE (v1)
 
-| Tabella | Scopo |
-| :--- | :--- |
-| `shared_resources` / `shared_resource_members` / `resource_invites` | ACL risorsa singola |
-| `workspaces` + membri/risorse/permessi/inviti | Composizione workspace |
-| `user_friend_requests` / `user_friends` | Amicizie |
-| `user_blocks` | Solo blocco utenti |
-| `collaboration_domain_events` | Motore eventi |
-| `workspace_attachments` | Metadati allegati |
-
-**Colonna profili**: `collaboration_notification_preferences` (jsonb).
-
-**Enum aggiuntivi Fase 10**: `friend_request_status`.
-
----
-
-## GLOBAL SETTINGS (chiavi)
-
-| Chiave | Consumatori |
-| :--- | :--- |
-| `workspace_engine_config` | `workspaceEngineConfigService`, Admin tab Workspace |
-| `storage_limits` | `workspaceAttachmentService`, Admin tab Workspace |
-| `collaboration_live_config` | `collaborationLiveConfig.ts`, live session |
+`shared_resources`*, `workspaces`*, `user_friend_requests`, `user_friends`, `user_blocks`, `collaboration_domain_events`, `workspace_attachments`, `profiles.collaboration_notification_preferences`
 
 ---
 
 ## RIFERIMENTI CODICE
 
-*   **Services**: `src/services/collaboration/` (barrel `index.ts`).
-*   **Domain types**: `src/domain/collaboration/`.
-*   **Migrations Fase 10**: `supabase/migrations/20260710120000_collaboration_phase10_profile_events_attachments.sql`.
-*   **Types Supabase**: `src/types/supabase.ts` (tabelle/enum sopra).
+* **Services:** `src/services/collaboration/` (`index.ts`)
+* **Domain:** `src/domain/collaboration/`
+* **Hooks:** `useOpenCollaborationShare`, `useOpenCreateWorkspace`, `useOpenAddElementToWorkspace`, `useOpenCollaborationWorkspace`
+* **UI hub:** `src/components/workspace/global/`
+* **Migration Fase 10:** `supabase/migrations/20260710120000_collaboration_phase10_profile_events_attachments.sql`
 
 ---
 
-## FUORI SCOPE v1 (non implementato)
+## CRONOLOGIA
 
-Lock granulare Diario oltre lock intero, admin workspace, trasferimento proprietà, allegati video, moduli Documenti/Biglietti/Prenotazioni, commenti collaborativi. Vedi chiusura in `PIANO_DI_SVILUPPO.md`.
+| Versione | Data | Modifiche |
+|----------|------|-----------|
+| 1.0 | 2026-07 | Certificazione post-Fase 10 |
+| 2.0 | 2026-07-13 | WF-01: regole funzionali, hub UI, wizard unico; assorbimento `docs/collaboration/` |

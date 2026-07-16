@@ -24,10 +24,6 @@ export const markUserLogsAsRead = async (...args: any[]) => {
     return Promise.resolve();
 };
 
-export const deleteSponsorsBulk = async (...args: any[]) => {
-    console.warn("deleteSponsorsBulk not implemented yet");
-    return Promise.resolve(false);
-};
 
 export const extendAllActiveSponsors = async (
     days: number,

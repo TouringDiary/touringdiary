@@ -621,9 +621,11 @@ La card del workspace attualmente aperto deve avere stato grafico dedicato (bord
 
 - Titolo area: **IN CONDIVISIONE**
 - Contenuto: Diari, Valigie, Template, future risorse
+- Azioni per elemento: **Apri**, **Salva una copia** (membro con accesso ≥ viewer; conferma modale; pipeline `savePersonalCopyFromWorkspace` → `duplicateSharedResourceForInvitee`)
+- Azione owner: **Aggiungi elemento** (wizard `add_element_to_workspace`)
 - **Nessun** blocco Moduli futuri
 - Riquadro workspace attivo visibile
-- Componente base: refactor `WorkspaceResourcesSection`, layout hub orizzontale
+- Componente base: `WorkspaceResourcesSection`, layout hub orizzontale (`CondivisioneSection`)
 
 ---
 

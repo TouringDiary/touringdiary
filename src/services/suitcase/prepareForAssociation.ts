@@ -10,7 +10,8 @@ export interface PrepareForAssociationInput {
     DocumentSaveController,
     'phase' | 'flush' | 'save' | 'awaitInFlight' | 'isGuest' | 'cancelPendingAutosave'
   > & { getPhase?: () => DocumentSaveController['phase'] };
-  suitcaseController: Pick<
+  /** Richiesto solo per valigie non ancora persistite o aperte in editor con modifiche da sincronizzare. */
+  suitcaseController?: Pick<
     DocumentSaveController,
     'phase' | 'flush' | 'save' | 'awaitInFlight' | 'isGuest' | 'cancelPendingAutosave'
   > & { getPhase?: () => DocumentSaveController['phase'] };
@@ -39,26 +40,29 @@ function getPhase(
 export async function prepareForAssociation(
   input: PrepareForAssociationInput
 ): Promise<AssociationReadiness> {
-  if (input.isGuest || input.diaryController.isGuest || input.suitcaseController.isGuest) {
+  if (input.isGuest || input.diaryController.isGuest || input.suitcaseController?.isGuest) {
     input.onLoginRequired();
     return { ready: false, reason: 'login' };
   }
 
   input.diaryController.cancelPendingAutosave();
-  input.suitcaseController.cancelPendingAutosave();
+  input.suitcaseController?.cancelPendingAutosave();
 
   await input.diaryController.awaitInFlight();
-  await input.suitcaseController.awaitInFlight();
+  await input.suitcaseController?.awaitInFlight();
 
   const diaryPhase = getPhase(input.diaryController);
-  const suitcasePhase = getPhase(input.suitcaseController);
+  const suitcasePhase = input.suitcaseController ? getPhase(input.suitcaseController) : null;
 
   if (diaryPhase === 'saving' || suitcasePhase === 'saving') {
     await input.diaryController.awaitInFlight();
-    await input.suitcaseController.awaitInFlight();
+    await input.suitcaseController?.awaitInFlight();
   }
 
-  if (getPhase(input.diaryController) === 'error' || getPhase(input.suitcaseController) === 'error') {
+  if (
+    getPhase(input.diaryController) === 'error' ||
+    (input.suitcaseController && getPhase(input.suitcaseController) === 'error')
+  ) {
     return { ready: false, reason: 'error' };
   }
 
@@ -68,8 +72,13 @@ export async function prepareForAssociation(
   if (diaryNeverSaved && !input.diaryName?.trim()) {
     return { ready: false, reason: 'needs_name' };
   }
-  if (suitcaseNeverSaved && !input.suitcaseName?.trim()) {
-    return { ready: false, reason: 'needs_name' };
+  if (suitcaseNeverSaved) {
+    if (!input.suitcaseController) {
+      return { ready: false, reason: 'error' };
+    }
+    if (!input.suitcaseName?.trim()) {
+      return { ready: false, reason: 'needs_name' };
+    }
   }
 
   let itineraryId = input.itinerary.id;
@@ -91,12 +100,15 @@ export async function prepareForAssociation(
   let suitcaseId = input.suitcaseId;
 
   if (suitcaseNeverSaved) {
-    const savedId = await input.suitcaseController.save({ name: input.suitcaseName?.trim() });
+    const savedId = await input.suitcaseController!.save({ name: input.suitcaseName?.trim() });
     if (!savedId) {
       throw new SuitcaseAssociationError('Impossibile salvare la valigia.', 'persist-suitcase');
     }
     suitcaseId = savedId;
-  } else if (getPhase(input.suitcaseController) === 'dirty') {
+  } else if (
+    input.suitcaseController &&
+    getPhase(input.suitcaseController) === 'dirty'
+  ) {
     const flushed = await input.suitcaseController.flush();
     if (!flushed) {
       throw new SuitcaseAssociationError('Impossibile sincronizzare la valigia.', 'persist-suitcase');

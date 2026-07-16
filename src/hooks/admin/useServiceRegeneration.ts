@@ -10,6 +10,7 @@ import {
     mapToTourOperatorInput,
     saveCityDetails
 } from '../../services/cityService';
+import { appendGenerationLogs } from '../../services/city/parsers/content/parseLogs';
 import { getSafeServiceType, getSafeEventCategory } from '../../utils/common';
 import { User } from '../../types/users';
 import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
@@ -163,7 +164,13 @@ export const useServiceRegeneration = (currentUser: User) => {
             }, (count) => count, (count) => `${count} Record salvati nel DB`);
 
             const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Servizi (in 0s)`;
-            const updatedCity = { ...city, details: { ...city.details, generationLogs: [...(city.details.generationLogs || []), newLog] } };
+            const updatedCity = {
+                ...city,
+                details: {
+                    ...city.details,
+                    generationLogs: appendGenerationLogs(city.details.generationLogs, [newLog]),
+                },
+            };
             await saveCityDetails(updatedCity);
 
             await reloadCurrentCity();

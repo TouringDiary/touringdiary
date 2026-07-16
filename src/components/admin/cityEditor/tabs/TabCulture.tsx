@@ -5,6 +5,8 @@ import { useCityEditor } from '@/context/CityEditorContext';
 import { generateCitySection, suggestCityPeople } from '../../../../services/ai';
 import { generateHistoricalPortrait } from '../../../../services/ai/aiVision'; // IMPORT
 import { getCityPeople, deleteCityPerson, saveCityDetails, saveCityPerson } from '../../../../services/cityService';
+import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
+import { mergePatronDetailsFromAi } from '../../../../services/city/parsers/content/mergePatronDetailsFromAi';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
 import { User } from '../../../../types/users';
 
@@ -63,17 +65,17 @@ export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
             
             // Patrono
             if (patronData.patron) {
-                 updatedDetails.patronDetails = { 
-                     ...updatedDetails.patronDetails, 
-                     ...patronData.patron, 
-                     imageUrl: city.details.patronDetails?.imageUrl || DEFAULT_MASTER_PATRON 
-                 };
+                 updatedDetails.patronDetails = mergePatronDetailsFromAi(
+                     updatedDetails.patronDetails,
+                     patronData.patron,
+                     city.details.patronDetails?.imageUrl || DEFAULT_MASTER_PATRON,
+                 );
                  updatedDetails.patron = patronData.patron.name;
             }
 
             // 4. Salvataggio City Details nel DB
             const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Storia & Cultura (in 0s)`;
-            updatedDetails.generationLogs = [...(updatedDetails.generationLogs || []), newLog];
+            updatedDetails.generationLogs = appendGenerationLogs(updatedDetails.generationLogs, [newLog]);
             
             const updatedCity = { ...city, details: updatedDetails };
             await saveCityDetails(updatedCity);

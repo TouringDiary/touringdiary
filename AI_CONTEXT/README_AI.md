@@ -28,6 +28,35 @@ AI_CONTEXT/07_AI_WORKFLOW.md
 
 ---
 
+# LAYER OPERATIVO SVILUPPO
+
+Metodo di sviluppo, roadmap esecutiva e stato avanzamento **non** vivono in `AI_CONTEXT`.
+
+Per *come sviluppiamo* e *dove siamo nel lavoro*:
+
+AI_DEV_WORKFLOW/README.md  
+AI_DEV_WORKFLOW/03_PROJECT_STATUS.md  
+
+
+### Flusso di lettura operativo (dopo il boot architetturale)
+
+Quando l'attività riguarda **sviluppo in corso** o **stato del progetto**, leggere in questo ordine:
+
+```
+AI_DEV_WORKFLOW/README.md
+        ↓
+AI_DEV_WORKFLOW/03_PROJECT_STATUS.md
+        ↓
+Workflow attivo (WORKFLOWS/WF_XX_*.md)
+```
+
+Poi — solo se serve decisione architetturale — gli SSOT di dominio in `AI_CONTEXT/`.
+
+Per le convenzioni operative di sviluppo (incluso il report operativo finale), fare riferimento a `AI_DEV_WORKFLOW/00_DEVELOPMENT_PROTOCOL.md`.
+
+
+---
+
 # REGOLA EVIDENZA DOCUMENTALE
 
 AI_CONTEXT può essere aggiornato solo con evidenze verificabili da:
@@ -103,6 +132,14 @@ sponsors
 subscriptions  
 sponsorActivationService  
 
+Sponsor Security SSOT (audit, architettura, gate implementazione):
+
+AI_CONTEXT/29_SPONSOR_SECURITY_MASTERPLAN.md
+
+Platform Settings / Centro di Controllo SSOT (feature flag globali, testi configurabili, soglie):
+
+AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md
+
 
 Gamification Engine:
 
@@ -129,6 +166,23 @@ friendService
 workspaceAttachmentService  
 CollaborationShareModal  
 (DOC 28)
+
+
+Packing & Suitcase Engine:
+
+packing_standard_items  
+packing_template_items  
+packing_ai_catalog  
+useSuitcaseSystem  
+(DOC 31)
+
+
+Design System Foundation:
+
+design_system_rules  
+useFoundationStyles  
+FocusMode / layerRegistry  
+(DOC 32)
 
 
 Ranking Engine:

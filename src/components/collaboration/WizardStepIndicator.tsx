@@ -5,22 +5,27 @@ import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { SharingMode } from '@/domain/collaboration';
 import {
-  getWizardSteps,
   getWizardStepShortLabel,
+  resolveWizardStepsForContext,
   type SharePath,
+  type WizardEntryMode,
   type WizardStep,
 } from './collaborationSharePresentation';
 
 export interface WizardStepIndicatorProps {
   wizardStep: WizardStep;
+  entryMode: WizardEntryMode;
   sharePath: SharePath;
   sharingMode: SharingMode;
+  skipShareIntent?: boolean;
 }
 
 export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
   wizardStep,
+  entryMode,
   sharePath,
   sharingMode,
+  skipShareIntent,
 }) => {
   const isMobile = useMobileDetect();
   // Numeri e label condividono volontariamente foundation_card_label.
@@ -28,7 +33,12 @@ export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
   // Foundation, non ricostruita localmente la regola esistente.
   const stepTypographyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.cardLabel, isMobile);
   const stepCheckIconShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCheckIcon);
-  const steps = getWizardSteps(sharePath, sharingMode);
+  const steps = resolveWizardStepsForContext({
+    entryMode,
+    sharePath,
+    sharingMode,
+    skipShareIntent,
+  });
   const currentIndex = steps.indexOf(wizardStep);
 
   if (steps.length <= 1) return null;
@@ -63,7 +73,7 @@ export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
                   ${isFuture ? 'bg-slate-800 border-slate-700 text-slate-500' : ''}
                 `}
                 aria-current={isCurrent ? 'step' : undefined}
-                title={getWizardStepShortLabel(step)}
+                title={getWizardStepShortLabel(step, entryMode)}
               >
                 {isCompleted ? (
                   <Check className={stepCheckIconShell} aria-hidden />
@@ -76,7 +86,7 @@ export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
                   isCurrent ? 'text-amber-400' : isCompleted ? 'text-slate-400' : 'text-slate-600'
                 }`}
               >
-                {getWizardStepShortLabel(step)}
+                {getWizardStepShortLabel(step, entryMode)}
               </span>
             </div>
           </React.Fragment>

@@ -3,6 +3,9 @@ import { isSharedResourceKind } from '@/domain/collaboration';
 import { supabase } from '@/services/supabaseClient';
 import { duplicateSuitcaseEntityAsync } from '@/services/suitcaseService';
 import { randomUUID } from '@/utils/runtimeId';
+import { getWorkspaceResourceAccessForUser } from './workspaceAccessLookup';
+import { isWorkspaceMember } from './workspaceService';
+import { resolveResourceOwnerId } from './shareableResourceOwnerLookup';
 
 /** Esito di una copia personale (invito personale o duplicazione pre-condivisione). */
 export type PersonalResourceDuplicateResult =
@@ -172,6 +175,42 @@ export async function duplicateSharedResourceForInvitee(
   }
 
   return { success: false, error: 'Tipo di risorsa non supportato.' };
+}
+
+/**
+ * Salva una copia personale di un singolo elemento dal Workspace (DOM-K-01…K-07).
+ * Gate: membro workspace + almeno viewer sull'elemento; duplicazione via pipeline invito personale.
+ */
+export async function savePersonalCopyFromWorkspace(
+  userId: string,
+  workspaceId: string,
+  kind: SharedResourceKind,
+  resourceId: string
+): Promise<PersonalResourceDuplicateResult> {
+  if (!isSharedResourceKind(kind)) {
+    return { success: false, error: 'Tipo di risorsa non valido.' };
+  }
+
+  if (!(await isWorkspaceMember(workspaceId, userId))) {
+    return { success: false, error: 'Non sei membro di questo workspace.' };
+  }
+
+  const access = await getWorkspaceResourceAccessForUser(
+    userId,
+    workspaceId,
+    kind,
+    resourceId
+  );
+  if (access === 'none') {
+    return { success: false, error: 'Non hai accesso sufficiente a questo elemento.' };
+  }
+
+  const ownerId = await resolveResourceOwnerId(kind, resourceId);
+  if (!ownerId) {
+    return { success: false, error: 'Elemento non trovato.' };
+  }
+
+  return duplicateSharedResourceForInvitee(kind, resourceId, ownerId, userId);
 }
 
 /**

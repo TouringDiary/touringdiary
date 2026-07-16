@@ -11,15 +11,15 @@ Questo documento fornisce un indice della copertura documentale rispetto al codi
 | **Core Architecture** | [x] | [ ] | [ ] | Allineato in `00_AI_RULES.md` |
 | **AI Credit Engine** | [x] | [ ] | [ ] | RPC e tabelle verificate |
 | **Pricing & Plans** | [x] | [ ] | [ ] | Gestito in `pricing_versions` |
-| **Sponsor Lifecycle** | [x] | [ ] | [ ] | Verificato in `sponsorActivationService` |
+| **Sponsor Lifecycle** | [x] | [ ] | [ ] | Dominio documentato (`01`, `03`, `10`, `18`, `23`, `05`…); audit sicurezza e modello target in corso → `29_SPONSOR_SECURITY_MASTERPLAN.md` |
 | **Gamification** | [ ] | [x] | [ ] | XP e badge documentati solo in logica |
 | **Community & Social** | [x] | [ ] | [ ] | Allineato in `16_CITY_MEDIA_MANAGEMENT.md` |
 | **Staging & Import** | [x] | [ ] | [ ] | `stagingService` e `importService` allineati |
 | **Geo Hierarchy** | [x] | [ ] | [ ] | Logica gerarchica in `geo.ts` allineata |
-| **Suitcase System** | [x] | [ ] | [ ] | Pipeline packing list allineata |
+| **Suitcase System** | [x] | [ ] | [ ] | Allineato in `31_PACKING_SUITCASE_SYSTEM.md` |
 | **Ranking System** | [x] | [ ] | [ ] | Allineato in `11_RANKING_SYSTEM.md` |
 | **Edge Functions** | [x] | [ ] | [ ] | Stripe e Gemini verificate |
-| **Design System** | [ ] | [x] | [ ] | ConfigContext documentato parzialmente |
+| **Design System** | [x] | [ ] | [ ] | Allineato in `32_DESIGN_SYSTEM_FOUNDATION.md` |
 | **Roadbook Engine** | [x] | [ ] | [ ] | Verificato in `RoadbookDocument.tsx` |
 | **Notification System**| [x] | [ ] | [ ] | Allineato in `12_NOTIFICATION_SYSTEM.md` |
 | **Analytics System**   | [x] | [ ] | [ ] | Allineato in `13_ANALYTICS_PIPELINE.md` |
@@ -36,7 +36,9 @@ Questo documento fornisce un indice della copertura documentale rispetto al codi
 | **User Onboarding**   | [x] | [ ] | [ ] | Allineato in `25_USER_ONBOARDING_SYSTEM.md` |
 | **Affiliate System**   | [ ] | [x] | [ ] | Allineato in `26_AFFILIATE_TRACKING_SYSTEM.md` |
 | **Review System**      | [ ] | [x] | [ ] | Allineato in `27_USER_REVIEW_SYSTEM.md` |
-| **Collaboration & Workspace** | [x] | [ ] | [ ] | Allineato in `28_COLLABORATION_WORKSPACE_SYSTEM.md` (v1 Fase 10) |
+| **Collaboration & Workspace** | [x] | [ ] | [ ] | Allineato in `28_COLLABORATION_WORKSPACE_SYSTEM.md` v2.0 (hub UI + wizard) |
+| **Platform Settings / Centro di Controllo** | [x] | [ ] | [ ] | SSOT in `30_PLATFORM_SETTINGS_MASTERPLAN.md` (v0.2); Feature Flag Engine; codice parziale |
+| **Development Workflow (layer operativo)** | [x] | [ ] | [ ] | Framework in `AI_DEV_WORKFLOW/`; WF-01 migrazione documentale completato |
 
 ---
 

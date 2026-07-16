@@ -153,14 +153,21 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             {activeModal === 'share' && (
                 <ShareModal isOpen={true} onClose={closeModal} title={modalProps.title} text={modalProps.text} url={modalProps.url} />
             )}
-            {activeModal === 'collaborationShare' && modalProps.kind && modalProps.resourceId && (
+            {activeModal === 'collaborationShare' &&
+                (modalProps.entryMode === 'create_workspace' ||
+                    modalProps.entryMode === 'add_element_to_workspace' ||
+                    (modalProps.kind && modalProps.resourceId)) && (
                 <CollaborationShareModal
                     isOpen={true}
                     onClose={closeModal}
                     user={user}
+                    entryMode={modalProps.entryMode}
                     kind={modalProps.kind}
                     resourceId={modalProps.resourceId}
                     resourceTitle={modalProps.resourceTitle ?? ''}
+                    preselectedDiaryId={modalProps.preselectedDiaryId}
+                    preselectedDiaryTitle={modalProps.preselectedDiaryTitle}
+                    workspaceId={modalProps.workspaceId}
                 />
             )}
             {activeModal === 'global' && (

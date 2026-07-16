@@ -11,6 +11,11 @@ import {
 import type { WorkspaceInvite } from '@/domain/collaboration';
 import { useWorkspacePanelState } from '../WorkspacePanelContext';
 
+/** Layout condiviso per stati placeholder della sezione Inviti. */
+const PLACEHOLDER_LAYOUT_CLASS = 'p-6 h-full min-h-0 flex items-center';
+const PLACEHOLDER_TEXT_CLASS = `${PLACEHOLDER_LAYOUT_CLASS} text-sm text-slate-500`;
+const PLACEHOLDER_LOADING_CLASS = `${PLACEHOLDER_LAYOUT_CLASS} gap-2 text-slate-500`;
+
 export const InvitiSection: React.FC = () => {
   const { user } = useUser();
   const { selectWorkspace } = useWorkspacePanelState();
@@ -97,7 +102,7 @@ export const InvitiSection: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="p-6 text-sm text-slate-500">
+      <div className={PLACEHOLDER_TEXT_CLASS}>
         Accedi per visualizzare gli inviti ricevuti.
       </div>
     );
@@ -105,7 +110,7 @@ export const InvitiSection: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center gap-2 text-slate-500">
+      <div className={PLACEHOLDER_LOADING_CLASS}>
         <Loader2 className="w-4 h-4 animate-spin" />
         Caricamento inviti...
       </div>
@@ -114,7 +119,9 @@ export const InvitiSection: React.FC = () => {
 
   if (invites.length === 0) {
     return (
-      <div className="p-6 text-sm text-slate-500">Nessun invito a workspace in attesa.</div>
+      <div className={PLACEHOLDER_TEXT_CLASS}>
+        Nessun invito a workspace in attesa.
+      </div>
     );
   }
 

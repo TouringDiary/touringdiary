@@ -95,5 +95,26 @@ Dettaglio architetturale: `28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 
 ---
 
+## 7. UTENTI & RUOLI (riferimento PO — 2026-07-14)
+
+**Percorso UI:** Admin Panel → **Utenti & Ruoli**
+
+**SSOT ruoli piattaforma:** `profiles.role` (`UserRole` in `src/types/users.ts`); matrice permessi `ROLE_PERMISSIONS` in `userService.ts`.
+
+| Ruolo | Uso |
+|-------|-----|
+| `user` | Utente registrato |
+| `business` | Partner / Sponsor attivo (Silver e Gold) — assegnato **dal sistema** all'attivazione Sponsor |
+| `admin_limited` | Admin delegato |
+| `admin_all` | Super admin |
+
+**Regole PO:**
+
+- L'utente **non sceglie** il proprio ruolo.
+- **Operazioni irreversibili** (terminazione contratto Sponsor, eliminazione bulk, modifica privilegi) → **solo `admin_all`** (`02_GOVERNANCE.md` §11; DOC 29 DL-034).
+- Dominio Sponsor: matrice dettagliata in `29_SPONSOR_SECURITY_MASTERPLAN.md` § *Matrice permessi target*.
+
+---
+
 > [!IMPORTANT]
 > L'amministratore deve monitorare periodicamente la `Ai Economics Dashboard` (Modulo `ai_economics`) per verificare che i costi di Google Vertex AI non superino l'MRR generato dalle sottoscrizioni.

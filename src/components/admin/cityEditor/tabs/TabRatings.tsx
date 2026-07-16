@@ -5,6 +5,7 @@ import { useCityEditor } from '@/context/CityEditorContext';
 import { generateCitySection } from '../../../../services/ai';
 import { AiFieldHelper } from '../../AiFieldHelper';
 import { saveCityDetails } from '../../../../services/cityService';
+import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
 
 const RATING_LABELS: Record<string, string> = {
@@ -76,7 +77,7 @@ export const TabRatings = () => {
             const newCity = { ...city };
             
             const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Valutazioni (in 0s)`;
-            newCity.details.generationLogs = [...(newCity.details.generationLogs || []), newLog];
+            newCity.details.generationLogs = appendGenerationLogs(newCity.details.generationLogs, [newLog]);
             
             newCity.details.ratings = { ...resetRatings, ...data.ratings };
             

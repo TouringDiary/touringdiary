@@ -1,7 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Clock, Loader2 } from 'lucide-react';
 import type { CollaborationDomainEvent } from '@/domain/collaboration/domainEvent';
-import { listCollaborationEventsForWorkspace } from '@/services/collaboration/domainEventService';
+import {
+  listCollaborationEventsForWorkspace,
+  mapCollaborationDomainEventRow,
+} from '@/services/collaboration/domainEventService';
+import { supabase } from '@/services/supabaseClient';
+
+type DomainEventInsertRow = Parameters<typeof mapCollaborationDomainEventRow>[0];
+
+function isDomainEventInsertRow(row: unknown): row is DomainEventInsertRow {
+  if (typeof row !== 'object' || row === null) return false;
+  const candidate = row as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.domain === 'string' &&
+    typeof candidate.event_type === 'string' &&
+    typeof candidate.summary === 'string' &&
+    typeof candidate.created_at === 'string'
+  );
+}
 
 interface Props {
   workspaceId: string;
@@ -19,12 +37,48 @@ export const CollaborationActivityFeed: React.FC<Props> = ({
   const [events, setEvents] = useState<CollaborationDomainEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadEvents = useCallback(async () => {
+    const next = await listCollaborationEventsForWorkspace(workspaceId, limit);
+    setEvents(next);
+  }, [workspaceId, limit]);
+
   useEffect(() => {
     setIsLoading(true);
-    void listCollaborationEventsForWorkspace(workspaceId, limit)
-      .then(setEvents)
-      .finally(() => setIsLoading(false));
-  }, [workspaceId, limit]);
+    void loadEvents().finally(() => setIsLoading(false));
+  }, [loadEvents]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`workspace-activity-${workspaceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'collaboration_domain_events',
+          filter: `workspace_id=eq.${workspaceId}`,
+        },
+        (payload) => {
+          const row = payload.new;
+          if (!isDomainEventInsertRow(row)) {
+            void loadEvents();
+            return;
+          }
+
+          const event = mapCollaborationDomainEventRow(row);
+          setEvents((prev) => {
+            if (prev.some((existing) => existing.id === event.id)) return prev;
+            const next = [event, ...prev];
+            return next.length > limit ? next.slice(0, limit) : next;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [workspaceId, loadEvents, limit]);
 
   const listClass =
     layout === 'hub'

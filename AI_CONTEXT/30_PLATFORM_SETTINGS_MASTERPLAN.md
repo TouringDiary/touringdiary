@@ -1,0 +1,571 @@
+# DOC 30: Centro di Controllo — Platform Settings Masterplan (SSOT)
+
+> **Single Source of Truth (SSOT)** per il **Centro di Controllo** e la configurazione operativa globale di TouringDiary.
+> **Non appartiene al dominio Sponsor** né al futuro dominio Messaggistica — governa feature flags, testi, soglie, manutenzione e audit trasversali.
+> **Nessuna implementazione inizia finché lo stato non è *Pronto per Implementazione*.**
+
+---
+
+## Ownership del Centro di Controllo
+
+Questo documento è il **proprietario esclusivo** della configurazione operativa della piattaforma.
+
+| Principio | Regola |
+|-----------|--------|
+| **Proprietà** | Feature Flags, soglie operative, testi configurabili gestiti dal Centro di Controllo, audit delle modifiche, programmazione toggle — **solo qui** |
+| **Consumer** | Sponsor, AI, Community, Messaggistica (futura), Economia e ogni altro dominio **consumano** le configurazioni — non le possiedono |
+| **Feature Flags** | **Nessun dominio** definisce o possiede direttamente le proprie flag; eventuali requisiti di dominio (es. «candidature sponsor sospese») si traducono in voci del registry **Centro di Controllo** |
+| **Anti-pattern** | Vietato duplicare in DOC 29 o in futuri SSOT di dominio la logica di ownership di flag, soglie o testi operativi globali |
+
+I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano proprietari di *come funziona* il proprio perimetro.
+
+---
+
+## Stato del documento
+
+| Campo | Valore |
+|-------|--------|
+| **Versione** | 0.3.2 |
+| **Ultima revisione** | 2026-07-14 |
+| **Stato** | In Analisi |
+| **Percorso SSOT** | `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` |
+| **UI Admin (nome definitivo PO)** | **Centro di Controllo** — **non rinominare** (DL-P02, conferma 2026-07-14) |
+| **Prossimo passo** | Inventario chiavi vs Configuration Source; implementazione catalogo in WF-02 STEP-3 |
+
+### Naming (decisione PO — DL-P02)
+
+| Voce | Ruolo |
+|------|-------|
+| **Centro di Controllo** | Hub operativo: feature flags, testi, soglie, manutenzione, audit — footer Admin sotto **Utenti & Ruoli** |
+| **Impostazioni Globali** | **Invariato** — gruppo Sistema: Design System, Foundation, Categorie POI, Integrazioni Partner, Workspace |
+
+---
+
+## Obiettivo
+
+Definire **prima dell'implementazione**:
+
+1. Il **Centro di Controllo** come hub di **configurazione operativa** (macro-sezioni con sotto-configurazioni indipendenti — DL-P07).
+2. Un **sistema Feature Flags** scalabile (manuale, programmato, override, audience) — **non** solo booleani: anche testi, banner, avvisi, messaggi disabilitazione (DL-P07).
+3. Manutenzione via **News Bar** esistente — messaggio fisso + altre news in scorrimento (DL-P06).
+4. Audit completo di ogni modifica.
+5. Separazione netta da DOC 29 (Sponsor), **AI Control Center** (on/off — DL-P08), futuro dominio Messaggistica.
+
+---
+
+## Perimetro e confini SSOT
+
+### In scope (DOC 30)
+
+| Area | Responsabilità DOC 30 |
+|------|----------------------|
+| Centro di Controllo UI | Macro-sezioni + sotto-sezioni configurabili indipendentemente (DL-P07) |
+| Feature Flag Engine | Schema, categorie, scheduling, audience, default |
+| Testi / banner / avvisi operativi | Message Template Source — messaggi disabilitazione funzioni, manutenzione, descrizioni |
+| Soglie globali trasversali | Es. rating alert Sponsor (valore), non logica calcolo |
+| Modalità manutenzione | Orchestrazione messaggio **fisso** in News Bar (DL-P06) |
+| Audit modifiche Centro di Controllo | Chi, quando, prima/dopo |
+| Programmazione automatica toggle | Window temporali + override manuale |
+
+### Fuori scope (altri SSOT / Workflow)
+
+| Area | Documento / Workflow |
+|------|----------------------|
+| Lifecycle, sicurezza, CRM layout Sponsor | `29_SPONSOR_SECURITY_MASTERPLAN.md` |
+| Motore conversazioni | **Futuro WF + SSOT Messaggistica** (post G-MSG-1) — escluso WF-02 |
+| **Privacy avanzata** (gestione compliance estesa) | **Futuro WF-03** — escluso WF-02 (DL-P09) |
+| Design System, asset, taxonomy | **Impostazioni Globali** |
+| **AI Control Center** — attiva/disattiva AI | **Strumento separato** — non unificato in Centro di Controllo (DL-P08) |
+| Economia crediti AI, pricing dettaglio | `04_PROJECT_PRICING_MAP.md` + AI Control Center |
+| Moderazione contenuti (workflow) | `27_USER_REVIEW_SYSTEM.md` — CC espone solo flag |
+
+### Principio di separazione (audit architetturale)
+
+```
+Centro di Controllo (DOC 30)     →  COSA è configurato (flag, testi, soglie, schedule)
+AI Control Center (separato)     →  Attiva / Disattiva AI (on/off operativo — DL-P08)
+Dominio Sponsor (DOC 29)         →  COME funziona contratto, pipeline, permessi business
+Dominio Messaggistica (futuro)   →  COME funzionano thread e messaggi
+```
+
+Il Centro di Controllo **non implementa** logica di dominio; **configura** e **governa** l'accesso.
+
+### Configuration Source (astrazione architetturale)
+
+Il documento **non dipende** dalla tabella `global_settings`. Le configurazioni strutturate (flag, soglie, schedule, metadati legali) sono modellate come **Configuration Source** — interfaccia logica indipendente dal backend.
+
+| Aspetto | Descrizione |
+|---------|-------------|
+| **Implementazione attuale** | Tabella PostgreSQL `global_settings` (`key` → `value` JSON), accesso via `settingsService` / `ConfigContext` |
+| **Evoluzioni possibili** | Registry dedicato `feature_flags`; store chiave-valore esterno; cache distribuita; API config dedicata — **senza** modificare il modello architetturale di questo SSOT |
+| **Chiavi logiche** | Identificatori stabili (es. `feature.ai.users`, `threshold.sponsor_rating_alert_stars`) indipendenti dalla tabella fisica |
+
+Analogamente, i testi UI configurabili usano **Message Template Source** (implementazione attuale: `system_messages` + `communicationService`); stessa regola di indipendenza dal dettaglio storage.
+
+Nelle tabelle sezioni: colonna **Configuration Source** = chiavi logiche; colonna **Message Template Source** = chiavi messaggio.
+
+---
+
+## Gate progettuali
+
+| ID | Gate | Condizione | Blocca |
+|----|------|------------|--------|
+| **G-CC-1** | Pronto per Implementazione DOC 30 | DoD-P1–P8 soddisfatti | Qualsiasi codice Centro di Controllo |
+| **G-MSG-1** | Messaggistica unificata | Vedi DOC 29 — sequenza obbligatoria 1→5 | Implementazione motore chat (WF futuro) |
+| **G-AI-SEP** | Separazione AI Control Center | PO: **non** unificare con Centro di Controllo (DL-P08) | ☑ Risolto — restano due strumenti |
+
+**Nota:** il gate **G-AI-MERGE** (unificazione) è **superato** da DL-P08 (2026-07-14). Non applicare convergenza UI AI in WF-02.
+
+**Sequenza G-MSG-1 (registrata anche in DOC 29):**
+
+1. Risolvere approvazione Sponsor (403 / RPC gateway).
+2. Completare dominio Sponsor (implementazione unica DOC 29).
+3. **Stop** — nessun lavoro su chat unificata.
+4. Review UI messaggistica completa con PO.
+5. Solo dopo → sviluppo motore messaggistica (dominio autonomo).
+
+---
+
+## Centro di Controllo — struttura (macro-sezioni PO — DL-P07)
+
+**Nome UI:** **Centro di Controllo** — immutabile (DL-P02).
+
+**Posizione menu:**
+
+```
+Footer Admin Panel
+├── Dashboard Generale
+├── Utenti & Ruoli
+├── Centro di Controllo
+└── Torna all'App
+```
+
+**Principio organizzativo (PO 2026-07-14):** macro-sezioni con **sotto-configurazioni indipendenti**. **Vietato** un unico interruttore che spegne intere aree se esistono sotto-leve distinte (es. AI Utente vs AI Admin All vs AI Admin Limited).
+
+Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disabilitazione, descrizioni, manutenzione** — tutto editabile senza deployment.
+
+### Matrice permessi Centro di Controllo (DoD-P3 — PO 2026-07-14)
+
+| Macro-sezione | `admin_all` | `admin_limited` |
+|---------------|-------------|-----------------|
+| Tutte le macro-sezioni | Scrittura | Lettura (consultazione; no modifica configurazione globale) |
+| Manutenzione ON/OFF | Scrittura | Lettura |
+| Kill switch / emergenza AI (se esposto in CC) | Scrittura + motivazione | Lettura |
+| Storico audit | Lettura + export | Lettura |
+
+**Regola:** gestione ruoli (`admin_all` / `admin_limited`) resta in **Utenti & Ruoli** — non nel Centro di Controllo (allineamento DL-027 DOC 29).
+
+---
+
+### Macro-sezione — AI
+
+**Nota:** **AI Control Center** (strumento separato — DL-P08) resta per **Attiva/Disattiva** rapido. Il Centro di Controllo configura **granularità e messaggi**.
+
+| Sotto-sezione | Configurazioni indipendenti (esempio) | Configuration Source (logiche) |
+|---------------|--------------------------------------|--------------------------------|
+| **AI Acquisto** | Acquisto crediti ON/OFF; messaggio pausa | `feature.economy.credit_purchase`, … |
+| **AI Utilizzo** | AI Utente ON/OFF; AI Admin All ON/OFF; AI Admin Limited ON/OFF | `feature.ai.users`, `feature.ai.admin_all`, `feature.ai.admin_limited` |
+| **AI Admin** | Rigenerazione city; tool admin-specifici | `feature.ai.admin.*` (registry estensibile) |
+
+**Message Template Source:** `ai_disabled_user`, `ai_disabled_admin`, `ai_disabled_admin_limited`, `ai_emergency_notice`, …
+
+---
+
+### Macro-sezione — Chat
+
+| Sotto-sezione | Configurazioni | Note |
+|---------------|----------------|------|
+| Admin ↔ Partner | `feature.comms.admin_partner` | Consumer messaggistica futura |
+| Utente ↔ Sponsor | `feature.comms.user_sponsor` | Fase 1 OFF (DOC 29 D17) |
+| Notifiche | `feature.comms.notifications` | |
+
+**Testi:** messaggi quando chat disabilitata; disclosure privacy CRM → Message Template Source (testi operativi, non privacy avanzata WF-03).
+
+---
+
+### Macro-sezione — Monetizzazione
+
+| Sotto-sezione | Configurazioni |
+|---------------|----------------|
+| Crediti / Stripe | Kill switch acquisto; messaggi pausa |
+| Abbonamenti | Flag upgrade piano |
+
+*Dettaglio pricing → `04_PROJECT_PRICING_MAP.md`.*
+
+---
+
+### Macro-sezione — Feature Flag (registry)
+
+Meta-gestione: categorie, `supports_schedule`, `supports_audience`, defaults globali. Non duplica toggle di dominio — li registra.
+
+---
+
+### Macro-sezione — Sponsor (operativo)
+
+| Configurazione | Key logica |
+|----------------|------------|
+| Nuove candidature ON/OFF | `feature.sponsor.applications` |
+| Soglia rating alert (stelle) | `threshold.sponsor_rating_alert_stars` (default 3) |
+| Shop pubblici | `feature.sponsor.shop_public` |
+
+Logica alert UI → DOC 29 DL-030; soglia numerica → qui.
+
+---
+
+### Macro-sezione — Moderazione
+
+Flag: recensioni, upload foto, segnalazioni, post community — vedi catalogo § sotto.
+
+---
+
+### Macro-sezione — Testi e messaggi
+
+Editor centralizzato: messaggi piattaforma, banner, avvisi, testi disabilitazione funzioni, descrizioni. **Escluso:** privacy avanzata / compliance estesa → **WF-03**.
+
+---
+
+### Macro-sezione — Manutenzione (DL-P06)
+
+| Aspetto | Regola PO |
+|---------|-----------|
+| **UI attivazione** | Centro di Controllo → Manutenzione → ON/OFF + messaggio |
+| **News Bar utente** | **Non sparisce**; messaggio manutenzione **fisso** dentro la barra |
+| **Altre news** | Continuano a scorrere normalmente |
+| **Vietato** | Nuovi banner; modalità esclusiva che sopprime tutte le news |
+
+**Oggi CRUD ticker:** Admin → **Community** → **News Ticker** (`NewsTickerManager`) — resta per contenuti generali; CC orchestra solo item manutenzione prioritario/fisso.
+
+---
+
+### Macro-sezione — Storico modifiche
+
+Audit read-only; export CSV. Stream `platform_control_audit` (DL-P05).
+
+---
+
+### Macro-sezione — Programmazione automatica
+
+Schedule per flag con `supports_schedule: true`; override manuale prioritario (DL-P04).
+
+---
+
+### Sezioni Centro di Controllo — perimetro implementativo (DL-P10)
+
+Tutte le **macro-sezioni già approvate** in questo SSOT (AI, Chat, Monetizzazione, Feature Flag registry, Sponsor operativo, Moderazione, Testi e messaggi, Manutenzione, Storico audit, Programmazione) sono **in scope** per **WF-02 STEP-3**.
+
+**Nuove** macro-sezioni (es. Accesso, Workspace, Gamification, Territorio) si aggiungono **solo** quando nasce un nuovo dominio o esigenza progettuale — con nuovo SSOT/Workflow, non per espansione arbitraria v1.
+
+| Sezione proposta (non ancora dominio) | Stato |
+|---------------------------------------|-------|
+| Accesso & Registrazione | Coperta da flag catalogo in macro **Piattaforma** — non sezione CC separata finché non richiesto |
+| Collaborazione & Workspace | Dominio DOC 28 — fuori CC v1; flag `feature.platform.collaboration_live` in catalogo WF-02 |
+| Gamification | Dominio DOC 16/06 — fuori CC v1 dedicato |
+| Territorio & Contenuti | Dominio territoriale — fuori CC v1 dedicato |
+
+*Economia coperta da macro Monetizzazione.*
+
+## Feature Flags — spiegazione funzionale (PO)
+
+Una **Feature Flag** («interruttore di funzionalità») è un controllo centralizzato che permette agli amministratori di **accendere o spegnere** una parte della piattaforma **senza modificare il codice** e **senza pubblicare una nuova versione**.
+
+| Concetto | Significato per il PO |
+|----------|----------------------|
+| **ON** | La funzionalità è disponibile per le audience configurate |
+| **OFF** | La funzionalità è disattivata; l'utente vede un messaggio configurabile dove previsto |
+| **Default** | Stato quando non c'è né programmazione attiva né override manuale |
+| **Programmazione** | Es. «spegni AI ogni martedì 02:00–04:00» per manutenzione |
+| **Override manuale** | «Accendi subito» anche se c'è una programmazione — **vince sempre** |
+| **Audience** | A chi si applica: tutti, solo utenti registrati, solo partner, ecc. — **mai** `admin_all` |
+
+**Perché un sistema unificato:** toggle sparsi creano incoerenza. Il **Centro di Controllo** configura granularità e messaggi; **AI Control Center** resta strumento separato on/off (DL-P08).
+
+### Pianificazione Feature Flags per Workflow (DL-P11)
+
+**Principio architetturale (catalogo evolutivo):** il catalogo Feature Flag rappresenta il **catalogo iniziale approvato** dal Product Owner. Nuovi Feature Flag potranno essere aggiunti **in qualsiasi momento** senza modificare la struttura del Centro di Controllo, senza modificare l'architettura del registry e **senza richiedere una revisione** del presente SSOT — salvo **modifiche strutturali** al modello (es. nuovo tipo di audience, cambio schema audit).
+
+*In sintesi:* chiusa la **versione iniziale** approvata; **aperta** l'espansione continua — l'architettura è progettata per supportarla.
+
+Catalogo v1 **approvato** — registry **estensibile**. Tutti i toggle sotto sono in perimetro implementativo WF-02.
+
+| Key / gruppo | Workflow | STEP / nota |
+|--------------|----------|-------------|
+| `feature.ai.users`, `feature.ai.admin_all`, `feature.ai.admin_limited`, `feature.ai.emergency` | **WF-02** | STEP-3 — macro AI (config CC); on/off rapido resta AI Control Center (DL-P08) |
+| `feature.economy.credit_purchase`, `feature.economy.subscriptions` | **WF-02** | STEP-3 — Monetizzazione |
+| `feature.comms.admin_partner`, `feature.comms.user_sponsor`, `feature.comms.notifications` | **WF-02** | STEP-3 — consumer chat; `user_sponsor` preparato OFF in STEP-2 Fase 5 |
+| `feature.sponsor.applications`, `feature.sponsor.shop_public` | **WF-02** | STEP-3 + consumer DOC 29 |
+| `threshold.sponsor_rating_alert_stars` | **WF-02** | STEP-3 — soglia; consumer STEP-2 Fase 6 |
+| `feature.moderation.*` (reviews, photos, suggestions, community_posts) | **WF-02** | STEP-3 |
+| `feature.platform.maintenance`, `registration`, `onboarding`, `collaboration_live` | **WF-02** | STEP-3 |
+| Message Template Source (`platform.*`, `sponsor.*`, `comms.*`, …) | **WF-02** | STEP-3 Fase 3.3 |
+| Motore messaggistica unificato (consolidamento) | **WF futuro** | Post G-MSG-1 step 5 — non è un flag mancante |
+| Privacy avanzata / compliance estesa | **WF-03** | DL-P09 — fuori WF-02 |
+
+**Toggle approvati senza Workflow:** **nessuno** — tutti i flag del catalogo § sotto hanno destinazione WF-02 o WF-03 (privacy) o WF futuro messaggistica (dominio, non singolo flag).
+
+### Decisioni PO — stato (DOC 30)
+
+*Tutte le decisioni progettuali DOC 30 sono **chiuse**.*
+
+---
+
+### Dove vive la documentazione Feature Flags
+
+| Fase | SSOT |
+|------|------|
+| **Ora → ~20 flag operativi** | **DOC 30** (sottosezione Feature Flag Engine) |
+| **Futuro (>25 flag o team dedicato)** | Valutare `31_FEATURE_FLAGS_MASTERPLAN.md` — **non ora** |
+
+**Raccomandazione:** registry estensibile in DOC 30 con categorie; estrarre DOC 31 solo quando il registry supera soglia o scheduling diventa dominio a sé.
+
+---
+
+## Feature Flag Engine — modello architetturale
+
+### Schema logico (proposta — non implementare)
+
+```json
+{
+  "key": "feature.ai.users",
+  "category": "ai",
+  "label": "AI per utenti",
+  "default": true,
+  "supports_schedule": true,
+  "supports_audience": true,
+  "manual_override": null,
+  "schedules": [],
+  "audience": ["registered", "business"],
+  "blocked_audiences": [],
+  "message_key": "ai_disabled_user",
+  "audit_required": true
+}
+```
+
+### Risoluzione valore effettivo
+
+```
+effective = manual_override ?? (active_schedule?.value) ?? default
+```
+
+Se `user.audience` in `blocked_audiences` → flag valutato come OFF **eccetto** `admin_all` (sempre esente).
+
+### Audience — riutilizzabile
+
+| Audience | Descrizione |
+|----------|-------------|
+| `public` | Visitatori non autenticati |
+| `registered` | Utenti loggati (`user`) |
+| `business` | Partner / business |
+| `admin_limited` | Admin limitati |
+| `admin_all` | Super admin — **mai bloccabile** |
+
+**Raccomandazione:** framework audience **unico** per tutti i flag con `supports_audience: true`. Flag senza audience (es. manutenzione globale) si applicano a tutti tranne che per operazioni admin.
+
+---
+
+## Catalogo Feature Flags v1 (catalogo iniziale PO — DL-P11)
+
+*Versione iniziale ☑. Vedi **Principio architetturale (catalogo evolutivo)** sopra — nuovi toggle ammessi senza revisione SSOT salvo modifiche strutturali.*
+
+### Categoria — AI & Automazione (macro AI)
+
+| Nome funzionale | Key | Macro | Note |
+|-----------------|-----|-------|------|
+| AI Utente | `feature.ai.users` | AI → Utilizzo | Planner, suggerimenti diario |
+| AI Admin All | `feature.ai.admin_all` | AI → Utilizzo | Tool admin super-admin |
+| AI Admin Limited | `feature.ai.admin_limited` | AI → Utilizzo | Tool admin limitato |
+| Acquisto crediti AI | `feature.economy.credit_purchase` | AI → Acquisto / Monetizzazione | |
+| Stop emergenza AI | `feature.ai.emergency` | AI | Kill switch globale chiamate |
+
+### Categoria — Comunicazione
+
+| Nome funzionale | Key | Abilita/disabilita | Audience | Schedule | Override | Messaggio | Audit |
+|-----------------|-----|-------------------|----------|----------|----------|-----------|-------|
+| Chat Admin↔Partner | `feature.comms.admin_partner` | CRM messaggi sponsor | business, admin_* | Sì | Sì | `comms_partner_chat_disabled` | Sì |
+| Chat Utente↔Sponsor | `feature.comms.user_sponsor` | Chat utente verso sponsor | registered | Sì | Sì | `comms_user_sponsor_disabled` | Sì |
+| Notifiche in-app | `feature.comms.notifications` | Centro notifiche | registered | Sì | Sì | — | Sì |
+
+### Categoria — Business & Sponsor
+
+| Nome funzionale | Key | Abilita/disabilita | Audience | Schedule | Override | Messaggio | Audit |
+|-----------------|-----|-------------------|----------|----------|----------|-----------|-------|
+| Nuove candidature Sponsor | `feature.sponsor.applications` | Invio modulo Diventa Partner | public, registered | Sì | Sì | `sponsor_applications_paused` | Sì |
+| Shop partner pubblici | `feature.sponsor.shop_public` | Vetrine shop in città | public | Sì | Sì | — | Sì |
+
+### Categoria — Community & Moderazione
+
+| Nome funzionale | Key | Abilita/disabilita | Audience | Schedule | Override | Messaggio | Audit |
+|-----------------|-----|-------------------|----------|----------|----------|-----------|-------|
+| Nuove recensioni | `feature.moderation.reviews` | Invio recensioni | registered | Sì | Sì | `moderation_reviews_paused` | Sì |
+| Upload foto community | `feature.moderation.photos` | Invio foto | registered | Sì | Sì | `moderation_uploads_paused` | Sì |
+| Segnalazioni utenti | `feature.moderation.suggestions` | Modulo segnalazione POI | registered | Sì | Sì | — | Sì |
+| Post community | `feature.moderation.community_posts` | Bacheca / live snaps | registered | Sì | Sì | — | Sì |
+
+### Categoria — Piattaforma & Accesso
+
+| Nome funzionale | Key | Abilita/disabilita | Audience | Schedule | Override | Messaggio | Audit |
+|-----------------|-----|-------------------|----------|----------|----------|-----------|-------|
+| Modalità manutenzione | `feature.platform.maintenance` | Messaggio **fisso** in News Bar + altre news scorrono (DL-P06) | tutti | Sì | Sì | `maintenance_ticker_message` | Sì + motivazione |
+| Registrazione nuovi utenti | `feature.platform.registration` | Signup | public | Sì | Sì | `registration_closed` | Sì |
+| Onboarding guidato | `feature.platform.onboarding` | Tour iniziale | registered | No | Sì | — | Sì |
+| Collaborazione live | `feature.platform.collaboration_live` | Presenza live workspace | registered | Sì | Sì | — | Sì |
+
+### Categoria — Economia & Pagamenti
+
+| Nome funzionale | Key | Abilita/disabilita | Audience | Schedule | Override | Messaggio | Audit |
+|-----------------|-----|-------------------|----------|----------|----------|-----------|-------|
+| Acquisto crediti AI | *(chiave unica — vedi AI → Acquisto)* | Checkout Stripe crediti | registered | Sì | Sì | `credits_purchase_paused` | Sì + motivazione |
+| Abbonamenti premium | `feature.economy.subscriptions` | Upgrade piano | registered | Sì | Sì | — | Sì |
+
+---
+
+## Appendice A — Chiavi Message Template Source (v1 — approvato macro)
+
+Vedi macro-sezioni sopra. Prefissi: `platform.*`, `sponsor.*`, `comms.*`, `ai.*`, `moderation.*`. *Testi legali/privacy avanzata → WF-03 (DL-P09).* *Implementazione attuale:* tabella `system_messages`.
+
+Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sponsor_rating_alert_stars` (default `3`) — *attuale:* `global_settings`.
+
+---
+
+## Definition of Done
+
+| ID | Criterio | Stato |
+|----|----------|-------|
+| **DoD-P1** | Naming Centro di Controllo validato PO | ☑ |
+| **DoD-P2** | Catalogo Feature Flags v1 approvato PO | ☑ (DL-P07 macro + DL-P11 catalogo chiuso) |
+| **DoD-P3** | Matrice permessi per sezione | ☑ (admin_all scrittura; admin_limited lettura — 2026-07-14) |
+| **DoD-P4** | Modello scheduling + override documentato | ☑ |
+| **DoD-P5** | Modello audience documentato | ☑ |
+| **DoD-P6** | Regola manutenzione News Ticker approvata PO | ☑ (messaggio fisso + news scorrono — DL-P06) |
+| **DoD-P7** | Schema audit definito | ☑ |
+| **DoD-P8** | Gate G-AI-SEP / separazione AI Control Center | ☑ (DL-P08 — **non** unificare) |
+| **DoD-P9** | Nessuna implementazione senza gate G-CC-1 | ☑ |
+
+---
+
+## Decision Log
+
+**Regole di manutenzione (oltre a immutabilità voci):**
+
+- Se una responsabilità documentata qui viene **trasferita** a un nuovo dominio SSOT, la voce DL **resta** nel Decision Log con nota: *«Responsabilità trasferita a `<path nuovo SSOT>` — vedi DL-xxx del documento destinatario»*. Non cancellare lo storico.
+
+### DL-P01
+
+**Data:** 2026-07-13 — **Decisione:** Creare SSOT DOC 30 separato da DOC 29.
+
+### DL-P02
+
+**Data:** 2026-07-13
+
+**Decisione (PO):** La sezione operativa Admin si chiama **Centro di Controllo**. **Impostazioni Globali** resta invariata (Sistema).
+
+**Motivazione:** Elimina ambiguità naming; hub operativo distinto da configurazione design/infrastruttura.
+
+**Impatto:** Footer Admin; tutti i riferimenti «Impostazioni» operativi → Centro di Controllo.
+
+### DL-P03
+
+**Data:** 2026-07-13
+
+**Decisione (PO):** Modalità manutenzione **senza nuovi banner** — riusa **News Ticker**.
+
+**Motivazione:** Riutilizzo componente esistente; coerenza visiva.
+
+**Impatto:** Orchestrazione da Centro di Controllo. *Regola modalità esclusiva (proposta audit 2026-07-13) **non adottata** — vedi DL-P06 (2026-07-14).*
+
+### DL-P06
+
+**Data:** 2026-07-14
+
+**Decisione (PO):** In manutenzione: la **News Bar non sparisce**. Il messaggio manutenzione resta **fisso** all'interno della News Bar; le **altre news continuano a scorrere**. Nessun nuovo banner.
+
+**Motivazione:** Visibilità manutenzione senza bloccare comunicazioni operative.
+
+**Impatto:** Orchestratore ticker; sostituisce proposta «modalità esclusiva» pendente in DL-P03. DoD-P6 ☑.
+
+### DL-P07
+
+**Data:** 2026-07-14
+
+**Decisione (PO):** **Centro di Controllo** organizzato in **macro-sezioni** (AI, Chat, Monetizzazione, Feature Flag, Sponsor, Moderazione, Testi, Manutenzione, …) con **sotto-configurazioni indipendenti**. Vietato interruttore unico che spegne intere aree se esistono sotto-leve (es. AI Utente / AI Admin All / AI Admin Limited separati). CC gestisce booleani **e** testi/banner/avvisi/messaggi disabilitazione **senza deployment**.
+
+**Motivazione:** Granularità operativa; configurazione piattaforma centralizzata.
+
+**Impatto:** Ristrutturazione § Centro di Controllo; DoD-P2 macro ☑.
+
+### DL-P08
+
+**Data:** 2026-07-14
+
+**Decisione (PO):** **NON unificare** AI Control Center con Centro di Controllo. Restano **due strumenti**:
+
+| Strumento | Ruolo |
+|-----------|-------|
+| **AI Control Center** | Attiva / Disattiva (on/off operativo) |
+| **Centro di Controllo** | Gestione e configurazione piattaforma (flag granulari, testi, schedule) |
+
+**Motivazione:** Separazione accensione rapida vs configurazione fine.
+
+**Impatto:** Gate G-AI-MERGE **revocato**; G-AI-SEP ☑. WF-02 STEP-3: nessuna convergenza UI AI.
+
+### DL-P09
+
+**Data:** 2026-07-14
+
+**Decisione (PO):** **Privacy avanzata** (gestione compliance estesa) **fuori WF-02** → anticipata **WF-03**. Messaggistica unificata resta fuori WF-02 (già G-MSG-1).
+
+**Motivazione:** Perimetro WF-02 = Sponsor + Centro di Controllo operativo base.
+
+**Impatto:** Sezione Privacy avanzata rimossa da scope implementazione WF-02; registrata in `01_EXECUTION_ROADMAP.md` §6 anticipazioni.
+
+### DL-P10
+
+**Data:** 2026-07-14
+
+**Decisione (DEC-CC-SCOPE — PO):** Tutte le macro-sezioni **già approvate** in DOC 30 vanno implementate nel **Workflow previsto** (WF-02 STEP-3). Nuove sezioni CC solo con **nuovi domini/esigenze** progettuali — non espansione v1 arbitraria.
+
+**Impatto:** § *Sezioni Centro di Controllo — perimetro implementativo*; WF-02 STEP-3 allineato.
+
+### DL-P11
+
+**Data:** 2026-07-14
+
+**Decisione (DEC-CC-CATALOG — PO):** Tutti i Feature Flag e toggle **già approvati** fanno parte del perimetro implementativo. Catalogo **estensibile** per nuovi toggle senza ridisegnare architettura.
+
+**Impatto:** § *Pianificazione Feature Flags per Workflow*; DoD-P2 ☑ definitivo.
+
+### DL-P04
+
+**Data:** 2026-07-13
+
+**Decisione (PO):** Feature flags con: valore default, override manuale (prioritario), programmazione temporale, audience per tipologia utenza. `admin_all` mai bloccabile.
+
+**Motivazione:** Flessibilità operativa senza deploy; sicurezza admin.
+
+**Impatto:** Feature Flag Engine unificato; metadato `supports_schedule` / `supports_audience` per evitare rigidità.
+
+### DL-P05
+
+**Data:** 2026-07-13
+
+**Decisione (audit):** Audit modifiche Centro di Controllo: obbligatori `actor`, `timestamp`, `value_before`, `value_after`. **Motivazione raccomandata** per: manutenzione, kill switch AI, modifiche legali.
+
+---
+
+## Aggiornamenti al Masterplan
+
+*Sessione 2026-07-14 — review PO:* DL-P06–P09; macro-sezioni CC; G-AI-SEP; DoD-P2/3/6/8 ☑.
+
+*Sessione 2026-07-13 — v0.2.1:* Ownership; Configuration Source; Runtime Integration.
+
+---
+
+### Cronologia documento
+
+| Versione | Data | Modifiche |
+|----------|------|-----------|
+| 0.1.0 | 2026-07-13 | Creazione SSOT |
+| 0.2.0 | 2026-07-13 | Centro di Controllo; sezioni complete; Feature Flag Engine; gate; manutenzione ticker |
+| 0.2.1 | 2026-07-13 | Ownership; Configuration Source; Runtime Integration |
+| 0.3.0 | 2026-07-14 | Review PO: DL-P06–P09; macro-sezioni; AI separato; WF-03 privacy; DoD aggiornati |
+| 0.3.1 | 2026-07-14 | Chiusura DEC-CC-SCOPE/CATALOG: DL-P10–P11; pianificazione flag per WF |
+| 0.3.2 | 2026-07-14 | Principio catalogo evolutivo (espansione flag senza revisione SSOT) |

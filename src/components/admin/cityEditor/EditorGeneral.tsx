@@ -96,18 +96,23 @@ export const EditorGeneral = () => {
         if (!city.name) { alert("Inserisci nome città."); return; }
         setFieldLoading(field);
         try {
-            const result = await generateSingleField(city.name, field);
-            if (!result) throw new Error("No result");
-
             let updatedCity = { ...city };
-            
+
             if (field === 'website') {
+                const result = await generateSingleField(city.name, 'website');
+                if (!result) throw new Error("No result");
                 updatedCity.details = { ...updatedCity.details, officialWebsite: result };
             } else if (field === 'coords') {
+                const result = await generateSingleField(city.name, 'coords');
+                if (!result) throw new Error("No result");
                 updatedCity.coords = { lat: result.lat, lng: result.lng };
             } else if (field === 'subtitle') {
+                const result = await generateSingleField(city.name, 'subtitle');
+                if (!result) throw new Error("No result");
                 updatedCity.details = { ...updatedCity.details, subtitle: result };
             } else if (field === 'hierarchy') {
+                const result = await generateSingleField(city.name, 'hierarchy');
+                if (!result) throw new Error("No result");
                 if (result.continent) updatedCity.continent = result.continent;
                 if (result.nation) updatedCity.nation = result.nation;
                 if (result.adminRegion) updatedCity.adminRegion = result.adminRegion;

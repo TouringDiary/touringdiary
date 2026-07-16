@@ -1,3 +1,4 @@
+import { resolveAuthenticatedUserId } from '../auth/authIdentity';
 import { supabase } from '../supabaseClient';
 import { PremadeItinerary, Itinerary, ItineraryItem } from '../../types/index';
 import { normalizeDiaryNotesState } from '../../domain/diary/diaryNotesState';
@@ -226,27 +227,9 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
     }
 
     try {
-        // 2. RECUPERO SESSIONE (STRATEGIA "OTTIMISTICA")
-        let realUserId = user.id;
-
-        const { data: sessionData } = await supabase.auth.getSession();
-        
-        if (sessionData?.session?.user) {
-            realUserId = sessionData.session.user.id;
-        } else {
-            // Tentativo refresh, ma non bloccante
-            const { data: userData } = await supabase.auth.getUser().catch(() => ({ data: null }));
-            if (userData?.user) {
-                realUserId = userData.user.id;
-            }
-        }
-
-        if (!realUserId || !UUID_REGEX.test(realUserId)) {
-             if(user.id && UUID_REGEX.test(user.id)) {
-                 realUserId = user.id;
-             } else {
-                 throw new Error("ID Utente non valido per il salvataggio.");
-             }
+        const realUserId = await resolveAuthenticatedUserId(user.id);
+        if (!realUserId) {
+            throw new Error('ID Utente non valido per il salvataggio.');
         }
 
         // Calcolo durata giorni

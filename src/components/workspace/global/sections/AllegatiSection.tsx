@@ -13,18 +13,26 @@ export const AllegatiSection: React.FC = () => {
 
   if (!activeWorkspaceId || !user) {
     return (
-      <div className="p-6 text-sm text-slate-500">
+      <div className="p-6 text-sm text-slate-500 h-full min-h-0 flex items-center">
         Seleziona un workspace per gestire gli allegati.
       </div>
     );
   }
 
   if (dashboard.isLoading && !dashboard.workspace) {
-    return <div className="p-6 text-sm text-slate-500">Caricamento allegati...</div>;
+    return (
+      <div className="p-6 text-sm text-slate-500 h-full min-h-0 flex items-center">
+        Caricamento allegati...
+      </div>
+    );
   }
 
   if (!dashboard.workspace) {
-    return <div className="p-6 text-sm text-red-300">Workspace non disponibile.</div>;
+    return (
+      <div className="p-6 text-sm text-red-300 h-full min-h-0 flex items-center">
+        Workspace non disponibile.
+      </div>
+    );
   }
 
   return (

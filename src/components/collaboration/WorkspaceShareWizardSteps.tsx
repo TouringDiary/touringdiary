@@ -1,62 +1,22 @@
 import React from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import type { Workspace } from '@/domain/collaboration';
 import type {
   WorkspaceCompositionBlueprint,
   WorkspaceCompositionDraft,
 } from '@/domain/collaboration/workspaceComposition';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
-import type { WorkspacePendingInvite } from './collaborationSharePresentation';
-import { WORKSPACE_ACCESS_LABELS } from './workspace/workspacePresentation';
 import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
+import {
+  buildCompositionCandidateMetadata,
+  CompositionSelectableRow,
+} from './compositionSelectableRow';
 
-interface CompositionSelectableRowProps {
-  selected: boolean;
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-  inputType: 'checkbox' | 'radio';
-  name?: string;
-  disabled?: boolean;
-}
-
-const CompositionSelectableRow: React.FC<CompositionSelectableRowProps> = ({
-  selected,
-  title,
-  subtitle,
-  onClick,
-  inputType,
-  disabled = false,
-}) => (
-  <button
-    type="button"
-    role={inputType === 'radio' ? 'radio' : 'checkbox'}
-    aria-checked={selected}
-    aria-readonly={disabled && inputType === 'checkbox' ? true : undefined}
-    disabled={disabled}
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${
-      disabled ? 'cursor-default opacity-90' : ''
-    } ${
-      selected
-        ? 'border-indigo-500/60 bg-indigo-500/10'
-        : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
-    }`}
-  >
-    <span
-      aria-hidden
-      className={`w-5 h-5 border flex items-center justify-center shrink-0 ${
-        inputType === 'radio' ? 'rounded-full' : 'rounded-md'
-      } ${selected ? 'border-indigo-500 bg-indigo-600' : 'border-slate-600'}`}
-    >
-      {selected && <Check className="w-3 h-3 text-white" />}
-    </span>
-    <div className="min-w-0">
-      <p className="text-sm font-semibold text-white truncate">{title}</p>
-      <p className="text-[10px] uppercase tracking-wider text-slate-500">{subtitle}</p>
-    </div>
-  </button>
-);
+export { WorkspaceInviteStep } from './WorkspaceInviteStep';
+export {
+  WorkspacePickElementStep,
+  type WorkspacePickedElement,
+} from './WorkspacePickElementStep';
 
 interface WorkspaceSetupStepProps {
   workspaceName: string;
@@ -103,6 +63,7 @@ interface WorkspaceCompositionStepProps {
   blueprint: WorkspaceCompositionBlueprint;
   draft: WorkspaceCompositionDraft;
   isExpandingDiary?: boolean;
+  catalogMode?: boolean;
   onSelectDiary: (diaryId: string | null) => void;
   onToggleSuitcase: (suitcaseId: string) => void;
   onToggleUserTemplate: (templateId: string) => void;
@@ -112,6 +73,7 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
   blueprint,
   draft,
   isExpandingDiary = false,
+  catalogMode = false,
   onSelectDiary,
   onToggleSuitcase,
   onToggleUserTemplate,
@@ -123,8 +85,9 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
   return (
     <div className="space-y-5">
       <p className="text-sm text-slate-400 leading-relaxed">
-        Scegli quali risorse includere nel Workspace. Puoi modificarle liberamente prima della
-        creazione.
+        {catalogMode
+          ? 'Scegli quali elementi includere nel Workspace.'
+          : 'Scegli quali risorse includere nel Workspace. Puoi modificarle liberamente prima della creazione.'}
       </p>
 
       <section className="space-y-2" aria-labelledby="workspace-composition-diary-heading">
@@ -135,7 +98,9 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
           Diario di Viaggio ({diaryCount})
         </h4>
         {blueprint.diary.candidates.length === 0 ? (
-          <p className="text-sm text-slate-500">Nessun Diario collegato disponibile.</p>
+          <p className="text-sm text-slate-500">
+            {catalogMode ? 'Nessun elemento Diario disponibile.' : 'Nessun Diario collegato disponibile.'}
+          </p>
         ) : (
           <ul
             className="space-y-2"
@@ -159,7 +124,7 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
                   inputType={blueprint.diary.mode === 'fixed' ? 'checkbox' : 'radio'}
                   selected={draft.selectedDiaryId === candidate.resourceId}
                   title={candidate.title}
-                  subtitle="Diario"
+                  subtitle={buildCompositionCandidateMetadata('Diario', candidate, catalogMode)}
                   disabled={blueprint.diary.mode === 'fixed'}
                   onClick={() => {
                     if (blueprint.diary.mode === 'fixed') return;
@@ -189,7 +154,9 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
             Caricamento valigie collegate…
           </div>
         ) : blueprint.suitcases.candidates.length === 0 ? (
-          <p className="text-sm text-slate-500">Nessuna Valigia disponibile.</p>
+          <p className="text-sm text-slate-500">
+            {catalogMode ? 'Nessun elemento Valigia disponibile.' : 'Nessuna Valigia disponibile.'}
+          </p>
         ) : (
           <ul className="space-y-2">
             {blueprint.suitcases.candidates.map((candidate) => (
@@ -198,7 +165,7 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
                   inputType="checkbox"
                   selected={draft.selectedSuitcaseIds.has(candidate.resourceId)}
                   title={candidate.title}
-                  subtitle="Valigia"
+                  subtitle={buildCompositionCandidateMetadata('Valigia', candidate, catalogMode)}
                   onClick={() => onToggleSuitcase(candidate.resourceId)}
                 />
               </li>
@@ -220,7 +187,11 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
             Caricamento template collegati…
           </div>
         ) : blueprint.userTemplates.candidates.length === 0 ? (
-          <p className="text-sm text-slate-500">Nessun Template User disponibile.</p>
+          <p className="text-sm text-slate-500">
+            {catalogMode
+              ? 'Nessun elemento Template disponibile.'
+              : 'Nessun Template User disponibile.'}
+          </p>
         ) : (
           <ul className="space-y-2">
             {blueprint.userTemplates.candidates.map((candidate) => (
@@ -229,7 +200,7 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
                   inputType="checkbox"
                   selected={draft.selectedUserTemplateIds.has(candidate.resourceId)}
                   title={candidate.title}
-                  subtitle="Template"
+                  subtitle={buildCompositionCandidateMetadata('Template', candidate, catalogMode)}
                   onClick={() => onToggleUserTemplate(candidate.resourceId)}
                 />
               </li>
@@ -272,52 +243,6 @@ export const WorkspaceSelectStep: React.FC<WorkspaceSelectStepProps> = ({
               {workspace.description && (
                 <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{workspace.description}</p>
               )}
-            </button>
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-);
-
-interface WorkspaceInviteStepProps {
-  pendingInvites: WorkspacePendingInvite[];
-  defaultAccessLabel: string;
-  onRemoveInvite: (userId: string) => void;
-}
-
-export const WorkspaceInviteStep: React.FC<WorkspaceInviteStepProps> = ({
-  pendingInvites,
-  defaultAccessLabel,
-  onRemoveInvite,
-}) => (
-  <div className="space-y-3">
-    <p className="text-xs text-slate-400">
-      Invita utenti al Workspace. Per ogni risorsa verrà assegnato il livello:{' '}
-      <span className="text-indigo-300 font-semibold">{defaultAccessLabel}</span>. Potrai modificarli
-      successivamente dalla gestione Workspace.
-    </p>
-    {pendingInvites.length === 0 ? (
-      <p className="text-sm text-slate-500">Nessun invito aggiunto (opzionale).</p>
-    ) : (
-      <ul className="space-y-2">
-        {pendingInvites.map((invite) => (
-          <li
-            key={invite.userId}
-            className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-white truncate">{invite.name}</p>
-              {invite.slug && (
-                <p className="text-xs text-slate-500 truncate">@{invite.slug}</p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => onRemoveInvite(invite.userId)}
-              className="text-xs text-red-400 hover:text-red-300 shrink-0"
-            >
-              Rimuovi
             </button>
           </li>
         ))}

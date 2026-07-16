@@ -9,6 +9,7 @@ import { AdminImageInput } from '../../AdminImageInput';
 import { AdminPhotoInspector } from '../../AdminPhotoInspector';
 import { generateCitySection } from '../../../../services/ai';
 import { saveCityDetails } from '../../../../services/cityService';
+import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
 import { CityCard } from '../../../city/CityCard';
 
@@ -79,7 +80,7 @@ export const TabMedia = () => {
             newDetails.gallery = []; 
 
             const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Media (in 0s)`;
-            newDetails.generationLogs = [...(newDetails.generationLogs || []), newLog];
+            newDetails.generationLogs = appendGenerationLogs(newDetails.generationLogs, [newLog]);
 
             const updatedCity: CityDetails = { 
                 ...city, 

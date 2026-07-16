@@ -16,22 +16,29 @@ export const isShopCategory = (request: SponsorRequest | null | undefined): bool
 };
 
 /**
+ * Esito validazione dati attivazione sponsor (discriminated union per narrowing TypeScript).
+ */
+export type ActivationDataValidation =
+    | { isValid: true; amount: number; invoiceNumber: string }
+    | { isValid: false; error: string };
+
+/**
  * Valida i dati di attivazione per garantire la presenza di amount e invoiceNumber corretti.
  * Gestisce safely valori non definiti o nulli.
  */
 export const validateActivationData = (
-    amount: number | null | undefined, 
+    amount: number | null | undefined,
     invoiceNumber: string | null | undefined
-): { isValid: boolean; error: string | null } => {
+): ActivationDataValidation => {
     if (amount === undefined || amount === null || isNaN(amount) || amount <= 0) {
-        return { isValid: false, error: "L'importo deve essere maggiore di zero." };
-    }
-    
-    if (!invoiceNumber || invoiceNumber.trim().length < 2) {
-        return { isValid: false, error: "Il numero fattura è obbligatorio (min 2 caratteri)." };
+        return { isValid: false as const, error: "L'importo deve essere maggiore di zero." };
     }
 
-    return { isValid: true, error: null };
+    if (!invoiceNumber || invoiceNumber.trim().length < 2) {
+        return { isValid: false as const, error: "Il numero fattura è obbligatorio (min 2 caratteri)." };
+    }
+
+    return { isValid: true as const, amount, invoiceNumber: invoiceNumber.trim() };
 };
 
 /**

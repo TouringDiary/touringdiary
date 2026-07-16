@@ -320,6 +320,7 @@ export function useSuitcasePanelComposition({
     currentUser: data.currentUser,
     userSuitcases: data.userSuitcases,
     guestSuitcase: data.guestSuitcase,
+    activeEditorSuitcaseId: data.panelState.activeTabId,
     fetchLinkedIds: data.fetchLinkedIds,
     fetchUserSuitcases: data.fetchUserSuitcases,
     clearNewSuitcaseSession: data.panelState.clearNewSuitcaseSession,

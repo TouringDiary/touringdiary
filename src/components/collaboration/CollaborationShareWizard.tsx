@@ -6,6 +6,7 @@ import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { CollaborativeMemberRole, SharingMode, Workspace } from '@/domain/collaboration';
 import { COLLABORATIVE_MEMBER_ROLES } from '@/domain/collaboration';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
+import type { SharedResourceKind, WorkspaceResourceAccess } from '@/domain/collaboration';
 import type {
   WorkspaceCompositionBlueprint,
   WorkspaceCompositionDraft,
@@ -18,6 +19,7 @@ import {
   type PendingInvite,
   type ShareIntent,
   type SharePath,
+  type WizardEntryMode,
   type WizardStep,
   type WorkspacePendingInvite,
 } from './collaborationSharePresentation';
@@ -25,14 +27,16 @@ import {
   WorkspaceCompositionStep,
   WorkspaceInviteSearch,
   WorkspaceInviteStep,
+  WorkspacePickElementStep,
   WorkspaceSelectStep,
   WorkspaceSetupStep,
+  type WorkspacePickedElement,
 } from './WorkspaceShareWizardSteps';
-import { WORKSPACE_ACCESS_LABELS } from './workspace/workspacePresentation';
 import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
 
 export interface CollaborationShareWizardProps {
   wizardStep: WizardStep;
+  entryMode?: WizardEntryMode;
   sharePath: SharePath;
   sharingMode: SharingMode;
   shareIntent: ShareIntent;
@@ -45,11 +49,13 @@ export interface CollaborationShareWizardProps {
   workspaceDescription: string;
   compositionBlueprint: WorkspaceCompositionBlueprint | null;
   compositionDraft: WorkspaceCompositionDraft | null;
+  compositionInviteElements: Array<{ kind: SharedResourceKind; resourceId: string; title: string }>;
+  pickedElement: WorkspacePickedElement | null;
   isExpandingCompositionDiary?: boolean;
   userWorkspaces: Workspace[];
   selectedWorkspaceId: string | null;
   workspacePendingInvites: WorkspacePendingInvite[];
-  workspaceDefaultAccess: 'collaborator';
+  inviteIntroClassName: string;
   isSubmitting?: boolean;
   onSharePathChange: (path: SharePath) => void;
   onSharingModeChange: (mode: SharingMode) => void;
@@ -63,13 +69,21 @@ export interface CollaborationShareWizardProps {
   onSelectCompositionDiary: (diaryId: string | null) => void;
   onToggleCompositionSuitcase: (suitcaseId: string) => void;
   onToggleCompositionUserTemplate: (templateId: string) => void;
+  onPickElement: (element: WorkspacePickedElement | null) => void;
   onSelectWorkspace: (workspaceId: string) => void;
   onAddWorkspacePendingInvite: (result: CollaborationUserSearchResult) => void;
   onRemoveWorkspacePendingInvite: (userId: string) => void;
+  onUpdateWorkspacePendingInvitePermission: (
+    userId: string,
+    kind: SharedResourceKind,
+    resourceId: string,
+    accessLevel: WorkspaceResourceAccess
+  ) => void;
 }
 
 export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> = ({
   wizardStep,
+  entryMode = 'share',
   sharePath,
   sharingMode,
   shareIntent,
@@ -82,11 +96,13 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   workspaceDescription,
   compositionBlueprint,
   compositionDraft,
+  compositionInviteElements,
+  pickedElement,
   isExpandingCompositionDiary = false,
   userWorkspaces,
   selectedWorkspaceId,
   workspacePendingInvites,
-  workspaceDefaultAccess,
+  inviteIntroClassName,
   onSharePathChange,
   onSharingModeChange,
   onShareIntentChange,
@@ -99,16 +115,20 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   onSelectCompositionDiary,
   onToggleCompositionSuitcase,
   onToggleCompositionUserTemplate,
+  onPickElement,
   onSelectWorkspace,
   onAddWorkspacePendingInvite,
   onRemoveWorkspacePendingInvite,
+  onUpdateWorkspacePendingInvitePermission,
   isSubmitting = false,
 }) => {
   const isMobile = useMobileDetect();
   const sectionTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
   const bodyTextShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.bodyText, isMobile);
   const cardLabelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.cardLabel, isMobile);
-  const stepTitle = getWizardStepTitle(wizardStep, sharePath);
+  const stepTitle = getWizardStepTitle(wizardStep, { sharePath, entryMode });
+  const isCreateCatalogComposition =
+    entryMode === 'create_workspace' && wizardStep === 'workspace_composition';
 
   return (
   <>
@@ -298,9 +318,21 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
           blueprint={compositionBlueprint}
           draft={compositionDraft}
           isExpandingDiary={isExpandingCompositionDiary}
+          catalogMode={isCreateCatalogComposition}
           onSelectDiary={onSelectCompositionDiary}
           onToggleSuitcase={onToggleCompositionSuitcase}
           onToggleUserTemplate={onToggleCompositionUserTemplate}
+        />
+      </div>
+    )}
+
+    {wizardStep === 'pick_element' && compositionBlueprint && (
+      <div className="space-y-3">
+        <h3 className={sectionTitleShell}>{stepTitle}</h3>
+        <WorkspacePickElementStep
+          blueprint={compositionBlueprint}
+          selected={pickedElement}
+          onSelect={onPickElement}
         />
       </div>
     )}
@@ -321,8 +353,10 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
         <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <WorkspaceInviteStep
           pendingInvites={workspacePendingInvites}
-          defaultAccessLabel={WORKSPACE_ACCESS_LABELS[workspaceDefaultAccess]}
+          compositionElements={compositionInviteElements}
+          introClassName={inviteIntroClassName}
           onRemoveInvite={onRemoveWorkspacePendingInvite}
+          onUpdateInvitePermission={onUpdateWorkspacePendingInvitePermission}
         />
         <WorkspaceInviteSearch
           searchQuery={searchQuery}

@@ -5,6 +5,8 @@ import { generateHistoricalPortrait } from '../../services/ai/aiVision';
 import { saveCityDetails, saveCityPerson, saveCityGuide, saveCityEvent, saveCityService, saveCityTourOperator, mapToTourOperatorInput, getCityPeople, deleteCityPerson, getCityDetails } from '../../services/cityService';
 import { reclaimOrphanedItems } from '../../services/city/cityLifecycleService';
 import { findExistingPortrait } from '../../services/mediaService'; // NUOVO IMPORT
+import { appendGenerationLogs } from '../../services/city/parsers/content/parseLogs';
+import { mergePatronDetailsFromAi } from '../../services/city/parsers/content/mergePatronDetailsFromAi';
 import { CityDetails, User, FamousPerson } from '../../types/index';
 import { getSafeEventCategory, getSafeServiceType } from '../../utils/common';
 
@@ -108,11 +110,11 @@ export const useAiCompleteCity = (
                 newDetails.historyFull = historyData.historyFull || '';
 
                 if (patronData.patron) {
-                     newDetails.patronDetails = { 
-                         ...newDetails.patronDetails, 
-                         ...patronData.patron, 
-                         imageUrl: currentCity!.details.patronDetails?.imageUrl || DEFAULT_MASTER_PATRON 
-                     };
+                     newDetails.patronDetails = mergePatronDetailsFromAi(
+                         newDetails.patronDetails,
+                         patronData.patron,
+                         currentCity!.details.patronDetails?.imageUrl || DEFAULT_MASTER_PATRON,
+                     );
                      newDetails.patron = patronData.patron.name;
                 }
 
@@ -217,7 +219,10 @@ export const useAiCompleteCity = (
             await performStep('Finalizzazione & Log', async () => {
                  const finalCity = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
                  if (finalCity) {
-                     finalCity.details.generationLogs = getAccumulatedLogs();
+                     finalCity.details.generationLogs = appendGenerationLogs(
+                         finalCity.details.generationLogs,
+                         getAccumulatedLogs(),
+                     );
                      // Salvataggio finale: qui riattiviamo il reclaim per sicurezza finale
                      await saveCityDetails(finalCity, { skipReclaim: false });
                  }

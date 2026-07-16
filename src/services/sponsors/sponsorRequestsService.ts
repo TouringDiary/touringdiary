@@ -1,9 +1,13 @@
 import { supabase } from '../supabaseClient';
 import type { SponsorRequest, SponsorQueryOptions, PartnerLog } from '../../types/models/Sponsor';
-import { mapDbSponsorRequestToApp, mapDbSponsorToRequestApp, SPONSOR_REQUEST_SELECT, SPONSOR_CONTRACT_SELECT, resolvePlanPoiCategory } from './sponsorResolvers';
-import { PLAN_TYPES, PlanType } from '../../constants/planTypes';
-import { SponsorSubmitFormData } from './_internalTypes';
 import type { DatabaseJoinedSponsor, DatabaseJoinedSponsorRequest, Json } from '../../types/database';
+import { mapDbSponsorRequestToApp, mapDbSponsorToRequestApp, SPONSOR_REQUEST_SELECT, SPONSOR_CONTRACT_SELECT, resolvePlanPoiCategory } from './sponsorResolvers';
+import { SponsorSubmitFormData } from './_internalTypes';
+import { PLAN_TYPES, PlanType } from '../../constants/planTypes';
+import { PLAN_TYPE_VALUES } from '../../constants/governance';
+
+const isPlanTypeValue = (value: string): value is PlanType =>
+    (PLAN_TYPE_VALUES as readonly string[]).includes(value);
 
 /**
  * Recupera le richieste di sponsorizzazione con paginazione e filtri (Logica Multi-tabella).
@@ -44,8 +48,9 @@ export const getSponsorsPaginated = async (options: SponsorQueryOptions) => {
 
     if (filters.cityId) query = query.eq('city_id', filters.cityId);
 
-    if (filters.tier) {
-        query = query.eq('pricing_versions.plans.type', filters.tier);
+    const tierFilter = filters.tier;
+    if (tierFilter && isPlanTypeValue(tierFilter)) {
+        query = query.eq('pricing_versions.plans.type', tierFilter);
     }
 
     if (filters.continent) query = query.eq('cities.continent', filters.continent);
@@ -85,7 +90,9 @@ export const getSponsorsPaginated = async (options: SponsorQueryOptions) => {
 
         if (unreadCounts) {
             unreadCounts.forEach(m => {
-                unreadMap[m.partner_id] = (unreadMap[m.partner_id] || 0) + 1;
+                const partnerId = m.partner_id;
+                if (!partnerId) return;
+                unreadMap[partnerId] = (unreadMap[partnerId] || 0) + 1;
             });
         }
     }
@@ -132,25 +139,35 @@ export const getSponsorById = async (id: string): Promise<SponsorRequest | null>
 };
 
 /**
- * Aggiorna lo stato di una richiesta (approved, rejected, waiting_payment).
+ * Approvazione iniziale admin: pending → waiting_payment (RPC gateway).
  */
-export const updateSponsorStatus = async (id: string, status: 'approved' | 'rejected' | 'waiting_payment', rejectionReason?: string) => {
-    const { data, error } = await supabase
-        .from('sponsor_requests')
-        .update({ status, rejection_reason: rejectionReason })
-        .eq('id', id)
-        .select();
+export const updateSponsorStatus = async (id: string, status: 'waiting_payment') => {
+    const { data, error } = await supabase.rpc('approve_sponsor_request', {
+        p_request_id: id,
+    });
 
     if (error) throw new Error(error.message);
-    return data;
+    return data ? [data] : null;
 };
 
 /**
- * Elimina una richiesta di sponsor.
+ * Elimina una richiesta di sponsor (solo admin_all — RPC gateway).
  */
 export const deleteSponsor = async (id: string) => {
-    const { error } = await supabase.from('sponsor_requests').delete().eq('id', id);
+    const { error } = await supabase.rpc('delete_sponsor_request', {
+        p_request_id: id,
+    });
     if (error) throw new Error(error.message);
+};
+
+/**
+ * Elimina più richieste sponsor in sequenza (admin_all — stessa RPC singola).
+ */
+export const deleteSponsorsBulk = async (ids: string[]) => {
+    for (const id of ids) {
+        await deleteSponsor(id);
+    }
+    return true;
 };
 
 /**
@@ -182,6 +199,10 @@ export const submitSponsorRequest = async (
     profileId?: string
 ): Promise<boolean> => {
     try {
+        if (!profileId || profileId === 'guest') {
+            throw new Error('Autenticazione richiesta per inviare la candidatura Sponsor.');
+        }
+
         const { error } = await supabase
             .from('sponsor_requests')
             .insert({
@@ -197,8 +218,8 @@ export const submitSponsorRequest = async (
                 image_url: formData.imageUrl,
                 coords_lat: formData.coords?.lat,
                 coords_lng: formData.coords?.lng,
-                profile_id: profileId === 'guest' ? null : profileId,
-                owner_id: profileId === 'guest' ? null : profileId,
+                profile_id: profileId,
+                owner_id: profileId,
                 ...(activeType === PLAN_TYPES.TOUR_GUIDE && {
                     languages: Array.isArray(formData.languages)
                         ? formData.languages.filter(
@@ -238,19 +259,14 @@ export const submitSponsorRequest = async (
  * Rifiuta una richiesta di sponsorizzazione.
  */
 export const rejectSponsor = async (id: string, reason: string, notes?: string) => {
-    const { data, error } = await supabase
-        .from('sponsor_requests')
-        .update({
-            status: 'rejected',
-            rejection_reason: reason,
-            admin_notes: notes,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .select();
+    const { data, error } = await supabase.rpc('reject_sponsor_request', {
+        p_request_id: id,
+        p_reason: reason,
+        p_admin_notes: notes ?? null,
+    });
 
     if (error) throw new Error(error.message);
-    return data;
+    return data ? [data] : null;
 };
 
 /**
@@ -351,10 +367,21 @@ export const markPartnerLogsAsRead = async (requestId: string) => {
  * Aggiorna le note amministrative interne di una richiesta o di un contratto attivo.
  */
 export const updateSponsorInternalNotes = async (id: string, notes: string, isContract: boolean = false) => {
-    const tableName = isContract ? 'sponsors' : 'sponsor_requests';
+    if (!isContract) {
+        const { error } = await supabase.rpc('update_sponsor_request_admin_notes', {
+            p_request_id: id,
+            p_notes: notes,
+        });
+
+        if (error) {
+            console.error('[SponsorService] Error updating notes on sponsor_requests:', error.message);
+            throw new Error(error.message);
+        }
+        return true;
+    }
 
     const { error } = await supabase
-        .from(tableName)
+        .from('sponsors')
         .update({
             admin_notes: notes,
             admin_notes_last_updated: new Date().toISOString()
@@ -362,7 +389,7 @@ export const updateSponsorInternalNotes = async (id: string, notes: string, isCo
         .eq('id', id);
 
     if (error) {
-        console.error(`[SponsorService] Error updating notes on ${tableName}:`, error.message);
+        console.error('[SponsorService] Error updating notes on sponsors:', error.message);
         throw new Error(error.message);
     }
     return true;

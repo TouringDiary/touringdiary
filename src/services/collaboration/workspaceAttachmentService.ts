@@ -164,7 +164,6 @@ export async function uploadWorkspaceAttachment(
   const attachment = mapAttachmentRow(data);
   await recordCollaborationDomainEvent({
     eventType: 'workspace.attachment_added',
-    actorId,
     workspaceId,
     summary: `Allegato aggiunto: ${file.name}`,
     payload: { attachmentId: attachment.id, fileName: file.name },
@@ -221,7 +220,6 @@ export async function deleteWorkspaceAttachment(
 
   await recordCollaborationDomainEvent({
     eventType: 'workspace.attachment_removed',
-    actorId,
     workspaceId,
     summary: `Allegato rimosso: ${fileName}`,
     payload: { attachmentId, fileName },

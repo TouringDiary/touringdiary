@@ -1,30 +1,9 @@
 import type { SharedResourceKind, WorkspaceResourceAccess } from '@/domain/collaboration';
 import { isSharedResourceKind } from '@/domain/collaboration';
-import { supabase } from '@/services/supabaseClient';
 import { ensureShareableResource } from './sharedResourceService';
 import { setSharedResourceMember, removeSharedResourceMember } from './sharedResourceAclService';
 import { getShareableResource } from './sharedResourceService';
-
-async function resolveResourceOwnerId(
-  kind: SharedResourceKind,
-  resourceId: string
-): Promise<string | null> {
-  if (kind === 'diary') {
-    const { data } = await supabase
-      .from('itineraries')
-      .select('user_id')
-      .eq('id', resourceId)
-      .maybeSingle();
-    return data?.user_id ?? null;
-  }
-
-  const { data } = await supabase
-    .from('suitcases')
-    .select('user_id')
-    .eq('id', resourceId)
-    .maybeSingle();
-  return data?.user_id ?? null;
-}
+import { resolveResourceOwnerId } from './shareableResourceOwnerLookup';
 
 /**
  * Allinea shared_resource_members all'ACL workspace (Fase 10).

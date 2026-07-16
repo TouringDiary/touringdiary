@@ -145,6 +145,8 @@ export async function materializeWorkspaceComposition(input: {
     }
 
     for (const edge of blueprint.edges) {
+      // Ricostruzione relazioni solo tra coppie selezionate e presenti negli archi del blueprint.
+      // Con catalogo create: edges limitati agli ID dell'inventario personale.
       if (edge.type === 'diary_suitcase') {
         if (
           !isResourceSelected(draft, 'diary', edge.diaryId) ||
@@ -162,6 +164,7 @@ export async function materializeWorkspaceComposition(input: {
       }
 
       if (edge.type === 'suitcase_template') {
+        // DOM-L-01: se il template non è selezionato, la valigia duplicata resta senza source_template_id.
         if (!isResourceSelected(draft, 'suitcase', edge.suitcaseId)) {
           continue;
         }

@@ -33,9 +33,10 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 *   **Service**: `notificationService.ts` (DB persistence + memory cache).
 
 ### 6. Community Media
-*   **Logica**: Upload e visualizzazione di foto scattate dagli utenti (`Live Snaps`).
-*   **Service**: `mediaService.ts`, `useCityGallery.ts`.
-*   **UI**: `PreviewGallery.tsx`.
+*   **Logica**: Upload foto community + layer **Official** (`is_official` su `photo_submissions`).
+*   **Service**: `mediaService.ts` (`mapDbPhotoSubmission`), `useCityGallery.ts`.
+*   **UI**: `GalleryGrid.tsx` (tab Official/Community), `PreviewGallery.tsx`.
+*   **Dettaglio**: `AI_CONTEXT/16_CITY_MEDIA_MANAGEMENT.md` v2.0.
 
 ### 7. User Dashboard (Profilo)
 *   **Componente**: `UserDashboard.tsx` — routing tab via `useAppRouter` (URL: `/profilo/condivisione`, `/profilo/amici`, ecc.).
@@ -44,9 +45,25 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 *   **Notifiche**: `UserNotificationsTab` — notifiche `collaboration`, deep link workspace.
 
 ### 8. Collaboration & Workspace (v1 — Fase 10)
-*   **Dettaglio**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` (single source of truth).
+*   **Dettaglio**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` v2.0 (SSOT completo: dati, hub UI, wizard).
 *   **Moduli**: shared resource ACL, workspace, amici (`user_friends` ≠ `user_blocks`), eventi dominio, allegati bucket privato, wizard condivisione.
 *   **Services**: `src/services/collaboration/`.
+
+---
+
+### 9. User Roles & Identity (riferimento cross-SSOT)
+
+*Dettaglio Sponsor e pipeline signup → DOC 29 § Tassonomia ruoli, DL-033. Operazioni irreversibili → `02_GOVERNANCE.md` §11.*
+
+| Ruolo (`profiles.role`) | Significato |
+|-------------------------|-------------|
+| `user` | Utente registrato |
+| `business` | Partner / Sponsor attivo (Silver e Gold — stesso ruolo) |
+| `admin_limited` | Admin delegato |
+| `admin_all` | Super admin |
+| `guest` | Solo sessione frontend — non in DB |
+
+**SSOT implementazione:** `src/types/users.ts`, `src/services/userService.ts` (`ROLE_PERMISSIONS`), pannello **Utenti & Ruoli**.
 
 ---
 

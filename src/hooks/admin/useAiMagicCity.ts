@@ -11,6 +11,7 @@ import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { GEO_CONFIG } from '../../constants/geoConfig';
 import { useConfig } from '@/context/ConfigContext';
 import { getRegistryCitySlugById, resolveCanonicalCityId } from '../../services/city/cityIdService';
+import { appendGenerationLogs } from '../../services/city/parsers/content/parseLogs';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -178,6 +179,7 @@ export const useAiMagicCity = (
                         patron: patronData.patron?.name || (existingCityData?.details?.patron || ''),
                         patronDetails: patronData.patron ? { ...patronData.patron, imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/79/Croce_del_campo1.jpg' } : (existingCityData?.details?.patronDetails || undefined),
                         seasonalVisitors: statsData.seasonalVisitors || (existingCityData?.details?.seasonalVisitors),
+                        generationLogs: existingCityData?.details?.generationLogs ?? [],
                         famousPeople: [], services: [], events: [], guides: [], gallery: [], allPois: [], topAttractions: [], foodSpots: [], hotels: [], newDiscoveries: [], leisureSpots: []
                     }
                 };
@@ -305,7 +307,10 @@ export const useAiMagicCity = (
             await performStep('Finalizzazione & Log', async () => {
                  const finalCity = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
                  if (finalCity) {
-                     finalCity.details.generationLogs = getAccumulatedLogs();
+                     finalCity.details.generationLogs = appendGenerationLogs(
+                         finalCity.details.generationLogs,
+                         getAccumulatedLogs(),
+                     );
                      await saveCityDetails(finalCity, { skipReclaim: false });
                  }
                  return 1;

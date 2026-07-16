@@ -4,8 +4,7 @@ import {
     deleteSponsorsBulk, 
     updateSponsorStatus, 
     getSponsorById,
-    createSponsorFromRequest,
-    activateSponsorWithResourceAsync,
+    activateSponsorFromRequestAsync,
     rejectSponsor, 
     cancelSponsor,
     updateSponsorExpiration,
@@ -103,8 +102,8 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
 
         // DOUBLE VALIDATION
         const validation = validateActivationData(amount, invoiceNumber);
-        if (!validation.isValid) {
-            showToast(validation.error || "Dati di attivazione non validi.", 'error');
+        if (validation.isValid === false) {
+            showToast(validation.error, 'error');
             return;
         }
 
@@ -114,28 +113,25 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
             if (!requestData) {
                 throw new Error(`Dati della richiesta sponsor con ID ${requestId} non trovati.`);
             }
-            
+
+            if (!requestData.pricingVersionId) {
+                throw new Error('Versione listino (pricingVersionId) mancante nella richiesta.');
+            }
+
             // Validazione: assicurarsi che il tier (plan_key) esista sui dati della richiesta
             if (!requestData.tier) {
-                throw new Error(`'tier' (plan_key) è mancante nei dati della richiesta, impossibile chiamare la RPC.`);
+                throw new Error(`'tier' (plan_key) è mancante nei dati della richiesta, impossibile attivare.`);
             }
 
-            // 2. Crea il record nella tabella 'sponsors'
-            const newSponsor = await createSponsorFromRequest(requestData);
-            if (!newSponsor?.id) {
-                throw new Error("Creazione del record sponsor fallita. L'ID non è stato restituito.");
-            }
-
-            // 3. Chiama la RPC atomica (Crea risorsa UI + Attiva sottoscrizione)
-            await activateSponsorWithResourceAsync(
-                newSponsor.id, 
-                requestId, 
-                requestData.pricingVersionId || '',
-                requestData.profileId // NEW: Pass profileId for ownership linkage
+            await activateSponsorFromRequestAsync(
+                requestId,
+                requestData.pricingVersionId,
+                validation.amount,
+                validation.invoiceNumber,
             );
 
-            // 4. Successo: mostra feedback e aggiorna l'interfaccia
-            showToast(`Sponsor "${newSponsor.companyName}" attivato con successo!`, 'success');
+            // Successo: mostra feedback e aggiorna l'interfaccia
+            showToast(`Sponsor "${requestData.companyName}" attivato con successo!`, 'success');
             modalActions.closeActivation(); 
             setTimeout(() => refreshData(), 300);
 

@@ -8,7 +8,7 @@ import { parseMediaAsset } from '../media/parseMediaAsset';
  * Normalizza l'oggetto Patron gestendo la compatibilità legacy (snake/camel case).
  * Trasparenza: NON inietta 'N/A' né altri fallback UI.
  */
-export const parsePatron = (raw: any): PatronDetails | null => {
+export const parsePatron = (raw: unknown): PatronDetails | null => {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         if (import.meta.env.DEV && raw !== null && raw !== undefined) {
             console.warn(`[Parser:Patron] Invalid patron object:`, raw);
@@ -16,15 +16,17 @@ export const parsePatron = (raw: any): PatronDetails | null => {
         return null;
     }
 
+    const record = raw as Record<string, unknown>;
+
     // Normalizzazione URL e Status (Legacy Compat + Media Governance)
-    const url = ensureString(raw.image_url || raw.imageUrl);
-    const status = raw.image_status || raw.image_status_legacy;
-    const mediaAsset = parseMediaAsset(url, status);
+    const url = ensureString(record.image_url || record.imageUrl);
+    const status = record.image_status || record.image_status_legacy;
+    const mediaAsset = parseMediaAsset(url, status as string | null | undefined);
 
     return {
-        name: ensureString(raw.name),
-        date: ensureString(raw.date),
-        history: ensureString(raw.history),
+        name: ensureString(record.name),
+        date: ensureString(record.date),
+        history: ensureString(record.history),
         imageUrl: mediaAsset.url,
         image_status: mediaAsset.mediaStatus,
         imageAsset: mediaAsset

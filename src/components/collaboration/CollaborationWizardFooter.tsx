@@ -2,12 +2,15 @@ import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
-import type { ModalView, SharePath, WizardStep } from './collaborationSharePresentation';
+import type { ModalView, SharePath, WizardEntryMode, WizardStep } from './collaborationSharePresentation';
 
 export interface CollaborationWizardFooterProps {
   view: ModalView;
   wizardStep: WizardStep;
+  entryMode: WizardEntryMode;
   sharePath: SharePath;
+  canShowBack: boolean;
+  isFirstWizardStep: boolean;
   isSubmitting: boolean;
   onClose: () => void;
   onPathContinue: () => void;
@@ -16,6 +19,7 @@ export interface CollaborationWizardFooterProps {
   onSendInvites: () => void;
   onWorkspaceSetupContinue: () => void;
   onWorkspaceCompositionContinue: () => void;
+  onPickElementContinue: () => void;
   onWorkspaceSelectContinue: () => void;
   onCreateWorkspace: () => void;
   onCreateWorkspaceLater: () => void;
@@ -31,6 +35,7 @@ interface WizardPrimaryAction {
 
 function resolveWizardPrimaryAction(
   wizardStep: WizardStep,
+  entryMode: WizardEntryMode,
   sharePath: SharePath,
   isSubmitting: boolean,
   handlers: Pick<
@@ -41,11 +46,13 @@ function resolveWizardPrimaryAction(
     | 'onSendInvites'
     | 'onWorkspaceSetupContinue'
     | 'onWorkspaceCompositionContinue'
+    | 'onPickElementContinue'
     | 'onWorkspaceSelectContinue'
     | 'onCreateWorkspace'
   >
 ): WizardPrimaryAction | null {
   const isWorkspacePath = sharePath === 'create_workspace' || sharePath === 'add_workspace';
+  const isAddElementEntry = entryMode === 'add_element_to_workspace';
 
   switch (wizardStep) {
     case 'path':
@@ -53,6 +60,14 @@ function resolveWizardPrimaryAction(
     case 'mode':
       return { label: 'Continua', onClick: handlers.onModeContinue };
     case 'share_intent':
+      if (isAddElementEntry) {
+        return {
+          label: 'Collega',
+          onClick: handlers.onShareIntentContinue,
+          disabled: isSubmitting,
+          showSpinner: isSubmitting,
+        };
+      }
       return {
         label: 'Continua',
         onClick: handlers.onShareIntentContinue,
@@ -73,6 +88,12 @@ function resolveWizardPrimaryAction(
       return {
         label: 'Continua',
         onClick: handlers.onWorkspaceCompositionContinue,
+        disabled: isSubmitting,
+      };
+    case 'pick_element':
+      return {
+        label: 'Continua',
+        onClick: handlers.onPickElementContinue,
         disabled: isSubmitting,
       };
     case 'workspace_select':
@@ -97,7 +118,10 @@ function resolveWizardPrimaryAction(
 export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps> = ({
   view,
   wizardStep,
+  entryMode,
   sharePath,
+  canShowBack,
+  isFirstWizardStep,
   isSubmitting,
   onClose,
   onPathContinue,
@@ -106,6 +130,7 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
   onSendInvites,
   onWorkspaceSetupContinue,
   onWorkspaceCompositionContinue,
+  onPickElementContinue,
   onWorkspaceSelectContinue,
   onCreateWorkspace,
   onCreateWorkspaceLater,
@@ -116,22 +141,21 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
   const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary);
   const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
 
-  const showBack =
-    wizardStep !== 'path' &&
-    !(wizardStep === 'workspace_setup' && sharePath === 'add_workspace');
+  const showBack = canShowBack;
 
-  const primaryAction = resolveWizardPrimaryAction(wizardStep, sharePath, isSubmitting, {
+  const primaryAction = resolveWizardPrimaryAction(wizardStep, entryMode, sharePath, isSubmitting, {
     onPathContinue,
     onModeContinue,
     onShareIntentContinue,
     onSendInvites,
     onWorkspaceSetupContinue,
     onWorkspaceCompositionContinue,
+    onPickElementContinue,
     onWorkspaceSelectContinue,
     onCreateWorkspace,
   });
 
-  const showCancelOnPath = view === 'wizard' && wizardStep === 'path';
+  const showCancelOnPath = view === 'wizard' && isFirstWizardStep;
 
   return (
     <div className={`${footerShell} shrink-0`}>

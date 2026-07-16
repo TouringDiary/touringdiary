@@ -211,6 +211,44 @@ DESCRIZIONE SEMPLICE
 Lo sponsor diventa visibile solo dopo attivazione.
 
 
+Sicurezza, audit e progettazione definitiva del dominio (SSOT):
+
+AI_CONTEXT/29_SPONSOR_SECURITY_MASTERPLAN.md
+
+
+---
+
+# 7b. ⚙️ DOMINIO PLATFORM SETTINGS
+
+Configurazione globale trasversale (non Sponsor):
+
+• feature flag piattaforma (AI, chat, candidature)
+• testi configurabili (`system_messages`)
+• soglie globali (es. rating alert)
+• sezione Admin Centro di Controllo (target)
+
+SSOT:
+
+AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md
+
+Storage esistente:
+
+tabella global_settings
+tabella system_messages
+ConfigContext / settingsService
+
+
+---
+
+# 7c. 📋 LAYER SVILUPPO OPERATIVO (fuori AI_CONTEXT)
+
+Metodo di sviluppo, roadmap esecutiva e stato avanzamento — **non** architettura di dominio:
+
+AI_DEV_WORKFLOW/
+
+Ingresso: README.md e 03_PROJECT_STATUS.md
+
+
 ---
 
 # 8. 🎮 DOMINIO GAMIFICATION
