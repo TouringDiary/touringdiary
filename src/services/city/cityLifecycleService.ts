@@ -32,12 +32,14 @@ export const reclaimOrphanedItems = async (cityId: string, cityName: string) => 
         .is('city_id', null)
         .ilike('address', `%${cityName}%`);
 
-    // 4. RECLAIM SPONSORS
-    await supabase
-        .from('sponsors')
-        .update({ city_id: cityId })
-        .is('city_id', null)
-        .ilike('address', `%${cityName}%`);
+    // 4. RECLAIM SPONSORS (RPC gateway — DL-022)
+    const { error: relinkError } = await supabase.rpc('relink_orphaned_sponsors_to_city', {
+        p_city_id: cityId,
+        p_city_name: cityName,
+    });
+    if (relinkError) {
+        console.warn('[CityLifecycle] relink_orphaned_sponsors_to_city failed:', relinkError.message);
+    }
 
     // 5. RECLAIM POI
     await supabase
@@ -71,11 +73,17 @@ export const deleteCity = async (cityId: string, options: CityDeleteOptions, cit
         }
     } catch (e) {}
 
-    // 2. BUSINESS
+    // 2. BUSINESS — sponsor: transizione Da ricollegare (DL-022), mai DELETE
     try {
+        const { error: sponsorDetachError } = await supabase.rpc('handle_city_deleted_for_sponsors', {
+            p_city_id: cityId,
+        });
+        if (sponsorDetachError) {
+            console.warn('[CityLifecycle] handle_city_deleted_for_sponsors failed:', sponsorDetachError.message);
+        }
+
         if (options.keepShops) {
             await supabase.from('shops').update({ city_id: null }).eq('city_id', cityId);
-            await supabase.from('sponsors').update({ city_id: null }).eq('city_id', cityId);
         } else {
             const { data: shops } = await supabase.from('shops').select('id').eq('city_id', cityId);
             if (shops && shops.length > 0) {
@@ -83,7 +91,6 @@ export const deleteCity = async (cityId: string, options: CityDeleteOptions, cit
                 await supabase.from('shop_products').delete().in('shop_id', shopIds);
                 await supabase.from('shops').delete().eq('city_id', cityId);
             }
-            await supabase.from('sponsors').delete().eq('city_id', cityId);
         }
     } catch (e) {}
 

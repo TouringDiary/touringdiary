@@ -39,35 +39,49 @@ export const getSponsorTiers = async () => {
 /**
  * Calcola le statistiche aggregate analizzando entrambe le tabelle (richieste e contratti).
  */
-export const getSponsorStats = async (): Promise<SponsorStats | any> => {
+export const getSponsorStats = async (): Promise<SponsorStats> => {
+    const today = new Date().toISOString().split('T')[0];
+
     const [reqStats, sponsorStats] = await Promise.all([
         supabase.from('sponsor_requests').select('status'),
-        supabase.from('sponsors').select('status')
+        supabase.from('sponsors').select('status, end_date, city_id'),
     ]);
 
-    const counts: any = {
+    const counts: SponsorStats = {
         pending: 0,
         waiting: 0,
         approved: 0,
+        disconnected: 0,
+        expired: 0,
         rejected: 0,
         cancelled: 0,
         converted: 0,
-        unreadMessages: 0 // Stub per ora
+        unreadMessages: 0,
     };
 
     if (reqStats.data) {
         reqStats.data.forEach(r => {
             const statusKey = r.status === 'waiting_payment' ? 'waiting' : r.status;
-            if (counts[statusKey] !== undefined) counts[statusKey]++;
+            if (statusKey === 'pending') counts.pending++;
+            else if (statusKey === 'waiting') counts.waiting++;
+            else if (statusKey === 'rejected') counts.rejected++;
+            else if (statusKey === 'converted') counts.converted++;
         });
     }
 
     if (sponsorStats.data) {
         sponsorStats.data.forEach(s => {
-            // NOTE: waiting_payment should NOT exist in sponsors table based on current routing,
-            // but we ensure only approved/cancelled/rejected are counted here if they exist.
-            const statusKey = s.status;
-            if (counts[statusKey] !== undefined) counts[statusKey]++;
+            if (s.status === 'approved') {
+                if (!s.city_id) {
+                    counts.disconnected++;
+                } else if (s.end_date && s.end_date < today) {
+                    counts.expired++;
+                } else {
+                    counts.approved++;
+                }
+            } else if (s.status === 'cancelled') {
+                counts.cancelled++;
+            }
         });
     }
 

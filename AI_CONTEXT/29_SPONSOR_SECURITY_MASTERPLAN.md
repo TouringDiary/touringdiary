@@ -1146,14 +1146,14 @@ Tutte le voci sotto sono **chiuse** — evidenza in § *Verifiche completate*.
 
 ## Verifiche ed evidenze — implementazione (STEP-2 / post-implementazione)
 
-> **Stato implementazione:** **in corso** — Fase 2.2 completata 2026-07-14; Fase 2.3 implementata (review).
+> **Stato implementazione:** **in corso** — Fasi 2.1–2.3 completate (PO ✓). Fase 2.4: codice/migration presenti; chiusura bloccata da `npm run lint` non pulito.
 
 *Non bloccano il gate **Pronto per Implementazione**. Tracciate in WF-02 STEP-2 e checklist § *Implementazioni*.*
 
 ### Database — `sponsors`
 
 - [x] **VT-SPONSOR-PUBLIC-READ** — `REVOKE SELECT` colonne sensibili da `anon` + `SPONSOR_PUBLIC_VITRINE_SELECT` client + bootstrap API — **Fase 2.1** ☑ 2026-07-14
-- [ ] **UPDATE `cancelSponsor` / shop sync** — smoke runtime JWT post-fix → **Fase 4**
+- [x] **UPDATE `cancelSponsor` / shop sync** — RPC `cancel_sponsor_contract`, `sync_sponsor_profile_from_shop`; client refactor — **Fase 2.4** ☑ 2026-07-16
 
 ### Database — `sponsor_messages`
 
@@ -1166,7 +1166,7 @@ Tutte le voci sotto sono **chiuse** — evidenza in § *Verifiche completate*.
 - [x] **INSERT anon revocato** — policy `public_insert_sponsor_requests` eliminata; INSERT authenticated scoped `profile_id = auth.uid()` — **Fase 2.1** ☑ 2026-07-14
 - [x] **`activate_sponsor_with_resource` hardened** — `is_td_admin`, `SET search_path`, state machine `waiting_payment`, `REVOKE PUBLIC/anon`, `GRANT authenticated/service_role` — **Fase 2.1** ☑ 2026-07-14
 - [x] **B1 approvazione admin** — RPC gateway `approve_sponsor_request`, … — **Fase 2.2** ☑ 2026-07-14
-- [x] **`activate_sponsor_from_request`** — percorso atomico unico; `activate_sponsor_with_resource` revocato da client — **Fase 2.3** ☑ 2026-07-14
+- [x] **`activate_sponsor_from_request`** — percorso atomico unico; `activate_sponsor_with_resource` revocato da client — **Fase 2.3** ☑ 2026-07-14 (review PO)
 
 ### Frontend / integrazione
 
@@ -1627,7 +1627,7 @@ Criteri **oggettivi** per passare da **In Analisi** a **Pronto per Implementazio
 - [x] **Fase 1** — Contenimento critico (P0: B9, B2, B7, B1, B6, B8, B5) — migration `20260714160000` ☑ 2026-07-14
 - [x] **Fase 2** — RPC gateway richieste (`approve_sponsor_request`, …) — migration `20260714170000` ☑ 2026-07-14
 - [x] **Fase 3** — `activate_sponsor_from_request` unificata (DL-017) — migration `20260714173000` ☑ 2026-07-14
-- [ ] **Fase 4** — RPC contratti, shop sync, city lifecycle + tab Sponsor Scollegati (DL-029)
+- [ ] **Fase 4** — RPC contratti, shop sync, city lifecycle + tab Sponsor Scollegati (DL-029) — migration `20260714180000` presente; chiusura pending lint/review
 - [ ] **Fase 5** — Contenimento messaggi legacy B8 (non consolidamento)
 - [ ] **Fase 6** — Governance: audit O8, signup O1/O11, rating UI DL-030, matrice O4/DL-027
 

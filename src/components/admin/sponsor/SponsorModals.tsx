@@ -6,23 +6,31 @@ import { PoiDetailModal } from '../../modals/PoiDetailModal';
 import { Sparkles, XCircle, AlertTriangle, CalendarPlus, Info } from 'lucide-react';
 import { useSponsorModalLogic } from '../../../hooks/useSponsorModalLogic';
 import { SponsorRequest } from '../../../types/index';
+import type { User } from '../../../types/users';
+import type {
+    ActivationData,
+    RejectData,
+    CancelData,
+    ExtensionData,
+    CrmIdentity,
+} from '../../../hooks/useSponsorModals';
 
 interface SponsorModalsProps {
     state: {
-        activationData: any;
-        rejectData: any;
-        cancelData: any;
+        activationData: ActivationData | null;
+        rejectData: RejectData | null;
+        cancelData: CancelData | null;
         previewPoi: PointOfInterest | null;
-        partnerCrmIdentity: any;
-        extensionData: any;
+        partnerCrmIdentity: CrmIdentity | null;
+        extensionData: ExtensionData;
     };
     requests: SponsorRequest[];
-    currentUser?: any;
+    currentUser?: User;
     actions: {
         closeActivation: () => void;
-        updateActivation: (data: any) => void;
+        updateActivation: (data: Partial<ActivationData>) => void;
         closeReject: () => void;
-        updateReject: (data: any) => void;
+        updateReject: (data: Partial<RejectData>) => void;
         closeCancel: () => void;
         updateCancel: (reason: string) => void;
         closePreview: () => void;
@@ -30,6 +38,7 @@ interface SponsorModalsProps {
         closeExtension: () => void;
         setExtensionDays: (days: number) => void;
         setExtensionDate: (date: string) => void;
+        setExtensionReason: (reason: string) => void;
     };
     onConfirmActivation: () => void;
     onConfirmReject: () => void;
@@ -55,17 +64,17 @@ export const SponsorModals: React.FC<SponsorModalsProps> = ({
     return (
         <>
             {/* 0. CRM / Chat Modal */}
-            {partnerCrmIdentity && (
+            {partnerCrmIdentity?.profileId ? (
                 <PartnerDetailModal
                     profileId={partnerCrmIdentity.profileId}
-                    requestId={partnerCrmIdentity.requestId}
-                    vatNumber={partnerCrmIdentity.vat}
+                    requestId={partnerCrmIdentity.requestId ?? undefined}
+                    vatNumber={partnerCrmIdentity.vat ?? undefined}
                     onClose={actions.closeCrm}
                 />
-            )}
+            ) : null}
 
             {/* 0.1 Preview Modal */}
-            {previewPoi && (
+            {previewPoi && currentUser ? (
                 <PoiDetailModal
                     poi={previewPoi}
                     onClose={actions.closePreview}
@@ -76,7 +85,7 @@ export const SponsorModals: React.FC<SponsorModalsProps> = ({
                     onOpenAuth={() => { }}
                     user={currentUser}
                 />
-            )}
+            ) : null}
 
             {/* 1. Activation Modal */}
             <DeleteConfirmationModal
@@ -200,10 +209,15 @@ export const SponsorModals: React.FC<SponsorModalsProps> = ({
                 onClose={actions.closeExtension}
                 onConfirm={() => onConfirmExtension(false)}
                 title={extensionData?.mode === 'mass' ? 'Estensione Massiva' : 'Estendi Scadenza'}
-                message={extensionData?.mode === 'single' ? `Estensione per sponsor ID: ${extensionData?.id}.` : 'Aggiungi giorni a tutti gli sponsor attivi.'}
+                message={
+                    extensionData?.mode === 'single'
+                        ? `Estensione per sponsor ID: ${extensionData?.id}.`
+                        : 'Aggiungi giorni agli sponsor selezionati tramite checkbox (DL-028).'
+                }
                 confirmLabel="Conferma Estensione"
                 variant="info"
                 isDeleting={false}
+                confirmDisabled={!logic.extension.canSubmit}
                 icon={<CalendarPlus className="w-8 h-8 text-white text-indigo-500" />}
             >
                 <div className="mt-4 space-y-4 text-left w-full">
@@ -218,11 +232,13 @@ export const SponsorModals: React.FC<SponsorModalsProps> = ({
                             </p>
                             <button
                                 type="button"
+                                disabled={!logic.extension.canSubmit}
                                 onClick={(e) => {
                                     e.preventDefault();
+                                    if (!logic.extension.canSubmit) return;
                                     onConfirmExtension(true);
                                 }}
-                                className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold uppercase rounded-lg transition-colors shadow-lg shadow-rose-900/50"
+                                className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold uppercase rounded-lg transition-colors shadow-lg shadow-rose-900/50 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 Escludi Critici ed Estendi
                             </button>
@@ -252,6 +268,15 @@ export const SponsorModals: React.FC<SponsorModalsProps> = ({
                             value={extensionData?.days || 0}
                             onChange={(e) => actions.setExtensionDays(parseInt(e.target.value, 10) || 0)}
                             className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-2xl font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 block mb-1 uppercase">Motivazione (obbligatoria)</label>
+                        <textarea
+                            value={extensionData?.reason || ''}
+                            onChange={(e) => actions.setExtensionReason(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[72px]"
+                            placeholder="Es. compensazione blackout piattaforma..."
                         />
                     </div>
                     <div className="p-3 bg-indigo-900/20 border border-indigo-500/20 rounded-lg">

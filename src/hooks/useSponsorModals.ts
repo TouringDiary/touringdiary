@@ -1,6 +1,23 @@
 
 import { useState } from 'react';
 import { PointOfInterest, SponsorRequest } from '../types/index';
+import { getTodayDateString } from '../services/sponsors/_internalTypes';
+
+/** Somma giorni a una data calendario YYYY-MM-DD in UTC, senza shift timezone locale. */
+const addCalendarDays = (isoDate: string, days: number): string => {
+    const [year, month, day] = isoDate.split('-').map(Number);
+    const utc = new Date(Date.UTC(year, month - 1, day + days));
+    return utc.toISOString().split('T')[0];
+};
+
+/** Differenza in giorni tra due date calendario YYYY-MM-DD (UTC). */
+const calendarDaysBetween = (fromIso: string, toIso: string): number => {
+    const [y1, m1, d1] = fromIso.split('-').map(Number);
+    const [y2, m2, d2] = toIso.split('-').map(Number);
+    const from = Date.UTC(y1, m1 - 1, d1);
+    const to = Date.UTC(y2, m2 - 1, d2);
+    return Math.round((to - from) / (1000 * 60 * 60 * 24));
+};
 
 function sponsorRequestToPreviewPoi(request: SponsorRequest): PointOfInterest {
     return {
@@ -49,6 +66,7 @@ export interface ExtensionData {
     currentExpirationDate: string;
     newExpirationDate: string;
     days: number;
+    reason: string;
 }
 
 export interface CrmIdentity {
@@ -71,7 +89,8 @@ export const useSponsorModals = () => {
         id: null,
         currentExpirationDate: '',
         newExpirationDate: '',
-        days: 30
+        days: 30,
+        reason: '',
     });
 
     // --- ACTIONS ---
@@ -118,31 +137,23 @@ export const useSponsorModals = () => {
             id: null,
             currentExpirationDate: '',
             newExpirationDate: '',
-            days: 3
+            days: 3,
+            reason: '',
         });
     };
 
     const openSingleExtension = (id: string, currentEndDate: string) => {
-        // Default: Add 30 days
-        let newDateStr = '';
-        if (currentEndDate) {
-            const d = new Date(currentEndDate);
-            d.setDate(d.getDate() + 30);
-            newDateStr = d.toISOString().split('T')[0];
-        } else {
-            // Fallback if no end date
-            const d = new Date();
-            d.setDate(d.getDate() + 30);
-            newDateStr = d.toISOString().split('T')[0];
-        }
-        
+        const baseDate = currentEndDate || getTodayDateString();
+        const newDateStr = addCalendarDays(baseDate, 30);
+
         setExtensionData({
             isOpen: true,
             mode: 'single',
             id,
             currentExpirationDate: currentEndDate || 'N/A',
             newExpirationDate: newDateStr,
-            days: 30
+            days: 30,
+            reason: '',
         });
     };
 
@@ -153,9 +164,7 @@ export const useSponsorModals = () => {
     const setExtensionDays = (days: number) => {
         let newDate = '';
         if (extensionData.currentExpirationDate && extensionData.currentExpirationDate !== 'N/A') {
-            const d = new Date(extensionData.currentExpirationDate);
-            d.setDate(d.getDate() + days);
-            newDate = d.toISOString().split('T')[0];
+            newDate = addCalendarDays(extensionData.currentExpirationDate, days);
         }
         setExtensionData(prev => ({ ...prev, days, newExpirationDate: newDate }));
     };
@@ -163,12 +172,13 @@ export const useSponsorModals = () => {
     const setExtensionDate = (date: string) => {
         let days = 0;
         if (extensionData.currentExpirationDate && extensionData.currentExpirationDate !== 'N/A' && date) {
-            const start = new Date(extensionData.currentExpirationDate);
-            const end = new Date(date);
-            const diffTime = end.getTime() - start.getTime();
-            days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            days = calendarDaysBetween(extensionData.currentExpirationDate, date);
         }
         setExtensionData(prev => ({ ...prev, newExpirationDate: date, days }));
+    };
+
+    const setExtensionReason = (reason: string) => {
+        setExtensionData(prev => ({ ...prev, reason }));
     };
 
     const partnerCrmVat = partnerCrmIdentity?.vat || null;
@@ -189,7 +199,7 @@ export const useSponsorModals = () => {
             openCancel, closeCancel, updateCancel,
             openPreview, closePreview,
             openCrm, closeCrm,
-            openMassExtension, openSingleExtension, closeExtension, setExtensionDays, setExtensionDate
+            openMassExtension, openSingleExtension, closeExtension, setExtensionDays, setExtensionDate, setExtensionReason
         }
     };
 };

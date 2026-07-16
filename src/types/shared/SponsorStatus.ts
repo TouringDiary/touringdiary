@@ -14,6 +14,7 @@
  * STATI DERIVATI (Runtime):
  * - expired: Uno sponsor è considerato 'expired' solo se lo stato nel DB è 'approved' 
  *            MA la data di fine contratto (end_date) è inferiore alla data odierna.
+ * - disconnected: Sponsor attivo (approved) senza city_id valido — tab «Sponsor Scollegati» (DL-029).
  */
 import { SPONSOR_STATUS_VALUES } from '../../constants/governance';
 type PersistentSponsorStatus = typeof SPONSOR_STATUS_VALUES[number];
@@ -27,4 +28,5 @@ export type SponsorLifecycleStatus =
      * È calcolato come:
      * status === 'approved' AND end_date < today
      */
-    | 'expired';
+    | 'expired'
+    | 'disconnected';

@@ -15,8 +15,8 @@
 | **SSOT** | `AI_CONTEXT/29_SPONSOR_SECURITY_MASTERPLAN.md` · `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` · `AI_CONTEXT/31_PACKING_SUITCASE_SYSTEM.md` (vincoli integrazione) · `AI_CONTEXT/32_DESIGN_SYSTEM_FOUNDATION.md` (vincoli UI/layering) |
 | **Owner** | PO + AI |
 | **Creato** | 2026-07-14 |
-| **Ultimo aggiornamento** | 2026-07-14 |
-| **Aggiornato da** | Chiusura Fase 2.2; implementazione Fase 2.3 |
+| **Ultimo aggiornamento** | 2026-07-16 |
+| **Aggiornato da** | Chiusura formale WF-02 STEP-2 Fase 2.4 |
 
 ---
 
@@ -111,8 +111,8 @@ Eseguire in ordine progressivo le implementazioni approvate negli SSOT dominio *
 |-------|-----------------|
 | **Workflow** | WF-02 — Attivo |
 | **STEP** | STEP-2 — Implementazione dominio Sponsor (DOC 29) |
-| **Fase** | Fase 2.2 — Fase 2: RPC gateway richieste |
-| **% convenzionale** | 30 % |
+| **Fase** | Fase 2.5 — Fase 5: Contenimento messaggi legacy (B8) |
+| **% convenzionale** | 55 % |
 
 ---
 
@@ -308,8 +308,8 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | RPC atomica `activate_sponsor_from_request` (DL-017); deprecare percorsi paralleli |
-| **Stato Fase** | **Completato** (implementazione — review architetturale) |
-| **PO ✓** | ☐ |
+| **Stato Fase** | **Completato** |
+| **PO ✓** | ☑ (review architetturale 2026-07-14) |
 | **Riferimento SSOT** | DOC 29 Fase 3; Priorità P1 B3/B4 |
 
 **Attività previste:**
@@ -328,8 +328,8 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | RPC contratto, shop sync O6, city lifecycle O7/DL-022 |
-| **Stato Fase** | Non iniziato |
-| **PO ✓** | ☐ |
+| **Stato Fase** | **Completato** |
+| **PO ✓** | ☑ (review architetturale 2026-07-16) |
 | **Riferimento SSOT** | DOC 29 Fase 4; RPC `cancel_sponsor_contract`, `extend_sponsor_contract`, `extend_sponsors_bulk`, `sync_sponsor_profile_from_shop` |
 
 **Attività previste:**
@@ -631,6 +631,7 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Data | Decisione | Chi |
 |------|-----------|-----|
+| 2026-07-16 | Chiusura formale Fase 2.4; lint residuo dichiarato fuori scope; autorizzazione avvio Fase 2.5 | PO |
 | 2026-07-14 | Chiusura STEP-1; DOC 29 *Pronto per Implementazione*; autorizzazione avvio STEP-2 Fase 2.1 | PO |
 | 2026-07-14 | Chiusura decisioni PO DEC-A12/SUX/TERM e DEC-CC-SCOPE/CATALOG | PO |
 | 2026-07-14 | Apertura ufficiale WF-02; 4 STEP; Messaggistica unificata esclusa dal perimetro | PO |
@@ -654,6 +655,7 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Data | STEP | Fase | Stato | Nota |
 |------|------|------|-------|------|
+| 2026-07-16 | 2 | 2.4 | Completato | RPC contratti/shop/city; migration `20260714180000`; lint residuo fuori scope |
 | 2026-07-14 | 2 | 2.3 | Completato | `activate_sponsor_from_request`; migration 20260714173000 |
 | 2026-07-14 | 2 | 2.2 | Completato | RPC gateway richieste; migration 20260714170000 |
 | 2026-07-14 | 2 | 2.1 | Completato | Fase 2.1 contenimento P0; migration 20260714160000 |
@@ -671,11 +673,11 @@ Il Workflow WF-02 si considera **Completato** quando:
 |-------|--------|
 | **Workflow corrente** | WF-02 — Implementation Masterplan |
 | **STEP corrente** | STEP-2 — Implementazione dominio Sponsor (DOC 29) |
-| **Fase corrente** | Fase 2.4 — Fase 4: RPC contratti, shop e city lifecycle |
-| **Stato della fase** | Non iniziata |
-| **Prossima fase da eseguire** | Fase 2.4 — Fase 4: RPC contratti, shop e city lifecycle |
+| **Fase corrente** | Fase 2.5 — Fase 5: Contenimento messaggi legacy (B8) |
+| **Stato della fase** | In analisi (ricognizione completata) |
+| **Prossima fase da eseguire** | Fase 2.5 — Contenimento messaggi legacy (B8) |
 | **STEP completato in questa sessione** | — |
-| **Fase completata in questa sessione** | Fase 2.2 (PO ✓) · Fase 2.3 (implementazione) |
+| **Fase completata in questa sessione** | Fase 2.4 (chiusa); avviata analisi Fase 2.5 |
 | **Workflow completato** | No |
 
 ---
@@ -698,10 +700,13 @@ Il Workflow WF-02 si considera **Completato** quando:
 - [x] **STEP-2 Fase 2.2** — migration `20260714170000`; RPC gateway richieste; refactor `sponsorRequestsService`
 - [x] **Review architetturale Fase 2.2** — PO ✓ 2026-07-14
 - [x] **STEP-2 Fase 2.3** — migration `20260714173000`; `activate_sponsor_from_request`; revoke client legacy RPC
+- [x] **Review architetturale Fase 2.3** — PO ✓ 2026-07-14
+- [x] **STEP-2 Fase 2.4** — migration `20260714180000`; RPC contratti/shop/city; UI Sponsor Scollegati; review architetturale PO ✓ 2026-07-16
+- [x] Lint Fase 2.4: nessun errore TS residuo nello scope; residui progetto dichiarati fuori scope
 
 ### Attività rimaste aperte
 
-- [ ] STEP-2 Fase 2.4 — RPC contratti, shop sync, city lifecycle (DL-029)
+- [ ] STEP-2 Fase 2.5 — Contenimento messaggi legacy B8
 - [ ] Inventario chiavi Configuration Source (prosegue verso STEP-3)
 
 ### Gate cambiati in questa sessione
@@ -715,11 +720,11 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Elemento | Esito sessione |
 |----------|----------------|
-| **Fasi completate** | STEP-1 Fase 1.1, 1.2, 1.3 |
+| **Fasi completate** | STEP-1 Fase 1.1–1.3; STEP-2 Fase 2.1–2.4 |
 | **STEP completati** | STEP-1 |
 | **Workflow completato** | No |
-| **Punto esatto raggiunto** | WF-02 Attivo · STEP-2 In corso · Fase 2.1 Completata · prossima Fase 2.2 |
+| **Punto esatto raggiunto** | WF-02 Attivo · STEP-2 In corso · Fase 2.5 in analisi · implementazione non ancora avviata |
 
 ### Prossimo checkpoint previsto
 
-Migration/RPC Fase 2.2 + smoke percorso Approva/Rifiuta admin
+Avvio Fase 2.5 — Contenimento messaggi legacy (B8)

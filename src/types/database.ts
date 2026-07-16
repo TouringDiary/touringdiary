@@ -54,6 +54,13 @@ export interface DatabaseJoinedSponsor extends DatabaseSponsor {
         admin_region: string;
         zone: string;
     } | null;
+    last_city?: {
+        name: string;
+        continent: string;
+        nation: string;
+        admin_region: string;
+        zone: string;
+    } | null;
     pricing_versions?: {
         price: number;
         plans?: {
@@ -95,6 +102,9 @@ export interface DatabaseJoinedSponsor extends DatabaseSponsor {
 }
 
 // Sponsor Requests
+// Manuale (non Domain.Row<'sponsor_requests'>): l'API pubblica include campi di
+// proiezione legacy (amount, email, phone, start_date, end_date) assenti dalla Row
+// reale, usati dal mapper join. Una migrazione a Row puro richiede allineare il mapper.
 export interface DatabaseSponsorRequest {
     id: string;
     company_name: string;
@@ -117,7 +127,9 @@ export interface DatabaseSponsorRequest {
     pricing_version_id?: string | null;
     status: Database['public']['Enums']['subscription_status'] | string;
     created_at: string;
-    updated_at?: string | null;
+    status_changed_at?: string | null;
+    admin_notes?: string | null;
+    admin_notes_last_updated?: string | null;
     languages?: string[] | null;
     specialties?: string[] | null;
     license_number?: string | null;
@@ -225,11 +237,6 @@ export interface DatabaseJoinedPoi extends DatabasePoi {
     } | null;
 }
 
-/**
- * Risultato grezzo della RPC get_ranked_cities.
- * Inferito direttamente dalla definizione della funzione in supabase.ts.
- */
-export type DatabaseRankedCityRow = Database['public']['Functions']['get_ranked_cities']['Returns'][0];
 export interface DatabaseCityRouteView {
     city_id: string
 

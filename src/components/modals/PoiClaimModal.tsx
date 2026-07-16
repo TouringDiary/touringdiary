@@ -11,6 +11,7 @@ import { SponsorPricingSelector } from './sponsor/SponsorPricingSelector';
 import { SponsorForm } from './sponsor/SponsorForm';
 import { SponsorSuccess } from './sponsor/SponsorSuccess';
 import { useSponsorFormLogic } from '../../hooks/features/useSponsorFormLogic';
+import { PLAN_TYPES } from '../../constants/planTypes';
 
 interface PoiClaimModalProps {
     isOpen: boolean;
@@ -37,16 +38,15 @@ export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps
     // Inizializziamo con valori default, ma li aggiorneremo quando cambia il tab
     const sponsorLogic = useSponsorFormLogic({ 
         user, 
-        initialType: 'activity', 
-        initialTier: 'gold'
+        initialType: PLAN_TYPES.LOCAL_ACTIVITY,
     });
 
     // 5. Sync Tab con Sponsor Logic
     useEffect(() => {
         if (activeTab === 'gold' || activeTab === 'silver') {
-            sponsorLogic.handleTypeChange('activity');
+            sponsorLogic.handleTypeChange(PLAN_TYPES.LOCAL_ACTIVITY);
         } else if (activeTab === 'shop') {
-            sponsorLogic.handleTypeChange('shop');
+            sponsorLogic.handleTypeChange(PLAN_TYPES.DIGITAL_SHOWCASE);
         }
 
         // Pre-fill con dati POI se non già fatto
@@ -210,7 +210,18 @@ export const PoiClaimModal = ({ isOpen, onClose, poi, user }: PoiClaimModalProps
                                 <>
                                     <div className="mb-8">
                                         <SponsorPricingSelector 
-                                            activeType={sponsorLogic.activeType}
+                                            activeGroup={
+                                                sponsorLogic.activeType === PLAN_TYPES.DIGITAL_SHOWCASE
+                                                    ? PLAN_TYPES.DIGITAL_SHOWCASE
+                                                    : PLAN_TYPES.LOCAL_ACTIVITY
+                                            }
+                                            initialPlanType={
+                                                activeTab === 'gold'
+                                                    ? PLAN_TYPES.REGIONAL_ACTIVITY
+                                                    : activeTab === 'silver'
+                                                        ? PLAN_TYPES.LOCAL_ACTIVITY
+                                                        : undefined
+                                            }
                                             onSelectionChange={sponsorLogic.setSelectedPlan}
                                         />
                                     </div>

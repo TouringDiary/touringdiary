@@ -208,10 +208,18 @@ export interface SponsorUpsertPayload {
 }
 
 /**
- * SponsorRequestUpsertPayload: contratto per supabase.from('sponsor_requests').upsert().
- * 
- * ARCHITECTURAL NOTE: Sponsor Taxonomy
- * Vedere nota in SponsorUpsertPayload. Sponsor['type'] riflette la tassonomia 
+ * SponsorRequestUpsertPayload: contratto per insert/upsert descrittivi su `sponsor_requests`
+ * (es. candidatura pubblica, bozze admin di campi anagrafici).
+ *
+ * ARCHITECTURAL NOTE — Lifecycle / Write Gateway:
+ * I passaggi di stato (`pending` → `waiting_payment` → `converted` / `rejected`, ecc.)
+ * e il timestamp `status_changed_at` sono aggiornati dalle **RPC di dominio**
+ * (`approve_sponsor_request`, `reject_sponsor_request`, `activate_sponsor_from_request`, …).
+ * Non usare questo payload (né un `.update()` / `.upsert()` client) per cambiare lo status
+ * o per valorizzare `status_changed_at`: sarebbe un bypass del lifecycle Sponsor.
+ *
+ * ARCHITECTURAL NOTE — Taxonomy:
+ * Vedere nota in SponsorUpsertPayload. Sponsor['type'] riflette la tassonomia
  * frontend attuale in attesa di consolidamento CRM definitivo.
  */
 export interface SponsorRequestUpsertPayload {
@@ -241,7 +249,11 @@ export interface SponsorRequestUpsertPayload {
     license_number?: string | null;
     start_date?: string | null;
     end_date?: string | null;
-    updated_at: string;
+    /**
+     * Campo di dominio gestito dalle RPC di cambio status.
+     * Presente solo per allineamento schema / lettura tipi — non impostarlo da client.
+     */
+    status_changed_at?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

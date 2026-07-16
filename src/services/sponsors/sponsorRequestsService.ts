@@ -27,7 +27,7 @@ export const getSponsorsPaginated = async (options: SponsorQueryOptions) => {
     const to = from + pageSize - 1;
 
     // Routing Status -> Tabella
-    const isSponsorTable = ['approved', 'expired', 'cancelled'].includes(status);
+    const isSponsorTable = ['approved', 'expired', 'cancelled', 'disconnected'].includes(status);
 
     let query;
     if (isSponsorTable) {
@@ -39,24 +39,36 @@ export const getSponsorsPaginated = async (options: SponsorQueryOptions) => {
     const today = new Date().toISOString().split('T')[0];
 
     if (status === 'approved') {
-        query = query.eq('status', 'approved').gte('end_date', today);
+        query = query.eq('status', 'approved').gte('end_date', today).not('city_id', 'is', null);
     } else if (status === 'expired') {
-        query = query.eq('status', 'approved').lt('end_date', today);
+        query = query.eq('status', 'approved').lt('end_date', today).not('city_id', 'is', null);
+    } else if (status === 'disconnected') {
+        query = query.eq('status', 'approved').is('city_id', null);
+    } else if (status === 'cancelled') {
+        query = query.eq('status', 'cancelled');
     } else {
         query = query.eq('status', status);
     }
 
-    if (filters.cityId) query = query.eq('city_id', filters.cityId);
+    const cityJoinPrefix = status === 'disconnected' ? 'last_city' : 'cities';
+
+    if (filters.cityId) {
+        if (status === 'disconnected') {
+            query = query.eq('last_city_id', filters.cityId);
+        } else {
+            query = query.eq('city_id', filters.cityId);
+        }
+    }
 
     const tierFilter = filters.tier;
     if (tierFilter && isPlanTypeValue(tierFilter)) {
         query = query.eq('pricing_versions.plans.type', tierFilter);
     }
 
-    if (filters.continent) query = query.eq('cities.continent', filters.continent);
-    if (filters.nation) query = query.eq('cities.nation', filters.nation);
-    if (filters.adminRegion) query = query.eq('cities.admin_region', filters.adminRegion);
-    if (filters.zone) query = query.eq('cities.zone', filters.zone);
+    if (filters.continent) query = query.eq(`${cityJoinPrefix}.continent`, filters.continent);
+    if (filters.nation) query = query.eq(`${cityJoinPrefix}.nation`, filters.nation);
+    if (filters.adminRegion) query = query.eq(`${cityJoinPrefix}.admin_region`, filters.adminRegion);
+    if (filters.zone) query = query.eq(`${cityJoinPrefix}.zone`, filters.zone);
 
     if (searchTerm) {
         if (!isSponsorTable) {
@@ -66,7 +78,15 @@ export const getSponsorsPaginated = async (options: SponsorQueryOptions) => {
         }
     }
 
-    const sortKey = sortConfig.key === 'date' ? 'created_at' : (sortConfig.key === 'endDate' ? 'end_date' : sortConfig.key);
+    // Chiavi logiche UI → colonne DB (mai inoltrare 'lastModified' a PostgREST).
+    const sortKey =
+        sortConfig.key === 'date'
+            ? 'created_at'
+            : sortConfig.key === 'endDate'
+                ? 'end_date'
+                : sortConfig.key === 'lastModified'
+                    ? (isSponsorTable ? 'updated_at' : 'status_changed_at')
+                    : sortConfig.key;
     query = query.order(sortKey, { ascending: sortConfig.direction === 'asc' });
 
     const { data, error, count } = await query.range(from, to);

@@ -47,5 +47,7 @@ export interface MarketingTierConfig {
     basePrice: number;
     promoPrice?: number;
     promoActive?: boolean;
+    /** Etichetta promozionale opzionale (es. "Black Friday") mostrata in card piano. */
+    promoLabel?: string;
     customFeatureLabels?: string[];
 }

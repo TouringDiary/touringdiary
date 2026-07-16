@@ -14,12 +14,6 @@ import { useSponsorModals } from './useSponsorModals';
 import { SponsorRequest } from '../types/index';
 import { validateActivationData } from '../utils/sponsorValidation';
 
-/** Tipo di ritorno per l'estensione massiva degli sponsor */
-type ExtensionResult = {
-    count: number;
-    skipped?: number;
-};
-
 interface UseSponsorOperationsProps {
     refreshData: () => void; // Funzione di callback per ricaricare la UI dopo una mutazione
 }
@@ -175,26 +169,48 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
 
     // 5. Estensione (Single & Mass)
     const confirmExtension = async (excludeCritical: boolean = false) => {
-        const { mode, id, newExpirationDate, days } = modalState.extensionData;
+        const { mode, id, newExpirationDate, days, reason } = modalState.extensionData;
+        const trimmedReason = reason.trim();
+
+        if (!trimmedReason) {
+            showToast('Motivazione obbligatoria per estensione contratto.', 'error');
+            return;
+        }
+        if (!days || days <= 0) {
+            showToast('I giorni di estensione devono essere maggiori di zero.', 'error');
+            return;
+        }
+
         try {
-            if (mode === 'single' && id && newExpirationDate) { 
-                await updateSponsorExpiration(id, newExpirationDate); 
+            if (mode === 'single' && id && newExpirationDate) {
+                await updateSponsorExpiration(id, newExpirationDate, trimmedReason);
                 showToast('Scadenza aggiornata.', 'success');
-            } else if (mode === 'mass') { 
-                const result = await extendAllActiveSponsors(days, excludeCritical) as ExtensionResult;
-                const count = result?.count ?? 0;
-                const skipped = result?.skipped ?? 0;
+            } else if (mode === 'mass') {
+                if (selectedIds.size === 0) {
+                    showToast('Seleziona almeno uno sponsor con le checkbox.', 'error');
+                    return;
+                }
+                const result = await extendAllActiveSponsors(
+                    Array.from(selectedIds),
+                    days,
+                    trimmedReason,
+                    excludeCritical,
+                );
+                const count = result.count;
+                const skipped = result.skipped ?? 0;
                 if (excludeCritical && skipped > 0) {
                     showToast(`Estesi ${count} sponsor. Saltati ${skipped} critici.`, 'success');
                 } else {
-                    showToast(`Estesi ${count} sponsor attivi.`, 'success');
+                    showToast(`Estesi ${count} sponsor selezionati.`, 'success');
                 }
+                resetSelection();
             }
             modalActions.closeExtension();
             setTimeout(() => refreshData(), 500);
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            showToast("Errore durante l'estensione.", 'error');
+            const message = e instanceof Error ? e.message : "Errore durante l'estensione.";
+            showToast(message, 'error');
         }
     };
 

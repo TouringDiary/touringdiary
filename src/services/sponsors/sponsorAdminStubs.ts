@@ -25,14 +25,6 @@ export const markUserLogsAsRead = async (...args: any[]) => {
 };
 
 
-export const extendAllActiveSponsors = async (
-    days: number,
-    excludeCritical: boolean = false
-): Promise<{ count: number; skipped?: number }> => {
-    console.warn("extendAllActiveSponsors not implemented yet");
-    return Promise.resolve({ count: 0, skipped: 0 });
-};
-
 export const sendUserMessage = async (...args: any[]) => {
     console.warn("sendUserMessage not implemented yet");
     return Promise.resolve(false);
@@ -43,7 +35,3 @@ export const togglePartnerLogReadStatus = async (...args: any[]) => {
     return Promise.resolve();
 };
 
-export const updateSponsorExpiration = async (...args: any[]) => {
-    console.warn("updateSponsorExpiration not implemented yet");
-    return Promise.resolve(false);
-};

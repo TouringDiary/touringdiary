@@ -11,6 +11,7 @@ import {
     POI_CATEGORY_VALUES
 } from '../../constants/governance';
 import { sanitizeMediaStatus } from '../../utils/media';
+import { getTodayDateString } from './_internalTypes';
 
 /**
  * SELECT STRINGS PER JOIN RELAZIONALI (SUPABASE/POSTGREST)
@@ -26,7 +27,7 @@ const SPONSOR_PRICING_VERSION_JOIN =
     'pricing_versions!pricing_version_id(price,plans:plan_id(name,type))';
 
 const SPONSOR_RESOURCE_JOIN_SELECT =
-    'cities!city_id(*),pois!poi_id(name,description,image_url,image_status,coords_lat,coords_lng,category,sub_category,address,website,phone,opening_hours),shops!shop_id(name,slug,description,image_url,image_status,coords_lat,coords_lng,address,website,phone,opening_hours),city_guides!guide_id(name,slug,description,image_url,specialties,languages,phone,website),city_tour_operators!operator_id(name,slug,description,image_url,coords_lat,coords_lng,address,opening_hours)';
+    'cities!city_id(*),last_city:cities!sponsors_last_city_id_fkey(name,continent,nation,admin_region,zone),pois!poi_id(name,description,image_url,image_status,coords_lat,coords_lng,category,sub_category,address,website,phone,opening_hours),shops!shop_id(name,slug,description,image_url,image_status,coords_lat,coords_lng,address,website,phone,opening_hours),city_guides!guide_id(name,slug,description,image_url,specialties,languages,phone,website),city_tour_operators!operator_id(name,slug,description,image_url,coords_lat,coords_lng,address,opening_hours)';
 
 export const SPONSOR_PUBLIC_VITRINE_SELECT =
     `${SPONSOR_PUBLIC_VITRINE_COLUMNS},${SPONSOR_RESOURCE_JOIN_SELECT},${SPONSOR_PRICING_VERSION_JOIN}`;
@@ -84,9 +85,10 @@ export type SponsorJoinedCityFields = {
 };
 
 /** Input mapper: riga piena o proiezione vetrina da PostgREST. */
-export type SponsorMapperInput = Partial<Omit<DatabaseJoinedSponsor, 'cities'>> & {
+export type SponsorMapperInput = Partial<Omit<DatabaseJoinedSponsor, 'cities' | 'last_city'>> & {
     id: string;
     cities?: CityJoinRow | SponsorJoinedCityFields | null;
+    last_city?: CityJoinRow | SponsorJoinedCityFields | null;
 };
 
 /** Normalizza il join `cities` restituito da PostgREST (campi nullable) per DatabaseJoinedSponsor. */
@@ -107,12 +109,12 @@ export const normalizeSponsorCityJoin = (
 export const normalizeJoinedSponsorRow = (row: SponsorMapperInput): SponsorMapperInput => ({
     ...row,
     cities: normalizeSponsorCityJoin(row.cities),
+    last_city: normalizeSponsorCityJoin(row.last_city),
 });
 
 const isSponsorExpired = (status: NullableString, endDate: NullableString): boolean => {
     if (status !== 'approved' || !endDate) return false;
-    const today = new Date().toISOString().split('T')[0];
-    return endDate < today;
+    return endDate < getTodayDateString();
 };
 
 const normalizeSponsorStatus = (status: NullableString): SponsorLifecycleStatus => {
@@ -190,12 +192,12 @@ export const mapDbSponsorToApp = (dbSponsor: SponsorMapperInput): Sponsor => {
         adminNotes: dbSponsor.admin_notes || undefined,
         adminNotesLastUpdated: dbSponsor.admin_notes_last_updated || undefined,
 
-        // Geographic Identity (Resolved via Join)
-        continent: toOptionalString(dbSponsor.cities?.continent),
-        country: toOptionalString(dbSponsor.cities?.nation),
-        region: toOptionalString(dbSponsor.cities?.admin_region),
-        touristZone: toOptionalString(dbSponsor.cities?.zone),
-        city: toOptionalString(dbSponsor.cities?.name),
+        // Geographic Identity (Resolved via Join; last_city = fallback se city scollegata)
+        continent: toOptionalString(dbSponsor.cities?.continent) || toOptionalString(dbSponsor.last_city?.continent),
+        country: toOptionalString(dbSponsor.cities?.nation) || toOptionalString(dbSponsor.last_city?.nation),
+        region: toOptionalString(dbSponsor.cities?.admin_region) || toOptionalString(dbSponsor.last_city?.admin_region),
+        touristZone: toOptionalString(dbSponsor.cities?.zone) || toOptionalString(dbSponsor.last_city?.zone),
+        city: toOptionalString(dbSponsor.cities?.name) || toOptionalString(dbSponsor.last_city?.name),
 
         // DUAL-KEY SLUG RESOLUTION
         slug: dbSponsor.shops?.slug || dbSponsor.city_guides?.slug || dbSponsor.city_tour_operators?.slug || undefined
@@ -333,6 +335,9 @@ export const mapDbSponsorRequestToApp = (dbRequest: DatabaseJoinedSponsorRequest
         message: dbRequest.message || undefined,
         rejectionReason: dbRequest.rejection_reason || undefined,
         date: dbRequest.created_at,
+        statusChangedAt: dbRequest.status_changed_at || undefined,
+        adminNotes: dbRequest.admin_notes || undefined,
+        adminNotesLastUpdated: dbRequest.admin_notes_last_updated || undefined,
         pricingVersionId: dbRequest.pricing_version_id || undefined,
         profileId: dbRequest.profile_id || undefined,
         ownerId: dbRequest.owner_id || undefined,
@@ -379,10 +384,10 @@ export const mapDbSponsorToRequestApp = (dbSponsor: SponsorMapperInput): Sponsor
         requestId: dbSponsor.request_id || undefined,
         adminNotes: dbSponsor.admin_notes || undefined,
         adminNotesLastUpdated: dbSponsor.admin_notes_last_updated || undefined,
-        continent: toOptionalString(dbSponsor.cities?.continent),
-        country: toOptionalString(dbSponsor.cities?.nation),
-        region: toOptionalString(dbSponsor.cities?.admin_region),
-        touristZone: toOptionalString(dbSponsor.cities?.zone),
-        city: toOptionalString(dbSponsor.cities?.name)
+        continent: toOptionalString(dbSponsor.cities?.continent) || toOptionalString(dbSponsor.last_city?.continent),
+        country: toOptionalString(dbSponsor.cities?.nation) || toOptionalString(dbSponsor.last_city?.nation),
+        region: toOptionalString(dbSponsor.cities?.admin_region) || toOptionalString(dbSponsor.last_city?.admin_region),
+        touristZone: toOptionalString(dbSponsor.cities?.zone) || toOptionalString(dbSponsor.last_city?.zone),
+        city: toOptionalString(dbSponsor.cities?.name) || toOptionalString(dbSponsor.last_city?.name),
     };
 };

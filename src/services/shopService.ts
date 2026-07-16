@@ -1,9 +1,8 @@
 
 import { ShopPartner, ShopCategory, ShopProduct, Review } from '../types';
 import { PointOfInterest } from '../types/models/City';
-import { DatabaseShop, DatabaseShopInsert, DatabaseShopProduct, DatabaseShopProductInsert, DatabaseSponsor, Json } from '@/types/database';
+import { DatabaseShop, DatabaseShopInsert, DatabaseShopProduct, DatabaseShopProductInsert, Json } from '@/types/database';
 import { supabase } from './supabaseClient';
-import { startShopSubscription } from './sponsorService';
 
 // --- READ OPERATIONS ---
 
@@ -142,24 +141,15 @@ export const saveShop = async (shop: ShopPartner): Promise<void> => {
         };
         await supabase.from('shops').upsert(dbShop);
 
-        // Sync Sponsor Table
-        if (shop.vatNumber) {
-            const updatePayload: Partial<DatabaseSponsor> = { 
-                company_name: shop.name, 
-                address: shop.address 
-            };
-            if (shop.ownerId) updatePayload.owner_id = shop.ownerId;
-
-            let sponsorQuery = supabase.from('sponsors')
-                .update(updatePayload)
-                .eq('vat_number', shop.vatNumber);
-            
-            // SECURITY HARDENING: Bind sync to UUID identity if available
-            if (shop.ownerId) {
-                sponsorQuery = sponsorQuery.eq('owner_id', shop.ownerId);
+        if (shop.id) {
+            const { error: syncError } = await supabase.rpc('sync_sponsor_profile_from_shop', {
+                p_shop_id: shop.id,
+                p_refresh_subscription: false,
+            });
+            if (syncError) {
+                console.error('[ShopService] sync_sponsor_profile_from_shop failed:', syncError.message);
+                throw syncError;
             }
-
-            await sponsorQuery;
         }
     } catch (e) {
         console.error("Save Shop Error:", e);
@@ -190,18 +180,29 @@ export const saveProduct = async (shopId: string, product: ShopProduct): Promise
             shipping_mode: product.shippingMode
         };
         await supabase.from('shop_products').upsert(dbProduct);
-        
-        // Subscription Trigger: Resolve Sponsor and Tier from Business Source of Truth
-        const { data: sponsor, error: _sponsorError } = await supabase
+
+        const { data: sponsor, error: sponsorError } = await supabase
             .from('sponsors')
             .select('id, tier')
             .eq('shop_id', shopId)
             .maybeSingle();
 
+        if (sponsorError) {
+            console.error('[ShopService] sponsor lookup failed:', sponsorError.message);
+            throw sponsorError;
+        }
+
         if (sponsor) {
-            // Map business tier ('gold'|'silver'|'standard') to trigger tier ('standard'|'premium')
-            const tier: 'standard' | 'premium' = (sponsor.tier === 'gold') ? 'premium' : 'standard';
-            await startShopSubscription(sponsor.id, tier);
+            const tier: 'standard' | 'premium' = sponsor.tier === 'gold' ? 'premium' : 'standard';
+            const { error: syncError } = await supabase.rpc('sync_sponsor_profile_from_shop', {
+                p_shop_id: shopId,
+                p_refresh_subscription: true,
+                p_subscription_tier: tier,
+            });
+            if (syncError) {
+                console.error('[ShopService] sync_sponsor_profile_from_shop failed:', syncError.message);
+                throw syncError;
+            }
         }
     } catch(e) { 
         console.error("Save Product Error:", e);

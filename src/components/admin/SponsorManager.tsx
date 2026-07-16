@@ -24,6 +24,7 @@ const TAB_COLOR_CLASSES = {
     amber: 'bg-amber-600',
     blue: 'bg-blue-600',
     emerald: 'bg-emerald-600',
+    orange: 'bg-orange-600',
     rose: 'bg-rose-600',
     slate: 'bg-slate-600',
 } as const;
@@ -42,6 +43,7 @@ const SPONSOR_NAV_TABS: SponsorNavTab[] = [
     { id: 'pending', label: 'NUOVE RICHIESTE', count: null, color: 'amber' },
     { id: 'waiting', label: 'ATTESA PAGAMENTI', count: null, color: 'blue' },
     { id: 'approved', label: 'SPONSOR ATTIVI', count: null, color: 'emerald' },
+    { id: 'disconnected', label: 'SPONSOR SCOLLEGATI', count: null, color: 'orange' },
     { id: 'expired', label: 'SPONSOR SCADUTI', count: null, color: 'rose' },
     { id: 'rejected', label: 'SPONSOR RIFIUTATI', count: null, color: 'slate' },
     { id: 'cancelled', label: 'SPONSOR ANNULLATI', count: null, color: 'slate' },
@@ -182,7 +184,11 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
                     onExport={() => exportToCSV(requests)}
-                    onMassExtension={modalActions.openMassExtension}
+                    onMassExtension={() => {
+                        modalActions.openMassExtension();
+                    }}
+                    showMassExtension={activeTab === 'approved'}
+                    massExtensionDisabled={selectedIds.size === 0}
                     isSuperAdmin={isSuperAdmin}
                     selectedCount={selectedIds.size}
                     totalOnPage={requests.length}
@@ -230,6 +236,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                             tab.id === 'pending' ? stats?.pending ?? null
                             : tab.id === 'waiting' ? stats?.waiting ?? null
                             : tab.id === 'approved' ? stats?.approved ?? null
+                            : tab.id === 'disconnected' ? stats?.disconnected ?? null
                             : tab.id === 'expired' ? stats?.expired ?? null
                             : tab.id === 'rejected' ? stats?.rejected ?? null
                             : tab.id === 'cancelled' ? stats?.cancelled ?? null
@@ -262,7 +269,10 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                         manifest={manifest} 
                         onInitialApproval={handleInitialApproval} 
                         onReject={modalActions.openReject} 
-                        onActivate={modalActions.openActivation} 
+                        onActivate={(id, pricingVersionId) => {
+                            if (!pricingVersionId) return;
+                            modalActions.openActivation(id, pricingVersionId);
+                        }} 
                         onOpenCrm={modalActions.openCrm} 
                         onPreview={modalActions.openPreview} 
                         onExtend={(id) => { const req = requests.find(r => r.id === id); if (req?.endDate) modalActions.openSingleExtension(id, req.endDate); }} 
@@ -281,6 +291,15 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
             </div>
 
             {/* --- INFORMATIVE NOTES --- */}
+            {activeTab === 'disconnected' && (
+                <div className="mt-4 p-4 bg-orange-900/10 border border-orange-500/20 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+                    <Info className="w-5 h-5 text-orange-400" />
+                    <p className="text-xs font-bold text-orange-300 uppercase tracking-widest">
+                        Contratti attivi in stato «Da ricollegare»: città eliminata o non più valida. Ultima città associata mostrata in elenco.
+                    </p>
+                </div>
+            )}
+
             {activeTab === 'expired' && (
                 <div className="mt-4 p-4 bg-rose-900/10 border border-rose-500/20 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
                     <Info className="w-5 h-5 text-rose-400" />

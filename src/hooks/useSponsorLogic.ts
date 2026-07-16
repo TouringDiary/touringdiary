@@ -8,10 +8,8 @@ import { CitySummary } from '../types/index';
 import * as geoService from '../services/geo';
 import { getFullManifestAsync } from '../services/cityService';
 
-// 1. TIPI CORRETTI
 // Tipizzazione delle tab della UI
-// Tipizzazione delle tab della UI
-export type SponsorTab = 'dashboard' | 'pending' | 'waiting' | 'approved' | 'expired' | 'rejected' | 'cancelled';
+export type SponsorTab = 'dashboard' | 'pending' | 'waiting' | 'approved' | 'disconnected' | 'expired' | 'rejected' | 'cancelled';
 // Tipizzazione degli status reali del database (con l'aggiunta di 'converted')
 type SponsorStatus = SponsorLifecycleStatus;
 
@@ -22,6 +20,7 @@ const tabToStatusMap: Record<SponsorTab, SponsorStatus | null> = {
     pending: 'pending',
     waiting: 'waiting_payment',
     approved: 'approved',
+    disconnected: 'disconnected',
     expired: 'expired', // Mappato a 'expired' (il service gestirà la logica runtime)
     rejected: 'rejected',
     cancelled: 'cancelled',
@@ -33,7 +32,8 @@ export const useSponsorLogic = () => {
     const [stats, setStats] = useState<SponsorStats>({ 
         pending: 0, 
         waiting: 0, 
-        approved: 0, 
+        approved: 0,
+        disconnected: 0,
         expired: 0, 
         rejected: 0, 
         cancelled: 0,

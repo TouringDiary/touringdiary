@@ -3028,6 +3028,7 @@ export type Database = {
           requester_phone: string | null
           specialties: string[] | null
           status: string | null
+          status_changed_at: string | null
           tier: string | null
           type: string | null
           vat_number: string | null
@@ -3060,6 +3061,7 @@ export type Database = {
           requester_phone?: string | null
           specialties?: string[] | null
           status?: string | null
+          status_changed_at?: string | null
           tier?: string | null
           type?: string | null
           vat_number?: string | null
@@ -3092,6 +3094,7 @@ export type Database = {
           requester_phone?: string | null
           specialties?: string[] | null
           status?: string | null
+          status_changed_at?: string | null
           tier?: string | null
           type?: string | null
           vat_number?: string | null
@@ -3147,7 +3150,7 @@ export type Database = {
           admin_notes: string | null
           admin_notes_last_updated: string | null
           amount: number | null
-          city_id: string
+          city_id: string | null
           company_name: string | null
           contact_name: string | null
           created_at: string | null
@@ -3156,6 +3159,7 @@ export type Database = {
           guide_id: string | null
           id: string
           invoice_number: string | null
+          last_city_id: string | null
           operator_id: string | null
           owner_id: string | null
           partner_logs: Json | null
@@ -3181,7 +3185,7 @@ export type Database = {
           admin_notes?: string | null
           admin_notes_last_updated?: string | null
           amount?: number | null
-          city_id: string
+          city_id?: string | null
           company_name?: string | null
           contact_name?: string | null
           created_at?: string | null
@@ -3190,6 +3194,7 @@ export type Database = {
           guide_id?: string | null
           id?: string
           invoice_number?: string | null
+          last_city_id?: string | null
           operator_id?: string | null
           owner_id?: string | null
           partner_logs?: Json | null
@@ -3215,7 +3220,7 @@ export type Database = {
           admin_notes?: string | null
           admin_notes_last_updated?: string | null
           amount?: number | null
-          city_id?: string
+          city_id?: string | null
           company_name?: string | null
           contact_name?: string | null
           created_at?: string | null
@@ -3224,6 +3229,7 @@ export type Database = {
           guide_id?: string | null
           id?: string
           invoice_number?: string | null
+          last_city_id?: string | null
           operator_id?: string | null
           owner_id?: string | null
           partner_logs?: Json | null
@@ -3265,6 +3271,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "seo_city_routes"
             referencedColumns: ["city_id"]
+          },
+          {
+            foreignKeyName: "sponsors_last_city_id_fkey"
+            columns: ["last_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "sponsors_guide_id_fkey"
@@ -4699,6 +4712,15 @@ export type Database = {
         }
         Returns: string
       }
+      activate_sponsor_from_request: {
+        Args: {
+          p_amount: number
+          p_invoice_number: string
+          p_pricing_version_id: string
+          p_request_id: string
+        }
+        Returns: string
+      }
       activate_sponsor_with_resource: {
         Args: {
           p_pricing_version_id: string
@@ -4706,6 +4728,63 @@ export type Database = {
           p_sponsor_id: string
         }
         Returns: string
+      }
+      approve_sponsor_request: {
+        Args: { p_request_id: string }
+        Returns: Database["public"]["Tables"]["sponsor_requests"]["Row"]
+      }
+      cancel_sponsor_contract: {
+        Args: { p_reason: string; p_sponsor_id: string }
+        Returns: Database["public"]["Tables"]["sponsors"]["Row"]
+      }
+      delete_sponsor_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
+      extend_sponsor_contract: {
+        Args: {
+          p_new_end_date: string
+          p_reason: string
+          p_sponsor_id: string
+        }
+        Returns: Database["public"]["Tables"]["sponsors"]["Row"]
+      }
+      extend_sponsors_bulk: {
+        Args: {
+          p_days: number
+          p_exclude_critical?: boolean
+          p_reason: string
+          p_sponsor_ids: string[]
+        }
+        Returns: Json
+      }
+      handle_city_deleted_for_sponsors: {
+        Args: { p_city_id: string }
+        Returns: number
+      }
+      reject_sponsor_request: {
+        Args: {
+          p_admin_notes?: string | null
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Database["public"]["Tables"]["sponsor_requests"]["Row"]
+      }
+      relink_orphaned_sponsors_to_city: {
+        Args: { p_city_id: string; p_city_name: string }
+        Returns: number
+      }
+      sync_sponsor_profile_from_shop: {
+        Args: {
+          p_refresh_subscription?: boolean
+          p_shop_id: string
+          p_subscription_tier?: string | null
+        }
+        Returns: undefined
+      }
+      update_sponsor_request_admin_notes: {
+        Args: { p_notes: string; p_request_id: string }
+        Returns: Database["public"]["Tables"]["sponsor_requests"]["Row"]
       }
       add_user_xp: {
         Args: { p_amount: number; p_user_id: string }

@@ -2,6 +2,17 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { getSponsorsPaginated } from '../../services/sponsorService';
 import { SponsorRequest, CitySummary } from '../../types/index';
+import type { SponsorLifecycleStatus } from '../../types/shared/SponsorStatus';
+import { SPONSOR_STATUS_VALUES } from '../../constants/governance';
+
+const SPONSOR_QUERY_STATUS_SET: ReadonlySet<string> = new Set([
+    ...SPONSOR_STATUS_VALUES,
+    'expired',
+    'disconnected',
+]);
+
+const isSponsorQueryStatus = (value: string): value is SponsorLifecycleStatus =>
+    SPONSOR_QUERY_STATUS_SET.has(value);
 
 export const useSponsorData = (activeTab: string, initialManifest: CitySummary[]) => {
     // Data State
@@ -34,6 +45,10 @@ export const useSponsorData = (activeTab: string, initialManifest: CitySummary[]
             if (activeTab === 'dashboard') {
                 setRequests([]);
                 setTotalItems(0);
+            } else if (!isSponsorQueryStatus(activeTab)) {
+                console.error(`[useSponsorData] Invalid sponsor query status: ${activeTab}`);
+                setRequests([]);
+                setTotalItems(0);
             } else {
                 const result = await getSponsorsPaginated({
                     page,
@@ -56,7 +71,9 @@ export const useSponsorData = (activeTab: string, initialManifest: CitySummary[]
                 if (!filterCity && (filterZone || filterAdminRegion)) {
                     data = data.filter(req => {
                         const city = initialManifest.find(c => c.id === req.cityId);
-                        if (!city) return true; 
+                        // Manifest incompleto / city_id assente (es. scollegati): non escludere il record.
+                        // Solo i record risolvibili nel manifest vengono filtrati per zona/regione.
+                        if (!city) return true;
                         if (filterZone && city.zone !== filterZone) return false;
                         if (filterAdminRegion && city.adminRegion !== filterAdminRegion) return false;
                         return true;

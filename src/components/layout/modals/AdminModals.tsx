@@ -68,7 +68,6 @@ export const AdminModals = ({
                     isOpen={true} 
                     onClose={closeModal} 
                     user={user} 
-                    initialTier={modalProps.sponsorTier} 
                     initialType={modalProps.sponsorType} 
                 />
             )}

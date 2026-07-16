@@ -59,10 +59,15 @@ export const useSponsorModalLogic = (
 
     // === 4. LOGICA ESTENSIONE (Massiva) ===
     const criticalPartnersCount = useMemo(() => {
-        // Ricalcola solo se la modale è aperta in modalità 'mass' per ottimizzare
         if (!modalState.extensionData?.isOpen || modalState.extensionData?.mode !== 'mass') return 0;
         return getCriticalPartnersCount(requests);
     }, [modalState.extensionData?.isOpen, modalState.extensionData?.mode, requests]);
+
+    const isExtensionValid = useMemo(() => {
+        const { isOpen, days, reason } = modalState.extensionData;
+        if (!isOpen) return false;
+        return days > 0 && (reason?.trim().length ?? 0) > 0;
+    }, [modalState.extensionData]);
 
     return {
         activation: {
@@ -81,7 +86,9 @@ export const useSponsorModalLogic = (
             canSubmit: !!isCancelValid
         },
         extension: {
-            criticalPartnersCount
+            criticalPartnersCount,
+            isValid: isExtensionValid,
+            canSubmit: isExtensionValid,
         }
     };
 };

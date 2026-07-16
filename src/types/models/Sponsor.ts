@@ -103,7 +103,8 @@ export interface SponsorRequest {
     address?: string;
     status: SponsorLifecycleStatus;
     date: string;
-    lastModified?: string;
+    /** Ultimo cambio di status della richiesta (DB: `status_changed_at`). Non è un generico “last modified”. */
+    statusChangedAt?: string;
     type: PlanType;
     poiCategory?: PoiCategory;
     poiSubCategory?: PoiSubCategory;
@@ -232,6 +233,7 @@ export interface SponsorStats {
     pending: number;
     waiting: number;       // alias per waiting_payment (usato dalla UI e dal hook)
     approved: number;
+    disconnected: number;
     expired: number;       // sponsor scaduti (tab dedicata nella UI)
     rejected: number;
     cancelled: number;

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Search, FileSpreadsheet, CalendarPlus, CheckSquare, Square, Trash2, Mail, MailOpen, ArrowUpDown, Loader2 } from 'lucide-react';
-import { SponsorRequest } from '../../../types/index';
+import { SponsorRequest, SponsorSortConfig } from '../../../types/index';
 
 interface SponsorToolbarProps {
     isVisible: boolean;
@@ -9,6 +9,8 @@ interface SponsorToolbarProps {
     onSearchChange: (val: string) => void;
     onExport: () => void;
     onMassExtension: () => void;
+    showMassExtension?: boolean;
+    massExtensionDisabled?: boolean;
     
     // Selection Props
     isSuperAdmin: boolean;
@@ -26,8 +28,8 @@ interface SponsorToolbarProps {
     onToggleUnread: () => void;
     
     // Sort Props
-    sortConfig: { key: string; direction: 'asc' | 'desc' };
-    onSortChange: (config: any) => void;
+    sortConfig: SponsorSortConfig;
+    onSortChange: (config: SponsorSortConfig) => void;
 }
 
 export const SponsorToolbar = ({
@@ -36,6 +38,8 @@ export const SponsorToolbar = ({
     onSearchChange,
     onExport,
     onMassExtension,
+    showMassExtension = true,
+    massExtensionDisabled = false,
     isSuperAdmin,
     selectedCount,
     areAllSelected,
@@ -92,9 +96,16 @@ export const SponsorToolbar = ({
                 <button onClick={onExport} className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg transition-colors border border-slate-800 hover:border-slate-600 flex items-center gap-2 text-xs font-bold uppercase shadow-sm">
                     <FileSpreadsheet className="w-3.5 h-3.5"/> CSV
                 </button>
-                <button onClick={onMassExtension} className="px-3 py-2 bg-slate-900 hover:bg-indigo-600 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-800 hover:border-indigo-500 flex items-center gap-2 text-xs font-bold uppercase shadow-sm">
-                    <CalendarPlus className="w-3.5 h-3.5"/> <span className="hidden lg:inline">Estensione</span>
-                </button>
+                {showMassExtension && (
+                    <button
+                        onClick={onMassExtension}
+                        disabled={massExtensionDisabled}
+                        title={massExtensionDisabled ? 'Seleziona sponsor con le checkbox' : 'Estensione massiva'}
+                        className="px-3 py-2 bg-slate-900 hover:bg-indigo-600 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-800 hover:border-indigo-500 flex items-center gap-2 text-xs font-bold uppercase shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900 disabled:hover:text-slate-400"
+                    >
+                        <CalendarPlus className="w-3.5 h-3.5"/> <span className="hidden lg:inline">Estensione</span>
+                    </button>
+                )}
             </div>
             
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
@@ -116,7 +127,7 @@ export const SponsorToolbar = ({
                 </button>
                 
                 <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-lg border border-slate-800 flex-1 md:flex-none justify-between md:justify-start">
-                    <select value={sortConfig.key} onChange={(e) => onSortChange({ ...sortConfig, key: e.target.value as any })} className="bg-transparent text-xs text-white focus:outline-none w-full md:w-24 font-bold cursor-pointer pl-1">
+                    <select value={sortConfig.key} onChange={(e) => onSortChange({ ...sortConfig, key: e.target.value })} className="bg-transparent text-xs text-white focus:outline-none w-full md:w-24 font-bold cursor-pointer pl-1">
                         <option value="lastModified">Recenti</option>
                         <option value="date">Creato</option>
                         <option value="endDate">Scadenza</option>

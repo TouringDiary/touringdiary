@@ -131,9 +131,18 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
         setIsSubmitting(true);
         try {
             const success = await submitSponsorRequest({
-                 ...formData,
-                 pricing_version_id: selectedPlan,
-                 coverImage: coverImage
+                companyName: formData.companyName,
+                vatNumber: formData.vatNumber,
+                contactName: formData.contactName,
+                adminEmail: formData.adminEmail,
+                adminPhone: formData.adminPhone,
+                address: formData.address,
+                cityId: formData.cityId,
+                description: formData.description,
+                licenseNumber: formData.licenseNumber || undefined,
+                languages: formData.languages
+                    ? formData.languages.split(',').map((lang) => lang.trim()).filter(Boolean)
+                    : undefined,
             }, activeType, selectedPlan, user?.id);
 
             if (success) {

@@ -12,8 +12,8 @@ BEGIN;
 --    Body aligned to remote SSOT (subscriptions only — no sponsor_subscriptions).
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.activate_sponsor_with_resource(
-    p_sponsor_id uuid,
     p_request_id uuid,
+    p_sponsor_id uuid,
     p_pricing_version_id uuid
 )
 RETURNS uuid
