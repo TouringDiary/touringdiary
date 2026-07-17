@@ -1,10 +1,34 @@
 import { aiGateway } from '@/services/ai/aiGateway';
 import React, { useState } from 'react';
 import { submitSponsorRequest } from '../../services/sponsorService';
-import { compressImage, dataURLtoFile } from '../../utils/common';
+import { registerUser } from '../../services/userService';
+import { supabase } from '../../services/supabaseClient';
 import { User } from '../../types/index';
 import { PLAN_TYPES, PlanType } from '../../constants/planTypes';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '../../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
 
+export interface SponsorFormData {
+    companyName: string;
+    vatNumber: string;
+    contactName: string;
+    adminEmail: string;
+    adminPhone: string;
+    publicName: string;
+    address: string;
+    cityId: string;
+    description: string;
+    website: string;
+    openingHours: string;
+    category: string;
+    publicPhone: string;
+    languages: string;
+    licenseNumber: string;
+    sdiCode: string;
+    username: string;
+    password: string;
+    confirmPassword: string;
+}
 
 interface UseSponsorFormLogicProps {
     user?: User;
@@ -20,7 +44,7 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
     
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
     
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<SponsorFormData>({
         companyName: user?.companyName || '',
         vatNumber: user?.vatNumber || '',
         contactName: user?.name || '',
@@ -28,7 +52,7 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
         adminPhone: '',
         publicName: user?.companyName || '',
         address: user?.city ? `${user.city}, Italia` : '',
-        cityId: '',   // NUOVO CAMPO
+        cityId: '',
         description: '',
         website: '',
         openingHours: '',
@@ -37,8 +61,9 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
         languages: '',
         licenseNumber: '',
         sdiCode: '',
-        password: '', // For guests
-        confirmPassword: '' // For guests
+        username: '',
+        password: '',
+        confirmPassword: ''
     });
 
     const [coverImage, setCoverImage] = useState<File | null>(null);
@@ -94,6 +119,7 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
             languages: '',
             licenseNumber: '',
             sdiCode: '',
+            username: '',
             password: '',
             confirmPassword: ''
         });
@@ -107,6 +133,18 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
         e.preventDefault();
         setErrorMsg(null);
 
+        const applicationsFlag = evaluateCachedFeatureFlag(
+            PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_APPLICATIONS,
+            {
+                userRole: user?.role ?? null,
+                isAuthenticated: Boolean(user && user.role !== 'guest'),
+            }
+        );
+        if (applicationsFlag && !applicationsFlag.enabled) {
+            setErrorMsg('Le candidature Sponsor sono temporaneamente sospese.');
+            return;
+        }
+
         if (!termsAccepted || !privacyAccepted) {
             setErrorMsg("Devi accettare Termini e Privacy.");
             return;
@@ -118,6 +156,10 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
         }
 
         if (isGuest) {
+             if (!formData.username.trim()) {
+                 setErrorMsg("Il nome utente è obbligatorio.");
+                 return;
+             }
              if (formData.password.length < 6) {
                  setErrorMsg("La password deve essere di almeno 6 caratteri.");
                  return;
@@ -130,6 +172,37 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
 
         setIsSubmitting(true);
         try {
+            let submitProfileId = user?.id;
+
+            if (isGuest) {
+                const registration = await registerUser({
+                    name: formData.contactName || formData.companyName,
+                    email: formData.adminEmail,
+                    password: formData.password,
+                    username: formData.username.trim(),
+                });
+
+                if (registration.error || !registration.user) {
+                    setErrorMsg(registration.error || "Registrazione fallita.");
+                    return;
+                }
+
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.user) {
+                    setErrorMsg(
+                        "Registrazione completata. Conferma la tua email, accedi al tuo account e invia nuovamente la candidatura da questo modulo."
+                    );
+                    return;
+                }
+
+                submitProfileId = session.user.id;
+            }
+
+            if (!submitProfileId || submitProfileId === 'guest') {
+                setErrorMsg("Autenticazione richiesta per inviare la candidatura Sponsor.");
+                return;
+            }
+
             const success = await submitSponsorRequest({
                 companyName: formData.companyName,
                 vatNumber: formData.vatNumber,
@@ -143,15 +216,16 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
                 languages: formData.languages
                     ? formData.languages.split(',').map((lang) => lang.trim()).filter(Boolean)
                     : undefined,
-            }, activeType, selectedPlan, user?.id);
+            }, activeType, selectedPlan, submitProfileId);
 
             if (success) {
                 setStep('success');
             } else {
                 setErrorMsg("Errore durante l'invio della richiesta.");
             }
-        } catch (err: any) {
-             setErrorMsg(err.message || "Errore sconosciuto.");
+        } catch (err: unknown) {
+             const message = err instanceof Error ? err.message : "Errore sconosciuto.";
+             setErrorMsg(message);
         } finally {
             setIsSubmitting(false);
         }

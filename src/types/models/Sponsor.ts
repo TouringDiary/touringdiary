@@ -154,6 +154,9 @@ export interface SponsorRequest {
     touristZone?: string;
     city?: string;
     slug?: string;
+
+    /** Media recensioni pubbliche (DL-030) — popolato runtime su tab Sponsor Attivi */
+    rating?: number | null;
 }
 
 export type ShopCategory = typeof SHOP_CATEGORY_VALUES[number];
@@ -220,11 +223,7 @@ export interface SponsorQueryOptions {
     page: number;
     pageSize: number;
     status: SponsorRequest['status'];
-    filters?: {
-        cityId?: string;
-        tier?: string;
-        [key: string]: any;
-    };
+    filters?: GeoFilters;
     sortConfig?: SponsorSortConfig;
     searchTerm?: string;
 }
@@ -249,6 +248,7 @@ export interface GeoFilters {
     cityId?: string;
     tier?: string;
     onlyUnread?: boolean;
+    onlyBelowRatingThreshold?: boolean;
 }
 
 export interface GeoOptions {

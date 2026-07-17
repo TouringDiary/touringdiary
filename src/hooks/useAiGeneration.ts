@@ -8,6 +8,7 @@ import { PointOfInterest, CitySummary, ItineraryItem, PoiCategory } from '../typ
 import { useItinerary } from '@/context/ItineraryContext';
 import { useAiPlanner } from '@/context/AiPlannerContext';
 import { aiErrorModalTitle, aiErrorUserMessage, isAiEdgeError } from '../services/ai/aiEdgeErrors';
+import { useUser } from '@/context/UserContext';
 import { getAiRuntimeStatus } from '../services/ai/aiRuntimeStatus';
 
 interface UseAiGenerationProps {
@@ -18,6 +19,7 @@ export const useAiGeneration = ({ onClose }: UseAiGenerationProps) => {
     const { city: citySlug } = useParams<{ city: string }>();
     const { aiSession, updateAiSession, resetAiSession } = useAiPlanner();
     const { setItinerary, clearItinerary } = useItinerary();
+    const { user } = useUser();
 
     // STATE
     const [loading, setLoading] = useState(false);
@@ -97,7 +99,10 @@ export const useAiGeneration = ({ onClose }: UseAiGenerationProps) => {
             return;
         }
 
-        const runtimeStatus = getAiRuntimeStatus();
+        const runtimeStatus = getAiRuntimeStatus({
+            userRole: user?.role ?? null,
+            isAuthenticated: Boolean(user && user.role !== 'guest'),
+        });
         if (!runtimeStatus.available) {
             setErrorModal({
                 title: runtimeStatus.reason === 'EMERGENCY_STOP' ? 'Servizi AI sospesi' : 'Manutenzione AI',

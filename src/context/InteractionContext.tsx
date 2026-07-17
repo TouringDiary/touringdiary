@@ -18,6 +18,8 @@ import { updatePhotoScore } from '../services/rankingService';
 
 import { useModal } from './ModalContext';
 import { getStorageItem, setStorageItem } from '../services/storageService';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFlagCache';
 
 interface PhotoLikeStatus {
     isLiked: boolean;
@@ -262,13 +264,24 @@ export const InteractionProvider = ({
 
     const submitReview = useCallback(
         async (
-            poi,
-            rating,
-            criteria,
-            comment,
-            user
+            poi: PointOfInterest,
+            rating: number,
+            criteria: Record<string, number>,
+            comment: string,
+            user: User
         ) => {
             if (!user || user.role === 'guest') return;
+
+            const reviewsFlag = evaluateCachedFeatureFlag(
+                PLATFORM_FEATURE_FLAG_KEYS.MODERATION_REVIEWS,
+                {
+                    userRole: user.role,
+                    isAuthenticated: true,
+                }
+            );
+            if (reviewsFlag && !reviewsFlag.enabled) {
+                return;
+            }
 
             const newReview = {
                 id: `rev_${Date.now()}`,

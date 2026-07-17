@@ -58,11 +58,7 @@ export const getCriticalPartnersCount = (
         const isApproved = s.status === 'approved';
         if (!isApproved) return false;
 
-        // Type guard per accedere al rating in modo sicuro
-        const hasRating = (obj: unknown): obj is { rating: number } => 
-            typeof obj === 'object' && obj !== null && 'rating' in obj && typeof (obj as any).rating === 'number';
-        
-        const rating = hasRating(s) ? s.rating : null;
+        const rating = typeof s.rating === 'number' ? s.rating : null;
 
         return rating !== null && rating < threshold;
     }).length;

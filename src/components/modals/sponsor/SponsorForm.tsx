@@ -4,6 +4,7 @@ import { Lock, Loader2, Save, Sparkles, Upload, Check, Globe, Phone, MapPin, Ale
 import { compressImage, dataURLtoFile } from '../../../utils/common';
 import { CitySelector } from '../../common/CitySelector';
 import { PlanType, PLAN_TYPES } from '../../../constants/planTypes';
+import type { SponsorFormData } from '../../../hooks/features/useSponsorFormLogic';
 
 // --- SUB COMPONENTS ---
 
@@ -91,8 +92,8 @@ const OpeningHoursSelector = ({ value, onChange }: { value: string, onChange: (v
 // --- MAIN FORM COMPONENT ---
 
 interface SponsorFormProps {
-    formData: any;
-    setFormData: (data: any) => void;
+    formData: SponsorFormData;
+    setFormData: (data: SponsorFormData) => void;
     activeType: PlanType;
     isGuest: boolean;
     isSubmitting: boolean;
@@ -175,6 +176,10 @@ export const SponsorForm = ({
                 <div className="bg-indigo-900/10 border border-indigo-500/20 p-5 rounded-2xl">
                     <h4 className="text-sm font-black text-indigo-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><Lock className="w-4 h-4"/> Credenziali Accesso</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <InputGroup label="Nome utente" required>
+                            <input type="text" placeholder="nome.azienda" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} required/>
+                        </InputGroup>
+                        <div className="hidden md:block" />
                         <InputGroup label="Crea Password" required>
                             <input type="password" placeholder="Min. 6 caratteri" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none text-sm" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required/>
                         </InputGroup>
@@ -277,9 +282,7 @@ export const SponsorForm = ({
                         ) : (
                             <><Upload className="w-8 h-8 text-slate-600 group-hover:text-slate-400 mb-2 transition-colors"/><span className="text-xs text-slate-500 group-hover:text-slate-300 font-bold">Clicca per caricare</span></>
                         )}
-                        <input ref={fileInputRefCover} type="file" accept="image/*" className="hidden" onChange={(e) => {
-                            if(e.target.files?.[0]) setCoverImage(e.target.files[0]);
-                        }} />
+                        <input ref={fileInputRefCover} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                     </div>
                 </div>
             </div>

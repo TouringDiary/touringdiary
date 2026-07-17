@@ -70,13 +70,15 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
         // Setters
         setSortConfig, 
         setSearchTerm, 
-        setOnlyUnread, 
+        setOnlyUnread,
+        setOnlyBelowRatingThreshold,
         handleContinentChange, handleNationChange, handleAdminRegionChange, 
         handleZoneChange, handleCityChange, handleTierChange, 
         setPageSize, handlePageChange,
         
         // Refresh Action
-        refreshData         
+        refreshData,
+        ratingThreshold,
     } = useSponsorLogic();
     
     // --- 2. OPERATIONS HOOK (WRITE ONLY) ---
@@ -189,6 +191,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                     }}
                     showMassExtension={activeTab === 'approved'}
                     massExtensionDisabled={selectedIds.size === 0}
+                    allowMassSelection={activeTab === 'approved'}
                     isSuperAdmin={isSuperAdmin}
                     selectedCount={selectedIds.size}
                     totalOnPage={requests.length}
@@ -198,8 +201,11 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                     isBulkDeleting={isBulkDeleting}
                     pageSize={pageSize}
                     onPageSizeChange={(size) => { setPageSize(size); handlePageChange(1); }}
-                    onlyUnread={filters.onlyUnread}
+                    onlyUnread={filters.onlyUnread ?? false}
                     onToggleUnread={() => setOnlyUnread(!filters.onlyUnread)}
+                    onlyBelowRatingThreshold={filters.onlyBelowRatingThreshold ?? false}
+                    onToggleBelowRatingThreshold={() => setOnlyBelowRatingThreshold(!filters.onlyBelowRatingThreshold)}
+                    showBelowRatingFilter={activeTab === 'approved'}
                     sortConfig={sortConfig}
                     onSortChange={setSortConfig}
                 />
@@ -279,6 +285,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                         onCancel={modalActions.openCancel}
                         onDelete={handleDeleteRequest}
                         isSuperAdmin={isSuperAdmin}
+                        allowRowSelection={activeTab === 'approved'}
                         currentPage={page}
                         maxPage={Math.ceil(totalItems / pageSize)}
                         onNext={() => handlePageChange(page + 1)}
@@ -286,6 +293,7 @@ export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
                         totalItems={totalItems}
                         selectedIds={selectedIds}
                         onToggleSelection={toggleSelection}
+                        ratingThreshold={ratingThreshold}
                     />
                 )}
             </div>

@@ -1556,6 +1556,109 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_control_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          config_key: string
+          created_at: string
+          id: string
+          reason: string | null
+          value_after: Json | null
+          value_before: Json | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          config_key: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          value_after?: Json | null
+          value_before?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          config_key?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          value_after?: Json | null
+          value_before?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_control_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_feature_flags: {
+        Row: {
+          audience: string[]
+          audit_required: boolean
+          blocked_audiences: string[]
+          category: string
+          default_value: Json
+          key: string
+          label: string
+          manual_override: Json | null
+          message_key: string | null
+          schedules: Json
+          supports_audience: boolean
+          supports_schedule: boolean
+          updated_at: string
+          updated_by: string | null
+          value_type: string
+        }
+        Insert: {
+          audience?: string[]
+          audit_required?: boolean
+          blocked_audiences?: string[]
+          category: string
+          default_value: Json
+          key: string
+          label: string
+          manual_override?: Json | null
+          message_key?: string | null
+          schedules?: Json
+          supports_audience?: boolean
+          supports_schedule?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          value_type: string
+        }
+        Update: {
+          audience?: string[]
+          audit_required?: boolean
+          blocked_audiences?: string[]
+          category?: string
+          default_value?: Json
+          key?: string
+          label?: string
+          manual_override?: Json | null
+          message_key?: string | null
+          schedules?: Json
+          supports_audience?: boolean
+          supports_schedule?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          value_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_feature_flags_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itineraries: {
         Row: {
           author_name: string | null
@@ -2931,6 +3034,39 @@ export type Database = {
           name?: string
           theme?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sponsor_admin_audit_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          request_id: string | null
+          sponsor_id: string | null
+          summary: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          request_id?: string | null
+          sponsor_id?: string | null
+          summary: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          request_id?: string | null
+          sponsor_id?: string | null
+          summary?: string
         }
         Relationships: []
       }
@@ -4762,6 +4898,34 @@ export type Database = {
         Args: { p_city_id: string }
         Returns: number
       }
+      mutate_platform_feature_flag: {
+        Args: {
+          p_key: string
+          p_patch: Json
+          p_reason?: string | null
+        }
+        Returns: Database["public"]["Tables"]["platform_feature_flags"]["Row"]
+      }
+      record_platform_control_audit: {
+        Args: {
+          p_action: string
+          p_config_key: string
+          p_reason?: string | null
+          p_value_after?: Json | null
+          p_value_before?: Json | null
+        }
+        Returns: string
+      }
+      record_sponsor_admin_audit: {
+        Args: {
+          p_event_type: string
+          p_payload?: Json
+          p_request_id?: string | null
+          p_sponsor_id?: string | null
+          p_summary: string
+        }
+        Returns: string
+      }
       reject_sponsor_request: {
         Args: {
           p_admin_notes?: string | null
@@ -5036,6 +5200,16 @@ export type Database = {
       }
       is_service_role: { Args: never; Returns: boolean }
       is_td_admin: { Args: { p_uid: string }; Returns: boolean }
+      insert_sponsor_message: {
+        Args: {
+          p_direction: Database["public"]["Enums"]["sponsor_message_direction"]
+          p_message: string
+          p_partner_id: string
+          p_request_id?: string | null
+          p_sponsor_id?: string | null
+        }
+        Returns: string
+      }
       log_ai_usage_tokens: {
         Args: {
           p_completion_tokens: number
@@ -5054,6 +5228,14 @@ export type Database = {
         Returns: undefined
       }
       mark_expired_sponsors: { Args: never; Returns: undefined }
+      mark_sponsor_messages_read: {
+        Args: {
+          p_partner_id?: string | null
+          p_reader?: string
+          p_request_id?: string | null
+        }
+        Returns: number
+      }
       recalculate_ai_limits: { Args: never; Returns: undefined }
       redeem_referral_code: { Args: { code_input: string }; Returns: Json }
       refresh_city_classification:

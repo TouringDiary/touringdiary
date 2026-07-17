@@ -1,9 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, User, ShieldCheck, MessageSquare, Briefcase, ChevronRight, Check, CheckCheck } from 'lucide-react';
-import { User as UserType, SponsorRequest, PartnerLog } from '../../../types/index';
-import { sendUserMessage, markUserLogsAsRead } from '../../../services/sponsorService';
+import { Send, Loader2, ShieldCheck, MessageSquare, Briefcase, ChevronRight, CheckCheck } from 'lucide-react';
+import { User as UserType, SponsorRequest } from '../../../types/index';
+import { sendUserMessage, markPartnerLogsAsRead } from '../../../services/sponsorService';
 import { CountBadge } from '@/components/ui/CountBadge';
+import { useFeatureFlag } from '../../../context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../../../constants/platformFeatureFlags';
+import { MOBILE_COMPACT_QUERY } from '@/constants/breakpoints';
+import { useSystemMessage } from '../../../hooks/useSystemMessage';
 
 interface UserMessagesTabProps {
     user: UserType;
@@ -16,14 +20,23 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
     const [messageText, setMessageText] = useState('');
     const [isSending, setIsSending] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const [isMobileList, setIsMobileList] = useState(true); // Mobile view toggle
+    const [isMobileList, setIsMobileList] = useState(true);
+    const commsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR);
+    const commsEnabled = commsFlag?.enabled ?? false;
+    const { getText: getDisabledMsg } = useSystemMessage(PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_USER_SPONSOR_DISABLED);
 
-    // Seleziona automaticamente il primo se desktop o se ce n'è uno solo
+    // Seleziona automaticamente il primo se desktop o se ce n'è uno solo.
+    // Breakpoint letto solo al cambio `requests` (snapshot, non su resize) — stesso comportamento del legacy `window.innerWidth >= 768`.
+    // `selectedRequestId` volutamente omesso dalle dipendenze: nessuna ri-selezione al cambio selezione utente.
     useEffect(() => {
+        const isDesktop =
+            typeof window !== 'undefined' &&
+            !window.matchMedia(MOBILE_COMPACT_QUERY).matches;
+
         if (requests.length === 1 && !selectedRequestId) {
             setSelectedRequestId(requests[0].id);
             setIsMobileList(false);
-        } else if (window.innerWidth >= 768 && !selectedRequestId && requests.length > 0) {
+        } else if (isDesktop && !selectedRequestId && requests.length > 0) {
             setSelectedRequestId(requests[0].id);
         }
     }, [requests]);
@@ -32,12 +45,10 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
     useEffect(() => {
         if (selectedRequestId && scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-            
-            // SECURITY FIX: Defensive call to prevent crashes if stub returns null
-            const promise = markUserLogsAsRead(selectedRequestId);
-            if (promise && typeof promise.then === 'function') {
-                promise.then(onRefresh).catch(err => console.error("Error marking logs as read:", err));
-            }
+
+            void markPartnerLogsAsRead(selectedRequestId)
+                .then(onRefresh)
+                .catch(err => console.error("Error marking logs as read:", err));
         }
     }, [selectedRequestId, requests]);
 
@@ -45,7 +56,7 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
     const logs = activeRequest?.partnerLogs || [];
 
     const handleSend = async () => {
-        if (!messageText.trim() || !selectedRequestId) return;
+        if (!commsEnabled || !messageText.trim() || !selectedRequestId) return;
         setIsSending(true);
         try {
             await sendUserMessage(selectedRequestId, messageText);
@@ -62,6 +73,7 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
     const sortedLogs = [...logs].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // --- RENDER LISTA CONVERSAZIONI ---
+    // TEMP (legacy Fase 2.5): etichetta «Conversazioni» e lista per-request — sostituita in G-MSG-1 step 4 (DL-037, UI Sponsor-centric).
     const renderList = () => (
         <div className={`w-full md:w-80 bg-slate-900 border-r border-slate-800 flex flex-col ${selectedRequestId && !isMobileList ? 'hidden md:flex' : 'flex'}`}>
             <div className="p-4 border-b border-slate-800 bg-[#0f172a]">
@@ -171,6 +183,11 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
 
                 {/* Input Area */}
                 <div className="p-4 bg-slate-900 border-t border-slate-800">
+                    {!commsEnabled ? (
+                        <div className="text-center text-sm text-slate-400 bg-slate-950 border border-slate-800 rounded-xl p-4">
+                            {getDisabledMsg().body || 'La messaggistica con lo staff non è al momento disponibile.'}
+                        </div>
+                    ) : (
                     <div className="flex gap-2 items-end bg-slate-950 p-2 rounded-xl border border-slate-800 focus-within:border-indigo-500 transition-colors">
                         <textarea 
                             value={messageText}
@@ -193,7 +210,10 @@ export const UserMessagesTab = ({ user, requests, onRefresh }: UserMessagesTabPr
                             {isSending ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>}
                         </button>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-2 text-center">Lo staff risponde solitamente entro 24 ore.</p>
+                    )}
+                    <p className="text-[10px] text-slate-500 mt-2 text-center">
+                        {commsEnabled ? 'Lo staff risponde solitamente entro 24 ore.' : 'Messaggistica disattivata (fase 1).'}
+                    </p>
                 </div>
             </div>
         );

@@ -8,6 +8,7 @@ import { NavigationProvider } from './NavigationContext';
 import { GpsProvider } from './GpsContext';
 import { InteractionProvider } from './InteractionContext';
 import { ConfigProvider } from './ConfigContext';
+import { PlatformControlProvider } from './PlatformControlContext';
 import { DiaryInteractionProvider } from './DiaryInteractionContext';
 import { AiPlannerProvider } from './AiPlannerContext';
 
@@ -29,6 +30,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
         <UserProvider>
             <BusinessProvider>
                 <ConfigProvider>
+                    <PlatformControlProvider>
                     <UIProvider>
                         <AiPlannerProvider>
                             <ModalProvider>
@@ -47,6 +49,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
                             </ModalProvider>
                         </AiPlannerProvider>
                     </UIProvider>
+                    </PlatformControlProvider>
                 </ConfigProvider>
             </BusinessProvider>
         </UserProvider>

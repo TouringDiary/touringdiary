@@ -1,6 +1,10 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import * as sponsorService from '../services/sponsorService';
+import { enrichSponsorsWithRatings, isBelowRatingThreshold } from '../services/sponsors/sponsorRatingService';
+import { CRITICAL_RATING_THRESHOLD } from '../utils/sponsorValidation';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '../constants/platformFeatureFlags';
+import { useFeatureFlag } from '../context/PlatformControlContext';
 import { usePersistedState } from './usePersistedState';
 import { SponsorRequest, SponsorStats, GeoFilters, GeoOptions, SortConfig } from '../types/models/Sponsor';
 import { SponsorLifecycleStatus } from '../types/shared/SponsorStatus';
@@ -27,6 +31,14 @@ const tabToStatusMap: Record<SponsorTab, SponsorStatus | null> = {
 };
 
 export const useSponsorLogic = () => {
+    const ratingThresholdFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_RATING_THRESHOLD);
+    const ratingThreshold =
+        typeof ratingThresholdFlag?.effectiveValue === 'number'
+            ? ratingThresholdFlag.effectiveValue
+            : CRITICAL_RATING_THRESHOLD;
+    const ratingThresholdRef = useRef(ratingThreshold);
+    ratingThresholdRef.current = ratingThreshold;
+
     const [requests, setRequests] = useState<SponsorRequest[]>([]);
     const [manifest, setManifest] = useState<CitySummary[]>([]);
     const [stats, setStats] = useState<SponsorStats>({ 
@@ -51,6 +63,7 @@ export const useSponsorLogic = () => {
     const [totalItems, setTotalItems] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [onlyUnread, setOnlyUnread] = useState(false);
+    const [onlyBelowRatingThreshold, setOnlyBelowRatingThreshold] = useState(false);
     
     // Opzioni per i filtri geografici
     const [options, setOptions] = useState<GeoOptions>({ continents: [], nations: [], adminRegions: [], zones: [], cities: [], tiers: [] });
@@ -104,7 +117,8 @@ export const useSponsorLogic = () => {
     const appliedFilters = useMemo(() => ({
         ...filters,
         onlyUnread,
-    }), [filters, onlyUnread]);
+        onlyBelowRatingThreshold: activeTab === 'approved' ? onlyBelowRatingThreshold : false,
+    }), [filters, onlyUnread, onlyBelowRatingThreshold, activeTab]);
 
     const fetchData = useCallback(async () => {
         const requestId = ++fetchGenerationRef.current;
@@ -118,8 +132,6 @@ export const useSponsorLogic = () => {
             lastStructuralKeyRef.current = structuralKey;
         }
 
-        console.log(`[FetchData] 🚀 START | Tab: ${activeTab} | Status: ${queryStatus} | Page: ${page} | Filters:`, appliedFilters);
-
         const isStale = () => requestId !== fetchGenerationRef.current;
 
         // Se siamo in dashboard, carichiamo dati aggregati per le statistiche città
@@ -127,7 +139,6 @@ export const useSponsorLogic = () => {
             try {
                 const data = await sponsorService.getSponsorsDashboardAsync();
                 if (isStale()) return;
-                console.log(`[FetchData] 📊 Dashboard Data Loaded: ${data.length} records`);
                 setRequests(data);
                 setTotalItems(data.length);
             } catch (error) {
@@ -141,7 +152,6 @@ export const useSponsorLogic = () => {
         }
 
         if (!queryStatus) {
-            console.log(`[FetchData] ⚠️ No query status for tab: ${activeTab}. Clearing requests.`);
             if (!isStale()) {
                 setRequests([]);
                 setIsLoading(false);
@@ -161,8 +171,18 @@ export const useSponsorLogic = () => {
 
             if (isStale()) return;
             
-            console.log(`[FetchData] ✅ Success | Status: ${queryStatus} | Retrieved: ${data?.length || 0}/${count || 0}`);
-            setRequests(data || []);
+            let rows = data || [];
+            // Filtro sotto-soglia: page-scoped (post-enrichment). totalItems resta
+            // il count DB degli approved — la paginazione scorre tutte le pagine;
+            // ogni pagina mostra solo i match. Coerente senza query aggiuntive.
+            if (queryStatus === 'approved') {
+                rows = await enrichSponsorsWithRatings(rows);
+                if (onlyBelowRatingThreshold) {
+                    rows = rows.filter((r) => isBelowRatingThreshold(r.rating, ratingThresholdRef.current));
+                }
+            }
+
+            setRequests(rows);
             setTotalItems(count || 0);
 
         } catch (error) {
@@ -173,7 +193,7 @@ export const useSponsorLogic = () => {
         } finally {
             if (!isStale()) setIsLoading(false);
         }
-    }, [activeTab, page, pageSize, appliedFilters, sortConfig, searchTerm]);
+    }, [activeTab, page, pageSize, appliedFilters, sortConfig, searchTerm, onlyBelowRatingThreshold]);
 
     const fetchStats = useCallback(async () => {
        const statsData = await sponsorService.getSponsorStats();
@@ -193,27 +213,37 @@ export const useSponsorLogic = () => {
         getFullManifestAsync().then(setManifest);
     }, []);
     
-    // --- MODIFICA STABILIZZAZIONE FETCH ---
-    // 1. useEffect per i parametri che NON resettano la pagina (paginazione, ordinamento)
-    useEffect(() => {
-        // Se siamo già alla pagina 1, refreshData verrà chiamato dall'effetto sotto
-        // al cambio di tab/filtri. Se non siamo alla 1, refreshData viene chiamato qui.
-        refreshData();
-    }, [page, pageSize, sortConfig]);
+    // --- STABILIZZAZIONE FETCH ---
+    // Effect A: paginazione / ordinamento → sempre refresh
+    // Effect B: tab / filtri / ricerca → reset page (se > 1) oppure refresh (se già page 1)
+    // Mount: solo Effect A esegue refresh; Effect B salta il primo ciclo (evita fetch doppio).
+    // ratingThreshold: ref in fetchData (no churn identity); Effect C rifetch solo se filtro sotto-soglia attivo.
+    const skipStructuralRefreshOnceRef = useRef(true);
 
-    // 2. useEffect per i parametri che RESETTANO la pagina (tab, filtri, ricerca)
+    useEffect(() => {
+        refreshData();
+    }, [page, pageSize, sortConfig, refreshData]);
+
     useEffect(() => {
         if (page !== 1) {
             setPage(1);
-            // Non chiamiamo refreshData() qui perché setPage(1) 
-            // scatenerà l'effetto sopra (visto che page cambia).
-        } else {
-            // Se eravamo già alla pagina 1, il primo effetto non vedrebbe
-            // cambiamenti, quindi forziamo il refresh qui.
-            refreshData();
+            return;
         }
-    }, [activeTab, appliedFilters, searchTerm]);
-    // --- FINE MODIFICA STABILIZZAZIONE ---
+        if (skipStructuralRefreshOnceRef.current) {
+            skipStructuralRefreshOnceRef.current = false;
+            return;
+        }
+        refreshData();
+    }, [activeTab, appliedFilters, searchTerm, page, refreshData]);
+
+    useEffect(() => {
+        if (activeTab !== 'approved' || !onlyBelowRatingThreshold) return;
+        refreshData();
+        // Solo al cambio soglia Configuration Source: tab/filtro letti dallo scope corrente
+        // per evitare doppio fetch con Effect B (appliedFilters già include onlyBelowRatingThreshold).
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intenzionale: solo ratingThreshold
+    }, [ratingThreshold, refreshData]);
+    // --- FINE STABILIZZAZIONE FETCH ---
 
     return {
         requests,
@@ -234,6 +264,7 @@ export const useSponsorLogic = () => {
         setSortConfig,
         setSearchTerm,
         setOnlyUnread,
+        setOnlyBelowRatingThreshold,
         handleContinentChange,
         handleNationChange,
         handleAdminRegionChange,
@@ -244,6 +275,7 @@ export const useSponsorLogic = () => {
         handlePageChange,
         
         // Refresh Action
-        refreshData
+        refreshData,
+        ratingThreshold,
     };
 };

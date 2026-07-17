@@ -3,7 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { History, ChevronUp, ChevronDown, UserCheck, Store, ShoppingBag, Mail, Star, CheckCircle, XCircle, CalendarPlus, Ban, Clock, Eye, Trash2, CheckSquare, Square, AlertOctagon, Users, MessageSquare } from 'lucide-react';
 import { SponsorRequest, CitySummary } from '../../../types/index';
 import { PLAN_TYPES, PlanType } from '../../../constants/planTypes';
-import { getDismissedAlerts, dismissPartnerAlert, getSponsorRating } from '../../../services/sponsorService';
+import { getDismissedAlerts, dismissPartnerAlert, getSponsorRating, isBelowRatingThreshold } from '../../../services/sponsorService';
+import { CRITICAL_RATING_THRESHOLD } from '../../../utils/sponsorValidation';
 import { PaginationControls } from '../../common/PaginationControls';
 import { CountBadge } from '@/components/ui/CountBadge';
 
@@ -20,6 +21,7 @@ interface SponsorTableProps {
     onCancel: (id: string) => void;
     onDelete?: (id: string, name: string) => void;
     isSuperAdmin?: boolean;
+    allowRowSelection?: boolean;
 
     currentPage: number;
     maxPage: number;
@@ -29,6 +31,8 @@ interface SponsorTableProps {
     
     selectedIds?: Set<string>;
     onToggleSelection?: (id: string) => void;
+    /** Soglia rating da Configuration Source (DOC 30). */
+    ratingThreshold?: number;
 }
 
 export const SponsorTable = ({ 
@@ -44,13 +48,15 @@ export const SponsorTable = ({
     onCancel,
     onDelete,
     isSuperAdmin = false,
+    allowRowSelection = false,
     currentPage,
     maxPage,
     onNext,
     onPrev,
     totalItems,
     selectedIds,
-    onToggleSelection
+    onToggleSelection,
+    ratingThreshold = CRITICAL_RATING_THRESHOLD,
 }: SponsorTableProps) => {
     
     const [dismissedVats, setDismissedVats] = useState<string[]>(getDismissedAlerts());
@@ -63,10 +69,6 @@ export const SponsorTable = ({
     ]), []);
 
     const displayData = useMemo(() => {
-        if (requests.length > 0) {
-            console.log(`[SponsorTable] Debug | Recived: ${requests.length} records. Statuses:`, requests.map(r => r.status));
-        }
-
         const groups: Record<string, SponsorRequest[]> = {};
         requests.forEach(req => {
             const key = req.vatNumber ? req.vatNumber : req.id;
@@ -122,10 +124,11 @@ export const SponsorTable = ({
                     const isGuide = req.type === PLAN_TYPES.TOUR_GUIDE;
                     const isActivity = ACTIVITY_PLAN_TYPES.has(req.type);
                     
-                    let currentRating = null;
+                    let currentRating: number | null = null;
                     if (req.status === 'approved' || req.isExpired) {
-                        currentRating = getSponsorRating(req.id);
+                        currentRating = getSponsorRating(req);
                     }
+                    const isBelowRating = isBelowRatingThreshold(currentRating, ratingThreshold);
                     
                     let borderClass = 'border-slate-800';
                     let bgClass = 'bg-slate-900';
@@ -135,7 +138,9 @@ export const SponsorTable = ({
                     else if (req.status === 'rejected') { borderClass = 'border-red-500/30'; bgClass = 'bg-red-950/5'; }
                     else if (req.status === 'cancelled') { borderClass = 'border-slate-600'; bgClass = 'bg-slate-900 opacity-60'; }
 
-                    if (showBadHistoryAlert) {
+                    if (isBelowRating && req.status === 'approved' && !req.isExpired) {
+                        borderClass = 'border-amber-500/60 border-2 shadow-[0_0_12px_rgba(245,158,11,0.25)]';
+                    } else if (showBadHistoryAlert) {
                         borderClass = 'border-red-500 border-2 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
                     } else if (isGuide && req.status !== 'rejected' && req.status !== 'cancelled') {
                         borderClass = 'border-indigo-500/30';
@@ -147,7 +152,7 @@ export const SponsorTable = ({
                     return (
                         <div key={req.id} className={`${bgClass} rounded-xl border flex flex-col transition-all animate-in fade-in slide-in-from-bottom-2 ${borderClass} overflow-hidden relative shadow-lg ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}>
                             
-                            {isSuperAdmin && onToggleSelection && (
+                            {allowRowSelection && onToggleSelection && (
                                 <div className="absolute top-2 right-2 z-admin-modal">
                                     <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSelection(req.id); }} className={`p-1.5 rounded-lg shadow-lg border transition-all ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-black/50 border-white/20 text-slate-300 hover:bg-black/70'}`}>
                                         {isSelected ? <CheckSquare className="w-5 h-5"/> : <Square className="w-5 h-5"/>}
@@ -217,11 +222,12 @@ export const SponsorTable = ({
                                         <span className="flex items-center gap-1"><MessageSquare className="w-4 h-4 text-slate-500"/> {req.email}</span>
                                     </div>
 
-                                    {(req.status === 'approved' || req.status === 'expired' || req.status === 'cancelled') && (
+                                    {/* expired = runtime (isExpired); DB status resta 'approved' (SponsorStatus.ts) */}
+                                    {(req.status === 'approved' || req.isExpired || req.status === 'cancelled') && (
                                         <div className="bg-slate-950/50 border border-slate-800 rounded-lg p-4 grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                                             <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Attivazione</span><span className="text-base font-bold text-slate-200">{req.startDate || '--'}</span></div>
                                             <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Scadenza</span><span className={`text-base font-bold ${req.isExpired ? 'text-red-400' : 'text-emerald-400'}`}>{req.endDate || '--'}</span></div>
-                                            <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Rating</span><div className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-amber-400 fill-current"/> <span className="font-bold text-white">{currentRating !== null && currentRating !== undefined ? currentRating : 'N/A'}</span></div></div>
+                                            <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Rating</span><div className={`flex items-center gap-1 ${isBelowRating ? 'text-amber-400' : ''}`}><Star className={`w-3.5 h-3.5 fill-current ${isBelowRating ? 'text-amber-400' : 'text-amber-400'}`}/> <span className={`font-bold ${isBelowRating ? 'text-amber-300' : 'text-white'}`}>{currentRating !== null && currentRating !== undefined ? currentRating : 'N/A'}</span>{isBelowRating && <span className="text-[9px] uppercase font-bold text-amber-500 ml-1">Sotto soglia</span>}</div></div>
                                             <div><span className="text-xs text-slate-500 uppercase font-bold block mb-0.5 tracking-wide">Piano</span><span className="text-base font-bold text-slate-200">{req.plan?.replace('_', ' ') || '--'}</span></div>
                                         </div>
                                     )}
@@ -260,7 +266,7 @@ export const SponsorTable = ({
                                         {req.status === 'approved' && (
                                             <>
                                                 <button onClick={() => onExtend(req.id)} className="bg-slate-800 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold uppercase flex items-center gap-1 transition-colors border border-slate-700 hover:border-indigo-500"><CalendarPlus className="w-4 h-4"/> {req.isExpired ? 'Rinnova' : 'Estendi'}</button>
-                                                {!req.isExpired && (
+                                                {!req.isExpired && isSuperAdmin && (
                                                     <button onClick={() => onCancel(req.id)} className="bg-slate-800 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold uppercase flex items-center gap-1 transition-colors border border-slate-700 hover:border-red-500"><Ban className="w-4 h-4"/> Termina</button>
                                                 )}
                                             </>

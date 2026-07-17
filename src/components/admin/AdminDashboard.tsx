@@ -37,6 +37,7 @@ const AdminAssetLibrary = React.lazy(() => import('./AdminAssetLibrary').then(m 
 const AiLimitsControlCenter = React.lazy(() => import('./AiLimitsControlCenter').then(m => ({ default: m.AiLimitsControlCenter })));
 const AdminControlCenterAI = React.lazy(() => import('./AdminControlCenterAI').then(m => ({ default: m.AdminControlCenterAI })));
 const AffiliateEditorialCenter = React.lazy(() => import('../features/diary/packing_list/suitcase/AffiliateEditorialCenter').then(m => ({ default: m.AffiliateEditorialCenter })));
+const PlatformControlCenter = React.lazy(() => import('./platformControl/PlatformControlCenter').then(m => ({ default: m.PlatformControlCenter })));
 
 interface AdminDashboardProps {
     onBack: () => void;
@@ -57,7 +58,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     const navigate = useNavigate();
 
     // TIPIZZAZIONE SEZIONI ADMIN
-    type AdminSection = 'dashboard' | 'cities' | 'osm_import' | 'events_global' | 'users' | 'sponsors' | 'photos' | 'ticker' | 'tips' | 'marketing' | 'itineraries' | 'design_assets' | 'settings' | 'comms' | 'suggestions' | 'gamification' | 'social_studio' | 'assets' | 'ai_control' | 'ai_economics' | 'affiliations';
+    type AdminSection = 'dashboard' | 'cities' | 'osm_import' | 'events_global' | 'users' | 'sponsors' | 'photos' | 'ticker' | 'tips' | 'marketing' | 'itineraries' | 'design_assets' | 'settings' | 'comms' | 'suggestions' | 'gamification' | 'social_studio' | 'assets' | 'ai_control' | 'ai_economics' | 'affiliations' | 'platform_control';
 
     // DERIVAZIONE ROBUSTA DELLA SEZIONE DALL'URL (Bypassa i limiti di useParams fuori dai Routes)
     const section = location.pathname.split('/')[2] || 'dashboard';
@@ -91,7 +92,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     }, [refreshCounts]);
 
     const sectionNames: Record<string, string> = {
-        dashboard: 'Dashboard', cities: 'Manager POI', osm_import: 'Import OSM', events_global: 'Eventi Globali', users: 'Utenti', sponsors: 'Sponsor', photos: 'Foto', ticker: 'News Ticker', tips: 'Loading Tips', marketing: 'Marketing', itineraries: 'Itinerari', design_assets: 'Asset Globali', settings: 'Impostazioni Globali', comms: 'Comunicazioni', suggestions: 'Segnalazioni', gamification: 'Gamification', social_studio: 'Social Studio', assets: 'Libreria', ai_control: 'AI Control Center', ai_economics: 'AI Economics', affiliations: 'Affiliazioni & Override'
+        dashboard: 'Dashboard', cities: 'Manager POI', osm_import: 'Import OSM', events_global: 'Eventi Globali', users: 'Utenti', sponsors: 'Sponsor', photos: 'Foto', ticker: 'News Ticker', tips: 'Loading Tips', marketing: 'Marketing', itineraries: 'Itinerari', design_assets: 'Asset Globali', settings: 'Impostazioni Globali', comms: 'Comunicazioni', suggestions: 'Segnalazioni', gamification: 'Gamification', social_studio: 'Social Studio', assets: 'Libreria', ai_control: 'AI Control Center', ai_economics: 'AI Economics', affiliations: 'Affiliazioni & Override', platform_control: 'Centro di Controllo'
     };
 
     const handleNavClick = (newView: string) => {
@@ -130,6 +131,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
             case 'ai_control': return <AiLimitsControlCenter />;
             case 'ai_economics': return <AdminControlCenterAI />;
             case 'affiliations': return <AffiliateEditorialCenter />;
+            case 'platform_control': return <PlatformControlCenter currentUser={currentUser} />;
             default: return <AdminStatsDashboard />;
         }
     };

@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PhotoSubmission, User, CityDetails, MediaStatus } from '../types/index';
 import { fetchCommunityPhotos, uploadCommunityPhoto, getOrCreatePhotoSubmissionForUrl } from '../services/photoService';
 import { getCityOfficialMedia } from '../services/city/cityMediaService';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFlagCache';
 
 export const useCityGallery = (city: CityDetails, user: User) => {
     const [photos, setPhotos] = useState<PhotoSubmission[]>([]);
@@ -110,6 +112,18 @@ export const useCityGallery = (city: CityDetails, user: User) => {
     }, []);
 
     const uploadPhoto = async (file: File, description: string, shareToLive: boolean): Promise<User | null> => {
+        const photosFlag = evaluateCachedFeatureFlag(
+            PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS,
+            {
+                userRole: user.role,
+                isAuthenticated: user.role !== 'guest',
+            }
+        );
+        if (photosFlag && !photosFlag.enabled) {
+            setUploadError('Il caricamento foto è temporaneamente disabilitato.');
+            return null;
+        }
+
         setIsUploading(true);
         setUploadError(null);
         try {

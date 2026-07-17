@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Lock, LayoutDashboard, Settings, CalendarDays, Map, Store, TrendingUp, Type, Palette, Lightbulb, FileText, Trophy, Camera, Newspaper, Megaphone, Users, ArrowLeft, Brush, Image as ImageIcon, Microscope, Database, Download, Zap, Euro, ShoppingBag, LucideIcon } from 'lucide-react';
+import { Lock, LayoutDashboard, Settings, CalendarDays, Map, Store, TrendingUp, Type, Palette, Lightbulb, FileText, Trophy, Camera, Newspaper, Megaphone, Users, ArrowLeft, Brush, Image as ImageIcon, Microscope, Database, Download, Zap, Euro, ShoppingBag, SlidersHorizontal, LucideIcon } from 'lucide-react';
 import { User } from '../../../types/users';
 import { getRoleLabel } from '../../../services/userService';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
@@ -159,6 +159,13 @@ export const AdminSidebar = ({
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all font-bold text-xs ${activeView === 'users' ? 'bg-pink-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                     >
                         <span className="flex items-center gap-2"><Users className="w-4 h-4" /> Utenti & Ruoli</span>
+                    </button>
+
+                    <button
+                        onClick={() => onNavigate('platform_control')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all font-bold text-xs ${activeView === 'platform_control' && !editingCityId ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                    >
+                        <span className="flex items-center gap-2"><SlidersHorizontal className="w-4 h-4" /> Centro di Controllo</span>
                     </button>
 
                     <button onClick={onBack} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-400 hover:text-white transition-all font-bold text-[10px] group uppercase tracking-widest">

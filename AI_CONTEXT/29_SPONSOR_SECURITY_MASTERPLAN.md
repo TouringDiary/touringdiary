@@ -25,11 +25,11 @@ Altri domini **non sostituiscono** questo documento per nulla che riguardi il co
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 0.11.0 |
-| **Ultima revisione** | 2026-07-14 |
+| **Versione** | 0.12.0 |
+| **Ultima revisione** | 2026-07-17 |
 | **Stato** | Implementazione in Corso |
 | **Percorso SSOT** | `AI_CONTEXT/29_SPONSOR_SECURITY_MASTERPLAN.md` |
-| **Prossimo passo** | WF-02 **STEP-2** — Fase 2.2 (RPC gateway richieste) |
+| **Prossimo passo** | WF-02 **STEP-3 Fase 3.4** — Programmazione / consumer (DOC 30); testi e manutenzione già in Fase 3.3 |
 
 ### Perché *Pronto per Implementazione* (non è una contraddizione)
 
@@ -177,9 +177,9 @@ Decisioni **approvate e non rinegoziabili** senza revisione esplicita di questo 
 |---------|-------------|---------------|------------------|
 | **Audit** | Evidenze raccolte su remoto, codice e documentazione (SQL Pack, V1–V20) | **Concluso** | § *Verifiche pre-implementazione* · § *Verifiche completate* |
 | **Progetto** | Decisioni PO, architettura congelata, piano mitigazione, gate *Pronto* (DoD-1–9) | **Approvato** | § *Decisioni PO* · § *Definition of Done* · DL-031 |
-| **Implementazione** | Migration, RPC, hardening, smoke runtime, chiusura gap B1–B10 | **In corso** — Fase 2.1 ☑ (2026-07-14) | § *Verifiche ed evidenze — implementazione* · WF-02 STEP-2 Fasi 1–6 |
+| **Implementazione** | Migration, RPC, hardening, smoke runtime, chiusura gap B1–B10 | **STEP-2 completato** — Fasi 2.1–2.6 ☑ (2026-07-17); evidenze smoke in WF-02 STEP-4 | § *Verifiche ed evidenze — implementazione* · WF-02 STEP-3 in corso |
 
-> **Lettura rapida:** l'audit è **finito**; il progetto è **approvato**; l'implementazione **deve ancora iniziare** (prima voce: Fase 2.1 contenimento P0).
+> **Lettura rapida:** l'audit è **finito**; il progetto è **approvato**; dominio Sponsor **implementato** (STEP-2); Centro di Controllo in **STEP-3**.
 
 Due gate distinti sulle domande Q1–Q9 — **non** confondere *Pronto per Implementazione* con *Implementato*.
 
@@ -784,6 +784,120 @@ Registrazione → username obbligatorio → username univoco → email obbligato
 
 ---
 
+### DL-036
+
+**Data:** 2026-07-16
+
+**Decisione (anticipazione — PO):** Durante il bugfix attivazione (`pois_category_check` / copia verbatim di `poi_category`) è emersa una possibile evoluzione della pipeline Sponsor: **attach-or-create** sul POI. **Non approvata**; **non** implementare ora.
+
+**Direzione architetturale futura (solo traccia):**
+- un’attività può già essere rappresentata da un POI esistente;
+- tramite il percorso **«Segnala / Rivendica»** del dominio POI il proprietario può richiederne la sponsorizzazione;
+- se il POI esiste → lo Sponsor si collega a quel `poi_id` (nessun nuovo INSERT POI);
+- se il POI non esiste → il sistema crea automaticamente il POI e poi collega lo Sponsor.
+
+Questa evoluzione dovrà essere **integrata e coordinata** con il flusso Claim («Segnala / Rivendica»). Resta soltanto una direzione futura: prima dell’avvio di un Workflow dedicato è obbligatoria una **nuova ricognizione architetturale** congiunta (Product Owner, ChatGPT e l’AI utilizzata nello sviluppo) sullo stato reale del progetto.
+
+**Motivazione:** Preservare l’intenzione architetturale senza interrompere WF-02 né modificare la pipeline corrente.
+
+**Impatto:** Solo traccia in `01_EXECUTION_ROADMAP.md` §6. Bug fix immediato categoria = helper SQL `resolve_poi_category_for_sponsor_activation` (mirror `resolvePlanPoiCategory` + allowlist `poiWrite`).
+
+---
+
+### DL-037
+
+**Data:** 2026-07-17
+
+**Decisione (architettura CRM / messaggistica Sponsor — PO):** Il modale admin (`PartnerDetailModal`) e la dashboard utente (`UserMessagesTab`) adottano un modello **Sponsor-centric**. Le decisioni sotto sono **approvate**; implementazione UI prevista in **G-MSG-1 step 4** e nel futuro WF Messaggistica — **non** in WF-02 Fase 2.5 (solo contenimento B8).
+
+---
+
+#### 1 — Contesto principale: lo Sponsor
+
+Il modale **non** ruota più attorno alle conversazioni né alle `sponsor_requests`. Ruota attorno allo **Sponsor selezionato**. Ogni Sponsor rappresenta un **contesto indipendente**. Un utente può possedere più Sponsor; ciascuno ha dati, stato e thread propri.
+
+---
+
+#### 2 — Cambio Sponsor = cambio contesto (senza chiudere il modale)
+
+Quando l’admin seleziona uno Sponsor diverso dello stesso utente, **senza chiudere il modale**, devono aggiornarsi automaticamente e in modo atomico:
+
+- **Storico Contratti**
+- **Note Amministrative**
+- **Chat**
+- **Stato Sponsor**
+
+È **vietato** mischiare dati appartenenti ad altri Sponsor dello stesso utente.
+
+---
+
+#### 3 — Storico Contratti
+
+Lo Storico Contratti rappresenta **esclusivamente** la cronologia dei contratti dello **Sponsor selezionato** — non l’intero portfolio utente.
+
+- Ogni riga rappresenta una **sottoscrizione reale** (un contratto/periodo contrattuale effettivo).
+- **Requisiti minimi UI** per ogni riga dello storico:
+  - **Piano sottoscritto**
+  - **Stato del contratto**
+  - **Data Sottoscrizione**
+  - **Data Scadenza**
+- **Non** mostrare contratti di altri Sponsor dello stesso utente.
+
+---
+
+#### 4 — Sezione «Sponsor dell'utente»
+
+Sotto lo Storico Contratti: nuova sezione **«Sponsor dell'utente»** con tutti gli Sponsor dello stesso utente.
+
+- Ogni voce mostra almeno: **Nome Sponsor**, **Stato**.
+- Lista **selezionabile**; il cambio Sponsor aggiorna **tutto** il contesto del modale (cfr. §2).
+
+---
+
+#### 5 — Note Amministrative
+
+Sistema **completamente separato** dalla chat (non è messaggistica).
+
+- **Private** — solo admin.
+- **Persistenti** — salvate per lo Sponsor selezionato.
+- **Invisibili** al partner/utente.
+- Cambio Sponsor → compaiono **solo** le note di quello Sponsor.
+
+---
+
+#### 6 — Chat
+
+- Sempre associata allo **Sponsor selezionato**.
+- Ogni Sponsor possiede il **proprio thread** (allineato a DL-025).
+- Cambio Sponsor → cambia la **cronologia chat** mostrata.
+- **Vietato** mischiare conversazioni di Sponsor diversi.
+
+---
+
+#### 7 — Dashboard utente (UX)
+
+La UI utente **non** è più concettualmente basata sulle «Conversazioni».
+
+Modello corretto:
+
+```
+Utente → Sponsor (selezione) → Chat dello Sponsor selezionato
+```
+
+- Sostituire la colonna «Conversazioni» con **selezione Sponsor** (lista/combobox).
+- Sotto: **unica** area chat dello Sponsor selezionato.
+- Lo **stato** mostrato (Pending, Active, Waiting Payment, …) è **stato Sponsor/contratto**, **non** stato della chat.
+
+---
+
+**Motivazione:** Allineare UX al modello business (un thread per sponsor — DL-025); eliminare ambiguità «conversazione vs sponsor»; preparare consolidamento storage post G-MSG-1.
+
+**Impatto:** SSOT requisiti UX per G-MSG-1 **step 4** e futuro WF Messaggistica; **nessuna implementazione** in WF-02 oltre contenimento B8 (Fase 2.5). Wireframe/review obbligatori prima del motore (step 5).
+
+**Nota implementativa corrente (gap):** oggi `PartnerDetailModal` aggrega per `profileId` e seleziona per `requestId`; `partner_logs` non è mappato nei resolver; badge unread usa `sponsor_messages` — vedi § O2 *Stato oggi*.
+
+---
+
 ## Problemi confermati
 
 > **Nota — debito implementativo noto (B1–B10, A*, C*):** le voci sotto descrivono lo **stato attuale del sistema**, non un'analisi incompleta. Sono **debito implementativo accettato dal Product Owner** (DL-031), **coperto integralmente** dal piano Fasi 1–6 (§ *Implementazioni*) e **non impediscono** lo stato documento ***Pronto per Implementazione***. Restano obiettivo di chiusura del passaggio a ***Implementato***.
@@ -1158,7 +1272,7 @@ Tutte le voci sotto sono **chiuse** — evidenza in § *Verifiche completate*.
 
 ## Verifiche ed evidenze — implementazione (STEP-2 / post-implementazione)
 
-> **Stato implementazione:** **in corso** — Fasi 2.1–2.3 completate (PO ✓). Fase 2.4: codice/migration presenti; chiusura bloccata da `npm run lint` non pulito.
+> **Stato implementazione:** **STEP-2 completato** — Fasi 2.1–2.6 ☑ (2026-07-17); G-MSG-1 step 2 ☑; evidenze smoke/post-deploy residue in WF-02 STEP-4.
 
 *Non bloccano il gate **Pronto per Implementazione**. Tracciate in WF-02 STEP-2 e checklist § *Implementazioni*.*
 
@@ -1167,10 +1281,27 @@ Tutte le voci sotto sono **chiuse** — evidenza in § *Verifiche completate*.
 - [x] **VT-SPONSOR-PUBLIC-READ** — `REVOKE SELECT` colonne sensibili da `anon` + `SPONSOR_PUBLIC_VITRINE_SELECT` client + bootstrap API — **Fase 2.1** ☑ 2026-07-14
 - [x] **UPDATE `cancelSponsor` / shop sync** — RPC `cancel_sponsor_contract`, `sync_sponsor_profile_from_shop`; client refactor — **Fase 2.4** ☑ 2026-07-16
 
+### Database — audit Sponsor (O8) — Governance Fase 6
+
+Audit amministrativo **centralizzato** del dominio Sponsor (migration `20260717140000`).
+
+| Elemento | Ruolo |
+|----------|--------|
+| **`sponsor_admin_audit_events`** | Tabella append-only: `event_type`, `actor_id`, `request_id`, `sponsor_id`, `summary`, `payload`, `created_at`. RLS SELECT per `is_td_admin`. |
+| **`record_sponsor_admin_audit`** | Helper SECURITY DEFINER invocato dalle RPC admin; scrive l’evento nella tabella sopra. |
+
+**Copertura:** ogni operazione amministrativa mutante (approve, reject, note, delete, activate, cancel, extend singola/massiva) registra un evento strutturato via `record_sponsor_admin_audit` — storico unico O8, distinto da `partner_logs` CRM.
+
+**Attivazione (VT-SUX-03):** `activate_sponsor_from_request` assegna automaticamente `profiles.role = 'business'` al profilo collegato (`profile_id` della richiesta) al completamento dell’attivazione.
+
+- [x] Tabella + helper + audit RPC admin — **Fase 2.6** ☑ 2026-07-17
+- [x] Assegnazione automatica ruolo `business` all’attivazione — **Fase 2.6** ☑ 2026-07-17
+
 ### Database — `sponsor_messages`
 
 - [x] **Bonifica policy** — `is_td_admin(auth.uid())`; rimosso `admin_city` — **Fase 2.1** ☑ 2026-07-14
-- [ ] **Admin `admin_all` INSERT/UPDATE messaggi** — smoke runtime post-bonifica → **Fase 2.5**
+- [x] **B8 / A10 — REVOKE CRUD client** — `REVOKE INSERT, UPDATE, DELETE` da PUBLIC/anon/authenticated; RPC gateway `insert_sponsor_message`, `mark_sponsor_messages_read` — **Fase 2.5** ☑ 2026-07-17 (migration `20260717120000`; smoke runtime pending deploy)
+- [x] **Admin messaggi via RPC** — `sponsorMessagesService` refactor su RPC; nessun INSERT/UPDATE client diretto — **Fase 2.5** ☑ 2026-07-17
 - [x] **`admin_limited` su messages** — incluso via `is_td_admin` — **Fase 2.1** ☑ 2026-07-14
 
 ### Database — `sponsor_requests` / RPC attivazione
@@ -1182,21 +1313,26 @@ Tutte le voci sotto sono **chiuse** — evidenza in § *Verifiche completate*.
 
 ### Frontend / integrazione
 
-- [ ] **JWT admin = `authenticated`** durante operazioni sponsor — smoke STEP-2
-- [ ] **Esito reale `confirmActivation`** — smoke post-deploy Fase 2.3
-- [ ] **Test manuale stub UI** (extension no-op) — chiusura post Fase 2.4 / 2.6
+- [x] **Flag `feature.comms.user_sponsor` prepared OFF** — `isCommsUserSponsorEnabled()` = false; template `comms_user_sponsor_disabled` in `UserMessagesTab` — **Fase 2.5** ☑ 2026-07-17
+- [x] **Segna letti partner (`partner_logs`)** — `markPartnerLogsAsRead` in `UserMessagesTab` (legacy, fuori perimetro B8) — **Fase 2.5** ☑ 2026-07-17
+- [x] **Pipeline signup O1/O11 (DL-033)** — `registerUser` + username guest + guard sessione prima submit — **Fase 2.6** ☑ 2026-07-17
+- [x] **Rating alert DL-030** — `enrichSponsorsWithRatings`, filtro «Solo sotto soglia», evidenziazione UI — **Fase 2.6** ☑ 2026-07-17
+- [x] **Matrice DL-027** — Termina solo `admin_all`; checkbox estensione massiva per tutti gli admin su Sponsor Attivi — **Fase 2.6** ☑ 2026-07-17
+- [ ] **JWT admin = `authenticated`** durante operazioni sponsor — smoke **WF-02 STEP-4** Fase 4.1
+- [ ] **Esito reale `confirmActivation`** — smoke post-deploy **WF-02 STEP-4** Fase 4.1
+- [ ] **Test manuale stub UI** (extension no-op) — chiusura **WF-02 STEP-4** Fase 4.1
 
 ### Documentazione e repo
 
 - [ ] **Allineare DOC 15** e righe Sponsor in `09_SYSTEM_COVERAGE_MAP` → **WF-02 STEP-4** (P3 C6)
-- [ ] **`types/supabase.ts` vs RPC reali** — consolidamento post-migration → **STEP-2** (P2 C5/A15)
-- [ ] **Migration repo: importare policy `sponsors` e stato RPC reale** (C5) → **STEP-2**
+- [ ] **`types/supabase.ts` vs RPC reali** — consolidamento post-migration → **WF-02 STEP-4** Fase 4.3 (P2 C5/A15)
+- [ ] **Migration repo: importare policy `sponsors` e stato RPC reale** (C5) → **WF-02 STEP-4** Fase 4.3
 
 ---
 
 ## Decisioni PO — stato
 
-*Tutte le decisioni progettuali del dominio Sponsor sono **chiuse** (ultima chiusura: DL-032–034, 2026-07-14). Restano **evidenze implementative** (§ *Verifiche ed evidenze — implementazione*) in WF-02 STEP-2.*
+*Tutte le decisioni progettuali del dominio Sponsor sono **chiuse** (ultima chiusura: DL-032–034, 2026-07-14). Restano **evidenze implementative** (§ *Verifiche ed evidenze — implementazione*) riclassificate in WF-02 STEP-4.*
 
 ---
 
@@ -1211,6 +1347,7 @@ Tutte le voci sotto sono **chiuse** — evidenza in § *Verifiche completate*.
 | Differenze tra viste | **UI** (admin CRM ricco vs partner semplificato); permessi e contesto sono del motore |
 | Thread | **Una conversazione per Sponsor** (DL-025); partner multi-sponsor → N thread |
 | Convergenza UI | `PartnerDetailModal` + `UserMessagesTab` = **due viste stesso thread** |
+| UX Sponsor-centric (modale + dashboard utente) | **DL-037** — contesto Sponsor, storico, note, chat, sezione «Sponsor dell'utente» |
 | Tipologie fase 1 | CRM **Admin ↔ Partner** (post G-MSG-1) |
 | Tipologie fase 1 OFF | Chat **Utente ↔ Sponsor** (flag Centro di Controllo) |
 | Tipologie future | Admin↔Utente, ticket, supporto, moderazione — stesso motore |
@@ -1220,9 +1357,9 @@ Tutte le voci sotto sono **chiuse** — evidenza in § *Verifiche completate*.
 | Step | Azione | Stato |
 |------|--------|-------|
 | 1 | Risolvere approvazione Sponsor (403 → RPC gateway) | ☑ |
-| 2 | Completare implementazione dominio Sponsor (DOC 29) | ☐ |
+| 2 | Completare implementazione dominio Sponsor (DOC 29) | ☑ |
 | 3 | **STOP** — nessun lavoro su chat unificata | — |
-| 4 | Review UI messaggistica completa con PO | ☐ |
+| 4 | Review UI messaggistica completa con PO | ☐ — input SSOT: **DL-037** |
 | 5 | Avvio sviluppo dominio Messaggistica | ☐ |
 
 **Vietato:** implementare consolidamento `partner_logs` / `sponsor_messages` prima dello step 5.
@@ -1249,7 +1386,7 @@ Tutte le voci sotto sono **chiuse** — evidenza in § *Verifiche completate*.
 | CRM Admin → Partner | `partner_logs` JSON su `sponsor_requests` / `sponsors` | `PartnerDetailModal` — Invia funzionante (`addPartnerLogAsync`) | Admin CRM attivo |
 | Partner → Admin | stesso `partner_logs` | `UserMessagesTab` — Invia **stub** (`sendUserMessage`) | Partner vede thread ma invio non persiste |
 | Badge unread admin | `sponsor_messages` tabella | `SponsorTable` badge, filtro «SOLO NON LETTI» | **Non allineato** a `partner_logs` |
-| `sponsor_messages` service | tabella DB | `addSponsorMessageAsync` — **zero wiring UI** | CRUD client pericoloso (B8) |
+| `sponsor_messages` service | tabella DB | `addSponsorMessageAsync` via RPC gateway — **zero wiring UI CRM** (admin usa ancora `partner_logs`) | B8 ☑ Fase 2.5 — CRUD client revocato |
 
 **Conclusione audit:** due stack convivono; consolidamento **post G-MSG-1** nel dominio Messaggistica autonomo (DL-024).
 
@@ -1364,11 +1501,11 @@ L'amministratore può, a sua discrezione:
 | Elemento | Stato |
 |----------|-------|
 | Campo Rating in `SponsorTable` | Presente — valore sempre **N/A** |
-| `getSponsorRating` | **Stub** — ritorna `null` |
-| Sistema recensioni generale | DOC 27 — POI, itinerari, shop, guide — **non collegato** al rating Sponsor in UI |
-| Alert sotto soglia | **Non implementato** — target: evidenziazione + filtro «Solo sotto soglia» in Sponsor Attivi (DL-030) |
+| `getSponsorRating` | **Implementato** — media recensioni `reviews` su `poi_id` (Fase 2.6) |
+| Sistema recensioni generale | DOC 27 — POI, itinerari, shop, guide — collegato per sponsor con `poi_id` |
+| Alert sotto soglia | **Implementato** — evidenziazione + filtro «Solo sotto soglia» in Sponsor Attivi (DL-030) |
 
-**Conclusione:** calcolo rating + UI alert da implementare; regola PO congelata in DL-021/DL-030.
+**Conclusione:** calcolo rating + UI alert implementati (Fase 2.6); soglia da Configuration Source `threshold.sponsor_rating_alert_stars` (consumer STEP-3 Fase 3.2; fallback `CRITICAL_RATING_THRESHOLD` = 3).
 
 ---
 
@@ -1639,9 +1776,9 @@ Criteri **oggettivi** per passare da **In Analisi** a **Pronto per Implementazio
 - [x] **Fase 1** — Contenimento critico (P0: B9, B2, B7, B1, B6, B8, B5) — migration `20260714160000` ☑ 2026-07-14
 - [x] **Fase 2** — RPC gateway richieste (`approve_sponsor_request`, …) — migration `20260714170000` ☑ 2026-07-14
 - [x] **Fase 3** — `activate_sponsor_from_request` unificata (DL-017) — migration `20260714173000` ☑ 2026-07-14
-- [ ] **Fase 4** — RPC contratti, shop sync, city lifecycle + tab Sponsor Scollegati (DL-029) — migration `20260714180000` presente; chiusura pending lint/review
-- [ ] **Fase 5** — Contenimento messaggi legacy B8 (non consolidamento)
-- [ ] **Fase 6** — Governance: audit O8, signup O1/O11, rating UI DL-030, matrice O4/DL-027
+- [x] **Fase 4** — RPC contratti, shop sync, city lifecycle + tab Sponsor Scollegati (DL-029) — migration `20260714180000` ☑ 2026-07-16
+- [x] **Fase 5** — Contenimento messaggi legacy B8 (non consolidamento) — migration `20260717120000` ☑ 2026-07-17
+- [x] **Fase 6** — Governance: audit O8, signup O1/O11, rating UI DL-030, matrice O4/DL-027 — migration `20260717140000` ☑ 2026-07-17
 
 **Dipendenze:** Fase N+1 dopo Fase N salvo contenimento P0 parallelo documentato. Fase 7 → solo post G-MSG-1.
 
@@ -1707,10 +1844,30 @@ Contratto attivo: `expired` (runtime su scadenza).
 | 0.10.1 | 2026-07-14 | Chiarezza audit vs progetto vs implementazione; nota debito B1–B10; § *Perché Pronto per Implementazione* |
 | 0.11.0 | 2026-07-14 | WF-02 Fase 2.1 implementata: contenimento P0 (RPC hardening, policy messages, INSERT anon, VT-SPONSOR-PUBLIC-READ); stato **Implementazione in Corso** |
 | 0.11.1 | 2026-07-16 | DL-035: ricognizione ID dual-family; puntamento a DOC 33; ID Governance non approvata |
+| 0.11.2 | 2026-07-16 | DL-036: anticipazione Sponsor↔POI attach-or-create (non approvata); fix RPC category |
+| 0.11.3 | 2026-07-17 | DL-037: architettura modale Sponsor-centric (storico, note, chat, UI utente) |
+| 0.11.4 | 2026-07-17 | DL-037 espanso: 7 decisioni UX/funzionali esplicite; puntamento § O2 e G-MSG-1 step 4 |
+| 0.11.5 | 2026-07-17 | DL-037 §3: storico contratti = sottoscrizione reale + requisiti UI minimi; Fase 2.5 B8/A10 chiusi (migration `20260717120000`) |
+| 0.12.0 | 2026-07-17 | Fase 2.6: audit O8, signup O1/O11, rating DL-030, matrice DL-027; G-MSG-1 step 2 ☑ |
 
 ---
 
 ## Aggiornamenti al Masterplan
+
+*Sessione 2026-07-17 — implementazione WF-02 Fase 2.6*
+
+- **Migration:** `20260717140000_sponsor_phase6_governance_audit.sql`
+- **Chiusi:** C3/O8 audit log; VT-SUX-03 business role; O1/O11 signup pipeline; DL-030 rating UI; DL-027 matrice admin
+- **G-MSG-1:** step 2 ☑
+- **Stato documento:** *Implementazione in Corso* (v0.12.0) — Fasi 1–6 STEP-2 complete; gate *Implementato* pending smoke/Q post-deploy
+
+*Sessione 2026-07-17 — implementazione WF-02 Fase 2.5*
+
+- **Migration:** `20260717120000_sponsor_phase5_messages_containment.sql`
+- **Chiusi:** B8, A10 (REVOKE CRUD client `sponsor_messages` + RPC gateway legacy)
+- **Flag:** `feature.comms.user_sponsor` prepared OFF (`platformFeatureFlags.ts`); consumer Centro di Controllo in STEP-3
+- **UI:** contenimento `UserMessagesTab` (invio partner bloccato + template disabilitazione); **nessuna** UX DL-037; **nessun** consolidamento `partner_logs`
+- **Stato documento:** *Implementazione in Corso* (v0.11.5)
 
 *Sessione 2026-07-14 — implementazione WF-02 Fase 2.1*
 
@@ -1865,7 +2022,7 @@ ORDER BY tablename;
 | C-4 | **Ignora** alert storico | Admin → … → banner rosso «Partner con storico negativo» → **Ignora** | ✅ Persistenza preferenza admin (`getDismissedAlerts` oggi stub) |
 | C-5 | **Rating** in card | Admin → … → SPONSOR ATTIVI → campo **Rating** (stelle) | ✅ Implementare calcolo + alert DL-021 (oggi sempre N/A) |
 | C-6 | **Invia** messaggio partner | Profilo → **Business Dashboard** → sidebar **Supporto Partner** → conversazione → **Invia** | ✅ Motore unificato DL-018; rispettare toggle chat fase 1 (DL-019) |
-| C-7 | Segna letti (partner) | Stessa schermata C-6 — apertura conversazione | ✅ `mark_sponsor_messages_read` (oggi `markUserLogsAsRead` stub) |
+| C-7 | Segna letti (partner) | Stessa schermata C-6 — apertura conversazione | ✅ `mark_sponsor_messages_read` (tabella) / `markPartnerLogsAsRead` (`partner_logs` legacy UI) |
 | C-8 | `togglePartnerLogReadStatus` | *(nessun pulsante UI)* | ✅ **Codice morto** — eliminare in cleanup (nessun import nel codebase) |
 | C-9 | `getDismissedAlerts` | Interno `SponsorTable` — logica banner C-4 | ✅ Implementare persistenza (oggi ritorna `[]`) |
 

@@ -6,6 +6,8 @@ import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { SuggestionType, PointOfInterest, User as UserType } from '../../types/index';
 import { addSuggestion } from '../../services/communityService';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '../../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
 
 interface SuggestionModalProps {
     isOpen: boolean;
@@ -89,6 +91,18 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
         e.preventDefault();
         if (isSubmitting) return;
         setFormError(null);
+
+        const suggestionsFlag = evaluateCachedFeatureFlag(
+            PLATFORM_FEATURE_FLAG_KEYS.MODERATION_SUGGESTIONS,
+            {
+                userRole: user.role,
+                isAuthenticated: user.role !== 'guest',
+            }
+        );
+        if (suggestionsFlag && !suggestionsFlag.enabled) {
+            setFormError('Le segnalazioni sono temporaneamente disabilitate.');
+            return;
+        }
 
         // 1. Validazione Campi Base
         if (!formData.title.trim() || !formData.description.trim()) {

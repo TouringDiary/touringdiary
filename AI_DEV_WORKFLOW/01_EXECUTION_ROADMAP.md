@@ -67,6 +67,7 @@ WF-01 (Completato) ──► WF-02 (Attivo)
 | **WF-03** | Privacy avanzata | Anticipazione | Gestione compliance estesa — DL-P09 DOC 30. Dipende da: WF-02. |
 | *(da definire)* | Messaggistica unificata | Anticipazione | Dominio autonomo — G-MSG-1 step 5, DOC 29. Dipende da: WF-02 + review UI G-MSG-1. |
 | *(da definire)* | ID Governance | Anticipazione (non approvata) | Consolidare **regole** del modello dual-family (text territoriale / UUID piattaforma) — **senza** migrare a un modello unico. SSOT: `AI_CONTEXT/33_ID_MODEL_DUAL_FAMILY.md` (DL-035 DOC 29). Nessuna dipendenza formale oggi; **non** interrompe WF-02. Prima dell’avvio: **nuova ricognizione obbligatoria** (Product Owner, ChatGPT e l’AI utilizzata nello sviluppo) su effort, benefici, nuovi domini/generatori, impatto WF completati, Governance Light vs Completa. |
+| *(da definire)* | Sponsor ↔ POI attach-or-create | Anticipazione (non approvata) | Evoluzione pipeline: se POI già esiste (es. Segnala/Rivendica) → collega `poi_id`; altrimenti → crea POI poi Sponsor. Emersa in analisi bug attivazione (DL-036 DOC 29). **Non** implementare in WF-02. Prima dell’avvio: **nuova ricognizione obbligatoria** (Product Owner, ChatGPT e l’AI utilizzata nello sviluppo) sullo stato reale del progetto. |
 
 ---
 
@@ -80,3 +81,4 @@ WF-01 (Completato) ──► WF-02 (Attivo)
 | 1.0.3 | 2026-07-14 | §6 Anticipazioni WF-03 Privacy (DL-P09) |
 | 1.0.4 | 2026-07-16 | §6 anticipazione ID Governance (non approvata; gate rivalutazione) |
 | 1.0.5 | 2026-07-16 | §6 tabella anticipazioni uniforme; formulazione rivalutazione ID Governance stabilizzata |
+| 1.0.6 | 2026-07-16 | §6 anticipazione Sponsor ↔ POI attach-or-create (non approvata; DL-036) |

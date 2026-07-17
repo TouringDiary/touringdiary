@@ -16,6 +16,8 @@ import { useNavigation } from '../../context/useNavigation';
 import { UserPhotoEditor } from './UserPhotoEditor';
 import { GalleryLightbox, LightboxData } from '../city/gallery/GalleryLightbox'; // IMPORT CONDIVISO
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '../../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
 
 interface LiveFeedTabProps {
     user: UserType;
@@ -101,7 +103,7 @@ export const LiveFeedTab = ({ user, onUserUpdate }: LiveFeedTabProps) => {
             id: s.id,
             url: s.url,
             user: s.user,
-            likes: s.likes,
+            likes: s.likes ?? 0,
             caption: s.description,
             date: s.date
         };
@@ -177,6 +179,18 @@ export const LiveFeedTab = ({ user, onUserUpdate }: LiveFeedTabProps) => {
         if (!uploadPreview) return;
         if (!selectedCityId) { alert("Seleziona la città!"); return; }
         if (!snapCaption.trim()) { alert("Inserisci una didascalia!"); return; }
+
+        const communityFlag = evaluateCachedFeatureFlag(
+            PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS,
+            {
+                userRole: user.role,
+                isAuthenticated: user.role !== 'guest',
+            }
+        );
+        if (communityFlag && !communityFlag.enabled) {
+            alert('I post community sono temporaneamente disabilitati.');
+            return;
+        }
 
         setIsUploading(true);
         const cityObj = cityManifest.find(c => c.id === selectedCityId);

@@ -2,13 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 // Servizi, Tipi e Componenti UI
-import { PLAN_TYPES } from '@/constants/planTypes';
+import { PLAN_TYPES, type PlanType } from '@/constants/planTypes';
 import { getPricingVersions, FormattedPricingVersion } from '../../../services/dataService';
 import SponsorPlanCard from '../../marketing/SponsorPlanCard';
 import { MarketingTierConfig } from '@/types';
 
 // Tipi Locali - Utilizziamo i PlanType canonici come "Group Keys"
-type SponsorableGroup = typeof PLAN_TYPES.LOCAL_ACTIVITY | typeof PLAN_TYPES.DIGITAL_SHOWCASE | typeof PLAN_TYPES.TOUR_GUIDE | typeof PLAN_TYPES.TOUR_OPERATOR;
+export type SponsorableGroup =
+    | typeof PLAN_TYPES.LOCAL_ACTIVITY
+    | typeof PLAN_TYPES.DIGITAL_SHOWCASE
+    | typeof PLAN_TYPES.TOUR_GUIDE
+    | typeof PLAN_TYPES.TOUR_OPERATOR;
+
+/** Mappa un PlanType UI sul gruppo listino supportato dal selettore prezzi. */
+export function resolveSponsorableGroup(planType: PlanType): SponsorableGroup {
+    if (planType === PLAN_TYPES.DIGITAL_SHOWCASE) return PLAN_TYPES.DIGITAL_SHOWCASE;
+    if (planType === PLAN_TYPES.TOUR_GUIDE) return PLAN_TYPES.TOUR_GUIDE;
+    if (planType === PLAN_TYPES.TOUR_OPERATOR) return PLAN_TYPES.TOUR_OPERATOR;
+    return PLAN_TYPES.LOCAL_ACTIVITY;
+}
 
 interface SponsorPricingSelectorProps {
     onSelectionChange: (pricingVersionId: string | null) => void;

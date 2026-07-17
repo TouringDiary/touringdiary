@@ -54,7 +54,8 @@ Eseguire in ordine progressivo le implementazioni approvate negli SSOT dominio *
 |------|------|--------------|-------|-------------------|
 | Pronto per Implementazione DOC 29 | DOC 29 | DoD-1–DoD-9 | ☑ | DoD-1–9 ☑; v0.10.0; WF-02 STEP-1 chiuso 2026-07-14 |
 | **G-CC-1** | DOC 30 | Gate progettuali | ☑ | DoD-P1–P8 ☑ (2026-07-14 review PO) |
-| **G-MSG-1** | DOC 29 / DOC 30 | D24 / Gate progettuali | ☐ | Sequenza 1→5; step 1–2 in STEP-2 |
+| **G-MSG-1 step 1–2** | DOC 29 / DOC 30 | D24 / Gate progettuali | ☑ | STEP-2 chiuso 2026-07-17 |
+| **G-MSG-1 step 3–5** | DOC 29 / DOC 30 | D24 / Gate progettuali | ☐ | Step 3–4 in STEP-4; step 5 fuori WF-02 |
 | **G-AI-SEP** | DOC 30 | DL-P08 | ☑ | AI Control Center ≠ Centro di Controllo |
 | Gate Fase 1 Sponsor (implementazione) | DOC 29 | Piano migrazione | ☑ | DOC 29 *Pronto per Implementazione* |
 | Fase 7 Messaggistica | DOC 29 | Piano migrazione | ⛔ | Bloccata da G-MSG-1 — fuori WF-02 |
@@ -110,9 +111,9 @@ Eseguire in ordine progressivo le implementazioni approvate negli SSOT dominio *
 | Campo | Valore corrente |
 |-------|-----------------|
 | **Workflow** | WF-02 — Attivo |
-| **STEP** | STEP-2 — Implementazione dominio Sponsor (DOC 29) |
-| **Fase** | Fase 2.5 — Fase 5: Contenimento messaggi legacy (B8) |
-| **% convenzionale** | 55 % |
+| **STEP** | STEP-3 — Centro di Controllo (DOC 30) |
+| **Fase** | Fase 3.4 — Programmazione automatica e verifica consumer |
+| **% convenzionale** | 85 % |
 
 ---
 
@@ -230,7 +231,7 @@ Eseguire in ordine progressivo le implementazioni approvate negli SSOT dominio *
 | **Obiettivo** | Eseguire *Piano di migrazione* Fasi 1–6; portare DOC 29 verso *Implementato* |
 | **Motivazione** | Gap sicurezza P0 (403, RPC gateway, B8); architettura Write Gateway congelata (F1–F10); G-MSG-1 step 1–2 |
 | **Dipendenze** | STEP-1 Completato; DOC 29 *Pronto per Implementazione*; `06_CHANGE_IMPACT_RULES.md` |
-| **Stato STEP** | In corso |
+| **Stato STEP** | **Completato** |
 | **Deliverable** | RPC gateway Sponsor; pipeline admin funzionante; flusso O1/O11; audit O8; contenimento B8; UI allineata matrice permessi O4 |
 | **DoD STEP** | Fasi 1–6 DOC 29 completate; Q1–Q9 post-deploy **Sì**; checklist *Implementazioni da eseguire* Fasi 1–6 ☑; G-MSG-1 step 1–2 ☑; validazione PO STEP-2 |
 
@@ -350,9 +351,10 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | Contenimento sicurezza B8 — **non** consolidamento motore messaggi |
-| **Stato Fase** | Non iniziato |
-| **PO ✓** | ☐ |
-| **Riferimento SSOT** | DOC 29 Fase 5; strategia migrazione O2; G-MSG-1 |
+| **Stato Fase** | **Completato** |
+| **PO ✓** | ☐ (report tecnico 2026-07-17 — validazione PO in attesa) |
+| **Riferimento SSOT** | DOC 29 Fase 5; strategia migrazione O2; G-MSG-1; requisiti UX futuri **DL-037** (implementazione UI post step 4, non in questa fase) |
+| **Migration** | `20260717120000_sponsor_phase5_messages_containment.sql` |
 
 **Attività previste:**
 - REVOKE CRUD client su `sponsor_messages` dove previsto
@@ -370,9 +372,10 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | Audit log amministrativo strutturato; flusso Diventa Sponsor O1/O11; rating alert consumer soglia DOC 30 |
-| **Stato Fase** | Non iniziato |
-| **PO ✓** | ☐ |
+| **Stato Fase** | **Completato** |
+| **PO ✓** | ☑ (2026-07-17 — STEP-2 chiuso formalmente) |
 | **Riferimento SSOT** | DOC 29 Fase 6; O8, O1, O11, DL-021 Rating |
+| **Migration** | `20260717140000_sponsor_phase6_governance_audit.sql` |
 
 **Attività previste:**
 - Audit log su ogni RPC admin (O8/C3)
@@ -392,17 +395,17 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 
 ### Prerequisiti per iniziare lo STEP
 
-- [ ] STEP-2 **Completato**
-- [ ] Validazione PO STEP-2 registrata
-- [ ] G-MSG-1 step 1–2 ☑
-- [ ] G-CC-1 ☑ (da STEP-1)
+- [x] STEP-2 **Completato**
+- [x] Validazione PO STEP-2 registrata
+- [x] G-MSG-1 step 1–2 ☑
+- [x] G-CC-1 ☑ (da STEP-1)
 
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | Realizzare Centro di Controllo e Feature Flag Engine secondo DOC 30 |
 | **Motivazione** | Hub operativo per flag, testi, soglie, manutenzione, audit; consumer per Sponsor e futura Messaggistica |
 | **Dipendenze** | STEP-2 Completato (G-MSG-1 step 2); G-CC-1 ☑ da STEP-1 |
-| **Stato STEP** | Non iniziato |
+| **Stato STEP** | **In corso** |
 | **Deliverable** | UI Centro di Controllo (footer Admin); macro-sezioni DL-P07; Feature Flag Engine; audit; runtime consumer |
 | **DoD STEP** | Sezioni in scope operative; **G-AI-SEP** rispettato (nessuna unificazione AI); consumer Sponsor collegati; validazione PO STEP-3 |
 
@@ -415,9 +418,8 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | Feature Flag Engine, audit stream, API/hook `evaluateFeatureFlag` |
-| **Stato Fase** | Non iniziato |
-| **PO ✓** | ☐ |
-| **Riferimento SSOT** | DOC 30 § Feature Flag Engine; § Sez. 8–9; DL-P04, DL-P05 |
+| **Stato Fase** | **Completato** |
+| **PO ✓** | ☑ (review architetturale 2026-07-17) |
 
 **Attività previste:**
 - Modello flag: default, override manuale, schedule, audience
@@ -437,8 +439,8 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | Macro-sezioni AI, Comunicazioni, Sponsor, Moderazione (configurazione — **non** merge AI Control Center) |
-| **Stato Fase** | Non iniziato |
-| **PO ✓** | ☐ |
+| **Stato Fase** | **Completato** |
+| **PO ✓** | ☐ (report tecnico 2026-07-17 — validazione PO in attesa) |
 | **Riferimento SSOT** | DOC 30 macro-sezioni; catalogo Feature Flags; G-AI-SEP (DL-P08) |
 
 **Attività previste:**
@@ -461,8 +463,8 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | Editor testi operativi, manutenzione News Bar; Privacy avanzata **fuori scope** (WF-03) |
-| **Stato Fase** | Non iniziato |
-| **PO ✓** | ☐ |
+| **Stato Fase** | **Completato** |
+| **PO ✓** | ☐ (report tecnico 2026-07-17 — validazione PO in attesa) |
 | **Riferimento SSOT** | DOC 30 § Testi e messaggi; DL-P06; Appendice A |
 
 **Attività previste:**
@@ -482,21 +484,34 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 
 | Campo | Valore |
 |-------|--------|
-| **Obiettivo** | Scheduling flag; verifica end-to-end consumer cross-dominio |
-| **Stato Fase** | Non iniziato |
+| **Obiettivo** | Scheduling flag; UI card autosufficienti; DS admin; storico audit; verifica smoke consumer già collegati |
+| **Stato Fase** | **In sviluppo** |
 | **PO ✓** | ☐ |
-| **Riferimento SSOT** | DOC 30 § Sez. 9; Runtime Integration tabelle sezioni |
+| **Riferimento SSOT** | DOC 30 § Sez. 9; Runtime Integration; decisioni PO 2026-07-17 (card inline, pausa/disattiva schedule, DS) |
+| **Migration** | `20260717180000_platform_control_phase34_schedule_pause.sql` |
 
 **Attività previste:**
-- UI schedule per flag con `supports_schedule: true`
-- Job/transizioni automatiche con audit
-- Smoke: AI kill switch, candidature sponsor sospese, chat disabilitata messaggio template
-- Storico modifiche (Sez. 8) consultabile + export CSV
+- UI schedule per flag con `supports_schedule: true` (finestre assolute; no ricorrenze/cron)
+- Pausa globale programmazioni (finestre salvate ma non applicate) + disattivazione per flag (svuota schedule)
+- Priorità runtime: override manuale > programmazione > default (DL-P04)
+- Card Feature Flag autosufficienti (toggle + messaggio inline + salva)
+- Allineamento Design System (`AdminSectionCard` / `admin_*`)
+- Storico modifiche consultabile + export CSV
+- Smoke su consumer **già collegati** (AI kill, candidature, chat user↔sponsor, manutenzione, moderazione)
+- **Non** collegare automaticamente i consumer ancora mancanti in questa fase
 
 **Criteri di completamento (DoD Fase):**
 - Override manuale prioritario su schedule (DL-P04)
-- Consumer Sponsor e piattaforma verificati in test
-- Checkpoint PO §12; STEP-3 pronto per chiusura
+- Pausa globale e disattivazione schedule operative in UI
+- Storico audit leggibile + export (admin_all)
+- Smoke consumer collegati OK
+- Checkpoint PO §12; STEP-3 pronto per chiusura **dopo** attività post-fase sotto
+
+**Attività successiva obbligatoria (post chiusura Fase 3.4 — tracciata fino a esecuzione):**
+
+> **Audit completa della copertura dei Feature Flag e verifica dei consumer ancora mancanti.**
+>
+> Eseguire **dopo** la chiusura formale della Fase 3.4. Il PO decide quali consumer ulteriori collegare solo a valle di questo audit. **Non** dimenticare: resta aperta in workflow fino a completamento.
 
 ---
 
@@ -546,7 +561,7 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | **Obiettivo** | Wireframe/review UI admin + partner approvati — **senza implementazione** |
 | **Stato Fase** | Non iniziato |
 | **PO ✓** | ☐ |
-| **Riferimento SSOT** | DOC 29 G-MSG-1 step 4; strategia migrazione O2 |
+| **Riferimento SSOT** | DOC 29 G-MSG-1 step 4; strategia migrazione O2; **DL-037** (requisiti UX Sponsor-centric) |
 
 **Attività previste:**
 - Sessione review UI CRM con PO
@@ -570,6 +585,8 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 **Attività previste:**
 - Verificare matrice aggiornamento `AI_DEV_WORKFLOW/README.md`
 - Aggiornare `AI_CONTEXT_MASTER` se sintesi cross-dominio richiede certificazione
+- Consolidamento `types/supabase.ts` vs RPC/policy reali (P2 C5/A15 — backlog DOC 29)
+- Migration repo: allineamento policy `sponsors` e stato RPC remoto (C5)
 - Tabella gate WF-02: tutti applicabili ☑
 - Aggiornare percentuale WF
 
@@ -631,8 +648,11 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Data | Decisione | Chi |
 |------|-----------|-----|
+| 2026-07-17 | Architettura CRM Sponsor-centric registrata (DOC 29 DL-037); audit dual-stack messaggistica; G-MSG-1 step 4 input | PO |
+| 2026-07-16 | Fix RPC `pois.category` via `resolve_poi_category_for_sponsor_activation` (mirror TS); DL-036 attach-or-create registrata come anticipazione non approvata — futura evoluzione da coordinare con Claim POI («Segnala / Rivendica») | PO / AI |
 | 2026-07-16 | Soluzione A implementata (migration `20260716162000_…`): RPC valorizza id text pois/shops; ID Governance resta non approvata | AI |
 | 2026-07-16 | Ricognizione ID dual-family documentata (DOC 33 / DL-035); **ID Governance non approvata** (nuova ricognizione obbligatoria prima di avvio); priorità sprint = bug fix attivazione Sponsor (soluzione A), poi ripresa Fase 2.5 | PO |
+| 2026-07-17 | Chiusura implementazione Fase 2.5 (B8/A10); DL-037 §3 integrato (storico contratti); progettazione messaggistica Sponsor conclusa | PO |
 | 2026-07-16 | Chiusura formale Fase 2.4; lint residuo dichiarato fuori scope; autorizzazione avvio Fase 2.5 | PO |
 | 2026-07-14 | Chiusura STEP-1; DOC 29 *Pronto per Implementazione*; autorizzazione avvio STEP-2 Fase 2.1 | PO |
 | 2026-07-14 | Chiusura decisioni PO DEC-A12/SUX/TERM e DEC-CC-SCOPE/CATALOG | PO |
@@ -657,6 +677,11 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Data | STEP | Fase | Stato | Nota |
 |------|------|------|-------|------|
+| 2026-07-17 | 3 | 3.3 | Completato | Message Template Source editor; disclosure CRM D18; manutenzione News Bar DL-P06 |
+| 2026-07-17 | 3 | 3.2 | Completato | Macro-sezioni AI/Comms/Sponsor/Moderation; consumer candidature/rating/AI/moderation; G-AI-SEP |
+| 2026-07-17 | 3 | 3.1 | Completato | Migration `20260717160000`; Feature Flag Engine; audit; hook `evaluateFeatureFlag`; nav Centro di Controllo |
+| 2026-07-17 | 2 | 2.6 | Completato | Audit O8; signup O1/O11; rating DL-030; DL-027 UI; migration `20260717140000`; G-MSG-1 step 2 ☑ |
+| 2026-07-17 | 2 | 2.5 | Completato | B8/A10 REVOKE + RPC gateway; flag `feature.comms.user_sponsor` OFF; migration `20260717120000`; smoke runtime pending deploy |
 | 2026-07-16 | 2 | 2.4 | Completato | RPC contratti/shop/city; migration `20260714180000`; lint residuo fuori scope |
 | 2026-07-14 | 2 | 2.3 | Completato | `activate_sponsor_from_request`; migration 20260714173000 |
 | 2026-07-14 | 2 | 2.2 | Completato | RPC gateway richieste; migration 20260714170000 |
@@ -674,12 +699,12 @@ Il Workflow WF-02 si considera **Completato** quando:
 | Campo | Valore |
 |-------|--------|
 | **Workflow corrente** | WF-02 — Implementation Masterplan |
-| **STEP corrente** | STEP-2 — Implementazione dominio Sponsor (DOC 29) |
-| **Fase corrente** | Fase 2.5 — Fase 5: Contenimento messaggi legacy (B8) |
-| **Stato della fase** | In analisi (ricognizione completata) |
-| **Prossima fase da eseguire** | Fase 2.5 — Contenimento messaggi legacy (B8) |
+| **STEP corrente** | STEP-3 — Centro di Controllo (DOC 30) |
+| **Fase corrente** | Fase 3.4 — Programmazione automatica e verifica consumer |
+| **Stato della fase** | In sviluppo (UI a TAB ricevuta — rifinitura UX pre-chiusura) |
+| **Prossima fase da eseguire** | Completare smoke Fase 3.4 + PO ✓ → poi **Audit copertura Feature Flag / consumer mancanti** |
 | **STEP completato in questa sessione** | — |
-| **Fase completata in questa sessione** | Fase 2.4 (chiusa); avviata analisi Fase 2.5 |
+| **Fase completata in questa sessione** | — (3.4 in corso) |
 | **Workflow completato** | No |
 
 ---
@@ -708,8 +733,13 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 ### Attività rimaste aperte
 
-- [ ] STEP-2 Fase 2.5 — Contenimento messaggi legacy B8
-- [ ] Inventario chiavi Configuration Source (prosegue verso STEP-3)
+- [x] **STEP-2 Fase 2.5** — migration `20260717120000`; REVOKE CRUD `sponsor_messages`; RPC `insert_sponsor_message` / `mark_sponsor_messages_read`; flag `feature.comms.user_sponsor` prepared OFF; contenimento UI `UserMessagesTab`
+- [x] **STEP-2 Fase 2.6** — migration `20260717140000`; audit O8; signup O1/O11; rating DL-030; matrice DL-027
+- [x] STEP-3 Fase 3.1 — migration `20260717160000`; Feature Flag Engine; audit; hook; nav Centro di Controllo
+- [x] STEP-3 Fase 3.2 — Sezioni operative core (AI, Comunicazioni, Sponsor, Moderazione) + consumer runtime
+- [x] STEP-3 Fase 3.3 — Message Template Source; disclosure CRM; manutenzione News Bar (DL-P06)
+- [ ] STEP-3 Fase 3.4 — Programmazione automatica; card inline; DS; storico audit; smoke consumer collegati
+- [ ] **Post-3.4 (obbligatoria):** Audit completa copertura Feature Flag e consumer ancora mancanti — PO decide collegamenti successivi
 
 ### Gate cambiati in questa sessione
 
@@ -722,11 +752,11 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Elemento | Esito sessione |
 |----------|----------------|
-| **Fasi completate** | STEP-1 Fase 1.1–1.3; STEP-2 Fase 2.1–2.4 |
-| **STEP completati** | STEP-1 |
+| **Fasi completate** | STEP-1 Fase 1.1–1.3; STEP-2 Fase 2.1–2.6; STEP-3 Fase 3.1–3.3 |
+| **STEP completati** | STEP-1, STEP-2 |
 | **Workflow completato** | No |
-| **Punto esatto raggiunto** | WF-02 Attivo · STEP-2 In corso · Fase 2.5 in analisi · implementazione non ancora avviata |
+| **Punto esatto raggiunto** | WF-02 Attivo · STEP-3 · Fase 3.4 In sviluppo (UI schedule + card + audit) |
 
 ### Prossimo checkpoint previsto
 
-Avvio Fase 2.5 — Contenimento messaggi legacy (B8)
+Completare smoke Fase 3.4 → validazione PO → **Audit copertura Feature Flag / consumer mancanti** (attività tracciata post-3.4)

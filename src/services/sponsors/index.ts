@@ -13,3 +13,4 @@ export * from "./sponsorResolvers";
 export * from "./sponsorLegacyAdapter";
 export * from "./sponsorAdminStubs";
 export * from "./sponsorMessagesService";
+export * from "./sponsorRatingService";

@@ -41,6 +41,7 @@ export const SPONSOR_CONTRACT_SELECT =
 
 /**
  * Determina la categoria POI canonica in base al tipo di piano.
+ * Specchio SQL (attivazione RPC): public.resolve_poi_category_for_sponsor_activation
  */
 export const resolvePlanPoiCategory = (planType: PlanType): PointOfInterest['category'] => {
     switch (planType) {

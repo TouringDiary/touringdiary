@@ -4,34 +4,15 @@
  * o che richiedono risposte sincrone immediate per evitare crash UI.
  */
 
-export const getDismissedAlerts = (...args: any[]) => {
-    // Stub sicuro per evitare crash UI
+export const getDismissedAlerts = (): string[] => {
     return [];
 };
 
-export const getSponsorRating = (...args: any[]): number | null => {
-    console.warn("getSponsorRating not implemented yet");
-    return null;
-};
-
-export const dismissPartnerAlert = async (...args: any[]) => {
+export const dismissPartnerAlert = async (_vatNumber: string): Promise<void> => {
     console.warn("dismissPartnerAlert not implemented yet");
-    return Promise.resolve();
 };
 
-export const markUserLogsAsRead = async (...args: any[]) => {
-    console.warn("markUserLogsAsRead not implemented yet");
-    return Promise.resolve();
-};
-
-
-export const sendUserMessage = async (...args: any[]) => {
+export const sendUserMessage = async (_requestId: string, _message: string): Promise<boolean> => {
     console.warn("sendUserMessage not implemented yet");
-    return Promise.resolve(false);
+    return false;
 };
-
-export const togglePartnerLogReadStatus = async (...args: any[]) => {
-    console.warn("togglePartnerLogReadStatus not implemented yet");
-    return Promise.resolve();
-};
-

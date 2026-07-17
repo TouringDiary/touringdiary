@@ -25,12 +25,12 @@ I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano pr
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 0.3.2 |
-| **Ultima revisione** | 2026-07-14 |
-| **Stato** | In Analisi |
+| **Versione** | 0.3.6 |
+| **Ultima revisione** | 2026-07-17 |
+| **Stato** | Implementazione in Corso |
 | **Percorso SSOT** | `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` |
 | **UI Admin (nome definitivo PO)** | **Centro di Controllo** — **non rinominare** (DL-P02, conferma 2026-07-14) |
-| **Prossimo passo** | Inventario chiavi vs Configuration Source; implementazione catalogo in WF-02 STEP-3 |
+| **Prossimo passo** | Completare Fase 3.4 (smoke + PO) → Audit copertura Feature Flag / consumer mancanti |
 
 ### Naming (decisione PO — DL-P02)
 
@@ -144,6 +144,20 @@ Footer Admin Panel
 
 Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disabilitazione, descrizioni, manutenzione** — tutto editabile senza deployment.
 
+**Organizzazione UI (PO 2026-07-17):** il Centro di Controllo **non** è una lunga pagina verticale. La navigazione operativa è a **TAB funzionali** (mobile-first, scroll orizzontale):
+
+| TAB UI | Contenuto |
+|--------|-----------|
+| **AI** | Flag AI (+ messaggi sulla card) |
+| **Comunicazioni** | Flag chat/notifiche (+ messaggi sulla card) |
+| **Sponsor** | Flag/soglie sponsor (+ messaggi sulla card) |
+| **Moderazione** | Flag moderazione (+ messaggi sulla card) |
+| **Manutenzione** | Flag manutenzione + messaggio + **Programmazione automatica** (non TAB separato) |
+| **Info Globali** | Solo testi **globali** piattaforma (non messaggi di singolo flag) |
+| **Storico Audit** | Lettura audit + export CSV |
+
+**Card Feature Flag autosufficienti (PO 2026-07-17):** ogni card gestisce direttamente stato della funzione, messaggio utente, eventuale motivazione e salvataggio del messaggio. L'amministratore **non** deve spostarsi in una sezione separata per modificare il messaggio associato a una funzione.
+
 ### Matrice permessi Centro di Controllo (DoD-P3 — PO 2026-07-14)
 
 | Macro-sezione | `admin_all` | `admin_limited` |
@@ -171,7 +185,7 @@ Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disa
 
 ---
 
-### Macro-sezione — Chat
+### Macro-sezione — Comunicazioni (UI TAB; catalogo storico «Chat»)
 
 | Sotto-sezione | Configurazioni | Note |
 |---------------|----------------|------|
@@ -179,7 +193,7 @@ Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disa
 | Utente ↔ Sponsor | `feature.comms.user_sponsor` | Fase 1 OFF (DOC 29 D17) |
 | Notifiche | `feature.comms.notifications` | |
 
-**Testi:** messaggi quando chat disabilitata; disclosure privacy CRM → Message Template Source (testi operativi, non privacy avanzata WF-03).
+**Testi:** messaggi quando chat disabilitata → **sulla card** del Feature Flag. Disclosure privacy CRM → TAB **Info Globali** (testi operativi, non privacy avanzata WF-03).
 
 ---
 
@@ -190,13 +204,13 @@ Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disa
 | Crediti / Stripe | Kill switch acquisto; messaggi pausa |
 | Abbonamenti | Flag upgrade piano |
 
-*Dettaglio pricing → `04_PROJECT_PRICING_MAP.md`.*
+*Dettaglio pricing → `04_PROJECT_PRICING_MAP.md`.* *In UI TAB, i flag economia rilevanti vivono sotto **AI** / catalogo; non è un TAB top-level separato.*
 
 ---
 
 ### Macro-sezione — Feature Flag (registry)
 
-Meta-gestione: categorie, `supports_schedule`, `supports_audience`, defaults globali. Non duplica toggle di dominio — li registra.
+Meta-gestione: categorie, `supports_schedule`, `supports_audience`, defaults globali. Non duplica toggle di dominio — li registra. *Non è un TAB top-level della UI operativa.*
 
 ---
 
@@ -218,9 +232,16 @@ Flag: recensioni, upload foto, segnalazioni, post community — vedi catalogo §
 
 ---
 
-### Macro-sezione — Testi e messaggi
+### Macro-sezione — Info Globali (evoluzione di «Testi e messaggi»)
 
-Editor centralizzato: messaggi piattaforma, banner, avvisi, testi disabilitazione funzioni, descrizioni. **Escluso:** privacy avanzata / compliance estesa → **WF-03**.
+TAB **Info Globali**: contiene **esclusivamente** informazioni realmente globali della piattaforma (es. disclosure CRM, registrazione chiusa).
+
+| Tipo messaggio | Dove si edita |
+|----------------|---------------|
+| Messaggio legato a un Feature Flag (disabilitazione funzione) | **Card** del flag (autosufficiente) |
+| Messaggio / testo globale piattaforma | TAB **Info Globali** |
+
+**Escluso:** privacy avanzata / compliance estesa → **WF-03**.
 
 ---
 
@@ -228,30 +249,34 @@ Editor centralizzato: messaggi piattaforma, banner, avvisi, testi disabilitazion
 
 | Aspetto | Regola PO |
 |---------|-----------|
-| **UI attivazione** | Centro di Controllo → Manutenzione → ON/OFF + messaggio |
+| **UI attivazione** | Centro di Controllo → TAB **Manutenzione** → ON/OFF + messaggio |
 | **News Bar utente** | **Non sparisce**; messaggio manutenzione **fisso** dentro la barra |
 | **Altre news** | Continuano a scorrere normalmente |
 | **Vietato** | Nuovi banner; modalità esclusiva che sopprime tutte le news |
+| **Programmazione automatica** | Integrata **nello stesso TAB Manutenzione** — **non** sezione/TAB autonoma del Centro di Controllo |
 
 **Oggi CRUD ticker:** Admin → **Community** → **News Ticker** (`NewsTickerManager`) — resta per contenuti generali; CC orchestra solo item manutenzione prioritario/fisso.
 
+#### Programmazione automatica (sotto Manutenzione)
+
+Schedule per flag con `supports_schedule: true`; finestre temporali **assolute** (nessuna ricorrenza/cron). Priorità runtime: **override manuale → programmazione → default** (DL-P04). L'override manuale **mantiene sempre la priorità** sulla programmazione.
+
+| Funzione | Comportamento |
+|----------|---------------|
+| **Programmazioni in pausa** (globale) | Tutte le programmazioni **restano salvate**; vengono **ignorate** finché la pausa è attiva |
+| **Disattiva programmazioni** (per flag) | Svuota le finestre di quel flag |
+
 ---
 
-### Macro-sezione — Storico modifiche
+### Macro-sezione — Storico Audit
 
-Audit read-only; export CSV. Stream `platform_control_audit` (DL-P05).
-
----
-
-### Macro-sezione — Programmazione automatica
-
-Schedule per flag con `supports_schedule: true`; override manuale prioritario (DL-P04).
+Audit read-only; export CSV. Stream `platform_control_audit` (DL-P05). TAB UI dedicato **Storico Audit**.
 
 ---
 
 ### Sezioni Centro di Controllo — perimetro implementativo (DL-P10)
 
-Tutte le **macro-sezioni già approvate** in questo SSOT (AI, Chat, Monetizzazione, Feature Flag registry, Sponsor operativo, Moderazione, Testi e messaggi, Manutenzione, Storico audit, Programmazione) sono **in scope** per **WF-02 STEP-3**.
+Tutte le **macro-sezioni già approvate** in questo SSOT (AI, Comunicazioni/Chat, Monetizzazione, Feature Flag registry, Sponsor operativo, Moderazione, Info Globali, Manutenzione con Programmazione, Storico Audit) sono **in scope** per **WF-02 STEP-3**. La **UI operativa** espone i TAB elencati sopra; Monetizzazione e registry restano concetti di catalogo/ownership senza TAB top-level dedicati.
 
 **Nuove** macro-sezioni (es. Accesso, Workspace, Gamification, Territorio) si aggiungono **solo** quando nasce un nuovo dominio o esigenza progettuale — con nuovo SSOT/Workflow, non per espansione arbitraria v1.
 
@@ -273,7 +298,8 @@ Una **Feature Flag** («interruttore di funzionalità») è un controllo central
 | **ON** | La funzionalità è disponibile per le audience configurate |
 | **OFF** | La funzionalità è disattivata; l'utente vede un messaggio configurabile dove previsto |
 | **Default** | Stato quando non c'è né programmazione attiva né override manuale |
-| **Programmazione** | Es. «spegni AI ogni martedì 02:00–04:00» per manutenzione |
+| **Programmazione** | Finestre temporali assolute sul flag (es. spegni AI dalle 02:00 alle 04:00 di una data) |
+| **Programmazioni in pausa** | Finestre salvate ma **non applicate** finché la pausa globale è attiva |
 | **Override manuale** | «Accendi subito» anche se c'è una programmazione — **vince sempre** |
 | **Audience** | A chi si applica: tutti, solo utenti registrati, solo partner, ecc. — **mai** `admin_all` |
 
@@ -422,6 +448,11 @@ Se `user.audience` in `blocked_audiences` → flag valutato come OFF **eccetto**
 
 Vedi macro-sezioni sopra. Prefissi: `platform.*`, `sponsor.*`, `comms.*`, `ai.*`, `moderation.*`. *Testi legali/privacy avanzata → WF-03 (DL-P09).* *Implementazione attuale:* tabella `system_messages`.
 
+**Distinzione catalogo (implementazione):**
+- messaggi di **card Feature Flag** → catalogo flag / editor inline sulla card;
+- messaggi **globali** → TAB Info Globali (`PLATFORM_GLOBAL_MESSAGE_CATALOG`);
+- messaggio manutenzione → card/panel Manutenzione (News Bar, DL-P06).
+
 Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sponsor_rating_alert_stars` (default `3`) — *attuale:* `global_settings`.
 
 ---
@@ -568,4 +599,8 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 | 0.2.1 | 2026-07-13 | Ownership; Configuration Source; Runtime Integration |
 | 0.3.0 | 2026-07-14 | Review PO: DL-P06–P09; macro-sezioni; AI separato; WF-03 privacy; DoD aggiornati |
 | 0.3.1 | 2026-07-14 | Chiusura DEC-CC-SCOPE/CATALOG: DL-P10–P11; pianificazione flag per WF |
+| 0.3.6 | 2026-07-17 | UI a TAB; card autosufficienti; Info Globali vs messaggi flag; Programmazione sotto Manutenzione; Programmazioni in pausa |
+| 0.3.5 | 2026-07-17 | Fase 3.4: schedule assolute + pausa globale + disattiva; card flag con messaggio inline; DS AdminSectionCard; storico audit UI; post-3.4 audit consumer |
+| 0.3.4 | 2026-07-17 | Prossimo passo → Fase 3.4; Message Template Source + manutenzione DL-P06 in STEP-3 Fase 3.3 |
+| 0.3.3 | 2026-07-17 | Prossimo passo → Fase 3.3; stato Implementazione in Corso (post Fase 3.1–3.2) |
 | 0.3.2 | 2026-07-14 | Principio catalogo evolutivo (espansione flag senza revisione SSOT) |
