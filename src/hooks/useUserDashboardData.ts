@@ -7,12 +7,18 @@ import { fetchNotificationsAsync } from '../services/notificationService';
 import { getSponsorRequestsByProfile } from '../services/sponsors/sponsorRequestsService';
 import { getSponsorsByOwner } from '../services/sponsors/sponsorContractsService';
 import { safeArray } from '../utils/safeTypes';
+import { useFeatureFlag } from '../context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '../constants/platformFeatureFlags';
 
 import { useBusinessContext } from '../context/BusinessContext';
 
 export const useUserDashboardData = (user: User) => {
     const isBusiness = user.role === 'business';
     const { activeBusinessId, activeBusiness, isLoading: isContextLoading } = useBusinessContext();
+    const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
+    const notificationsEnabled = notificationsFlag?.enabled ?? true;
+    const notificationsEnabledRef = useRef(notificationsEnabled);
+    notificationsEnabledRef.current = notificationsEnabled;
     
     // Ref to track the LATEST activeBusinessId regardless of closures
     const activeIdRef = useRef(activeBusinessId);
@@ -120,19 +126,30 @@ export const useUserDashboardData = (user: User) => {
                 setMyRewards(getClaimedRewards(user.id));
             }
 
-            // 3. Notifications (FIX: ASYNC FETCH)
-            const notifs = await fetchNotificationsAsync(user.id);
-            const safeNotifs = safeArray<AppNotification>(notifs);
-            
-            if (activeIdRef.current === closureBizId) {
-                setNotifications(safeNotifs);
-                setUnreadCount(safeNotifs.filter(n => !n.isRead).length);
+            // 3. Notifications (FIX: ASYNC FETCH) — skip when feature.comms.notifications is OFF
+            if (!notificationsEnabled) {
+                if (activeIdRef.current === closureBizId) {
+                    setNotifications([]);
+                    setUnreadCount(0);
+                }
+            } else {
+                const notifs = await fetchNotificationsAsync(user.id);
+                const safeNotifs = safeArray<AppNotification>(notifs);
+
+                // Ignora risultati se il flag è passato a OFF (o business stale) durante l'await
+                if (
+                    activeIdRef.current === closureBizId &&
+                    notificationsEnabledRef.current
+                ) {
+                    setNotifications(safeNotifs);
+                    setUnreadCount(safeNotifs.filter(n => !n.isRead).length);
+                }
             }
 
         } finally {
             setIsLoading(false);
         }
-    }, [user, isBusiness, activeBusinessId, activeBusiness]);
+    }, [user, isBusiness, activeBusinessId, activeBusiness, notificationsEnabled]);
 
     // Initial Load & Reactive Switch
     useEffect(() => {

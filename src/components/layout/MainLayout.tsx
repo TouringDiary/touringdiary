@@ -19,6 +19,9 @@ import { useUI } from '@/context/UIContext';
 import { useModal } from '@/context/ModalContext';
 import { useNavigation } from '@/context/useNavigation';
 import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext'; // NEW IMPORT
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
 
 export interface MainLayoutProps {
     helpFlash?: boolean;
@@ -28,9 +31,12 @@ export interface MainLayoutProps {
 export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnboarding }) => {
     
     const { connectionError, showOnboarding } = useUser(); 
+    const onboardingFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING);
+    const onboardingEnabled = onboardingFlag?.enabled ?? true;
     const { isMobile, isSidebarOpen, isUiVisible, setIsUiVisible, mobileShowWeather, mobileDiaryFullScreen, setMobileDiaryFullScreen } = useUI();
     const { activeModal, openModal, closeModal, modalProps } = useModal(); // FIX: Destructured modalProps correctly
     const { activeStaticPage, goBack, goHome, setViewMode, activeCityId, virtualCity, navigateToCity, handleNavigateGlobal } = useNavigation();
+    const openCollaborationWorkspace = useOpenCollaborationWorkspace();
     
     // RECUPERO LOGICA DIARIO
     const { handleSmartDrop } = useDiaryInteractionsContext();
@@ -62,12 +68,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
             closeModal();
             return;
         }
-        openModal('collaborationWorkspace');
+        openCollaborationWorkspace();
     };
 
     return (
         <>
-            {showOnboarding && (
+            {showOnboarding && onboardingEnabled && (
                 <OnboardingWizard 
                     onComplete={onCompleteOnboarding} 
                     onSkip={onCompleteOnboarding} 

@@ -105,7 +105,7 @@ export const useAiGeneration = ({ onClose }: UseAiGenerationProps) => {
         });
         if (!runtimeStatus.available) {
             setErrorModal({
-                title: runtimeStatus.reason === 'EMERGENCY_STOP' ? 'Servizi AI sospesi' : 'Manutenzione AI',
+                title: runtimeStatus.title || (runtimeStatus.reason === 'EMERGENCY_STOP' ? 'Servizi AI sospesi' : 'Manutenzione AI'),
                 message: runtimeStatus.message || 'I servizi AI non sono disponibili al momento.',
             });
             return;

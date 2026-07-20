@@ -34,7 +34,7 @@ Per *dove siamo oggi* aprire sempre prima `03_PROJECT_STATUS.md`.
 
 | WF | Nome | File | SSOT principali | Dipende da | Stato |
 |----|------|------|-----------------|------------|-------|
-| WF-01 | Migrazione documentale completa | `WORKFLOWS/WF_01_DOCUMENTATION_MIGRATION.md` | `AI_CONTEXT/` (DOC 16, 28, 31, 32) | — | Completato |
+| WF-01 | Migrazione documentale completa | `WORKFLOWS/_archive/WF_01_DOCUMENTATION_MIGRATION.md` | `AI_CONTEXT/` (DOC 16, 28, 31, 32) | — | Completato (archiviato) |
 | WF-02 | Implementation Masterplan | `WORKFLOWS/WF_02_IMPLEMENTATION_MASTERPLAN.md` | DOC 29, 30, 31 (vincoli), 32 (vincoli) | WF-01 | Attivo |
 
 ---
@@ -82,3 +82,4 @@ WF-01 (Completato) ──► WF-02 (Attivo)
 | 1.0.4 | 2026-07-16 | §6 anticipazione ID Governance (non approvata; gate rivalutazione) |
 | 1.0.5 | 2026-07-16 | §6 tabella anticipazioni uniforme; formulazione rivalutazione ID Governance stabilizzata |
 | 1.0.6 | 2026-07-16 | §6 anticipazione Sponsor ↔ POI attach-or-create (non approvata; DL-036) |
+| 1.0.7 | 2026-07-20 | WF-01 archiviato (`_archive/`); path indice aggiornato |

@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Globe, Info, Map, Building2, Calendar, Navigation, Briefcase, BookOpen, ScrollText, ShoppingCart, X, User, Compass, Bus, Share2 } from 'lucide-react';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { CityDetails } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
@@ -21,6 +23,8 @@ interface Props {
 }
 
 export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings, onOpenCulture, onOpenShop, onOpenSponsor, onOpenHistory, onToggleLocation, isLocationActive = false }: Props) => {
+    const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
+    const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
     const { details } = city;
     const { share } = useShare();
 
@@ -147,9 +151,11 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                     <button onClick={handleShare} className="bg-slate-800/80 p-2 rounded-xl border border-white/10 shadow-2xl text-white active:scale-90 transition-transform backdrop-blur-md">
                         <Share2 className="w-4 h-4" />
                     </button>
-                    <button onClick={onOpenShop} className="bg-indigo-600 p-2 rounded-xl border border-indigo-400/30 shadow-2xl text-white active:scale-90 transition-transform">
+                    {shopPublicEnabled ? (
+                    <button type="button" onClick={onOpenShop} className="bg-indigo-600 p-2 rounded-xl border border-indigo-400/30 shadow-2xl text-white active:scale-90 transition-transform">
                         <ShoppingCart className="w-4 h-4" />
                     </button>
+                    ) : null}
                     <button onClick={onOpenCulture} className="bg-emerald-600 p-2 rounded-xl border border-emerald-400/30 shadow-2xl text-white active:scale-90 transition-transform">
                         <BookOpen className="w-4 h-4" />
                     </button>
@@ -203,10 +209,12 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             {/* --- DESKTOP ACTION BAR --- */}
             <div className="hidden md:flex absolute top-4 left-[calc(221px+1rem)] right-4 z-local-overlay pointer-events-none justify-between items-start">
                 <div className="flex gap-2 pointer-events-auto">
-                    <button onClick={onOpenShop} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl border border-indigo-400/50 shadow-2xl flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:scale-95 group">
+                    {shopPublicEnabled ? (
+                    <button type="button" onClick={onOpenShop} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl border border-indigo-400/50 shadow-2xl flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:scale-95 group">
                         <ShoppingCart className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
                         <span className="text-xs font-black uppercase tracking-wider">SHOPPING</span>
                     </button>
+                    ) : null}
                     <button onClick={handleShare} className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-xl border border-slate-600 shadow-xl flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:scale-95">
                         <Share2 className="w-4 h-4" />
                         <span className="text-xs font-black uppercase tracking-wider">Condividi</span>

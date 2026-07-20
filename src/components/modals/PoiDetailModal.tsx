@@ -12,6 +12,8 @@ import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { StarRating } from '../common/StarRating';
 import { affiliateTrackingService } from '../../services/affiliateTrackingService';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 
 // Imported Sub-Components
 import { PoiImageSection as GallerySection } from './poiDetail/PoiImageSection'; // Rename for clarity
@@ -125,6 +127,8 @@ const BusinessView = ({ poi, onClose, onToggleItinerary, isInItinerary }: any) =
 // --- SUB-COMPONENT: STANDARD VIEW (EX POI DETAIL MODAL) ---
 const StandardView = ({ poi, onClose, onToggleItinerary, isInItinerary, onOpenReview, userLocation, onSuggestEdit, onOpenShop, user, onOpenAuth, initialView }: PoiDetailModalProps) => {
     const { hasUserVoted, toggleVote } = useInteraction();
+    const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
+    const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 1024);
@@ -182,7 +186,7 @@ const StandardView = ({ poi, onClose, onToggleItinerary, isInItinerary, onOpenRe
                         <div className="flex flex-col gap-2 shrink-0 items-end">
                             <div className={`hidden md:flex flex-col items-center justify-center px-3 py-1 rounded-xl border ${interestColor} mb-1 self-end`}><div className="flex items-center gap-1.5 font-black text-xs leading-none"><TrendingUp className="w-3 h-3" /> {interestLabel}</div></div>
                             <div className="flex items-center gap-2">
-                                {poi.vatNumber && onOpenShop && <button onClick={() => { onOpenShop(poi); onClose(); }} className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white shadow-lg transition-transform active:scale-95 border border-indigo-400" title="Vai alla Bottega"><ShoppingCart className="w-4 h-4" /></button>}
+                                {poi.vatNumber && onOpenShop && shopPublicEnabled && <button type="button" onClick={() => { onOpenShop(poi); onClose(); }} className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white shadow-lg transition-transform active:scale-95 border border-indigo-400" title="Vai alla Bottega"><ShoppingCart className="w-4 h-4" /></button>}
                                 <button onClick={() => openMap(poi.coords.lat, poi.coords.lng, poi.name, poi.address)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"><MapPin className="w-3.5 h-3.5" /> Maps</button>
                                 <button onClick={() => open3DView(poi.coords.lat, poi.coords.lng, poi.name, poi.address)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"><Box className="w-3.5 h-3.5" /> 3D</button>
                                 <button onClick={handleThumbClick} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border ${isVoted ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'}`}>{isVoting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsUp className={`w-3.5 h-3.5 ${isVoted ? 'fill-current' : ''}`} />} {localVotes}</button>

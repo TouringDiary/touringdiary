@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft, LogIn, Lock, X, Menu, Info, Send, ShieldCheck, BookOpen, MapPin, CloudSun, Loader2, User as UserIcon, PanelLeftOpen, PanelLeftClose, Sparkles, LogOut, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { getUnreadCount } from '@/services/notificationService'; 
 import { useModal } from '@/context/ModalContext';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { BrandLogo } from '../common/BrandLogo';
 import { CountBadge } from '@/components/ui/CountBadge';
@@ -68,6 +70,10 @@ export const Header = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const portalRef = useRef<HTMLDivElement>(null);
+  const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
+  const notificationsEnabled = notificationsFlag?.enabled ?? true;
+  const onboardingFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING);
+  const onboardingEnabled = onboardingFlag?.enabled ?? true;
   
   // Hook Stili Dinamici
   const diaryBtnStyle = useDynamicStyles('header_diary_btn', isMobile);
@@ -79,6 +85,11 @@ export const Header = ({
   const isAdmin = user.role === 'admin_all' || user.role === 'admin_limited';
 
   useEffect(() => {
+    if (!notificationsEnabled) {
+        setUnreadCount(0);
+        return;
+    }
+
     const checkNotifications = () => {
         if (user && user.role !== 'guest') {
             setUnreadCount(getUnreadCount(user.id));
@@ -93,7 +104,7 @@ export const Header = ({
     return () => {
         clearInterval(interval);
     };
-  }, [user]);
+  }, [user, notificationsEnabled]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -303,8 +314,10 @@ export const Header = ({
                                 </button>
                             )}
 
+                            {onboardingEnabled ? (
                             <div className="border-b border-slate-800 pb-2 mb-2">
                                 <button 
+                                    type="button"
                                     onClick={() => { handleRestartTour(); setIsMenuOpen(false); }} 
                                     className="px-4 py-3 hover:bg-slate-800 rounded-lg text-sm text-indigo-400 font-bold flex items-center gap-3 w-full bg-slate-900 shadow-sm border border-slate-800"
                                 >
@@ -312,6 +325,7 @@ export const Header = ({
                                     Guida all'uso
                                 </button>
                             </div>
+                            ) : null}
                             
                             {STATIC_MENU_ITEMS.map((item, index) => (
                                 'divider' in item ? <div key={`div-${index}`} className="h-px bg-slate-800 my-1"></div> : <button key={item.id} onClick={() => {onOpenStaticPage(item.id); setIsMenuOpen(false);}} className="px-4 py-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 flex items-center gap-3 group transition-colors text-left w-full"><item.Icon className="w-4 h-4 text-slate-500 group-hover:text-amber-500 transition-colors" /><span className="font-bold group-hover:text-white transition-colors">{item.label}</span></button>

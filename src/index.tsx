@@ -26,7 +26,7 @@ if (!container) {
     const root = createRoot(container);
     // StrictMode disabilitato per stabilità in ambienti cloud con risorse limitate
     root.render(
-        <GlobalErrorBoundary>
+        <GlobalErrorBoundary variant="bootstrap">
             <BrowserRouter>
                 <AppProviders />
             </BrowserRouter>

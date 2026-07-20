@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { useFeatureFlag } from '../context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '../constants/platformFeatureFlags';
 import { PointOfInterest } from '../types/index';
 import type { NavigationViewMode } from '@/types/navigationViewMode';
 import type { NavigationPreviewState } from '@/types/navigationPreview';
@@ -60,6 +62,8 @@ export const useAppRouter = () => {
     const { user, cityManifest } = useUser();
     const navigate = useNavigate();
     const location = useLocation();
+    const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
+    const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
 
     // --- UTILITIES ---
     const isDashboardPath = useCallback((path: string) => {
@@ -121,6 +125,14 @@ export const useAppRouter = () => {
     const [currentCityTab, setCurrentCityTab] = useState<string>('vetrina');
     const [activePreview, setActivePreview] = useState<NavigationPreviewState>(CLOSED_NAVIGATION_PREVIEW);
 
+    // Chiudi ShopPage se lo shopping pubblico viene disattivato a runtime
+    useEffect(() => {
+        if (!shopPublicEnabled && activeShopId) {
+            setActiveShopId(null);
+            setTargetShopVat(null);
+        }
+    }, [shopPublicEnabled, activeShopId]);
+
     // --- DEEP LINK STATE ---
     const [deepLinkParams, setDeepLinkParams] = useState<{ cityId?: string, poiId?: string, shopVat?: string } | null>(null);
 
@@ -169,12 +181,14 @@ export const useAppRouter = () => {
     };
 
     const openShop = () => {
+        if (!shopPublicEnabled) return;
         if (activeCityId) {
             setActiveShopId(activeCityId);
         }
     };
 
     const openShopFromPoi = (poi?: PointOfInterest) => {
+        if (!shopPublicEnabled) return;
         if (!poi) {
             if (activeCityId) {
                 setActiveShopId(activeCityId);

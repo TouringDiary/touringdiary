@@ -184,6 +184,28 @@ Quando il Product Owner **non possiede competenze tecniche sufficienti** per sce
 
 ---
 
+## 12. Audit e analisi forensi (regola permanente)
+
+Quando è richiesto un **audit**, una **verifica**, una **review** o un’**analisi** del comportamento del sistema:
+
+1. È **vietato** formulare ipotesi o deduzioni non dimostrate.
+2. Ogni conclusione deve seguire la pipeline sul codice fino all’origine:
+
+```
+UI → Componente → Hook → Service → Guard / Validazione → Source of Truth / Feature Flag / Config → Esito
+```
+
+3. Espressioni vietate in conclusioni di audit: *probabilmente*, *potrebbe*, *sembrerebbe*, *ipotizzo*, *presumibilmente*, *dovrebbe*, *è possibile* (come surrogato di prova).
+4. Se una conclusione non è dimostrabile sul codice attuale, scrivere esplicitamente:
+
+   `NON DIMOSTRABILE CON IL CODICE ATTUALE`
+
+   e indicare perché la pipeline si interrompe.
+
+5. Preferire dichiarare non dimostrabile piuttosto che ipotizzare.
+
+---
+
 ## Cronologia governance
 
 | Versione | Data | Modifiche |
@@ -191,3 +213,4 @@ Quando il Product Owner **non possiede competenze tecniche sufficienti** per sce
 | 1.0.0 | 2026-07-13 | Creazione framework |
 | 1.0.1 | 2026-07-14 | §10 Regola sicurezza by default (review PO) |
 | 1.0.2 | 2026-07-14 | §11 Operazioni irreversibili solo admin_all |
+| 1.0.3 | 2026-07-20 | §12 Regola permanente audit forensi |

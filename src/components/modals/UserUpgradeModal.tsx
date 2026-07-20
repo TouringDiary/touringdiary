@@ -8,6 +8,12 @@ import { CloseButton } from '@/components/ui/controls/CloseButton';
 import SponsorPlanCard from '../marketing/SponsorPlanCard';
 import { getPricingVersions, FormattedPricingVersion } from '../../services/dataService';
 import { MarketingTierConfig } from '../../types';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useSystemMessage } from '@/hooks/useSystemMessage';
+import {
+    PLATFORM_FEATURE_FLAG_KEYS,
+    PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
 
 interface UserUpgradeModalProps {
     isOpen: boolean;
@@ -19,9 +25,14 @@ const UserUpgradeModal: React.FC<UserUpgradeModalProps> = ({ isOpen, onClose }) 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+    const subscriptionsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_SUBSCRIPTIONS);
+    const subscriptionsEnabled = subscriptionsFlag?.enabled ?? true;
+    const { getText: getPausedMsg } = useSystemMessage(
+        PLATFORM_MESSAGE_TEMPLATE_KEYS.SUBSCRIPTIONS_PAUSED
+    );
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || !subscriptionsEnabled) return;
 
         const loadPricings = async () => {
             try {
@@ -41,9 +52,10 @@ const UserUpgradeModal: React.FC<UserUpgradeModalProps> = ({ isOpen, onClose }) 
         };
 
         loadPricings();
-    }, [isOpen]);
+    }, [isOpen, subscriptionsEnabled]);
 
     const handleSelectPlan = (versionId: string) => {
+        if (!subscriptionsEnabled) return;
         setSelectedVersionId(versionId);
         console.log(`[UserUpgradeModal] Piano iniziato il checkout: ${versionId}`);
         // Logica di redirect Stripe
@@ -53,6 +65,8 @@ const UserUpgradeModal: React.FC<UserUpgradeModalProps> = ({ isOpen, onClose }) 
     useGlobalModalEscape(isOpen, onClose);
 
     if (!isOpen) return null;
+
+    const pausedCopy = getPausedMsg({});
 
     return createPortal(
         <div className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in !p-4" style={{ zIndex: Z_OVERLAY }}>
@@ -66,7 +80,26 @@ const UserUpgradeModal: React.FC<UserUpgradeModalProps> = ({ isOpen, onClose }) 
                         <h2 className="text-3xl font-bold text-amber-400 font-display uppercase tracking-wide">Passa a Premium</h2>
                         <CloseButton onClose={onClose} variant="primary" />
                     </div>
-                    
+
+                    {!subscriptionsEnabled ? (
+                        <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-6 space-y-3">
+                            <h3 className="text-lg font-bold text-amber-200">
+                                {pausedCopy.title || 'Abbonamenti sospesi'}
+                            </h3>
+                            <p className="text-sm text-slate-300 leading-relaxed">
+                                {pausedCopy.body ||
+                                    'L’upgrade agli abbonamenti premium non è temporaneamente disponibile.'}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="mt-2 px-4 py-2 rounded-lg bg-slate-800 text-white text-xs font-bold"
+                            >
+                                Chiudi
+                            </button>
+                        </div>
+                    ) : (
+                    <>
                     <p className="text-gray-400 mb-8 font-medium">
                         Sblocca funzionalità potenti e ottieni una quota più alta di limitazione AI.
                     </p>
@@ -111,6 +144,8 @@ const UserUpgradeModal: React.FC<UserUpgradeModalProps> = ({ isOpen, onClose }) 
                                 );
                             })}
                         </div>
+                    )}
+                    </>
                     )}
                 </div>
             </div>

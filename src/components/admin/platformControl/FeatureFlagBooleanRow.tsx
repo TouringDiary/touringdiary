@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { evaluateFeatureFlag } from '@/domain/platformControl/evaluateFeatureFlag';
-import { findMessageCatalogByKey } from '@/constants/platformFeatureFlags';
+import {
+    findMessageCatalogByKey,
+    getFeatureFlagAdminHelp,
+} from '@/constants/platformFeatureFlags';
 import { usePlatformControlTypography } from '@/hooks/usePlatformControlTypography';
+import { usePlatformControl } from '@/context/PlatformControlContext';
 import type { PlatformFeatureFlagRecord } from '@/types/platformControl';
 import { MessageTemplateEditor } from './MessageTemplateEditor';
 
@@ -22,10 +26,11 @@ export const FeatureFlagBooleanRow: React.FC<FeatureFlagBooleanRowProps> = ({
     onSave,
 }) => {
     const ty = usePlatformControlTypography();
+    const { evaluationNowMs } = usePlatformControl();
     const evaluation = evaluateFeatureFlag(
         flag,
         { userRole: 'admin_all', isAuthenticated: true },
-        new Date(),
+        new Date(evaluationNowMs),
         { schedulesSuspended }
     );
     const effectiveOn = evaluation.enabled;
@@ -33,6 +38,7 @@ export const FeatureFlagBooleanRow: React.FC<FeatureFlagBooleanRowProps> = ({
     const [reason, setReason] = useState('');
     const [error, setError] = useState<string | null>(null);
     const catalogEntry = findMessageCatalogByKey(flag.messageKey);
+    const adminHelp = getFeatureFlagAdminHelp(flag.key);
 
     const handleToggle = async () => {
         if (!canWrite || isSaving) return;
@@ -79,11 +85,8 @@ export const FeatureFlagBooleanRow: React.FC<FeatureFlagBooleanRowProps> = ({
                     <h3 className={`${ty.cardTitle} leading-snug`} title={flag.label}>
                         {flag.label}
                     </h3>
-                    <p className={`${ty.cardDescription} line-clamp-2`}>
-                        {catalogEntry?.description ??
-                            (flag.messageKey
-                                ? `Messaggio collegato: ${flag.messageKey}`
-                                : 'Controllo operativo piattaforma')}
+                    <p className={`${ty.cardDescription} whitespace-pre-line`}>
+                        {adminHelp}
                     </p>
                 </div>
                 <button

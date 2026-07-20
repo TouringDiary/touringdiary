@@ -29,17 +29,15 @@ export function resolveGlobalWorkspacePanelGeometry(
   }
 
   const bottomReserve = reserveBottomNav ? ` - ${MOBILE_NAV_HEIGHT_CSS}` : '';
+  const bandHeight = `calc(100dvh - var(--header-height)${bottomReserve})`;
 
+  // Stessa metrica esplicita di resolveWorkspaceShellGeometry (Valigia): height/maxHeight
+  // obbligatori — top+bottom senza height rompe h-full sul layer animato interno.
   return {
     top,
     left: 0,
     right: 0,
-    bottom: reserveBottomNav ? 'var(--mobile-nav-height)' : 0,
-    height: reserveBottomNav
-      ? undefined
-      : `calc(100dvh - var(--header-height)${bottomReserve})`,
-    maxHeight: reserveBottomNav
-      ? undefined
-      : `calc(100dvh - var(--header-height)${bottomReserve})`,
+    height: bandHeight,
+    maxHeight: bandHeight,
   };
 }

@@ -11,4 +11,6 @@ Workflow con stato **Completato** possono essere spostati qui per mantenere `WOR
 
 ## Contenuto
 
-*(vuoto — nessun Workflow archiviato)*
+| WF | File | Chiuso il | Note |
+|----|------|-----------|------|
+| WF-01 | `WF_01_DOCUMENTATION_MIGRATION.md` | 2026-07-14 (conferma 2026-07-20) | Migrazione documentale completa |

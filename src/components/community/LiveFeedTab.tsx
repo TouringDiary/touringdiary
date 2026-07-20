@@ -16,8 +16,9 @@ import { useNavigation } from '../../context/useNavigation';
 import { UserPhotoEditor } from './UserPhotoEditor';
 import { GalleryLightbox, LightboxData } from '../city/gallery/GalleryLightbox'; // IMPORT CONDIVISO
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-import { PLATFORM_FEATURE_FLAG_KEYS } from '../../constants/platformFeatureFlags';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../../constants/platformFeatureFlags';
 import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
+import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
 
 interface LiveFeedTabProps {
     user: UserType;
@@ -175,20 +176,59 @@ export const LiveFeedTab = ({ user, onUserUpdate }: LiveFeedTabProps) => {
         setUploadPreview({ url: previewUrl, file: editedFile, hash: fileHash });
     };
 
+    /**
+     * UX Gate only — returns a user-facing block reason for immediate UI feedback.
+     * Pipeline: UI → UX Gate (this) → Service Boundary → Feature Flag Runtime → Database.
+     * NOT a Security Gate: enforcement remains exclusively in uploadCommunityPhoto (service boundary).
+     */
+    const getLiveFeedUploadBlockReason = (): string | null => {
+        const flagCtx = {
+            userRole: user.role,
+            isAuthenticated: user.role !== 'guest',
+        };
+        const photosFlag = evaluateCachedFeatureFlag(
+            PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS,
+            flagCtx
+        );
+        if (!photosFlag?.enabled) {
+            return resolvePlatformUserBody(
+                photosFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_PHOTOS_PAUSED,
+                'Il caricamento foto è temporaneamente disabilitato.'
+            );
+        }
+        const communityFlag = evaluateCachedFeatureFlag(
+            PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS,
+            flagCtx
+        );
+        if (!communityFlag?.enabled) {
+            return resolvePlatformUserBody(
+                communityFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED,
+                'I post community sono temporaneamente disabilitati.'
+            );
+        }
+        return null;
+    };
+
+    /**
+     * Sole UI entry point for showing an upload-block message.
+     * Callers must not know the feedback mechanism.
+     *
+     * TODO(Notification Service): no shared toast/banner/modal exists yet.
+     * Replace `alert()` here only — this is the single swap point when a
+     * Notification Service (or equivalent app-standard feedback) is introduced.
+     */
+    const notifyUploadBlocked = (message: string) => {
+        alert(message);
+    };
+
     const handleConfirmUpload = async () => {
         if (!uploadPreview) return;
         if (!selectedCityId) { alert("Seleziona la città!"); return; }
         if (!snapCaption.trim()) { alert("Inserisci una didascalia!"); return; }
 
-        const communityFlag = evaluateCachedFeatureFlag(
-            PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS,
-            {
-                userRole: user.role,
-                isAuthenticated: user.role !== 'guest',
-            }
-        );
-        if (communityFlag && !communityFlag.enabled) {
-            alert('I post community sono temporaneamente disabilitati.');
+        const blockReason = getLiveFeedUploadBlockReason();
+        if (blockReason) {
+            notifyUploadBlocked(blockReason);
             return;
         }
 
@@ -404,7 +444,20 @@ export const LiveFeedTab = ({ user, onUserUpdate }: LiveFeedTabProps) => {
                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
                         </div>
                     )}
-                    <button onClick={() => fileInputRef.current?.click()} disabled={isUploading || user.role === 'guest' || !selectedCityId} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/30 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale disabled:scale-95"><Camera className="w-4 h-4" /> Scatta</button>
+                    <button
+                        onClick={() => {
+                            const blockReason = getLiveFeedUploadBlockReason();
+                            if (blockReason) {
+                                notifyUploadBlocked(blockReason);
+                                return;
+                            }
+                            fileInputRef.current?.click();
+                        }}
+                        disabled={isUploading || user.role === 'guest' || !selectedCityId}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/30 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale disabled:scale-95"
+                    >
+                        <Camera className="w-4 h-4" /> Scatta
+                    </button>
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleSnapSelect} />
                 </div>
             </div>

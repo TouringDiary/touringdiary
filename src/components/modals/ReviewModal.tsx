@@ -17,6 +17,12 @@ import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useSystemMessage } from '@/hooks/useSystemMessage';
+import {
+    PLATFORM_FEATURE_FLAG_KEYS,
+    PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
 
 
 
@@ -124,6 +130,12 @@ export const ReviewModal = ({ isOpen, onClose, poi, onSubmit, existingReview }: 
 
     const isMobile = useMobileDetect();
 
+    const reviewsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.MODERATION_REVIEWS);
+    const reviewsEnabled = reviewsFlag?.enabled ?? true;
+    const { getText: getPausedMsg } = useSystemMessage(
+        PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_REVIEWS_PAUSED
+    );
+
     const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
 
     const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
@@ -217,6 +229,8 @@ export const ReviewModal = ({ isOpen, onClose, poi, onSubmit, existingReview }: 
 
 
     const handleSubmit = () => {
+
+        if (!reviewsEnabled) return;
 
         const ratings = Object.values(criteriaRatings);
 
@@ -370,7 +384,24 @@ export const ReviewModal = ({ isOpen, onClose, poi, onSubmit, existingReview }: 
 
                 />
 
-
+                {!reviewsEnabled ? (
+                    <div className={`${bodyShell} min-h-0 space-y-3`}>
+                        <h3 className={`${modalTitleShell} text-amber-200`}>
+                            {getPausedMsg({}).title || 'Recensioni sospese'}
+                        </h3>
+                        <p className={`${modalSubtitleShell}`}>
+                            {getPausedMsg({}).body ||
+                                'L’invio di nuove recensioni è temporaneamente disabilitato.'}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="mt-2 px-4 py-2 rounded-lg bg-slate-800 text-white text-xs font-bold"
+                        >
+                            Chiudi
+                        </button>
+                    </div>
+                ) : (
 
                 <div className={`${bodyShell} min-h-0`}>
 
@@ -425,6 +456,7 @@ export const ReviewModal = ({ isOpen, onClose, poi, onSubmit, existingReview }: 
                     </div>
 
                 </div>
+                )}
 
             </div>
 

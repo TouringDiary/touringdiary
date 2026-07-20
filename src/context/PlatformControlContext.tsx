@@ -4,15 +4,21 @@ import React, {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from 'react';
 import { evaluateFeatureFlag } from '@/domain/platformControl/evaluateFeatureFlag';
-import { setPlatformFlagCache } from '@/domain/platformControl/platformFlagCache';
+import { setPlatformFlagCache, setPlatformFlagEvaluationNow } from '@/domain/platformControl/platformFlagCache';
+import {
+    getNextScheduleBoundaryMs,
+    SCHEDULE_TIMER_MAX_DELAY_MS,
+} from '@/domain/platformControl/scheduleClock';
 import {
     PLATFORM_FEATURE_FLAG_FALLBACKS,
 } from '@/services/platformControl/platformControlMapper';
 import { getPlatformControlService } from '@/services/platformControl/platformControlService';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
+import { ensureSystemMessagesLoaded } from '@/services/communicationService';
 import type {
     FeatureFlagEvaluationContext,
     FeatureFlagEvaluationResult,
@@ -20,6 +26,7 @@ import type {
     PlatformFeatureFlagRecord,
 } from '@/types/platformControl';
 import { useUser } from './UserContext';
+import { setAiRuntimeEvaluationContext } from '@/services/ai/aiRuntimeStatus';
 
 type PlatformControlContextType = {
     flags: PlatformFeatureFlagRecord[];
@@ -29,6 +36,8 @@ type PlatformControlContextType = {
     evaluateFlag: (key: string, ctx?: Partial<FeatureFlagEvaluationContext>) => FeatureFlagEvaluationResult | null;
     getFlagDefinition: (key: string) => PlatformFeatureFlagRecord | undefined;
     mutateFlag: (key: string, patch: PlatformFeatureFlagPatch, reason?: string) => Promise<void>;
+    /** Epoch ms used for schedule evaluation — advances at schedule boundaries. */
+    evaluationNowMs: number;
 };
 
 const PlatformControlContext = createContext<PlatformControlContextType | undefined>(undefined);
@@ -38,6 +47,68 @@ export const PlatformControlProvider: React.FC<{ children: React.ReactNode }> = 
     const [flags, setFlags] = useState<PlatformFeatureFlagRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [evaluationNowMs, setEvaluationNowMs] = useState(() => Date.now());
+    const boundaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const flagsRef = useRef(flags);
+    flagsRef.current = flags;
+
+    const syncEvaluationClock = useCallback(() => {
+        const now = Date.now();
+        setPlatformFlagEvaluationNow(now);
+        setEvaluationNowMs(now);
+        return now;
+    }, []);
+
+    useEffect(() => {
+        ensureSystemMessagesLoaded();
+    }, []);
+
+    /**
+     * Arm a single timeout to the next schedule start/end (not continuous polling).
+     * Re-arms after each boundary so long-lived pages stay exact and cheap.
+     */
+    const armNextScheduleBoundary = useCallback(() => {
+        if (boundaryTimerRef.current !== null) {
+            clearTimeout(boundaryTimerRef.current);
+            boundaryTimerRef.current = null;
+        }
+
+        const now = Date.now();
+        const nextBoundary = getNextScheduleBoundaryMs(flagsRef.current, now);
+        if (nextBoundary === null) return;
+
+        const delay = Math.min(
+            Math.max(nextBoundary - now, 0),
+            SCHEDULE_TIMER_MAX_DELAY_MS
+        );
+
+        boundaryTimerRef.current = setTimeout(() => {
+            boundaryTimerRef.current = null;
+            syncEvaluationClock();
+            armNextScheduleBoundary();
+        }, delay);
+    }, [syncEvaluationClock]);
+
+    useEffect(() => {
+        armNextScheduleBoundary();
+        return () => {
+            if (boundaryTimerRef.current !== null) {
+                clearTimeout(boundaryTimerRef.current);
+                boundaryTimerRef.current = null;
+            }
+        };
+    }, [flags, armNextScheduleBoundary]);
+
+    // Tab wake: browsers throttle background timers — resync on visibility.
+    useEffect(() => {
+        const onVisibility = () => {
+            if (document.hidden) return;
+            syncEvaluationClock();
+            armNextScheduleBoundary();
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => document.removeEventListener('visibilitychange', onVisibility);
+    }, [syncEvaluationClock, armNextScheduleBoundary]);
 
     const flagMap = useMemo(() => {
         const map = new Map<string, PlatformFeatureFlagRecord>();
@@ -60,16 +131,18 @@ export const PlatformControlProvider: React.FC<{ children: React.ReactNode }> = 
             const loaded = await service.fetchFeatureFlags();
             setFlags(loaded);
             setPlatformFlagCache(loaded);
+            syncEvaluationClock();
         } catch (e) {
             console.error('[PlatformControl] Failed to load feature flags:', e);
             setError(e instanceof Error ? e.message : 'Failed to load feature flags');
             const fallbacks = Object.values(PLATFORM_FEATURE_FLAG_FALLBACKS);
             setFlags(fallbacks);
             setPlatformFlagCache(fallbacks);
+            syncEvaluationClock();
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [syncEvaluationClock]);
 
     useEffect(() => {
         void refreshFlags();
@@ -82,6 +155,10 @@ export const PlatformControlProvider: React.FC<{ children: React.ReactNode }> = 
         }),
         [user]
     );
+
+    useEffect(() => {
+        setAiRuntimeEvaluationContext(defaultContext);
+    }, [defaultContext]);
 
     const getFlagDefinition = useCallback(
         (key: string) => flagMap.get(key),
@@ -105,15 +182,22 @@ export const PlatformControlProvider: React.FC<{ children: React.ReactNode }> = 
                 ...ctxOverride,
             };
 
-            return evaluateFeatureFlag(definition, ctx, new Date(), { schedulesSuspended });
+            return evaluateFeatureFlag(definition, ctx, new Date(evaluationNowMs), {
+                schedulesSuspended,
+            });
         },
-        [defaultContext, flagMap, schedulesSuspended]
+        [defaultContext, flagMap, schedulesSuspended, evaluationNowMs]
     );
 
     const mutateFlag = useCallback(
         async (key: string, patch: PlatformFeatureFlagPatch, reason?: string) => {
+            // Saving schedules clears manual override so the window is authoritative (anti-sticky SCH-03).
+            const effectivePatch: PlatformFeatureFlagPatch =
+                patch.schedules !== undefined && patch.manualOverride === undefined
+                    ? { ...patch, manualOverride: null }
+                    : patch;
             const service = getPlatformControlService();
-            await service.mutateFeatureFlag(key, patch, reason);
+            await service.mutateFeatureFlag(key, effectivePatch, reason);
             await refreshFlags();
         },
         [refreshFlags]
@@ -128,8 +212,9 @@ export const PlatformControlProvider: React.FC<{ children: React.ReactNode }> = 
             evaluateFlag,
             getFlagDefinition,
             mutateFlag,
+            evaluationNowMs,
         }),
-        [flags, isLoading, error, refreshFlags, evaluateFlag, getFlagDefinition, mutateFlag]
+        [flags, isLoading, error, refreshFlags, evaluateFlag, getFlagDefinition, mutateFlag, evaluationNowMs]
     );
 
     return (
@@ -147,8 +232,12 @@ export function usePlatformControl(): PlatformControlContextType {
     return ctx;
 }
 
-/** Centralized consumer hook — DOC 30 runtime integration. */
+/**
+ * Centralized consumer hook — DOC 30 runtime integration.
+ * Re-renders when evaluationNowMs advances at a schedule boundary.
+ */
 export function useFeatureFlag(key: string): FeatureFlagEvaluationResult | null {
-    const { evaluateFlag } = usePlatformControl();
+    const { evaluateFlag, evaluationNowMs } = usePlatformControl();
+    void evaluationNowMs;
     return evaluateFlag(key);
 }

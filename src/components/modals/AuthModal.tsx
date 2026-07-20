@@ -10,8 +10,13 @@ import { addNotification } from '../../services/notificationService';
 import { User as UserType } from '../../types/users';
 import { getSessionItem, removeSessionItem } from '../../services/storageService';
 import { useConfig } from '@/context/ConfigContext';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import {
+    PLATFORM_FEATURE_FLAG_KEYS,
+    PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
 
 import { CloseButton } from "@/components/ui/controls/CloseButton";
 
@@ -28,6 +33,11 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
     
     const { configs } = useConfig();
     const authBg = configs.AUTH_BACKGROUND_IMAGE || configs.auth_background_image;
+    const registrationFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION);
+    const registrationEnabled = registrationFlag?.enabled ?? true;
+    const { getText: getRegistrationClosedMsg } = useSystemMessage(
+        PLATFORM_MESSAGE_TEMPLATE_KEYS.REGISTRATION_CLOSED
+    );
 
     // Form States
     const [email, setEmail] = useState('');
@@ -48,6 +58,12 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
     // TESTI DINAMICI DAL DB
     const { getText: getWelcomeMsg } = useSystemMessage('auth_welcome');
     const welcomeMsg = getWelcomeMsg();
+
+    useEffect(() => {
+        if (!registrationEnabled && view === 'register') {
+            setView('login');
+        }
+    }, [registrationEnabled, view]);
 
     const resetRegistrationFormFields = () => {
         setFirstName('');
@@ -133,6 +149,12 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+
+        if (!registrationEnabled) {
+            const closed = getRegistrationClosedMsg({});
+            setError(closed.body || 'Le nuove registrazioni sono temporaneamente sospese.');
+            return;
+        }
         
         if (password.length < 6) {
             setError("La password deve essere di almeno 6 caratteri.");
@@ -379,21 +401,37 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
                         <div className="flex-1 flex flex-col justify-center animate-in fade-in">
                             <div className="flex gap-6 mb-6 border-b border-slate-800 pb-1">
                                 <button 
+                                    type="button"
                                     onClick={() => setView('login')}
                                     className={`pb-3 text-sm font-bold uppercase tracking-widest transition-all ${view === 'login' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
                                     Accedi
                                 </button>
+                                {registrationEnabled ? (
                                 <button 
+                                    type="button"
                                     onClick={() => setView('register')}
                                     className={`pb-3 text-sm font-bold uppercase tracking-widest transition-all ${view === 'register' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
                                     Registrati
                                 </button>
+                                ) : null}
                             </div>
 
+                            {!registrationEnabled ? (
+                                <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 space-y-1">
+                                    <p className="text-sm font-bold text-amber-200">
+                                        {getRegistrationClosedMsg({}).title || 'Registrazioni chiuse'}
+                                    </p>
+                                    <p className="text-xs text-slate-300 leading-relaxed">
+                                        {getRegistrationClosedMsg({}).body ||
+                                            'Le nuove registrazioni sono temporaneamente sospese.'}
+                                    </p>
+                                </div>
+                            ) : null}
+
                             <form onSubmit={view === 'login' ? handleLogin : handleRegister} className="space-y-4">
-                                {view === 'register' && (
+                                {view === 'register' && registrationEnabled && (
                                     <>
                                         <div className="flex gap-4">
                                             <div className="space-y-1 flex-1">

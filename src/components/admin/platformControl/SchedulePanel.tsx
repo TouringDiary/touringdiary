@@ -7,6 +7,8 @@ import type {
     PlatformFeatureFlagRecord,
     PlatformFlagSchedule,
 } from '@/types/platformControl';
+import { resolveScheduleRowStatus } from '@/domain/platformControl/scheduleRowStatus';
+import { usePlatformControl } from '@/context/PlatformControlContext';
 import { FeatureFlagBooleanRow } from './FeatureFlagBooleanRow';
 
 interface SchedulePanelProps {
@@ -48,7 +50,9 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
     onSaveSchedules,
 }) => {
     const ty = usePlatformControlTypography();
+    const { evaluationNowMs } = usePlatformControl();
     const pauseFlag = flagsByKey.get(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_SCHEDULES_PAUSED);
+    const evaluationNow = new Date(evaluationNowMs);
 
     const schedulableFlags = useMemo(
         () => flags.filter((f) => f.supportsSchedule && f.key !== PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_SCHEDULES_PAUSED),
@@ -126,6 +130,15 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
         ]);
     };
 
+    const showSavedFeedback = () => {
+        setSaved(true);
+        if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = setTimeout(() => {
+            setSaved(false);
+            savedTimerRef.current = null;
+        }, SAVED_FEEDBACK_MS);
+    };
+
     const handleSave = async () => {
         if (!canWrite || !selected || isSaving) return;
         for (const s of drafts) {
@@ -141,12 +154,7 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
         setSaved(false);
         try {
             await onSaveSchedules(selected.key, drafts);
-            setSaved(true);
-            if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-            savedTimerRef.current = setTimeout(() => {
-                setSaved(false);
-                savedTimerRef.current = null;
-            }, SAVED_FEEDBACK_MS);
+            showSavedFeedback();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Salvataggio programmazioni fallito');
         } finally {
@@ -161,12 +169,7 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
         setError(null);
         try {
             await onSaveSchedules(selected.key, []);
-            setSaved(true);
-            if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-            savedTimerRef.current = setTimeout(() => {
-                setSaved(false);
-                savedTimerRef.current = null;
-            }, SAVED_FEEDBACK_MS);
+            showSavedFeedback();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Disattivazione fallita');
         } finally {
@@ -178,7 +181,7 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
         <AdminSectionCard
             icon={CalendarClock}
             title="Programmazione automatica"
-            subtitle="Parte della sezione Manutenzione. Finestre temporali assolute. Priorità: override manuale → programmazione → default. Nessuna ricorrenza/cron."
+            subtitle="Imposta finestre orarie per attivare o sospendere automaticamente gli interruttori. Le finestre restano salvate anche se le programmazioni sono in pausa."
         >
             <div className="space-y-4">
                 {pauseFlag ? (
@@ -237,10 +240,27 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
                             </p>
                         ) : null}
 
-                        {drafts.map((sched, index) => (
+                        {drafts.map((sched, index) => {
+                            const rowStatus = resolveScheduleRowStatus(sched, evaluationNow, {
+                                schedulesSuspended,
+                            });
+                            const statusClass =
+                                rowStatus === 'Attiva'
+                                    ? 'text-emerald-300 bg-emerald-950/40 border-emerald-500/30'
+                                    : rowStatus === 'Programmata'
+                                      ? 'text-sky-300 bg-sky-950/40 border-sky-500/30'
+                                      : rowStatus === 'In pausa'
+                                        ? 'text-amber-200 bg-amber-950/30 border-amber-500/30'
+                                        : rowStatus === 'Errore'
+                                          ? 'text-rose-300 bg-rose-950/40 border-rose-500/30'
+                                          : rowStatus === 'Terminata'
+                                            ? 'text-slate-400 bg-slate-900 border-slate-700'
+                                            : 'text-slate-400 bg-slate-900 border-slate-700';
+
+                            return (
                             <div
                                 key={sched.id}
-                                className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-2 items-end border border-slate-800 rounded-xl p-2.5"
+                                className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto_auto] gap-2 items-end border border-slate-800 rounded-xl p-2.5"
                             >
                                 <label className="space-y-1">
                                     <span className={ty.fieldLabel}>Inizio</span>
@@ -303,6 +323,15 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
                                         />
                                     </label>
                                 )}
+                                <div className="space-y-1">
+                                    <span className={ty.fieldLabel}>Stato</span>
+                                    <span
+                                        className={`inline-flex items-center px-2 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider ${statusClass}`}
+                                        title="Stato runtime della finestra (aggiornato automaticamente)"
+                                    >
+                                        {rowStatus}
+                                    </span>
+                                </div>
                                 {canWrite ? (
                                     <button
                                         type="button"
@@ -317,9 +346,12 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
-                                ) : null}
+                                ) : (
+                                    <span />
+                                )}
                             </div>
-                        ))}
+                            );
+                        })}
 
                         {canWrite ? (
                             <div className="flex flex-wrap gap-2 pt-1">
@@ -356,12 +388,7 @@ export const SchedulePanel: React.FC<SchedulePanelProps> = ({
                             <p className={ty.success}>Programmazioni salvate</p>
                         ) : null}
                         {error ? <p className={ty.error}>{error}</p> : null}
-                        {/*
-                          Priorità finestre sovrapposte = ordine dell'array schedules (prima match vince).
-                          Garantito a runtime da getActiveScheduleValue() in evaluateFeatureFlag.ts
-                          (iterazione for...of senza riordino cronologico). Non modificare il testo
-                          UI senza allineare quel criterio.
-                        */}
+                        {/* Sovrapposizioni: prima in lista — regola di dominio in evaluateFeatureFlag / DOC 30 */}
                         <p className={ty.sectionSubtitle}>
                             In caso di finestre sovrapposte, viene applicata la prima nella lista.
                             «Disattiva programmazioni» svuota le finestre di questo flag (irreversibile

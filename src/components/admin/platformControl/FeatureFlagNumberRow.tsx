@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { evaluateFeatureFlag } from '@/domain/platformControl/evaluateFeatureFlag';
+import { getFeatureFlagAdminHelp } from '@/constants/platformFeatureFlags';
 import { usePlatformControlTypography } from '@/hooks/usePlatformControlTypography';
 import type { PlatformFeatureFlagRecord } from '@/types/platformControl';
 
@@ -74,7 +75,9 @@ export const FeatureFlagNumberRow: React.FC<FeatureFlagNumberRowProps> = ({
                     <h3 className={`${ty.cardTitle} leading-snug`} title={flag.label}>
                         {flag.label}
                     </h3>
-                    <p className={ty.cardDescription}>Soglia operativa (stelle)</p>
+                    <p className={`${ty.cardDescription} whitespace-pre-line`}>
+                        {getFeatureFlagAdminHelp(flag.key)}
+                    </p>
                 </div>
                 <span className={`${ty.valueEmphasis} shrink-0 tabular-nums`}>
                     {current}★

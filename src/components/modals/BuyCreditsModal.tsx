@@ -5,6 +5,12 @@ import { Sparkles, Zap, ShieldCheck, ArrowRight, Loader2, Info } from 'lucide-re
 import { supabase } from '@/services/supabaseClient';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useSystemMessage } from '@/hooks/useSystemMessage';
+import {
+    PLATFORM_FEATURE_FLAG_KEYS,
+    PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
 
 
 interface Package {
@@ -29,6 +35,11 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClos
     const [loading, setLoading] = useState(true);
     const [purchasingId, setPurchasingId] = useState<string | null>(null);
     const firstButtonRef = useRef<HTMLButtonElement>(null);
+    const purchaseFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_CREDIT_PURCHASE);
+    const purchaseEnabled = purchaseFlag?.enabled ?? true;
+    const { getText: getPausedMsg } = useSystemMessage(
+        PLATFORM_MESSAGE_TEMPLATE_KEYS.CREDITS_PURCHASE_PAUSED
+    );
 
     useEffect(() => {
         if (!isOpen) return;
@@ -45,7 +56,7 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClos
     }, [isOpen]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || !purchaseEnabled) return;
 
         const fetchPackages = async () => {
             setLoading(true);
@@ -66,12 +77,13 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClos
         };
 
         fetchPackages();
-    }, [isOpen]);
+    }, [isOpen, purchaseEnabled]);
 
     // ESC Key Management
     useGlobalModalEscape(isOpen, onClose);
 
     const handleBuy = async (pkg: Package) => {
+        if (!purchaseEnabled) return;
         setPurchasingId(pkg.id);
         try {
             const { data, error } = await supabase.functions.invoke('purchase-extra-credits', {
@@ -127,6 +139,25 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+                    {!purchaseEnabled ? (
+                        <div className="max-w-xl mx-auto rounded-2xl border border-amber-500/30 bg-amber-950/20 p-6 space-y-3">
+                            <h3 className="text-lg font-bold text-amber-200">
+                                {getPausedMsg({}).title || 'Acquisto crediti sospeso'}
+                            </h3>
+                            <p className="text-sm text-slate-300 leading-relaxed">
+                                {getPausedMsg({}).body ||
+                                    'L’acquisto di crediti AI è temporaneamente non disponibile.'}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="mt-2 px-4 py-2 rounded-lg bg-slate-800 text-white text-xs font-bold"
+                            >
+                                Chiudi
+                            </button>
+                        </div>
+                    ) : (
+                    <>
                     {/* Legenda */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-2xl flex gap-3 items-center">
@@ -245,9 +276,12 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClos
                             })}
                         </div>
                     )}
+                    </>
+                    )}
                 </div>
 
                 {/* Footer Info */}
+                {purchaseEnabled ? (
                 <div className="p-6 bg-slate-800/30 border-t border-slate-800 flex items-start gap-4">
                     <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                     <p className="text-[9px] text-slate-500 leading-relaxed font-medium uppercase tracking-tight">
@@ -255,6 +289,7 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClos
                         Validità garantita per un anno solare dall'acquisto.
                     </p>
                 </div>
+                ) : null}
             </div>
         </div>,
         document.body

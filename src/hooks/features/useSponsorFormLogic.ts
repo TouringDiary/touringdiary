@@ -5,8 +5,9 @@ import { registerUser } from '../../services/userService';
 import { supabase } from '../../services/supabaseClient';
 import { User } from '../../types/index';
 import { PLAN_TYPES, PlanType } from '../../constants/planTypes';
-import { PLATFORM_FEATURE_FLAG_KEYS } from '../../constants/platformFeatureFlags';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../../constants/platformFeatureFlags';
 import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
+import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
 
 export interface SponsorFormData {
     companyName: string;
@@ -141,8 +142,32 @@ export const useSponsorFormLogic = ({ user, initialType = PLAN_TYPES.LOCAL_ACTIV
             }
         );
         if (applicationsFlag && !applicationsFlag.enabled) {
-            setErrorMsg('Le candidature Sponsor sono temporaneamente sospese.');
+            setErrorMsg(
+                resolvePlatformUserBody(
+                    applicationsFlag.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.SPONSOR_APPLICATIONS_PAUSED,
+                    'Le candidature Sponsor sono temporaneamente sospese.'
+                )
+            );
             return;
+        }
+
+        if (isGuest) {
+            const registrationFlag = evaluateCachedFeatureFlag(
+                PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION,
+                {
+                    userRole: user?.role ?? null,
+                    isAuthenticated: Boolean(user && user.role !== 'guest'),
+                }
+            );
+            if (registrationFlag && !registrationFlag.enabled) {
+                setErrorMsg(
+                    resolvePlatformUserBody(
+                        registrationFlag.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.REGISTRATION_CLOSED,
+                        'Le nuove registrazioni sono temporaneamente sospese.'
+                    )
+                );
+                return;
+            }
         }
 
         if (!termsAccepted || !privacyAccepted) {

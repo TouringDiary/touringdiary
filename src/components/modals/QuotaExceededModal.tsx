@@ -4,6 +4,12 @@ import { createPortal } from 'react-dom';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { AlertCircle, Sparkles } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useSystemMessage } from '@/hooks/useSystemMessage';
+import {
+    PLATFORM_FEATURE_FLAG_KEYS,
+    PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
 
 interface QuotaExceededModalProps {
     isOpen: boolean;
@@ -12,18 +18,35 @@ interface QuotaExceededModalProps {
     reason?: string;
 }
 
-export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({ isOpen, onClose, onBuyCredits, reason }) => {
+export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({
+    isOpen,
+    onClose,
+    onBuyCredits,
+    reason,
+}) => {
     useGlobalModalEscape(isOpen, onClose);
+    const purchaseFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_CREDIT_PURCHASE);
+    const purchaseEnabled = purchaseFlag?.enabled ?? true;
+    const { getText: getPausedMsg } = useSystemMessage(
+        PLATFORM_MESSAGE_TEMPLATE_KEYS.CREDITS_PURCHASE_PAUSED
+    );
+
     if (!isOpen) return null;
 
+    const pausedCopy = getPausedMsg({});
+
     return createPortal(
-        <div className="td-modal-overlay bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in pointer-events-auto" style={{ zIndex: Z_OVERLAY }} onClick={onClose}>
-            <div 
+        <div
+            className="td-modal-overlay bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in pointer-events-auto"
+            style={{ zIndex: Z_OVERLAY }}
+            onClick={onClose}
+        >
+            <div
                 className="bg-slate-900 border border-rose-500/30 rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 text-center relative animate-in zoom-in-95 duration-300 pointer-events-auto"
                 style={{ zIndex: Z_MODAL }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <CloseButton 
+                <CloseButton
                     onClose={onClose}
                     variant="primary"
                     position="absolute"
@@ -37,24 +60,37 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({ isOpen, 
                 </div>
 
                 <h2 className="text-2xl font-black text-white mb-3 tracking-tight">Quota Esaurita</h2>
-                
+
                 <p className="text-slate-400 text-sm mb-8 leading-relaxed">
-                    {reason === 'DAILY_FREE_LIMIT' 
-                        ? "Hai utilizzato tutti i crediti gratuiti per oggi. Vuoi continuare con un pacchetto extra?"
-                        : "I tuoi crediti AI sono terminati. Ricarica ora per continuare a pianificare il tuo viaggio con l'intelligenza artificiale."
-                    }
+                    {reason === 'DAILY_FREE_LIMIT'
+                        ? 'Hai utilizzato tutti i crediti gratuiti per oggi. Vuoi continuare con un pacchetto extra?'
+                        : "I tuoi crediti AI sono terminati. Ricarica ora per continuare a pianificare il tuo viaggio con l'intelligenza artificiale."}
                 </p>
 
                 <div className="space-y-3">
-                    <button 
-                        onClick={onBuyCredits}
-                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 group active:scale-95"
-                    >
-                        Ricarica Crediti
-                        <Sparkles className="w-4 h-4 text-indigo-300" />
-                    </button>
-                    
-                    <button 
+                    {purchaseEnabled ? (
+                        <button
+                            type="button"
+                            onClick={onBuyCredits}
+                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 group active:scale-95"
+                        >
+                            Ricarica Crediti
+                            <Sparkles className="w-4 h-4 text-indigo-300" />
+                        </button>
+                    ) : (
+                        <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-left space-y-1">
+                            <p className="text-sm font-bold text-amber-200">
+                                {pausedCopy.title || 'Acquisto crediti sospeso'}
+                            </p>
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                                {pausedCopy.body ||
+                                    'L’acquisto di crediti AI è temporaneamente non disponibile.'}
+                            </p>
+                        </div>
+                    )}
+
+                    <button
+                        type="button"
                         onClick={onClose}
                         className="w-full py-4 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white font-bold rounded-2xl transition-all text-xs uppercase tracking-widest"
                     >
@@ -64,14 +100,12 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({ isOpen, 
 
                 <div className="mt-8 flex items-center justify-center gap-2 text-slate-600">
                     <Sparkles className="w-3 h-3" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Touring Diary AI Engine v4</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
+                        Touring Diary AI Engine v4
+                    </span>
                 </div>
             </div>
         </div>,
         document.body
     );
 };
-
-
-
-

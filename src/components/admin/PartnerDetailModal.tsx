@@ -9,9 +9,14 @@ import { getPartnerHistoryAsync, addPartnerLogAsync, markPartnerLogsAsRead, upda
 import { getShopByOwner } from '../../services/shopService';
 import { BusinessShopManager } from '../user/BusinessShopManager';
 import { useSystemMessage } from '../../hooks/useSystemMessage';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { addNotification } from '../../services/notificationService';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { PLAN_TYPES } from '../../constants/planTypes';
+import {
+    PLATFORM_FEATURE_FLAG_KEYS,
+    PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
 
 interface PartnerDetailModalProps {
     profileId: string;
@@ -39,6 +44,11 @@ export const PartnerDetailModal = ({ profileId, requestId, vatNumber, isOpen = t
     const [localAlert, setLocalAlert] = useState<{ title: string, message: string, type: 'info' | 'warning' } | null>(null);
 
     const { getText: getShopMissingMsg } = useSystemMessage('admin_shop_not_found');
+    const adminPartnerFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER);
+    const adminPartnerEnabled = adminPartnerFlag?.enabled ?? true;
+    const { getText: getChatDisabledMsg } = useSystemMessage(
+        PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_PARTNER_CHAT_DISABLED
+    );
 
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -108,7 +118,7 @@ export const PartnerDetailModal = ({ profileId, requestId, vatNumber, isOpen = t
     else if (rejectedCount > 0) { reputationColor = 'text-amber-500'; reputationLabel = 'Attenzione'; }
 
     const handleSendMessage = async () => {
-        if (!newMessage.trim() || !activeRequest) return;
+        if (!adminPartnerEnabled || !newMessage.trim() || !activeRequest) return;
         setIsSending(true);
         try {
             const log: PartnerLog = {
@@ -316,13 +326,27 @@ export const PartnerDetailModal = ({ profileId, requestId, vatNumber, isOpen = t
                                 ))}
                             </div>
                             <div className="p-5 border-t border-slate-800 bg-slate-900">
+                                {!adminPartnerEnabled ? (
+                                    <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-1">
+                                        <p className="text-sm font-bold text-amber-200">
+                                            {getChatDisabledMsg({}).title || 'Chat non disponibile'}
+                                        </p>
+                                        <p className="text-xs text-slate-300 leading-relaxed">
+                                            {getChatDisabledMsg({}).body ||
+                                                'La messaggistica Admin↔Partner è temporaneamente disabilitata.'}
+                                        </p>
+                                    </div>
+                                ) : (
+                                <>
                                 <div className="flex gap-3">
                                     <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Scrivi una risposta al partner..." className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-5 py-4 text-base text-white focus:border-blue-500 focus:outline-none" onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}/>
-                                    <button onClick={handleSendMessage} disabled={isSending} className="px-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg flex items-center justify-center min-w-[60px]">
+                                    <button type="button" onClick={handleSendMessage} disabled={isSending} className="px-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg flex items-center justify-center min-w-[60px]">
                                         {isSending ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}
                                     </button>
                                 </div>
                                 <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5"><Info className="w-3.5 h-3.5"/> I messaggi inviati qui generano una notifica all'utente.</p>
+                                </>
+                                )}
                             </div>
                         </div>
                     </div>

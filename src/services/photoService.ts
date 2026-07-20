@@ -16,6 +16,9 @@ import { getFullManifestAsync, getCityDetails, resolveCityIdentity } from './cit
 import { saveCityDetails } from './city/cityWriteService';
 import { sanitizeMediaStatus } from '../utils/media';
 import { PHOTO_SUBMISSION_STATUS_VALUES } from '../constants/governance';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFlagCache';
+import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
 
 const BUCKET_NAME = 'community-photos';
 const PUBLIC_BUCKET = 'public-media';
@@ -261,6 +264,20 @@ export const uploadCommunityPhoto =
         isOfficial: boolean = false,
         mediaStatus: MediaStatus = 'real'
     ): Promise<PhotoSubmission | null> => {
+        // Security Gate (service boundary): Feature Flag Runtime → Database.
+        // UI UX Gates must not replace this check.
+        const photosFlag = evaluateCachedFeatureFlag(
+            PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS,
+            { userRole: null, isAuthenticated: false }
+        );
+        if (!photosFlag?.enabled) {
+            throw new Error(
+                resolvePlatformUserBody(
+                    photosFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_PHOTOS_PAUSED,
+                    'Il caricamento foto è temporaneamente disabilitato.'
+                )
+            );
+        }
 
         try {
             // 1. Resolve cityId if not provided (Refactored: Service Boundary Recovery)

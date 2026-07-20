@@ -6,6 +6,7 @@ import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
 import { getSetting, SETTINGS_KEYS } from '../../services/settingsService';
 import { getUniqueCityTypes, getActiveContinents, getActiveNations, getActiveRegions, getActiveTouristZones } from '../../services/geoRegistryService';
 import { useTypingCycle } from './useTypingCycle';
+import { useUser } from '@/context/UserContext';
 
 interface UseHeroLogicProps {
     cityManifest: CitySummary[];
@@ -50,6 +51,7 @@ export const useHeroLogic = ({
     selectedSeason,
     setSelectedSeason
 }: UseHeroLogicProps) => {
+    const { user } = useUser();
     
     // --- STATE: FILTRI GEOGRAFICI ---
     const [continent, setContinent] = useState<string>('');
@@ -380,7 +382,10 @@ export const useHeroLogic = ({
     };
 
     // --- HANDLERS: AI ---
-    const aiRuntimeStatus = getAiRuntimeStatus();
+    const aiRuntimeStatus = getAiRuntimeStatus({
+        userRole: user?.role ?? null,
+        isAuthenticated: Boolean(user && user.role !== 'guest'),
+    });
 
     const handleAiSubmit = async (queryOverride?: string) => {
         if (isAiLoading) return;

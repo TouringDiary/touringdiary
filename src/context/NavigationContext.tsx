@@ -13,6 +13,7 @@ import type { NavigationViewMode } from '../types/navigationViewMode';
 import type { NavigationPreviewState } from '../types/navigationPreview';
 import { CLOSED_NAVIGATION_PREVIEW } from '../types/navigationPreview';
 import type { NavigationGlobalExtra } from '../types/navigationGlobal';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
 
 interface NavigationContextType {
     // Router State
@@ -66,6 +67,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
     const cityManifest = userContext?.cityManifest ?? [];
     const isLoadingManifest = userContext?.isLoadingManifest ?? true;
     const gpsContext = useGps();
+    const openCollaborationWorkspace = useOpenCollaborationWorkspace();
 
     // Virtual Mode State
     const [virtualCity, setVirtualCity] = useState<CityDetails | null>(null);
@@ -212,7 +214,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
             const targetSlug = extra?.slug || userContext?.user?.slug;
             navigate(router.buildDashboardPath(targetSlug));
         }
-        else if (section === 'workspace') modalContext.openModal('collaborationWorkspace');
+        else if (section === 'workspace') openCollaborationWorkspace();
         else if (section === 'community') modalContext.openModal('global', { section: 'community', tab, id });
         else if (section === 'sponsors') modalContext.openModal('global', { section: 'sponsors' });
         else if (section === 'around_me') modalContext.openModal('aroundMe'); 

@@ -19,6 +19,7 @@ import { FeatureModals } from './modals/FeatureModals';
 import { COLLABORATION_RETURN_TO } from '@/collaboration/guestGate';
 import { userNeedsUsername } from '@/domain/profile/username';
 import { ModalManagerExternalProps } from './ModalManagerTypes';
+import { openCollaborationWorkspaceFlow, type CollaborationWorkspaceTarget } from '@/hooks/useOpenCollaborationWorkspace';
 
 export const ModalManager = () => {
     // 1. CONSUMO CONTEXT (Smart Component)
@@ -75,9 +76,16 @@ export const ModalManager = () => {
                     kind: _kind,
                     resourceId: _resourceId,
                     resourceTitle: _resourceTitle,
-                    ...workspacePayload
+                    entryMode: _entryMode,
+                    preselectedDiaryId: _preselectedDiaryId,
+                    preselectedDiaryTitle: _preselectedDiaryTitle,
+                    workspaceId,
+                    initialSection,
                 } = resumeProps;
-                openModal('collaborationWorkspace', workspacePayload);
+                openCollaborationWorkspaceFlow(u, openModal, {
+                    workspaceId,
+                    initialSection: initialSection as CollaborationWorkspaceTarget['initialSection'],
+                });
                 return;
             }
             if (resumeProps?.entryMode === 'create_workspace') {

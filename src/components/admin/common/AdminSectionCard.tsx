@@ -43,10 +43,10 @@ export const AdminSectionCard: React.FC<AdminSectionCardProps> = ({
                         </div>
                     ) : null}
                     {title ? (
-                        <div>
+                        <div className="min-w-0 flex-1">
                             <h3 className={sectionTitleClass}>{title}</h3>
                             {subtitle ? (
-                                <p className={`${sectionSubtitleClass} mt-1 max-w-sm`}>
+                                <p className={`${sectionSubtitleClass} mt-1 max-w-none`}>
                                     {subtitle}
                                 </p>
                             ) : null}

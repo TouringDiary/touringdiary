@@ -45,6 +45,10 @@ export const slidePanelTransformClassByAxis = (
 export const slidePanelTransformClass = (isRaised: boolean): string =>
   slidePanelTransformClassByAxis('y', isRaised);
 
+/** Posizione: fuori schermo in alto → aperto a 0 (stesso lifecycle Valigia, direzione invertita). */
+export const slidePanelTransformClassFromTop = (isRaised: boolean): string =>
+  isRaised ? OPEN_BY_AXIS.y : '-translate-y-full';
+
 /**
  * Pannello binder (Workspace globale): espansione top-origin via max-height.
  * Non usare translate-y — il pannello nasce sotto l'header e scende, non "sale" dal fondo.

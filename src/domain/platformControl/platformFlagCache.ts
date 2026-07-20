@@ -7,10 +7,16 @@ import type {
 } from '@/types/platformControl';
 
 let cachedFlags: PlatformFeatureFlagRecord[] = Object.values(PLATFORM_FEATURE_FLAG_FALLBACKS);
+/** Synced from PlatformControlProvider schedule tick — services use same clock as UI. */
+let cachedEvaluationNowMs: number = Date.now();
 
 /** Updates the sync cache used by non-React consumers (AI runtime, services). */
 export function setPlatformFlagCache(flags: PlatformFeatureFlagRecord[]): void {
     cachedFlags = flags;
+}
+
+export function setPlatformFlagEvaluationNow(nowMs: number): void {
+    cachedEvaluationNowMs = nowMs;
 }
 
 function resolveDefinition(key: string): PlatformFeatureFlagRecord | undefined {
@@ -30,7 +36,7 @@ function isSchedulesSuspendedFromCache(): boolean {
 export function evaluateCachedFeatureFlag(
     key: string,
     ctx: FeatureFlagEvaluationContext,
-    now: Date = new Date()
+    now: Date = new Date(cachedEvaluationNowMs)
 ): FeatureFlagEvaluationResult | null {
     const definition = resolveDefinition(key);
     if (!definition) return null;
@@ -49,7 +55,7 @@ export function getCachedNumericFlagValue(key: string, fallback: number): number
             userRole: 'admin_all',
             isAuthenticated: true,
         },
-        new Date(),
+        new Date(cachedEvaluationNowMs),
         { schedulesSuspended: isSchedulesSuspendedFromCache() }
     );
 

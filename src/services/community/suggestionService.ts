@@ -1,6 +1,9 @@
 import { supabase } from '../supabaseClient';
 import { SuggestionRequest } from '../../types/index';
 import { UUID_REGEX } from '../../utils/uuid';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
+import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
 
 export const getPendingSuggestionCount = async (): Promise<number> => {
     try {
@@ -49,20 +52,38 @@ export const getUserSuggestionsAsync = async (userId: string): Promise<Suggestio
 };
 
 export const addSuggestion = async (suggestion: any): Promise<void> => {
-    try {
-        const payload = { 
-            user_id: suggestion.userId, 
-            user_name: suggestion.userName, 
-            city_id: suggestion.cityId, 
-            city_name: suggestion.cityName, 
-            poi_id: suggestion.poiId, 
-            type: suggestion.type, 
-            status: 'pending', 
-            details_json: suggestion.details, 
-            created_at: new Date().toISOString() 
-        };
-        await supabase.from('suggestions').insert(payload);
-    } catch (e) { console.error("Errore invio segnalazione:", e); }
+    // Security Gate (service boundary): Feature Flag Runtime → Database.
+    // UI UX Gates must not replace this check.
+    const suggestionsFlag = evaluateCachedFeatureFlag(
+        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_SUGGESTIONS,
+        {
+            userRole: null,
+            isAuthenticated: Boolean(suggestion?.userId),
+        }
+    );
+    if (!suggestionsFlag?.enabled) {
+        throw new Error(
+            resolvePlatformUserBody(
+                suggestionsFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_SUGGESTIONS_PAUSED,
+                'Le segnalazioni sono temporaneamente disabilitate.'
+            )
+        );
+    }
+
+    const payload = {
+        user_id: suggestion.userId,
+        user_name: suggestion.userName,
+        city_id: suggestion.cityId,
+        city_name: suggestion.cityName,
+        poi_id: suggestion.poiId,
+        type: suggestion.type,
+        status: 'pending',
+        details_json: suggestion.details,
+        created_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('suggestions').insert(payload);
+    if (error) throw error;
 };
 
 export const updateSuggestionStatus = async (id: string, status: string, adminNotes?: string, details?: any, rejectionMeta?: any) => {

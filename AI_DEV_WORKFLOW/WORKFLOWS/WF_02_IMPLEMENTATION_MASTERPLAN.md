@@ -112,8 +112,8 @@ Eseguire in ordine progressivo le implementazioni approvate negli SSOT dominio *
 |-------|-----------------|
 | **Workflow** | WF-02 — Attivo |
 | **STEP** | STEP-3 — Centro di Controllo (DOC 30) |
-| **Fase** | Fase 3.4 — Programmazione automatica e verifica consumer |
-| **% convenzionale** | 85 % |
+| **Fase** | Post-3.4 — Wiring consumer (**attività ancora aperta**; Batch 1–3 ✓; Batch 4 eliminato DL-P12) |
+| **% convenzionale** | 97 % |
 
 ---
 
@@ -485,8 +485,8 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | Scheduling flag; UI card autosufficienti; DS admin; storico audit; verifica smoke consumer già collegati |
-| **Stato Fase** | **In sviluppo** |
-| **PO ✓** | ☐ |
+| **Stato Fase** | **Completato** |
+| **PO ✓** | ☑ — Approvato 2026-07-18 (DoD soddisfatto; smoke consumer collegati OK) |
 | **Riferimento SSOT** | DOC 30 § Sez. 9; Runtime Integration; decisioni PO 2026-07-17 (card inline, pausa/disattiva schedule, DS) |
 | **Migration** | `20260717180000_platform_control_phase34_schedule_pause.sql` |
 
@@ -509,9 +509,57 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 
 **Attività successiva obbligatoria (post chiusura Fase 3.4 — tracciata fino a esecuzione):**
 
-> **Audit completa della copertura dei Feature Flag e verifica dei consumer ancora mancanti.**
+> **Audit della copertura dei Feature Flag e verifica dei consumer ancora mancanti.**
 >
-> Eseguire **dopo** la chiusura formale della Fase 3.4. Il PO decide quali consumer ulteriori collegare solo a valle di questo audit. **Non** dimenticare: resta aperta in workflow fino a completamento.
+> Eseguire **dopo** la chiusura formale della Fase 3.4. Il PO decide quali consumer ulteriori collegare solo a valle di questo audit.
+>
+> **Stato corretto:** ricognizione / audit tecnico **completati** e report prodotto; piano batch 1–3 **completati**; Batch 4 **eliminato** (DL-P12). L’**attività post-3.4 resta aperta** fino agli Audit A (DOC 28) e B (copertura CC) e alla Validazione PO STEP-3.
+
+| Campo | Valore |
+|-------|--------|
+| **Stato attività** | **Ancora aperta** — Batch 1–3 ✓ · Audit B forense ✓ · fix UX/BUG ✓ · collaudo smoke in corso · Audit A piano (non avviato) · MSG-SOT + SCH backlog registrati |
+| **PO ✓** | ☐ (chiusura post-3.4 dopo smoke + Audit A + assenza criticità) |
+| **Nota** | DL-P13 SoT messaggi implementato; DL-P14 stati riga Scheduler implementati; restano smoke PO + Audit A. |
+
+### Backlog Post-3.4 / rifiniture (obbligatorio tracciare)
+
+| ID | Voce | Tipo | Stato |
+|----|------|------|-------|
+| **MSG-SOT** | Migrazione messaggi utente → Message Template DB unica SoT (DL-P13) | Sviluppo | **Implementato** 2026-07-20 |
+| **SCH-AUDIT-02** | Audit forense approfondito Scheduler (runtime, evaluation, cache, refresh, polling, override, timezone, attivazione/disattivazione) | Audit → fix | **Diagnosi + fix** 2026-07-20 |
+| **SCH-STATUS-UI** | Stato per riga programmazione (Programmata/Attiva/Terminata/In pausa/Disabilitata/Errore) auto-aggiornato (DL-P14) | Sviluppo Scheduler | **Implementato** 2026-07-20 |
+| **AUDIT-A** | Audit architetturale Collaboration DOC 28 | Solo analisi | Piano prodotto; non avviato |
+
+---
+
+## Decisioni PO post Audit B (2026-07-20)
+
+| ID | Decisione | Impatto WF-02 |
+|----|-----------|---------------|
+| **DL-P13** | Tutti i messaggi utente governati **solo** dal Centro di Controllo (Message Template → DB). Catalogo TS non è SoT. Hardcoded solo log/debug/commenti/errori tecnici (+ bootstrap minimo). | MSG-SOT obbligatorio prima chiusura STEP-3 |
+| **DL-P14** | Ogni riga programmazione mostra stato runtime (Programmata/Attiva/Terminata/In pausa/Disabilitata/Errore). | SCH-STATUS-UI **implementato** |
+| **SCH-FILONE** | Audit Scheduler + fix start/end + tick UI + clear override su save schedule. | Completato lato codice 2026-07-20 — collaudo PO pending |
+
+*Riferimenti SSOT: DOC 30 DL-P13/P14; SoT collaudo `WF_02_AUDIT_B_CENTRO_CONTROLLO.md`.*
+
+
+### Piano wiring consumer (PO 2026-07-19) — batch deliberati
+
+| Batch | Feature Flag | Stato |
+|-------|--------------|-------|
+| **1** | `feature.economy.credit_purchase`, `feature.economy.subscriptions`, `feature.moderation.reviews` (UX) | **Completato** (2026-07-19) |
+| **2** | `feature.comms.admin_partner`, `feature.comms.notifications` | **Completato** (2026-07-19) |
+| **3** | `feature.sponsor.shop_public`, `feature.platform.registration`, `feature.platform.onboarding` | **Completato** (2026-07-19) |
+| **4** | ~~`feature.platform.collaboration_live`~~ | **Eliminato** (PO 2026-07-20 — DL-P12): collaborazione = capacità strutturale; **nessun** toggle CC; **nessun** wiring |
+
+### Attività post-3.4 residue (obbligatorie prima della chiusura STEP-3)
+
+| # | Attività | Tipo | Obiettivo |
+|---|----------|------|-----------|
+| **A** | Audit architetturale finale dominio Collaboration (DOC 28) | Solo documentazione / analisi | Verificare coerenza di Workspace, condivisione, ruoli, realtime, lock, presenza, sincronizzazione, ownership, UX con l’architettura piattaforma. **Non** decidere Feature Flag. Nessuna implementazione. |
+| **B** | Audit completo Centro di Controllo | Solo documentazione / analisi | Verificare che tutte le funzionalità realmente gestibili dal CC siano già collegate ai Feature Flag. Nessuna implementazione in questo passo. |
+
+**Gate chiusura STEP-3:** A e B completati **senza criticità bloccanti** → Validazione PO STEP-3 → avvio STEP-4.
 
 ---
 
@@ -677,6 +725,7 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Data | STEP | Fase | Stato | Nota |
 |------|------|------|-------|------|
+| 2026-07-18 | 3 | 3.4 | Completato | Schedule/pausa/card/DS/audit; smoke consumer OK; PO ✓ 2026-07-18 |
 | 2026-07-17 | 3 | 3.3 | Completato | Message Template Source editor; disclosure CRM D18; manutenzione News Bar DL-P06 |
 | 2026-07-17 | 3 | 3.2 | Completato | Macro-sezioni AI/Comms/Sponsor/Moderation; consumer candidature/rating/AI/moderation; G-AI-SEP |
 | 2026-07-17 | 3 | 3.1 | Completato | Migration `20260717160000`; Feature Flag Engine; audit; hook `evaluateFeatureFlag`; nav Centro di Controllo |
@@ -700,11 +749,11 @@ Il Workflow WF-02 si considera **Completato** quando:
 |-------|--------|
 | **Workflow corrente** | WF-02 — Implementation Masterplan |
 | **STEP corrente** | STEP-3 — Centro di Controllo (DOC 30) |
-| **Fase corrente** | Fase 3.4 — Programmazione automatica e verifica consumer |
-| **Stato della fase** | In sviluppo (UI a TAB ricevuta — rifinitura UX pre-chiusura) |
-| **Prossima fase da eseguire** | Completare smoke Fase 3.4 + PO ✓ → poi **Audit copertura Feature Flag / consumer mancanti** |
+| **Fase corrente** | Post-3.4 — Audit B: forense ✓ · SoT ✓ · fix UX-01/02 + BUG-01/02/03 ✓ · smoke T14/T15 e decisioni PO aperti |
+| **Stato della fase** | Audit B forense chiuso; collaudo residuo (smoke + decisioni PO); Audit A da fare |
+| **Prossima fase da eseguire** | Smoke T14/T15 + decisioni PO residui Audit B; Audit A DOC 28 |
 | **STEP completato in questa sessione** | — |
-| **Fase completata in questa sessione** | — (3.4 in corso) |
+| **Fase completata in questa sessione** | — (Fase 3.4 già chiusa; post-3.4 ancora aperta; Batch 3 wiring completato) |
 | **Workflow completato** | No |
 
 ---
@@ -738,8 +787,15 @@ Il Workflow WF-02 si considera **Completato** quando:
 - [x] STEP-3 Fase 3.1 — migration `20260717160000`; Feature Flag Engine; audit; hook; nav Centro di Controllo
 - [x] STEP-3 Fase 3.2 — Sezioni operative core (AI, Comunicazioni, Sponsor, Moderazione) + consumer runtime
 - [x] STEP-3 Fase 3.3 — Message Template Source; disclosure CRM; manutenzione News Bar (DL-P06)
-- [ ] STEP-3 Fase 3.4 — Programmazione automatica; card inline; DS; storico audit; smoke consumer collegati
-- [ ] **Post-3.4 (obbligatoria):** Audit completa copertura Feature Flag e consumer ancora mancanti — PO decide collegamenti successivi
+- [x] STEP-3 Fase 3.4 — Programmazione automatica; card inline; DS; storico audit; smoke consumer collegati — PO ✓ 2026-07-18
+- [x] **Post-3.4 — ricognizione / audit tecnico:** report copertura Feature Flag / consumer — 2026-07-18 (non chiude l’attività)
+- [x] **Post-3.4 — piano batch PO:** Batch 1–3 definiti e completati (2026-07-19); Batch 4 **eliminato** (DL-P12, 2026-07-20)
+- [x] **Post-3.4 — Batch 1:** `credit_purchase`, `subscriptions`, `moderation.reviews` (UX) — 2026-07-19
+- [x] **Post-3.4 — Batch 2:** `admin_partner`, `notifications` — 2026-07-19
+- [x] **Post-3.4 — Batch 3:** `shop_public`, `registration`, `onboarding` — 2026-07-19
+- [x] **Post-3.4 — decisione PO DL-P12:** nessun Feature Flag `collaboration_live`; collaborazione = capacità strutturale — 2026-07-20
+- [ ] **Post-3.4 — Audit A:** audit architetturale finale dominio Collaboration (DOC 28) — coerenza Workspace / condivisione / ruoli / realtime / lock / presenza / sync / ownership / UX (solo analisi)
+- [ ] **Post-3.4 — Audit B:** collaudo funzionale Centro di Controllo — SoT: `WF_02_AUDIT_B_CENTRO_CONTROLLO.md` (**audit forense COMPLETATO** §13; fix UX-01/02 BUG-01/02/03 ✓; aperti: smoke T14/T15, decisioni PO)
 
 ### Gate cambiati in questa sessione
 
@@ -752,11 +808,11 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Elemento | Esito sessione |
 |----------|----------------|
-| **Fasi completate** | STEP-1 Fase 1.1–1.3; STEP-2 Fase 2.1–2.6; STEP-3 Fase 3.1–3.3 |
+| **Fasi completate** | STEP-1 Fase 1.1–1.3; STEP-2 Fase 2.1–2.6; STEP-3 Fase 3.1–3.4 |
 | **STEP completati** | STEP-1, STEP-2 |
 | **Workflow completato** | No |
-| **Punto esatto raggiunto** | WF-02 Attivo · STEP-3 · Fase 3.4 In sviluppo (UI schedule + card + audit) |
+| **Punto esatto raggiunto** | WF-02 Attivo · STEP-3 · Post-3.4: Batch 1–3 ✓ · Audit B forense COMPLETATO (SoT) · fix UX/BUG ✓ · residui smoke/decisioni PO · Audit A da fare · **attività ancora aperta** |
 
 ### Prossimo checkpoint previsto
 
-Completare smoke Fase 3.4 → validazione PO → **Audit copertura Feature Flag / consumer mancanti** (attività tracciata post-3.4)
+**Audit B** (residui: smoke T14/T15 + decisioni AUDIT-05/T20; BUG-01 fixato) + **Audit A — DOC 28** → se senza criticità bloccanti: Validazione PO STEP-3 → avvio STEP-4.

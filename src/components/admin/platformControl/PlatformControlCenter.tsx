@@ -1,18 +1,34 @@
 import React, { useMemo, useState } from 'react';
-import { Loader2, ShieldCheck, SlidersHorizontal, Zap } from 'lucide-react';
+import {
+    AlertTriangle,
+    Bot,
+    History,
+    Loader2,
+    MessageSquare,
+    ShieldAlert,
+    ShieldCheck,
+    SlidersHorizontal,
+    Store,
+    Type,
+    Zap,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/common/AdminPageHeader';
 import { usePlatformControl } from '@/context/PlatformControlContext';
 import {
     PLATFORM_CONTROL_SECTION_KEYS,
+    PLATFORM_CONTROL_TAB_COPY,
     PLATFORM_CONTROL_UI_TABS,
     PLATFORM_FEATURE_FLAG_KEYS,
     type PlatformControlSectionId,
+    type PlatformControlUiTabId,
 } from '@/constants/platformFeatureFlags';
 import { PLATFORM_FEATURE_FLAG_FALLBACKS } from '@/services/platformControl/platformControlMapper';
 import { usePlatformControlTypography } from '@/hooks/usePlatformControlTypography';
 import { User } from '@/types/users';
 import type { PlatformFlagSchedule } from '@/types/platformControl';
 import { PlatformControlSection } from './PlatformControlSection';
+import { PlatformControlTabBanner } from './PlatformControlTabBanner';
 import { MessageTemplatesPanel } from './MessageTemplatesPanel';
 import { MaintenancePanel } from './MaintenancePanel';
 import { SchedulePanel } from './SchedulePanel';
@@ -22,31 +38,17 @@ interface PlatformControlCenterProps {
     currentUser: User;
 }
 
-type PlatformControlTabId = (typeof PLATFORM_CONTROL_UI_TABS)[number]['id'];
+type PlatformControlTabId = PlatformControlUiTabId;
 
-const SECTION_META: Record<
-    PlatformControlSectionId,
-    { title: string; description: string; note?: string }
-> = {
-    ai: {
-        title: 'AI',
-        description:
-            'Granularità AI Utente / Admin All / Admin Limited, stop emergenza e acquisto crediti. On/off operativo rapido resta in AI Control Center.',
-        note: 'AI Control Center ≠ Centro di Controllo — strumenti separati.',
-    },
-    comms: {
-        title: 'Comunicazioni',
-        description:
-            'Chat Admin↔Partner, Utente↔Sponsor e notifiche. Messaggi di disabilitazione nella card del flag.',
-    },
-    sponsor: {
-        title: 'Sponsor',
-        description: 'Candidature, shop pubblici e soglia rating alert.',
-    },
-    moderation: {
-        title: 'Moderazione',
-        description: 'Recensioni, upload foto, segnalazioni e post community.',
-    },
+/** Icone di presentazione TAB — i testi del banner sono in PLATFORM_CONTROL_TAB_COPY. */
+const TAB_ICONS: Record<PlatformControlTabId, LucideIcon> = {
+    ai: Bot,
+    comms: MessageSquare,
+    sponsor: Store,
+    moderation: ShieldAlert,
+    maintenance: AlertTriangle,
+    globals: Type,
+    audit: History,
 };
 
 export const PlatformControlCenter: React.FC<PlatformControlCenterProps> = ({ currentUser }) => {
@@ -88,24 +90,17 @@ export const PlatformControlCenter: React.FC<PlatformControlCenterProps> = ({ cu
         await mutateFlag(key, { schedules });
     };
 
-    const renderFlagSection = (sectionId: PlatformControlSectionId) => {
-        const meta = SECTION_META[sectionId];
-        return (
-            <PlatformControlSection
-                sectionId={sectionId}
-                title={meta.title}
-                description={meta.description}
-                note={meta.note}
-                flagKeys={PLATFORM_CONTROL_SECTION_KEYS[sectionId]}
-                flagsByKey={flagsByKey}
-                canWrite={canWrite}
-                schedulesSuspended={schedulesSuspended}
-                onMutate={handleMutate}
-            />
-        );
-    };
+    const renderFlagSection = (sectionId: PlatformControlSectionId) => (
+        <PlatformControlSection
+            flagKeys={PLATFORM_CONTROL_SECTION_KEYS[sectionId]}
+            flagsByKey={flagsByKey}
+            canWrite={canWrite}
+            schedulesSuspended={schedulesSuspended}
+            onMutate={handleMutate}
+        />
+    );
 
-    const renderActiveTab = () => {
+    const renderActiveTabBody = () => {
         switch (activeTab) {
             case 'ai':
             case 'comms':
@@ -139,6 +134,9 @@ export const PlatformControlCenter: React.FC<PlatformControlCenterProps> = ({ cu
                 return null;
         }
     };
+
+    const tabCopy = PLATFORM_CONTROL_TAB_COPY[activeTab];
+    const TabIcon = TAB_ICONS[activeTab];
 
     return (
         <div className="h-full flex flex-col bg-slate-950 min-h-0">
@@ -218,7 +216,13 @@ export const PlatformControlCenter: React.FC<PlatformControlCenterProps> = ({ cu
                     </div>
                 ) : null}
 
-                {renderActiveTab()}
+                <PlatformControlTabBanner
+                    icon={TabIcon}
+                    title={tabCopy.title}
+                    description={tabCopy.description}
+                />
+
+                {renderActiveTabBody()}
             </div>
         </div>
     );

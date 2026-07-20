@@ -8,6 +8,8 @@ import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService';
 import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
 import { AiRuntimeBanner } from '../ai/AiRuntimeBanner';
+import { useUser } from '@/context/UserContext';
+import { usePlatformControl } from '@/context/PlatformControlContext';
 
 interface Props {
     onGenerate: () => void;
@@ -119,11 +121,19 @@ const SectionHeader = ({ num, title }: { num: string, title: string }) => {
 export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
     const { aiSession, updateAiSession } = useAiPlanner();
     const { openModal } = useModal();
+    const { user } = useUser();
+    const { evaluationNowMs } = usePlatformControl();
     const [isCustomDays, setIsCustomDays] = useState(false);
     const [showDailyLogistics, setShowDailyLogistics] = useState(false);
     const [selectedStyles, setSelectedStyles] = useState<string[]>(['balanced']);
-    const aiRuntimeStatus = getAiRuntimeStatus();
+    void evaluationNowMs;
+    const aiRuntimeStatus = getAiRuntimeStatus({
+        userRole: user?.role ?? null,
+        isAuthenticated: Boolean(user && user.role !== 'guest'),
+    });
     const aiBlocked = !aiRuntimeStatus.available;
+    /** CTA / disabled label — always derived from Runtime Status SoT (title, then fallback). */
+    const aiUnavailableLabel = aiRuntimeStatus.title || 'AI non disponibile';
     
     // FETCH STYLES FROM DB CACHE
     const travelStyles = getCachedSetting<any[]>(SETTINGS_KEYS.TRAVEL_STYLES_CONFIG) || FALLBACK_STYLES;
@@ -250,6 +260,11 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
 
     const currentDistanceIndex = DISTANCE_STEPS.indexOf(aiSession.globalMaxDistance);
     const sliderValue = currentDistanceIndex !== -1 ? currentDistanceIndex : 1;
+    const buttonLabel = isLoading
+        ? 'Analisi in corso...'
+        : aiBlocked
+          ? aiUnavailableLabel
+          : 'Genera Itinerario Magico';
 
     return (
         <div className="space-y-5 pb-6">
@@ -267,6 +282,10 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
                   -webkit-appearance: none !important;
                 }
             `}</style>
+
+            {aiBlocked && (
+                <AiRuntimeBanner status={aiRuntimeStatus} className="mb-1" />
+            )}
 
             <section>
                 <SectionHeader num="1" title="DOVE VUOI ANDARE" />
@@ -503,8 +522,6 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
             </section>
 
             {error && <div className="p-4 bg-red-900/30 border border-red-500/50 rounded-xl text-red-400 text-xs font-bold flex items-center gap-2 animate-in slide-in-from-top-2"><AlertTriangle className="w-4 h-4"/> {error}</div>}
-
-            {aiBlocked && <AiRuntimeBanner status={aiRuntimeStatus} />}
             
             <div className="flex flex-col items-center gap-3 pt-4">
                 <button 
@@ -513,7 +530,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
                     className="w-full max-w-sm bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-display font-bold uppercase tracking-[0.15em] py-4 rounded-[1.5rem] shadow-2xl shadow-indigo-900/50 flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm border border-indigo-400/20"
                 >
                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5"/>} 
-                    {isLoading ? 'Analisi in corso...' : aiBlocked ? 'AI non disponibile' : 'Genera Itinerario Magico'}
+                    {buttonLabel}
                 </button>
 
                 {!aiBlocked && (

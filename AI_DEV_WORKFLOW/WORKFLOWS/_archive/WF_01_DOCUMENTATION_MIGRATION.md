@@ -1,17 +1,20 @@
 # WF-01 — Migrazione documentale completa
 
+> **Archiviato** in `WORKFLOWS/_archive/` — 2026-07-20.  
+> Chiusura formale confermata dal Product Owner (2026-07-20). Validazione PO già registrata in dashboard dal 2026-07-14.
+
 ## Metadati
 
 | Campo | Valore |
 |-------|--------|
 | **ID** | WF-01 |
 | **Nome** | Migrazione documentale completa |
-| **Stato Workflow** | Attivo |
+| **Stato Workflow** | **Completato** |
 | **SSOT** | `AI_CONTEXT/` (domini), `AI_CONTEXT_MASTER/` (vista consolidata) |
 | **Owner** | PO + AI |
 | **Creato** | 2026-07-13 |
-| **Ultimo aggiornamento** | 2026-07-13 |
-| **Aggiornato da** | Migrazione WF-01 |
+| **Ultimo aggiornamento** | 2026-07-20 |
+| **Aggiornato da** | Chiusura formale PO + archiviazione |
 
 ---
 
@@ -87,15 +90,15 @@ Documentazione storica frammentata in `docs/` con SSOT duplicati e riferimenti a
 | Campo | Valore |
 |-------|--------|
 | **Obiettivo** | MASTER, coverage map, riferimenti incrociati, chiusura WF |
-| **Stato STEP** | In verifica PO |
+| **Stato STEP** | **Completato** |
 | **DoD STEP** | Nessun riferimento a `docs/collaboration` o path obsoleti in SSOT attivi; validazione PO finale registrata |
 
 ### Fasi
 
 | Fase | Stato | PO ✓ |
 |------|-------|------|
-| Allineamento layer | Completato | ☐ |
-| Verifica PO | In verifica PO | ☐ |
+| Allineamento layer | Completato | ☑ |
+| Verifica PO | Completato | ☑ |
 
 ---
 
@@ -106,6 +109,8 @@ Documentazione storica frammentata in `docs/` con SSOT duplicati e riferimenti a
 | 2026-07-13 | Regole funzionali collaborazione ricostruite da codice + piano storico (Specifica Funzionale assente nel repo) | WF-01 |
 | 2026-07-13 | DOC 31 Packing, DOC 32 Design System — nuovi SSOT dedicati | WF-01 |
 | 2026-07-13 | Storico sempre in `docs/_archive/` con README indice | WF-01 |
+| 2026-07-14 | Chiusura formale assunta in roadmap/dashboard (WF-02 aperto) | PO |
+| 2026-07-20 | Conferma PO chiusura; file allineato a Completato e archiviato | PO |
 
 ---
 
@@ -113,9 +118,9 @@ Documentazione storica frammentata in `docs/` con SSOT duplicati e riferimenti a
 
 | Campo | Valore |
 |-------|--------|
-| **Data chiusura** | — *(dopo validazione PO finale)* |
-| **Validazione PO finale** | In attesa |
-| **Archiviato in** | File WF resta in `WORKFLOWS/` (riferimento storico processo) |
+| **Data chiusura** | 2026-07-14 (formale); conferma documentale 2026-07-20 |
+| **Validazione PO finale** | **Approvato** — confermato PO 2026-07-20 |
+| **Archiviato in** | `WORKFLOWS/_archive/WF_01_DOCUMENTATION_MIGRATION.md` |
 
 ---
 
@@ -125,3 +130,5 @@ Documentazione storica frammentata in `docs/` con SSOT duplicati e riferimenti a
 |------|------|------|-------|------|
 | 2026-07-13 | 1–4 | Certificazione | Completato | Migrazione documentale STEP 1–4 |
 | 2026-07-13 | 5 | Verifica PO | In verifica PO | Attesa validazione PO finale |
+| 2026-07-14 | 5 | Chiusura | Completato | Assunto PO in dashboard/roadmap |
+| 2026-07-20 | — | — | Completato (archiviato) | Allineamento file + conferma PO |

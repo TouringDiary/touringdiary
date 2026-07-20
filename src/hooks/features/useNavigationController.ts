@@ -6,11 +6,13 @@ import { useAiPlanner } from '@/context/AiPlannerContext';
 import { CityDetails, CitySummary } from '../../types/index';
 import { buildVirtualCity } from '../../services/cityService';
 import { GEO_CONFIG } from '../../constants/geoConfig';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
 
 export const useNavigationController = (cityManifest: CitySummary[]) => {
     const router = useAppRouter();
     const { openModal, closeModal, activeModal } = useModal();
     const { resetAiSession } = useAiPlanner();
+    const openCollaborationWorkspace = useOpenCollaborationWorkspace();
 
     // Virtual Mode State (Around Me / Merged)
     const [virtualCity, setVirtualCity] = useState<CityDetails | null>(null);
@@ -86,7 +88,7 @@ export const useNavigationController = (cityManifest: CitySummary[]) => {
         else if (section === 'auth') openModal('auth');
         else if (section === 'rewards') openModal('userDashboard', { tab: 'wallet' });
         else if (section === 'profile') openModal('userDashboard', { tab: tab || 'overview' });
-        else if (section === 'workspace') openModal('collaborationWorkspace');
+        else if (section === 'workspace') openCollaborationWorkspace();
         else if (section === 'community') openModal('global', { section: 'community', tab, id });
         else if (section === 'sponsors') openModal('global', { section: 'sponsors' });
         else if (section === 'around_me') openModal('aroundMe'); 

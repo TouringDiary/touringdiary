@@ -26,6 +26,12 @@ function typedOverride(
     return typeof value === 'boolean' ? value : null;
 }
 
+/**
+ * Returns the value of the first schedule window that contains `now`.
+ *
+ * Domain rule — overlapping windows: **array order wins** (first match).
+ * No chronological re-sort. Documented in DOC 30 (Feature Flag Engine).
+ */
 function getActiveScheduleValue(
     schedules: PlatformFlagSchedule[],
     now: Date

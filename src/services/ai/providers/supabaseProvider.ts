@@ -1,6 +1,7 @@
 import { supabase } from '../../supabaseClient';
 import { getGuestId } from '../../aiUsageService';
 import { parseEdgeInvokeResponse, EdgeInvokeResult } from '../aiEdgeErrors';
+import { assertAiRuntimeAvailable } from '../aiRuntimeStatus';
 
 export interface AiRequestOptions {
     model?: string;
@@ -19,6 +20,9 @@ export interface AiRequestOptions {
 
 export const supabaseProvider = {
     generate: async (prompt: string, options?: AiRequestOptions): Promise<EdgeInvokeResult> => {
+        // BUG-01: blocco immediato Feature Flag (ruolo da cache sync) — nessuna invocazione Edge.
+        assertAiRuntimeAvailable();
+
         if (!prompt?.trim()) {
             throw new Error('Prompt AI vuoto: impossibile invocare il runtime edge.');
         }

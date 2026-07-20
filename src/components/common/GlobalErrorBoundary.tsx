@@ -6,6 +6,11 @@ import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
+  /**
+   * `bootstrap`: fallback indipendente dai context, senza DeleteConfirmationModal.
+   * `application`: fallback completo con DeleteConfirmationModal sotto ConfigProvider.
+   */
+  variant?: 'bootstrap' | 'application';
 }
 
 interface ErrorBoundaryState {
@@ -113,6 +118,11 @@ class GlobalErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   handleReset = () => {
+    // Bootstrap boundary: fallback indipendente dai context → nessuna DeleteConfirmationModal.
+    if (this.props.variant === 'bootstrap') {
+      void this.confirmReset();
+      return;
+    }
     this.setState({ showConfirmReset: true });
   }
 
@@ -141,6 +151,7 @@ class GlobalErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
   render(): ReactNode {
     if (this.state.hasError) {
       const errorMsg = String(this.state.error);
+      const shouldRenderResetModal = this.props.variant !== 'bootstrap';
 
       return (
         <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans z-floating-panel relative">
@@ -170,14 +181,16 @@ class GlobalErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
                 </button>
             </div>
           </div>
-          <DeleteConfirmationModal 
-            isOpen={this.state.showConfirmReset}
-            onClose={() => this.setState({ showConfirmReset: false })}
-            onConfirm={this.confirmReset}
-            title="Reset Cache"
-            message="Questo pulirà la cache locale e ricaricherà le impostazioni globali dal server. L'app non si riavvierà. Continuare?"
-            confirmLabel="Reset e Ricarica Config"
-          />
+          {shouldRenderResetModal && (
+            <DeleteConfirmationModal 
+              isOpen={this.state.showConfirmReset}
+              onClose={() => this.setState({ showConfirmReset: false })}
+              onConfirm={this.confirmReset}
+              title="Reset Cache"
+              message="Questo pulirà la cache locale e ricaricherà le impostazioni globali dal server. L'app non si riavvierà. Continuare?"
+              confirmLabel="Reset e Ricarica Config"
+            />
+          )}
         </div>
       );
     }

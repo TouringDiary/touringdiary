@@ -14,7 +14,7 @@ Questo documento è il **proprietario esclusivo** della configurazione operativa
 |-----------|--------|
 | **Proprietà** | Feature Flags, soglie operative, testi configurabili gestiti dal Centro di Controllo, audit delle modifiche, programmazione toggle — **solo qui** |
 | **Consumer** | Sponsor, AI, Community, Messaggistica (futura), Economia e ogni altro dominio **consumano** le configurazioni — non le possiedono |
-| **Feature Flags** | **Nessun dominio** definisce o possiede direttamente le proprie flag; eventuali requisiti di dominio (es. «candidature sponsor sospese») si traducono in voci del registry **Centro di Controllo** |
+| **Feature Flags** | **Nessun dominio** definisce o possiede direttamente le proprie flag; eventuali requisiti di dominio (es. «candidature sponsor sospese») si traducono in voci del registry **Centro di Controllo**. **Eccezione strutturale (DL-P12):** capacità di piattaforma non opzionali (es. Collaboration / Workspace) **non** diventano Feature Flag CC |
 | **Anti-pattern** | Vietato duplicare in DOC 29 o in futuri SSOT di dominio la logica di ownership di flag, soglie o testi operativi globali |
 
 I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano proprietari di *come funziona* il proprio perimetro.
@@ -25,12 +25,12 @@ I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano pr
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 0.3.6 |
-| **Ultima revisione** | 2026-07-17 |
+| **Versione** | 0.3.9 |
+| **Ultima revisione** | 2026-07-20 |
 | **Stato** | Implementazione in Corso |
 | **Percorso SSOT** | `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` |
 | **UI Admin (nome definitivo PO)** | **Centro di Controllo** — **non rinominare** (DL-P02, conferma 2026-07-14) |
-| **Prossimo passo** | Completare Fase 3.4 (smoke + PO) → Audit copertura Feature Flag / consumer mancanti |
+| **Prossimo passo** | Audit copertura Feature Flag / consumer CC (post DL-P12) → Validazione PO STEP-3 |
 
 ### Naming (decisione PO — DL-P02)
 
@@ -144,19 +144,40 @@ Footer Admin Panel
 
 Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disabilitazione, descrizioni, manutenzione** — tutto editabile senza deployment.
 
-**Organizzazione UI (PO 2026-07-17):** il Centro di Controllo **non** è una lunga pagina verticale. La navigazione operativa è a **TAB funzionali** (mobile-first, scroll orizzontale):
+**Organizzazione UI (PO 2026-07-17; layout banner 2026-07-19):** il Centro di Controllo **non** è una lunga pagina verticale. La shell operativa è:
 
-| TAB UI | Contenuto |
-|--------|-----------|
-| **AI** | Flag AI (+ messaggi sulla card) |
-| **Comunicazioni** | Flag chat/notifiche (+ messaggi sulla card) |
-| **Sponsor** | Flag/soglie sponsor (+ messaggi sulla card) |
-| **Moderazione** | Flag moderazione (+ messaggi sulla card) |
-| **Manutenzione** | Flag manutenzione + messaggio + **Programmazione automatica** (non TAB separato) |
+1. **Header pagina** (titolo Centro di Controllo + riepilogo operativo)
+2. **TAB di navigazione** (mobile-first, scroll orizzontale)
+3. **Banner introduttivo della TAB** (icona + titolo + descrizione funzionale di **sezione**)
+4. **Contenuto operativo della TAB** (card Feature Flag e/o pannelli dedicati)
+
+| TAB UI | Contenuto operativo |
+|--------|---------------------|
+| **AI** | Card Feature Flag AI (+ messaggi sulla card) |
+| **Comunicazioni** | Card Feature Flag chat/notifiche (+ messaggi sulla card) |
+| **Sponsor** | Card Feature Flag/soglie sponsor (+ messaggi sulla card) |
+| **Moderazione** | Card Feature Flag moderazione (+ messaggi sulla card) |
+| **Manutenzione** | Controlli manutenzione + **Programmazione automatica** (non TAB separato) |
 | **Info Globali** | Solo testi **globali** piattaforma (non messaggi di singolo flag) |
 | **Storico Audit** | Lettura audit + export CSV |
 
-**Card Feature Flag autosufficienti (PO 2026-07-17):** ogni card gestisce direttamente stato della funzione, messaggio utente, eventuale motivazione e salvataggio del messaggio. L'amministratore **non** deve spostarsi in una sezione separata per modificare il messaggio associato a una funzione.
+**Responsabilità UI e Source of Truth (unica definizione):**
+
+| Elemento | Cosa comunica | Dove vive il testo (SoT) |
+|----------|---------------|---------------------------|
+| **Banner TAB** | Descrizione funzionale dell’**intera sezione** | `PLATFORM_CONTROL_TAB_COPY` (solo admin UI) |
+| **Card Feature Flag — help** | Descrizione amministrativa del **singolo interruttore** (effetto ON/OFF) | `PLATFORM_FEATURE_FLAG_ADMIN_HELP` (solo admin) |
+| **Card Feature Flag — messaggio utente** | Testo visto dall’utente quando la funzione è OFF/bloccata | **Message Template → DB `system_messages`** (DL-P13) — unica SoT |
+| **Pannelli** (Manutenzione, Info Globali, Storico Audit, Programmazione, …) | Controlli dell’area; testi globali / manutenzione | Controlli nel pannello; messaggi utente → **DB** |
+| **Catalogo TS `PLATFORM_*_MESSAGE_CATALOG`** | Seed editor / chiavi note / bootstrap se DB assente | **Non** è SoT runtime. Solo fallback tecnico di bootstrap |
+
+**Principio messaggi utente (DL-P13 — definitivo):**  
+Centro di Controllo → Message Template → Database = **unica** Source of Truth per tutto ciò che l’utente vede. Vietato usare il catalogo TypeScript come sorgente runtime dei messaggi utente. Hardcoded ammessi solo per log, debug, commenti, errori tecnici interni, e fallback bootstrap minimo.
+
+**Regole correlate:**
+- **Card autosufficienti (PO 2026-07-17):** stato funzione, messaggio utente, motivazione e salvataggio messaggio si gestiscono **sulla card** — non in una sezione messaggi separata per quel flag.
+- `PlatformMessageTemplateCatalogEntry.description` descrive **solo** lo scopo del **template messaggio**, non l’interruttore. **Non** riusarlo al posto di `PLATFORM_FEATURE_FLAG_ADMIN_HELP`.
+- I testi SoT utente **non** vanno duplicati come stringhe runtime nei componenti UI (salvo fallback bootstrap).
 
 ### Matrice permessi Centro di Controllo (DoD-P3 — PO 2026-07-14)
 
@@ -234,7 +255,7 @@ Flag: recensioni, upload foto, segnalazioni, post community — vedi catalogo §
 
 ### Macro-sezione — Info Globali (evoluzione di «Testi e messaggi»)
 
-TAB **Info Globali**: contiene **esclusivamente** informazioni realmente globali della piattaforma (es. disclosure CRM, registrazione chiusa).
+TAB **Info Globali**: contiene **esclusivamente** informazioni realmente globali della piattaforma (es. disclosure CRM, registrazione chiusa). Dove editare messaggi di flag vs globali → tabella in **Organizzazione UI** (e riga «Messaggio legato a un Feature Flag» sotto).
 
 | Tipo messaggio | Dove si edita |
 |----------------|---------------|
@@ -283,7 +304,7 @@ Tutte le **macro-sezioni già approvate** in questo SSOT (AI, Comunicazioni/Chat
 | Sezione proposta (non ancora dominio) | Stato |
 |---------------------------------------|-------|
 | Accesso & Registrazione | Coperta da flag catalogo in macro **Piattaforma** — non sezione CC separata finché non richiesto |
-| Collaborazione & Workspace | Dominio DOC 28 — fuori CC v1; flag `feature.platform.collaboration_live` in catalogo WF-02 |
+| Collaborazione & Workspace | Dominio DOC 28 — capacità **strutturale** della piattaforma; **nessun** Feature Flag CC (DL-P12); fuori TAB dedicati CC v1 |
 | Gamification | Dominio DOC 16/06 — fuori CC v1 dedicato |
 | Territorio & Contenuti | Dominio territoriale — fuori CC v1 dedicato |
 
@@ -321,7 +342,7 @@ Catalogo v1 **approvato** — registry **estensibile**. Tutti i toggle sotto son
 | `feature.sponsor.applications`, `feature.sponsor.shop_public` | **WF-02** | STEP-3 + consumer DOC 29 |
 | `threshold.sponsor_rating_alert_stars` | **WF-02** | STEP-3 — soglia; consumer STEP-2 Fase 6 |
 | `feature.moderation.*` (reviews, photos, suggestions, community_posts) | **WF-02** | STEP-3 |
-| `feature.platform.maintenance`, `registration`, `onboarding`, `collaboration_live` | **WF-02** | STEP-3 |
+| `feature.platform.maintenance`, `registration`, `onboarding` | **WF-02** | STEP-3 |
 | Message Template Source (`platform.*`, `sponsor.*`, `comms.*`, …) | **WF-02** | STEP-3 Fase 3.3 |
 | Motore messaggistica unificato (consolidamento) | **WF futuro** | Post G-MSG-1 step 5 — non è un flag mancante |
 | Privacy avanzata / compliance estesa | **WF-03** | DL-P09 — fuori WF-02 |
@@ -373,6 +394,10 @@ effective = manual_override ?? (active_schedule?.value) ?? default
 ```
 
 Se `user.audience` in `blocked_audiences` → flag valutato come OFF **eccetto** `admin_all` (sempre esente).
+
+Quando `feature.platform.schedules_paused` è attivo, lo strato `active_schedule` è ignorato (le finestre restano salvate).
+
+**Finestre di programmazione sovrapposte:** se più elementi di `schedules` contengono lo stesso istante, vince la **prima** finestra nell’ordine dell’array (nessun riordino cronologico). Runtime: `getActiveScheduleValue` in `evaluateFeatureFlag`.
 
 ### Audience — riutilizzabile
 
@@ -433,7 +458,6 @@ Se `user.audience` in `blocked_audiences` → flag valutato come OFF **eccetto**
 | Modalità manutenzione | `feature.platform.maintenance` | Messaggio **fisso** in News Bar + altre news scorrono (DL-P06) | tutti | Sì | Sì | `maintenance_ticker_message` | Sì + motivazione |
 | Registrazione nuovi utenti | `feature.platform.registration` | Signup | public | Sì | Sì | `registration_closed` | Sì |
 | Onboarding guidato | `feature.platform.onboarding` | Tour iniziale | registered | No | Sì | — | Sì |
-| Collaborazione live | `feature.platform.collaboration_live` | Presenza live workspace | registered | Sì | Sì | — | Sì |
 
 ### Categoria — Economia & Pagamenti
 
@@ -446,14 +470,13 @@ Se `user.audience` in `blocked_audiences` → flag valutato come OFF **eccetto**
 
 ## Appendice A — Chiavi Message Template Source (v1 — approvato macro)
 
-Vedi macro-sezioni sopra. Prefissi: `platform.*`, `sponsor.*`, `comms.*`, `ai.*`, `moderation.*`. *Testi legali/privacy avanzata → WF-03 (DL-P09).* *Implementazione attuale:* tabella `system_messages`.
+Vedi macro-sezioni sopra. Prefissi: `platform.*`, `sponsor.*`, `comms.*`, `ai.*`, `moderation.*`. *Testi legali/privacy avanzata → WF-03 (DL-P09).*
 
-**Distinzione catalogo (implementazione):**
-- messaggi di **card Feature Flag** → catalogo flag / editor inline sulla card;
-- messaggi **globali** → TAB Info Globali (`PLATFORM_GLOBAL_MESSAGE_CATALOG`);
-- messaggio manutenzione → card/panel Manutenzione (News Bar, DL-P06).
+**Implementazione / SoT (DL-P13):** tabella **`system_messages`** (Database). Runtime e consumer leggono **solo** dal DB (via `useSystemMessage` / cache bootstrap). Il catalogo TypeScript (`PLATFORM_FLAG_MESSAGE_CATALOG`, `PLATFORM_GLOBAL_MESSAGE_CATALOG`) serve a: elenco chiavi note, seed editor, **fallback bootstrap** se la riga DB manca — **non** è Source of Truth equivalente al Database.
 
-Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sponsor_rating_alert_stars` (default `3`) — *attuale:* `global_settings`.
+Help admin flag e copy TAB restano costanti TS (`PLATFORM_FEATURE_FLAG_ADMIN_HELP`, `PLATFORM_CONTROL_TAB_COPY`) — non sono messaggi utente.
+
+Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sponsor_rating_alert_stars` (default `3`).
 
 ---
 
@@ -463,6 +486,7 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 |----|----------|-------|
 | **DoD-P1** | Naming Centro di Controllo validato PO | ☑ |
 | **DoD-P2** | Catalogo Feature Flags v1 approvato PO | ☑ (DL-P07 macro + DL-P11 catalogo chiuso) |
+| **DoD-P2b** | Messaggi utente: unica SoT Message Template → DB (DL-P13); catalogo TS non SoT runtime | ☑ (MSG-SOT 2026-07-20) |
 | **DoD-P3** | Matrice permessi per sezione | ☑ (admin_all scrittura; admin_limited lettura — 2026-07-14) |
 | **DoD-P4** | Modello scheduling + override documentato | ☑ |
 | **DoD-P5** | Modello audience documentato | ☑ |
@@ -556,13 +580,30 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 **Impatto:** § *Sezioni Centro di Controllo — perimetro implementativo*; WF-02 STEP-3 allineato.
 
+### DL-P12
+
+**Data:** 2026-07-20
+
+**Decisione (PO — architetturale definitiva):** Il Feature Flag `feature.platform.collaboration_live` **non** deve essere implementato né cablato nel Centro di Controllo. La collaborazione (Workspace, condivisione, realtime, presenza, lock, sincronizzazione, ownership, UX) è una **capacità strutturale** della piattaforma, non una funzionalità opzionale attivabile/disattivabile dal CC.
+
+**Motivazione:** Un toggle globale falserebbe il modello di dominio DOC 28 e confonderebbe ownership CC vs Collaboration.
+
+**Impatto:**
+- Flag rimosso dal catalogo Feature Flags v1 e dalla pianificazione WF-02 STEP-3;
+- Batch 4 Post-3.4 (`collaboration_live`) **eliminato** — nessun wiring;
+- La ricognizione DOC 28 resta obbligatoria come **audit architetturale finale** del dominio Collaboration (coerenza Workspace / condivisione / ruoli / realtime / lock / presenza / sync / ownership / UX) — **non** per decidere un Feature Flag;
+- Successivo audit completo del Centro di Controllo (consumer ↔ flag realmente gestibili);
+- Solo dopo entrambi gli audit, se senza criticità, chiusura STEP-3 → STEP-4.
+
+**Nota:** `global_settings.collaboration_live_config` (timeout lock / heartbeat) resta Configuration Source di dominio DOC 28 / Impostazioni Globali Workspace — **non** è un Feature Flag CC.
+
 ### DL-P11
 
 **Data:** 2026-07-14
 
 **Decisione (DEC-CC-CATALOG — PO):** Tutti i Feature Flag e toggle **già approvati** fanno parte del perimetro implementativo. Catalogo **estensibile** per nuovi toggle senza ridisegnare architettura.
 
-**Impatto:** § *Pianificazione Feature Flags per Workflow*; DoD-P2 ☑ definitivo.
+**Impatto:** § *Pianificazione Feature Flags per Workflow*; DoD-P2 ☑ definitivo. *Aggiornato 2026-07-20 (DL-P12):* `feature.platform.collaboration_live` **revocato** dal catalogo approvato.
 
 ### DL-P04
 
@@ -573,6 +614,22 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 **Motivazione:** Flessibilità operativa senza deploy; sicurezza admin.
 
 **Impatto:** Feature Flag Engine unificato; metadato `supports_schedule` / `supports_audience` per evitare rigidità.
+
+### DL-P13
+
+**Data:** 2026-07-20
+
+**Decisione (PO — architetturale definitiva):** Tutti i messaggi destinati agli utenti sono governati dal Centro di Controllo tramite Message Template → Database come **unica Source of Truth**. I cataloghi TypeScript **non** sono Source of Truth runtime. Vietati messaggi utente hardcoded nel codice applicativo. Ammessi in codice solo: stringhe tecniche, log, errori interni, debug, commenti; fallback bootstrap solo se template DB assente.
+
+**Impatto:** Consumer runtime → DB; catalogo TS = seed/editor/bootstrap; DoD-P2b; WF-02 MSG-SOT.
+
+### DL-P14
+
+**Data:** 2026-07-20
+
+**Decisione (PO — backlog Scheduler):** Ogni riga di programmazione nella UI deve mostrare uno **stato runtime** aggiornato automaticamente, es.: Programmata · Attiva · Terminata · In pausa · Disabilitata · Errore. Implementare **durante** il lavoro sullo Scheduler (dopo audit forense SCH-AUDIT-02); **non** dimenticare.
+
+**Impatto:** Backlog STEP Post-3.4 / STEP-4 rifiniture Scheduler; SoT collaudo `WF_02_AUDIT_B` §16; nessuna implementazione fino a chiusura audit.
 
 ### DL-P05
 
@@ -594,13 +651,18 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 | Versione | Data | Modifiche |
 |----------|------|-----------|
-| 0.1.0 | 2026-07-13 | Creazione SSOT |
-| 0.2.0 | 2026-07-13 | Centro di Controllo; sezioni complete; Feature Flag Engine; gate; manutenzione ticker |
-| 0.2.1 | 2026-07-13 | Ownership; Configuration Source; Runtime Integration |
-| 0.3.0 | 2026-07-14 | Review PO: DL-P06–P09; macro-sezioni; AI separato; WF-03 privacy; DoD aggiornati |
-| 0.3.1 | 2026-07-14 | Chiusura DEC-CC-SCOPE/CATALOG: DL-P10–P11; pianificazione flag per WF |
+| 0.3.11 | 2026-07-20 | DL-P13 rafforzato: catalogo TS ≠ SoT; DoD-P2b; Appendice A allineata |
+| 0.3.10 | 2026-07-20 | DL-P13 Message Template unica SoT; DL-P14 stati riga Scheduler (backlog) |
+| 0.3.9 | 2026-07-20 | DL-P12: revoca `feature.platform.collaboration_live` (collaborazione = capacità strutturale; nessun toggle CC) |
+| 0.3.8 | 2026-07-19 | Rifinitura editoriale: responsabilità UI/SoT unificate in Organizzazione UI; Appendice A e Info Globali come riferimenti |
+| 0.3.7 | 2026-07-19 | UI: banner introduttivo TAB; SoT descrizioni admin flag + copy TAB; distinzione help flag vs template messaggio; regola finestre schedule sovrapposte |
 | 0.3.6 | 2026-07-17 | UI a TAB; card autosufficienti; Info Globali vs messaggi flag; Programmazione sotto Manutenzione; Programmazioni in pausa |
 | 0.3.5 | 2026-07-17 | Fase 3.4: schedule assolute + pausa globale + disattiva; card flag con messaggio inline; DS AdminSectionCard; storico audit UI; post-3.4 audit consumer |
 | 0.3.4 | 2026-07-17 | Prossimo passo → Fase 3.4; Message Template Source + manutenzione DL-P06 in STEP-3 Fase 3.3 |
 | 0.3.3 | 2026-07-17 | Prossimo passo → Fase 3.3; stato Implementazione in Corso (post Fase 3.1–3.2) |
 | 0.3.2 | 2026-07-14 | Principio catalogo evolutivo (espansione flag senza revisione SSOT) |
+| 0.3.1 | 2026-07-14 | Chiusura DEC-CC-SCOPE/CATALOG: DL-P10–P11; pianificazione flag per WF |
+| 0.3.0 | 2026-07-14 | Review PO: DL-P06–P09; macro-sezioni; AI separato; WF-03 privacy; DoD aggiornati |
+| 0.2.1 | 2026-07-13 | Ownership; Configuration Source; Runtime Integration |
+| 0.2.0 | 2026-07-13 | Centro di Controllo; sezioni complete; Feature Flag Engine; gate; manutenzione ticker |
+| 0.1.0 | 2026-07-13 | Creazione SSOT |

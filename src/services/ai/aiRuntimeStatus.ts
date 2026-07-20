@@ -1,6 +1,11 @@
 import { getCachedSetting } from '../settingsService';
-import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
+import {
+    findMessageCatalogByKey,
+    PLATFORM_FEATURE_FLAG_KEYS,
+    PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
 import { evaluateCachedFeatureFlag } from '@/domain/platformControl/platformFlagCache';
+import { resolveSystemMessageBody, resolveSystemMessageTitle } from '@/services/communicationService';
 import type { FeatureFlagEvaluationContext } from '@/types/platformControl';
 import type { UserRole } from '@/types/users';
 
@@ -9,7 +14,23 @@ export type AiRuntimeBlockReason = 'EMERGENCY_STOP' | 'AI_DISABLED' | 'AUDIENCE_
 export interface AiRuntimeStatus {
     available: boolean;
     reason?: AiRuntimeBlockReason;
+    /** User-facing body (DB SoT). */
     message?: string;
+    /** User-facing short title (DB SoT) — e.g. CTA / toast. */
+    title?: string;
+}
+
+/** Synced from PlatformControlProvider — used when callers omit ctx (gateway boundary). */
+let cachedEvaluationCtx: FeatureFlagEvaluationContext = {
+    userRole: null,
+    isAuthenticated: false,
+};
+
+export function setAiRuntimeEvaluationContext(ctx: FeatureFlagEvaluationContext): void {
+    cachedEvaluationCtx = {
+        userRole: ctx.userRole,
+        isAuthenticated: ctx.isAuthenticated,
+    };
 }
 
 function parseSettingBool(raw: unknown, defaultWhenMissing: boolean): boolean {
@@ -26,23 +47,39 @@ function aiFlagKeyForRole(role: UserRole | null | undefined): string {
     return PLATFORM_FEATURE_FLAG_KEYS.AI_USERS;
 }
 
+/** DB SoT via cache; catalog defaultBody/Title only as bootstrap if DB/cache miss (DL-P13). */
+function resolveUserCopy(
+    messageKey: string | null | undefined,
+    bootstrapBody: string,
+    bootstrapTitle: string
+): { message: string; title: string } {
+    const catalog = findMessageCatalogByKey(messageKey);
+    const body = resolveSystemMessageBody(
+        messageKey,
+        catalog?.defaultBody?.trim() || bootstrapBody
+    );
+    const title = resolveSystemMessageTitle(
+        messageKey,
+        catalog?.defaultTitle?.trim() || bootstrapTitle
+    );
+    return { message: body, title };
+}
+
 /**
  * Reads ACC governance from bootstrap cache (global_settings) plus CC Feature Flags.
  * AI Control Center remains the quick on/off; Centro di Controllo adds granularity (G-AI-SEP).
  */
 export function getAiRuntimeStatus(ctx?: FeatureFlagEvaluationContext): AiRuntimeStatus {
-    const evaluationCtx: FeatureFlagEvaluationContext = ctx ?? {
-        userRole: null,
-        isAuthenticated: false,
-    };
+    const evaluationCtx: FeatureFlagEvaluationContext = ctx ?? cachedEvaluationCtx;
 
     const emergency = parseSettingBool(getCachedSetting('ai_emergency_stop'), false);
     if (emergency) {
-        return {
-            available: false,
-            reason: 'EMERGENCY_STOP',
-            message: 'I servizi AI sono temporaneamente sospesi per emergenza.',
-        };
+        const copy = resolveUserCopy(
+            PLATFORM_MESSAGE_TEMPLATE_KEYS.AI_EMERGENCY_NOTICE,
+            'I servizi AI sono temporaneamente sospesi per emergenza.',
+            'Emergenza AI'
+        );
+        return { available: false, reason: 'EMERGENCY_STOP', ...copy };
     }
 
     const ccEmergency = evaluateCachedFeatureFlag(
@@ -50,20 +87,22 @@ export function getAiRuntimeStatus(ctx?: FeatureFlagEvaluationContext): AiRuntim
         evaluationCtx
     );
     if (ccEmergency?.enabled) {
-        return {
-            available: false,
-            reason: 'EMERGENCY_STOP',
-            message: 'I servizi AI sono temporaneamente sospesi per emergenza (Centro di Controllo).',
-        };
+        const copy = resolveUserCopy(
+            ccEmergency.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.AI_EMERGENCY_NOTICE,
+            'I servizi AI sono temporaneamente sospesi per emergenza (Centro di Controllo).',
+            'Emergenza AI'
+        );
+        return { available: false, reason: 'EMERGENCY_STOP', ...copy };
     }
 
     const enabled = parseSettingBool(getCachedSetting('ai_enabled'), true);
     if (!enabled) {
-        return {
-            available: false,
-            reason: 'AI_DISABLED',
-            message: 'I servizi AI sono temporaneamente disattivati per manutenzione.',
-        };
+        const copy = resolveUserCopy(
+            PLATFORM_MESSAGE_TEMPLATE_KEYS.AI_MAINTENANCE_NOTICE,
+            'I servizi AI sono temporaneamente disattivati per manutenzione.',
+            'Manutenzione AI'
+        );
+        return { available: false, reason: 'AI_DISABLED', ...copy };
     }
 
     const roleFlag = evaluateCachedFeatureFlag(
@@ -71,10 +110,15 @@ export function getAiRuntimeStatus(ctx?: FeatureFlagEvaluationContext): AiRuntim
         evaluationCtx
     );
     if (roleFlag && !roleFlag.enabled) {
+        const copy = resolveUserCopy(
+            roleFlag.messageKey,
+            'I servizi AI non sono disponibili per il tuo profilo al momento.',
+            'AI non disponibile'
+        );
         return {
             available: false,
             reason: roleFlag.source === 'audience_blocked' ? 'AUDIENCE_BLOCKED' : 'AI_DISABLED',
-            message: 'I servizi AI non sono disponibili per il tuo profilo al momento.',
+            ...copy,
         };
     }
 
@@ -83,4 +127,12 @@ export function getAiRuntimeStatus(ctx?: FeatureFlagEvaluationContext): AiRuntim
 
 export function isAiRuntimeAvailable(ctx?: FeatureFlagEvaluationContext): boolean {
     return getAiRuntimeStatus(ctx).available;
+}
+
+/** Gateway / provider boundary — throws before any Edge/API call. */
+export function assertAiRuntimeAvailable(ctx?: FeatureFlagEvaluationContext): void {
+    const status = getAiRuntimeStatus(ctx);
+    if (!status.available) {
+        throw new Error(status.message || 'I servizi AI non sono disponibili al momento.');
+    }
 }

@@ -7,6 +7,9 @@ import { GalleryUploadModal } from '../gallery/GalleryUploadModal';
 import { GallerySuccessModal } from '../gallery/GallerySuccessModal';
 import { GalleryGrid } from '../gallery/GalleryGrid';
 import { compressImage, dataURLtoFile } from '../../../utils/common';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '@/constants/platformFeatureFlags';
+import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
 
 interface Props {
     city: CityDetails;
@@ -23,6 +26,11 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
         isUploading, uploadError, setUploadError,
         pagination, uploadPhoto, updatePhotoLikes
     } = useCityGallery(city, user);
+
+    // UX Gate only (immediate disable / feedback). Security Gate = uploadCommunityPhoto (service boundary).
+    // Pipeline: UI → UX Gate → Service Boundary → Feature Flag Runtime → Database.
+    const photosFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS);
+    const photosEnabled = photosFlag?.enabled ?? true;
 
     // 2. UI State
     const [activeTab, setActiveTab] = useState<'official' | 'community'>('community');
@@ -74,6 +82,15 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
         if (isUploading) return;
         if (user.role === 'guest') {
             onOpenAuth();
+            return;
+        }
+        if (!photosEnabled) {
+            setUploadError(
+                resolvePlatformUserBody(
+                    PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_PHOTOS_PAUSED,
+                    'Il caricamento foto è temporaneamente disabilitato.'
+                )
+            );
             return;
         }
         fileInputRef.current?.click();
@@ -143,7 +160,7 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
         <div className="flex flex-col animate-in fade-in select-none relative w-full h-auto">
             
             {/* Hidden Input */}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} disabled={isUploading}/>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} disabled={isUploading || !photosEnabled}/>
 
             {/* Modals */}
             {lightboxData && (
@@ -175,6 +192,12 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
                 <GallerySuccessModal onClose={() => setShowSuccessModal(false)} />
             )}
 
+            {!photosEnabled && uploadError && (
+                <div className="mx-4 mb-3 p-3 rounded-xl border border-amber-500/40 bg-amber-950/40 text-amber-200 text-xs font-bold">
+                    {uploadError}
+                </div>
+            )}
+
             {/* Main Content */}
             <GalleryGrid 
                 photos={photos}
@@ -195,4 +218,3 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
         </div>
     );
 };
-

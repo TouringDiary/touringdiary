@@ -25,6 +25,8 @@ export const PLATFORM_FEATURE_FLAG_KEYS = {
     MODERATION_SUGGESTIONS: 'feature.moderation.suggestions',
     MODERATION_COMMUNITY_POSTS: 'feature.moderation.community_posts',
     PLATFORM_MAINTENANCE: 'feature.platform.maintenance',
+    PLATFORM_REGISTRATION: 'feature.platform.registration',
+    PLATFORM_ONBOARDING: 'feature.platform.onboarding',
     /** Global pause: schedules stay stored but are ignored by evaluateFeatureFlag. */
     PLATFORM_SCHEDULES_PAUSED: 'feature.platform.schedules_paused',
 } as const;
@@ -32,15 +34,134 @@ export const PLATFORM_FEATURE_FLAG_KEYS = {
 export type PlatformFeatureFlagKey =
     (typeof PLATFORM_FEATURE_FLAG_KEYS)[keyof typeof PLATFORM_FEATURE_FLAG_KEYS];
 
+/**
+ * Testi informativi per le **card Feature Flag** del Centro di Controllo
+ * (destinatari: Product Owner / amministratori).
+ *
+ * RESPONSABILITÀ: descrizione **funzionale del Feature Flag** — cosa governa
+ * l’interruttore, quali aree dell’app sono interessate, effetto di ON/OFF.
+ * È la Source of Truth delle descrizioni mostrate nelle card (non duplicare in UI).
+ *
+ * NON confondere con `PlatformMessageTemplateCatalogEntry.description`, che
+ * descrive esclusivamente il **template messaggio** associato (titolo/corpo
+ * utente finale), non il significato dell’interruttore.
+ */
+export const PLATFORM_FEATURE_FLAG_ADMIN_HELP: Record<PlatformFeatureFlagKey, string> = {
+    [PLATFORM_FEATURE_FLAG_KEYS.AI_USERS]:
+        'Abilita o disabilita le funzionalità AI rivolte agli utenti (e alle schermate pubbliche che le espongono).\n' +
+        'Quando disattivato vengono bloccati Magic Planner, Roadbook AI, l’assistente AI in Home/Hero e la generazione AI avviata da un utente.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_ALL]:
+        'Abilita o disabilita le funzionalità AI usate con profilo Admin All.\n' +
+        'Quando disattivato, le generazioni AI avviate da un Admin All (ad es. flusso generazione itinerario autenticato) vengono bloccate.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_LIMITED]:
+        'Abilita o disabilita le funzionalità AI usate con profilo Admin Limited.\n' +
+        'Quando disattivato, le generazioni AI avviate da un Admin Limited vengono bloccate.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.AI_EMERGENCY]:
+        'Stop di emergenza di tutte le funzionalità AI controllate da questo Centro.\n' +
+        'Quando attivo, i servizi AI risultano sospesi per ogni profilo (utenti e amministratori), indipendentemente dagli altri interruttori AI.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_CREDIT_PURCHASE]:
+        'Consente o sospende l’acquisto di crediti AI (modale Ricarica crediti, header crediti, flusso quota esaurita).\n' +
+        'Quando disattivato gli utenti non possono avviare un nuovo acquisto di pacchetti crediti.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_SUBSCRIPTIONS]:
+        'Consente o sospende l’upgrade agli abbonamenti premium utente (modale Passa a Premium e relative chiamate all’upgrade).\n' +
+        'Quando disattivato non è possibile avviare un nuovo abbonamento premium; gli abbonamenti già attivi non vengono cancellati da questo interruttore.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER]:
+        'Consente o sospende la chat operativa Admin ↔ Partner nel CRM Sponsor (PartnerDetailModal).\n' +
+        'Quando disattivato lo storico messaggi resta consultabile, ma gli amministratori non possono inviare nuovi messaggi al Partner.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR]:
+        'Consente agli utenti (Partner) di inviare messaggi allo staff dalle Conversazioni del proprio spazio.\n' +
+        'Quando disattivato le conversazioni restano consultabili, ma non è possibile inviare nuovi messaggi.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS]:
+        'Consente o sospende il Centro Notifiche in-app (dashboard utente) e i badge unread nell’header.\n' +
+        'Quando disattivato l’utente non vede né aggiorna le notifiche; i produttori lato servizio possono ancora scrivere record (gate UI, non kill-switch write).',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_APPLICATIONS]:
+        'Consente l’invio di nuove candidature Sponsor dal percorso «Diventa Partner».\n' +
+        'Quando disattivato gli utenti non possono aprire o completare nuove richieste di adesione.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC]:
+        'Mostra o nasconde le vetrine shop dei Partner nelle aree pubbliche (header città, bottega da POI, ShopPage).\n' +
+        'Quando disattivato non è possibile aprire lo shopping pubblico; la gestione Bottega del Partner in dashboard resta disponibile.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_RATING_THRESHOLD]:
+        'Soglia (in stelle) usata nella gestione Sponsor per evidenziare e filtrare i Partner sotto soglia di qualità.\n' +
+        'Influisce sul filtro «sotto soglia» e sugli indicatori di alert nella tabella Sponsor dell’area Admin.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_REVIEWS]:
+        'Consente agli utenti autenticati di inviare nuove recensioni sui luoghi.\n' +
+        'Quando disattivato l’invio delle recensioni viene bloccato e l’utente vede un messaggio di sospensione.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS]:
+        'Consente il caricamento di foto nella galleria città / community.\n' +
+        'Quando disattivato gli utenti non possono caricare nuove foto e vedono un avviso di disabilitazione temporanea.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_SUGGESTIONS]:
+        'Consente l’invio di segnalazioni e suggerimenti sui luoghi (modulo Segnala).\n' +
+        'Quando disattivato il modulo non accetta nuovi invii e mostra un avviso.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS]:
+        'Consente la pubblicazione di post / snap nella community (Live Feed).\n' +
+        'Quando disattivato non è possibile confermare nuovi upload community.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE]:
+        'Attiva la modalità manutenzione sulla News Bar in cima all’app.\n' +
+        'Quando attivo compare un messaggio fisso di manutenzione; le altre news continuano a scorrere accanto.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION]:
+        'Consente o sospende la registrazione di nuovi account utente (tab Registrati e signup guest da candidatura Sponsor).\n' +
+        'Quando disattivato non è possibile creare nuovi account pubblici; la creazione utenti da Admin non è governata da questo interruttore.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING]:
+        'Consente o sospende il tour guidato iniziale (auto-start e voce «Guida all’uso» nel menu).\n' +
+        'Quando disattivato il tour non parte automaticamente e non può essere riavviato dal menu.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_SCHEDULES_PAUSED]:
+        'Mette in pausa tutte le programmazioni automatiche degli interruttori.\n' +
+        'Quando attivo le finestre orarie restano salvate ma non vengono applicate: vale l’override manuale oppure il valore predefinito.',
+};
+
+/** Fallback se un flag non ha ancora voce in PLATFORM_FEATURE_FLAG_ADMIN_HELP. */
+export const PLATFORM_FEATURE_FLAG_ADMIN_HELP_FALLBACK =
+    'Controllo operativo piattaforma. Descrizione funzionale non ancora definita per questo interruttore.';
+
+/**
+ * Descrizione funzionale da mostrare sulla card Feature Flag.
+ * Solo PLATFORM_FEATURE_FLAG_ADMIN_HELP (+ fallback generico) — mai il description del template messaggio.
+ *
+ * Parametro `string` (non solo `PlatformFeatureFlagKey`): le card ricevono `PlatformFeatureFlagRecord.key`
+ * tipizzato come stringa runtime (DB / cache). Il narrowing al catalogo avviene al lookup.
+ */
+export function getFeatureFlagAdminHelp(key: string): string {
+    return (
+        PLATFORM_FEATURE_FLAG_ADMIN_HELP[key as PlatformFeatureFlagKey] ??
+        PLATFORM_FEATURE_FLAG_ADMIN_HELP_FALLBACK
+    );
+}
+
 export const PLATFORM_MESSAGE_TEMPLATE_KEYS = {
     AI_DISABLED_USER: 'ai_disabled_user',
     AI_DISABLED_ADMIN: 'ai_disabled_admin',
     AI_DISABLED_ADMIN_LIMITED: 'ai_disabled_admin_limited',
     AI_EMERGENCY_NOTICE: 'ai_emergency_notice',
+    AI_MAINTENANCE_NOTICE: 'ai_maintenance_notice',
     CREDITS_PURCHASE_PAUSED: 'credits_purchase_paused',
+    SUBSCRIPTIONS_PAUSED: 'subscriptions_paused',
     COMMS_PARTNER_CHAT_DISABLED: 'comms_partner_chat_disabled',
     COMMS_USER_SPONSOR_DISABLED: 'comms_user_sponsor_disabled',
+    COMMS_NOTIFICATIONS_PAUSED: 'comms_notifications_paused',
     SPONSOR_APPLICATIONS_PAUSED: 'sponsor_applications_paused',
+    MODERATION_REVIEWS_PAUSED: 'moderation_reviews_paused',
+    MODERATION_PHOTOS_PAUSED: 'moderation_photos_paused',
+    MODERATION_SUGGESTIONS_PAUSED: 'moderation_suggestions_paused',
+    MODERATION_COMMUNITY_POSTS_PAUSED: 'moderation_community_posts_paused',
     SPONSOR_CRM_DISCLOSURE: 'sponsor_crm_disclosure',
     MAINTENANCE_TICKER: 'maintenance_ticker_message',
     REGISTRATION_CLOSED: 'registration_closed',
@@ -57,6 +178,7 @@ export const PLATFORM_CONTROL_SECTION_KEYS = {
         PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_LIMITED,
         PLATFORM_FEATURE_FLAG_KEYS.AI_EMERGENCY,
         PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_CREDIT_PURCHASE,
+        PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_SUBSCRIPTIONS,
     ],
     comms: [
         PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER,
@@ -89,9 +211,64 @@ export const PLATFORM_CONTROL_UI_TABS = [
     { id: 'audit', label: 'Storico Audit' },
 ] as const;
 
+export type PlatformControlUiTabId = (typeof PLATFORM_CONTROL_UI_TABS)[number]['id'];
+
+/**
+ * Copy del banner introduttivo di ogni TAB (titolo + descrizione funzionale di sezione).
+ * Source of Truth dei testi di dominio; la UI (PlatformControlCenter) li consuma
+ * e associa solo l’icona di presentazione.
+ */
+export const PLATFORM_CONTROL_TAB_COPY: Record<
+    PlatformControlUiTabId,
+    { title: string; description: string }
+> = {
+    ai: {
+        title: 'AI',
+        description:
+            'Gestisce tutte le funzionalità di Intelligenza Artificiale della piattaforma, consentendo di abilitarle o sospenderle per utenti e amministratori, oltre alle funzioni di emergenza e ai servizi collegati come l’acquisto crediti. L’accensione rapida di emergenza resta disponibile anche nell’AI Control Center, strumento separato.',
+    },
+    comms: {
+        title: 'Comunicazioni',
+        description:
+            'Gestisce i canali di comunicazione della piattaforma, incluse chat, notifiche e servizi di messaggistica disponibili per utenti, sponsor e amministratori.',
+    },
+    sponsor: {
+        title: 'Sponsor',
+        description:
+            'Gestisce le funzionalità dedicate al dominio Sponsor, incluse candidature, visibilità degli shop, soglie operative e impostazioni di pubblicazione.',
+    },
+    moderation: {
+        title: 'Moderazione',
+        description:
+            'Raccoglie gli strumenti di controllo dei contenuti della piattaforma, consentendo di gestire recensioni, fotografie, suggerimenti e funzionalità della community.',
+    },
+    maintenance: {
+        title: 'Manutenzione',
+        description:
+            'Contiene gli strumenti operativi utilizzati durante attività di manutenzione o emergenza, inclusa la sospensione temporanea di servizi e schedulazioni.',
+    },
+    globals: {
+        title: 'Info Globali',
+        description:
+            'Gestisce i testi e le informazioni condivise dalla piattaforma, utilizzati come riferimento globale per utenti e amministratori.',
+    },
+    audit: {
+        title: 'Storico Audit',
+        description:
+            'Mostra la cronologia delle modifiche effettuate nel Centro di Controllo, consentendo di tracciare le operazioni amministrative.',
+    },
+};
+
+/**
+ * Voce del catalogo Message Template (seed / editor / bootstrap).
+ * **Non** è Source of Truth runtime (DL-P13) — SoT = DB `system_messages`.
+ * - `label` / `defaultTitle` / `defaultBody`: seed bootstrap se riga DB assente.
+ * - `description`: scopo del template per l’admin editor.
+ */
 export type PlatformMessageTemplateCatalogEntry = {
     key: string;
     label: string;
+    /** Descrizione del template messaggio — non riusare come help del Feature Flag. */
     description: string;
     defaultTitle: string;
     defaultBody: string;
@@ -99,7 +276,7 @@ export type PlatformMessageTemplateCatalogEntry = {
 
 /**
  * Messaggi legati a una card Feature Flag (editabili inline sulla card).
- * Non includere qui i messaggi globali (→ PLATFORM_GLOBAL_MESSAGE_CATALOG).
+ * Seed/bootstrap only — runtime legge DB.
  */
 export const PLATFORM_FLAG_MESSAGE_CATALOG: readonly PlatformMessageTemplateCatalogEntry[] = [
     {
@@ -131,11 +308,25 @@ export const PLATFORM_FLAG_MESSAGE_CATALOG: readonly PlatformMessageTemplateCata
         defaultBody: 'I servizi AI sono sospesi per emergenza operativa.',
     },
     {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.AI_MAINTENANCE_NOTICE,
+        label: 'AI in manutenzione (ACC)',
+        description: 'Messaggio quando ai_enabled (AI Control Center) è OFF.',
+        defaultTitle: 'Manutenzione AI',
+        defaultBody: 'I servizi AI sono temporaneamente disattivati per manutenzione.',
+    },
+    {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.CREDITS_PURCHASE_PAUSED,
         label: 'Acquisto crediti in pausa',
         description: 'Messaggio quando l’acquisto crediti è OFF.',
         defaultTitle: 'Acquisto crediti sospeso',
         defaultBody: 'L’acquisto di crediti AI è temporaneamente non disponibile.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.SUBSCRIPTIONS_PAUSED,
+        label: 'Abbonamenti premium in pausa',
+        description: 'Messaggio quando feature.economy.subscriptions è OFF.',
+        defaultTitle: 'Abbonamenti sospesi',
+        defaultBody: 'L’upgrade agli abbonamenti premium non è temporaneamente disponibile.',
     },
     {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_PARTNER_CHAT_DISABLED,
@@ -152,11 +343,46 @@ export const PLATFORM_FLAG_MESSAGE_CATALOG: readonly PlatformMessageTemplateCata
         defaultBody: 'La chat Utente↔Sponsor non è ancora attiva.',
     },
     {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_NOTIFICATIONS_PAUSED,
+        label: 'Notifiche in-app sospese',
+        description: 'Messaggio quando feature.comms.notifications è OFF.',
+        defaultTitle: 'Notifiche sospese',
+        defaultBody: 'Il centro notifiche in-app è temporaneamente non disponibile.',
+    },
+    {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.SPONSOR_APPLICATIONS_PAUSED,
         label: 'Candidature Sponsor sospese',
         description: 'Messaggio quando feature.sponsor.applications è OFF.',
         defaultTitle: 'Candidature sospese',
         defaultBody: 'Le nuove candidature Sponsor sono temporaneamente sospese. Riprova più tardi.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_REVIEWS_PAUSED,
+        label: 'Recensioni sospese',
+        description: 'Messaggio quando feature.moderation.reviews è OFF.',
+        defaultTitle: 'Recensioni sospese',
+        defaultBody: 'L’invio di nuove recensioni è temporaneamente disabilitato.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_PHOTOS_PAUSED,
+        label: 'Upload foto sospeso',
+        description: 'Messaggio quando feature.moderation.photos è OFF.',
+        defaultTitle: 'Caricamento foto sospeso',
+        defaultBody: 'Il caricamento foto è temporaneamente disabilitato.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_SUGGESTIONS_PAUSED,
+        label: 'Segnalazioni sospese',
+        description: 'Messaggio quando feature.moderation.suggestions è OFF.',
+        defaultTitle: 'Segnalazioni sospese',
+        defaultBody: 'Le segnalazioni sono temporaneamente disabilitate.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED,
+        label: 'Post community sospesi',
+        description: 'Messaggio quando feature.moderation.community_posts è OFF.',
+        defaultTitle: 'Post community sospesi',
+        defaultBody: 'I post community sono temporaneamente disabilitati.',
     },
 ];
 

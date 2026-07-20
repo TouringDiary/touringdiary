@@ -4,6 +4,9 @@ import { ArrowLeft, Bell, MessageCircle, Info, ArrowRight } from 'lucide-react';
 import { AppNotification } from '../../../types/index';
 import { markAsRead, markAllAsRead, fetchNotificationsAsync } from '../../../services/notificationService';
 import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '@/constants/platformFeatureFlags';
+import { useSystemMessage } from '@/hooks/useSystemMessage';
 
 interface Props {
     userId: string;
@@ -18,11 +21,27 @@ interface Props {
 export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNavigate, onClose, setNotifications, setUnreadCount }: Props) => {
     const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
     const openWorkspace = useOpenCollaborationWorkspace();
+    const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
+    const notificationsEnabled = notificationsFlag?.enabled ?? true;
+    const notificationsMsgKey =
+        notificationsFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_NOTIFICATIONS_PAUSED;
+    const { getText: getNotificationsPausedMsg } = useSystemMessage(notificationsMsgKey);
+    const pausedCopy = getNotificationsPausedMsg({});
 
-    // FETCH REAL DATA ON MOUNT + polling ogni 30s (sospeso in background)
+    // FETCH REAL DATA ON MOUNT + polling ogni 30s (sospeso in background / se flag OFF)
     useEffect(() => {
+        if (!notificationsEnabled) {
+            setNotifications([]);
+            setUnreadCount(0);
+            setSelectedNotification(null);
+            return;
+        }
+
+        let cancelled = false;
+
         const load = async () => {
              const data = await fetchNotificationsAsync(userId);
+             if (cancelled) return;
              setNotifications(data);
              setUnreadCount(data.filter(n => !n.isRead).length);
         };
@@ -41,12 +60,14 @@ export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNav
         document.addEventListener('visibilitychange', onVisibilityChange);
 
         return () => {
+            cancelled = true;
             window.clearInterval(interval);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
-    }, [userId, setNotifications, setUnreadCount]);
+    }, [userId, notificationsEnabled, setNotifications, setUnreadCount]);
 
     const handleNotificationClick = async (notif: AppNotification) => {
+        if (!notificationsEnabled) return;
         await markAsRead(notif.id);
         setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -54,6 +75,7 @@ export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNav
     };
 
     const handleMarkAllRead = async () => {
+        if (!notificationsEnabled) return;
         await markAllAsRead(userId);
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
         setUnreadCount(0);
@@ -71,6 +93,28 @@ export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNav
             onClose();
         }
     };
+
+    if (!notificationsEnabled) {
+        return (
+            <div className="space-y-6 animate-in fade-in h-full flex flex-col">
+                <div>
+                    <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <Bell className="w-6 h-6 text-indigo-500" /> Centro Notifiche
+                    </h3>
+                    <p className="text-slate-500 text-sm">Aggiornamenti e avvisi dalla community.</p>
+                </div>
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-6 space-y-2">
+                    <p className="text-sm font-bold text-amber-200">
+                        {pausedCopy.title || 'Notifiche sospese'}
+                    </p>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                        {pausedCopy.body ||
+                            'Il centro notifiche in-app è temporaneamente non disponibile.'}
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     if (selectedNotification) return (
         <div className="flex flex-col h-full animate-in slide-in-from-right-4 duration-300">

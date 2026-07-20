@@ -163,7 +163,7 @@ export const PLATFORM_FEATURE_FLAG_FALLBACKS: Record<string, PlatformFeatureFlag
         PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_CREDIT_PURCHASE, 'economy', 'Acquisto crediti AI', true, 'credits_purchase_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_SUBSCRIPTIONS]: boolFallback(
-        PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_SUBSCRIPTIONS, 'economy', 'Abbonamenti premium', true, null
+        PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_SUBSCRIPTIONS, 'economy', 'Abbonamenti premium', true, 'subscriptions_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER]: boolFallback(
         PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER, 'comms', 'Chat Admin↔Partner', true, 'comms_partner_chat_disabled'
@@ -172,7 +172,7 @@ export const PLATFORM_FEATURE_FLAG_FALLBACKS: Record<string, PlatformFeatureFlag
         PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR, 'comms', 'Chat Utente↔Sponsor', false, 'comms_user_sponsor_disabled'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS]: boolFallback(
-        PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS, 'comms', 'Notifiche in-app', true, null
+        PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS, 'comms', 'Notifiche in-app', true, 'comms_notifications_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_APPLICATIONS]: boolFallback(
         PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_APPLICATIONS, 'sponsor', 'Nuove candidature Sponsor', true, 'sponsor_applications_paused'
@@ -196,16 +196,16 @@ export const PLATFORM_FEATURE_FLAG_FALLBACKS: Record<string, PlatformFeatureFlag
         auditRequired: true,
     },
     [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_REVIEWS]: boolFallback(
-        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_REVIEWS, 'moderation', 'Recensioni utenti', true, null
+        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_REVIEWS, 'moderation', 'Recensioni utenti', true, 'moderation_reviews_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS]: boolFallback(
-        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS, 'moderation', 'Upload foto', true, null
+        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS, 'moderation', 'Upload foto', true, 'moderation_photos_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_SUGGESTIONS]: boolFallback(
-        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_SUGGESTIONS, 'moderation', 'Segnalazioni utenti', true, null
+        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_SUGGESTIONS, 'moderation', 'Segnalazioni utenti', true, 'moderation_suggestions_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS]: boolFallback(
-        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS, 'moderation', 'Post community', true, null
+        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS, 'moderation', 'Post community', true, 'moderation_community_posts_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE]: boolFallback(
         PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE,
@@ -215,6 +215,22 @@ export const PLATFORM_FEATURE_FLAG_FALLBACKS: Record<string, PlatformFeatureFlag
         'maintenance_ticker_message',
         true,
         false
+    ),
+    [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION]: boolFallback(
+        PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION,
+        'platform',
+        'Registrazione nuovi utenti',
+        true,
+        'registration_closed'
+    ),
+    [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING]: boolFallback(
+        PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING,
+        'platform',
+        'Onboarding guidato',
+        true,
+        null,
+        false,
+        true
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_SCHEDULES_PAUSED]: boolFallback(
         PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_SCHEDULES_PAUSED,

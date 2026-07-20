@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PhotoSubmission, User, CityDetails, MediaStatus } from '../types/index';
 import { fetchCommunityPhotos, uploadCommunityPhoto, getOrCreatePhotoSubmissionForUrl } from '../services/photoService';
 import { getCityOfficialMedia } from '../services/city/cityMediaService';
-import { PLATFORM_FEATURE_FLAG_KEYS } from '../constants/platformFeatureFlags';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../constants/platformFeatureFlags';
 import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFlagCache';
+import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
 
 export const useCityGallery = (city: CityDetails, user: User) => {
     const [photos, setPhotos] = useState<PhotoSubmission[]>([]);
@@ -112,15 +113,23 @@ export const useCityGallery = (city: CityDetails, user: User) => {
     }, []);
 
     const uploadPhoto = async (file: File, description: string, shareToLive: boolean): Promise<User | null> => {
-        const photosFlag = evaluateCachedFeatureFlag(
+        // UX Gate only — early feedback if flag OFF (avoids spinner).
+        // Security Gate remains exclusively in uploadCommunityPhoto (service boundary).
+        // Pipeline: UI → UX Gate → Service Boundary → Feature Flag Runtime → Database.
+        const photosFlagUx = evaluateCachedFeatureFlag(
             PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS,
             {
                 userRole: user.role,
                 isAuthenticated: user.role !== 'guest',
             }
         );
-        if (photosFlag && !photosFlag.enabled) {
-            setUploadError('Il caricamento foto è temporaneamente disabilitato.');
+        if (!photosFlagUx?.enabled) {
+            setUploadError(
+                resolvePlatformUserBody(
+                    photosFlagUx?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_PHOTOS_PAUSED,
+                    'Il caricamento foto è temporaneamente disabilitato.'
+                )
+            );
             return null;
         }
 

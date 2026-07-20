@@ -10,6 +10,8 @@ import { loadGlobalCache, getSetting } from '../../services/settingsService';
 import { getCurrentLevel, fetchLevelsAsync } from '../../services/gamificationService'; // UPDATED
 import { usePersistedState } from '../usePersistedState';
 import type { CitySummary, User } from '../../types/index';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '@/domain/platformControl/platformFlagCache';
 
 export const useAppInitialization = (viewMode: string) => {
     // State
@@ -159,24 +161,38 @@ export const useAppInitialization = (viewMode: string) => {
     // 5. Onboarding Trigger
     useEffect(() => {
         const checkAutoStart = async () => {
-            if (!hasSeenOnboarding && viewMode === 'app') {
-                try {
-                    const config = await getSetting<{ autoStart: boolean }>('onboarding_config');
-                    if (config && config.autoStart === false) {
-                        return;
-                    }
-                    const timer = setTimeout(() => setShowOnboarding(true), 800);
-                    return () => clearTimeout(timer);
-                } catch (e) {
-                    const timer = setTimeout(() => setShowOnboarding(true), 800);
-                    return () => clearTimeout(timer);
+            if (hasSeenOnboarding || viewMode !== 'app') return;
+
+            const onboardingEnabled =
+                evaluateCachedFeatureFlag(
+                    PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING,
+                    { userRole: null, isAuthenticated: false }
+                )?.enabled ?? true;
+
+            if (!onboardingEnabled) return;
+
+            try {
+                const config = await getSetting<{ autoStart: boolean }>('onboarding_config');
+                if (config && config.autoStart === false) {
+                    return;
                 }
+                const timer = setTimeout(() => setShowOnboarding(true), 800);
+                return () => clearTimeout(timer);
+            } catch (e) {
+                const timer = setTimeout(() => setShowOnboarding(true), 800);
+                return () => clearTimeout(timer);
             }
         };
 
         checkAutoStart();
 
         const handleManualRestart = () => {
+            const onboardingEnabled =
+                evaluateCachedFeatureFlag(
+                    PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING,
+                    { userRole: null, isAuthenticated: false }
+                )?.enabled ?? true;
+            if (!onboardingEnabled) return;
             setShowOnboarding(true);
         };
 

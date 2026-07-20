@@ -6,7 +6,9 @@ export type CollaborationIntent = 'share' | 'workspace';
 /** Chiave returnTo ModalContext per ripresa post-login */
 export const COLLABORATION_RETURN_TO = 'collaboration_resume' as const;
 
-export function isGuestUser(user: User | null | undefined): boolean {
+export function isGuestUser(
+  user: User | null | undefined,
+): user is null | undefined | (User & { role: 'guest' }) {
   return !user || user.role === 'guest';
 }
 

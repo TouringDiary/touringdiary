@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, Star, ThumbsUp, Plus, Crosshair, Award, GripHorizontal, Check, Box, ShoppingCart, Edit3, Loader2, TrendingUp, PencilLine } from 'lucide-react';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { PointOfInterest, User } from '@/types';
 import { PLAN_TYPES } from '@/constants/planTypes';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
@@ -49,6 +51,8 @@ interface PoiListItemProps {
 }
 
 const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemInItinerary, referencePoint, userLocation, onSetReference, isMobile, onOpenAuth, onOpenReview, user, onAdminEdit }: PoiListItemProps) => {
+    const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
+    const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
     const { hasUserVoted, toggleVote } = useInteraction();
     
     const titleStyle = useDynamicStyles('poi_card_title', isMobile);
@@ -216,7 +220,7 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                                     <Edit3 className="w-3.5 h-3.5"/>
                                 </button>
                              )}
-                             {poi.vatNumber && onOpenShop && <button onClick={e => { e.stopPropagation(); onOpenShop(poi); }} className="p-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white border border-indigo-400 shadow-md"><ShoppingCart className="w-3.5 h-3.5"/></button>}
+                             {poi.vatNumber && onOpenShop && shopPublicEnabled && <button type="button" onClick={e => { e.stopPropagation(); onOpenShop(poi); }} className="p-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white border border-indigo-400 shadow-md"><ShoppingCart className="w-3.5 h-3.5"/></button>}
                         </div>
                     </div>
                     
