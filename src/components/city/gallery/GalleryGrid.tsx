@@ -36,7 +36,8 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onOpenLightbox, onOpenAuth
                 user: photo.user, 
                 likes: count, 
                 caption: photo.description, 
-                date: photo.date
+                date: photo.date,
+                likedByUser: photo.likedByUser
             })} 
             className={`${dimensionClass} relative rounded-lg overflow-hidden border border-slate-800 bg-slate-900 group cursor-pointer shadow-md hover:shadow-xl transition-all`}
         >
@@ -93,6 +94,8 @@ export interface GalleryGridProps {
         loadMore: () => void;
     };
     isUploading: boolean;
+    /** Presentation only — disabled look when FF OFF. Decision SoT: parent `onAddClick`. */
+    photosEnabled?: boolean;
     onAddClick: () => void;
     onOpenLightbox: (data: LightboxData) => void;
     onOpenAuth: () => void;
@@ -104,7 +107,7 @@ export const GalleryGrid = ({
     photos, officialPhotos, communityPhotos, topOfficial, topCommunity,
     activeTab, onTabChange,
     visiblePhotos, pagination, 
-    isUploading, onAddClick, onOpenLightbox, onOpenAuth,
+    isUploading, photosEnabled = true, onAddClick, onOpenLightbox, onOpenAuth,
     onLikeUpdate 
 }: GalleryGridProps) => {
     
@@ -196,7 +199,14 @@ export const GalleryGrid = ({
                 <div className="flex flex-nowrap gap-4 overflow-x-auto pb-6 no-scrollbar snap-x snap-mandatory w-full">
                     {/* Upload Card only in Community Tab */}
                     {activeTab === 'community' && (
-                        <div onClick={onAddClick} className={`snap-start flex-shrink-0 w-[32vw] md:w-[280px] h-48 md:h-64 rounded-xl border-2 border-dashed border-slate-800 bg-slate-900/20 flex flex-col items-center justify-center cursor-pointer group transition-all relative overflow-hidden ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:border-emerald-500 hover:bg-slate-900'}`}>
+                        <div
+                            onClick={onAddClick}
+                            className={`snap-start flex-shrink-0 w-[32vw] md:w-[280px] h-48 md:h-64 rounded-xl border-2 border-dashed border-slate-800 bg-slate-900/20 flex flex-col items-center justify-center group transition-all relative overflow-hidden ${
+                                isUploading || !photosEnabled
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'cursor-pointer hover:border-emerald-500 hover:bg-slate-900'
+                            }`}
+                        >
                             {isUploading ? (
                                 <div className="flex flex-col items-center gap-2"><Loader2 className="w-8 h-8 text-emerald-500 animate-spin"/><span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Upload...</span></div>
                             ) : (

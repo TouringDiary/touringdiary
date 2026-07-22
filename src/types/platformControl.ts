@@ -18,7 +18,16 @@ export type PlatformFlagSchedule = {
     id: string;
     startsAt: string;
     endsAt: string;
+    /**
+     * Valore applicato al flag quando la finestra è attiva e la programmazione è abilitata.
+     * Per le programmazioni boolean di fermo la UI persiste sempre `false`.
+     */
     value: boolean | number;
+    /**
+     * ON/OFF della programmazione (fermo): se false la finestra resta salvata ma è ignorata dal motore.
+     * Assente / undefined → trattata come abilitata (compatibilità dati legacy).
+     */
+    enabled?: boolean;
 };
 
 export type PlatformFeatureFlagRecord = {

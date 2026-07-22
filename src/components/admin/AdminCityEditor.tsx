@@ -17,6 +17,7 @@ import { TabMedia } from './cityEditor/tabs/TabMedia';
 import { TabPois } from './cityEditor/tabs/TabPois';
 import { TabLogs } from './cityEditor/tabs/TabLogs';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
+import { AdminAiRuntimeBanner } from './common/AdminAiRuntimeBanner';
 
 // Modali per Anteprima
 import { SectionPreviewModal } from '../modals/SectionPreviewModal';
@@ -117,6 +118,8 @@ const EditorOrchestrator = ({ onBack, currentUser }: { onBack: () => void, curre
             
             {/* TOAST NOTIFICATIONS */}
             {toast && <AdminToast message={toast.message} type={toast.type} onClose={closeToast} />}
+
+            <AdminAiRuntimeBanner />
             
             <DeleteConfirmationModal
                 isOpen={showUnsavedModal}

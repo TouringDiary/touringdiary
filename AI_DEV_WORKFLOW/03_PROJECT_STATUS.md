@@ -4,15 +4,15 @@
 > **Nessun dettaglio** STEP/Fasi/checklist (→ `WORKFLOWS/WF_XX_*.md`).
 > **Nessuna definizione Gate** (→ SSOT in `AI_CONTEXT`).
 
-**Ultimo aggiornamento:** 2026-07-20 — **Aggiornato da:** MSG-SOT + Scheduler fix/status (post DL-P13/P14)
+**Ultimo aggiornamento:** 2026-07-21 — **Aggiornato da:** PO — collaudo runtime gating AI COMPLETATO; provider AI POSTICIPATO
 
 ---
 
 ## In sintesi
 
-- **Focus attuale:** WF-02 **STEP-3 Post-3.4** — codice MSG-SOT + Scheduler pronto; restano smoke PO (T02+) e Audit A.
-- **Prossimo:** Validazione PO sulle modifiche di questa sessione → collaudo completo.
-- **Blocco:** Chiusura STEP-3 dopo smoke + Audit A + assenza criticità.
+- **Focus attuale:** WF-02 **STEP-3 Post-3.4** — Photo dual-family **CONCLUSO** (DOC 16 v2.1). Residui Audit B: T16 Post community, T20 Programmazioni, AUDIT-05, T12; Audit A; collaudo Photo consigliato.
+- **Prossimo:** Eseguire T16 (§9.1 Audit B) e/o T20 Programmazioni → Validazione PO STEP-3 (dopo anche Audit A).
+- **Blocco:** Chiusura formale STEP-3 dopo residui Audit B + Audit A + assenza criticità.
 
 **SoT collaudo:** `AI_DEV_WORKFLOW/WORKFLOWS/WF_02_AUDIT_B_CENTRO_CONTROLLO.md`
 
@@ -22,7 +22,7 @@
 
 | WF | Nome | Stato WF | STEP corrente | Fase corrente | % | Blocco |
 |----|------|----------|---------------|---------------|---|--------|
-| WF-02 | Implementation Masterplan | Attivo | STEP-3 | Post-3.4 — Audit B (forense ✓, fix ✓, smoke residuo) | 97 | Smoke/decisioni PO + Audit A |
+| WF-02 | Implementation Masterplan | Attivo | STEP-3 | Post-3.4 — Photo dual-family concluso; residui Audit A/B | 98 | Collaudo Photo (PO) e/o Audit A/B |
 
 ---
 
@@ -49,7 +49,9 @@
 *WF-02 Post-3.4 DL-P12 (2026-07-20): collaboration_live revocato.*  
 *WF-02 Audit B (2026-07-20): SoT collaudo creato; 12 SUPERATI; bug/UX/audit registrati.*  
 *WF-02 Audit B fix (2026-07-20): UX-01, UX-02, BUG-02, BUG-03 implementati; AUDIT-01/03 forensi in §13; BUG-01 aperto.*  
-*WF-02 BUG-01 (2026-07-20): guard `assertAiRuntimeAvailable` in `supabaseProvider.generate`.*
+*WF-02 BUG-01 (2026-07-20): guard `assertAiRuntimeAvailable` in `supabaseProvider.generate`.*  
+*WF-02 T02-B + collaudo gating AI (2026-07-21): T02/T03/T04 SUPERATI; provider AI POSTICIPATO.*  
+*WF-02 Audit B (2026-07-22): T14/T15 SUPERATI; CROSS-P Persistenza SUPERATO; T16=Post community chiarito (§9.1).*
 
 ---
 
@@ -93,8 +95,12 @@ Aggiornare questo file **ogni volta** che cambia:
 
 | Data | Focus | Nota |
 |------|-------|------|
+| 2026-07-22 | WF-02 | Programmazioni UX: Stato programmato, cestino persistente, storico stati, layout Manutenzione grid; DOC 30 v0.3.14 |
+| 2026-07-22 | WF-02 | Audit B: T14/T15 SUPERATI; CROSS-P Persistenza SUPERATO; DOC 30 v0.3.13 Moderazione |
+| 2026-07-21 | WF-02 | Photo dual-family CONCLUSO: DOC 16 v2.1 + audit finale codice |
+| 2026-07-21 | WF-02 | Photo dual-family: Blocco 2 dominio (isPhotograph + Placeholder registry + assert write) |
+| 2026-07-21 | WF-02 | Live Feed upload modal-first + split LiveFeedTab (upload/hero/toolbar/carousel) |
+| 2026-07-21 | WF-02 | Banner Upload foto + Like hero + Official Live Feed (PhotoMetadataModal condiviso) |
+| 2026-07-21 | WF-02 | Gating AI COMPLETATO (T02–T04); provider AI POSTICIPATO |
 | 2026-07-20 | WF-02 | Audit B SoT: 12 SUPERATI; BUG-01/02/03; UX; audit crediti/messaggi |
 | 2026-07-20 | WF-02 | DL-P12: revoca collaboration_live; Batch 4 eliminato; Audit A/B |
-| 2026-07-19 | WF-02 | Post-3.4 Batch 3 completato |
-| 2026-07-19 | WF-02 | Post-3.4 Batch 2 completato |
-| 2026-07-19 | WF-02 | Post-3.4 Batch 1 completato |

@@ -43,7 +43,10 @@ export const GlobalSectionView = ({ section, onClose, onUserUpdate, user, initia
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'live': return <LiveFeedTab user={user} onUserUpdate={onUserUpdate} />;
+            case 'live':
+                return (
+                    <LiveFeedTab user={user} onUserUpdate={onUserUpdate} onOpenAuth={onOpenAuth} />
+                );
             case 'diari':
                 return (
                     <ItinerariesExplorer
@@ -61,7 +64,10 @@ export const GlobalSectionView = ({ section, onClose, onUserUpdate, user, initia
                         <p className="max-w-sm text-center text-sm uppercase tracking-widest font-bold">In questa sezione appariranno tutti i nostri partner certificati.</p>
                     </div>
                 );
-            default: return <LiveFeedTab user={user} onUserUpdate={onUserUpdate} />;
+            default:
+                return (
+                    <LiveFeedTab user={user} onUserUpdate={onUserUpdate} onOpenAuth={onOpenAuth} />
+                );
         }
     };
 

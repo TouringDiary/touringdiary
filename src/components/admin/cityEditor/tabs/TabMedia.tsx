@@ -12,9 +12,11 @@ import { saveCityDetails } from '../../../../services/cityService';
 import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
 import { CityCard } from '../../../city/CityCard';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 export const TabMedia = () => {
     const { city, updateField, updateDetailField, reloadCurrentCity } = useCityEditor();
+    const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
     const [isHeroImageValid, setIsHeroImageValid] = useState(true);
     const [isInspectorOpen, setIsInspectorOpen] = useState(false);
     
@@ -60,12 +62,17 @@ export const TabMedia = () => {
 
     const handleRegeneratePage = async (e: React.MouseEvent) => {
         e.preventDefault();
+        if (!guardAiAction()) return;
         
         if (!city.name) { alert("Inserisci il nome della città!"); return; }
         setShowConfirmRegen(true);
     };
 
     const executeRegeneratePage = async () => {
+        if (!guardAiAction()) {
+            setShowConfirmRegen(false);
+            return;
+        }
         setShowConfirmRegen(false);
         setGenerating(true);
         try {
@@ -205,11 +212,12 @@ export const TabMedia = () => {
             <div className="flex justify-end border-b border-slate-800 pb-4">
                 <button 
                     onClick={handleRegeneratePage} 
-                    disabled={generating}
+                    disabled={generating || aiBlocked}
+                    title={aiBlocked ? blockMessage : undefined}
                     className="bg-rose-600 hover:bg-rose-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed uppercase text-xs tracking-widest border border-rose-500"
                 >
                     {generating ? <Loader2 className="w-4 h-4 animate-spin"/> : <RefreshCw className="w-4 h-4"/>}
-                    RIGENERA PAGINA
+                    {aiBlocked ? 'AI DISABILITATA' : 'RIGENERA PAGINA'}
                 </button>
             </div>
 

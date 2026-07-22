@@ -6,6 +6,7 @@ import { Upload, Link, AlertTriangle, CheckCircle, Info, Image as ImageIcon, Shi
 import { compressImage, compressImageHighQuality, dataURLtoFile, getPoiCategoryLabel } from '../../utils/common';
 import { uploadPublicMedia } from '../../services/mediaService';
 import { getCachedSetting } from '../../services/settingsService';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 
 interface AdminImageInputProps {
@@ -19,6 +20,7 @@ interface AdminImageInputProps {
 }
 
 export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'public', onChange, onValidityChange, qualityMode = 'standard', category = 'monument' }: AdminImageInputProps) => {
+    const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
     const [mode, setMode] = useState<'url' | 'upload'>('url');
     const [localPreview, setLocalPreview] = useState<string | null>(imageUrl || null);
     const [isUploading, setIsUploading] = useState(false);
@@ -108,6 +110,10 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
     };
 
     const analyzeCopyright = async () => {
+        if (!guardAiAction()) {
+            setAiAdvice({ status: 'caution', message: blockMessage });
+            return;
+        }
         if (!localPreview) return;
         setAnalyzing(true);
         setAiAdvice(null);
@@ -195,7 +201,7 @@ export const AdminImageInput = ({ imageUrl, imageCredit = '', imageLicense = 'pu
                                     <h4 className="text-xs font-bold text-slate-300 uppercase">{localPreview.startsWith('data:') ? 'File Locale (In Upload...)' : 'Cloud URL'}</h4>
                                     {dimensions && <span className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1"><Maximize className="w-3 h-3"/> {dimensions.w} x {dimensions.h} px</span>}
                                 </div>
-                                <button onClick={analyzeCopyright} disabled={analyzing} className="text-[10px] bg-purple-600/20 text-purple-300 border border-purple-500/50 px-2 py-1 rounded flex items-center gap-1 hover:bg-purple-600/40 transition-colors">
+                                <button onClick={analyzeCopyright} disabled={analyzing || aiBlocked} title={aiBlocked ? blockMessage : undefined} className="text-[10px] bg-purple-600/20 text-purple-300 border border-purple-500/50 px-2 py-1 rounded flex items-center gap-1 hover:bg-purple-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                     {analyzing ? <Loader2 className="w-3 h-3 animate-spin"/> : <Sparkles className="w-3 h-3"/>} AI Copyright Check
                                 </button>
                             </div>

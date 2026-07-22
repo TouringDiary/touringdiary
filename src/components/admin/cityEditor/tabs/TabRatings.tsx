@@ -7,6 +7,7 @@ import { AiFieldHelper } from '../../AiFieldHelper';
 import { saveCityDetails } from '../../../../services/cityService';
 import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 const RATING_LABELS: Record<string, string> = {
     cultura: 'Cultura Generale', monumenti: 'Monumenti', musei_arte: 'Musei & Arte', tradizione: 'Storia & Tradizione', architettura: 'Architettura',
@@ -31,6 +32,7 @@ const DEFAULT_RATINGS = {
 
 export const TabRatings = () => {
     const { city, triggerPreview, updateDetailField, reloadCurrentCity } = useCityEditor();
+    const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
     const [generating, setGenerating] = useState(false);
     const [ratingInstructions, setRatingInstructions] = useState('');
     const [showConfirmRegen, setShowConfirmRegen] = useState(false);
@@ -51,6 +53,7 @@ export const TabRatings = () => {
     const handleRegeneratePage = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        if (!guardAiAction()) return;
 
         if (!city.name) { 
             alert("Inserisci il nome della città prima di generare."); 
@@ -61,6 +64,10 @@ export const TabRatings = () => {
     };
 
     const executeRegeneratePage = async () => {
+        if (!guardAiAction()) {
+            setShowConfirmRegen(false);
+            return;
+        }
         setShowConfirmRegen(false);
         setGenerating(true);
         
@@ -125,11 +132,12 @@ export const TabRatings = () => {
                      <button onClick={() => triggerPreview('ratings', 'Punteggi')} className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-2 text-xs md:text-sm"><Eye className="w-3.5 h-3.5"/> <span className="hidden md:inline">Anteprima</span></button>
                     <button 
                         onClick={handleRegeneratePage} 
-                        disabled={generating} 
-                        className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-xs uppercase tracking-wide border border-rose-500 shadow-lg transition-all active:scale-95"
+                        disabled={generating || aiBlocked}
+                        title={aiBlocked ? blockMessage : undefined}
+                        className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-xs uppercase tracking-wide border border-rose-500 shadow-lg transition-all active:scale-95"
                     >
                         {generating ? <Loader2 className="w-3 h-3 animate-spin"/> : <RefreshCw className="w-3 h-3"/>} 
-                        {generating ? 'ANALISI...' : 'RIGENERA PAGINA'}
+                        {generating ? 'ANALISI...' : aiBlocked ? 'AI DISABILITATA' : 'RIGENERA PAGINA'}
                     </button>
                 </div>
             </div>

@@ -14,11 +14,13 @@ import { User } from '../../../../types/users';
 import { CultureHistory } from '../culture/CultureHistory';
 import { CulturePatron } from '../culture/CulturePatron';
 import { CulturePeople } from '../culture/CulturePeople';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 const DEFAULT_MASTER_PATRON = "https://upload.wikimedia.org/wikipedia/commons/7/79/Croce_del_campo1.jpg";
 
 export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
     const { city, updateDetailField, setCityDirectly, reloadCurrentCity, triggerPreview } = useCityEditor();
+    const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
     
     // UI STATES
     const [generating, setGenerating] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
     const handleRegenerateClick = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        if (!guardAiAction()) return;
         
         if (!city.name) { 
             alert("Inserisci il nome della città!"); 
@@ -41,6 +44,10 @@ export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
     };
 
     const executeRegeneration = async () => {
+        if (!guardAiAction()) {
+            setShowRegenConfirm(false);
+            return;
+        }
         setShowRegenConfirm(false);
         setGenerating('full_page'); 
         
@@ -143,11 +150,12 @@ export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
                 </div>
                  <button 
                     onClick={handleRegenerateClick} 
-                    disabled={generating === 'full_page'}
+                    disabled={generating === 'full_page' || aiBlocked}
+                    title={aiBlocked ? blockMessage : undefined}
                     className="bg-rose-600 hover:bg-rose-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed uppercase text-xs tracking-widest border border-rose-500"
                 >
                     {generating === 'full_page' ? <Loader2 className="w-4 h-4 animate-spin"/> : <RefreshCw className="w-4 h-4"/>}
-                    {generating === 'full_page' ? 'RIGENERAZIONE...' : 'RIGENERA PAGINA'}
+                    {generating === 'full_page' ? 'RIGENERAZIONE...' : aiBlocked ? 'AI DISABILITATA' : 'RIGENERA PAGINA'}
                 </button>
             </div>
 

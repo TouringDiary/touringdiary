@@ -4906,6 +4906,14 @@ export type Database = {
         }
         Returns: Database["public"]["Tables"]["platform_feature_flags"]["Row"]
       }
+      delete_platform_control_audit_event: {
+        Args: { p_id: string }
+        Returns: boolean
+      }
+      clear_platform_control_audit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       record_platform_control_audit: {
         Args: {
           p_action: string

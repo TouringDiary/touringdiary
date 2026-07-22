@@ -153,7 +153,7 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
 
     // --- COMPACT TWIN (both modules closed): original side-by-side card content ---
     const renderCompactTwin = () => (
-        <div className={`${HERO_COMPACT.compactTwinStack} ${HERO_COMPACT.boxPadding} ${HERO_COMPACT.bodyGap}`}>
+        <div className={`h-full ${HERO_COMPACT.compactTwinStack} ${HERO_COMPACT.boxPadding} ${HERO_COMPACT.bodyGap}`}>
             <div
                 className={`flex justify-between items-center cursor-pointer ${HERO_COMPACT.headerRowAi}`}
                 onClick={toggleExpanded}
@@ -499,7 +499,9 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                 showCitySearchPopover ? 'max-lg:z-home-hero-popover' : ''
             } ${
                 isStackedLayout
-                    ? 'h-auto'
+                    ? stackedMode === 'compact'
+                        ? 'h-full'
+                        : 'h-auto'
                     : !props.isFiltersExpanded
                         ? 'h-auto'
                         : 'lg:h-full'
@@ -518,7 +520,13 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                 </div>
             )}
 
-            <div className={`relative z-home-hero-surface flex flex-col rounded-2xl min-h-0 ${isStackedLayout ? 'h-auto' : 'h-full'}`}>
+            <div className={`relative z-home-hero-surface flex flex-col rounded-2xl min-h-0 ${
+                isStackedLayout
+                    ? stackedMode === 'compact'
+                        ? 'h-full'
+                        : 'h-auto'
+                    : 'h-full'
+            }`}>
                 {isStackedLayout ? renderStacked() : renderFilterBody(false)}
             </div>
         </div>

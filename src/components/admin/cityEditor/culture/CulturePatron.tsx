@@ -4,6 +4,7 @@ import { Award, Sparkles, Eye, Loader2 } from 'lucide-react';
 import { CityDetails } from '../../../../types/index';
 import { AiFieldHelper } from '../../AiFieldHelper';
 import { generateCitySection } from '../../../../services/ai';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 const DEFAULT_MASTER_PATRON = "https://upload.wikimedia.org/wikipedia/commons/7/79/Croce_del_campo1.jpg";
 
@@ -18,11 +19,13 @@ export const CulturePatron: React.FC<CulturePatronProps> = ({
     updateDetailField, 
     triggerPreview
 }) => {
+    const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
     // Stato locale spostato dal genitore
     const [generating, setGenerating] = useState(false);
     const [patronStrategy, setPatronStrategy] = useState('');
 
     const handleRegeneratePatron = async (instructions: string) => {
+        if (!guardAiAction()) return;
         if (!city.name) return;
         setGenerating(true);
         try {
@@ -67,11 +70,12 @@ export const CulturePatron: React.FC<CulturePatronProps> = ({
                  <div className="flex gap-2">
                      <button 
                         onClick={() => handleRegeneratePatron(patronStrategy)} 
-                        disabled={generating} 
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg transition-all"
+                        disabled={generating || aiBlocked}
+                        title={aiBlocked ? blockMessage : undefined}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {generating ? <Loader2 className="w-4 h-4 animate-spin"/> : <Sparkles className="w-4 h-4"/>}
-                        Genera Contenuto (Pro)
+                        {aiBlocked ? 'AI disabilitata' : 'Genera Contenuto (Pro)'}
                     </button>
                     <button 
                         onClick={() => triggerPreview('patron', 'Santo Patrono')} 

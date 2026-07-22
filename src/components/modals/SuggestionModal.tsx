@@ -7,6 +7,8 @@ import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../.
 import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { useSystemMessage } from '@/hooks/useSystemMessage';
 import { resolvePlatformUserBody, resolvePlatformUserTitle } from '@/services/platformControl/resolvePlatformUserMessage';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 
 interface SuggestionModalProps {
     isOpen: boolean;
@@ -23,6 +25,7 @@ interface SuggestionModalProps {
 
 export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpenAuth, initialType = 'new_place', prefilledName = '', existingPois = [], isServiceContext = false }: SuggestionModalProps) => {
     const isGuest = user.role === 'guest';
+    const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
     const suggestionsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.MODERATION_SUGGESTIONS);
     const suggestionsEnabled = suggestionsFlag?.enabled ?? true;
     const suggestionsMsgKey =
@@ -194,6 +197,7 @@ export const SuggestionModal = ({ isOpen, onClose, cityId, cityName, user, onOpe
             fullHeight={false}
             panelClassName="max-w-lg md:max-h-[92vh]"
             padding="p-0 md:p-4"
+            overlayClassName={`${overlayShell} !items-center`}
         >
             {!suggestionsEnabled ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-10 text-center space-y-6 bg-[#020617]">

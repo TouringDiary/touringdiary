@@ -1,11 +1,11 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Camera, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { CityDetails, PhotoSubmission } from '@/types';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
-import { isPlaceholderUrl, normalizeImageUrl } from '@/utils/imageOptimizer';
-import { getOrCreatePhotoSubmissionForUrl, fetchTopCityPhotos } from '@/services/photoService';
-import { getCityOfficialMedia } from '@/services/city/cityMediaService';
+import { normalizeImageUrl } from '@/utils/imageOptimizer';
+import { getOrCreatePhotoSubmissionForUrl, listPhotographs } from '@/services/photoService';
+import { getCityPhotographicGalleryAssets } from '@/services/city/cityMediaService';
 
 interface PreviewGalleryProps {
     city: CityDetails; 
@@ -28,27 +28,31 @@ export const PreviewGallery = ({ city, onOpenLightbox, activeCategoryColor, clas
                 const cityName = city.name;
                 const cityId = city.id;
 
-                // 1. Raccogli URL validi (Governance Status-Driven)
-                const validAssets = getCityOfficialMedia(city);
+                // 1. Solo Galleria Fotografica città (mai Hero / Card / POI presentation)
+                const photographicGalleryAssets = getCityPhotographicGalleryAssets(city);
 
-                const allUrls = Array.from(new Set(validAssets.map(a => a.url))).slice(0, 15); // Limite per evitare troppe chiamate
+                const allUrls = Array.from(new Set(photographicGalleryAssets.map(a => a.url))).slice(0, 15);
 
                 // 2. Registrazione/Recupero UUID reali (No Virtual IDs)
                 const promises = allUrls.map(url => 
-                    getOrCreatePhotoSubmissionForUrl(url, cityId, cityName, 'Official city preview image')
+                    getOrCreatePhotoSubmissionForUrl(url, cityId, cityName, 'Official city gallery image')
                 );
 
                 const results = await Promise.all(promises);
-                const officialItems = results.filter((p): p is PhotoSubmission => p !== null);
+                const cityPhotographicItems = results.filter((p): p is PhotoSubmission => p !== null);
 
-                // 3. RECUPERO TOP 10 COMMUNITY (Nuove Foto Approvate)
-                const communityItems = await fetchTopCityPhotos(cityId);
+                // 3. TOP fotografie approvate (unica porta dominio Photo)
+                const communityItems = await listPhotographs({
+                    cityId,
+                    status: 'approved',
+                    limit: 10,
+                });
 
                 // 4. MERGE & DEDUPLICAZIONE (Priorità Community)
                 const combined = [...communityItems];
-                officialItems.forEach(off => {
-                    if (!combined.some(c => normalizeImageUrl(c.url) === normalizeImageUrl(off.url))) {
-                        combined.push(off);
+                cityPhotographicItems.forEach(galleryPhoto => {
+                    if (!combined.some(c => normalizeImageUrl(c.url) === normalizeImageUrl(galleryPhoto.url))) {
+                        combined.push(galleryPhoto);
                     }
                 });
 

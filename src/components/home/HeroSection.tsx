@@ -231,12 +231,14 @@ export const HeroSection = (props: HeroSectionProps) => {
             className={`grid gap-2 md:gap-4 lg:grid-cols-12 lg:h-[16rem] ${gridLayoutClass}`}
         >
             {moduleOrder.map((moduleId) => {
+                // Compact twin: slots fill the stretched grid row so both cards share height.
+                const compactStretch = isStackedLayout && !anyExpanded ? 'h-full' : '';
                 if (moduleId === 'filter') {
                     return (
                         <div
                             key="filter"
                             ref={filterSlotRef}
-                            className="min-w-0 col-span-1 lg:col-span-7"
+                            className={`min-w-0 col-span-1 lg:col-span-7 ${compactStretch}`}
                         >
                             {filterModule}
                         </div>
@@ -246,7 +248,7 @@ export const HeroSection = (props: HeroSectionProps) => {
                     <div
                         key="ai"
                         ref={aiSlotRef}
-                        className="min-w-0 col-span-1 lg:col-span-5"
+                        className={`min-w-0 col-span-1 lg:col-span-5 ${compactStretch}`}
                     >
                         {aiModule}
                     </div>

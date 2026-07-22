@@ -11,6 +11,10 @@ import { mapDbPoiToApp } from './city/poi/poiMapper';
 import { GEO_CONFIG } from '../constants/geoConfig';
 import { sanitizeMediaStatus } from '../utils/media';
 import { CITY_STATUS_VALUES, CITY_BADGE_VALUES } from '../constants/governance';
+import {
+    filterPhotographs,
+    PHOTOGRAPH_READ_MEDIA_STATUS,
+} from '@/domain/photos/photographQuery';
 
 // Helper per costruire la stringa gerarchica elegante
 const buildHierarchy = (c: { continent?: string | null, nation?: string | null, admin_region?: string | null, zone?: string, name?: string }) => {
@@ -121,6 +125,7 @@ export const getTopCommunityPhotos = async (limit: number = 50): Promise<(PhotoS
                 )
             `)
             .eq('status', 'approved')
+            .eq('media_status', PHOTOGRAPH_READ_MEDIA_STATUS)
             .order('likes', { ascending: false })
             .limit(limit);
 
@@ -130,7 +135,7 @@ export const getTopCommunityPhotos = async (limit: number = 50): Promise<(PhotoS
 
         const photos: DatabaseJoinedPhotoSubmission[] = (data as unknown as DatabaseJoinedPhotoSubmission[]) || [];
 
-        return photos.map((p, idx) => {
+        const ranked = photos.map((p, idx) => {
             const city = p.cities;
 
             const hierarchy = city
@@ -162,6 +167,12 @@ export const getTopCommunityPhotos = async (limit: number = 50): Promise<(PhotoS
                 originalRank: idx + 1
             };
         });
+
+        // Stessa regola gallerie: solo Fotografie (SoT dominio).
+        return filterPhotographs(ranked).map((p, idx) => ({
+            ...p,
+            originalRank: idx + 1,
+        }));
 
     } catch (e) {
         return [];

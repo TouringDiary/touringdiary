@@ -16,6 +16,7 @@ import { ServiceGuides } from './ServiceGuides';
 import { ServiceEvents } from './ServiceEvents';
 import { ServiceOperators } from './ServiceOperators';
 import { ServiceGeneric } from './ServiceGeneric';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 interface EditorInfoProps {
     currentUser: User;
@@ -24,6 +25,7 @@ interface EditorInfoProps {
 
 export const EditorInfo = ({ currentUser, onOpenTaxonomy }: EditorInfoProps) => {
     const { city } = useCityEditor();
+    const { aiBlocked, blockMessage } = useAiRuntimeGate();
     
     // STATE FOR TAXONOMY MODAL (Local UI State)
     const [isTaxonomyOpen, setIsTaxonomyOpen] = useState(false);
@@ -123,14 +125,15 @@ export const EditorInfo = ({ currentUser, onOpenTaxonomy }: EditorInfoProps) => 
 
                      <button 
                         onClick={handleRegenerateClick} 
-                        disabled={isProcessing}
+                        disabled={isProcessing || aiBlocked}
+                        title={aiBlocked ? blockMessage : undefined}
                         className={`
                             px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all active:scale-95 border
-                            ${isProcessing ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500'}
+                            ${isProcessing || aiBlocked ? 'bg-slate-800 text-slate-400 border-slate-700 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500'}
                         `}
                     >
                         {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Sparkles className="w-3.5 h-3.5"/>}
-                        {isProcessing ? 'ELABORAZIONE...' : 'RIGENERA PAGINA (MERGE & FIX)'}
+                        {isProcessing ? 'ELABORAZIONE...' : aiBlocked ? 'AI DISABILITATA' : 'RIGENERA PAGINA (MERGE & FIX)'}
                     </button>
                  </div>
             </div>

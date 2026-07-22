@@ -28,6 +28,11 @@ export interface BaseFullscreenModalShellProps {
     panelClassName?: string;
     /** Outer overlay padding (default: p-0 md:p-4). */
     padding?: string;
+    /**
+     * Extra classes on the overlay (e.g. Foundation `modalOverlay` for local dimming
+     * when the modal may open outside ModalManager / FocusOverlay modalDim).
+     */
+    overlayClassName?: string;
     /** Click on overlay backdrop closes modal (default true). */
     closeOnOverlayClick?: boolean;
     /** Render standard CloseButton (default true). Set false when header supplies its own. */
@@ -41,8 +46,9 @@ export interface BaseFullscreenModalShellProps {
  * BaseFullscreenModalShell — canonical consumer fullscreen modal contract.
  *
  * - Portal: document.body
- * - Overlay: td-modal-overlay (chrome-safe top, NO local backdrop)
- * - Dimming: FocusOverlay (modalDim) via UIMode policy in AppCoordinator
+ * - Overlay: td-modal-overlay (chrome-safe top; optional Foundation dim via overlayClassName)
+ * - Dimming: FocusOverlay (modalDim) via UIMode when opened through ModalManager;
+ *   compact modals may also apply FOUNDATION_STYLE_KEYS.modalOverlay locally
  * - ESC: single useGlobalModalEscape registration (CloseButton withEscape=false)
  * - z-index: Z_OVERLAY (overlay) / Z_MODAL (panel) from registry
  */
@@ -56,6 +62,7 @@ export const BaseFullscreenModalShell: React.FC<BaseFullscreenModalShellProps> =
     fullHeight = true,
     panelClassName = '',
     padding = 'p-0 md:p-4',
+    overlayClassName = '',
     closeOnOverlayClick = true,
     showCloseButton = true,
     closeButtonInHeader = true,
@@ -70,7 +77,7 @@ export const BaseFullscreenModalShell: React.FC<BaseFullscreenModalShellProps> =
 
     return createPortal(
         <div
-            className={`td-modal-overlay flex items-center justify-center animate-in fade-in ${padding}`}
+            className={`td-modal-overlay flex items-center justify-center animate-in fade-in ${padding} ${overlayClassName}`.trim()}
             style={{ zIndex: Z_OVERLAY }}
             onClick={closeOnOverlayClick ? onClose : undefined}
         >

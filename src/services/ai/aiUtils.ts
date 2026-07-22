@@ -1,5 +1,6 @@
     import { aiGateway } from '@/services/ai/aiGateway';
     import { AiEdgeError } from '@/services/ai/aiEdgeErrors';
+    import { assertAiRuntimeAvailable } from '@/services/ai/aiRuntimeStatus';
 
     import { Schema } from '../../types/ai';
 
@@ -88,7 +89,11 @@
 
     // Wrapper per riprovare una funzione in caso di errore (Retry Logic) con gestione QUOTA
     export async function withRetry<T>(fn: () => Promise<T>, retries = EDGE_INVOKE_RETRIES, delay = 2000): Promise<T> {
-        // GUARD RAIL: Se la chiave non è valida, blocca tutto SUBITO.
+        // T02/BUG: Feature Flag / emergenza AI PRIMA di qualsiasi check provider (API key).
+        // Altrimenti l'utente vede API_KEY_MISSING invece del messaggio del Centro di Controllo.
+        assertAiRuntimeAvailable();
+
+        // GUARD RAIL: Se la chiave non è valida, blocca solo dopo il gate runtime.
         if (!hasValidKey) {
             console.warn("[AI Safety] Chiamata bloccata: API Key non configurata o non valida.");
             throw new Error("API_KEY_MISSING: Configura la chiave Google Gemini per usare l'AI.");

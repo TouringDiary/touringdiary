@@ -15,6 +15,8 @@ interface FeatureFlagBooleanRowProps {
     canWrite: boolean;
     requiresReason?: boolean;
     schedulesSuspended?: boolean;
+    /** Densità ridotta per controlli contestuali in header di sezione (stessa logica, meno chrome). */
+    compact?: boolean;
     onSave: (manualOverride: boolean | null, reason?: string) => Promise<void>;
 }
 
@@ -23,6 +25,7 @@ export const FeatureFlagBooleanRow: React.FC<FeatureFlagBooleanRowProps> = ({
     canWrite,
     requiresReason = false,
     schedulesSuspended = false,
+    compact = false,
     onSave,
 }) => {
     const ty = usePlatformControlTypography();
@@ -71,6 +74,50 @@ export const FeatureFlagBooleanRow: React.FC<FeatureFlagBooleanRowProps> = ({
             setIsSaving(false);
         }
     };
+
+    if (compact) {
+        return (
+            <div
+                className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
+                    effectiveOn
+                        ? 'border-amber-500/35 bg-amber-950/25'
+                        : 'border-slate-700/80 bg-slate-950/40'
+                }`}
+            >
+                <div className="min-w-0 flex-1">
+                    <p className={`${ty.fieldLabel} text-slate-200 truncate`} title={flag.label}>
+                        {flag.label}
+                    </p>
+                    {adminHelp ? (
+                        <p className={`${ty.helper} mt-0.5 line-clamp-2 leading-snug`}>
+                            {adminHelp}
+                        </p>
+                    ) : null}
+                </div>
+                <button
+                    type="button"
+                    role="switch"
+                    aria-checked={effectiveOn}
+                    aria-label={`${flag.label}: ${effectiveOn ? 'acceso' : 'spento'}`}
+                    disabled={!canWrite || isSaving}
+                    onClick={() => void handleToggle()}
+                    className={`relative shrink-0 h-7 w-12 rounded-full transition-colors touch-manipulation disabled:opacity-50 ${
+                        effectiveOn ? 'bg-amber-600' : 'bg-slate-700'
+                    }`}
+                >
+                    <span
+                        className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                            effectiveOn ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                    />
+                    {isSaving ? (
+                        <Loader2 className="absolute inset-0 m-auto w-3 h-3 text-white animate-spin" />
+                    ) : null}
+                </button>
+                {error ? <p className={`${ty.error} sr-only`}>{error}</p> : null}
+            </div>
+        );
+    }
 
     return (
         <article

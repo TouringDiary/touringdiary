@@ -80,6 +80,7 @@ function parseSchedules(value: Json): PlatformFlagSchedule[] {
             startsAt: row.startsAt,
             endsAt: row.endsAt,
             value: row.value,
+            ...(typeof row.enabled === 'boolean' ? { enabled: row.enabled } : {}),
         }];
     });
 }
@@ -208,7 +209,7 @@ export const PLATFORM_FEATURE_FLAG_FALLBACKS: Record<string, PlatformFeatureFlag
         PLATFORM_FEATURE_FLAG_KEYS.MODERATION_SUGGESTIONS, 'moderation', 'Segnalazioni utenti', true, 'moderation_suggestions_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS]: boolFallback(
-        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS, 'moderation', 'Post community', true, 'moderation_community_posts_paused'
+        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS, 'moderation', 'Q&A Local', true, 'moderation_community_posts_paused'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE]: boolFallback(
         PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE,
@@ -250,6 +251,8 @@ export type PlatformControlServiceDeps = {
     selectFlags: () => Promise<DbPlatformFeatureFlagRow[]>;
     mutateFlag: (key: string, patch: Json, reason?: string) => Promise<DbPlatformFeatureFlagRow>;
     selectAudit: (limit?: number) => Promise<PlatformControlAuditEvent[]>;
+    deleteAuditEvent: (id: string) => Promise<boolean>;
+    clearAudit: () => Promise<number>;
 };
 
 export function createPlatformControlService(deps: PlatformControlServiceDeps) {
@@ -278,6 +281,7 @@ export function createPlatformControlService(deps: PlatformControlServiceDeps) {
                     startsAt: schedule.startsAt,
                     endsAt: schedule.endsAt,
                     value: schedule.value,
+                    ...(typeof schedule.enabled === 'boolean' ? { enabled: schedule.enabled } : {}),
                 }));
             }
             if ('audience' in patch) {
@@ -293,6 +297,14 @@ export function createPlatformControlService(deps: PlatformControlServiceDeps) {
 
         async fetchAuditEvents(limit = 50): Promise<PlatformControlAuditEvent[]> {
             return deps.selectAudit(limit);
+        },
+
+        async deleteAuditEvent(id: string): Promise<boolean> {
+            return deps.deleteAuditEvent(id);
+        },
+
+        async clearAudit(): Promise<number> {
+            return deps.clearAudit();
         },
     };
 }

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
-    fetchCommunityPhotos, 
+    listPhotoSubmissionsForModeration, 
     updatePhotoStatusInDb, 
     updatePhotoData, 
     uploadCommunityPhoto, 
@@ -15,6 +15,11 @@ import { addNotification } from '../../services/notificationService';
 import { generateImageCaption } from '../../services/ai/aiVision';
 import { compressImage, dataURLtoFile } from '../../utils/common';
 import { PhotoSubmission, CitySummary, User } from '../../types/index';
+import {
+    buildOfficialToggleUpdates,
+    buildPhotoMetadataSaveUpdates,
+} from '../../domain/photos/photoOfficial';
+import type { PhotoMetadataModalState } from '../../components/admin/photos/PhotoMetadataModal';
 
 type SortKey = 'date' | 'updatedAt' | 'locationName' | 'user' | 'status';
 
@@ -39,7 +44,7 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
     // UI & MODAL STATE
     const [isInspectorOpen, setIsInspectorOpen] = useState(false);
     const [photoToEdit, setPhotoToEdit] = useState<PhotoSubmission | null>(null);
-    const [metadataModal, setMetadataModal] = useState<{ isOpen: boolean, photoId: string, description: string, locationName: string } | null>(null);
+    const [metadataModal, setMetadataModal] = useState<PhotoMetadataModalState | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<{ id: string, name: string, url: string, locationName: string, description: string } | null>(null);
     
     // PROCESS STATE
@@ -72,7 +77,7 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
     const refreshPhotos = async () => {
         setIsLoading(true);
         try {
-            const allPhotos = await fetchCommunityPhotos('all', true);
+            const allPhotos = await listPhotoSubmissionsForModeration('all');
             setPhotos(allPhotos);
             if (onUpdate) onUpdate();
         } catch (e) {
@@ -270,22 +275,21 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
     const handleToggleOfficial = async (id: string, currentStatus: boolean) => {
         const newStatus = !currentStatus;
         const photo = photos.find(p => p.id === id);
-        
-        try {
-            const updates: Partial<PhotoSubmission> = { isOfficial: newStatus };
-            
-            // Tentativo normalizzazione cityId se ufficiale e manca cityId
-            if (newStatus && photo && !photo.cityId) {
-                const cityMatch = manifest.find(c => 
-                    c.name.toLowerCase().trim() === photo.locationName.toLowerCase().trim()
-                );
-                if (cityMatch) {
-                    updates.cityId = cityMatch.id;
-                } else {
-                    console.warn(`[Moderation] Mismatch città durante promozione: ${photo.locationName}`);
-                }
-            }
+        if (!photo) return;
 
+        const updates = buildOfficialToggleUpdates(photo, newStatus, manifest);
+        if (updates === null) {
+            setMetadataModal({
+                isOpen: true,
+                photoId: photo.id,
+                description: photo.description || '',
+                locationName: photo.locationName || '',
+                promoteOnSave: true,
+            });
+            return;
+        }
+
+        try {
             await updatePhotoData(id, updates);
             setPhotos(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
             showToast(newStatus ? "Foto promossa a Ufficiale!" : "Foto riportata a Community.", 'success');
@@ -297,17 +301,22 @@ export const usePhotoModeration = ({ currentUser, onUpdate }: UsePhotoModeration
     const saveMetadata = async () => {
         if (metadataModal) {
             try {
-                // 1. Aggiorna DB Foto
-                await updatePhotoData(metadataModal.photoId, { 
-                    description: metadataModal.description,
-                    locationName: metadataModal.locationName
-                });
-                
-                // SSoT: DB City Sync (Cross-Update) removed - Photo Submission is the SSoT
-                
-                setPhotos(prev => prev.map(p => p.id === metadataModal.photoId ? { ...p, description: metadataModal.description, locationName: metadataModal.locationName } : p));
+                const updates = buildPhotoMetadataSaveUpdates(metadataModal, manifest);
+
+                await updatePhotoData(metadataModal.photoId, updates);
+
+                setPhotos(prev =>
+                    prev.map(p =>
+                        p.id === metadataModal.photoId ? { ...p, ...updates } : p
+                    )
+                );
                 setMetadataModal(null);
-                showToast("Metadati aggiornati e sincronizzati.", 'success');
+                showToast(
+                    metadataModal.promoteOnSave
+                        ? "Foto promossa a Ufficiale!"
+                        : "Metadati aggiornati e sincronizzati.",
+                    'success'
+                );
             } catch (e: any) {
                  showToast(`Errore: ${e.message}`, 'error');
             }

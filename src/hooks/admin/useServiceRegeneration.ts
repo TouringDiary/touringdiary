@@ -14,6 +14,7 @@ import { appendGenerationLogs } from '../../services/city/parsers/content/parseL
 import { getSafeServiceType, getSafeEventCategory } from '../../utils/common';
 import { User } from '../../types/users';
 import { useAiTaskRunner, StepReport } from './useAiTaskRunner';
+import { assertAiRuntimeAvailable } from '@/services/ai/aiRuntimeStatus';
 
 export const useServiceRegeneration = (currentUser: User) => {
     const { city, reloadCurrentCity } = useCityEditor();
@@ -57,6 +58,15 @@ export const useServiceRegeneration = (currentUser: User) => {
 
     const handleRegenerateClick = (e: React.MouseEvent) => {
         e.preventDefault();
+        try {
+            assertAiRuntimeAvailable({
+                userRole: currentUser.role,
+                isAuthenticated: true,
+            });
+        } catch {
+            // UI already shows AdminAiRuntimeBanner + disabled button; no native alert.
+            return;
+        }
         if (!city?.name) { alert("Inserisci il nome della città!"); return; }
         setShowConfirmRegen(true);
     };
@@ -67,6 +77,17 @@ export const useServiceRegeneration = (currentUser: User) => {
 
     const executeRegeneration = async () => {
         if (!city) return;
+
+        try {
+            assertAiRuntimeAvailable({
+                userRole: currentUser.role,
+                isAuthenticated: true,
+            });
+        } catch {
+            setShowConfirmRegen(false);
+            // Same as click: banner + disabled state cover user feedback.
+            return;
+        }
 
         setShowConfirmRegen(false);
 

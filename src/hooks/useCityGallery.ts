@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { PhotoSubmission, User, CityDetails, MediaStatus } from '../types/index';
-import { fetchCommunityPhotos, uploadCommunityPhoto, getOrCreatePhotoSubmissionForUrl } from '../services/photoService';
-import { getCityOfficialMedia } from '../services/city/cityMediaService';
+import { PhotoSubmission, User, CityDetails } from '../types/index';
+import { listPhotographs, uploadCommunityPhoto, getOrCreatePhotoSubmissionForUrl } from '../services/photoService';
+import { getCityPhotographicGalleryAssets } from '../services/city/cityMediaService';
 import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../constants/platformFeatureFlags';
 import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFlagCache';
 import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
@@ -20,8 +20,8 @@ export const useCityGallery = (city: CityDetails, user: User) => {
     const loadPhotos = useCallback(async () => {
         setIsLoading(true);
         try {
-            // A. Recupera foto Community (Dal DB submissions)
-            const allCommunityPhotos = await fetchCommunityPhotos();
+            // A. Fotografie (unica porta dominio Photo)
+            const allCommunityPhotos = await listPhotographs({ withLikes: true });
 
             // Filtra per città corrente
             const communityCityPhotos = allCommunityPhotos.filter(p => {
@@ -36,11 +36,12 @@ export const useCityGallery = (city: CityDetails, user: User) => {
                 return isCityMatch && (isApproved || isMyPending);
             });
 
-            // B. RECUPERA FOTO UFFICIALI & POI CON METADATI (Governance-Driven)
-            const officialAssets = getCityOfficialMedia(city);
+            // B. Galleria Fotografica città (unica sorgente Official autorizzata lato città)
+            // Presentation Media (Hero / Card / POI cover) NON entra nel dominio Photograph.
+            const photographicGalleryAssets = getCityPhotographicGalleryAssets(city);
 
-            // C. REGISTRAZIONE PERSISTENTE & MERGE
-            const registeredPhotosPromises = officialAssets.map(asset => {
+            // C. REGISTRAZIONE PERSISTENTE & MERGE (solo URL della Galleria Fotografica)
+            const registeredPhotosPromises = photographicGalleryAssets.map(asset => {
                 const existing = communityCityPhotos.find(p => p.url === asset.url);
                 if (existing) return Promise.resolve(existing);
                 return getOrCreatePhotoSubmissionForUrl(asset.url, city.id, city.name, 'Immagine ufficiale', asset.mediaStatus);
@@ -56,7 +57,7 @@ export const useCityGallery = (city: CityDetails, user: User) => {
                 }
             });
 
-            // Ordina per data (Il filtraggio placeholder/missing avviene ora nel service layer)
+            // Ordina per data (solo Fotografie: filtro nel dominio via listPhotographs)
             const sortedPhotos = finalPhotos
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -68,7 +69,7 @@ export const useCityGallery = (city: CityDetails, user: User) => {
         } finally {
             setIsLoading(false);
         }
-    }, [city.name, city.details?.gallery, city.details?.allPois, city.id, city.imageUrl, city.hero_status, user.id]);
+    }, [city.name, city.details?.gallery, city.id, user.id]);
 
     useEffect(() => {
         loadPhotos();
@@ -123,11 +124,11 @@ export const useCityGallery = (city: CityDetails, user: User) => {
                 isAuthenticated: user.role !== 'guest',
             }
         );
-        if (!photosFlagUx?.enabled) {
+        if (photosFlagUx?.enabled !== true) {
             setUploadError(
                 resolvePlatformUserBody(
                     photosFlagUx?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_PHOTOS_PAUSED,
-                    'Il caricamento foto è temporaneamente disabilitato.'
+                    ''
                 )
             );
             return null;

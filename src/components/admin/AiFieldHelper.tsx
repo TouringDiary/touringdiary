@@ -1,9 +1,10 @@
 import { aiGateway } from '@/services/ai/aiGateway';
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Loader2, Sparkles, X, Check, ListChecks, Settings, Plus, Trash2, Save, Database } from 'lucide-react';
+import { Bot, Loader2, Sparkles, Settings, Check } from 'lucide-react';
 
-import { getAiConfig, saveAiConfig } from '../../services/aiConfigService';
+import { getAiConfig } from '../../services/aiConfigService';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 interface AiFieldHelperProps {
     contextLabel: string;
@@ -16,23 +17,34 @@ interface AiFieldHelperProps {
     currentValue?: any;
     fieldId?: string;
     defaultPrompts?: string[];
-    isStrategyConfig?: boolean; 
+    isStrategyConfig?: boolean;
 }
 
-export const AiFieldHelper = ({ contextLabel, onApply, mode = 'text', min, max, initialPrompt, compact = false, currentValue, fieldId, defaultPrompts, isStrategyConfig = false }: AiFieldHelperProps) => {
-    // ... (STATE SAME AS BEFORE)
+export const AiFieldHelper = ({
+    contextLabel,
+    onApply,
+    mode = 'text',
+    min,
+    max,
+    initialPrompt,
+    compact = false,
+    currentValue,
+    fieldId,
+    defaultPrompts,
+    isStrategyConfig = false,
+}: AiFieldHelperProps) => {
+    const { aiBlocked, blockTitle, blockMessage, guardAiAction } = useAiRuntimeGate();
     const [isOpen, setIsOpen] = useState(false);
     const dbKey = fieldId ? `ai_config_${fieldId}` : `ai_config_generic_${mode}`;
     const [savedPrompts, setSavedPrompts] = useState<string[]>([]);
-    const [newPromptText, setNewPromptText] = useState('');
     const [selectedPrompts, setSelectedPrompts] = useState<string[]>([]);
     const [isDbLoading, setIsDbLoading] = useState(true);
-    const [isSavingConfig, setIsSavingConfig] = useState(false);
     const [result, setResult] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    void savedPrompts;
+    void isDbLoading;
 
-    // ... (EFFECTS AND HANDLERS SAME AS BEFORE)
     useEffect(() => {
         const loadConfig = async () => {
             setIsDbLoading(true);
@@ -47,10 +59,10 @@ export const AiFieldHelper = ({ contextLabel, onApply, mode = 'text', min, max, 
                 const mergedPrompts = Array.from(new Set([...config.prompts, ...codeDefaults]));
                 setSavedPrompts(mergedPrompts);
                 if (codeDefaults.length > 0) {
-                     const enforcedSelection = Array.from(new Set([...config.selected, ...codeDefaults]));
-                     setSelectedPrompts(enforcedSelection);
+                    const enforcedSelection = Array.from(new Set([...config.selected, ...codeDefaults]));
+                    setSelectedPrompts(enforcedSelection);
                 } else {
-                     setSelectedPrompts(config.selected);
+                    setSelectedPrompts(config.selected);
                 }
             } else {
                 setSavedPrompts(codeDefaults);
@@ -58,21 +70,39 @@ export const AiFieldHelper = ({ contextLabel, onApply, mode = 'text', min, max, 
             }
             setIsDbLoading(false);
         };
-        loadConfig();
-    }, [dbKey]);
-    
-    // ... (HANDLERS)
+        void loadConfig();
+    }, [dbKey, defaultPrompts, initialPrompt, max, min, mode]);
+
+    // When CC disables AI: close panel and wipe ephemeral generation session state.
+    useEffect(() => {
+        if (!aiBlocked) return;
+        setIsOpen(false);
+        setError(null);
+        setResult('');
+        setLoading(false);
+    }, [aiBlocked]);
+
+    const handleHeaderClick = () => {
+        if (aiBlocked) return;
+        setIsOpen(!isOpen);
+    };
 
     const handleGenerate = async () => {
-        if (selectedPrompts.length === 0) { setError("Seleziona istruzioni."); return; }
+        if (!guardAiAction()) {
+            setError(blockMessage);
+            return;
+        }
+        if (selectedPrompts.length === 0) {
+            setError('Seleziona istruzioni.');
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
-            
             const combinedPrompt = selectedPrompts.join('\n- ');
-            
-            let systemInstruction = "Agisci come editor turistico esperto della Campania. Rispondi in italiano.";
-            if (mode === 'number') systemInstruction += " Rispondi SOLO con un numero.";
+
+            let systemInstruction = 'Agisci come editor turistico esperto della Campania. Rispondi in italiano.';
+            if (mode === 'number') systemInstruction += ' Rispondi SOLO con un numero.';
 
             const finalPrompt = `
                 TASK: Scrivere contenuto per "${contextLabel}".
@@ -97,46 +127,96 @@ export const AiFieldHelper = ({ contextLabel, onApply, mode = 'text', min, max, 
                 }
                 setResult(cleanText);
             }
-        } catch (e: any) { 
-             setError(e.message || "Errore AI."); 
-        } finally { 
-             setLoading(false); 
+        } catch (e: any) {
+            setError(e.message || 'Errore AI.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    // ... (RENDER SAME AS BEFORE)
     return (
-        <div className="w-full mt-2">
-            {/* ... UI ... */}
-             <div className="flex justify-between items-center p-3 bg-slate-900/50 border-b border-slate-800 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                  <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg ${selectedPrompts.length > 0 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                            {isStrategyConfig ? <Settings className="w-4 h-4"/> : <Bot className="w-4 h-4"/>}
-                        </div>
-                        <div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                                {isStrategyConfig ? 'Configura Strategia AI' : 'Generatore AI'}
+        <div className={`w-full ${compact ? 'mt-1' : 'mt-2'} ${aiBlocked ? 'opacity-60' : ''}`}>
+            <div
+                className={`flex justify-between items-center ${compact ? 'p-2' : 'p-3'} bg-slate-900/50 border-b border-slate-800 ${aiBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                onClick={handleHeaderClick}
+                aria-disabled={aiBlocked}
+            >
+                <div className="flex items-center gap-2 min-w-0">
+                    <div
+                        className={`p-1.5 rounded-lg shrink-0 ${
+                            aiBlocked
+                                ? 'bg-slate-800 text-slate-500'
+                                : selectedPrompts.length > 0
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-slate-800 text-slate-500'
+                        }`}
+                    >
+                        {isStrategyConfig ? <Settings className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                            {aiBlocked
+                                ? blockTitle
+                                : isStrategyConfig
+                                  ? 'Configura Strategia AI'
+                                  : 'Generatore AI'}
+                        </span>
+                        {aiBlocked ? (
+                            <span className="text-[10px] text-amber-400/90 block mt-0.5 line-clamp-2">
+                                {blockMessage}
                             </span>
-                        </div>
-                  </div>
-             </div>
-             {isOpen && (
-                  <div className="p-4 bg-slate-900">
-                      {/* ... Content ... */}
-                      {!isStrategyConfig && (
+                        ) : null}
+                    </div>
+                </div>
+            </div>
+            {isOpen && !aiBlocked && (
+                <div className={`${compact ? 'p-3' : 'p-4'} bg-slate-900`}>
+                    {isStrategyConfig ? (
                         <div className="pt-2 border-t border-slate-800">
-                             <button onClick={handleGenerate} disabled={loading || selectedPrompts.length === 0} className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg">
-                                {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Sparkles className="w-4 h-4"/>}
+                            <button
+                                type="button"
+                                onClick={() => onApply(selectedPrompts.join('\n- '))}
+                                disabled={selectedPrompts.length === 0}
+                                className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider flex items-center justify-center gap-2"
+                            >
+                                <Check className="w-3.5 h-3.5" /> Applica strategia
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="pt-2 border-t border-slate-800 space-y-2">
+                            <button
+                                onClick={handleGenerate}
+                                disabled={loading || selectedPrompts.length === 0 || aiBlocked}
+                                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
+                            >
+                                {loading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Sparkles className="w-4 h-4" />
+                                )}
                                 Genera Contenuto (Pro)
                             </button>
-                            {/* ... Result area ... */}
+                            {error && (
+                                <div className="text-xs text-red-400 font-bold">{error}</div>
+                            )}
                             {result && (
-                                <div className="mt-3 p-3 bg-slate-950 border border-indigo-500/30 rounded text-sm text-indigo-100">{result}</div>
+                                <div className="space-y-2">
+                                    <div className="p-3 bg-slate-950 border border-indigo-500/30 rounded text-sm text-indigo-100">
+                                        {result}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => onApply(result)}
+                                        className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider flex items-center justify-center gap-2"
+                                    >
+                                        <Check className="w-3.5 h-3.5" /> Applica
+                                    </button>
+                                </div>
                             )}
                         </div>
-                      )}
-                  </div>
-             )}
+                    )}
+                </div>
+            )}
         </div>
     );
 };

@@ -1,5 +1,6 @@
 import { supabaseProvider, AiRequestOptions } from './providers/supabaseProvider';
 import { extractLegacyPayload, wrapLegacyResponse } from './aiLegacyPayload';
+import { assertAiRuntimeAvailable } from './aiRuntimeStatus';
 
 export class AiGateway {
     private provider = supabaseProvider;
@@ -13,6 +14,9 @@ export class AiGateway {
      * e con i caller che leggono `response.text` (FASE 2A).
      */
     async generateLegacy(payload: Record<string, unknown>, options?: Pick<AiRequestOptions, 'feature'>): Promise<ReturnType<typeof wrapLegacyResponse>> {
+        // Gate Feature Flag ancora prima del provider (difesa in profondità; T02).
+        assertAiRuntimeAvailable();
+
         const extracted = extractLegacyPayload(payload);
 
         if (!extracted.textPrompt) {
@@ -37,6 +41,7 @@ export class AiGateway {
     }
 
     async generateText(prompt: string, options?: AiRequestOptions) {
+        assertAiRuntimeAvailable();
         const result = await this.provider.generate(prompt, {
             ...options,
             operationType: options?.operationType || 'task',
@@ -45,6 +50,7 @@ export class AiGateway {
     }
 
     async generateChat(prompt: string): Promise<string> {
+        assertAiRuntimeAvailable();
         const result = await this.provider.generate(prompt, {
             operationType: 'chat',
             feature: 'hero_chat',

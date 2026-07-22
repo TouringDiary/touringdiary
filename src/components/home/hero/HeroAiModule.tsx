@@ -96,39 +96,65 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
         }
     };
 
-    // --- Compact header (twin card, both modules closed) ---
-    const renderCompactHeader = (rowClass: string) => (
+    const aiRuntimeBannerEl = aiBlocked ? (
+        <AiRuntimeBanner
+            status={props.aiRuntimeStatus}
+            variant="inline"
+            className="w-full"
+        />
+    ) : null;
+
+    /** Inline slot for same-row placement (desktop / tablet compact). */
+    const aiRuntimeBannerInline = aiRuntimeBannerEl ? (
         <div
-            className={`flex items-center justify-between cursor-pointer relative z-home-hero-surface shrink-0 ${rowClass}`}
-            onClick={toggleExpanded}
+            className="min-w-0 flex-1 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
         >
-            <div className="flex items-center gap-2 min-w-0">
-                <div className="bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)] shrink-0 w-1 h-5" />
-                <h3 className={`${aiTitleStyle} truncate`}>Il Tuo Consulente</h3>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-                <div
-                    className="p-1.5 bg-slate-800/50 rounded-full border border-white/10 text-white backdrop-blur-sm"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        toggleExpanded();
-                    }}
-                >
-                    <ChevronDown className="w-4 h-4" />
+            {aiRuntimeBannerEl}
+        </div>
+    ) : null;
+
+    // --- Compact header (twin card, both modules closed) ---
+    // Smartphone: banner below title (half-column too narrow). Tablet+: same row.
+    const renderCompactHeader = (rowClass: string) => (
+        <div className="relative z-home-hero-surface shrink-0 flex flex-col gap-1">
+            <div
+                className={`flex items-center justify-between cursor-pointer gap-2 ${rowClass}`}
+                onClick={toggleExpanded}
+            >
+                <div className={`flex items-center gap-2 min-w-0 ${isMobileCompact ? '' : 'shrink-0'}`}>
+                    <div className="bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)] shrink-0 w-1 h-5" />
+                    <h3 className={`${aiTitleStyle} truncate`}>Il Tuo Consulente</h3>
+                </div>
+                {!isMobileCompact && aiRuntimeBannerInline}
+                <div className="flex items-center gap-1.5 shrink-0">
+                    <div
+                        className="p-1.5 bg-slate-800/50 rounded-full border border-white/10 text-white backdrop-blur-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpanded();
+                        }}
+                    >
+                        <ChevronDown className="w-4 h-4" />
+                    </div>
                 </div>
             </div>
+            {isMobileCompact && aiRuntimeBannerEl && (
+                <div onClick={(e) => e.stopPropagation()}>{aiRuntimeBannerEl}</div>
+            )}
         </div>
     );
 
     const renderDesktopHeader = () => (
         <div
-            className="flex items-center justify-between cursor-pointer lg:cursor-default relative z-home-hero-surface shrink-0 h-8 mb-2"
+            className="flex items-center justify-between cursor-pointer lg:cursor-default relative z-home-hero-surface shrink-0 min-h-8 mb-2 gap-2"
             onClick={toggleExpanded}
         >
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 shrink-0">
                 <div className="bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)] shrink-0 w-1.5 h-8" />
                 <h3 className={`${aiTitleStyle} truncate`}>Il Tuo Consulente</h3>
             </div>
+            {aiRuntimeBannerInline}
             <div className="flex items-center gap-1.5 shrink-0">
                 <Bot className="w-6 h-6 text-purple-500 animate-pulse" />
                 <div
@@ -146,18 +172,14 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
 
     // --- COMPACT TWIN (both modules closed): original side-by-side card content ---
     const renderCompactTwin = () => (
-        <div className={`relative z-home-hero-surface ${HERO_COMPACT.compactTwinStack} ${HERO_COMPACT.bodyGap}`}>
+        <div className={`relative z-home-hero-surface h-full ${HERO_COMPACT.compactTwinStack} ${HERO_COMPACT.bodyGap}`}>
             {renderCompactHeader(HERO_COMPACT.headerRowAi)}
             <div
                 className={`${heroCompactFieldShell} ${HERO_COMPACT.fieldPadding}`}
                 role="region"
                 aria-label="Risposta consulente AI"
             >
-                {aiBlocked ? (
-                    <div className="min-w-0 w-full overflow-hidden">
-                        <AiRuntimeBanner status={props.aiRuntimeStatus} className="w-full" />
-                    </div>
-                ) : props.isAiLoading ? (
+                {props.isAiLoading ? (
                     <div className="flex items-center gap-2 min-w-0 w-full text-slate-400">
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500 shrink-0" />
                         <span className={`${HERO_COMPACT.fieldText} text-purple-300 uppercase tracking-widest font-mono animate-pulse`}>
@@ -228,6 +250,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
             accentClassName="bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
             expanded
             onClick={toggleExpanded}
+            trailing={aiRuntimeBannerInline}
         />
     );
 
@@ -237,9 +260,6 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
         } ${
             showFullAiContent && props.isAiExpanded ? 'flex' : showFullAiContent ? 'hidden lg:flex' : 'hidden'
         }`}>
-            {aiBlocked && (
-                <AiRuntimeBanner status={props.aiRuntimeStatus} className="mb-3" />
-            )}
             {props.isAiLoading ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 bg-slate-950/50 rounded-xl border border-slate-800/50 min-h-[8rem]">
                     <Loader2 className="w-10 h-10 animate-spin text-purple-500"/>
@@ -322,7 +342,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
             id="tour-ai-button"
             className={`min-w-0 relative rounded-2xl border border-slate-800 bg-slate-900 flex flex-col shadow-2xl transition-all duration-300 ease-in-out overflow-hidden ${
                 isStackedLayout
-                    ? `h-auto ${stackedMode === 'compact' ? HERO_COMPACT.boxPadding : ''}`
+                    ? `${stackedMode === 'compact' ? `h-full ${HERO_COMPACT.boxPadding}` : 'h-auto'}`
                     : `p-4 ${!props.isAiExpanded ? 'h-auto' : 'h-[30rem] lg:h-full'}`
             }`}
             data-focus-surface="dimmed-background"
@@ -339,7 +359,7 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                 </div>
             )}
             
-            <div className="relative z-home-hero-surface flex flex-col min-h-0">
+            <div className={`relative z-home-hero-surface flex flex-col min-h-0 ${stackedMode === 'compact' ? 'h-full' : ''}`}>
                 {isStackedLayout ? renderStacked() : (
                     <>
                         {renderDesktopHeader()}

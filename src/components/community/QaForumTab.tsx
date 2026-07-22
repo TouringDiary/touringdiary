@@ -5,6 +5,14 @@ import { User as UserType, CommunityPost, CommunityReply, CitySummary } from '..
 import { getCommunityPostsAsync, addCommunityPostAsync, togglePostLike, getUserPostLikes } from '../../services/communityService';
 import { getFullManifestAsync } from '../../services/cityService';
 import { addNotification } from '../../services/notificationService';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useSystemMessage } from '@/hooks/useSystemMessage';
+import {
+    PLATFORM_FEATURE_FLAG_KEYS,
+    PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
+import { FeatureFlagPausedBanner } from '@/components/platform/FeatureFlagPausedBanner';
+import { resolvePlatformUserBody, resolvePlatformUserTitle } from '@/services/platformControl/resolvePlatformUserMessage';
 
 interface QaForumTabProps {
     user: UserType;
@@ -12,6 +20,13 @@ interface QaForumTabProps {
 }
 
 export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => {
+    const qaFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS);
+    const qaEnabled = qaFlag?.enabled ?? true;
+    const qaMsgKey =
+        qaFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED;
+    const { getText: getQaPausedMsg } = useSystemMessage(qaMsgKey);
+    const pausedCopy = getQaPausedMsg({});
+
     const [qaPosts, setQaPosts] = useState<CommunityPost[]>([]);
     const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
     const [cityManifest, setCityManifest] = useState<CitySummary[]>([]);
@@ -41,7 +56,18 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
         }
     }, [user, initialSelectedPostId]);
 
+    const pausedAlertMessage = () =>
+        pausedCopy.body ||
+        resolvePlatformUserBody(
+            qaMsgKey,
+            'Le domande e risposte locali sono temporaneamente disabilitate.'
+        );
+
     const handlePostQuestion = async () => {
+        if (!qaEnabled) {
+            alert(pausedAlertMessage());
+            return;
+        }
         if (!questionText.trim()) { alert("Scrivi una domanda!"); return; }
         if (!questionCity) { alert("Seleziona una città!"); return; }
         
@@ -63,43 +89,57 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
             replies: []
         };
 
-        const savedPost = await addCommunityPostAsync(newPost);
-        
-        if (savedPost) {
-            setQaPosts(prev => [savedPost, ...prev]);
-            if (user.role !== 'guest') {
-                 setShowMyPostsOnly(true);
+        try {
+            const savedPost = await addCommunityPostAsync(newPost);
+            
+            if (savedPost) {
+                setQaPosts(prev => [savedPost, ...prev]);
+                if (user.role !== 'guest') {
+                     setShowMyPostsOnly(true);
+                }
+                setQuestionText('');
+            } else {
+                alert("Errore invio domanda.");
             }
-            setQuestionText('');
-        } else {
-            alert("Errore invio domanda.");
+        } catch (e: unknown) {
+            alert(e instanceof Error ? e.message : pausedAlertMessage());
         }
         setIsPostingQa(false);
     };
 
     const handleLikePost = async (postId: string) => {
+        if (!qaEnabled) {
+            alert(pausedAlertMessage());
+            return;
+        }
         if (user.role === 'guest') {
             alert("Accedi per supportare!");
             return;
         }
-        const result = await togglePostLike(postId, user.id);
-        
-        // Aggiorniamo lo stato locale dei like
-        if (result.liked) {
-            setLikedPostIds(prev => [...prev, postId]);
-        } else {
-            setLikedPostIds(prev => prev.filter(id => id !== postId));
-        }
-        
-        // Optimistic update
-        setQaPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: result.count } : p));
-        
-        if (selectedPost && selectedPost.id === postId) {
-             setSelectedPost({ ...selectedPost, likes: result.count });
+        try {
+            const result = await togglePostLike(postId, user.id);
+            
+            if (result.liked) {
+                setLikedPostIds(prev => [...prev, postId]);
+            } else {
+                setLikedPostIds(prev => prev.filter(id => id !== postId));
+            }
+            
+            setQaPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: result.count } : p));
+            
+            if (selectedPost && selectedPost.id === postId) {
+                 setSelectedPost({ ...selectedPost, likes: result.count });
+            }
+        } catch (e: unknown) {
+            alert(e instanceof Error ? e.message : pausedAlertMessage());
         }
     };
     
     const handlePostReply = async () => {
+        if (!qaEnabled) {
+            alert(pausedAlertMessage());
+            return;
+        }
         if (!replyText.trim() || !selectedPost) return;
         
         if (user.role === 'guest') {
@@ -153,6 +193,11 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
         
         return (
             <div className="flex flex-col h-full animate-in slide-in-from-right-4 px-4 md:px-8">
+                <FeatureFlagPausedBanner
+                    flagKey={PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS}
+                    defaultMessageKey={PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED}
+                    className="mb-3"
+                />
                 <div className="flex items-center gap-4 mb-4 border-b border-slate-800 pb-3">
                     <button onClick={() => setSelectedPost(null)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5"/></button>
                     <h3 className="text-lg font-bold text-white">Discussione</h3>
@@ -173,7 +218,14 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
                         </div>
                         <p className="text-slate-200 text-lg font-medium leading-relaxed mb-4">{selectedPost.text}</p>
                         <div className="flex items-center gap-4 border-t border-slate-800 pt-3">
-                            <button onClick={() => handleLikePost(selectedPost.id)} className={`flex items-center gap-1.5 text-xs font-bold uppercase transition-colors px-2 py-1 rounded hover:bg-slate-800 ${isLiked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}><Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}/> {selectedPost.likes || 0}</button>
+                            <button
+                                type="button"
+                                onClick={() => handleLikePost(selectedPost.id)}
+                                disabled={!qaEnabled}
+                                className={`flex items-center gap-1.5 text-xs font-bold uppercase transition-colors px-2 py-1 rounded hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed ${isLiked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}
+                            >
+                                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}/> {selectedPost.likes || 0}
+                            </button>
                             <div className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-500"><MessageSquare className="w-4 h-4"/> {replies.length}</div>
                         </div>
                     </div>
@@ -194,10 +246,19 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
                     </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-800">
-                    <div className="flex gap-2">
-                        <input value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Scrivi una risposta..." className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none" onKeyDown={(e) => e.key === 'Enter' && handlePostReply()}/>
-                        <button onClick={handlePostReply} disabled={!replyText.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"><Send className="w-5 h-5"/></button>
-                    </div>
+                    {qaEnabled ? (
+                        <div className="flex gap-2">
+                            <input value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Scrivi una risposta..." className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none" onKeyDown={(e) => e.key === 'Enter' && handlePostReply()}/>
+                            <button type="button" onClick={handlePostReply} disabled={!replyText.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"><Send className="w-5 h-5"/></button>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-amber-200/90 font-bold">
+                            {pausedCopy.title ||
+                                resolvePlatformUserTitle(qaMsgKey, 'Q&A Local sospeso')}
+                            {' — '}
+                            {pausedAlertMessage()}
+                        </p>
+                    )}
                 </div>
             </div>
         );
@@ -207,25 +268,41 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
 
     return (
         <div className="flex flex-col h-full gap-6 pb-10 px-4 md:px-8">
+            <FeatureFlagPausedBanner
+                flagKey={PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS}
+                defaultMessageKey={PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED}
+            />
             <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl shrink-0 animate-in fade-in slide-in-from-top-4">
                 <div className="flex gap-4 items-start">
                     <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0">{user.name.charAt(0)}</div>
                     <div className="flex-1 space-y-3">
-                        <textarea value={questionText} onChange={e => setQuestionText(e.target.value)} placeholder="Dubbi su trasporti, cibo o luoghi? Chiedi ai local..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white text-sm focus:border-indigo-500 outline-none resize-none h-24 placeholder:text-slate-500 transition-all focus:ring-1 focus:ring-indigo-500/50"/>
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="relative group flex-1 max-w-[200px]">
-                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-500"/>
-                                <select value={questionCity} onChange={e => setQuestionCity(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-xs font-bold text-white uppercase tracking-wide focus:border-indigo-500 outline-none cursor-pointer appearance-none hover:bg-slate-900 transition-colors">
-                                    <option value="">Seleziona Città...</option>
-                                    {cityManifest.sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    <option value="general">Generale / Campania</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none"/>
+                        {qaEnabled ? (
+                            <>
+                                <textarea value={questionText} onChange={e => setQuestionText(e.target.value)} placeholder="Dubbi su trasporti, cibo o luoghi? Chiedi ai local..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white text-sm focus:border-indigo-500 outline-none resize-none h-24 placeholder:text-slate-500 transition-all focus:ring-1 focus:ring-indigo-500/50"/>
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="relative group flex-1 max-w-[200px]">
+                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-500"/>
+                                        <select value={questionCity} onChange={e => setQuestionCity(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-xs font-bold text-white uppercase tracking-wide focus:border-indigo-500 outline-none cursor-pointer appearance-none hover:bg-slate-900 transition-colors">
+                                            <option value="">Seleziona Città...</option>
+                                            {cityManifest.sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            <option value="general">Generale / Campania</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none"/>
+                                    </div>
+                                    <button type="button" onClick={handlePostQuestion} disabled={!questionText.trim() || !questionCity || isPostingQa} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg transition-all active:scale-95">
+                                        {isPostingQa ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>} Pubblica Domanda
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="space-y-2 py-2">
+                                <h4 className="text-amber-200 font-bold text-sm">
+                                    {pausedCopy.title ||
+                                        resolvePlatformUserTitle(qaMsgKey, 'Q&A Local sospeso')}
+                                </h4>
+                                <p className="text-slate-400 text-xs">{pausedAlertMessage()}</p>
                             </div>
-                            <button onClick={handlePostQuestion} disabled={!questionText.trim() || !questionCity || isPostingQa} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg transition-all active:scale-95">
-                                {isPostingQa ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>} Pubblica Domanda
-                            </button>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -261,7 +338,14 @@ export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => 
                             </div>
                             <p className="text-slate-200 text-lg font-medium leading-relaxed mb-4 group-hover:text-white transition-colors">{post.text}</p>
                             <div className="flex items-center gap-4 border-t border-slate-800 pt-3">
-                                <button onClick={(e) => { e.stopPropagation(); handleLikePost(post.id); }} className={`flex items-center gap-1.5 text-xs font-bold uppercase transition-colors px-2 py-1 rounded hover:bg-slate-800 ${isLiked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}><Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}/> {post.likes || 0} <span className="hidden sm:inline">Supporti</span></button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleLikePost(post.id); }}
+                                    disabled={!qaEnabled}
+                                    className={`flex items-center gap-1.5 text-xs font-bold uppercase transition-colors px-2 py-1 rounded hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed ${isLiked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}
+                                >
+                                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}/> {post.likes || 0} <span className="hidden sm:inline">Supporti</span>
+                                </button>
                                 <button className={`flex items-center gap-1.5 text-xs font-bold uppercase transition-colors px-2 py-1 rounded hover:bg-slate-800 ${post.repliesCount > 0 ? 'text-indigo-400' : 'text-slate-500 hover:text-indigo-400'}`}><MessageCircleQuestion className="w-4 h-4"/> {post.repliesCount || 0} <span className="hidden sm:inline">Risposte</span></button>
                             </div>
                         </div>

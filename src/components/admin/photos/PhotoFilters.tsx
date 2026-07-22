@@ -15,7 +15,7 @@ interface PhotoFiltersProps {
     
     // Upload Props
     onUploadClick: () => void;
-    fileInputRef: React.RefObject<HTMLInputElement>;
+    fileInputRef: React.RefObject<HTMLInputElement | null>;
     isUploading: boolean;
     uploadStep: string;
     onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;

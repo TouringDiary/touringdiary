@@ -25,12 +25,12 @@ I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano pr
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 0.3.12 |
+| **Versione** | 0.3.16 |
 | **Ultima revisione** | 2026-07-22 |
 | **Stato** | Implementazione in Corso |
 | **Percorso SSOT** | `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` |
 | **UI Admin (nome definitivo PO)** | **Centro di Controllo** — **non rinominare** (DL-P02, conferma 2026-07-14) |
-| **Prossimo passo** | Audit copertura Feature Flag / consumer CC (post DL-P12) → Validazione PO STEP-3 |
+| **Prossimo passo** | Collaudo residui Audit B (T16 Post community, T20 Programmazioni) → Audit A → Validazione PO STEP-3 |
 
 ### Naming (decisione PO — DL-P02)
 
@@ -77,7 +77,7 @@ Definire **prima dell'implementazione**:
 | Design System, asset, taxonomy | **Impostazioni Globali** |
 | **AI Control Center** — attiva/disattiva AI | **Strumento separato** — non unificato in Centro di Controllo (DL-P08) |
 | Economia crediti AI, pricing dettaglio | `04_PROJECT_PRICING_MAP.md` + AI Control Center |
-| Moderazione contenuti (workflow) | `27_USER_REVIEW_SYSTEM.md` — CC espone solo flag |
+| Moderazione (macro CC: flag, non workflow) | `27_USER_REVIEW_SYSTEM.md` per workflow recensioni; CC espone **solo** i 4 flag sotto — **nessun** interruttore unico «Moderazione Contenuti» |
 
 ### Principio di separazione (audit architetturale)
 
@@ -157,9 +157,9 @@ Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disa
 | **Comunicazioni** | Card Feature Flag chat/notifiche (+ messaggi sulla card) |
 | **Sponsor** | Card Feature Flag/soglie sponsor (+ messaggi sulla card) |
 | **Moderazione** | Card Feature Flag moderazione (+ messaggi sulla card) |
-| **Manutenzione** | Controlli manutenzione + **Programmazione automatica** (non TAB separato) |
+| **Manutenzione** | Card superiori in grid responsive (Manutenzione, Registrazione, Onboarding, **Programmazioni in pausa**) + **Programmazione automatica** a tutta larghezza sotto (non TAB separato) |
 | **Info Globali** | Solo testi **globali** piattaforma (non messaggi di singolo flag) |
-| **Storico Audit** | Lettura audit + export CSV |
+| **Storico Audit** | Lettura audit, export CSV, eliminazione singola e svuota storico (`admin_all`) |
 
 **Responsabilità UI e Source of Truth (unica definizione):**
 
@@ -186,7 +186,7 @@ Centro di Controllo → Message Template → Database = **unica** Source of Trut
 | Tutte le macro-sezioni | Scrittura | Lettura (consultazione; no modifica configurazione globale) |
 | Manutenzione ON/OFF | Scrittura | Lettura |
 | Kill switch / emergenza AI (se esposto in CC) | Scrittura + motivazione | Lettura |
-| Storico audit | Lettura + export | Lettura |
+| Storico audit | Lettura + export + eliminazione / svuota | Lettura |
 
 **Regola:** gestione ruoli (`admin_all` / `admin_limited`) resta in **Utenti & Ruoli** — non nel Centro di Controllo (allineamento DL-027 DOC 29).
 
@@ -249,7 +249,18 @@ Logica alert UI → DOC 29 DL-030; soglia numerica → qui.
 
 ### Macro-sezione — Moderazione
 
-Flag: recensioni, upload foto, segnalazioni, post community — vedi catalogo § sotto.
+TAB **Moderazione** del Centro di Controllo. **Non esiste** un Feature Flag singolo chiamato «Moderazione Contenuti».
+
+Flag UI reali (tutti distinti):
+
+| Nome UI | Key | Collaudo Audit B |
+|---------|-----|------------------|
+| Recensioni utenti | `feature.moderation.reviews` | T13 |
+| Upload foto | `feature.moderation.photos` | T14 |
+| Segnalazioni utenti | `feature.moderation.suggestions` | T15 |
+| Post community | `feature.moderation.community_posts` | T16 |
+
+Dettaglio audience/schedule/messaggi → catalogo § sotto.
 
 ---
 
@@ -282,16 +293,35 @@ TAB **Info Globali**: contiene **esclusivamente** informazioni realmente globali
 
 Schedule per flag con `supports_schedule: true`; finestre temporali **assolute** (nessuna ricorrenza/cron). Priorità runtime: **override manuale → programmazione → default** (DL-P04). L'override manuale **mantiene sempre la priorità** sulla programmazione.
 
+**Layout TAB Manutenzione:** card superiori in grid (Manutenzione · Registrazione · Onboarding) — 3 col desktop / 2 tablet / 1 mobile; sezione **Programmazione automatica** sotto a tutta larghezza con **Programmazioni in pausa** nell’header (titolo a sinistra, controllo a destra; su mobile il controllo sotto il titolo).
+
+**Storico finestre:** le programmazioni **non spariscono** a fine finestra né al cambio TAB; restano sempre visibili finché non eliminate. Stati UI riga: **In attesa · Attiva · In pausa · Eseguita · Disabilitata · Errore**. Ordinamento a schermo: Attiva → In attesa → In pausa → Eseguite (non altera l’ordine persistito usato per overlap).
+
+**Semantica ON/OFF (programmazione di fermo — PO 2026-07-22):** il campo ON/OFF della riga **non** è lo stato del Feature Flag. È lo stato della **programmazione**:
+- **ON** = programmazione attiva → allo scattare della finestra la funzionalità viene **temporaneamente fermata** (il motore applica `value: false` sullo strato schedule, DL-P04 invariato);
+- **OFF** = programmazione disattivata → resta salvata ma **ignorata** (`enabled: false`, saltata da `getActiveScheduleValue`).
+
+Priorità runtime resta: **override manuale → programmazione (se abilitata e in finestra) → default** (DL-P04).
+
 | Funzione | Comportamento |
 |----------|---------------|
-| **Programmazioni in pausa** (globale) | Tutte le programmazioni **restano salvate**; vengono **ignorate** finché la pausa è attiva |
-| **Disattiva programmazioni** (per flag) | Svuota le finestre di quel flag |
+| **Programmazioni in pausa** (globale) | Tutte le programmazioni **restano salvate e visibili**; vengono **ignorate** finché la pausa è attiva |
+| **Disattiva / elimina programmazioni** (per flag) | Svuota le finestre di quel flag |
 
 ---
 
 ### Macro-sezione — Storico Audit
 
-Audit read-only; export CSV. Stream `platform_control_audit` (DL-P05). TAB UI dedicato **Storico Audit**.
+Stream `platform_control_audit` (DL-P05). TAB UI dedicato **Storico Audit**.
+
+| Capacità | Ruolo | Meccanismo |
+|----------|-------|------------|
+| Lettura tabella | `admin_all`, `admin_limited` | RLS `SELECT` (`platform_control_audit_admin_read`) |
+| Export CSV | `admin_all` | Client (dati già letti) |
+| Eliminazione singola voce | `admin_all` | RPC `delete_platform_control_audit_event(p_id)` |
+| Svuota storico | `admin_all` | RPC `clear_platform_control_audit()` |
+
+**Regola architetturale:** nessuna mutazione DELETE diretta dal client. Cancellazioni solo via RPC `SECURITY DEFINER` (stesso pattern di `mutate_platform_feature_flag`). La tabella resta senza policy DELETE lato `authenticated`.
 
 ---
 
@@ -456,8 +486,8 @@ Quando `feature.platform.schedules_paused` è attivo, lo strato `active_schedule
 
 | Nome funzionale | Key | Abilita/disabilita | Audience | Schedule | Override | Messaggio | Audit |
 |-----------------|-----|-------------------|----------|----------|----------|-----------|-------|
-| Nuove recensioni | `feature.moderation.reviews` | Invio recensioni | registered | Sì | Sì | `moderation_reviews_paused` | Sì |
-| Upload foto community | `feature.moderation.photos` | Invio foto | registered | Sì | Sì | `moderation_uploads_paused` | Sì |
+| Nuove recensioni *(label UI: Recensioni utenti)* | `feature.moderation.reviews` | Invio recensioni | registered | Sì | Sì | `moderation_reviews_paused` | Sì |
+| Upload foto community *(label UI: Upload foto)* | `feature.moderation.photos` | Invio foto | registered | Sì | Sì | `moderation_uploads_paused` | Sì |
 | Segnalazioni utenti | `feature.moderation.suggestions` | Modulo segnalazione POI | registered | Sì | Sì | — | Sì |
 | Post community | `feature.moderation.community_posts` | Bacheca / live snaps | registered | Sì | Sì | — | Sì |
 
@@ -637,15 +667,17 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 **Data:** 2026-07-20
 
-**Decisione (PO — backlog Scheduler):** Ogni riga di programmazione nella UI deve mostrare uno **stato runtime** aggiornato automaticamente, es.: Programmata · Attiva · Terminata · In pausa · Disabilitata · Errore. Implementare **durante** il lavoro sullo Scheduler (dopo audit forense SCH-AUDIT-02); **non** dimenticare.
+**Decisione (PO — Scheduler / SCH-STATUS-UI):** Ogni riga di programmazione nella UI mostra uno **stato runtime** aggiornato automaticamente: **In attesa · Attiva · In pausa · Eseguita · Disabilitata · Errore**. Le finestre terminate restano nello storico (non nascoste). ON/OFF riga = abilitazione della **programmazione di fermo** (non il valore del Feature Flag).
 
-**Impatto:** Backlog STEP Post-3.4 / STEP-4 rifiniture Scheduler; SoT collaudo `WF_02_AUDIT_B` §16; nessuna implementazione fino a chiusura audit.
+**Impatto:** SCH-STATUS-UI + semantica fermo; SoT collaudo `WF_02_AUDIT_B` §16 / §19 / T20.
 
 ### DL-P05
 
-**Data:** 2026-07-13
+**Data:** 2026-07-13 · **Aggiornato:** 2026-07-22
 
 **Decisione (audit):** Audit modifiche Centro di Controllo: obbligatori `actor`, `timestamp`, `value_before`, `value_after`. **Motivazione raccomandata** per: manutenzione, kill switch AI, modifiche legali.
+
+**Gestione storico (PO 2026-07-22):** lo stream resta obbligatorio in scrittura sulle mutazioni di configurazione; l’amministratore `admin_all` può **eliminare** voci (singola o svuota totale) tramite RPC dedicate. Non è un soft-delete: la cancellazione è definitiva. `admin_limited` resta in sola lettura.
 
 ---
 
@@ -661,6 +693,10 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 | Versione | Data | Modifiche |
 |----------|------|-----------|
+| 0.3.16 | 2026-07-22 | Storico Audit gestibile: eliminazione singola + svuota via RPC admin_all; DL-P05 aggiornato; matrice permessi |
+| 0.3.15 | 2026-07-22 | Programmazioni: semantica ON/OFF = abilitazione fermo (non valore FF); pausa in header Programmazione automatica; lista persistente al cambio TAB |
+| 0.3.14 | 2026-07-22 | Programmazioni: stati UI (In attesa/Attiva/In pausa/Eseguita/Errore), storico sempre visibile, label «Stato programmato», cestino con persistenza immediata; layout grid TAB Manutenzione |
+| 0.3.13 | 2026-07-22 | Moderazione: esplicito che non esiste FF unico «Moderazione Contenuti»; allineamento label UI (Recensioni utenti / Upload foto) vs catalogo |
 | 0.3.12 | 2026-07-22 | Catalogo AI: `feature.ai.guest` (AI Guest) distinto da `feature.ai.users` (utenti registrati); runtime `getAiRuntimeStatus` |
 | 0.3.11 | 2026-07-20 | DL-P13 rafforzato: catalogo TS ≠ SoT; DoD-P2b; Appendice A allineata |
 | 0.3.10 | 2026-07-20 | DL-P13 Message Template unica SoT; DL-P14 stati riga Scheduler (backlog) |

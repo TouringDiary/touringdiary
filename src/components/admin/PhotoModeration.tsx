@@ -1,11 +1,12 @@
-import { Z_ADMIN_MODAL_TOP, Z_ADMIN_MODAL_NESTED, Z_ADMIN_MODAL } from '@/constants/zIndex';
+import { Z_ADMIN_MODAL_TOP, Z_ADMIN_MODAL } from '@/constants/zIndex';
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, CheckCircle2, AlertTriangle, X, MapPin, Edit3, Loader2, Trash2 } from 'lucide-react';
+import { Camera, CheckCircle2, AlertTriangle, X, Loader2, Trash2 } from 'lucide-react';
 import { User as UserType } from '../../types/users';
 import { usePhotoModeration } from '../../hooks/admin/usePhotoModeration';
 import { PhotoFilters } from './photos/PhotoFilters';
 import { PhotoTable } from './photos/PhotoTable';
+import { PhotoMetadataModal } from './photos/PhotoMetadataModal';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
 import { AdminPageHeader } from './common/AdminPageHeader';
 
@@ -167,57 +168,14 @@ export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps)
                 }}
             />
             
-            {/* METADATA EDIT MODAL */}
-            {metadataModal && createPortal(
-                // admin-super-layer modal | intentionally rendered above global modal stack
-                <div 
-                    className="td-modal-overlay p-4 bg-black/80 backdrop-blur-sm flex items-center justify-center fixed inset-0"
-                    style={{ zIndex: Z_ADMIN_MODAL }}
-                >
-                    <div 
-                        className="bg-slate-900 p-6 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl animate-in zoom-in-95"
-                        style={{ zIndex: Z_ADMIN_MODAL_NESTED }}
-                    >
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-white flex items-center gap-2"><Edit3 className="w-4 h-4 text-indigo-500"/> Modifica Dati Foto</h3>
-                            <button onClick={() => setMetadataModal(null)}><X className="w-5 h-5 text-slate-500 hover:text-white"/></button>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Città (Location Name)</label>
-                                <div className="relative">
-                                    <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-500"/>
-                                    <select 
-                                        value={metadataModal.locationName} 
-                                        onChange={e => setMetadataModal({...metadataModal, locationName: e.target.value})} 
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-white text-sm focus:border-indigo-500 outline-none appearance-none"
-                                    >
-                                        <option value="">Seleziona Città...</option>
-                                        {cityOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Descrizione</label>
-                                <textarea 
-                                    value={metadataModal.description} 
-                                    onChange={e => setMetadataModal({...metadataModal, description: e.target.value})} 
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-indigo-500 outline-none h-24 resize-none"
-                                    placeholder="Descrivi la foto..."
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2 justify-end mt-6">
-                            <button onClick={saveMetadata} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase shadow-lg transition-colors flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4"/> Salva Modifiche
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
+            {metadataModal && (
+                <PhotoMetadataModal
+                    modal={metadataModal}
+                    cityOptions={cityOptions}
+                    onChange={(next) => setMetadataModal(next)}
+                    onClose={() => setMetadataModal(null)}
+                    onSave={saveMetadata}
+                />
             )}
         </div>
     );

@@ -9,7 +9,6 @@ import { ProvinceModal } from '../modals/ProvinceModal';
 import { CultureCornerModal } from '../modals/CultureCornerModal';
 import { PatronSaintModal } from '../modals/PatronSaintModal';
 import { HistoryModal } from '../modals/HistoryModal';
-import { SuggestionModal } from '../modals/SuggestionModal';
 import { isPoiNew } from '../../utils/common';
 import { fetchSponsorsByCityAsync } from '../../services/sponsorService';
 import { useModal } from '@/context/ModalContext';
@@ -147,7 +146,6 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
     const [activeTab, setActiveTab] = useState<CityTab>(() => parseCityTab(initialTab));
     const [activeModal, setActiveModal] = useState<ActiveModal>('none');
-    const [suggestionModal, setSuggestionModal] = useState<{ isOpen: boolean; type: SuggestionType; prefilledName?: string }>({ isOpen: false, type: 'new_place' });
 
     const [referencePoint, setReferencePoint] = useState<PointOfInterest | null>(null);
     const [activeSponsors, setActiveSponsors] = useState<PointOfInterest[]>([]);
@@ -189,6 +187,17 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         if (!city || !city.details.allPois) return [];
         return city.details.allPois.filter(p => (p.status || 'published') === 'published');
     }, [city]);
+
+    const openSuggestionModal = (type: SuggestionType, prefilledName?: string) => {
+        if (!city) return;
+        openModal('suggestion', {
+            type,
+            prefilledName,
+            cityId: city.id,
+            cityName: city.name,
+            existingPois: visibleAllPois,
+        });
+    };
 
     const sourceList = useMemo(() => {
         if (!city) return [];
@@ -377,7 +386,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                             <CityShowcaseTab
                                 city={city} visibleAllPois={visibleAllPois} activeSponsors={activeSponsors}
                                 onOpenPoiDetail={onOpenPoiDetail} onAddToItinerary={onAddToItinerary}
-                                onOpenSponsor={onOpenSponsor} onOpenSuggestion={() => setSuggestionModal({ isOpen: true, type: 'new_place' })}
+                                onOpenSponsor={onOpenSponsor} onOpenSuggestion={() => openSuggestionModal('new_place')}
                                 user={user}
                                 onOpenAuth={onOpenAuth}
                                 userLocation={userLocation}
@@ -394,7 +403,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                                 onOpenSponsor={() => onOpenSponsor()}
                                 referencePoint={referencePoint}
                                 setReferencePoint={setReferencePoint}
-                                onOpenSuggestion={(type) => setSuggestionModal({ isOpen: true, type })}
+                                onOpenSuggestion={(type) => openSuggestionModal(type)}
                                 isSidebarOpen={isSidebarOpen}
                                 onOpenShopFromPoi={onOpenShop}
                                 user={user}
@@ -422,7 +431,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
                     onAddToItinerary={onAddToItinerary}
                     user={user}
                     onOpenAuth={onOpenAuth}
-                    onSuggestEdit={(name) => setSuggestionModal({ isOpen: true, type: 'edit_info', prefilledName: name })}
+                    onSuggestEdit={(name) => openSuggestionModal('edit_info', name)}
                 />
             )}
             <ProvinceModal
@@ -436,8 +445,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
             />
             <CultureCornerModal isOpen={activeModal === 'culture'} onClose={() => setActiveModal('none')} city={city} onAddToItinerary={onAddToItinerary} />
             <PatronSaintModal isOpen={activeModal === 'patron'} onClose={() => setActiveModal('none')} city={city} />
-            <HistoryModal isOpen={activeModal === 'history'} onClose={() => setActiveModal('none')} city={city} openSuggestion={() => setSuggestionModal({ isOpen: true, type: 'history_culture' })} />
-            <SuggestionModal isOpen={suggestionModal.isOpen} onClose={() => setSuggestionModal({ ...suggestionModal, isOpen: false })} cityId={city.id} cityName={city.name} user={user} onOpenAuth={onOpenAuth} initialType={suggestionModal.type} prefilledName={suggestionModal.prefilledName} existingPois={visibleAllPois} />
+            <HistoryModal isOpen={activeModal === 'history'} onClose={() => setActiveModal('none')} city={city} openSuggestion={() => openSuggestionModal('history_culture')} />
         </div>
     );
 };

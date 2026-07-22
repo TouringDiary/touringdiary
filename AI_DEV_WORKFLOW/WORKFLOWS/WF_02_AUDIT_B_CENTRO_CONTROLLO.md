@@ -2,10 +2,10 @@
 ## Source of Truth del collaudo (WF-02 · STEP-3 · Post-3.4)
 
 > **Stato documento:** ATTIVO — aggiornare a ogni sessione di test PO.  
-> **Ultimo aggiornamento:** 2026-07-20 (DL-P13 SoT messaggi · filone Scheduler · SCH-STATUS-UI)  
+> **Ultimo aggiornamento:** 2026-07-22 (Decisioni PO definitive T20 / Programmazioni UX + layout Manutenzione — §19; T14/T15/CROSS-P SUPERATI)  
 > **Owner:** Product Owner + AI sviluppo  
 > **Regola:** nessuna decisione di collaudo deve restare solo in chat; va registrata qui.  
-> **Codice:** fix UX/BUG ✓ · MSG-SOT + Scheduler in implementazione (post decisione PO).
+> **Codice:** fix UX/BUG ✓ · MSG-SOT + Scheduler ✓ · T02-B gating ✓ · overlay Segnalazioni ✓ · Programmazioni UX T20 ✓ (2026-07-22).
 
 Collegamenti: `WF_02_IMPLEMENTATION_MASTERPLAN.md` · `03_PROJECT_STATUS.md` · DOC 30 (catalogo flag · DL-P13/P14).
 
@@ -16,21 +16,24 @@ Collegamenti: `WF_02_IMPLEMENTATION_MASTERPLAN.md` · `03_PROJECT_STATUS.md` · 
 | Voce | Valore |
 |------|--------|
 | **Collaudo** | Audit B — Feature Flag ↔ comportamento app |
-| **Avanzamento** | 12 SUPERATI · fix UX/BUG ✓ · AUDIT-03 §14 · SCH §15–18 · DL-P13/P14 registrati · smoke T02+ ancora da collaudare col PO |
-| **Implementazione** | MSG-SOT + filone Scheduler (fix + SCH-STATUS-UI) autorizzati PO |
-| **Chiusura Audit B** | Smoke residui + Audit A + assenza criticità |
+| **Avanzamento** | Runtime gating AI **COMPLETATO** (T01–T04) · T14/T15 **SUPERATI** · CROSS-P Persistenza **SUPERATO** · provider AI **POSTICIPATO** · residui: T16 / T20 Programmazioni / AUDIT-05 / T12 + Audit A |
+| **Implementazione** | MSG-SOT + Scheduler + T02-B UI/gateway ✓ |
+| **Chiusura Audit B** | Residui non-AI (T12/T16/T20/AUDIT-05) + Audit A + assenza criticità |
 
 ---
 
 ## 2. Registro test (stato ufficiale)
 
-Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AUDIT`
+Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AUDIT` · `POSTICIPATO`
 
 ### 2.1 SUPERATI (non ripeterli salvo regressione)
 
 | # | Feature Flag (nome UI) | TAB | Esito | Data | Note PO |
 |---|------------------------|-----|-------|------|---------|
-| T01 | AI Utente | AI | **SUPERATO** | 2026-07-20 | Funzionale OK; UX-01 **fix implementato** (banner in alto) — rieseguire smoke |
+| T01 | AI Utente | AI | **SUPERATO** | 2026-07-20 | Gating OK; UX-01 banner OK |
+| T02 | AI Admin All | AI | **SUPERATO** | 2026-07-21 | PO: gating + UI disabled/banner OK post T02-B; blocco preventivo OK |
+| T03 | AI Admin Limited | AI | **SUPERATO** | 2026-07-21 | Stesso perimetro gating di T02 (ruolo Limited) |
+| T04 | Stop emergenza AI | AI | **SUPERATO** | 2026-07-21 | Emergency Stop priorità assoluta; UI + blocco preventivo OK |
 | T05 | Acquisto crediti AI | AI | **SUPERATO** | 2026-07-20 | Flag OK; resta audit pagamento (→ AUDIT-04) |
 | T06 | Abbonamenti premium | AI | **SUPERATO** | 2026-07-20 | — |
 | T07 | Chat Admin↔Partner | Comunicazioni | **SUPERATO** | 2026-07-20 | — |
@@ -38,33 +41,51 @@ Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AU
 | T09 | Notifiche in-app | Comunicazioni | **SUPERATO** | 2026-07-20 | — |
 | T10 | Nuove candidature Sponsor | Sponsor | **SUPERATO** | 2026-07-20 | — |
 | T11 | Shop partner pubblici | Sponsor | **SUPERATO** | 2026-07-20 | — |
-| T13 | Recensioni utenti | Moderazione | **SUPERATO** | 2026-07-20 | — |
+| T13 | Recensioni utenti | Moderazione | **SUPERATO** | 2026-07-20 | Piano click-by-click aggiornato §9.2 (smoke opzionale) |
+| T14 | Upload foto | Moderazione | **SUPERATO** | 2026-07-22 | OFF/ON, blocco caricamento, riabilitazione — nessuna anomalia |
+| T15 | Segnalazioni utenti | Moderazione | **SUPERATO** | 2026-07-22 | OFF/ON, blocco invio, riabilitazione; overlay UI allineato Foundation |
 | T17 | Modalità manutenzione | Manutenzione | **SUPERATO** | 2026-07-20 | — |
 | T18 | Registrazione nuovi utenti | Manutenzione | **SUPERATO** | 2026-07-20 | — |
 | T19 | Onboarding guidato | Manutenzione | **SUPERATO** | 2026-07-20 | — |
+| CROSS-P | Persistenza Feature Flag (trasversale) | — | **SUPERATO** | 2026-07-22 | Salvataggio + refresh + nuova sessione + logout/login + coerenza consumer. **Non** sostituisce T20 (Programmazioni). |
 
-### 2.2 APERTI / BLOCCATI / NON ESEGUIBILI
+### 2.1-bis Runtime gating AI — chiusura collaudo (PO 2026-07-21)
+
+| Voce | Esito |
+|------|-------|
+| Feature Flag AI (Utente / Admin All / Admin Limited) | **COMPLETATO** |
+| Emergency Stop | **COMPLETATO** |
+| Blocco preventivo chiamate AI (prima del layer provider / API Key) | **COMPLETATO** |
+| UI (banner, disabled, modali, tooltip) | **COMPLETATO** |
+| Runtime gating Centro di Controllo | **COMPLETATO** |
+
+**Provider AI (Gemini/OpenAI)** — generazione contenuti, qualità output, prompt, parsing, retry, funzionalità dipendenti da API Key reali: **POSTICIPATO** al collaudo finale post-configurazione API Key. Non blocca la chiusura del collaudo gating STEP-3.
+
+### 2.2 APERTI / BLOCCATI / NON ESEGUIBILI / POSTICIPATI
 
 | # | Feature Flag | Stato | Motivo |
 |---|--------------|-------|--------|
-| T02 | AI Admin All | **DA RIESAMINARE** | BUG-01 **fix** (guard gateway) — rieseguire piano click-by-click §9 |
-| T03 | AI Admin Limited | **DA RIESAMINARE** | Stesso di T02 |
-| T04 | Stop emergenza AI | **APERTO** + **AUDIT-03** | Catalog body ora usato in `getAiRuntimeStatus`; rieseguire smoke testi |
+| — | Test funzionali provider AI (Gemini/OpenAI) | **POSTICIPATO** | Collaudo finale dopo API Key reali (decisione PO 2026-07-21) |
 | T12 | Soglia rating alert | **NON ESEGUIBILE** | Nessuno shop con recensioni disponibili |
-| T14 | Upload foto | **DA RIESAMINARE** | BUG-02 **fix implementato** — rieseguire Galleria + Live Feed |
-| T15 | Segnalazioni utenti | **DA RIESAMINARE** | BUG-03 + UX-02 **fix** — rieseguire apertura modulo OFF |
-| T16 | Post community | **APERTO** + **AUDIT-05** | Distinto da Upload foto (chiavi diverse) — decisione PO su rinomina |
-| T20 | Programmazioni in pausa | **APERTO** | Guida §8; collaudo + esiti §15 (SCH) ancora da chiudere col PO |
+| T16 | Post community | **APERTO** + **AUDIT-05** | Collaudo operativo autonomo (documento + chat PO); decisione PO rinomina ancora aperta |
+| T20 | Programmazioni in pausa | **APERTO** | Collaudo operativo autonomo (documento + chat PO). Distinto da CROSS-P Persistenza (già SUPERATO) |
 
 ---
 
 ## 3. Bug — stato fix
 
-### BUG-01 — AI Admin All/Limited: Feature Flag assente sui path Admin editor — **FIX IMPLEMENTATO**
+### BUG-01 — AI Admin All/Limited: Feature Flag assente sui path Admin editor — **FIX IMPLEMENTATO** (poi **T02-B**)
 - **Sintomo PO:** con flag OFF il processo AI parte e arriva a errori API Key.
 - **Causa dimostrata (§13):** i consumer Admin (TabGeneral/Media/Culture/Ratings, Magic City, aiGateway diretto) **non chiamavano** `getAiRuntimeStatus` prima dell’Edge.
-- **Fix:** `assertAiRuntimeAvailable()` all’inizio di `supabaseProvider.generate` (unico entry point rete AI client); contesto ruolo sync via `setAiRuntimeEvaluationContext` da `PlatformControlProvider`.
-- **Stato fix:** implementato 2026-07-20 — rieseguire T02/T03.
+- **Fix v1 (2026-07-20):** `assertAiRuntimeAvailable()` in `supabaseProvider.generate`; contesto ruolo sync via `setAiRuntimeEvaluationContext`.
+- **Collaudo T02 FALLITO (2026-07-21):** pulsanti ancora cliccabili; blocco solo a `API_KEY_MISSING` / `[AI Safety]`.
+- **Causa dimostrata T02-B:** `withRetry()` in `aiUtils.ts` controllava `VITE_USE_AI` / API Key **prima** di chiamare `fn()` → `assertAiRuntimeAvailable` nel provider **non veniva mai raggiunto** quando la key client era assente. Inoltre UI editor senza `disabled`/banner.
+- **Fix T02-B (2026-07-21):**
+  1. `assertAiRuntimeAvailable()` **prima** del check API Key in `withRetry`;
+  2. assert anche in `aiGateway.generateLegacy` / `generateText` / `generateChat`;
+  3. hook `useAiRuntimeGate` + banner `AdminAiRuntimeBanner` in editor città;
+  4. pulsanti Rigenera / AiFieldHelper / Culture / Servizi / AdminImageInput disabilitati + messaggio CC.
+- **Stato fix:** implementato 2026-07-21 — **collaudo gating PO SUPERATO** (T02/T03/T04, 2026-07-21). Provider AI **POSTICIPATO** (API Key).
 
 ### BUG-02 — Upload foto: copertura non uniforme — **FIX IMPLEMENTATO**
 - **Causa dimostrata:** Live Feed controllava solo `feature.moderation.community_posts`; Galleria controllava `feature.moderation.photos` solo a conferma (fail-open `if (flag && !flag.enabled)`); `uploadCommunityPhoto` **senza** guard.
@@ -117,7 +138,7 @@ Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AU
 7. Soglia rating: lasciare **NON ESEGUIBILE** finché non esistono shop con recensioni.  
 8. **Regola permanente audit:** conclusioni solo con pipeline codice dimostrata; vietate ipotesi (vedi `02_GOVERNANCE.md` §12).  
 9. **DL-P13 (definitiva):** tutti i messaggi destinati agli utenti provengono **esclusivamente** dal Centro di Controllo (Message Template → DB). I cataloghi TypeScript **non** sono Source of Truth. Hardcoded ammessi solo per log, debug, commenti, errori tecnici; fallback bootstrap solo se riga DB assente.  
-10. **Filone Scheduler (PO):** audit approfondito (runtime, cache, refresh, timezone, override, evaluation, start/stop) poi fix + **SCH-STATUS-UI** (stati riga: Programmata / Attiva / Terminata / In pausa / Disabilitata / Errore).  
+10. **Filone Scheduler (PO):** audit approfondito (runtime, cache, refresh, timezone, override, evaluation, start/stop) poi fix + **SCH-STATUS-UI** (stati riga: In attesa / Attiva / Eseguita / In pausa / Disabilitata / Errore).  
 
 ---
 
@@ -243,16 +264,17 @@ Esempio in italiano:
 3. **Centro di Controllo**.  
 4. TAB **Manutenzione**.  
 5. Nella stessa area trovi:  
-   - interruttori Manutenzione / Registrazione / Onboarding;  
-   - la sezione di **Programmazione** (finestre orarie);  
-   - l’interruttore **Programmazioni in pausa**.
+   - **card superiori** (grid): Manutenzione / Registrazione / Onboarding / **Programmazioni in pausa**;  
+   - sotto, a tutta larghezza: **Programmazione automatica** (finestre orarie).
+
+> **Nota storica (pre–2026-07-22):** la guida originale collocava «Programmazioni in pausa» *dentro* la card Programmazione automatica. Layout aggiornato con decisione PO T20 (§19).
 
 ### Come se ne crea una (passi)
 
-1. Nella sezione programmazione, scegli **quale interruttore** programmare (es. Registrazione).  
+1. Nella sezione **Programmazione automatica**, scegli **quale interruttore** programmare (es. Registrazione).  
 2. Aggiungi una riga / finestra.  
 3. Imposta **inizio** e **fine** (data e ora).  
-4. Imposta il **valore** desiderato in quella finestra (es. OFF).  
+4. Imposta lo **Stato programmato** desiderato in quella finestra (ON oppure OFF — vedi §19).  
 5. Salva la programmazione.  
 6. Non serve spegnere subito l’interruttore a mano: nella finestra oraria il sistema dovrebbe applicare da solo lo stato programmato.
 
@@ -343,6 +365,280 @@ Analogia: “metti in pausa la sveglia” — la sveglia è ancora impostata, ma
 
 ---
 
+## 9.1 Collaudo operativo T16 — Post community (autonomo)
+
+### Obiettivo
+Verificare che il Feature Flag **Post community** (TAB Moderazione) blocchi e riabiliti la **conferma di pubblicazione** di una foto nel **Live Feed** della Community, lasciando **Upload foto** acceso (isolamento da T14).
+
+### Preparazione
+1. Accedi con un account **Admin All**.
+2. Prepara anche un account utente **registrato** (non guest), oppure usa lo stesso Admin All come utente app.
+3. Apri due contesti (due finestre/schede del browser, oppure Admin e poi torna in app):
+   - Centro di Controllo
+   - App utente (Home)
+4. Assicurati di avere a disposizione **un’immagine** sul dispositivo (JPG/PNG) per il caricamento da galleria.
+
+---
+
+### Parte 1 — Baseline con Post community ON
+
+1. Nell’app, apri il menu profilo (icona utente in alto).
+2. Clicca **Pannello Admin**.
+3. Nella sidebar Admin, sotto **Utenti & Ruoli**, clicca **Centro di Controllo**.
+4. Nella barra TAB in alto, clicca **Moderazione**.
+5. Individua la card **Post community**.
+6. Se l’interruttore è **spento**, cliccalo per accenderlo (deve risultare acceso / verde).
+7. Individua la card **Upload foto**.
+8. Se **Upload foto** è spento, cliccalo per accenderlo (deve restare **ON** per tutto il test).
+9. Esci dal Pannello Admin e torna alla Home dell’app (o usa la seconda scheda già sulla Home).
+10. Da desktop: nella sidebar sinistra clicca il pulsante **Community**.  
+    Da mobile: nella barra in basso clicca **Social**.
+11. Si apre **Community Hub**. Nella riga delle TAB interne clicca **Live Feed** (se non è già selezionata).
+12. In alto a destra del Live Feed clicca il pulsante **Pubblica Foto**.
+13. Nella modale **Pubblica Foto** (scelta modalità) clicca **Scegli dalla galleria**.
+14. Seleziona un’immagine dal dispositivo e conferma la selezione del file.
+15. Se compare uno step di modifica/ritaglio, completa e prosegui fino alla scheda con città e didascalia (titolo modale ancora **Pubblica Foto**).
+16. Nel campo città, seleziona una città dall’elenco (obbligatorio).
+17. Nel campo didascalia, digita un testo breve (es. `Test T16 ON`).
+18. Clicca il pulsante primario **Pubblica Foto** in fondo alla modale.
+
+**PASS Parte 1**
+- La pubblicazione viene accettata (upload avviato/completato, oppure messaggio di successo).
+- Non compare un alert del tipo: *«I post community sono temporaneamente disabilitati.»*
+
+**FAIL Parte 1**
+- Compare l’alert di post community disabilitati nonostante il flag ON.
+- Il pulsante **Pubblica Foto** del Live Feed è disabilitato solo perché **Upload foto** è OFF (in quel caso hai violato la preparazione: Upload foto deve essere ON).
+
+---
+
+### Parte 2 — Post community OFF → blocco alla conferma
+
+1. Torna in **Pannello Admin** → **Centro di Controllo** → TAB **Moderazione**.
+2. Sulla card **Post community**, clicca l’interruttore per **spegnerlo** (non serve motivazione obbligatoria su questo flag).
+3. Attendi che il salvataggio finisca (spinner sull’interruttore scompare).
+4. Verifica a occhio che **Upload foto** sia ancora **ON**.
+5. Torna in app → **Community** / **Social** → TAB **Live Feed**.
+6. Clicca di nuovo **Pubblica Foto**.
+7. Clicca **Scegli dalla galleria**, seleziona un’immagine, completa eventuali step di modifica.
+8. Seleziona di nuovo una città e digita una didascalia (es. `Test T16 OFF`).
+9. Clicca il pulsante primario **Pubblica Foto**.
+
+**PASS Parte 2**
+- Compare un **alert/blocco** con messaggio di post community sospesi (es. *«I post community sono temporaneamente disabilitati.»* o il testo salvato sulla card del flag).
+- La foto **non** viene pubblicata nel Live Feed.
+- **Upload foto** è rimasto ON per tutto il percorso.
+
+**FAIL Parte 2**
+- La pubblicazione va a buon fine con Post community OFF.
+- Non compare alcun messaggio di blocco.
+- Il blocco è solo quello di Upload foto (se Upload foto era stato spento per errore).
+
+---
+
+### Parte 3 — Riabilitazione ON
+
+1. Torna in **Centro di Controllo** → TAB **Moderazione**.
+2. Sulla card **Post community**, clicca l’interruttore per **riaccenderlo**.
+3. Attendi fine salvataggio.
+4. Torna in app → **Community** / **Social** → **Live Feed**.
+5. Ripeti il flusso: **Pubblica Foto** → **Scegli dalla galleria** → città + didascalia → **Pubblica Foto**.
+
+**PASS Parte 3**
+- La pubblicazione torna consentita come in Parte 1.
+- Non compare l’alert di post community disabilitati.
+
+**FAIL Parte 3**
+- Il blocco resta attivo dopo la riaccensione del flag.
+- Compare ancora il messaggio di sospensione.
+
+---
+
+### Esito complessivo T16
+- **PASS** se Parte 1 + Parte 2 + Parte 3 sono tutte PASS.
+- **FAIL** se anche una sola Parte è FAIL.
+
+---
+
+## 9.2 Piano test T13 — Recensioni utenti (click-by-click)
+
+> **Flag UI:** Centro di Controllo → TAB **Moderazione** → **Recensioni utenti**  
+> **Key:** `feature.moderation.reviews`  
+> **Consumer:** `ReviewModal` (+ guard submit in `InteractionContext`)  
+> **Stato registro:** già **SUPERATO** 2026-07-20 — questo piano serve per **riesecuzione / smoke** o onboarding collaudatori.
+
+### Premesse
+
+- Utente **registrato**.  
+- Un POI con azione **Scrivi recensione** / **Modifica recensione** raggiungibile (dettaglio luogo).  
+- Spegnere **solo** **Recensioni utenti**; altri flag Moderazione ON.
+
+### A — Baseline ON
+
+1. CC → Moderazione → **Recensioni utenti** = **ON**.  
+2. App → apri un POI → apri modale recensione.  
+
+**Atteso:** form stelle / testo compilabile; submit disponibile.
+
+### B — Flag OFF → blocco all’apertura
+
+1. CC → spegni **Recensioni utenti**.  
+2. App → riapri la modale recensione sullo stesso POI.  
+
+**Atteso:**  
+- **non** compare il form di scrittura;  
+- UI di sospensione (titolo/body da template `moderation_reviews_paused`, es. *«Recensioni sospese»*);  
+- pulsante Chiudi;  
+- tentativo di invio non possibile.
+
+### C — Riabilitazione ON
+
+1. CC → riaccendi **Recensioni utenti**.  
+2. App → riapri modale.  
+
+**Atteso:** form di nuovo disponibile; submit funzionante (persistenza review = comportamento dominio, fuori scope flag salvo errore blocco).
+
+### Esito da registrare (se rieseguito)
+
+| Voce | Risultato |
+|------|-----------|
+| OFF mostra stato sospeso subito | ☐ |
+| ON ripristina form | ☐ |
+| Nessuna anomalia | ☐ |
+
+---
+
+## 9.3 Chiarimento nomenclatura Moderazione (2026-07-22)
+
+| Concetto | Esiste in UI? | Note |
+|----------|---------------|------|
+| TAB / macro-sezione **Moderazione** | **Sì** | Contenitore CC |
+| Feature Flag unico **«Moderazione Contenuti»** | **No** | Non esiste — eventuale riferimento storico/ambiguo al contenitore o a DOC 27 workflow |
+| Recensioni utenti | **Sì** | T13 |
+| Upload foto | **Sì** | T14 |
+| Segnalazioni utenti | **Sì** | T15 |
+| Post community | **Sì** | **T16** (questo è il flag a cui corrisponde il collaudo “moderazione contenuti” se inteso come post/bacheca) |
+
+**Risposta operativa:** il T16 del piano ufficiale **è già** «Post community». Non va “sostituito”: va **eseguito** sul flag reale **Post community** con il collaudo operativo autonomo sopra (stessa procedura consegnata al PO in chat).
+
+---
+
+## 9.4 Collaudo operativo T20 — Programmazioni in pausa (autonomo)
+
+> **Allineamento procedura (2026-07-22):** dopo le decisioni PO del collaudo T20 (§19), **Programmazioni in pausa** è una card nella **grid superiore** del TAB Manutenzione (non più dentro «Programmazione automatica»). Label tendina = **Stato programmato**. Stati riga e storico: §19.
+
+### Obiettivo
+Verificare che l’interruttore **Programmazioni in pausa** (card superiore del TAB **Manutenzione**) faccia **ignorare** le finestre orarie salvate senza cancellarle, e che spegnendo la pausa le programmazioni tornino ad applicarsi.
+
+**Flag usato per osservare l’effetto in app:** **Registrazione nuovi utenti** (effetto visibile nella modale Accedi → scheda Registrati).
+
+### Preparazione
+1. Accedi con account **Admin All**.
+2. Usa una seconda scheda in **navigazione privata** (o logout) per collaudare la registrazione come utente non autenticato.
+3. Prepara orologio: ti serviranno data/ora **Inizio** e **Fine** di una finestra che includa **adesso** (es. inizio = 5 minuti fa, fine = tra 30 minuti).
+
+---
+
+### Parte 1 — Crea una programmazione attiva che spegne la Registrazione
+
+1. Menu profilo → **Pannello Admin**.
+2. Sidebar → **Utenti & Ruoli** → **Centro di Controllo**.
+3. TAB **Manutenzione**.
+4. Nella parte alta del TAB vedi la **grid di card**: **Modalità manutenzione**, **Registrazione nuovi utenti**, **Onboarding guidato**, **Programmazioni in pausa**.
+5. Sulla card **Registrazione nuovi utenti**, assicurati che l’interruttore sia **ON** (acceso). Se è OFF, cliccalo per accenderlo.  
+   Se compare il link per azzerare l’override manuale e preferisci il default, puoi usarlo: l’importante è che **senza programmazione** la registrazione risulti aperta.
+6. Sulla card **Programmazioni in pausa** (sempre nella grid superiore), assicurati che sia **OFF** (spento). Se è acceso, cliccalo per spegnerlo.
+7. Scorri sotto fino alla sezione a tutta larghezza **Programmazione automatica**.
+8. Nel campo etichettato **Feature Flag**, apri il menu a tendina.
+9. Seleziona **Registrazione nuovi utenti** (vedrai anche il conteggio finestre accanto al nome).
+10. Clicca **Aggiungi finestra**.
+11. Compila la riga creata:
+    - **Inizio:** data/ora di circa **5 minuti fa** (così la finestra è già attiva).
+    - **Fine:** data/ora di circa **30 minuti nel futuro**.
+    - **Stato programmato:** seleziona **OFF** (= durante la finestra il Feature Flag sarà OFF).
+12. Controlla la colonna **Stato**: deve mostrare **Attiva** (non In attesa / Eseguita).
+13. Clicca **Salva programmazioni**.
+14. Attendi il messaggio **Programmazioni salvate**.
+15. Apri una scheda in navigazione privata (o esci dall’account) e vai sulla Home.
+16. Clicca **Accedi** (icona login in header, oppure voce **Accedi o Registrati** nel menu).
+17. Nella modale auth, clicca la scheda / pulsante **Registrati**.
+
+**PASS Parte 1**
+- Compare lo stato di registrazioni chiuse (titolo tipo *«Registrazioni chiuse»* e messaggio correlato), **oppure** il form di registrazione non è utilizzabile.
+- Nella riga programmazione, **Stato** = **Attiva**.
+- **Programmazioni in pausa** era OFF.
+
+**FAIL Parte 1**
+- Il form **Registrati** è ancora pienamente compilabile/inviabile mentre la finestra OFF è Attiva e la pausa è OFF.
+- Dopo **Salva programmazioni** non compare conferma e la finestra non resta salvata.
+- Lo **Stato** resta **In attesa** perché l’Inizio è ancora nel futuro (in quel caso ripeti regolando Inizio al passato).
+
+---
+
+### Parte 2 — Attiva Programmazioni in pausa (le finestre restano salvate ma ignorate)
+
+1. Torna in **Centro di Controllo** → TAB **Manutenzione**.
+2. Nella **grid superiore**, sulla card **Programmazioni in pausa**, clicca l’interruttore per **accenderlo** (ON).
+3. Attendi fine salvataggio.
+4. Verifica il testo sotto la card: indica che le finestre restano salvate ma non vengono applicate.
+5. Nella sezione **Programmazione automatica** sotto, deve comparire un **banner informativo** che la pausa è attiva (finestre salvate/visibili ma non applicate).
+6. Nella tendina **Feature Flag**, riseleziona **Registrazione nuovi utenti** se serve.
+7. Controlla che la finestra creata in Parte 1 **sia ancora presente** (non cancellata) e resti nello **storico** (non nascosta).
+8. La colonna **Stato** della riga deve mostrare **In pausa** (perché la pausa globale è attiva).
+9. Torna alla scheda utente non autenticata (o ricarica la Home in navigazione privata).
+10. Apri di nuovo **Accedi** → scheda **Registrati**.
+
+**PASS Parte 2**
+- Il form **Registrati** è di nuovo disponibile (registrazione riaperta secondo override/default manuale ON).
+- La finestra oraria è **ancora salvata** in Programmazione automatica (non è sparita).
+- **Programmazioni in pausa** è ON; banner informativo visibile.
+
+**FAIL Parte 2**
+- Le registrazioni restano chiuse anche con la pausa ON (la programmazione non è stata messa in pausa).
+- La finestra oraria è stata **eliminata** invece che solo ignorata.
+- Compare errore / flag pausa non presente («Flag pausa programmazioni non in cache»).
+
+---
+
+### Parte 3 — Disattiva la pausa → la programmazione torna ad applicarsi; poi cleanup
+
+1. Torna in **Centro di Controllo** → TAB **Manutenzione**.
+2. Nella **grid superiore**, sulla card **Programmazioni in pausa**, clicca l’interruttore per **spegnerlo** (OFF).
+3. Attendi fine salvataggio; il banner informativo in Programmazione automatica deve sparire.
+4. Controlla la riga su **Registrazione nuovi utenti**: se sei ancora dentro Inizio–Fine, **Stato** deve tornare **Attiva**.
+5. Nella scheda utente non autenticata, ricarica e apri **Accedi** → **Registrati**.
+
+**PASS Parte 3 (riattivazione)**
+- Le registrazioni risultano di nuovo **chiuse** (effetto della programmazione OFF attivo).
+- La finestra è ancora presente.
+
+6. **Cleanup obbligatorio a fine test** (ripristino ambiente):
+   7. Centro di Controllo → Manutenzione → Programmazione automatica.
+   8. Tendina **Feature Flag** → **Registrazione nuovi utenti**.
+   9. Clicca **Disattiva programmazioni** (svuota le finestre di questo flag) **oppure** usa il **cestino** su ciascuna riga (eliminazione immediata + salvataggio DB + toast).
+   10. Conferma che non restano finestre e che compare eventuale feedback di salvataggio/toast.
+   11. Verifica che **Programmazioni in pausa** (grid superiore) sia **OFF**.
+   12. Verifica che **Registrazione nuovi utenti** sia **ON**.
+   13. In navigazione privata: **Accedi** → **Registrati** deve di nuovo mostrare il form aperto.
+
+**PASS Parte 3 (cleanup)**
+- Ambiente ripristinato: nessuna finestra residua su Registrazione; registrazione aperta; pausa OFF.
+
+**FAIL Parte 3**
+- Con pausa OFF e finestra ancora nel range orario, Registrati resta aperto (programmazione non riparte).
+- Dopo cleanup, Registrati resta chiuso o restano finestre attive non volute.
+- Dopo cestino, la riga **ricompare** cambiando Feature Flag (persistenza fallita).
+
+---
+
+### Esito complessivo T20
+- **PASS** se Parte 1 + Parte 2 + Parte 3 (riattivazione + cleanup) sono tutte PASS.
+- **FAIL** se anche una sola Parte è FAIL.
+
+> Decisioni UX/layout emerse durante il collaudo T20 e rese definitive dal PO: **§19** (non sostituiscono il motore DL-P04).
+
+---
+
 ## 10. Domande ancora aperte al Product Owner
 
 | ID | Domanda | Serve per |
@@ -357,17 +653,42 @@ Analogia: “metti in pausa la sveglia” — la sveglia è ancora impostata, ma
 
 ## 11. Checklist chiusura Audit B
 
+> **Ambito di questa checklist:** solo **Audit B** (collaudo funzionale Centro di Controllo).  
+> **Non** include Audit A. **Non** equivale alla chiusura formale dello STEP-3.
+
+### 11.1 Distinzione chiusure (obbligatoria)
+
+| Chiusura | Cosa chiude | Dipende da Audit A? | Criterio |
+|----------|-------------|---------------------|----------|
+| **Audit B** | Collaudo Feature Flag ↔ comportamento app (questo documento) | **No** | Residui **propri** di Audit B chiusi o esplicitamente rinviati dal PO (vedi checklist sotto) |
+| **Audit A** | Audit architetturale Collaboration (DOC 28) — solo analisi | — (iniziativa separata) | Report Audit A senza criticità bloccanti (o con deroga PO) |
+| **STEP-3** | Validazione PO formale STEP-3 / Post-3.4 | Sì (insieme ad Audit B chiuso) | **Audit B chiuso** **e** **Audit A concluso** **e** assenza criticità bloccanti → Validazione PO STEP-3 |
+
+**Significato corretto:** Audit B può chiudersi **senza** Audit A. Lo STEP-3 **non** può chiudersi finché non sono conclusi **anche** Audit A e le verifiche residue di Audit B.
+
+### 11.2 Checklist — solo Audit B
+
 - [ ] Tutti i SUPERATI senza regressioni note  
 - [x] BUG-01/02/03 risolti (2026-07-20)  
 - [x] UX-01/02 risolti (2026-07-20)  
 - [x] AUDIT-03 checklist messaggi completata (§14)  
 - [x] AUDIT-07 Programmazioni SCH-01/02/03 (§15) — fix non ancora prioritizzati  
 - [ ] AUDIT-05 decisione PO registrata  
-- [ ] T02/T03 rieseguiti dopo fix BUG-01  
-- [ ] T14/T15 riesaminati dopo fix  
-- [ ] T20 Programmazioni collaudato dopo guida §8 + esiti §15  
+- [x] T02/T03/T04 rieseguiti dopo fix T02-B — **SUPERATO** (PO 2026-07-21); provider AI **POSTICIPATO**  
+- [x] T14/T15 riesaminati dopo fix — **SUPERATO** (PO 2026-07-22)  
+- [x] CROSS-P Persistenza Feature Flag — **SUPERATO** (PO 2026-07-22; distinto da T20)  
+- [ ] T16 Post community collaudato (procedura operativa autonoma) + decisione AUDIT-05  
+- [ ] T20 Programmazioni in pausa collaudato (procedura operativa autonoma)  
 - [ ] T12 eseguito o esplicitamente rinviato oltre STEP-3  
-- [ ] Validazione PO Audit B → contributo a chiusura STEP-3 (insieme ad Audit A)
+- [ ] **Validazione PO chiusura Audit B** (residui T12/T16/T20/AUDIT-05 gestiti) — **indipendente da Audit A**
+
+### 11.3 Fuori checklist Audit B (tracciati altrove)
+
+| Voce | Dove | Nota |
+|------|------|------|
+| Audit A (DOC 28) | Masterplan Post-3.4 / `03_PROJECT_STATUS` | Non è prerequisito di Audit B |
+| Validazione PO STEP-3 | Masterplan STEP-3 | Richiede Audit B **chiuso** + Audit A **concluso** |
+| Collaudo provider AI (API Key) | §2.1-bis / §2.2 **POSTICIPATO** | Non blocca chiusura Audit B gating; collaudo finale separato |
 
 ---
 
@@ -375,7 +696,12 @@ Analogia: “metti in pausa la sveglia” — la sveglia è ancora impostata, ma
 
 | Data | Autore | Modifica |
 |------|--------|----------|
+| 2026-07-22 | PO + AI | **§19 Decisioni PO definitive T20** (Programmazioni UX/layout); procedura §9.4 allineata al nuovo layout; guida §8 aggiornata con nota storica |
+| 2026-07-22 | PO + AI | DOC 30 / Audit B / Masterplan **APPROVATI** PO; T16+T20 procedure click-by-click autonome (senza rimandi a capitoli); T14/T15/CROSS-P SUPERATI |
+| 2026-07-22 | PO + AI | T14/T15 **SUPERATI**; CROSS-P Persistenza **SUPERATO**; chiarimento T16 = Post community; piano smoke T13 |
+| 2026-07-21 | PO | Collaudo runtime gating AI **COMPLETATO** (T02/T03/T04 SUPERATI); provider AI **POSTICIPATO** al collaudo finale API Key |
 | 2026-07-20 | PO + AI | Creazione SoT Audit B: 12 SUPERATI, bug, UX, audit, guida programmazioni, piani AI click-by-click |
+| 2026-07-21 | AI | T02 FALLITO (PO): API Key prima di FF; fix T02-B `withRetry` + UI gate editor città |
 | 2026-07-20 | AI | Fix UX-01/UX-02/BUG-02/BUG-03; audit forense §13 (AI Admin, messaggi, upload, segnalazioni) |
 | 2026-07-20 | AI | BUG-01 fix: `assertAiRuntimeAvailable` in `supabaseProvider.generate` + sync contesto ruolo |
 | 2026-07-20 | AI | AUDIT-03 completo §14; audit Programmazioni SCH-01/02/03 §15 |
@@ -685,10 +1011,10 @@ Consumer / useFeatureFlag / evaluateCachedFeatureFlag
 | Campo | Valore |
 |-------|--------|
 | **ID** | SCH-STATUS-UI |
-| **Richiesta PO** | Ogni riga della tabella programmazioni mostra stato: Programmata · Attiva · Terminata · In pausa · Disabilitata · Errore; auto-aggiornato da runtime |
+| **Richiesta PO** | Ogni riga della tabella programmazioni mostra stato: In attesa · Attiva · Eseguita · In pausa · Disabilitata · Errore; auto-aggiornato da runtime; storico sempre visibile |
 | **Quando** | Durante implementazione fix/evoluzione Scheduler (dopo chiusura SCH-AUDIT-02) |
 | **Dove tracciato** | DOC 30 DL-P14 · WF-02 Post-3.4 backlog · questa §16 |
-| **Stato** | **Backlog — non implementare ora** |
+| **Stato** | **Implementato** (label 2026-07-22: In attesa / Eseguita; storico sempre visibile) |
 
 ### 16.4 Esito audit (sintesi)
 
@@ -721,7 +1047,91 @@ Cause **dimostrabili** di scostamento percepito rispetto all’orologio:
 | **Punti da verificare** | Come §16.2 + re-render al confine · clear override su save schedule · status UI |
 | **Stato audit** | Diagnosi §16 **completata**; fix implementati: timer al prossimo boundary (no poll 15s) + clear override su save + SCH-STATUS-UI |
 | **Risultato atteso** | Start/end all’orario salvato; UI aggiornata senza click manuale; override non maschera silenziosamente la finestra; ogni riga mostra stato runtime |
-| **Backlog SCH-STATUS-UI** | Programmata · Attiva · Terminata · In pausa · Disabilitata · Errore |
+| **Backlog SCH-STATUS-UI** | In attesa · Attiva · Eseguita · In pausa · Disabilitata · Errore (storico sempre visibile) |
+
+---
+
+## 19. Decisioni PO definitive — collaudo T20 / Programmazioni (2026-07-22)
+
+Registro storico delle decisioni del Product Owner emerse durante il collaudo T20 (Programmazioni).  
+**Non** modificano il motore `evaluateFeatureFlag` né la priorità DL-P04 (manual → schedule → default).  
+Sono vincolanti per UI, persistenza cestino e layout TAB Manutenzione.
+
+| Campo | Valore |
+|-------|--------|
+| **Data** | 2026-07-22 |
+| **Contesto** | Collaudo T20 + rifiniture UX Programmazioni (Post-3.4) |
+| **Ambito** | Solo UX / layout / persistenza cestino / stati riga UI |
+| **Fuori ambito** | DL-P04 · priorità Default/Override/Schedule · engine runtime Feature Flag |
+
+### 19.1 Label tendina — «Programmazione» (ex «Stato programmato» / «Valore»)
+
+| Prima (cronologia) | Decisione PO definitiva |
+|--------------------|-------------------------|
+| Label **«Valore»** poi **«Stato programmato»** (ON/OFF = valore del Feature Flag in finestra) | Semantica **cambiata** (2026-07-22): ON/OFF = stato della **programmazione di fermo**, non del Feature Flag |
+
+### 19.2 Significato ON / OFF (programmazione di fermo — definitivo)
+
+| Opzione | Significato definitivo PO |
+|---------|---------------------------|
+| **ON** | Questa programmazione è **attiva**. All’orario previsto la funzionalità viene **temporaneamente fermata**. |
+| **OFF** | Questa programmazione è **disattivata**. Resta salvata ma **non viene eseguita** finché non la riattivi. |
+
+Runtime (invariato DL-P04): programmazione ON in finestra → strato schedule applica fermo (`value: false`); programmazione OFF → voce ignorata (`enabled: false`).
+
+### 19.3 Stati UI delle programmazioni
+
+Stati richiesti e ufficiali per la colonna **Stato** di ogni riga:
+
+1. **In attesa** — inizio nel futuro  
+2. **Attiva** — istante corrente dentro la finestra (fine esclusiva, come engine)  
+3. **In pausa** — pausa globale `feature.platform.schedules_paused` attiva  
+4. **Eseguita** — fine già trascorsa (la riga resta visibile)  
+5. **Errore** — timestamp invalidi o inizio ≥ fine  
+
+> **Cronologia naming:** in precedenza (SCH-STATUS-UI / DL-P14 2026-07-20) i label usati erano *Programmata* / *Terminata*. Dal 2026-07-22 i label ufficiali PO sono **In attesa** / **Eseguita**. Le sezioni §16 / §18 restano come audit storico; questa §19 è la SoT dei label UI vigenti.
+
+Ordinamento di visualizzazione consigliato (solo UI; **non** altera l’ordine persistito usato per overlap):
+
+**Attiva → In attesa → In pausa → Eseguite** (poi Errore / Disabilitata se presenti).
+
+### 19.4 Storico sempre visibile
+
+Le programmazioni **non** devono sparire automaticamente a fine finestra.  
+Le finestre **Eseguite** restano nell’elenco (storico). Nessuna auto-hide.
+
+### 19.5 Cestino — eliminazione persistente
+
+Bug collaudato: il cestino rimuoveva solo il draft React; la riga ricompariva cambiando Feature Flag.
+
+**Decisione PO definitiva:**
+
+- eliminazione **immediata**;  
+- salvataggio **immediato** nel DB;  
+- aggiornamento dello stato locale;  
+- **toast** di conferma;  
+- niente draft inconsistenti.
+
+### 19.6 Banner informativo — Programmazioni in pausa ON
+
+Quando **Programmazioni in pausa** è attivo, in **Programmazione automatica** deve comparire un **banner informativo** che comunica che le finestre restano salvate/visibili ma non vengono applicate.
+
+### 19.7 Layout TAB Manutenzione
+
+| Breakpoint | Layout |
+|------------|--------|
+| Desktop | Card superiori (Manutenzione · Registrazione · Onboarding); **Programmazione automatica** full-width con **Programmazioni in pausa** a destra del titolo |
+| Tablet | Come desktop se c’è spazio; altrimenti pausa sotto il titolo |
+| Mobile | 1 colonna; titolo Programmazione sopra, pausa sotto |
+
+Elenco finestre: verticale; **sempre** dallo stato persistito (In attesa / Attiva restano visibili al cambio TAB).  
+Nessun cambiamento del motore DL-P04.
+
+### 19.8 Conferme di non-regressione (obbligatorie)
+
+- Motore DL-P04 / `evaluateFeatureFlag`: **invariato**  
+- Priorità Default / Override / Schedule: **invariata**  
+- Comportamento runtime Feature Flag: **invariato**
 
 ---
 
@@ -729,5 +1139,6 @@ Cause **dimostrabili** di scostamento percepito rispetto all’orologio:
 
 | Data | Autore | Modifica |
 |------|--------|----------|
+| 2026-07-22 | PO + AI | §19 Decisioni PO definitive T20; §9.4/§8 allineati layout e label |
 | 2026-07-20 | AI | AUDIT-03 completo §14; audit Programmazioni SCH-01/02/03 §15 |
 | 2026-07-20 | AI | §16 Scheduler; §17 DL-P13; §18 SCH-AUDIT-02; decisioni PO 9–10 |

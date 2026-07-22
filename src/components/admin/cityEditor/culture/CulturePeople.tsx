@@ -8,6 +8,7 @@ import { useCityEditor } from '@/context/CityEditorContext';
 import { CultureCornerModal } from '../../../modals/CultureCornerModal';
 import { usePeopleManager } from '../../../../hooks/admin/usePeopleManager';
 import { ImageWithFallback } from '../../../common/ImageWithFallback';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 interface CulturePeopleProps {
     cityId: string;
@@ -17,6 +18,7 @@ interface CulturePeopleProps {
 
 export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, currentUser }) => {
     const { city, setCityDirectly } = useCityEditor();
+    const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
     
     // --- USE HOOK ---
     const {
@@ -81,6 +83,10 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
 
     const confirmRefine = async () => {
         if (!refineTarget) return;
+        if (!guardAiAction()) {
+            setRefineTarget(null);
+            return;
+        }
         const target = refineTarget;
         setRefineTarget(null);
         const result = await wipeAndRewritePerson(target);
@@ -92,6 +98,10 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
     };
     
     const confirmBulkFix = async () => {
+        if (!guardAiAction()) {
+            setShowBulkFixConfirm(false);
+            return;
+        }
         setShowBulkFixConfirm(false);
         const result = await fixPeopleBatch();
         if (result?.success) {
@@ -264,11 +274,15 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
                                  <option value={5}>5</option>
                              </select>
                             <button 
-                                onClick={() => runDiscovery(aiContextQuery, discoveryCount)} 
-                                disabled={isDiscovering} 
+                                onClick={() => {
+                                    if (!guardAiAction()) return;
+                                    runDiscovery(aiContextQuery, discoveryCount);
+                                }} 
+                                disabled={isDiscovering || aiBlocked} 
+                                title={aiBlocked ? blockMessage : undefined}
                                 className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide flex items-center gap-1 disabled:opacity-50 transition-all"
                             >
-                                {isDiscovering ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3"/>} Suggerisci
+                                {isDiscovering ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3"/>} {aiBlocked ? 'AI off' : 'Suggerisci'}
                             </button>
                         </div>
                     </div>
@@ -389,7 +403,15 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
                                             {/* IMAGE ROW WITH MAGIC GENERATOR */}
                                             <div className="flex gap-1">
                                                 <input value={p.imageUrl} onChange={e => updatePersonLocal(p.id!, 'imageUrl', e.target.value)} className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-300 text-xs w-full" placeholder="URL Immagine"/>
-                                                <button onClick={() => regeneratePortrait(p)} className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded border border-indigo-500" title="Genera Ritratto AI">
+                                                <button
+                                                    onClick={() => {
+                                                        if (!guardAiAction()) return;
+                                                        regeneratePortrait(p);
+                                                    }}
+                                                    disabled={aiBlocked}
+                                                    className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded border border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    title={aiBlocked ? blockMessage : "Genera Ritratto AI"}
+                                                >
                                                     <ImageIcon className="w-4 h-4"/>
                                                 </button>
                                             </div>

@@ -39,6 +39,9 @@ function getActiveScheduleValue(
     const nowMs = now.getTime();
 
     for (const schedule of schedules) {
+        // Programmazione disattivata (OFF): resta in storico, ignorata dal runtime.
+        if (schedule.enabled === false) continue;
+
         const startMs = Date.parse(schedule.startsAt);
         const endMs = Date.parse(schedule.endsAt);
         if (Number.isNaN(startMs) || Number.isNaN(endMs)) continue;

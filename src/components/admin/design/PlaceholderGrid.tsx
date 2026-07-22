@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Upload, Crop, Layers } from 'lucide-react';
+import { Upload, Crop, Layers, Trash2 } from 'lucide-react';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 
 interface PlaceholderGridProps {
@@ -10,6 +10,7 @@ interface PlaceholderGridProps {
     placeholders: Record<string, string>;
     onUploadClick: (catId: string) => void;
     onEditClick: (url: string, catId: string) => void;
+    onDeleteClick?: (catId: string) => void;
 }
 
 const PLACEHOLDER_CATS = [
@@ -33,7 +34,8 @@ export const PlaceholderGrid = ({
     categories = PLACEHOLDER_CATS,
     placeholders, 
     onUploadClick, 
-    onEditClick 
+    onEditClick,
+    onDeleteClick,
 }: PlaceholderGridProps) => {
     return (
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 flex flex-col gap-4 flex-1 shadow-lg h-full min-h-0">
@@ -46,7 +48,6 @@ export const PlaceholderGrid = ({
             </div>
             
             <div className="overflow-y-auto custom-scrollbar pr-2 flex-1">
-                {/* GRIGLIA ESPANSA: 2 colonne su Mobile, 3 su Tablet, 4 su Desktop XL */}
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
                     {categories.map(cat => (
                         <div key={cat.id} className="relative aspect-video w-full rounded-xl overflow-hidden border border-slate-700 group bg-black/20 shrink-0">
@@ -56,8 +57,13 @@ export const PlaceholderGrid = ({
                                 <span className="text-[10px] font-bold text-white uppercase tracking-wider block truncate">{cat.label}</span>
                             </div>
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
-                                <button onClick={() => onUploadClick(cat.id)} className="p-2 bg-indigo-600 rounded-lg text-white hover:bg-indigo-500 shadow-lg transition-transform hover:scale-110" title="Carica"><Upload className="w-4 h-4"/></button>
-                                {placeholders[cat.id] && <button onClick={() => onEditClick(placeholders[cat.id], cat.id)} className="p-2 bg-slate-700 rounded-lg text-white hover:bg-slate-600 shadow-lg transition-transform hover:scale-110" title="Modifica"><Crop className="w-4 h-4"/></button>}
+                                <button type="button" onClick={() => onUploadClick(cat.id)} className="p-2 bg-indigo-600 rounded-lg text-white hover:bg-indigo-500 shadow-lg transition-transform hover:scale-110" title="Carica"><Upload className="w-4 h-4"/></button>
+                                {placeholders[cat.id] && (
+                                    <button type="button" onClick={() => onEditClick(placeholders[cat.id], cat.id)} className="p-2 bg-slate-700 rounded-lg text-white hover:bg-slate-600 shadow-lg transition-transform hover:scale-110" title="Modifica"><Crop className="w-4 h-4"/></button>
+                                )}
+                                {placeholders[cat.id] && onDeleteClick && (
+                                    <button type="button" onClick={() => onDeleteClick(cat.id)} className="p-2 bg-red-700 rounded-lg text-white hover:bg-red-600 shadow-lg transition-transform hover:scale-110" title="Elimina"><Trash2 className="w-4 h-4"/></button>
+                                )}
                             </div>
                         </div>
                     ))}

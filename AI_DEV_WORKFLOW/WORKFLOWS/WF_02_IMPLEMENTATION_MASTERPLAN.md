@@ -112,8 +112,8 @@ Eseguire in ordine progressivo le implementazioni approvate negli SSOT dominio *
 |-------|-----------------|
 | **Workflow** | WF-02 — Attivo |
 | **STEP** | STEP-3 — Centro di Controllo (DOC 30) |
-| **Fase** | Post-3.4 — Wiring consumer (**attività ancora aperta**; Batch 1–3 ✓; Batch 4 eliminato DL-P12) |
-| **% convenzionale** | 97 % |
+| **Fase** | Post-3.4 — Photo domain dual-family (Photograph vs Placeholder) — Blocco 2 dominio in review PO |
+| **% convenzionale** | 98 % |
 
 ---
 
@@ -517,9 +517,9 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 
 | Campo | Valore |
 |-------|--------|
-| **Stato attività** | **Ancora aperta** — Batch 1–3 ✓ · Audit B forense ✓ · fix UX/BUG ✓ · collaudo smoke in corso · Audit A piano (non avviato) · MSG-SOT + SCH backlog registrati |
-| **PO ✓** | ☐ (chiusura post-3.4 dopo smoke + Audit A + assenza criticità) |
-| **Nota** | DL-P13 SoT messaggi implementato; DL-P14 stati riga Scheduler implementati; restano smoke PO + Audit A. |
+| **Stato attività** | **Ancora aperta** — Batch 1–3 ✓ · Audit B forense ✓ · fix UX/BUG ✓ · **runtime gating AI collaudato PO ✓** (T01–T04; provider AI POSTICIPATO) · residui non-AI Audit B · Audit A piano (non avviato) |
+| **PO ✓** | ☐ (chiusura post-3.4 dopo residui Audit B + Audit A + assenza criticità) |
+| **Nota** | DL-P13/P14 implementati; collaudo gating AI chiuso 2026-07-21; T14/T15/CROSS-P SUPERATI 2026-07-22; restano T12/T16/T20/AUDIT-05 + Audit A. |
 
 ### Backlog Post-3.4 / rifiniture (obbligatorio tracciare)
 
@@ -527,7 +527,9 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 |----|------|------|-------|
 | **MSG-SOT** | Migrazione messaggi utente → Message Template DB unica SoT (DL-P13) | Sviluppo | **Implementato** 2026-07-20 |
 | **SCH-AUDIT-02** | Audit forense approfondito Scheduler (runtime, evaluation, cache, refresh, polling, override, timezone, attivazione/disattivazione) | Audit → fix | **Diagnosi + fix** 2026-07-20 |
-| **SCH-STATUS-UI** | Stato per riga programmazione (Programmata/Attiva/Terminata/In pausa/Disabilitata/Errore) auto-aggiornato (DL-P14) | Sviluppo Scheduler | **Implementato** 2026-07-20 |
+| **SCH-STATUS-UI** | Stato per riga programmazione (In attesa/Attiva/Eseguita/In pausa/Disabilitata/Errore) auto-aggiornato (DL-P14); storico sempre visibile | Sviluppo Scheduler | **Implementato** 2026-07-20 (label aggiornate 2026-07-22) |
+| **AI-GATE-COLLAUDO** | Collaudo runtime gating AI (FF / Emergency Stop / blocco preventivo / UI) | Collaudo PO | **COMPLETATO** 2026-07-21 |
+| **AI-PROVIDER-COLLAUDO** | Test funzionali provider (Gemini/OpenAI, qualità, prompt, retry, API Key) | Collaudo | **POSTICIPATO** — collaudo finale post API Key |
 | **AUDIT-A** | Audit architetturale Collaboration DOC 28 | Solo analisi | Piano prodotto; non avviato |
 
 ---
@@ -537,7 +539,7 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | ID | Decisione | Impatto WF-02 |
 |----|-----------|---------------|
 | **DL-P13** | Tutti i messaggi utente governati **solo** dal Centro di Controllo (Message Template → DB). Catalogo TS non è SoT. Hardcoded solo log/debug/commenti/errori tecnici (+ bootstrap minimo). | MSG-SOT obbligatorio prima chiusura STEP-3 |
-| **DL-P14** | Ogni riga programmazione mostra stato runtime (Programmata/Attiva/Terminata/In pausa/Disabilitata/Errore). | SCH-STATUS-UI **implementato** |
+| **DL-P14** | Ogni riga programmazione mostra stato runtime (In attesa/Attiva/Eseguita/In pausa/Disabilitata/Errore); storico sempre visibile. | SCH-STATUS-UI **implementato** |
 | **SCH-FILONE** | Audit Scheduler + fix start/end + tick UI + clear override su save schedule. | Completato lato codice 2026-07-20 — collaudo PO pending |
 
 *Riferimenti SSOT: DOC 30 DL-P13/P14; SoT collaudo `WF_02_AUDIT_B_CENTRO_CONTROLLO.md`.*
@@ -749,9 +751,9 @@ Il Workflow WF-02 si considera **Completato** quando:
 |-------|--------|
 | **Workflow corrente** | WF-02 — Implementation Masterplan |
 | **STEP corrente** | STEP-3 — Centro di Controllo (DOC 30) |
-| **Fase corrente** | Post-3.4 — Audit B: forense ✓ · SoT ✓ · fix UX-01/02 + BUG-01/02/03 ✓ · smoke T14/T15 e decisioni PO aperti |
-| **Stato della fase** | Audit B forense chiuso; collaudo residuo (smoke + decisioni PO); Audit A da fare |
-| **Prossima fase da eseguire** | Smoke T14/T15 + decisioni PO residui Audit B; Audit A DOC 28 |
+| **Fase corrente** | Post-3.4 — Photo dual-family **CONCLUSO** (codice + DOC 16 v2.1) |
+| **Stato della fase** | Refactoring dominio Photo chiuso; collaudo manuale runtime opzionale PO; Audit A/B residui aperti |
+| **Prossima fase da eseguire** | Residui Audit B non-AI + Audit A DOC 28; collaudo manuale Photo se richiesto PO |
 | **STEP completato in questa sessione** | — |
 | **Fase completata in questa sessione** | — (Fase 3.4 già chiusa; post-3.4 ancora aperta; Batch 3 wiring completato) |
 | **Workflow completato** | No |
@@ -795,7 +797,7 @@ Il Workflow WF-02 si considera **Completato** quando:
 - [x] **Post-3.4 — Batch 3:** `shop_public`, `registration`, `onboarding` — 2026-07-19
 - [x] **Post-3.4 — decisione PO DL-P12:** nessun Feature Flag `collaboration_live`; collaborazione = capacità strutturale — 2026-07-20
 - [ ] **Post-3.4 — Audit A:** audit architetturale finale dominio Collaboration (DOC 28) — coerenza Workspace / condivisione / ruoli / realtime / lock / presenza / sync / ownership / UX (solo analisi)
-- [ ] **Post-3.4 — Audit B:** collaudo funzionale Centro di Controllo — SoT: `WF_02_AUDIT_B_CENTRO_CONTROLLO.md` (**audit forense COMPLETATO** §13; fix UX-01/02 BUG-01/02/03 ✓; aperti: smoke T14/T15, decisioni PO)
+- [ ] **Post-3.4 — Audit B:** collaudo funzionale Centro di Controllo — SoT: `WF_02_AUDIT_B_CENTRO_CONTROLLO.md` (**gating AI COMPLETATO** T01–T04; T14/T15/CROSS-P SUPERATI 2026-07-22; provider AI POSTICIPATO; aperti: T12/T16/T20 Programmazioni, AUDIT-05)
 
 ### Gate cambiati in questa sessione
 
@@ -811,8 +813,8 @@ Il Workflow WF-02 si considera **Completato** quando:
 | **Fasi completate** | STEP-1 Fase 1.1–1.3; STEP-2 Fase 2.1–2.6; STEP-3 Fase 3.1–3.4 |
 | **STEP completati** | STEP-1, STEP-2 |
 | **Workflow completato** | No |
-| **Punto esatto raggiunto** | WF-02 Attivo · STEP-3 · Post-3.4: Batch 1–3 ✓ · Audit B forense COMPLETATO (SoT) · fix UX/BUG ✓ · residui smoke/decisioni PO · Audit A da fare · **attività ancora aperta** |
+| **Punto esatto raggiunto** | WF-02 Attivo · STEP-3 · Post-3.4: Batch 1–3 ✓ · **gating AI collaudato PO ✓** · provider AI POSTICIPATO · residui Audit B non-AI · Audit A da fare · **attività ancora aperta** |
 
 ### Prossimo checkpoint previsto
 
-**Audit B** (residui: smoke T14/T15 + decisioni AUDIT-05/T20; BUG-01 fixato) + **Audit A — DOC 28** → se senza criticità bloccanti: Validazione PO STEP-3 → avvio STEP-4.
+**Audit B residui** (T16/T20 Programmazioni/AUDIT-05/T12) + **Audit A — DOC 28** → se senza criticità bloccanti: Validazione PO STEP-3 → avvio STEP-4.

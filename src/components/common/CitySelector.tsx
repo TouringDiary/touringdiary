@@ -4,9 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, MapPin, Loader2, X, Check } from 'lucide-react';
 import { getCityNameById, searchCitiesByName, CitySuggestion } from '../../services/geoRegistryService';
 
-
-// Local CitySuggestion removed
-//
+const MIN_SEARCH_LENGTH = 2;
 
 interface CitySelectorProps {
     value: string;
@@ -31,27 +29,34 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
 
     const wrapperRef = useRef<HTMLDivElement>(null);
 
-    // Effetto per caricare il nome iniziale se abbiamo un value (ID)
+    // Keep display label in sync when parent value changes (prefill / GPS / reset).
     useEffect(() => {
-        if (value && !selectedName) {
-            const fetchCityName = async () => {
-                const name = await getCityNameById(value);
-                if (name) {
-                    setSelectedName(name);
-                    setQuery(name);
-                } else {
+        let cancelled = false;
 
-                    setSelectedName(value);
-                    setQuery(value);
-                }
-
-
-
-
-
+        if (!value) {
+            setSelectedName('');
+            setQuery('');
+            return () => {
+                cancelled = true;
             };
-            fetchCityName();
         }
+
+        const fetchCityName = async () => {
+            const name = await getCityNameById(value);
+            if (cancelled) return;
+            if (name) {
+                setSelectedName(name);
+                setQuery(name);
+            } else {
+                setSelectedName(value);
+                setQuery(value);
+            }
+        };
+
+        void fetchCityName();
+        return () => {
+            cancelled = true;
+        };
     }, [value]);
 
     // Chiusura al click fuori
@@ -69,7 +74,7 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
 
     // Ricerca asincrona
     const searchCities = useCallback(async (searchText: string) => {
-        if (searchText.length < 2) {
+        if (searchText.length < MIN_SEARCH_LENGTH) {
             setSuggestions([]);
             return;
         }
@@ -148,7 +153,7 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
             </div>
 
             {/* Suggerimenti Dropdown */}
-            {isOpen && query.length >= 2 && (
+            {isOpen && query.length >= MIN_SEARCH_LENGTH && (
                 <div
                     className="absolute mt-2 w-full bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
                     style={{ zIndex: Z_MODAL_NESTED }}

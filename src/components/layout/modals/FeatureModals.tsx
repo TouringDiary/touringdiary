@@ -48,10 +48,19 @@ export const FeatureModals = (props: FeatureModalsProps) => {
     const { activeModal, modalProps, closeModal, openModal, user, itinerary } = props;
     const { submitReview } = useInteraction();
 
-    const diaryDays = useMemo(
-        () => getDaysArray(itinerary.startDate, itinerary.endDate),
-        [itinerary.startDate, itinerary.endDate],
-    );
+    const diaryDays = useMemo(() => {
+        if (itinerary.startDate === null || itinerary.endDate === null) return [];
+        return getDaysArray(itinerary.startDate, itinerary.endDate);
+    }, [itinerary.startDate, itinerary.endDate]);
+
+    const suggestionCityId =
+        typeof modalProps.cityId === 'string' && modalProps.cityId
+            ? modalProps.cityId
+            : props.activeCityId;
+    const suggestionCityName =
+        typeof modalProps.cityName === 'string' && modalProps.cityName
+            ? modalProps.cityName
+            : props.activeCitySummary?.name;
 
     const handleToggleItinerary = (poi: PointOfInterest) => {
         const exists = itinerary.items.some((i: any) => i.poi.id === poi.id);
@@ -173,8 +182,25 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             {activeModal === 'global' && (
                 <GlobalSectionView isOpen={true} section={modalProps.section} initialTab={modalProps.tab} initialSelectedPostId={modalProps.id} onClose={closeModal} user={user} onUserUpdate={props.onUserUpdate} onOpenAuth={() => openModal('auth', { returnTo: 'global', returnProps: modalProps })} />
             )}
-            {activeModal === 'suggestion' && (
-                <SuggestionModal isOpen={true} onClose={closeModal} cityId={props.activeCityId || 'napoli'} cityName={props.activeCitySummary?.name || 'Campania'} user={user} onOpenAuth={() => openModal('auth', { returnTo: 'suggestion', returnProps: modalProps })} initialType={modalProps.type} prefilledName={modalProps.prefilledName} existingPois={props.visibleAllPois} />
+            {activeModal === 'suggestion' && suggestionCityId && suggestionCityName && (
+                <SuggestionModal
+                    isOpen={true}
+                    onClose={() => {
+                        if (typeof modalProps.returnTo === 'string' && modalProps.returnTo) {
+                            openModal(modalProps.returnTo, modalProps.returnProps);
+                        } else {
+                            closeModal();
+                        }
+                    }}
+                    cityId={suggestionCityId}
+                    cityName={suggestionCityName}
+                    user={user}
+                    onOpenAuth={() => openModal('auth', { returnTo: 'suggestion', returnProps: modalProps })}
+                    initialType={modalProps.type}
+                    prefilledName={modalProps.prefilledName}
+                    existingPois={modalProps.existingPois ?? props.visibleAllPois}
+                    isServiceContext={Boolean(modalProps.isServiceContext)}
+                />
             )}
             {activeModal === 'aroundMe' && (
                 <AroundMeWizard isOpen={true} onClose={closeModal} cityManifest={props.cityManifest} onConfirm={(config) => { props.onAroundMeTrigger(config); closeModal(); }} />
@@ -192,7 +218,9 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             )}
 
             {/* --- CITY INFO TABS --- */}
-            {['guides', 'services', 'events', 'tour_operators'].includes(activeModal) && props.activeCityDetails && (
+            {activeModal !== null &&
+                ['guides', 'services', 'events', 'tour_operators'].includes(activeModal) &&
+                props.activeCityDetails && (
                  <CityInfoModal isOpen={true} onClose={closeModal} city={props.activeCityDetails} initialTab={activeModal as any} onAddToItinerary={(poi) => handleToggleItinerary(poi)} user={user} onOpenAuth={() => openModal('auth', { returnTo: activeModal, returnProps: { city: props.activeCityDetails } })} onSuggestEdit={(name) => { closeModal(); openModal('claim', { poi: { name, id: 'temp', category: 'discovery' } }); }} />
             )}
             {activeModal === 'province' && props.activeCityDetails && (

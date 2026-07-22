@@ -1,5 +1,14 @@
 import { supabase } from './supabaseClient';
 import type { GlobalSetting, StyleRule } from '../types';
+import {
+  PLATFORM_PLACEHOLDER_SETTING_KEYS,
+  type PlatformPlaceholderSettingsSnapshot,
+} from '@/domain/placeholders/platformPlaceholderOrigin';
+import {
+  createPlatformPlaceholderRegistry,
+  mergeRetiredPlatformPlaceholderUrls,
+  type PlatformPlaceholderRegistry,
+} from '@/domain/placeholders/platformPlaceholderRegistry';
 
 // --- CHIAVI DELLE IMPOSTAZIONI ---
 export const SETTINGS_KEYS = {
@@ -20,6 +29,8 @@ export const SETTINGS_KEYS = {
   AI_CONSULTANT_BG: 'ai_consultant_bg',
   CATEGORY_PLACEHOLDERS: 'category_placeholders',
   SUITCASE_PLACEHOLDERS: 'suitcase_placeholders',
+  /** Former Asset Globali URLs — Placeholder origin tombstones for Photo write-boundary. */
+  RETIRED_PLATFORM_PLACEHOLDER_URLS: 'retired_platform_placeholder_urls',
 
   // Taxonomy & Data Structure
   TAXONOMY_NORMALIZATION: 'taxonomy_normalization',
@@ -134,6 +145,50 @@ export const getCachedSetting = <T>(key: string): T | null => {
 /** Placeholder immagine per categoria POI (`global_settings.category_placeholders`). */
 export const getCategoryPlaceholders = (): Record<string, string> | null =>
   getCachedSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
+
+/**
+ * Registry URL dei Placeholder da Asset Globali (cache bootstrap).
+ * Origine = chiavi PLATFORM_PLACEHOLDER_SETTING_KEYS — non euristiche URL.
+ */
+export const getPlatformPlaceholderRegistry = (): PlatformPlaceholderRegistry => {
+  const snapshot: PlatformPlaceholderSettingsSnapshot = {};
+  for (const key of PLATFORM_PLACEHOLDER_SETTING_KEYS) {
+    snapshot[key] = getCachedSetting(key) ?? undefined;
+  }
+  return createPlatformPlaceholderRegistry(snapshot);
+};
+
+/** Come `getPlatformPlaceholderRegistry`, ma attende il bootstrap settings se in corso. */
+export const getPlatformPlaceholderRegistryAsync = async (): Promise<PlatformPlaceholderRegistry> => {
+  if (pendingLoadPromise) {
+    await pendingLoadPromise;
+  }
+  return getPlatformPlaceholderRegistry();
+};
+
+/**
+ * Record URLs that leave Asset Globali as retired Placeholder origin.
+ * Photo write-boundary (`assertPhotographWrite`) reads them via the registry.
+ * Call **before** clearing/replacing the active setting so origin is never lost.
+ */
+export const retirePlatformPlaceholderUrls = async (
+  urls: ReadonlyArray<string | null | undefined>,
+): Promise<string[]> => {
+  const existing =
+    (await getSetting<string[]>(SETTINGS_KEYS.RETIRED_PLATFORM_PLACEHOLDER_URLS)) ?? [];
+  const merged = mergeRetiredPlatformPlaceholderUrls(existing, urls);
+
+  if (
+    merged.length === existing.length &&
+    merged.every((url, i) => url === existing[i])
+  ) {
+    return existing;
+  }
+
+  await saveSetting(SETTINGS_KEYS.RETIRED_PLATFORM_PLACEHOLDER_URLS, merged);
+  settingsCache.set(SETTINGS_KEYS.RETIRED_PLATFORM_PLACEHOLDER_URLS, merged);
+  return merged;
+};
 
 export const getSettings = async (): Promise<GlobalSetting[]> => {
   const { data, error } = await supabase

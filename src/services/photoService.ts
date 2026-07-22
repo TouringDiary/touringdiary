@@ -6,7 +6,7 @@ import { Insert, Update } from '../types/domain/index';
 /** Tipi locali per hardening join e update */
 type DatabasePhotoSubmissionUpdate = Update<'photo_submissions'>;
 type DbPhotoWithLikes = DatabasePhotoSubmission & {
-    photo_likes?: { photo_id: string }[];
+    photo_likes?: { photo_id: string; user_id?: string }[];
 };
 
 // FIX: Import diretti per evitare cicli
@@ -19,6 +19,16 @@ import { PHOTO_SUBMISSION_STATUS_VALUES } from '../constants/governance';
 import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../constants/platformFeatureFlags';
 import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFlagCache';
 import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
+import {
+    filterPhotographs,
+    PHOTOGRAPH_READ_MEDIA_STATUS,
+} from '@/domain/photos/photographQuery';
+import {
+    assertPhotographWrite,
+    canRegisterAsPhotograph,
+} from '@/domain/photos/assertPhotographWrite';
+import { getPlatformPlaceholderRegistryAsync } from './settingsService';
+import { mapDbPhotoSubmission } from './mediaService';
 
 const BUCKET_NAME = 'community-photos';
 const PUBLIC_BUCKET = 'public-media';
@@ -248,8 +258,6 @@ export const flagPhotosAsCityDeleted =
 // COMMUNITY PHOTO UPLOAD
 // --------------------------------------------------
 
-import { mapDbPhotoSubmission } from './mediaService';
-
 // Rimosso mapDbPhotoToSubmission locale in favore del mapper centralizzato in mediaService.ts
 
 export const uploadCommunityPhoto =
@@ -270,11 +278,12 @@ export const uploadCommunityPhoto =
             PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS,
             { userRole: null, isAuthenticated: false }
         );
-        if (!photosFlag?.enabled) {
+        // Fail-closed: Security Gate — SoT evaluateFeatureFlag via cache CC.
+        if (photosFlag?.enabled !== true) {
             throw new Error(
                 resolvePlatformUserBody(
                     photosFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_PHOTOS_PAUSED,
-                    'Il caricamento foto è temporaneamente disabilitato.'
+                    ''
                 )
             );
         }
@@ -320,6 +329,13 @@ export const uploadCommunityPhoto =
             } = supabase.storage
                 .from(BUCKET_NAME)
                 .getPublicUrl(filePath);
+
+            // Write-boundary: solo Fotografie entrano in photo_submissions.
+            const placeholderRegistry = await getPlatformPlaceholderRegistryAsync();
+            assertPhotographWrite(
+                { url: publicUrl, mediaStatus },
+                placeholderRegistry,
+            );
 
             const isAdmin =
                 userId.startsWith('admin') ||
@@ -370,8 +386,10 @@ export const uploadCommunityPhoto =
 // --------------------------------------------------
 
 /**
- * Assicura che un'immagine (anche ufficiale o POI) abbia un record reale e persistente in photo_submissions.
- * NON usa più ID virtuali. Restituisce sempre un UUID reale dal database.
+ * Assicura che un'immagine della Galleria Fotografica abbia un record in photo_submissions.
+ * Callers autorizzati: City Galleria Fotografica, Preview basata su quella galleria.
+ * NON usare per Presentation Media (Hero, Card, POI/Shop/Guide/… covers).
+ * Write-boundary: Placeholder by origin (registry attivo + retired) non possono essere create/riesposte.
  */
 export const getOrCreatePhotoSubmissionForUrl = async (
     url: string,
@@ -383,6 +401,8 @@ export const getOrCreatePhotoSubmissionForUrl = async (
     if (!url || !cityId) return null;
 
     try {
+        const placeholderRegistry = await getPlatformPlaceholderRegistryAsync();
+
         // STEP 1: Cerca per URL esatto (Deduplicazione)
         let { data: existing, error: searchError } = await supabase
             .from('photo_submissions')
@@ -397,8 +417,19 @@ export const getOrCreatePhotoSubmissionForUrl = async (
         }
 
         if (existing) {
-            return mapDbPhotoSubmission(existing);
+            const mapped = mapDbPhotoSubmission(existing);
+            // Non riesporre Placeholder / non-fotografie legacy alle gallerie.
+            if (!canRegisterAsPhotograph(
+                { url: mapped.url, mediaStatus: mapped.mediaStatus },
+                placeholderRegistry,
+            )) {
+                return null;
+            }
+            return mapped;
         }
+
+        // Write-boundary: solo Fotografie possono essere create.
+        assertPhotographWrite({ url, mediaStatus }, placeholderRegistry);
 
         // 2. Crea un record persistente immediato per immagini ufficiali
         const newRecord = {
@@ -433,84 +464,118 @@ export const getOrCreatePhotoSubmissionForUrl = async (
 
 
 // --------------------------------------------------
-// FETCH TOP CITY PHOTOS (GALLERY)
+// LIST PHOTOGRAPHS (unica porta gallerie)
 // --------------------------------------------------
 
+export type ListPhotographsOptions = {
+    /** Submission workflow status. Omit or `'all'` = no status filter. */
+    status?: string;
+    cityId?: string;
+    limit?: number;
+    /** Include `photo_likes` join and set `likedByUser` for current user. */
+    withLikes?: boolean;
+    orderBy?: 'created_at' | 'likes';
+    ascending?: boolean;
+};
+
 /**
- * Recupera le prime 10 immagini approvate per una specifica città.
- * Pattern safe con fallback-return [].
+ * Unica porta di lettura per le gallerie fotografiche.
+ * Restituisce solo Fotografie (Community + Official). I Placeholder non appartengono a questo dominio.
  */
-export const fetchTopCityPhotos = async (cityId: string): Promise<PhotoSubmission[]> => {
-    if (!cityId) return [];
+export const listPhotographs = async (
+    options: ListPhotographsOptions = {},
+): Promise<PhotoSubmission[]> => {
+    const {
+        status,
+        cityId,
+        limit,
+        withLikes = false,
+        orderBy = 'created_at',
+        ascending = false,
+    } = options;
 
     try {
-        const { data, error } = await supabase
+        // Select fisso (tipizzato PostgREST): likedByUser popolato solo se withLikes.
+        let query = supabase
             .from('photo_submissions')
-            .select('*')
-            .eq('city_id', cityId)
-            .eq('status', 'approved')
-            .not('media_status', 'in', '("placeholder","missing")')
-            .order('created_at', { ascending: false })
-            .limit(10);
+            .select('*, photo_likes(photo_id, user_id)')
+            .eq('media_status', PHOTOGRAPH_READ_MEDIA_STATUS)
+            .order(orderBy, { ascending });
 
-        if (error) {
-            console.error("[photoService] REST Error fetching top photos:", error);
-            return [];
+        if (cityId) {
+            query = query.eq('city_id', cityId);
         }
 
-        return (data || []).map(p => mapDbPhotoSubmission(p));
+        if (status && status !== 'all') {
+            query = query.eq('status', status);
+        }
 
+        if (limit != null) {
+            query = query.limit(limit);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const currentUserId = withLikes
+            ? (await supabase.auth.getUser()).data.user?.id
+            : undefined;
+
+        const mapped = ((data as unknown as DbPhotoWithLikes[] | null) || []).map((p) => {
+            const base = mapDbPhotoSubmission(p);
+            if (!withLikes) return base;
+            return {
+                ...base,
+                likedByUser: Boolean(
+                    currentUserId &&
+                        p.photo_likes?.some((l) => l.user_id === currentUserId),
+                ),
+            };
+        });
+
+        return filterPhotographs(mapped);
     } catch (err) {
-        console.error("[photoService] Catch fallback in fetchTopCityPhotos:", err);
+        console.error('[photoService] listPhotographs failed:', err);
         return [];
     }
 };
 
+/**
+ * Admin moderation only — may include legacy non-photograph rows for cleanup.
+ * Galleries must not use this.
+ */
+export const listPhotoSubmissionsForModeration = async (
+    status: string = 'all',
+): Promise<PhotoSubmission[]> => {
+    try {
+        let query = supabase
+            .from('photo_submissions')
+            .select('*, photo_likes(photo_id, user_id)')
+            .order('created_at', { ascending: false });
 
-
-export const fetchCommunityPhotos =
-    async (status?: string, includePlaceholders: boolean = false): Promise<
-        PhotoSubmission[]
-    > => {
-
-        try {
-
-            let query = supabase
-                .from('photo_submissions')
-                .select('*, photo_likes(photo_id)')
-                .order(
-                    'created_at',
-                    {
-                        ascending: false
-                    }
-                );
-
-            if (!includePlaceholders) {
-                query = query.not('media_status', 'in', '("placeholder","missing")');
-            }
-
-            if (status && status !== 'all') {
-                query = query.eq('status', status);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            const photos = (data as DbPhotoWithLikes[]).map(p => {
-                const base = mapDbPhotoSubmission(p);
-                return {
-                    ...base,
-                    likedByUser: p.photo_likes && p.photo_likes.length > 0
-                };
-            });
-
-            return photos;
-
-        } catch {
-            return [];
+        if (status && status !== 'all') {
+            query = query.eq('status', status);
         }
-    };
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+
+        return ((data as unknown as DbPhotoWithLikes[] | null) || []).map((p) => {
+            const base = mapDbPhotoSubmission(p);
+            return {
+                ...base,
+                likedByUser: Boolean(
+                    currentUserId &&
+                        p.photo_likes?.some((l) => l.user_id === currentUserId),
+                ),
+            };
+        });
+    } catch {
+        return [];
+    }
+};
 
 // --------------------------------------------------
 // UPDATE PHOTO STATUS
@@ -575,9 +640,15 @@ export const updatePhotoData =
             payload.description =
                 data.description;
 
-        if (data.url)
-            payload.image_url =
-                data.url;
+        if (data.url) {
+            // Write-boundary: image_url updates must pass Photograph domain (same SoT as insert).
+            const placeholderRegistry = await getPlatformPlaceholderRegistryAsync();
+            assertPhotographWrite(
+                { url: data.url, mediaStatus: data.mediaStatus },
+                placeholderRegistry,
+            );
+            payload.image_url = data.url;
+        }
 
         if (data.isOfficial !== undefined)
             payload.is_official = data.isOfficial;

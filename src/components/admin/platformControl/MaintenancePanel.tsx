@@ -11,12 +11,13 @@ interface MaintenancePanelProps {
     onMutateFlag: (key: string, manualOverride: boolean | number | null, reason?: string) => Promise<void>;
 }
 
-const PLATFORM_ACCESS_FLAG_KEYS = [
+const TOP_FLAG_KEYS = [
+    PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE,
     PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION,
     PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING,
 ] as const;
 
-/** Contenuto operativo manutenzione + accessi piattaforma — banner TAB gestito dal Centro di Controllo. */
+/** Controlli operativi manutenzione + accessi — pausa schedule nell’header Programmazione automatica. */
 export const MaintenancePanel: React.FC<MaintenancePanelProps> = ({
     canWrite,
     flagsByKey,
@@ -25,47 +26,23 @@ export const MaintenancePanel: React.FC<MaintenancePanelProps> = ({
 }) => {
     const ty = usePlatformControlTypography();
     const { evaluateFlag } = usePlatformControl();
-    const maintenanceFlag = flagsByKey.get(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE);
     const evaluation = evaluateFlag(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE, {
         userRole: 'admin_all',
         isAuthenticated: true,
     });
 
     return (
-        <div className="space-y-4">
-            <div className="space-y-2">
-                {evaluation?.enabled ? (
-                    <p className={ty.helper}>
-                        Manutenzione attiva — messaggio fisso in News Bar; le altre news scorrono.
-                    </p>
-                ) : null}
-                {maintenanceFlag ? (
-                    <div className="max-w-xl">
-                        <FeatureFlagBooleanRow
-                            flag={maintenanceFlag}
-                            canWrite={canWrite}
-                            requiresReason
-                            schedulesSuspended={schedulesSuspended}
-                            onSave={(manualOverride, reason) =>
-                                onMutateFlag(
-                                    PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE,
-                                    manualOverride,
-                                    reason
-                                )
-                            }
-                        />
-                    </div>
-                ) : (
-                    <div className={`rounded-2xl border border-dashed border-slate-700 p-3 ${ty.helper}`}>
-                        Flag <code>feature.platform.maintenance</code> non in cache — deploy migration
-                        richiesta.
-                    </div>
-                )}
-            </div>
+        <div className="space-y-3 sm:space-y-4">
+            {evaluation?.enabled ? (
+                <p className={ty.helper}>
+                    Manutenzione attiva — messaggio fisso in News Bar; le altre news scorrono.
+                </p>
+            ) : null}
 
-            <div className="space-y-2 max-w-xl">
-                <p className={ty.helper}>Accesso piattaforma — registrazione e onboarding.</p>
-                {PLATFORM_ACCESS_FLAG_KEYS.map((key) => {
+            <p className={ty.helper}>Controlli operativi — manutenzione e accessi.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                {TOP_FLAG_KEYS.map((key) => {
                     const flag = flagsByKey.get(key);
                     if (!flag) {
                         return (
@@ -77,16 +54,19 @@ export const MaintenancePanel: React.FC<MaintenancePanelProps> = ({
                             </div>
                         );
                     }
+                    const isMaintenance = key === PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE;
                     return (
-                        <FeatureFlagBooleanRow
-                            key={key}
-                            flag={flag}
-                            canWrite={canWrite}
-                            schedulesSuspended={schedulesSuspended}
-                            onSave={(manualOverride, reason) =>
-                                onMutateFlag(key, manualOverride, reason)
-                            }
-                        />
+                        <div key={key} className="min-w-0 flex flex-col gap-2">
+                            <FeatureFlagBooleanRow
+                                flag={flag}
+                                canWrite={canWrite}
+                                requiresReason={isMaintenance}
+                                schedulesSuspended={schedulesSuspended}
+                                onSave={(manualOverride, reason) =>
+                                    onMutateFlag(key, manualOverride, reason)
+                                }
+                            />
+                        </div>
                     );
                 })}
             </div>

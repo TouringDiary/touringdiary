@@ -24,7 +24,13 @@ export const PLATFORM_FEATURE_FLAG_KEYS = {
     MODERATION_REVIEWS: 'feature.moderation.reviews',
     MODERATION_PHOTOS: 'feature.moderation.photos',
     MODERATION_SUGGESTIONS: 'feature.moderation.suggestions',
+    /**
+     * Q&A Local (Community domande/risposte).
+     * Key storica invariata — non usare per il dominio fotografico.
+     */
     MODERATION_COMMUNITY_POSTS: 'feature.moderation.community_posts',
+    /** Alias semantico = stessa key di MODERATION_COMMUNITY_POSTS. */
+    MODERATION_QA_LOCAL: 'feature.moderation.community_posts',
     PLATFORM_MAINTENANCE: 'feature.platform.maintenance',
     PLATFORM_REGISTRATION: 'feature.platform.registration',
     PLATFORM_ONBOARDING: 'feature.platform.onboarding',
@@ -113,8 +119,8 @@ export const PLATFORM_FEATURE_FLAG_ADMIN_HELP: Record<PlatformFeatureFlagKey, st
         'Quando disattivato il modulo non accetta nuovi invii e mostra un avviso.',
 
     [PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS]:
-        'Consente la pubblicazione di post / snap nella community (Live Feed).\n' +
-        'Quando disattivato non è possibile confermare nuovi upload community.',
+        'Consente domande e risposte nella sezione Community → Q&A Local.\n' +
+        'Quando disattivato gli utenti possono ancora leggere le discussioni, ma non possono pubblicare nuove domande, rispondere o mettere like.',
 
     [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE]:
         'Attiva la modalità manutenzione sulla News Bar in cima all’app.\n' +
@@ -262,7 +268,7 @@ export const PLATFORM_CONTROL_TAB_COPY: Record<
     audit: {
         title: 'Storico Audit',
         description:
-            'Mostra la cronologia delle modifiche effettuate nel Centro di Controllo, consentendo di tracciare le operazioni amministrative.',
+            'Mostra la cronologia delle modifiche del Centro di Controllo. Gli amministratori completi possono esportare, eliminare singole voci o svuotare lo storico.',
     },
 };
 
@@ -393,10 +399,10 @@ export const PLATFORM_FLAG_MESSAGE_CATALOG: readonly PlatformMessageTemplateCata
     },
     {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED,
-        label: 'Post community sospesi',
-        description: 'Messaggio quando feature.moderation.community_posts è OFF.',
-        defaultTitle: 'Post community sospesi',
-        defaultBody: 'I post community sono temporaneamente disabilitati.',
+        label: 'Q&A Local sospeso',
+        description: 'Messaggio quando feature.moderation.community_posts (Q&A Local) è OFF.',
+        defaultTitle: 'Q&A Local sospeso',
+        defaultBody: 'Le domande e risposte locali sono temporaneamente disabilitate.',
     },
 ];
 

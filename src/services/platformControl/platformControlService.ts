@@ -57,6 +57,20 @@ export function getPlatformControlService(): PlatformControlService {
                     })
                 );
             },
+
+            deleteAuditEvent: async (id) => {
+                const { data, error } = await supabase.rpc('delete_platform_control_audit_event', {
+                    p_id: id,
+                });
+                if (error) throw error;
+                return Boolean(data);
+            },
+
+            clearAudit: async () => {
+                const { data, error } = await supabase.rpc('clear_platform_control_audit');
+                if (error) throw error;
+                return typeof data === 'number' ? data : Number(data ?? 0);
+            },
         });
     }
 

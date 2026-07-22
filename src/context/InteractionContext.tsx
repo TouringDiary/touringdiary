@@ -38,7 +38,7 @@ interface InteractionContextType {
     getPhotoStatus: (photo: { id: string; likes?: number; likedByUser?: boolean }) => PhotoLikeStatus;
 
     // Nuovi per Community Live Snaps
-    getLiveSnapStatus: (snap: { id: string; likes?: number }) => PhotoLikeStatus;
+    getLiveSnapStatus: (snap: { id: string; likes?: number; likedByUser?: boolean }) => PhotoLikeStatus;
     toggleLiveSnapHeart: (snapId: string) => Promise<number | undefined>;
 
     submitReview: (
@@ -92,13 +92,21 @@ export const InteractionProvider = ({
             setLikedPois(getStorageItem<string[]>(likesKey, []));
 
             if (!isGuest) {
+                // Warm liked flags without inventing count:0 (that desynced heart vs counter).
+                // Authoritative isLiked+count come from photo entity (likedByUser + likes)
+                // until togglePhotoHeart writes a full RPC result into photoStatus.
                 const photoLikes = await fetchUserPhotoLikes(currentUserId);
-                // Initialize initial liked state in photoStatus if needed
-                const initialStatus: Record<string, PhotoLikeStatus> = {};
-                photoLikes.forEach(id => {
-                    initialStatus[id] = { isLiked: true, count: 0, isLoading: false };
+                setPhotoStatus(prev => {
+                    const next = { ...prev };
+                    photoLikes.forEach(id => {
+                        const existing = prev[id];
+                        if (existing) {
+                            next[id] = { ...existing, isLiked: true };
+                        }
+                        // Intentionally skip new entries without a known count.
+                    });
+                    return next;
                 });
-                setPhotoStatus(prev => ({ ...prev, ...initialStatus }));
             }
         };
 
@@ -131,28 +139,40 @@ export const InteractionProvider = ({
 
     const getPhotoStatus = useCallback(
         (photo: { id: string; likes?: number; likedByUser?: boolean }): PhotoLikeStatus => {
-            return (
-                photoStatus[photo.id] ?? {
-                    isLiked: photo.likedByUser ?? false,
-                    count: photo.likes ?? 0,
-                    isLoading: false
+            const cached = photoStatus[photo.id];
+            const entityCount = photo.likes ?? 0;
+
+            if (!cached) {
+                // Zero likes ⇒ heart never selected. Otherwise heart = current-user like only.
+                if (entityCount <= 0) {
+                    return { isLiked: false, count: 0, isLoading: false };
                 }
-            );
+                return {
+                    isLiked: photo.likedByUser ?? false,
+                    count: entityCount,
+                    isLoading: false
+                };
+            }
+
+            // Incomplete seed from fetchUserPhotoLikes: { isLiked: true, count: 0 }.
+            // Merge real entity count; if still zero, do not show a selected heart.
+            if (cached.isLiked && cached.count === 0 && !cached.isLoading) {
+                if (entityCount <= 0) {
+                    return { isLiked: false, count: 0, isLoading: false };
+                }
+                return { isLiked: true, count: entityCount, isLoading: false };
+            }
+
+            return cached;
         },
         [photoStatus]
     );
 
     const getLiveSnapStatus = useCallback(
-        (snap: { id: string; likes?: number }): PhotoLikeStatus => {
-            return (
-                photoStatus[snap.id] ?? {
-                    isLiked: false,
-                    count: snap.likes ?? 0,
-                    isLoading: false
-                }
-            );
+        (snap: { id: string; likes?: number; likedByUser?: boolean }): PhotoLikeStatus => {
+            return getPhotoStatus(snap);
         },
-        [photoStatus]
+        [getPhotoStatus]
     );
 
     // 🔥 TOGGLE LIKE FOTO (NUOVA VERSIONE CENTRALIZZATA)

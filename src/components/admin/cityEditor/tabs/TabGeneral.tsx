@@ -9,6 +9,7 @@ import { AiFieldHelper } from '../../AiFieldHelper';
 import { BadgeType } from '../../../../types/index';
 import { openMap } from '../../../../utils/common';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
+import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 
 const BADGE_OPTIONS: { value: BadgeType, label: string }[] = [
     { value: 'event', label: '🔥 EVENTI IN ARRIVO' },
@@ -20,6 +21,7 @@ const BADGE_OPTIONS: { value: BadgeType, label: string }[] = [
 
 export const TabGeneral = () => {
     const { city, setCityDirectly, updateField, updateDetailField, updateCoord, triggerPreview, reloadCurrentCity } = useCityEditor();
+    const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
     
     const [generating, setGenerating] = useState(false);
     const [fieldLoading, setFieldLoading] = useState<string | null>(null);
@@ -30,6 +32,7 @@ export const TabGeneral = () => {
     const handleRegenerateClick = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        if (!guardAiAction()) return;
         
         if (!city.name) { 
             alert("ERRORE: Inserisci prima il nome della città!"); 
@@ -40,6 +43,10 @@ export const TabGeneral = () => {
     };
 
     const executeRegeneration = async () => {
+        if (!guardAiAction()) {
+            setShowConfirmModal(false);
+            return;
+        }
         setShowConfirmModal(false);
         setGenerating(true);
         
@@ -84,6 +91,7 @@ export const TabGeneral = () => {
     };
 
     const handleSingleGen = async (field: 'website' | 'coords' | 'hierarchy' | 'subtitle') => {
+        if (!guardAiAction()) return;
         if (!city.name) { alert("Inserisci nome città."); return; }
         setFieldLoading(field);
         try {
@@ -139,11 +147,12 @@ export const TabGeneral = () => {
             <div className="flex justify-end border-b border-slate-800 pb-4">
                 <button 
                     onClick={handleRegenerateClick} 
-                    disabled={generating}
+                    disabled={generating || aiBlocked}
+                    title={aiBlocked ? blockMessage : undefined}
                     className="bg-rose-600 hover:bg-rose-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed uppercase text-xs tracking-widest border border-rose-500"
                 >
                     {generating ? <Loader2 className="w-4 h-4 animate-spin"/> : <RefreshCw className="w-4 h-4"/>}
-                    {generating ? 'GENERAZIONE IN CORSO...' : 'RIGENERA PAGINA (GENERALI)'}
+                    {generating ? 'GENERAZIONE IN CORSO...' : aiBlocked ? 'AI DISABILITATA' : 'RIGENERA PAGINA (GENERALI)'}
                 </button>
             </div>
 
@@ -164,7 +173,7 @@ export const TabGeneral = () => {
                     <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1.5 flex justify-between">
                             Zona Turistica 
-                            <button onClick={() => handleSingleGen('hierarchy')} disabled={!!fieldLoading} className="text-indigo-400 hover:text-white flex items-center gap-1">{fieldLoading === 'hierarchy' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3"/>} Auto-Detect</button>
+                            <button onClick={() => handleSingleGen('hierarchy')} disabled={!!fieldLoading || aiBlocked} title={aiBlocked ? blockMessage : undefined} className="text-indigo-400 hover:text-white flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">{fieldLoading === 'hierarchy' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3"/>} Auto-Detect</button>
                         </label>
                         <input 
                             value={city.zone || ''} 
@@ -178,7 +187,7 @@ export const TabGeneral = () => {
                 <div className="mb-6 bg-slate-950/30 p-4 rounded-xl border border-slate-800/50">
                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1.5 flex justify-between items-center">
                         Slogan / Sottotitolo (Header)
-                        <button onClick={() => handleSingleGen('subtitle')} disabled={!!fieldLoading} className="text-amber-500 hover:text-white flex items-center gap-1">{fieldLoading === 'subtitle' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3"/>} Genera</button>
+                        <button onClick={() => handleSingleGen('subtitle')} disabled={!!fieldLoading || aiBlocked} title={aiBlocked ? blockMessage : undefined} className="text-amber-500 hover:text-white flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">{fieldLoading === 'subtitle' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3"/>} Genera</button>
                     </label>
                     <div className="relative">
                         <input 
@@ -261,7 +270,7 @@ export const TabGeneral = () => {
                             Posizione GPS
                             <div className="flex gap-2">
                                 <button onClick={() => { if(city.coords.lat && city.coords.lng) openMap(city.coords.lat, city.coords.lng, city.name); }} className="text-indigo-400 hover:text-white flex items-center gap-1 border border-indigo-500/30 px-2 rounded"><ExternalLink className="w-3 h-3"/> Verifica Mappa</button>
-                                <button onClick={() => handleSingleGen('coords')} disabled={!!fieldLoading} className="text-emerald-500 hover:text-white flex items-center gap-1">{fieldLoading === 'coords' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Search className="w-3 h-3"/>} Trova GPS</button>
+                                <button onClick={() => handleSingleGen('coords')} disabled={!!fieldLoading || aiBlocked} title={aiBlocked ? blockMessage : undefined} className="text-emerald-500 hover:text-white flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">{fieldLoading === 'coords' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Search className="w-3 h-3"/>} Trova GPS</button>
                             </div>
                         </label>
                         <div className="grid grid-cols-2 gap-4">
@@ -291,8 +300,9 @@ export const TabGeneral = () => {
                     />
                     <button 
                         onClick={() => handleSingleGen('website')} 
-                        disabled={!!fieldLoading}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2"
+                        disabled={!!fieldLoading || aiBlocked}
+                        title={aiBlocked ? blockMessage : undefined}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {fieldLoading === 'website' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3"/>} Auto-Detect
                     </button>

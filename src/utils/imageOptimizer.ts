@@ -80,12 +80,3 @@ export const normalizeImageUrl = (url: string | null | undefined): string => {
     if (!url) return '';
     return url.split('?')[0].trim().toLowerCase();
 };
-
-/**
- * Verifica se un URL punta a un placeholder noto del sistema.
- */
-export const isPlaceholderUrl = (url: string | null | undefined): boolean => {
-    if (!url) return true;
-    const normalized = normalizeImageUrl(url);
-    return normalized.includes('unsplash.com/photo-1596825205486-3c36957b9fba') || normalized.includes('placeholder');
-};

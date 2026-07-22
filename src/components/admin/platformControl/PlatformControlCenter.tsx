@@ -86,8 +86,12 @@ export const PlatformControlCenter: React.FC<PlatformControlCenterProps> = ({ cu
         await mutateFlag(key, { manualOverride }, reason);
     };
 
-    const handleSaveSchedules = async (key: string, schedules: PlatformFlagSchedule[]) => {
-        await mutateFlag(key, { schedules });
+    const handleSaveSchedules = async (
+        key: string,
+        schedules: PlatformFlagSchedule[],
+        reason?: string
+    ) => {
+        await mutateFlag(key, { schedules }, reason);
     };
 
     const renderFlagSection = (sectionId: PlatformControlSectionId) => (
@@ -129,7 +133,7 @@ export const PlatformControlCenter: React.FC<PlatformControlCenterProps> = ({ cu
             case 'globals':
                 return <MessageTemplatesPanel canWrite={canWrite} />;
             case 'audit':
-                return <AuditHistoryPanel canExport={canWrite} />;
+                return <AuditHistoryPanel canWrite={canWrite} />;
             default:
                 return null;
         }

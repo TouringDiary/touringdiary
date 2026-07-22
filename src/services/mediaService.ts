@@ -75,6 +75,36 @@ export const uploadBase64PublicMedia = async (base64Data: string, folder: string
     }
 };
 
+/**
+ * Elimina un file da `public-media` a partire dall'URL pubblico.
+ * Solo path sotto `admin_assets/` (Asset Globali). URL esterni / default → no-op.
+ * Non tocca photo_submissions (i Placeholder non appartengono al dominio Photo).
+ */
+export const deleteAdminAssetByUrl = async (
+    url: string | null | undefined,
+): Promise<boolean> => {
+    if (!url?.trim()) return false;
+
+    try {
+        const marker = `/object/public/${PUBLIC_BUCKET}/`;
+        const idx = url.indexOf(marker);
+        if (idx === -1) return false;
+
+        const path = decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
+        if (!path || !path.startsWith('admin_assets/')) return false;
+
+        const { error } = await supabase.storage.from(PUBLIC_BUCKET).remove([path]);
+        if (error) {
+            console.error('[mediaService] deleteAdminAssetByUrl failed:', error);
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.error('[mediaService] deleteAdminAssetByUrl error:', e);
+        return false;
+    }
+};
+
 
 
 

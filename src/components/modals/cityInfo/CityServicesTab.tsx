@@ -2,15 +2,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CityDetails, CityService, PointOfInterest, SuggestionType, User } from '@/types';
 import { useItinerary } from '@/context/ItineraryContext';
+import { useModal } from '@/context/ModalContext';
 import { SERVICES_CATEGORIES } from '../../../constants/services';
 import { getCachedSetting } from '../../../services/settingsService'; // NEW
 
 // Componenti Locali
 import { ServiceSidebar } from './ServiceSidebar';
 import { ServicesCategoryList } from './ServicesCategoryList';
-
-// Componenti Modali (Percorso Corretto: ../ risale a src/components/modals/)
-import { SuggestionModal } from '../SuggestionModal';
 
 interface Props {
     city: CityDetails;
@@ -27,19 +25,13 @@ export const CityServicesTab = ({
     city, onAddToItinerary, isMobile, setMobileView, mobileView, initialCategory, user, onOpenAuth 
 }: Props) => {
     const { itinerary } = useItinerary();
+    const { openModal, activeModal, modalProps } = useModal();
     
     // STATES
     // Default alla prima categoria disponibile (Aeroporto)
     const [activeServiceCategory, setActiveServiceCategory] = useState<string>(SERVICES_CATEGORIES[0]?.id || 'airport'); 
     const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
     const [servicesList, setServicesList] = useState<any[]>(city.details.services || []);
-    
-    // SUGGESTION MODAL STATE
-    const [suggestionModal, setSuggestionModal] = useState<{ 
-        isOpen: boolean; 
-        type: SuggestionType; 
-        prefilledName?: string 
-    }>({ isOpen: false, type: 'new_place' });
 
     // SYNC with city details
     useEffect(() => {
@@ -140,7 +132,17 @@ export const CityServicesTab = ({
             }
             return;
         }
-        setSuggestionModal({ isOpen: true, type, prefilledName });
+        openModal('suggestion', {
+            type,
+            prefilledName,
+            cityId: city.id,
+            cityName: city.name,
+            existingPois: currentCategoryPois,
+            isServiceContext: true,
+            ...(activeModal
+                ? { returnTo: activeModal, returnProps: modalProps }
+                : {}),
+        });
     };
 
     return (
@@ -172,24 +174,6 @@ export const CityServicesTab = ({
                     </div>
                 </div>
             </div>
-
-            {/* MODALE DI SEGNALAZIONE */}
-            {suggestionModal.isOpen && user && (
-                <SuggestionModal 
-                    isOpen={true} 
-                    onClose={() => setSuggestionModal({ ...suggestionModal, isOpen: false })} 
-                    cityId={city.id} 
-                    cityName={city.name} 
-                    user={user} 
-                    onOpenAuth={onOpenAuth} 
-                    initialType={suggestionModal.type} 
-                    prefilledName={suggestionModal.prefilledName} 
-                    // Passiamo SOLO i servizi della categoria corrente convertiti in POI
-                    // Così il dropdown mostrerà solo "Linea 1" se siamo in Metro, ecc.
-                    existingPois={currentCategoryPois} 
-                    isServiceContext={true} // Cambia le label in "Nuovo Servizio" ecc.
-                />
-            )}
         </>
     );
 };

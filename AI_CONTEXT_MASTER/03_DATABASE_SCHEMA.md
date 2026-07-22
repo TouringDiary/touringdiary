@@ -76,6 +76,8 @@ Registrazione architetturale 2026-07-16 — SSOT: `AI_CONTEXT/33_ID_MODEL_DUAL_F
 *   **`activate_sponsor_with_resource`**: Pipeline transazionale per attivazione sponsor.
 *   **`get_active_pricing_version_v2`**: Risoluzione della versione di pricing corrente.
 *   **`get_ranked_cities`**: Aggregazione dati per classifiche territoriali.
+*   **`mutate_platform_feature_flag`**: Mutazione Feature Flag Centro di Controllo + audit obbligatorio (`admin_all`).
+*   **`delete_platform_control_audit_event` / `clear_platform_control_audit`**: Gestione Storico Audit (`admin_all`); nessun DELETE client diretto su `platform_control_audit`.
 
 ## JSON STRUCTURED FIELDS (Esempi)
 *   **`pois.opening_hours`**: `{ days: string[], morning: string, afternoon: string, isEstimated: boolean }`.

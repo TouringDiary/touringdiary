@@ -1,10 +1,34 @@
 import { supabase } from '../supabaseClient';
 import { UUID_REGEX } from '../../utils/uuid';
+import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
+import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
+
+function assertQaLocalWriteAllowed(isAuthenticated: boolean): void {
+    // Security Gate (service boundary): Feature Flag Runtime → Database.
+    const qaFlag = evaluateCachedFeatureFlag(
+        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS,
+        {
+            userRole: null,
+            isAuthenticated,
+        }
+    );
+    if (!qaFlag?.enabled) {
+        throw new Error(
+            resolvePlatformUserBody(
+                qaFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED,
+                'Le domande e risposte locali sono temporaneamente disabilitate.'
+            )
+        );
+    }
+}
 
 export const togglePostLike = async (postId: string, userId: string): Promise<{ liked: boolean, count: number }> => {
     if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) {
         return { liked: false, count: 0 };
     }
+
+    assertQaLocalWriteAllowed(true);
 
     try {
         const { data: existing } = await supabase

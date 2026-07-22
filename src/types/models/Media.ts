@@ -22,6 +22,8 @@ export interface PhotoSubmission {
     publishedAt?: string; // NEW: Data Pubblicazione
     status: 'pending' | 'approved' | 'rejected' | 'city_deleted';
     likes?: number;
+    /** Like dell'utente corrente (non aggregato). Popolato dai fetch community/ranking. */
+    likedByUser?: boolean;
     cityId?: string; // ADDED: ID Città per collegamento robusto
     isOfficial: boolean; 
     mediaStatus: MediaStatus;

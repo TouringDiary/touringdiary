@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Monitor, Upload, ShieldCheck, Crop, Loader2, RefreshCw, Save, Image as ImageIcon, Plus, CheckCircle, AlertTriangle, X, Award, MessageSquare, Type, Lock, Share2, Bot, Trash2 } from 'lucide-react';
 import { ImageWithFallback } from '../common/ImageWithFallback';
-import { SETTINGS_KEYS, getSetting, saveSetting } from '../../services/settingsService';
+import { SETTINGS_KEYS, retirePlatformPlaceholderUrls } from '../../services/settingsService';
 import { useConfig } from '@/context/ConfigContext';
-import { uploadPublicMedia } from '../../services/mediaService';
+import { uploadPublicMedia, deleteAdminAssetByUrl } from '../../services/mediaService';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
 import { compressImage, dataURLtoFile } from '../../utils/common';
 import { AdminPageHeader } from './common/AdminPageHeader';
@@ -62,6 +62,9 @@ export const AdminHeaderManager = () => {
     const [showDeleteHeroConfirm, setShowDeleteHeroConfirm] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [deleteAssetTarget, setDeleteAssetTarget] = useState<'auth' | 'social' | 'ai_bg' | null>(null);
+    const [deletePlaceholderTarget, setDeletePlaceholderTarget] = useState<
+        { kind: 'category' | 'suitcase'; catId: string; url: string } | null
+    >(null);
 
     // REFS
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +100,49 @@ export const AdminHeaderManager = () => {
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), type === 'error' ? 8000 : 4000);
+    };
+
+    /**
+     * Storage cleanup is best-effort after settings SoT update.
+     * Failure must not roll back settings; returns whether cleanup failed.
+     */
+    const cleanupAdminAssetStorage = async (
+        url: string | null | undefined,
+    ): Promise<'skipped' | 'ok' | 'failed'> => {
+        if (!url?.trim()) return 'skipped';
+        // Only files we own under admin_assets; external/default URLs are skipped.
+        if (!url.includes('/admin_assets/')) return 'skipped';
+
+        try {
+            const removed = await deleteAdminAssetByUrl(url);
+            if (removed) return 'ok';
+            console.warn(
+                '[AssetGlobali] Settings aggiornate; cleanup Storage non riuscito:',
+                url,
+            );
+            return 'failed';
+        } catch (err) {
+            console.warn(
+                '[AssetGlobali] Settings aggiornate; errore cleanup Storage:',
+                url,
+                err,
+            );
+            return 'failed';
+        }
+    };
+
+    const toastSettingsUpdated = (
+        successMessage: string,
+        cleanup: 'skipped' | 'ok' | 'failed',
+    ) => {
+        if (cleanup === 'failed') {
+            showToast(
+                `${successMessage} Cleanup Storage non completato (file eventualmente ancora in admin_assets).`,
+                'error',
+            );
+            return;
+        }
+        showToast(successMessage, 'success');
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'hero' | 'patron' | 'placeholder' | 'suitcase_placeholder' | 'auth' | 'social' | 'ai_bg', phCat?: string) => {
@@ -138,6 +184,10 @@ export const AdminHeaderManager = () => {
     const handleSaveHero = async () => {
         setIsSavingHero(true);
         const valToSave = previewImage === GLOBAL_ASSET_DEFAULTS.hero ? '' : previewImage;
+        const previousStored = configs[SETTINGS_KEYS.HERO_IMAGE] as string | null | undefined;
+        if (previousStored && previousStored !== valToSave) {
+            await retirePlatformPlaceholderUrls([previousStored]);
+        }
         await updateSetting(SETTINGS_KEYS.HERO_IMAGE, valToSave);
         setCurrentImage(previewImage || GLOBAL_ASSET_DEFAULTS.hero);
         setIsSavingHero(false);
@@ -146,26 +196,54 @@ export const AdminHeaderManager = () => {
     
     const handleRemoveHeroRequest = () => setShowDeleteHeroConfirm(true);
 
-    const confirmRemoveHero = () => {
-        setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero); 
+    const confirmRemoveHero = async () => {
+        const previousUrl =
+            previewImage && previewImage !== GLOBAL_ASSET_DEFAULTS.hero ? previewImage : null;
+        setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
+        setCurrentImage(GLOBAL_ASSET_DEFAULTS.hero);
+        await retirePlatformPlaceholderUrls([previousUrl]);
+        await updateSetting(SETTINGS_KEYS.HERO_IMAGE, '');
+        const cleanup = await cleanupAdminAssetStorage(previousUrl);
         setShowDeleteHeroConfirm(false);
-        showToast("Immagine rimossa dall'anteprima. Clicca 'Applica' per salvare il default.", 'success');
+        toastSettingsUpdated('Hero eliminato da Asset Globali.', cleanup);
     };
 
     const handleRemoveAssetRequest = (target: 'auth' | 'social' | 'ai_bg') => setDeleteAssetTarget(target);
 
-    const confirmRemoveAsset = () => {
-        if (deleteAssetTarget === 'auth') setAuthBg(GLOBAL_ASSET_DEFAULTS.auth_bg);
-        else if (deleteAssetTarget === 'social') setSocialBg(GLOBAL_ASSET_DEFAULTS.social_bg);
-        else if (deleteAssetTarget === 'ai_bg') setAiBg('');
-        
+    const confirmRemoveAsset = async () => {
+        if (!deleteAssetTarget) return;
+
+        let previousUrl: string | null = null;
+        if (deleteAssetTarget === 'auth') {
+            previousUrl = authBg !== GLOBAL_ASSET_DEFAULTS.auth_bg ? authBg : null;
+            setAuthBg(GLOBAL_ASSET_DEFAULTS.auth_bg);
+            await retirePlatformPlaceholderUrls([previousUrl]);
+            await updateSetting(SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE, '');
+        } else if (deleteAssetTarget === 'social') {
+            previousUrl = socialBg !== GLOBAL_ASSET_DEFAULTS.social_bg ? socialBg : null;
+            setSocialBg(GLOBAL_ASSET_DEFAULTS.social_bg);
+            await retirePlatformPlaceholderUrls([previousUrl]);
+            await updateSetting(SETTINGS_KEYS.SOCIAL_CANVAS_BG, '');
+        } else {
+            previousUrl = aiBg || null;
+            setAiBg('');
+            await retirePlatformPlaceholderUrls([previousUrl]);
+            await updateSetting(SETTINGS_KEYS.AI_CONSULTANT_BG, '');
+        }
+
+        const cleanup = await cleanupAdminAssetStorage(previousUrl);
+        await refreshConfig();
         setDeleteAssetTarget(null);
-        showToast("Asset rimosso/ripristinato. Clicca 'Salva Asset' per confermare.", 'success');
+        toastSettingsUpdated('Asset eliminato da Asset Globali.', cleanup);
     };
 
     const handleSavePatron = async () => {
         setIsSavingPatron(true);
         const valToSave = patronImage === GLOBAL_ASSET_DEFAULTS.patron ? '' : patronImage;
+        const previousStored = configs[SETTINGS_KEYS.DEFAULT_PATRON_IMAGE] as string | null | undefined;
+        if (previousStored && previousStored !== valToSave) {
+            await retirePlatformPlaceholderUrls([previousStored]);
+        }
         await updateSetting(SETTINGS_KEYS.DEFAULT_PATRON_IMAGE, valToSave);
         setIsSavingPatron(false);
         showToast("Patrono master aggiornato!", 'success');
@@ -179,6 +257,15 @@ export const AdminHeaderManager = () => {
                 'social_canvas_bg': socialBg === GLOBAL_ASSET_DEFAULTS.social_bg ? '' : socialBg,
                 'ai_consultant_bg': aiBg,
             };
+
+            const prevAuth = configs[SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE] as string | null | undefined;
+            const prevSocial = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG] as string | null | undefined;
+            const prevAi = configs[SETTINGS_KEYS.AI_CONSULTANT_BG] as string | null | undefined;
+            await retirePlatformPlaceholderUrls([
+                prevAuth && prevAuth !== newAssetData.auth_background_image ? prevAuth : null,
+                prevSocial && prevSocial !== newAssetData.social_canvas_bg ? prevSocial : null,
+                prevAi && prevAi !== newAssetData.ai_consultant_bg ? prevAi : null,
+            ]);
 
             await updateSetting(SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE, newAssetData.auth_background_image);
             await updateSetting(SETTINGS_KEYS.SOCIAL_CANVAS_BG, newAssetData.social_canvas_bg);
@@ -197,31 +284,86 @@ export const AdminHeaderManager = () => {
     const handleReset = () => setShowResetConfirm(true);
 
     const executeReset = async () => {
+        const previousUrl =
+            currentImage && currentImage !== GLOBAL_ASSET_DEFAULTS.hero ? currentImage : null;
         setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
         setCurrentImage(GLOBAL_ASSET_DEFAULTS.hero);
-        await updateSetting(SETTINGS_KEYS.HERO_IMAGE, ''); 
-        showToast("Reset completato.", 'success');
+        await retirePlatformPlaceholderUrls([previousUrl]);
+        await updateSetting(SETTINGS_KEYS.HERO_IMAGE, '');
+        const cleanup = await cleanupAdminAssetStorage(previousUrl);
         setShowResetConfirm(false);
+        toastSettingsUpdated('Reset completato.', cleanup);
     };
 
     const handleResetPatronGlobal = async () => {
+        const previousUrl =
+            patronImage !== GLOBAL_ASSET_DEFAULTS.patron ? patronImage : null;
         setPatronImage(GLOBAL_ASSET_DEFAULTS.patron);
+        await retirePlatformPlaceholderUrls([previousUrl]);
         await updateSetting(SETTINGS_KEYS.DEFAULT_PATRON_IMAGE, '');
-        showToast("Patrono reset.", 'success');
+        const cleanup = await cleanupAdminAssetStorage(previousUrl);
+        toastSettingsUpdated('Patrono eliminato da Asset Globali.', cleanup);
     };
 
     const handleSavePlaceholder = async (cat: string, url: string) => {
+        const previousUrl = placeholders[cat];
         const updated = { ...placeholders, [cat]: url };
         setPlaceholders(updated);
+        if (previousUrl && previousUrl !== url) {
+            await retirePlatformPlaceholderUrls([previousUrl]);
+        }
         await updateSetting(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS, updated);
-        showToast(`Placeholder per ${cat} aggiornato!`, 'success');
+        let cleanup: 'skipped' | 'ok' | 'failed' = 'skipped';
+        if (previousUrl && previousUrl !== url) {
+            cleanup = await cleanupAdminAssetStorage(previousUrl);
+        }
+        toastSettingsUpdated(`Placeholder per ${cat} aggiornato!`, cleanup);
     };
 
     const handleSaveSuitcasePlaceholder = async (cat: string, url: string) => {
+        const previousUrl = suitcasePlaceholders[cat];
         const updated = { ...suitcasePlaceholders, [cat]: url };
         setSuitcasePlaceholders(updated);
+        if (previousUrl && previousUrl !== url) {
+            await retirePlatformPlaceholderUrls([previousUrl]);
+        }
         await updateSetting(SETTINGS_KEYS.SUITCASE_PLACEHOLDERS, updated);
-        showToast(`Placeholder valigia per ${cat} aggiornato!`, 'success');
+        let cleanup: 'skipped' | 'ok' | 'failed' = 'skipped';
+        if (previousUrl && previousUrl !== url) {
+            cleanup = await cleanupAdminAssetStorage(previousUrl);
+        }
+        toastSettingsUpdated(`Placeholder valigia per ${cat} aggiornato!`, cleanup);
+    };
+
+    const requestDeletePlaceholder = (kind: 'category' | 'suitcase', catId: string) => {
+        const url =
+            kind === 'category' ? placeholders[catId] : suitcasePlaceholders[catId];
+        if (!url) return;
+        setDeletePlaceholderTarget({ kind, catId, url });
+    };
+
+    const confirmDeletePlaceholder = async () => {
+        if (!deletePlaceholderTarget) return;
+        const { kind, catId, url } = deletePlaceholderTarget;
+
+        await retirePlatformPlaceholderUrls([url]);
+
+        if (kind === 'category') {
+            const updated = { ...placeholders };
+            delete updated[catId];
+            setPlaceholders(updated);
+            await updateSetting(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS, updated);
+        } else {
+            const updated = { ...suitcasePlaceholders };
+            delete updated[catId];
+            setSuitcasePlaceholders(updated);
+            await updateSetting(SETTINGS_KEYS.SUITCASE_PLACEHOLDERS, updated);
+        }
+
+        const cleanup = await cleanupAdminAssetStorage(url);
+        await refreshConfig();
+        setDeletePlaceholderTarget(null);
+        toastSettingsUpdated(`Placeholder "${catId}" eliminato.`, cleanup);
     };
 
     const openEditor = (url: string, target: 'hero' | 'patron' | 'placeholder' | 'suitcase_placeholder' | 'auth' | 'social' | 'ai_bg', cat?: string) => {
@@ -281,8 +423,8 @@ export const AdminHeaderManager = () => {
                 onClose={() => setShowDeleteHeroConfirm(false)}
                 onConfirm={confirmRemoveHero}
                 title="Rimuovere Hero Image?"
-                message="L'immagine verrà rimossa e il sito mostrerà lo stile di default. Devi cliccare 'Applica Header' per confermare."
-                confirmLabel="Rimuovi"
+                message="L'immagine verrà rimossa da Asset Globali (settings + storage se caricata in admin_assets). Il sito userà il default."
+                confirmLabel="Elimina"
                 variant="danger"
                 icon={<Trash2 className="w-8 h-8 text-red-500 animate-pulse"/>}
             />
@@ -291,14 +433,22 @@ export const AdminHeaderManager = () => {
                 isOpen={!!deleteAssetTarget}
                 onClose={() => setDeleteAssetTarget(null)}
                 onConfirm={confirmRemoveAsset}
-                title={deleteAssetTarget === 'ai_bg' ? "Rimuovere Immagine?" : "Ripristinare Default?"}
-                message={deleteAssetTarget === 'ai_bg' 
-                    ? "L'immagine del Box AI verrà rimossa e verrà usato lo stile nativo del sito (sfondo scuro)." 
-                    : "L'immagine verrà sostituita con quella predefinita del sistema."}
-                confirmLabel={deleteAssetTarget === 'ai_bg' ? "Rimuovi Foto" : "Ripristina Default"}
-                cancelLabel="Annulla"
-                variant={deleteAssetTarget === 'ai_bg' ? "danger" : "info"}
-                icon={deleteAssetTarget === 'ai_bg' ? <Trash2 className="w-8 h-8 text-red-500"/> : <RefreshCw className="w-8 h-8 text-amber-500 animate-spin-slow"/>}
+                title="Eliminare Asset Globale?"
+                message="L'asset verrà rimosso dalle impostazioni e dal storage (se presente in admin_assets). Nessun impatto sul dominio Photo."
+                confirmLabel="Elimina"
+                variant="danger"
+                icon={<Trash2 className="w-8 h-8 text-red-500"/>}
+            />
+
+            <DeleteConfirmationModal
+                isOpen={!!deletePlaceholderTarget}
+                onClose={() => setDeletePlaceholderTarget(null)}
+                onConfirm={confirmDeletePlaceholder}
+                title="Eliminare Placeholder?"
+                message={`Il placeholder "${deletePlaceholderTarget?.catId ?? ''}" verrà rimosso da Asset Globali. Il registry runtime si aggiorna subito.`}
+                confirmLabel="Elimina"
+                variant="danger"
+                icon={<Trash2 className="w-8 h-8 text-red-500"/>}
             />
 
             <DeleteConfirmationModal
@@ -409,7 +559,8 @@ export const AdminHeaderManager = () => {
                         <PlaceholderGrid 
                             placeholders={placeholders} 
                             onUploadClick={triggerPlaceholderUpload} 
-                            onEditClick={(url, catId) => openEditor(url, 'placeholder', catId)} 
+                            onEditClick={(url, catId) => openEditor(url, 'placeholder', catId)}
+                            onDeleteClick={(catId) => requestDeletePlaceholder('category', catId)}
                         />
                         <input ref={placeholderInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'placeholder', editPlaceholderCat)} />
 
@@ -419,7 +570,8 @@ export const AdminHeaderManager = () => {
                             categories={SUITCASE_PLACEHOLDER_CATS}
                             placeholders={suitcasePlaceholders} 
                             onUploadClick={triggerSuitcasePlaceholderUpload} 
-                            onEditClick={(url, catId) => openEditor(url, 'suitcase_placeholder', catId)} 
+                            onEditClick={(url, catId) => openEditor(url, 'suitcase_placeholder', catId)}
+                            onDeleteClick={(catId) => requestDeletePlaceholder('suitcase', catId)}
                         />
                         <input ref={suitcasePlaceholderInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'suitcase_placeholder', editPlaceholderCat)} />
 
