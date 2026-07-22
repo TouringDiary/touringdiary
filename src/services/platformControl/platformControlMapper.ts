@@ -147,6 +147,9 @@ function boolFallback(
 }
 
 export const PLATFORM_FEATURE_FLAG_FALLBACKS: Record<string, PlatformFeatureFlagRecord> = {
+    [PLATFORM_FEATURE_FLAG_KEYS.AI_GUEST]: boolFallback(
+        PLATFORM_FEATURE_FLAG_KEYS.AI_GUEST, 'ai', 'AI Guest', true, 'ai_disabled_guest'
+    ),
     [PLATFORM_FEATURE_FLAG_KEYS.AI_USERS]: boolFallback(
         PLATFORM_FEATURE_FLAG_KEYS.AI_USERS, 'ai', 'AI Utente', true, 'ai_disabled_user'
     ),

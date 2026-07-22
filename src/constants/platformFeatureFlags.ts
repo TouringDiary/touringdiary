@@ -8,6 +8,7 @@
  */
 
 export const PLATFORM_FEATURE_FLAG_KEYS = {
+    AI_GUEST: 'feature.ai.guest',
     AI_USERS: 'feature.ai.users',
     AI_ADMIN_ALL: 'feature.ai.admin_all',
     AI_ADMIN_LIMITED: 'feature.ai.admin_limited',
@@ -47,9 +48,13 @@ export type PlatformFeatureFlagKey =
  * utente finale), non il significato dell’interruttore.
  */
 export const PLATFORM_FEATURE_FLAG_ADMIN_HELP: Record<PlatformFeatureFlagKey, string> = {
+    [PLATFORM_FEATURE_FLAG_KEYS.AI_GUEST]:
+        'Abilita o disabilita le funzionalità AI per gli utenti guest (non autenticati).\n' +
+        'Quando disattivato vengono bloccati Magic Planner, Roadbook AI, l’assistente AI in Home/Hero e ogni generazione AI avviata da un utente guest.',
+
     [PLATFORM_FEATURE_FLAG_KEYS.AI_USERS]:
-        'Abilita o disabilita le funzionalità AI rivolte agli utenti (e alle schermate pubbliche che le espongono).\n' +
-        'Quando disattivato vengono bloccati Magic Planner, Roadbook AI, l’assistente AI in Home/Hero e la generazione AI avviata da un utente.',
+        'Abilita o disabilita le funzionalità AI per gli utenti registrati (non amministratori).\n' +
+        'Quando disattivato vengono bloccati Magic Planner, Roadbook AI, l’assistente AI in Home/Hero e la generazione AI avviata da un utente registrato.',
 
     [PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_ALL]:
         'Abilita o disabilita le funzionalità AI usate con profilo Admin All.\n' +
@@ -61,7 +66,7 @@ export const PLATFORM_FEATURE_FLAG_ADMIN_HELP: Record<PlatformFeatureFlagKey, st
 
     [PLATFORM_FEATURE_FLAG_KEYS.AI_EMERGENCY]:
         'Stop di emergenza di tutte le funzionalità AI controllate da questo Centro.\n' +
-        'Quando attivo, i servizi AI risultano sospesi per ogni profilo (utenti e amministratori), indipendentemente dagli altri interruttori AI.',
+        'Quando attivo, i servizi AI risultano sospesi per ogni profilo (guest, utenti registrati e amministratori), indipendentemente dagli altri interruttori AI.',
 
     [PLATFORM_FEATURE_FLAG_KEYS.ECONOMY_CREDIT_PURCHASE]:
         'Consente o sospende l’acquisto di crediti AI (modale Ricarica crediti, header crediti, flusso quota esaurita).\n' +
@@ -147,6 +152,7 @@ export function getFeatureFlagAdminHelp(key: string): string {
 }
 
 export const PLATFORM_MESSAGE_TEMPLATE_KEYS = {
+    AI_DISABLED_GUEST: 'ai_disabled_guest',
     AI_DISABLED_USER: 'ai_disabled_user',
     AI_DISABLED_ADMIN: 'ai_disabled_admin',
     AI_DISABLED_ADMIN_LIMITED: 'ai_disabled_admin_limited',
@@ -173,6 +179,7 @@ export const PLATFORM_MESSAGE_TEMPLATE_KEYS = {
  */
 export const PLATFORM_CONTROL_SECTION_KEYS = {
     ai: [
+        PLATFORM_FEATURE_FLAG_KEYS.AI_GUEST,
         PLATFORM_FEATURE_FLAG_KEYS.AI_USERS,
         PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_ALL,
         PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_LIMITED,
@@ -225,7 +232,7 @@ export const PLATFORM_CONTROL_TAB_COPY: Record<
     ai: {
         title: 'AI',
         description:
-            'Gestisce tutte le funzionalità di Intelligenza Artificiale della piattaforma, consentendo di abilitarle o sospenderle per utenti e amministratori, oltre alle funzioni di emergenza e ai servizi collegati come l’acquisto crediti. L’accensione rapida di emergenza resta disponibile anche nell’AI Control Center, strumento separato.',
+            'Gestisce tutte le funzionalità di Intelligenza Artificiale della piattaforma, consentendo di abilitarle o sospenderle per guest, utenti registrati e amministratori, oltre alle funzioni di emergenza e ai servizi collegati come l’acquisto crediti. L’accensione rapida di emergenza resta disponibile anche nell’AI Control Center, strumento separato.',
     },
     comms: {
         title: 'Comunicazioni',
@@ -280,11 +287,18 @@ export type PlatformMessageTemplateCatalogEntry = {
  */
 export const PLATFORM_FLAG_MESSAGE_CATALOG: readonly PlatformMessageTemplateCatalogEntry[] = [
     {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.AI_DISABLED_GUEST,
+        label: 'AI disabilitata (Guest)',
+        description: 'Messaggio quando feature.ai.guest è OFF.',
+        defaultTitle: 'AI non disponibile',
+        defaultBody: 'I servizi AI per gli utenti guest sono temporaneamente disattivati.',
+    },
+    {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.AI_DISABLED_USER,
-        label: 'AI disabilitata (utente)',
+        label: 'AI disabilitata (utente registrato)',
         description: 'Messaggio quando feature.ai.users è OFF.',
         defaultTitle: 'AI non disponibile',
-        defaultBody: 'I servizi AI per gli utenti sono temporaneamente disattivati.',
+        defaultBody: 'I servizi AI per gli utenti registrati sono temporaneamente disattivati.',
     },
     {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.AI_DISABLED_ADMIN,

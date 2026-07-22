@@ -7,7 +7,6 @@ import {
 import { evaluateCachedFeatureFlag } from '@/domain/platformControl/platformFlagCache';
 import { resolveSystemMessageBody, resolveSystemMessageTitle } from '@/services/communicationService';
 import type { FeatureFlagEvaluationContext } from '@/types/platformControl';
-import type { UserRole } from '@/types/users';
 
 export type AiRuntimeBlockReason = 'EMERGENCY_STOP' | 'AI_DISABLED' | 'AUDIENCE_BLOCKED';
 
@@ -41,9 +40,10 @@ function parseSettingBool(raw: unknown, defaultWhenMissing: boolean): boolean {
     return defaultWhenMissing;
 }
 
-function aiFlagKeyForRole(role: UserRole | null | undefined): string {
-    if (role === 'admin_all') return PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_ALL;
-    if (role === 'admin_limited') return PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_LIMITED;
+function aiFlagKeyForContext(ctx: FeatureFlagEvaluationContext): string {
+    if (ctx.userRole === 'admin_all') return PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_ALL;
+    if (ctx.userRole === 'admin_limited') return PLATFORM_FEATURE_FLAG_KEYS.AI_ADMIN_LIMITED;
+    if (!ctx.isAuthenticated) return PLATFORM_FEATURE_FLAG_KEYS.AI_GUEST;
     return PLATFORM_FEATURE_FLAG_KEYS.AI_USERS;
 }
 
@@ -106,7 +106,7 @@ export function getAiRuntimeStatus(ctx?: FeatureFlagEvaluationContext): AiRuntim
     }
 
     const roleFlag = evaluateCachedFeatureFlag(
-        aiFlagKeyForRole(evaluationCtx.userRole),
+        aiFlagKeyForContext(evaluationCtx),
         evaluationCtx
     );
     if (roleFlag && !roleFlag.enabled) {

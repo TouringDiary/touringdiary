@@ -25,8 +25,8 @@ I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano pr
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 0.3.9 |
-| **Ultima revisione** | 2026-07-20 |
+| **Versione** | 0.3.12 |
+| **Ultima revisione** | 2026-07-22 |
 | **Stato** | Implementazione in Corso |
 | **Percorso SSOT** | `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` |
 | **UI Admin (nome definitivo PO)** | **Centro di Controllo** — **non rinominare** (DL-P02, conferma 2026-07-14) |
@@ -140,7 +140,7 @@ Footer Admin Panel
 └── Torna all'App
 ```
 
-**Principio organizzativo (PO 2026-07-14):** macro-sezioni con **sotto-configurazioni indipendenti**. **Vietato** un unico interruttore che spegne intere aree se esistono sotto-leve distinte (es. AI Utente vs AI Admin All vs AI Admin Limited).
+**Principio organizzativo (PO 2026-07-14):** macro-sezioni con **sotto-configurazioni indipendenti**. **Vietato** un unico interruttore che spegne intere aree se esistono sotto-leve distinte (es. AI Guest vs AI Utente vs AI Admin All vs AI Admin Limited).
 
 Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disabilitazione, descrizioni, manutenzione** — tutto editabile senza deployment.
 
@@ -199,10 +199,10 @@ Centro di Controllo → Message Template → Database = **unica** Source of Trut
 | Sotto-sezione | Configurazioni indipendenti (esempio) | Configuration Source (logiche) |
 |---------------|--------------------------------------|--------------------------------|
 | **AI Acquisto** | Acquisto crediti ON/OFF; messaggio pausa | `feature.economy.credit_purchase`, … |
-| **AI Utilizzo** | AI Utente ON/OFF; AI Admin All ON/OFF; AI Admin Limited ON/OFF | `feature.ai.users`, `feature.ai.admin_all`, `feature.ai.admin_limited` |
+| **AI Utilizzo** | AI Guest ON/OFF; AI Utente ON/OFF; AI Admin All ON/OFF; AI Admin Limited ON/OFF | `feature.ai.guest`, `feature.ai.users`, `feature.ai.admin_all`, `feature.ai.admin_limited` |
 | **AI Admin** | Rigenerazione city; tool admin-specifici | `feature.ai.admin.*` (registry estensibile) |
 
-**Message Template Source:** `ai_disabled_user`, `ai_disabled_admin`, `ai_disabled_admin_limited`, `ai_emergency_notice`, …
+**Message Template Source:** `ai_disabled_guest`, `ai_disabled_user`, `ai_disabled_admin`, `ai_disabled_admin_limited`, `ai_emergency_notice`, …
 
 ---
 
@@ -336,7 +336,7 @@ Catalogo v1 **approvato** — registry **estensibile**. Tutti i toggle sotto son
 
 | Key / gruppo | Workflow | STEP / nota |
 |--------------|----------|-------------|
-| `feature.ai.users`, `feature.ai.admin_all`, `feature.ai.admin_limited`, `feature.ai.emergency` | **WF-02** | STEP-3 — macro AI (config CC); on/off rapido resta AI Control Center (DL-P08) |
+| `feature.ai.guest`, `feature.ai.users`, `feature.ai.admin_all`, `feature.ai.admin_limited`, `feature.ai.emergency` | **WF-02** | STEP-3 — macro AI (config CC); on/off rapido resta AI Control Center (DL-P08) |
 | `feature.economy.credit_purchase`, `feature.economy.subscriptions` | **WF-02** | STEP-3 — Monetizzazione |
 | `feature.comms.admin_partner`, `feature.comms.user_sponsor`, `feature.comms.notifications` | **WF-02** | STEP-3 — consumer chat; `user_sponsor` preparato OFF in STEP-2 Fase 5 |
 | `feature.sponsor.applications`, `feature.sponsor.shop_public` | **WF-02** | STEP-3 + consumer DOC 29 |
@@ -374,7 +374,7 @@ Catalogo v1 **approvato** — registry **estensibile**. Tutti i toggle sotto son
 {
   "key": "feature.ai.users",
   "category": "ai",
-  "label": "AI per utenti",
+  "label": "AI per utenti registrati",
   "default": true,
   "supports_schedule": true,
   "supports_audience": true,
@@ -385,6 +385,15 @@ Catalogo v1 **approvato** — registry **estensibile**. Tutti i toggle sotto son
   "message_key": "ai_disabled_user",
   "audit_required": true
 }
+
+**Runtime AI (PO 2026-07-22):** la selezione del flag non si basa sull’audience del record — `getAiRuntimeStatus` sceglie la chiave per profilo:
+
+| Profilo | Feature Flag |
+|---------|----------------|
+| Non autenticato (utente guest) | `feature.ai.guest` |
+| Utente registrato non-admin | `feature.ai.users` |
+| Admin Limited | `feature.ai.admin_limited` |
+| Admin All | `feature.ai.admin_all` |
 ```
 
 ### Risoluzione valore effettivo
@@ -421,7 +430,8 @@ Quando `feature.platform.schedules_paused` è attivo, lo strato `active_schedule
 
 | Nome funzionale | Key | Macro | Note |
 |-----------------|-----|-------|------|
-| AI Utente | `feature.ai.users` | AI → Utilizzo | Planner, suggerimenti diario |
+| AI Guest | `feature.ai.guest` | AI → Utilizzo | Utenti guest non autenticati (`getAiRuntimeStatus`) |
+| AI Utente | `feature.ai.users` | AI → Utilizzo | Utenti registrati non-admin |
 | AI Admin All | `feature.ai.admin_all` | AI → Utilizzo | Tool admin super-admin |
 | AI Admin Limited | `feature.ai.admin_limited` | AI → Utilizzo | Tool admin limitato |
 | Acquisto crediti AI | `feature.economy.credit_purchase` | AI → Acquisto / Monetizzazione | |
@@ -541,7 +551,7 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 **Data:** 2026-07-14
 
-**Decisione (PO):** **Centro di Controllo** organizzato in **macro-sezioni** (AI, Chat, Monetizzazione, Feature Flag, Sponsor, Moderazione, Testi, Manutenzione, …) con **sotto-configurazioni indipendenti**. Vietato interruttore unico che spegne intere aree se esistono sotto-leve (es. AI Utente / AI Admin All / AI Admin Limited separati). CC gestisce booleani **e** testi/banner/avvisi/messaggi disabilitazione **senza deployment**.
+**Decisione (PO):** **Centro di Controllo** organizzato in **macro-sezioni** (AI, Chat, Monetizzazione, Feature Flag, Sponsor, Moderazione, Testi, Manutenzione, …) con **sotto-configurazioni indipendenti**. Vietato interruttore unico che spegne intere aree se esistono sotto-leve (es. AI Guest / AI Utente / AI Admin All / AI Admin Limited separati). CC gestisce booleani **e** testi/banner/avvisi/messaggi disabilitazione **senza deployment**.
 
 **Motivazione:** Granularità operativa; configurazione piattaforma centralizzata.
 
@@ -651,6 +661,7 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 | Versione | Data | Modifiche |
 |----------|------|-----------|
+| 0.3.12 | 2026-07-22 | Catalogo AI: `feature.ai.guest` (AI Guest) distinto da `feature.ai.users` (utenti registrati); runtime `getAiRuntimeStatus` |
 | 0.3.11 | 2026-07-20 | DL-P13 rafforzato: catalogo TS ≠ SoT; DoD-P2b; Appendice A allineata |
 | 0.3.10 | 2026-07-20 | DL-P13 Message Template unica SoT; DL-P14 stati riga Scheduler (backlog) |
 | 0.3.9 | 2026-07-20 | DL-P12: revoca `feature.platform.collaboration_live` (collaborazione = capacità strutturale; nessun toggle CC) |
