@@ -13,13 +13,15 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 *   **Componenti**: `OnboardingWizard.tsx`, `system_messages` (configurazione step).
 
 ### 2. User Review System
-*   **Logica**: Feedback certificate su POI e Itinerari.
-*   **Pipeline**: `ReviewModal.tsx` -> `communityService.saveUnifiedReview` -> Moderazione.
-*   **Tabelle**: `reviews`.
+*   **Logica**: Feedback multi-criterio su POI e Itinerari (`criteria` jsonb + `rating` media).
+*   **Pipeline**: `ReviewModal` (async, errore in-modal) → `InteractionContext.submitReview` / `ItineraryReviews` → `reviewService.saveUnifiedReview` → moderazione Admin.
+*   **Tabelle**: `reviews` (`criteria`, `rating`, `status`, …).
+*   **SSOT**: `AI_CONTEXT/27_USER_REVIEW_SYSTEM.md` v1.1.
+*   **Qualità**: media `rating` approved → alert soglia Sponsor (DOC 29 DL-030).
 
 ### 3. Gamification (XP & Ranking)
 *   **Logica**: Assegnazione punti XP per azioni reali (Recensioni, Foto, Visite).
-*   **Pipeline**: Azione -> `useInteraction.submitReview` -> Update `profiles.xp`.
+*   **Pipeline**: azioni gamification via `gamificationService` / `xp_actions` (il success modal recensioni mostra XP come claim UX; non sostituisce l’award server-side).
 *   **Tabelle**: `xp_actions`, `rewards_catalog`, `profiles`.
 
 ### 4. Ranking System

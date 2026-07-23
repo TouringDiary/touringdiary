@@ -2618,6 +2618,7 @@ export type Database = {
           author_name: string
           comment: string
           created_at: string | null
+          criteria: Json | null
           id: string
           itinerary_id: string | null
           poi_id: string | null
@@ -2630,6 +2631,7 @@ export type Database = {
           author_name: string
           comment: string
           created_at?: string | null
+          criteria?: Json | null
           id?: string
           itinerary_id?: string | null
           poi_id?: string | null
@@ -2642,6 +2644,7 @@ export type Database = {
           author_name?: string
           comment?: string
           created_at?: string | null
+          criteria?: Json | null
           id?: string
           itinerary_id?: string | null
           poi_id?: string | null

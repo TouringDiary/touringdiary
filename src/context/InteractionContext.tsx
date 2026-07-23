@@ -47,7 +47,7 @@ interface InteractionContextType {
         criteria: Record<string, number>,
         comment: string,
         user: User
-    ) => void;
+    ) => Promise<void>;
 
     toggleVote: (poiId: string) => Promise<number | null>;
     toggleLike: (poiId: string) => void;
@@ -289,8 +289,10 @@ export const InteractionProvider = ({
             criteria: Record<string, number>,
             comment: string,
             user: User
-        ) => {
-            if (!user || user.role === 'guest') return;
+        ): Promise<void> => {
+            if (!user || user.role === 'guest') {
+                throw new Error('Devi accedere per pubblicare una recensione.');
+            }
 
             const reviewsFlag = evaluateCachedFeatureFlag(
                 PLATFORM_FEATURE_FLAG_KEYS.MODERATION_REVIEWS,
@@ -300,30 +302,19 @@ export const InteractionProvider = ({
                 }
             );
             if (reviewsFlag && !reviewsFlag.enabled) {
-                return;
+                throw new Error('L’invio di nuove recensioni è temporaneamente disabilitato.');
             }
 
-            const newReview = {
-                id: `rev_${Date.now()}`,
+            await saveUnifiedReview({
                 author: user.name,
                 authorId: user.id,
                 rating,
-                date: new Date().toISOString(),
                 text: comment,
                 criteria,
-                status: 'pending' as const,
-                poiName: poi.name,
-                poiId: poi.id
-            };
-
-            try {
-                await saveUnifiedReview(newReview);
-                modalContext.openModal('reviewSuccess');
-            } catch {
-                modalContext.openModal('reviewSuccess');
-            }
+                poiId: poi.id,
+            });
         },
-        [modalContext]
+        []
     );
 
     return (

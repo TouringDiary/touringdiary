@@ -29,24 +29,23 @@ export const ItineraryReviews = ({ itinerary, onBack, user }: Props) => {
 
     const isGuest = !user || user.role === 'guest';
 
-    const handleAddReview = async (rating: number, criteria: any, comment: string) => {
-        if (!user) return;
-        const reviewId = editingReview ? editingReview.id : `itn-rev-${Date.now()}`;
-        const newReview: any = {
-            id: reviewId,
+    const handleAddReview = async (
+        rating: number,
+        criteria: Record<string, number>,
+        comment: string
+    ) => {
+        if (!user) {
+            throw new Error('Devi accedere per pubblicare una recensione.');
+        }
+        await saveUnifiedReview({
             author: user.name,
             authorId: user.id,
             rating,
-            date: new Date().toISOString(),
             text: comment,
             criteria,
             itineraryId: itinerary.id,
-            status: 'pending'
-        };
-        // Fix: calling the correct service method
-        await saveUnifiedReview(newReview);
+        });
         await refreshLocalReviews();
-        setShowReviewModal(false);
         setEditingReview(null);
     };
 

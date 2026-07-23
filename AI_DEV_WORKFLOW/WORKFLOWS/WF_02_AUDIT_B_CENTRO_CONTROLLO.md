@@ -97,6 +97,21 @@ Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AU
 - **Fix:** `useFeatureFlag` all’apertura → UI “Segnalazioni sospese”; fail-closed submit; guard in `suggestionService.addSuggestion`; shell `BaseFullscreenModalShell`.
 - **Stato fix:** implementato 2026-07-20 — rieseguire T15.
 
+### BUG-04 — Recensioni: insert fallisce (`criteria`) + falso successo UX — **FIX IMPLEMENTATO**
+- **Sintomo:** UI chiudeva il modal e mostrava «Recensione Inviata!» ma `POST /reviews` → PGRST204 (`criteria` assente nello schema); la recensione non veniva persistita.
+- **Causa:** payload client con `criteria` mentre la tabella `reviews` non aveva la colonna; in UX, `InteractionContext.submitReview` apriva `reviewSuccess` anche nel `catch`; `ReviewModal` chiamava `onClose()` subito dopo `onSubmit` senza attendere l’esito.
+- **Fix (2026-07-23):**
+  1. migration `20260723140000_reviews_add_criteria.sql` — colonna `criteria jsonb` su `reviews` (allineamento schema ↔ modello multi-criterio; `rating` resta la media per monitoraggio qualità);
+  2. tipi `supabase.ts` + `reviewService` tipizzato (persistenza `criteria` + `rating`);
+  3. **submit asincrono** in `ReviewModal` — `await onSubmit(...)`; chiusura / `onSubmitSuccess` solo dopo persistenza OK;
+  4. **eliminazione chiusura anticipata** del modal (niente `onClose` prima dell’esito);
+  5. **eliminazione falso successo** — niente `reviewSuccess` in caso di errore;
+  6. **propagazione errori** da `InteractionContext.submitReview` (throw verso il modal; non più catch che mostra successo);
+  7. **errore in-modal** conforme Design System (`role="alert"`, bordo/alert rosso in `ReviewModal`); form e dati restano editabili per retry;
+  8. **anti doppio submit** — stato `isSubmitting` + `submitLockRef`, pulsante disabled, ESC/overlay bloccati durante l’invio;
+  9. successo POI solo via `onSubmitSuccess` → `reviewSuccess` (FeatureModals), dopo insert OK.
+- **Stato fix:** implementato 2026-07-23 — smoke T13 consigliato dopo apply migration su remoto.
+
 ---
 
 ## 4. Miglioramenti UX — stato

@@ -67,17 +67,22 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
         setShowReviewModal(true);
     };
 
-    const handleSubmitReview = (rating: number, criteria: any, text: string) => {
-        if (!user) return;
+    const handleSubmitReview = async (
+        rating: number,
+        _criteria: Record<string, number>,
+        text: string
+    ) => {
+        if (!user) {
+            throw new Error('Devi accedere per pubblicare una recensione.');
+        }
         const newReview = {
             id: `new_${Date.now()}`,
             author: user.name,
-            rating: rating,
-            text: text,
-            date: new Date().toISOString()
+            rating,
+            text,
+            date: new Date().toISOString(),
         };
-        setLocalReviews(prev => [newReview, ...prev]);
-        setShowReviewModal(false);
+        setLocalReviews((prev) => [newReview, ...prev]);
     };
 
     const renderGuideDetail = (guide: any) => {

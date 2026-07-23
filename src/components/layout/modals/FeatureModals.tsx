@@ -135,7 +135,15 @@ export const FeatureModals = (props: FeatureModalsProps) => {
 
             {/* --- POI & REVIEWS (UNIFIED MODAL) --- */}
             {activeModal === 'review' && modalProps.poi && (
-                <ReviewModal isOpen={true} onClose={closeModal} poi={modalProps.poi} onSubmit={(r, c, t) => { submitReview(modalProps.poi, r, c, t, user); }} />
+                <ReviewModal
+                    isOpen={true}
+                    onClose={closeModal}
+                    poi={modalProps.poi}
+                    onSubmit={(rating, criteria, comment) =>
+                        submitReview(modalProps.poi, rating, criteria, comment, user)
+                    }
+                    onSubmitSuccess={() => openModal('reviewSuccess')}
+                />
             )}
             
             {activeModal === 'poiDetail' && modalProps.poi && (
