@@ -85,7 +85,9 @@ BEGIN
         RAISE EXCEPTION 'FORBIDDEN: admin_all write required for Centro di Controllo' USING ERRCODE = '42501';
     END IF;
 
-    DELETE FROM public.platform_control_audit;
+    -- WHERE obbligatorio: supautils rifiuta DELETE senza predicato (SQLSTATE 21000).
+    DELETE FROM public.platform_control_audit
+    WHERE id IS NOT NULL;
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RETURN v_count;
 END;
