@@ -13,16 +13,17 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 *   **Componenti**: `OnboardingWizard.tsx`, `system_messages` (configurazione step).
 
 ### 2. User Review System
-*   **Logica**: Feedback multi-criterio su POI e Itinerari (`criteria` jsonb + `rating` media).
-*   **Pipeline**: `ReviewModal` (async, errore in-modal) → `InteractionContext.submitReview` / `ItineraryReviews` → `reviewService.saveUnifiedReview` → moderazione Admin.
-*   **Tabelle**: `reviews` (`criteria`, `rating`, `status`, …).
-*   **SSOT**: `AI_CONTEXT/27_USER_REVIEW_SYSTEM.md` v1.1.
-*   **Qualità**: media `rating` approved → alert soglia Sponsor (DOC 29 DL-030).
+*   **Logica**: Feedback multi-criterio su POI e Itinerari (`criteria` jsonb + `rating` media). Pubblicazione immediata; 1 review / utente / target.
+*   **Pipeline**: `ReviewModal` → `InteractionContext.submitReview` / `ItineraryReviews` → `saveUnifiedReview` (INSERT|UPDATE) → trigger sync `pois.rating` + alert soglia.
+*   **Tabelle**: `reviews`, `review_rating_alerts`.
+*   **SSOT**: `AI_CONTEXT/27_USER_REVIEW_SYSTEM.md` v2.0 · Audit `AUDIT_REVIEWS_AND_RATINGS.md` §18.
+*   **Qualità**: media POI sotto soglia CC → coda Segnalazioni in Itinerari & Recensioni.
 
 ### 3. Gamification (XP & Ranking)
-*   **Logica**: Assegnazione punti XP per azioni reali (Recensioni, Foto, Visite).
-*   **Pipeline**: azioni gamification via `gamificationService` / `xp_actions` (il success modal recensioni mostra XP come claim UX; non sostituisce l’award server-side).
-*   **Tabelle**: `xp_actions`, `rewards_catalog`, `profiles`.
+*   **Logica**: Assegnazione punti XP per azioni reali (pubblicazione diario Community, recensioni pubblicate, ecc.). I **premi** del catalogo sono indipendenti dall’XP.
+*   **Freeze premi**: flag Platform Control `feature.gamification.rewards` (helper centrale `areRewardsEnabled()` / `useAreRewardsEnabled`). OFF = XP e livelli restano attivi; sblocco/riscatto premi bloccati. Export PDF = benefit sottoscrizione, **fuori** da questo gate.
+*   **Pipeline**: XP server-side (`add_user_xp` / trigger review); claim premi via `gamificationService.claimReward` (gated).
+*   **Tabelle**: `xp_actions`, `rewards_catalog`, `user_rewards`, `profiles.xp`, `platform_feature_flags`.
 
 ### 4. Ranking System
 *   **Logica**: Classifiche globali e locali per Utenti (via XP) e Città.
@@ -70,10 +71,10 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 ---
 
 ## PIPELINE RUNTIME (Gamification & XP)
-1.  **Azione**: L'utente scrive una recensione utile (> 10 parole).
-2.  **Trigger**: `communityService.ts` calcola i punti bonus.
-3.  **Update**: Aggiornamento incrementale di `profiles.xp`.
-4.  **Level Up**: Se l'utente supera la soglia, `LevelUpModal.tsx` mostra la nuova posizione nel ranking.
+1.  **Azione**: L'utente pubblica un diario in Community oppure pubblica una recensione (pubblicazione diretta, senza coda di approvazione).
+2.  **Award XP**: RPC/`add_user_xp` o trigger DB aggiornano `profiles.xp` (i punti non vengono mai cancellati dal freeze premi).
+3.  **Level Up**: Se l'utente supera la soglia, `LevelUpModal.tsx` celebra il nuovo livello.
+4.  **Premi**: sblocco/riscatto solo se `areRewardsEnabled()` (flag `feature.gamification.rewards` ON); altrimenti UI freeze + messaggio positivo su XP.
 
 ## COMPONENTI ARCHITETTURALI
 *   **Context**: `InteractionContext.tsx`.

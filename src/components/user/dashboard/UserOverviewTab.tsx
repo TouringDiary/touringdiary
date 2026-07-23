@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { Medal, Trophy, ChevronRight, FileText, Utensils, Landmark, ShoppingBag, Monitor, Star, Shield, Lock, ArrowUp } from 'lucide-react';
 import { User, Reward, RewardCategory, SuggestionRequest } from '../../../types/index';
@@ -8,6 +7,8 @@ import { getRoleLabel } from '../../../services/userService';
 import { safeArray } from '../../../utils/safeTypes';
 import { UserAvatar } from '@/components/user/profile/UserAvatar';
 import { WorkspaceQuickAccess } from '@/components/collaboration/workspace/WorkspaceQuickAccess';
+import { useAreRewardsEnabled } from '@/hooks/useAreRewardsEnabled';
+import { RewardsFreezeNotice } from '@/components/gamification/RewardsFreezeNotice';
 
 interface Props {
     user: User;
@@ -34,54 +35,64 @@ const getCategoryTheme = (cat: RewardCategory) => {
 export const UserOverviewTab = ({
     user, currentLevel, currentXP, progress, catalogRewards, myRewards, onClaimReward, suggestions
 }: Props) => {
-    // Sliders Refs
     const unlockedSliderRef = useRef<DraggableSliderHandle>(null);
     const lockedSliderRef = useRef<DraggableSliderHandle>(null);
+    const rewardsEnabled = useAreRewardsEnabled();
 
     const displayName = user.name.replace(/\s*\(.*?\)\s*/g, '').trim();
 
-    // SPLIT LOGIC
-    const unlockedRewards = catalogRewards.filter(r => currentLevel.level >= r.requiredLevel);
-    const lockedRewards = catalogRewards.filter(r => currentLevel.level < r.requiredLevel).sort((a, b) => a.requiredLevel - b.requiredLevel);
+    // upcomingRewards: non riscattabili ora (livello insufficiente OPPURE freeze globale premi)
+    const unlockedRewards = rewardsEnabled
+        ? catalogRewards.filter(r => currentLevel.level >= r.requiredLevel)
+        : [];
+    const upcomingRewards = rewardsEnabled
+        ? catalogRewards.filter(r => currentLevel.level < r.requiredLevel).sort((a, b) => a.requiredLevel - b.requiredLevel)
+        : [...catalogRewards].sort((a, b) => a.requiredLevel - b.requiredLevel);
 
     const renderRewardCard = (reward: Reward, isUnlocked: boolean) => {
-        // Mappatura icone base per anteprima
         const Icons: any = { food: Utensils, culture: Landmark, shopping: ShoppingBag, tech: Monitor, general: Star };
         const Icon = Icons[reward.category] || Star;
         const theme = getCategoryTheme(reward.category);
         const isActiveInWallet = myRewards.some(r => r.rewardId === reward.id && r.status === 'active');
+        const canClaim = rewardsEnabled && isUnlocked;
 
         return (
             <div
                 key={reward.id}
                 className={`
                     w-52 h-72 flex-shrink-0 rounded-xl border flex flex-col overflow-hidden relative transition-all duration-300 snap-center
-                    ${isUnlocked
+                    ${canClaim
                         ? `opacity-100 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 shadow-xl hover:-translate-y-1`
                         : `opacity-100 bg-slate-950 border-slate-800 border-dashed`
                     }
                 `}
             >
                 <div className="p-4 flex justify-between items-start">
-                    <div className={`p-2 rounded-lg bg-slate-800 ${isUnlocked ? theme.text : 'text-slate-400'}`}>
+                    <div className={`p-2 rounded-lg bg-slate-800 ${canClaim ? theme.text : 'text-slate-400'}`}>
                         <Icon className="w-6 h-6" />
                     </div>
-                    <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-wide border ${isUnlocked ? 'bg-emerald-900/20 text-emerald-500 border-emerald-500/30' : 'bg-slate-900 text-slate-500 border-slate-700'}`}>
+                    <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-wide border ${canClaim ? 'bg-emerald-900/20 text-emerald-500 border-emerald-500/30' : 'bg-slate-900 text-slate-500 border-slate-700'}`}>
                         LIVELLO {reward.requiredLevel}
                     </span>
                 </div>
                 <div className="px-4 flex-1">
-                    <h4 className={`text-lg font-bold leading-tight mb-2 ${isUnlocked ? 'text-white' : 'text-slate-300'}`}>{reward.title}</h4>
-                    <p className={`text-xs line-clamp-3 leading-relaxed ${isUnlocked ? 'text-slate-500' : 'text-slate-400'}`}>{reward.description}</p>
+                    <h4 className={`text-lg font-bold leading-tight mb-2 ${canClaim ? 'text-white' : 'text-slate-300'}`}>{reward.title}</h4>
+                    <p className={`text-xs line-clamp-3 leading-relaxed ${canClaim ? 'text-slate-500' : 'text-slate-400'}`}>{reward.description}</p>
                 </div>
                 <div className="p-4 border-t border-slate-800/50 mt-auto">
-                    <button
-                        onClick={() => onClaimReward(reward, isUnlocked)}
-                        disabled={!isUnlocked}
-                        className={`w-full py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${isUnlocked ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg' : 'bg-slate-900 text-slate-500 cursor-not-allowed border border-slate-800'}`}
-                    >
-                        {isUnlocked ? (isActiveInWallet ? 'Nel Wallet' : 'Riscatta') : <><Lock className="w-3 h-3" /> Bloccato</>}
-                    </button>
+                    {rewardsEnabled ? (
+                        <button
+                            onClick={() => onClaimReward(reward, isUnlocked)}
+                            disabled={!canClaim}
+                            className={`w-full py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${canClaim ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg' : 'bg-slate-900 text-slate-500 cursor-not-allowed border border-slate-800'}`}
+                        >
+                            {canClaim ? (isActiveInWallet ? 'Nel Wallet' : 'Riscatta') : <><Lock className="w-3 h-3" /> Bloccato</>}
+                        </button>
+                    ) : (
+                        <div className="w-full py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 bg-slate-900 text-slate-500 border border-slate-800">
+                            <Lock className="w-3 h-3" /> Prossimamente
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -90,7 +101,6 @@ export const UserOverviewTab = ({
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-10 relative">
 
-            {/* 1. HEADER PROFILO & XP BAR */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-2xl border border-slate-700 relative overflow-hidden shadow-xl">
                 <div className="relative z-floating-panel w-full">
                     <div className="flex justify-between items-start mb-4">
@@ -105,13 +115,11 @@ export const UserOverviewTab = ({
                                     <p className="text-sm text-slate-400 mt-1">@{user.slug}</p>
                                 )}
                                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                                    {/* BADGE RUOLO SISTEMA */}
                                     {user.role !== 'user' && (
                                         <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase flex items-center gap-1 ${user.role === 'admin_all' ? 'bg-purple-900/30 text-purple-300 border-purple-500/30' : 'bg-blue-900/30 text-blue-300 border-blue-500/30'}`}>
                                             <Shield className="w-3 h-3" /> {getRoleLabel(user.role)}
                                         </span>
                                     )}
-                                    {/* BADGE LIVELLO GIOCO */}
                                     <div className="flex items-center gap-1 bg-slate-950/50 px-2 py-0.5 rounded border border-slate-600/50">
                                         <Medal className={`w-3 h-3 ${currentLevel.color}`} />
                                         <span className="text-[9px] font-black text-slate-300 uppercase tracking-wide">{currentLevel.name} (Liv. {currentLevel.level})</span>
@@ -137,8 +145,11 @@ export const UserOverviewTab = ({
 
             <WorkspaceQuickAccess className="px-1" />
 
-            {/* 2. RICOMPENSE SBLOCCATE */}
-            {unlockedRewards.length > 0 && (
+            {!rewardsEnabled && (
+                <RewardsFreezeNotice variant="banner" />
+            )}
+
+            {rewardsEnabled && unlockedRewards.length > 0 && (
                 <div>
                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-4 flex items-center gap-2">
                         <Trophy className="w-3.5 h-3.5" /> Ricompense Sbloccate
@@ -149,14 +160,13 @@ export const UserOverviewTab = ({
                 </div>
             )}
 
-            {/* 3. RICOMPENSE DA SBLOCCARE (CON SEPARATORI) */}
             <div>
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4 flex items-center gap-2">
-                    <Lock className="w-3.5 h-3.5" /> Prossimi Obiettivi
+                    <Lock className="w-3.5 h-3.5" /> {rewardsEnabled ? 'Prossimi Obiettivi' : 'Premi in arrivo'}
                 </h3>
                 <DraggableSlider ref={lockedSliderRef} className="pb-4 gap-4">
-                    {lockedRewards.map((reward, idx) => {
-                        const prevReward = idx > 0 ? lockedRewards[idx - 1] : null;
+                    {upcomingRewards.map((reward, idx) => {
+                        const prevReward = idx > 0 ? upcomingRewards[idx - 1] : null;
                         const showSeparator = idx === 0 || (prevReward && prevReward.requiredLevel !== reward.requiredLevel);
 
                         return (
@@ -175,11 +185,12 @@ export const UserOverviewTab = ({
                             </React.Fragment>
                         );
                     })}
-                    {lockedRewards.length === 0 && <div className="text-slate-500 italic text-xs py-10 w-full text-center border-2 border-dashed border-slate-800 rounded-xl">Hai sbloccato tutto! Sei una leggenda.</div>}
+                    {upcomingRewards.length === 0 && rewardsEnabled && (
+                        <div className="text-slate-500 italic text-xs py-10 w-full text-center border-2 border-dashed border-slate-800 rounded-xl">Hai sbloccato tutto! Sei una leggenda.</div>
+                    )}
                 </DraggableSlider>
             </div>
 
-            {/* 4. LE MIE SEGNALAZIONI */}
             <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10"><FileText className="w-24 h-24" /></div>
                 <h3 className="text-xl font-bold text-white mb-2 relative z-floating-panel">Le Mie Segnalazioni</h3>

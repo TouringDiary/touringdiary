@@ -1,0 +1,167 @@
+---
+description: WF-RV-01 — Official incremental AI_DELETED_CODE_REVIEW.md for removed/replaced code until acceptance closes review
+alwaysApply: true
+---
+
+# WF-RV-01 — Removed Code Review File (Official)
+
+## Purpose
+
+`AI_DELETED_CODE_REVIEW.md` is the **official temporary archive of removed/replaced code** for architectural review.
+
+It exists because the Cursor review UI no longer allows reliable selection/copy of deleted blocks.
+
+It is **not** a diff, changelog, or patch. It contains **only** code that would be lost if the modified files are accepted.
+
+**Invariant:** the file must **always** contain **exclusively** files still in review (and their removed code). It must **never** become a permanent history of already-accepted changes.
+
+## Naming
+
+- Primary: `AI_DELETED_CODE_REVIEW.md` (repo root)
+- Alias (legacy): `AI_REMOVED_CODE_REVIEW.md` — prefer the primary name
+
+## Rule 1 — One document
+
+There is **exactly one** `AI_DELETED_CODE_REVIEW.md`. It accompanies the review until conclusion.
+
+## Rule 2 — Incremental document
+
+The file must represent **all** changes still in review, not only the latest edit.
+
+- Modify File A → add/update A blocks
+- Modify File B → add/update B blocks
+- Modify File C → add/update C blocks
+
+Blocks for earlier files **must not** be deleted by a later generation pass.
+
+## Rule 3 — When blocks may be removed (acceptance closes review)
+
+Blocks for a file may be removed **only** when that file’s review is **closed by acceptance**.
+
+### What counts as acceptance
+
+Any clear user confirmation that one or more files are accepted / approved closes their review, including (not limited to):
+
+- explicit **ACCETTO** / «accetto» / «accettati» after ChatGPT (or other) review;
+- confirmation that those files are accepted and no longer under review;
+- equivalent wording that the review for those paths is done.
+
+Accepted files are **no longer “in review”**.
+
+### Mandatory automatic cleanup (no user reminder)
+
+**Immediately** after acceptance, the agent **MUST** run the WF-RV-01 cleanup for **every** accepted path — equivalent to `--accept` — and remove **all** blocks for those files from `AI_DELETED_CODE_REVIEW.md`.
+
+The user must **never** have to remember or request this cleanup manually.
+
+Until acceptance, keeping those blocks is mandatory. Losing them early is a **workflow regression**. Leaving accepted files in the document is also a **workflow regression**.
+
+## Rule 4 — Mandatory block format
+
+Every removal block **must** use exactly this structure (fields in this order):
+
+1. Separator line: `================================================================================`
+2. `# FILE` then the full path on its own line
+3. `## FUNZIONE / SEZIONE` then the name (or `Sezione non identificabile`)
+4. `## CODICE RIMOSSO` then a fenced code block with **only** removed/replaced (old) lines
+5. `## MOTIVO` then at most three lines (why removed / which behavior it replaces — never describe the new code)
+
+### FUNZIONE / SEZIONE
+
+- Prefer function, component, or hook name.
+- Otherwise a short section description.
+- If unknown: exactly `Sezione non identificabile` (never empty).
+
+### CODICE RIMOSSO
+
+- Only lines actually removed or replaced (old version).
+- No added code, unified diff, `+`/`-` markers, or unchanged context.
+- Use the correct fence language (`tsx`, `ts`, `sql`, `md`, …).
+
+### MOTIVO
+
+- Maximum **three** lines.
+- Why it was removed, or what behavior it replaces.
+- Do **not** describe the new code.
+
+## Rule 5 — Ordering
+
+1. By file path (stable order of appearance in the document; newly touched files append after existing files unless regenerating that file in place).
+2. Within a file, blocks in the order removals appear in the file (diff order).
+
+Never random order.
+
+## Rule 6 — Goal
+
+Enable a full review of deleted code **without** the Cursor diff viewer.
+
+## Rule 7 — No information loss (while in review)
+
+While a file is unaccepted, its removed code **must** remain in the document.
+
+## Rule 8 — Compatibility
+
+Consolidation only: same naming, philosophy, and operating mode. No change to product application code via this workflow rule alone.
+
+## Rule 9 — Implementation scope
+
+Update only WF-RV-01 workflow docs and the generator (`scripts/_gen_deleted_code_review.js`). Do not change application/runtime/services/DB/AI_CONTEXT/AI_CONTEXT_MASTER as part of WF-RV-01 maintenance.
+
+## Rule 10 — Report operativo (mandatory when the archive changes)
+
+Every time the agent modifies `AI_DELETED_CODE_REVIEW.md` (generation **or** cleanup), the final **Report operativo** **MUST** declare it explicitly.
+
+The modified-files list **MUST** always include:
+
+- `AI_DELETED_CODE_REVIEW.md`
+
+with the reason:
+
+- `aggiornato (nuove eliminazioni)` — after merge/generation; **or**
+- `pulito dopo accettazione file (workflow WF-RV-01)` — after `--accept` cleanup
+
+**Never** omit this file from the report when it was modified.
+
+## Agent operating procedure (mandatory)
+
+### After any AI change set that touches files
+
+1. Complete the code/doc edits.
+2. Update `AI_DELETED_CODE_REVIEW.md` **incrementally**:
+   - refresh blocks for files touched in this change;
+   - **preserve** blocks for other files still in review;
+   - use the mandatory format above.
+3. Prefer: `node scripts/_gen_deleted_code_review.js` (merge mode) from repo root.
+4. Declare `AI_DELETED_CODE_REVIEW.md` in the Report operativo (`aggiornato (nuove eliminazioni)`).
+5. Never commit `AI_DELETED_CODE_REVIEW.md` (gitignored). Never ask the user to accept it as project source.
+
+### When the user accepts one or more files
+
+1. Treat those paths’ review as **closed** (no longer in review).
+2. **Immediately** run cleanup for all accepted paths, e.g.:
+   - `node scripts/_gen_deleted_code_review.js --accept=path/to/File.tsx`
+   - or comma-separated / repeated: `--accept=a.tsx,b.ts`
+3. Confirm the document no longer contains sections for accepted files.
+4. Declare `AI_DELETED_CODE_REVIEW.md` in the Report operativo (`pulito dopo accettazione file (workflow WF-RV-01)`), listing which paths were cleaned.
+
+## Generator CLI
+
+```text
+node scripts/_gen_deleted_code_review.js
+node scripts/_gen_deleted_code_review.js --files=a.tsx,b.ts
+node scripts/_gen_deleted_code_review.js --accept=src/path/File.tsx
+node scripts/_gen_deleted_code_review.js --accept=a.tsx,b.ts
+```
+
+- Default / `--files=…`: merge-update those paths (or all dirty paths if omitted); keep other existing file sections.
+- `--accept=…`: drop sections for those path(s) only (comma-separated and/or repeated `--accept=`).
+
+## Repository policy
+
+`AI_DELETED_CODE_REVIEW.md` / `AI_REMOVED_CODE_REVIEW.md`:
+
+- MUST NEVER be committed
+- MUST NEVER be merged as source of truth
+- Discard after the overall review is complete
+
+Official long-form copy: `AI_DEV_WORKFLOW/WORKFLOWS/WF_RV_01_DELETED_CODE_REVIEW.md`

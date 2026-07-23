@@ -31,6 +31,7 @@
 | `02_GOVERNANCE.md` | **Regole** — stati, sequenza, PO Override, convenzioni |
 | `03_PROJECT_STATUS.md` | **Dashboard** — sintesi < 10 secondi (nessun dettaglio) |
 | `WORKFLOWS/` | Un file per macro-iniziativa (`WF_XX_*.md`) |
+| `WORKFLOWS/WF_RV_01_DELETED_CODE_REVIEW.md` | **Processo permanente** — archivio temporaneo codice rimosso (`AI_DELETED_CODE_REVIEW.md`); accettazione → pulizia automatica; dichiarazione obbligatoria nel Report operativo |
 | `WORKFLOWS/WF_02_AUDIT_B_CENTRO_CONTROLLO.md` | **SoT collaudo Audit B** — stati test, bug, UX, audit, decisioni PO (STEP-3) |
 | `WORKFLOWS/_TEMPLATE_WORKFLOW.md` | Scaffold per nuovi Workflow |
 | `WORKFLOWS/_archive/` | Workflow completati (spostati per leggibilità) |

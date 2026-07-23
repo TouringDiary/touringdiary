@@ -15,6 +15,7 @@ const TOP_FLAG_KEYS = [
     PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_MAINTENANCE,
     PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION,
     PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING,
+    PLATFORM_FEATURE_FLAG_KEYS.GAMIFICATION_REWARDS,
 ] as const;
 
 /** Controlli operativi manutenzione + accessi — pausa schedule nell’header Programmazione automatica. */
@@ -39,7 +40,7 @@ export const MaintenancePanel: React.FC<MaintenancePanelProps> = ({
                 </p>
             ) : null}
 
-            <p className={ty.helper}>Controlli operativi — manutenzione e accessi.</p>
+            <p className={ty.helper}>Controlli operativi — manutenzione, accessi e premi Gamification.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                 {TOP_FLAG_KEYS.map((key) => {

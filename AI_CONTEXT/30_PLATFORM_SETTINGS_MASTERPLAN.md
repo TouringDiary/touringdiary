@@ -498,6 +498,7 @@ Quando `feature.platform.schedules_paused` è attivo, lo strato `active_schedule
 | Modalità manutenzione | `feature.platform.maintenance` | Messaggio **fisso** in News Bar + altre news scorrono (DL-P06) | tutti | Sì | Sì | `maintenance_ticker_message` | Sì + motivazione |
 | Registrazione nuovi utenti | `feature.platform.registration` | Signup | public | Sì | Sì | `registration_closed` | Sì |
 | Onboarding guidato | `feature.platform.onboarding` | Tour iniziale | registered | No | Sì | — | Sì |
+| Premi Gamification | `feature.gamification.rewards` | Sblocco/riscatto premi catalogo (XP resta attivo; Export PDF fuori scope) | tutti | Sì | Sì | `gamification_rewards_frozen` | Sì |
 
 ### Categoria — Economia & Pagamenti
 

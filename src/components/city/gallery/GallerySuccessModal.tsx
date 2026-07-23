@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { CheckCircle, Trophy, Loader2 } from 'lucide-react';
 import { useSystemMessage } from '../../../hooks/useSystemMessage';
+import { useAreRewardsEnabled } from '@/hooks/useAreRewardsEnabled';
+import { RewardsFreezeNotice } from '@/components/gamification/RewardsFreezeNotice';
 
 
 interface Props {
@@ -14,6 +16,7 @@ export const GallerySuccessModal = ({ onClose }: Props) => {
     // Recupera il messaggio dal DB usando la chiave
     const { getText, loading } = useSystemMessage('gallery_upload_success');
     const message = getText();
+    const rewardsEnabled = useAreRewardsEnabled();
 
     return createPortal(
         <div className="td-modal-overlay pointer-events-auto flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" style={{ zIndex: Z_MODAL_NESTED }}>
@@ -37,10 +40,16 @@ export const GallerySuccessModal = ({ onClose }: Props) => {
                     </>
                 )}
 
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-6 flex items-center justify-between">
+                <div className={`bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between ${rewardsEnabled ? 'mb-6' : 'mb-4'}`}>
                     <div className="text-left"><p className="text-[10px] text-slate-500 font-bold uppercase">Ricompensa</p><p className="text-white text-xs">Alla pubblicazione</p></div>
                     <div className="text-right"><div className="flex items-center gap-1 text-emerald-400 font-black text-xl">+20 <span className="text-xs self-end mb-1">XP</span></div><Trophy className="w-4 h-4 text-amber-500 ml-auto"/></div>
                 </div>
+
+                {!rewardsEnabled && (
+                    <div className="mb-6">
+                        <RewardsFreezeNotice variant="compact" />
+                    </div>
+                )}
                 
                 <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all border border-slate-700 hover:border-slate-600">Torna alla Galleria</button>
             </div>

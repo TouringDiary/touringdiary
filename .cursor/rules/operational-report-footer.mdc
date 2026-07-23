@@ -45,4 +45,15 @@ Prima di considerare conclusa **qualsiasi** attività verificare sempre:
 - □ Workflow aggiornato (se applicabile)
 - □ STEP aggiornato (se applicabile)
 - □ Fase aggiornata (se applicabile)
+- □ Se `AI_DELETED_CODE_REVIEW.md` è stato modificato (WF-RV-01): dichiarato nel Report con motivo (`aggiornato (nuove eliminazioni)` oppure `pulito dopo accettazione file (workflow WF-RV-01)`)
+- □ Se l'utente ha **accettato** file in review: eseguita pulizia `--accept` (WF-RV-01) senza attendere reminder
 - □ Report operativo emesso
+
+### WF-RV-01 — dichiarazione obbligatoria nel Report
+
+Se in questa attività è stato toccato `AI_DELETED_CODE_REVIEW.md`, nell’elenco file modificati del Report deve comparire **sempre**:
+
+- `AI_DELETED_CODE_REVIEW.md` — `aggiornato (nuove eliminazioni)` **oppure**
+- `AI_DELETED_CODE_REVIEW.md` — `pulito dopo accettazione file (workflow WF-RV-01)`
+
+Dettaglio: `.cursor/rules/wf-rv-01-deleted-code-review.mdc` (Rule 3, Rule 10).

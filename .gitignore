@@ -9,3 +9,8 @@ dist
 # UI audit artifacts
 scripts/*.png
 scripts/measurement-comparison.json
+
+# Temporary deleted-code review (WF-RV-01) — never commit
+AI_DELETED_CODE_REVIEW.md
+AI_REMOVED_CODE_REVIEW.md
+scripts/_gen_deleted_code_review.js

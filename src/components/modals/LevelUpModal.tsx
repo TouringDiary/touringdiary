@@ -1,9 +1,11 @@
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import { createPortal } from 'react-dom';
-import { Gift, ArrowRight } from 'lucide-react';
+import { Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from "@/components/ui/controls/CloseButton";
 import { getCurrentLevel } from '../../services/gamificationService';
+import { useAreRewardsEnabled } from '@/hooks/useAreRewardsEnabled';
+import { RewardsFreezeNotice } from '@/components/gamification/RewardsFreezeNotice';
 
 interface Props {
     isOpen: boolean;
@@ -15,7 +17,7 @@ interface Props {
 export const LevelUpModal = ({ isOpen, onClose, xp, onOpenRewards }: Props) => {
     
     useGlobalModalEscape(isOpen, onClose);
-
+    const rewardsEnabled = useAreRewardsEnabled();
 
     if (!isOpen) return null;
 
@@ -56,28 +58,49 @@ export const LevelUpModal = ({ isOpen, onClose, xp, onOpenRewards }: Props) => {
                         Sei ufficialmente un <span className={`font-bold ${currentLevel.color}`}>{currentLevel.name}</span>!
                     </p>
 
-                    <div className="w-full bg-slate-800/50 rounded-xl p-4 border border-slate-700 mb-6 flex items-center gap-4 text-left">
-                        <div className="bg-indigo-600/20 p-3 rounded-lg text-indigo-400">
-                            <Gift className="w-6 h-6"/>
+                    {rewardsEnabled ? (
+                        <div className="w-full bg-slate-800/50 rounded-xl p-4 border border-slate-700 mb-6 flex items-center gap-4 text-left">
+                            <div className="bg-indigo-600/20 p-3 rounded-lg text-indigo-400">
+                                <Gift className="w-6 h-6"/>
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold text-sm">Nuovi Premi Sbloccati</h4>
+                                <p className="text-xs text-slate-400">Controlla subito il tuo profilo.</p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 className="text-white font-bold text-sm">Nuovi Premi Sbloccati</h4>
-                            <p className="text-xs text-slate-400">Controlla subito il tuo profilo.</p>
+                    ) : (
+                        <div className="w-full mb-6 space-y-3">
+                            <div className="w-full bg-slate-800/50 rounded-xl p-4 border border-slate-700 flex items-center gap-4 text-left">
+                                <div className="bg-amber-500/20 p-3 rounded-lg text-amber-400">
+                                    <Sparkles className="w-6 h-6"/>
+                                </div>
+                                <div>
+                                    <h4 className="text-white font-bold text-sm">Livello salvato</h4>
+                                    <p className="text-xs text-slate-400">I tuoi XP restano al sicuro sul profilo.</p>
+                                </div>
+                            </div>
+                            <RewardsFreezeNotice variant="compact" />
                         </div>
-                    </div>
+                    )}
 
-                    <button 
-                        onClick={onOpenRewards}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95"
-                    >
-                        Vedi Ricompense <ArrowRight className="w-4 h-4"/>
-                    </button>
+                    {rewardsEnabled ? (
+                        <button 
+                            onClick={onOpenRewards}
+                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95"
+                        >
+                            Vedi Ricompense <ArrowRight className="w-4 h-4"/>
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={onClose}
+                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95"
+                        >
+                            Continua
+                        </button>
+                    )}
                 </div>
             </div>
         </div>,
         document.body
     );
 };
-
-
-

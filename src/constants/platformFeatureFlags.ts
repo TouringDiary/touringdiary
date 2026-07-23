@@ -36,6 +36,11 @@ export const PLATFORM_FEATURE_FLAG_KEYS = {
     PLATFORM_ONBOARDING: 'feature.platform.onboarding',
     /** Global pause: schedules stay stored but are ignored by evaluateFeatureFlag. */
     PLATFORM_SCHEDULES_PAUSED: 'feature.platform.schedules_paused',
+    /**
+     * Premi catalogo Gamification (claim / unlock UI).
+     * OFF = freeze premi; XP e livelli restano attivi. Export PDF fuori scope.
+     */
+    GAMIFICATION_REWARDS: 'feature.gamification.rewards',
 } as const;
 
 export type PlatformFeatureFlagKey =
@@ -137,6 +142,11 @@ export const PLATFORM_FEATURE_FLAG_ADMIN_HELP: Record<PlatformFeatureFlagKey, st
     [PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_SCHEDULES_PAUSED]:
         'Mette in pausa tutte le programmazioni automatiche degli interruttori.\n' +
         'Quando attivo le finestre orarie restano salvate ma non vengono applicate: vale l’override manuale oppure il valore predefinito.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.GAMIFICATION_REWARDS]:
+        'Abilita o congela lo sblocco e il riscatto dei premi del catalogo Gamification.\n' +
+        'Quando disattivato gli utenti continuano a guadagnare XP e a salire di livello, ma non possono sbloccare né riscattare premi. ' +
+        'Alla riattivazione i punti già accumulati restano validi. L’Export PDF (benefit sottoscrizione) non è governato da questo interruttore.',
 };
 
 /** Fallback se un flag non ha ancora voce in PLATFORM_FEATURE_FLAG_ADMIN_HELP. */
@@ -177,6 +187,7 @@ export const PLATFORM_MESSAGE_TEMPLATE_KEYS = {
     SPONSOR_CRM_DISCLOSURE: 'sponsor_crm_disclosure',
     MAINTENANCE_TICKER: 'maintenance_ticker_message',
     REGISTRATION_CLOSED: 'registration_closed',
+    GAMIFICATION_REWARDS_FROZEN: 'gamification_rewards_frozen',
 } as const;
 
 /**
@@ -403,6 +414,14 @@ export const PLATFORM_FLAG_MESSAGE_CATALOG: readonly PlatformMessageTemplateCata
         description: 'Messaggio quando feature.moderation.community_posts (Q&A Local) è OFF.',
         defaultTitle: 'Q&A Local sospeso',
         defaultBody: 'Le domande e risposte locali sono temporaneamente disabilitate.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.GAMIFICATION_REWARDS_FROZEN,
+        label: 'Premi Gamification congelati',
+        description: 'Messaggio informativo quando feature.gamification.rewards è OFF (freeze premi; XP resta attivo).',
+        defaultTitle: 'Premio disponibile prossimamente',
+        defaultBody:
+            'Continua ad accumulare XP: quando la Gamification sarà attivata, potrai utilizzare automaticamente tutti i punti già guadagnati.',
     },
 ];
 

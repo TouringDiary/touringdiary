@@ -14,6 +14,8 @@ import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useAreRewardsEnabled } from '@/hooks/useAreRewardsEnabled';
+import { RewardsFreezeNotice } from '@/components/gamification/RewardsFreezeNotice';
 
 interface DiaryModalsProps {
     state: {
@@ -53,6 +55,7 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
     onDayDrop
 }) => {
     const { getText: getSuccessMsg } = useSystemMessage('toast_save_success');
+    const rewardsEnabled = useAreRewardsEnabled();
 
     const isMobile = useMobileDetect();
     const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
@@ -171,6 +174,9 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
                                     'Le modifiche sono state salvate nel cloud in modo sicuro.'
                                 )}
                             </p>
+                            {state.toastMessage.xp > 0 && !rewardsEnabled && (
+                                <RewardsFreezeNotice variant="compact" className="w-full" />
+                            )}
                             <button
                                 type="button"
                                 onClick={handleCloseXpToast}

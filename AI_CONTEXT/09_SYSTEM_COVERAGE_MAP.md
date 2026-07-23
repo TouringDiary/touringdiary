@@ -35,7 +35,7 @@ Questo documento fornisce un indice della copertura documentale rispetto al codi
 | **Around Me Explorer** | [x] | [ ] | [ ] | Allineato in `24_AROUND_ME_EXPLORER_SYSTEM.md` |
 | **User Onboarding**   | [x] | [ ] | [ ] | Allineato in `25_USER_ONBOARDING_SYSTEM.md` |
 | **Affiliate System**   | [ ] | [x] | [ ] | Allineato in `26_AFFILIATE_TRACKING_SYSTEM.md` |
-| **Review System**      | [x] | [x] | [x] | Allineato in `27_USER_REVIEW_SYSTEM.md` v1.1 (`criteria` + `rating`, UX submit robusta) |
+| **Review System**      | [x] | [x] | [x] | P0 2026-07-23: publish immediato, 1/utente, edit/delete, SoT `pois.rating`, alert coda — `27_USER_REVIEW_SYSTEM.md` v2.0 · `AUDIT_REVIEWS_AND_RATINGS.md` §18 |
 | **Collaboration & Workspace** | [x] | [ ] | [ ] | Allineato in `28_COLLABORATION_WORKSPACE_SYSTEM.md` v2.0 (hub UI + wizard) |
 | **Platform Settings / Centro di Controllo** | [x] | [ ] | [ ] | SSOT in `30_PLATFORM_SETTINGS_MASTERPLAN.md` (v0.2); Feature Flag Engine; codice parziale |
 | **Development Workflow (layer operativo)** | [x] | [ ] | [ ] | Framework in `AI_DEV_WORKFLOW/`; WF-01 migrazione documentale completato |

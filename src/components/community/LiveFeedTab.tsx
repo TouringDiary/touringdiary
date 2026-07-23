@@ -17,6 +17,8 @@ import { CommunityPhotoWorkflow } from '@/components/photos/CommunityPhotoWorkfl
 import { LiveFeedToolbar } from './liveFeed/LiveFeedToolbar';
 import { LiveFeedHero } from './liveFeed/LiveFeedHero';
 import { LiveFeedCarousel } from './liveFeed/LiveFeedCarousel';
+import { useAreRewardsEnabled } from '@/hooks/useAreRewardsEnabled';
+import { RewardsFreezeNotice } from '@/components/gamification/RewardsFreezeNotice';
 
 interface LiveFeedTabProps {
     user: UserType;
@@ -28,6 +30,7 @@ export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps
     const { activeCityId } = useNavigation();
     const { userLocation } = useGps();
     const { togglePhotoHeart, getPhotoStatus } = useInteraction();
+    const rewardsEnabled = useAreRewardsEnabled();
 
     const [liveSnaps, setLiveSnaps] = useState<PhotoSubmission[]>([]);
     const [visibleSnapsCount, setVisibleSnapsCount] = useState(15);
@@ -194,6 +197,9 @@ export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps
                                 +{photo.earnedXp} XP
                             </div>
                         </div>
+                        {!rewardsEnabled && (
+                            <RewardsFreezeNotice variant="compact" className="w-full" />
+                        )}
                         <button
                             type="button"
                             onClick={() => photo.setShowRewardModal(false)}

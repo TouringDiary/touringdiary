@@ -162,8 +162,10 @@ export const useUserDashboardData = (user: User) => {
         const existingActive = myRewards.find(r => r.rewardId === reward.id && r.status === 'active');
         if (existingActive) return true; // Already active
 
-        const newCoupon = claimReward(user.id, user.name, reward);
-        setMyRewards(prev => [newCoupon, ...prev]);
+        const newCoupon = claimReward(user.id, reward);
+        // `gamification_frozen`: flag feature.gamification.rewards OFF — non è un errore di salvataggio.
+        if (!newCoupon.success) return false;
+        setMyRewards(prev => [newCoupon.reward, ...prev]);
         return true;
     };
 

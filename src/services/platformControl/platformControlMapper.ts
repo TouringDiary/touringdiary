@@ -245,6 +245,15 @@ export const PLATFORM_FEATURE_FLAG_FALLBACKS: Record<string, PlatformFeatureFlag
         false,
         false
     ),
+    [PLATFORM_FEATURE_FLAG_KEYS.GAMIFICATION_REWARDS]: boolFallback(
+        PLATFORM_FEATURE_FLAG_KEYS.GAMIFICATION_REWARDS,
+        'platform',
+        'Premi Gamification',
+        false,
+        'gamification_rewards_frozen',
+        true,
+        false
+    ),
 };
 
 export type PlatformControlServiceDeps = {

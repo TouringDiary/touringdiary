@@ -2611,6 +2611,53 @@ export type Database = {
           },
         ]
       }
+      review_rating_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          average_rating: number
+          created_at: string
+          id: string
+          poi_id: string
+          reviews_count: number
+          status: string
+          threshold: number
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          average_rating: number
+          created_at?: string
+          id?: string
+          poi_id: string
+          reviews_count?: number
+          status?: string
+          threshold: number
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          average_rating?: number
+          created_at?: string
+          id?: string
+          poi_id?: string
+          reviews_count?: number
+          status?: string
+          threshold?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_rating_alerts_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           approved_at: string | null
@@ -2624,6 +2671,7 @@ export type Database = {
           poi_id: string | null
           rating: number
           status: string
+          updated_at: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -2637,6 +2685,7 @@ export type Database = {
           poi_id?: string | null
           rating: number
           status?: string
+          updated_at?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -2650,6 +2699,7 @@ export type Database = {
           poi_id?: string | null
           rating?: number
           status?: string
+          updated_at?: string | null
         }
         Relationships: [
           {

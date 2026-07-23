@@ -35,9 +35,10 @@ Questo documento mappa i flussi di dati principali che avvengono durante l'utili
 *   **Tracking**: `trackingService.ts` registra il click in LocalStorage (`touring_affiliate_stats`).
 
 ### 6. REVIEW SUBMISSION PIPELINE
-*   **Submit**: Inviata tramite `ReviewModal.tsx`.
-*   **Persistence**: Salvataggio in tabella `reviews` con status `pending`.
-*   **XP**: `communityService.ts` assegna punti XP al profilo utente.
+*   **Submit**: `ReviewModal.tsx` → `saveUnifiedReview` (INSERT o UPDATE se già esiste per utente+target).
+*   **Persistence**: `reviews` con `status = approved` immediato; `updated_at` su modifica.
+*   **Rating POI**: trigger `sync_poi_rating_from_reviews` aggiorna `pois.rating`; sotto soglia → `review_rating_alerts`.
+*   **XP**: trigger `handle_review_approval_xp` su pubblicazione/approve.
 
 ### 7. ROADBOOK GENERATION
 *   **Data Source**: Aggregazione dati da `itinerary.items` e `cityManifest`.

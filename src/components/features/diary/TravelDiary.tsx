@@ -23,6 +23,8 @@ import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 import { fetchDiariesByIds } from '@/services/community/itineraryService';
 import { CollaborationLiveBar } from '@/components/collaboration/live/CollaborationLiveBar';
 import { CollaborationLockBanner } from '@/components/collaboration/live/CollaborationLockBanner';
+import { useAreRewardsEnabled } from '@/hooks/useAreRewardsEnabled';
+import { REWARDS_FREEZE_XP_NOTICE } from '@/domain/gamification/rewardsGate';
 
 interface TravelDiaryProps {
     user: User;
@@ -105,6 +107,7 @@ const TravelDiaryContent = ({
         itinerary, savedProjects, highlightDates, highlightedItemId,
         state, setters, actions,
     } = useDiaryLogic({ user, onUserUpdate, onDayDropProp: onDayDrop });
+    const rewardsEnabled = useAreRewardsEnabled();
 
     const collaborationLive = useCollaborationLive();
 
@@ -248,15 +251,20 @@ const TravelDiaryContent = ({
 
             {state.toastMessage && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 animate-in slide-in-from-top-4 fade-in duration-300">
-                    <div className="bg-slate-900 border border-emerald-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+                    <div className="bg-slate-900 border border-emerald-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 max-w-md">
                         <div className="bg-emerald-500/20 p-1.5 rounded-full"><CheckCircle className="w-5 h-5 text-emerald-500" /></div>
                         <div>
                             <p className="font-bold text-sm">{state.toastMessage.title}</p>
                             <p className="text-xs text-slate-400">
                                 Hai guadagnato <span className="text-amber-400 font-bold">+{state.toastMessage.xp} XP</span>
                             </p>
+                            {state.toastMessage.xp > 0 && !rewardsEnabled && (
+                                <p className="text-[10px] text-indigo-300 mt-0.5 leading-snug">
+                                    {REWARDS_FREEZE_XP_NOTICE.headline}
+                                </p>
+                            )}
                         </div>
-                        <Trophy className="w-5 h-5 text-amber-500 animate-bounce" />
+                        <Trophy className="w-5 h-5 text-amber-500 animate-bounce shrink-0" />
                     </div>
                 </div>
             )}

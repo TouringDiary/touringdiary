@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useInteraction } from '../../../context/InteractionContext';
 import { ModalManagerExternalProps } from '../ModalManagerTypes';
-import { PointOfInterest } from '@/types';
+import { PointOfInterest, Review } from '@/types';
 import { getDaysArray } from '@/utils/common';
+import { getUserReviewForPoi } from '@/services/communityService';
 
 // Lazy Imports
 const PoiDetailModal = React.lazy(() => import('@/components/modals/PoiDetailModal').then(module => ({ default: module.PoiDetailModal })));
@@ -47,6 +48,27 @@ interface FeatureModalsProps extends ModalManagerExternalProps {
 export const FeatureModals = (props: FeatureModalsProps) => {
     const { activeModal, modalProps, closeModal, openModal, user, itinerary } = props;
     const { submitReview } = useInteraction();
+    const [existingPoiReview, setExistingPoiReview] = useState<Review | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            if (activeModal !== 'review' || !modalProps.poi?.id || !user?.id || user.role === 'guest') {
+                setExistingPoiReview(null);
+                return;
+            }
+            try {
+                const existing = await getUserReviewForPoi(modalProps.poi.id, user.id);
+                if (!cancelled) setExistingPoiReview(existing);
+            } catch {
+                if (!cancelled) setExistingPoiReview(null);
+            }
+        };
+        void load();
+        return () => {
+            cancelled = true;
+        };
+    }, [activeModal, modalProps.poi?.id, user?.id, user?.role]);
 
     const diaryDays = useMemo(() => {
         if (itinerary.startDate === null || itinerary.endDate === null) return [];
@@ -139,6 +161,7 @@ export const FeatureModals = (props: FeatureModalsProps) => {
                     isOpen={true}
                     onClose={closeModal}
                     poi={modalProps.poi}
+                    existingReview={existingPoiReview}
                     onSubmit={(rating, criteria, comment) =>
                         submitReview(modalProps.poi, rating, criteria, comment, user)
                     }

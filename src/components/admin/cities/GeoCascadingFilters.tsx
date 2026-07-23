@@ -1,9 +1,9 @@
 
 import React, { useMemo } from 'react';
-import { Globe, Map, Filter, ChevronDown, Flag, MapPin, Building2 } from 'lucide-react';
+import { Globe, Map, Filter, ChevronDown, Flag, MapPin, Building2, X } from 'lucide-react';
 import { CitySummary } from '../../../types/index';
 
-interface GeoSelection {
+export interface GeoSelection {
     continent: string;
     nation: string;
     region: string;
@@ -12,114 +12,293 @@ interface GeoSelection {
 }
 
 interface GeoCascadingFiltersProps {
-    cities: CitySummary[]; // Source of truth
+    /** Source of truth: CitySummary labels (continent / nation / adminRegion / zone / name). */
+    cities: CitySummary[];
     value: GeoSelection;
     onChange: (val: GeoSelection) => void;
-    orientation?: 'horizontal' | 'vertical'; // NEW: Per adattarsi alla sidebar
+    orientation?: 'horizontal' | 'vertical';
+    /** Optional compact chrome for denser admin toolbars. */
+    density?: 'comfortable' | 'compact';
 }
 
-const SelectBox = ({ 
-    label, value, options, onChange, icon: Icon, disabled, fullWidth 
-}: { 
-    label: string, value: string, options: string[], onChange: (v: string) => void, icon: any, disabled: boolean, fullWidth?: boolean 
+const EMPTY_SELECTION: GeoSelection = {
+    continent: '',
+    nation: '',
+    region: '',
+    zone: '',
+    city: '',
+};
+
+const SelectBox = ({
+    label,
+    value,
+    options,
+    onChange,
+    icon: Icon,
+    disabled,
+    compact,
+}: {
+    label: string;
+    value: string;
+    options: string[];
+    onChange: (v: string) => void;
+    icon: React.ComponentType<{ className?: string }>;
+    disabled: boolean;
+    compact?: boolean;
 }) => (
-    <div className={`relative group ${fullWidth ? 'w-full' : 'w-full md:w-auto flex-1'} ${disabled ? 'opacity-50' : ''}`}>
-        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">{label}</label>
+    <div className={`relative group min-w-0 ${disabled ? 'opacity-45 pointer-events-none' : ''}`}>
+        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.14em] block mb-1.5">
+            {label}
+        </label>
         <div className="relative">
-            <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-500 transition-colors"/>
-            <select 
-                value={value} 
+            <Icon
+                className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
+                    value ? 'text-indigo-400' : 'text-slate-500 group-focus-within:text-indigo-400'
+                }`}
+            />
+            <select
+                value={value}
                 onChange={(e) => onChange(e.target.value)}
                 disabled={disabled}
+                aria-label={label}
                 className={`
-                    w-full bg-slate-900 border rounded-xl py-3 pl-10 pr-8 text-xs font-bold uppercase tracking-wide appearance-none cursor-pointer outline-none transition-all
-                    ${disabled ? 'border-slate-800 text-slate-600' : 'border-slate-700 text-white hover:border-indigo-500 focus:border-indigo-500 shadow-md'}
+                    w-full bg-slate-950/80 border rounded-xl text-xs font-semibold tracking-wide
+                    appearance-none cursor-pointer outline-none transition-all
+                    pl-10 pr-9
+                    ${compact ? 'py-2.5' : 'py-3'}
+                    ${
+                        value
+                            ? 'border-indigo-500/50 text-white shadow-[0_0_0_1px_rgba(99,102,241,0.15)]'
+                            : 'border-slate-700/80 text-slate-300 hover:border-slate-500'
+                    }
+                    focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20
+                    disabled:cursor-not-allowed
                 `}
             >
-                <option value="">{`Tutte (${options.length})`}</option>
-                {options.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
+                <option value="">{options.length ? `Tutte (${options.length})` : '—'}</option>
+                {options.map((opt) => (
+                    <option key={opt} value={opt}>
+                        {opt}
+                    </option>
                 ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none"/>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
         </div>
     </div>
 );
 
-export const GeoCascadingFilters = ({ cities, value, onChange, orientation = 'horizontal' }: GeoCascadingFiltersProps) => {
-    
-    // 1. Continents
-    const continents = useMemo(() => Array.from(new Set(cities.map(c => c.continent || 'Europa'))).sort(), [cities]);
+/**
+ * Cascading geo filters — SoT = CitySummary display labels (never raw itinerary main_city / slug).
+ * Used across Admin cities, observatory, and Itinerari & Recensioni.
+ */
+export const GeoCascadingFilters = ({
+    cities,
+    value,
+    onChange,
+    orientation = 'horizontal',
+    density = 'comfortable',
+}: GeoCascadingFiltersProps) => {
+    const compact = density === 'compact';
 
-    // 2. Nations
+    const continents = useMemo(
+        () =>
+            Array.from(new Set(cities.map((c) => c.continent).filter(Boolean) as string[])).sort(),
+        [cities]
+    );
+
     const nations = useMemo(() => {
         if (!value.continent) return [];
-        return Array.from(new Set(cities.filter(c => (c.continent || 'Europa') === value.continent).map(c => c.nation || 'Italia'))).sort();
+        return Array.from(
+            new Set(
+                cities
+                    .filter((c) => c.continent === value.continent)
+                    .map((c) => c.nation)
+                    .filter(Boolean) as string[]
+            )
+        ).sort();
     }, [cities, value.continent]);
 
-    // 3. Regions
     const regions = useMemo(() => {
         if (!value.nation) return [];
-        return Array.from(new Set(cities.filter(c => (c.nation || 'Italia') === value.nation).map(c => c.adminRegion || 'Campania'))).sort();
-    }, [cities, value.nation]);
+        return Array.from(
+            new Set(
+                cities
+                    .filter((c) => c.continent === value.continent && c.nation === value.nation)
+                    .map((c) => c.adminRegion)
+                    .filter(Boolean) as string[]
+            )
+        ).sort();
+    }, [cities, value.continent, value.nation]);
 
-    // 4. Zones (NEW)
     const zones = useMemo(() => {
         if (!value.region) return [];
-        return Array.from(new Set(cities.filter(c => (c.adminRegion || 'Campania') === value.region).map(c => c.zone))).sort();
-    }, [cities, value.region]);
+        return Array.from(
+            new Set(
+                cities
+                    .filter(
+                        (c) =>
+                            c.continent === value.continent &&
+                            c.nation === value.nation &&
+                            c.adminRegion === value.region
+                    )
+                    .map((c) => c.zone)
+                    .filter((z): z is string => Boolean(z && z.trim()))
+            )
+        ).sort();
+    }, [cities, value.continent, value.nation, value.region]);
 
-    // 5. Cities (NEW)
-    const filteredCities = useMemo(() => {
-        let list = cities;
-        if (value.region) list = list.filter(c => (c.adminRegion || 'Campania') === value.region);
-        if (value.zone) list = list.filter(c => c.zone === value.zone);
-        return list.map(c => c.name).sort();
-    }, [cities, value.region, value.zone]);
+    const cityNames = useMemo(() => {
+        if (!value.region) return [];
+        let list = cities.filter(
+            (c) =>
+                c.continent === value.continent &&
+                c.nation === value.nation &&
+                c.adminRegion === value.region
+        );
+        if (value.zone) list = list.filter((c) => c.zone === value.zone);
+        return Array.from(new Set(list.map((c) => c.name).filter(Boolean))).sort();
+    }, [cities, value.continent, value.nation, value.region, value.zone]);
 
-    // Handlers
     const handleChange = (field: keyof GeoSelection, val: string) => {
-        const resetLower = {
+        const next: GeoSelection = {
             continent: field === 'continent' ? val : value.continent,
-            nation: field === 'continent' ? '' : (field === 'nation' ? val : value.nation),
-            region: ['continent', 'nation'].includes(field) ? '' : (field === 'region' ? val : value.region),
-            zone: ['continent', 'nation', 'region'].includes(field) ? '' : (field === 'zone' ? val : value.zone),
-            city: ['continent', 'nation', 'region', 'zone'].includes(field) ? '' : (field === 'city' ? val : value.city),
+            nation: field === 'continent' ? '' : field === 'nation' ? val : value.nation,
+            region: ['continent', 'nation'].includes(field)
+                ? ''
+                : field === 'region'
+                  ? val
+                  : value.region,
+            zone: ['continent', 'nation', 'region'].includes(field)
+                ? ''
+                : field === 'zone'
+                  ? val
+                  : value.zone,
+            city: ['continent', 'nation', 'region', 'zone'].includes(field)
+                ? ''
+                : field === 'city'
+                  ? val
+                  : value.city,
         };
-        onChange(resetLower);
+        onChange(next);
     };
 
+    const hasActive = Boolean(
+        value.continent || value.nation || value.region || value.zone || value.city
+    );
+
     const isVertical = orientation === 'vertical';
-    const containerClass = isVertical ? 'flex flex-col gap-4 w-full' : 'flex flex-col md:flex-row gap-4 items-end bg-slate-900 p-4 rounded-2xl border border-indigo-500/20 shadow-xl';
-    const arrowClass = isVertical ? 'hidden' : 'hidden md:block pb-4 text-slate-700';
+    const gridClass = isVertical
+        ? 'grid grid-cols-1 gap-3 w-full'
+        : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 w-full';
 
     return (
-        <div className={containerClass}>
-            
-            <SelectBox label="Continente" value={value.continent} options={continents} onChange={v => handleChange('continent', v)} icon={Globe} disabled={false} fullWidth={isVertical} />
-            
-            <div className={arrowClass}>→</div>
+        <div
+            className={
+                isVertical
+                    ? 'flex flex-col gap-3 w-full'
+                    : 'w-full rounded-2xl border border-slate-800/90 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-4 sm:p-5 shadow-xl'
+            }
+        >
+            {!isVertical && (
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800/80">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300">
+                            <Filter className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-white tracking-wide">Area geografica</p>
+                            <p className="text-[11px] text-slate-500 truncate">
+                                Cascata Continente → Città · etichette da catalogo città
+                            </p>
+                        </div>
+                    </div>
+                    {hasActive ? (
+                        <button
+                            type="button"
+                            onClick={() => onChange({ ...EMPTY_SELECTION })}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:border-rose-500/40 hover:text-rose-300 transition-colors"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                            Azzera
+                        </button>
+                    ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                            Nessun filtro
+                        </span>
+                    )}
+                </div>
+            )}
 
-            <SelectBox label="Nazione" value={value.nation} options={nations} onChange={v => handleChange('nation', v)} icon={Flag} disabled={!value.continent} fullWidth={isVertical} />
+            <div className={gridClass}>
+                <SelectBox
+                    label="Continente"
+                    value={value.continent}
+                    options={continents}
+                    onChange={(v) => handleChange('continent', v)}
+                    icon={Globe}
+                    disabled={false}
+                    compact={compact}
+                />
+                <SelectBox
+                    label="Nazione"
+                    value={value.nation}
+                    options={nations}
+                    onChange={(v) => handleChange('nation', v)}
+                    icon={Flag}
+                    disabled={!value.continent}
+                    compact={compact}
+                />
+                <SelectBox
+                    label="Regione"
+                    value={value.region}
+                    options={regions}
+                    onChange={(v) => handleChange('region', v)}
+                    icon={Map}
+                    disabled={!value.nation}
+                    compact={compact}
+                />
+                <SelectBox
+                    label="Zona turistica"
+                    value={value.zone}
+                    options={zones}
+                    onChange={(v) => handleChange('zone', v)}
+                    icon={MapPin}
+                    disabled={!value.region}
+                    compact={compact}
+                />
+                <SelectBox
+                    label="Città"
+                    value={value.city}
+                    options={cityNames}
+                    onChange={(v) => handleChange('city', v)}
+                    icon={Building2}
+                    disabled={!value.region}
+                    compact={compact}
+                />
+            </div>
 
-             <div className={arrowClass}>→</div>
-
-            <SelectBox label="Regione" value={value.region} options={regions} onChange={v => handleChange('region', v)} icon={Map} disabled={!value.nation} fullWidth={isVertical} />
-            
-            <div className={arrowClass}>→</div>
-
-            <SelectBox label="Zona Turistica" value={value.zone} options={zones} onChange={v => handleChange('zone', v)} icon={MapPin} disabled={!value.region} fullWidth={isVertical} />
-
-            <div className={arrowClass}>→</div>
-
-            <SelectBox label="Città Specifica" value={value.city} options={filteredCities} onChange={v => handleChange('city', v)} icon={Building2} disabled={!value.region} fullWidth={isVertical} />
-            
-            {!isVertical && value.region && (
-                 <div className="ml-auto flex items-center gap-2 pb-2 animate-in fade-in">
-                     <span className="text-[10px] text-emerald-500 font-black uppercase tracking-widest bg-emerald-900/10 px-3 py-1 rounded-full border border-emerald-500/20 shadow-sm flex items-center gap-1">
-                         <Filter className="w-3 h-3"/> Attivo
-                     </span>
-                 </div>
+            {!isVertical && hasActive && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                    {(
+                        [
+                            ['Continente', value.continent],
+                            ['Nazione', value.nation],
+                            ['Regione', value.region],
+                            ['Zona', value.zone],
+                            ['Città', value.city],
+                        ] as const
+                    )
+                        .filter(([, v]) => v)
+                        .map(([label, v]) => (
+                            <span
+                                key={label}
+                                className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 px-2.5 py-1 text-[10px] font-semibold text-indigo-200"
+                            >
+                                <span className="text-indigo-400/80 uppercase tracking-wider">{label}</span>
+                                {v}
+                            </span>
+                        ))}
+                </div>
             )}
         </div>
     );

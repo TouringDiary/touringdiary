@@ -52,7 +52,9 @@ export interface Review {
     authorId?: string;
     rating: number;
     date: string;
-    approvedAt?: string; // Data di approvazione admin
+    /** Timestamp ultima modifica contenuto; assente se mai modificata. */
+    updatedAt?: string;
+    approvedAt?: string; // Data di pubblicazione / approvazione
     text: string;
     criteria?: Record<string, number>;
     itineraryId?: string;
