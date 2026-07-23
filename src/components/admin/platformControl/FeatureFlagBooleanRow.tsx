@@ -4,6 +4,7 @@ import { evaluateFeatureFlag } from '@/domain/platformControl/evaluateFeatureFla
 import {
     findMessageCatalogByKey,
     getFeatureFlagAdminHelp,
+    getFeatureFlagDisclosureKey,
 } from '@/constants/platformFeatureFlags';
 import { usePlatformControlTypography } from '@/hooks/usePlatformControlTypography';
 import { usePlatformControl } from '@/context/PlatformControlContext';
@@ -41,6 +42,7 @@ export const FeatureFlagBooleanRow: React.FC<FeatureFlagBooleanRowProps> = ({
     const [reason, setReason] = useState('');
     const [error, setError] = useState<string | null>(null);
     const catalogEntry = findMessageCatalogByKey(flag.messageKey);
+    const disclosureCatalogEntry = findMessageCatalogByKey(getFeatureFlagDisclosureKey(flag.key));
     const adminHelp = getFeatureFlagAdminHelp(flag.key);
 
     const handleToggle = async () => {
@@ -194,6 +196,16 @@ export const FeatureFlagBooleanRow: React.FC<FeatureFlagBooleanRowProps> = ({
                     catalogEntry={catalogEntry}
                     canWrite={canWrite}
                     compact
+                    fieldLabel="Messaggio OFF"
+                />
+            ) : null}
+
+            {disclosureCatalogEntry ? (
+                <MessageTemplateEditor
+                    catalogEntry={disclosureCatalogEntry}
+                    canWrite={canWrite}
+                    compact
+                    fieldLabel="Disclosure (in-chat)"
                 />
             ) : null}
 

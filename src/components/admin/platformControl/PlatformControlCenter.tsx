@@ -9,7 +9,6 @@ import {
     ShieldCheck,
     SlidersHorizontal,
     Store,
-    Type,
     Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -29,7 +28,6 @@ import { User } from '@/types/users';
 import type { PlatformFlagSchedule } from '@/types/platformControl';
 import { PlatformControlSection } from './PlatformControlSection';
 import { PlatformControlTabBanner } from './PlatformControlTabBanner';
-import { MessageTemplatesPanel } from './MessageTemplatesPanel';
 import { MaintenancePanel } from './MaintenancePanel';
 import { SchedulePanel } from './SchedulePanel';
 import { AuditHistoryPanel } from './AuditHistoryPanel';
@@ -47,7 +45,6 @@ const TAB_ICONS: Record<PlatformControlTabId, LucideIcon> = {
     sponsor: Store,
     moderation: ShieldAlert,
     maintenance: AlertTriangle,
-    globals: Type,
     audit: History,
 };
 
@@ -130,8 +127,6 @@ export const PlatformControlCenter: React.FC<PlatformControlCenterProps> = ({ cu
                         />
                     </div>
                 );
-            case 'globals':
-                return <MessageTemplatesPanel canWrite={canWrite} />;
             case 'audit':
                 return <AuditHistoryPanel canWrite={canWrite} />;
             default:

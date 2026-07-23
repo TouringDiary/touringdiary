@@ -15,6 +15,8 @@ interface MessageTemplateEditorProps {
     catalogEntry: PlatformMessageTemplateCatalogEntry;
     canWrite: boolean;
     compact?: boolean;
+    /** Etichetta sopra i campi in modalità compact (default: Messaggio utente). */
+    fieldLabel?: string;
 }
 
 const SAVED_FEEDBACK_MS = 2500;
@@ -23,6 +25,7 @@ export const MessageTemplateEditor: React.FC<MessageTemplateEditorProps> = ({
     catalogEntry,
     canWrite,
     compact = false,
+    fieldLabel = 'Messaggio utente',
 }) => {
     const ty = usePlatformControlTypography();
     const [title, setTitle] = useState(catalogEntry.defaultTitle);
@@ -128,7 +131,7 @@ export const MessageTemplateEditor: React.FC<MessageTemplateEditorProps> = ({
     return (
         <div className={compact ? 'space-y-2 border-t border-slate-800 pt-2.5 mt-1' : 'space-y-2'}>
             {compact ? (
-                <p className={ty.fieldLabel}>Messaggio utente</p>
+                <p className={ty.fieldLabel}>{fieldLabel}</p>
             ) : null}
             <input
                 type="text"

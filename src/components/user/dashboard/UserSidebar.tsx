@@ -80,7 +80,6 @@ export const UserSidebar = ({ activeTab, onTabChange, isBusiness, unreadCount, o
             {/* SEZIONE SUPPORTO PARTNER (Visibile se Business O ha richieste attive) */}
             {(isBusiness || hasActiveRequests) && (
                 <>
-                    {!isBusiness && <div className="h-px bg-slate-800 my-2"></div>}
                     <button onClick={() => onTabChange('messages')} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between font-bold text-lg transition-all ${activeTab === 'messages' ? 'bg-blue-600 text-white shadow-md border border-blue-500' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
                          <div className="flex items-center gap-3"><MessageSquare className="w-5 h-5"/> Supporto Partner</div>
                          {unreadMessagesCount > 0 && <CountBadge count={unreadMessagesCount} size="md" variant="rose-500" shape="pill" pulse />}

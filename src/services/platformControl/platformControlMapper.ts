@@ -16,6 +16,9 @@ type SupabaseFeatureFlagRow = Database['public']['Tables']['platform_feature_fla
 
 export type DbPlatformFeatureFlagRow = SupabaseFeatureFlagRow;
 
+/** Label UI Centro di Controllo per `feature.comms.user_sponsor` (canonica app; no migration DB). */
+const COMMS_PARTNER_ADMIN_CHAT_LABEL = 'Chat Partner↔Admin';
+
 /** Derived from PLATFORM_AUDIENCE_LIST — cannot diverge from PlatformAudience. */
 const PLATFORM_AUDIENCE_VALUES: ReadonlySet<string> = new Set(PLATFORM_AUDIENCE_LIST);
 
@@ -105,7 +108,10 @@ export function mapDbFeatureFlagRow(row: {
     return {
         key: row.key,
         category: row.category,
-        label: row.label,
+        label:
+            row.key === PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR
+                ? COMMS_PARTNER_ADMIN_CHAT_LABEL
+                : row.label,
         valueType,
         defaultValue: parseFlagValue(row.default_value, valueType),
         supportsSchedule: row.supports_schedule,
@@ -173,7 +179,21 @@ export const PLATFORM_FEATURE_FLAG_FALLBACKS: Record<string, PlatformFeatureFlag
         PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER, 'comms', 'Chat Admin↔Partner', true, 'comms_partner_chat_disabled'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR]: boolFallback(
-        PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR, 'comms', 'Chat Utente↔Sponsor', false, 'comms_user_sponsor_disabled'
+        PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR, 'comms', COMMS_PARTNER_ADMIN_CHAT_LABEL, false, 'comms_user_sponsor_disabled'
+    ),
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_DIGITAL_SHOP_USER]: boolFallback(
+        PLATFORM_FEATURE_FLAG_KEYS.COMMS_DIGITAL_SHOP_USER,
+        'comms',
+        'Chat Negozio Digitale↔Utente',
+        false,
+        'comms_digital_shop_user_disabled'
+    ),
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_DIGITAL_SHOP]: boolFallback(
+        PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_DIGITAL_SHOP,
+        'comms',
+        'Chat Utente↔Negozio Digitale',
+        false,
+        'comms_user_digital_shop_disabled'
     ),
     [PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS]: boolFallback(
         PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS, 'comms', 'Notifiche in-app', true, 'comms_notifications_paused'

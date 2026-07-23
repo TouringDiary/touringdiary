@@ -273,6 +273,8 @@ La conversazione Utente↔Sponsor resta nel modello architetturale ma è **funzi
 
 Gli admin possono consultare le conversazioni CRM Sponsor. Obbligo di informativa in privacy, termini e testi UI — **non hardcoded**, modificabili da admin via **Centro di Controllo** (DOC 30). *Privacy avanzata / compliance estesa → WF-03 (DL-P09); in WF-02 restano solo testi disclosure operativi.*
 
+**Supersessione operativa (PO 2026-07-23):** l’informativa editabile nel Centro di Controllo **non** riguarda più Admin↔Partner / Partner↔Admin, né una TAB Info Globali. Destinazione attuale: disclosure **per-direzione** sulla chat **Negozio Digitale ↔ Utente** (`comms_digital_shop_user_disclosure` / `comms_user_digital_shop_disclosure`, flag `feature.comms.digital_shop_user` / `feature.comms.user_digital_shop`). La chiave legacy `sponsor_crm_disclosure` è deprecata. D18 resta valida come principio (admin possono consultare; utente informato); il **canale** coperto dal template CC è Negozio↔Utente. Vedi DOC 30 § Comunicazioni.
+
 ### D22 — O2: una conversazione per Sponsor (PO, 2026-07-13)
 
 Ogni contratto Sponsor ha **un thread conversazionale dedicato**. Partner multi-sponsor: una conversazione distinta per ciascuno. Admin: contesto Sponsor sempre visibile. CRM Admin e chat Partner **convergono** sullo stesso thread (UI diversa).
@@ -1349,7 +1351,8 @@ Audit amministrativo **centralizzato** del dominio Sponsor (migration `202607171
 | Convergenza UI | `PartnerDetailModal` + `UserMessagesTab` = **due viste stesso thread** |
 | UX Sponsor-centric (modale + dashboard utente) | **DL-037** — contesto Sponsor, storico, note, chat, sezione «Sponsor dell'utente» |
 | Tipologie fase 1 | CRM **Admin ↔ Partner** (post G-MSG-1) |
-| Tipologie fase 1 OFF | Chat **Utente ↔ Sponsor** (flag Centro di Controllo) |
+| Tipologie fase 1 OFF | Chat **Partner ↔ Admin** (flag Centro di Controllo `feature.comms.user_sponsor`) |
+| Tipologie preparate OFF (CC 2026-07-23) | Chat **Negozio Digitale ↔ Utente** / **Utente ↔ Negozio Digitale** (`feature.comms.digital_shop_user`, `feature.comms.user_digital_shop`) — motore futuro |
 | Tipologie future | Admin↔Utente, ticket, supporto, moderazione — stesso motore |
 
 ### Gate G-MSG-1 (obbligatorio — DL-026)

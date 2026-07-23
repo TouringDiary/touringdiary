@@ -25,8 +25,8 @@ I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano pr
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 0.3.16 |
-| **Ultima revisione** | 2026-07-22 |
+| **Versione** | 0.3.17 |
+| **Ultima revisione** | 2026-07-23 |
 | **Stato** | Implementazione in Corso |
 | **Percorso SSOT** | `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` |
 | **UI Admin (nome definitivo PO)** | **Centro di Controllo** — **non rinominare** (DL-P02, conferma 2026-07-14) |
@@ -158,7 +158,6 @@ Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disa
 | **Sponsor** | Card Feature Flag/soglie sponsor (+ messaggi sulla card) |
 | **Moderazione** | Card Feature Flag moderazione (+ messaggi sulla card) |
 | **Manutenzione** | Card superiori in grid responsive (Manutenzione, Registrazione, Onboarding, **Programmazioni in pausa**) + **Programmazione automatica** a tutta larghezza sotto (non TAB separato) |
-| **Info Globali** | Solo testi **globali** piattaforma (non messaggi di singolo flag) |
 | **Storico Audit** | Lettura audit, export CSV, eliminazione singola e svuota storico (`admin_all`) |
 
 **Responsabilità UI e Source of Truth (unica definizione):**
@@ -168,7 +167,7 @@ Il Centro di Controllo gestisce **booleani, testi, banner, avvisi, messaggi disa
 | **Banner TAB** | Descrizione funzionale dell’**intera sezione** | `PLATFORM_CONTROL_TAB_COPY` (solo admin UI) |
 | **Card Feature Flag — help** | Descrizione amministrativa del **singolo interruttore** (effetto ON/OFF) | `PLATFORM_FEATURE_FLAG_ADMIN_HELP` (solo admin) |
 | **Card Feature Flag — messaggio utente** | Testo visto dall’utente quando la funzione è OFF/bloccata | **Message Template → DB `system_messages`** (DL-P13) — unica SoT |
-| **Pannelli** (Manutenzione, Info Globali, Storico Audit, Programmazione, …) | Controlli dell’area; testi globali / manutenzione | Controlli nel pannello; messaggi utente → **DB** |
+| **Pannelli** (Manutenzione, Storico Audit, Programmazione, …) | Controlli dell’area; testi manutenzione | Controlli nel pannello; messaggi utente → **DB** |
 | **Catalogo TS `PLATFORM_*_MESSAGE_CATALOG`** | Seed editor / chiavi note / bootstrap se DB assente | **Non** è SoT runtime. Solo fallback tecnico di bootstrap |
 
 **Principio messaggi utente (DL-P13 — definitivo):**  
@@ -210,11 +209,13 @@ Centro di Controllo → Message Template → Database = **unica** Source of Trut
 
 | Sotto-sezione | Configurazioni | Note |
 |---------------|----------------|------|
-| Admin ↔ Partner | `feature.comms.admin_partner` | Consumer messaggistica futura |
-| Utente ↔ Sponsor | `feature.comms.user_sponsor` | Fase 1 OFF (DOC 29 D17) |
+| Admin ↔ Partner | `feature.comms.admin_partner` | CRM staff ↔ partner — **invariato** |
+| Partner ↔ Admin | `feature.comms.user_sponsor` | Spazio conversazioni Partner verso Admin — **invariato** (label UI: Chat Partner↔Admin) |
+| Negozio Digitale ↔ Utente | `feature.comms.digital_shop_user` | Lato Negozio Digitale; default OFF; motore chat futuro (G-MSG-1) |
+| Utente ↔ Negozio Digitale | `feature.comms.user_digital_shop` | Lato Utente; default OFF; motore chat futuro (G-MSG-1) |
 | Notifiche | `feature.comms.notifications` | |
 
-**Testi:** messaggi quando chat disabilitata → **sulla card** del Feature Flag. Disclosure privacy CRM → TAB **Info Globali** (testi operativi, non privacy avanzata WF-03).
+**Testi:** messaggi OFF → **sulla card** del Feature Flag. Disclosure privacy conversazioni Negozio↔Utente → **sulla card** di ciascuna direzione (template distinti; non più TAB Info Globali). Privacy avanzata / compliance estesa → **WF-03**.
 
 ---
 
@@ -264,14 +265,15 @@ Dettaglio audience/schedule/messaggi → catalogo § sotto.
 
 ---
 
-### Macro-sezione — Info Globali (evoluzione di «Testi e messaggi»)
+### Macro-sezione — Info Globali (**rimossa** — 2026-07-23)
 
-TAB **Info Globali**: contiene **esclusivamente** informazioni realmente globali della piattaforma (es. disclosure CRM, registrazione chiusa). Dove editare messaggi di flag vs globali → tabella in **Organizzazione UI** (e riga «Messaggio legato a un Feature Flag» sotto).
+La TAB **Info Globali** è **rimossa** dal Centro di Controllo. I messaggi utente restano sulle **card** Feature Flag (OFF + eventuali disclosure in-chat). La legacy `sponsor_crm_disclosure` è deprecata; le disclosure Negozio Digitale↔Utente vivono sulle card `feature.comms.digital_shop_user` / `feature.comms.user_digital_shop`.
 
 | Tipo messaggio | Dove si edita |
 |----------------|---------------|
-| Messaggio legato a un Feature Flag (disabilitazione funzione) | **Card** del flag (autosufficiente) |
-| Messaggio / testo globale piattaforma | TAB **Info Globali** |
+| Messaggio OFF legato a un Feature Flag | **Card** del flag |
+| Disclosure in-chat Negozio↔Utente | **Card** della direzione (template dedicato, distinto dall’OFF) |
+| Messaggio manutenzione News Bar | Card Manutenzione |
 
 **Escluso:** privacy avanzata / compliance estesa → **WF-03**.
 
@@ -327,7 +329,7 @@ Stream `platform_control_audit` (DL-P05). TAB UI dedicato **Storico Audit**.
 
 ### Sezioni Centro di Controllo — perimetro implementativo (DL-P10)
 
-Tutte le **macro-sezioni già approvate** in questo SSOT (AI, Comunicazioni/Chat, Monetizzazione, Feature Flag registry, Sponsor operativo, Moderazione, Info Globali, Manutenzione con Programmazione, Storico Audit) sono **in scope** per **WF-02 STEP-3**. La **UI operativa** espone i TAB elencati sopra; Monetizzazione e registry restano concetti di catalogo/ownership senza TAB top-level dedicati.
+Tutte le **macro-sezioni già approvate** in questo SSOT (AI, Comunicazioni/Chat, Monetizzazione, Feature Flag registry, Sponsor operativo, Moderazione, Manutenzione con Programmazione, Storico Audit) sono **in scope** per **WF-02 STEP-3**. La **UI operativa** espone i TAB elencati sopra; Monetizzazione e registry restano concetti di catalogo/ownership senza TAB top-level dedicati. *(TAB Info Globali rimossa 2026-07-23.)*
 
 **Nuove** macro-sezioni (es. Accesso, Workspace, Gamification, Territorio) si aggiungono **solo** quando nasce un nuovo dominio o esigenza progettuale — con nuovo SSOT/Workflow, non per espansione arbitraria v1.
 
@@ -472,7 +474,9 @@ Quando `feature.platform.schedules_paused` è attivo, lo strato `active_schedule
 | Nome funzionale | Key | Abilita/disabilita | Audience | Schedule | Override | Messaggio | Audit |
 |-----------------|-----|-------------------|----------|----------|----------|-----------|-------|
 | Chat Admin↔Partner | `feature.comms.admin_partner` | CRM messaggi sponsor | business, admin_* | Sì | Sì | `comms_partner_chat_disabled` | Sì |
-| Chat Utente↔Sponsor | `feature.comms.user_sponsor` | Chat utente verso sponsor | registered | Sì | Sì | `comms_user_sponsor_disabled` | Sì |
+| Chat Partner↔Admin | `feature.comms.user_sponsor` | Chat Partner verso Admin (spazio conversazioni) | registered | Sì | Sì | `comms_user_sponsor_disabled` | Sì |
+| Chat Negozio Digitale↔Utente | `feature.comms.digital_shop_user` | Lato Negozio Digitale (motore chat futuro) | business | Sì | Sì | `comms_digital_shop_user_disabled` (+ disclosure `comms_digital_shop_user_disclosure`) | Sì |
+| Chat Utente↔Negozio Digitale | `feature.comms.user_digital_shop` | Lato Utente (motore chat futuro) | registered | Sì | Sì | `comms_user_digital_shop_disabled` (+ disclosure `comms_user_digital_shop_disclosure`) | Sì |
 | Notifiche in-app | `feature.comms.notifications` | Centro notifiche | registered | Sì | Sì | — | Sì |
 
 ### Categoria — Business & Sponsor
@@ -513,7 +517,7 @@ Quando `feature.platform.schedules_paused` è attivo, lo strato `active_schedule
 
 Vedi macro-sezioni sopra. Prefissi: `platform.*`, `sponsor.*`, `comms.*`, `ai.*`, `moderation.*`. *Testi legali/privacy avanzata → WF-03 (DL-P09).*
 
-**Implementazione / SoT (DL-P13):** tabella **`system_messages`** (Database). Runtime e consumer leggono **solo** dal DB (via `useSystemMessage` / cache bootstrap). Il catalogo TypeScript (`PLATFORM_FLAG_MESSAGE_CATALOG`, `PLATFORM_GLOBAL_MESSAGE_CATALOG`) serve a: elenco chiavi note, seed editor, **fallback bootstrap** se la riga DB manca — **non** è Source of Truth equivalente al Database.
+**Implementazione / SoT (DL-P13):** tabella **`system_messages`** (Database). Runtime e consumer leggono **solo** dal DB (via `useSystemMessage` / cache bootstrap). Il catalogo TypeScript (`PLATFORM_FLAG_MESSAGE_CATALOG`) serve a: elenco chiavi note, seed editor, **fallback bootstrap** se la riga DB manca — **non** è Source of Truth equivalente al Database. *(Catalogo Info Globali `PLATFORM_GLOBAL_MESSAGE_CATALOG` rimosso 2026-07-23.)*
 
 Help admin flag e copy TAB restano costanti TS (`PLATFORM_FEATURE_FLAG_ADMIN_HELP`, `PLATFORM_CONTROL_TAB_COPY`) — non sono messaggi utente.
 
@@ -694,6 +698,7 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 | Versione | Data | Modifiche |
 |----------|------|-----------|
+| 0.3.17 | 2026-07-23 | Comunicazioni: flag Negozio Digitale↔Utente (due direzioni); disclosure per-card; rimozione TAB Info Globali; deprecazione `sponsor_crm_disclosure` |
 | 0.3.16 | 2026-07-22 | Storico Audit gestibile: eliminazione singola + svuota via RPC admin_all; DL-P05 aggiornato; matrice permessi |
 | 0.3.15 | 2026-07-22 | Programmazioni: semantica ON/OFF = abilitazione fermo (non valore FF); pausa in header Programmazione automatica; lista persistente al cambio TAB |
 | 0.3.14 | 2026-07-22 | Programmazioni: stati UI (In attesa/Attiva/In pausa/Eseguita/Errore), storico sempre visibile, label «Stato programmato», cestino con persistenza immediata; layout grid TAB Manutenzione |

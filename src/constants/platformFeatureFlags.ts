@@ -2,8 +2,8 @@
  * Platform feature-flag keys and message templates (SSOT: DOC 30).
  * Runtime resolution via Centro di Controllo — WF-02 STEP-3.
  *
- * UI TAB (PO 2026-07-17): AI | Comunicazioni | Sponsor | Moderazione |
- * Manutenzione (include programmazione) | Info Globali | Storico Audit.
+ * UI TAB (PO 2026-07-17 / aggiornato 2026-07-23): AI | Comunicazioni | Sponsor |
+ * Moderazione | Manutenzione (include programmazione) | Storico Audit.
  * Le TAB flag-grid usano PLATFORM_CONTROL_SECTION_KEYS; le altre sono pannelli dedicati.
  */
 
@@ -17,6 +17,10 @@ export const PLATFORM_FEATURE_FLAG_KEYS = {
     ECONOMY_SUBSCRIPTIONS: 'feature.economy.subscriptions',
     COMMS_ADMIN_PARTNER: 'feature.comms.admin_partner',
     COMMS_USER_SPONSOR: 'feature.comms.user_sponsor',
+    /** Lato Negozio Digitale della chat Negozio↔Utente (preparato OFF — nessun motore chat in questo lotto). */
+    COMMS_DIGITAL_SHOP_USER: 'feature.comms.digital_shop_user',
+    /** Lato Utente della chat Negozio↔Utente (preparato OFF — nessun motore chat in questo lotto). */
+    COMMS_USER_DIGITAL_SHOP: 'feature.comms.user_digital_shop',
     COMMS_NOTIFICATIONS: 'feature.comms.notifications',
     SPONSOR_APPLICATIONS: 'feature.sponsor.applications',
     SPONSOR_SHOP_PUBLIC: 'feature.sponsor.shop_public',
@@ -94,6 +98,14 @@ export const PLATFORM_FEATURE_FLAG_ADMIN_HELP: Record<PlatformFeatureFlagKey, st
     [PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR]:
         'Consente agli utenti (Partner) di inviare messaggi allo staff dalle Conversazioni del proprio spazio.\n' +
         'Quando disattivato le conversazioni restano consultabili, ma non è possibile inviare nuovi messaggi.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_DIGITAL_SHOP_USER]:
+        'Consente o sospende la chat lato Negozio Digitale verso l’utente (comunicazione commerciale Negozio↔Utente).\n' +
+        'Preparato OFF: il motore chat non è ancora collegato. Quando sarà attivo, OFF impedirà nuovi invii dal Negozio Digitale.',
+
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_DIGITAL_SHOP]:
+        'Consente o sospende la chat lato Utente verso il Negozio Digitale.\n' +
+        'Preparato OFF: il motore chat non è ancora collegato. Quando sarà attivo, OFF impedirà nuovi invii dall’utente verso il Negozio Digitale.',
 
     [PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS]:
         'Consente o sospende il Centro Notifiche in-app (dashboard utente) e i badge unread nell’header.\n' +
@@ -178,12 +190,21 @@ export const PLATFORM_MESSAGE_TEMPLATE_KEYS = {
     SUBSCRIPTIONS_PAUSED: 'subscriptions_paused',
     COMMS_PARTNER_CHAT_DISABLED: 'comms_partner_chat_disabled',
     COMMS_USER_SPONSOR_DISABLED: 'comms_user_sponsor_disabled',
+    COMMS_DIGITAL_SHOP_USER_DISABLED: 'comms_digital_shop_user_disabled',
+    COMMS_USER_DIGITAL_SHOP_DISABLED: 'comms_user_digital_shop_disabled',
+    COMMS_DIGITAL_SHOP_USER_DISCLOSURE: 'comms_digital_shop_user_disclosure',
+    COMMS_USER_DIGITAL_SHOP_DISCLOSURE: 'comms_user_digital_shop_disclosure',
     COMMS_NOTIFICATIONS_PAUSED: 'comms_notifications_paused',
     SPONSOR_APPLICATIONS_PAUSED: 'sponsor_applications_paused',
     MODERATION_REVIEWS_PAUSED: 'moderation_reviews_paused',
     MODERATION_PHOTOS_PAUSED: 'moderation_photos_paused',
     MODERATION_SUGGESTIONS_PAUSED: 'moderation_suggestions_paused',
     MODERATION_COMMUNITY_POSTS_PAUSED: 'moderation_community_posts_paused',
+    /**
+     * @deprecated Legacy Info Globali — sostituito dalle disclosure per-direzione
+     * `comms_digital_shop_user_disclosure` / `comms_user_digital_shop_disclosure`.
+     * Non usare nei cataloghi attivi; riga DB rimossa dalla migration digitale shop.
+     */
     SPONSOR_CRM_DISCLOSURE: 'sponsor_crm_disclosure',
     MAINTENANCE_TICKER: 'maintenance_ticker_message',
     REGISTRATION_CLOSED: 'registration_closed',
@@ -191,8 +212,25 @@ export const PLATFORM_MESSAGE_TEMPLATE_KEYS = {
 } as const;
 
 /**
+ * Disclosure in-chat (separata dal messaggio OFF) per flag che la supportano.
+ * Chiavi distinte per direzione — configurazioni CC indipendenti anche se il body iniziale coincide.
+ */
+export const PLATFORM_FEATURE_FLAG_DISCLOSURE_KEYS: Partial<
+    Record<PlatformFeatureFlagKey, string>
+> = {
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_DIGITAL_SHOP_USER]:
+        PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_DIGITAL_SHOP_USER_DISCLOSURE,
+    [PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_DIGITAL_SHOP]:
+        PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_USER_DIGITAL_SHOP_DISCLOSURE,
+};
+
+export function getFeatureFlagDisclosureKey(flagKey: string): string | undefined {
+    return PLATFORM_FEATURE_FLAG_DISCLOSURE_KEYS[flagKey as PlatformFeatureFlagKey];
+}
+
+/**
  * Flag-grid delle TAB AI / Comunicazioni / Sponsor / Moderazione.
- * Manutenzione, Info Globali e Storico Audit sono TAB separate (non in questa mappa).
+ * Manutenzione e Storico Audit sono TAB separate (non in questa mappa).
  */
 export const PLATFORM_CONTROL_SECTION_KEYS = {
     ai: [
@@ -207,6 +245,8 @@ export const PLATFORM_CONTROL_SECTION_KEYS = {
     comms: [
         PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER,
         PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_SPONSOR,
+        PLATFORM_FEATURE_FLAG_KEYS.COMMS_DIGITAL_SHOP_USER,
+        PLATFORM_FEATURE_FLAG_KEYS.COMMS_USER_DIGITAL_SHOP,
         PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS,
     ],
     sponsor: [
@@ -231,7 +271,6 @@ export const PLATFORM_CONTROL_UI_TABS = [
     { id: 'sponsor', label: 'Sponsor' },
     { id: 'moderation', label: 'Moderazione' },
     { id: 'maintenance', label: 'Manutenzione' },
-    { id: 'globals', label: 'Info Globali' },
     { id: 'audit', label: 'Storico Audit' },
 ] as const;
 
@@ -254,7 +293,7 @@ export const PLATFORM_CONTROL_TAB_COPY: Record<
     comms: {
         title: 'Comunicazioni',
         description:
-            'Gestisce i canali di comunicazione della piattaforma, incluse chat, notifiche e servizi di messaggistica disponibili per utenti, sponsor e amministratori.',
+            'Gestisce i canali di comunicazione della piattaforma: chat Admin↔Partner, Partner↔Admin, Negozio Digitale↔Utente (entrambe le direzioni), notifiche e messaggi di disabilitazione / disclosure sulle card.',
     },
     sponsor: {
         title: 'Sponsor',
@@ -270,11 +309,6 @@ export const PLATFORM_CONTROL_TAB_COPY: Record<
         title: 'Manutenzione',
         description:
             'Contiene gli strumenti operativi utilizzati durante attività di manutenzione o emergenza, inclusa la sospensione temporanea di servizi e schedulazioni.',
-    },
-    globals: {
-        title: 'Info Globali',
-        description:
-            'Gestisce i testi e le informazioni condivise dalla piattaforma, utilizzati come riferimento globale per utenti e amministratori.',
     },
     audit: {
         title: 'Storico Audit',
@@ -297,6 +331,9 @@ export type PlatformMessageTemplateCatalogEntry = {
     defaultTitle: string;
     defaultBody: string;
 };
+
+const DIGITAL_SHOP_USER_DISCLOSURE_BODY =
+    'Le conversazioni CRM tra Negozio Digitale ed Utente possono essere consultate dagli amministratori della piattaforma per finalità di supporto e moderazione.';
 
 /**
  * Messaggi legati a una card Feature Flag (editabili inline sulla card).
@@ -368,10 +405,42 @@ export const PLATFORM_FLAG_MESSAGE_CATALOG: readonly PlatformMessageTemplateCata
     },
     {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_USER_SPONSOR_DISABLED,
-        label: 'Chat Utente↔Sponsor disabilitata',
-        description: 'Messaggio quando feature.comms.user_sponsor è OFF.',
+        label: 'Chat Partner↔Admin disabilitata',
+        description: 'Messaggio quando feature.comms.user_sponsor (Chat Partner↔Admin) è OFF.',
         defaultTitle: 'Chat non disponibile',
-        defaultBody: 'La chat Utente↔Sponsor non è ancora attiva.',
+        defaultBody: 'La chat Partner↔Admin non è ancora attiva.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_DIGITAL_SHOP_USER_DISABLED,
+        label: 'Chat Negozio Digitale↔Utente disabilitata',
+        description: 'Messaggio OFF quando feature.comms.digital_shop_user è OFF.',
+        defaultTitle: 'Chat non disponibile',
+        defaultBody:
+            'La messaggistica del Negozio Digitale verso gli utenti è temporaneamente non disponibile.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_USER_DIGITAL_SHOP_DISABLED,
+        label: 'Chat Utente↔Negozio Digitale disabilitata',
+        description: 'Messaggio OFF quando feature.comms.user_digital_shop è OFF.',
+        defaultTitle: 'Chat non disponibile',
+        defaultBody:
+            'La messaggistica verso il Negozio Digitale è temporaneamente non disponibile.',
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_DIGITAL_SHOP_USER_DISCLOSURE,
+        label: 'Disclosure Negozio Digitale↔Utente',
+        description:
+            'Informativa in-chat (lato Negozio Digitale): gli admin possono consultare le conversazioni Negozio↔Utente.',
+        defaultTitle: 'Privacy conversazioni Negozio Digitale',
+        defaultBody: DIGITAL_SHOP_USER_DISCLOSURE_BODY,
+    },
+    {
+        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_USER_DIGITAL_SHOP_DISCLOSURE,
+        label: 'Disclosure Utente↔Negozio Digitale',
+        description:
+            'Informativa in-chat (lato Utente): gli admin possono consultare le conversazioni Negozio↔Utente.',
+        defaultTitle: 'Privacy conversazioni Negozio Digitale',
+        defaultBody: DIGITAL_SHOP_USER_DISCLOSURE_BODY,
     },
     {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_NOTIFICATIONS_PAUSED,
@@ -423,29 +492,6 @@ export const PLATFORM_FLAG_MESSAGE_CATALOG: readonly PlatformMessageTemplateCata
         defaultBody:
             'Continua ad accumulare XP: quando la Gamification sarà attivata, potrai utilizzare automaticamente tutti i punti già guadagnati.',
     },
-];
-
-/** Messaggio manutenzione — card TAB Manutenzione (non Info Globali). */
-export const MAINTENANCE_MESSAGE_CATALOG_ENTRY: PlatformMessageTemplateCatalogEntry = {
-    key: PLATFORM_MESSAGE_TEMPLATE_KEYS.MAINTENANCE_TICKER,
-    label: 'Messaggio manutenzione (News Bar)',
-    description: 'Testo fisso in News Bar quando la manutenzione è ON (DL-P06).',
-    defaultTitle: 'Manutenzione',
-    defaultBody: 'Piattaforma in manutenzione programmata. Alcune funzioni possono essere limitate.',
-};
-
-/**
- * TAB Info Globali — solo testi trasversali non legati a una card flag.
- */
-export const PLATFORM_GLOBAL_MESSAGE_CATALOG: readonly PlatformMessageTemplateCatalogEntry[] = [
-    {
-        key: PLATFORM_MESSAGE_TEMPLATE_KEYS.SPONSOR_CRM_DISCLOSURE,
-        label: 'Disclosure CRM Sponsor (D18)',
-        description: 'Informativa operativa: gli admin possono consultare le conversazioni CRM.',
-        defaultTitle: 'Privacy conversazioni CRM',
-        defaultBody:
-            'Le conversazioni CRM tra Admin e Partner possono essere consultate dagli amministratori della piattaforma per finalità di supporto e moderazione.',
-    },
     {
         key: PLATFORM_MESSAGE_TEMPLATE_KEYS.REGISTRATION_CLOSED,
         label: 'Registrazione chiusa',
@@ -455,11 +501,18 @@ export const PLATFORM_GLOBAL_MESSAGE_CATALOG: readonly PlatformMessageTemplateCa
     },
 ];
 
-/** Unione flag-card + globali (lookup). Manutenzione resta voce dedicata. */
-export const PLATFORM_CONTROL_MESSAGE_CATALOG: readonly PlatformMessageTemplateCatalogEntry[] = [
-    ...PLATFORM_FLAG_MESSAGE_CATALOG,
-    ...PLATFORM_GLOBAL_MESSAGE_CATALOG,
-];
+/** Messaggio manutenzione — card TAB Manutenzione. */
+export const MAINTENANCE_MESSAGE_CATALOG_ENTRY: PlatformMessageTemplateCatalogEntry = {
+    key: PLATFORM_MESSAGE_TEMPLATE_KEYS.MAINTENANCE_TICKER,
+    label: 'Messaggio manutenzione (News Bar)',
+    description: 'Testo fisso in News Bar quando la manutenzione è ON (DL-P06).',
+    defaultTitle: 'Manutenzione',
+    defaultBody: 'Piattaforma in manutenzione programmata. Alcune funzioni possono essere limitate.',
+};
+
+/** Catalogo lookup Message Template (card flag + manutenzione). Nessun catalogo Info Globali. */
+export const PLATFORM_CONTROL_MESSAGE_CATALOG: readonly PlatformMessageTemplateCatalogEntry[] =
+    PLATFORM_FLAG_MESSAGE_CATALOG;
 
 export function findMessageCatalogByKey(
     messageKey: string | null | undefined
