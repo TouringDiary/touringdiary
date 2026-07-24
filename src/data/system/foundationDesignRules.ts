@@ -83,6 +83,9 @@ export const FOUNDATION_DESIGN_RULES: FoundationRuleSeed[] = [
   shell(
     'Barra footer',
     'foundation_modal_footer',
+    // shrink-0 keeps the CTA row in the Foundation slot. On mobile bottom sheets with
+    // interactive-widget=resizes-content, consumers should hide this footer while the
+    // virtual keyboard is open (see useVirtualKeyboardOpen) so body/inputs keep space.
     'px-4 sm:px-8 py-6 border-t border-white/5 bg-slate-900/50 shrink-0 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between min-w-0',
     'Footer'
   ),

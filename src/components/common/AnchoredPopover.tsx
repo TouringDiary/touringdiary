@@ -11,6 +11,8 @@ export interface AnchoredPopoverProps {
     children: React.ReactNode;
     align?: AnchoredAlign;
     className?: string;
+    /** Merged into the portaled panel style (after position; z-index stays owned by the shell). */
+    style?: React.CSSProperties;
     /** Optional layout boundary — popover is clamped inside this element (and the viewport). */
     boundaryRef?: React.RefObject<HTMLElement | null>;
     /** Register close on ESC via LIFO stack (default true). */
@@ -34,6 +36,7 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
     children,
     align = 'right',
     className = '',
+    style,
     boundaryRef,
     closeOnEscape = true,
     closeOnClickOutside = true,
@@ -86,7 +89,7 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
             role={role}
             aria-modal={false}
             className={`fixed ${align === 'center' ? '-translate-x-1/2' : ''} ${ready ? 'animate-in fade-in zoom-in-95' : 'opacity-0 pointer-events-none'} ${className}`}
-            style={{ zIndex: Z_POPOVER, ...position }}
+            style={{ zIndex: Z_POPOVER, ...position, ...style }}
             onClick={(e) => e.stopPropagation()}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}

@@ -25,12 +25,12 @@ I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano pr
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 0.3.17 |
+| **Versione** | 0.3.18 |
 | **Ultima revisione** | 2026-07-23 |
-| **Stato** | Implementazione in Corso |
+| **Stato** | Implementazione in Corso — collaudi CC conclusi; STEP-3 non chiuso formalmente |
 | **Percorso SSOT** | `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` |
 | **UI Admin (nome definitivo PO)** | **Centro di Controllo** — **non rinominare** (DL-P02, conferma 2026-07-14) |
-| **Prossimo passo** | Collaudo residui Audit B (T16 Post community, T20 Programmazioni) → Audit A → Validazione PO STEP-3 |
+| **Prossimo passo** | Hold PO (attività aggiuntive) → Audit A Collaboration/Workspace → Validazione formale STEP-3 → **poi** STEP-4 (non ancora avviato) |
 
 ### Naming (decisione PO — DL-P02)
 
@@ -637,8 +637,8 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 - Flag rimosso dal catalogo Feature Flags v1 e dalla pianificazione WF-02 STEP-3;
 - Batch 4 Post-3.4 (`collaboration_live`) **eliminato** — nessun wiring;
 - La ricognizione DOC 28 resta obbligatoria come **audit architetturale finale** del dominio Collaboration (coerenza Workspace / condivisione / ruoli / realtime / lock / presenza / sync / ownership / UX) — **non** per decidere un Feature Flag;
-- Successivo audit completo del Centro di Controllo (consumer ↔ flag realmente gestibili);
-- Solo dopo entrambi gli audit, se senza criticità, chiusura STEP-3 → STEP-4.
+- Successivo audit completo del Centro di Controllo (consumer ↔ flag realmente gestibili) — **COMPLETATO** (PO 2026-07-23, Audit B chiuso);
+- Solo dopo entrambi gli audit, se senza criticità, chiusura STEP-3 → STEP-4. *Aggiornato 2026-07-23:* Audit B chiuso; Audit A ancora aperto; STEP-4 **non** avviato (hold PO).
 
 **Nota:** `global_settings.collaboration_live_config` (timeout lock / heartbeat) resta Configuration Source di dominio DOC 28 / Impostazioni Globali Workspace — **non** è un Feature Flag CC.
 
@@ -698,6 +698,7 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 | Versione | Data | Modifiche |
 |----------|------|-----------|
+| 0.3.18 | 2026-07-23 | Stato: collaudi Centro di Controllo / Audit B **chiusi** (PO); prossimo passo = hold PO → Audit A → Validazione STEP-3; STEP-4 non avviato |
 | 0.3.17 | 2026-07-23 | Comunicazioni: flag Negozio Digitale↔Utente (due direzioni); disclosure per-card; rimozione TAB Info Globali; deprecazione `sponsor_crm_disclosure` |
 | 0.3.16 | 2026-07-22 | Storico Audit gestibile: eliminazione singola + svuota via RPC admin_all; DL-P05 aggiornato; matrice permessi |
 | 0.3.15 | 2026-07-22 | Programmazioni: semantica ON/OFF = abilitazione fermo (non valore FF); pausa in header Programmazione automatica; lista persistente al cambio TAB |

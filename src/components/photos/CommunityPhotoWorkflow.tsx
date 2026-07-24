@@ -1,5 +1,6 @@
 import React from 'react';
 import { PhotoAcquireDialog } from '@/components/photos/PhotoAcquireDialog';
+import { InAppCameraCapture } from '@/components/photos/InAppCameraCapture';
 import { CommunityPhotoPublishModal } from '@/components/photos/CommunityPhotoPublishModal';
 import { UserPhotoEditor } from '@/components/community/UserPhotoEditor';
 import { useCanCapturePhoto } from '@/hooks/photos/useCanCapturePhoto';
@@ -13,7 +14,10 @@ interface Props {
 
 /**
  * Shared Community photo UX shell:
- * acquire → editor (+ filters) → compose/publish.
+ * acquire → (in-app capture | gallery) → editor (+ filters) → compose/publish.
+ *
+ * Camera uses getUserMedia in-page so the SPA tab stays foreground (avoids
+ * system camera backgrounding the tab / Vite HMR full-reload on mobile tunnel).
  */
 export const CommunityPhotoWorkflow: React.FC<Props> = ({ workflow }) => {
     const canCapture = useCanCapturePhoto();
@@ -26,6 +30,12 @@ export const CommunityPhotoWorkflow: React.FC<Props> = ({ workflow }) => {
                 onClose={workflow.closeAcquire}
                 onCapture={workflow.triggerCamera}
                 onGallery={workflow.triggerGallery}
+            />
+
+            <InAppCameraCapture
+                isOpen={workflow.isCaptureOpen}
+                onCapture={workflow.handleCameraCaptured}
+                onCancel={workflow.closeCapture}
             />
 
             {workflow.isEditOpen && workflow.originalFile && (
@@ -66,20 +76,13 @@ export const CommunityPhotoWorkflow: React.FC<Props> = ({ workflow }) => {
             />
 
             <input
-                ref={workflow.cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={workflow.handleFileSelected}
-            />
-            <input
                 ref={workflow.galleryInputRef}
                 type="file"
                 accept="image/*"
                 className="hidden"
                 onChange={workflow.handleFileSelected}
             />
+
         </>
     );
 };

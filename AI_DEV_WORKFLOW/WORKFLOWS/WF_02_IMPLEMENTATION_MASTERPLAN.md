@@ -15,8 +15,8 @@
 | **SSOT** | `AI_CONTEXT/29_SPONSOR_SECURITY_MASTERPLAN.md` · `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` · `AI_CONTEXT/31_PACKING_SUITCASE_SYSTEM.md` (vincoli integrazione) · `AI_CONTEXT/32_DESIGN_SYSTEM_FOUNDATION.md` (vincoli UI/layering) |
 | **Owner** | PO + AI |
 | **Creato** | 2026-07-14 |
-| **Ultimo aggiornamento** | 2026-07-16 |
-| **Aggiornato da** | Registrazione DOC 33 / DL-035 — ID Governance non approvata; priorità bug fix attivazione |
+| **Ultimo aggiornamento** | 2026-07-23 |
+| **Aggiornato da** | PO — collaudi Centro di Controllo / Audit B chiusi; STEP-4 non avviato (hold attività PO) |
 
 ---
 
@@ -112,8 +112,8 @@ Eseguire in ordine progressivo le implementazioni approvate negli SSOT dominio *
 |-------|-----------------|
 | **Workflow** | WF-02 — Attivo |
 | **STEP** | STEP-3 — Centro di Controllo (DOC 30) |
-| **Fase** | Post-3.4 — Photo domain dual-family (Photograph vs Placeholder) — Blocco 2 dominio in review PO |
-| **% convenzionale** | 98 % |
+| **Fase** | Post-3.4 — **pronto al passaggio successivo** (Audit B chiuso; STEP-4 non avviato) |
+| **% convenzionale** | 99 % |
 
 ---
 
@@ -513,13 +513,13 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 >
 > Eseguire **dopo** la chiusura formale della Fase 3.4. Il PO decide quali consumer ulteriori collegare solo a valle di questo audit.
 >
-> **Stato corretto:** ricognizione / audit tecnico **completati** e report prodotto; piano batch 1–3 **completati**; Batch 4 **eliminato** (DL-P12). L’**attività post-3.4 resta aperta** fino agli Audit A (DOC 28) e B (copertura CC) e alla Validazione PO STEP-3.
+> **Stato corretto:** ricognizione / audit tecnico **completati**; piano batch 1–3 **completati**; Batch 4 **eliminato** (DL-P12). **Audit B (collaudi Centro di Controllo) CHIUSO** (PO 2026-07-23). L’**attività post-3.4 resta aperta** fino ad Audit A (DOC 28) e alla Validazione PO formale STEP-3. **STEP-4 non avviato.**
 
 | Campo | Valore |
 |-------|--------|
-| **Stato attività** | **Ancora aperta** — Batch 1–3 ✓ · Audit B forense ✓ · fix UX/BUG ✓ · **runtime gating AI collaudato PO ✓** (T01–T04; provider AI POSTICIPATO) · residui non-AI Audit B · Audit A piano (non avviato) |
-| **PO ✓** | ☐ (chiusura post-3.4 dopo residui Audit B + Audit A + assenza criticità) |
-| **Nota** | DL-P13/P14 implementati; collaudo gating AI chiuso 2026-07-21; T14/T15/CROSS-P SUPERATI 2026-07-22; restano T12/T16/T20/AUDIT-05 + Audit A. |
+| **Stato attività** | **Aperta (hold)** — sviluppo CC ✓ · wiring Batch 1–3 ✓ · Photo dual-family ✓ · **Audit B / collaudi CC CHIUSI** (PO 2026-07-23) · provider AI POSTICIPATO · **Audit A** non avviato · Validazione formale STEP-3 non registrata · STEP-4 **non** iniziato |
+| **PO ✓** | ☐ chiusura formale STEP-3 (dopo Audit A + Validazione PO); **hold** esplicito su avvio STEP-4 per attività aggiuntive PO |
+| **Nota** | Collaudi/verifiche CC previsti per questa fase **completati** 2026-07-23. Workflow fermo in *pronto al passaggio successivo* — non anticipare STEP-4. |
 
 ### Backlog Post-3.4 / rifiniture (obbligatorio tracciare)
 
@@ -530,7 +530,7 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | **SCH-STATUS-UI** | Stato per riga programmazione (In attesa/Attiva/Eseguita/In pausa/Disabilitata/Errore) auto-aggiornato (DL-P14); storico sempre visibile | Sviluppo Scheduler | **Implementato** 2026-07-20 (label aggiornate 2026-07-22) |
 | **AI-GATE-COLLAUDO** | Collaudo runtime gating AI (FF / Emergency Stop / blocco preventivo / UI) | Collaudo PO | **COMPLETATO** 2026-07-21 |
 | **AI-PROVIDER-COLLAUDO** | Test funzionali provider (Gemini/OpenAI, qualità, prompt, retry, API Key) | Collaudo | **POSTICIPATO** — collaudo finale post API Key |
-| **AUDIT-A** | Audit architetturale Collaboration DOC 28 | Solo analisi | Piano prodotto; non avviato |
+| **AUDIT-A** | Audit architetturale Collaboration DOC 28 | Solo analisi | Piano prodotto; **non avviato** (non è collaudo CC) |
 
 ---
 
@@ -540,7 +540,7 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 |----|-----------|---------------|
 | **DL-P13** | Tutti i messaggi utente governati **solo** dal Centro di Controllo (Message Template → DB). Catalogo TS non è SoT. Hardcoded solo log/debug/commenti/errori tecnici (+ bootstrap minimo). | MSG-SOT obbligatorio prima chiusura STEP-3 |
 | **DL-P14** | Ogni riga programmazione mostra stato runtime (In attesa/Attiva/Eseguita/In pausa/Disabilitata/Errore); storico sempre visibile. | SCH-STATUS-UI **implementato** |
-| **SCH-FILONE** | Audit Scheduler + fix start/end + tick UI + clear override su save schedule. | Completato lato codice 2026-07-20 — collaudo PO pending |
+| **SCH-FILONE** | Audit Scheduler + fix start/end + tick UI + clear override su save schedule. | Completato lato codice 2026-07-20 — collaudo PO incluso in chiusura Audit B 2026-07-23 |
 
 *Riferimenti SSOT: DOC 30 DL-P13/P14; SoT collaudo `WF_02_AUDIT_B_CENTRO_CONTROLLO.md`.*
 
@@ -554,14 +554,17 @@ La bonifica va eseguita **in implementazione** (migration/SQL Pack Fase 2.1); qu
 | **3** | `feature.sponsor.shop_public`, `feature.platform.registration`, `feature.platform.onboarding` | **Completato** (2026-07-19) |
 | **4** | ~~`feature.platform.collaboration_live`~~ | **Eliminato** (PO 2026-07-20 — DL-P12): collaborazione = capacità strutturale; **nessun** toggle CC; **nessun** wiring |
 
-### Attività post-3.4 residue (obbligatorie prima della chiusura STEP-3)
+### Attività post-3.4 residue (prima della chiusura formale STEP-3)
 
-| # | Attività | Tipo | Obiettivo |
-|---|----------|------|-----------|
-| **A** | Audit architetturale finale dominio Collaboration (DOC 28) | Solo documentazione / analisi | Verificare coerenza di Workspace, condivisione, ruoli, realtime, lock, presenza, sincronizzazione, ownership, UX con l’architettura piattaforma. **Non** decidere Feature Flag. Nessuna implementazione. |
-| **B** | Audit completo Centro di Controllo | Solo documentazione / analisi | Verificare che tutte le funzionalità realmente gestibili dal CC siano già collegate ai Feature Flag. Nessuna implementazione in questo passo. |
+| # | Attività | Tipo | Stato | Obiettivo |
+|---|----------|------|-------|-----------|
+| **B** | Collaudi / Audit completo Centro di Controllo | Collaudo | **COMPLETATO** (PO 2026-07-23) | Verificare Feature Flag ↔ comportamento app. SoT: `WF_02_AUDIT_B_CENTRO_CONTROLLO.md` |
+| **A** | Audit architetturale finale dominio Collaboration (DOC 28) | Solo documentazione / analisi | **Aperto** | Verificare coerenza Workspace / condivisione / ruoli / realtime / lock / presenza / sync / ownership / UX. **Non** Feature Flag. Nessuna implementazione. |
+| — | Validazione PO formale chiusura STEP-3 | PO | **Aperto** | Dopo Audit A + assenza criticità |
+| — | Avvio STEP-4 | Sequenza | **Non avviato** — **hold PO** | Attività aggiuntive PO prima del passaggio; **non** anticipare |
 
-**Gate chiusura STEP-3:** A e B completati **senza criticità bloccanti** → Validazione PO STEP-3 → avvio STEP-4.
+**Gate chiusura STEP-3:** Audit B ☑ · Audit A + Validazione PO → poi autorizzazione esplicita ad avviare STEP-4.  
+**Nota PO 2026-07-23:** collaudi CC conclusi; workflow resta in *pronto al passaggio successivo* senza entrare in STEP-4.
 
 ---
 
@@ -727,6 +730,7 @@ Il Workflow WF-02 si considera **Completato** quando:
 
 | Data | STEP | Fase | Stato | Nota |
 |------|------|------|-------|------|
+| 2026-07-23 | 3 | Post-3.4 | Hold / pronto passaggio | Audit B / collaudi CC **CHIUSI** (PO); STEP-3 non chiuso formalmente; STEP-4 **non** avviato |
 | 2026-07-18 | 3 | 3.4 | Completato | Schedule/pausa/card/DS/audit; smoke consumer OK; PO ✓ 2026-07-18 |
 | 2026-07-17 | 3 | 3.3 | Completato | Message Template Source editor; disclosure CRM D18; manutenzione News Bar DL-P06 |
 | 2026-07-17 | 3 | 3.2 | Completato | Macro-sezioni AI/Comms/Sponsor/Moderation; consumer candidature/rating/AI/moderation; G-AI-SEP |
@@ -751,11 +755,11 @@ Il Workflow WF-02 si considera **Completato** quando:
 |-------|--------|
 | **Workflow corrente** | WF-02 — Implementation Masterplan |
 | **STEP corrente** | STEP-3 — Centro di Controllo (DOC 30) |
-| **Fase corrente** | Post-3.4 — Photo dual-family **CONCLUSO** (codice + DOC 16 v2.1) |
-| **Stato della fase** | Refactoring dominio Photo chiuso; collaudo manuale runtime opzionale PO; Audit A/B residui aperti |
-| **Prossima fase da eseguire** | Residui Audit B non-AI + Audit A DOC 28; collaudo manuale Photo se richiesto PO |
-| **STEP completato in questa sessione** | — |
-| **Fase completata in questa sessione** | — (Fase 3.4 già chiusa; post-3.4 ancora aperta; Batch 3 wiring completato) |
+| **Fase corrente** | Post-3.4 — **pronto al passaggio successivo** |
+| **Stato della fase** | Sviluppo CC **completato** · Collaudi CC / Audit B **chiusi** (PO 2026-07-23) · Audit A e Validazione formale STEP-3 **ancora aperti** · STEP-4 **non** avviato (hold PO) |
+| **Prossima fase da eseguire** | Attività aggiuntive PO → poi Audit A / Validazione STEP-3 → **solo dopo autorizzazione PO** avvio STEP-4 |
+| **STEP completato in questa sessione** | — (STEP-3 non ancora chiuso formalmente) |
+| **Fase completata in questa sessione** | Collaudi/verifiche Centro di Controllo (Audit B) — **chiusi** |
 | **Workflow completato** | No |
 
 ---
@@ -796,25 +800,26 @@ Il Workflow WF-02 si considera **Completato** quando:
 - [x] **Post-3.4 — Batch 2:** `admin_partner`, `notifications` — 2026-07-19
 - [x] **Post-3.4 — Batch 3:** `shop_public`, `registration`, `onboarding` — 2026-07-19
 - [x] **Post-3.4 — decisione PO DL-P12:** nessun Feature Flag `collaboration_live`; collaborazione = capacità strutturale — 2026-07-20
-- [ ] **Post-3.4 — Audit A:** audit architetturale finale dominio Collaboration (DOC 28) — coerenza Workspace / condivisione / ruoli / realtime / lock / presenza / sync / ownership / UX (solo analisi)
-- [ ] **Post-3.4 — Audit B:** collaudo funzionale Centro di Controllo — SoT: `WF_02_AUDIT_B_CENTRO_CONTROLLO.md` (**gating AI COMPLETATO** T01–T04; T14/T15/CROSS-P SUPERATI 2026-07-22; provider AI POSTICIPATO; aperti: T12/T16/T20 Programmazioni, AUDIT-05)
+- [x] **Post-3.4 — Audit B:** collaudi / verifiche Centro di Controllo — **CHIUSO** (PO 2026-07-23; esito positivo)
+- [ ] **Post-3.4 — Audit A:** audit architetturale finale dominio Collaboration (DOC 28) — solo analisi
+- [ ] **Post-3.4 — Validazione formale PO chiusura STEP-3**
+- [ ] **STEP-4** — **non avviato** (hold PO: attività aggiuntive prima del passaggio)
 
 ### Gate cambiati in questa sessione
 
 | Gate | Prima | Dopo |
 |------|-------|------|
-| Pronto per Implementazione DOC 29 | ☐ | ☑ |
-| Gate Fase 1 Sponsor | ☐ | ☑ |
+| — | — | Nessun gate G-MSG / DoD cambiato in questa sessione |
 
 ### Avanzamento processo
 
 | Elemento | Esito sessione |
 |----------|----------------|
-| **Fasi completate** | STEP-1 Fase 1.1–1.3; STEP-2 Fase 2.1–2.6; STEP-3 Fase 3.1–3.4 |
-| **STEP completati** | STEP-1, STEP-2 |
+| **Fasi completate** | STEP-1 Fase 1.1–1.3; STEP-2 Fase 2.1–2.6; STEP-3 Fase 3.1–3.4; **collaudi CC / Audit B** |
+| **STEP completati** | STEP-1, STEP-2 (**STEP-3 non ancora chiuso formalmente**) |
 | **Workflow completato** | No |
-| **Punto esatto raggiunto** | WF-02 Attivo · STEP-3 · Post-3.4: Batch 1–3 ✓ · **gating AI collaudato PO ✓** · provider AI POSTICIPATO · residui Audit B non-AI · Audit A da fare · **attività ancora aperta** |
+| **Punto esatto raggiunto** | WF-02 Attivo · STEP-3 · Post-3.4 **pronto al passaggio** · Audit B ☑ · Audit A ☐ · STEP-4 **non** iniziato (hold PO) |
 
 ### Prossimo checkpoint previsto
 
-**Audit B residui** (T16/T20 Programmazioni/AUDIT-05/T12) + **Audit A — DOC 28** → se senza criticità bloccanti: Validazione PO STEP-3 → avvio STEP-4.
+Attività aggiuntive PO → **Audit A (DOC 28)** → Validazione formale PO STEP-3 → **solo con autorizzazione PO** avvio STEP-4. **Non** anticipare STEP-4.

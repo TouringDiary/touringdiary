@@ -71,6 +71,14 @@ La migrazione da Legacy a Foundation è **incrementale** e guidata dal valore fu
 
 I **nuovi componenti condivisi** (modali, shell, controlli riusati) devono adottare Foundation salvo motivazioni architetturali documentate nel Decision Log o nel file Workflow attivo.
 
+### Keyboard / bottom sheet (mobile)
+
+Con `interactive-widget=resizes-content` (`index.html`), l’overlay `td-modal-overlay` (fixed bottom) si riduce con la tastiera: un `foundation_modal_footer` `shrink-0` salirebbe nel viewport utile e sottrarrebbe spazio a input/selettori.
+
+**Policy Foundation:** sui bottom sheet mobile con campi testo, nascondere il footer dalla flex-flow mentre la tastiera è aperta (`useVirtualKeyboardOpen`), e ripristinarlo alla chiusura. Il body resta l’unica area che cede spazio. Dropdown in container `overflow-hidden` devono usare `AnchoredPopover` (portal), non `absolute` interno.
+
+Riferimento implementato: `CommunityPhotoPublishModal` + `CitySelector`.
+
 ### Fuori scope v1 (esplicito)
 
 - Refactor estetico globale
@@ -154,4 +162,5 @@ I **nuovi componenti condivisi** (modali, shell, controlli riusati) devono adott
 
 | Versione | Data | Modifiche |
 |----------|------|-----------|
+| 1.1 | 2026-07-24 | Policy keyboard/bottom sheet mobile (`useVirtualKeyboardOpen` + footer fuori flow; `AnchoredPopover` per dropdown in `overflow-hidden`) |
 | 1.0 | 2026-07-13 | Creazione SSOT WF-01; assorbimento Foundation WIP + `modal-layering.md` |

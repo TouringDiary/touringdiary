@@ -7,6 +7,7 @@ import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '@/co
 import { evaluateCachedFeatureFlag } from '@/domain/platformControl/platformFlagCache';
 import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useGps } from '@/context/GpsContext';
 import { findNearestCityId } from '@/domain/geo/nearestCity';
 import { joinCaptionAndStreet, splitCaptionAndStreet } from '@/domain/photos/photoCaption';
 import { resolvePhotoCityId } from '@/domain/photos/photoOfficial';
@@ -15,7 +16,7 @@ import { resolvePhotoCityId } from '@/domain/photos/photoOfficial';
 export type CommunityPhotoMode = 'create' | 'promote';
 
 /** UX steps — one focused surface at a time (D-009). */
-export type CommunityPhotoStep = 'idle' | 'acquire' | 'edit' | 'compose';
+export type CommunityPhotoStep = 'idle' | 'acquire' | 'capture' | 'edit' | 'compose';
 
 export type CommunityPhotoPreview = { url: string; file: File; sessionKey: string };
 
@@ -57,6 +58,7 @@ export function useCommunityPhotoPublish({
     const photosFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.MODERATION_PHOTOS);
     /** Fail-closed: solo `enabled === true` consente upload (CC / evaluateFeatureFlag SoT). */
     const photosEnabled = photosFlag?.enabled === true;
+    const { requestPosition } = useGps();
 
     const [mode, setMode] = useState<CommunityPhotoMode>('create');
     const [step, setStep] = useState<CommunityPhotoStep>('idle');
@@ -78,7 +80,6 @@ export function useCommunityPhotoPublish({
     const [earnedXp, setEarnedXp] = useState(0);
 
     const processedSessionKeys = useRef<Set<string>>(new Set());
-    const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
     const allowAutoCityRef = useRef(true);
 
@@ -92,10 +93,18 @@ export function useCommunityPhotoPublish({
     const isAdmin = user.role === 'admin_all' || user.role === 'admin_limited';
     const isGuest = user.role === 'guest';
 
+    /**
+     * Prefill order (create):
+     * 1. lockedCityId (City Gallery)
+     * 2. nearest published city from GPS (current position)
+     * 3. activeCityId (navigation context fallback)
+     */
     const resolvePrefillCityId = useCallback((): string => {
         if (lockedCityId) return lockedCityId;
+        const nearest = findNearestCityId(userLocation, cityManifest);
+        if (nearest) return nearest;
         if (activeCityId) return activeCityId;
-        return findNearestCityId(userLocation, cityManifest) || '';
+        return '';
     }, [lockedCityId, activeCityId, userLocation, cityManifest]);
 
     const setSelectedCityIdFromUser = useCallback((cityId: string) => {
@@ -103,22 +112,24 @@ export function useCommunityPhotoPublish({
         setSelectedCityId(cityId);
     }, []);
 
+    // Auto-prefill whenever GPS/manifest/navigation become available during create,
+    // across idle → acquire → edit → compose (no premature lock on empty id).
+    useEffect(() => {
+        if (mode !== 'create') return;
+        if (!allowAutoCityRef.current) return;
+        if (selectedCityId) return;
+        const next = resolvePrefillCityId();
+        if (next) setSelectedCityId(next);
+    }, [mode, step, resolvePrefillCityId, selectedCityId]);
+
     useEffect(() => {
         if (step !== 'idle') return;
         if (mode !== 'create') return;
         allowAutoCityRef.current = true;
-        setSelectedCityId(resolvePrefillCityId());
-    }, [resolvePrefillCityId, step, mode]);
+    }, [step, mode]);
 
-    useEffect(() => {
-        if (step !== 'compose' || mode !== 'create') return;
-        if (!allowAutoCityRef.current || selectedCityId) return;
-        const next = resolvePrefillCityId();
-        if (next) setSelectedCityId(next);
-    }, [step, mode, resolvePrefillCityId, selectedCityId]);
-
-    /** Clears create-session fields shared by resetWorkflow + startPublish (no step change). */
-    const clearCreateSession = useCallback(() => {
+    /** Session field reset only — does not resolve or write selectedCityId. */
+    const resetCreateSessionFields = useCallback(() => {
         setUploadPreview((prev) => {
             revokePreviewUrl(prev?.url);
             return null;
@@ -132,9 +143,20 @@ export function useCommunityPhotoPublish({
         setShowEmojiPicker(false);
         setIsOfficialUpload(false);
         allowAutoCityRef.current = true;
-        setSelectedCityId(resolvePrefillCityId());
         processedSessionKeys.current.clear();
-    }, [resolvePrefillCityId, revokePreviewUrl]);
+    }, [revokePreviewUrl]);
+
+    /** Applies current auto-prefill into selectedCityId (create session). */
+    const applyAutoCityPrefill = useCallback(() => {
+        allowAutoCityRef.current = true;
+        setSelectedCityId(resolvePrefillCityId());
+    }, [resolvePrefillCityId]);
+
+    /** Clears create-session fields then applies city prefill (shared by resetWorkflow + startPublish). */
+    const clearCreateSession = useCallback(() => {
+        resetCreateSessionFields();
+        applyAutoCityPrefill();
+    }, [resetCreateSessionFields, applyAutoCityPrefill]);
 
     const resetWorkflow = useCallback(() => {
         clearCreateSession();
@@ -146,11 +168,18 @@ export function useCommunityPhotoPublish({
     /** Guest auth UX is the caller's job (LiveFeedTab / CityGallery → onOpenAuth). */
     const startPublish = useCallback(() => {
         if (!photosEnabled) return;
+        // Fire-and-forget GPS acquire in the same user-gesture stack when position is missing.
+        // Result is intentionally unused here:
+        // - success → GpsContext updates userLocation → auto-prefill effect sets city
+        // - failure → no modal/alert (compose stays usable; user picks city manually)
+        if (!lockedCityId && !userLocation) {
+            void requestPosition();
+        }
         clearCreateSession();
         setIsUploading(false);
         setUploadStep('');
         setStep('acquire');
-    }, [photosEnabled, clearCreateSession]);
+    }, [photosEnabled, lockedCityId, userLocation, requestPosition, clearCreateSession]);
 
     const openPromoteModal = useCallback(
         (snap: PhotoSubmission) => {
@@ -192,21 +221,23 @@ export function useCommunityPhotoPublish({
         resetWorkflow();
     }, [originalFile, uploadPreview, resetWorkflow]);
 
+    /** Opens in-page getUserMedia capture (does not background the tab). */
     const triggerCamera = useCallback(() => {
         if (!photosEnabled) return;
-        cameraInputRef.current?.click();
+        setStep('capture');
     }, [photosEnabled]);
+
+    const closeCapture = useCallback(() => {
+        setStep('acquire');
+    }, []);
 
     const triggerGallery = useCallback(() => {
         if (!photosEnabled) return;
         galleryInputRef.current?.click();
     }, [photosEnabled]);
 
-    const handleFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        e.target.value = '';
+    const acceptImageFile = useCallback((file: File) => {
         if (!photosEnabled) return;
-        if (!file) return;
         setShowEmojiPicker(false);
         setOriginalFile(file);
         setUploadPreview((prev) => {
@@ -215,6 +246,17 @@ export function useCommunityPhotoPublish({
         });
         setStep('edit');
     }, [photosEnabled, revokePreviewUrl]);
+
+    const handleFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        acceptImageFile(file);
+    }, [acceptImageFile]);
+
+    const handleCameraCaptured = useCallback((file: File) => {
+        acceptImageFile(file);
+    }, [acceptImageFile]);
 
     const handleEditorSave = useCallback((editedFile: File, previewUrl: string) => {
         setShowEmojiPicker(false);
@@ -467,11 +509,12 @@ export function useCommunityPhotoPublish({
         setSelectedCityId: setSelectedCityIdFromUser,
         showEmojiPicker,
         setShowEmojiPicker,
-        cameraInputRef,
         galleryInputRef,
         triggerCamera,
+        closeCapture,
         triggerGallery,
         handleFileSelected,
+        handleCameraCaptured,
         handleEditorSave,
         handleEditorCancel,
         reeditFromOriginal,
@@ -488,6 +531,7 @@ export function useCommunityPhotoPublish({
         openUploadModal: startPublish,
         isComposeOpen: step === 'compose',
         isAcquireOpen: step === 'acquire',
+        isCaptureOpen: step === 'capture',
         isEditOpen: step === 'edit',
     };
 }

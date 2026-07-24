@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
  *
  * Prefer touch capability over viewport: iPad + keyboard / Surface / touch Chromebook
  * still expose maxTouchPoints or a coarse pointer, while classic desktops do not.
+ * Actual capture uses in-page getUserMedia (CommunityPhotoWorkflow), not system
+ * `<input capture>` (that backgrounds the tab on mobile).
  */
 export function useCanCapturePhoto(): boolean {
     const [canCapture, setCanCapture] = useState(false);

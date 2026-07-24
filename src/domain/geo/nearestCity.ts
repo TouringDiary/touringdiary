@@ -1,7 +1,18 @@
 import { calculateDistance } from '@/services/geo';
+import { GEO_CONFIG } from '@/constants/geoConfig';
 import type { CitySummary } from '@/types/index';
 
-const DEFAULT_MAX_DISTANCE_KM = 80;
+function hasUsableCoords(coords: { lat?: number; lng?: number } | null | undefined): coords is {
+    lat: number;
+    lng: number;
+} {
+    if (!coords) return false;
+    const { lat, lng } = coords;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+    // (0, 0) is the mapper placeholder for missing coordinates — not a real city.
+    if (lat === 0 && lng === 0) return false;
+    return true;
+}
 
 /**
  * Nearest published city to GPS coords within maxDistanceKm.
@@ -10,17 +21,22 @@ const DEFAULT_MAX_DISTANCE_KM = 80;
 export function findNearestCityId(
     userLocation: { lat: number; lng: number } | null | undefined,
     cities: Pick<CitySummary, 'id' | 'coords'>[],
-    maxDistanceKm = DEFAULT_MAX_DISTANCE_KM
+    maxDistanceKm = GEO_CONFIG.SEARCH_RADIUS_MAX
 ): string | null {
     if (!userLocation || cities.length === 0) return null;
+    if (!Number.isFinite(userLocation.lat) || !Number.isFinite(userLocation.lng)) return null;
 
     let bestId: string | null = null;
     let bestDist = Number.POSITIVE_INFINITY;
 
     for (const city of cities) {
-        const { lat, lng } = city.coords ?? {};
-        if (!lat || !lng) continue;
-        const dist = calculateDistance(userLocation.lat, userLocation.lng, lat, lng);
+        if (!hasUsableCoords(city.coords)) continue;
+        const dist = calculateDistance(
+            userLocation.lat,
+            userLocation.lng,
+            city.coords.lat,
+            city.coords.lng
+        );
         if (Number.isFinite(dist) && dist < bestDist) {
             bestDist = dist;
             bestId = city.id;

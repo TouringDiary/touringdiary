@@ -1,12 +1,12 @@
 import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Trophy } from 'lucide-react';
-import { PhotoSubmission, User as UserType, CitySummary } from '../../types/index';
+import { PhotoSubmission, User as UserType } from '../../types/index';
 import { listPhotographs, deletePhotoSubmissionInDb, updatePhotoData } from '../../services/photoService';
-import { getFullManifestAsync } from '../../services/cityService';
 import { useInteraction } from '../../context/InteractionContext';
 import { useNavigation } from '../../context/useNavigation';
 import { useGps } from '@/context/GpsContext';
+import { useUser } from '@/context/UserContext';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { GalleryLightbox, LightboxData } from '../city/gallery/GalleryLightbox';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
@@ -29,6 +29,7 @@ interface LiveFeedTabProps {
 export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps) => {
     const { activeCityId } = useNavigation();
     const { userLocation } = useGps();
+    const { cityManifest } = useUser();
     const { togglePhotoHeart, getPhotoStatus } = useInteraction();
     const rewardsEnabled = useAreRewardsEnabled();
 
@@ -36,7 +37,6 @@ export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps
     const [visibleSnapsCount, setVisibleSnapsCount] = useState(15);
     const [activeLightboxIndex, setActiveLightboxIndex] = useState<number | null>(null);
     const [heroIndex, setHeroIndex] = useState(0);
-    const [cityManifest, setCityManifest] = useState<CitySummary[]>([]);
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; caption: string } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -66,7 +66,6 @@ export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps
 
     useEffect(() => {
         void refreshSnaps();
-        void getFullManifestAsync().then(setCityManifest);
     }, [user, refreshSnaps]);
 
     const filteredSnaps = useMemo(() => {

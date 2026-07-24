@@ -3,11 +3,15 @@ import { useGpsManager } from '../hooks/core/useGpsManager';
 import { useModal } from './ModalContext';
 import { useConfig } from '@/context/ConfigContext';
 
+type GpsRequestResult = Awaited<ReturnType<ReturnType<typeof useGpsManager>['requestPosition']>>;
+
 interface GpsContextType {
     userLocation: { lat: number; lng: number } | null;
     isLocating: boolean;
     error: string | null;
     toggleGps: () => void;
+    /** Acquisizione posizione senza UI errore (il caller gestisce il risultato). */
+    requestPosition: () => Promise<GpsRequestResult>;
     confirmGpsFromModal: () => void;
 }
 
@@ -47,7 +51,9 @@ export const GpsProvider = ({ children }: { children?: ReactNode }) => {
     }, [requestPosition, modalContext]);
 
     return (
-        <GpsContext.Provider value={{ userLocation, isLocating, error, toggleGps, confirmGpsFromModal }}>
+        <GpsContext.Provider
+            value={{ userLocation, isLocating, error, toggleGps, requestPosition, confirmGpsFromModal }}
+        >
             {children}
         </GpsContext.Provider>
     );

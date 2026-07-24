@@ -12,22 +12,39 @@ export interface CitySuggestion {
  * Se la città non viene trovata o in caso di errore, ritorna null.
  *
  * @param cityId Identificativo del comune
+ * @param signal Optional AbortSignal — cancels the in-flight PostgREST request when the caller supersedes it
  */
-export async function getCityNameById(cityId: string): Promise<string | null> {
+export async function getCityNameById(
+    cityId: string,
+    signal?: AbortSignal
+): Promise<string | null> {
     try {
-        const { data, error } = await supabase
+        if (signal?.aborted) return null;
+
+        let query = supabase
             .from('cities_registry')
             .select('name')
-            .eq('id', cityId)
-            .maybeSingle();
+            .eq('id', cityId);
+
+        if (signal) {
+            query = query.abortSignal(signal);
+        }
+
+        const { data, error } = await query.maybeSingle();
+
+        if (signal?.aborted) return null;
 
         if (error) {
+            // Abort is not a failure worth logging.
+            if (error.name === 'AbortError' || signal?.aborted) return null;
             console.error(`[geoRegistryService] Error in getCityNameById for ${cityId}:`, error);
             return null;
         }
 
         return data?.name || null;
     } catch (err) {
+        if (signal?.aborted) return null;
+        if (err instanceof DOMException && err.name === 'AbortError') return null;
         console.error(`[geoRegistryService] Unexpected exception in getCityNameById for ${cityId}:`, err);
         return null;
     }
@@ -96,6 +113,65 @@ export interface ActiveTouristZone {
 }
 
 /**
+ * View rows from Supabase expose nullable columns even when the underlying
+ * geo tables are NOT NULL. Domain Active* records require complete strings —
+ * drop incomplete rows instead of widening the domain or asserting.
+ */
+function toActiveContinent(row: {
+    id: string | null;
+    name: string | null;
+    slug: string | null;
+}): ActiveContinent | null {
+    if (!row.id || !row.name || !row.slug) return null;
+    return { id: row.id, name: row.name, slug: row.slug };
+}
+
+function toActiveNation(row: {
+    id: string | null;
+    name: string | null;
+    slug: string | null;
+    continent_id: string | null;
+}): ActiveNation | null {
+    if (!row.id || !row.name || !row.slug || !row.continent_id) return null;
+    return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        continent_id: row.continent_id,
+    };
+}
+
+function toActiveRegion(row: {
+    id: string | null;
+    name: string | null;
+    slug: string | null;
+    nation_id: string | null;
+}): ActiveRegion | null {
+    if (!row.id || !row.name || !row.slug || !row.nation_id) return null;
+    return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        nation_id: row.nation_id,
+    };
+}
+
+function toActiveTouristZone(row: {
+    id: string | null;
+    name: string | null;
+    slug: string | null;
+    region_id: string | null;
+}): ActiveTouristZone | null {
+    if (!row.id || !row.name || !row.slug || !row.region_id) return null;
+    return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        region_id: row.region_id,
+    };
+}
+
+/**
  * Recupera tutte le tipologie di città uniche presenti in city_template_map.
  */
 export async function getUniqueCityTypes(): Promise<string[]> {
@@ -130,7 +206,10 @@ export async function getActiveContinents(): Promise<ActiveContinent[]> {
             return [];
         }
 
-        return data || [];
+        return (data ?? []).flatMap((row) => {
+            const mapped = toActiveContinent(row);
+            return mapped ? [mapped] : [];
+        });
     } catch (err) {
         console.error('[geoRegistryService] Unexpected exception in getActiveContinents:', err);
         return [];
@@ -154,7 +233,10 @@ export async function getActiveNations(continentId: string): Promise<ActiveNatio
             return [];
         }
 
-        return data || [];
+        return (data ?? []).flatMap((row) => {
+            const mapped = toActiveNation(row);
+            return mapped ? [mapped] : [];
+        });
     } catch (err) {
         console.error(`[geoRegistryService] Unexpected exception in getActiveNations for continent ${continentId}:`, err);
         return [];
@@ -178,7 +260,10 @@ export async function getActiveRegions(nationId: string): Promise<ActiveRegion[]
             return [];
         }
 
-        return data || [];
+        return (data ?? []).flatMap((row) => {
+            const mapped = toActiveRegion(row);
+            return mapped ? [mapped] : [];
+        });
     } catch (err) {
         console.error(`[geoRegistryService] Unexpected exception in getActiveRegions for nation ${nationId}:`, err);
         return [];
@@ -202,7 +287,10 @@ export async function getActiveTouristZones(regionId: string): Promise<ActiveTou
             return [];
         }
 
-        return data || [];
+        return (data ?? []).flatMap((row) => {
+            const mapped = toActiveTouristZone(row);
+            return mapped ? [mapped] : [];
+        });
     } catch (err) {
         console.error(`[geoRegistryService] Unexpected exception in getActiveTouristZones for region ${regionId}:`, err);
         return [];

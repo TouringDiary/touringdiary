@@ -8,7 +8,7 @@
 
 La collaborazione è una **capacità strutturale** della piattaforma. **Non** esiste (e non deve esistere) un Feature Flag Centro di Controllo del tipo `feature.platform.collaboration_live`.
 
-**Audit architetturale finale (WF-02 Post-3.4 — Audit A):** verificare la coerenza di Workspace, condivisione, ruoli, realtime, lock, presenza, sincronizzazione, ownership e UX rispetto all’architettura complessiva. **Nessuna implementazione** in questo passo; **non** è una decisione su toggle CC.
+**Audit architetturale finale (WF-02 Post-3.4 — Audit A):** verificare la coerenza di Workspace, condivisione, ruoli, realtime, lock, presenza, sincronizzazione, ownership e UX rispetto all’architettura complessiva. **Nessuna implementazione** in questo passo; **non** è una decisione su toggle CC. *Nota 2026-07-23:* i collaudi Centro di Controllo (Audit B) sono **chiusi**; questo Audit A resta **aperto** e distinto.
 
 `collaboration_live_config` in `global_settings` resta Configuration Source operativa (timeout lock / heartbeat), distinta da qualsiasi Feature Flag.
 

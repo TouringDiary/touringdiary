@@ -1,8 +1,7 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Search, MapPin, Loader2, X, Check } from 'lucide-react';
 import { getCityNameById, searchCitiesByName, CitySuggestion } from '../../services/geoRegistryService';
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 
 const MIN_SEARCH_LENGTH = 2;
 
@@ -26,24 +25,26 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [selectedName, setSelectedName] = useState('');
+    const [panelWidth, setPanelWidth] = useState<number | undefined>(undefined);
 
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const anchorRef = useRef<HTMLDivElement>(null);
 
     // Keep display label in sync when parent value changes (prefill / GPS / reset).
+    // AbortController cancels the in-flight registry request when `value` changes
+    // again before the previous response arrives (avoids wasted network + stale apply).
     useEffect(() => {
-        let cancelled = false;
-
         if (!value) {
             setSelectedName('');
             setQuery('');
-            return () => {
-                cancelled = true;
-            };
+            return;
         }
 
+        const ac = new AbortController();
+
         const fetchCityName = async () => {
-            const name = await getCityNameById(value);
-            if (cancelled) return;
+            const name = await getCityNameById(value, ac.signal);
+            if (ac.signal.aborted) return;
             if (name) {
                 setSelectedName(name);
                 setQuery(name);
@@ -55,22 +56,9 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
 
         void fetchCityName();
         return () => {
-            cancelled = true;
+            ac.abort();
         };
     }, [value]);
-
-    // Chiusura al click fuori
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-                // Se non abbiamo selezionato nulla, resettiamo al nome selezionato precedentemente
-                setQuery(selectedName);
-            }
-        };
-        window.addEventListener('mousedown', handleClickOutside);
-        return () => window.removeEventListener('mousedown', handleClickOutside);
-    }, [selectedName]);
 
     // Ricerca asincrona
     const searchCities = useCallback(async (searchText: string) => {
@@ -83,12 +71,6 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
         try {
             const results = await searchCitiesByName(searchText);
             setSuggestions(results);
-
-
-
-
-
-
         } catch (err) {
             console.error('[CitySelector] Error searching cities:', err);
         } finally {
@@ -106,6 +88,16 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
         return () => clearTimeout(timer);
     }, [query, isOpen, selectedName, searchCities]);
 
+    const showSuggestions = isOpen && query.length >= MIN_SEARCH_LENGTH;
+
+    // useLayoutEffect is intentional: width must be set before the portaled popover
+    // paints/measures, otherwise AnchoredPopover can flash at the wrong width then snap.
+    useLayoutEffect(() => {
+        if (!showSuggestions) return;
+        const width = anchorRef.current?.getBoundingClientRect().width;
+        if (width && Number.isFinite(width)) setPanelWidth(width);
+    }, [showSuggestions, query]);
+
     const handleSelect = (city: CitySuggestion) => {
         setSelectedName(city.name);
         setQuery(city.name);
@@ -122,7 +114,7 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
 
     return (
         <div ref={wrapperRef} className={`relative w-full ${className}`}>
-            <div className="relative group">
+            <div ref={anchorRef} className="relative group">
                 <MapPin className={`absolute left-3 top-3.5 w-4 h-4 transition-colors ${isOpen ? 'text-indigo-400' : 'text-slate-500 group-focus-within:text-indigo-400'}`} />
 
                 <input
@@ -152,44 +144,49 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
                 </div>
             </div>
 
-            {/* Suggerimenti Dropdown */}
-            {isOpen && query.length >= MIN_SEARCH_LENGTH && (
-                <div
-                    className="absolute mt-2 w-full bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
-                    style={{ zIndex: Z_MODAL_NESTED }}
-                >
-                    {suggestions.length > 0 ? (
-                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-2">
-                            {suggestions.map((city) => (
-                                <button
-                                    key={city.id}
-                                    type="button"
-                                    onClick={() => handleSelect(city)}
-                                    className="w-full text-left px-4 py-3 hover:bg-slate-800 rounded-xl transition-colors flex items-center justify-between group"
-                                >
-                                    <div>
-                                        <p className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">{city.name}</p>
-                                        <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wider">
-                                            {city.province ? `${city.province}, ` : ''}{city.region}
-                                        </p>
-                                    </div>
-                                    {value === city.id && <Check className="w-4 h-4 text-emerald-500" />}
-                                </button>
-                            ))}
+            {/* Portaled list: Foundation modal_container uses overflow-hidden — absolute dropdowns are clipped. */}
+            <AnchoredPopover
+                isOpen={showSuggestions}
+                onClose={() => {
+                    setIsOpen(false);
+                    setQuery(selectedName);
+                }}
+                anchorRef={anchorRef}
+                align="left"
+                role="listbox"
+                className="bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+                style={panelWidth ? { width: panelWidth } : undefined}
+                closeOnEscape
+                closeOnClickOutside
+            >
+                {suggestions.length > 0 ? (
+                    <div className="max-h-[min(40vh,300px)] overflow-y-auto custom-scrollbar p-2">
+                        {suggestions.map((city) => (
+                            <button
+                                key={city.id}
+                                type="button"
+                                onClick={() => handleSelect(city)}
+                                className="w-full text-left px-4 py-3 hover:bg-slate-800 rounded-xl transition-colors flex items-center justify-between group"
+                            >
+                                <div>
+                                    <p className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">{city.name}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wider">
+                                        {city.province ? `${city.province}, ` : ''}{city.region}
+                                    </p>
+                                </div>
+                                {value === city.id && <Check className="w-4 h-4 text-emerald-500" />}
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    !isLoading && (
+                        <div className="p-8 text-center">
+                            <Search className="w-8 h-8 text-slate-800 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500 font-medium">Nessun comune trovato per "{query}"</p>
                         </div>
-                    ) : (
-                        !isLoading && (
-                            <div className="p-8 text-center">
-                                <Search className="w-8 h-8 text-slate-800 mx-auto mb-2" />
-                                <p className="text-xs text-slate-500 font-medium">Nessun comune trovato per "{query}"</p>
-                            </div>
-                        )
-                    )}
-                </div>
-            )}
+                    )
+                )}
+            </AnchoredPopover>
         </div>
     );
 };
-
-
-

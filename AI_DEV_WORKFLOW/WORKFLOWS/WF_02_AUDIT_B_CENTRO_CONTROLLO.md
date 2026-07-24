@@ -1,8 +1,8 @@
 # Audit B — Collaudo funzionale Centro di Controllo  
 ## Source of Truth del collaudo (WF-02 · STEP-3 · Post-3.4)
 
-> **Stato documento:** ATTIVO — aggiornare a ogni sessione di test PO.  
-> **Ultimo aggiornamento:** 2026-07-22 (Decisioni PO definitive T20 / Programmazioni UX + layout Manutenzione — §19; T14/T15/CROSS-P SUPERATI)  
+> **Stato documento:** **CHIUSO** (collaudi Centro di Controllo — conferma PO 2026-07-23).  
+> **Ultimo aggiornamento:** 2026-07-23 (PO: tutti i collaudi previsti per il Centro di Controllo **COMPLETATI** con esito positivo)  
 > **Owner:** Product Owner + AI sviluppo  
 > **Regola:** nessuna decisione di collaudo deve restare solo in chat; va registrata qui.  
 > **Codice:** fix UX/BUG ✓ · MSG-SOT + Scheduler ✓ · T02-B gating ✓ · overlay Segnalazioni ✓ · Programmazioni UX T20 ✓ (2026-07-22).
@@ -16,9 +16,9 @@ Collegamenti: `WF_02_IMPLEMENTATION_MASTERPLAN.md` · `03_PROJECT_STATUS.md` · 
 | Voce | Valore |
 |------|--------|
 | **Collaudo** | Audit B — Feature Flag ↔ comportamento app |
-| **Avanzamento** | Runtime gating AI **COMPLETATO** (T01–T04) · T14/T15 **SUPERATI** · CROSS-P Persistenza **SUPERATO** · provider AI **POSTICIPATO** · residui: T16 / T20 Programmazioni / AUDIT-05 / T12 + Audit A |
+| **Avanzamento** | **COLLAUDI CENTRO DI CONTROLLO CONCLUSI** (PO 2026-07-23) · T01–T11 / T13–T20 / CROSS-P **SUPERATI** · T12 **chiuso come NON ESEGUIBILE** (rinviato oltre STEP-3) · provider AI **POSTICIPATO** (non bloccante) |
 | **Implementazione** | MSG-SOT + Scheduler + T02-B UI/gateway ✓ |
-| **Chiusura Audit B** | Residui non-AI (T12/T16/T20/AUDIT-05) + Audit A + assenza criticità |
+| **Chiusura Audit B** | **CHIUSA** — conferma PO 2026-07-23 (collaudi/verifiche CC previsti per questa fase) |
 
 ---
 
@@ -44,10 +44,12 @@ Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AU
 | T13 | Recensioni utenti | Moderazione | **SUPERATO** | 2026-07-20 | Piano click-by-click aggiornato §9.2 (smoke opzionale) |
 | T14 | Upload foto | Moderazione | **SUPERATO** | 2026-07-22 | OFF/ON, blocco caricamento, riabilitazione — nessuna anomalia |
 | T15 | Segnalazioni utenti | Moderazione | **SUPERATO** | 2026-07-22 | OFF/ON, blocco invio, riabilitazione; overlay UI allineato Foundation |
+| T16 | Post community | Moderazione | **SUPERATO** | 2026-07-23 | PO: collaudo previsto CC concluso con esito positivo |
 | T17 | Modalità manutenzione | Manutenzione | **SUPERATO** | 2026-07-20 | — |
 | T18 | Registrazione nuovi utenti | Manutenzione | **SUPERATO** | 2026-07-20 | — |
 | T19 | Onboarding guidato | Manutenzione | **SUPERATO** | 2026-07-20 | — |
-| CROSS-P | Persistenza Feature Flag (trasversale) | — | **SUPERATO** | 2026-07-22 | Salvataggio + refresh + nuova sessione + logout/login + coerenza consumer. **Non** sostituisce T20 (Programmazioni). |
+| T20 | Programmazioni in pausa | Manutenzione | **SUPERATO** | 2026-07-23 | PO: collaudo previsto CC concluso con esito positivo |
+| CROSS-P | Persistenza Feature Flag (trasversale) | — | **SUPERATO** | 2026-07-22 | Salvataggio + refresh + nuova sessione + logout/login + coerenza consumer. |
 
 ### 2.1-bis Runtime gating AI — chiusura collaudo (PO 2026-07-21)
 
@@ -61,14 +63,12 @@ Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AU
 
 **Provider AI (Gemini/OpenAI)** — generazione contenuti, qualità output, prompt, parsing, retry, funzionalità dipendenti da API Key reali: **POSTICIPATO** al collaudo finale post-configurazione API Key. Non blocca la chiusura del collaudo gating STEP-3.
 
-### 2.2 APERTI / BLOCCATI / NON ESEGUIBILI / POSTICIPATI
+### 2.2 POSTICIPATI / NON ESEGUIBILI (chiusura Audit B gestita)
 
 | # | Feature Flag | Stato | Motivo |
 |---|--------------|-------|--------|
-| — | Test funzionali provider AI (Gemini/OpenAI) | **POSTICIPATO** | Collaudo finale dopo API Key reali (decisione PO 2026-07-21) |
-| T12 | Soglia rating alert | **NON ESEGUIBILE** | Nessuno shop con recensioni disponibili |
-| T16 | Post community | **APERTO** + **AUDIT-05** | Collaudo operativo autonomo (documento + chat PO); decisione PO rinomina ancora aperta |
-| T20 | Programmazioni in pausa | **APERTO** | Collaudo operativo autonomo (documento + chat PO). Distinto da CROSS-P Persistenza (già SUPERATO) |
+| — | Test funzionali provider AI (Gemini/OpenAI) | **POSTICIPATO** | Collaudo finale dopo API Key reali (decisione PO 2026-07-21) — **non** fa parte dei collaudi CC di questa fase |
+| T12 | Soglia rating alert | **NON ESEGUIBILE** — chiuso per Audit B | Nessuno shop con recensioni; PO 2026-07-23: **rinviato oltre STEP-3** (non blocca chiusura collaudi CC) |
 
 ---
 
@@ -134,7 +134,7 @@ Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AU
 | AUDIT-02 | (riservato) | — | — |
 | AUDIT-03 | Messaggi Feature Flag: SoT vs hardcoded (tutti i flag CC) | Solo audit | **COMPLETATO §14** |
 | AUDIT-04 | Acquisto crediti senza pagamento reale | Solo audit | **COMPLETATO §7** |
-| AUDIT-05 | Post community vs Upload foto | Solo audit / proposta | **COMPLETATO forense §13** — decisione PO rinomina ancora aperta |
+| AUDIT-05 | Post community vs Upload foto | Solo audit / proposta | **COMPLETATO** — forense §13; collaudo T16 SUPERATO 2026-07-23; chiusura Audit B PO |
 | AUDIT-06 | Guida Programmazioni per PO | Documentazione | **COMPLETATO §8** |
 | AUDIT-07 | Programmazioni: anticipo / messaggio Admin / sticky OFF | Solo audit | **COMPLETATO §15** (SCH-01/02/03) |
 | AUDIT-08 | Scheduler approfondito (SCH-AUDIT-02) | Audit → fix | **COMPLETATO diagnosi §16/§18** · fix in implementazione |
@@ -149,8 +149,8 @@ Legenda: `SUPERATO` · `APERTO` · `BLOCCATO` · `NON ESEGUIBILE` · `UX` · `AU
 3. Collaboration Live **non** è un Feature Flag (DL-P12) — fuori Audit B.  
 4. Per ogni Feature Flag AI Admin: piano di test **solo** click-by-click (vietato “prova una funzione AI”).  
 5. Segnalazioni: fix funzionale + standard UI (+ Roadbook) — **eseguito**.  
-6. Post community: decisione rinomina ancora aperta (AUDIT-05) — non blocca MSG-SOT.  
-7. Soglia rating: lasciare **NON ESEGUIBILE** finché non esistono shop con recensioni.  
+6. Post community (AUDIT-05): collaudo T16 **SUPERATO** 2026-07-23; chiusura verifiche Audit B confermata PO.  
+7. Soglia rating (T12): **NON ESEGUIBILE** — rinviato oltre STEP-3 (PO 2026-07-23); non blocca chiusura collaudi CC.  
 8. **Regola permanente audit:** conclusioni solo con pipeline codice dimostrata; vietate ipotesi (vedi `02_GOVERNANCE.md` §12).  
 9. **DL-P13 (definitiva):** tutti i messaggi destinati agli utenti provengono **esclusivamente** dal Centro di Controllo (Message Template → DB). I cataloghi TypeScript **non** sono Source of Truth. Hardcoded ammessi solo per log, debug, commenti, errori tecnici; fallback bootstrap solo se riga DB assente.  
 10. **Filone Scheduler (PO):** audit approfondito (runtime, cache, refresh, timezone, override, evaluation, start/stop) poi fix + **SCH-STATUS-UI** (stati riga: In attesa / Attiva / Eseguita / In pausa / Disabilitata / Errore).  
@@ -679,23 +679,23 @@ Verificare che l’interruttore **Programmazioni in pausa** (card superiore del 
 | **Audit A** | Audit architetturale Collaboration (DOC 28) — solo analisi | — (iniziativa separata) | Report Audit A senza criticità bloccanti (o con deroga PO) |
 | **STEP-3** | Validazione PO formale STEP-3 / Post-3.4 | Sì (insieme ad Audit B chiuso) | **Audit B chiuso** **e** **Audit A concluso** **e** assenza criticità bloccanti → Validazione PO STEP-3 |
 
-**Significato corretto:** Audit B può chiudersi **senza** Audit A. Lo STEP-3 **non** può chiudersi finché non sono conclusi **anche** Audit A e le verifiche residue di Audit B.
+**Significato corretto:** Audit B **chiuso** (PO 2026-07-23) **senza** Audit A. Lo STEP-3 **non** è ancora chiuso formalmente: restano Audit A e Validazione PO STEP-3. **STEP-4 non avviato** — workflow fermo in stato *pronto al passaggio successivo* in attesa di attività aggiuntive PO.
 
 ### 11.2 Checklist — solo Audit B
 
-- [ ] Tutti i SUPERATI senza regressioni note  
+- [x] Tutti i SUPERATI senza regressioni note  
 - [x] BUG-01/02/03 risolti (2026-07-20)  
 - [x] UX-01/02 risolti (2026-07-20)  
 - [x] AUDIT-03 checklist messaggi completata (§14)  
 - [x] AUDIT-07 Programmazioni SCH-01/02/03 (§15) — fix non ancora prioritizzati  
-- [ ] AUDIT-05 decisione PO registrata  
+- [x] AUDIT-05 / T16 — collaudo SUPERATO; chiusura verifiche PO 2026-07-23  
 - [x] T02/T03/T04 rieseguiti dopo fix T02-B — **SUPERATO** (PO 2026-07-21); provider AI **POSTICIPATO**  
 - [x] T14/T15 riesaminati dopo fix — **SUPERATO** (PO 2026-07-22)  
 - [x] CROSS-P Persistenza Feature Flag — **SUPERATO** (PO 2026-07-22; distinto da T20)  
-- [ ] T16 Post community collaudato (procedura operativa autonoma) + decisione AUDIT-05  
-- [ ] T20 Programmazioni in pausa collaudato (procedura operativa autonoma)  
-- [ ] T12 eseguito o esplicitamente rinviato oltre STEP-3  
-- [ ] **Validazione PO chiusura Audit B** (residui T12/T16/T20/AUDIT-05 gestiti) — **indipendente da Audit A**
+- [x] T16 Post community collaudato — **SUPERATO** (PO 2026-07-23)  
+- [x] T20 Programmazioni in pausa collaudato — **SUPERATO** (PO 2026-07-23)  
+- [x] T12 esplicitamente rinviato oltre STEP-3 (PO 2026-07-23)  
+- [x] **Validazione PO chiusura Audit B** (collaudi/verifiche CC previsti per questa fase) — **2026-07-23** — **indipendente da Audit A**
 
 ### 11.3 Fuori checklist Audit B (tracciati altrove)
 
@@ -711,6 +711,7 @@ Verificare che l’interruttore **Programmazioni in pausa** (card superiore del 
 
 | Data | Autore | Modifica |
 |------|--------|----------|
+| 2026-07-23 | PO | **Chiusura Audit B / collaudi Centro di Controllo:** tutti i collaudi previsti per questa fase **COMPLETATI** con esito positivo; T16/T20 SUPERATI; T12 rinviato oltre STEP-3; provider AI resta POSTICIPATO |
 | 2026-07-22 | PO + AI | **§19 Decisioni PO definitive T20** (Programmazioni UX/layout); procedura §9.4 allineata al nuovo layout; guida §8 aggiornata con nota storica |
 | 2026-07-22 | PO + AI | DOC 30 / Audit B / Masterplan **APPROVATI** PO; T16+T20 procedure click-by-click autonome (senza rimandi a capitoli); T14/T15/CROSS-P SUPERATI |
 | 2026-07-22 | PO + AI | T14/T15 **SUPERATI**; CROSS-P Persistenza **SUPERATO**; chiarimento T16 = Post community; piano smoke T13 |

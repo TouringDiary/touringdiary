@@ -138,9 +138,10 @@ Hero / Card / cover entità **non** sono Official Photograph: restano Presentati
 - Promozione a ufficiale: `usePhotoModeration.handleToggleOfficial`
 - **Workflow fotografico Community unico** (Live Feed + Galleria città) — step UX:
   1. **Pubblica Foto** → `PhotoAcquireDialog` (Scatta / Galleria; Scatta disabilitato su desktop)
-  2. **Editor** (`UserPhotoEditor`) — pannello Regola + pannello **Filtri** (preset)
-  3. **Metadati** (`CommunityPhotoPublishModal`) — stessa schermata su entrambi gli entry-point
-  4. **Pubblica** → `uploadCommunityPhoto` → `photo_submissions` (solo derivato finale; originale solo in memoria sessione)
+  2. **Scatta** → `InAppCameraCapture` (`getUserMedia` in-page; **non** `<input capture>` di sistema — evita background del tab / reload HMR in tunnel mobile)
+  3. **Editor** (`UserPhotoEditor`) — pannello Regola + pannello **Filtri** (preset)
+  4. **Metadati** (`CommunityPhotoPublishModal`) — stessa schermata su entrambi gli entry-point
+  5. **Pubblica** → `uploadCommunityPhoto` → `photo_submissions` (solo derivato finale; originale solo in memoria sessione)
 - Orchestrazione: `useCommunityPhotoPublish` + `CommunityPhotoWorkflow`
 - Domini invariati: **un solo dominio Foto**; **un solo dominio Like**
 - Centro di Controllo = SoT blocco upload: `feature.moderation.photos` + `feature.moderation.community_posts`

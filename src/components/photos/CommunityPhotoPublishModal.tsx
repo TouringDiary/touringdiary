@@ -7,6 +7,7 @@ import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useVirtualKeyboardOpen } from '@/hooks/ui/useVirtualKeyboardOpen';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import type { CommunityPhotoMode } from '@/hooks/photos/useCommunityPhotoPublish';
 import { CAPTION_EMOJI_CATEGORIES } from '@/constants/captionEmojis';
@@ -70,6 +71,11 @@ export const CommunityPhotoPublishModal: React.FC<Props> = ({
     canPublish,
 }) => {
     const isMobile = useMobileDetect();
+    const isKeyboardOpen = useVirtualKeyboardOpen(isOpen && isMobile);
+    // Foundation bottom sheets: with interactive-widget=resizes-content the overlay
+    // shrinks and a shrink-0 footer would ride up with the keyboard, stealing space
+    // from CitySelector. Keep footer in the Foundation slot only when keyboard is closed.
+    const showFooter = !isMobile || !isKeyboardOpen;
     const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
     const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
     const headerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeader);
@@ -99,6 +105,7 @@ export const CommunityPhotoPublishModal: React.FC<Props> = ({
               : 'Pubblica Foto';
 
     useGlobalModalEscape(isOpen && !isUploading, onClose);
+
 
     // Click outside: close when pointer is neither on the 😊 toggle nor inside the panel.
     useEffect(() => {
@@ -319,35 +326,38 @@ export const CommunityPhotoPublishModal: React.FC<Props> = ({
                 </div>
 
                 {/* Safe-area: foundation_modal_container already applies pb-safe on mobile — do not override footer padding. */}
-                <footer className={footerShell}>
-                    <div className={footerActionsShell}>
-                        <button
-                            type="button"
-                            onClick={onPublish}
-                            disabled={!canPublish}
-                            className={`${btnPrimaryShell} w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                            {isUploading ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-                                    {primaryLabel}
-                                </>
-                            ) : isPromote ? (
-                                <>
-                                    <Trophy className="w-5 h-5 shrink-0" />
-                                    {primaryLabel}
-                                </>
-                            ) : (
-                                <span className="flex flex-col items-center justify-center text-center leading-tight gap-0.5">
-                                    <span>{primaryLabel}</span>
-                                    <span className="text-[10px] font-bold tracking-widest opacity-80">
-                                        +50 XP
+                {/* Keyboard: footer stays out of the shrunk viewport so body/CitySelector keep usable space (Foundation gap). */}
+                {showFooter && (
+                    <footer className={footerShell}>
+                        <div className={footerActionsShell}>
+                            <button
+                                type="button"
+                                onClick={onPublish}
+                                disabled={!canPublish}
+                                className={`${btnPrimaryShell} w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                {isUploading ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                                        {primaryLabel}
+                                    </>
+                                ) : isPromote ? (
+                                    <>
+                                        <Trophy className="w-5 h-5 shrink-0" />
+                                        {primaryLabel}
+                                    </>
+                                ) : (
+                                    <span className="flex flex-col items-center justify-center text-center leading-tight gap-0.5">
+                                        <span>{primaryLabel}</span>
+                                        <span className="text-[10px] font-bold tracking-widest opacity-80">
+                                            +50 XP
+                                        </span>
                                     </span>
-                                </span>
-                            )}
-                        </button>
-                    </div>
-                </footer>
+                                )}
+                            </button>
+                        </div>
+                    </footer>
+                )}
             </div>
         </div>,
         document.body
