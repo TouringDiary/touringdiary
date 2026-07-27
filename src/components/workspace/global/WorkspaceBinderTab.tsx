@@ -9,8 +9,8 @@ interface Props {
 }
 
 /**
- * Maniglia fisica del pannello workspace (desktop).
- * Non è navigazione: è il segnapagina del raccoglitore nello stesso slot del vecchio pulsante Workspace.
+ * Maniglia fisica MyWorld (desktop) — apre il chooser MySpace | Workspace.
+ * Non è navigazione: è il segnapagina del raccoglitore nello stesso slot storico.
  */
 export const WorkspaceBinderTab: React.FC<Props> = ({
   isOpen,
@@ -23,7 +23,7 @@ export const WorkspaceBinderTab: React.FC<Props> = ({
         type="button"
         id="tour-workspace-binder"
         aria-expanded={isOpen}
-        aria-controls="global-workspace-panel"
+        aria-controls="myworld-chooser-panel"
         onClick={onToggle}
         className={`
           w-full min-w-0 h-8 flex items-center justify-center gap-1.5 group
@@ -36,7 +36,7 @@ export const WorkspaceBinderTab: React.FC<Props> = ({
       >
         <FolderKanban className="w-3.5 h-3.5 text-indigo-400 shrink-0" aria-hidden />
         <span className="text-[9px] uppercase font-bold text-slate-400 group-hover:text-white truncate">
-          Workspace
+          MyWorld
         </span>
         <span className="text-[8px] text-indigo-400/90 shrink-0" aria-hidden>
           {isOpen ? '▲' : '▼'}
@@ -50,7 +50,7 @@ export const WorkspaceBinderTab: React.FC<Props> = ({
       type="button"
       id="tour-workspace-binder"
       aria-expanded={isOpen}
-      aria-controls="global-workspace-panel"
+      aria-controls="myworld-chooser-panel"
       onClick={onToggle}
       className="
         group relative flex items-center gap-2 pl-3 pr-4
@@ -67,7 +67,7 @@ export const WorkspaceBinderTab: React.FC<Props> = ({
     >
       <FolderKanban className="w-4 h-4 text-indigo-400 shrink-0" aria-hidden />
       <span className="text-[10px] font-black uppercase tracking-widest text-slate-200 group-hover:text-white">
-        Workspace
+        MyWorld
       </span>
       <span className="text-[9px] text-indigo-400/80" aria-hidden>
         {isOpen ? '▲' : '▼'}

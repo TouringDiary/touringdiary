@@ -1683,6 +1683,7 @@ export type Database = {
           type: string | null
           updated_at: string | null
           user_id: string | null
+          viaggio_id: string | null
           votes: number | null
           zone: string | null
         }
@@ -1709,6 +1710,7 @@ export type Database = {
           type?: string | null
           updated_at?: string | null
           user_id?: string | null
+          viaggio_id?: string | null
           votes?: number | null
           zone?: string | null
         }
@@ -1735,6 +1737,7 @@ export type Database = {
           type?: string | null
           updated_at?: string | null
           user_id?: string | null
+          viaggio_id?: string | null
           votes?: number | null
           zone?: string | null
         }
@@ -1751,6 +1754,97 @@ export type Database = {
             columns: ["suitcase_id"]
             isOneToOne: false
             referencedRelation: "suitcases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itineraries_viaggio_id_fkey"
+            columns: ["viaggio_id"]
+            isOneToOne: false
+            referencedRelation: "viaggi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viaggio_suitcases: {
+        Row: {
+          created_at: string
+          id: string
+          suitcase_id: string
+          user_id: string | null
+          viaggio_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          suitcase_id: string
+          user_id?: string | null
+          viaggio_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          suitcase_id?: string
+          user_id?: string | null
+          viaggio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viaggio_suitcases_suitcase_id_fkey"
+            columns: ["suitcase_id"]
+            isOneToOne: false
+            referencedRelation: "suitcases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viaggio_suitcases_viaggio_id_fkey"
+            columns: ["viaggio_id"]
+            isOneToOne: false
+            referencedRelation: "viaggi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viaggio_roadbook_artifacts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          snapshot: Json
+          source_diary_id: string
+          user_id: string
+          viaggio_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          snapshot?: Json
+          source_diary_id: string
+          user_id: string
+          viaggio_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          snapshot?: Json
+          source_diary_id?: string
+          user_id?: string
+          viaggio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viaggio_roadbook_artifacts_source_diary_id_fkey"
+            columns: ["source_diary_id"]
+            isOneToOne: false
+            referencedRelation: "itineraries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viaggio_roadbook_artifacts_viaggio_id_fkey"
+            columns: ["viaggio_id"]
+            isOneToOne: false
+            referencedRelation: "viaggi"
             referencedColumns: ["id"]
           },
         ]
@@ -4312,6 +4406,63 @@ export type Database = {
           xp_amount?: number
         }
         Relationships: []
+      }
+      viaggi: {
+        Row: {
+          active_diary_id: string | null
+          cover_image: string | null
+          created_at: string
+          destination: string | null
+          id: string
+          metadata: Json
+          period_end: string | null
+          period_start: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_diary_id?: string | null
+          cover_image?: string | null
+          created_at?: string
+          destination?: string | null
+          id?: string
+          metadata?: Json
+          period_end?: string | null
+          period_start?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_diary_id?: string | null
+          cover_image?: string | null
+          created_at?: string
+          destination?: string | null
+          id?: string
+          metadata?: Json
+          period_end?: string | null
+          period_start?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viaggi_active_diary_id_fkey"
+            columns: ["active_diary_id"]
+            isOneToOne: false
+            referencedRelation: "itineraries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viaggi_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspace_attachments: {
         Row: {

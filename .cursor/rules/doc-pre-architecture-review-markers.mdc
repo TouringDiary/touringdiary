@@ -1,0 +1,29 @@
+---
+description: Non riallineare automaticamente documenti scritti prima del dominio Viaggio congelato; inserire marker TODO/REVIEW.
+alwaysApply: true
+---
+
+# Documenti pre–assetto architetturale (regola permanente)
+
+Le decisioni architetturali sul dominio **Viaggio** (Aggregate Root, Diario ≠ Viaggio, MySpace/Workspace a copie, stereotipi Resource/Library/View, MP-01, sospensione WF-04, ecc.) sono **approvate e congelate**.
+
+Non vanno rimesse in discussione nei documenti già aggiornati alla SoT vigente (`34A`, `37`, `35`, `36`, `28`, `31`, MP-01, …).
+
+## Quando si incontra un documento “vecchio”
+
+Durante qualsiasi attività, se si trova un Workflow, Masterplan, SSOT, roadmap, audit, nota progettuale o altro file che contiene riferimenti, ipotesi o piani costruiti **prima** di quell’assetto:
+
+1. **NON** modificarlo automaticamente per “allinearlo”.
+2. **NON** riscrivere o riallineare subito quel dominio.
+3. Inserire invece una **nota ben visibile** in testa (o nel punto rilevante), ad esempio:
+
+```markdown
+> **TODO / REVIEW — DA RIVALUTARE**  
+> Documento (o sezione) redatto **prima** del dominio Viaggio congelato (SoT: DOC 34A / DOC 37).  
+> Contiene riferimenti o piani da rivalutare quando si lavorerà su questo dominio.  
+> Non usare come Source of Truth del modello vigente.
+```
+
+## Scopo
+
+Evitare inconsistenze future **senza** modifiche premature su file fuori scope dell’attività corrente.

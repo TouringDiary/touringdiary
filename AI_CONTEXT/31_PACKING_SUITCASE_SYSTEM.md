@@ -1,144 +1,126 @@
-# 🧳 DOC 31: PACKING & SUITCASE SYSTEM (v1.0 — CERTIFIED)
+# 31 — Packing & Suitcase System
 
-> **Single source of truth** per il dominio Valigia / packing list post-macrofase C.
-> Verificato su codice e migration Supabase (giugno–luglio 2026).
-> Storico pre-refactor: `docs/_archive/packing/`
+> **SSOT packing / Valigia** allineato al dominio Viaggio congelato.
+> Dominio Viaggio → `37_VIAGGIO_DOMAIN.md`.  
+> MySpace / Strumenti → `35_MYSPACE_PRODUCT_VISION.md`.  
+> Collaborazione → `28_COLLABORATION_WORKSPACE_SYSTEM.md`.
+>
+> **Parte A** = regole di dominio (SoT prodotto).  
+> **Parte B** = runtime packing certificato sul codice (motore catalogo / item) — non ridefinisce l’appartenenza al Viaggio.
+
+**Versione:** 2.0.0  
+**Data:** 2026-07-26  
+**Stato:** Dominio prodotto congelato · motore packing as-is
 
 ---
 
 ## DESCRIZIONE SEMPLICE
 
-Il sistema gestisce valigie di viaggio, template TouringDiary (TD) e template utente, con catalogo standard condiviso, item specifici per template, suggerimenti AI da database e categorie unificate. Le valigie utente persistono su `suitcase_items`; i template TD sono composti a runtime da tabelle catalogo dedicate.
+Il sistema gestisce packing list (valigie), template TouringDiary e template utente.  
+Nel mondo MySpace esistono **due case** distinte:
+
+1. **Valigia del Viaggio** — appartiene a un Viaggio (patrimonio).  
+2. **Strumenti** — valigie e template **permanenti** dell’utente, senza appartenere a un Viaggio.
 
 ---
 
-## MODELLO DATI
+# PARTE A — Target di dominio
 
-### Entità (`suitcaseDomain.ts`)
+## A1. Due case packing
+
+| Casa | Collocazione | Appartenenza |
+|------|--------------|--------------|
+| **Valigia del Viaggio** | MySpace → I miei Viaggi → [Viaggio] → Valigia | Aggregate Root = **Viaggio** |
+| **Strumenti** | MySpace → Strumenti → Le mie Valigie / I miei Template | Utente; **fuori** dal Viaggio |
+
+Regole:
+
+1. Una valigia del viaggio **non** è uno strumento permanente.
+2. Uno strumento permanente **non** diventa automaticamente valigia di un viaggio senza un atto esplicito di copia/associazione (policy Save — implementazione).
+3. Cardinalità: un Viaggio può avere **0..N** Valigie (DOC 37).
+4. Empty Viaggio senza Valigia è legittimo.
+
+## A2. Collaborazione
+
+- Kind condividibile: Valigia (`suitcase`) — share per risorsa resta.
+- In Workspace-da-Viaggio: la sezione Valigia della shell può ricevere la copia selezionata o restare vuota.
+- Mai condividere il Viaggio originale per “portare la valigia”.
+
+## A3. Template
+
+| Tipo | Ruolo prodotto |
+|------|----------------|
+| Template TD | Cataloghi ufficiali TouringDiary (non patrimonio Viaggio) |
+| Template utente | In **Strumenti**; riusabili; non sono sezioni del Viaggio |
+
+## A4. Confine anti–debito
+
+Vietato collassare Valigia-viaggio e Strumenti in un’unica lista senza contesto.  
+Vietato usare la Valigia come Aggregate Root al posto del Viaggio.
+
+---
+
+# PARTE B — Runtime packing (as-is certificato)
+
+> Motore item/categorie/AI packing — verificato su codice e migration (giugno–luglio 2026).  
+> L’as-is oggi lega spesso le valigie a itinerari/diari (`itinerary_suitcases`): è **debito** rispetto alla Parte A fino alla migrazione sul Viaggio.
+
+### B1. Entità (`suitcaseDomain.ts`)
 
 | Tipo | Condizione | Storage item |
 |------|------------|--------------|
-| **Template TD** | `user_id IS NULL` | **Nessun** `suitcase_items` — composizione runtime da catalogo |
-| **Template utente** | `user_id` + `is_user_template` | `suitcase_items` |
-| **Valigia utente** | `user_id` + non template | `suitcase_items` |
+| Template TD | `user_id IS NULL` | Nessun `suitcase_items` — composizione runtime da catalogo |
+| Template utente | `user_id` + `is_user_template` | `suitcase_items` |
+| Valigia utente | `user_id` + non template | `suitcase_items` |
 
-### Tabelle catalogo (macrofase A/C)
+### B2. Tabelle catalogo
 
 | Tabella | Ruolo |
 |---------|--------|
-| `packing_standard_items` | Item standard per categoria; `tier`: `core` \| `additional` \| `additional_ai_only` |
-| `packing_template_items` | Item specifici per template TD (`template_id → suitcases`) |
-| `packing_ai_catalog` | Catalogo AI (`tags[]`, `category`, `name`) |
+| `packing_standard_items` | Item standard; `tier`: `core` \| `additional` \| `additional_ai_only` |
+| `packing_template_items` | Item specifici template TD |
+| `packing_ai_catalog` | Catalogo AI |
 
-**Categorie:** solo frontend — **nessuna** tabella `categories` DB.
+**Categorie:** solo frontend — SSOT `src/domain/packing/packingCategories.ts`.
 
-**RLS:** authenticated read active; admin full; anon read active (guest).
+### B3. Template TD canonici
 
-### Template TD canonici (macrofase C)
+7 template: Mare, Fiumi & Laghi, Montagna, Cultura, Business, Weekend, Famiglia.
 
-7 template: Mare, Fiumi & Laghi, Montagna, Cultura, Business, Weekend, Famiglia — metadata in `suitcases` + `ui_state.category_setup`.
+### B4. Composizione e AI
 
----
+1. `fetchGlobalTemplatesAsync()` → `composeTdTemplateItemsFromCatalog()`
+2. Seed utente: `packingSeedService.ts`
+3. Suggerimenti AI: `fetchActiveAiCatalogAsync()` + `buildCatalogExclusions()` in `aiSuggestions.ts`
 
-## SISTEMA CATEGORIE
-
-**SSOT:** `src/domain/packing/packingCategories.ts`
-
-| Export | Contenuto |
-|--------|-----------|
-| `CORE_CATEGORY_NAMES` | 7 core: Abbigliamento, Igiene, Documenti, Elettronica, Farmaci, Accessori, Extra |
-| `ADDITIONAL_CATEGORY_NAMES` | Bambini, Animali |
-| `CATEGORY_ORDER` | Core + additional (9 totali) |
-| `CATEGORY_ID_MAP` | Nome IT → slug (`clothing`, `hygiene`, …) |
-| `LEGACY_CATEGORY_ALIASES` | `Accessori & Organizzazione` → Accessori; `Salute` → Farmaci; ecc. |
-
-`SuitcaseUtils.tsx` re-esporta helper — **non** definisce ordine proprio.
-
-### `ui_state` (`SuitcaseUiState`)
-
-| Campo | Ruolo |
-|-------|--------|
-| `hidden_category_ids` | Nasconde categoria in UI |
-| `category_setup` | Per categoria: `{ enabled, seeded }` — quali standard items applicare |
-| `dismissed_category_ids` | Categorie dismissate |
-| `category_display_order` / `item_display_order` | Ordinamento UI |
-
----
-
-## COMPOSIZIONE TEMPLATE TD (runtime)
-
-1. `fetchGlobalTemplatesAsync()` → righe `suitcases` TD
-2. `composeTdTemplateItemsFromCatalog()` (`packingTemplateComposition.ts`)
-3. Item ephemeral con id `composed-{suitcaseId}-{n}` — **non** persistiti in `suitcase_items`
-
-**Seed utente:** `packingSeedService.ts` scrive standard items su `suitcase_items` secondo `category_setup`.
-
----
-
-## MOTORE AI SUGGERIMENTI
-
-**Sorgente runtime:** `fetchActiveAiCatalogAsync()` → `packing_ai_catalog` (DB).
-
-**Formula esclusione (macrofase C):**
-```
-Catalogo AI − (Standard seed [category_setup] + Template specifici + Esistenti + Rifiuti)
-```
-Implementata in `aiSuggestions.ts` → `buildCatalogExclusions()`.
-
-**Legacy (non runtime):** `packingAiSeedSource.ts` (`TAG_ITEM_MAP`, `UNIVERSAL_DEFAULTS`) — solo riferimento admin/seed.
-
-**Riferimento dominio congelato:** `packingDomainCatalog.ts` — validazione e generazione migration, non fetch runtime.
-
----
-
-## SERVIZI PRINCIPALI
+### B5. Servizi principali
 
 | File | Ruolo |
 |------|--------|
-| `packingCatalogService.ts` | CRUD/fetch 3 tabelle catalogo |
-| `packingCompositionService.ts` | Composizione TD runtime |
-| `packingSeedService.ts` | Seed standard su valigie utente |
-| `suitcaseTemplateService.ts` | Fetch template, clone, city-type map |
-| `suitcaseEditorialService.ts` | Admin TD → `packing_template_items` |
+| `packingCatalogService.ts` | Catalogo |
+| `packingCompositionService.ts` | Composizione TD |
+| `packingSeedService.ts` | Seed |
+| `suitcaseTemplateService.ts` | Template / clone |
 | `suitcaseCoreService.ts` | CRUD valigie, ui_state |
-| `suitcaseItemsService.ts` | Persistenza `suitcase_items` |
-| `suitcaseRejectionsService.ts` | Blacklist suggerimenti AI rifiutati |
+| `suitcaseItemsService.ts` | Item |
+| `suitcaseRejectionsService.ts` | Rifiuti AI |
 
-**Hub hook:** `useSuitcaseSystem.ts` · **Panel:** `SuitcaseFloatingPanel/` · **Save collaborativo:** `useSuitcaseDocumentSave.ts`
+Hub: `useSuitcaseSystem.ts` · Panel: `SuitcaseFloatingPanel/` · Save collaborativo: `useSuitcaseDocumentSave.ts`
 
----
+### B6. Admin editoriale
 
-## ADMIN EDITORIALE
+`AffiliateEditorialCenter.tsx` — Standard / Template-specific / AI catalog / Template library.
 
-`AffiliateEditorialCenter.tsx` — tab:
-- `StandardItemsTab` → `packing_standard_items`
-- `TemplateSpecificItemsTab` → `packing_template_items`
-- `AiCatalogTab` → `packing_ai_catalog`
-- `TemplateLibraryTab` → metadata template TD
+### B7. Focus UI
 
----
-
-## MIGRATION TIMELINE (riferimento)
-
-| Migration | Scopo |
-|-----------|--------|
-| `20260616120000_create_packing_catalog_tables.sql` | CREATE 3 tabelle + RLS |
-| `20260616120100_seed_packing_catalog.sql` | Seed + migrazione TD legacy → `packing_template_items` + DELETE TD `suitcase_items` |
-| `20260622120000`–`20260622120400` (macrofase C) | Allineamento catalogo congelato, 7 template, AI catalog |
-
-Script verifica vincoli pre-migration: `docs/packing/MACROFASE_C_MIGRATION_CONSTRAINTS.sql`
+Focus Valigia: chiave modal `packingList` (vedi DOC 32).  
+Integrazione collaborazione: `shared_resource_kind: suitcase` → DOC 28.
 
 ---
 
-## INTEGRAZIONE COLLABORAZIONE
+## Cronologia
 
-Valigie sono `shared_resource_kind: suitcase` — vedi `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.
-Focus UI Valigia: `packingList` modal key → `UIMode.workspace` (vedi DOC 32 § Focus).
-
----
-
-## CRONOLOGIA
-
-| Versione | Data | Modifiche |
-|----------|------|-----------|
-| 1.0 | 2026-07-13 | Creazione SSOT WF-01; assorbimento `docs/packing/` |
+| Versione | Data | Note |
+|----------|------|------|
+| 1.0 | 2026-07-13 | SSOT packing post-macrofase C |
+| 2.0.0 | 2026-07-26 | Riscrittura: Valigia-viaggio vs Strumenti; runtime in Parte B |

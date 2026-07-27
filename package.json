@@ -17,7 +17,11 @@
     "packing:catalog:validate": "tsx scripts/validate-packing-domain-catalog.ts",
     "packing:catalog:migrate": "tsx scripts/generate-packing-catalog-migrations.ts",
     "packing:qa": "tsx scripts/qa-macrofase-c.ts",
-    "platform-control:smoke": "tsx scripts/smoke-feature-flag-resolution.ts"
+    "platform-control:smoke": "tsx scripts/smoke-feature-flag-resolution.ts",
+    "viaggio:smoke": "tsx scripts/smoke-viaggio-domain.ts",
+    "myspace:viaggi:smoke": "tsx scripts/smoke-myspace-viaggio-catalog.ts",
+    "viaggio:step3:smoke": "tsx scripts/smoke-viaggio-step3.ts",
+    "collaboration:step4:smoke": "tsx scripts/smoke-collaboration-step4.ts"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",

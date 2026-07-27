@@ -1,5 +1,5 @@
 import React from 'react';
-import { Copy, FolderPlus, Layers, Share2, UserPlus, Users, AlertTriangle } from 'lucide-react';
+import { Copy, FolderPlus, Layers, Share2, UserPlus, Users } from 'lucide-react';
 import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
@@ -86,7 +86,7 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
   entryMode = 'share',
   sharePath,
   sharingMode,
-  shareIntent,
+  shareIntent: _shareIntent,
   selectedRole,
   searchQuery,
   searchResults,
@@ -163,10 +163,11 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
       <div className="space-y-3">
         <h3 className={sectionTitleShell}>{stepTitle}</h3>
         <p className={bodyTextShell}>
-          Scegli se condividere questo elemento o una copia dedicata. <br/>
+          Verrà sempre creata una <strong>copia dedicata</strong> con nuovo ID.
+          L&apos;originale nel tuo spazio personale non viene condiviso.
         </p>
         <OptionCard
-          selected={shareIntent === 'duplicate_and_share'}
+          selected
           onSelect={() => onShareIntentChange('duplicate_and_share')}
           title="Condividi Duplicato"
           description={
@@ -177,26 +178,6 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
           icon={<Copy className="w-5 h-5" />}
           recommended
         />
-        <OptionCard
-          selected={shareIntent === 'share_current'}
-          onSelect={() => onShareIntentChange('share_current')}
-          title="Condividi Originale"
-          description={
-            <>
-              L&apos;elemento <strong>originale</strong> diventerà quello condiviso.
-            </>
-          }
-          icon={<Share2 className="w-5 h-5" />}
-        />
-        {shareIntent === 'share_current' && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" aria-hidden />
-            <p className={`${bodyTextShell} text-amber-200/90`}>
-              Attenzione: sarà modificato l'elemento del tuo spazio
-              personale. Per tenerne una copia invariata, scegli «Condividi Duplicato».
-            </p>
-          </div>
-        )}
       </div>
     )}
 

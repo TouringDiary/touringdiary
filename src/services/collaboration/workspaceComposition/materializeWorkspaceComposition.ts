@@ -69,12 +69,13 @@ export async function rollbackDuplicatedCompositionResources(
   }
 }
 
-export type WorkspaceCompositionShareIntent = 'duplicate_and_share' | 'share_current';
+/** Unico intent prodotto (DOC 28 Parte A): sempre copie con nuovo ID. */
+export type WorkspaceCompositionShareIntent = 'duplicate_and_share';
 
 /**
- * Materializza la composizione selezionata applicando ShareIntent:
- * - share_current: istanze originali
- * - duplicate_and_share: copie + ricostruzione relazioni tra copie selezionate
+ * Materializza la composizione selezionata come copie indipendenti
+ * + ricostruzione relazioni tra copie selezionate (DOC 28 Parte A).
+ * `share_current` / share originale: non supportato.
  */
 export async function materializeWorkspaceComposition(input: {
   ownerId: string;
@@ -85,8 +86,11 @@ export async function materializeWorkspaceComposition(input: {
   const { ownerId, shareIntent, draft, blueprint } = input;
   const originals = draftToCompositionResources(draft);
 
-  if (shareIntent === 'share_current') {
-    return { success: true, resources: originals };
+  if (shareIntent !== 'duplicate_and_share') {
+    return {
+      success: false,
+      error: 'La collaborazione consente solo copie dedicate (nessun share dell’originale).',
+    };
   }
 
   const idMap = new Map<ResourceKey, string>();

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { useUser } from '@/context/UserContext';
@@ -9,8 +9,10 @@ import { WorkspaceResourcesSection } from '@/components/collaboration/workspace/
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { getSharedResourceKindLabel, workspaceResourceKey } from '@/domain/collaboration';
+import { readWorkspaceViaggioShellSettings } from '@/domain/collaboration/workspaceViaggioShell';
 import { savePersonalCopyFromWorkspace } from '@/services/collaboration';
 import { useWorkspacePanelState } from '../WorkspacePanelContext';
+import { WorkspaceViaggioShellNav } from '../WorkspaceViaggioShellNav';
 
 interface PendingPersonalCopy {
   kind: SharedResourceKind;
@@ -86,6 +88,20 @@ export const CondivisioneSection: React.FC = () => {
     );
   }, [activeWorkspaceId, isSavingCopy, pendingCopy, user?.id]);
 
+  const viaggioShell = readWorkspaceViaggioShellSettings(dashboard.workspace?.settings);
+  const shellResources = useMemo(() => {
+    return dashboard.resources.map((resource) => {
+      const label = dashboard.resourceLabels.find(
+        (entry) => entry.kind === resource.kind && entry.resourceId === resource.resourceId
+      );
+      return {
+        kind: resource.kind,
+        resourceId: resource.resourceId,
+        title: label?.title ?? getSharedResourceKindLabel(resource.kind),
+      };
+    });
+  }, [dashboard.resourceLabels, dashboard.resources]);
+
   if (!activeWorkspaceId || !user) {
     return null;
   }
@@ -130,6 +146,14 @@ export const CondivisioneSection: React.FC = () => {
         </div>
       )}
 
+      {viaggioShell && (
+        <WorkspaceViaggioShellNav
+          shell={viaggioShell}
+          resources={shellResources}
+          onOpenResource={(kind, resourceId) => void openResource(kind, resourceId)}
+        />
+      )}
+
       <WorkspaceResourcesSection
         resources={dashboard.resources}
         resourceLabels={dashboard.resourceLabels}
@@ -139,7 +163,7 @@ export const CondivisioneSection: React.FC = () => {
         onRequestRemoveResource={() => {}}
         onRequestSavePersonalCopy={handleRequestSavePersonalCopy}
         savingCopyResourceKey={savingCopyResourceKey}
-        sectionTitle="IN CONDIVISIONE"
+        sectionTitle={viaggioShell ? 'RISORSE CONDIVISE (elenco)' : 'IN CONDIVISIONE'}
         layout="hub"
         hideRemoveActions
       />

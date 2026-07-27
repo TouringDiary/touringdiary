@@ -47,10 +47,17 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 *   **Impostazioni**: `UserSettingsTab` — sezione «Notifiche collaborazione» persistente su `profiles.collaboration_notification_preferences`.
 *   **Notifiche**: `UserNotificationsTab` — notifiche `collaboration`, deep link workspace.
 
-### 8. Collaboration & Workspace (v1 — Fase 10)
-*   **Dettaglio**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` v2.0 (SSOT completo: dati, hub UI, wizard).
+### 8. Collaboration & Workspace
+*   **Dettaglio**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` v3 (target dominio + runtime as-is).
+*   **Dominio ufficiale:** MySpace = **solo originali**; Workspace = **solo copie**. Il **Viaggio originale non si condivide**. Share per risorsa resta; estensione: Workspace da Viaggio (shell isomorfa, sezioni mancanti vuote). «Condividi Originale» / `share_current` **rimosso dal prodotto**.
 *   **Moduli**: shared resource ACL, workspace, amici (`user_friends` ≠ `user_blocks`), eventi dominio, allegati bucket privato, wizard condivisione.
 *   **Services**: `src/services/collaboration/`.
+
+### 8b. MySpace / Viaggio (dominio congelato)
+*   **Regole:** `AI_CONTEXT/34A_DOMAIN_DESIGN_RULES.md`
+*   **Struttura Viaggio:** `AI_CONTEXT/37_VIAGGIO_DOMAIN.md` — Diario 0..N, Ricordi (Foto/Video/Note-giorno), Roadbook library, Mappa/Riepilogo views.
+*   **Visione casa:** `AI_CONTEXT/35_MYSPACE_PRODUCT_VISION.md`
+*   **Implementazione:** `AI_DEV_WORKFLOW/MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md` (runtime as-is ancora su alias itinerary/diario fino a migrazione).
 
 ---
 

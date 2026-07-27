@@ -53,6 +53,10 @@ function resolveWizardPrimaryAction(
 ): WizardPrimaryAction | null {
   const isWorkspacePath = sharePath === 'create_workspace' || sharePath === 'add_workspace';
   const isAddElementEntry = entryMode === 'add_element_to_workspace';
+  /** Busy: disabilita + spinner (azioni async di submit). */
+  const submittingBusy = { disabled: isSubmitting, showSpinner: isSubmitting };
+  /** Solo disabled (navigazione step, senza spinner). */
+  const submittingDisabled = { disabled: isSubmitting };
 
   switch (wizardStep) {
     case 'path':
@@ -60,55 +64,47 @@ function resolveWizardPrimaryAction(
     case 'mode':
       return { label: 'Continua', onClick: handlers.onModeContinue };
     case 'share_intent':
-      if (isAddElementEntry) {
-        return {
-          label: 'Collega',
-          onClick: handlers.onShareIntentContinue,
-          disabled: isSubmitting,
-          showSpinner: isSubmitting,
-        };
-      }
       return {
-        label: 'Continua',
+        label: isAddElementEntry ? 'Collega' : 'Continua',
         onClick: handlers.onShareIntentContinue,
-        disabled: isSubmitting,
-        showSpinner: isSubmitting,
+        ...submittingBusy,
       };
     case 'invite':
       if (isWorkspacePath) return null;
       return {
         label: 'Invia inviti',
         onClick: handlers.onSendInvites,
-        disabled: isSubmitting,
-        showSpinner: isSubmitting,
+        ...submittingBusy,
       };
     case 'workspace_setup':
-      return { label: 'Continua', onClick: handlers.onWorkspaceSetupContinue, disabled: isSubmitting };
+      return {
+        label: 'Continua',
+        onClick: handlers.onWorkspaceSetupContinue,
+        ...submittingDisabled,
+      };
     case 'workspace_composition':
       return {
         label: 'Continua',
         onClick: handlers.onWorkspaceCompositionContinue,
-        disabled: isSubmitting,
+        ...submittingDisabled,
       };
     case 'pick_element':
       return {
-        label: 'Continua',
+        label: isAddElementEntry ? 'Collega' : 'Continua',
         onClick: handlers.onPickElementContinue,
-        disabled: isSubmitting,
+        ...submittingBusy,
       };
     case 'workspace_select':
       return {
         label: 'Collega',
         onClick: handlers.onWorkspaceSelectContinue,
-        disabled: isSubmitting,
-        showSpinner: isSubmitting,
+        ...submittingBusy,
       };
     case 'workspace_invite':
       return {
         label: 'Continua',
         onClick: handlers.onCreateWorkspace,
-        disabled: isSubmitting,
-        showSpinner: isSubmitting,
+        ...submittingBusy,
       };
     default:
       return null;

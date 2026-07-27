@@ -5,3 +5,4 @@ export * from './workspace';
 export * from './workspacePermissions';
 export * from './collaborationLive';
 export * from './workspaceComposition';
+export * from './workspaceViaggioShell';

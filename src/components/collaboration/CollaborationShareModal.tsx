@@ -14,45 +14,20 @@ import type {
   SharedResourceKind,
   SharedResourceMemberWithProfile,
   SharingMode,
-  Workspace,
-  WorkspaceResourcePermissionEntry,
 } from '@/domain/collaboration';
 import { getSharedResourceKindLabel } from '@/domain/collaboration';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import {
-  ensureShareableResource,
-  getShareableResource,
-  listResourceInvites,
-  listSharedResourceMembers,
   listWorkspacesForUser,
   removeSharedResourceMember,
-  resendResourceInvite,
   revokeResourceInvite,
-  sendResourceInvite,
-  setSharedResourceMember,
-  updateShareableResourceMode,
-  suggestWorkspaceCompositionFromResource,
-  createWorkspaceWithComposition,
-  addResourceToExistingWorkspace,
-  sendWorkspaceInvite,
-  resolveWorkspaceCompositionBlueprint,
-  resolveWorkspaceCompositionCatalog,
-  materializeWorkspaceComposition,
-  rollbackDuplicatedCompositionResources,
 } from '@/services/collaboration';
-import { duplicateSharedResourceForOwner } from '@/services/collaboration/personalShareService';
-import type { WorkspaceCompositionResource } from '@/services/collaboration';
-import {
-  createDefaultCompositionDraft,
-  countSelectedResources,
-  draftToCompositionResources,
-  validateWorkspaceCompositionDraft,
-  type WorkspaceCompositionBlueprint,
-  type WorkspaceCompositionDraft,
+import type {
+  WorkspaceCompositionBlueprint,
+  WorkspaceCompositionDraft,
 } from '@/domain/collaboration/workspaceComposition';
 import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
-import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import { CollaborationManagementView } from './CollaborationManagementView';
 import { CollaborationShareWizard } from './CollaborationShareWizard';
 import { CollaborationWizardFooter } from './CollaborationWizardFooter';
@@ -65,227 +40,19 @@ import {
   type WizardEntryMode,
   type WizardStep,
   type WorkspacePendingInvite,
-  buildDefaultWorkspaceInvitePermissions,
-  mapWorkspaceInvitePermissionsToMaterialized,
-  resolveCompositionResourceTitles,
-  syncWorkspacePendingInvitePermissions,
+  isWorkspaceCreationEntryMode,
 } from './collaborationSharePresentation';
 import type { WorkspacePickedElement } from './WorkspaceShareWizardSteps';
 import { useCollaborationInviteSearch } from './useCollaborationInviteSearch';
 import { useCollaborationWizardNavigation } from './useCollaborationWizardNavigation';
-
-type WorkspaceList = Awaited<ReturnType<typeof listWorkspacesForUser>>;
-
-type StepResult<T> = { success: true; value: T } | { success: false; error: string };
+import { useCollaborationShareBootstrap } from './useCollaborationShareBootstrap';
+import { useCollaborationShareCompositionHandlers } from './useCollaborationShareCompositionHandlers';
+import { useCollaborationShareResourceHandlers } from './useCollaborationShareResourceHandlers';
+import { useCollaborationShareWizardActions } from './useCollaborationShareWizardActions';
 
 // =============================================================================
-// Entry loaders composizione — due flussi distinti, due resolver distinti
-//
-// | Loader                    | Entry mode        | Resolver                              |
-// |---------------------------|-------------------|---------------------------------------|
-// | loadCreateWorkspaceCatalog| create_workspace  | resolveWorkspaceCompositionCatalog    |
-// | loadWorkspaceWizardData   | share (+ share    | resolveWorkspaceCompositionBlueprint  |
-// |                           |  path workspace)  |                                       |
+// Orchestratore UI — stato locale + wiring; callback in hook locali coesi
 // =============================================================================
-
-/**
- * Entry loader — flusso «Crea Workspace» (`entryMode: 'create_workspace'`).
- * Carica catalogo personale + draft iniziale.
- * Restituisce `null` se la richiesta async non è più valida.
- */
-async function loadCreateWorkspaceCatalog(
-  userId: string,
-  generation: number,
-  isStale: (generation: number) => boolean,
-  preselectedDiaryId?: string,
-): Promise<{
-  blueprint: WorkspaceCompositionBlueprint;
-  draft: WorkspaceCompositionDraft;
-  workspaces: WorkspaceList;
-} | null> {
-  const blueprint = await resolveWorkspaceCompositionCatalog({
-    ownerId: userId,
-    preselectedDiaryId,
-  });
-  if (isStale(generation)) return null;
-
-  const draft = createDefaultCompositionDraft(blueprint);
-  if (isStale(generation)) return null;
-
-  const workspaces = await listWorkspacesForUser(userId);
-  if (isStale(generation)) return null;
-
-  return { blueprint, draft, workspaces };
-}
-
-// -----------------------------------------------------------------------------
-// Composizione — merge draft e pipeline finalize create
-// -----------------------------------------------------------------------------
-
-/** Allinea la draft alla nuova blueprint, potando selezioni non più valide. */
-function mergeCompositionDraftWithBlueprint(
-  current: WorkspaceCompositionDraft | null,
-  nextBlueprint: WorkspaceCompositionBlueprint,
-  selectedDiaryId: string | null,
-): WorkspaceCompositionDraft {
-  const base = current ?? createDefaultCompositionDraft(nextBlueprint);
-  const nextSuitcaseIds = new Set(
-    [...base.selectedSuitcaseIds].filter((id) =>
-      nextBlueprint.suitcases.candidates.some((candidate) => candidate.resourceId === id)
-    )
-  );
-  const nextTemplateIds = new Set(
-    [...base.selectedUserTemplateIds].filter((id) =>
-      nextBlueprint.userTemplates.candidates.some((candidate) => candidate.resourceId === id)
-    )
-  );
-
-  if (nextBlueprint.seed.kind === 'suitcase') {
-    nextSuitcaseIds.add(nextBlueprint.seed.resourceId);
-  }
-  if (nextBlueprint.seed.kind === 'user_template') {
-    nextTemplateIds.add(nextBlueprint.seed.resourceId);
-  }
-
-  return {
-    ...base,
-    selectedDiaryId,
-    selectedSuitcaseIds: nextSuitcaseIds,
-    selectedUserTemplateIds: nextTemplateIds,
-  };
-}
-
-async function materializeSelectedComposition(input: {
-  hasSelectedResources: boolean;
-  ownerId: string;
-  shareIntent: ShareIntent;
-  draft: WorkspaceCompositionDraft;
-  blueprint: WorkspaceCompositionBlueprint;
-}): Promise<StepResult<WorkspaceCompositionResource[]>> {
-  if (!input.hasSelectedResources) {
-    return { success: true, value: [] };
-  }
-
-  const materializeResult = await materializeWorkspaceComposition({
-    ownerId: input.ownerId,
-    shareIntent: input.shareIntent,
-    draft: input.draft,
-    blueprint: input.blueprint,
-  });
-
-  if (materializeResult.success !== true) {
-    return { success: false, error: materializeResult.error };
-  }
-
-  return { success: true, value: materializeResult.resources };
-}
-
-async function createWorkspaceFromMaterialized(input: {
-  ownerId: string;
-  name: string;
-  description?: string;
-  resources: WorkspaceCompositionResource[];
-  rollbackDuplicatesOnFailure: boolean;
-}): Promise<StepResult<Workspace>> {
-  const createResult = await createWorkspaceWithComposition(input.ownerId, {
-    name: input.name,
-    description: input.description,
-    resources: input.resources,
-  });
-
-  if (createResult.success !== true) {
-    if (input.rollbackDuplicatesOnFailure) {
-      await rollbackDuplicatedCompositionResources(input.resources);
-    }
-    return { success: false, error: createResult.error };
-  }
-
-  return { success: true, value: createResult.workspace };
-}
-
-async function sendPendingWorkspaceInvites(input: {
-  ownerId: string;
-  workspaceId: string;
-  invites: WorkspacePendingInvite[];
-  mapPermissions?: (
-    permissions: WorkspaceResourcePermissionEntry[]
-  ) => WorkspaceResourcePermissionEntry[];
-}): Promise<StepResult<void>> {
-  for (const pending of input.invites) {
-    const permissions = input.mapPermissions
-      ? input.mapPermissions(pending.permissions)
-      : pending.permissions;
-
-    const inviteResult = await sendWorkspaceInvite(
-      input.ownerId,
-      input.workspaceId,
-      { userId: pending.userId },
-      permissions
-    );
-    if (inviteResult.success !== true) {
-      return { success: false, error: inviteResult.error };
-    }
-  }
-
-  return { success: true, value: undefined };
-}
-
-async function finalizeCreateWorkspacePipeline(input: {
-  hasSelectedResources: boolean;
-  ownerId: string;
-  shareIntent: ShareIntent;
-  draft: WorkspaceCompositionDraft;
-  blueprint: WorkspaceCompositionBlueprint;
-  workspaceName: string;
-  workspaceDescription?: string;
-  invitesToSend: WorkspacePendingInvite[];
-  compositionOriginals: Array<{ kind: SharedResourceKind; resourceId: string }>;
-}): Promise<StepResult<Workspace>> {
-  const materialized = await materializeSelectedComposition({
-    hasSelectedResources: input.hasSelectedResources,
-    ownerId: input.ownerId,
-    shareIntent: input.shareIntent,
-    draft: input.draft,
-    blueprint: input.blueprint,
-  });
-  if (materialized.success === false) {
-    return { success: false, error: materialized.error };
-  }
-
-  const materializedResources = materialized.value;
-  const created = await createWorkspaceFromMaterialized({
-    ownerId: input.ownerId,
-    name: input.workspaceName.trim(),
-    description: input.workspaceDescription,
-    resources: materializedResources,
-    rollbackDuplicatesOnFailure:
-      input.hasSelectedResources && input.shareIntent === 'duplicate_and_share',
-  });
-  if (created.success === false) {
-    return { success: false, error: created.error };
-  }
-
-  const invitePermissionsMapper = input.hasSelectedResources
-    ? (permissions: WorkspaceResourcePermissionEntry[]) =>
-        mapWorkspaceInvitePermissionsToMaterialized(
-          permissions,
-          input.compositionOriginals,
-          materializedResources
-        )
-    : undefined;
-
-  const invitesSent = await sendPendingWorkspaceInvites({
-    ownerId: input.ownerId,
-    workspaceId: created.value.id,
-    invites: input.invitesToSend,
-    mapPermissions: invitePermissionsMapper,
-  });
-  if (invitesSent.success === false) {
-    return { success: false, error: invitesSent.error };
-  }
-
-  return { success: true, value: created.value };
-}
 
 export interface CollaborationShareModalProps {
   isOpen: boolean;
@@ -298,6 +65,9 @@ export interface CollaborationShareModalProps {
   preselectedDiaryId?: string;
   preselectedDiaryTitle?: string;
   workspaceId?: string;
+  /** Richiesto per `workspace_from_viaggio`. */
+  viaggioId?: string;
+  viaggioTitle?: string;
 }
 
 export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = ({
@@ -309,10 +79,12 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   resourceId,
   resourceTitle = '',
   preselectedDiaryId,
-  preselectedDiaryTitle,
   workspaceId,
+  viaggioId,
+  viaggioTitle,
 }) => {
-  const isCreateEntry = entryMode === 'create_workspace';
+  const isCreateEntry = isWorkspaceCreationEntryMode(entryMode);
+  const isFromViaggioEntry = entryMode === 'workspace_from_viaggio';
   const isAddElementEntry = entryMode === 'add_element_to_workspace';
   const [shareKind, setShareKind] = useState<SharedResourceKind>(kind ?? 'diary');
   const shareResourceId = resourceId ?? '';
@@ -402,31 +174,6 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     effectiveResourceIdRef.current = effectiveResourceId;
   }, [effectiveResourceId]);
 
-  const isAsyncStale = useCallback((generation: number, expectedResourceId?: string): boolean => {
-    if (generation !== asyncGenerationRef.current) return true;
-    if (!isOpenRef.current) return true;
-    if (
-      expectedResourceId !== undefined &&
-      expectedResourceId !== effectiveResourceIdRef.current
-    ) {
-      return true;
-    }
-    return false;
-  }, []);
-
-  const resetWizardTransientState = useCallback(() => {
-    compositionExpansionGenRef.current += 1;
-    setSearchQuery('');
-    setActionError(null);
-    setPendingInvites([]);
-    setWorkspacePendingInvites([]);
-    setSelectedWorkspaceId(null);
-    setCompositionBlueprint(null);
-    setCompositionDraft(null);
-    setPickedElement(null);
-    setIsExpandingCompositionDiary(false);
-  }, []);
-
   const runSubmittingAction = useCallback(async (action: () => Promise<void>) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -442,7 +189,6 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
   const resourceLabel = resourceTitle.trim() || kindLabel;
 
   const {
-    skipShareIntent,
     wizardSteps,
     canShowWizardBack,
     goToNextWizardStep,
@@ -451,681 +197,153 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
     entryMode,
     sharePath,
     sharingMode,
-    compositionDraft,
     wizardStep,
     setWizardStep,
     isSubmitting,
     setActionError,
   });
 
-  /**
-   * Entry loader — flusso «Condividi» (`entryMode: 'share'`).
-   * Espande blueprint da seed risorsa via `resolveWorkspaceCompositionBlueprint`.
-   * Usato anche dal percorso share «Crea Workspace e Condividi» (non dal create dedicato).
-   */
-  const loadWorkspaceWizardData = useCallback(
-    async (
-      seedKind: SharedResourceKind,
-      originResourceId: string,
-      generation = asyncGenerationRef.current
-    ) => {
-      const blueprint = await resolveWorkspaceCompositionBlueprint({
-        seed: { kind: seedKind, resourceId: originResourceId },
-      });
-      if (isAsyncStale(generation, originResourceId)) return;
-
-      setCompositionBlueprint(blueprint);
-      setCompositionDraft(createDefaultCompositionDraft(blueprint));
-      setWorkspaceName(
-        isCreateEntry
-          ? ''
-          : resourceTitle.trim() || getSharedResourceKindLabel(seedKind)
-      );
-
-      const workspaces = await listWorkspacesForUser(user.id);
-      if (isAsyncStale(generation, originResourceId)) return;
-
-      setUserWorkspaces(workspaces);
-    },
-    [isAsyncStale, isCreateEntry, resourceTitle, user.id]
-  );
-
-  // -----------------------------------------------------------------------------
-  // Init — create_workspace dedicato (usa loadCreateWorkspaceCatalog)
-  // -----------------------------------------------------------------------------
-
-  const initializeCreateWorkspaceFlow = useCallback(
-    async (generation: number) => {
-      setView('wizard');
-      setWizardStep('workspace_setup');
-      setSharePath('create_workspace');
-      setSharingMode('collaborative');
-      setWorkspaceName('');
-      setWorkspaceDescription('');
-
-      const bootstrap = await loadCreateWorkspaceCatalog(
-        user.id,
-        generation,
-        isAsyncStale,
-        preselectedDiaryId?.trim(),
-      );
-      if (!bootstrap) return;
-
-      setCompositionBlueprint(bootstrap.blueprint);
-      setCompositionDraft(bootstrap.draft);
-      setUserWorkspaces(bootstrap.workspaces);
-    },
-    [isAsyncStale, preselectedDiaryId, user.id]
-  );
-
-  const initializeAddElementFlow = useCallback(
-    async (generation: number) => {
-      setView('wizard');
-      setWizardStep('pick_element');
-      setSharePath('add_workspace');
-      setSharingMode('collaborative');
-      setShareIntent('duplicate_and_share');
-      setPickedElement(null);
-
-      const bootstrap = await loadCreateWorkspaceCatalog(user.id, generation, isAsyncStale);
-      if (!bootstrap) return;
-
-      setCompositionBlueprint(bootstrap.blueprint);
-      setCompositionDraft(null);
-      setUserWorkspaces(bootstrap.workspaces);
-    },
-    [isAsyncStale, user.id]
-  );
-
-  const resolveShareTargetResourceId = useCallback(async (): Promise<string | null> => {
-    if (shareIntent === 'share_current' || hasAppliedShareDuplicate) {
-      return effectiveResourceId;
-    }
-
-    const duplicateResult = await duplicateSharedResourceForOwner(
-      shareKind,
-      effectiveResourceId,
-      user.id
-    );
-    if (duplicateResult.success === false) {
-      setActionError(duplicateResult.error);
-      return null;
-    }
-
-    setEffectiveResourceId(duplicateResult.copiedResourceId);
-    effectiveResourceIdRef.current = duplicateResult.copiedResourceId;
-    setHasAppliedShareDuplicate(true);
-    return duplicateResult.copiedResourceId;
-  }, [effectiveResourceId, hasAppliedShareDuplicate, shareIntent, shareKind, user.id]);
-
-  const refreshCollaborationState = useCallback(
-    async (generation = asyncGenerationRef.current, loadResourceId = effectiveResourceIdRef.current) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const resource = await getShareableResource(shareKind, loadResourceId);
-        if (isAsyncStale(generation, loadResourceId)) return;
-
-        const memberList = resource ? await listSharedResourceMembers(resource.id) : [];
-        if (isAsyncStale(generation, loadResourceId)) return;
-
-        const inviteList = await listResourceInvites(shareKind, loadResourceId, user.id);
-        if (isAsyncStale(generation, loadResourceId)) return;
-
-        setSharedResource(resource);
-        setMembers(memberList);
-        setInvites(inviteList);
-
-        const hasCollaboration =
-          memberList.length > 0 ||
-          inviteList.some((invite) =>
-            ['pending', 'accepted', 'rejected'].includes(invite.status)
-          );
-
-        if (hasCollaboration) {
-          setView('management');
-          if (resource?.sharingMode) setSharingMode(resource.sharingMode);
-        } else {
-          setView('wizard');
-          setWizardStep('path');
-          setSharePath('simple');
-          setSharingMode(resource?.sharingMode ?? 'collaborative');
-          setPendingInvites([]);
-        }
-      } catch (loadError) {
-        if (isAsyncStale(generation, loadResourceId)) return;
-        console.error('[CollaborationShareModal] refresh:', loadError);
-        setError('Impossibile caricare lo stato della condivisione.');
-      } finally {
-        if (!isAsyncStale(generation, loadResourceId)) {
-          setIsLoading(false);
-        }
-      }
-    },
-    [isAsyncStale, shareKind, user.id]
-  );
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    asyncGenerationRef.current += 1;
-    const generation = asyncGenerationRef.current;
-
-    resetWizardTransientState();
-
-    if (kind) {
-      setShareKind(kind);
-    }
-
-    if (isCreateEntry) {
-      setEffectiveResourceId(preselectedDiaryId ?? '');
-      effectiveResourceIdRef.current = preselectedDiaryId ?? '';
-      setHasAppliedShareDuplicate(false);
-      setIsLoading(true);
-      setError(null);
-      void (async () => {
-        try {
-          await initializeCreateWorkspaceFlow(generation);
-        } catch (loadError) {
-          if (!isAsyncStale(generation)) {
-            console.error('[CollaborationShareModal] create init:', loadError);
-            setError('Impossibile avviare la creazione del Workspace.');
-          }
-        } finally {
-          if (!isAsyncStale(generation)) {
-            setIsLoading(false);
-          }
-        }
-      })();
-      return;
-    }
-
-    if (isAddElementEntry) {
-      if (!workspaceId) {
-        setError('Workspace non disponibile.');
-        setIsLoading(false);
-        return;
-      }
-      setEffectiveResourceId('');
-      effectiveResourceIdRef.current = '';
-      setHasAppliedShareDuplicate(false);
-      setIsLoading(true);
-      setError(null);
-      void (async () => {
-        try {
-          await initializeAddElementFlow(generation);
-        } catch (loadError) {
-          if (!isAsyncStale(generation)) {
-            console.error('[CollaborationShareModal] add element init:', loadError);
-            setError('Impossibile avviare l\'aggiunta dell\'elemento.');
-          }
-        } finally {
-          if (!isAsyncStale(generation)) {
-            setIsLoading(false);
-          }
-        }
-      })();
-      return;
-    }
-
-    if (!shareResourceId) return;
-
-    setEffectiveResourceId(shareResourceId);
-    effectiveResourceIdRef.current = shareResourceId;
-    setHasAppliedShareDuplicate(false);
-    void refreshCollaborationState(generation, shareResourceId);
-  }, [
-    isOpen,
-    isCreateEntry,
-    isAddElementEntry,
-    preselectedDiaryId,
-    shareResourceId,
-    workspaceId,
-    initializeCreateWorkspaceFlow,
-    initializeAddElementFlow,
+  const {
     isAsyncStale,
+    loadWorkspaceWizardData,
+    resolveShareTargetResourceId,
     refreshCollaborationState,
-    resetWizardTransientState,
-  ]);
+  } = useCollaborationShareBootstrap({
+    isOpen,
+    userId: user.id,
+    kind,
+    shareKind,
+    shareResourceId,
+    resourceTitle,
+    preselectedDiaryId,
+    workspaceId,
+    viaggioId,
+    viaggioTitle,
+    isCreateEntry,
+    isFromViaggioEntry,
+    isAddElementEntry,
+    hasAppliedShareDuplicate,
+    effectiveResourceId,
+    isOpenRef,
+    effectiveResourceIdRef,
+    asyncGenerationRef,
+    compositionExpansionGenRef,
+    setShareKind,
+    setView,
+    setWizardStep,
+    setSharePath,
+    setSharingMode,
+    setShareIntent,
+    setEffectiveResourceId,
+    setHasAppliedShareDuplicate,
+    setSharedResource,
+    setMembers,
+    setInvites,
+    setIsLoading,
+    setError,
+    setActionError,
+    setPendingInvites,
+    setWorkspaceName,
+    setWorkspaceDescription,
+    setCompositionBlueprint,
+    setCompositionDraft,
+    setUserWorkspaces,
+    setPickedElement,
+    setIsExpandingCompositionDiary,
+    setSearchQuery,
+    setWorkspacePendingInvites,
+    setSelectedWorkspaceId,
+  });
 
-  const handlePathContinue = async () => {
-    setActionError(null);
-    if (sharePath === 'simple') {
-      setWizardStep('mode');
-      return;
-    }
-    setWizardStep('share_intent');
-  };
+  const {
+    compositionInviteElements,
+    handleSelectCompositionDiary,
+    handleToggleCompositionSuitcase,
+    handleToggleCompositionUserTemplate,
+    handleAddWorkspacePendingInvite,
+    handleRemoveWorkspacePendingInvite,
+    handleUpdateWorkspacePendingInvitePermission,
+  } = useCollaborationShareCompositionHandlers({
+    isCreateEntry,
+    compositionBlueprint,
+    compositionDraft,
+    compositionExpansionGenRef,
+    setCompositionBlueprint,
+    setCompositionDraft,
+    setIsExpandingCompositionDiary,
+    setWorkspacePendingInvites,
+    setSearchQuery,
+  });
 
-  const handleShareIntentContinue = async () => {
-    setActionError(null);
-    if (isAddElementEntry) {
-      await handleAddElementToWorkspace();
-      return;
-    }
-    if (isCreateEntry) {
-      goToNextWizardStep();
-      return;
-    }
-    if (sharePath === 'create_workspace') {
-      await loadWorkspaceWizardData(shareKind, shareResourceId, asyncGenerationRef.current);
-      setWizardStep('workspace_setup');
-      return;
-    }
-    if (sharePath === 'add_workspace') {
-      const targetId = await resolveShareTargetResourceId();
-      if (!targetId) return;
-      const generation = asyncGenerationRef.current;
-      const workspaces = await listWorkspacesForUser(user.id);
-      if (isAsyncStale(generation)) return;
-      setUserWorkspaces(workspaces);
-      setWizardStep('workspace_select');
-      return;
-    }
-    setWizardStep('invite');
-  };
+  const {
+    handlePathContinue,
+    handleShareIntentContinue,
+    handleModeContinue,
+    handleWorkspaceSetupContinue,
+    handleWorkspaceCompositionContinue,
+    handleWorkspaceSelectContinue,
+    handlePickElementContinue,
+    handleCreateWorkspace,
+  } = useCollaborationShareWizardActions({
+    userId: user.id,
+    onClose,
+    openCollaborationWorkspace,
+    isCreateEntry,
+    isFromViaggioEntry,
+    isAddElementEntry,
+    shareKind,
+    shareResourceId,
+    sharePath,
+    shareIntent,
+    workspaceId,
+    viaggioId,
+    workspaceName,
+    workspaceDescription,
+    compositionDraft,
+    compositionBlueprint,
+    workspacePendingInvites,
+    selectedWorkspaceId,
+    pickedElement,
+    asyncGenerationRef,
+    effectiveResourceIdRef,
+    setWizardStep,
+    setActionError,
+    setUserWorkspaces,
+    setShareKind,
+    setEffectiveResourceId,
+    setHasAppliedShareDuplicate,
+    goToNextWizardStep,
+    isAsyncStale,
+    loadWorkspaceWizardData,
+    resolveShareTargetResourceId,
+    runSubmittingAction,
+  });
 
-  const handleModeContinue = () => {
-    setActionError(null);
-    if (sharingMode === 'collaborative') {
-      setWizardStep('share_intent');
-      return;
-    }
-    setWizardStep('invite');
-  };
-
-  const handleWorkspaceSetupContinue = () => {
-    if (!workspaceName.trim()) {
-      setActionError('Il nome del Workspace è obbligatorio.');
-      return;
-    }
-    setActionError(null);
-    goToNextWizardStep();
-  };
-
-  const handleWorkspaceCompositionContinue = () => {
-    if (!compositionDraft || !compositionBlueprint) {
-      setActionError('Composizione non disponibile.');
-      return;
-    }
-    const validationError = validateWorkspaceCompositionDraft(
-      compositionDraft,
-      compositionBlueprint,
-      { allowEmpty: isCreateEntry }
-    );
-    if (validationError) {
-      setActionError(validationError);
-      return;
-    }
-    setActionError(null);
-    goToNextWizardStep();
-  };
-
-  const handleWorkspaceSelectContinue = async () => {
-    if (!selectedWorkspaceId) {
-      setActionError('Seleziona un Workspace.');
-      return;
-    }
-    await runSubmittingAction(async () => {
-      const targetResourceId = await resolveShareTargetResourceId();
-      if (!targetResourceId || !selectedWorkspaceId) return;
-
-      const result = await addResourceToExistingWorkspace(selectedWorkspaceId, user.id, {
-        kind: shareKind,
-        resourceId: targetResourceId,
-      });
-      if (!result.success) {
-        setActionError(result.error ?? 'Impossibile collegare la risorsa.');
-        return;
-      }
-      onClose();
-      openCollaborationWorkspace({ workspaceId: selectedWorkspaceId });
-    });
-  };
-
-  const selectedComposition = useMemo((): WorkspaceCompositionResource[] => {
-    if (!compositionDraft) return [];
-    return draftToCompositionResources(compositionDraft);
-  }, [compositionDraft]);
-
-  const compositionInviteElements = useMemo(() => {
-    if (!compositionBlueprint) return [];
-    return resolveCompositionResourceTitles(compositionBlueprint, selectedComposition);
-  }, [compositionBlueprint, selectedComposition]);
-
-  useEffect(() => {
-    setWorkspacePendingInvites((current) => {
-      if (current.length === 0) return current;
-      return syncWorkspacePendingInvitePermissions(current, selectedComposition);
-    });
-  }, [selectedComposition]);
-
-  const buildWorkspaceInvitePermissions = useCallback(
-    () => buildDefaultWorkspaceInvitePermissions(selectedComposition),
-    [selectedComposition]
-  );
-
-  const refreshCompositionBlueprint = useCallback(
-    async (seed: WorkspaceCompositionBlueprint['seed'], selectedDiaryId: string | null) => {
-      const generation = ++compositionExpansionGenRef.current;
-
-      setIsExpandingCompositionDiary(true);
-      try {
-        const nextBlueprint = await resolveWorkspaceCompositionBlueprint({
-          seed,
-          selectedDiaryId,
-        });
-        if (generation !== compositionExpansionGenRef.current) return;
-
-        setCompositionBlueprint(nextBlueprint);
-        setCompositionDraft((current) =>
-          mergeCompositionDraftWithBlueprint(current, nextBlueprint, selectedDiaryId)
-        );
-      } finally {
-        if (generation === compositionExpansionGenRef.current) {
-          setIsExpandingCompositionDiary(false);
-        }
-      }
-    },
-    []
-  );
-
-  const handleSelectCompositionDiary = useCallback(
-    (diaryId: string | null) => {
-      if (isCreateEntry) {
-        setCompositionDraft((current) =>
-          current ? { ...current, selectedDiaryId: diaryId } : current
-        );
-        return;
-      }
-
-      if (!compositionBlueprint || compositionBlueprint.seed.kind === 'diary') return;
-      void refreshCompositionBlueprint(compositionBlueprint.seed, diaryId);
-    },
-    [compositionBlueprint, isCreateEntry, refreshCompositionBlueprint]
-  );
-
-  const handleToggleCompositionSuitcase = useCallback((suitcaseId: string) => {
-    setCompositionDraft((current) => {
-      if (!current) return current;
-      const next = new Set(current.selectedSuitcaseIds);
-      if (next.has(suitcaseId)) next.delete(suitcaseId);
-      else next.add(suitcaseId);
-      return { ...current, selectedSuitcaseIds: next };
-    });
-  }, []);
-
-  const handleToggleCompositionUserTemplate = useCallback((templateId: string) => {
-    setCompositionDraft((current) => {
-      if (!current) return current;
-      const next = new Set(current.selectedUserTemplateIds);
-      if (next.has(templateId)) next.delete(templateId);
-      else next.add(templateId);
-      return { ...current, selectedUserTemplateIds: next };
-    });
-  }, []);
-
-  const handleAddWorkspacePendingInvite = (result: CollaborationUserSearchResult) => {
-    setWorkspacePendingInvites((current) => [
-      ...current,
-      {
-        userId: result.id,
-        name: result.name,
-        slug: result.slug,
-        permissions: buildWorkspaceInvitePermissions(),
-      },
-    ]);
-    setSearchQuery('');
-  };
-
-  const handleRemoveWorkspacePendingInvite = (userId: string) => {
-    setWorkspacePendingInvites((current) => current.filter((invite) => invite.userId !== userId));
-  };
-
-  const handleUpdateWorkspacePendingInvitePermission = useCallback(
-    (
-      userId: string,
-      kind: SharedResourceKind,
-      resourceId: string,
-      accessLevel: WorkspaceResourcePermissionEntry['accessLevel']
-    ) => {
-      setWorkspacePendingInvites((current) =>
-        current.map((invite) => {
-          if (invite.userId !== userId) return invite;
-
-          const hasEntry = invite.permissions.some(
-            (entry) => entry.kind === kind && entry.resourceId === resourceId
-          );
-          const permissions = hasEntry
-            ? invite.permissions.map((entry) =>
-                entry.kind === kind && entry.resourceId === resourceId
-                  ? { ...entry, accessLevel }
-                  : entry
-              )
-            : [...invite.permissions, { kind, resourceId, accessLevel }];
-
-          return { ...invite, permissions };
-        })
-      );
-    },
-    []
-  );
-
-  const handlePickElementContinue = () => {
-    if (!pickedElement) {
-      setActionError('Seleziona un elemento da aggiungere.');
-      return;
-    }
-    setShareKind(pickedElement.kind);
-    setEffectiveResourceId(pickedElement.resourceId);
-    effectiveResourceIdRef.current = pickedElement.resourceId;
-    setHasAppliedShareDuplicate(false);
-    setActionError(null);
-    goToNextWizardStep();
-  };
-
-  const handleAddElementToWorkspace = async () => {
-    if (!workspaceId || !pickedElement) {
-      setActionError('Workspace o elemento non disponibile.');
-      return;
-    }
-
-    await runSubmittingAction(async () => {
-      const targetResourceId = await resolveShareTargetResourceId();
-      if (!targetResourceId) return;
-
-      const result = await addResourceToExistingWorkspace(workspaceId, user.id, {
-        kind: pickedElement.kind,
-        resourceId: targetResourceId,
-      });
-      if (!result.success) {
-        setActionError(result.error ?? 'Impossibile collegare l\'elemento.');
-        return;
-      }
-
-      onClose();
-      openCollaborationWorkspace({ workspaceId });
-    });
-  };
-
-  const handleCreateWorkspace = async (options?: { skipInvites?: boolean }) => {
-    const draftSnapshot = compositionDraft;
-    const blueprintSnapshot = compositionBlueprint;
-    const workspaceNameSnapshot = workspaceName;
-    const workspaceDescriptionSnapshot = workspaceDescription;
-    const shareIntentSnapshot = shareIntent;
-    const workspacePendingInvitesSnapshot = workspacePendingInvites;
-
-    if (!draftSnapshot || !blueprintSnapshot) {
-      setActionError('Composizione non disponibile.');
-      return;
-    }
-
-    const validationError = validateWorkspaceCompositionDraft(
-      draftSnapshot,
-      blueprintSnapshot,
-      { allowEmpty: isCreateEntry }
-    );
-    if (validationError) {
-      setActionError(validationError);
-      return;
-    }
-
-    const invitesToSend = options?.skipInvites ? [] : [...workspacePendingInvitesSnapshot];
-    const hasSelectedResources = countSelectedResources(draftSnapshot) > 0;
-    const compositionOriginals = draftToCompositionResources(draftSnapshot);
-
-    await runSubmittingAction(async () => {
-      const result = await finalizeCreateWorkspacePipeline({
-        hasSelectedResources,
-        ownerId: user.id,
-        shareIntent: shareIntentSnapshot,
-        draft: draftSnapshot,
-        blueprint: blueprintSnapshot,
-        workspaceName: workspaceNameSnapshot,
-        workspaceDescription: workspaceDescriptionSnapshot.trim() || undefined,
-        invitesToSend,
-        compositionOriginals,
-      });
-      if (result.success === false) {
-        setActionError(result.error);
-        return;
-      }
-
-      onClose();
-      openCollaborationWorkspace({ workspaceId: result.value.id });
-    });
-  };
-
-  const handleAddPendingInvite = (result: CollaborationUserSearchResult) => {
-    setPendingInvites((current) => [
-      ...current,
-      {
-        userId: result.id,
-        name: result.name,
-        slug: result.slug,
-        role: selectedRole,
-      },
-    ]);
-    setSearchQuery('');
-  };
-
-  const handleRemovePendingInvite = (userId: string) => {
-    setPendingInvites((current) => current.filter((invite) => invite.userId !== userId));
-  };
-
-  const handleSendInvites = async () => {
-    if (pendingInvites.length === 0) {
-      setActionError('Aggiungi almeno un utente da invitare.');
-      return;
-    }
-
-    await runSubmittingAction(async () => {
-      const targetResourceId =
-        sharingMode === 'collaborative'
-          ? await resolveShareTargetResourceId()
-          : effectiveResourceId;
-      if (!targetResourceId) return;
-
-      const registerResult = await ensureShareableResource(
-        shareKind,
-        targetResourceId,
-        user.id,
-        sharingMode
-      );
-      if (registerResult.success !== true) {
-        setActionError(registerResult.error);
-        return;
-      }
-
-      if (registerResult.resource.sharingMode !== sharingMode) {
-        const modeResult = await updateShareableResourceMode(
-          registerResult.resource.id,
-          user.id,
-          sharingMode
-        );
-        if (!modeResult.success) {
-          setActionError(modeResult.error ?? 'Impossibile aggiornare la modalità.');
-          return;
-        }
-      }
-
-      for (const pending of pendingInvites) {
-        const result = await sendResourceInvite(
-          user.id,
-          shareKind,
-          targetResourceId,
-          { userId: pending.userId },
-          pending.role
-        );
-        if (result.success !== true) {
-          setActionError(result.error);
-          return;
-        }
-      }
-
-      await refreshCollaborationState();
-    });
-  };
-
-  const handleRoleChange = async (memberUserId: string, role: CollaborativeMemberRole) => {
-    if (!sharedResource) return;
-    await runSubmittingAction(async () => {
-      const result = await setSharedResourceMember(
-        sharedResource.id,
-        user.id,
-        memberUserId,
-        role
-      );
-      if (result.success !== true) {
-        setActionError(result.error);
-        return;
-      }
-      await refreshCollaborationState();
-    });
-  };
-
-  const handleResendInvite = async (inviteId: string) => {
-    await runSubmittingAction(async () => {
-      const result = await resendResourceInvite(user.id, inviteId);
-      if (result.success !== true) {
-        setActionError(result.error);
-        return;
-      }
-      await refreshCollaborationState();
-    });
-  };
-
-  const handleSharingModeChange = async (mode: SharingMode) => {
-    if (!sharedResource || sharedResource.sharingMode === mode) return;
-    await runSubmittingAction(async () => {
-      const result = await updateShareableResourceMode(sharedResource.id, user.id, mode);
-      if (!result.success) {
-        setActionError(result.error ?? 'Impossibile aggiornare la modalità.');
-        return;
-      }
-      setSharingMode(mode);
-      await refreshCollaborationState();
-    });
-  };
-
-  const handleManagementInvite = async (target: CollaborationUserSearchResult) => {
-    await runSubmittingAction(async () => {
-      const result = await sendResourceInvite(
-        user.id,
-        shareKind,
-        shareResourceId,
-        { userId: target.id },
-        selectedRole
-      );
-      if (result.success !== true) {
-        setActionError(result.error);
-        return;
-      }
-      setSearchQuery('');
-      await refreshCollaborationState();
-    });
-  };
+  const {
+    handleAddPendingInvite,
+    handleRemovePendingInvite,
+    handleSendInvites,
+    handleRoleChange,
+    handleResendInvite,
+    handleSharingModeChange,
+    handleManagementInvite,
+  } = useCollaborationShareResourceHandlers({
+    userId: user.id,
+    shareKind,
+    shareResourceId,
+    sharingMode,
+    sharedResource,
+    selectedRole,
+    pendingInvites,
+    effectiveResourceId,
+    setPendingInvites,
+    setSearchQuery,
+    setSharingMode,
+    setActionError,
+    runSubmittingAction,
+    resolveShareTargetResourceId,
+    refreshCollaborationState,
+  });
 
   if (!isOpen) return null;
 
@@ -1220,18 +438,22 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               </div>
               <div className="min-w-0">
                 <h2 id="collaboration-share-title" className={`${modalTitleShell} mb-1`}>
-                  {isCreateEntry
-                    ? 'Crea Workspace'
-                    : isAddElementEntry
-                      ? 'Aggiungi elemento'
-                      : 'Condividi'}
+                  {isFromViaggioEntry
+                    ? 'Workspace da Viaggio'
+                    : isCreateEntry
+                      ? 'Crea Workspace'
+                      : isAddElementEntry
+                        ? 'Aggiungi elemento'
+                        : 'Condividi'}
                 </h2>
                 <p id={modalDescId} className={modalSubtitleShell}>
-                  {isCreateEntry
-                    ? 'Configura il tuo spazio collaborativo'
-                    : isAddElementEntry
-                      ? 'Aggiungi un elemento personale al Workspace'
-                      : resourceLabel}
+                  {isFromViaggioEntry
+                    ? 'Seleziona le risorse da copiare nello spazio collaborativo'
+                    : isCreateEntry
+                      ? 'Configura il tuo spazio collaborativo'
+                      : isAddElementEntry
+                        ? 'Aggiungi un elemento personale al Workspace'
+                        : resourceLabel}
                 </p>
               </div>
             </div>
@@ -1243,7 +465,6 @@ export const CollaborationShareModal: React.FC<CollaborationShareModalProps> = (
               entryMode={entryMode}
               sharePath={sharePath}
               sharingMode={sharingMode}
-              skipShareIntent={skipShareIntent}
             />
           )}
 

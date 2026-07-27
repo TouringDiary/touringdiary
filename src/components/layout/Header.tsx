@@ -232,7 +232,7 @@ export const Header = ({
             {user.role === 'guest' ? (
                 <button onClick={handleProfileClick} className={`${squareBtnClass} ${inactiveBtnClass}`} title="Accedi"><LogIn className={iconSize} /></button>
             ) : (
-                <button onClick={() => navigate(buildDashboardPath(user.slug))} className={`${squareBtnClass} bg-slate-800 border-slate-600 overflow-hidden hover:border-slate-400 transition-colors`} title="Profilo">
+                <button onClick={() => navigate(buildDashboardPath(user.slug))} className={`${squareBtnClass} bg-slate-800 border-slate-600 overflow-hidden hover:border-slate-400 transition-colors`} title="Account">
                     {user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} alt={user.name} className="w-full h-full object-cover"/> : <span className="text-sm font-bold text-white">{user.name.charAt(0)}</span>}
                 </button>
             )}
@@ -300,7 +300,7 @@ export const Header = ({
                                         <span className={`text-sm font-bold block truncate ${user.role === 'guest' ? 'text-slate-300' : 'text-white'}`}>
                                             {user.role === 'guest' ? 'Accedi o Registrati' : user.name}
                                         </span>
-                                        {user.role !== 'guest' && <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-indigo-400 transition-colors">Vedi Profilo</span>}
+                                        {user.role !== 'guest' && <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-indigo-400 transition-colors">Vedi Account</span>}
                                     </div>
                                     {unreadCount > 0 && (
                                         <CountBadge count={unreadCount} max={9} size="sm" variant="rose" shape="pill" pulse />

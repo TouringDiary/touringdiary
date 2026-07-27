@@ -8,6 +8,11 @@ import type { Json } from '../../types/supabase';
 import type { DbItinerary, Row } from '../../types/domain';
 import { canUserModifyResource } from '../collaboration/permissionService';
 import { fetchCollaborativeDiaryIdsForMember } from '../collaboration/diaryCollaborationService';
+import {
+    ensureViaggioForPersonalDiary,
+    setActiveDiary,
+    updateViaggio,
+} from '../viaggio/viaggioService';
 
 /**
  * Confine di serializzazione verso il DB.
@@ -182,6 +187,7 @@ function mapDbRowToItinerary(db: {
   updated_at: string | null;
   suitcase_id: string | null;
   last_modified_by?: string | null;
+  viaggio_id?: string | null;
 }): Itinerary {
   const { items, startDate, endDate, dayStyles, diaryNotes, roadbook } = unpackDiaryData(
     db.items_json,
@@ -191,6 +197,7 @@ function mapDbRowToItinerary(db: {
   return {
     id: db.id,
     userId: db.user_id ?? undefined,
+    viaggioId: db.viaggio_id ?? null,
     name: db.title ?? '',
     startDate,
     endDate,
@@ -241,7 +248,7 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
 
         const { data: existingRow } = await supabase
             .from('itineraries')
-            .select('user_id')
+            .select('user_id, viaggio_id')
             .eq('id', itinerary.id)
             .maybeSingle();
 
@@ -255,6 +262,7 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
                 throw new Error('Permessi insufficienti per modificare questo Diario condiviso.');
             }
 
+            // Collab: non tocca viaggi / viaggio_id (resource_id resta sul Diario).
             const collaborativePayload = {
                 title: itinerary.name || 'Viaggio Senza Nome',
                 description: 'Bozza salvata',
@@ -278,9 +286,24 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
             return true;
         }
 
+        if (!itinerary.id || !UUID_REGEX.test(itinerary.id)) {
+            throw new Error('ID Diario non valido per il salvataggio cloud.');
+        }
+
+        const viaggioTitle = itinerary.name || 'Viaggio';
+
+        const { viaggioId, created: viaggioCreated } = await ensureViaggioForPersonalDiary({
+            userId: realUserId,
+            diaryId: itinerary.id,
+            existingViaggioId: itinerary.viaggioId ?? existingRow?.viaggio_id ?? null,
+            title: viaggioTitle,
+            periodStart: itinerary.startDate,
+            periodEnd: itinerary.endDate,
+        });
+
         const payload = {
-            id: itinerary.id, 
-            user_id: realUserId, 
+            id: itinerary.id,
+            user_id: realUserId,
             title: itinerary.name || 'Viaggio Senza Nome',
             description: 'Bozza salvata',
             duration_days: duration > 0 ? duration : 1,
@@ -289,6 +312,7 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
             items_json: toDbJson(packedData),
             main_city: itinerary.items[0]?.cityId || 'Campania',
             suitcase_id: itinerary.suitcase_id || null,
+            viaggio_id: viaggioId,
             created_at: new Date(itinerary.createdAt).toISOString(),
             updated_at: new Date().toISOString(),
             last_modified_by: realUserId,
@@ -302,7 +326,7 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
         const { data, error } = await supabase
             .from('itineraries')
             .upsert(payload, { onConflict: 'id' })
-            .select('id');
+            .select('id, viaggio_id');
 
         if (error) {
             if (error.message === 'TypeError: Failed to fetch' || error.message?.includes('fetch')) {
@@ -318,6 +342,41 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
             console.error("[Cloud] Salvataggio bloccato dalla RLS: nessuna riga scritta.");
             throw new Error("Salvataggio non riuscito: sessione non valida o permessi insufficienti.");
         }
+
+        // Dopo il link viaggio_id: se nuovo Viaggio o active assente → imposta questo Diario come attivo.
+        // Nessuna auto-promozione su delete (gestita da ON DELETE SET NULL).
+        if (viaggioCreated) {
+            await setActiveDiary(viaggioId, itinerary.id);
+        } else {
+            // Query necessaria: ensureViaggioForPersonalDiary espone solo { viaggioId, created }.
+            // Senza leggere active_diary_id non sappiamo se il Diario attivo è già valorizzato
+            // (es. dopo delete attivo → NULL) e non possiamo chiamare setActiveDiary a ogni save
+            // (sovrascriverebbe un altro Diario attivo — cambio di comportamento).
+            const { data: viaggioRow } = await supabase
+                .from('viaggi')
+                .select('active_diary_id')
+                .eq('id', viaggioId)
+                .maybeSingle();
+            if (viaggioRow && viaggioRow.active_diary_id == null) {
+                await setActiveDiary(viaggioId, itinerary.id);
+            }
+        }
+
+        // Allinea metadati identità sul Viaggio (non sul solo Diario).
+        // Il Diario è già persistito: un fallimento qui NON deve invalidare il salvataggio del Diario.
+        try {
+            await updateViaggio(viaggioId, {
+                title: viaggioTitle,
+                periodStart: itinerary.startDate,
+                periodEnd: itinerary.endDate,
+            });
+        } catch (metaErr) {
+            console.warn('[Cloud] Aggiornamento metadati Viaggio non riuscito (diario salvato):', metaErr);
+        }
+
+        // Mutazione locale dell'istanza in memoria del caller: aggiorna solo il campo in RAM.
+        // Non produce ulteriori scritture sul database.
+        itinerary.viaggioId = viaggioId;
 
         return true;
     } catch (e: any) {

@@ -1,7 +1,7 @@
 import type { User } from '@/types/users';
 
-/** Intenti collaborativi (§6.1) — estesi nelle fasi successive */
-export type CollaborationIntent = 'share' | 'workspace';
+/** Intenti collaborativi / MyWorld (§6.1) — estesi nelle fasi successive */
+export type CollaborationIntent = 'share' | 'workspace' | 'myworld';
 
 /** Chiave returnTo ModalContext per ripresa post-login */
 export const COLLABORATION_RETURN_TO = 'collaboration_resume' as const;

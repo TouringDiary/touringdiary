@@ -12,7 +12,7 @@ L'architettura è basata su uno stack moderno:
 
 ## TIPOLOGIE UTENTI
 1.  **Guest**: Accesso in sola lettura a città e POI; AI limitata.
-2.  **Registered**: Accesso completo al Diario di Viaggio, Gamification e AI Planner (quota base).
+2.  **Registered**: Accesso al patrimonio **Viaggio** (Diario e altre risorse), Gamification e AI Planner (quota base).
 3.  **Pro/Premium**: Utenti con abbonamenti attivi, limiti AI estesi e funzionalità avanzate (es. Export PDF).
 4.  **Partner/Sponsor**: Entità territoriali (Botteghe, Guide) con visibilità premium e strumenti CRM.
 5.  **Admin**: Controllo totale su pricing, moderazione, importazione dati e observatory BI.
@@ -22,7 +22,8 @@ L'architettura è basata su uno stack moderno:
 *   **AI Engine**: Orchestrazione prompt, gestione token, log di utilizzo e consumo crediti in tempo reale.
 *   **Business Engine**: Gestione abbonamenti (Stripe), sponsorizzazioni, marketplace e tracciamento affiliazioni.
 *   **Community & Gamification**: Sistema di XP, badge, recensioni certificate e condivisione media.
-*   **Collaboration & Workspace** (v1, Fase 10): Condivisione Diario/Valigia/Template, workspace multi-risorsa, amicizie, allegati e presenza live. Dettaglio: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.
+*   **Patrimonio personale (dominio):** il **Viaggio** è Aggregate Root; il Diario è una risorsa. SoT: `AI_CONTEXT/34A_DOMAIN_DESIGN_RULES.md`, `AI_CONTEXT/37_VIAGGIO_DOMAIN.md`. *(Runtime as-is può ancora collassare Viaggio≡Diario — debito di migrazione.)*
+*   **Collaboration & Workspace**: sole **copie**; share per risorsa + (target) Workspace da Viaggio. Dettaglio: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 
 ## COMPONENTI ARCHITETTURALI
 *   **Services**: `cityService.ts`, `aiService.ts`, `sponsorService.ts`, `trackingService.ts`.

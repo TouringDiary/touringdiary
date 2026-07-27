@@ -1,5 +1,5 @@
 import type { User } from '@/types/users';
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useUser } from '@/context/UserContext';
 import { useNavigation } from '@/context/useNavigation';
 import { useModal } from '@/context/ModalContext';
@@ -31,32 +31,50 @@ export const AppCoordinator = () => {
     }, [user, setInteractionUser]);
 
     const [helpFlash, setHelpFlash] = useState(false);
+    const helpFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (helpFlashTimeoutRef.current != null) {
+                clearTimeout(helpFlashTimeoutRef.current);
+                helpFlashTimeoutRef.current = null;
+            }
+        };
+    }, []);
 
     const handleCompleteOnboarding = () => {
         if (!completeOnboarding) return;
         completeOnboarding();
         setHelpFlash(true);
-        setTimeout(() => setHelpFlash(false), 4000);
+        if (helpFlashTimeoutRef.current != null) {
+            clearTimeout(helpFlashTimeoutRef.current);
+        }
+        helpFlashTimeoutRef.current = setTimeout(() => {
+            helpFlashTimeoutRef.current = null;
+            setHelpFlash(false);
+        }, 4000);
     };
 
     const { integrations, loading } = usePartnerIntegrations();
     useEffect(() => {
         if (!import.meta.env.DEV) return;
-        if (!loading && integrations && Object.keys(integrations).length > 0) {
-            console.log('[AppCoordinator] Partner Integrations caricate con successo:', integrations);
-        } else if (!loading) {
-            console.log('[AppCoordinator] Partner Integrations caricate ma vuote o non trovate.');
-        } else {
+        if (loading) {
             console.log('[AppCoordinator] Partner Integrations in caricamento...');
+            return;
         }
+        if (integrations && Object.keys(integrations).length > 0) {
+            console.log('[AppCoordinator] Partner Integrations caricate con successo:', integrations);
+            return;
+        }
+        console.log('[AppCoordinator] Partner Integrations caricate ma vuote o non trovate.');
     }, [integrations, loading]);
 
     const { activeModal, modalProps, closeModal } = useModal();
     useUI();
 
-    const isWorkspacePanelOpen = activeModal === 'collaborationWorkspace';
-    const workspaceIdIntent = isWorkspacePanelOpen ? modalProps?.workspaceId : undefined;
-    const initialSectionIntent = isWorkspacePanelOpen ? modalProps?.initialSection : undefined;
+    const isCollaborationWorkspaceOpen = activeModal === 'collaborationWorkspace';
+    const workspaceIdIntent = isCollaborationWorkspaceOpen ? modalProps?.workspaceId : undefined;
+    const initialSectionIntent = isCollaborationWorkspaceOpen ? modalProps?.initialSection : undefined;
 
     const renderLayout = () => {
         if (loading) {
@@ -105,7 +123,7 @@ export const AppCoordinator = () => {
     return (
         <FocusModeProvider>
             <WorkspacePanelProvider
-                isPanelOpen={isWorkspacePanelOpen}
+                isPanelOpen={isCollaborationWorkspaceOpen}
                 initialWorkspaceId={workspaceIdIntent}
                 initialSection={initialSectionIntent}
             >

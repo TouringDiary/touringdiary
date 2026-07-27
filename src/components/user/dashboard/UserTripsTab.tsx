@@ -49,30 +49,30 @@ export const UserTripsTab: React.FC<Props> = ({ onClose }) => {
         isOpen={!!projectToDelete}
         onClose={() => setProjectToDelete(null)}
         onConfirm={confirmDeleteProject}
-        title="Eliminare Viaggio?"
-        message={`Vuoi davvero eliminare "${projectToDelete?.name}"? L'azione è irreversibile.`}
+        title="Eliminare Diario?"
+        message={`Vuoi davvero eliminare il diario "${projectToDelete?.name}"? L'azione è irreversibile.`}
         isDeleting={isDeleting}
         variant="danger"
       />
 
-      {/* HEADER */}
+      {/* HEADER — lista Diari personali (catalogo Viaggio MySpace = MP-01 STEP-2) */}
       <div className="flex items-center gap-3 border-b border-slate-800 pb-5">
         <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-400">
           <Map className="w-6 h-6" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">I Miei Viaggi</h2>
-          <p className="text-sm text-slate-400">{trips.length} itinerari salvati nel tuo diario.</p>
+          <h2 className="text-2xl font-bold text-white tracking-tight">I Miei Diari</h2>
+          <p className="text-sm text-slate-400">{trips.length} diari salvati nel tuo account.</p>
         </div>
       </div>
 
-      {/* LISTA VIAGGI */}
+      {/* LISTA DIARI */}
       {trips.length === 0 ? (
         <div className="text-center py-20 bg-slate-900/40 rounded-2xl border border-slate-800 border-dashed">
           <Map className="w-12 h-12 text-slate-700 mx-auto mb-3 opacity-50" />
-          <h3 className="text-lg font-bold text-white mb-1">Nessun viaggio salvato</h3>
+          <h3 className="text-lg font-bold text-white mb-1">Nessun diario salvato</h3>
           <p className="text-slate-400 text-sm max-w-sm mx-auto">
-            Crea il tuo primo itinerario dal Diario di Viaggio: lo ritroverai qui.
+            Crea e salva un diario dal Diario di Viaggio: lo ritroverai qui.
           </p>
         </div>
       ) : (

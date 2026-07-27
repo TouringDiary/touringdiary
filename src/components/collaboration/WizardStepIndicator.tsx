@@ -17,7 +17,6 @@ export interface WizardStepIndicatorProps {
   entryMode: WizardEntryMode;
   sharePath: SharePath;
   sharingMode: SharingMode;
-  skipShareIntent?: boolean;
 }
 
 export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
@@ -25,7 +24,6 @@ export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
   entryMode,
   sharePath,
   sharingMode,
-  skipShareIntent,
 }) => {
   const isMobile = useMobileDetect();
   // Numeri e label condividono volontariamente foundation_card_label.
@@ -37,7 +35,6 @@ export const WizardStepIndicator: React.FC<WizardStepIndicatorProps> = ({
     entryMode,
     sharePath,
     sharingMode,
-    skipShareIntent,
   });
   const currentIndex = steps.indexOf(wizardStep);
 

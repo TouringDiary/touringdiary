@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useInteraction } from '../../../context/InteractionContext';
 import { ModalManagerExternalProps } from '../ModalManagerTypes';
 import { PointOfInterest, Review } from '@/types';
+import { isCityInfoPreviewTab } from '@/types/cityPreview';
 import { getDaysArray } from '@/utils/common';
 import { getUserReviewForPoi } from '@/services/communityService';
 
@@ -36,9 +37,15 @@ const QuotaExceededModal = React.lazy(() => import('@/components/modals/QuotaExc
 
 interface FeatureModalsProps extends ModalManagerExternalProps {
     activeModal: string | null;
-    // Payload eterogeneo per-modale: la sorgente (ModalContext) è dynamic-typed e diversi campi
-    // alimentano prop con union obbligatorie (es. GlobalSectionView.section). Non esiste un
-    // ModalPayloadMap condiviso: tipizzarlo in modo stretto richiederebbe cast/forzature qui.
+    /**
+     * Payload eterogeneo per-modale.
+     * Sorgente: ModalContext (dynamic-typed). Campi diversi alimentano prop con union obbligatorie
+     * (es. GlobalSectionView.section, CollaborationShareModal.entryMode, conflict/duplicate nesting).
+     * Tipizzare come Record<string, unknown> / unknown richiederebbe narrowing locale su decine di
+     * accessi senza un ModalPayloadMap condiviso → più complesso e fragile dell’attuale.
+     * Typing stretto rinviato finché non esiste un payload map per-modale.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vedi commento sopra
     modalProps: any;
     closeModal: () => void;
     openModal: (type: string, props?: Record<string, unknown>) => void;
@@ -46,7 +53,7 @@ interface FeatureModalsProps extends ModalManagerExternalProps {
 }
 
 export const FeatureModals = (props: FeatureModalsProps) => {
-    const { activeModal, modalProps, closeModal, openModal, user, itinerary } = props;
+    const { activeModal, modalProps, closeModal, openModal, user, itinerary, onToggleItinerary } = props;
     const { submitReview } = useInteraction();
     const [existingPoiReview, setExistingPoiReview] = useState<Review | null>(null);
 
@@ -84,23 +91,8 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             ? modalProps.cityName
             : props.activeCitySummary?.name;
 
-    const handleToggleItinerary = (poi: PointOfInterest) => {
-        const exists = itinerary.items.some((i: any) => i.poi.id === poi.id);
-        if(exists) { 
-            const items = itinerary.items.filter((i: any) => i.poi.id === poi.id); 
-            if (items.length === 1) props.onRemoveItem(items[0].id);
-            else openModal('removeSelection', { 
-                items,
-                onRemoveSingle: async (id: string) => { await props.onRemoveItem(id); closeModal(); },
-                onRemoveAll: async () => { await props.onRemoveAll(items); }
-            }); 
-        } else { 
-            openModal('add', { poi }); 
-        }
-    };
-
     const handleOpenReview = (poi: PointOfInterest) => {
-        if (user.role === 'guest') { 
+        if (!user || user.role === 'guest') {
             openModal('auth', { 
                 returnTo: 'poiDetail', 
                 returnProps: { poi, initialView: 'reviews' } 
@@ -173,8 +165,8 @@ export const FeatureModals = (props: FeatureModalsProps) => {
                 <PoiDetailModal 
                     poi={modalProps.poi} 
                     onClose={closeModal} 
-                    onToggleItinerary={() => handleToggleItinerary(modalProps.poi)} 
-                    isInItinerary={itinerary.items.some((i: any) => i.poi.id === modalProps.poi.id)} 
+                    onToggleItinerary={() => onToggleItinerary(modalProps.poi)} 
+                    isInItinerary={itinerary.items.some((i) => i.poi.id === modalProps.poi.id)} 
                     onOpenReview={() => handleOpenReview(modalProps.poi)} 
                     userLocation={props.userLocation} 
                     onSuggestEdit={(name) => { closeModal(); openModal('claim', { poi: modalProps.poi }); }} 
@@ -195,6 +187,7 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             )}
             {activeModal === 'collaborationShare' &&
                 (modalProps.entryMode === 'create_workspace' ||
+                    modalProps.entryMode === 'workspace_from_viaggio' ||
                     modalProps.entryMode === 'add_element_to_workspace' ||
                     (modalProps.kind && modalProps.resourceId)) && (
                 <CollaborationShareModal
@@ -208,6 +201,8 @@ export const FeatureModals = (props: FeatureModalsProps) => {
                     preselectedDiaryId={modalProps.preselectedDiaryId}
                     preselectedDiaryTitle={modalProps.preselectedDiaryTitle}
                     workspaceId={modalProps.workspaceId}
+                    viaggioId={modalProps.viaggioId}
+                    viaggioTitle={modalProps.viaggioTitle}
                 />
             )}
             {activeModal === 'global' && (
@@ -250,9 +245,9 @@ export const FeatureModals = (props: FeatureModalsProps) => {
 
             {/* --- CITY INFO TABS --- */}
             {activeModal !== null &&
-                ['guides', 'services', 'events', 'tour_operators'].includes(activeModal) &&
+                isCityInfoPreviewTab(activeModal) &&
                 props.activeCityDetails && (
-                 <CityInfoModal isOpen={true} onClose={closeModal} city={props.activeCityDetails} initialTab={activeModal as any} onAddToItinerary={(poi) => handleToggleItinerary(poi)} user={user} onOpenAuth={() => openModal('auth', { returnTo: activeModal, returnProps: { city: props.activeCityDetails } })} onSuggestEdit={(name) => { closeModal(); openModal('claim', { poi: { name, id: 'temp', category: 'discovery' } }); }} />
+                 <CityInfoModal isOpen={true} onClose={closeModal} city={props.activeCityDetails} initialTab={activeModal} onAddToItinerary={onToggleItinerary} user={user} onOpenAuth={() => openModal('auth', { returnTo: activeModal, returnProps: { city: props.activeCityDetails } })} onSuggestEdit={(name) => { closeModal(); openModal('claim', { poi: { name, id: 'temp', category: 'discovery' } }); }} />
             )}
             {activeModal === 'province' && props.activeCityDetails && (
                 <ProvinceModal isOpen={true} onClose={closeModal} currentCity={props.activeCityDetails} onSelectCity={(id) => props.onNavigateToCity(id)} liveManifest={props.cityManifest} onToggleMerge={(isActive, radius) => {}} />

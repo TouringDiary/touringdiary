@@ -40,6 +40,8 @@ interface TravelDiaryProps {
 }
 
 export const TravelDiary = (props: TravelDiaryProps) => {
+    // Editor del Diario (Resource). Aggregate Root = Viaggio (`activeViaggioId` in context).
+    // Il save cloud crea/collega il Viaggio via `saveUserDraft` — non trattare `itinerary.id` come patrimonio.
     const { itinerary, savedProjects, loadProject } = useItinerary();
     const isGuest = props.user.role === 'guest';
     const { permission } = useResourcePermission(

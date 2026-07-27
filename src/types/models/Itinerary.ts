@@ -60,6 +60,11 @@ export interface Itinerary {
   /** `null` finché il diario non ha un id persistito (bozza locale / mai salvato). */
   id: string | null;
   userId?: string; // NEW: Traccia il proprietario anche nel LocalStorage
+  /**
+   * FK al Viaggio proprietario (Aggregate Root). Presente sui diari personali cloud post STEP-1.
+   * Non è l'identità del patrimonio: l'identità è `Viaggio.id`.
+   */
+  viaggioId?: string | null;
   name: string;
   startDate: string | null;
   endDate: string | null;

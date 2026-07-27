@@ -8,10 +8,25 @@ import { getSharedResourceKindLabel, workspaceResourceKey } from '@/domain/colla
 import type { WorkspaceCompositionBlueprint } from '@/domain/collaboration/workspaceComposition';
 
 export type SharePath = 'simple' | 'create_workspace' | 'add_workspace';
-export type ShareIntent = 'duplicate_and_share' | 'share_current';
+/** Unico intent prodotto (DOC 28 Parte A): sempre copia con nuovo ID. */
+export type ShareIntent = 'duplicate_and_share';
 
 /** Contesto di apertura del wizard collaborativo (stesso modale, flussi distinti). */
-export type WizardEntryMode = 'share' | 'create_workspace' | 'add_element_to_workspace';
+export type WizardEntryMode =
+  | 'share'
+  | 'create_workspace'
+  | 'add_element_to_workspace'
+  | 'workspace_from_viaggio';
+
+/**
+ * Entry mode che aprono il flusso «crea Workspace»
+ * (`create_workspace` hub + `workspace_from_viaggio` MySpace — DOC 28 Parte A / STEP-4).
+ */
+export function isWorkspaceCreationEntryMode(
+  entryMode: WizardEntryMode,
+): entryMode is 'create_workspace' | 'workspace_from_viaggio' {
+  return entryMode === 'create_workspace' || entryMode === 'workspace_from_viaggio';
+}
 
 /** Livello di accesso predefinito per nuovi elementi negli inviti workspace (DOM-I-03). */
 export const DEFAULT_WORKSPACE_INVITE_ELEMENT_ACCESS: WorkspaceResourceAccess = 'none';
@@ -22,9 +37,7 @@ export const DEFAULT_WORKSPACE_INVITE_ELEMENT_ACCESS: WorkspaceResourceAccess = 
  */
 export type GetWizardStepsParams =
   | {
-      entryMode: 'create_workspace';
-      /** Salta Dettagli se la composizione è vuota. */
-      skipShareIntent?: boolean;
+      entryMode: 'create_workspace' | 'workspace_from_viaggio';
     }
   | {
       entryMode: 'add_element_to_workspace';
@@ -90,7 +103,9 @@ export function getWizardStepTitle(
   if (wizardStep === 'invite') return 'Invita collaboratori';
   if (wizardStep === 'workspace_setup') return 'Configura il Workspace';
   if (wizardStep === 'workspace_composition') {
-    if (entryMode === 'create_workspace') return 'COMPOSIZIONE';
+    if (entryMode && isWorkspaceCreationEntryMode(entryMode)) {
+      return 'COMPOSIZIONE';
+    }
     return 'Composizione risorse';
   }
   if (wizardStep === 'workspace_select') return 'Scegli un Workspace';
@@ -108,7 +123,7 @@ export function getWizardStepShortLabel(step: WizardStep, entryMode?: WizardEntr
     case 'invite': return 'Inviti';
     case 'workspace_setup': return 'Setup';
     case 'workspace_composition':
-      return entryMode === 'create_workspace' ? 'CONDIVISIONE' : 'Risorse';
+      return entryMode && isWorkspaceCreationEntryMode(entryMode) ? 'CONDIVISIONE' : 'Risorse';
     case 'workspace_select': return 'Workspace';
     case 'workspace_invite': return 'Inviti';
     case 'pick_element': return 'Elemento';
@@ -212,39 +227,31 @@ export function mapWorkspaceInvitePermissionsToMaterialized(
 /**
  * Step effettivi del wizard in base al contesto di apertura.
  * Unica fonte di verità per indicator, Indietro e Avanti.
+ * Nessuno step share_intent: copy-only automatico (DOC 28 Parte A).
  */
 export function getWizardSteps(params: GetWizardStepsParams): WizardStep[] {
-  if (params.entryMode === 'create_workspace') {
-    const steps: WizardStep[] = ['workspace_setup', 'workspace_composition'];
-    if (!params.skipShareIntent) {
-      steps.push('share_intent');
-    }
-    steps.push('workspace_invite');
-    return steps;
+  if (isWorkspaceCreationEntryMode(params.entryMode)) {
+    return ['workspace_setup', 'workspace_composition', 'workspace_invite'];
   }
 
   if (params.entryMode === 'add_element_to_workspace') {
-    return ['pick_element', 'share_intent'];
+    return ['pick_element'];
+  }
+
+  if (params.entryMode !== 'share') {
+    return [];
   }
 
   const { sharePath, sharingMode } = params;
 
   if (sharePath === 'add_workspace') {
-    return ['path', 'share_intent', 'workspace_select'];
+    return ['path', 'workspace_select'];
   }
   if (sharePath === 'create_workspace') {
-    return [
-      'path',
-      'share_intent',
-      'workspace_setup',
-      'workspace_composition',
-      'workspace_invite',
-    ];
+    return ['path', 'workspace_setup', 'workspace_composition', 'workspace_invite'];
   }
-  // simple
-  if (sharingMode === 'collaborative') {
-    return ['path', 'mode', 'share_intent', 'invite'];
-  }
+  // simple — collaborative e personal: niente share_intent (sempre copia)
+  void sharingMode;
   return ['path', 'mode', 'invite'];
 }
 
@@ -252,18 +259,14 @@ export interface ResolveWizardStepsForContextInput {
   entryMode: WizardEntryMode;
   sharePath: SharePath;
   sharingMode: SharingMode;
-  skipShareIntent?: boolean;
 }
 
 /** Risolve i parametri `getWizardSteps` in base al contesto di apertura del wizard. */
 export function resolveWizardStepsForContext(
   input: ResolveWizardStepsForContextInput
 ): WizardStep[] {
-  if (input.entryMode === 'create_workspace') {
-    return getWizardSteps({
-      entryMode: 'create_workspace',
-      skipShareIntent: input.skipShareIntent,
-    });
+  if (isWorkspaceCreationEntryMode(input.entryMode)) {
+    return getWizardSteps({ entryMode: input.entryMode });
   }
   if (input.entryMode === 'add_element_to_workspace') {
     return getWizardSteps({ entryMode: 'add_element_to_workspace' });

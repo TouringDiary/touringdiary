@@ -78,11 +78,13 @@ export {
 export {
   resolveWorkspaceCompositionBlueprint,
   resolveWorkspaceCompositionCatalog,
+  resolveWorkspaceCompositionCatalogFromViaggio,
   materializeWorkspaceComposition,
   rollbackDuplicatedCompositionResources,
   blueprintCandidatesToLabels,
   type ResolveWorkspaceCompositionBlueprintInput,
   type ResolveWorkspaceCompositionCatalogInput,
+  type ResolveWorkspaceCompositionCatalogFromViaggioInput,
   type WorkspaceCompositionShareIntent,
 } from './workspaceComposition';
 

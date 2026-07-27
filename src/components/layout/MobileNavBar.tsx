@@ -7,6 +7,7 @@ import { useUI } from '@/context/UIContext';
 interface MobileNavBarProps {
     activeSection: string | null;
     onOpenDiary: () => void;
+    /** TODO(WF-03): opens MyWorld when section==='workspace'; rename (e.g. onNavigateSection) only with coordinated call-site pass. */
     onOpenGlobal: (section: 'workspace' | 'community' | 'sponsors' | 'around_me') => void;
     onOpenRankings: () => void;
     isVisible?: boolean; 
@@ -30,7 +31,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
                     className={`flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'workspace' ? 'text-indigo-400 bg-indigo-500/10 border-t-2 border-indigo-500' : 'text-slate-500 hover:text-indigo-400'}`}
                 >
                     <FolderKanban className="w-5 h-5"/>
-                    <span className={labelStyle}>Workspace</span>
+                    <span className={labelStyle}>MyWorld</span>
                 </button>
                 
                 {/* 2. SOCIAL */}

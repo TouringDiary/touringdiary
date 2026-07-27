@@ -207,3 +207,18 @@ RPC reali:
 
 • consume_ai_credits
 • log_ai_usage_tokens
+
+
+---
+
+# 📌 10. DOCUMENTI PRE–ASSETTO ARCHITETTURALE (PERMANENTE)
+
+Le decisioni sul dominio **Viaggio** (SoT DOC 34A / DOC 37 e documenti già allineati) sono **approvate e congelate**: non vanno rimesse in discussione.
+
+Se si incontra un altro file (Workflow, Masterplan, SSOT, roadmap, audit, note, …) scritto **prima** di quell’assetto:
+
+1. **Non** modificarlo automaticamente per riallinearlo.
+2. **Non** riscrivere quel dominio fuori scope.
+3. Inserire una nota visibile **TODO / REVIEW — DA RIVALUTARE** che segnala il debito documentale.
+
+Dettaglio operativo → `.cursor/rules/doc-pre-architecture-review-markers.mdc`.

@@ -20,6 +20,7 @@ import { COLLABORATION_RETURN_TO } from '@/collaboration/guestGate';
 import { userNeedsUsername } from '@/domain/profile/username';
 import { ModalManagerExternalProps } from './ModalManagerTypes';
 import { openCollaborationWorkspaceFlow, type CollaborationWorkspaceTarget } from '@/hooks/useOpenCollaborationWorkspace';
+import { openMyWorldFlow } from '@/hooks/useOpenMyWorld';
 
 export const ModalManager = () => {
     // 1. CONSUMO CONTEXT (Smart Component)
@@ -69,22 +70,17 @@ export const ModalManager = () => {
                 resourceTitle?: string;
                 preselectedDiaryId?: string;
                 preselectedDiaryTitle?: string;
+                viaggioId?: string;
+                viaggioTitle?: string;
             } | undefined;
+            if (resumeProps?.intent === 'myworld') {
+                openMyWorldFlow(u, openModal);
+                return;
+            }
             if (resumeProps?.intent === 'workspace') {
-                const {
-                    intent: _intent,
-                    kind: _kind,
-                    resourceId: _resourceId,
-                    resourceTitle: _resourceTitle,
-                    entryMode: _entryMode,
-                    preselectedDiaryId: _preselectedDiaryId,
-                    preselectedDiaryTitle: _preselectedDiaryTitle,
-                    workspaceId,
-                    initialSection,
-                } = resumeProps;
                 openCollaborationWorkspaceFlow(u, openModal, {
-                    workspaceId,
-                    initialSection: initialSection as CollaborationWorkspaceTarget['initialSection'],
+                    workspaceId: resumeProps.workspaceId,
+                    initialSection: resumeProps.initialSection as CollaborationWorkspaceTarget['initialSection'],
                 });
                 return;
             }
@@ -93,6 +89,15 @@ export const ModalManager = () => {
                     entryMode: 'create_workspace',
                     preselectedDiaryId: resumeProps.preselectedDiaryId,
                     preselectedDiaryTitle: resumeProps.preselectedDiaryTitle,
+                });
+                return;
+            }
+            if (resumeProps?.entryMode === 'workspace_from_viaggio' && resumeProps?.viaggioId) {
+                openModal('collaborationShare', {
+                    entryMode: 'workspace_from_viaggio',
+                    viaggioId: resumeProps.viaggioId,
+                    viaggioTitle: resumeProps.viaggioTitle,
+                    preselectedDiaryId: resumeProps.preselectedDiaryId,
                 });
                 return;
             }

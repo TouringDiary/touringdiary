@@ -42,6 +42,10 @@ interface WorkspaceDefinitionBase {
   modalKey: string;
   label: string;
   focusActiveOwner: FocusActiveOwner;
+  /** Sidebar must stay expanded for stable companion layout. */
+  requiresStableSidebar: boolean;
+  /** Diary companion is portaled during this workspace focus. */
+  usesCompanionPortal: boolean;
 }
 
 /** Registry of workspace-style focus sessions (NOT classic modals). */
@@ -51,12 +55,32 @@ export const WORKSPACE_REGISTRY = {
     modalKey: 'packingList',
     label: FOCUS_WORKSPACE_LABELS.packingList,
     focusActiveOwner: FOCUS_ACTIVE_OWNERS.packingList,
+    requiresStableSidebar: true,
+    usesCompanionPortal: true,
   },
   collaborationWorkspace: {
     id: 'collaborationWorkspace',
     modalKey: 'collaborationWorkspace',
     label: FOCUS_WORKSPACE_LABELS.collaborationWorkspace,
     focusActiveOwner: FOCUS_ACTIVE_OWNERS.collaborationWorkspace,
+    requiresStableSidebar: false,
+    usesCompanionPortal: false,
+  },
+  myWorld: {
+    id: 'myWorld',
+    modalKey: 'myWorld',
+    label: FOCUS_WORKSPACE_LABELS.myWorld,
+    focusActiveOwner: FOCUS_ACTIVE_OWNERS.myWorld,
+    requiresStableSidebar: false,
+    usesCompanionPortal: false,
+  },
+  mySpace: {
+    id: 'mySpace',
+    modalKey: 'mySpace',
+    label: FOCUS_WORKSPACE_LABELS.mySpace,
+    focusActiveOwner: FOCUS_ACTIVE_OWNERS.mySpace,
+    requiresStableSidebar: false,
+    usesCompanionPortal: false,
   },
 } as const satisfies Record<string, WorkspaceDefinitionBase>;
 
@@ -76,6 +100,8 @@ type WorkspaceByModalKey = {
 const WORKSPACE_BY_MODAL_KEY: WorkspaceByModalKey = {
   packingList: 'packingList',
   collaborationWorkspace: 'collaborationWorkspace',
+  myWorld: 'myWorld',
+  mySpace: 'mySpace',
 };
 
 function isWorkspaceModalKey(key: string): key is WorkspaceModalKey {
@@ -191,14 +217,16 @@ export function workspaceOwnsKeyboardShortcuts(mode: UIMode): boolean {
   return mode === 'workspace';
 }
 
-/** Workspace focus requires sidebar expanded for stable companion layout (Valigia only). */
+/** Workspace focus requires sidebar expanded for stable companion layout. */
 export function workspaceRequiresStableSidebar(ctx: Pick<DerivedFocusState, 'workspaceId'>): boolean {
-  return ctx.workspaceId === 'packingList';
+  if (!ctx.workspaceId) return false;
+  return WORKSPACE_REGISTRY[ctx.workspaceId].requiresStableSidebar;
 }
 
-/** Portaled diary companion during workspace focus — collaboration hub does not use it. */
+/** Portaled diary companion during workspace focus (per registry metadata). */
 export function workspaceUsesCompanionPortal(workspaceId: WorkspaceId | null): boolean {
-  return workspaceId === 'packingList';
+  if (!workspaceId) return false;
+  return WORKSPACE_REGISTRY[workspaceId].usesCompanionPortal;
 }
 
 /** Whether the app shell supports focus policy derivation (workspace/modal/preview). */

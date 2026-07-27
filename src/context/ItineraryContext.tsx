@@ -2,17 +2,17 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Itinerary, ItineraryItem, PointOfInterest, PremadeItinerary, RoadbookDay, createEmptyItinerary } from '../types/index';
 import { User } from '../types/users';
-import { getStorageItem, setStorageItem } from '../services/storageService';
-import { saveUserDraft, getUserDrafts, deleteUserDraft } from '../services/communityService';
 import { useUser } from './UserContext';
-
 import { ItineraryStorageManager } from '../services/itineraryStorageManager';
 import { randomUUID } from '../utils/runtimeId';
 
 interface ItineraryContextType {
     itinerary: Itinerary;
     setItinerary: React.Dispatch<React.SetStateAction<Itinerary>>;
+    /** Lista Diari accessibili (non Aggregate Root — l'identità patrimonio è il Viaggio). */
     savedProjects: Itinerary[];
+    /** Viaggio attivo in sessione (padre del Diario aperto, se noto). */
+    activeViaggioId: string | null;
     saveProject: (name?: string, isSaveAs?: boolean) => Promise<string | null>;
     loadProject: (project: Itinerary) => void;
     deleteProject: (id: string) => Promise<void>;
@@ -40,6 +40,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
 
     const [itinerary, setItinerary] = useState<Itinerary>(createEmptyItinerary);
     const [savedProjects, setSavedProjects] = useState<Itinerary[]>([]);
+    const [activeViaggioId, setActiveViaggioId] = useState<string | null>(null);
     const [highlightDates, setHighlightDates] = useState(false);
     const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
@@ -55,6 +56,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
 
     const clearItinerary = useCallback(() => {
         setItinerary(createEmptyItinerary());
+        setActiveViaggioId(null);
         setHighlightedItemId(null);
     }, []);
 
@@ -106,20 +108,30 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
             targetId = randomUUID();
         }
 
+        // Nuova identità Diario → nuovo Viaggio (non riusare viaggioId del diario precedente).
+        const needsNewViaggio = isTempId || isGhostId || isSaveAsNewCopy;
+
         const saveObject: Itinerary = {
             ...itinerary,
             id: targetId,
             name: targetName,
             userId: isGuest ? 'guest' : targetUser.id,
-            createdAt: itinerary.createdAt || Date.now()
+            createdAt: itinerary.createdAt || Date.now(),
+            viaggioId: needsNewViaggio ? null : (itinerary.viaggioId ?? null),
         };
 
+        // Prima del persist: allinea subito id/nome locali (path attuale in caso di fallimento
+        // lascia già saveObject in stato — spostarlo dopo il save cambierebbe quel comportamento).
         setItinerary(saveObject);
 
         try {
             const success = await ItineraryStorageManager.saveProject(saveObject, targetUser);
 
             if (success) {
+                if (saveObject.viaggioId) {
+                    setActiveViaggioId(saveObject.viaggioId);
+                }
+
                 // Aggiorna OTTIMISTICO Locale
                 setSavedProjects(prev => {
                     const existingIndex = prev.findIndex(p => p.id === saveObject.id);
@@ -136,6 +148,17 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
                     try {
                         const fresh = await ItineraryStorageManager.loadProjects(targetUser);
                         setSavedProjects(fresh);
+                        // Solo per recuperare il viaggioId assegnato dal backend sul Diario salvato.
+                        const synced = fresh.find(p => p.id === saveObject.id);
+                        if (synced?.viaggioId) {
+                            setActiveViaggioId(synced.viaggioId);
+                            // Sincronizza in stato locale l'identità Viaggio restituita dal backend.
+                            setItinerary(prev =>
+                                prev.id === synced.id
+                                    ? { ...prev, viaggioId: synced.viaggioId }
+                                    : prev
+                            );
+                        }
                     } catch (e) {
                         console.warn("Sync post-save failed but save was successful.");
                     }
@@ -151,9 +174,12 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         }
     }, [itinerary, user, savedProjects]);
 
-    const loadProject = useCallback((project: Itinerary) => setItinerary(project), []);
+    const loadProject = useCallback((project: Itinerary) => {
+        setItinerary(project);
+        setActiveViaggioId(project.viaggioId ?? null);
+    }, []);
 
-    // DELETE PROJECT
+    // DELETE PROJECT (Diario). active_diary_id sul Viaggio → SET NULL via FK; no auto-promote.
     const deleteProject = useCallback(async (targetId: string) => {
         const isGuest = !user || user.role === 'guest';
 
@@ -183,11 +209,14 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
 
         // --- RESET ID ATTIVO SE CANCELLATO ---
         if (itinerary.id === cleanId) {
-            console.log("[Itinerary] Deleted active project. Resetting ID to temp draft.");
+            console.log("[Itinerary] Deleted active diary. Resetting to temp draft (Viaggio non auto-promosso).");
+            // Prefisso `draft_` richiesto da isTempId / suitcaseAssociation — randomUUID() altererebbe quel percorso.
             setItinerary(prev => ({
                 ...prev,
-                id: `draft_${Date.now()}` // Nuovo ID temporaneo
+                id: `draft_${Date.now()}`,
+                viaggioId: null,
             }));
+            setActiveViaggioId(null);
         }
 
     }, [user, itinerary.id]);
@@ -237,6 +266,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         setItinerary({
             id: newId,
             userId: user ? user.id : 'guest',
+            viaggioId: null,
             name: template.title,
             startDate: startD,
             endDate: end.toISOString().split('T')[0],
@@ -246,6 +276,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
             roadbook: [],
             diaryNotes: null,
         });
+        setActiveViaggioId(null);
     }, [user.id]);
 
     const findFreeSlot = (dayIndex: number) => {
@@ -269,7 +300,7 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
     };
 
     return (
-        <ItineraryContext.Provider value={{ itinerary, setItinerary, savedProjects, saveProject, loadProject, deleteProject, highlightDates, setHighlightDates, highlightedItemId, setHighlightedItemId, addItem, removeItem, updateDayStyle, updateRoadbook, clearItinerary, importPremadeItinerary, findFreeSlot, syncCloudDrafts }}>
+        <ItineraryContext.Provider value={{ itinerary, setItinerary, savedProjects, activeViaggioId, saveProject, loadProject, deleteProject, highlightDates, setHighlightDates, highlightedItemId, setHighlightedItemId, addItem, removeItem, updateDayStyle, updateRoadbook, clearItinerary, importPremadeItinerary, findFreeSlot, syncCloudDrafts }}>
             {children}
         </ItineraryContext.Provider>
     );

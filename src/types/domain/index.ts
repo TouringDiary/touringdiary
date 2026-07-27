@@ -65,6 +65,9 @@ export type DbCommunityPost = Row<'community_posts'>;
 export type DbPhotoSubmission = Row<'photo_submissions'>;
 export type DbPhotoLike = Row<'photo_likes'>;
 export type DbItinerary = Row<'itineraries'>;
+export type DbViaggio = Row<'viaggi'>;
+export type DbViaggioInsert = Insert<'viaggi'>;
+export type DbViaggioUpdate = Update<'viaggi'>;
 
 // Gamification
 export type DbReward = Row<'rewards_catalog'>;

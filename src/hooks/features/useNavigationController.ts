@@ -6,13 +6,14 @@ import { useAiPlanner } from '@/context/AiPlannerContext';
 import { CityDetails, CitySummary } from '../../types/index';
 import { buildVirtualCity } from '../../services/cityService';
 import { GEO_CONFIG } from '../../constants/geoConfig';
-import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { useOpenMyWorld } from '@/hooks/useOpenMyWorld';
+import type { NavigationGlobalExtra } from '@/types/navigationGlobal';
 
 export const useNavigationController = (cityManifest: CitySummary[]) => {
     const router = useAppRouter();
     const { openModal, closeModal, activeModal } = useModal();
     const { resetAiSession } = useAiPlanner();
-    const openCollaborationWorkspace = useOpenCollaborationWorkspace();
+    const openMyWorld = useOpenMyWorld();
 
     // Virtual Mode State (Around Me / Merged)
     const [virtualCity, setVirtualCity] = useState<CityDetails | null>(null);
@@ -82,13 +83,14 @@ export const useNavigationController = (cityManifest: CitySummary[]) => {
         resetAiSession();
     };
 
-    // Global Navigation Handler
-    const handleNavigateGlobal = (section: string, tab?: string, id?: string, extra?: any) => {
+    // TODO(WF-03): Duplicate of NavigationContext.handleNavigateGlobal — leave as-is this STEP; centralize later without changing call sites.
+    // TODO(WF-03): section 'workspace' opens MyWorld; keep token until a coordinated rename of public nav IDs.
+    const handleNavigateGlobal = (section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => {
         if (section === 'city' && id) router.navigateToCity(id, tab); 
         else if (section === 'auth') openModal('auth');
         else if (section === 'rewards') openModal('userDashboard', { tab: 'wallet' });
         else if (section === 'profile') openModal('userDashboard', { tab: tab || 'overview' });
-        else if (section === 'workspace') openCollaborationWorkspace();
+        else if (section === 'workspace') openMyWorld();
         else if (section === 'community') openModal('global', { section: 'community', tab, id });
         else if (section === 'sponsors') openModal('global', { section: 'sponsors' });
         else if (section === 'around_me') openModal('aroundMe'); 

@@ -61,7 +61,7 @@ Questo documento mappa i flussi di dati principali che avvengono durante l'utili
 *   **Events**: `trackingService.ts` registra esclusivamente in **LocalStorage** per il tracciamento affiliazioni (chiave `touring_affiliate_stats`). La tabella `analytics_events` non è attualmente alimentata dal service layer.
 
 ### 11. COLLABORATION SHARE PIPELINE (v1 — Fase 10)
-*   **Trigger**: Condivisione da Diario/Valigia → `CollaborationShareModal`.
+*   **Trigger**: Condivisione da Diario/Valigia/Template → `CollaborationShareModal` (sempre **copia**; target: anche Workspace da Viaggio — DOC 28 v3).
 *   **Persistenza**: shared resource / workspace + inviti; opzionale duplicazione (`personalShareService`).
 *   **Side effects**: notifiche collaborative, eventi dominio, sync ACL workspace.
 *   **Dettaglio step-by-step**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.

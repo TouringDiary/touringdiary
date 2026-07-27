@@ -78,6 +78,7 @@ async function duplicateDiaryCopy(
   const copiedItemsJson =
     source.items_json != null ? JSON.parse(JSON.stringify(source.items_json)) : null;
 
+  // Copia staccata dal Viaggio MySpace: niente viaggio_id (delete MySpace ↛ delete copie WS).
   const { error: insertError } = await supabase.from('itineraries').insert({
     id: copiedResourceId,
     user_id: targetUserId,
@@ -89,6 +90,7 @@ async function duplicateDiaryCopy(
     items_json: copiedItemsJson,
     main_city: source.main_city,
     suitcase_id: null,
+    viaggio_id: null,
     created_at: now,
     updated_at: now,
     last_modified_by: targetUserId,

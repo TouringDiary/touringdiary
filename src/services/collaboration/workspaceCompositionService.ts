@@ -68,6 +68,7 @@ export async function createWorkspaceWithComposition(
   input: {
     name: string;
     description?: string;
+    settings?: Record<string, unknown>;
     resources?: WorkspaceCompositionResource[];
     memberPermissions?: WorkspaceMemberPermissionDraft[];
   }
@@ -84,6 +85,7 @@ export async function createWorkspaceWithComposition(
     ownerId,
     name: input.name,
     description: input.description,
+    settings: input.settings,
   });
   if (createResult.success !== true) {
     return createResult;

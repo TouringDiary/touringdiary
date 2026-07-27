@@ -477,7 +477,10 @@ Può compromettere condivisione, workspace, RLS e sync permessi.
 
 Ruolo
 
-Wizard condivisione (duplica/condividi, workspace, inviti).
+Wizard condivisione (duplica/condividi, workspace, inviti).  
+Orchestratore UI; logica estratta in:
+`collaborationShareLoaders.ts`, `collaborationShareDraft.ts`, `collaborationSharePipeline.ts`, `collaborationSharePresentation.ts`,
+e hook locali `useCollaborationShareBootstrap` / `CompositionHandlers` / `ResourceHandlers` / `WizardActions`.
 
 
 Impatto modifiche

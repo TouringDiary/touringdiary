@@ -13,7 +13,7 @@ import type { NavigationViewMode } from '../types/navigationViewMode';
 import type { NavigationPreviewState } from '../types/navigationPreview';
 import { CLOSED_NAVIGATION_PREVIEW } from '../types/navigationPreview';
 import type { NavigationGlobalExtra } from '../types/navigationGlobal';
-import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { useOpenMyWorld } from '@/hooks/useOpenMyWorld';
 
 interface NavigationContextType {
     // Router State
@@ -67,7 +67,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
     const cityManifest = userContext?.cityManifest ?? [];
     const isLoadingManifest = userContext?.isLoadingManifest ?? true;
     const gpsContext = useGps();
-    const openCollaborationWorkspace = useOpenCollaborationWorkspace();
+    const openMyWorld = useOpenMyWorld();
 
     // Virtual Mode State
     const [virtualCity, setVirtualCity] = useState<CityDetails | null>(null);
@@ -204,22 +204,47 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
         aiPlannerContext.resetAiSession();
     };
 
+    // TODO(WF-03): handleNavigateGlobal is duplicated in useNavigationController — consolidate when that hook is retired or wired as thin delegate (no behavior change).
     const handleNavigateGlobal = (section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => {
-        if (section === 'city' && id) navigateToCity(id, tab); 
-        else if (section === 'auth') modalContext.openModal('auth');
-        else if (section === 'rewards') {
-            navigate(router.buildDashboardPath(userContext?.user?.slug, undefined, 'wallet'));
+        if (section === 'city' && id) {
+            navigateToCity(id, tab);
+            return;
         }
-        else if (section === 'profile') {
+        if (section === 'auth') {
+            modalContext.openModal('auth');
+            return;
+        }
+        if (section === 'rewards') {
+            navigate(router.buildDashboardPath(userContext?.user?.slug, undefined, 'wallet'));
+            return;
+        }
+        if (section === 'profile') {
             const targetSlug = extra?.slug || userContext?.user?.slug;
             navigate(router.buildDashboardPath(targetSlug));
+            return;
         }
-        else if (section === 'workspace') openCollaborationWorkspace();
-        else if (section === 'community') modalContext.openModal('global', { section: 'community', tab, id });
-        else if (section === 'sponsors') modalContext.openModal('global', { section: 'sponsors' });
-        else if (section === 'around_me') modalContext.openModal('aroundMe'); 
-        else if (section === 'suggestion') modalContext.openModal('suggestion', extra);
-        else modalContext.openModal('global', { section });
+        // TODO(WF-03): section key 'workspace' is a public nav token that now opens MyWorld; rename only with a coordinated API/migration pass.
+        if (section === 'workspace') {
+            openMyWorld();
+            return;
+        }
+        if (section === 'community') {
+            modalContext.openModal('global', { section: 'community', tab, id });
+            return;
+        }
+        if (section === 'sponsors') {
+            modalContext.openModal('global', { section: 'sponsors' });
+            return;
+        }
+        if (section === 'around_me') {
+            modalContext.openModal('aroundMe');
+            return;
+        }
+        if (section === 'suggestion') {
+            modalContext.openModal('suggestion', extra);
+            return;
+        }
+        modalContext.openModal('global', { section });
     };
 
     const resolveCityIdFromSlug = useCallback((slug: string): string | null => {

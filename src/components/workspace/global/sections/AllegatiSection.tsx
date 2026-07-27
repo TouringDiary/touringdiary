@@ -37,6 +37,10 @@ export const AllegatiSection: React.FC = () => {
 
   return (
     <div className="p-3 lg:p-4 h-full flex flex-col min-h-0">
+      <p className="text-[11px] text-slate-500 px-1 mb-2 shrink-0">
+        Allegati di questo Workspace (gruppo). Non sono gli Allegati del Viaggio in MySpace:
+        ownership e lifecycle restano separati.
+      </p>
       <nav
         className="flex gap-1 overflow-x-auto pb-3 mb-3 border-b border-slate-800 shrink-0 custom-scrollbar"
         role="tablist"

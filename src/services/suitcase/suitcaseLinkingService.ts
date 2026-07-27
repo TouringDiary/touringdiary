@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { linkSuitcaseToViaggio } from '../viaggio/viaggioSuitcaseService';
 
 /**
  * Recupera tutte le valigie collegate a un itinerario.
@@ -15,6 +16,7 @@ export const fetchLinkedSuitcaseIdsAsync = async (itineraryId: string): Promise<
 
 /**
  * Collega una valigia ad un itinerario.
+ * Dual-write STEP-3: se il Diario ha viaggio_id, collega anche a viaggio_suitcases.
  */
 export const linkSuitcaseToTripAsync = async (
   itineraryId: string,
@@ -30,6 +32,27 @@ export const linkSuitcaseToTripAsync = async (
     }, { onConflict: 'itinerary_id,suitcase_id' });
 
   if (error) throw error;
+
+  let viaggioIdForLog: string | null = null;
+  try {
+    const { data: diary } = await supabase
+      .from('itineraries')
+      .select('viaggio_id')
+      .eq('id', itineraryId)
+      .maybeSingle();
+    viaggioIdForLog = diary?.viaggio_id ?? null;
+    if (viaggioIdForLog) {
+      await linkSuitcaseToViaggio(viaggioIdForLog, suitcaseId, userId);
+    }
+  } catch (e) {
+    console.warn('[suitcaseLinkingService] dual-write viaggio_suitcases non riuscito', {
+      operation: 'linkSuitcaseToViaggio',
+      itineraryId,
+      suitcaseId,
+      viaggioId: viaggioIdForLog,
+      error: e,
+    });
+  }
 };
 
 /**

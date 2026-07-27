@@ -24,3 +24,7 @@ export {
 
 export { materializeWorkspaceComposition, rollbackDuplicatedCompositionResources } from './materializeWorkspaceComposition';
 export type { WorkspaceCompositionShareIntent } from './materializeWorkspaceComposition';
+export {
+  resolveWorkspaceCompositionCatalogFromViaggio,
+  type ResolveWorkspaceCompositionCatalogFromViaggioInput,
+} from './resolveWorkspaceCompositionCatalogFromViaggio';

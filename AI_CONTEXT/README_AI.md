@@ -140,6 +140,30 @@ ID Model Dual-Family (territorial text vs platform UUID; ID Governance deferred)
 
 AI_CONTEXT/33_ID_MODEL_DUAL_FAMILY.md
 
+Product Vision & Future Ideas (patrimonio progettuale — non SSOT, non roadmap, non implementare):
+
+AI_CONTEXT/34_PRODUCT_VISION_FUTURE_IDEAS.md
+
+Domain Design Rules (costituzione dominio — regole permanenti):
+
+AI_CONTEXT/34A_DOMAIN_DESIGN_RULES.md
+
+Viaggio Domain SSOT (Aggregate Root — struttura e lifecycle):
+
+AI_CONTEXT/37_VIAGGIO_DOMAIN.md
+
+MySpace Product Vision (casa del viaggiatore / MyWorld):
+
+AI_CONTEXT/35_MYSPACE_PRODUCT_VISION.md
+
+MySpace Product Capability Order (ordine capacità prodotto — non implementazione):
+
+AI_CONTEXT/36_MYSPACE_PRODUCT_MASTERPLAN.md
+
+Implementazione dominio Viaggio (COME — max 5 STEP):
+
+AI_DEV_WORKFLOW/MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md
+
 Platform Settings / Centro di Controllo SSOT (feature flag globali, testi configurabili, soglie):
 
 AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md

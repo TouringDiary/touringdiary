@@ -21,11 +21,33 @@ import { useNavigation } from '@/context/useNavigation';
 import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext'; // NEW IMPORT
 import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
-import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { useOpenMyWorld } from '@/hooks/useOpenMyWorld';
+import { isMyWorldFamilyModal } from '@/myworld/myWorldSession';
 
 export interface MainLayoutProps {
     helpFlash?: boolean;
     onCompleteOnboarding: () => void;
+}
+
+const MOBILE_SECTION_WORKSPACE = 'workspace';
+const MOBILE_SECTION_COMMUNITY = 'community';
+const MOBILE_SECTION_AROUND_ME = 'around_me';
+const MOBILE_SECTION_RANKINGS = 'rankings';
+const MOBILE_SECTION_SPONSORS = 'sponsors';
+
+/** Highlight section for mobile bottom nav — same precedence as pre-extract inline chain. */
+function resolveMobileActiveSection(input: {
+    activeModal: string | null;
+    modalSection?: string;
+    hasVirtualCity: boolean;
+}): string | null {
+    const { activeModal, modalSection, hasVirtualCity } = input;
+    if (isMyWorldFamilyModal(activeModal)) return MOBILE_SECTION_WORKSPACE;
+    if (activeModal === 'global' && modalSection === MOBILE_SECTION_COMMUNITY) return MOBILE_SECTION_COMMUNITY;
+    if (hasVirtualCity || activeModal === 'aroundMe') return MOBILE_SECTION_AROUND_ME;
+    if (activeModal === 'fullRankings') return MOBILE_SECTION_RANKINGS;
+    if (activeModal === 'global' && modalSection === MOBILE_SECTION_SPONSORS) return MOBILE_SECTION_SPONSORS;
+    return null;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnboarding }) => {
@@ -36,7 +58,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
     const { isMobile, isSidebarOpen, isUiVisible, setIsUiVisible, mobileShowWeather, mobileDiaryFullScreen, setMobileDiaryFullScreen } = useUI();
     const { activeModal, openModal, closeModal, modalProps } = useModal(); // FIX: Destructured modalProps correctly
     const { activeStaticPage, goBack, goHome, setViewMode, activeCityId, virtualCity, navigateToCity, handleNavigateGlobal } = useNavigation();
-    const openCollaborationWorkspace = useOpenCollaborationWorkspace();
+    const openMyWorld = useOpenMyWorld();
     
     // RECUPERO LOGICA DIARIO
     const { handleSmartDrop } = useDiaryInteractionsContext();
@@ -47,28 +69,26 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
         isMobile && diaryShell.shouldRender,
     );
 
-    // Mobile Nav Active State Calculation
-    let mobileActiveSection = null;
-    if (activeModal === 'collaborationWorkspace') mobileActiveSection = 'workspace';
-    else if (activeModal === 'global' && modalProps?.section === 'community') mobileActiveSection = 'community';
-    else if (virtualCity || activeModal === 'aroundMe') mobileActiveSection = 'around_me'; 
-    else if (activeModal === 'fullRankings') mobileActiveSection = 'rankings';
-    else if (activeModal === 'global' && modalProps?.section === 'sponsors') mobileActiveSection = 'sponsors';
+    const mobileActiveSection = resolveMobileActiveSection({
+        activeModal,
+        modalSection: modalProps?.section,
+        hasVirtualCity: !!virtualCity,
+    });
 
-    const isWorkspacePanelOpen = activeModal === 'collaborationWorkspace';
+    const isMyWorldFamilyOpen = isMyWorldFamilyModal(activeModal);
 
     useEffect(() => {
-        if (isWorkspacePanelOpen && !isUiVisible) {
+        if (isMyWorldFamilyOpen && !isUiVisible) {
             setIsUiVisible(true);
         }
-    }, [isWorkspacePanelOpen, isUiVisible, setIsUiVisible]);
+    }, [isMyWorldFamilyOpen, isUiVisible, setIsUiVisible]);
 
-    const toggleWorkspacePanel = () => {
-        if (isWorkspacePanelOpen) {
+    const toggleMyWorldPanel = () => {
+        if (isMyWorldFamilyOpen) {
             closeModal();
             return;
         }
-        openCollaborationWorkspace();
+        openMyWorld();
     };
 
     return (
@@ -119,8 +139,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                             onAddToItinerary={(poi) => openModal('add', { poi })}
                             onOpenAiPlanner={() => openModal('aiPlanner')}
                             onOpenRoadbook={() => openModal('roadbook')}
-                            isWorkspacePanelOpen={isWorkspacePanelOpen}
-                            onToggleWorkspacePanel={toggleWorkspacePanel}
+                            isWorkspacePanelOpen={isMyWorldFamilyOpen}
+                            onToggleWorkspacePanel={toggleMyWorldPanel}
                         />
                     </div>
                 }

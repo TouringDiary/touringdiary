@@ -6,6 +6,10 @@
 **Data:** 10 luglio 2026  
 **Ambito:** Wizard di creazione Workspace, wizard di condivisione (adattamenti mirati), aggiunta elementi post-create, azione «Salva una copia»
 
+> **Aggiornamento dominio (PO 2026-07-25) — supersede parziale**  
+> La SSOT prodotto attiva è: **MySpace = solo originali · Workspace = solo copie** (DOC 35 §2.3, DOC 28 § Dominio ufficiale, WF-04).  
+> **`share_current` / «Condividi Originale» è eliminato dal prodotto.** Le sezioni storiche sotto che descrivono Originale/Duplicato come scelta UX restano come **cronaca implementativa** del luglio 2026, non come regola futura. Il flusso UX ammesso è un solo **Condividi** (copia interna → Workspace).
+
 ---
 
 ## Come usare questo documento
@@ -491,12 +495,14 @@ Regole **funzionali**, indipendenti dalla presentazione UI.
 
 ## 4.3 Originale / Duplicato
 
+> **Stato regole (2026-07-25):** DOM-D-01 **obsoleta come prodotto**. Dominio ufficiale = sempre copia (equivalente a DOM-D-02 obbligatorio). Vedi banner in testa al documento.
+
 | Regola | Enunciato |
 |--------|-----------|
-| DOM-D-01 | `share_current` (Originale): gli ID collegati al Workspace sono quelli **già esistenti** dell’utente. |
-| DOM-D-02 | `duplicate_and_share` (Duplicato): per ogni elemento selezionato si crea una **copia** di proprietà dell’operatore; gli originali restano **inalterati**. |
-| DOM-D-03 | Una sola decisione Originale/Duplicato per **operazione** create multi-elemento. |
-| DOM-D-04 | Aggiunta singolo elemento post-create: una decisione Originale/Duplicato **per quell’elemento**. |
+| DOM-D-01 | ~~`share_current` (Originale)~~ — **RIMOSSO DAL PRODOTTO** (PO 2026-07-25). |
+| DOM-D-02 | `duplicate_and_share` / flusso **Condividi**: per ogni elemento selezionato si crea una **copia** di proprietà dell’operatore; gli originali restano **inalterati**. **Unico path ammesso.** |
+| DOM-D-03 | ~~Una sola decisione Originale/Duplicato~~ — **non più scelta UX**; la copia è sempre implicita. |
+| DOM-D-04 | Aggiunta singolo elemento post-create: **sempre** copia per quell’elemento (nessuna opzione Originale). |
 
 ## 4.4 Duplicazione e collegamenti
 

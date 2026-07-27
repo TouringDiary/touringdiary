@@ -15,6 +15,18 @@ const GlobalWorkspacePanel = React.lazy(() =>
   }))
 );
 
+const MyWorldChooserPanel = React.lazy(() =>
+  import('@/components/myworld/MyWorldChooserPanel').then((module) => ({
+    default: module.MyWorldChooserPanel,
+  }))
+);
+
+const MySpaceMinimalShell = React.lazy(() =>
+  import('@/components/myspace/MySpaceMinimalShell').then((module) => ({
+    default: module.MySpaceMinimalShell,
+  }))
+);
+
 /**
  * Mounts workspace focus panels (NOT classic modals) based on active modal key.
  */
@@ -42,6 +54,18 @@ export const WorkspaceHost: React.FC = () => {
       return (
         <Suspense fallback={null}>
           <GlobalWorkspacePanel />
+        </Suspense>
+      );
+    case 'myWorld':
+      return (
+        <Suspense fallback={null}>
+          <MyWorldChooserPanel />
+        </Suspense>
+      );
+    case 'mySpace':
+      return (
+        <Suspense fallback={null}>
+          <MySpaceMinimalShell />
         </Suspense>
       );
     default:

@@ -4,8 +4,9 @@ import { saveUserDraft, getAccessibleDiariesForUser, deleteUserDraft } from './c
 
 /**
  * Storage Manager Centralizzato
- * Gestisce il salvataggio, caricamento e cancellazione degli itinerari
- * decidendo automaticamente se usare il LocalStorage (ospiti) o Supabase (utenti loggati).
+ * Gestisce salvataggio/caricamento/cancellazione dei Diari personali.
+ * Cloud path: `saveUserDraft` crea/collega il Viaggio (Aggregate Root).
+ * Guest LS: lista Diari; materializzazione Viaggio al primo save cloud (ST-4).
  */
 
 const LOCAL_STORAGE_KEY = 'saved_itineraries';

@@ -13,7 +13,7 @@ import { getCurrentLevel, getNextLevelProgress } from '../../services/gamificati
 import { useUserDashboardData } from '../../hooks/useUserDashboardData';
 import { useModal } from '@/context/ModalContext';
 import { useBusinessContext } from '@/context/BusinessContext';
-import { useAppRouter, URL_TO_INTERNAL_TAB } from '@/hooks/useAppRouter';
+import { useAppRouter, URL_TO_INTERNAL_TAB, type DashboardTab } from '@/hooks/useAppRouter';
 
 
 // Sub-components
@@ -34,7 +34,7 @@ interface Props {
     onClose: () => void;
     user: UserType;
     onNavigate: (section: 'community' | 'trips' | 'rewards' | 'profile' | 'city', tab?: string, id?: string, extra?: any) => void; 
-    initialTab?: string;
+    initialTab?: DashboardTab;
     onLogout?: () => void;
     cityManifest?: CitySummary[];
     userSuitcases?: Suitcase[];
@@ -50,7 +50,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
     const { activeBusinessId, activeBusiness, userBusinesses, switchBusiness } = useBusinessContext();
 
     // DERIVAZIONE TAB DA URL (Per persistenza durante remount/switch)
-    const urlTab = useMemo(() => {
+    const urlTab = useMemo((): DashboardTab => {
         const segments = location.pathname.split('/').filter(Boolean);
         const dashboardIdx = segments.indexOf('dashboard');
         if (dashboardIdx === -1) return 'overview_user';
@@ -59,11 +59,12 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
         const second = segments[dashboardIdx + 2];
 
         // Cerchiamo il tab in prima o seconda posizione (legacy support)
+        // URL_TO_INTERNAL_TAB: Record<string, DashboardTab>
         const internalTab = URL_TO_INTERNAL_TAB[first] || URL_TO_INTERNAL_TAB[second];
-        return internalTab || 'overview_user';
+        return internalTab ?? 'overview_user';
     }, [location.pathname]);
 
-    const [activeTab, setActiveTab] = useState<string>(urlTab); 
+    const [activeTab, setActiveTab] = useState<DashboardTab>(urlTab); 
     
     // NEW: Mobile View State
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
@@ -96,7 +97,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
     // 1. Sincronizzazione Tab con URL e props
     useEffect(() => {
         if (isOpen) {
-            if (initialTab && initialTab !== 'overview') {
+            if (initialTab) {
                 setActiveTab(initialTab);
                 setMobileView('content');
             } else {
@@ -118,7 +119,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
         }
     };
 
-    const handleTabChange = (tab: string) => {
+    const handleTabChange = (tab: DashboardTab) => {
         setActiveTab(tab);
         if (isMobile) setMobileView('content');
 
@@ -145,7 +146,7 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
                          )}
 
                         <div className={`p-2 rounded-xl ${isBusiness ? 'bg-emerald-900/20 text-emerald-500' : 'bg-indigo-900/20 text-indigo-500'}`}>{isBusiness ? <Briefcase className="w-6 h-6"/> : <User className="w-6 h-6"/>}</div>
-                        <h2 className="text-xl font-bold text-white uppercase tracking-wider">{isBusiness ? 'Business Dashboard' : 'Profilo Utente'}</h2>
+                        <h2 className="text-xl font-bold text-white uppercase tracking-wider">{isBusiness ? 'Business Dashboard' : 'Account'}</h2>
                     </div>
                     <div className="flex items-center gap-3">
                          {!isBusiness && (

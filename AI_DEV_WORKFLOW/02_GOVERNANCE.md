@@ -95,7 +95,8 @@ Override = deroga **esplicita** alla sequenza o ai prerequisiti **operativi**.
 
 | ID | Data | Tipo | WF | Motivazione | Scadenza review | Stato |
 |----|------|------|-----|-------------|-----------------|-------|
-| — | — | — | — | — | — | — |
+| **PO-OV-001** | 2026-07-24 | `parallel_start` | WF-02, WF-03 | Avviare MySpace Macrofase 1 (WF-03) mentre WF-02 resta Attivo in hold STEP-4; scope disgiunti | 2026-08-24 | Attivo |
+| **PO-OV-002** | 2026-07-26 | `suspend` | WF-04 | Dominio Viaggio congelato (Diario ≠ Viaggio); WF-04 basato su alias non riprendibile; SoT → DOC 34A/37 + MP-01 e relativi Workflow esecutivi | 2026-09-26 | Attivo |
 
 Override attivi devono comparire in `03_PROJECT_STATUS.md`.
 
@@ -206,6 +207,19 @@ UI → Componente → Hook → Service → Guard / Validazione → Source of Tru
 
 ---
 
+## 13. Masterplan e Workflow
+
+1. Il **Masterplan** (`MASTERPLANS/`) descrive il **COME** di una macro-capacità di implementazione.
+2. Un **Workflow** esegue **uno STEP** del Masterplan (riferimento esplicito a STEP e file MP).
+3. Il Workflow **non** può ridefinire il Masterplan (né il dominio SSOT in `AI_CONTEXT/`).
+4. Le decisioni **architetturali** restano nel Masterplan SSOT di dominio (`AI_CONTEXT/`) o nel Decision Log ivi indicato — non nel file WF come SoT.
+5. Se uno STEP richiede più lavoro, possono esistere **più Workflow** riferiti allo **stesso** STEP del Masterplan.
+6. Un Workflow **non** può coprire STEP **differenti** del Masterplan.
+
+**Precisazione:** un Workflow non può coprire STEP differenti del Masterplan (vietato un unico WF su STEP-N e STEP-N+1).
+
+---
+
 ## Cronologia governance
 
 | Versione | Data | Modifiche |
@@ -214,3 +228,4 @@ UI → Componente → Hook → Service → Guard / Validazione → Source of Tru
 | 1.0.1 | 2026-07-14 | §10 Regola sicurezza by default (review PO) |
 | 1.0.2 | 2026-07-14 | §11 Operazioni irreversibili solo admin_all |
 | 1.0.3 | 2026-07-20 | §12 Regola permanente audit forensi |
+| 1.0.4 | 2026-07-26 | §13 Masterplan e Workflow |

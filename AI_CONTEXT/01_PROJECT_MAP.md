@@ -1,6 +1,9 @@
 # 🗺️ DOC 01: PROJECT MAP (ARCHITETTURA v6.0)
 
-Mappa concettuale completa del sistema TouringDiary.
+> **Mappa concettuale** del sistema TouringDiary.  
+> Serve all’orientamento: quali domini esistono e come si collegano a runtime.  
+> **Non** è Source of Truth di dominio e **non** sostituisce gli SSOT in `AI_CONTEXT/`  
+> (es. DOC 34A, DOC 37, DOC 28, DOC 31, …). Per regole e modelli ufficiali usare sempre quei documenti.
 
 Questo documento descrive:
 
@@ -68,31 +71,51 @@ Le città sono il cuore informativo della piattaforma.
 
 ---
 
-# 3. 📒 DOMINIO DIARIO DI VIAGGIO
+# 3. 📂 DOMINIO VIAGGIO (patrimonio personale)
 
-Componente principale:
+Dominio ufficiale (congelato):
+
+```text
+Viaggio                          ← Aggregate Root
+├── Diario                       ← Resource (narrazione / piano)
+├── Valigia                      ← Resource
+├── Ricordi                      ← Resource (Foto · Video · Note/giorno)
+├── Allegati                     ← Resource
+├── Roadbook                     ← Library (snapshot)
+├── Mappa                        ← View
+└── Riepilogo                    ← View
+```
+
+> **Nota:** il modello ufficiale del dominio Viaggio è definito esclusivamente in  
+> `34A_DOMAIN_DESIGN_RULES.md` (regole) e `37_VIAGGIO_DOMAIN.md` (struttura / lifecycle).  
+> Questa sezione è solo una sintesi di orientamento.
+
+**SoT:** `AI_CONTEXT/34A_DOMAIN_DESIGN_RULES.md` · `AI_CONTEXT/37_VIAGGIO_DOMAIN.md`  
+**Implementazione:** `AI_DEV_WORKFLOW/MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md`
+
+Il **Diario** non è il Viaggio: è una risorsa del Viaggio (0..N; Diario attivo).
+
+Componente runtime diario (as-is):
 
 TravelDiary.tsx
 
-
-Gestisce:
+Gestisce (sul Diario):
 
 • timeline giornaliera
 • tappe POI
 • memo testuali
-• risorse viaggio
 
-
-Pipeline:
+Pipeline as-is (debito di migrazione):
 
 User interaction
-→ itinerary state
+→ itinerary state (`itineraries` / alias storico Viaggio≡Diario)
 → sync Supabase
 
+> **Nota runtime:** finché MP-01 non è eseguito, il codice continua a usare l’alias storico basato su `itineraries` / `TravelDiary` come unità operativa. Il dominio documentale sopra è la Source of Truth; l’alias non è più il modello di prodotto.
 
 DESCRIZIONE SEMPLICE
 
-Permette di costruire il viaggio giorno per giorno.
+Il Viaggio è il patrimonio. Il Diario costruisce piano e racconto giorno per giorno all’interno del Viaggio.
 
 
 ---
@@ -428,4 +451,4 @@ AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md
 
 DESCRIZIONE SEMPLICE
 
-Permette di condividere Diario e Valigia con collaboratori, organizzare workspace e gestire amicizie.
+Permette di collaborare su **copie** di Diario, Valigia e Template (e, in target, Workspace da Viaggio). Il Viaggio originale non si condivide. Dominio patrimonio: DOC 34A / DOC 37.
