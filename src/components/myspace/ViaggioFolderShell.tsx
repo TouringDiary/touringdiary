@@ -11,6 +11,10 @@ import { ViaggioSectionPlaceholder } from './ViaggioSectionPlaceholder';
 import { ViaggioDiarioSection } from './ViaggioDiarioSection';
 import { ViaggioValigiaSection } from './ViaggioValigiaSection';
 import { ViaggioRoadbookSection } from './ViaggioRoadbookSection';
+import { ViaggioRicordiSection } from './ViaggioRicordiSection';
+import { ViaggioAllegatiSection } from './ViaggioAllegatiSection';
+import { ViaggioMappaSection } from './ViaggioMappaSection';
+import { ViaggioRiepilogoSection } from './ViaggioRiepilogoSection';
 import { useOpenWorkspaceFromViaggio } from '@/hooks/useOpenWorkspaceFromViaggio';
 import { isCollaborationEngineEnabled } from '@/services/collaboration/workspaceEngineConfigService';
 
@@ -26,8 +30,9 @@ interface Props {
 
 /**
  * Cartella Viaggio — copertina + nav DOC 37.
- * STEP-3: Diario / Valigia / Roadbook operativi; altre sezioni = placeholder.
+ * STEP-3: Diario / Valigia / Roadbook operativi.
  * STEP-4: entry «Workspace da Viaggio».
+ * STEP-5: Ricordi / Allegati / Mappa / Riepilogo; stereotipi in nav.
  */
 export const ViaggioFolderShell: React.FC<Props> = ({
   viaggioId,
@@ -88,6 +93,14 @@ export const ViaggioFolderShell: React.FC<Props> = ({
         return <ViaggioValigiaSection viaggioId={viaggioId} />;
       case 'roadbook':
         return <ViaggioRoadbookSection viaggioId={viaggioId} userId={userId} />;
+      case 'ricordi':
+        return <ViaggioRicordiSection viaggioId={viaggioId} userId={userId} />;
+      case 'allegati':
+        return <ViaggioAllegatiSection viaggioId={viaggioId} userId={userId} />;
+      case 'mappa':
+        return <ViaggioMappaSection viaggioId={viaggioId} />;
+      case 'riepilogo':
+        return <ViaggioRiepilogoSection viaggioId={viaggioId} userId={userId} />;
       default:
         return <ViaggioSectionPlaceholder section={currentSection} />;
     }
@@ -174,6 +187,7 @@ export const ViaggioFolderShell: React.FC<Props> = ({
                     ? 'border-amber-500 text-white'
                     : 'border-transparent text-slate-500 hover:text-slate-300'}
                 `}
+                title={`${s.label} · ${s.stereotype}`}
               >
                 {s.label}
               </button>

@@ -21,7 +21,8 @@
     "viaggio:smoke": "tsx scripts/smoke-viaggio-domain.ts",
     "myspace:viaggi:smoke": "tsx scripts/smoke-myspace-viaggio-catalog.ts",
     "viaggio:step3:smoke": "tsx scripts/smoke-viaggio-step3.ts",
-    "collaboration:step4:smoke": "tsx scripts/smoke-collaboration-step4.ts"
+    "collaboration:step4:smoke": "tsx scripts/smoke-collaboration-step4.ts",
+    "viaggio:step5:smoke": "tsx scripts/smoke-viaggio-step5.ts"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",

@@ -100,6 +100,7 @@ export const ViaggioDiarioSection: React.FC<Props> = ({
   return (
     <div
       data-testid="viaggio-section-diario"
+      data-stereotype="Resource"
       className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6"
     >
       <div className="flex items-center justify-between gap-3 mb-5">

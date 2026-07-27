@@ -4,22 +4,21 @@
 > **Nessun dettaglio** STEP/Fasi/checklist (→ `WORKFLOWS/WF_XX_*.md` / `MASTERPLANS/`).
 > **Nessuna definizione Gate** (→ SSOT in `AI_CONTEXT`).
 
-**Ultimo aggiornamento:** 2026-07-27 — **Aggiornato da:** AI — WF-08 STEP-4 implementato → **In verifica PO**
+**Ultimo aggiornamento:** 2026-07-27 — **Aggiornato da:** AI — WF-09 STEP-5 implementato → **In verifica PO**
 
 ---
 
 ## In sintesi
 
-- **WF-08:** **MP-01 STEP-4** — Fase **In verifica PO** (copy-only, WS-da-Viaggio, shell hub; smoke OK).
-- **WF-07:** **Completato** (archiviato) — MP-01 STEP-3.
-- **WF-06 / WF-05:** **Completati** (archiviati).
-- **MP-01:** STEP-1…3 chiusi; STEP-4 in Verifica PO via WF-08; STEP-5 / WF-09 **non** aperti.
+- **WF-09:** **MP-01 STEP-5** — Fase **In verifica PO** (Ricordi · Allegati · Mappa · Riepilogo; smoke OK).
+- **WF-08…WF-05:** **Completati** (archiviati).
+- **MP-01:** STEP-1…4 ✅; STEP-5 in Verifica PO via WF-09. Alla chiusura: chiudere Masterplan; **no WF-10 automatico**.
 - **WF-04:** **Sospeso** (`PO-OV-002`).
 - **WF-03:** **Completato**.
 - **WF-02:** hold STEP-4; **PO-OV-001**.
 
-**Prompt ripresa:** review PO / `ACCETTO` deliverable WF-08  
-**SoT:** `WORKFLOWS/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md`
+**Prompt ripresa:** review PO / `ACCETTO` deliverable WF-09  
+**SoT:** `WORKFLOWS/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md`
 
 ---
 
@@ -33,7 +32,8 @@
 | WF-05 | MP-01 STEP-1 | Completato | — | — | 100 | Archiviato |
 | WF-06 | MP-01 STEP-2 | Completato | — | — | 100 | Archiviato |
 | WF-07 | MP-01 STEP-3 | Completato | — | — | 100 | Archiviato |
-| WF-08 | MP-01 STEP-4 Collaborazione allineata | Attivo | **MP-01 STEP-4** | **In verifica PO** | 90 | Attesa ACCETTO PO |
+| WF-08 | MP-01 STEP-4 Collaborazione allineata | Completato | — | — | 100 | Archiviato |
+| WF-09 | MP-01 STEP-5 Ricordi · Allegati · Mappa · Riepilogo | Attivo | **MP-01 STEP-5** | **In verifica PO** | 90 | Attesa ACCETTO PO |
 
 ---
 
@@ -41,8 +41,9 @@
 
 | Gate | SoT | Owner WF | Stato |
 |------|-----|----------|-------|
-| Gate MP-01 STEP-4 | MP-01 / WF-08 | WF-08 | ☐ Verifica PO |
-| Gate MP-01 STEP-5 | MP-01 | — | ☐ non aperto |
+| Gate MP-01 STEP-4 | MP-01 / WF-08 | WF-08 | ☑ Completato |
+| Gate MP-01 STEP-5 | MP-01 / WF-09 | WF-09 | ☐ Verifica PO |
+| Gate chiusura MP-01 | MP-01 | WF-09 | ☐ dopo ACCETTO |
 
 ---
 
@@ -50,9 +51,9 @@
 
 | Da | A | Motivo | Stato |
 |----|---|--------|-------|
-| WF-07 | WF-08 | Prerequisito STEP-3 | **Risolta** |
-| MP-01 STEP-4 | WF-08 | Esecuzione | **In verifica PO** |
-| WF-08 gate | WF MP-01 STEP-5 (da creare) | Sequenza | Bloccata finché Verifica PO WF-08 aperta |
+| WF-08 | WF-09 | Prerequisito STEP-4 | **Risolta** |
+| MP-01 STEP-5 | WF-09 | Esecuzione | **In verifica PO** |
+| WF-09 gate | Chiusura MP-01 | Sequenza | Bloccata finché Verifica PO WF-09 aperta |
 
 ---
 
@@ -69,6 +70,7 @@
 
 | Data | Nota |
 |------|------|
-| 2026-07-27 | WF-08: STEP-4 implementato → **In verifica PO** (WF-09 non aperto) |
-| 2026-07-26 | WF-07 **Completato** (archiviato); apertura **WF-08** (MP-01 STEP-4) — solo doc |
-| 2026-07-26 | WF-07: STEP-3 → In verifica PO |
+| 2026-07-27 | WF-09: STEP-5 implementato → **In verifica PO** (no WF-10 auto) |
+| 2026-07-27 | WF-08 **Completato** (archiviato); apertura doc **WF-09** |
+| 2026-07-27 | WF-08: STEP-4 implementato → In verifica PO |
+| 2026-07-26 | WF-07 **Completato** (archiviato); apertura **WF-08** |

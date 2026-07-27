@@ -17,9 +17,9 @@
 > **WF-04** è **Sospeso** (`PO-OV-002`): non è piano esecutivo.  
 > Qualsiasi implementazione del dominio Viaggio parte da **questo Masterplan** e da nuovi Workflow — mai da WF-04.
 
-**Versione:** 1.3.1  
+**Versione:** 1.4.1  
 **Data:** 2026-07-27  
-**Stato:** Masterplan ufficiale — **STEP-1…3 Completati**; **STEP-4** → WF-08 (**In verifica PO**)  
+**Stato:** Masterplan ufficiale — **STEP-1…4 Completati**; **STEP-5** → WF-09 (**In verifica PO**). Termina con STEP-5; chiusura Masterplan post-ACCETTO; **no WF-10 automatico**.  
 **Prerequisito prodotto:** Macrofase 1 MyWorld/shell MySpace **completata** (WF-03)
 
 ---
@@ -301,7 +301,7 @@ DOC 28 Parte A (target) · DOC 34A (MySpace ≠ Workspace) · DOC 37 § Collabor
 - [x] WS-da-Viaggio: selezione → copie → shell struttura DOC 37; sezioni non copiate = vuote
 - [x] Legacy share Diario / Valigia / Template ancora funzionante
 - [x] Delete MySpace ↛ delete copie WS (e viceversa) rispettato
-- [ ] Validazione PO finale (WF-08 Verifica PO)
+- [x] Validazione PO finale (WF-08)
 
 ### Ordine
 
@@ -314,8 +314,8 @@ DOC 28 Parte A (target) · DOC 34A (MySpace ≠ Workspace) · DOC 37 § Collabor
 
 | Campo | Valore |
 |-------|--------|
-| Workflow | **WF-08** — Attivo — **In verifica PO** |
-| Path | `WORKFLOWS/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md` |
+| Workflow | **WF-08** — **Completato** (archiviato) |
+| Path | `WORKFLOWS/_archive/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md` |
 | Governance | Un solo STEP = MP-01 STEP-4; checklist interna; no STOP PO intermedi |
 
 ---
@@ -359,13 +359,14 @@ DOC 37 §§ Ricordi, Allegati, Mappa, Riepilogo · DOC 35 root · DOC 36 C5 · D
 
 ### Criteri di completamento
 
-- [ ] Ricordi: Foto/Video/Note-giorno; due modalità struttura giorni
-- [ ] Allegati del Viaggio navigabili e distinti da allegati Workspace
-- [ ] Mappa: unione geo del Viaggio
-- [ ] Riepilogo: vista + annotazioni; non Resource CRUD peer
-- [ ] Stereotipi Resource / Library / View rispettati in UI; nessuna sezione AI
-- [ ] Gate prodotto: MySpace → Viaggio senza alias storico patrimonio=Diario
-- [ ] Documentazione MASTER aggiornata su evidenza codice (quando verificata)
+- [x] Ricordi: Foto/Video/Note-giorno; due modalità struttura giorni
+- [x] Allegati del Viaggio navigabili e distinti da allegati Workspace
+- [x] Mappa: unione geo del Viaggio
+- [x] Riepilogo: vista + annotazioni; non Resource CRUD peer
+- [x] Stereotipi Resource / Library / View rispettati in UI; nessuna sezione AI
+- [x] Gate prodotto: MySpace → Viaggio senza alias storico patrimonio=Diario
+- [ ] Validazione PO finale (WF-09 Verifica PO)
+- [ ] Documentazione MASTER aggiornata su evidenza codice (post-ACCETTO / quando certificata)
 
 ### Ordine
 
@@ -375,6 +376,15 @@ DOC 37 §§ Ricordi, Allegati, Mappa, Riepilogo · DOC 35 root · DOC 36 C5 · D
 4. Riepilogo  
 5. Root restanti / Account bridge (gate)  
 6. Gate chiusura MP-01
+
+### Esecuzione
+
+| Campo | Valore |
+|-------|--------|
+| Workflow | **WF-09** — Attivo — **In verifica PO** |
+| Path | `WORKFLOWS/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md` |
+| Governance | Un solo STEP = MP-01 STEP-5; checklist interna; no STOP PO intermedi |
+| Chiusura programma | STEP-5 chiude MP-01; **no WF-10 automatico** — nuovo Masterplan o decisione PO |
 
 ---
 
@@ -396,10 +406,12 @@ DOC 37 §§ Ricordi, Allegati, Mappa, Riepilogo · DOC 35 root · DOC 36 C5 · D
 | 1 | WF-05 (`WORKFLOWS/_archive/WF_05_MP01_STEP1_VIAGGIO_PERSISTENCE.md`) | Completato (archiviato) |
 | 2 | WF-06 (`WORKFLOWS/_archive/WF_06_MP01_STEP2_MYSPACE_VIAGGIO_CATALOG.md`) | Completato (archiviato) |
 | 3 | WF-07 (`WORKFLOWS/_archive/WF_07_MP01_STEP3_VIAGGIO_OPERATIVE_RESOURCES.md`) | Completato (archiviato) |
-| 4 | WF-08 (`WORKFLOWS/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md`) | Attivo — In verifica PO |
-| 5 | da creare | Non creato |
+| 4 | WF-08 (`WORKFLOWS/_archive/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md`) | Completato (archiviato) |
+| 5 | WF-09 (`WORKFLOWS/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md`) | Attivo — In verifica PO |
 
-Aprire un Workflow successivo **solo** su ordine esplicito del PO, dopo lettura di questo Masterplan e dei DOC di dominio (34A · 37 · 35 · 36 · 28 · 31). Un Workflow = un solo STEP; più WF sullo stesso STEP ammessi se lo STEP è troppo grande.
+Alla chiusura formale di WF-09: chiudere anche questo Masterplan. **Non esiste automaticamente un WF-10.** Lavori futuri → nuovo Masterplan o decisione PO.
+
+Aprire l’esecuzione di WF-09 era consentita solo su ordine esplicito del PO (`Avvia WF-09`). Un Workflow = un solo STEP.
 
 ---
 
@@ -416,3 +428,5 @@ Aprire un Workflow successivo **solo** su ordine esplicito del PO, dopo lettura 
 | 1.2.1 | 2026-07-26 | STEP-3 implementato (WF-07) → In verifica PO; STEP-4 non aperto |
 | 1.3.0 | 2026-07-26 | STEP-3 Completato (WF-07); STEP-4 → WF-08 (doc avvio; nessun codice) |
 | 1.3.1 | 2026-07-27 | STEP-4 implementato (WF-08) → In verifica PO; STEP-5 / WF-09 non aperti |
+| 1.4.0 | 2026-07-27 | STEP-4 Completato (WF-08 archiviato); STEP-5 → WF-09 (Pronto per implementazione) |
+| 1.4.1 | 2026-07-27 | STEP-5 implementato (WF-09) → In verifica PO; nota chiusura MP-01 / no WF-10 |

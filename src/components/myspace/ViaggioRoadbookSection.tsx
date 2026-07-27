@@ -98,6 +98,7 @@ export const ViaggioRoadbookSection: React.FC<Props> = ({ viaggioId, userId }) =
   return (
     <div
       data-testid="viaggio-section-roadbook"
+      data-stereotype="Library"
       className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6"
     >
       <div className="flex flex-col gap-3 mb-5 md:flex-row md:items-center md:justify-between">

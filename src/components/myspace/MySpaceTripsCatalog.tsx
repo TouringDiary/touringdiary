@@ -17,7 +17,8 @@ function formatPeriod(v: Viaggio): string {
 
 /**
  * Catalogo MySpace «I miei Viaggi» — elenca Aggregate Root Viaggio (non Diari).
- * Dual-entry Account (`UserTripsTab`) resta sui Diari.
+ * Gate MP-01: MySpace → Viaggio senza alias storico patrimonio=Diario.
+ * Dual-entry Account (`UserTripsTab`) resta sui Diari (bridge Account, non alias MySpace).
  */
 export const MySpaceTripsCatalog: React.FC<Props> = ({ userId, onOpenViaggio }) => {
   const [items, setItems] = useState<Viaggio[]>([]);

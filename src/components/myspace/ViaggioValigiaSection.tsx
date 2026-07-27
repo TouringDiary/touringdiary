@@ -66,6 +66,7 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
   return (
     <div
       data-testid="viaggio-section-valigia"
+      data-stereotype="Resource"
       className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6"
     >
       <div className="flex items-center justify-between gap-3 mb-5">

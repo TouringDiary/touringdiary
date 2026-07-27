@@ -1849,6 +1849,198 @@ export type Database = {
           },
         ]
       }
+      viaggio_ricordi_media: {
+        Row: {
+          coords_lat: number | null
+          coords_lng: number | null
+          created_at: string
+          day_key: string
+          id: string
+          kind: string
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          title: string | null
+          user_id: string
+          viaggio_id: string
+        }
+        Insert: {
+          coords_lat?: number | null
+          coords_lng?: number | null
+          created_at?: string
+          day_key: string
+          id?: string
+          kind: string
+          mime_type: string
+          size_bytes?: number
+          storage_path: string
+          title?: string | null
+          user_id: string
+          viaggio_id: string
+        }
+        Update: {
+          coords_lat?: number | null
+          coords_lng?: number | null
+          created_at?: string
+          day_key?: string
+          id?: string
+          kind?: string
+          mime_type?: string
+          size_bytes?: number
+          storage_path?: string
+          title?: string | null
+          user_id?: string
+          viaggio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viaggio_ricordi_media_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viaggio_ricordi_media_viaggio_id_fkey"
+            columns: ["viaggio_id"]
+            isOneToOne: false
+            referencedRelation: "viaggi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viaggio_ricordi_day_notes: {
+        Row: {
+          body: string
+          day_key: string
+          id: string
+          updated_at: string
+          user_id: string
+          viaggio_id: string
+        }
+        Insert: {
+          body?: string
+          day_key: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          viaggio_id: string
+        }
+        Update: {
+          body?: string
+          day_key?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          viaggio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viaggio_ricordi_day_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viaggio_ricordi_day_notes_viaggio_id_fkey"
+            columns: ["viaggio_id"]
+            isOneToOne: false
+            referencedRelation: "viaggi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viaggio_attachments: {
+        Row: {
+          category: string
+          created_at: string
+          file_name: string
+          id: string
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          user_id: string
+          viaggio_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          file_name: string
+          id?: string
+          mime_type: string
+          size_bytes?: number
+          storage_path: string
+          user_id: string
+          viaggio_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          mime_type?: string
+          size_bytes?: number
+          storage_path?: string
+          user_id?: string
+          viaggio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viaggio_attachments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viaggio_attachments_viaggio_id_fkey"
+            columns: ["viaggio_id"]
+            isOneToOne: false
+            referencedRelation: "viaggi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viaggio_riepilogo_annotations: {
+        Row: {
+          by_day: Json
+          general: Json
+          updated_at: string
+          user_id: string
+          viaggio_id: string
+        }
+        Insert: {
+          by_day?: Json
+          general?: Json
+          updated_at?: string
+          user_id: string
+          viaggio_id: string
+        }
+        Update: {
+          by_day?: Json
+          general?: Json
+          updated_at?: string
+          user_id?: string
+          viaggio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viaggio_riepilogo_annotations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viaggio_riepilogo_annotations_viaggio_id_fkey"
+            columns: ["viaggio_id"]
+            isOneToOne: true
+            referencedRelation: "viaggi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itinerary_suitcases: {
         Row: {
           created_at: string | null

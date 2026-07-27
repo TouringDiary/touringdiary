@@ -39,7 +39,7 @@ Risponde a:
 | WF | Nome | File | SSOT / Masterplan | Dipende da | Nota stato |
 |----|------|------|-------------------|------------|------------|
 | WF-02 | Implementation Masterplan | `WORKFLOWS/WF_02_IMPLEMENTATION_MASTERPLAN.md` | DOC 29, 30, 31 (vincoli), 32 (vincoli) | WF-01 | Hold STEP-4 |
-| WF-08 | MP-01 STEP-4 — Collaborazione allineata | `WORKFLOWS/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md` | MP-01 STEP-4 · DOC 34A · 37 · 28 Parte A · 35 · 36 C4 | WF-07; MP-01 | Attivo — **In verifica PO** |
+| WF-09 | MP-01 STEP-5 — Ricordi · Allegati · Mappa · Riepilogo | `WORKFLOWS/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md` | MP-01 STEP-5 · DOC 34A · 37 · 35 · 36 C5 | WF-08; MP-01 | Attivo — **In verifica PO** |
 
 ### 3.2 Completati
 
@@ -50,12 +50,13 @@ Risponde a:
 | WF-05 | MP-01 STEP-1 — Fondazione persistenza Viaggio / Diario | `WORKFLOWS/_archive/WF_05_MP01_STEP1_VIAGGIO_PERSISTENCE.md` | Completato (archiviato) 2026-07-26 |
 | WF-06 | MP-01 STEP-2 — MySpace catalogo e cartella sul Viaggio | `WORKFLOWS/_archive/WF_06_MP01_STEP2_MYSPACE_VIAGGIO_CATALOG.md` | Completato (archiviato) 2026-07-26 |
 | WF-07 | MP-01 STEP-3 — Risorse operative Viaggio | `WORKFLOWS/_archive/WF_07_MP01_STEP3_VIAGGIO_OPERATIVE_RESOURCES.md` | Completato (archiviato) 2026-07-26 |
+| WF-08 | MP-01 STEP-4 — Collaborazione allineata | `WORKFLOWS/_archive/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md` | Completato (archiviato) 2026-07-27 |
 
 ### 3.3 Sospesi
 
 | WF | Nome | File | Override | Motivo |
 |----|------|------|----------|--------|
-| WF-04 | MySpace Macrofase 2 — I miei Viaggi | `WORKFLOWS/WF_04_MYSPACE_MACROFASE_2.md` | **PO-OV-002** | Alias non più valido; piano → **MP-01** / WF-08+ |
+| WF-04 | MySpace Macrofase 2 — I miei Viaggi | `WORKFLOWS/WF_04_MYSPACE_MACROFASE_2.md` | **PO-OV-002** | Alias non più valido; piano → **MP-01** / WF-09 |
 
 ---
 
@@ -66,7 +67,7 @@ Risponde a:
 
 | ID | File | Relazione | Stato |
 |----|------|-----------|-------|
-| **MP-01** | `MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md` | 5 STEP. STEP-1→WF-05 · STEP-2→WF-06 · STEP-3→WF-07 · STEP-4→**WF-08**. STEP-5 → WF da creare. Non riprendere WF-04. | Piano ufficiale; STEP-4 **In verifica PO** via WF-08 |
+| **MP-01** | `MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md` | 5 STEP. STEP-1→WF-05 · … · STEP-5→**WF-09**. Termina con STEP-5; **no WF-10 automatico**. Non riprendere WF-04. | Piano ufficiale; STEP-1…4 Completati; STEP-5 **In verifica PO** via WF-09 |
 
 ```text
 Dominio (AI_CONTEXT: 34A / 37 / 35 / 36 / 28 Parte A)
@@ -75,8 +76,8 @@ Dominio (AI_CONTEXT: 34A / 37 / 35 / 36 / 28 Parte A)
         ├── STEP-1 → WF-05 (Completato / archiviato)
         ├── STEP-2 → WF-06 (Completato / archiviato)
         ├── STEP-3 → WF-07 (Completato / archiviato)
-        ├── STEP-4 → WF-08 (In verifica PO)
-        └── STEP-5 → Workflow futuro (non creato)
+        ├── STEP-4 → WF-08 (Completato / archiviato)
+        └── STEP-5 → WF-09 (In verifica PO)
 ```
 
 ---
@@ -97,8 +98,9 @@ WF-01 Completato
                     ├──► WF-05 (STEP-1) ── Completato (archiviato)
                     ├──► WF-06 (STEP-2) ── Completato (archiviato)
                     ├──► WF-07 (STEP-3) ── Completato (archiviato)
-                    └──► WF-08 (STEP-4) ── Attivo / **In verifica PO**
-                              └──► (WF futuro STEP-5 — non aperto)
+                    ├──► WF-08 (STEP-4) ── Completato (archiviato)
+                    └──► WF-09 (STEP-5) ── Attivo / **In verifica PO**
+                              └──► chiusura MP-01 (no WF-10 automatico)
 ```
 
 ---
@@ -107,12 +109,12 @@ WF-01 Completato
 
 | Tema | Dipende da | Note |
 |------|------------|------|
-| MP-01 STEP-5 (Workflow) | Gate WF-08 / MP-01 STEP-4 | Solo su ordine PO; **non** da WF-04 |
+| Lavori post–MP-01 | Chiusura WF-09 / MP-01 | Nuovo Masterplan o decisione PO — **non** WF-10 automatico |
 | Privacy avanzata | WF-02 | DL-P09 DOC 30 |
 | Messaggistica unificata | WF-02 + review UI G-MSG-1 | G-MSG-1 step 5, DOC 29 |
 | ID Governance | — | Non approvata. DOC 33 / DL-035 |
 | Sponsor ↔ POI attach-or-create | — | Non approvata. DL-036 DOC 29 |
-| Capacità MySpace post–C4 | Dopo MP-01 STEP-4+ | DOC 36 |
+| Capacità MySpace post–C5 | Dopo chiusura MP-01 | DOC 36 |
 
 ---
 
@@ -137,3 +139,5 @@ Dettaglio stati / Override → `02_GOVERNANCE.md`.
 | 1.3.0 | 2026-07-26 | WF-06 Completato; apertura WF-07 |
 | 1.4.0 | 2026-07-26 | WF-07 Completato (archiviato); apertura **WF-08** (MP-01 STEP-4) — solo doc |
 | 1.5.0 | 2026-07-27 | WF-08 STEP-4 implementato → **In verifica PO**; WF-09 non aperto |
+| 1.6.0 | 2026-07-27 | WF-08 Completato (archiviato); apertura doc **WF-09** (MP-01 STEP-5) — Pronto per implementazione |
+| 1.7.0 | 2026-07-27 | WF-09 STEP-5 implementato → **In verifica PO**; chiusura MP-01 post-ACCETTO; no WF-10 auto |

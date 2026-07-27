@@ -11,7 +11,7 @@
 > **Non** eseguire. Storico ufficiale di MP-01 STEP-3.
 >
 > **Non** esegue STEP-4…5. **Non** riprende WF-04.  
-> Successore esecutivo STEP-4 → `WORKFLOWS/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md`.
+> Successore esecutivo STEP-4 → `WORKFLOWS/_archive/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md` (Completato).
 
 ---
 

@@ -80,7 +80,8 @@ Se l’iniziativa deriva da un Masterplan: partire da `MASTERPLANS/`, non da un 
 |-----------|--------|
 | `03_PROJECT_STATUS.md` | Sempre per lo stato corrente |
 | `01_EXECUTION_ROADMAP.md` | Indice WF / MP / dipendenze |
-| `WORKFLOWS/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md` | WF attivo — MP-01 STEP-4 |
+| `WORKFLOWS/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md` | WF attivo — MP-01 STEP-5 (In verifica PO) |
+| `WORKFLOWS/_archive/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md` | MP-01 STEP-4 chiuso |
 | `WORKFLOWS/_archive/WF_07_MP01_STEP3_VIAGGIO_OPERATIVE_RESOURCES.md` | MP-01 STEP-3 chiuso |
 | `WORKFLOWS/_archive/WF_06_MP01_STEP2_MYSPACE_VIAGGIO_CATALOG.md` | MP-01 STEP-2 chiuso |
 | `WORKFLOWS/_archive/WF_05_MP01_STEP1_VIAGGIO_PERSISTENCE.md` | MP-01 STEP-1 chiuso |
@@ -115,6 +116,6 @@ Matrice e ordine operativo → questa sezione; regole di report → `00_DEVELOPM
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 1.2.0 |
-| **Data** | 2026-07-26 |
-| **Stato** | WF-08 (MP-01 STEP-4) **In verifica PO**; WF-09 non aperto |
+| **Versione** | 1.3.0 |
+| **Data** | 2026-07-27 |
+| **Stato** | WF-09 (MP-01 STEP-5) **In verifica PO**; MP-01 da chiudere post-ACCETTO; no WF-10 automatico |
