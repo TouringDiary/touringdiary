@@ -232,6 +232,7 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
       userId: 'u1',
       kind: 'photo',
       dayKey: '2026-07-01',
+      dayKeys: ['2026-07-01'],
       title: 'Sunset',
       storagePath: 'u1/v1/x.jpg',
       mimeType: 'image/jpeg',
@@ -245,6 +246,7 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
   assert(pins.length === 2, 'union excludes 0,0 coords');
   assert(pins.some((p) => p.source === 'diary_poi'), 'has diary pin');
   assert(pins.some((p) => p.source === 'ricordo_media'), 'has media pin');
+  assert(pins.some((p) => p.source === 'diary_poi' && p.poiId === 'p1'), 'diary pin has poiId');
 }
 
 if (issues.length > 0) {

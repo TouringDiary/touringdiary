@@ -13,6 +13,7 @@ import { resolveWorkspacePanelZIndex, resolveCompanionSurfaceTier } from '@/laye
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { GlobalWorkspacePanelBody } from './GlobalWorkspacePanelBody';
 
 /**
@@ -61,6 +62,14 @@ export const GlobalWorkspacePanel: React.FC = () => {
           ${binderPanelMinHeightClass(true, isMobile, reserveBottomNav)}
         `}
       >
+        <header className="flex items-center justify-end gap-3 px-4 py-3 border-b border-slate-800 shrink-0 bg-slate-950/95 backdrop-blur-md rounded-t-xl">
+          <CloseButton
+            onClose={shell.requestClose}
+            variant="primary"
+            withEscape={false}
+            className="shrink-0"
+          />
+        </header>
         <GlobalWorkspacePanelBody />
       </div>
     </div>,

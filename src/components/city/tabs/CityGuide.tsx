@@ -12,6 +12,7 @@ import { useInteraction } from '../../../context/InteractionContext';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles'; 
 import { getCategoryPlaceholders } from '@/services/settingsService';
 import { resolvePoiDisplayImageUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 
 const PriceLevelIndicator = ({ level }: { level?: number }) => {
     const MAX_LEVEL = 5;
@@ -230,24 +231,33 @@ const PoiListItem = ({ poi, onOpenDetail, onOpenShop, onAddToItinerary, isItemIn
                     
                     <div className="mt-auto">
                         <div className="h-px w-full bg-gradient-to-r from-slate-800/0 via-slate-800 to-slate-800/0 mb-2"></div>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 h-5">
-                                <div className="bg-slate-950/50 border border-amber-500/50 rounded px-2 h-full flex items-center">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 h-5 min-w-0">
+                                <div className="bg-slate-950/50 border border-amber-500/50 rounded px-2 h-full flex items-center shrink-0">
                                     <PriceLevelIndicator level={poi.priceLevel} />
                                 </div>
                                 
-                                <span className={`text-[8px] md:text-[9px] font-black px-2 rounded border uppercase tracking-wider flex items-center h-full ${uiStyle.bg} ${uiStyle.text} ${uiStyle.border}`}>
+                                <span className={`text-[8px] md:text-[9px] font-black px-2 rounded border uppercase tracking-wider flex items-center h-full truncate ${uiStyle.bg} ${uiStyle.text} ${uiStyle.border}`}>
                                     {getSubCategoryLabel(poi.subCategory || '')}
                                 </span>
                             </div>
 
-                            <div className="hidden lg:flex items-center gap-3">
-                                <div className={`md:hidden flex items-center gap-1.5 px-2 h-5 rounded border ${interestColor}`}>
-                                     <span className="text-[8px] font-black uppercase leading-none">{interestLabel}</span>
-                                </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <FavoriteBookmarkButton
+                                  userId={user?.role === 'guest' ? null : user?.id}
+                                  entityKind="poi"
+                                  entityId={poi.id}
+                                  onRequireAuth={onOpenAuth}
+                                  size="sm"
+                                />
+                                <div className="hidden lg:flex items-center gap-3">
+                                    <div className={`md:hidden flex items-center gap-1.5 px-2 h-5 rounded border ${interestColor}`}>
+                                         <span className="text-[8px] font-black uppercase leading-none">{interestLabel}</span>
+                                    </div>
 
-                                <div className="p-1 rounded transition-all text-slate-700 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 group-hover:ring-1 group-hover:ring-cyan-500/50">
-                                    <GripHorizontal className="w-5 h-5"/>
+                                    <div className="p-1 rounded transition-all text-slate-700 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 group-hover:ring-1 group-hover:ring-cyan-500/50">
+                                        <GripHorizontal className="w-5 h-5"/>
+                                    </div>
                                 </div>
                             </div>
                         </div>

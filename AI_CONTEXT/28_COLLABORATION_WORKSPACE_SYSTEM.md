@@ -8,8 +8,8 @@
 > La sezione **Target di dominio** è Source of Truth di prodotto.  
 > La sezione **Runtime as-is** descrive il codice attuale e il debito di allineamento — non prevale sul target.
 
-**Versione:** 3.1.0  
-**Data:** 2026-07-26  
+**Versione:** 3.3.0  
+**Data:** 2026-07-27  
 **Stato:** Target di dominio congelato · runtime in allineamento
 
 ---
@@ -33,6 +33,7 @@ Oltre allo share per risorsa, è ammesso creare un Workspace **partendo da un Vi
 | Viaggio | Mai condiviso come originale |
 | Condividi | Sempre crea copia → collabora/collega la copia |
 | Isolamento | Originale ≠ copia (stato, autosave, lock, realtime, ACL) |
+| Sync | Modifiche agli **originali** **non** aggiornano le copie Workspace |
 | Delete | Delete MySpace ↛ delete copie WS; delete WS ↛ delete originali |
 | Terminologia | Usare **Viaggio** (non «Trip») nella documentazione funzionale |
 
@@ -340,3 +341,4 @@ Hook locali (solo modal, stato resta nell’orchestratore): `useCollaborationSha
 | 3.0.0 | 2026-07-26 | Riscrittura: target dominio Viaggio + WS-da-Viaggio; as-is separato |
 | 3.1.0 | 2026-07-26 | Parte B ripristinata a fotografia runtime completa (senza Scenario A / share originale) |
 | 3.2.0 | 2026-07-27 | STEP-4: entry `workspace_from_viaggio`; moduli wizard estratti; grafo copy-only |
+| 3.3.0 | 2026-07-27 | Invariante Sync esplicita: originali ↛ aggiornano copie WS |

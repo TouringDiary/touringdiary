@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:tunnel": "node scripts/run-dev-tunnel-hmr.mjs",
     "dev:server": "tsx server/index.ts",
     "start": "node server/index.ts",
     "build": "vite build",
@@ -22,11 +23,14 @@
     "myspace:viaggi:smoke": "tsx scripts/smoke-myspace-viaggio-catalog.ts",
     "viaggio:step3:smoke": "tsx scripts/smoke-viaggio-step3.ts",
     "collaboration:step4:smoke": "tsx scripts/smoke-collaboration-step4.ts",
-    "viaggio:step5:smoke": "tsx scripts/smoke-viaggio-step5.ts"
+    "viaggio:step5:smoke": "tsx scripts/smoke-viaggio-step5.ts",
+    "mp02:step2:smoke": "tsx scripts/smoke-mp02-step2.ts",
+    "mp02:step3:smoke": "tsx scripts/smoke-mp02-step3.ts"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
     "@google/genai": "latest",
+    "@googlemaps/markerclusterer": "^2.6.2",
     "@hookform/resolvers": "^5.2.2",
     "@react-pdf/renderer": "latest",
     "@supabase/supabase-js": "^2.97.0",
@@ -38,6 +42,7 @@
     "@tiptap/react": "^3.27.1",
     "@tiptap/starter-kit": "^3.27.1",
     "@types/cors": "^2.8.19",
+    "@vis.gl/react-google-maps": "^1.9.0",
     "clsx": "latest",
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
@@ -59,6 +64,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
     "@types/express": "^5.0.6",
+    "@types/google.maps": "^3.65.3",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

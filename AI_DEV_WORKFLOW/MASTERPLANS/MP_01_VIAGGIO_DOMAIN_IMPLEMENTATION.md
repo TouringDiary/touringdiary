@@ -17,9 +17,9 @@
 > **WF-04** è **Sospeso** (`PO-OV-002`): non è piano esecutivo.  
 > Qualsiasi implementazione del dominio Viaggio parte da **questo Masterplan** e da nuovi Workflow — mai da WF-04.
 
-**Versione:** 1.4.1  
+**Versione:** 1.5.0  
 **Data:** 2026-07-27  
-**Stato:** Masterplan ufficiale — **STEP-1…4 Completati**; **STEP-5** → WF-09 (**In verifica PO**). Termina con STEP-5; chiusura Masterplan post-ACCETTO; **no WF-10 automatico**.  
+**Stato:** **Completato** — STEP-1…5 chiusi (WF-05…WF-09 archiviati). **Nessun WF-10 automatico.** Lavori futuri → nuovo Masterplan o decisione PO.  
 **Prerequisito prodotto:** Macrofase 1 MyWorld/shell MySpace **completata** (WF-03)
 
 ---
@@ -365,8 +365,8 @@ DOC 37 §§ Ricordi, Allegati, Mappa, Riepilogo · DOC 35 root · DOC 36 C5 · D
 - [x] Riepilogo: vista + annotazioni; non Resource CRUD peer
 - [x] Stereotipi Resource / Library / View rispettati in UI; nessuna sezione AI
 - [x] Gate prodotto: MySpace → Viaggio senza alias storico patrimonio=Diario
-- [ ] Validazione PO finale (WF-09 Verifica PO)
-- [ ] Documentazione MASTER aggiornata su evidenza codice (post-ACCETTO / quando certificata)
+- [x] Validazione PO finale (WF-09)
+- [ ] Documentazione MASTER aggiornata su evidenza codice (follow-up post-chiusura; non blocca chiusura MP-01)
 
 ### Ordine
 
@@ -381,10 +381,10 @@ DOC 37 §§ Ricordi, Allegati, Mappa, Riepilogo · DOC 35 root · DOC 36 C5 · D
 
 | Campo | Valore |
 |-------|--------|
-| Workflow | **WF-09** — Attivo — **In verifica PO** |
-| Path | `WORKFLOWS/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md` |
+| Workflow | **WF-09** — **Completato** (archiviato) |
+| Path | `WORKFLOWS/_archive/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md` |
 | Governance | Un solo STEP = MP-01 STEP-5; checklist interna; no STOP PO intermedi |
-| Chiusura programma | STEP-5 chiude MP-01; **no WF-10 automatico** — nuovo Masterplan o decisione PO |
+| Chiusura programma | **MP-01 concluso** — **no WF-10 automatico** — nuovo Masterplan o decisione PO |
 
 ---
 
@@ -407,11 +407,11 @@ DOC 37 §§ Ricordi, Allegati, Mappa, Riepilogo · DOC 35 root · DOC 36 C5 · D
 | 2 | WF-06 (`WORKFLOWS/_archive/WF_06_MP01_STEP2_MYSPACE_VIAGGIO_CATALOG.md`) | Completato (archiviato) |
 | 3 | WF-07 (`WORKFLOWS/_archive/WF_07_MP01_STEP3_VIAGGIO_OPERATIVE_RESOURCES.md`) | Completato (archiviato) |
 | 4 | WF-08 (`WORKFLOWS/_archive/WF_08_MP01_STEP4_COLLABORATION_ALIGNED.md`) | Completato (archiviato) |
-| 5 | WF-09 (`WORKFLOWS/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md`) | Attivo — In verifica PO |
+| 5 | WF-09 (`WORKFLOWS/_archive/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md`) | Completato (archiviato) |
 
-Alla chiusura formale di WF-09: chiudere anche questo Masterplan. **Non esiste automaticamente un WF-10.** Lavori futuri → nuovo Masterplan o decisione PO.
+**MP-01 è concluso.** **Non esiste automaticamente un WF-10.** Lavori futuri → nuovo Masterplan o decisione PO.
 
-Aprire l’esecuzione di WF-09 era consentita solo su ordine esplicito del PO (`Avvia WF-09`). Un Workflow = un solo STEP.
+Follow-up documentale (non Workflow): aggiornamento `AI_CONTEXT_MASTER` su evidenza codice certificata.
 
 ---
 
@@ -430,3 +430,4 @@ Aprire l’esecuzione di WF-09 era consentita solo su ordine esplicito del PO (`
 | 1.3.1 | 2026-07-27 | STEP-4 implementato (WF-08) → In verifica PO; STEP-5 / WF-09 non aperti |
 | 1.4.0 | 2026-07-27 | STEP-4 Completato (WF-08 archiviato); STEP-5 → WF-09 (Pronto per implementazione) |
 | 1.4.1 | 2026-07-27 | STEP-5 implementato (WF-09) → In verifica PO; nota chiusura MP-01 / no WF-10 |
+| 1.5.0 | 2026-07-27 | STEP-5 Completato (WF-09 archiviato); **MP-01 concluso**; no WF-10 automatico |

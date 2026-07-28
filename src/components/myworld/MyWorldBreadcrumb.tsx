@@ -22,7 +22,8 @@ export const MyWorldBreadcrumb: React.FC<Props> = ({ crumbs }) => {
     <nav aria-label="Percorso MyWorld" className="flex items-center gap-1 min-w-0 flex-wrap">
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
-        const clickable = !!crumb.onClick && !isLast;
+        /** DOC 35: ogni livello è cliccabile quando ha destinazione. */
+        const clickable = !!crumb.onClick;
 
         return (
           <React.Fragment key={`${crumb.id}-${index}`}>
@@ -33,7 +34,12 @@ export const MyWorldBreadcrumb: React.FC<Props> = ({ crumbs }) => {
               <button
                 type="button"
                 onClick={crumb.onClick}
-                className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 hover:text-indigo-100 truncate max-w-[10rem]"
+                className={`text-[10px] font-bold uppercase tracking-wider truncate max-w-[10rem] ${
+                  isLast
+                    ? 'text-slate-200 hover:text-white'
+                    : 'text-indigo-300 hover:text-indigo-100'
+                }`}
+                aria-current={isLast ? 'page' : undefined}
               >
                 {crumb.label}
               </button>

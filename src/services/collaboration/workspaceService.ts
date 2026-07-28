@@ -35,6 +35,30 @@ export async function getWorkspace(workspaceId: string): Promise<Workspace | nul
   return mapWorkspaceRow(data);
 }
 
+/** Nomi workspace per id (1 query batch; fallback «Workspace» lato UI). */
+export async function getWorkspaceNamesByIds(
+  workspaceIds: string[],
+): Promise<Record<string, string>> {
+  const unique = [...new Set(workspaceIds.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from('workspaces')
+    .select('id, name')
+    .in('id', unique);
+
+  if (error) {
+    console.error('[workspaceService] getWorkspaceNamesByIds:', error.message);
+    return {};
+  }
+
+  const names: Record<string, string> = {};
+  for (const row of data ?? []) {
+    names[row.id] = row.name;
+  }
+  return names;
+}
+
 export async function listWorkspacesForUser(userId: string): Promise<Workspace[]> {
   const [ownedResult, memberResult] = await Promise.all([
     supabase.from('workspaces').select('*').eq('owner_id', userId).order('updated_at', {

@@ -13,6 +13,7 @@ import { supabase } from '../../../services/supabaseClient';
 import { getCategoryPlaceholders } from '../../../services/settingsService';
 import { resolvePoiDisplayImageUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 import { galleryDisplayUrls } from '../../../utils/media';
+import { showGlobalAlert } from '@/services/ui/toastService';
 
 interface PoiImageSectionProps {
     poi: PointOfInterest;
@@ -31,11 +32,6 @@ function formatReviewDate(iso: string): string {
         month: 'short',
         year: 'numeric',
     });
-}
-
-/** Toast piattaforma (`GlobalAlert` via evento `global-alert`). */
-function notifyUser(message: string): void {
-    window.dispatchEvent(new CustomEvent('global-alert', { detail: { message } }));
 }
 
 export const PoiImageSection = ({
@@ -116,7 +112,7 @@ export const PoiImageSection = ({
             await loadReviews();
         } catch (e) {
             console.error(e);
-            notifyUser('Impossibile eliminare la recensione.');
+            showGlobalAlert('Impossibile eliminare la recensione.');
         } finally {
             setIsDeleting(false);
         }

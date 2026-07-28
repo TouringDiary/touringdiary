@@ -1909,6 +1909,32 @@ export type Database = {
           },
         ]
       }
+      viaggio_ricordi_media_day_links: {
+        Row: {
+          created_at: string
+          day_key: string
+          media_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_key: string
+          media_id: string
+        }
+        Update: {
+          created_at?: string
+          day_key?: string
+          media_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viaggio_ricordi_media_day_links_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "viaggio_ricordi_media"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       viaggio_ricordi_day_notes: {
         Row: {
           body: string
@@ -4275,6 +4301,56 @@ export type Database = {
           },
         ]
       }
+      user_favorites: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_kind: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_kind: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_kind?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_visited_cities: {
+        Row: {
+          city_id: string
+          first_seen_at: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          city_id: string
+          first_seen_at?: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          city_id?: string
+          first_seen_at?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_visited_cities_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_ai_credits: {
         Row: {
           created_at: string | null
@@ -4609,6 +4685,9 @@ export type Database = {
           metadata: Json
           period_end: string | null
           period_start: string | null
+          ricordami_enabled: boolean
+          ricordami_interval_months: number
+          ricordami_next_at: string | null
           title: string
           updated_at: string
           user_id: string
@@ -4622,6 +4701,9 @@ export type Database = {
           metadata?: Json
           period_end?: string | null
           period_start?: string | null
+          ricordami_enabled?: boolean
+          ricordami_interval_months?: number
+          ricordami_next_at?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -4635,6 +4717,9 @@ export type Database = {
           metadata?: Json
           period_end?: string | null
           period_start?: string | null
+          ricordami_enabled?: boolean
+          ricordami_interval_months?: number
+          ricordami_next_at?: string | null
           title?: string
           updated_at?: string
           user_id?: string

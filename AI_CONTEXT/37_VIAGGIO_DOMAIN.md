@@ -6,12 +6,13 @@
 > Collaborazione → `28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 > Packing → `31_PACKING_SUITCASE_SYSTEM.md`.
 > **Non** contiene roadmap, Workflow, schema DB, API, RLS né piano di implementazione.
-> Implementazione → `AI_DEV_WORKFLOW/MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md`.
+> Implementazione dominio base → `AI_DEV_WORKFLOW/MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md` (**concluso**).  
+> Allineamento UX MySpace post–MP-01 → `AI_DEV_WORKFLOW/MASTERPLANS/MP_02_MYSPACE_UX_REALIGNMENT.md`.
 
-**Versione:** 1.0.0  
-**Data:** 2026-07-26  
+**Versione:** 1.2.1  
+**Data:** 2026-07-27  
 **Stato:** Congelato — Source of Truth del dominio  
-**Origine:** Decisioni PO + review architetturale finale (chiusa 2026-07-26)
+**Origine:** Decisioni PO + review architetturale finale (chiusa 2026-07-26); aggiornamenti MySpace/Ricordi/Mappa 2026-07-27
 
 ---
 
@@ -45,7 +46,8 @@ Appartengono al **Viaggio** (non al Diario):
 - titolo
 - destinazione
 - periodo
-- copertina
+- **copertina** — **una sola**; solo **manuale** (carica / sostituisci / elimina); **non** generata automaticamente
+- preferenza **Ricordami** (abilitato + intervallo mesi) — metadato di prodotto sul Viaggio; UI in cartella (DOC 35 §6.5), non nella Resource Ricordi
 - proprietario
 - metadati futuri di identità
 
@@ -53,6 +55,8 @@ Il Diario **descrive** il viaggio (piano / narrazione).
 Il Viaggio **identifica** il patrimonio.
 
 Un Viaggio può esistere **senza** alcuna risorsa (empty) — dati e UI devono ammetterlo.
+
+**UI cover:** preview primaria nel catalogo «I miei Viaggi»; chrome cartella **senza** fascia cover alta (DOC 35 §6).
 
 ---
 
@@ -94,6 +98,11 @@ Il Diario è la **narrazione / piano** del viaggio.
 Non è l’archivio multimedia (→ Ricordi).  
 Non è l’identità del patrimonio (→ Viaggio).
 
+### 4.4 Persistenza (invariata)
+
+Il sistema di salvataggio del Diario resta quello già prodotto: **Salva**, **Salva con nome**, **Auto Save** (toggle).  
+Nessuna cronologia versioni. Nessuna modifica architetturale a questo comportamento.
+
 ---
 
 ## 5. Roadbook (Library)
@@ -133,6 +142,21 @@ In entrambi i casi:
 - il Diario, se usato, è solo **riferimento temporale**;
 - ownership non cambia.
 
+### 6.3 Libreria viaggio ∪ libreria giorno (UX canonica)
+
+Senza giorno selezionato: colonna giorni + cartelle **FOTO** / **VIDEO** = **tutto** il media del Viaggio.  
+Con giorno selezionato: cartelle **FOTO – Giorno X** / **VIDEO – Giorno X** = solo quel giorno.  
+Un solo sistema Resource; due ambiti di filtro (viaggio vs giorno).
+
+### 6.4 Gestione media (definitiva)
+
+- Foto e Video appartengono **sempre** al **Viaggio**. L’associazione a uno o più giorni è solo un **collegamento logico** di organizzazione; il contenuto resta **unico** nel patrimonio del Viaggio.
+- Foto e Video sono gestiti **liberamente** dall’utente.
+- Lo stesso elemento può appartenere a **più giorni** contemporaneamente.
+- Foto e Video possono essere **spostati** da un giorno a un altro.
+- L’eliminazione di un contenuto rimuove il contenuto **soltanto dal Viaggio** (patrimonio TouringDiary).
+- **Non** è prevista eliminazione automatica dal telefono, da Google Foto, iCloud, Dropbox, OneDrive o altri cloud esterni. TouringDiary gestisce **esclusivamente** i propri dati; l’originale dell’utente resta dove l’utente lo ha salvato.
+
 ---
 
 ## 7. Allegati
@@ -153,7 +177,13 @@ Dettaglio packing → `31_PACKING_SUITCASE_SYSTEM.md`.
 
 ## 9. Mappa (View)
 
-Vista geografica interattiva del patrimonio del Viaggio.
+Vista geografica **interattiva** del patrimonio del Viaggio.
+
+**Prodotto:** mappa **Google Maps embedded** (come nelle città), con:
+
+- pin sugli elementi geolocalizzati;
+- con molti POI: **clustering** dei marker (zoom basso → gruppi; zoom crescente → cluster che si dividono; zoom opportuno → pin singoli). Il clustering è **esclusivamente** una tecnica di **visualizzazione** (legibilità/prestazioni): **non** crea nuove entità, **non** modifica i POI, **non** modifica il dominio, **non** introduce strutture dati dedicate, **non** altera la navigazione;
+- click sul **pin singolo** → apertura della **pagina completa del POI**.
 
 Unisce **tutti** gli elementi geolocalizzati del Viaggio, ad esempio:
 
@@ -161,8 +191,7 @@ Unisce **tutti** gli elementi geolocalizzati del Viaggio, ad esempio:
 - Foto / Video con coordinate GPS;
 - future risorse geolocalizzate.
 
-Selezione pin → accesso al POI / asset e alle informazioni collegate.  
-Qualità grafica e navigazione sono requisiti di prodotto fondamentali (non dettagli di questo file).
+Qualità grafica e navigazione sono requisiti di prodotto fondamentali.
 
 ---
 
@@ -203,6 +232,9 @@ L’AI **non** è una sezione del Viaggio.
 - Share per risorsa (Diario, Valigia, Template, …) resta ammesso.
 - Creazione Workspace **da un Viaggio**: selezione risorse → **sole copie** → shell con la stessa struttura logica del Viaggio; sezioni non copiate = vuote.
 - Il Viaggio originale non viene mai condiviso.
+- MySpace = originali; Workspace = copie.
+- **Le modifiche agli originali non aggiornano le copie Workspace.**
+- **L’eliminazione dell’originale non elimina la copia Workspace** (e viceversa).
 
 Dettaglio → `28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 
@@ -215,7 +247,8 @@ Dettaglio → `28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 | Crea Viaggio | Nasce Aggregate Root; può essere empty |
 | Aggiungi / rimuovi Resource | Non altera l’identità del Viaggio |
 | Elimina Diario attivo | Attivo → nessuno; utente sceglie |
-| Elimina Viaggio | Elimina il patrimonio personale di quel Viaggio; **non** elimina copie Workspace |
+| Elimina Viaggio | Elimina il patrimonio personale di quel Viaggio (dopo conferma esplicita DOC 35), inclusa la preferenza Ricordami di quel Viaggio; **non** elimina copie Workspace; **non** elimina automaticamente città visitate in Esploratore |
+| Elimina Foto/Video Ricordi | Solo dal Viaggio; non da telefono/cloud esterni |
 | Genera Roadbook | Nuovo snapshot in libreria; Diario non viene mutato dall’artifact |
 
 ---
@@ -261,6 +294,15 @@ Dettaglio → `28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 | VD-012 | Stereotipi Resource · Library · View | Congelato |
 | VD-013 | Strumenti ≠ Valigia del Viaggio | Congelato (riaffermazione) |
 | VD-014 | Community publish tipicamente da Diario | Congelato (confine) |
+| VD-015 | Cover unica, solo manuale; UI primaria catalogo | Congelato 2026-07-27 |
+| VD-016 | Ricordami = preferenza su Viaggio (cartella), non Resource Ricordi | Congelato 2026-07-27 |
+| VD-017 | Mappa = Google Maps embedded + pin/POI | Congelato 2026-07-27 · **raffinato** da VD-019 |
+| VD-018 | Ricordi: libreria viaggio ∪ filtro giorno (FOTO/VIDEO) | Congelato 2026-07-27 |
+| VD-019 | Mappa: clustering marker (solo view); pin singolo → pagina completa POI. Non crea entità né strutture dati dedicate | Congelato 2026-07-27 · precisato 1.2.1 |
+| VD-020 | Ricordi media: multi-giorno; spostamento; delete solo da Viaggio (non telefono/cloud). Giorni = link logici; contenuto unico sul Viaggio | Congelato 2026-07-27 · precisato 1.2.1 |
+| VD-021 | Diario: Salva / Salva con nome / Auto Save; no version history | Congelato 2026-07-27 (as-is) |
+| VD-022 | Originali ↛ sync copie WS; delete originale ↛ delete copia | Congelato 2026-07-27 (riaffermazione) |
+| VD-023 | Delete Viaggio → elimina anche preferenza Ricordami di quel Viaggio | Congelato 2026-07-27 |
 
 ---
 
@@ -288,3 +330,6 @@ MyWorld
 | Versione | Data | Note |
 |----------|------|------|
 | 1.0.0 | 2026-07-26 | SoT iniziale post-freeze review architetturale |
+| 1.1.0 | 2026-07-27 | Cover manuale unica; Ricordami su Viaggio; Ricordi libreria viaggio/giorno; Mappa embedded |
+| 1.2.0 | 2026-07-27 | Ricordi multi-giorno + delete solo TD; Mappa clustering; Diario save as-is; WS no-sync (VD-019…022) |
+| 1.2.1 | 2026-07-27 | Media: giorni = link logici; clustering non-entità; delete→Ricordami (VD-019/020 precisati, VD-023) |

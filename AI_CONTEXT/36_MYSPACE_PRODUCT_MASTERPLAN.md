@@ -10,9 +10,9 @@
 > **Non** è Workflow, checklist operativa, schema DB, API o stima effort.  
 > **Non** autorizza codice da questo file.
 
-**Versione:** 2.0.0  
-**Data:** 2026-07-26  
-**Stato:** Ordine di prodotto ufficiale post-freeze dominio Viaggio
+**Versione:** 2.1.0  
+**Data:** 2026-07-27  
+**Stato:** Ordine di prodotto ufficiale post-freeze dominio Viaggio (+ allineamento MySpace 2026-07-27)
 
 ---
 
@@ -34,9 +34,11 @@
 | Unità storia | **Viaggio** (Aggregate Root) |
 | Diario | Resource del Viaggio (0..N + attivo) |
 | Root MySpace | Viaggi → Esploratore → Preferiti → Strumenti → Inviti |
-| Marcatore Preferiti | **Segnalibro** |
+| Marcatore Preferiti | **Segnalibro**; Preferiti = **vista trasversale**, non dominio |
+| Cover Viaggio | **Una**, solo **manuale**; preview in catalogo |
 | Collaborazione | Solo copie; WS da Viaggio = estensione |
-| Filosofia | Silenziosa |
+| Filosofia | Silenziosa + **Ricordami** ufficiale (cartella Viaggio) |
+| Navigazione | Memoria punto MySpace dopo apertura risorsa |
 
 ---
 
@@ -88,16 +90,16 @@ Le capacità successive **non** riprendono l’alias Diario≡Viaggio.
 | Campo | Valore |
 |-------|--------|
 | Obiettivo | Catalogo e cartella Viaggio navigabile in MySpace |
-| Include | Copertina, breadcrumb fino al Viaggio, ingresso sezioni, empty silenzioso |
+| Include | Catalogo (thumb città + titolo/periodo + **preview cover**); cartella **compatta**; breadcrumb; sezioni; empty silenzioso; **Ricordami** in cartella |
 | Dipendenze | C1 |
-| Criterio | Da MySpace → I miei Viaggi → Viaggio l’utente sa dove si trova |
+| Criterio | Orientamento chiaro e spazio verticale per i contenuti |
 
 ### C3 — Risorse operative del Viaggio
 
 | Campo | Valore |
 |-------|--------|
-| Obiettivo | Diario (multi + attivo), Valigia del viaggio, libreria Roadbook |
-| Motivazione | Sono il nucleo quotidiano di pianificazione e recupero artefatti |
+| Obiettivo | Diario (multi + attivo), Valigia (create/link/reopen UX), libreria Roadbook |
+| Motivazione | Nucleo quotidiano di pianificazione e recupero artefatti |
 | Dipendenze | C2 |
 | Criterio | Operare su Diario/Valigia/Roadbook **dentro** il Viaggio senza collasso identitario |
 
@@ -114,19 +116,20 @@ Le capacità successive **non** riprendono l’alias Diario≡Viaggio.
 
 | Campo | Valore |
 |-------|--------|
-| Obiettivo | Ricordi (Foto/Video/Note-giorno), Mappa, Riepilogo; poi Preferiti / Esploratore / Strumenti / Inviti a profondità visione |
-| Motivazione | Completa il patrimonio e la valorizzazione senza aprire nuove dispute di dominio |
-| Dipendenze | C1–C2 (struttura); C3 utile per dati Diario/geo |
-| Criterio | Sezioni View/Library/Resource usate correttamente; root MySpace coerenti con DOC 35 |
+| Obiettivo | Ricordi (libreria viaggio/giorno), **Mappa embedded**, Riepilogo; Preferiti (vista), Esploratore (archivio), Strumenti, Inviti; **memoria navigazione** MySpace |
+| Motivazione | Completa patrimonio e casa senza violare MySpace≠Workspace |
+| Dipendenze | C1–C2; C3 utile per Diario/geo |
+| Criterio | Stereotipi corretti; root DOC 35 a profondità visione |
 
 ---
 
 ## 4. Fuori da questo ordine (desiderata)
 
-- Ricordami questo viaggio (Feature Flag CC)
-- Modalità Rivivere
-- On This Day / Preferiti intelligenti
+- Modalità **Rivivere** (≠ sezione)
+- **On This Day** / Preferiti intelligenti avanzati
 - Nuove sezioni Viaggio (solo se DOC 34A/37)
+
+**Ricordami** non è più desiderata → DOC 35 §6.5 / C2.
 
 ---
 
@@ -137,10 +140,10 @@ Le capacità successive **non** riprendono l’alias Diario≡Viaggio.
 | Visione | DOC 35 |
 | Dominio | DOC 34A · DOC 37 |
 | Ordine capacità (questo file) | DOC 36 |
-| Piano implementativo (max 5 STEP) | **MP-01** in `AI_DEV_WORKFLOW/MASTERPLANS/` |
-| Esecuzione | Workflow futuri (non WF-04 sull’alias Diario≡Viaggio) |
+| Piano post–MP-01 (max 3 STEP) | **MP-02** in `AI_DEV_WORKFLOW/MASTERPLANS/` |
+| Esecuzione | Workflow derivati da MP-02 (non WF-04 sull’alias Diario≡Viaggio) |
 
-**Nota:** WF-04 Macrofase 2 basato sull’alias `Viaggio ≡ Diario` è **sospeso** e non riprendibile su quel presupposto.
+**Nota:** WF-04 resta **sospeso**. **MP-01** è **concluso**.
 
 ---
 
@@ -150,3 +153,4 @@ Le capacità successive **non** riprendono l’alias Diario≡Viaggio.
 |----------|------|------|
 | 1.x | 2026-07-24/25 | 4 macrofasi pre-freeze |
 | 2.0.0 | 2026-07-26 | Riscrittura: ordine capacità su dominio Viaggio; implementazione separata in MP-01 |
+| 2.1.0 | 2026-07-27 | Cover/catalogo/Ricordami/Preferiti-vista/Mappa/memoria; punta a MP-02 |

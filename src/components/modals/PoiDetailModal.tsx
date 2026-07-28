@@ -1,7 +1,7 @@
 import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MapPin, ThumbsUp, ShoppingCart, Navigation, Loader2, Box, TrendingUp, X, Phone, Mail, Globe, Check, Plus, User, Bus, Settings, Star } from 'lucide-react';
+import { MapPin, ThumbsUp, ShoppingCart, Navigation, Loader2, Box, TrendingUp, X, Phone, Mail, Globe, Check, Plus, User, Bus, Settings, Star, type LucideIcon } from 'lucide-react';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { PointOfInterest, User as UserType } from '../../types/index';
 import { openMap, open3DView, getPoiColorStyle, getSubCategoryLabel } from '../../utils/common';
@@ -14,6 +14,7 @@ import { StarRating } from '../common/StarRating';
 import { affiliateTrackingService } from '../../services/affiliateTrackingService';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 
 // Imported Sub-Components
 import { PoiImageSection as GallerySection } from './poiDetail/PoiImageSection'; // Rename for clarity
@@ -45,23 +46,43 @@ export const PoiDetailModal = ({
     const isResource = poi.resourceType || (poi.category === 'leisure' && poi.subCategory === 'agency');
 
     const modalContent = isResource 
-        ? <BusinessView {...{ poi, onClose, onToggleItinerary, isInItinerary }} />
+        ? <BusinessView {...{ poi, onClose, onToggleItinerary, isInItinerary, user, onOpenAuth }} />
         : <StandardView {...{ poi, onClose, onToggleItinerary, isInItinerary, onOpenReview, userLocation, onSuggestEdit, onOpenShop, user, onOpenAuth, initialView }} />;
 
     return createPortal(modalContent, document.body);
 };
 
+interface BusinessViewProps {
+    poi: PointOfInterest;
+    onClose: () => void;
+    onToggleItinerary: (poi: PointOfInterest) => void;
+    isInItinerary: boolean;
+    user: UserType;
+    onOpenAuth: () => void;
+}
+
+type BusinessResourceThemeKey = NonNullable<PointOfInterest['resourceType']> | 'default';
+
+interface BusinessResourceTheme {
+    gradient: string;
+    border: string;
+    text: string;
+    bg: string;
+    icon: LucideIcon;
+    label: string;
+}
+
 // --- SUB-COMPONENT: BUSINESS VIEW (EX BUSINESS CARD MODAL) ---
-const BusinessView = ({ poi, onClose, onToggleItinerary, isInItinerary }: any) => {
-    const CONFIG: any = {
+const BusinessView = ({ poi, onClose, onToggleItinerary, isInItinerary, user, onOpenAuth }: BusinessViewProps) => {
+    const CONFIG: Record<BusinessResourceThemeKey, BusinessResourceTheme> = {
         guide: { gradient: 'from-indigo-600 to-purple-700', border: 'border-indigo-500/50', text: 'text-indigo-400', bg: 'bg-indigo-900/20', icon: User, label: 'Guida Turistica' },
         operator: { gradient: 'from-cyan-600 to-blue-700', border: 'border-cyan-500/50', text: 'text-cyan-400', bg: 'bg-cyan-900/20', icon: Bus, label: 'Tour Operator' },
         service: { gradient: 'from-sky-600 to-blue-600', border: 'border-sky-500/50', text: 'text-sky-400', bg: 'bg-sky-900/20', icon: Settings, label: 'Servizio' },
         default: { gradient: 'from-slate-700 to-slate-900', border: 'border-slate-600', text: 'text-slate-400', bg: 'bg-slate-900', icon: Star, label: 'Partner' }
     };
 
-    const type = poi.resourceType || 'default';
-    const theme = CONFIG[type] || CONFIG.default;
+    const type: BusinessResourceThemeKey = poi.resourceType ?? 'default';
+    const theme = CONFIG[type];
     const ThemeIcon = theme.icon;
 
     const handleWebsiteClick = (e: React.MouseEvent) => {
@@ -92,6 +113,15 @@ const BusinessView = ({ poi, onClose, onToggleItinerary, isInItinerary }: any) =
                     variant="primary"
                     className="!bg-black/40 hover:!bg-red-600 backdrop-blur-sm"
                 />
+                <div className="absolute top-4 left-4 z-floating-panel">
+                    <FavoriteBookmarkButton
+                      userId={user?.role === 'guest' ? null : user?.id}
+                      entityKind="poi"
+                      entityId={poi.id}
+                      onRequireAuth={onOpenAuth}
+                      size="sm"
+                    />
+                </div>
 
                 <div className="relative z-floating-panel flex flex-col items-center pt-12 pb-8 px-6 text-center">
                     <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-br from-white/20 to-transparent mb-4 shadow-2xl">
@@ -162,7 +192,6 @@ const StandardView = ({ poi, onClose, onToggleItinerary, isInItinerary, onOpenRe
 
     return (
         <div className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in" onClick={onClose} style={{ zIndex: Z_OVERLAY }}>
-            <style>{`.perspective-1000 { perspective: 1000px; } .transform-style-3d { transform-style: preserve-3d; } .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; } .rotate-y-180 { transform: rotateY(180deg); }`}</style>
             <div 
                 className="relative bg-[#020617] w-full max-w-5xl h-full md:max-h-[95vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 pointer-events-auto"
                 style={{ zIndex: Z_MODAL }}
@@ -186,6 +215,13 @@ const StandardView = ({ poi, onClose, onToggleItinerary, isInItinerary, onOpenRe
                         <div className="flex flex-col gap-2 shrink-0 items-end">
                             <div className={`hidden md:flex flex-col items-center justify-center px-3 py-1 rounded-xl border ${interestColor} mb-1 self-end`}><div className="flex items-center gap-1.5 font-black text-xs leading-none"><TrendingUp className="w-3 h-3" /> {interestLabel}</div></div>
                             <div className="flex items-center gap-2">
+                                <FavoriteBookmarkButton
+                                  userId={user?.role === 'guest' ? null : user?.id}
+                                  entityKind="poi"
+                                  entityId={poi.id}
+                                  onRequireAuth={onOpenAuth}
+                                  size="sm"
+                                />
                                 {poi.vatNumber && onOpenShop && shopPublicEnabled && <button type="button" onClick={() => { onOpenShop(poi); onClose(); }} className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white shadow-lg transition-transform active:scale-95 border border-indigo-400" title="Vai alla Bottega"><ShoppingCart className="w-4 h-4" /></button>}
                                 <button onClick={() => openMap(poi.coords.lat, poi.coords.lng, poi.name, poi.address)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"><MapPin className="w-3.5 h-3.5" /> Maps</button>
                                 <button onClick={() => open3DView(poi.coords.lat, poi.coords.lng, poi.name, poi.address)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"><Box className="w-3.5 h-3.5" /> 3D</button>

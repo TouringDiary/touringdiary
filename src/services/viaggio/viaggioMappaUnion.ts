@@ -37,6 +37,8 @@ export function pinsFromDiaries(diaries: Itinerary[]): ViaggioMapPin[] {
         diaryId: diary.id ?? undefined,
         diaryName: diary.name,
         address: item.poi.address,
+        poiId: item.poi.id,
+        poi: item.poi,
       });
     }
   }
@@ -50,7 +52,7 @@ export function pinsFromRicordi(media: ViaggioRicordoMedia[]): ViaggioMapPin[] {
     label: m.title || (m.kind === 'video' ? 'Video' : 'Foto'),
     lat: m.coordsLat,
     lng: m.coordsLng,
-    dayKey: m.dayKey,
+    dayKey: m.dayKeys[0] ?? m.dayKey,
     mediaId: m.id,
   }));
 }

@@ -85,7 +85,7 @@ export interface AppNotification {
         targetId?: string;
         poiId?: string;
         inviteId?: string;
-        intent?: 'workspace';
+        intent?: 'workspace' | 'myspace_viaggio';
         workspaceId?: string;
         /** Kind della Risorsa Condivisibile (notifiche collaborazione). */
         resourceKind?: 'diary' | 'suitcase' | 'user_template';

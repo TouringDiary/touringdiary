@@ -44,6 +44,7 @@ export { blockUser, unblockUser, areUsersBlocked, listBlockedUserIds } from './u
 export {
   createWorkspace,
   getWorkspace,
+  getWorkspaceNamesByIds,
   listWorkspacesForUser,
   getWorkspaceMemberCounts,
   updateWorkspace,
@@ -97,6 +98,8 @@ export {
   getWorkspaceInvite,
   listWorkspaceInvites,
   listPendingWorkspaceInvitesForUser,
+  listIncomingWorkspaceInvitesForUser,
+  listOutgoingWorkspaceInvitesForUser,
   removeWorkspaceMember,
   updateWorkspaceInvitePermissions,
 } from './workspaceInviteService';

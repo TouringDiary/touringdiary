@@ -5,7 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 export default defineConfig(({ mode }) => {
-  loadEnv(mode, '.', '')
+  const env = loadEnv(mode, '.', '')
+  const tunnelHmr =
+    (env.DEV_HMR_TUNNEL || process.env.DEV_HMR_TUNNEL || '') === '1'
 
   return {
     server: {
@@ -15,15 +17,16 @@ export default defineConfig(({ mode }) => {
 
       allowedHosts: ['.trycloudflare.com'],
 
-      // Phone reaches the app via HTTPS tunnel; HMR must use the public origin
-      // (WSS:443), not localhost — otherwise the client flaps on the device.
-      // Note: Vite still full-reloads after a backgrounded-tab WS drop (no public
-      // API to suppress that). Camera capture stays in-page (getUserMedia) so the
-      // tab is not backgrounded for "Scatta foto".
-      hmr: {
-        protocol: 'wss',
-        clientPort: 443,
-      },
+      // Local (default): no override → Vite HMR on the dev server port (ws).
+      // Tunnel (DEV_HMR_TUNNEL=1): HMR via wss on public port 443.
+      ...(tunnelHmr
+        ? {
+            hmr: {
+              protocol: 'wss' as const,
+              clientPort: 443,
+            },
+          }
+        : {}),
 
       proxy: {
         '/api': {

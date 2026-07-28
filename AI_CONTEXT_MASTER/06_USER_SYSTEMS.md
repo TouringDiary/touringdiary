@@ -50,14 +50,17 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 ### 8. Collaboration & Workspace
 *   **Dettaglio**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` v3 (target dominio + runtime as-is).
 *   **Dominio ufficiale:** MySpace = **solo originali**; Workspace = **solo copie**. Il **Viaggio originale non si condivide**. Share per risorsa resta; estensione: Workspace da Viaggio (shell isomorfa, sezioni mancanti vuote). «Condividi Originale» / `share_current` **rimosso dal prodotto**.
+*   **Architettura (conforme DOC 34A / DOC 28):** MySpace contiene esclusivamente gli **originali**; Workspace contiene esclusivamente **copie collaborative**. Il Viaggio originale non viene mai condiviso; la collaborazione avviene sempre tramite copie.
 *   **Moduli**: shared resource ACL, workspace, amici (`user_friends` ≠ `user_blocks`), eventi dominio, allegati bucket privato, wizard condivisione.
 *   **Services**: `src/services/collaboration/`.
 
 ### 8b. MySpace / Viaggio (dominio congelato)
 *   **Regole:** `AI_CONTEXT/34A_DOMAIN_DESIGN_RULES.md`
-*   **Struttura Viaggio:** `AI_CONTEXT/37_VIAGGIO_DOMAIN.md` — Diario 0..N, Ricordi (Foto/Video/Note-giorno), Roadbook library, Mappa/Riepilogo views.
-*   **Visione casa:** `AI_CONTEXT/35_MYSPACE_PRODUCT_VISION.md`
-*   **Implementazione:** `AI_DEV_WORKFLOW/MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md` (runtime as-is ancora su alias itinerary/diario fino a migrazione).
+*   **Struttura Viaggio:** `AI_CONTEXT/37_VIAGGIO_DOMAIN.md` — Diario 0..N, Ricordi (Foto/Video/Note-giorno), Roadbook library, Mappa/Riepilogo views; cover unica manuale; Ricordami su Viaggio.
+*   **Visione casa:** `AI_CONTEXT/35_MYSPACE_PRODUCT_VISION.md` (v2.1+) — catalogo cover, cartella compatta, memoria navigazione, Preferiti=vista, Esploratore=archivio.
+*   **Ordine capacità:** `AI_CONTEXT/36_MYSPACE_PRODUCT_MASTERPLAN.md`
+*   **Implementazione:** MP-01 concluso; residuale UX → `AI_DEV_WORKFLOW/MASTERPLANS/MP_02_MYSPACE_UX_REALIGNMENT.md`.
+*   **Invariante:** MySpace = originali; Workspace = copie.
 
 ---
 
@@ -91,3 +94,14 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 ## TABELLE DATABASE COINVOLTE
 *   `profiles`, `reviews`, `notifications`, `xp_actions`, `community_posts`.
 *   **Collaborazione (Fase 10)**: `shared_resources`, `workspaces`, `user_friends`, `user_friend_requests`, `user_blocks`, `collaboration_domain_events`, `workspace_attachments` — vedi `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.
+
+---
+
+## Invarianti del sistema utente
+
+*   Un utente possiede il proprio patrimonio tramite **MySpace**.
+*   Il **Viaggio** è il contenitore principale del patrimonio.
+*   **Workspace** è l’ambiente operativo collaborativo (copie).
+*   **XP e Gamification** non modificano il patrimonio.
+*   **Review e Media** sono contributi Community.
+*   Nessun modulo può violare le regole del Domain Design (**DOC 34A**).

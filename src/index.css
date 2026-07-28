@@ -70,7 +70,7 @@
   --active-sidebar-width: var(--width-sidebar);
   --header-height: 64px;
   /* Valori allineati a src/constants/workspacePanelLayout.ts */
-  --workspace-panel-height: 17.5rem;
+  --workspace-panel-height: 35rem;
   --workspace-binder-tab-height: 2rem;
   --mobile-nav-height: 4rem;
 }
@@ -173,5 +173,36 @@
   background: linear-gradient(270deg, #cbd5e1, #e2e8f0, #fcd34d, #f59e0b, #e2e8f0, #cbd5e1);
   background-size: 400% 400%;
   animation: metal-shine 6s ease infinite;
+}
+
+/* 3D flip card utilities (PoiDetail / itineraries) */
+@utility perspective-1000 {
+  perspective: 1000px;
+}
+
+@utility transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+@utility backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+@utility rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+@utility rotate-y-0 {
+  transform: rotateY(0deg);
+}
+
+@keyframes border-march {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -20; }
+}
+
+.marching-ants rect {
+  animation: border-march 1s linear infinite;
 }
 

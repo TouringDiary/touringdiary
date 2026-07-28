@@ -1,6 +1,6 @@
 /**
  * Root MySpace — ordine definitivo DOC 35 / DOC 36.
- * Root «trips» = catalogo/cartella Viaggio (MP-01 STEP-2). Altre root = placeholder.
+ * Root «trips» = catalogo/cartella Viaggio. Altre root = Preferiti / Esploratore / Strumenti / Inviti (MP-02 STEP-3).
  */
 
 export const MY_SPACE_ROOT_IDS = [

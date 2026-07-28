@@ -10,11 +10,11 @@ import {
   slidePanelTransformClassFromTop,
 } from '@/constants/slidePanelMotion';
 import { resolveWorkspacePanelZIndex, resolveCompanionSurfaceTier } from '@/layering/resolveWorkspacePanelZIndex';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
 import { useModal } from '@/context/ModalContext';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { MyWorldBreadcrumb, type MyWorldCrumb } from '@/components/myworld/MyWorldBreadcrumb';
 import {
   getMySpaceRoot,
@@ -31,23 +31,53 @@ import {
   VIAGGIO_FOLDER_DEFAULT_SECTION,
   type ViaggioFolderSectionId,
 } from '@/myspace/viaggioFolderSections';
+import {
+  loadMySpaceNavMemory,
+  saveMySpaceNavMemory,
+} from '@/myspace/mySpaceNavMemory';
 import type { Viaggio } from '@/types/models/Viaggio';
 import { MySpaceRootNav } from './MySpaceRootNav';
-import { MySpaceSectionPlaceholder } from './MySpaceSectionPlaceholder';
 import { MySpaceTripsCatalog } from './MySpaceTripsCatalog';
 import { ViaggioFolderShell } from './ViaggioFolderShell';
+import { MySpaceFavoritesRoot } from './MySpaceFavoritesRoot';
+import { MySpaceExplorerRoot } from './MySpaceExplorerRoot';
+import { MySpaceToolsRoot } from './MySpaceToolsRoot';
+import { MySpaceInvitesRoot } from './MySpaceInvitesRoot';
+
+function parseInitialTripsView(raw: unknown): MySpaceTripsView | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const v = raw as MySpaceTripsView;
+  if (v.kind === 'catalog') return MY_SPACE_TRIPS_CATALOG;
+  if (v.kind === 'folder' && typeof v.viaggioId === 'string' && v.section) {
+    return openTripsFolder(v.viaggioId, v.section as ViaggioFolderSectionId);
+  }
+  return null;
+}
 
 /**
- * Shell MySpace — root navigabili; root «I miei Viaggi» = catalogo/cartella Viaggio (MP-01 STEP-2).
- * Altre root = placeholder. Preferiti / packing / roadbook / collab = STEP successivi.
+ * Shell MySpace — DOC 35; memoria path completo (MP-02 STEP-1).
  */
 export const MySpaceMinimalShell: React.FC = () => {
   const { user } = useUser();
   const { isMobile, mobileDiaryFullScreen } = useUI();
-  const { openModal } = useModal();
-  const [activeRoot, setActiveRoot] = useState<MySpaceRootId>(MY_SPACE_DEFAULT_ROOT);
-  const [tripsView, setTripsView] = useState<MySpaceTripsView>(MY_SPACE_TRIPS_CATALOG);
-  const [folderTitle, setFolderTitle] = useState<string | null>(null);
+  const { openModal, modalProps } = useModal();
+
+  const restoredRef = useRef(false);
+  const initialFromProps = parseInitialTripsView(modalProps?.initialTripsView);
+  const initialRootProp =
+    typeof modalProps?.initialRoot === 'string'
+      ? (modalProps.initialRoot as MySpaceRootId)
+      : null;
+
+  const [activeRoot, setActiveRoot] = useState<MySpaceRootId>(
+    initialRootProp || MY_SPACE_DEFAULT_ROOT,
+  );
+  const [tripsView, setTripsView] = useState<MySpaceTripsView>(
+    initialFromProps || MY_SPACE_TRIPS_CATALOG,
+  );
+  const [folderTitle, setFolderTitle] = useState<string | null>(
+    typeof modalProps?.folderTitle === 'string' ? modalProps.folderTitle : null,
+  );
 
   const panelZIndex = resolveWorkspacePanelZIndex(
     resolveCompanionSurfaceTier({ mobileDiaryFullScreen }),
@@ -57,6 +87,33 @@ export const MySpaceMinimalShell: React.FC = () => {
   const shell = useFloatingPanelShellLifecycle({
     workspaceId: 'mySpace',
   });
+
+  /** Restore da sessionStorage se non aperto con deep link. */
+  useEffect(() => {
+    if (!user?.id || restoredRef.current) return;
+    restoredRef.current = true;
+    if (initialFromProps) return;
+    const mem = loadMySpaceNavMemory(user.id);
+    if (!mem) return;
+    setActiveRoot(mem.activeRoot);
+    setTripsView(mem.tripsView);
+    setFolderTitle(mem.folderTitle ?? null);
+  }, [user?.id, initialFromProps]);
+
+  const persistNav = useCallback(() => {
+    if (!user?.id) return;
+    saveMySpaceNavMemory(user.id, {
+      activeRoot,
+      tripsView,
+      folderTitle,
+    });
+  }, [user?.id, activeRoot, tripsView, folderTitle]);
+
+  /** Autosave path su ogni cambio navigazione interna. */
+  useEffect(() => {
+    if (!user?.id) return;
+    persistNav();
+  }, [user?.id, persistNav]);
 
   const resetTripsToCatalog = useCallback(() => {
     setTripsView(MY_SPACE_TRIPS_CATALOG);
@@ -73,10 +130,10 @@ export const MySpaceMinimalShell: React.FC = () => {
   const currentRoot = getMySpaceRoot(activeRoot);
 
   const goMyWorld = () => {
+    persistNav();
     openModal('myWorld');
   };
 
-  /** Click MySpace → root default + catalogo. */
   const goMySpaceRoot = () => {
     setActiveRoot(MY_SPACE_DEFAULT_ROOT);
     resetTripsToCatalog();
@@ -84,8 +141,6 @@ export const MySpaceMinimalShell: React.FC = () => {
 
   const handleRootNavigate = (root: MySpaceRootId) => {
     setActiveRoot(root);
-    // Reset stato locale del root che si lascia (oggi: solo trips).
-    // Estensione futura: qui i reset di explorer / favorites / tools quando avranno sessione interna.
     if (root !== 'trips') {
       resetTripsToCatalog();
     }
@@ -111,26 +166,28 @@ export const MySpaceMinimalShell: React.FC = () => {
     crumbs.push({
       id: 'trips',
       label: currentRoot.label,
-      onClick: tripsView.kind === 'folder' ? resetTripsToCatalog : undefined,
+      onClick: resetTripsToCatalog,
     });
     if (tripsView.kind === 'folder') {
       crumbs.push({
         id: tripsView.viaggioId,
         label: folderTitle || 'Viaggio',
-        onClick:
-          tripsView.section !== VIAGGIO_FOLDER_DEFAULT_SECTION
-            ? () => handleSectionChange(VIAGGIO_FOLDER_DEFAULT_SECTION)
-            : undefined,
+        onClick: () => handleSectionChange(VIAGGIO_FOLDER_DEFAULT_SECTION),
       });
       if (tripsView.section !== VIAGGIO_FOLDER_DEFAULT_SECTION) {
         crumbs.push({
           id: tripsView.section,
           label: getViaggioFolderSection(tripsView.section).label,
+          onClick: () => handleSectionChange(tripsView.section),
         });
       }
     }
   } else {
-    crumbs.push({ id: currentRoot.id, label: currentRoot.label });
+    crumbs.push({
+      id: currentRoot.id,
+      label: currentRoot.label,
+      onClick: () => handleRootNavigate(currentRoot.id),
+    });
   }
 
   return createPortal(
@@ -159,23 +216,28 @@ export const MySpaceMinimalShell: React.FC = () => {
           ${binderPanelMinHeightClass(true, isMobile, reserveBottomNav)}
         `}
       >
-        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 shrink-0">
+        <header className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-800 shrink-0">
           <MyWorldBreadcrumb crumbs={crumbs} />
-          <button
-            type="button"
-            onClick={shell.requestClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
-            aria-label="Chiudi MySpace"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <CloseButton
+            onClose={() => {
+              persistNav();
+              shell.requestClose();
+            }}
+            variant="primary"
+            withEscape={false}
+            className="shrink-0"
+          />
         </header>
 
         <MySpaceRootNav activeRoot={activeRoot} onNavigate={handleRootNavigate} />
 
         {activeRoot === 'trips' ? (
           tripsView.kind === 'catalog' ? (
-            <MySpaceTripsCatalog userId={user.id} onOpenViaggio={handleOpenViaggio} />
+            <MySpaceTripsCatalog
+              userId={user.id}
+              onOpenViaggio={handleOpenViaggio}
+              onBeforeLeaveMySpace={persistNav}
+            />
           ) : (
             <ViaggioFolderShell
               viaggioId={tripsView.viaggioId}
@@ -184,11 +246,19 @@ export const MySpaceMinimalShell: React.FC = () => {
               onSectionChange={handleSectionChange}
               onBackToCatalog={resetTripsToCatalog}
               onViaggioLoaded={handleViaggioLoaded}
+              onDeleted={resetTripsToCatalog}
+              onBeforeLeaveMySpace={persistNav}
             />
           )
-        ) : (
-          <MySpaceSectionPlaceholder root={currentRoot} />
-        )}
+        ) : activeRoot === 'favorites' ? (
+          <MySpaceFavoritesRoot userId={user.id} />
+        ) : activeRoot === 'explorer' ? (
+          <MySpaceExplorerRoot userId={user.id} />
+        ) : activeRoot === 'tools' ? (
+          <MySpaceToolsRoot userId={user.id} onBeforeLeaveMySpace={persistNav} />
+        ) : activeRoot === 'invites' ? (
+          <MySpaceInvitesRoot userId={user.id} onBeforeLeaveMySpace={persistNav} />
+        ) : null}
       </div>
     </div>,
     document.body,

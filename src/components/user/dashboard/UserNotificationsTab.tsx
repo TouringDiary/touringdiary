@@ -7,6 +7,10 @@ import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorks
 import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '@/constants/platformFeatureFlags';
 import { useSystemMessage } from '@/hooks/useSystemMessage';
+import { useModal } from '@/context/ModalContext';
+import { openTripsFolder } from '@/myspace/mySpaceTripsSession';
+import type { ViaggioFolderSectionId } from '@/myspace/viaggioFolderSections';
+import { VIAGGIO_FOLDER_DEFAULT_SECTION } from '@/myspace/viaggioFolderSections';
 
 interface Props {
     userId: string;
@@ -21,6 +25,7 @@ interface Props {
 export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNavigate, onClose, setNotifications, setUnreadCount }: Props) => {
     const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
     const openWorkspace = useOpenCollaborationWorkspace();
+    const { openModal } = useModal();
     const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
     const notificationsEnabled = notificationsFlag?.enabled ?? true;
     const notificationsMsgKey =
@@ -40,10 +45,14 @@ export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNav
         let cancelled = false;
 
         const load = async () => {
-             const data = await fetchNotificationsAsync(userId);
-             if (cancelled) return;
-             setNotifications(data);
-             setUnreadCount(data.filter(n => !n.isRead).length);
+             try {
+                 const data = await fetchNotificationsAsync(userId);
+                 if (cancelled) return;
+                 setNotifications(data);
+                 setUnreadCount(data.filter(n => !n.isRead).length);
+             } catch (e) {
+                 console.error('[UserNotificationsTab] fetchNotificationsAsync failed', e);
+             }
         };
 
         const refreshIfVisible = () => {
@@ -68,17 +77,25 @@ export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNav
 
     const handleNotificationClick = async (notif: AppNotification) => {
         if (!notificationsEnabled) return;
-        await markAsRead(notif.id);
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-        setSelectedNotification(notif);
+        try {
+            await markAsRead(notif.id);
+            setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+            setUnreadCount(prev => Math.max(0, prev - 1));
+            setSelectedNotification(notif);
+        } catch (e) {
+            console.error('[UserNotificationsTab] markAsRead failed', e);
+        }
     };
 
     const handleMarkAllRead = async () => {
         if (!notificationsEnabled) return;
-        await markAllAsRead(userId);
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        setUnreadCount(0);
+        try {
+            await markAllAsRead(userId);
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            setUnreadCount(0);
+        } catch (e) {
+            console.error('[UserNotificationsTab] markAllAsRead failed', e);
+        }
     };
 
     const handleNotifAction = (notif: AppNotification) => {
@@ -87,6 +104,15 @@ export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNav
             if (intent === 'workspace' && workspaceId) {
                 onClose();
                 openWorkspace({ workspaceId });
+                return;
+            }
+            if (intent === 'myspace_viaggio' && targetId) {
+                const sectionId = (tab as ViaggioFolderSectionId) || VIAGGIO_FOLDER_DEFAULT_SECTION;
+                onClose();
+                openModal('mySpace', {
+                    initialRoot: 'trips',
+                    initialTripsView: openTripsFolder(targetId, sectionId),
+                });
                 return;
             }
             onNavigate(section, tab, targetId, poiId ? { poiId } : undefined);

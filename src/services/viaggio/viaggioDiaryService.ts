@@ -85,6 +85,22 @@ export async function listDiariesByViaggio(viaggioId: string): Promise<Itinerary
   return (data || []).map(mapDiaryRow);
 }
 
+/** Elenca i Diari personali per più Viaggi (1 query). */
+export async function listDiariesByViaggioIds(viaggioIds: string[]): Promise<Itinerary[]> {
+  const unique = [...new Set(viaggioIds.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('itineraries')
+    .select('*')
+    .in('viaggio_id', unique)
+    .eq('type', 'personal')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map(mapDiaryRow);
+}
+
 /** Un Diario personale del Viaggio, o null se assente / non appartenente. */
 export async function getDiaryOfViaggio(
   viaggioId: string,

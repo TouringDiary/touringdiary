@@ -9,8 +9,8 @@
 > Collaborazione → `28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 > Packing → `31_PACKING_SUITCASE_SYSTEM.md`.
 
-**Versione:** 1.0.0  
-**Data:** 2026-07-26  
+**Versione:** 1.0.2  
+**Data:** 2026-07-27  
 **Stato:** Congelato — Source of Truth delle regole di dominio  
 **Origine:** Review architetturale dominio Viaggio (chiusa 2026-07-26)
 
@@ -21,7 +21,7 @@
 1. Il **Viaggio** è sempre l’**Aggregate Root** del patrimonio personale.
 2. Nessuna risorsa del patrimonio personale può usurpare il ruolo di unità primaria al posto del Viaggio.
 3. Il **Diario** non è il Viaggio. Il Diario è una risorsa del Viaggio.
-4. L’identità del patrimonio (titolo, destinazione, periodo, copertina, proprietario, metadati) appartiene al **Viaggio**, non al Diario.
+4. L’identità del patrimonio (titolo, destinazione, periodo, **copertina unica manuale**, proprietario, metadati — incluso Ricordami) appartiene al **Viaggio**, non al Diario.
 
 ---
 
@@ -129,8 +129,20 @@ Come implementare → Masterplan di sviluppo in `AI_DEV_WORKFLOW/` (mai in quest
 
 ---
 
+## 11. Identità invariabile del Viaggio
+
+1. L’identità del Viaggio (originale MySpace) **rimane stabile** nel tempo rispetto alle operazioni collaborative.
+2. Cover, proprietario e metadati di identità appartengono **sempre** all’originale.
+3. **Workspace non modifica** tali elementi sull’originale.
+4. Le copie collaborative possiedono una **propria identità indipendente** (nuovo oggetto / nuovo id).
+5. Nessuna operazione collaborativa può alterare l’identità del patrimonio MySpace.
+
+---
+
 ## Cronologia
 
 | Versione | Data | Note |
 |----------|------|------|
 | 1.0.0 | 2026-07-26 | Costituzione iniziale post-freeze dominio Viaggio |
+| 1.0.1 | 2026-07-27 | Identità Viaggio: cover unica manuale + metadato Ricordami |
+| 1.0.2 | 2026-07-27 | §11 Identità invariabile del Viaggio (confine Workspace) |

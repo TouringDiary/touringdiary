@@ -25,7 +25,7 @@ I domini referenziano il Centro di Controllo per *cosa è abilitato*; restano pr
 
 | Campo | Valore |
 |-------|--------|
-| **Versione** | 0.3.18 |
+| **Versione** | 0.3.19 |
 | **Ultima revisione** | 2026-07-23 |
 | **Stato** | Implementazione in Corso — collaudi CC conclusi; STEP-3 non chiuso formalmente |
 | **Percorso SSOT** | `AI_CONTEXT/30_PLATFORM_SETTINGS_MASTERPLAN.md` |
@@ -213,7 +213,9 @@ Centro di Controllo → Message Template → Database = **unica** Source of Trut
 | Partner ↔ Admin | `feature.comms.user_sponsor` | Spazio conversazioni Partner verso Admin — **invariato** (label UI: Chat Partner↔Admin) |
 | Negozio Digitale ↔ Utente | `feature.comms.digital_shop_user` | Lato Negozio Digitale; default OFF; motore chat futuro (G-MSG-1) |
 | Utente ↔ Negozio Digitale | `feature.comms.user_digital_shop` | Lato Utente; default OFF; motore chat futuro (G-MSG-1) |
-| Notifiche | `feature.comms.notifications` | |
+| Notifiche | `feature.comms.notifications` | Gate anche per «Ricordami questo viaggio» (DOC 35 §6.5): OFF globale → nuovi Viaggi toggle bloccato OFF; preferenze già ON restano salvate ma UI sospesa |
+
+**Regola permanente — `feature.comms.notifications`:** il Centro di Controllo può **sospendere globalmente** l’emissione delle notifiche. **Non** modifica le preferenze salvate dagli utenti: restano **persistenti**. Le UI che dipendono da tali preferenze devono presentarsi nello stato ufficiale di **«UI sospesa»** (DOC 35 — Product Vision MySpace). Quando il CC riabilita le notifiche globali, la UI torna **automaticamente operativa** e le preferenze personali tornano **efficaci**, senza migrazione né modifica ai dati.
 
 **Testi:** messaggi OFF → **sulla card** del Feature Flag. Disclosure privacy conversazioni Negozio↔Utente → **sulla card** di ciascuna direzione (template distinti; non più TAB Info Globali). Privacy avanzata / compliance estesa → **WF-03**.
 
@@ -698,6 +700,7 @@ Soglia rating (Configuration Source, non messaggio): chiave logica `threshold.sp
 
 | Versione | Data | Modifiche |
 |----------|------|-----------|
+| 0.3.19 | 2026-07-27 | Regola permanente: CC sospende emissione notifiche senza alterare preferenze utente |
 | 0.3.18 | 2026-07-23 | Stato: collaudi Centro di Controllo / Audit B **chiusi** (PO); prossimo passo = hold PO → Audit A → Validazione STEP-3; STEP-4 non avviato |
 | 0.3.17 | 2026-07-23 | Comunicazioni: flag Negozio Digitale↔Utente (due direzioni); disclosure per-card; rimozione TAB Info Globali; deprecazione `sponsor_crm_disclosure` |
 | 0.3.16 | 2026-07-22 | Storico Audit gestibile: eliminazione singola + svuota via RPC admin_all; DL-P05 aggiornato; matrice permessi |

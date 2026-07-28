@@ -1,4 +1,5 @@
 import { supabase } from '@/services/supabaseClient';
+import type { Database } from '@/types/supabase';
 import type { WorkspaceInvite, WorkspaceResourcePermissionEntry } from '@/domain/collaboration';
 import { isWorkspaceResourceAccess } from '@/domain/collaboration';
 import { areUsersBlocked } from './userBlockService';
@@ -26,6 +27,8 @@ export type WorkspaceInviteResult =
   | { success: true; invite: WorkspaceInvite }
   | { success: false; error: string };
 
+type WorkspaceInviteRow = Database['public']['Tables']['workspace_invites']['Row'];
+
 /** Null = permessi validi (incluso array vuoto per inviti membership-only). */
 async function validateWorkspaceInvitePermissions(
   workspaceId: string,
@@ -52,6 +55,19 @@ async function validateWorkspaceInvitePermissions(
   return null;
 }
 
+async function mapWorkspaceInvitesFromRows(rows: WorkspaceInviteRow[]): Promise<WorkspaceInvite[]> {
+  if (rows.length === 0) return [];
+
+  const permissionsByInvite = await fetchInvitePermissionsByInviteIds(rows.map((row) => row.id));
+  const invites: WorkspaceInvite[] = [];
+  for (const row of rows) {
+    const permissions = permissionsByInvite.get(row.id) ?? [];
+    const invite = mapWorkspaceInviteRow(row, permissions);
+    if (invite) invites.push(invite);
+  }
+  return invites;
+}
+
 export async function getWorkspaceInvite(inviteId: string): Promise<WorkspaceInvite | null> {
   return loadWorkspaceInvite(inviteId);
 }
@@ -75,15 +91,7 @@ export async function listWorkspaceInvites(
     return [];
   }
 
-  const invites: WorkspaceInvite[] = [];
-  const rows = data ?? [];
-  const permissionsByInvite = await fetchInvitePermissionsByInviteIds(rows.map((row) => row.id));
-  for (const row of rows) {
-    const permissions = permissionsByInvite.get(row.id) ?? [];
-    const invite = mapWorkspaceInviteRow(row, permissions);
-    if (invite) invites.push(invite);
-  }
-  return invites;
+  return mapWorkspaceInvitesFromRows(data ?? []);
 }
 
 export async function listPendingWorkspaceInvitesForUser(
@@ -101,15 +109,43 @@ export async function listPendingWorkspaceInvitesForUser(
     return [];
   }
 
-  const invites: WorkspaceInvite[] = [];
-  const rows = data ?? [];
-  const permissionsByInvite = await fetchInvitePermissionsByInviteIds(rows.map((row) => row.id));
-  for (const row of rows) {
-    const permissions = permissionsByInvite.get(row.id) ?? [];
-    const invite = mapWorkspaceInviteRow(row, permissions);
-    if (invite) invites.push(invite);
+  return mapWorkspaceInvitesFromRows(data ?? []);
+}
+
+/** Inviti workspace in cui l'utente è destinatario (tutti gli stati). */
+export async function listIncomingWorkspaceInvitesForUser(
+  userId: string
+): Promise<WorkspaceInvite[]> {
+  const { data, error } = await supabase
+    .from('workspace_invites')
+    .select('*')
+    .eq('invitee_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[workspaceInviteService] listIncomingWorkspaceInvitesForUser:', error.message);
+    return [];
   }
-  return invites;
+
+  return mapWorkspaceInvitesFromRows(data ?? []);
+}
+
+/** Inviti workspace inviati dall'utente (tutti gli stati). */
+export async function listOutgoingWorkspaceInvitesForUser(
+  userId: string
+): Promise<WorkspaceInvite[]> {
+  const { data, error } = await supabase
+    .from('workspace_invites')
+    .select('*')
+    .eq('inviter_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[workspaceInviteService] listOutgoingWorkspaceInvitesForUser:', error.message);
+    return [];
+  }
+
+  return mapWorkspaceInvitesFromRows(data ?? []);
 }
 
 export async function sendWorkspaceInvite(
@@ -185,7 +221,13 @@ export async function sendWorkspaceInvite(
       .single());
 
     if (!inviteError && inviteRow) {
-      await supabase.from('workspace_invite_permissions').delete().eq('invite_id', inviteRow.id);
+      const { error: clearPermError } = await supabase
+        .from('workspace_invite_permissions')
+        .delete()
+        .eq('invite_id', inviteRow.id);
+      if (clearPermError) {
+        console.error('[workspaceInviteService] sendWorkspaceInvite clear permissions:', clearPermError.message);
+      }
     }
   } else {
     ({ data: inviteRow, error: inviteError } = await supabase
@@ -228,9 +270,22 @@ export async function sendWorkspaceInvite(
             responded_at: existingInvite?.responded_at ?? null,
           })
           .eq('id', inviteRow.id);
-        await restoreWorkspaceInvitePermissions(inviteRow.id, previousInvitePermissions);
+        try {
+          await restoreWorkspaceInvitePermissions(inviteRow.id, previousInvitePermissions);
+        } catch (restoreError) {
+          console.error(
+            '[workspaceInviteService] sendWorkspaceInvite restore permissions:',
+            restoreError,
+          );
+        }
       } else {
-        await supabase.from('workspace_invites').delete().eq('id', inviteRow.id);
+        const { error: rollbackDeleteError } = await supabase
+          .from('workspace_invites')
+          .delete()
+          .eq('id', inviteRow.id);
+        if (rollbackDeleteError) {
+          console.error('[workspaceInviteService] sendWorkspaceInvite rollback delete:', rollbackDeleteError.message);
+        }
       }
       return { success: false, error: 'Impossibile salvare i permessi dell\'invito.' };
     }
@@ -490,6 +545,19 @@ export async function removeWorkspaceMember(
     return { success: false, error: 'Operazione non consentita.' };
   }
 
+  // Best-effort (no RPC): snapshot ACL → delete ACL → blocco invito → delete membership.
+  // Se la membership fallisce, ripristino best-effort degli ACL salvati.
+  const { data: aclSnapshot, error: aclSnapshotError } = await supabase
+    .from('workspace_resource_permissions')
+    .select('workspace_id, workspace_resource_id, user_id, access_level')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId);
+
+  if (aclSnapshotError) {
+    console.error('[workspaceInviteService] removeWorkspaceMember ACL snapshot:', aclSnapshotError.message);
+    return { success: false, error: 'Impossibile leggere i permessi del membro.' };
+  }
+
   const { error: permError } = await supabase
     .from('workspace_resource_permissions')
     .delete()
@@ -501,22 +569,6 @@ export async function removeWorkspaceMember(
     return { success: false, error: 'Impossibile rimuovere i permessi del membro.' };
   }
 
-  const { data, error } = await supabase
-    .from('workspace_members')
-    .delete()
-    .eq('workspace_id', workspaceId)
-    .eq('user_id', userId)
-    .select('id');
-
-  if (error) {
-    console.error('[workspaceInviteService] removeWorkspaceMember:', error.message);
-    return { success: false, error: 'Impossibile rimuovere il membro.' };
-  }
-  if (!data?.length) {
-    return { success: false, error: 'Membro non trovato.' };
-  }
-
-  // Traccia l'ex-membro come utente bloccato per questo workspace (modello inviti esteso).
   const { data: existingInvite } = await supabase
     .from('workspace_invites')
     .select('id')
@@ -548,6 +600,34 @@ export async function removeWorkspaceMember(
     }
   }
 
+  const { data, error } = await supabase
+    .from('workspace_members')
+    .delete()
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .select('id');
+
+  if (error || !data?.length) {
+    if (error) {
+      console.error('[workspaceInviteService] removeWorkspaceMember:', error.message);
+    }
+    if (aclSnapshot && aclSnapshot.length > 0) {
+      const { error: restoreError } = await supabase
+        .from('workspace_resource_permissions')
+        .insert(aclSnapshot);
+      if (restoreError) {
+        console.error(
+          '[workspaceInviteService] removeWorkspaceMember ACL restore:',
+          restoreError.message,
+        );
+      }
+    }
+    return {
+      success: false,
+      error: error ? 'Impossibile rimuovere il membro.' : 'Membro non trovato.',
+    };
+  }
+
   return { success: true };
 }
 
@@ -577,7 +657,14 @@ export async function updateWorkspaceInvitePermissions(
 
   const previousPermissions = invite.permissions;
 
-  await supabase.from('workspace_invite_permissions').delete().eq('invite_id', inviteId);
+  const { error: clearPermError } = await supabase
+    .from('workspace_invite_permissions')
+    .delete()
+    .eq('invite_id', inviteId);
+  if (clearPermError) {
+    console.error('[workspaceInviteService] updateWorkspaceInvitePermissions clear:', clearPermError.message);
+    return { success: false, error: 'Impossibile aggiornare i permessi dell\'invito.' };
+  }
 
   const permissionRows = permissions.map((entry) => ({
     invite_id: inviteId,

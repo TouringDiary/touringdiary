@@ -13,7 +13,7 @@
 > **Non** eseguire. Storico ufficiale di MP-01 STEP-4.
 >
 > **Non** esegue MP-01 STEP-5. **Non** riprende WF-04 (Sospeso — PO-OV-002).  
-> Successore esecutivo STEP-5 → `WORKFLOWS/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md`.
+> Successore esecutivo STEP-5 → `WORKFLOWS/_archive/WF_09_MP01_STEP5_RICORDI_ALLEGATI_MAPPA_RIEPILOGO.md` (Completato; **MP-01 concluso**).
 
 ---
 

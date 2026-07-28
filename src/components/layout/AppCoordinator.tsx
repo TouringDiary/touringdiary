@@ -13,6 +13,7 @@ import { FocusModeProvider, FocusOverlay, WorkspaceHost } from '@/focus';
 import { WorkspacePanelProvider } from '@/components/workspace/global/WorkspacePanelContext';
 import { useAppExitProtection } from '@/hooks/save/useAppExitProtection';
 import { UsernameRequiredGate } from '@/collaboration/UsernameRequiredGate';
+import { GlobalAlert } from '@/components/common/GlobalAlert';
 const AdminDashboard = React.lazy(() => import('../admin/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const RemoveItemModal = React.lazy(() => import('../modals/RemoveItemModal').then(module => ({ default: module.RemoveItemModal })));
 
@@ -129,6 +130,7 @@ export const AppCoordinator = () => {
             >
                 <UsernameRequiredGate />
                 {renderLayout()}
+                <GlobalAlert />
 
                 <FocusOverlay />
                 <WorkspaceHost />

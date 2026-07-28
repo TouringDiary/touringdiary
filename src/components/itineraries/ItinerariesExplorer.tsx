@@ -209,22 +209,6 @@ export const ItinerariesExplorer = ({
 
     return (
         <div className="flex flex-col h-full min-h-0 overflow-hidden relative">
-            <style>{`
-                .perspective-1000 { perspective: 1000px; }
-                .transform-style-3d { transform-style: preserve-3d; }
-                .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-                .rotate-y-180 { transform: rotateY(180deg); }
-                .rotate-y-0 { transform: rotateY(0deg); }
-
-                @keyframes border-march {
-                    0% { stroke-dashoffset: 0; }
-                    100% { stroke-dashoffset: -20; }
-                }
-                .marching-ants rect {
-                    animation: border-march 1s linear infinite;
-                }
-            `}</style>
-
             <div className="w-full bg-slate-950 border-b border-slate-800 shrink-0 p-3 md:px-6 space-y-3">
                 <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
                     <div className="flex flex-wrap gap-1.5 items-center w-full md:w-auto">

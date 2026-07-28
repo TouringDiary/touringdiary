@@ -12,10 +12,11 @@ import {
 import { resolveWorkspacePanelZIndex, resolveCompanionSurfaceTier } from '@/layering/resolveWorkspacePanelZIndex';
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Home, X, type LucideIcon } from 'lucide-react';
+import { Briefcase, Home, type LucideIcon } from 'lucide-react';
 import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
 import { useModal } from '@/context/ModalContext';
 import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { MyWorldBreadcrumb } from './MyWorldBreadcrumb';
 
 type ChooserAccent = 'amber' | 'indigo';
@@ -48,7 +49,7 @@ const MyWorldChooserCard: React.FC<{
       type="button"
       onClick={onClick}
       className={`
-        group flex flex-col items-start gap-3 p-5 rounded-2xl text-left
+        group flex flex-col items-start gap-3 p-5 min-h-[10rem] rounded-2xl text-left
         bg-slate-900/80 border border-slate-700 ${styles.borderHover}
         hover:bg-slate-900 transition-colors
       `}
@@ -125,36 +126,27 @@ export const MyWorldChooserPanel: React.FC = () => {
       >
         <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 shrink-0">
           <MyWorldBreadcrumb crumbs={[{ id: 'myWorld', label: 'MyWorld' }]} />
-          <button
-            type="button"
-            onClick={shell.requestClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            aria-label="Chiudi MyWorld"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <CloseButton
+            onClose={shell.requestClose}
+            variant="primary"
+            withEscape={false}
+            className="shrink-0"
+          />
         </header>
 
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6">
-          <div className="max-w-2xl mx-auto space-y-4">
-            <div className="text-center space-y-1 mb-6">
-              <h2 className="text-lg font-black text-white tracking-tight">MyWorld</h2>
-              <p className="text-sm text-slate-400">
-                Scegli dove vuoi andare: la tua casa personale oppure lo spazio collaborativo.
-              </p>
-            </div>
-
+          <div className="max-w-2xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <MyWorldChooserCard
                 title="MySpace"
-                description="La casa di tutto ciò che appartiene al viaggiatore."
+                description="Consulta i viaggi ed i documenti personali!"
                 accent="amber"
                 Icon={Home}
                 onClick={openMySpace}
               />
               <MyWorldChooserCard
                 title="Workspace"
-                description="Collaborazione, condivisione, ruoli e risorse di gruppo."
+                description="Collabora e condividi il viaggio con i tuoi amici!"
                 accent="indigo"
                 Icon={Briefcase}
                 onClick={openWorkspace}

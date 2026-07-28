@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Map, ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, Trash2, Users } from 'lucide-react';
 import type { Viaggio } from '@/types/models/Viaggio';
-import { getViaggio } from '@/services/viaggio/viaggioService';
+import { deleteViaggio, getViaggio } from '@/services/viaggio/viaggioService';
 import {
   VIAGGIO_FOLDER_SECTIONS,
   getViaggioFolderSection,
@@ -17,6 +17,12 @@ import { ViaggioMappaSection } from './ViaggioMappaSection';
 import { ViaggioRiepilogoSection } from './ViaggioRiepilogoSection';
 import { useOpenWorkspaceFromViaggio } from '@/hooks/useOpenWorkspaceFromViaggio';
 import { isCollaborationEngineEnabled } from '@/services/collaboration/workspaceEngineConfigService';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
+import { ViaggioRicordamiControl } from './ViaggioRicordamiControl';
+import { MySpaceViaggioDeleteModal } from './MySpaceViaggioDeleteModal';
+import { syncVisitedCitiesFromViaggio } from '@/services/myspace/userVisitedCitiesService';
+import { getCitiesMinimalByIds } from '@/services/myspace/cityMinimalRead';
 
 interface Props {
   viaggioId: string;
@@ -24,15 +30,13 @@ interface Props {
   section: ViaggioFolderSectionId;
   onSectionChange: (section: ViaggioFolderSectionId) => void;
   onBackToCatalog: () => void;
-  /** Espone titolo caricato per breadcrumb shell. */
   onViaggioLoaded?: (viaggio: Viaggio | null) => void;
+  onDeleted?: () => void;
+  onBeforeLeaveMySpace?: () => void;
 }
 
 /**
- * Cartella Viaggio — copertina + nav DOC 37.
- * STEP-3: Diario / Valigia / Roadbook operativi.
- * STEP-4: entry «Workspace da Viaggio».
- * STEP-5: Ricordi / Allegati / Mappa / Riepilogo; stereotipi in nav.
+ * Cartella Viaggio — chrome compatto (DOC 35 §6.3); no fascia cover alta (MP-02 STEP-1).
  */
 export const ViaggioFolderShell: React.FC<Props> = ({
   viaggioId,
@@ -41,13 +45,18 @@ export const ViaggioFolderShell: React.FC<Props> = ({
   onSectionChange,
   onBackToCatalog,
   onViaggioLoaded,
+  onDeleted,
+  onBeforeLeaveMySpace,
 }) => {
   const [viaggio, setViaggio] = useState<Viaggio | null>(null);
+  const [destinationLabel, setDestinationLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDelete, setShowDelete] = useState(false);
   const currentSection = getViaggioFolderSection(section);
   const openWorkspaceFromViaggio = useOpenWorkspaceFromViaggio();
   const canOpenWorkspace = isCollaborationEngineEnabled();
+  const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,7 +67,25 @@ export const ViaggioFolderShell: React.FC<Props> = ({
         const row = await getViaggio(viaggioId);
         if (!cancelled) {
           setViaggio(row);
-          if (!row) setError('Viaggio non trovato.');
+          if (!row) {
+            setError('Viaggio non trovato.');
+            setDestinationLabel(null);
+          } else {
+            // --- Esploratore: sync città visitate (fire-and-forget, non blocca UI) ---
+            // Idempotente: upsert ignoreDuplicates; sicuro a ogni apertura cartella.
+            void syncVisitedCitiesFromViaggio(userId, row.id, row.destination).catch((syncError) => {
+              console.error('[ViaggioFolderShell] syncVisitedCitiesFromViaggio failed:', syncError);
+            });
+
+            // --- Chrome: label destinazione (row.destination = city id, non nome display) ---
+            const destId = row.destination?.trim();
+            if (destId) {
+              const cities = await getCitiesMinimalByIds([destId]);
+              if (!cancelled) setDestinationLabel(cities[0]?.name ?? null);
+            } else if (!cancelled) {
+              setDestinationLabel(null);
+            }
+          }
         }
       } catch (e) {
         console.error('[ViaggioFolderShell] getViaggio failed', e);
@@ -73,7 +100,7 @@ export const ViaggioFolderShell: React.FC<Props> = ({
     return () => {
       cancelled = true;
     };
-  }, [viaggioId]);
+  }, [viaggioId, userId]);
 
   useEffect(() => {
     onViaggioLoaded?.(viaggio);
@@ -87,6 +114,7 @@ export const ViaggioFolderShell: React.FC<Props> = ({
             viaggioId={viaggioId}
             userId={userId}
             onViaggioMetaChanged={onViaggioLoaded}
+            onBeforeLeaveMySpace={onBeforeLeaveMySpace}
           />
         );
       case 'valigia':
@@ -106,6 +134,12 @@ export const ViaggioFolderShell: React.FC<Props> = ({
     }
   };
 
+  const handleDeleted = async () => {
+    await deleteViaggio(viaggioId);
+    setShowDelete(false);
+    onDeleted?.();
+  };
+
   return (
     <div
       id="myspace-root-panel-trips"
@@ -114,54 +148,61 @@ export const ViaggioFolderShell: React.FC<Props> = ({
       data-testid="myspace-viaggio-folder"
       className="flex-1 min-h-0 flex flex-col overflow-hidden"
     >
-      <div className="shrink-0 border-b border-slate-800">
-        <div className="relative w-full h-28 md:h-36 bg-slate-900 overflow-hidden">
-          {viaggio?.coverImage ? (
-            <img
-              src={viaggio.coverImage}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover opacity-70"
+      <div className="shrink-0 border-b border-slate-800 bg-slate-950/90">
+        <div className="px-3 py-2.5 flex flex-wrap items-center gap-2 md:gap-3">
+          <button
+            type="button"
+            onClick={onBackToCatalog}
+            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0"
+            aria-label="Torna al catalogo viaggi"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base md:text-lg font-black text-white tracking-tight truncate">
+              {loading ? '…' : viaggio?.title || 'Viaggio'}
+            </h2>
+            {!loading && destinationLabel ? (
+              <p className="text-[11px] text-slate-500 truncate leading-tight mt-0.5">
+                {destinationLabel}
+              </p>
+            ) : null}
+          </div>
+          {viaggio && !loading && (
+            <ViaggioRicordamiControl
+              viaggio={viaggio}
+              notificationsSiteEnabled={notificationsFlag?.enabled ?? true}
+              onUpdated={setViaggio}
             />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950">
-              <Map className="w-10 h-10 text-slate-700" aria-hidden />
-            </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-4 flex items-end gap-3">
+          {canOpenWorkspace && !loading && viaggio && (
             <button
               type="button"
-              onClick={onBackToCatalog}
-              className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0"
-              aria-label="Torna al catalogo viaggi"
+              onClick={() =>
+                openWorkspaceFromViaggio({
+                  viaggioId,
+                  viaggioTitle: viaggio.title,
+                })
+              }
+              className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide text-indigo-100 hover:bg-indigo-500/25 transition-colors"
+              data-testid="myspace-workspace-from-viaggio"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <Users className="w-3.5 h-3.5" aria-hidden />
+              Workspace
             </button>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg md:text-xl font-black text-white tracking-tight truncate">
-                {loading ? '…' : viaggio?.title || 'Viaggio'}
-              </h2>
-              {viaggio?.destination && (
-                <p className="text-xs text-slate-400 truncate">{viaggio.destination}</p>
-              )}
-            </div>
-            {canOpenWorkspace && !loading && viaggio && (
-              <button
-                type="button"
-                onClick={() =>
-                  openWorkspaceFromViaggio({
-                    viaggioId,
-                    viaggioTitle: viaggio.title,
-                  })
-                }
-                className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide text-indigo-100 hover:bg-indigo-500/25 transition-colors"
-                data-testid="myspace-workspace-from-viaggio"
-              >
-                <Users className="w-3.5 h-3.5" aria-hidden />
-                Workspace
-              </button>
-            )}
-          </div>
+          )}
+          {!loading && viaggio && (
+            <button
+              type="button"
+              onClick={() => setShowDelete(true)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-300 hover:bg-slate-800/80 shrink-0"
+              aria-label="Elimina viaggio"
+              title="Elimina viaggio"
+              data-testid="myspace-viaggio-folder-delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <nav
@@ -181,7 +222,7 @@ export const ViaggioFolderShell: React.FC<Props> = ({
                 aria-controls={`viaggio-section-panel-${s.id}`}
                 onClick={() => onSectionChange(s.id)}
                 className={`
-                  px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap
+                  px-3 py-2 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap
                   border-b-2 transition-colors shrink-0
                   ${isActive
                     ? 'border-amber-500 text-white'
@@ -207,6 +248,14 @@ export const ViaggioFolderShell: React.FC<Props> = ({
           <p className="text-sm text-slate-500 p-8 text-center">Caricamento…</p>
         )}
       </div>
+
+      {showDelete && viaggio && (
+        <MySpaceViaggioDeleteModal
+          viaggioTitle={viaggio.title}
+          onCancel={() => setShowDelete(false)}
+          onConfirm={handleDeleted}
+        />
+      )}
     </div>
   );
 };

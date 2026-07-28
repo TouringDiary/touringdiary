@@ -1,16 +1,32 @@
 import { supabase } from '../supabaseClient';
 import type { Json } from '../../types/supabase';
 import type { CreateViaggioInput, UpdateViaggioInput, Viaggio } from '../../types/models/Viaggio';
+import {
+  computeRicordamiNextAt,
+  RICORDAMI_DEFAULT_INTERVAL_MONTHS,
+} from '../../types/models/Viaggio';
 import { mapDbViaggioToRuntime } from './viaggioMappers';
 
 export { mapDbViaggioToRuntime } from './viaggioMappers';
 
 const toDbJson = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? {}));
 
+export type ListViaggiSort = 'updated_at' | 'created_at' | 'title';
+
 /** Crea un Viaggio senza Diario attivo (empty ammesso). */
 export async function createViaggio(input: CreateViaggioInput): Promise<Viaggio> {
   const title = (input.title || '').trim() || 'Viaggio';
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const ricordamiEnabled = input.ricordamiEnabled ?? true;
+  const rawInterval = input.ricordamiIntervalMonths ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS;
+  const interval =
+    Number.isFinite(rawInterval) && rawInterval >= 1
+      ? rawInterval
+      : RICORDAMI_DEFAULT_INTERVAL_MONTHS;
+  const nextAt = ricordamiEnabled
+    ? computeRicordamiNextAt(now, interval)
+    : null;
 
   const { data, error } = await supabase
     .from('viaggi')
@@ -22,9 +38,12 @@ export async function createViaggio(input: CreateViaggioInput): Promise<Viaggio>
       period_end: input.periodEnd ?? null,
       cover_image: input.coverImage ?? null,
       active_diary_id: null,
+      ricordami_enabled: ricordamiEnabled,
+      ricordami_interval_months: interval,
+      ricordami_next_at: nextAt,
       metadata: toDbJson(input.metadata ?? {}),
-      created_at: now,
-      updated_at: now,
+      created_at: nowIso,
+      updated_at: nowIso,
     })
     .select('*')
     .single();
@@ -35,8 +54,16 @@ export async function createViaggio(input: CreateViaggioInput): Promise<Viaggio>
 }
 
 /** Empty Viaggio persistito (0 diari, active_diary_id NULL). */
-export async function createEmptyViaggio(userId: string, title = 'Viaggio'): Promise<Viaggio> {
-  return createViaggio({ userId, title });
+export async function createEmptyViaggio(
+  userId: string,
+  title = 'Viaggio',
+  options?: { ricordamiEnabled?: boolean },
+): Promise<Viaggio> {
+  return createViaggio({
+    userId,
+    title,
+    ricordamiEnabled: options?.ricordamiEnabled,
+  });
 }
 
 export async function getViaggio(viaggioId: string): Promise<Viaggio | null> {
@@ -50,12 +77,21 @@ export async function getViaggio(viaggioId: string): Promise<Viaggio | null> {
   return data ? mapDbViaggioToRuntime(data) : null;
 }
 
-export async function listViaggiByUser(userId: string): Promise<Viaggio[]> {
-  const { data, error } = await supabase
-    .from('viaggi')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+export async function listViaggiByUser(
+  userId: string,
+  sort: ListViaggiSort = 'updated_at',
+): Promise<Viaggio[]> {
+  let query = supabase.from('viaggi').select('*').eq('user_id', userId);
+
+  if (sort === 'title') {
+    query = query.order('title', { ascending: true });
+  } else if (sort === 'created_at') {
+    query = query.order('created_at', { ascending: false });
+  } else {
+    query = query.order('updated_at', { ascending: false });
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return (data || []).map(mapDbViaggioToRuntime);
@@ -70,7 +106,36 @@ export async function updateViaggio(viaggioId: string, patch: UpdateViaggioInput
   if (patch.periodStart !== undefined) payload.period_start = patch.periodStart;
   if (patch.periodEnd !== undefined) payload.period_end = patch.periodEnd;
   if (patch.coverImage !== undefined) payload.cover_image = patch.coverImage;
+  if (patch.ricordamiEnabled !== undefined) payload.ricordami_enabled = patch.ricordamiEnabled;
+  let normalizedInterval: number | undefined;
+  if (patch.ricordamiIntervalMonths !== undefined) {
+    normalizedInterval =
+      Number.isFinite(patch.ricordamiIntervalMonths) && patch.ricordamiIntervalMonths >= 1
+        ? patch.ricordamiIntervalMonths
+        : RICORDAMI_DEFAULT_INTERVAL_MONTHS;
+    payload.ricordami_interval_months = normalizedInterval;
+  }
+  if (patch.ricordamiNextAt !== undefined) payload.ricordami_next_at = patch.ricordamiNextAt;
   if (patch.metadata !== undefined) payload.metadata = toDbJson(patch.metadata);
+
+  // Autosave Ricordami: se si riaccende senza next_at, schedula da ora.
+  if (patch.ricordamiEnabled === true && patch.ricordamiNextAt === undefined) {
+    const months = normalizedInterval ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS;
+    payload.ricordami_next_at = computeRicordamiNextAt(new Date(), months);
+  }
+  if (patch.ricordamiEnabled === false) {
+    payload.ricordami_next_at = null;
+  }
+  if (
+    patch.ricordamiIntervalMonths !== undefined &&
+    patch.ricordamiEnabled !== false &&
+    patch.ricordamiNextAt === undefined
+  ) {
+    payload.ricordami_next_at = computeRicordamiNextAt(
+      new Date(),
+      normalizedInterval ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS,
+    );
+  }
 
   const { data, error } = await supabase
     .from('viaggi')

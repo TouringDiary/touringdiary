@@ -74,7 +74,7 @@ export const GlobalWorkspacePanelBody: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-slate-900 border border-indigo-500/20 shadow-2xl overflow-hidden rounded-b-xl h-full">
+    <div className="flex flex-col flex-1 min-h-0 bg-slate-900 border border-indigo-500/20 shadow-2xl overflow-hidden rounded-b-xl">
       <div className="flex flex-col xl:flex-row shrink-0 border-b border-slate-800">
         <WorkspaceSectionNav activeSection={activeSection} onNavigate={navigateToSection} />
         {showContextBar && (

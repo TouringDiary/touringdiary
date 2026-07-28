@@ -164,7 +164,13 @@ export const FeatureModals = (props: FeatureModalsProps) => {
             {activeModal === 'poiDetail' && modalProps.poi && (
                 <PoiDetailModal 
                     poi={modalProps.poi} 
-                    onClose={closeModal} 
+                    onClose={() => {
+                        if (typeof modalProps.returnTo === 'string' && modalProps.returnTo) {
+                            openModal(modalProps.returnTo, modalProps.returnProps);
+                            return;
+                        }
+                        closeModal();
+                    }} 
                     onToggleItinerary={() => onToggleItinerary(modalProps.poi)} 
                     isInItinerary={itinerary.items.some((i) => i.poi.id === modalProps.poi.id)} 
                     onOpenReview={() => handleOpenReview(modalProps.poi)} 
@@ -172,7 +178,7 @@ export const FeatureModals = (props: FeatureModalsProps) => {
                     onSuggestEdit={(name) => { closeModal(); openModal('claim', { poi: modalProps.poi }); }} 
                     onOpenShop={props.onOpenShop} 
                     user={user} 
-                    onOpenAuth={() => openModal('auth', { returnTo: 'poiDetail', returnProps: { poi: modalProps.poi } })} 
+                    onOpenAuth={() => openModal('auth', { returnTo: 'poiDetail', returnProps: { poi: modalProps.poi, returnTo: modalProps.returnTo, returnProps: modalProps.returnProps } })} 
                     initialView={modalProps.initialView} 
                 />
             )}

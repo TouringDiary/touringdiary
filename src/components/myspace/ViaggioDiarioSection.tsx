@@ -15,12 +15,15 @@ interface Props {
   viaggioId: string;
   userId: string;
   onViaggioMetaChanged?: (viaggio: Viaggio | null) => void;
+  /** Persiste path MySpace prima di closeModal (DOC 35 memoria navigazione). */
+  onBeforeLeaveMySpace?: () => void;
 }
 
 export const ViaggioDiarioSection: React.FC<Props> = ({
   viaggioId,
   userId,
   onViaggioMetaChanged,
+  onBeforeLeaveMySpace,
 }) => {
   const { loadProject } = useItinerary();
   const { closeModal } = useModal();
@@ -93,6 +96,7 @@ export const ViaggioDiarioSection: React.FC<Props> = ({
   };
 
   const handleOpen = (diary: Itinerary) => {
+    onBeforeLeaveMySpace?.();
     loadProject(diary);
     closeModal();
   };

@@ -1,5 +1,9 @@
+import { useMemo } from 'react'
 import { useConfig } from '@/context/ConfigContext'
-import { PartnerIntegrations } from '../types'
+import type { PartnerIntegration, PartnerIntegrations } from '../types'
+
+/** Stable empty map when partner_integrations is absent (avoids fresh `{}` each render). */
+const EMPTY_PARTNER_MAP: Record<string, PartnerIntegration> = {}
 
 export const usePartnerIntegrations = (): {
   integrations: PartnerIntegrations | null
@@ -7,15 +11,17 @@ export const usePartnerIntegrations = (): {
 } => {
 
   const { configs, isLoading } = useConfig()
-  
-  const partnerIntegrations = (configs && configs.partner_integrations) ? configs.partner_integrations : {};
 
-  const wrapped: PartnerIntegrations = {
-    partners: partnerIntegrations
-  };
+  const integrations = useMemo<PartnerIntegrations>(() => {
+    const partners =
+      configs && configs.partner_integrations
+        ? configs.partner_integrations
+        : EMPTY_PARTNER_MAP
+    return { partners }
+  }, [configs.partner_integrations])
 
   return {
-    integrations: wrapped,
+    integrations,
     loading: isLoading
   }
 
