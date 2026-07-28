@@ -10,7 +10,8 @@ import { CategorySetupConfigurationModal } from '../suitcase/CategorySetupConfig
 import { isAssociableSuitcase, isTdTemplate } from '@/utils/suitcaseDomain';
 import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import type { SuitcasePanelComposition } from './hooks/useSuitcasePanelComposition';
-import { SaveAsModal } from '@/components/modals/SaveAsModal';
+import { SaveAsModal, type SaveAsConfirmPayload } from '@/components/modals/SaveAsModal';
+import { applyViaggioAssociationToSuitcase } from '@/services/viaggio/resourceAssociationService';
 import { UnsavedChangesModal } from '@/components/modals/UnsavedChangesModal';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { useResourcePermission } from '@/hooks/useResourcePermission';
@@ -416,16 +417,25 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
             setSuitcaseSaveAsOpen(false);
             setPendingExitAfterSave(false);
           }}
-          onConfirm={async (name) => {
+          onConfirm={async (payload: SaveAsConfirmPayload) => {
             const isFirst = suitcaseDocumentSave.isSuitcaseNeverSaved();
             const savedId = isFirst
-              ? await suitcaseDocumentSave.save({ name })
-              : await suitcaseDocumentSave.saveAs(name);
-            // Chiudi il modal solo dopo un salvataggio realmente completato (id valorizzato);
-            // in caso di fallimento (null) il modal resta aperto.
+              ? await suitcaseDocumentSave.save({ name: payload.name })
+              : await suitcaseDocumentSave.saveAs(payload.name);
+            if (savedId && payload.viaggio && data.currentUser?.id) {
+              try {
+                await applyViaggioAssociationToSuitcase({
+                  suitcaseId: savedId,
+                  userId: data.currentUser.id,
+                  viaggioOptions: payload.viaggio,
+                  title: payload.name,
+                });
+              } catch (linkErr) {
+                console.error('[SuitcaseFloatingPanelBody] viaggio link after save-as:', linkErr);
+              }
+            }
             if (savedId) {
               setSuitcaseSaveAsOpen(false);
-              // Se il salvataggio nasce dal dialogo di chiusura, esci dal pannello.
               if (pendingExitAfterSave) {
                 setPendingExitAfterSave(false);
                 forceClose();
@@ -433,6 +443,9 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
             }
           }}
           currentName={data.activeSuitcase.title}
+          showViaggioAssociation={!isGuest}
+          userId={data.currentUser?.id}
+          resourceLabel="valigia"
         />
       )}
       <div className="flex flex-1 flex-col min-h-0 overflow-x-visible overflow-y-hidden bg-slate-900">

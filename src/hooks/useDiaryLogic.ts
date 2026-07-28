@@ -8,6 +8,7 @@ import { useUndoStack } from './useUndoStack';
 import { useDiaryUndo } from './useDiaryUndo';
 import { useDiaryDocumentSave } from './save/useDiaryDocumentSave';
 import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
+import type { SaveUserDraftViaggioOptions } from '@/types/resourceAssociation';
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { LAYOUT } from '@/constants/layout';
 import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
@@ -170,10 +171,19 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     // --- HANDLERS ---
     
     // Wrapper per Save Project per mostrare il modale di successo
-    const handleSaveProject = useCallback(async (nameOverride?: string, isSaveAs?: boolean): Promise<string | null> => {
+    const handleSaveProject = useCallback(async (
+        nameOverride?: string,
+        isSaveAs?: boolean,
+        viaggioOptions?: SaveUserDraftViaggioOptions,
+    ): Promise<string | null> => {
         try {
             if (isGuest) return null;
             if (isSaveAs && nameOverride) {
+                if (viaggioOptions !== undefined) {
+                    const id = await saveProject(nameOverride, true, viaggioOptions);
+                    if (id) resetStack();
+                    return id;
+                }
                 return await documentSave.saveAs(nameOverride);
             }
             if (documentSave.needsNameForSave() && !nameOverride) {
@@ -184,7 +194,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
             console.error('Save error:', e);
             return null;
         }
-    }, [documentSave, isGuest]);
+    }, [documentSave, isGuest, saveProject, resetStack]);
 
     const handleDateChange = useCallback((type: 'startDate' | 'endDate', newValue: string) => {
         if (guardCollaborativeWrite()) return;

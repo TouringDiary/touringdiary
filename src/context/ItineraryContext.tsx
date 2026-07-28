@@ -5,6 +5,7 @@ import { User } from '../types/users';
 import { useUser } from './UserContext';
 import { ItineraryStorageManager } from '../services/itineraryStorageManager';
 import { randomUUID } from '../utils/runtimeId';
+import type { SaveUserDraftViaggioOptions } from '../types/resourceAssociation';
 
 interface ItineraryContextType {
     itinerary: Itinerary;
@@ -13,7 +14,11 @@ interface ItineraryContextType {
     savedProjects: Itinerary[];
     /** Viaggio attivo in sessione (padre del Diario aperto, se noto). */
     activeViaggioId: string | null;
-    saveProject: (name?: string, isSaveAs?: boolean) => Promise<string | null>;
+    saveProject: (
+        name?: string,
+        isSaveAs?: boolean,
+        viaggioOptions?: SaveUserDraftViaggioOptions,
+    ) => Promise<string | null>;
     loadProject: (project: Itinerary) => void;
     deleteProject: (id: string) => Promise<void>;
     highlightDates: boolean;
@@ -84,7 +89,11 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         }
     }, [user]);
 
-    const saveProject = useCallback(async (nameOverride?: string, isSaveAs?: boolean): Promise<string | null> => {
+    const saveProject = useCallback(async (
+        nameOverride?: string,
+        isSaveAs?: boolean,
+        viaggioOptions?: SaveUserDraftViaggioOptions,
+    ): Promise<string | null> => {
         const targetUser = user;
         const isGuest = !targetUser || targetUser.role === 'guest';
 
@@ -108,8 +117,21 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
             targetId = randomUUID();
         }
 
-        // Nuova identità Diario → nuovo Viaggio (non riusare viaggioId del diario precedente).
         const needsNewViaggio = isTempId || isGhostId || isSaveAsNewCopy;
+
+        let resolvedViaggioId: string | null = needsNewViaggio
+            ? null
+            : (itinerary.viaggioId ?? null);
+
+        if (isSaveAsNewCopy && viaggioOptions) {
+            if (viaggioOptions.viaggioChoice === 'existing' && viaggioOptions.existingViaggioId) {
+                resolvedViaggioId = viaggioOptions.existingViaggioId;
+            } else if (viaggioOptions.viaggioChoice === 'none') {
+                resolvedViaggioId = null;
+            } else if (viaggioOptions.viaggioChoice === 'new') {
+                resolvedViaggioId = null;
+            }
+        }
 
         const saveObject: Itinerary = {
             ...itinerary,
@@ -117,15 +139,22 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
             name: targetName,
             userId: isGuest ? 'guest' : targetUser.id,
             createdAt: itinerary.createdAt || Date.now(),
-            viaggioId: needsNewViaggio ? null : (itinerary.viaggioId ?? null),
+            viaggioId: resolvedViaggioId,
         };
 
-        // Prima del persist: allinea subito id/nome locali (path attuale in caso di fallimento
-        // lascia già saveObject in stato — spostarlo dopo il save cambierebbe quel comportamento).
+        // Aggiornamento ottimistico del modello locale PRIMA della persistenza cloud:
+        // la UI riflette subito id/nome/identità del Diario (Save / Save As) senza attendere
+        // la round-trip. Se il remote fallisce, lo stato locale può restare su saveObject;
+        // il chiamante potrà riallinearsi con un successivo reload/sync da storage.
+        // Non spostare dopo il save: cambierebbe il comportamento attuale in caso di errore.
         setItinerary(saveObject);
 
         try {
-            const success = await ItineraryStorageManager.saveProject(saveObject, targetUser);
+            const success = await ItineraryStorageManager.saveProject(
+                saveObject,
+                targetUser,
+                isSaveAsNewCopy ? viaggioOptions : undefined,
+            );
 
             if (success) {
                 if (saveObject.viaggioId) {

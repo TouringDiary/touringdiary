@@ -17,9 +17,6 @@ import { ViaggioMappaSection } from './ViaggioMappaSection';
 import { ViaggioRiepilogoSection } from './ViaggioRiepilogoSection';
 import { useOpenWorkspaceFromViaggio } from '@/hooks/useOpenWorkspaceFromViaggio';
 import { isCollaborationEngineEnabled } from '@/services/collaboration/workspaceEngineConfigService';
-import { useFeatureFlag } from '@/context/PlatformControlContext';
-import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
-import { ViaggioRicordamiControl } from './ViaggioRicordamiControl';
 import { MySpaceViaggioDeleteModal } from './MySpaceViaggioDeleteModal';
 import { syncVisitedCitiesFromViaggio } from '@/services/myspace/userVisitedCitiesService';
 import { getCitiesMinimalByIds } from '@/services/myspace/cityMinimalRead';
@@ -56,41 +53,53 @@ export const ViaggioFolderShell: React.FC<Props> = ({
   const currentSection = getViaggioFolderSection(section);
   const openWorkspaceFromViaggio = useOpenWorkspaceFromViaggio();
   const canOpenWorkspace = isCollaborationEngineEnabled();
-  const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
+      setDestinationLabel(null);
       try {
         const row = await getViaggio(viaggioId);
-        if (!cancelled) {
-          setViaggio(row);
-          if (!row) {
-            setError('Viaggio non trovato.');
-            setDestinationLabel(null);
-          } else {
-            // --- Esploratore: sync città visitate (fire-and-forget, non blocca UI) ---
-            // Idempotente: upsert ignoreDuplicates; sicuro a ogni apertura cartella.
-            void syncVisitedCitiesFromViaggio(userId, row.id, row.destination).catch((syncError) => {
-              console.error('[ViaggioFolderShell] syncVisitedCitiesFromViaggio failed:', syncError);
-            });
+        if (cancelled) return;
 
-            // --- Chrome: label destinazione (row.destination = city id, non nome display) ---
-            const destId = row.destination?.trim();
-            if (destId) {
-              const cities = await getCitiesMinimalByIds([destId]);
-              if (!cancelled) setDestinationLabel(cities[0]?.name ?? null);
-            } else if (!cancelled) {
-              setDestinationLabel(null);
+        if (!row) {
+          setViaggio(null);
+          setError('Viaggio non trovato.');
+          setDestinationLabel(null);
+          return;
+        }
+
+        // Destinazione risolto nello stesso caricamento (evita secondo render da effect separato).
+        let resolvedDestination: string | null = null;
+        const destId = row.destination?.trim();
+        if (destId) {
+          try {
+            const cities = await getCitiesMinimalByIds([destId]);
+            if (!cancelled) {
+              resolvedDestination = cities[0]?.name ?? null;
             }
+          } catch (e) {
+            console.error('[ViaggioFolderShell] getCitiesMinimalByIds failed', e);
+            resolvedDestination = null;
           }
         }
+
+        if (cancelled) return;
+        setViaggio(row);
+        setDestinationLabel(resolvedDestination);
+
+        // --- Esploratore: sync città visitate (fire-and-forget, non blocca UI) ---
+        // Idempotente: upsert ignoreDuplicates; sicuro a ogni apertura cartella.
+        void syncVisitedCitiesFromViaggio(userId, row.id, row.destination).catch((syncError) => {
+          console.error('[ViaggioFolderShell] syncVisitedCitiesFromViaggio failed:', syncError);
+        });
       } catch (e) {
         console.error('[ViaggioFolderShell] getViaggio failed', e);
         if (!cancelled) {
           setViaggio(null);
+          setDestinationLabel(null);
           setError('Non è stato possibile aprire il viaggio.');
         }
       } finally {
@@ -106,6 +115,9 @@ export const ViaggioFolderShell: React.FC<Props> = ({
     onViaggioLoaded?.(viaggio);
   }, [viaggio, onViaggioLoaded]);
 
+  // Ricordami: intenzionalmente assente dalla cartella — DOC 35 §6.5 / changelog 2.2.2
+  // (UI su riga catalogo a sx della cover, non in cartella).
+
   const renderSection = () => {
     switch (section) {
       case 'diario':
@@ -113,12 +125,15 @@ export const ViaggioFolderShell: React.FC<Props> = ({
           <ViaggioDiarioSection
             viaggioId={viaggioId}
             userId={userId}
+            viaggioTitle={viaggio?.title}
             onViaggioMetaChanged={onViaggioLoaded}
             onBeforeLeaveMySpace={onBeforeLeaveMySpace}
           />
         );
       case 'valigia':
-        return <ViaggioValigiaSection viaggioId={viaggioId} />;
+        return (
+          <ViaggioValigiaSection viaggioId={viaggioId} viaggioTitle={viaggio?.title} />
+        );
       case 'roadbook':
         return <ViaggioRoadbookSection viaggioId={viaggioId} userId={userId} />;
       case 'ricordi':
@@ -168,13 +183,6 @@ export const ViaggioFolderShell: React.FC<Props> = ({
               </p>
             ) : null}
           </div>
-          {viaggio && !loading && (
-            <ViaggioRicordamiControl
-              viaggio={viaggio}
-              notificationsSiteEnabled={notificationsFlag?.enabled ?? true}
-              onUpdated={setViaggio}
-            />
-          )}
           {canOpenWorkspace && !loading && viaggio && (
             <button
               type="button"

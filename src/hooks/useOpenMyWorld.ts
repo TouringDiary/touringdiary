@@ -8,11 +8,18 @@ import {
 } from '@/collaboration/guestGate';
 import { userNeedsUsername } from '@/domain/profile/username';
 import type { User } from '@/types/users';
+import {
+  loadLastMyWorldSurface,
+  saveLastMyWorldSurface,
+  type MyWorldFamilyModalKey,
+} from '@/myworld/myWorldSession';
 
 type OpenModalFn = (type: string, props?: object) => void;
 
 /**
- * Flusso unico di apertura MyWorld (guest → auth, username obbligatorio, altrimenti chooser).
+ * Flusso unico di apertura MyWorld (guest → auth, username obbligatorio).
+ * Se esiste una superficie precedente (MySpace / Workspace / chooser), la ripristina
+ * (DOC 35 §11 — memoria path + rientro binder MyWorld). Altrimenti apre il chooser.
  * Deep link Workspace continuano a usare {@link openCollaborationWorkspaceFlow} (bypass chooser — D4).
  */
 export function openMyWorldFlow(
@@ -33,10 +40,17 @@ export function openMyWorldFlow(
     return;
   }
 
-  openModal('myWorld');
+  const last = loadLastMyWorldSurface(user.id);
+  const target: MyWorldFamilyModalKey =
+    last === 'mySpace' || last === 'collaborationWorkspace' || last === 'myWorld'
+      ? last
+      : 'myWorld';
+
+  saveLastMyWorldSurface(user.id, target);
+  openModal(target);
 }
 
-/** Entry-point React: apre il chooser MyWorld. */
+/** Entry-point React: apre MyWorld (o ultima posizione nella famiglia). */
 export function useOpenMyWorld() {
   const { openModal } = useModal();
   const { user } = useUser();

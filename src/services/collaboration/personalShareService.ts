@@ -268,3 +268,12 @@ export async function duplicateSharedResourceForOwner(
 
   return { success: false, error: 'Tipo di risorsa non supportato.' };
 }
+
+/** Duplica Diario personale — copia senza associazione Viaggio (DOC 35 §6.4.2 / WF-13). */
+export async function duplicatePersonalDiary(
+  resourceId: string,
+  userId: string,
+  title?: string,
+): Promise<PersonalResourceDuplicateResult> {
+  return duplicateDiaryCopy(resourceId, userId, userId, title);
+}

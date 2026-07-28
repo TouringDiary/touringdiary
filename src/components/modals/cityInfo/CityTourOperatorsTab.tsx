@@ -8,6 +8,7 @@ import { ReviewModal } from '../ReviewModal';
 import { useItinerary } from '@/context/ItineraryContext';
 import { affiliateTrackingService } from '../../../services/affiliateTrackingService';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 
 interface Props {
     city: CityDetails;
@@ -216,22 +217,37 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                      </div>
                      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
                         {operatorsList.length > 0 ? operatorsList.map(op => (
-                            <button 
+                            <div
                                 key={op.id || op.name}
-                                onClick={() => { setSelectedOperator(op); setMobileView('content'); }}
-                                className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all ${selectedOperator?.name === op.name ? 'bg-cyan-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}
+                                className={`w-full p-4 rounded-2xl flex items-center gap-3 transition-all ${selectedOperator?.name === op.name ? 'bg-cyan-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}
                             >
-                                <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10 shrink-0 bg-slate-800 flex items-center justify-center">
-                                    <Bus className="w-5 h-5"/>
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="font-bold text-sm truncate">{op.name}</div>
-                                    <div className={`text-[10px] uppercase font-bold truncate ${selectedOperator?.name === op.name ? 'text-cyan-200' : 'text-slate-600'}`}>
-                                        {op.servicesOffered?.[0] || 'Agenzia Viaggi'}
+                                <button
+                                    type="button"
+                                    onClick={() => { setSelectedOperator(op); setMobileView('content'); }}
+                                    className="flex-1 min-w-0 text-left flex items-center gap-4"
+                                >
+                                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10 shrink-0 bg-slate-800 flex items-center justify-center">
+                                        <Bus className="w-5 h-5"/>
                                     </div>
-                                </div>
-                                <ChevronRight className={`w-5 h-5 ml-auto opacity-50 ${selectedOperator?.name === op.name ? 'text-white' : ''}`}/>
-                            </button>
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-sm truncate">{op.name}</div>
+                                        <div className={`text-[10px] uppercase font-bold truncate ${selectedOperator?.name === op.name ? 'text-cyan-200' : 'text-slate-600'}`}>
+                                            {op.servicesOffered?.[0] || 'Agenzia Viaggi'}
+                                        </div>
+                                    </div>
+                                    <ChevronRight className={`w-5 h-5 ml-auto opacity-50 shrink-0 ${selectedOperator?.name === op.name ? 'text-white' : ''}`}/>
+                                </button>
+                                {op.id ? (
+                                    <FavoriteBookmarkButton
+                                        userId={user?.role === 'guest' ? null : user?.id}
+                                        entityKind="tour_operator"
+                                        entityId={op.id}
+                                        onRequireAuth={onOpenAuth}
+                                        size="sm"
+                                        className={selectedOperator?.name === op.name ? '!border-white/30 !bg-white/10 !text-white' : ''}
+                                    />
+                                ) : null}
+                            </div>
                         )) : (
                             <div className="p-4 text-center text-slate-500 italic text-xs">Nessun Tour Operator in questa città.</div>
                         )}

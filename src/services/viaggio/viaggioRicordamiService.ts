@@ -5,6 +5,9 @@ import {
 } from '@/services/viaggio/viaggioService';
 import {
   computeRicordamiNextAt,
+  computeRicordamiNextYearlyAt,
+  getViaggioRicordamiConfig,
+  withViaggioRicordamiConfig,
   RICORDAMI_DEFAULT_INTERVAL_MONTHS,
 } from '@/types/models/Viaggio';
 
@@ -25,6 +28,7 @@ export async function emitDueRicordamiNotifications(userId: string): Promise<num
     if (Number.isNaN(due) || due > now) continue;
 
     try {
+      const ricordamiConfig = getViaggioRicordamiConfig(v.metadata);
       const months = Number.isFinite(v.ricordamiIntervalMonths) && v.ricordamiIntervalMonths >= 1
         ? v.ricordamiIntervalMonths
         : RICORDAMI_DEFAULT_INTERVAL_MONTHS;
@@ -42,8 +46,29 @@ export async function emitDueRicordamiNotifications(userId: string): Promise<num
         },
       );
 
-      const nextAt = computeRicordamiNextAt(new Date(), months);
-      await updateViaggio(v.id, { ricordamiNextAt: nextAt });
+      if (ricordamiConfig.mode === 'custom_date') {
+        // One-shot: dopo l'emissione disattiva.
+        await updateViaggio(v.id, {
+          ricordamiEnabled: false,
+          ricordamiNextAt: null,
+          metadata: withViaggioRicordamiConfig(v.metadata, {
+            mode: 'custom_date',
+            customDateIso: ricordamiConfig.customDateIso,
+          }),
+        });
+      } else if (ricordamiConfig.mode === 'yearly_date') {
+        // Ricorrenza annuale: aggiorna next_at alla prossima occorrenza.
+        const nextAt = computeRicordamiNextYearlyAt(
+          new Date(),
+          ricordamiConfig.yearlyDay,
+          ricordamiConfig.yearlyMonth,
+        );
+        await updateViaggio(v.id, { ricordamiNextAt: nextAt });
+      } else {
+        // Ricorrenza intervallo mesi.
+        const nextAt = computeRicordamiNextAt(new Date(), months);
+        await updateViaggio(v.id, { ricordamiNextAt: nextAt });
+      }
       emitted += 1;
     } catch (e) {
       console.error(

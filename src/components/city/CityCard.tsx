@@ -8,6 +8,9 @@ import { ImageWithFallback } from '../common/ImageWithFallback';
 import { StarRating } from '../common/StarRating';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useUser } from '@/context/UserContext';
+import { useModal } from '@/context/ModalContext';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 
 interface CityCardProps {
     city: CitySummary;
@@ -76,6 +79,8 @@ const getBadgeConfig = (dbBadge?: string, forcedBadge?: string) => {
 
 export const CityCard: React.FC<CityCardProps> = ({ city, onClick, userLocation, forcedBadge, className, priority = false }) => {
     const isMobile = useMobileDetect();
+    const { user } = useUser();
+    const { openModal } = useModal();
 
     const cardTitleStyle = useDynamicStyles('city_card_title', isMobile);
     const cardSubStyle = useDynamicStyles('city_card_sub', isMobile);
@@ -98,6 +103,19 @@ export const CityCard: React.FC<CityCardProps> = ({ city, onClick, userLocation,
                 />
                 <div className="absolute top-0 left-0 z-home-card-overlay">
                     <VisitorMiniBadge visitors={city.visitors} />
+                </div>
+                <div
+                    className={`absolute z-home-card-overlay ${badge ? 'top-7 right-1' : 'top-1 right-1'}`}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <FavoriteBookmarkButton
+                        userId={user?.role === 'guest' ? null : user?.id}
+                        entityKind="city"
+                        entityId={city.id}
+                        onRequireAuth={() => openModal('auth')}
+                        size="sm"
+                        className="!bg-black/70 backdrop-blur-sm shadow-lg"
+                    />
                 </div>
                 {badge && (
                     <div className="absolute top-0 right-0 z-home-card-overlay group-hover:scale-110 transition-transform origin-top-right">

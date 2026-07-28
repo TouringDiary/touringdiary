@@ -44,6 +44,7 @@ Risponde a:
 
 | WF | Nome | File | Nota |
 |----|------|------|------|
+| WF-13 | Associazione / creazione Resource e Salva con nome (decisioni 1–8) | `WORKFLOWS/_archive/WF_13_RESOURCE_ASSOCIATION_CREATE_SAVEAS.md` | Completato (archiviato) 2026-07-28 — STEP 1+2 |
 | WF-01 | Migrazione documentale completa | `WORKFLOWS/_archive/WF_01_DOCUMENTATION_MIGRATION.md` | Archiviato |
 | WF-03 | MySpace Macrofase 1 — MyWorld & shell | `WORKFLOWS/WF_03_MYSPACE_MACROFASE_1.md` | Macrofase 1 chiusa |
 | WF-05 | MP-01 STEP-1 — Fondazione persistenza Viaggio / Diario | `WORKFLOWS/_archive/WF_05_MP01_STEP1_VIAGGIO_PERSISTENCE.md` | Completato (archiviato) 2026-07-26 |
@@ -105,6 +106,8 @@ WF-01 Completato
                           ├──► WF-10 Completato (archiviato)
                           ├──► WF-11 Completato (archiviato)
                           └──► WF-12 Completato (archiviato)
+                                │
+                                └─► WF-13 Completato (archiviato) — decisioni 1–8 create/associa/Salva con nome
 ```
 
 ---
@@ -113,7 +116,7 @@ WF-01 Completato
 
 | Tema | Dipende da | Note |
 |------|------------|------|
-| — | — | MP-02 concluso; ripresa filoni solo su decisione PO |
+| — | — | MP-02 concluso; **WF-13** Completato (decisioni 1–8). Nessuna ripresa automatica. |
 | Privacy avanzata | WF-02 | DL-P09 DOC 30 |
 | Messaggistica unificata | WF-02 + review UI G-MSG-1 | G-MSG-1 step 5, DOC 29 |
 | ID Governance | — | Non approvata. DOC 33 / DL-035 |
@@ -151,3 +154,5 @@ Dettaglio stati / Override → `02_GOVERNANCE.md`.
 | 1.11.1 | 2026-07-27 | WF-11 implementato → In verifica PO |
 | 1.12.0 | 2026-07-28 | WF-11 Completato (archiviato); apertura **WF-12** (MP-02 STEP-3) |
 | 1.13.0 | 2026-07-28 | WF-12 Completato (archiviato); **MP-02 concluso**; nessuna ripresa automatica |
+| 1.14.0 | 2026-07-28 | Apertura piano **WF-13** (decisioni 1–8 create/associa/Salva con nome) — **solo 2 STEP**; Non iniziato |
+| 1.15.0 | 2026-07-28 | **WF-13 Completato** (STEP 2 consolidamento + archivio); decisioni 1–8 operative e hardenizzate |

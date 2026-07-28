@@ -8,6 +8,9 @@ import { ImageWithFallback } from '../common/ImageWithFallback';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { useShare } from '../../hooks/useShare';
 import { affiliateTrackingService } from '../../services/affiliateTrackingService';
+import { useUser } from '@/context/UserContext';
+import { useModal } from '@/context/ModalContext';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 
 interface Props {
     city: CityDetails;
@@ -27,6 +30,8 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
     const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
     const { details } = city;
     const { share } = useShare();
+    const { user } = useUser();
+    const { openModal } = useModal();
 
     // Modalità "Tutto Incluso": città virtuale fusa (mantiene l'id della città base),
     // distinta dall'esplorazione "Around Me" (id 'around-me-virtual'). Solo presentazione.
@@ -148,6 +153,14 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             {/* --- MOBILE TOP RIGHT CLUSTER --- */}
             <div className="md:hidden absolute top-4 right-4 z-local-overlay flex flex-col items-end gap-3 pointer-events-auto">
                 <div className="flex items-center gap-2">
+                    <FavoriteBookmarkButton
+                        userId={user?.role === 'guest' ? null : user?.id}
+                        entityKind="city"
+                        entityId={city.id}
+                        onRequireAuth={() => openModal('auth')}
+                        size="sm"
+                        className="!bg-slate-800/80 backdrop-blur-md shadow-2xl"
+                    />
                     <button onClick={handleShare} className="bg-slate-800/80 p-2 rounded-xl border border-white/10 shadow-2xl text-white active:scale-90 transition-transform backdrop-blur-md">
                         <Share2 className="w-4 h-4" />
                     </button>
@@ -209,6 +222,14 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             {/* --- DESKTOP ACTION BAR --- */}
             <div className="hidden md:flex absolute top-4 left-[calc(221px+1rem)] right-4 z-local-overlay pointer-events-none justify-between items-start">
                 <div className="flex gap-2 pointer-events-auto">
+                    <FavoriteBookmarkButton
+                        userId={user?.role === 'guest' ? null : user?.id}
+                        entityKind="city"
+                        entityId={city.id}
+                        onRequireAuth={() => openModal('auth')}
+                        size="sm"
+                        className="!bg-slate-800/90 shadow-xl"
+                    />
                     {shopPublicEnabled ? (
                     <button type="button" onClick={onOpenShop} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl border border-indigo-400/50 shadow-2xl flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:scale-95 group">
                         <ShoppingCart className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />

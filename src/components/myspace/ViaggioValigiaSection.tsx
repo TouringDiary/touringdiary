@@ -2,26 +2,31 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Briefcase, Link2, Plus } from 'lucide-react';
 import type { Suitcase } from '@/types/suitcase';
 import {
-  linkSuitcaseToViaggio,
   listSuitcasesByViaggio,
   unlinkSuitcaseFromViaggio,
 } from '@/services/viaggio/viaggioSuitcaseService';
 import { getViaggio } from '@/services/viaggio/viaggioService';
+import { fetchUserSuitcasesAsync } from '@/services/suitcase/suitcaseCoreService';
 import {
-  createSuitcaseAsync,
-  fetchUserSuitcasesAsync,
-} from '@/services/suitcase/suitcaseCoreService';
+  createSuitcaseWithAssociation,
+  linkSuitcaseToViaggioSafe,
+} from '@/services/viaggio/resourceAssociationService';
+import { SuitcaseLinkConflictError } from '@/types/resourceAssociation';
 import { useModal } from '@/context/ModalContext';
 import { useUser } from '@/context/UserContext';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { CreateSuitcaseModal } from './CreateSuitcaseModal';
+import { ResourceConflictCopyModal } from './ResourceConflictCopyModal';
 
 interface Props {
   viaggioId: string;
+  viaggioTitle?: string;
 }
 
 /**
  * Valigia del Viaggio (DOC 31 Parte A / DOC 37 §8) — create / link / reopen.
  */
-export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
+export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId, viaggioTitle }) => {
   const { openModal } = useModal();
   const { user } = useUser();
   const userId = user?.id ?? '';
@@ -32,6 +37,9 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingUnlink, setPendingUnlink] = useState<Suitcase | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [conflictLinkId, setConflictLinkId] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -44,11 +52,20 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (!userId) {
+      if (!mountedRef.current) return;
+      setItems([]);
+      setAllSuitcases([]);
+      setActiveDiaryId(null);
+      setLinkId('');
+      setLoading(false);
+      return;
+    }
     try {
       const [rows, viaggio, all] = await Promise.all([
         listSuitcasesByViaggio(viaggioId),
         getViaggio(viaggioId),
-        userId ? fetchUserSuitcasesAsync(userId) : Promise.resolve([] as Suitcase[]),
+        fetchUserSuitcasesAsync(userId),
       ]);
       if (!mountedRef.current) return;
       setItems(rows);
@@ -75,31 +92,31 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
   }, [items, allSuitcases]);
 
   const openPacking = (suitcaseId?: string) => {
-    if (!activeDiaryId) {
-      setError('Imposta un Diario attivo nella sezione Diario per aprire la Valigia in editor.');
-      return;
-    }
-    // returnTo non è consumato dalla chiusura packing (WorkspaceHost → closeModal).
-    // Il contesto Viaggio resta via mySpaceNavMemory al reopen MySpace.
     openModal('packingList', {
-      itineraryId: activeDiaryId,
+      itineraryId: activeDiaryId ?? null,
       suitcaseId: suitcaseId ?? null,
       returnTo: 'mySpace',
     });
   };
 
-  const handleCreate = async () => {
+  const handleCreateConfirm = async ({
+    input,
+  }: {
+    input: Parameters<typeof createSuitcaseWithAssociation>[0];
+  }) => {
     if (!userId || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const created = await createSuitcaseAsync(userId, 'Nuova valigia', '🎒');
-      if (!created?.id) throw new Error('Creazione valigia non riuscita.');
-      await linkSuitcaseToViaggio(viaggioId, created.id, userId);
+      const { suitcaseId } = await createSuitcaseWithAssociation(input);
       if (!mountedRef.current) return;
-      await reload();
-      if (!mountedRef.current) return;
-      openPacking(created.id);
+      setCreateOpen(false);
+      void reload();
+      openModal('packingList', {
+        itineraryId: activeDiaryId ?? null,
+        suitcaseId,
+        returnTo: 'mySpace',
+      });
     } catch (e) {
       console.error('[ViaggioValigiaSection] create failed', e);
       if (!mountedRef.current) return;
@@ -109,29 +126,56 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
     }
   };
 
+  const performLink = async (suitcaseId: string, useCopy: boolean) => {
+    await linkSuitcaseToViaggioSafe({
+      viaggioId,
+      suitcaseId,
+      userId,
+      useCopy,
+    });
+    await reload();
+  };
+
   const handleLink = async () => {
     if (!userId || !linkId || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await linkSuitcaseToViaggio(viaggioId, linkId, userId);
-      await reload();
+      await performLink(linkId, false);
     } catch (e) {
-      console.error('[ViaggioValigiaSection] link failed', e);
-      setError('Collegamento non riuscito.');
+      if (e instanceof SuitcaseLinkConflictError) {
+        setConflictLinkId(linkId);
+      } else {
+        console.error('[ViaggioValigiaSection] link failed', e);
+        setError('Collegamento non riuscito.');
+      }
     } finally {
       setBusy(false);
     }
   };
 
-  const handleUnlink = async (suitcaseId: string) => {
-    if (busy) return;
-    const ok = window.confirm('Scollegare questa valigia dal Viaggio? La valigia non verrà eliminata.');
-    if (!ok) return;
+  const handleConfirmCopyAndLink = async () => {
+    if (!conflictLinkId || !userId || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await unlinkSuitcaseFromViaggio(viaggioId, suitcaseId);
+      await performLink(conflictLinkId, true);
+      setConflictLinkId(null);
+    } catch (e) {
+      console.error('[ViaggioValigiaSection] copy+link failed', e);
+      setError('Copia e collegamento non riusciti.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmUnlink = async () => {
+    if (!pendingUnlink || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await unlinkSuitcaseFromViaggio(viaggioId, pendingUnlink.id);
+      setPendingUnlink(null);
       await reload();
     } catch (e) {
       console.error('[ViaggioValigiaSection] unlink failed', e);
@@ -145,7 +189,7 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
     () =>
       activeDiaryId
         ? null
-        : 'Per l’editor packing serve un Diario attivo (sezione Diario).',
+        : 'Senza Diario attivo la Valigia si apre in modalità autonoma (come in Strumenti).',
     [activeDiaryId],
   );
 
@@ -166,7 +210,7 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
           <button
             type="button"
             disabled={busy || !userId}
-            onClick={() => void handleCreate()}
+            onClick={() => setCreateOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-amber-300 border border-amber-500/40 hover:bg-amber-500/10 disabled:opacity-50"
             data-testid="valigia-create"
           >
@@ -175,9 +219,8 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
           </button>
           <button
             type="button"
-            disabled={!activeDiaryId}
             onClick={() => openPacking()}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-slate-300 border border-slate-700 hover:bg-slate-900 disabled:opacity-50"
+            className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-slate-300 border border-slate-700 hover:bg-slate-900"
           >
             Apri packing
           </button>
@@ -261,7 +304,7 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
             <button
               type="button"
               disabled={busy}
-              onClick={() => void handleUnlink(s.id)}
+              onClick={() => setPendingUnlink(s)}
               className="text-[10px] font-bold uppercase text-slate-500 hover:text-rose-300 disabled:opacity-50 shrink-0"
             >
               Scollega
@@ -269,6 +312,39 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId }) => {
           </li>
         ))}
       </ul>
+
+      <CreateSuitcaseModal
+        isOpen={createOpen}
+        onClose={() => !busy && setCreateOpen(false)}
+        onConfirm={handleCreateConfirm}
+        userId={userId}
+        context="viaggio-detail"
+        fixedViaggioId={viaggioId}
+        fixedViaggioTitle={viaggioTitle}
+        busy={busy}
+      />
+
+      <ResourceConflictCopyModal
+        isOpen={conflictLinkId != null}
+        kind="suitcase"
+        onClose={() => !busy && setConflictLinkId(null)}
+        onConfirmCopy={() => void handleConfirmCopyAndLink()}
+        busy={busy}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={pendingUnlink != null}
+        onClose={() => {
+          if (!busy) setPendingUnlink(null);
+        }}
+        onConfirm={() => void confirmUnlink()}
+        title="Scollega valigia"
+        message="Scollegare questa valigia dal Viaggio? La valigia non verrà eliminata."
+        isDeleting={busy && pendingUnlink != null}
+        confirmLabel="Scollega"
+        cancelLabel="Annulla"
+        variant="warning"
+      />
     </div>
   );
 };

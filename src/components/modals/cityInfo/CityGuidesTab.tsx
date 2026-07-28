@@ -8,6 +8,7 @@ import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
 import { useItinerary } from '@/context/ItineraryContext';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 
 interface Props {
     city: CityDetails;
@@ -222,28 +223,44 @@ export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobi
                      <div className={`p-6 border-b border-slate-800 ${filterSectionLabelStyle}`}>Guide Disponibili</div>
                      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
                         {guidesList.map(guide => (
-                            <button 
+                            <div
                                 key={guide.id}
-                                onClick={() => { setSelectedGuide(guide); setMobileView('content'); }}
-                                className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all ${selectedGuide?.id === guide.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}>
-                                <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 shrink-0 bg-slate-900 flex items-center justify-center">
-                                    {guide.id === 'guide-official-ai' ? <Bot className="w-6 h-6 text-indigo-400"/> : (
-                                        <ImageWithFallback 
-                                            src={guide.imageUrl || `/assets/guides/${guide.id}.jpg`}
-                                            className="w-full h-full object-cover" 
-                                            alt={guide.name} 
-                                            category="guide" 
-                                        />
-                                    )}
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="font-bold text-sm truncate">{guide.name}</div>
-                                    <div className={`text-[10px] uppercase font-bold truncate ${selectedGuide?.id === guide.id ? 'text-indigo-200' : 'text-slate-600'}`}>
-                                        {guide.isOfficial ? 'Certificata' : 'Locale'}
+                                className={`w-full p-4 rounded-2xl flex items-center gap-3 transition-all ${selectedGuide?.id === guide.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => { setSelectedGuide(guide); setMobileView('content'); }}
+                                    className="flex-1 min-w-0 text-left flex items-center gap-4"
+                                >
+                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 shrink-0 bg-slate-900 flex items-center justify-center">
+                                        {guide.id === 'guide-official-ai' ? <Bot className="w-6 h-6 text-indigo-400"/> : (
+                                            <ImageWithFallback 
+                                                src={guide.imageUrl || `/assets/guides/${guide.id}.jpg`}
+                                                className="w-full h-full object-cover" 
+                                                alt={guide.name} 
+                                                category="guide" 
+                                            />
+                                        )}
                                     </div>
-                                </div>
-                                <ChevronRight className={`w-5 h-5 ml-auto opacity-50 ${selectedGuide?.id === guide.id ? 'text-white' : ''}`}/>
-                            </button>
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-sm truncate">{guide.name}</div>
+                                        <div className={`text-[10px] uppercase font-bold truncate ${selectedGuide?.id === guide.id ? 'text-indigo-200' : 'text-slate-600'}`}>
+                                            {guide.isOfficial ? 'Certificata' : 'Locale'}
+                                        </div>
+                                    </div>
+                                    <ChevronRight className={`w-5 h-5 ml-auto opacity-50 shrink-0 ${selectedGuide?.id === guide.id ? 'text-white' : ''}`}/>
+                                </button>
+                                {guide.id ? (
+                                    <FavoriteBookmarkButton
+                                        userId={user?.role === 'guest' ? null : user?.id}
+                                        entityKind="guide"
+                                        entityId={guide.id}
+                                        onRequireAuth={onOpenAuth}
+                                        size="sm"
+                                        className={selectedGuide?.id === guide.id ? '!border-white/30 !bg-white/10 !text-white' : ''}
+                                    />
+                                ) : null}
+                            </div>
                         ))}
                     </div>
                  </div>

@@ -25,6 +25,8 @@ import { MySpaceCityPickModal } from './MySpaceCityPickModal';
 import { MySpaceViaggioCityThumbButton } from './MySpaceViaggioCityThumbButton';
 import { MySpaceViaggioCoverPreview } from './MySpaceViaggioCoverPreview';
 import { MySpaceViaggioDeleteModal } from './MySpaceViaggioDeleteModal';
+import { ViaggioRicordamiControl } from './ViaggioRicordamiControl';
+import { SwipeToDelete } from '@/components/common/SwipeToDelete';
 
 interface Props {
   userId: string;
@@ -69,6 +71,7 @@ function ViaggioRow({
   citiesForThumb,
   thumbBusy,
   userId,
+  notificationsSiteEnabled,
   onOpen,
   onCityThumb,
   onUpdated,
@@ -78,6 +81,7 @@ function ViaggioRow({
   citiesForThumb: CitySummary[];
   thumbBusy: boolean;
   userId: string;
+  notificationsSiteEnabled: boolean;
   onOpen: () => void;
   onCityThumb: (e: React.MouseEvent) => void;
   onUpdated: (next: Viaggio) => void;
@@ -90,12 +94,73 @@ function ViaggioRow({
   const startLabel = formatDay(v.periodStart);
   const endLabel = formatDay(v.periodEnd);
 
-  return (
-    <li>
+  const rowContent = (
+    <div
+      className="w-full group flex items-stretch gap-2 md:gap-3 px-2 py-2 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-amber-500/40 transition-colors"
+      data-testid={`myspace-viaggio-card-${v.id}`}
+    >
+      <MySpaceViaggioCoverPreview
+        viaggio={v}
+        userId={userId}
+        onUpdated={onUpdated}
+        className="w-[5.5rem] sm:w-28 md:w-40 lg:w-56 min-h-[3.5rem] self-stretch"
+      />
+
       <div
-        className="w-full group flex items-stretch gap-2 md:gap-3 px-2 py-2 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-amber-500/40 transition-colors"
-        data-testid={`myspace-viaggio-card-${v.id}`}
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        className="min-w-0 flex-1 text-left self-center outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 rounded-xl"
       >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-white truncate group-hover:text-amber-300 transition-colors">
+              {v.title || 'Viaggio'}
+            </span>
+            <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400">
+              {cityLabel && (
+                <span className="truncate max-w-full sm:max-w-[14rem]">{cityLabel}</span>
+              )}
+              {(startLabel || endLabel) && (
+                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-500">
+                  {startLabel && (
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="w-3 h-3" aria-hidden />
+                      {startLabel}
+                    </span>
+                  )}
+                  {endLabel && (
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="w-3 h-3" aria-hidden />
+                      {endLabel}
+                    </span>
+                  )}
+                </span>
+              )}
+              {!startLabel && !endLabel && (
+                <span className="text-slate-600">Periodo non impostato</span>
+              )}
+            </span>
+          </div>
+
+          <div className="shrink-0 self-start">
+            <ViaggioRicordamiControl
+              viaggio={v}
+              notificationsSiteEnabled={notificationsSiteEnabled}
+              onUpdated={onUpdated}
+              compact
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="shrink-0 self-center">
         <MySpaceViaggioCityThumbButton
           cities={citiesForThumb}
           busy={thumbBusy}
@@ -105,61 +170,32 @@ function ViaggioRow({
           }
           title={cityLabel ?? 'Apri città'}
         />
-
-        <button
-          type="button"
-          onClick={onOpen}
-          className="min-w-0 flex-1 text-left self-center"
-        >
-          <span className="block text-sm font-bold text-white truncate group-hover:text-amber-300 transition-colors">
-            {v.title || 'Viaggio'}
-          </span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400">
-            {cityLabel && (
-              <span className="truncate max-w-full sm:max-w-[14rem]">{cityLabel}</span>
-            )}
-            {(startLabel || endLabel) && (
-              <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-500">
-                {startLabel && (
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="w-3 h-3" aria-hidden />
-                    {startLabel}
-                  </span>
-                )}
-                {endLabel && (
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="w-3 h-3" aria-hidden />
-                    {endLabel}
-                  </span>
-                )}
-              </span>
-            )}
-            {!startLabel && !endLabel && (
-              <span className="text-slate-600">Periodo non impostato</span>
-            )}
-          </span>
-        </button>
-
-        <MySpaceViaggioCoverPreview
-          viaggio={v}
-          userId={userId}
-          onUpdated={onUpdated}
-          className="w-[5.5rem] sm:w-28 md:w-40 lg:w-56 min-h-[3.5rem] self-stretch"
-        />
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRequestDelete();
-          }}
-          className="self-center p-1.5 rounded-lg text-slate-500 hover:text-rose-300 hover:bg-slate-800/80"
-          aria-label={`Elimina ${v.title || 'viaggio'}`}
-          title="Elimina viaggio"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
       </div>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRequestDelete();
+        }}
+        className="hidden lg:inline-flex self-center shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-rose-300 hover:bg-slate-800/80"
+        aria-label={`Elimina ${v.title || 'viaggio'}`}
+        title="Elimina viaggio"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+
+  return (
+    <li>
+      <SwipeToDelete
+        onDelete={onRequestDelete}
+        className="rounded-xl"
+        revealClassName="inset-y-[10%] rounded-xl"
+      >
+        {rowContent}
+      </SwipeToDelete>
     </li>
   );
 }
@@ -381,6 +417,7 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
                 citiesForThumb={citiesForThumb}
                 thumbBusy={resolvingCityFor === v.id}
                 userId={userId}
+                notificationsSiteEnabled={siteNotificationsOn}
                 onOpen={() => onOpenViaggio(v.id)}
                 onCityThumb={(e) => void handleCityThumbClick(e, v)}
                 onUpdated={patchItem}

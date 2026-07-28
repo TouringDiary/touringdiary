@@ -8,6 +8,8 @@ import { useFocusMode } from './FocusModeContext';
  * workspaceDim (Z_FOCUS_DIM):
  *   Covers viewport below header. Sits ABOVE inline dimmedBackground surfaces
  *   (sidebar widgets, home hero) and BELOW focusCompanion / focusActive / globalChrome.
+ *   It must visually subordinate background content enough that workspace-family panels
+ *   (MyWorld / MySpace / Workspace) never compete with page labels/cards underneath.
  *
  * modalDim (Z_OVERLAY):
  *   Classic consumer modal / preview dim stack. Chrome-safe top offset.
@@ -25,7 +27,7 @@ export const FocusOverlay: React.FC = () => {
         onClick={closeFocus}
         className="
           fixed top-[var(--header-height)] left-0 right-0 bottom-0
-          bg-black/60 backdrop-blur-sm
+          bg-slate-950/78 backdrop-blur-md
           pointer-events-auto cursor-pointer
           select-none
           animate-in fade-in duration-300

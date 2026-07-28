@@ -3,7 +3,12 @@ import type { Json } from '../../types/supabase';
 import type { CreateViaggioInput, UpdateViaggioInput, Viaggio } from '../../types/models/Viaggio';
 import {
   computeRicordamiNextAt,
+  computeRicordamiNextYearlyAt,
+  DEFAULT_VIAGGIO_RICORDAMI_CONFIG,
+  getViaggioRicordamiConfig,
+  normalizeRicordamiIntervalMonths,
   RICORDAMI_DEFAULT_INTERVAL_MONTHS,
+  withViaggioRicordamiConfig,
 } from '../../types/models/Viaggio';
 import { mapDbViaggioToRuntime } from './viaggioMappers';
 
@@ -20,13 +25,14 @@ export async function createViaggio(input: CreateViaggioInput): Promise<Viaggio>
   const nowIso = now.toISOString();
   const ricordamiEnabled = input.ricordamiEnabled ?? true;
   const rawInterval = input.ricordamiIntervalMonths ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS;
-  const interval =
-    Number.isFinite(rawInterval) && rawInterval >= 1
-      ? rawInterval
-      : RICORDAMI_DEFAULT_INTERVAL_MONTHS;
+  const interval = normalizeRicordamiIntervalMonths(rawInterval);
   const nextAt = ricordamiEnabled
     ? computeRicordamiNextAt(now, interval)
     : null;
+  const metadata = withViaggioRicordamiConfig(
+    input.metadata ?? {},
+    DEFAULT_VIAGGIO_RICORDAMI_CONFIG,
+  );
 
   const { data, error } = await supabase
     .from('viaggi')
@@ -41,7 +47,7 @@ export async function createViaggio(input: CreateViaggioInput): Promise<Viaggio>
       ricordami_enabled: ricordamiEnabled,
       ricordami_interval_months: interval,
       ricordami_next_at: nextAt,
-      metadata: toDbJson(input.metadata ?? {}),
+      metadata: toDbJson(metadata),
       created_at: nowIso,
       updated_at: nowIso,
     })
@@ -98,9 +104,16 @@ export async function listViaggiByUser(
 }
 
 export async function updateViaggio(viaggioId: string, patch: UpdateViaggioInput): Promise<Viaggio> {
+  const current = await getViaggio(viaggioId);
+  if (!current) {
+    throw new Error('[viaggioService] updateViaggio: viaggio non trovato');
+  }
+
   const payload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
+  let nextMetadata = patch.metadata ?? current.metadata;
+  let nextRicordamiConfig = getViaggioRicordamiConfig(nextMetadata);
   if (patch.title !== undefined) payload.title = (patch.title || '').trim() || 'Viaggio';
   if (patch.destination !== undefined) payload.destination = patch.destination;
   if (patch.periodStart !== undefined) payload.period_start = patch.periodStart;
@@ -109,19 +122,38 @@ export async function updateViaggio(viaggioId: string, patch: UpdateViaggioInput
   if (patch.ricordamiEnabled !== undefined) payload.ricordami_enabled = patch.ricordamiEnabled;
   let normalizedInterval: number | undefined;
   if (patch.ricordamiIntervalMonths !== undefined) {
-    normalizedInterval =
-      Number.isFinite(patch.ricordamiIntervalMonths) && patch.ricordamiIntervalMonths >= 1
-        ? patch.ricordamiIntervalMonths
-        : RICORDAMI_DEFAULT_INTERVAL_MONTHS;
+    normalizedInterval = normalizeRicordamiIntervalMonths(patch.ricordamiIntervalMonths);
     payload.ricordami_interval_months = normalizedInterval;
   }
   if (patch.ricordamiNextAt !== undefined) payload.ricordami_next_at = patch.ricordamiNextAt;
-  if (patch.metadata !== undefined) payload.metadata = toDbJson(patch.metadata);
+  if (patch.metadata !== undefined) {
+    nextMetadata = patch.metadata;
+    nextRicordamiConfig = getViaggioRicordamiConfig(nextMetadata);
+  }
 
   // Autosave Ricordami: se si riaccende senza next_at, schedula da ora.
   if (patch.ricordamiEnabled === true && patch.ricordamiNextAt === undefined) {
-    const months = normalizedInterval ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS;
-    payload.ricordami_next_at = computeRicordamiNextAt(new Date(), months);
+    const currentNextAtMs = current.ricordamiNextAt
+      ? new Date(current.ricordamiNextAt).getTime()
+      : Number.NaN;
+    const hasValidFutureNextAt =
+      Number.isFinite(currentNextAtMs) && currentNextAtMs > Date.now();
+
+    if (!hasValidFutureNextAt) {
+      const now = new Date();
+      if (nextRicordamiConfig.mode === 'interval') {
+        const months =
+          normalizedInterval ??
+          normalizeRicordamiIntervalMonths(current.ricordamiIntervalMonths);
+        payload.ricordami_next_at = computeRicordamiNextAt(now, months);
+      } else if (nextRicordamiConfig.mode === 'yearly_date') {
+        payload.ricordami_next_at = computeRicordamiNextYearlyAt(
+          now,
+          nextRicordamiConfig.yearlyDay,
+          nextRicordamiConfig.yearlyMonth,
+        );
+      }
+    }
   }
   if (patch.ricordamiEnabled === false) {
     payload.ricordami_next_at = null;
@@ -131,10 +163,32 @@ export async function updateViaggio(viaggioId: string, patch: UpdateViaggioInput
     patch.ricordamiEnabled !== false &&
     patch.ricordamiNextAt === undefined
   ) {
-    payload.ricordami_next_at = computeRicordamiNextAt(
-      new Date(),
-      normalizedInterval ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS,
-    );
+    if (nextRicordamiConfig.mode === 'interval') {
+      payload.ricordami_next_at = computeRicordamiNextAt(
+        new Date(),
+        normalizedInterval ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS,
+      );
+    }
+  }
+
+  payload.metadata = toDbJson(
+    withViaggioRicordamiConfig(nextMetadata, nextRicordamiConfig),
+  );
+
+  if (
+    nextRicordamiConfig.mode === 'custom_date' &&
+    patch.ricordamiNextAt === undefined &&
+    patch.ricordamiEnabled !== false
+  ) {
+    if (nextRicordamiConfig.customDateIso) {
+      const customDateMs = new Date(nextRicordamiConfig.customDateIso).getTime();
+      payload.ricordami_next_at =
+        Number.isNaN(customDateMs) || customDateMs <= Date.now()
+          ? null
+          : nextRicordamiConfig.customDateIso;
+    } else {
+      payload.ricordami_next_at = null;
+    }
   }
 
   const { data, error } = await supabase

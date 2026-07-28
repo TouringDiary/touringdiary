@@ -1,6 +1,7 @@
 import { Itinerary, User } from '../types/index';
 import { getStorageItem, setStorageItem } from './storageService';
 import { saveUserDraft, getAccessibleDiariesForUser, deleteUserDraft } from './communityService';
+import type { SaveUserDraftViaggioOptions } from '../types/resourceAssociation';
 
 /**
  * Storage Manager Centralizzato
@@ -10,6 +11,18 @@ import { saveUserDraft, getAccessibleDiariesForUser, deleteUserDraft } from './c
  */
 
 const LOCAL_STORAGE_KEY = 'saved_itineraries';
+
+/**
+ * Workaround temporaneo — Ghost IDs.
+ *
+ * Elenco locale di id Diario che risultano ancora leggibili dal cloud ma che l’utente
+ * ha già “cancellato” in UI. Serve solo per account / sessioni in cui la RLS impedisce
+ * la DELETE sul DB, mantenendo comunque una UX di rimozione coerente (nascondendo il
+ * Diario al reload).
+ *
+ * Da rimuovere quando autenticazione + RLS delete saranno definitivamente consolidati:
+ * a quel punto la cancellazione cloud sarà affidabile e questo filtro non servirà più.
+ */
 const GHOST_STORAGE_KEY = 'ghost_deleted_ids';
 
 export const ItineraryStorageManager = {
@@ -43,7 +56,11 @@ export const ItineraryStorageManager = {
     /**
      * Salva un progetto.
      */
-    async saveProject(itinerary: Itinerary, user: User | null): Promise<boolean> {
+    async saveProject(
+        itinerary: Itinerary,
+        user: User | null,
+        viaggioOptions?: SaveUserDraftViaggioOptions,
+    ): Promise<boolean> {
         const isGuest = !user || user.role === 'guest' || !user.id;
 
         if (isGuest) {
@@ -64,7 +81,7 @@ export const ItineraryStorageManager = {
         } else {
             // UTENTE LOGGATO: Salva su Supabase
             try {
-                const success = await saveUserDraft(itinerary, user);
+                const success = await saveUserDraft(itinerary, user, viaggioOptions);
                 return success;
             } catch (e) {
                 console.error("Errore salvataggio progetto cloud:", e);
@@ -100,8 +117,10 @@ export const ItineraryStorageManager = {
                         // Successo effettivo (non esiste più)
                         return true;
                     } else {
-                        // L'elemento esiste ancora nel DB (RLS ha bloccato, es. account di test senza sessione).
-                        // Per non bloccare l'utente, lo nascondiamo localmente salvandolo nei ghost.
+                        // Workaround Ghost IDs (temporaneo): RLS ha bloccato la DELETE ma la riga
+                        // resta leggibile. Registriamo l’id in GHOST_STORAGE_KEY per nasconderlo
+                        // al prossimo loadProjects e non lasciare l’utente bloccato. Rimuovere
+                        // insieme a GHOST_STORAGE_KEY quando RLS/auth delete sarà consolidata.
                         console.warn("[StorageManager] RLS blocked deletion, hiding locally as ghost.");
                         const ghosts = getStorageItem<string[]>(GHOST_STORAGE_KEY, []);
                         if (!ghosts.includes(cleanId)) {

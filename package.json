@@ -25,7 +25,8 @@
     "collaboration:step4:smoke": "tsx scripts/smoke-collaboration-step4.ts",
     "viaggio:step5:smoke": "tsx scripts/smoke-viaggio-step5.ts",
     "mp02:step2:smoke": "tsx scripts/smoke-mp02-step2.ts",
-    "mp02:step3:smoke": "tsx scripts/smoke-mp02-step3.ts"
+    "mp02:step3:smoke": "tsx scripts/smoke-mp02-step3.ts",
+    "wf13:smoke": "tsx scripts/smoke-wf13-resource-association.ts"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",

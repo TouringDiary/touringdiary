@@ -8,9 +8,9 @@
 > **Parte A** = regole di dominio (SoT prodotto).  
 > **Parte B** = runtime packing certificato sul codice (motore catalogo / item) — non ridefinisce l’appartenenza al Viaggio.
 
-**Versione:** 2.0.0  
-**Data:** 2026-07-26  
-**Stato:** Dominio prodotto congelato · motore packing as-is
+**Versione:** 2.1.1  
+**Data:** 2026-07-28  
+**Stato:** Dominio prodotto congelato · motore packing as-is · regole associazione/copia allineate a DOC 35 / DOC 37 · WF-13 enforcement (app + UNIQUE)
 
 ---
 
@@ -39,6 +39,10 @@ Regole:
 2. Uno strumento permanente **non** diventa automaticamente valigia di un viaggio senza un atto esplicito di copia/associazione (policy Save — implementazione).
 3. Cardinalità: un Viaggio può avere **0..N** Valigie (DOC 37).
 4. Empty Viaggio senza Valigia è legittimo.
+5. Una Valigia personale **non** può appartenere contemporaneamente a due Viaggi (regola di dominio — DOC 35 §9.7 / DOC 37 §8.2).
+6. Se l’utente tenta di associare a un nuovo Viaggio una Valigia già associata ad un altro Viaggio, oppure ad un Diario (contesto incompatibile per il riuso diretto), il sistema **non** riutilizza l’originale: propone una **copia**; l’originale resta invariato; la copia viene associata al nuovo Viaggio. Il modale deve spiegare chiaramente il motivo (DOC 35 §9.9).
+7. L’attuale possibilità di associare una Valigia ad un **Diario** **NON** deve cambiare (DOC 35 §9.9).
+8. Creazione / Salva con nome / apertura da Strumenti: stesse regole prodotto del Diario (DOC 35 §6.4.4, §9.4–§9.8).
 
 ## A2. Collaborazione
 
@@ -124,3 +128,5 @@ Integrazione collaborazione: `shared_resource_kind: suitcase` → DOC 28.
 |----------|------|------|
 | 1.0 | 2026-07-13 | SSOT packing post-macrofase C |
 | 2.0.0 | 2026-07-26 | Riscrittura: Valigia-viaggio vs Strumenti; runtime in Parte B |
+| 2.1.0 | 2026-07-28 | Regole associazione: una Valigia ↔ un Viaggio; copia su conflitto; Valigia⇄Diario invariata; create/Salva con nome allineati a DOC 35/37 |
+| 2.1.1 | 2026-07-28 | WF-13 STEP 2: enforcement app (`linkSuitcaseToViaggio` refuse other) + migrazione UNIQUE `suitcase_id` su `viaggio_suitcases` |

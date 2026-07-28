@@ -591,9 +591,27 @@ Stato UI interno a MySpace (no nuove route pubbliche M2):
 
 ### D20 — Modello salvataggio (evoluzione dominio — non STEP-2)
 
+> **TODO / REVIEW — DA RIVALUTARE — ARCHIVIO STORICO**  
+> Documento (o sezione) redatto **prima** del dominio Viaggio congelato (SoT: DOC 34A / DOC 37) **e** prima delle decisioni Product Vision 2026-07-28 su creazione/associazione Resource e Salva con nome esteso.  
+>  
+> **Il comportamento documentato in D20 NON rappresenta più il modello vigente.**  
+> Non usare questa sezione come Source of Truth del modello di salvataggio / associazione.  
+>  
+> **Source of Truth attuale — esclusivamente:**  
+> - `AI_CONTEXT/35_MYSPACE_PRODUCT_VISION.md`  
+> - `AI_CONTEXT/37_VIAGGIO_DOMAIN.md`  
+> - `AI_CONTEXT/31_PACKING_SUITCASE_SYSTEM.md`  
+>  
+> **Principio vigente:**  
+> - Resource **indipendente** → può essere associata **direttamente**;  
+> - Resource **già associata** o in **contesto incompatibile** → **proposta di copia** (originale invariato).  
+>  
+> Il testo storico sotto (incluso **«sempre duplica»**) è mantenuto **solo come archivio** del vecchio ragionamento e **non** deve essere usato come riferimento implementativo.
+
 | Campo | Valore |
 |-------|--------|
-| **Decisione** | **Primo salvataggio:** Salva in MySpace/Strumenti · Salva + Crea Viaggio · Salva + Aggiungi al Viaggio (select **un** viaggio; **sempre duplica** — nuovo ID; mai stesso oggetto in due viaggi). **Dal secondo:** Salva · Salva con nome (riapre primo flusso). Stesso principio copie per Workspace (D0). |
+| **Decisione (storica — superata)** | **Primo salvataggio:** Salva in MySpace/Strumenti · Salva + Crea Viaggio · Salva + Aggiungi al Viaggio (select **un** viaggio; **sempre duplica** — nuovo ID; mai stesso oggetto in due viaggi). **Dal secondo:** Salva · Salva con nome (riapre primo flusso). Stesso principio copie per Workspace (D0). |
+| **Nota archivio** | Questa decisione è mantenuta **esclusivamente come archivio storico** e **non** deve essere utilizzata nello sviluppo. Il comportamento ufficiale è definito **esclusivamente** in DOC 35, DOC 37 e DOC 31. |
 | **Motivazione** | PO freeze. |
 | **Scope** | **Congelato come architettura. NON implementare in STEP-2.** |
 

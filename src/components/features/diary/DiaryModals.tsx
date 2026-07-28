@@ -2,7 +2,8 @@ import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { DateChangeWarningModal } from '../../modals/DateChangeWarningModal';
-import { SaveAsModal } from '../../modals/SaveAsModal';
+import { SaveAsModal, type SaveAsConfirmPayload } from '../../modals/SaveAsModal';
+import type { SaveUserDraftViaggioOptions } from '@/types/resourceAssociation';
 import { ConfirmClearModal } from '../../modals/ConfirmClearModal';
 import { MobileMoveModal } from '../../modals/MobileMoveModal';
 import { AddToItineraryModal } from '../../modals/AddToItineraryModal';
@@ -36,7 +37,11 @@ interface DiaryModalsProps {
         setMemoTargetItem: (item: ItineraryItem | null) => void;
     };
     actions: {
-        saveProject: (name?: string, isSaveAs?: boolean) => Promise<string | null>;
+        saveProject: (
+            name?: string,
+            isSaveAs?: boolean,
+            viaggioOptions?: SaveUserDraftViaggioOptions,
+        ) => Promise<string | null>;
         clearItinerary: () => void;
         confirmDateChange: () => void;
         handleConfirmAddMemo: (day: number, time: string) => void;
@@ -44,6 +49,8 @@ interface DiaryModalsProps {
     itinerary: Itinerary;
     days: Date[];
     onDayDrop: (dayIndex: number, data: string, targetTime?: string) => void;
+    userId?: string | null;
+    isGuest?: boolean;
 }
 
 export const DiaryModals: React.FC<DiaryModalsProps> = ({
@@ -52,7 +59,9 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
     actions,
     itinerary,
     days,
-    onDayDrop
+    onDayDrop,
+    userId,
+    isGuest = false,
 }) => {
     const { getText: getSuccessMsg } = useSystemMessage('toast_save_success');
     const rewardsEnabled = useAreRewardsEnabled();
@@ -69,8 +78,8 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
     const handleCloseXpToast = () => setters.setToastMessage(null);
     useGlobalModalEscape(xpToastOpen, handleCloseXpToast);
 
-    const handleSaveConfirm = async (name: string) => {
-        const savedId = await actions.saveProject(name, true);
+    const handleSaveConfirm = async (payload: SaveAsConfirmPayload) => {
+        const savedId = await actions.saveProject(payload.name, true, payload.viaggio);
         if (savedId) {
             setters.setSaveAsModalOpen(false);
         }
@@ -123,6 +132,9 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
                     onClose={() => setters.setSaveAsModalOpen(false)}
                     onConfirm={handleSaveConfirm}
                     currentName={itinerary.name}
+                    showViaggioAssociation={!isGuest}
+                    userId={userId}
+                    resourceLabel="diario"
                 />
             )}
 

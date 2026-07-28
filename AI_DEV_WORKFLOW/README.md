@@ -122,4 +122,4 @@ Matrice e ordine operativo → questa sezione; regole di report → `00_DEVELOPM
 |-------|--------|
 | **Versione** | 1.5.0 |
 | **Data** | 2026-07-28 |
-| **Stato** | **MP-01 concluso**; **MP-02 concluso**; WF-05…WF-12 archiviati; WF-02 Attivo (hold STEP-4); WF-04 Sospeso; nessun Workflow operativo aperto automaticamente; ripresa solo su decisione PO |
+| **Stato** | **MP-01 concluso**; **MP-02 concluso**; WF-05…WF-13 archiviati; WF-02 Attivo (hold STEP-4); WF-04 Sospeso; nessuna ripresa automatica MySpace |

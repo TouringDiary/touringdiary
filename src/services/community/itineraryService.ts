@@ -9,10 +9,12 @@ import type { DbItinerary, Row } from '../../types/domain';
 import { canUserModifyResource } from '../collaboration/permissionService';
 import { fetchCollaborativeDiaryIdsForMember } from '../collaboration/diaryCollaborationService';
 import {
+    createViaggio,
     ensureViaggioForPersonalDiary,
     setActiveDiary,
     updateViaggio,
 } from '../viaggio/viaggioService';
+import type { SaveUserDraftViaggioOptions } from '../../types/resourceAssociation';
 
 /**
  * Confine di serializzazione verso il DB.
@@ -227,7 +229,53 @@ export interface ItineraryFilters {
 
 // --- ITINERARI PERSONALI (BOZZE CLOUD) ---
 
-export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<boolean> => {
+/** Decide viaggio di destinazione per saveUserDraft (opzioni Salva con nome o ensure legacy). */
+async function resolveSaveUserDraftViaggio(params: {
+  realUserId: string;
+  itinerary: Itinerary;
+  existingRowViaggioId: string | null | undefined;
+  viaggioOptions?: SaveUserDraftViaggioOptions;
+}): Promise<{ viaggioId: string | null; viaggioCreated: boolean }> {
+  const { realUserId, itinerary, existingRowViaggioId, viaggioOptions } = params;
+  const viaggioTitle = itinerary.name || 'Viaggio';
+
+  if (viaggioOptions?.viaggioChoice === 'none') {
+    return { viaggioId: null, viaggioCreated: false };
+  }
+
+  if (viaggioOptions?.viaggioChoice === 'new') {
+    const createdViaggio = await createViaggio({
+      userId: realUserId,
+      title: viaggioTitle,
+      periodStart: itinerary.startDate ?? null,
+      periodEnd: itinerary.endDate ?? null,
+    });
+    return { viaggioId: createdViaggio.id, viaggioCreated: true };
+  }
+
+  if (
+    viaggioOptions?.viaggioChoice === 'existing' &&
+    viaggioOptions.existingViaggioId
+  ) {
+    return { viaggioId: viaggioOptions.existingViaggioId, viaggioCreated: false };
+  }
+
+  const ensured = await ensureViaggioForPersonalDiary({
+    userId: realUserId,
+    diaryId: itinerary.id,
+    existingViaggioId: itinerary.viaggioId ?? existingRowViaggioId ?? null,
+    title: viaggioTitle,
+    periodStart: itinerary.startDate,
+    periodEnd: itinerary.endDate,
+  });
+  return { viaggioId: ensured.viaggioId, viaggioCreated: ensured.created };
+}
+
+export const saveUserDraft = async (
+    itinerary: Itinerary,
+    user: User,
+    viaggioOptions?: SaveUserDraftViaggioOptions,
+): Promise<boolean> => {
     // 1. Check preliminare
     if (!user || user.role === 'guest') {
         return false;
@@ -292,13 +340,11 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
 
         const viaggioTitle = itinerary.name || 'Viaggio';
 
-        const { viaggioId, created: viaggioCreated } = await ensureViaggioForPersonalDiary({
-            userId: realUserId,
-            diaryId: itinerary.id,
-            existingViaggioId: itinerary.viaggioId ?? existingRow?.viaggio_id ?? null,
-            title: viaggioTitle,
-            periodStart: itinerary.startDate,
-            periodEnd: itinerary.endDate,
+        const { viaggioId, viaggioCreated } = await resolveSaveUserDraftViaggio({
+            realUserId,
+            itinerary,
+            existingRowViaggioId: existingRow?.viaggio_id,
+            viaggioOptions,
         });
 
         const payload = {
@@ -344,39 +390,40 @@ export const saveUserDraft = async (itinerary: Itinerary, user: User): Promise<b
         }
 
         // Dopo il link viaggio_id: se nuovo Viaggio o active assente → imposta questo Diario come attivo.
-        // Nessuna auto-promozione su delete (gestita da ON DELETE SET NULL).
-        if (viaggioCreated) {
-            await setActiveDiary(viaggioId, itinerary.id);
-        } else {
-            // Query necessaria: ensureViaggioForPersonalDiary espone solo { viaggioId, created }.
-            // Senza leggere active_diary_id non sappiamo se il Diario attivo è già valorizzato
-            // (es. dopo delete attivo → NULL) e non possiamo chiamare setActiveDiary a ogni save
-            // (sovrascriverebbe un altro Diario attivo — cambio di comportamento).
-            const { data: viaggioRow } = await supabase
-                .from('viaggi')
-                .select('active_diary_id')
-                .eq('id', viaggioId)
-                .maybeSingle();
-            if (viaggioRow && viaggioRow.active_diary_id == null) {
+        if (viaggioId) {
+            if (viaggioCreated) {
                 await setActiveDiary(viaggioId, itinerary.id);
+            } else {
+                // TODO architetturale (limitazione BACKEND / servizio, non frontend):
+                // questa SELECT esiste solo perché il servizio setActiveDiary non è ancora
+                // idempotente lato backend (chiamarlo a ogni save potrebbe sovrascrivere un
+                // altro Diario attivo). Quando setActiveDiary sarà idempotente nel servizio
+                // backend (set-if-null / no-op se già valorizzato), questa SELECT potrà essere
+                // rimossa e si potrà chiamare setActiveDiary in modo sicuro.
+                const { data: viaggioRow } = await supabase
+                    .from('viaggi')
+                    .select('active_diary_id')
+                    .eq('id', viaggioId)
+                    .maybeSingle();
+                if (viaggioRow && viaggioRow.active_diary_id == null) {
+                    await setActiveDiary(viaggioId, itinerary.id);
+                }
+            }
+
+            try {
+                await updateViaggio(viaggioId, {
+                    title: viaggioTitle,
+                    periodStart: itinerary.startDate,
+                    periodEnd: itinerary.endDate,
+                });
+            } catch (metaErr) {
+                console.warn('[Cloud] Aggiornamento metadati Viaggio non riuscito (diario salvato):', metaErr);
             }
         }
 
-        // Allinea metadati identità sul Viaggio (non sul solo Diario).
-        // Il Diario è già persistito: un fallimento qui NON deve invalidare il salvataggio del Diario.
-        try {
-            await updateViaggio(viaggioId, {
-                title: viaggioTitle,
-                periodStart: itinerary.startDate,
-                periodEnd: itinerary.endDate,
-            });
-        } catch (metaErr) {
-            console.warn('[Cloud] Aggiornamento metadati Viaggio non riuscito (diario salvato):', metaErr);
-        }
-
-        // Mutazione locale dell'istanza in memoria del caller: aggiorna solo il campo in RAM.
-        // Non produce ulteriori scritture sul database.
-        itinerary.viaggioId = viaggioId;
+        // Non mutiamo l’oggetto `itinerary` del chiamante.
+        // Il viaggioId definitivo è già persistito su `itineraries.viaggio_id`;
+        // il chiamante deve sincronizzarlo (es. reload da storage / aggiornamento stato locale).
 
         return true;
     } catch (e: any) {

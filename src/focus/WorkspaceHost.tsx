@@ -1,5 +1,11 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
+import {
+  isMyWorldFamilyModal,
+  saveLastMyWorldSurface,
+  type MyWorldFamilyModalKey,
+} from '@/myworld/myWorldSession';
 import { resolveWorkspaceId } from './focusModeRegistry';
 import { useWorkspaceSessionEnd } from './useWorkspaceSessionEnd';
 
@@ -32,9 +38,16 @@ const MySpaceMinimalShell = React.lazy(() =>
  */
 export const WorkspaceHost: React.FC = () => {
   const { activeModal, modalProps, closeModal } = useModal();
+  const { user } = useUser();
   const workspaceId = resolveWorkspaceId(activeModal);
 
   useWorkspaceSessionEnd(workspaceId, closeModal);
+
+  /** Memorizza l’ultima superficie MyWorld attiva (non packing / altri modal). */
+  useEffect(() => {
+    if (!user?.id || !isMyWorldFamilyModal(activeModal)) return;
+    saveLastMyWorldSurface(user.id, activeModal as MyWorldFamilyModalKey);
+  }, [activeModal, user?.id]);
 
   if (!workspaceId) return null;
 

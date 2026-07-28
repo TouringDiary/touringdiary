@@ -38,10 +38,13 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
   );
 }
 
-// 2) Surface service STEP-3 — export reali nei file sorgente
+// 2) Surface service STEP-3 + WF-13 create Diario (modale / association hub)
 {
   assertExportedAsyncFunction('src/services/viaggio/viaggioDiaryService.ts', 'listDiariesByViaggio');
-  assertExportedAsyncFunction('src/services/viaggio/viaggioDiaryService.ts', 'createEmptyDiaryForViaggio');
+  assertExportedAsyncFunction(
+    'src/services/viaggio/resourceAssociationService.ts',
+    'createDiaryWithAssociation',
+  );
   assertExportedAsyncFunction('src/services/viaggio/viaggioSuitcaseService.ts', 'listSuitcasesByViaggio');
   assertExportedAsyncFunction('src/services/viaggio/viaggioSuitcaseService.ts', 'linkSuitcaseToViaggio');
   assertExportedAsyncFunction(
@@ -62,7 +65,18 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
 {
   const diarySrc = readSrc('src/services/viaggio/viaggioDiaryService.ts');
   assert(!diarySrc.includes("'Campania'"), 'no hardcoded main_city Campania');
-  assert(diarySrc.includes('durationDaysFromViaggioPeriod'), 'duration from viaggio period');
+  assert(
+    !diarySrc.includes('createEmptyDiaryForViaggio'),
+    'legacy createEmptyDiaryForViaggio removed (WF-13)',
+  );
+
+  const assocSrc = readSrc('src/services/viaggio/resourceAssociationService.ts');
+  assert(assocSrc.includes('durationDaysFromPeriod'), 'duration from diary period (WF-13)');
+  assert(
+    !assocSrc.includes('healViaggioLinks') &&
+      !readSrc('src/services/viaggio/viaggioSuitcaseService.ts').includes('healViaggioLinks'),
+    'healViaggioLinks removed (WF-13 anti multi-link)',
+  );
 
   const roadbookSrc = readSrc('src/services/viaggio/viaggioRoadbookService.ts');
   assert(

@@ -56,8 +56,9 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 
 ### 8b. MySpace / Viaggio (dominio congelato)
 *   **Regole:** `AI_CONTEXT/34A_DOMAIN_DESIGN_RULES.md`
-*   **Struttura Viaggio:** `AI_CONTEXT/37_VIAGGIO_DOMAIN.md` — Diario 0..N, Ricordi (Foto/Video/Note-giorno), Roadbook library, Mappa/Riepilogo views; cover unica manuale; Ricordami su Viaggio.
-*   **Visione casa:** `AI_CONTEXT/35_MYSPACE_PRODUCT_VISION.md` (v2.1+) — catalogo cover, cartella compatta, memoria navigazione, Preferiti=vista, Esploratore=archivio.
+*   **Struttura Viaggio:** `AI_CONTEXT/37_VIAGGIO_DOMAIN.md` (v1.4+) — Diario 0..N, un Diario ↔ un solo Viaggio; Ricordi (Foto/Video/Note-giorno), Roadbook library, Mappa/Riepilogo views; cover unica manuale; Ricordami su Viaggio; create/associazione/Salva con nome (VD-028…033).
+*   **Visione casa:** `AI_CONTEXT/35_MYSPACE_PRODUCT_VISION.md` (v2.4.1+) — catalogo = solo Viaggi; Strumenti = Diari·Valigie·Template (apertura diretta); create modale; Salva con nome esteso; copia su conflitto associazione; Preferiti=vista; Esploratore=archivio. Implementazione decisioni 1–8: **WF-13 Completato**.
+*   **Packing:** `AI_CONTEXT/31_PACKING_SUITCASE_SYSTEM.md` (v2.1.1+) — Valigia-viaggio vs Strumenti; una Valigia ↔ un Viaggio; Valigia⇄Diario invariata; copia su conflitto; UNIQUE `suitcase_id` (migrazione WF-13).
 *   **Ordine capacità:** `AI_CONTEXT/36_MYSPACE_PRODUCT_MASTERPLAN.md`
 *   **Implementazione:** MP-01 concluso; residuale UX → `AI_DEV_WORKFLOW/MASTERPLANS/MP_02_MYSPACE_UX_REALIGNMENT.md`.
 *   **Invariante:** MySpace = originali; Workspace = copie.

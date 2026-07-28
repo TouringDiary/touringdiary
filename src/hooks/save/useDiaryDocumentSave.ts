@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Itinerary } from '@/types';
+import type { SaveUserDraftViaggioOptions } from '@/types/resourceAssociation';
 import { useDocumentSaveController } from '@/hooks/save/useDocumentSaveController';
 import { AUTOSAVE_PREF_KEYS, phaseHasUnsavedChanges } from '@/domain/save/documentSaveTypes';
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
@@ -15,7 +16,11 @@ interface UseDiaryDocumentSaveOptions {
   savedProjects: Itinerary[];
   isGuest: boolean;
   userId: string | null;
-  saveProject: (name?: string, isSaveAs?: boolean) => Promise<string | null>;
+  saveProject: (
+    name?: string,
+    isSaveAs?: boolean,
+    viaggioOptions?: SaveUserDraftViaggioOptions,
+  ) => Promise<string | null>;
   onSaved?: (id: string) => void;
   onSaveAsNavigate?: (id: string) => void;
 }
@@ -64,7 +69,11 @@ export function useDiaryDocumentSave({
       if (!name?.trim()) {
         throw new Error('Inserisci un nome per il diario.');
       }
-      const id = await saveProject(name, options.asCopy);
+      const id = await saveProject(
+        name,
+        options.asCopy,
+        options.asCopy ? { viaggioChoice: 'none' } : undefined,
+      );
       if (!id) throw new Error('Salvataggio non riuscito');
       if (options.asCopy) {
         onSaveAsNavigate?.(id);

@@ -249,6 +249,8 @@ const TravelDiaryContent = ({
                 itinerary={itinerary}
                 days={days}
                 onDayDrop={onDayDrop}
+                userId={user.id}
+                isGuest={user.role === 'guest'}
             />
 
             {state.toastMessage && (
