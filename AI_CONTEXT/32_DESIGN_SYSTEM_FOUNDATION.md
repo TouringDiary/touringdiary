@@ -1,52 +1,57 @@
-# 🎨 DOC 32: DESIGN SYSTEM FOUNDATION (v1.0 — CERTIFIED)
+# 🎨 DOC 32: DESIGN SYSTEM FOUNDATION (v1.1 — CERTIFIED)
 
-> **Single source of truth** per Design System runtime, Foundation admin-editable e sistema layering/focus.
+> **Single source of truth** per Design System runtime, Foundation, MyWorld Style e sistema layering/focus.
 > Verificato sul codice (luglio 2026). Storico WIP: `docs/_archive/design-system/`
 
 ---
 
 ## Principi architetturali
 
-TouringDiary non ha subito un refactor globale dello styling: l'app è **Tailwind-first** con centinaia di componenti che esprimono UI come classi inline, mentre un sottoinsieme crescente di superfici condivise (modali, controlli Foundation) converge verso primitive governate da database.
+TouringDiary non ha subito un refactor globale dello styling: l'app è **Tailwind-first** con centinaia di componenti che esprimono UI come classi inline, mentre un sottoinsieme crescente di superfici condivise converge verso primitive governate da database.
 
-Per questo convivono **intenzionalmente** due track sullo stesso store `design_system_rules`:
+**Esiste un solo Design System** (tabella `design_system_rules`). Non sono Design System separati: sono **sezioni specializzate** della stessa Source of Truth, con perimetro e convenzioni distinti:
 
-| Track | Ruolo |
-|-------|--------|
-| **Legacy semantic** (`useDynamicStyles`) | Chiavi semantiche storiche (`admin_*`, `filter_*`, tipografia home/city) già cablate nell'app; migrazione massiva avrebbe alto rischio regressioni senza beneficio immediato proporzionale. |
-| **Foundation** (`useFoundationStyles`) | Percorso evolutivo per shell modali, pulsanti e token condivisi; stessa tabella DB con `section: 'foundation'`, adozione progressiva sulle aree ad alto riuso. |
+| Sezione | Ruolo |
+|---------|--------|
+| **Legacy semantic** (`useDynamicStyles`) | Chiavi storiche (`admin_*`, `filter_*`, tipografia home/city) |
+| **Foundation** (`useFoundationStyles`) | Componenti riutilizzabili comuni: shell modali, pulsanti, input, card selezionabili — `section: 'foundation'` |
+| **MyWorld Style** (`useMyWorldStyles`) | Elementi esclusivi MyWorld (MySpace + Workspace): header sezione, pannelli, list row, chrome — `section: 'myworld'`. Riferimento grafico: Valigia |
 
-**Legacy semantic resta supportato** fino a migrazione completa area per area. **Foundation è la direzione architetturale** per nuove superfici condivise e per il debito modale/layering documentato in questo SSOT. Non sono due design system concorrenti: sono due consumatori dello stesso runtime, con perimetro e convenzioni distinti.
+**Legacy semantic resta supportato** fino a migrazione completa area per area. Foundation governa i controlli generici dell'app. MyWorld Style governa l'identità visiva condivisa di MySpace e Workspace.
 
 ---
 
 ## DESCRIZIONE SEMPLICE
 
-TouringDiary usa Tailwind inline su ~470+ componenti, affiancato da un Design System **runtime** in database (`design_system_rules`) per tipografia e, in crescita, **Foundation** per shell modali e controlli condivisi. Il sistema focus/layering governa Valigia, hub Workspace e modali senza conflitti z-index.
+TouringDiary usa Tailwind inline su ~470+ componenti, affiancato da un Design System **runtime** in database (`design_system_rules`) con sezioni Admin dedicate (Design System legacy, Foundation, MyWorld Style). Il sistema focus/layering governa Valigia, hub Workspace e modali senza conflitti z-index.
 
 ---
 
-## ARCHITETTURA DUAL-TRACK
+## ARCHITETTURA — SEZIONI DELLA STESSA SoT
 
-| Track | Hook | Copertura | Sorgente |
-|-------|------|-----------|----------|
+| Sezione | Hook | Copertura | Sorgente |
+|---------|------|-----------|----------|
 | **Legacy semantic** | `useDynamicStyles` | ~50+ file (home, city, admin keys `admin_*`, `filter_*`) | `design_system_rules` via `ConfigContext` |
 | **Foundation** | `useFoundationStyles` | Modali collaborazione, valigia, diary (~35 file) | Stessa tabella, `section: 'foundation'` |
+| **MyWorld Style** | `useMyWorldStyles` | Header/root MySpace, pannelli Valigia, chrome MyWorld | Stessa tabella, `section: 'myworld'` |
 
-La migrazione da Legacy a Foundation è **incrementale** e guidata dal valore funzionale (aree ad alto riuso, riduzione duplicazioni, allineamento layering): non è un obiettivo di convertire l'intero codebase in un'unica passata.
+La migrazione è **incrementale** e guidata dal valore funzionale: non è un obiettivo di convertire l'intero codebase in un'unica passata.
 
 ### Pipeline dati
 
 1. `settingsService.getDesignSystemRules()` → query `design_system_rules`
 2. `ConfigContext` → `configs.design_system_rules` + `configs.design_system.components`
-3. Hook costruiscono classi via `constructClassName` / chiavi `FOUNDATION_STYLE_KEYS`
+3. Hook costruiscono classi via `constructClassName` / chiavi tipizzate
 
-### Admin
+### Admin (Impostazioni Globali)
 
 | UI | File | Filtro |
 |----|------|--------|
-| Design System (tipografia legacy) | `DesignSystemSettings` | esclude `section === 'foundation'` |
+| Design System (tipografia legacy) | `DesignSystemSettings` | esclude `foundation` e `myworld` |
 | Foundation | `FoundationSettingsPanel` | solo `section === 'foundation'` |
+| MyWorld Style | `MyWorldStyleSettingsPanel` | solo `section === 'myworld'` |
+
+**Cataloghi:** `foundationSettingsCatalog.ts`, `myWorldSettingsCatalog.ts`. Seed: migrations Foundation + `20260730120001_seed_myworld_design_system_rules.sql`.
 
 **Catalogo Foundation:** `foundationSettingsCatalog.ts`, seed `20260705120001_seed_foundation_design_system_rules.sql`, regole `foundationDesignRules.ts`.
 

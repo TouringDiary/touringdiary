@@ -18,9 +18,13 @@ import { calculateDistance } from '../geo';
 import { getPoisByCityId, getPoisByCityIds, mapDbPoiToApp } from './poiService';
 import {
     getCityEvents,
+    getCityEventsByCityIds,
     getCityServices,
+    getCityServicesByCityIds,
     getCityGuides,
+    getCityGuidesByCityIds,
     getCityPeople,
+    getCityPeopleByCityIds,
     type CityPeopleAudience,
 } from './entitiesService';
 import { filterFamousPeopleByAudience } from './parsers/entities/famousPersonAudience';
@@ -29,7 +33,7 @@ import { parseService } from './parsers/entities/parseService';
 import { parseGuide } from './parsers/entities/parseGuide';
 import { parseTourOperator } from './parsers/entities/parseTourOperator';
 import { parsePerson } from './parsers/entities/parsePerson';
-import { getCityTourOperators } from './tourOperatorService';
+import { getCityTourOperators, getCityTourOperatorsByCityIds } from './tourOperatorService';
 import { GEO_CONFIG } from '../../constants/geoConfig';
 import { sanitizeMediaStatus } from '../../utils/media';
 import { parseMediaAsset } from './parsers/media/parseMediaAsset';
@@ -86,7 +90,7 @@ const mapDbCityToSummary = (db: DatabaseCityRouteView, zoneMap?: Map<string, str
         nation: db.nation || GEO_CONFIG.DEFAULT_NATION,
         adminRegion: db.admin_region || GEO_CONFIG.DEFAULT_REGION,
         region_id: db.region_id || undefined,
-        zone: resolvedZone,
+        zone: resolvedZone ?? '',
         tourist_zone_id: db.tourist_zone_id || undefined,
         description: db.description || '',
         imageUrl,
@@ -100,8 +104,10 @@ const mapDbCityToSummary = (db: DatabaseCityRouteView, zoneMap?: Map<string, str
         rating: db.rating || 0,
         visitors: db.visitors || 0,
         isFeatured: db.is_featured || false,
-        specialBadge: db.special_badge as CityDetails['specialBadge'] || null,
-        homeOrder: db.home_order || null,
+        specialBadge: db.special_badge != null
+            ? (db.special_badge as CitySummary['specialBadge'])
+            : undefined,
+        homeOrder: db.home_order ?? undefined,
         coords: { lat, lng },
         status: (db.status as CitySummary['status']) || 'published',
         createdAt: db.created_at || '',
@@ -361,72 +367,106 @@ export const buildVirtualCity = async (
 
         if (nearbyCities.length === 0 && !baseCity) return null;
 
-        // Modalità di costruzione esplicita (dominio): fusione "Tutto Incluso" vs "Around Me".
-        const mode: 'merge' | 'around-me' = baseCity ? 'merge' : 'around-me';
-        const isMergedMode = mode === 'merge';
-
         // In modalità fusione i contenuti della città base sono sempre inclusi,
         // insieme a quelli delle (sole) città selezionate.
-        const cityIds = isMergedMode
-            ? Array.from(new Set([baseCity!.id, ...nearbyCities.map(c => c.id)]))
+        const cityIds = baseCity
+            ? Array.from(new Set([baseCity.id, ...nearbyCities.map(c => c.id)]))
             : nearbyCities.map(c => c.id);
 
         const [allPois, allEvents, allGuides] = await Promise.all([
             getPoisByCityIds(cityIds),
-            Promise.all(cityIds.map(id => getCityEvents(id))).then(res => res.flat()),
-            Promise.all(cityIds.map(id => getCityGuides(id))).then(res => res.flat())
+            getCityEventsByCityIds(cityIds),
+            getCityGuidesByCityIds(cityIds),
         ]);
 
+        const sharedDetails = {
+            allPois,
+            events: allEvents,
+            guides: allGuides,
+            topAttractions: allPois.filter(p => p.category === POI_CATEGORIES.MONUMENT),
+            foodSpots: allPois.filter(p => p.category === POI_CATEGORIES.FOOD),
+            hotels: allPois.filter(p => p.category === POI_CATEGORIES.HOTEL),
+            leisureSpots: allPois.filter(p => p.category === POI_CATEGORIES.LEISURE),
+            newDiscoveries: allPois.filter(p => p.category === POI_CATEGORIES.DISCOVERY),
+            generationLogs: [] as string[],
+        };
+
+        const aggregatedCities = nearbyCities.map((c) => ({ id: c.id, name: c.name }));
+
+        // Narrowing reale: ramo merge solo con baseCity definito.
+        // Spread da baseCity: nuovi campi CityDetails/details restano ereditati;
+        // sotto solo le override richieste dalla virtualizzazione merge.
+        if (baseCity) {
+            const virtualCity: CityDetails = {
+                ...baseCity,
+                description: baseCity.description || '',
+                isFeatured: false,
+                coords: centerCoords,
+                status: 'published',
+                tags: [],
+                hasGeneratedContent: true,
+                isVirtual: true,
+                virtualMode: 'merge',
+                aggregatedCities,
+                details: {
+                    ...baseCity.details,
+                    subtitle: baseCity.details.subtitle || '',
+                    historySnippet: baseCity.details.historySnippet || '',
+                    historyFull: baseCity.details.historyFull || '',
+                    ...sharedDetails,
+                    tourOperators: baseCity.details.tourOperators || [],
+                },
+            };
+            return virtualCity;
+        }
+
+        const [allServices, allTourOperators, allPeople] = await Promise.all([
+            getCityServicesByCityIds(cityIds),
+            getCityTourOperatorsByCityIds(cityIds),
+            getCityPeopleByCityIds(cityIds, 'public'),
+        ]);
+
+        // Around Me: full territorial aggregation (services / TO / people included).
         const virtualCity: CityDetails = {
-            id: isMergedMode ? baseCity.id : 'around-me-virtual',
-            slug: isMergedMode ? baseCity.slug : 'around-me-virtual',
-            name: isMergedMode ? baseCity.name : 'Around Me',
-            zone: isMergedMode ? baseCity.zone : `Raggio ${radiusKm}km`,
-            adminRegion: isMergedMode ? baseCity.adminRegion : GEO_CONFIG.DEFAULT_REGION,
-            nation: isMergedMode ? baseCity.nation : GEO_CONFIG.DEFAULT_NATION,
-            continent: isMergedMode ? baseCity.continent : GEO_CONFIG.DEFAULT_CONTINENT,
-            region_id: isMergedMode ? baseCity.region_id : undefined,
-            tourist_zone_id: isMergedMode ? baseCity.tourist_zone_id : undefined,
-            description: isMergedMode
-                ? (baseCity.description || '')
-                : `Esplorazione territoriale personalizzata. Include ${nearbyCities.length} località nel raggio di ${radiusKm}km dalla tua posizione.`,
-            imageUrl: isMergedMode
-                ? baseCity.imageUrl
-                : (nearbyCities[0]?.imageUrl || ''),
-            image_status: isMergedMode ? baseCity.image_status : (nearbyCities[0]?.image_status ?? 'missing'),
-            heroImage: isMergedMode ? baseCity.heroImage : (nearbyCities[0]?.imageUrl || ''),
-            hero_status: isMergedMode ? baseCity.hero_status : (nearbyCities[0]?.image_status ?? 'missing'),
-            rating: isMergedMode ? baseCity.rating : 0,
-            visitors: isMergedMode ? baseCity.visitors : 0,
+            id: 'around-me-virtual',
+            slug: 'around-me-virtual',
+            name: 'Around Me',
+            zone: `Raggio ${radiusKm}km`,
+            adminRegion: GEO_CONFIG.DEFAULT_REGION,
+            nation: GEO_CONFIG.DEFAULT_NATION,
+            continent: GEO_CONFIG.DEFAULT_CONTINENT,
+            region_id: undefined,
+            tourist_zone_id: undefined,
+            description: `Esplorazione territoriale personalizzata. Include ${nearbyCities.length} località nel raggio di ${radiusKm}km dalla tua posizione.`,
+            imageUrl: nearbyCities[0]?.imageUrl || '',
+            image_status: nearbyCities[0]?.image_status ?? 'missing',
+            heroImage: nearbyCities[0]?.imageUrl || '',
+            hero_status: nearbyCities[0]?.image_status ?? 'missing',
+            rating: 0,
+            visitors: 0,
             isFeatured: false,
             coords: centerCoords,
             status: 'published',
             tags: [],
             hasGeneratedContent: true,
             isVirtual: true,
+            virtualMode: 'around_me',
+            aggregatedCities,
             details: {
-                subtitle: isMergedMode ? (baseCity.details.subtitle || '') : `${nearbyCities.length} Città vicine`,
-                heroImage: isMergedMode ? baseCity.details.heroImage : (nearbyCities[0]?.imageUrl || ''),
-                hero_status: isMergedMode ? baseCity.details.hero_status : (nearbyCities[0]?.image_status ?? 'missing'),
-                historySnippet: isMergedMode ? (baseCity.details.historySnippet || '') : `Esplorazione libera del territorio.`,
-                historyFull: isMergedMode ? (baseCity.details.historyFull || '') : '',
-                allPois: allPois,
-                events: allEvents,
-                guides: allGuides,
-                topAttractions: allPois.filter(p => p.category === POI_CATEGORIES.MONUMENT),
-                foodSpots: allPois.filter(p => p.category === POI_CATEGORIES.FOOD),
-                hotels: allPois.filter(p => p.category === POI_CATEGORIES.HOTEL),
-                leisureSpots: allPois.filter(p => p.category === POI_CATEGORIES.LEISURE),
-                newDiscoveries: allPois.filter(p => p.category === POI_CATEGORIES.DISCOVERY),
-                services: isMergedMode ? baseCity.details.services : [],
-                tourOperators: isMergedMode ? (baseCity.details.tourOperators || []) : [],
-                famousPeople: isMergedMode ? baseCity.details.famousPeople : [],
-                gallery: isMergedMode ? baseCity.details.gallery : [],
-                ratings: isMergedMode ? baseCity.details.ratings : undefined,
-                generationLogs: [],
-                patron: isMergedMode ? baseCity.details.patron : 'N/A',
-                patronDetails: isMergedMode ? baseCity.details.patronDetails : undefined
-            }
+                subtitle: `${nearbyCities.length} Città vicine`,
+                heroImage: nearbyCities[0]?.imageUrl || '',
+                hero_status: nearbyCities[0]?.image_status ?? 'missing',
+                historySnippet: `Esplorazione libera del territorio.`,
+                historyFull: '',
+                ...sharedDetails,
+                services: allServices,
+                tourOperators: allTourOperators,
+                famousPeople: allPeople,
+                gallery: [],
+                ratings: { ...DEFAULT_RATINGS },
+                patron: 'N/A',
+                patronDetails: undefined,
+            },
         };
 
         return virtualCity;

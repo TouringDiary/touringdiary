@@ -99,13 +99,16 @@ export const ViaggioRicordamiControl: React.FC<Props> = ({
   };
   const customModeLabel = useMemo(() => {
     if (ricordamiConfig.mode === 'custom_date' && ricordamiConfig.customDateIso) {
-      return formatCustomDate(ricordamiConfig.customDateIso);
+      return `IL ${formatCustomDate(ricordamiConfig.customDateIso)}`;
     }
     if (ricordamiConfig.mode === 'yearly_date') {
-      return formatYearlyDate(ricordamiConfig.yearlyDay, ricordamiConfig.yearlyMonth);
+      return `OGNI ${formatYearlyDate(ricordamiConfig.yearlyDay, ricordamiConfig.yearlyMonth)}`;
     }
     return '';
   }, [ricordamiConfig]);
+
+  const customOptionLabel =
+    ricordamiConfig.mode !== 'interval' && customModeLabel ? customModeLabel : 'ALTRO...';
   const customDateValue =
     ricordamiConfig.mode === 'custom_date' && ricordamiConfig.customDateIso
       ? formatCustomDate(ricordamiConfig.customDateIso)
@@ -234,37 +237,13 @@ export const ViaggioRicordamiControl: React.FC<Props> = ({
                   </option>
                 ),
               )}
-              <option value="custom">PERSONALIZZATO...</option>
+              <option value="custom">{customOptionLabel}</option>
             </select>
             <ChevronDown
               className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500"
               aria-hidden
             />
           </div>
-
-          {ricordamiConfig.mode !== 'interval' && (
-            <button
-              type="button"
-              onClick={() => setIsConfigOpen(true)}
-              disabled={!viaggio.ricordamiEnabled || busy || suspended}
-              className={`inline-flex items-center gap-2 rounded-lg border px-2 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
-                viaggio.ricordamiEnabled && !suspended
-                  ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-100 hover:bg-indigo-500/15'
-                  : 'border-slate-800 bg-slate-900/40 text-slate-500'
-              }`}
-              aria-label="Configura Ricordami"
-              title="Configura Ricordami"
-            >
-              <span>PERSONALIZZATO</span>
-              <span className="font-mono normal-case text-[10px] text-indigo-100/90">
-                {compact
-                  ? customModeLabel
-                  : ricordamiConfig.mode === 'custom_date'
-                    ? customDateValue
-                    : yearlyValue}
-              </span>
-            </button>
-          )}
         </div>
       </div>
       {!compact && suspended && (

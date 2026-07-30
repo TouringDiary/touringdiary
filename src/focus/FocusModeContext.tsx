@@ -18,7 +18,7 @@ import { requestWorkspaceClose } from './workspaceCloseRegistry';
 import { endWorkspaceSession } from './workspaceSessionRegistry';
 
 export interface FocusModeContextValue extends DerivedFocusState {
-  /** Policy helper for a semantic surface in the current mode. */
+  /** Policy helper for a semantic surface in the current mode (consumed by FocusIdleBoundary). */
   getPolicy: (surface: FocusSurface) => SurfacePolicy;
   /** Whether the current mode is a workspace focus session. */
   isWorkspace: boolean;

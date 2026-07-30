@@ -87,8 +87,18 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
 
     useEffect(() => {
         refreshCounts();
-        const interval = setInterval(refreshCounts, 60000);
-        return () => clearInterval(interval);
+        const onVisibility = () => {
+            if (!document.hidden) void refreshCounts();
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        // Badge admin: refresh on focus + intervallo lungo (non ogni minuto a tab nascosta).
+        const interval = window.setInterval(() => {
+            if (!document.hidden) void refreshCounts();
+        }, 180000);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.clearInterval(interval);
+        };
     }, [refreshCounts]);
 
     const sectionNames: Record<string, string> = {

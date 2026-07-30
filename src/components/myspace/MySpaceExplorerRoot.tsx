@@ -11,6 +11,7 @@ import {
   type CityGeoMinimal,
 } from '@/services/myspace/cityMinimalRead';
 import { showGlobalAlert } from '@/services/ui/toastService';
+import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 
 interface Props {
   userId: string;
@@ -84,16 +85,12 @@ export const MySpaceExplorerRoot: React.FC<Props> = ({ userId }) => {
       role="tabpanel"
       aria-label="Esploratore"
     >
-      <header className="space-y-1">
-        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-          <Compass className="w-4 h-4 text-sky-400" aria-hidden />
-          Città visitate
-        </h2>
-        <p className="text-[11px] text-slate-500">
-          Archivio personale: le città dei tuoi Viaggi si aggiungono automaticamente. La rimozione è
-          solo manuale — eliminare un Viaggio non cancella una città da qui.
-        </p>
-      </header>
+      <MySpaceSectionHeader
+        icon={Compass}
+        title="Esploratore"
+        description="Archivio personale: le città dei tuoi Viaggi si aggiungono automaticamente. La rimozione è solo manuale — eliminare un Viaggio non cancella una città da qui."
+        iconClassName="w-4 h-4 text-sky-400 shrink-0"
+      />
 
       {rows.length === 0 ? (
         <p className="text-xs text-slate-500 py-6 text-center">

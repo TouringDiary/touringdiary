@@ -19,6 +19,8 @@ interface GeoCascadingFiltersProps {
     orientation?: 'horizontal' | 'vertical';
     /** Optional compact chrome for denser admin toolbars. */
     density?: 'comfortable' | 'compact';
+    /** Override sottotitolo header (es. Preferiti user-facing). */
+    headerSubtitle?: string;
 }
 
 const EMPTY_SELECTION: GeoSelection = {
@@ -97,6 +99,7 @@ export const GeoCascadingFilters = ({
     onChange,
     orientation = 'horizontal',
     density = 'comfortable',
+    headerSubtitle,
 }: GeoCascadingFiltersProps) => {
     const compact = density === 'compact';
 
@@ -200,15 +203,30 @@ export const GeoCascadingFilters = ({
             }
         >
             {!isVertical && (
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800/80">
+                <div
+                    className={
+                        compact
+                            ? 'flex flex-wrap items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-800/80'
+                            : 'flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800/80'
+                    }
+                >
                     <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300">
+                        <div
+                            className={
+                                compact
+                                    ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/15 border border-indigo-500/25 text-indigo-300'
+                                    : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300'
+                            }
+                        >
                             <Filter className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-sm font-bold text-white tracking-wide">Area geografica</p>
+                            <p className="text-sm font-bold text-white tracking-wide">Area Geografica</p>
                             <p className="text-[11px] text-slate-500 truncate">
-                                Cascata Continente → Città · etichette da catalogo città
+                                {headerSubtitle ??
+                                    (compact
+                                        ? 'Filtra per area geografica'
+                                        : 'Continente → Nazione → Regione → Zona → Città')}
                             </p>
                         </div>
                     </div>

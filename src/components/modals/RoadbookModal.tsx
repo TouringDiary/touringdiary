@@ -4,6 +4,7 @@ import { useItinerary } from '@/context/ItineraryContext';
 import { useUser } from '@/context/UserContext';
 import FileSaver from 'file-saver';
 import { prepareItineraryForPdf } from '../../utils/pdfUtils';
+import { ensureNodePdfPolyfills } from '../../utils/ensureNodePdfPolyfills';
 import { useLogoRasterizer } from '../../hooks/useLogoRasterizer';
 import { BaseFullscreenModalShell } from '@/components/modals/shell/BaseFullscreenModalShell';
 import { generateRoadbook } from '@/services/ai/aiPlanner';
@@ -20,7 +21,9 @@ interface RoadbookModalProps {
 export const RoadbookModal = ({ isOpen, onClose }: RoadbookModalProps) => {
     const { itinerary, setItinerary } = useItinerary();
     const { user } = useUser();
-    const { evaluationNowMs } = usePlatformControl();
+    // We subscribe to PlatformControlContext updates (schedule-bound `evaluationNowMs`)
+    // to keep `getAiRuntimeStatus`-driven gating fresh, even when we don't use the value directly.
+    usePlatformControl();
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -39,7 +42,6 @@ export const RoadbookModal = ({ isOpen, onClose }: RoadbookModalProps) => {
     const suggestedModel = daysCount <= 2 ? 'flash' : 'pro';
     const activeModel = forcedModel || suggestedModel;
     const hasRoadbook = itinerary.roadbook && itinerary.roadbook.length > 0;
-    void evaluationNowMs;
     const aiRuntimeStatus = getAiRuntimeStatus({
         userRole: user?.role ?? null,
         isAuthenticated: Boolean(user && user.role !== 'guest'),
@@ -86,14 +88,12 @@ export const RoadbookModal = ({ isOpen, onClose }: RoadbookModalProps) => {
         setProgress(5);
 
         try {
-            const coverUrl = itinerary.items[0]?.poi?.imageUrl || 'https://images.unsplash.com/photo-1526772662000-3f88f10405ff?q=80&w=800';
-            
             const preparedDoc = await prepareItineraryForPdf(
                 itinerary,
-                coverUrl,
                 { includePhotos: true, includeQr: true },
                 (p) => setProgress(p)
             );
+            await ensureNodePdfPolyfills();
             const [{ pdf }, { RoadbookDocument }] = await Promise.all([
                 import('@react-pdf/renderer'),
                 import('../pdf/RoadbookDocument'),

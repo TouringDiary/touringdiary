@@ -51,7 +51,7 @@ export const NewsTicker = ({ overrideSpeed, overrideItems, isVisible = true }: N
                 md:mt-0 md:opacity-100 md:pointer-events-auto
             `}
         >
-            <div className={`${labelStyle} bg-amber-600 px-3 h-full flex items-center justify-center z-dropdown shadow-lg flex-shrink-0 relative border-r border-amber-700`}>
+            <div className={`${labelStyle} bg-amber-600 px-3 h-full flex items-center justify-center z-dropdown shadow-lg flex-shrink-0 relative border-r border-amber-700 max-md:!text-[10px]`}>
                 NEWS
             </div>
 
@@ -59,9 +59,12 @@ export const NewsTicker = ({ overrideSpeed, overrideItems, isVisible = true }: N
             {maintenanceOn ? (
                 <div className="flex-shrink-0 h-full flex items-center gap-2 px-3 border-r border-orange-500/40 bg-orange-950/50 max-w-[55%] sm:max-w-[40%]">
                     <AlertTriangle className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
-                    <span className={`${textStyle} text-orange-100 truncate`} title={maintenanceBody}>
-                        <span className="font-bold mr-1">{maintenanceLabel}:</span>
-                        {maintenanceBody}
+                    <span className={`${textStyle} text-orange-100 truncate max-md:!text-[10px]`} title={maintenanceBody}>
+                        <span className="font-bold md:mr-1">
+                            {maintenanceLabel}
+                            <span className="hidden md:inline">:</span>
+                        </span>
+                        <span className="hidden md:inline">{maintenanceBody}</span>
                     </span>
                 </div>
             ) : null}
@@ -77,7 +80,7 @@ export const NewsTicker = ({ overrideSpeed, overrideItems, isVisible = true }: N
                                 const Icon = ICON_MAP[item.icon] || Globe;
                                 const uniqueKey = item.id || `ticker-item-${i}`;
                                 return (
-                                    <span key={uniqueKey} className={`mx-10 ${textStyle} flex items-center gap-2.5`}>
+                                    <span key={uniqueKey} className={`mx-10 ${textStyle} flex items-center gap-2.5 max-md:!text-[10px]`}>
                                         <Icon className="w-3.5 h-3.5 text-amber-500 flex-shrink-0"/>
                                         <span dangerouslySetInnerHTML={{ __html: item.text || '' }} />
                                     </span>

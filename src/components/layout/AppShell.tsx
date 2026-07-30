@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Z_GLOBAL_CHROME } from '@/constants/zIndex';
 import { FOCUS_SURFACE_ATTR, workspaceRequiresStableSidebar } from '@/focus/focusModeRegistry';
-import { useFocusMode } from '@/focus';
+import { FocusIdleBoundary, useFocusMode } from '@/focus';
 import { useUI } from '@/context/UIContext';
 
 interface AppShellProps {
@@ -17,6 +17,8 @@ interface AppShellProps {
 /**
  * AppShell — macro layout skeleton.
  * Chrome surfaces use globalChrome tier; sidebar shell stays at base (no document z-index).
+ * Under workspace focus, baseContent is idle-frozen (FocusIdleBoundary) per registry policy;
+ * companion-driven sidebar (Valigia) stays live — see FocusIdleBoundary.
  */
 export const AppShell: React.FC<AppShellProps> = ({
     newsTicker,
@@ -90,16 +92,24 @@ export const AppShell: React.FC<AppShellProps> = ({
                     `}
                     data-focus-surface={FOCUS_SURFACE_ATTR.baseContent}
                 >
-                    <div className="h-full w-sidebar 2xl:w-sidebar-wide overflow-hidden flex flex-col">
+                    <FocusIdleBoundary
+                        surface="baseContent"
+                        className="h-full w-sidebar 2xl:w-sidebar-wide overflow-hidden flex flex-col"
+                    >
                         {sidebar}
-                    </div>
+                    </FocusIdleBoundary>
                 </aside>
 
                 <main
                     className="flex-1 relative min-w-0 overflow-hidden bg-slate-950 flex flex-col"
                     data-focus-surface={FOCUS_SURFACE_ATTR.baseContent}
                 >
-                    {children}
+                    <FocusIdleBoundary
+                        surface="baseContent"
+                        className="flex-1 relative min-w-0 overflow-hidden flex flex-col h-full"
+                    >
+                        {children}
+                    </FocusIdleBoundary>
                 </main>
 
             </div>

@@ -15,6 +15,12 @@ interface Props {
   onRequireAuth?: () => void;
   className?: string;
   size?: 'sm' | 'md';
+  /**
+   * Tooltip opzionale quando l’entità è già nei preferiti.
+   * Se omesso, resta il default legacy «Nei preferiti» (POI, guide, TO, shop, …).
+   * Passarlo solo per wording specifico di superficie (es. «Città preferita» su card/header città).
+   */
+  titleWhenFavorite?: string;
 }
 
 /**
@@ -27,6 +33,7 @@ export const FavoriteBookmarkButton: React.FC<Props> = ({
   onRequireAuth,
   className = '',
   size = 'md',
+  titleWhenFavorite,
 }) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(Boolean(userId));
@@ -84,7 +91,7 @@ export const FavoriteBookmarkButton: React.FC<Props> = ({
       } ${size === 'sm' ? 'p-1.5' : 'p-2'} ${className}`}
       aria-pressed={isFavorite}
       aria-label={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-      title={isFavorite ? 'Nei preferiti' : 'Aggiungi ai preferiti'}
+      title={isFavorite ? (titleWhenFavorite ?? 'Nei preferiti') : 'Aggiungi ai preferiti'}
       data-testid={`favorite-bookmark-${entityKind}`}
     >
       {busy || loading ? (

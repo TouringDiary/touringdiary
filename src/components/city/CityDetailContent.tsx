@@ -10,7 +10,7 @@ import { CultureCornerModal } from '../modals/CultureCornerModal';
 import { PatronSaintModal } from '../modals/PatronSaintModal';
 import { HistoryModal } from '../modals/HistoryModal';
 import { isPoiNew } from '../../utils/common';
-import { fetchSponsorsByCityAsync } from '../../services/sponsorService';
+import { fetchSponsorsByCityAsync, fetchSponsorsByCityIdsAsync } from '../../services/sponsorService';
 import { useModal } from '@/context/ModalContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useUser } from '@/context/UserContext';
@@ -176,9 +176,22 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
     useEffect(() => {
         if (!preloadedCity) {
             fetchSponsorsByCityAsync(cityId).then(setActiveSponsors);
-        } else {
-            setActiveSponsors([]);
+            return;
         }
+
+        const isAroundMe =
+            preloadedCity.virtualMode === 'around_me' || preloadedCity.id === 'around-me-virtual';
+        if (isAroundMe) {
+            const ids = (preloadedCity.aggregatedCities ?? []).map((c) => c.id);
+            if (ids.length === 0) {
+                setActiveSponsors([]);
+                return;
+            }
+            void fetchSponsorsByCityIdsAsync(ids).then(setActiveSponsors);
+            return;
+        }
+
+        setActiveSponsors([]);
     }, [cityId, preloadedCity]);
 
     const isAdmin = user.role === 'admin_all' || user.role === 'admin_limited';
@@ -306,7 +319,19 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
             {/* 1. HEADER CITTÀ (IMMAGINE HERO) */}
             <div className="shrink-0 z-local-raised relative">
-                <CityHeader city={displayCity} onOpenInfo={(t) => setActiveModal(t)} onOpenPatron={() => setActiveModal('patron')} onOpenSurroundings={() => setActiveModal('province')} onOpenCulture={() => setActiveModal('culture')} onOpenShop={() => onOpenShop()} onOpenSponsor={() => onOpenSponsor()} onOpenHistory={() => setActiveModal('history')} onToggleLocation={onToggleLocation} isLocationActive={!!userLocation} />
+                <CityHeader
+                    city={displayCity}
+                    onOpenInfo={(t) => setActiveModal(t)}
+                    onOpenPatron={() => setActiveModal('patron')}
+                    onOpenSurroundings={() => setActiveModal('province')}
+                    onOpenCulture={() => setActiveModal('culture')}
+                    onOpenShop={() => onOpenShop()}
+                    onOpenSponsor={() => onOpenSponsor()}
+                    onOpenHistory={() => setActiveModal('history')}
+                    onToggleLocation={onToggleLocation}
+                    isLocationActive={!!userLocation}
+                    onSelectAggregatedCity={(id) => onSwitchCity(id)}
+                />
             </div>
 
             {/* 1.5 RIGA SEO / INTERNAL LINKING GEOGRAFICO */}

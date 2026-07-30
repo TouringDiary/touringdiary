@@ -23,6 +23,8 @@ const ShopCategoryView = React.lazy(() => import('./ShopCategoryView').then(m =>
 interface ShopPageProps {
     cityId: string;
     cityName: string;
+    /** Multi-city territory (Around Me). */
+    cityIds?: string[];
     onBack: () => void;
     onAddToItinerary: (poi: PointOfInterest) => void;
     onOpenPoiDetail: (poi: PointOfInterest) => void;
@@ -47,7 +49,7 @@ const ShopLoader = () => (
 );
 
 export const ShopPage = ({ 
-    cityId, cityName, onBack, onAddToItinerary, onOpenPoiDetail, 
+    cityId, cityName, cityIds, onBack, onAddToItinerary, onOpenPoiDetail, 
     onOpenSponsor, isSidebarOpen, initialShopVat, isModalOpen 
 }: ShopPageProps) => {
     
@@ -66,7 +68,7 @@ export const ShopPage = ({
         setSelectedCategory, setSelectedShop, setSelectedProduct,
         setShowPlanner, setPendingPoi, setShowFullBio, setLightboxImage,
         handleRequestAdd, handleConfirmAdd, handleBack
-    } = useShopNavigation({ cityId, initialShopVat });
+    } = useShopNavigation({ cityId, cityIds, initialShopVat });
 
     const pageTitle = selectedShop 
         ? selectedShop.name 

@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useMobileDetect } from '../ui/useMobileDetect';
 import { useScrollUI } from '../ui/useScrollUI';
 
-export const useAppUI = (activeShopId: string | null) => {
+export const useAppUI = () => {
     // 1. Mobile Detection (Logic separated)
     const isMobile = useMobileDetect();
 
@@ -14,16 +13,6 @@ export const useAppUI = (activeShopId: string | null) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [mobileShowWeather, setMobileShowWeather] = useState(false);
     const [mobileDiaryFullScreen, setMobileDiaryFullScreen] = useState(false);
-
-    // Auto-close sidebar on specific conditions
-    useEffect(() => {
-        if (activeShopId) {
-            setIsSidebarOpen(false);
-        } else if (!isMobile) {
-            // Su desktop, se usciamo dallo shop, riapriamo la sidebar
-            setIsSidebarOpen(true);
-        }
-    }, [activeShopId, isMobile]);
 
     // Gestione Eventi Custom per forzare apertura/chiusura diario da Onboarding
     useEffect(() => {

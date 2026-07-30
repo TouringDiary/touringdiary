@@ -43,6 +43,19 @@ export const getCityTourOperators = async (cityId: string): Promise<CityTourOper
     return (data as DatabaseCityTourOperatorRow[] || []).map(parseTourOperator);
 };
 
+/** Batch: tour operator per più città in una sola query (Around Me / merge). */
+export const getCityTourOperatorsByCityIds = async (cityIds: string[]): Promise<CityTourOperator[]> => {
+    if (cityIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from('city_tour_operators')
+        .select('*')
+        .in('city_id', cityIds)
+        .order('name', { ascending: true });
+
+    if (error) throw error;
+    return (data as DatabaseCityTourOperatorRow[] || []).map(parseTourOperator);
+};
+
 export const saveCityTourOperator = async (
     cityId: string,
     operator: SaveCityTourOperatorInput,

@@ -2,7 +2,8 @@ import { supabase } from '../supabaseClient';
 import { Database } from '../../types/database';
 import { CityEvent, CityService, CityGuide, FamousPerson } from '../../types/index';
 import { 
-    DatabaseCityEventInsert, DatabaseCityServiceInsert, DatabaseCityGuideInsert, DatabaseCityPersonInsert
+    DatabaseCityEventInsert, DatabaseCityServiceInsert, DatabaseCityGuideInsert, DatabaseCityPersonInsert,
+    type Json,
 } from '../../types/database';
 import { invalidateCityCache, clearCacheKey } from './cityCache';
 import { parseEvent } from './parsers/entities/parseEvent';
@@ -20,6 +21,11 @@ type DatabaseCityServiceRow = Database['public']['Tables']['city_services']['Row
 type DatabaseCityGuideRow = Database['public']['Tables']['city_guides']['Row'];
 type DatabaseCityPersonRow = Database['public']['Tables']['city_people']['Row'];
 
+export type SaveCityEventInput = Omit<CityEvent, 'id'> & { id?: string };
+export type SaveCityServiceInput = Omit<CityService, 'id'> & { id?: string };
+export type SaveCityGuideInput = Omit<CityGuide, 'id'> & { id?: string };
+export type SaveCityPersonInput = Omit<FamousPerson, 'id'> & { id?: string };
+
 // --- ENTITIES FETCHERS ---
 
 export const getCityEvents = async (cityId: string): Promise<CityEvent[]> => { 
@@ -28,10 +34,34 @@ export const getCityEvents = async (cityId: string): Promise<CityEvent[]> => {
     return (data as DatabaseCityEventRow[] || []).map(parseEvent); 
 };
 
+/** Batch: eventi per più città in una sola query (Around Me / merge). */
+export const getCityEventsByCityIds = async (cityIds: string[]): Promise<CityEvent[]> => {
+    if (cityIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from('city_events')
+        .select('*')
+        .in('city_id', cityIds)
+        .order('order_index', { ascending: true });
+    if (error) throw error;
+    return (data as DatabaseCityEventRow[] || []).map(parseEvent);
+};
+
 export const getCityServices = async (cityId: string): Promise<CityService[]> => { 
     const { data, error } = await supabase.from('city_services').select('*').eq('city_id', cityId).order('order_index', { ascending: true }); 
     if (error) throw error;
     return (data as DatabaseCityServiceRow[] || []).map(parseService); 
+};
+
+/** Batch: servizi per più città in una sola query (Around Me / merge). */
+export const getCityServicesByCityIds = async (cityIds: string[]): Promise<CityService[]> => {
+    if (cityIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from('city_services')
+        .select('*')
+        .in('city_id', cityIds)
+        .order('order_index', { ascending: true });
+    if (error) throw error;
+    return (data as DatabaseCityServiceRow[] || []).map(parseService);
 };
 
 export const getCityGuides = async (cityId: string): Promise<CityGuide[]> => { 
@@ -40,9 +70,19 @@ export const getCityGuides = async (cityId: string): Promise<CityGuide[]> => {
     return (data as DatabaseCityGuideRow[] || []).map(parseGuide); 
 };
 
-export type { CityPeopleAudience } from './parsers/entities/famousPersonAudience';
+/** Batch: guide per più città in una sola query (Around Me / merge). */
+export const getCityGuidesByCityIds = async (cityIds: string[]): Promise<CityGuide[]> => {
+    if (cityIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from('city_guides')
+        .select('*')
+        .in('city_id', cityIds)
+        .order('order_index', { ascending: true });
+    if (error) throw error;
+    return (data as DatabaseCityGuideRow[] || []).map(parseGuide);
+};
 
-export type SaveCityPersonInput = Omit<FamousPerson, 'id'> & { id?: string };
+export type { CityPeopleAudience } from './parsers/entities/famousPersonAudience';
 
 export const getCityPeople = async (
     cityId: string,
@@ -65,9 +105,32 @@ export const getCityPeople = async (
     return filterFamousPeopleByAudience(parsed, audience);
 };
 
+/** Batch: personaggi per più città in una sola query (Around Me). Audience pubblica di default. */
+export const getCityPeopleByCityIds = async (
+    cityIds: string[],
+    audience: CityPeopleAudience = 'public',
+): Promise<FamousPerson[]> => {
+    if (cityIds.length === 0) return [];
+    let query = supabase
+        .from('city_people')
+        .select('*')
+        .in('city_id', cityIds)
+        .order('order_index', { ascending: true });
+
+    if (audience === 'public') {
+        query = query.eq('status', 'published');
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const parsed = (data as DatabaseCityPersonRow[] || []).map(parsePerson);
+    return filterFamousPeopleByAudience(parsed, audience);
+};
+
 // --- SAVE / DELETE METHODS ---
 
-export const saveCityEvent = async (cityId: string, event: any) => { 
+export const saveCityEvent = async (cityId: string, event: SaveCityEventInput) => { 
     invalidateCityCache(cityId); 
     const isNew = !event.id || !event.id.match(/^[0-9a-f]{8}-/); 
     const payload: DatabaseCityEventInsert = { 
@@ -82,12 +145,17 @@ export const saveCityEvent = async (cityId: string, event: any) => {
         image_url: event.imageUrl,
         order_index: event.orderIndex || 0
     }; 
-    if (!isNew) (payload as any).id = event.id; 
+    if (!isNew && event.id) {
+        payload.id = event.id;
+    }
+
+    const { data, error } = await supabase
+        .from('city_events')
+        .upsert(payload)
+        .select()
+        .single();
     
-    const query: any = supabase.from('city_events').upsert(payload as any);
-    const { data, error } = await query.select().single();
-    
-    if(error) throw error; 
+    if (error) throw error; 
     const result = data as DatabaseCityEventRow;
     return { ...result, orderIndex: result.order_index }; 
 };
@@ -97,7 +165,7 @@ export const deleteCityEvent = async (id: string) => {
     await supabase.from('city_events').delete().eq('id', id); 
 };
 
-export const saveCityService = async (cityId: string, service: any) => { 
+export const saveCityService = async (cityId: string, service: SaveCityServiceInput) => { 
     invalidateCityCache(cityId);
 
     const serviceType = (service.type || '').toLowerCase().trim();
@@ -119,12 +187,17 @@ export const saveCityService = async (cityId: string, service: any) => {
         category: service.category,
         order_index: service.orderIndex || 0,
     }; 
-    if (!isNew) (payload as any).id = service.id; 
+    if (!isNew && service.id) {
+        payload.id = service.id;
+    }
 
-    const query: any = supabase.from('city_services').upsert(payload as any);
-    const { data, error } = await query.select().single();
+    const { data, error } = await supabase
+        .from('city_services')
+        .upsert(payload)
+        .select()
+        .single();
 
-    if(error) throw error; 
+    if (error) throw error; 
     const result = data as DatabaseCityServiceRow;
     return { ...result, orderIndex: result.order_index }; 
 };
@@ -134,7 +207,7 @@ export const deleteCityService = async (id: string) => {
     await supabase.from('city_services').delete().eq('id', id); 
 };
 
-export const saveCityGuide = async (cityId: string, guide: any) => { 
+export const saveCityGuide = async (cityId: string, guide: SaveCityGuideInput) => { 
     invalidateCityCache(cityId); 
     const isNew = !guide.id || !guide.id.match(/^[0-9a-f]{8}-/); 
     const payload: DatabaseCityGuideInsert = { 
@@ -148,15 +221,20 @@ export const saveCityGuide = async (cityId: string, guide: any) => {
         website: guide.website, 
         image_url: guide.imageUrl, 
         rating: guide.rating, 
-        reviews: guide.reviews,
+        reviews: guide.reviews as unknown as Json,
         order_index: guide.orderIndex || 0
     }; 
-    if (!isNew) (payload as any).id = guide.id; 
+    if (!isNew && guide.id) {
+        payload.id = guide.id;
+    }
 
-    const query: any = supabase.from('city_guides').upsert(payload as any);
-    const { data, error } = await query.select().single();
+    const { data, error } = await supabase
+        .from('city_guides')
+        .upsert(payload)
+        .select()
+        .single();
 
-    if(error) throw error; 
+    if (error) throw error; 
     const result = data as DatabaseCityGuideRow;
     return { ...result, orderIndex: result.order_index }; 
 };

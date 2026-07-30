@@ -91,27 +91,27 @@ Viaggio                          ← Aggregate Root
 > Questa sezione è solo una sintesi di orientamento.
 
 **SoT:** `AI_CONTEXT/34A_DOMAIN_DESIGN_RULES.md` · `AI_CONTEXT/37_VIAGGIO_DOMAIN.md`  
-**Implementazione:** `AI_DEV_WORKFLOW/MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md`
+**Implementazione (conclusa):** `AI_DEV_WORKFLOW/MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md` (MP-01 · MP-02 · WF-13)
 
 Il **Diario** non è il Viaggio: è una risorsa del Viaggio (0..N; Diario attivo).
 
-Componente runtime diario (as-is):
+Componente runtime del Diario (UI operativa, non Aggregate Root):
 
 TravelDiary.tsx
 
-Gestisce (sul Diario):
+Gestisce (sul Diario attivo del Viaggio):
 
 • timeline giornaliera
 • tappe POI
 • memo testuali
 
-Pipeline as-is (debito di migrazione):
+Pipeline runtime:
 
 User interaction
-→ itinerary state (`itineraries` / alias storico Viaggio≡Diario)
-→ sync Supabase
+→ `ItineraryContext` (stato Diario operativo)
+→ sync cloud (`ItineraryStorageManager` → `saveUserDraft` crea/collega il Viaggio Aggregate Root)
 
-> **Nota runtime:** finché MP-01 non è eseguito, il codice continua a usare l’alias storico basato su `itineraries` / `TravelDiary` come unità operativa. Il dominio documentale sopra è la Source of Truth; l’alias non è più il modello di prodotto.
+> **Nota:** il dominio di prodotto vigente è Viaggio Aggregate Root (DOC 34A / DOC 37). `TravelDiary` è il componente runtime del Diario; non è il centro del modello.
 
 DESCRIZIONE SEMPLICE
 
@@ -381,21 +381,34 @@ Permette import controllato di nuovi POI.
 
 ---
 
-# 12. 📄 DOMINIO ROADBOOK PDF
+# 12. 📄 DOMINIO ROADBOOK / EXPORT PDF
 
-Generazione PDF itinerario.
+Generazione PDF/DOCX itinerario (guida stampabile).
 
 Componenti:
 
-• RoadbookDocument.tsx
+• `ExportModal.tsx` — UI export + anteprima WYSIWYG A4
+• `TravelDocument.tsx` — layout PDF itinerario
+• `RoadbookDocument.tsx` — layout PDF Roadbook
+• `exportGenerators.ts` — DOCX
+• `ExportLogo.tsx` / `useLogoRasterizer.ts` — logo (viewBox condivisi)
+• `heroCoverCollagePlan.ts` — collage copertina condiviso PDF/DOCX/Preview
 
 
 Pipeline:
 
-TravelDiary
-→ raccolta dati
-→ layout PDF
+TravelDiary / ExportModal
+→ `prepareItineraryForPdf` (SoT immagini, una sola prepare)
+→ layout PDF | DOCX | Preview HTML
 → esportazione
+
+
+Note architetturali (export itinerario):
+
+• Logo: viewBox icona/completo allineati; rasterizzazione icona senza stretch
+• Copertina multi-città: `buildHeroCoverCollagePlan` + `HERO_COVER_STACK_GAP` condivisi
+• Preview HTML: stesso preparedDoc del PDF, footer editoriale «Pagina X di Y»
+• Distanze: SoT unica `itineraryDistance.ts` (Diario + `prepareItineraryForPdf`); marker distanza in testa alla tappa di arrivo
 
 
 DESCRIZIONE SEMPLICE

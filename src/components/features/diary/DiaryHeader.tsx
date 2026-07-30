@@ -103,7 +103,7 @@ function getSaveBadgeLabel(
 const SYNCED_LABEL_DURATION_MS = 5000;
 
 const DiaryHeaderSaveBadge: React.FC<{
-    documentId: string;
+    documentId: string | null;
     phase: DocumentSavePhase;
     lastSavedAt: number | null;
     lastError: string | null;
@@ -328,7 +328,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
         
         if (newState && user && user.role !== 'guest') {
             setIsSyncing(true);
-            syncCloudDrafts(user.id).then(() => {
+            syncCloudDrafts().then(() => {
                 setTimeout(() => setIsSyncing(false), 500);
             });
         }
@@ -353,7 +353,8 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     };
 
     const isGuest = user.role === 'guest';
-    const canPublish = itinerary.items.length > 0 && itinerary.name && !isGuest;
+    const canPublish =
+        itinerary.items.length > 0 && itinerary.name.trim().length > 0 && !isGuest;
     const canPublishCommunity =
         canPublish && isDiaryPersisted(itinerary, savedProjects) && !isAlreadyPublished;
 

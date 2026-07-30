@@ -5,11 +5,13 @@ import { PreparedItinerary, PreparedItineraryItem } from '../../utils/pdfUtils';
 import { logPdfImagePipeline } from '../../utils/pdfImagePipelineLog';
 import { normalizeDiaryNotesState } from '@/domain/diary/diaryNotesState';
 import type { DiaryNotesMark, DiaryNotesNode, DiaryNotesState } from '@/types/models/DiaryNotes';
+import { buildHeroCoverCollagePlan, heroCoverStackImageHeight, HERO_COVER_STACK_GAP } from '../../utils/heroCoverCollagePlan';
 
 interface TravelDocumentOptions {
   photos: boolean;
   qrCodes: boolean;
   summary: boolean;
+  coverIllustrated: boolean;
   details: boolean;
   notes: boolean;
   resources: boolean;
@@ -22,71 +24,118 @@ interface TravelDocumentProps {
   options: TravelDocumentOptions;
 }
 
-// HEADER
+// HEADER — brand row + linea (gap minimo sotto logo/link)
 const Header = ({ logo }: { logo: string }) => (
     <View style={styles.headerFixed} fixed>
-        <Image src={logo} style={styles.headerLogoImage} />
-        <Link src="https://touringdiary-it.com/" style={styles.headerLink}>
-            touringdiary-it.com
-        </Link>
+        <View style={styles.headerBrandRow}>
+            <Image src={logo} style={styles.headerLogoImage} />
+            <Link src="https://touringdiary-it.com/" style={styles.headerLink}>
+                touringdiary-it.com
+            </Link>
+        </View>
+        <View style={styles.headerRule} />
+    </View>
+);
+
+/** Footer editoriale fisso: separatore + «Pagina X di Y» su ogni foglio. */
+const PageFooter = () => (
+    <View style={styles.footerFixed} fixed>
+        <View style={styles.footerSeparator} />
+        <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) => `Pagina ${pageNumber} di ${totalPages}`}
+        />
     </View>
 );
 
 // COPERTINA
-const CoverPage = ({ itinerary, logo }: { itinerary: PreparedItinerary, logo: string }) => {
-
+const CoverPage = ({
+    itinerary,
+    logo,
+    options
+}: {
+    itinerary: PreparedItinerary;
+    logo: string;
+    options: TravelDocumentOptions;
+}) => {
     const images = itinerary.citiesInfo
         .map(c => c.heroImageBase64)
         .filter(Boolean) as string[];
+
+    const plan = buildHeroCoverCollagePlan(images.length);
+
+    const renderCoverCollage = () => {
+        if (images.length === 0) return null;
+
+        if (plan.kind === 'single') {
+            return <Image src={images[plan.top]} style={styles.coverImageSingle} />;
+        }
+
+        const tileHeight = heroCoverStackImageHeight(images.length);
+
+        return (
+            <View style={styles.coverCollageStack}>
+                {plan.indices.map((idx, i) => (
+                    <Image
+                        key={`cover-hero-${idx}`}
+                        src={images[idx]}
+                        style={[
+                            styles.coverCollageStackImage,
+                            {
+                                height: tileHeight,
+                                marginBottom: i === plan.indices.length - 1 ? 0 : HERO_COVER_STACK_GAP,
+                            },
+                        ]}
+                    />
+                ))}
+            </View>
+        );
+    };
 
     return (
         <Page size="A4" style={styles.page}>
             <Header logo={logo} />
 
             <View style={styles.coverContainer}>
+                {/* Testo in alto; collage centrato nella fascia libera (non ancorato in basso). */}
+                {options.summary && (
+                    <View style={styles.coverTextBlock}>
+                        <Text style={styles.coverTitle}>
+                            {itinerary.name && itinerary.name.trim() !== ''
+                                ? itinerary.name
+                                : 'IL MIO VIAGGIO'}
+                        </Text>
 
-                <Text style={styles.coverTitle}>
-                    {itinerary.name && itinerary.name.trim() !== ''
-                        ? itinerary.name
-                        : 'IL MIO VIAGGIO'}
-                </Text>
+                        <Text style={styles.coverSubtitle}>
+                            {itinerary.formattedCityList}
+                        </Text>
 
-                <Text style={styles.coverSubtitle}>
-                    {itinerary.formattedCityList}
-                    {'\n'}
-                    <Text style={{ fontSize: 14, color: COLORS.accent, fontFamily: 'Helvetica-Bold' }}>
-                        {itinerary.startDate
-                            ? `${itinerary.startDate} — ${itinerary.endDate || '...'}`
-                            : 'Date da definire'}
-                    </Text>
-                </Text>
-
-                {images.length > 0 ? (
-                    <View style={styles.coverImagesGrid}>
-                        <Image src={images[0]} style={styles.coverImageMain} />
-
-                        {images.length > 1 && (
-                            <View style={{ flexDirection: 'row', height: '35%', gap: 4 }}>
-                                <Image src={images[1]} style={{ flex: 1 }} />
-                                {images[2] && <Image src={images[2]} style={{ flex: 1 }} />}
-                            </View>
-                        )}
-
-                    </View>
-                ) : (
-                    <View
-                        style={[
-                            styles.coverImagesGrid,
-                            { backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' }
-                        ]}
-                    >
-                        <Text style={{ fontSize: 10, color: '#64748b' }}>
-                            NESSUNA FOTO DISPONIBILE
+                        <Text style={styles.coverDates}>
+                            {itinerary.startDate
+                                ? `${itinerary.startDate} — ${itinerary.endDate || '...'}`
+                                : 'Date da definire'}
                         </Text>
                     </View>
                 )}
 
+                {options.coverIllustrated && (
+                    <View style={styles.coverPhotoBand}>
+                        <View style={styles.coverPhotosFooter}>
+                            {images.length > 0 ? (
+                                renderCoverCollage()
+                            ) : (
+                                <View style={styles.coverEmptyPhotosPlaceholder}>
+                                    <Text style={styles.coverEmptyPhotosText}>
+                                        NESSUNA FOTO DISPONIBILE
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                )}
             </View>
+
+            <PageFooter />
         </Page>
     );
 };
@@ -117,19 +166,14 @@ const VisualDayPage: React.FC<{
                 {sortedItems.map((item, idx) => {
 
                     const isLast = idx === sortedItems.length - 1;
-
-                    const hasDist =
-                        item.distanceFromPrev !== null &&
-                        item.distanceFromPrev !== undefined &&
-                        item.distanceFromPrev > 0;
-
+                    const poi = item.poi;
+                    const distKm = item.distanceFromPrev;
                     const willRenderImage = Boolean(options.photos && item.processedImage);
-                    const imageJsxMounted = willRenderImage;
                     logPdfImagePipeline({
                         stage: 'travelDocument:item-render',
                         itemId: item.id,
-                        poiName: item.poi?.name,
-                        imageUrl: item.poi?.imageUrl,
+                        poiName: poi?.name,
+                        imageUrl: poi?.imageUrl,
                         optionsPhotos: options.photos,
                         willRender: willRenderImage,
                         ...(
@@ -150,12 +194,19 @@ const VisualDayPage: React.FC<{
                         extra: {
                             dayIndex,
                             timelineIndex: idx,
-                            snapshotImageUrl: item.poi?.imageUrl?.trim() || undefined,
+                            snapshotImageUrl: poi?.imageUrl?.trim() || undefined,
                             processedImagePresent: Boolean(item.processedImage),
                             renderCondition: 'options.photos && item.processedImage',
-                            imageJsxMounted,
+                            imageJsxMounted: willRenderImage,
                         },
                     });
+
+                    const description = poi?.description;
+                    const descriptionText = description
+                        ? description.length > 250
+                            ? description.substring(0, 250) + '...'
+                            : description
+                        : '';
 
                     return (
 
@@ -175,63 +226,63 @@ const VisualDayPage: React.FC<{
 
                                 {!isLast && <View style={styles.verticalLine} />}
 
-                                {hasDist && (
-                                    <View style={[styles.distanceBadge, { top: -20 }]}>
-                                        <Text style={styles.distanceText}>
-                                            {item.distanceFromPrev} KM
-                                        </Text>
-                                    </View>
-                                )}
-
                             </View>
 
                             <View style={styles.colContent}>
 
-                                <Text style={styles.poiCategory}>
-                                    {item.poi?.category || ""}
-                                </Text>
+                                <View style={styles.colContentMain}>
+                                    {distKm != null && distKm > 0 && (
+                                        <View style={styles.poiDistanceLead}>
+                                            <Text style={styles.poiDistanceLeadText}>
+                                                --- DISTANZA {distKm} KM ---
+                                            </Text>
+                                        </View>
+                                    )}
 
-                                <Text style={styles.poiName}>
-                                    {item.poi?.name || ""}
-                                </Text>
-
-                                {item.poi?.visitDuration && (
-                                    <Text style={styles.poiDuration}>
-                                        Durata visita: {item.poi.visitDuration}
+                                    <Text style={styles.poiCategory}>
+                                        {poi?.category || ""}
                                     </Text>
-                                )}
 
-                                {item.poi?.address && (
-                                    <Text style={styles.poiAddress}>
-                                        {item.poi.address}
+                                    <Text style={styles.poiName}>
+                                        {poi?.name || ""}
                                     </Text>
-                                )}
 
-                                {options.photos && item.processedImage && (
-                                    <Image
-                                        src={item.processedImage}
-                                        style={styles.inlineImage}
-                                    />
-                                )}
-
-                                {options.details && (
-                                    <Text style={styles.poiDescription}>
-                                        {item.poi?.description
-                                            ? item.poi.description.length > 250
-                                                ? item.poi.description.substring(0, 250) + '...'
-                                                : item.poi.description
-                                            : ""}
-                                    </Text>
-                                )}
-
-                                {options.notes && typeof item.notes === 'string' && item.notes.trim().length > 0 && (
-                                    <View style={styles.notesBox}>
-                                        <Text style={styles.notesTitle}>NOTA:</Text>
-                                        <Text style={styles.notesText}>
-                                            {String(item.notes).replace(/\n/g, ' ')}
+                                    {poi?.address && (
+                                        <Text style={styles.poiAddress}>
+                                            {poi.address}
                                         </Text>
-                                    </View>
-                                )}
+                                    )}
+
+                                    {options.details && (
+                                        <Text style={styles.poiDescription}>
+                                            {descriptionText}
+                                        </Text>
+                                    )}
+
+                                    {options.notes && typeof item.notes === 'string' && item.notes.trim().length > 0 && (
+                                        <View style={styles.notesBox}>
+                                            <Text style={styles.notesTitle}>NOTA:</Text>
+                                            <Text style={styles.notesText}>
+                                                {String(item.notes).replace(/\n/g, ' ')}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                <View style={styles.colContentSide}>
+                                    {poi?.visitDuration && (
+                                        <Text style={styles.poiDuration}>
+                                            Durata visita: {poi.visitDuration}
+                                        </Text>
+                                    )}
+
+                                    {willRenderImage && item.processedImage && (
+                                        <Image
+                                            src={item.processedImage}
+                                            style={styles.inlineImage}
+                                        />
+                                    )}
+                                </View>
 
                             </View>
 
@@ -243,19 +294,7 @@ const VisualDayPage: React.FC<{
 
             </View>
 
-            <Text
-                style={{
-                    position: 'absolute',
-                    bottom: 20,
-                    right: 20,
-                    fontSize: 8,
-                    color: '#a8a29e'
-                }}
-                render={({ pageNumber, totalPages }) =>
-                    `${pageNumber} / ${totalPages}`
-                }
-                fixed
-            />
+            <PageFooter />
 
         </Page>
     );
@@ -484,6 +523,8 @@ const DiaryNotesPages: React.FC<{
                     </View>
                 );
             })}
+
+            <PageFooter />
         </Page>
     );
 };
@@ -504,8 +545,8 @@ export const TravelDocument = ({
 
         <Document>
 
-            {options.summary && (
-                <CoverPage itinerary={itinerary} logo={logoBase64} />
+            {(options.summary || options.coverIllustrated) && (
+                <CoverPage itinerary={itinerary} logo={logoBase64} options={options} />
             )}
 
             {days.map(dayIdx => (

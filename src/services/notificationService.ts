@@ -2,6 +2,9 @@
 import { AppNotification, NotificationType } from '../types/index';
 import { supabase } from './supabaseClient';
 import { Database } from '../types/supabase';
+import { DatabaseNotificationInsert } from '../types/database';
+
+type NotificationRow = Database['public']['Tables']['notifications']['Row'];
 
 // Mock iniziale (legacy support for guest/first run)
 const MOCK_NOTIFICATIONS: AppNotification[] = [
@@ -26,7 +29,31 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 // Cache locale per ridurre chiamate (opzionale, per ora diretta)
 let notificationsCache: AppNotification[] = [];
 
-import { DatabaseNotificationInsert } from '../types/database';
+/** Evento DOM: badge Header / listener devono rinfrescare il conteggio locale. */
+export const NOTIFICATIONS_CHANGED_EVENT = 'touringdiary:notifications-changed';
+
+const emitNotificationsChanged = () => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+};
+
+const mapNotificationRow = (row: NotificationRow): AppNotification => {
+    const mapped: AppNotification = {
+        id: row.id,
+        userId: row.user_id,
+        type: row.type as NotificationType,
+        title: row.title,
+        message: row.message,
+        date: row.date,
+        isRead: row.is_read,
+    };
+
+    if (row.link_data != null && typeof row.link_data === 'object' && !Array.isArray(row.link_data)) {
+        mapped.linkData = row.link_data as AppNotification['linkData'];
+    }
+
+    return mapped;
+};
 
 export const getNotifications = (userId: string): AppNotification[] => {
     // Nota: Questa funzione ora è sincrona per compatibilità con i componenti esistenti,
@@ -55,19 +82,12 @@ export const fetchNotificationsAsync = async (userId: string): Promise<AppNotifi
             
         if (error) throw error;
         
-        const mapped = (data as any[]).map(n => ({
-            id: n.id,
-            userId: n.user_id,
-            type: n.type as NotificationType,
-            title: n.title,
-            message: n.message,
-            date: n.date,
-            isRead: n.is_read,
-            linkData: n.link_data as AppNotification['linkData']
-        }));
+        const rows: NotificationRow[] = data ?? [];
+        const mapped = rows.map(mapNotificationRow);
         
         // Aggiorna cache globale
         notificationsCache = [...notificationsCache.filter(n => n.userId !== userId), ...mapped];
+        emitNotificationsChanged();
         
         return mapped;
     } catch (e) {
@@ -84,6 +104,7 @@ export const getUnreadCount = (userId: string): number => {
 export const markAsRead = async (notificationId: string): Promise<void> => {
     // Aggiornamento ottimistico locale
     notificationsCache = notificationsCache.map(n => n.id === notificationId ? { ...n, isRead: true } : n);
+    emitNotificationsChanged();
     
     // Aggiornamento DB
     try {
@@ -99,6 +120,7 @@ export const markAsRead = async (notificationId: string): Promise<void> => {
 export const markAllAsRead = async (userId: string): Promise<void> => {
     // Aggiornamento ottimistico locale
     notificationsCache = notificationsCache.map(n => n.userId === userId ? { ...n, isRead: true } : n);
+    emitNotificationsChanged();
     
     // Aggiornamento DB
     try {
@@ -142,17 +164,9 @@ export const addNotification = async (
         
         // Aggiorna cache se successo
         if (data) {
-             const mapped: AppNotification = {
-                id: data.id,
-                userId: data.user_id,
-                type: data.type as NotificationType,
-                title: data.title,
-                message: data.message,
-                date: data.date,
-                isRead: data.is_read,
-                linkData: data.link_data as AppNotification['linkData']
-            };
+            const mapped = mapNotificationRow(data);
             notificationsCache = [mapped, ...notificationsCache];
+            emitNotificationsChanged();
         }
     } catch (e) {
         console.error("Error sending notification:", e);

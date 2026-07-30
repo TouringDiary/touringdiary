@@ -37,7 +37,6 @@ export function UserProvider({ children }: { children?: ReactNode }) {
     const syncMode = React.useCallback((path: string) => {
         const nextMode = path.startsWith('/admin') ? 'admin' : 'app';
         if (nextMode !== currentMode) {
-            console.log(`[UserContext] Reactive Mode transition: ${currentMode} -> ${nextMode}`);
             setCurrentMode(nextMode);
         }
     }, [currentMode]);
@@ -78,7 +77,7 @@ export function UserProvider({ children }: { children?: ReactNode }) {
     }, [isLoadingManifest, refreshAiQuota]);
 
 
-    const handleLogout = async () => {
+    const handleLogout = React.useCallback(async () => {
         try {
             // 1. Logout reale da Supabase per invalidare sessione server-side e locale
             await supabase.auth.signOut();
@@ -88,7 +87,7 @@ export function UserProvider({ children }: { children?: ReactNode }) {
             // 2. Reset deterministico dello stato locale
             setUser(getGuestUser());
         }
-    };
+    }, [setUser]);
 
 
     const value = React.useMemo(() => ({

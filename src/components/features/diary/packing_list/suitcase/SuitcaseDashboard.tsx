@@ -469,7 +469,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
         * Nessun z-index qui: replica l'architettura dell'Editor Valigia
         * (SuitcaseEditorView), dove l'area lista NON ha z-index così che il
         * SuitcaseMobileSuggestionsDrawer (z-local-drawer) — fratello e successivo
-        * nel DOM — riceva i tap della barra "Mostra suggerimenti". Usare un tier
+        * nel DOM — riceva i tap della barra "Mostra e-Commerce". Usare un tier
         * globale (z-floating-panel = focusCompanion 9100) sovrastava il drawer
         * (z-local-drawer 300) rendendo il pulsante non cliccabile su mobile.
         */}
@@ -541,7 +541,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
               ? 'overflow-y-auto custom-scrollbar gap-4 max-lg:gap-4 px-4 pb-6 md:px-6 md:pb-5 lg:px-10 lg:pb-6 lg:pr-6'
               // Mobile (<lg): scroll verticale unico di pagina (AVANZAMENTO → VALIGIE → CONTENUTO),
               // le sezioni fluiscono ad altezza naturale e non in pannelli a scroll interno.
-              // La barra "Mostra suggerimenti" (SuitcaseMobileSuggestionsDrawer collapsedLayout="docked")
+              // La barra "Mostra e-Commerce" (SuitcaseMobileSuggestionsDrawer collapsedLayout="docked")
               // resta un fratello in-flow del layout, fuori da questo contenitore scrollabile.
               : 'overflow-y-auto custom-scrollbar gap-3 lg:gap-4 px-4 pb-4 md:px-6 lg:px-10 lg:pb-10 lg:pr-6'
           }`}
@@ -777,7 +777,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
         </div>
       </div>
 
-      {/* ── AREA DESTRA (Suggerimenti affiliate — desktop rail) ── */}
+      {/* ── AREA DESTRA (e-Commerce affiliate — desktop rail) ── */}
       <SuitcaseSidePanel
         isCollapsible={true}
         isOpen={isSidebarOpen}

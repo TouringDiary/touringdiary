@@ -12,6 +12,7 @@ import {
 } from '@/services/collaboration';
 import { useModal } from '@/context/ModalContext';
 import { showGlobalAlert } from '@/services/ui/toastService';
+import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 
 type InviteTab = 'received' | 'sent' | 'pending';
 
@@ -176,15 +177,12 @@ export const MySpaceInvitesRoot: React.FC<Props> = ({ userId, onBeforeLeaveMySpa
       role="tabpanel"
       aria-label="Inviti Workspace"
     >
-      <header className="space-y-1">
-        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-          <Mail className="w-4 h-4 text-emerald-300" aria-hidden />
-          Inviti Workspace
-        </h2>
-        <p className="text-[11px] text-slate-500">
-          Ponte verso Workspace (copie DOC 28). Accettare un invito apre il mondo Workspace.
-        </p>
-      </header>
+      <MySpaceSectionHeader
+        icon={Mail}
+        title="Inviti Workspace"
+        description="Ponte verso Workspace (copie DOC 28). Accettare un invito apre il mondo Workspace."
+        iconClassName="w-4 h-4 text-emerald-300 shrink-0"
+      />
 
       <div
         className="flex gap-1 overflow-x-auto custom-scrollbar pb-1"

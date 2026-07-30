@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getCachedSetting, SETTINGS_KEYS, saveSetting, loadGlobalCache } from '../services/settingsService';
 import type { StyleRule } from '../types/designSystem';
 
@@ -112,33 +112,33 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     loadConfig({ showLoading: true });
   }, [loadConfig]);
 
-  const refreshConfig = async () => {
+  const refreshConfig = useCallback(async () => {
     await loadConfig({ showLoading: false });
-  };
+  }, [loadConfig]);
 
-  const updateSetting = async (key: string, value: any) => {
+  const updateSetting = useCallback(async (key: string, value: any) => {
     if (!key) {
       console.error("[ConfigContext] updateSetting called with invalid key:", key);
       return;
     }
     await saveSetting(key, value);
     await refreshConfig();
-  };
+  }, [refreshConfig]);
 
-  const updateMultipleSettings = async (settings: { key: string; value: any }[]) => {
+  const updateMultipleSettings = useCallback(async (settings: { key: string; value: any }[]) => {
     const validSettings = settings.filter(s => s.key);
     const promises = validSettings.map(s => saveSetting(s.key, s.value));
     await Promise.all(promises);
     await refreshConfig();
-  };
+  }, [refreshConfig]);
 
-  const value = {
+  const value = useMemo<ConfigContextType>(() => ({
     configs,
     isLoading,
     refreshConfig,
     updateSetting,
     updateMultipleSettings,
-  };
+  }), [configs, isLoading, refreshConfig, updateSetting, updateMultipleSettings]);
 
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>;
 };

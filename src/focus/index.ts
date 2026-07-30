@@ -30,6 +30,7 @@ export {
 } from './FocusModeContext';
 
 export { FocusOverlay } from './FocusOverlay';
+export { FocusIdleBoundary } from './FocusIdleBoundary';
 export { WorkspaceHost } from './WorkspaceHost';
 export { useWorkspaceCloseRegistration } from './useWorkspaceCloseRegistration';
 export { useWorkspaceSessionEnd } from './useWorkspaceSessionEnd';

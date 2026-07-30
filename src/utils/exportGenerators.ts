@@ -1,7 +1,13 @@
 
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, Header, Footer, ImageRun, VerticalAlign } from 'docx';
 import FileSaver from 'file-saver';
-import { PreparedItinerary } from './pdfUtils';
+import type { FileChild, ParagraphChild, TableRow as DocxTableRow } from 'docx';
+import type { Itinerary } from '../types';
+import { PreparedItinerary, PreparedItineraryItem } from './pdfUtils';
+import { buildHeroCoverCollagePlan, heroCoverStackImageHeight } from './heroCoverCollagePlan';
+import {
+    EXPORT_LOGO_VIEWBOX_HEIGHT,
+    EXPORT_LOGO_VIEWBOX_WIDTH,
+} from '@/components/export/ExportLogo';
 import { diaryNotesToPlainText } from '@/components/features/diary/notes/diaryNotesDocumentToPlainText';
 
 // --- CONFIGURAZIONE STILI WORD ---
@@ -50,18 +56,41 @@ const base64ToUint8Array = (base64: string): Uint8Array | null => {
     }
 };
 
+/** Bytes PNG da data-URL base64; null se assente o non decodificabile. */
+const bytesFor = (dataUrl?: string | null): Uint8Array | null => {
+    if (!dataUrl) return null;
+    const bytes = base64ToUint8Array(dataUrl);
+    return bytes && bytes.length > 0 ? bytes : null;
+};
+
 export const generateWordDocument = async (
     itinerary: PreparedItinerary, 
-    options: { photos: boolean, qrCodes: boolean, summary: boolean, details: boolean, notes: boolean, resources: boolean, travelNotes?: boolean },
+    options: { photos: boolean, qrCodes: boolean, summary: boolean, coverIllustrated: boolean, details: boolean, notes: boolean, resources: boolean, travelNotes?: boolean },
     logoBase64?: string,
     cityNamesMap: Record<string, string> = {} // NEW: Mappa ID -> Nome Reale
 ) => {
+    const {
+        Document,
+        Packer,
+        Paragraph,
+        TextRun,
+        Table,
+        TableRow,
+        TableCell,
+        WidthType,
+        BorderStyle,
+        AlignmentType,
+        Header,
+        Footer,
+        ImageRun,
+        VerticalAlign,
+    } = await import('docx');
     
     const timelineItems = itinerary.items.filter(i => !i.isResource);
     const resourceItems = itinerary.items.filter(i => i.isResource);
 
     // Raggruppa per giorni
-    const daysMap = new Map<number, any[]>();
+    const daysMap = new Map<number, PreparedItineraryItem[]>();
     timelineItems.forEach(item => {
         const current = daysMap.get(item.dayIndex) || [];
         current.push(item);
@@ -74,17 +103,21 @@ export const generateWordDocument = async (
     const uniqueIds = Array.from(new Set(itinerary.items.map(i => i.cityId).filter(id => id && id !== 'custom')));
     const citiesListString = uniqueIds.map(id => resolveCityName(id, cityNamesMap)).join(', ');
 
-    const children: any[] = [];
+    const children: FileChild[] = [];
 
     // --- HEADER: Logo + Link ---
-    let headerChildren: any[] = [];
+    let headerChildren: ParagraphChild[] = [];
     if (logoBase64) {
-        const logoBytes = base64ToUint8Array(logoBase64);
-        if (logoBytes && logoBytes.length > 0) {
+        const logoBytes = bytesFor(logoBase64);
+        if (logoBytes) {
+            const logoDisplayWidth = 150;
+            const logoDisplayHeight = Math.round(
+                logoDisplayWidth * (EXPORT_LOGO_VIEWBOX_HEIGHT / EXPORT_LOGO_VIEWBOX_WIDTH),
+            );
             headerChildren = [
                 new ImageRun({
                     data: logoBytes,
-                    transformation: { width: 150, height: 38 }, 
+                    transformation: { width: logoDisplayWidth, height: logoDisplayHeight },
                     type: 'png'
                 })
             ];
@@ -124,7 +157,11 @@ export const generateWordDocument = async (
         })
     );
 
-    // --- COVER TITLE ---
+    // --- COVER PAGE (editoriale: testo → spazio → foto) ---
+    // In Word la “pagina 1” è logica: titolo/città/date sopra, collage sotto;
+    // il Giorno 1 inizia sempre con pageBreakWhenCover.
+    const hasCoverPage = Boolean(options.summary || options.coverIllustrated);
+
     if (options.summary) {
         children.push(
             new Paragraph({
@@ -136,17 +173,77 @@ export const generateWordDocument = async (
             }),
             new Paragraph({
                 alignment: AlignmentType.CENTER,
-                spacing: { after: 400 },
+                spacing: { after: 80 },
                 children: [
                     new TextRun({ text: citiesListString, italics: true, size: STYLES.SUBTITLE_SIZE, color: STYLES.GRAY_COLOR }),
-                    new TextRun({ text: `\n${itinerary.startDate || 'Data inizio'} — ${itinerary.endDate || 'Data fine'}`, size: 20, color: STYLES.ACCENT_COLOR, bold: true }),
+                ],
+            }),
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 },
+                children: [
+                    new TextRun({ text: `${itinerary.startDate || 'Data inizio'} — ${itinerary.endDate || 'Data fine'}`, size: 20, color: STYLES.ACCENT_COLOR, bold: true }),
                 ],
             })
         );
     }
 
+    // --- COVER ILLUSTRATED (hero collage) — sotto il blocco testuale ---
+    const heroImages = itinerary.citiesInfo
+        .map(c => c.heroImageBase64)
+        .filter(Boolean) as string[];
+
+    if (options.coverIllustrated && heroImages.length > 0) {
+        const plan = buildHeroCoverCollagePlan(heroImages.length);
+
+        if (plan.kind === 'single') {
+            const bytes = bytesFor(heroImages[plan.top]);
+            if (bytes) {
+                children.push(
+                    new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: { after: 200 },
+                        children: [
+                            new ImageRun({
+                                data: bytes,
+                                transformation: { width: 550, height: 300 },
+                                type: 'png'
+                            })
+                        ]
+                    })
+                );
+            }
+        } else {
+            // Colonna verticale: immagini più strette, gap uniforme, centrate.
+            const tileHeight = heroCoverStackImageHeight(heroImages.length);
+            const tileWidth = 420; // ~76% della larghezza utile → margini laterali
+            const gapTwips = 160; // ~8pt tra le immagini
+
+            plan.indices.forEach((idx, i) => {
+                const bytes = bytesFor(heroImages[idx]);
+                if (!bytes) return;
+
+                children.push(
+                    new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: {
+                            after: i === plan.indices.length - 1 ? 200 : gapTwips,
+                        },
+                        children: [
+                            new ImageRun({
+                                data: bytes,
+                                transformation: { width: tileWidth, height: tileHeight },
+                                type: 'png',
+                            }),
+                        ],
+                    })
+                );
+            });
+        }
+    }
+
     // --- TIMELINE VISUALE ---
-    sortedDays.forEach((dayIndex) => {
+    sortedDays.forEach((dayIndex, dayOrdinal) => {
         const items = daysMap.get(dayIndex)?.sort((a, b) => a.timeSlotStr.localeCompare(b.timeSlotStr)) || [];
 
         children.push(
@@ -155,21 +252,25 @@ export const generateWordDocument = async (
                 alignment: AlignmentType.LEFT,
                 spacing: { before: 400, after: 200 },
                 border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: STYLES.ACCENT_COLOR, space: 4 } },
+                // Regola fissa: con copertina, ogni giorno inizia su pagina nuova (Giorno 1 = pagina 2).
+                pageBreakBefore: hasCoverPage || dayOrdinal > 0,
                 children: [
                     new TextRun({ text: `GIORNO ${dayIndex + 1}`, bold: true, size: STYLES.HEADING_SIZE, color: STYLES.ACCENT_COLOR })
                 ]
             })
         );
 
-        const tableRows: TableRow[] = [];
+        const tableRows: DocxTableRow[] = [];
         
-        items.forEach((item, idx) => {
-            
+        items.forEach((item) => {
+            const rawDistance = item.distanceFromPrev;
+            const distanceKm = typeof rawDistance === 'number' && rawDistance > 0 ? rawDistance : null;
+
             // Image processing
-            let imageRun = null;
-            if (options.photos && item.processedImage) {
-                const bytes = base64ToUint8Array(item.processedImage);
-                if (bytes && bytes.length > 0) {
+            let imageRun: InstanceType<typeof ImageRun> | null = null;
+            if (options.photos) {
+                const bytes = bytesFor(item.processedImage);
+                if (bytes) {
                     imageRun = new ImageRun({
                         data: bytes,
                         transformation: { width: 100, height: 75 },
@@ -179,10 +280,10 @@ export const generateWordDocument = async (
             }
 
             // QR processing
-            let qrRun = null;
-            if (options.qrCodes && item.qrCodeUrl) {
-                const bytes = base64ToUint8Array(item.qrCodeUrl);
-                if (bytes && bytes.length > 0) {
+            let qrRun: InstanceType<typeof ImageRun> | null = null;
+            if (options.qrCodes) {
+                const bytes = bytesFor(item.qrCodeUrl);
+                if (bytes) {
                     qrRun = new ImageRun({
                         data: bytes,
                         transformation: { width: 50, height: 50 },
@@ -191,7 +292,7 @@ export const generateWordDocument = async (
                 }
             }
 
-            // Item Row (GRIGLIA INVISIBILE: Borders NONE)
+            // Item Row — allineato al PDF: QR | linea | 75% testo | 25% durata+foto
             tableRows.push(new TableRow({
                 children: [
                     // ORA + QR
@@ -219,74 +320,74 @@ export const generateWordDocument = async (
                         ],
                         borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} }
                     }),
-                    // CONTENUTO
+                    // CONTENUTO PRINCIPALE (~75% della zona a destra del QR)
                     new TableCell({
-                        width: { size: 80, type: WidthType.PERCENTAGE },
+                        width: { size: 60, type: WidthType.PERCENTAGE },
                         verticalAlign: VerticalAlign.TOP,
                         children: [
-                            // Titolo & Categoria
+                            ...(distanceKm != null ? [
+                                new Paragraph({
+                                    alignment: AlignmentType.CENTER,
+                                    spacing: { after: 60 },
+                                    children: [ new TextRun({ text: `--- DISTANZA ${distanceKm} KM ---`, size: 14, bold: true, color: STYLES.RED_COLOR }) ]
+                                })
+                            ] : []),
                             new Paragraph({
                                 children: [ 
                                     new TextRun({ text: (item.poi.category || "POI").toUpperCase(), size: 14, color: STYLES.ACCENT_COLOR, bold: true }),
                                     new TextRun({ text: "\n" + item.poi.name, bold: true, size: STYLES.HEADING_SIZE, color: STYLES.TEXT_COLOR }) 
                                 ]
                             }),
-                            // Indirizzo
                             new Paragraph({
                                 spacing: { before: 60 },
                                 children: [ new TextRun({ text: item.poi.address || "", italics: true, size: STYLES.SMALL_SIZE, color: STYLES.GRAY_COLOR }) ]
                             }),
-                            // Durata
-                            ...(item.poi.visitDuration ? [new Paragraph({
-                                spacing: { before: 40 },
-                                children: [ new TextRun({ text: `Durata visita: ${item.poi.visitDuration}`, size: STYLES.SMALL_SIZE, color: STYLES.GRAY_COLOR, bold: true }) ]
-                            })] : []),
-                            
-                            // Immagine
-                            ...(imageRun ? [new Paragraph({ spacing: { before: 100 }, children: [imageRun] })] : []),
-                            
-                            // Descrizione
                             ...(options.details ? [new Paragraph({
                                 spacing: { before: 100 },
                                 children: [ new TextRun({ text: item.poi.description || "", size: STYLES.SMALL_SIZE, color: STYLES.TEXT_COLOR }) ]
                             })] : []),
-                            
-                            // Note
                             ...(options.notes && item.notes ? [
                                 new Paragraph({
                                     spacing: { before: 60 },
-                                    shading: { fill: "FEF3C7" }, // Amber background
+                                    shading: { fill: "FEF3C7" },
                                     children: [ new TextRun({ text: `NOTA: ${item.notes}`, bold: true, size: STYLES.SMALL_SIZE, color: "92400E" }) ]
                                 })
-                            ] : [])
+                            ] : []),
                         ],
                         borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} },
-                        margins: { top: 100, bottom: 200, left: 100, right: 100 }
+                        margins: { top: 100, bottom: 200, left: 100, right: 60 }
+                    }),
+                    // COLONNA LATERALE (~25%): durata visita + foto
+                    new TableCell({
+                        width: { size: 20, type: WidthType.PERCENTAGE },
+                        verticalAlign: VerticalAlign.TOP,
+                        children: [
+                            ...(item.poi.visitDuration ? [new Paragraph({
+                                children: [ new TextRun({ text: `Durata visita: ${item.poi.visitDuration}`, size: STYLES.SMALL_SIZE, color: STYLES.GRAY_COLOR, bold: true }) ]
+                            })] : []),
+                            ...(imageRun ? [new Paragraph({
+                                spacing: { before: item.poi.visitDuration ? 80 : 0 },
+                                children: [imageRun]
+                            })] : []),
+                            ...(!item.poi.visitDuration && !imageRun ? [new Paragraph({ children: [] })] : []),
+                        ],
+                        borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} },
+                        margins: { top: 100, bottom: 200, left: 40, right: 40 }
                     }),
                 ],
             }));
             
-            // Distanza Row (CENTRATA E STILIZZATA)
-            if (item.distanceFromPrev !== null && item.distanceFromPrev > 0) {
-                 tableRows.push(new TableRow({
-                     children: [
-                         new TableCell({ 
-                             columnSpan: 3,
-                             children: [ 
-                                 new Paragraph({ 
-                                     alignment: AlignmentType.CENTER, 
-                                     spacing: { before: 100, after: 100 },
-                                     children: [ new TextRun({ text: `--- DISTANZA ${item.distanceFromPrev} KM ---`, size: 14, bold: true, color: STYLES.RED_COLOR }) ] 
-                                 }) 
-                             ],
-                             borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} }
-                         })
-                     ]
-                 }));
-            } else {
-                 // Spazio vuoto se non c'è distanza
-                 tableRows.push(new TableRow({ children: [new TableCell({ children: [], columnSpan: 3, borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} } })], height: { value: 200, rule: "exact" } }));
-            }
+            // Spazio tra POI (la distanza è già nel blocco testo principale, come nel PDF)
+            tableRows.push(new TableRow({
+                children: [
+                    new TableCell({
+                        children: [],
+                        columnSpan: 4,
+                        borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} },
+                    }),
+                ],
+                height: { value: 200, rule: "exact" },
+            }));
         });
 
         children.push(
@@ -312,7 +413,7 @@ export const generateWordDocument = async (
             })
         );
         
-        const resRows: TableRow[] = [];
+        const resRows: DocxTableRow[] = [];
         
         // Header Riga
         resRows.push(new TableRow({
@@ -400,24 +501,40 @@ export const generateWordDocument = async (
     FileSaver.saveAs(blob, filename);
 };
 
-export const generateTextFile = (itinerary: any, cityNamesMap: Record<string, string> = {}, returnString: boolean = false) => {
-    const lines = [];
+/**
+ * Dump TXT del diario. Accetta `Itinerary` (runtime) o `PreparedItinerary`
+ * (stesso shape + campi export opzionali come `distanceFromPrev`).
+ */
+export const generateTextFile = (
+    itinerary: Itinerary | PreparedItinerary,
+    cityNamesMap: Record<string, string> = {},
+    returnString: boolean = false,
+) => {
+    const lines: string[] = [];
+    // Stesso shape di lettura; cast solo per `distanceFromPrev` opzionale (prepared).
+    const items = itinerary.items as PreparedItineraryItem[];
     lines.push(`${(itinerary.name || "IL MIO VIAGGIO").toUpperCase()}`);
     lines.push(`Date: ${itinerary.startDate || '?'} - ${itinerary.endDate || '?'}`);
     
     // Lista città formattata
-    const uniqueCityIds = Array.from(new Set(itinerary.items.map((i:any) => i.cityId).filter((id:any) => id && id !== 'custom')));
-    const cityNames = uniqueCityIds.map((id: any) => resolveCityName(id, cityNamesMap) || id).join(', ');
+    const uniqueCityIds = Array.from(new Set(
+        items
+            .map((i) => i.cityId)
+            .filter((id): id is string => Boolean(id) && id !== 'custom'),
+    ));
+    const cityNames = uniqueCityIds.map((id) => resolveCityName(id, cityNamesMap) || id).join(', ');
     
     lines.push(`Città: ${cityNames}\n`);
     
-    const timelineItems = itinerary.items.filter((i:any) => !i.isResource).sort((a:any,b:any) => a.dayIndex - b.dayIndex || a.timeSlotStr.localeCompare(b.timeSlotStr));
-    const days = Array.from(new Set(timelineItems.map((i:any) => i.dayIndex))).sort();
+    const timelineItems = items
+        .filter((i) => !i.isResource)
+        .sort((a, b) => a.dayIndex - b.dayIndex || a.timeSlotStr.localeCompare(b.timeSlotStr));
+    const days = Array.from(new Set(timelineItems.map((i) => i.dayIndex))).sort((a, b) => a - b);
 
-    days.forEach((day:any) => {
+    days.forEach((day) => {
         lines.push(`\n--- GIORNO ${day + 1} ---`);
-        const dayItems = timelineItems.filter((i:any) => i.dayIndex === day);
-        dayItems.forEach((item:any, idx: number) => {
+        const dayItems = timelineItems.filter((i) => i.dayIndex === day);
+        dayItems.forEach((item, idx) => {
              lines.push(`[${item.timeSlotStr}] ${item.poi.name} (${item.poi.category})`);
              if(item.poi.address) lines.push(`   Indirizzo: ${item.poi.address}`);
              if(item.poi.visitDuration) lines.push(`   Durata Visita: ${item.poi.visitDuration}`);

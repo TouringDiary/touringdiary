@@ -30,6 +30,8 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
 
     const productsSliderRef = useRef<DraggableSliderHandle>(null);
     const fileInputRefProducts = useRef<HTMLInputElement>(null);
+    const formScrollRef = useRef<HTMLDivElement>(null);
+    const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [newProduct, setNewProduct] = useState<Partial<ShopProduct>>({
         id: '', name: '', description: '', price: 0, imageUrl: '', status: 'active', shippingMode: 'pickup'
@@ -39,6 +41,23 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
     useEffect(() => {
         setCurrentShop(initialShop);
     }, [initialShop]);
+
+    useEffect(() => {
+        return () => {
+            if (successTimerRef.current) clearTimeout(successTimerRef.current);
+        };
+    }, []);
+
+    const flashSuccess = (message: string) => {
+        if (successTimerRef.current) clearTimeout(successTimerRef.current);
+        setSuccessMsg(message);
+        successTimerRef.current = setTimeout(() => setSuccessMsg(null), 3000);
+    };
+
+    const resetProductForm = () => {
+        setNewProduct({ id: '', name: '', description: '', price: 0, imageUrl: '', status: 'active', shippingMode: 'pickup' });
+        if (fileInputRefProducts.current) fileInputRefProducts.current.value = '';
+    };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -57,32 +76,33 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
                 } else {
                     setErrorMsg("Errore durante l'upload. Riprova.");
                 }
-            } catch (err) {
-                console.error(err);
+            } catch {
+                console.error('[BusinessShopManager] product image upload failed');
                 setErrorMsg("Errore elaborazione file.");
             } finally {
                 setIsProductUploading(false);
+                if (fileInputRefProducts.current) fileInputRefProducts.current.value = '';
             }
         }
     };
 
     const handleSaveProduct = async () => {
         setErrorMsg(null);
-        if (!newProduct.name || !newProduct.description || (newProduct.price === undefined || newProduct.price <= 0)) {
+        if (!newProduct.name?.trim() || !newProduct.description?.trim() || (newProduct.price === undefined || newProduct.price <= 0)) {
             setErrorMsg("Attenzione: Nome, Descrizione e Prezzo (> 0) sono obbligatori.");
             return;
         }
-        if (!newProduct.imageUrl) {
+        if (!newProduct.imageUrl?.trim()) {
             setErrorMsg("Attenzione: La foto del prodotto è obbligatoria.");
             return;
         }
 
-        // Se c'è un ID, stiamo modificando. Altrimenti ne creiamo uno nuovo.
+        // Insert tipizzato richiede `id` (nessun default DB): id client obbligatorio per i nuovi prodotti.
         const productToSave: ShopProduct = {
             id: newProduct.id || `prod_${Date.now()}`,
-            name: newProduct.name!,
-            description: newProduct.description!,
-            imageUrl: newProduct.imageUrl!,
+            name: newProduct.name.trim(),
+            description: newProduct.description.trim(),
+            imageUrl: newProduct.imageUrl.trim(),
             price: newProduct.price!,
             status: newProduct.status || 'active',
             shippingMode: newProduct.shippingMode || 'pickup'
@@ -90,15 +110,22 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
 
         try {
             await saveProduct(currentShop.id, productToSave);
-            setSuccessMsg(newProduct.id ? "Prodotto aggiornato!" : "Prodotto aggiunto alla vetrina!");
-            setTimeout(() => setSuccessMsg(null), 3000);
+            // Stato locale immediato: resta coerente anche se onUpdate del parent ritarda.
+            setCurrentShop((prev) => {
+                const exists = prev.products.some((p) => p.id === productToSave.id);
+                const products = exists
+                    ? prev.products.map((p) => (p.id === productToSave.id ? productToSave : p))
+                    : [...prev.products, productToSave];
+                return { ...prev, products };
+            });
+            flashSuccess(newProduct.id ? "Prodotto aggiornato!" : "Prodotto aggiunto alla vetrina!");
 
             // Chiudi form e resetta
             setIsAdding(false);
-            setNewProduct({ id: '', name: '', description: '', price: 0, imageUrl: '', status: 'active', shippingMode: 'pickup' });
+            resetProductForm();
 
             onUpdate(); // Ricarica dati
-        } catch (e) {
+        } catch {
             setErrorMsg("Errore durante il salvataggio. Riprova.");
         }
     };
@@ -106,20 +133,23 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
     const handleEditProduct = (product: ShopProduct) => {
         setNewProduct(product);
         setIsAdding(true);
-        // Scroll to top to see form
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        formScrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     const confirmDelete = async () => {
         if (!deleteTarget) return;
         setIsDeleting(true);
+        const deletedId = deleteTarget.id;
         try {
-            await deleteShopProduct(deleteTarget.id);
+            await deleteShopProduct(deletedId);
+            setCurrentShop((prev) => ({
+                ...prev,
+                products: prev.products.filter((p) => p.id !== deletedId),
+            }));
             setDeleteTarget(null);
             onUpdate();
-            setSuccessMsg("Prodotto eliminato.");
-            setTimeout(() => setSuccessMsg(null), 3000);
-        } catch (e) {
+            flashSuccess("Prodotto eliminato.");
+        } catch {
             setErrorMsg("Errore cancellazione prodotto.");
         } finally {
             setIsDeleting(false);
@@ -127,7 +157,7 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
     };
 
     const openNewForm = () => {
-        setNewProduct({ id: '', name: '', description: '', price: 0, imageUrl: '', status: 'active', shippingMode: 'pickup' });
+        resetProductForm();
         setIsAdding(true);
     };
 
@@ -147,14 +177,14 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
 
             {/* SUCCESS TOAST */}
             {successMsg && (
-                <div className="fixed top-4 right-4 z-modal bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-2xl animate-in slide-in-from-top-4 flex items-center gap-2 font-bold text-sm">
+                <div className="fixed z-modal bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-2xl animate-in slide-in-from-top-4 flex items-center gap-2 font-bold text-sm top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))]">
                     <Sparkles className="w-4 h-4" /> {successMsg}
                 </div>
             )}
 
             {/* FORM AGGIUNTA / MODIFICA */}
             {isAdding && (
-                <div className="mb-10 p-6 md:p-8 bg-slate-950 border border-indigo-500/30 rounded-3xl animate-in zoom-in-95 relative shadow-inner">
+                <div ref={formScrollRef} className="mb-10 p-6 md:p-8 bg-slate-950 border border-indigo-500/30 rounded-3xl animate-in zoom-in-95 relative shadow-inner">
                     <button onClick={() => setIsAdding(false)} className="absolute top-4 right-4 text-slate-600 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
                     <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                         <Package className="w-5 h-5 text-indigo-500" /> {newProduct.id ? 'Modifica Articolo' : 'Aggiungi Articolo'}
@@ -192,8 +222,22 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
 
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <input value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none font-bold text-sm" placeholder="Nome Prodotto" />
-                                    <input type="number" step="0.50" value={newProduct.price || ''} onChange={e => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none font-mono text-sm font-bold" placeholder="Prezzo €" />
+                                    <input value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none font-bold text-sm" placeholder="Nome Prodotto *" required />
+                                    <input
+                                        type="number"
+                                        step="0.50"
+                                        value={newProduct.price || ''}
+                                        onChange={e => {
+                                            const raw = e.target.value;
+                                            setNewProduct({
+                                                ...newProduct,
+                                                price: raw === '' ? undefined : Number.parseFloat(raw),
+                                            });
+                                        }}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none font-mono text-sm font-bold"
+                                        placeholder="Prezzo € *"
+                                        required
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -207,7 +251,7 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
                                     </select>
                                     <select
                                         value={newProduct.shippingMode}
-                                        onChange={e => setNewProduct({ ...newProduct, shippingMode: e.target.value as any })}
+                                        onChange={e => setNewProduct({ ...newProduct, shippingMode: e.target.value as ShopProduct['shippingMode'] })}
                                         className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white text-xs font-bold uppercase outline-none focus:border-indigo-500"
                                     >
                                         <option value="pickup">Solo Ritiro</option>
@@ -216,7 +260,7 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
                                     </select>
                                 </div>
 
-                                <textarea value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white resize-none focus:border-indigo-500 outline-none text-sm h-24" placeholder="Descrizione prodotto..." />
+                                <textarea value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white resize-none focus:border-indigo-500 outline-none text-sm h-24" placeholder="Descrizione prodotto * (obbligatoria)" required />
                             </div>
                         </div>
 
@@ -238,12 +282,12 @@ export const BusinessShopManager = ({ shop: initialShop, onUpdate, onBack }: Pro
 
             {/* PRODUCT GRID */}
             {currentShop.products.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 min-[360px]:gap-4 md:gap-6">
                     {currentShop.products.map(product => (
                         <div key={product.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden group flex flex-col shadow-lg hover:border-slate-600 transition-all relative">
 
-                            {/* ACTION BUTTONS (EDIT/DELETE) */}
-                            <div className="absolute top-2 right-2 flex gap-1 z-dropdown opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* ACTION BUTTONS (EDIT/DELETE) — sempre visibili su touch (niente sole :hover) */}
+                            <div className="absolute top-2 right-2 flex gap-1 z-dropdown opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleEditProduct(product); }}
                                     className="p-1.5 bg-slate-800 text-indigo-400 hover:text-white hover:bg-indigo-600 rounded-lg shadow-md border border-slate-700 transition-colors"

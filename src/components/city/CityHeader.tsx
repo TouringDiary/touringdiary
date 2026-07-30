@@ -1,16 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Globe, Info, Map, Building2, Calendar, Navigation, Briefcase, BookOpen, ScrollText, ShoppingCart, X, User, Compass, Bus, Share2 } from 'lucide-react';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { CityDetails } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { useShare } from '../../hooks/useShare';
 import { affiliateTrackingService } from '../../services/affiliateTrackingService';
 import { useUser } from '@/context/UserContext';
 import { useModal } from '@/context/ModalContext';
 import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
+import { FAVORITES_UI_LABELS } from '@/myspace/favoritesUiLabels';
 
 interface Props {
     city: CityDetails;
@@ -23,9 +25,10 @@ interface Props {
     onOpenHistory?: () => void;
     onToggleLocation?: () => void;
     isLocationActive?: boolean;
+    onSelectAggregatedCity?: (cityId: string) => void;
 }
 
-export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings, onOpenCulture, onOpenShop, onOpenSponsor, onOpenHistory, onToggleLocation, isLocationActive = false }: Props) => {
+export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings, onOpenCulture, onOpenShop, onOpenSponsor, onOpenHistory, onToggleLocation, isLocationActive = false, onSelectAggregatedCity }: Props) => {
     const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
     const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
     const { details } = city;
@@ -36,16 +39,11 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
     // Modalità "Tutto Incluso": città virtuale fusa (mantiene l'id della città base),
     // distinta dall'esplorazione "Around Me" (id 'around-me-virtual'). Solo presentazione.
     const isMergedTerritory = !!city.isVirtual && city.id !== 'around-me-virtual';
+    const isAroundMe = city.virtualMode === 'around_me' || (!!city.isVirtual && city.id === 'around-me-virtual');
     const displayName = isMergedTerritory ? `${city.name} e Dintorni` : city.name;
+    const aggregatedCities = city.aggregatedCities ?? [];
 
-    // Rilevamento Mobile per stili dinamici
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768);
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
+    const isMobile = useMobileDetect();
 
     // Hook Stili Dinamici dal DB
     const titleStyle = useDynamicStyles('city_header_title', isMobile);
@@ -80,8 +78,8 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             {/* `animate-metal` is defined globally as a @utility in src/index.css (shared with ShopHeader). */}
 
             {/* --- DESKTOP LEFT PANEL (INFO) --- */}
-            <div className="hidden md:flex absolute left-0 top-0 bottom-0 w-[221px] bg-[#020617] py-6 px-2 flex-col justify-center gap-4 border-r border-slate-800 z-local-chrome">
-                <div className="flex flex-col items-center justify-center w-full">
+            <div className={`hidden md:flex absolute left-0 top-0 bottom-0 w-[221px] bg-[#020617] py-6 px-2 flex-col gap-4 border-r border-slate-800 z-local-chrome ${isAroundMe ? 'justify-start' : 'justify-center'}`}>
+                <div className="flex flex-col items-center justify-center w-full flex-shrink-0">
                     <div className="flex items-center gap-2 mb-1 justify-center w-full px-2">
                         {/* DYNAMIC TITLE STYLE APPLIED HERE */}
                         <h1 className={`${titleStyle || 'text-4xl font-bold font-display text-white'} text-center break-words max-w-full leading-none`}>
@@ -95,7 +93,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                     </div>
 
                     <p className="text-slate-500 font-serif italic text-xs text-center line-clamp-2 px-1 leading-tight mb-2">{details.subtitle}</p>
-                    {onOpenHistory && (
+                    {!isAroundMe && onOpenHistory && (
                         <button onClick={onOpenHistory} className="flex items-center gap-1.5 bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-amber-900/50 px-3 py-0.5 rounded-full transition-all group w-auto justify-center">
                             <ScrollText className="w-3 h-3 text-amber-600 group-hover:text-amber-500 transition-colors" />
                             <span className="text-[9px] font-bold uppercase text-slate-400 group-hover:text-white tracking-wide">Storia & Origini</span>
@@ -103,6 +101,21 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                     )}
                 </div>
                 <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-800 to-transparent flex-shrink-0"></div>
+                {isAroundMe ? (
+                    <div className="flex-1 min-h-0 overflow-y-auto w-full flex flex-col gap-1 px-1">
+                        {aggregatedCities.map((aggCity) => (
+                            <button
+                                key={aggCity.id}
+                                type="button"
+                                onClick={() => onSelectAggregatedCity?.(aggCity.id)}
+                                aria-label={`Seleziona ${aggCity.name}`}
+                                className="w-full text-left px-2 py-1.5 rounded-lg bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/50 transition-all group"
+                            >
+                                <span className="text-[10px] font-bold uppercase text-slate-300 group-hover:text-white tracking-wide truncate block">{aggCity.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                ) : (
                 <div className="flex flex-col items-center justify-center w-full gap-1">
                     {details.officialWebsite && (
                         <button 
@@ -122,6 +135,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                     </div>
                     <button onClick={onOpenPatron} className="text-center text-xl font-handwriting font-bold text-amber-500 hover:text-white transition-colors truncate max-w-full px-2 leading-none">{details.patron || 'Patrono N/A'}</button>
                 </div>
+                )}
             </div>
 
             {/* --- BACKGROUND IMAGE --- */}
@@ -130,6 +144,8 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                     src={details.heroImage}
                     alt={city.name}
                     priority={true}
+                    sizes="100vw"
+                    fetchPriority="high"
                     className="w-full h-full object-cover transition-transform duration-[30s] group-hover/header:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-90 md:opacity-100"></div>
@@ -153,14 +169,17 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             {/* --- MOBILE TOP RIGHT CLUSTER --- */}
             <div className="md:hidden absolute top-4 right-4 z-local-overlay flex flex-col items-end gap-3 pointer-events-auto">
                 <div className="flex items-center gap-2">
+                    {!isAroundMe && (
                     <FavoriteBookmarkButton
                         userId={user?.role === 'guest' ? null : user?.id}
                         entityKind="city"
                         entityId={city.id}
                         onRequireAuth={() => openModal('auth')}
                         size="sm"
+                        titleWhenFavorite={FAVORITES_UI_LABELS.cityWhenFavorite}
                         className="!bg-slate-800/80 backdrop-blur-md shadow-2xl"
                     />
+                    )}
                     <button onClick={handleShare} className="bg-slate-800/80 p-2 rounded-xl border border-white/10 shadow-2xl text-white active:scale-90 transition-transform backdrop-blur-md">
                         <Share2 className="w-4 h-4" />
                     </button>
@@ -179,7 +198,23 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                 Ancorata tra il cluster in alto (top-4) e la barra in basso (bottom-4):
                 top-16 libera il cluster, bottom-4 si allinea alla barra. justify-between
                 distribuisce i 3 pulsanti nello spazio reale dell'hero. La colonna è SEMPRE
-                composta da WEB · PATRONO · STORIA: WEB è disabilitato se manca il sito. */}
+                composta da WEB · PATRONO · STORIA: WEB è disabilitato se manca il sito.
+                In modalità Around Me la colonna è sostituita da una lista scrollabile delle città aggregate. */}
+            {isAroundMe ? (
+            <div className="md:hidden absolute top-16 bottom-4 right-2 z-local-overlay pointer-events-auto w-[5.5rem] overflow-y-auto flex flex-col gap-1">
+                {aggregatedCities.map((aggCity) => (
+                    <button
+                        key={aggCity.id}
+                        type="button"
+                        onClick={() => onSelectAggregatedCity?.(aggCity.id)}
+                        aria-label={`Seleziona ${aggCity.name}`}
+                        className="w-full px-1.5 py-1.5 rounded-lg bg-slate-900/70 backdrop-blur-md border border-white/10 shadow-xl active:scale-95 transition-transform"
+                    >
+                        <span className="text-[8px] font-black uppercase tracking-tight text-slate-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] line-clamp-2 text-center leading-tight">{aggCity.name}</span>
+                    </button>
+                ))}
+            </div>
+            ) : (
             <div className="md:hidden absolute top-16 bottom-4 right-3 z-local-overlay pointer-events-auto flex flex-col items-center justify-between">
                 <button
                     onClick={handleOfficialWebsiteClick}
@@ -218,18 +253,22 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                     </button>
                 )}
             </div>
+            )}
 
             {/* --- DESKTOP ACTION BAR --- */}
             <div className="hidden md:flex absolute top-4 left-[calc(221px+1rem)] right-4 z-local-overlay pointer-events-none justify-between items-start">
                 <div className="flex gap-2 pointer-events-auto">
+                    {!isAroundMe && (
                     <FavoriteBookmarkButton
                         userId={user?.role === 'guest' ? null : user?.id}
                         entityKind="city"
                         entityId={city.id}
                         onRequireAuth={() => openModal('auth')}
                         size="sm"
+                        titleWhenFavorite={FAVORITES_UI_LABELS.cityWhenFavorite}
                         className="!bg-slate-800/90 shadow-xl"
                     />
+                    )}
                     {shopPublicEnabled ? (
                     <button type="button" onClick={onOpenShop} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl border border-indigo-400/50 shadow-2xl flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:scale-95 group">
                         <ShoppingCart className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
@@ -251,7 +290,7 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
             </div>
 
             {/* --- DESKTOP DNA PANEL --- */}
-            {city.classificationExplainability && Object.keys(city.classificationExplainability).length > 0 && (
+            {!isAroundMe && city.classificationExplainability && Object.keys(city.classificationExplainability).length > 0 && (
                 <div className="hidden md:flex absolute left-[calc(221px+1rem)] top-1/2 -translate-y-1/2 z-local-chrome flex-col gap-1.5 bg-slate-950/70 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-auto min-w-[160px] max-w-[200px] transition-all hover:bg-slate-950/90 hover:border-indigo-500/50">
                     <div className="flex items-center gap-1.5 mb-1 border-b border-white/10 pb-2">
                         <Info className="w-3.5 h-3.5 text-indigo-400" />

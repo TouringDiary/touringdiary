@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingBag, ExternalLink, ChevronRight, ChevronLeft, Search, Package, ArrowRight } from 'lucide-react';
 import { useAutoRotateSuggestions } from '@/hooks/useAutoRotateSuggestions';
 import { normalizeItemName } from '@/utils/tagDerivation';
@@ -7,6 +7,8 @@ import { SETTINGS_KEYS } from '@/services/settingsService';
 import { ResolvedAffiliateProduct } from '@/types/suitcase';
 import { ItemCategoryIcon, resolveAffiliateProductImage, resolveAffiliatePartnerDisplay } from './SuitcaseUtils';
 import { affiliateTrackingService } from '@/services/affiliateTrackingService';
+
+const EMPTY_OBJECT: Record<string, never> = {};
 
 interface CategorySuggestionPanelProps {
   category: string;
@@ -29,18 +31,18 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
   selectedItem,
   itemMap,
   categoryMap,
-  overrides = {},
+  overrides = EMPTY_OBJECT,
   globalMap,
-  placeholders = {},
+  placeholders = EMPTY_OBJECT,
   onLinkBuild,
   onLinkBuildSearch
 }) => {
   const [isHoveringPanel, setIsHoveringPanel] = useState(false);
-  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
   const { configs } = useConfig();
 
   const suitcasePlaceholders = useMemo(() =>
-    configs?.[SETTINGS_KEYS.SUITCASE_PLACEHOLDERS] || {},
+    configs?.[SETTINGS_KEYS.SUITCASE_PLACEHOLDERS] || EMPTY_OBJECT,
     [configs]
   );
 
@@ -58,22 +60,17 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
     const normalizedName = normalizeItemName(selectedItem.name);
     if (overrides[normalizedName]) return overrides[normalizedName];
 
-    // 2. Try manual mapping BY NAME
-    const lowerName = selectedItem.name.toLowerCase();
-    if (itemMap[lowerName] && itemMap[lowerName].length > 0) return itemMap[lowerName][0];
+    // 2. Try manual mapping BY NAME (stessa SoT di normalizzazione)
+    if (itemMap[normalizedName] && itemMap[normalizedName].length > 0) return itemMap[normalizedName][0];
 
     // 3. Try item mapping by tags
     if (selectedItem.tags && selectedItem.tags.length > 0) {
       for (const tag of selectedItem.tags) {
-        const normalizedTag = tag.toLowerCase();
+        const normalizedTag = normalizeItemName(tag);
         if (itemMap[normalizedTag] && itemMap[normalizedTag].length > 0) return itemMap[normalizedTag][0];
       }
     }
 
-    // 4. Default search keyword for the item if no product is found
-    // (Note: The user said no category fallback, but as an absolute last resort 
-    // for a selected item we can build a quick search object if needed, 
-    // but the plan says "preview override product prioritization")
     return null;
   }, [selectedItem, itemMap, overrides]);
 
@@ -86,6 +83,10 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
 
   const finalProduct = selectedItem ? productToShow : activeGlobalProducts[activeIndex];
   const isFeatured = !selectedItem;
+
+  useEffect(() => {
+    setFailedImages(new Set());
+  }, [finalProduct?.id, finalProduct?.image_url, finalProduct?.imageUrl]);
 
   const partnerIntegrations = configs?.[SETTINGS_KEYS.PARTNER_INTEGRATIONS];
   const partnerDisplay = useMemo(
@@ -119,19 +120,23 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
             <ShoppingBag className="w-3.5 h-3.5" />
           </div>
           <span className={`text-[10px] font-black uppercase tracking-widest ${isFeatured ? 'text-amber-500/80' : 'text-indigo-400/80'}`}>
-            Suggerimenti
+            e-Commerce
           </span>
         </div>
 
         {isFeatured && activeGlobalProducts.length > 1 && (
-          <div className="flex items-center gap-1.5 opacity-0 group-hover/panel:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/panel:opacity-100 transition-opacity">
             <button
+              type="button"
+              aria-label="Prodotto precedente"
               onClick={(e) => { e.stopPropagation(); setActiveIndex((activeIndex - 1 + activeGlobalProducts.length) % activeGlobalProducts.length); }}
               className="p-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <button
+              type="button"
+              aria-label="Prodotto successivo"
               onClick={(e) => { e.stopPropagation(); next(); }}
               className="p-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
             >
@@ -183,12 +188,9 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                 <span className="text-[9px] font-black uppercase tracking-tighter text-indigo-500 bg-indigo-500/10 px-1.5 py-0.5 rounded">
                   {partnerDisplay?.badgeLabel ?? 'Offerta consigliata'}
                 </span>
-                <div className="flex items-center gap-0.5 text-amber-400">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-[10px]">★</span>
-                  ))}
-                  <span className="text-[9px] text-slate-500 ml-1">(4.8)</span>
-                </div>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded">
+                  Consigliato
+                </span>
               </div>
 
               <h3 className="text-sm font-bold text-slate-100 leading-tight line-clamp-3">
@@ -209,14 +211,20 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                   }
                   return onLinkBuild(finalProduct.provider || "amazon", pid);
                 })()}
-                onClick={() => {
-                  affiliateTrackingService.trackClickOut({
-                    partnerId: finalProduct.provider || 'amazon',
-                    sourceType: 'suitcase',
-                    category: finalProduct.category || category || 'gear',
-                    productId: finalProduct.product_id || undefined,
-                    searchQuery: finalProduct.product_id?.startsWith('search:') ? finalProduct.product_id.replace('search:', '') : undefined
-                  });
+                onClick={(e) => {
+                  e.preventDefault();
+                  const href = e.currentTarget.href;
+                  void affiliateTrackingService
+                    .trackClickOut({
+                      partnerId: finalProduct.provider || 'amazon',
+                      sourceType: 'suitcase',
+                      category: finalProduct.category || category || 'gear',
+                      productId: finalProduct.product_id || undefined,
+                      searchQuery: finalProduct.product_id?.startsWith('search:') ? finalProduct.product_id.replace('search:', '') : undefined
+                    })
+                    .finally(() => {
+                      window.open(href, '_blank', 'noopener,noreferrer');
+                    });
                 }}
                 target="_blank"
                 rel="noopener noreferrer"

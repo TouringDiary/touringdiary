@@ -46,34 +46,52 @@ export const CreateSuitcaseModal: React.FC<Props> = ({
   const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
   const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle);
   const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle);
+  const headerIconBoxShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconBox);
+  const headerIconGlyphShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalHeaderIconGlyph);
+  const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary);
 
   const [name, setName] = useState(defaultName);
   const [viaggioChoice, setViaggioChoice] = useState<ViaggioAssociationChoice>('none');
   const [existingViaggioId, setExistingViaggioId] = useState('');
   const [viaggi, setViaggi] = useState<Viaggio[]>([]);
   const [viaggiLoading, setViaggiLoading] = useState(false);
+  const [viaggiLoaded, setViaggiLoaded] = useState(false);
 
   useGlobalModalEscape(isOpen && !busy, onClose);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setViaggiLoaded(false);
+      setViaggi([]);
+      setViaggiLoading(false);
+      return;
+    }
     setName(defaultName || 'Nuova valigia');
     setViaggioChoice(context === 'tools' ? 'none' : 'existing');
     setExistingViaggioId('');
   }, [isOpen, defaultName, context]);
 
+  // Lazy: carica i viaggi solo quando l'utente sceglie "Associa ad un viaggio esistente".
   useEffect(() => {
     if (!isOpen || context !== 'tools') return;
+    if (viaggioChoice !== 'existing') return;
+    if (viaggiLoaded) return;
+
     let cancelled = false;
     setViaggiLoading(true);
-    setViaggi([]);
     void listViaggiByUser(userId)
       .then((rows) => {
-        if (!cancelled) setViaggi(rows);
+        if (!cancelled) {
+          setViaggi(rows);
+          setViaggiLoaded(true);
+        }
       })
       .catch((e) => {
         console.error('[CreateSuitcaseModal] listViaggiByUser failed', e);
-        if (!cancelled) setViaggi([]);
+        if (!cancelled) {
+          setViaggi([]);
+          setViaggiLoaded(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setViaggiLoading(false);
@@ -81,7 +99,7 @@ export const CreateSuitcaseModal: React.FC<Props> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, context, userId]);
+  }, [isOpen, context, userId, viaggioChoice, viaggiLoaded]);
 
   const handleSubmit = useCallback(async () => {
     const trimmed = name.trim();
@@ -128,8 +146,8 @@ export const CreateSuitcaseModal: React.FC<Props> = ({
         />
         <div className={`${bodyShell} min-h-0`}>
           <div className="flex items-center gap-3 mb-4 pr-10">
-            <div className="p-2 bg-indigo-600 rounded-lg shrink-0">
-              <Briefcase className="w-6 h-6 text-white" aria-hidden />
+            <div className={`${headerIconBoxShell} shrink-0`}>
+              <Briefcase className={headerIconGlyphShell || 'w-6 h-6 text-white'} aria-hidden />
             </div>
             <div>
               <h3 id="create-suitcase-title" className={modalTitleShell}>
@@ -172,9 +190,9 @@ export const CreateSuitcaseModal: React.FC<Props> = ({
               type="button"
               disabled={busy || !name.trim()}
               onClick={() => void handleSubmit()}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg disabled:opacity-50"
+              className={`${btnPrimaryShell || 'w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg'} w-full disabled:opacity-50 mt-6`}
             >
-              {busy ? 'Creazione…' : 'Crea e apri Valigia'}
+              {busy ? 'Creazione…' : 'Crea'}
             </button>
           </div>
         </div>

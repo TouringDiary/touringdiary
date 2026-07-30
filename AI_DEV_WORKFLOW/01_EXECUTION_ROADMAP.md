@@ -38,6 +38,7 @@ Risponde a:
 
 | WF | Nome | File | SSOT / Masterplan | Dipende da | Nota stato |
 |----|------|------|-------------------|------------|------------|
+| WF-PERF-01 | Ottimizzazione performance applicativa | `WORKFLOWS/WF_PERF_01_PERFORMANCE_OPTIMIZATION.md` | Audit perf 2026-07-28; layer/focus/context | — (parallelo a WF-02 hold) | **Attivo** — STEP 3 Completato; STEP 4 In verifica PO |
 | WF-02 | Implementation Masterplan | `WORKFLOWS/WF_02_IMPLEMENTATION_MASTERPLAN.md` | DOC 29, 30, 31 (vincoli), 32 (vincoli) | WF-01 | Hold STEP-4 |
 
 ### 3.2 Completati
@@ -108,6 +109,8 @@ WF-01 Completato
                           └──► WF-12 Completato (archiviato)
                                 │
                                 └─► WF-13 Completato (archiviato) — decisioni 1–8 create/associa/Salva con nome
+
+WF-PERF-01 Attivo (STEP 4 In verifica PO; STEP 3 Completato; STEP 1–2 In verifica PO) — parallelo a WF-02 hold; esclusioni cartografia
 ```
 
 ---
@@ -116,7 +119,7 @@ WF-01 Completato
 
 | Tema | Dipende da | Note |
 |------|------------|------|
-| — | — | MP-02 concluso; **WF-13** Completato (decisioni 1–8). Nessuna ripresa automatica. |
+| — | — | MP-02 concluso; **WF-13** Completato; **WF-PERF-01** attivo (performance). |
 | Privacy avanzata | WF-02 | DL-P09 DOC 30 |
 | Messaggistica unificata | WF-02 + review UI G-MSG-1 | G-MSG-1 step 5, DOC 29 |
 | ID Governance | — | Non approvata. DOC 33 / DL-035 |
@@ -156,3 +159,7 @@ Dettaglio stati / Override → `02_GOVERNANCE.md`.
 | 1.13.0 | 2026-07-28 | WF-12 Completato (archiviato); **MP-02 concluso**; nessuna ripresa automatica |
 | 1.14.0 | 2026-07-28 | Apertura piano **WF-13** (decisioni 1–8 create/associa/Salva con nome) — **solo 2 STEP**; Non iniziato |
 | 1.15.0 | 2026-07-28 | **WF-13 Completato** (STEP 2 consolidamento + archivio); decisioni 1–8 operative e hardenizzate |
+| 1.16.0 | 2026-07-28 | Apertura **WF-PERF-01** (4 STEP performance; no cartografia); avvio STEP 1 Context |
+| 1.17.0 | 2026-07-29 | **WF-PERF-01 STEP 2** implementato (bundle TipTap/Export/manualChunks) → In verifica PO |
+| 1.18.0 | 2026-07-29 | **WF-PERF-01 STEP 3** Completato (ACCETTO PO — ModalManager idle / FocusIdleBoundary / Sidebar mobile) |
+| 1.19.0 | 2026-07-29 | **WF-PERF-01 STEP 4** implementato (virtual Suitcase+PoiList, sizes/LCP, Around Me batch, polling, benchmark) → In verifica PO; WF resta Attivo |

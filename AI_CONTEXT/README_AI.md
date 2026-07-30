@@ -226,9 +226,14 @@ stagingService
 pois_staging  
 
 
-PDF Engine:
+PDF / Export Engine:
 
-RoadbookDocument.tsx
+RoadbookDocument.tsx  
+TravelDocument.tsx  
+ExportModal.tsx  
+ExportLogo.tsx / useLogoRasterizer.ts  
+heroCoverCollagePlan.ts  
+exportGenerators.ts
 
 
 ---

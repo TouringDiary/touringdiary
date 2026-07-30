@@ -24,9 +24,9 @@ Il modulo Admin Operations fornisce gli strumenti necessari alla redazione e agl
 *   **Dettaglio collaborazione**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` § Admin.
 
 ### 4. Export System
-*   **Funzioni**: Generazione report in CSV, JSON o PDF per utenti e admin.
-*   **Componente**: `ExportModal.tsx`.
-*   **Hook**: `useAdminExport.ts`.
+*   **Funzioni**: Generazione report in CSV, JSON o PDF per utenti e admin; export itinerario utente (PDF/DOCX/TXT) da `ExportModal`.
+*   **Componente**: `ExportModal.tsx` (itinerario: preparedDoc condiviso PDF/DOCX/Preview; logo via `useLogoRasterizer`; collage via `heroCoverCollagePlan`; preview WYSIWYG con footer editoriale).
+*   **Hook**: `useAdminExport.ts` (export admin).
 
 ### 5. Moderation Reviews
 *   **Logica**: Approvazione o rifiuto delle recensioni utente pendenti.

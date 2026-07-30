@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import React, { createContext, useState, useEffect, useRef, useCallback, useMemo, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppRouter } from '../hooks/useAppRouter';
 import { useUser } from './UserContext';
 import { useModal } from './ModalContext';
 import { useAiPlanner } from './AiPlannerContext';
-import { CityDetails, CitySummary, PointOfInterest } from '../types/index';
+import { CityDetails, PointOfInterest } from '../types/index';
 import { buildVirtualCity, getPoisByCityId } from '../services/cityService';
 import { getShopByVat } from '../services/shopService';
 import { GEO_CONFIG } from '../constants/geoConfig';
@@ -14,6 +14,10 @@ import type { NavigationPreviewState } from '../types/navigationPreview';
 import { CLOSED_NAVIGATION_PREVIEW } from '../types/navigationPreview';
 import type { NavigationGlobalExtra } from '../types/navigationGlobal';
 import { useOpenMyWorld } from '@/hooks/useOpenMyWorld';
+
+/** Sessione Around Me: virtualMode o id sentinella (vista attiva o sospesa in ref). */
+const isAroundMeCity = (city: CityDetails | null | undefined): city is CityDetails =>
+    city?.virtualMode === 'around_me' || city?.id === 'around-me-virtual';
 
 interface NavigationContextType {
     // Router State
@@ -60,10 +64,10 @@ export const NavigationContext = createContext<NavigationContextType | undefined
 export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
     const navigate = useNavigate();
     const router = useAppRouter();
-    const { syncMode } = useUser();
+    const userContext = useUser();
+    const { syncMode } = userContext;
     const modalContext = useModal();
     const aiPlannerContext = useAiPlanner();
-    const userContext = useUser();
     const cityManifest = userContext?.cityManifest ?? [];
     const isLoadingManifest = userContext?.isLoadingManifest ?? true;
     const gpsContext = useGps();
@@ -72,6 +76,8 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
     // Virtual Mode State
     const [virtualCity, setVirtualCity] = useState<CityDetails | null>(null);
     const [isBuildingVirtual, setIsBuildingVirtual] = useState(false);
+    /** Sessione Around Me sospesa durante drill-in città reale (niente rebuild al Back). */
+    const aroundMeSessionRef = useRef<CityDetails | null>(null);
     
     // Global Filters State
     const [selectedZone, setSelectedZone] = useState('');
@@ -84,6 +90,32 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
         return () => { isMounted.current = false; };
     }, []);
 
+    const navigateToCity = useCallback((id: string, tab?: string) => {
+        // Suspend Around Me in memory; do not destroy the computed territory.
+        if (isAroundMeCity(virtualCity)) {
+            aroundMeSessionRef.current = virtualCity;
+        } else if (virtualCity) {
+            // Merge / other virtual: clear (existing identity follows base city).
+            aroundMeSessionRef.current = null;
+        }
+        setVirtualCity(null);
+        router.navigateToCity(id, tab);
+    }, [router, virtualCity]);
+
+    const openShopFromPoi = useCallback((poi?: PointOfInterest) => {
+        const aroundMe = isAroundMeCity(virtualCity)
+            ? virtualCity
+            : isAroundMeCity(aroundMeSessionRef.current)
+              ? aroundMeSessionRef.current
+              : null;
+
+        if (!poi && aroundMe) {
+            router.openShopForAroundMe();
+            return;
+        }
+        router.openShopFromPoi(poi);
+    }, [router, virtualCity]);
+
     // --- DEEP LINK LOGIC (Encapsulated) ---
     useEffect(() => {
         if (isLoadingManifest) return;
@@ -91,6 +123,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
 
         if (router.deepLinkParams) {
             const { cityId, poiId, shopVat } = router.deepLinkParams;
+            let cancelled = false;
 
             const processLink = async () => {
                 let navigationSuccess = false;
@@ -99,6 +132,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
                 if (cityId) {
                     const cityExists = cityManifest.some(c => c.id === cityId);
                     if (cityExists) {
+                        if (cancelled || !isMounted.current) return;
                         navigateToCity(cityId);
                         navigationSuccess = true;
                     }
@@ -108,6 +142,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
                 if (shopVat) {
                     try {
                         const shop = await getShopByVat(shopVat);
+                        if (cancelled || !isMounted.current) return;
                         if (shop) {
                             const shopPoi: PointOfInterest = {
                                 id: `shop-${shop.id}`,
@@ -131,6 +166,7 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
                 else if (poiId && cityId) {
                     try {
                         const cityPois = await getPoisByCityId(cityId);
+                        if (cancelled || !isMounted.current) return;
                         const targetPoi = cityPois.find(p => p.id === poiId);
                         if (targetPoi) {
                             modalContext.openModal('poiDetail', { poi: targetPoi });
@@ -141,22 +177,29 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
                     }
                 }
 
+                if (cancelled || !isMounted.current) return;
                 router.consumeDeepLink();
             };
 
-            processLink();
+            void processLink();
+            return () => {
+                cancelled = true;
+            };
         }
-    }, [isLoadingManifest, router.deepLinkParams, cityManifest, modalContext, router]);
-
-    const navigateToCity = useCallback((id: string, tab?: string) => {
-        setVirtualCity(null); // RESET VIRTUAL STATE ON EXPLICIT NAVIGATION
-        router.navigateToCity(id, tab);
-    }, [router]);
+    }, [isLoadingManifest, cityManifest, modalContext, router, navigateToCity]);
 
     // --- NAVIGATION ACTIONS ---
 
-    const handleAroundMeTrigger = async (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => {
+    const handleAroundMeTrigger = useCallback(async (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => {
         setIsBuildingVirtual(true);
+        aroundMeSessionRef.current = null;
+        setVirtualCity(null);
+        // Sentinel history: Around Me vive su `/`, così Back da una città drill-in
+        // ripristina esattamente questa sessione senza rebuild.
+        if (router.pathname !== '/') {
+            router.goHome();
+        }
+
         let centerCoords = GEO_CONFIG.DEFAULT_CENTER; 
         
         if (config.type === 'gps' && gpsContext.userLocation) {
@@ -166,26 +209,37 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
             if (targetCity) centerCoords = targetCity.coords;
         }
 
-        const virtual = await buildVirtualCity(centerCoords, config.radius, cityManifest);
-        
-        if (isMounted.current) {
-            setVirtualCity(virtual);
-            setIsBuildingVirtual(false);
+        try {
+            const virtual = await buildVirtualCity(centerCoords, config.radius, cityManifest);
+            if (isMounted.current) {
+                aroundMeSessionRef.current = virtual;
+                setVirtualCity(virtual);
+            }
+        } finally {
+            if (isMounted.current) {
+                setIsBuildingVirtual(false);
+            }
         }
-    };
+    }, [gpsContext.userLocation, cityManifest, router]);
 
     // Fusione "Tutto Incluso": riusa buildVirtualCity (logica di fusione invariata),
     // limitandola alla città base + alle sole città selezionate dall'utente.
-    const handleMergeCities = async (baseCity: CityDetails, radius: number, selectedCityIds: string[]) => {
+    const handleMergeCities = useCallback(async (baseCity: CityDetails, radius: number, selectedCityIds: string[]) => {
         setIsBuildingVirtual(true);
-        const virtual = await buildVirtualCity(baseCity.coords, radius, cityManifest, { baseCity, selectedCityIds });
-        if (isMounted.current) {
-            setVirtualCity(virtual);
-            setIsBuildingVirtual(false);
+        try {
+            const virtual = await buildVirtualCity(baseCity.coords, radius, cityManifest, { baseCity, selectedCityIds });
+            if (isMounted.current) {
+                aroundMeSessionRef.current = null;
+                setVirtualCity(virtual);
+            }
+        } finally {
+            if (isMounted.current) {
+                setIsBuildingVirtual(false);
+            }
         }
-    };
+    }, [cityManifest]);
 
-    const goBack = () => {
+    const goBack = useCallback(() => {
         // 1. Se c'è una modale aperta, la chiudiamo (comportamento standard UX)
         if (modalContext.activeModal) { 
             modalContext.closeModal(); 
@@ -195,17 +249,18 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
         // 2. Altrimenti seguiamo la history naturale del browser (URL-driven)
         // Il cleanup di virtualCity e altri stati avverrà reattivamente tramite l'effetto su pathname
         router.goBack();
-    };
+    }, [modalContext.activeModal, modalContext.closeModal, router]);
 
-    const goHome = () => {
+    const goHome = useCallback(() => {
+        aroundMeSessionRef.current = null;
         router.goHome();
         modalContext.closeModal();
         setVirtualCity(null);
         aiPlannerContext.resetAiSession();
-    };
+    }, [router, modalContext.closeModal, aiPlannerContext.resetAiSession]);
 
     // TODO(WF-03): handleNavigateGlobal is duplicated in useNavigationController — consolidate when that hook is retired or wired as thin delegate (no behavior change).
-    const handleNavigateGlobal = (section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => {
+    const handleNavigateGlobal = useCallback((section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => {
         if (section === 'city' && id) {
             navigateToCity(id, tab);
             return;
@@ -245,7 +300,14 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
             return;
         }
         modalContext.openModal('global', { section });
-    };
+    }, [
+        navigateToCity,
+        modalContext,
+        navigate,
+        router,
+        userContext?.user?.slug,
+        openMyWorld,
+    ]);
 
     const resolveCityIdFromSlug = useCallback((slug: string): string | null => {
         if (!slug) return null;
@@ -282,8 +344,17 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
                 // 1. Chiudiamo eventuali modali o overlay persistenti
                 modalContext.closeModal();
 
-                // 2. Resettiamo la Virtual City (Around Me / Merged)
-                setVirtualCity(null);
+                // 2. Virtual city / Around Me session
+                // Drill-in città reale: sospende la vista Around Me ma preserva la sessione in memoria.
+                // Back verso path senza città: ripristina Around Me senza rebuild.
+                if (router.activeCityId && aroundMeSessionRef.current) {
+                    setVirtualCity(null);
+                } else if (!router.activeCityId && aroundMeSessionRef.current) {
+                    setVirtualCity(aroundMeSessionRef.current);
+                } else {
+                    setVirtualCity(null);
+                    aroundMeSessionRef.current = null;
+                }
 
                 // 3. Resettiamo le preview aperte
                 router.setActivePreview(CLOSED_NAVIGATION_PREVIEW);
@@ -296,7 +367,11 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
                 //    dopo il paint via requestAnimationFrame: elimina la race del vecchio
                 //    setTimeout(0) in navigateToCity, che poteva scrollare prima che il
                 //    nuovo contenuto fosse renderizzato.
-                scrollFrame = requestAnimationFrame(() => window.scrollTo(0, 0));
+                scrollFrame = requestAnimationFrame(() => {
+                    if (typeof window !== 'undefined') {
+                        window.scrollTo(0, 0);
+                    }
+                });
 
                 lastPathnameRef.current = router.pathname;
             }
@@ -307,48 +382,76 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
                 cancelAnimationFrame(scrollFrame);
             }
         };
-    }, [router.pathname, modalContext, router]);
+    }, [modalContext, router, syncMode]);
+
+    const value = useMemo<NavigationContextType>(() => ({
+        // Router State
+        viewMode: router.viewMode,
+        activeCityId: router.activeCityId,
+        activeShopId: router.activeShopId,
+        targetShopVat: router.targetShopVat,
+        currentCityTab: router.currentCityTab,
+        activeStaticPage: router.activeStaticPage,
+        activePreview: router.activePreview,
+        
+        // Virtual City
+        virtualCity,
+        isBuildingVirtual,
+        
+        // Filters
+        selectedZone,
+        activeCategories,
+        selectedSeason,
+        
+        // Actions
+        navigateToCity,
+        openShop: router.openShop,
+        openShopFromPoi,
+        goBack,
+        goHome,
+        handleNavigateGlobal,
+        handleAroundMeTrigger,
+        handleMergeCities,
+        resolveCityIdFromSlug,
+        
+        // Setters
+        setViewMode: router.setViewMode,
+        setCurrentCityTab: router.setCurrentCityTab,
+        setActiveStaticPage: router.setActiveStaticPage,
+        setActivePreview: router.setActivePreview,
+        setSelectedZone,
+        setActiveCategories,
+        setSelectedSeason
+    }), [
+        router.viewMode,
+        router.activeCityId,
+        router.activeShopId,
+        router.targetShopVat,
+        router.currentCityTab,
+        router.activeStaticPage,
+        router.activePreview,
+        router.openShop,
+        openShopFromPoi,
+        router.setViewMode,
+        router.setCurrentCityTab,
+        router.setActiveStaticPage,
+        router.setActivePreview,
+        virtualCity,
+        isBuildingVirtual,
+        selectedZone,
+        activeCategories,
+        selectedSeason,
+        navigateToCity,
+        goBack,
+        goHome,
+        handleNavigateGlobal,
+        handleAroundMeTrigger,
+        handleMergeCities,
+        resolveCityIdFromSlug,
+    ]);
 
     return (
-        <NavigationContext.Provider value={{
-            // Router State
-            viewMode: router.viewMode,
-            activeCityId: router.activeCityId,
-            activeShopId: router.activeShopId,
-            targetShopVat: router.targetShopVat,
-            currentCityTab: router.currentCityTab,
-            activeStaticPage: router.activeStaticPage,
-            activePreview: router.activePreview,
-            
-            // Virtual City
-            virtualCity,
-            isBuildingVirtual,
-            
-            // Filters
-            selectedZone,
-            activeCategories,
-            selectedSeason,
-            
-            // Actions
-            navigateToCity,
-            openShop: router.openShop,
-            openShopFromPoi: router.openShopFromPoi,
-            goBack,
-            goHome,
-            handleNavigateGlobal,
-            handleAroundMeTrigger,
-            handleMergeCities,
-            resolveCityIdFromSlug,
-            
-            // Setters
-            setViewMode: router.setViewMode,
-            setCurrentCityTab: router.setCurrentCityTab,
-            setActiveStaticPage: router.setActiveStaticPage,
-            setActivePreview: router.setActivePreview,
-            setSelectedZone,
-            setActiveCategories,
-            setSelectedSeason
-        }}>
+        <NavigationContext.Provider value={value}>
             {children}
         </NavigationContext.Provider>
     );

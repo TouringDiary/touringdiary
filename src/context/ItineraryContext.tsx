@@ -1,7 +1,6 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef, useMemo } from 'react';
 import { Itinerary, ItineraryItem, PointOfInterest, PremadeItinerary, RoadbookDay, createEmptyItinerary } from '../types/index';
-import { User } from '../types/users';
 import { useUser } from './UserContext';
 import { ItineraryStorageManager } from '../services/itineraryStorageManager';
 import { randomUUID } from '../utils/runtimeId';
@@ -32,7 +31,7 @@ interface ItineraryContextType {
     clearItinerary: () => void;
     importPremadeItinerary: (template: PremadeItinerary, startDate?: string) => Promise<void>;
     findFreeSlot: (dayIndex: number) => string | null;
-    syncCloudDrafts: (userId: string) => Promise<void>;
+    syncCloudDrafts: () => Promise<void>;
 }
 
 const ItineraryContext = createContext<ItineraryContextType | undefined>(undefined);
@@ -79,8 +78,8 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
     }, [user?.id, clearItinerary]);
 
     // Sync manuale
-    const syncCloudDrafts = useCallback(async (userId: string) => {
-        if (!userId || userId === 'guest') return;
+    const syncCloudDrafts = useCallback(async () => {
+        if (!user?.id || user.id === 'guest') return;
         try {
             const projects = await ItineraryStorageManager.loadProjects(user);
             setSavedProjects(projects);
@@ -250,22 +249,22 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
 
     }, [user, itinerary.id]);
 
-    const addItem = (item: ItineraryItem) => {
+    const addItem = useCallback((item: ItineraryItem) => {
         setItinerary(prev => ({ ...prev, items: [...prev.items, item] }));
         setHighlightedItemId(item.id);
-    };
+    }, []);
 
-    const removeItem = (id: string) => {
+    const removeItem = useCallback((id: string) => {
         setItinerary(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
-    };
+    }, []);
 
-    const updateDayStyle = (dayIndex: number, colorClass: string) => {
+    const updateDayStyle = useCallback((dayIndex: number, colorClass: string) => {
         setItinerary(prev => ({ ...prev, dayStyles: { ...prev.dayStyles, [dayIndex]: colorClass } }));
-    };
+    }, []);
 
-    const updateRoadbook = (data: RoadbookDay[]) => {
+    const updateRoadbook = useCallback((data: RoadbookDay[]) => {
         setItinerary(prev => ({ ...prev, roadbook: data }));
-    };
+    }, []);
 
     const importPremadeItinerary = useCallback(async (template: PremadeItinerary, startDateOverride?: string) => {
         const newItems: ItineraryItem[] = [];
@@ -306,9 +305,9 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
             diaryNotes: null,
         });
         setActiveViaggioId(null);
-    }, [user.id]);
+    }, [user]);
 
-    const findFreeSlot = (dayIndex: number) => {
+    const findFreeSlot = useCallback((dayIndex: number) => {
         const dayItems = itinerary.items.filter(i =>
             i.dayIndex === dayIndex &&
             i.timeSlotStr &&
@@ -326,10 +325,49 @@ export const ItineraryProvider = ({ children }: { children?: ReactNode }) => {
         if (newH >= 24) newH = 23;
 
         return `${newH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-    };
+    }, [itinerary.items]);
+
+    const value = useMemo<ItineraryContextType>(() => ({
+        itinerary,
+        setItinerary,
+        savedProjects,
+        activeViaggioId,
+        saveProject,
+        loadProject,
+        deleteProject,
+        highlightDates,
+        setHighlightDates,
+        highlightedItemId,
+        setHighlightedItemId,
+        addItem,
+        removeItem,
+        updateDayStyle,
+        updateRoadbook,
+        clearItinerary,
+        importPremadeItinerary,
+        findFreeSlot,
+        syncCloudDrafts,
+    }), [
+        itinerary,
+        savedProjects,
+        activeViaggioId,
+        saveProject,
+        loadProject,
+        deleteProject,
+        highlightDates,
+        highlightedItemId,
+        addItem,
+        removeItem,
+        updateDayStyle,
+        updateRoadbook,
+        clearItinerary,
+        importPremadeItinerary,
+        findFreeSlot,
+        syncCloudDrafts,
+    ]);
 
     return (
-        <ItineraryContext.Provider value={{ itinerary, setItinerary, savedProjects, activeViaggioId, saveProject, loadProject, deleteProject, highlightDates, setHighlightDates, highlightedItemId, setHighlightedItemId, addItem, removeItem, updateDayStyle, updateRoadbook, clearItinerary, importPremadeItinerary, findFreeSlot, syncCloudDrafts }}>
+        <ItineraryContext.Provider value={value}>
             {children}
         </ItineraryContext.Provider>
     );

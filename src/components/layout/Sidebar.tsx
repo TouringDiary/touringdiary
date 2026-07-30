@@ -445,8 +445,8 @@ export const Sidebar = ({
                                             <div onClick={() => openModal('poiDetail', { poi: sponsorPoi })} className="bg-slate-900 rounded-xl border border-amber-500 hover:border-amber-400 transition-all cursor-pointer overflow-hidden relative group h-20 shadow-lg animate-in fade-in">
                                                 <ImageWithFallback src={sponsorPoi.imageUrl} alt={sponsorPoi.name} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
                                                 <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/50 to-transparent"></div>
-                                                <div className="absolute top-1.5 right-1.5 z-floating-panel"><span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg uppercase tracking-normal flex items-center gap-0.5 border border-yellow-100"><Award className="w-2.5 h-2.5" /> SPONSOR</span></div>
-                                                <div className="absolute top-1.5 left-3 z-floating-panel pr-16 max-w-full">
+                                                <div className="absolute top-1.5 right-1.5 z-local-overlay"><span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg uppercase tracking-normal flex items-center gap-0.5 border border-yellow-100"><Award className="w-2.5 h-2.5" /> SPONSOR</span></div>
+                                                <div className="absolute top-1.5 left-3 z-local-overlay pr-16 max-w-full">
                                                     <div className="mb-0.5"><StarRating value={sponsorPoi.rating} size="w-2.5 h-2.5" showValue={false} /></div>
                                                     <h4 className="text-white font-bold text-sm leading-tight truncate">{sponsorPoi.name}</h4>
                                                 </div>
@@ -499,8 +499,8 @@ export const Sidebar = ({
                                 <div onClick={() => openModal('poiDetail', { poi: sponsorPoi })} className="bg-slate-900 rounded-xl border border-amber-500 hover:border-amber-400 transition-all cursor-pointer overflow-hidden relative group h-20 shadow-lg animate-in fade-in">
                                     <ImageWithFallback src={sponsorPoi.imageUrl} alt={sponsorPoi.name} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
                                     <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/50 to-transparent"></div>
-                                    <div className="absolute top-1.5 right-1.5 z-floating-panel"><span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg uppercase tracking-normal flex items-center gap-0.5 border border-yellow-100"><Award className="w-2.5 h-2.5" /> SPONSOR</span></div>
-                                    <div className="absolute top-1.5 left-3 z-floating-panel pr-16 max-w-full">
+                                    <div className="absolute top-1.5 right-1.5 z-local-overlay"><span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg uppercase tracking-normal flex items-center gap-0.5 border border-yellow-100"><Award className="w-2.5 h-2.5" /> SPONSOR</span></div>
+                                    <div className="absolute top-1.5 left-3 z-local-overlay pr-16 max-w-full">
                                         <div className="mb-0.5"><StarRating value={sponsorPoi.rating} size="w-2.5 h-2.5" showValue={false} /></div>
                                         <h4 className="text-white font-bold text-sm leading-tight truncate">{sponsorPoi.name}</h4>
                                     </div>

@@ -1,14 +1,18 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type RefObject } from 'react';
 
 interface UseVirtualWindowProps {
-    containerRef: React.RefObject<HTMLElement>;
+    containerRef: RefObject<HTMLElement | null>;
     totalItems: number;
     itemHeight: number;
-    overscan?: number; // Numero di elementi buffer extra
+    overscan?: number;
 }
 
-export const useVirtualWindow = ({ containerRef, totalItems, itemHeight, overscan = 5 }: UseVirtualWindowProps) => {
+export const useVirtualWindow = ({
+    containerRef,
+    totalItems,
+    itemHeight,
+    overscan = 5,
+}: UseVirtualWindowProps) => {
     const [scrollTop, setScrollTop] = useState(0);
     const [containerHeight, setContainerHeight] = useState(0);
 
@@ -16,56 +20,52 @@ export const useVirtualWindow = ({ containerRef, totalItems, itemHeight, oversca
         const element = containerRef.current;
         if (!element) return;
 
+        let scrollRafId = 0;
+
         const handleScroll = () => {
-            requestAnimationFrame(() => {
+            cancelAnimationFrame(scrollRafId);
+            scrollRafId = requestAnimationFrame(() => {
                 setScrollTop(element.scrollTop);
             });
         };
 
-        const handleResize = () => {
+        const updateHeight = () => {
             setContainerHeight(element.clientHeight);
         };
 
-        // Inizializzazione
-        handleResize();
-
+        updateHeight();
+        setScrollTop(element.scrollTop);
         element.addEventListener('scroll', handleScroll);
-        window.addEventListener('resize', handleResize);
+        window.addEventListener('resize', updateHeight);
+
+        const resizeObserver = new ResizeObserver(() => {
+            updateHeight();
+        });
+        resizeObserver.observe(element);
 
         return () => {
+            cancelAnimationFrame(scrollRafId);
             element.removeEventListener('scroll', handleScroll);
-            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('resize', updateHeight);
+            resizeObserver.disconnect();
         };
-    }, [containerRef]);
+        // totalItems: re-bind when the scroll container mounts/unmounts with virtualization
+    }, [containerRef, totalItems]);
 
     const { startIndex, endIndex, totalListHeight, paddingTop, paddingBottom } = useMemo(() => {
-        const totalListHeight = totalItems * itemHeight;
-
-        // Calcolo indici visibili
+        const height = totalItems * itemHeight;
         let start = Math.floor(scrollTop / itemHeight);
         let end = Math.ceil((scrollTop + containerHeight) / itemHeight);
-
-        // Aggiunta Buffer (Overscan)
         start = Math.max(0, start - overscan);
         end = Math.min(totalItems, end + overscan);
-
-        const paddingTop = start * itemHeight;
-        const paddingBottom = Math.max(0, totalListHeight - (end * itemHeight));
-
         return {
             startIndex: start,
             endIndex: end,
-            totalListHeight,
-            paddingTop,
-            paddingBottom
+            totalListHeight: height,
+            paddingTop: start * itemHeight,
+            paddingBottom: Math.max(0, height - end * itemHeight),
         };
     }, [scrollTop, containerHeight, totalItems, itemHeight, overscan]);
 
-    return {
-        startIndex,
-        endIndex,
-        paddingTop,
-        paddingBottom,
-        totalListHeight
-    };
+    return { startIndex, endIndex, paddingTop, paddingBottom, totalListHeight };
 };

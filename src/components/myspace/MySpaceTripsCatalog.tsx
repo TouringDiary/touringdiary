@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Map, Calendar, Plus, Trash2 } from 'lucide-react';
+import { Calendar, Map, Plus, Trash2 } from 'lucide-react';
 import type { CitySummary } from '@/types';
 import type { Viaggio } from '@/types/models/Viaggio';
 import { createEmptyViaggio, listViaggiByUser } from '@/services/viaggio/viaggioService';
@@ -27,6 +27,7 @@ import { MySpaceViaggioCoverPreview } from './MySpaceViaggioCoverPreview';
 import { MySpaceViaggioDeleteModal } from './MySpaceViaggioDeleteModal';
 import { ViaggioRicordamiControl } from './ViaggioRicordamiControl';
 import { SwipeToDelete } from '@/components/common/SwipeToDelete';
+import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 
 interface Props {
   userId: string;
@@ -117,47 +118,46 @@ function ViaggioRow({
           }
         }}
         className="min-w-0 flex-1 text-left self-center outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 rounded-xl"
+        aria-label={`Apri viaggio ${v.title || 'Viaggio'}`}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <span className="block text-sm font-bold text-white truncate group-hover:text-amber-300 transition-colors">
-              {v.title || 'Viaggio'}
-            </span>
-            <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400">
-              {cityLabel && (
-                <span className="truncate max-w-full sm:max-w-[14rem]">{cityLabel}</span>
-              )}
-              {(startLabel || endLabel) && (
-                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-500">
-                  {startLabel && (
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="w-3 h-3" aria-hidden />
-                      {startLabel}
-                    </span>
-                  )}
-                  {endLabel && (
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="w-3 h-3" aria-hidden />
-                      {endLabel}
-                    </span>
-                  )}
-                </span>
-              )}
-              {!startLabel && !endLabel && (
-                <span className="text-slate-600">Periodo non impostato</span>
-              )}
-            </span>
-          </div>
-
-          <div className="shrink-0 self-start">
-            <ViaggioRicordamiControl
-              viaggio={v}
-              notificationsSiteEnabled={notificationsSiteEnabled}
-              onUpdated={onUpdated}
-              compact
-            />
-          </div>
+        <div className="min-w-0">
+          <span className="block text-sm font-bold text-white truncate group-hover:text-amber-300 transition-colors">
+            {v.title || 'Viaggio'}
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400">
+            {cityLabel && (
+              <span className="truncate max-w-full sm:max-w-[14rem]">{cityLabel}</span>
+            )}
+            {(startLabel || endLabel) && (
+              <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-500">
+                {startLabel && (
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="w-3 h-3" aria-hidden />
+                    {startLabel}
+                  </span>
+                )}
+                {endLabel && (
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="w-3 h-3" aria-hidden />
+                    {endLabel}
+                  </span>
+                )}
+              </span>
+            )}
+            {!startLabel && !endLabel && (
+              <span className="text-slate-600">Periodo non impostato</span>
+            )}
+          </span>
         </div>
+      </div>
+
+      <div className="shrink-0 self-start pt-0.5">
+        <ViaggioRicordamiControl
+          viaggio={v}
+          notificationsSiteEnabled={notificationsSiteEnabled}
+          onUpdated={onUpdated}
+          compact
+        />
       </div>
 
       <div className="shrink-0 self-center">
@@ -269,6 +269,9 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
       return;
     }
 
+    // Doppio update intenzionale di citiesByViaggioId:
+    // 1) seed sincrono con la città principale dal manifest → UI subito popolata (no flicker)
+    // 2) refresh asincrono via listCityIdsForViaggio() → lista completa delle città del viaggio
     const seed: Record<string, CitySummary[]> = {};
     for (const v of items) {
       const primary = v.destination
@@ -369,18 +372,34 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
       const created = await createEmptyViaggio(userId, 'Nuovo viaggio', {
         ricordamiEnabled: siteNotificationsOn,
       });
+      if (!mountedRef.current) return;
       onOpenViaggio(created.id);
-      void loadViaggi();
+      // Navigazione immediata: evita reload catalogo non più montato/visibile.
     } catch (e) {
       console.error('[MySpaceTripsCatalog] createEmptyViaggio failed', e);
+      if (!mountedRef.current) return;
       setError('Creazione viaggio non riuscita.');
     } finally {
-      setCreating(false);
+      if (mountedRef.current) setCreating(false);
     }
   };
 
   const patchItem = (next: Viaggio) => {
     setItems((prev) => prev.map((x) => (x.id === next.id ? next : x)));
+    setCitiesByViaggioId((prev) => {
+      const current = prev[next.id];
+      if (!current) return prev;
+      const primary = next.destination
+        ? findCityInManifest(next.destination, cityManifest)
+        : undefined;
+      if (!primary) {
+        if (current.length === 0) return prev;
+        return { ...prev, [next.id]: [] };
+      }
+      const withoutPrimary = current.filter((c) => c.id !== primary.id);
+      const nextCities = [primary, ...withoutPrimary];
+      return { ...prev, [next.id]: nextCities };
+    });
   };
 
   const confirmDelete = async () => {
@@ -390,26 +409,39 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
       await deleteViaggio(id);
       setDeleteTarget(null);
       setItems((prev) => prev.filter((x) => x.id !== id));
+      setCitiesByViaggioId((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (e) {
       console.error('[MySpaceTripsCatalog] deleteViaggio failed', e);
       // Dialog resta aperta: l’utente può riprovare o annullare.
     }
   };
 
-  const renderGroup = (title: string, list: Viaggio[], testId: string) => {
-    if (list.length === 0) return null;
-    return (
-      <section className="min-w-0" data-testid={testId}>
-        <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-          {title}
-        </h3>
+  const renderGroup = (title: string, list: Viaggio[], testId: string, emptyMessage: string) => (
+    <section className="min-w-0" data-testid={testId}>
+      <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+        {title}
+      </h3>
+      {list.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/30 px-4 py-8 text-center">
+          <p className="text-xs text-slate-500 leading-relaxed">{emptyMessage}</p>
+        </div>
+      ) : (
         <ul className="space-y-2">
           {list.map((v) => {
-            const primaryCity = v.destination
-              ? findCityInManifest(v.destination, cityManifest)
-              : undefined;
+            const cached = citiesByViaggioId[v.id];
             const citiesForThumb =
-              citiesByViaggioId[v.id] ?? (primaryCity ? [primaryCity] : []);
+              cached ??
+              (v.destination
+                ? (() => {
+                    const primaryCity = findCityInManifest(v.destination, cityManifest);
+                    return primaryCity ? [primaryCity] : [];
+                  })()
+                : []);
             return (
               <ViaggioRow
                 key={v.id}
@@ -426,9 +458,9 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
             );
           })}
         </ul>
-      </section>
-    );
-  };
+      )}
+    </section>
+  );
 
   return (
     <div
@@ -438,23 +470,26 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
       data-testid="myspace-trips-catalog"
       className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6"
     >
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <p className="text-xs text-slate-500">
-          {loading ? 'Caricamento…' : `${items.length} viaggi`}
-        </p>
-        <div className="flex items-center gap-3">
-          <SortSelect value={sortMode} onChange={handleSortChange} />
-          <button
-            type="button"
-            onClick={handleCreateEmpty}
-            disabled={creating || loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-amber-300 border border-amber-500/40 hover:bg-amber-500/10 disabled:opacity-50 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" aria-hidden />
-            Nuovo
-          </button>
-        </div>
-      </div>
+      <MySpaceSectionHeader
+        icon={Map}
+        title="I miei Viaggi"
+        description={loading ? 'Caricamento…' : `${items.length} viaggi`}
+        iconClassName="w-4 h-4 text-amber-300 shrink-0"
+        actions={
+          <div className="flex items-center gap-3">
+            <SortSelect value={sortMode} onChange={handleSortChange} />
+            <button
+              type="button"
+              onClick={handleCreateEmpty}
+              disabled={creating || loading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-amber-300 border border-amber-500/40 hover:bg-amber-500/10 disabled:opacity-50 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" aria-hidden />
+              Nuovo
+            </button>
+          </div>
+        }
+      />
 
       {error && (
         <p className="text-sm text-rose-400 mb-4" role="alert">
@@ -462,18 +497,19 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
         </p>
       )}
 
-      {!loading && items.length === 0 && !error && (
-        <div className="flex flex-col items-center justify-center text-center py-16 px-4">
-          <Map className="w-10 h-10 text-slate-700 mb-3 opacity-60" aria-hidden />
-          <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
-            Qui troverai i tuoi viaggi. Puoi crearne uno vuoto quando sei pronto.
-          </p>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-        {renderGroup('Prossimi Viaggi', upcoming, 'myspace-trips-upcoming')}
-        {renderGroup('Viaggi Passati', past, 'myspace-trips-past')}
+        {renderGroup(
+          'Prossimo Viaggio',
+          upcoming,
+          'myspace-trips-upcoming',
+          'Nessun viaggio in programma. Crea un nuovo viaggio quando sei pronto.',
+        )}
+        {renderGroup(
+          'Viaggio Concluso',
+          past,
+          'myspace-trips-past',
+          'Nessun viaggio concluso. I viaggi passati compariranno qui.',
+        )}
       </div>
 
       {cityPickList && cityPickList.length > 0 && (

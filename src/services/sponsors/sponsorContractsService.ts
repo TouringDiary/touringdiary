@@ -61,6 +61,31 @@ export const fetchSponsorsByCityAsync = async (cityId: string): Promise<PointOfI
 };
 
 /**
+ * Batch: sponsor attivi per più città (Around Me). Stessa SoT di fetchActiveSponsorsResolvedAsync.
+ */
+export const fetchSponsorsByCityIdsAsync = async (cityIds: string[]): Promise<PointOfInterest[]> => {
+    if (cityIds.length === 0) return [];
+    const today = getTodayDateString();
+
+    const { data, error } = await supabase
+        .from('sponsors')
+        .select(SPONSOR_PUBLIC_VITRINE_SELECT)
+        .eq('status', 'approved')
+        .lte('start_date', today)
+        .gte('end_date', today)
+        .in('city_id', cityIds);
+
+    if (error) {
+        console.error('[SponsorService] Error fetching sponsors by city ids:', error.message);
+        return [];
+    }
+
+    return (data ?? [])
+        .map((row) => mapResolvedSponsor(normalizeJoinedSponsorRow(row)))
+        .map(convertSponsorToPoi);
+};
+
+/**
  * Recupera gli sponsor di tipo guida di una città mappandoli come PointOfInterest.
  */
 export const getActiveGuideSponsors = async (cityId: string): Promise<PointOfInterest[]> => {

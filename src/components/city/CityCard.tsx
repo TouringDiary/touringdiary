@@ -11,6 +11,7 @@ import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { useUser } from '@/context/UserContext';
 import { useModal } from '@/context/ModalContext';
 import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
+import { FAVORITES_UI_LABELS } from '@/myspace/favoritesUiLabels';
 
 interface CityCardProps {
     city: CitySummary;
@@ -104,19 +105,6 @@ export const CityCard: React.FC<CityCardProps> = ({ city, onClick, userLocation,
                 <div className="absolute top-0 left-0 z-home-card-overlay">
                     <VisitorMiniBadge visitors={city.visitors} />
                 </div>
-                <div
-                    className={`absolute z-home-card-overlay ${badge ? 'top-7 right-1' : 'top-1 right-1'}`}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <FavoriteBookmarkButton
-                        userId={user?.role === 'guest' ? null : user?.id}
-                        entityKind="city"
-                        entityId={city.id}
-                        onRequireAuth={() => openModal('auth')}
-                        size="sm"
-                        className="!bg-black/70 backdrop-blur-sm shadow-lg"
-                    />
-                </div>
                 {badge && (
                     <div className="absolute top-0 right-0 z-home-card-overlay group-hover:scale-110 transition-transform origin-top-right">
                         <div className={`px-2 py-1 text-[8px] md:text-[9px] font-bold uppercase leading-tight text-center shadow-md rounded-bl-lg ${badge.style}`}>{badge.text}</div>
@@ -129,9 +117,22 @@ export const CityCard: React.FC<CityCardProps> = ({ city, onClick, userLocation,
 
             <div className="p-2 flex flex-col flex-1 justify-between bg-slate-900 relative">
                 <div className="min-h-0 overflow-hidden flex flex-col justify-center h-full">
-                    <h4 className={`${cardTitleStyle} group-hover:text-amber-400 transition-colors truncate w-full`}>
-                        {city.name}
-                    </h4>
+                    <div className="flex items-center justify-between gap-1 min-w-0">
+                        <h4 className={`${cardTitleStyle} group-hover:text-amber-400 transition-colors truncate flex-1 min-w-0`}>
+                            {city.name}
+                        </h4>
+                        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <FavoriteBookmarkButton
+                                userId={user?.role === 'guest' ? null : user?.id}
+                                entityKind="city"
+                                entityId={city.id}
+                                onRequireAuth={() => openModal('auth')}
+                                size="sm"
+                                titleWhenFavorite={FAVORITES_UI_LABELS.cityWhenFavorite}
+                                className="!bg-slate-800/80 max-md:!p-1 max-md:[&_svg]:!w-3 max-md:[&_svg]:!h-3"
+                            />
+                        </div>
+                    </div>
                     <p className={`${cardSubStyle} mb-0.5 truncate mt-0.5`}>
                         {city.zone}
                     </p>

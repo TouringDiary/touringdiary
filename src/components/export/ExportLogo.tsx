@@ -1,21 +1,42 @@
 import React from 'react';
 
+/** ViewBox / dimensioni intrinseche del logo completo (proporzioni export). */
+export const EXPORT_LOGO_VIEWBOX_WIDTH = 400;
+export const EXPORT_LOGO_VIEWBOX_HEIGHT = 56;
+
+/** ViewBox / dimensioni intrinseche della sola icona globo (1:1 col disegno SVG). */
+export const EXPORT_LOGO_ICON_VIEWBOX_WIDTH = 58;
+export const EXPORT_LOGO_ICON_VIEWBOX_HEIGHT = 52;
+
 interface ExportLogoProps {
     width?: number | string;
     height?: number | string;
+    /** Solo icona globo (per rasterizzazione canvas del testo con font Home). */
+    iconOnly?: boolean;
 }
 
 /**
  * Logo SVG statico utilizzato negli export PDF/DOCX.
- * È progettato per essere rasterizzato senza problemi di layout e per
- * essere visivamente identico al logo del sito.
+ * Tipografia allineata alla Home: Playfair Display (TOURING) + Caveat (Diary).
+ *
+ * Invariant: `width`/`height` devono rispettare il viewBox attivo, altrimenti
+ * il browser scala il contenuto in un bitmap con aspect ratio errato.
  */
-export const ExportLogo: React.FC<ExportLogoProps> = ({ width = 360, height = 52 }) => {
+export const ExportLogo: React.FC<ExportLogoProps> = ({
+    width,
+    height,
+    iconOnly = false,
+}) => {
+    const viewBoxWidth = iconOnly ? EXPORT_LOGO_ICON_VIEWBOX_WIDTH : EXPORT_LOGO_VIEWBOX_WIDTH;
+    const viewBoxHeight = iconOnly ? EXPORT_LOGO_ICON_VIEWBOX_HEIGHT : EXPORT_LOGO_VIEWBOX_HEIGHT;
+    const resolvedWidth = width ?? viewBoxWidth;
+    const resolvedHeight = height ?? viewBoxHeight;
+
     return (
         <svg
-            width={width}
-            height={height}
-            viewBox="0 0 360 52"
+            width={resolvedWidth}
+            height={resolvedHeight}
+            viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
         >
@@ -56,31 +77,35 @@ export const ExportLogo: React.FC<ExportLogoProps> = ({ width = 360, height = 52
                 </g>
             </g>
 
-            {/* TOURING */}
-            <text
-                x="65"
-                y="38"
-                fontFamily="'Plus Jakarta Sans', sans-serif"
-                fontSize="29"
-                fontWeight="800"
-                fill="#000000"
-                letterSpacing="-1.2"
-            >
-                TOURING
-            </text>
+            {!iconOnly && (
+                <>
+                    {/* TOURING — stesso font della Home (Playfair Display), +2 rispetto alla versione precedente */}
+                    <text
+                        x="65"
+                        y="40"
+                        fontFamily="'Playfair Display', Georgia, serif"
+                        fontSize="31"
+                        fontWeight="900"
+                        fill="#0f172a"
+                        letterSpacing="1.5"
+                    >
+                        TOURING
+                    </text>
 
-            {/* Diary - Stile corsivo applicato */}
-            <text
-                x="220"
-                y="42"
-                fontFamily="'Caveat', cursive"
-                fontSize="34"
-                fontWeight="700"
-                fill="#F59E0B"
-                fontStyle="italic"
-            >
-                Diary
-            </text>
+                    {/* Diary — corsivo arancione (Caveat), allineato allo stile ufficiale export */}
+                    <text
+                        x="235"
+                        y="44"
+                        fontFamily="'Caveat', cursive"
+                        fontSize="36"
+                        fontWeight="700"
+                        fill="#F59E0B"
+                        fontStyle="italic"
+                    >
+                        Diary
+                    </text>
+                </>
+            )}
         </svg>
     );
 };

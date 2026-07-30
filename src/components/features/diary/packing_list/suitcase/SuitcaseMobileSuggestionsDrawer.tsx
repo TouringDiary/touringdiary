@@ -44,7 +44,7 @@ const TOGGLE_BAR_CLASS =
  */
 export const SuitcaseMobileSuggestionsDrawer: React.FC<SuitcaseMobileSuggestionsDrawerProps> = ({
   children,
-  title = 'Suggerimenti',
+  title = 'e-Commerce',
   isOpen,
   onToggle,
   collapsedLayout = 'overlay',
@@ -62,12 +62,12 @@ export const SuitcaseMobileSuggestionsDrawer: React.FC<SuitcaseMobileSuggestions
       onClick={onToggle}
       className={`${TOGGLE_BAR_CLASS} border-t ${collapsedLayout === 'docked' ? 'h-9' : 'h-11 shadow-md'}`}
       aria-expanded={false}
-      aria-label="Mostra suggerimenti"
-      title="Mostra suggerimenti"
+      aria-label="Mostra e-Commerce"
+      title="Mostra e-Commerce"
     >
       <ChevronUp className="w-4 h-4 text-amber-500 shrink-0" />
       <span className="font-handwriting text-lg font-bold text-white pt-0.5 truncate">
-        Mostra suggerimenti
+        Mostra e-Commerce
       </span>
       <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
     </button>
@@ -100,12 +100,12 @@ export const SuitcaseMobileSuggestionsDrawer: React.FC<SuitcaseMobileSuggestions
               onClick={onToggle}
               className={`${TOGGLE_BAR_CLASS} h-11 border-b shrink-0 shadow-md`}
               aria-expanded
-              aria-label="Nascondi suggerimenti"
-              title="Nascondi suggerimenti"
+              aria-label="Nascondi e-Commerce"
+              title="Nascondi e-Commerce"
             >
               <ChevronDown className="w-4 h-4 text-amber-500 shrink-0" />
               <span className="font-handwriting text-lg font-bold text-white pt-0.5 truncate">
-                Nascondi suggerimenti
+                Nascondi e-Commerce
               </span>
               <ChevronDown className="w-4 h-4 text-amber-500 shrink-0" />
             </button>

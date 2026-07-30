@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useEffect, useRef, useState, useCallback, Suspense } from 'react';
 import { CheckCircle, Trophy, RefreshCw } from 'lucide-react';
 import { PointOfInterest, User, CitySummary } from '@/types';
 import { getDaysArray } from '@/utils/common';
@@ -9,7 +9,6 @@ import { useDiaryLogic } from '@/hooks/useDiaryLogic';
 import { isNotesTab } from '@/domain/diary/diaryActiveTab';
 import { DiaryHeader } from './DiaryHeader';
 import { DiaryTimeline } from './DiaryTimeline';
-import { DiaryNotesPanel } from './notes';
 import { DiaryEmptyState } from './DiaryEmptyState';
 import { DiaryModals } from './DiaryModals';
 import { SuitcaseToast } from './packing_list/SuitcaseFloatingPanel/components/SuitcaseToast';
@@ -25,6 +24,10 @@ import { CollaborationLiveBar } from '@/components/collaboration/live/Collaborat
 import { CollaborationLockBanner } from '@/components/collaboration/live/CollaborationLockBanner';
 import { useAreRewardsEnabled } from '@/hooks/useAreRewardsEnabled';
 import { REWARDS_FREEZE_XP_NOTICE } from '@/domain/gamification/rewardsGate';
+
+const DiaryNotesPanel = React.lazy(() =>
+    import('./notes/DiaryNotesPanel').then((module) => ({ default: module.DiaryNotesPanel })),
+);
 
 interface TravelDiaryProps {
     user: User;
@@ -384,11 +387,13 @@ const TravelDiaryContent = ({
                                 className={`w-full min-w-0 h-full flex flex-col min-h-0 max-w-full md:max-w-5xl md:mx-auto select-text ${isNotesActive ? '' : 'hidden'}`}
                                 aria-hidden={!isNotesActive}
                             >
-                                <DiaryNotesPanel
-                                    isActive={isNotesActive}
-                                    notesState={itinerary.diaryNotes}
-                                    onNotesStateChange={actions.handleDiaryNotesChange}
-                                />
+                                <Suspense fallback={null}>
+                                    <DiaryNotesPanel
+                                        isActive={isNotesActive}
+                                        notesState={itinerary.diaryNotes}
+                                        onNotesStateChange={actions.handleDiaryNotesChange}
+                                    />
+                                </Suspense>
                             </div>
                         )}
                         {!isNotesActive && (

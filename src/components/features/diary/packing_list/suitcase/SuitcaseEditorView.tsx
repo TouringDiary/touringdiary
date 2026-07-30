@@ -1,13 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Plus, FolderX, Check, Package, ChevronUp, ChevronDown, Eye, CheckSquare, CloudOff } from 'lucide-react';
 import {
-  ItemCategoryIcon,
   filterCategoriesByStatus,
   getIncompleteItemCount,
   getSuitcaseItemProgress,
   CategoryStatusFilter,
-  SUITCASE_CATEGORY_SECTION_SHELL_CLASS,
-  SUITCASE_CATEGORY_SECTION_HEADER_CLASS,
 } from './SuitcaseUtils';
 import { buildGroupedItemsByCategory } from '@/domain/packing/itemDisplayOrder';
 import {
@@ -25,19 +21,16 @@ import { Suitcase, SuitcaseItem, RuntimeAffiliateProduct } from '@/types/suitcas
 import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
 import { AiSuggestion, AiQuotaFeedback } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
 import { GetAiCandidatesOptions } from '@/hooks/useSuitcaseSystem';
-import { SuitcaseItemRow } from './SuitcaseItemRow';
-import { SwipeToDelete } from '@/components/common/SwipeToDelete';
 import { CategorySuggestionPanel } from './CategorySuggestionPanel';
 import { SuitcaseSidePanel } from './SuitcaseSidePanel';
 import { SuitcaseMobileSuggestionsDrawer } from './SuitcaseMobileSuggestionsDrawer';
-import { normalizeItemName } from '@/utils/tagDerivation';
 import { SuitcaseToast } from '../SuitcaseFloatingPanel/components/SuitcaseToast';
 import { AiSuggestionsModal } from './AiSuggestionsModal';
 import { SuitcaseEditorToolbar } from './SuitcaseEditorToolbar';
-import { HiddenCategoriesPanel } from './HiddenCategoriesPanel';
-import { OptionalCategoriesPanel } from './OptionalCategoriesPanel';
-import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
 import { NewCategoryPanel } from './NewCategoryPanel';
+import { CategorySection } from './CategorySection';
+import { CategoryPanelsHeader } from './CategoryPanelsHeader';
+import { GuestDraftBanner } from './GuestDraftBanner';
 import { isTdTemplate, getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
 import { CategorySetupMap } from '@/types/packingCatalog';
 import {
@@ -645,72 +638,17 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           {/* Toast localizzato sopra la lista */}
           <SuitcaseToast {...toast} />
 
-        {showGuestWarning && (
-          <div
-            role="status"
-            className="rounded-2xl border border-slate-600/25 bg-slate-950/50 backdrop-blur-sm px-4 py-4 shadow-lg shadow-black/20 ring-1 ring-white/5 animate-in fade-in slide-in-from-top-2 duration-500"
-          >
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-slate-800/60 border border-white/5 flex items-center justify-center shrink-0 shadow-inner">
-                <CloudOff className="w-4 h-4 text-slate-400" aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1 pt-0.5">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
-                    {guestDraftIsTemplate ? 'Template temporaneo' : 'Valigia temporanea'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-slate-800/80 border border-white/5 text-[8px] font-black uppercase tracking-widest text-slate-500">
-                    Non salvato
-                  </span>
-                </div>
-                <p className="text-[11px] font-medium text-slate-400 leading-relaxed">
-                  {guestDraftIsTemplate
-                    ? 'Effettua il login per salvare questo template.'
-                    : 'Effettua il login per salvare questa valigia.'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {showGuestWarning && <GuestDraftBanner isTemplate={guestDraftIsTemplate} />}
 
-        {/* Mobile (<md): "Categorie disponibili" e "Categorie nascoste" sono SEMPRE presenti
-            all'inizio del contenuto scrollabile, identiche a Template/desktop (gli stessi pannelli
-            condivisi gestiscono già lo stato vuoto con "Nessuna categoria"). Niente guard sui dati,
-            così Valigie e Template si comportano allo stesso modo. Non sono sticky: scorrono col
-            contenuto. */}
-        <div className="grid grid-cols-1 gap-3 md:hidden">
-          <OptionalCategoriesPanel
-            categories={availableOptionalCategories}
-            onActivate={handleActivateOptional}
-            readOnly={categorySectionsReadOnly}
-          />
-          <HiddenCategoriesPanel
-            categories={hiddenCategoriesList}
-            onRestore={handleRestoreHiddenCategory}
-            onRestoreAll={handleShowAllHidden}
-            readOnly={categorySectionsReadOnly}
-          />
-        </div>
-
-        <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 items-stretch">
-          <OptionalCategoriesPanel
-            categories={availableOptionalCategories}
-            onActivate={handleActivateOptional}
-            readOnly={categorySectionsReadOnly}
-          />
-          <HiddenCategoriesPanel
-            categories={hiddenCategoriesList}
-            onRestore={handleRestoreHiddenCategory}
-            onRestoreAll={handleShowAllHidden}
-            readOnly={categorySectionsReadOnly}
-          />
-          <SuitcaseToolbarProgressBox
-            checkedCount={suitcaseProgress.checked}
-            totalCount={suitcaseProgress.total}
-            progressPerc={suitcaseProgress.percentage}
-            variant="panels"
-          />
-        </div>
+        <CategoryPanelsHeader
+          availableOptionalCategories={availableOptionalCategories}
+          hiddenCategoriesList={hiddenCategoriesList}
+          readOnly={categorySectionsReadOnly}
+          onActivateOptional={handleActivateOptional}
+          onRestoreHidden={handleRestoreHiddenCategory}
+          onRestoreAllHidden={handleShowAllHidden}
+          progress={suitcaseProgress}
+        />
 
         {isAddingNewCategory && !readOnly && (
           <NewCategoryPanel
@@ -730,168 +668,67 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
         <div className="suitcase-category-sections space-y-4">
         {filteredVisibleCategories.map((cat) => {
           const items = groupedItems[cat.name] ?? [];
-          const catCheckedCount = items.filter(i => i.is_checked).length;
-          const catTotalCount = items.length;
-          const catPerc = catTotalCount > 0 ? Math.round((catCheckedCount / catTotalCount) * 100) : 0;
-          const isCatComplete = catTotalCount > 0 && catCheckedCount === catTotalCount;
-
+          const checked = items.filter((i) => i.is_checked).length;
+          const total = items.length;
+          const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
           return (
-            <div
+            <CategorySection
               key={cat.id}
-              data-category-id={cat.id}
-              ref={(el) => {
+              category={cat}
+              items={items}
+              categoryProgress={{
+                checked,
+                total,
+                percentage,
+                isComplete: total > 0 && checked === total,
+              }}
+              readOnly={!!readOnly}
+              highlighted={highlightedCategoryId === cat.id}
+              visibleCategoryIds={visibleCategoryIds}
+              sectionRef={(el) => {
                 categorySectionRefs.current[cat.id] = el;
               }}
-              className={`${SUITCASE_CATEGORY_SECTION_SHELL_CLASS} group/section scroll-mt-4 transition-shadow duration-300 overflow-visible ${
-                highlightedCategoryId === cat.id
-                  ? 'ring-2 ring-indigo-500/60 shadow-indigo-500/20'
-                  : ''
-              }`}
-            >
-            {/* Category Header Bar */}
-            <div className={SUITCASE_CATEGORY_SECTION_HEADER_CLASS}>
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className="flex flex-col gap-px shrink-0 rounded-md border border-white/10 p-px"
-                  role="group"
-                  aria-label="Ordine categoria"
-                >
-                  <button
-                    onClick={() => !readOnly && moveCategory(cat.id, 'up', visibleCategoryIds)}
-                    disabled={readOnly || visibleCategoryIds.indexOf(cat.id) <= 0}
-                    className="w-7 h-7 rounded bg-slate-900/50 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                    title={readOnly ? 'Non disponibile in sola lettura' : 'Sposta categoria su'}
-                  >
-                    <ChevronUp className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => !readOnly && moveCategory(cat.id, 'down', visibleCategoryIds)}
-                    disabled={readOnly || visibleCategoryIds.indexOf(cat.id) >= visibleCategoryIds.length - 1}
-                    className="w-7 h-7 rounded bg-slate-900/50 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                    title={readOnly ? 'Non disponibile in sola lettura' : 'Sposta categoria giù'}
-                  >
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
-                </div>
-                <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-white/5 shadow-lg shadow-indigo-500/5 shrink-0">
-                  <ItemCategoryIcon category={cat.name} iconKey={cat.icon_key} className="w-5.5 h-5.5" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <h4 className="text-[13px] md:text-[15px] uppercase font-semibold text-slate-200 tracking-wide leading-none mb-1 truncate">{cat.name}</h4>
-                  <div className="flex items-center gap-1.5">
-                    <CheckSquare className={`w-3 h-3 shrink-0 ${isCatComplete ? 'text-emerald-500' : 'text-indigo-400'}`} />
-                    <span className="text-[10px] text-slate-300 font-black uppercase tracking-widest">
-                      {catCheckedCount}/{catTotalCount} <span className="opacity-40 mx-0.5">•</span> {catPerc}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 md:gap-2 shrink-0">
-                  <button
-                    onClick={() => !readOnly && setActiveCategoryForAdd(cat.name === activeCategoryForAdd ? null : cat.name)}
-                    disabled={readOnly}
-                    className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-white/10 text-indigo-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    title={readOnly ? 'Non disponibile in sola lettura' : 'Aggiungi oggetto'}
-                  >
-                    <Plus className="w-4 h-4 md:w-4.5 md:h-4.5" />
-                  </button>
-                  <button
-                    onClick={() => !readOnly && toggleCategory(cat.id)}
-                    disabled={readOnly}
-                    className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-amber-500/10 text-amber-400/80 hover:text-amber-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-amber-400/80"
-                    title={readOnly ? 'Non disponibile in sola lettura' : 'Nascondi categoria'}
-                  >
-                    <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  </button>
-                  <button
-                    onClick={() =>
-                      !readOnly &&
-                      onDeleteCategory?.({
+              selection={{
+                highlightItemId,
+                selectedItemName,
+                onSelectItem,
+              }}
+              itemActions={{
+                overrides,
+                moveTargets: visibleCategories.filter((target) => target.name !== cat.name),
+                onUpdateItem,
+                onDeleteItem,
+                onLinkBuildSearch,
+              }}
+              drag={{
+                dropTarget,
+                onSwapItemsInCategory,
+                handleItemDragStart,
+                handleItemDragOver,
+                handleItemDragLeave,
+                handleItemDrop,
+                resetItemDragState,
+              }}
+              activeCategoryForAdd={activeCategoryForAdd}
+              newItemName={newItemName}
+              onNewItemNameChange={setNewItemName}
+              onToggleAdd={() =>
+                setActiveCategoryForAdd(cat.name === activeCategoryForAdd ? null : cat.name)
+              }
+              onConfirmAdd={() => handleAdd(cat.name)}
+              onMoveCategory={(direction) => moveCategory(cat.id, direction, visibleCategoryIds)}
+              onHideCategory={() => toggleCategory(cat.id)}
+              onDeleteCategory={
+                onDeleteCategory
+                  ? () =>
+                      onDeleteCategory({
                         id: cat.id,
                         name: cat.name,
                         source: cat.source,
                       })
-                    }
-                    disabled={readOnly}
-                    className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-slate-400"
-                    title={readOnly ? 'Non disponibile in sola lettura' : 'Elimina definitivamente la categoria'}
-                  >
-                    <FolderX className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-500" />
-                  </button>
-              </div>
-            </div>
-
-              <div className="p-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {items.map((item, itemIndex) => {
-                    // Regola di dominio: lo swipe-to-delete (mobile/tablet < lg → ItemDeleteConfirmationModal)
-                    // è attivo solo sugli oggetti normali ed editabili. I suggerimenti AI mantengono i
-                    // controlli espliciti Accetta/Rifiuta; in sola lettura non si elimina nulla.
-                    const canSwipeDelete = !readOnly && !item.is_ai_suggestion;
-                    return (
-                    <SwipeToDelete
-                      key={item.id}
-                      className="rounded-xl"
-                      revealClassName="inset-y-[10%] rounded-xl"
-                      disabled={!canSwipeDelete}
-                      onDelete={() => onDeleteItem(item.id)}
-                    >
-                      <SuitcaseItemRow
-                        item={item}
-                        readOnly={readOnly}
-                        onUpdate={onUpdateItem}
-                        onDelete={onDeleteItem}
-                        highlightId={highlightItemId}
-                        override={overrides[normalizeItemName(item.name)]}
-                        onLinkBuildSearch={onLinkBuildSearch}
-                        isSelected={selectedItemName === item.name}
-                        onSelect={() => onSelectItem(item.name === selectedItemName ? null : item.name)}
-                        moveTargets={visibleCategories.filter((target) => target.name !== cat.name)}
-                        onMoveToCategory={(targetName) => onUpdateItem(item.id, { category: targetName })}
-                        reorderEnabled={!readOnly && !!onSwapItemsInCategory}
-                        isDragTarget={
-                          dropTarget?.categoryId === cat.id && dropTarget.index === itemIndex
-                        }
-                        onDragStart={handleItemDragStart(cat.id, item.id)}
-                        onDragOver={handleItemDragOver(cat.id, itemIndex)}
-                        onDragLeave={handleItemDragLeave(cat.id, itemIndex)}
-                        onDrop={handleItemDrop(cat.id, cat.name, itemIndex)}
-                        onDragEnd={resetItemDragState}
-                      />
-                    </SwipeToDelete>
-                    );
-                  })}
-
-                  {activeCategoryForAdd === cat.name && !readOnly && (
-                    <div className="flex items-center gap-2 p-2.5 rounded-xl border border-indigo-500/30 bg-slate-900/60 animate-in fade-in slide-in-from-top-1 shadow-lg shadow-indigo-500/10 h-[50px]">
-                      <input
-                        autoFocus
-                        value={newItemName}
-                        onChange={(e) => setNewItemName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAdd(cat.name)}
-                        placeholder="Cosa vuoi aggiungere?"
-                        className="flex-1 bg-transparent border-none text-sm text-white focus:ring-0 placeholder:text-slate-600 font-medium"
-                      />
-                      <button
-                        onClick={() => handleAdd(cat.name)}
-                        className="p-2 rounded-lg bg-indigo-500 text-white hover:bg-indigo-400 transition-all font-bold shadow-lg shadow-indigo-500/20"
-                      >
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {catTotalCount === 0 && !activeCategoryForAdd && (
-                  <div className="py-4 text-center">
-                    <p className="text-[11px] text-slate-700 italic flex items-center justify-center gap-2">
-                      <Package className="w-3.5 h-3.5" />
-                      Nessun oggetto in {cat.name.toLowerCase()}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+                  : undefined
+              }
+            />
           );
         })}
         </div>

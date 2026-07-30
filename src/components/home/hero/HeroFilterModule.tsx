@@ -515,6 +515,8 @@ export const HeroFilterModule = (props: HeroFilterModuleProps) => {
                         alt="Hero"
                         className="w-full h-full object-cover opacity-60 grayscale-[30%] group-hover:grayscale-[10%] transition-all duration-1000"
                         priority={true}
+                        sizes="100vw"
+                        fetchPriority="high"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-transparent" />
                 </div>

@@ -4,21 +4,20 @@
 > **Nessun dettaglio** STEP/Fasi/checklist (→ `WORKFLOWS/WF_XX_*.md` / `MASTERPLANS/`).
 > **Nessuna definizione Gate** (→ SSOT in `AI_CONTEXT`).
 
-**Ultimo aggiornamento:** 2026-07-28 — **Aggiornato da:** AI — **WF-13 Completato** (archiviato)
+**Ultimo aggiornamento:** 2026-07-29 — **Aggiornato da:** AI — **WF-PERF-01 STEP 4** implementato → In verifica PO
 
 ---
 
 ## In sintesi
 
-- **MP-01:** **Completato** (STEP-1…5).
-- **MP-02:** **Completato** (STEP-1…3 — WF-10…WF-12 archiviati).
+- **WF-PERF-01:** **Attivo** — STEP 3 Completato; STEP 4 In verifica PO; STEP 1–2 ancora In verifica PO. WF **non** chiuso (mancano ACCETTO residui + validazione PO finale).
+- **MP-01 / MP-02:** **Completati**.
 - **WF-13…WF-05:** **Completati** (archiviati).
 - **WF-02:** Attivo — hold STEP-4; **PO-OV-001**.
 - **WF-04:** **Sospeso** (`PO-OV-002`).
-- **WF-03:** **Completato**.
 
-**Prossima attività:** Nessuna ripresa automatica MySpace; nuovo Workflow solo su decisione PO. Hold WF-02 STEP-4 resta.  
-**SoT:** `03_PROJECT_STATUS.md` · `01_EXECUTION_ROADMAP.md` · DOC 35 / 37 / 31
+**Prossima attività:** ACCETTO PO su WF-PERF-01 STEP 4 (e residui STEP 1–2); poi validazione PO finale e archivio WF. Hold WF-02 STEP-4 resta.  
+**SoT:** `03_PROJECT_STATUS.md` · `01_EXECUTION_ROADMAP.md` · `WORKFLOWS/WF_PERF_01_PERFORMANCE_OPTIMIZATION.md`
 
 ---
 
@@ -26,6 +25,7 @@
 
 | WF | Nome | Stato WF | STEP corrente | Fase corrente | % | Blocco |
 |----|------|----------|---------------|---------------|---|--------|
+| WF-PERF-01 | Ottimizzazione performance applicativa | Attivo | STEP 4 | In verifica PO | 90 | STEP 1–2 e 4 In verifica PO |
 | WF-02 | Implementation Masterplan | Attivo | STEP-3 | Post-3.4 — hold | 99 | Audit A + Validazione STEP-3 |
 | WF-03 | MySpace Macrofase 1 | Completato | — | — | 100 | — |
 | WF-04 | MySpace Macrofase 2 | Sospeso | — | — | — | PO-OV-002 |
@@ -53,6 +53,8 @@
 | Gate avvio STEP-4 WF-02 | WF-02 | WF-02 | ☐ hold PO |
 | Gate STEP 1 WF-13 | DOC 35/37/31 · WF-13 | WF-13 | ☑ Completato (ACCETTO PO) |
 | Gate chiusura WF-13 (STEP 2) | WF-13 | WF-13 | ☑ Completato |
+| Gate WF-PERF-01 STEP 3 | WF-PERF-01 | WF-PERF-01 | ☑ Completato (ACCETTO PO) |
+| Gate WF-PERF-01 STEP 4 + benchmark | WF-PERF-01 | WF-PERF-01 | ☐ In verifica PO |
 
 ---
 
@@ -82,6 +84,10 @@
 
 | Data | Nota |
 |------|------|
+| 2026-07-29 | **WF-PERF-01 STEP 4** implementato (virtual / immagini / Around Me batch / polling / benchmark) → In verifica PO |
+| 2026-07-29 | **WF-PERF-01 STEP 3** Completato (ACCETTO PO — overlay idle / freeze); WF resta Attivo (4 STEP) |
+| 2026-07-29 | **WF-PERF-01 STEP 2** implementato (bundle) → In verifica PO |
+| 2026-07-28 | **WF-PERF-01** aperto (4 STEP performance); avvio **STEP 1** Context |
 | 2026-07-28 | **WF-13 Completato** (STEP 2 consolidamento + archivio) |
 | 2026-07-28 | **WF-13 STEP 1 Completato** (ACCETTO PO — file accettati) |
 | 2026-07-28 | **WF-13 STEP 1** implementato → **In verifica PO** (decisioni 1–8) |

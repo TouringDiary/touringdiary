@@ -5,6 +5,9 @@ import { ShopPartner } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { calculateShopRank } from '../../services/shopService';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles'; // NEW HOOK
+import { useUser } from '@/context/UserContext';
+import { useModal } from '@/context/ModalContext';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 
 interface ShopCardProps {
     shop: ShopPartner;
@@ -12,6 +15,8 @@ interface ShopCardProps {
 }
 
 export const ShopCard: React.FC<ShopCardProps> = ({ shop, onOpen }) => {
+    const { user } = useUser();
+    const { openModal } = useModal();
     const rank = calculateShopRank(shop);
     const activeProducts = shop.products.filter(p => p.status === 'active');
 
@@ -52,7 +57,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({ shop, onOpen }) => {
 
             <div className="flex-1 p-6 flex flex-col justify-between overflow-hidden">
                 <div className="w-full min-w-0">
-                    <div className="flex justify-between items-start mb-4 w-full">
+                    <div className="flex justify-between items-start mb-4 w-full gap-2">
                         <div className="flex-1 min-w-0">
                             {/* DYNAMIC STYLE */}
                             <h4 className={`mb-1 group-hover:text-indigo-400 transition-colors leading-none truncate ${titleStyle}`}>
@@ -62,13 +67,24 @@ export const ShopCard: React.FC<ShopCardProps> = ({ shop, onOpen }) => {
                                 <MapPin className="w-3.5 h-3.5 text-amber-500" /> {shop.address}
                             </div>
                         </div>
-                        <div className="bg-slate-950/60 border border-slate-800 p-2 rounded-xl flex flex-col items-center min-w-[70px] shadow-inner shrink-0 ml-4">
-                            <div className="flex items-center gap-1 text-amber-500 font-black text-xl">
-                                <Star className="w-4 h-4 fill-current" />
-                                {/* SAFE RATING CHECK */}
-                                <span>{(shop.rating || 0).toFixed(1)}</span>
+                        <div className="flex items-start gap-2 shrink-0 ml-2">
+                            <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                <FavoriteBookmarkButton
+                                    userId={user?.role === 'guest' ? null : user?.id}
+                                    entityKind="shop"
+                                    entityId={shop.id}
+                                    onRequireAuth={() => openModal('auth')}
+                                    size="sm"
+                                />
                             </div>
-                            <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Rating</span>
+                            <div className="bg-slate-950/60 border border-slate-800 p-2 rounded-xl flex flex-col items-center min-w-[70px] shadow-inner">
+                                <div className="flex items-center gap-1 text-amber-500 font-black text-xl">
+                                    <Star className="w-4 h-4 fill-current" />
+                                    {/* SAFE RATING CHECK */}
+                                    <span>{(shop.rating || 0).toFixed(1)}</span>
+                                </div>
+                                <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Rating</span>
+                            </div>
                         </div>
                     </div>
                     {activeProducts.length > 0 && (

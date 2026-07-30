@@ -39,7 +39,7 @@ export const ViaggioAssociationFields: React.FC<Props> = ({
           name={groupId}
           checked={choice === 'none'}
           onChange={() => onChoiceChange('none')}
-          className="mt-1"
+          className="mt-1 accent-indigo-500"
         />
         <span className="text-sm text-slate-200">Nessun Viaggio (indipendente)</span>
       </label>
@@ -49,7 +49,7 @@ export const ViaggioAssociationFields: React.FC<Props> = ({
           name={groupId}
           checked={choice === 'existing'}
           onChange={() => onChoiceChange('existing')}
-          className="mt-1"
+          className="mt-1 accent-indigo-500"
         />
         <span className="text-sm text-slate-200">Associa a un Viaggio esistente</span>
       </label>
@@ -80,7 +80,7 @@ export const ViaggioAssociationFields: React.FC<Props> = ({
           name={groupId}
           checked={choice === 'new'}
           onChange={() => onChoiceChange('new')}
-          className="mt-1"
+          className="mt-1 accent-indigo-500"
         />
         <span className="text-sm text-slate-200">Crea un nuovo Viaggio</span>
       </label>

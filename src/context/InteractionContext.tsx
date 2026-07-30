@@ -4,7 +4,8 @@ import React, {
     useState,
     useEffect,
     ReactNode,
-    useCallback
+    useCallback,
+    useMemo
 } from 'react';
 
 import { PointOfInterest, User } from '../types/index';
@@ -176,7 +177,7 @@ export const InteractionProvider = ({
     );
 
     // 🔥 TOGGLE LIKE FOTO (NUOVA VERSIONE CENTRALIZZATA)
-    const togglePhotoHeart = async (
+    const togglePhotoHeart = useCallback(async (
         photoId: string
     ): Promise<number | undefined> => {
         if (isGuest) {
@@ -237,12 +238,12 @@ export const InteractionProvider = ({
 
             return undefined;
         }
-    };
+    }, [isGuest, photoStatus, modalContext]);
 
     // Redirect legacy function to unified RPC-based logic
     const toggleLiveSnapHeart = togglePhotoHeart;
 
-    const toggleVote = async (
+    const toggleVote = useCallback(async (
         poiId: string
     ): Promise<number | null> => {
         const isAdding = !votedPois.includes(poiId);
@@ -265,9 +266,9 @@ export const InteractionProvider = ({
         } catch {
             return null;
         }
-    };
+    }, [votedPois, currentUserId, isGuest]);
 
-    const toggleLike = (poiId: string) => {
+    const toggleLike = useCallback((poiId: string) => {
         setLikedPois((prev) => {
             const next = prev.includes(poiId)
                 ? prev.filter((id) => id !== poiId)
@@ -280,7 +281,7 @@ export const InteractionProvider = ({
 
             return next;
         });
-    };
+    }, [currentUserId]);
 
     const submitReview = useCallback(
         async (
@@ -317,25 +318,40 @@ export const InteractionProvider = ({
         []
     );
 
+    const value = useMemo<InteractionContextType>(() => ({
+        votedPois,
+        likedPois,
+        hasUserVoted,
+        hasUserLiked,
+        hasUserLikedPhoto,
+        getPhotoStatus,
+        getLiveSnapStatus,
+        submitReview,
+        toggleVote,
+        toggleLike,
+        togglePhotoHeart,
+        toggleLiveSnapHeart,
+        setInteractionUser,
+        isGuest
+    }), [
+        votedPois,
+        likedPois,
+        hasUserVoted,
+        hasUserLiked,
+        hasUserLikedPhoto,
+        getPhotoStatus,
+        getLiveSnapStatus,
+        submitReview,
+        toggleVote,
+        toggleLike,
+        togglePhotoHeart,
+        toggleLiveSnapHeart,
+        setInteractionUser,
+        isGuest,
+    ]);
+
     return (
-        <InteractionContext.Provider
-            value={{
-                votedPois,
-                likedPois,
-                hasUserVoted,
-                hasUserLiked,
-                hasUserLikedPhoto,
-                getPhotoStatus,
-                getLiveSnapStatus,
-                submitReview,
-                toggleVote,
-                toggleLike,
-                togglePhotoHeart,
-                toggleLiveSnapHeart,
-                setInteractionUser,
-                isGuest
-            }}
-        >
+        <InteractionContext.Provider value={value}>
             {children}
         </InteractionContext.Provider>
     );

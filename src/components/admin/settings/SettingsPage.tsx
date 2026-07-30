@@ -1,17 +1,19 @@
 
 import React, { useState } from 'react';
-import { Palette, Puzzle, Link, Settings, FolderKanban, Layers } from 'lucide-react';
+import { Palette, Puzzle, Link, Settings, FolderKanban, Layers, Globe2 } from 'lucide-react';
 import { useConfig } from '@/context/ConfigContext';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
 import { PartnerIntegrationsPanel } from './PartnerIntegrationsPanel';
 import { WorkspaceEngineSettingsPanel } from './WorkspaceEngineSettingsPanel';
 import DesignSystemSettings from '../design/DesignSystemSettings';
 import FoundationSettingsPanel from '../foundation/FoundationSettingsPanel';
+import MyWorldStyleSettingsPanel from '../myworld/MyWorldStyleSettingsPanel';
 import { AdminPageHeader } from '../common/AdminPageHeader';
 
 const TABS = [
     { id: 'design_system', label: 'Design System', icon: Palette },
     { id: 'foundation', label: 'Foundation', icon: Layers },
+    { id: 'myworld_style', label: 'MyWorld Style', icon: Globe2 },
     { id: 'poi_categories_config', label: 'Categorie POI', icon: Puzzle },
     { id: 'partner_integrations', label: 'Integrazioni Partner', icon: Link },
     { id: 'workspace_engine', label: 'Workspace', icon: FolderKanban },
@@ -56,6 +58,8 @@ export const SettingsPage: React.FC = () => {
                     <DesignSystemSettings />
                 ) : activeTab === 'foundation' ? (
                     <FoundationSettingsPanel />
+                ) : activeTab === 'myworld_style' ? (
+                    <MyWorldStyleSettingsPanel />
                 ) : activeTab === 'workspace_engine' ? (
                     <WorkspaceEngineSettingsPanel onSaveSuccess={refreshConfig} />
                 ) : activeTab === 'partner_integrations' && activeConfigData ? (

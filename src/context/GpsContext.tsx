@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { useGpsManager } from '../hooks/core/useGpsManager';
 import { useModal } from './ModalContext';
 import { useConfig } from '@/context/ConfigContext';
@@ -50,10 +50,17 @@ export const GpsProvider = ({ children }: { children?: ReactNode }) => {
         }
     }, [requestPosition, modalContext]);
 
+    const value = useMemo<GpsContextType>(() => ({
+        userLocation,
+        isLocating,
+        error,
+        toggleGps,
+        requestPosition,
+        confirmGpsFromModal,
+    }), [userLocation, isLocating, error, toggleGps, requestPosition, confirmGpsFromModal]);
+
     return (
-        <GpsContext.Provider
-            value={{ userLocation, isLocating, error, toggleGps, requestPosition, confirmGpsFromModal }}
-        >
+        <GpsContext.Provider value={value}>
             {children}
         </GpsContext.Provider>
     );

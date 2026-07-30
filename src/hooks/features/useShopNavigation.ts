@@ -1,15 +1,17 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ShopPartner, ShopCategory, ShopProduct, PointOfInterest } from '../../types/index';
-import { getShopsByFilter } from '../../services/shopService';
-import { fetchSponsorsByCityAsync } from '../../services/sponsorService';
+import { getShopsByFilter, getShopsByCityIds } from '../../services/shopService';
+import { fetchSponsorsByCityAsync, fetchSponsorsByCityIdsAsync } from '../../services/sponsorService';
 
 interface UseShopNavigationProps {
     cityId: string;
+    /** Multi-city (Around Me). When set, shops/sponsors load via batch by these ids. */
+    cityIds?: string[];
     initialShopVat?: string | null;
 }
 
-export const useShopNavigation = ({ cityId, initialShopVat }: UseShopNavigationProps) => {
+export const useShopNavigation = ({ cityId, cityIds, initialShopVat }: UseShopNavigationProps) => {
     // --- DATA STATE ---
     const [shopsList, setShopsList] = useState<ShopPartner[]>([]);
     const [citySponsors, setCitySponsors] = useState<PointOfInterest[]>([]);
@@ -26,14 +28,24 @@ export const useShopNavigation = ({ cityId, initialShopVat }: UseShopNavigationP
     const [showFullBio, setShowFullBio] = useState(false);
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
+    const territoryKey = cityIds && cityIds.length > 0 ? cityIds.join(',') : '';
+    const territoryIds = useMemo(
+        () => (territoryKey ? territoryKey.split(',') : null),
+        [territoryKey],
+    );
+
     // 1. DATA LOADING
     useEffect(() => {
         const load = async () => {
             setIsLoading(true);
             try {
                 const [shops, sponsors] = await Promise.all([
-                    getShopsByFilter(cityId, selectedCategory || undefined),
-                    fetchSponsorsByCityAsync(cityId)
+                    territoryIds
+                        ? getShopsByCityIds(territoryIds, selectedCategory || undefined)
+                        : getShopsByFilter(cityId, selectedCategory || undefined),
+                    territoryIds
+                        ? fetchSponsorsByCityIdsAsync(territoryIds)
+                        : fetchSponsorsByCityAsync(cityId),
                 ]);
                 setShopsList(shops);
                 setCitySponsors(sponsors);
@@ -44,7 +56,7 @@ export const useShopNavigation = ({ cityId, initialShopVat }: UseShopNavigationP
             }
         };
         load();
-    }, [cityId, selectedCategory]);
+    }, [cityId, selectedCategory, territoryIds]);
 
     // 2. DEEP LINKING (VAT NUMBER)
     useEffect(() => {

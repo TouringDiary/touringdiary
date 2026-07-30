@@ -187,6 +187,13 @@ export const useAppRouter = () => {
         }
     };
 
+    /** Overlay negozi per territorio Around Me (id virtuale, multi-city via ShopPage). */
+    const openShopForAroundMe = () => {
+        if (!shopPublicEnabled) return;
+        setActiveShopId('around-me-virtual');
+        setTargetShopVat(null);
+    };
+
     const openShopFromPoi = (poi?: PointOfInterest) => {
         if (!shopPublicEnabled) return;
         if (!poi) {
@@ -276,7 +283,7 @@ export const useAppRouter = () => {
         setActiveStaticPage,
         
         // Actions
-        navigateToCity, openShop, openShopFromPoi, goBack, goHome,
+        navigateToCity, openShop, openShopFromPoi, openShopForAroundMe, goBack, goHome,
         consumeDeepLink,
         buildDashboardPath,
         isDashboardPathFn: isDashboardPath

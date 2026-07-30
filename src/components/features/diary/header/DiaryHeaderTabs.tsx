@@ -9,7 +9,7 @@ interface DiaryHeaderTabsProps {
     days: Date[];
     activeTab: DiaryActiveTab;
     setActiveTab: (tab: DiaryActiveTab) => void;
-    tabsContainerRef: React.RefObject<HTMLDivElement>;
+    tabsContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 function headerTabClass(active: boolean, size: 'all' | 'day' | 'notes'): string {

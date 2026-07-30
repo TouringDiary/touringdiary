@@ -9,15 +9,15 @@ export const COLORS = {
   redLine: '#ef4444',
   noteBg: '#fef3c7',
   noteText: '#92400e',
-  distanceBg: '#fee2e2',
-  distanceText: '#dc2626'
 };
 
 export const styles = StyleSheet.create({
 
   page: {
-    paddingTop: 80,
-    paddingBottom: 40,
+    /** Header brand più alto (~2× logo): paddingTop allineato all’area fissa. */
+    paddingTop: 72,
+    /** Riserva area footer (separatore + numerazione) senza sovrapposizione al contenuto. */
+    paddingBottom: 52,
     paddingHorizontal: 40,
     fontFamily: 'Helvetica',
     backgroundColor: '#ffffff',
@@ -26,20 +26,58 @@ export const styles = StyleSheet.create({
 
   headerFixed: {
     position: 'absolute',
-    top: 25,
+    top: 10,
     left: 40,
     right: 40,
-    height: 40,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+
+  /** Riga brand: logo + link allineati; la linea vive sotto (headerRule). */
+  headerBrandRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+
+  /** Linea sotto il brand: gap minimo, senza padding fantasma sotto il logo. */
+  headerRule: {
+    marginTop: 2,
+    width: '100%',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb'
+    borderBottomColor: '#e5e7eb',
+  },
+
+  /** Footer editoriale fisso: stessa posizione su ogni pagina (anche wrap). */
+  footerFixed: {
+    position: 'absolute',
+    bottom: 18,
+    left: 40,
+    right: 40,
+    height: 28,
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+
+  footerSeparator: {
+    width: '100%',
+    borderTopWidth: 0.75,
+    borderTopColor: '#e5e7eb',
+    marginBottom: 8,
+  },
+
+  footerText: {
+    fontSize: 8,
+    fontFamily: 'Helvetica',
+    color: '#94a3b8',
+    textAlign: 'center',
+    letterSpacing: 0.4,
   },
 
   headerLogoImage: {
-    width: 150,
-    height: 26
+    width: 320,
+    height: 52
   },
 
   headerLink: {
@@ -51,8 +89,28 @@ export const styles = StyleSheet.create({
 
   coverContainer: {
     flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+
+  /** Blocco testuale editoriale in alto: titolo → città → date. */
+  coverTextBlock: {
+    width: '100%',
+    alignItems: 'center',
+    /** Più respiro sotto la linea header. */
+    marginTop: 36,
+    marginBottom: 28,
+  },
+
+  /** Fascia flex sotto il testo: centra il collage in verticale nello spazio libero. */
+  coverPhotoBand: {
+    flexGrow: 1,
+    width: '100%',
+    flexDirection: 'column',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    minHeight: 0,
   },
 
   coverTitle: {
@@ -69,26 +127,60 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 8,
     lineHeight: 1.5
   },
 
-  coverImageMain: {
-    width: '100%',
-    height: 300,
-    marginBottom: 20
+  coverDates: {
+    fontSize: 14,
+    color: COLORS.accent,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
   },
 
-  coverImagesGrid: {
+  coverImageSingle: {
+    width: '100%',
+    height: 380,
+    objectFit: 'cover'
+  },
+
+  /** Collage multi-città: colonna centrata con margini laterali ariosi. */
+  coverCollageStack: {
+    width: '82%',
+    alignSelf: 'center',
+    flexDirection: 'column',
+    marginBottom: 8,
+  },
+
+  coverCollageStackImage: {
+    width: '100%',
+    objectFit: 'cover',
+  },
+
+  coverPhotosFooter: {
+    width: '100%',
+    alignItems: 'center',
+  },
+
+  /** Placeholder copertina quando non ci sono hero image. */
+  coverEmptyPhotosPlaceholder: {
     width: '100%',
     height: 300,
     marginBottom: 20,
-    flexDirection: 'column'
+    flexDirection: 'column',
+    backgroundColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  coverEmptyPhotosText: {
+    fontSize: 10,
+    color: '#64748b',
   },
 
   dayHeaderContainer: {
-    marginTop: 25,
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 16,
     borderBottomWidth: 2,
     borderBottomColor: COLORS.accent,
     paddingBottom: 5
@@ -145,28 +237,26 @@ export const styles = StyleSheet.create({
     marginTop: 4
   },
 
-  distanceBadge: {
-    position: 'absolute',
-    top: 20,
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 0.5,
-    borderColor: '#fca5a5'
-  },
-
-  distanceText: {
-    fontSize: 6,
-    fontFamily: 'Helvetica-Bold',
-    color: '#dc2626',
-    textTransform: 'uppercase'
-  },
-
+  /** Area a destra del QR: riga 75% testo + 25% durata/foto. */
   colContent: {
     flex: 1,
+    flexDirection: 'row',
     paddingLeft: 10,
-    paddingBottom: 20
+    paddingBottom: 14,
+    alignItems: 'flex-start',
+  },
+
+  /** ~75% — categoria, nome, indirizzo, descrizione, note, distanza */
+  colContentMain: {
+    flex: 3,
+    paddingRight: 8,
+    minWidth: 0,
+  },
+
+  /** ~25% — durata visita + foto POI */
+  colContentSide: {
+    flex: 1,
+    alignItems: 'flex-start',
   },
 
   poiCategory: {
@@ -185,10 +275,11 @@ export const styles = StyleSheet.create({
   },
 
   poiDuration: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: 'Helvetica',
     color: '#64748b',
-    marginBottom: 2
+    marginBottom: 4,
+    textAlign: 'left',
   },
 
   poiAddress: {
@@ -206,10 +297,26 @@ export const styles = StyleSheet.create({
     marginBottom: 6
   },
 
+  /** Distanza in testa alla tappa di arrivo (= segmento dalla precedente geo). */
+  poiDistanceLead: {
+    marginBottom: 4,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#fecaca',
+    borderStyle: 'dashed',
+  },
+
+  poiDistanceLeadText: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: '#dc2626',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+
   inlineImage: {
-    width: 100,
-    height: 60,
-    marginBottom: 6,
+    width: 88,
+    height: 66,
     flexShrink: 0,
     objectFit: 'cover',
   },

@@ -119,14 +119,27 @@ const MainContent: React.FC = () => {
     }
 
     if (activeShopId) {
-        const contextCityId = activeCityId || 'napoli';
-        const city = cityManifest.find(c => c.id === contextCityId);
+        const isAroundMeShop = activeShopId === 'around-me-virtual';
+        const aroundMeTerritory =
+            virtualCity?.virtualMode === 'around_me' || virtualCity?.id === 'around-me-virtual'
+                ? virtualCity
+                : null;
+        const contextCityId = isAroundMeShop
+            ? 'around-me-virtual'
+            : activeCityId || 'napoli';
+        const city = isAroundMeShop
+            ? null
+            : cityManifest.find(c => c.id === contextCityId);
+        const territoryIds = isAroundMeShop
+            ? (aroundMeTerritory?.aggregatedCities ?? []).map((c) => c.id)
+            : undefined;
 
         return (
             <Suspense fallback={<PageLoader />}>
                 <ShopPage
                     cityId={contextCityId}
-                    cityName={city?.name || 'Campania'}
+                    cityName={isAroundMeShop ? 'Around Me' : (city?.name || 'Campania')}
+                    cityIds={territoryIds}
                     onBack={handleSmartBack}
                     onAddToItinerary={(poi) => openModal('add', { poi })}
                     onOpenPoiDetail={handleSmartPoiClick}

@@ -1,11 +1,16 @@
 
-import React from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { CheckSquare, Square, Star, Calendar, RefreshCw, Eye, Trash2, Loader2, Check, Layers, X, User, ImageOff, ShieldCheck, ShieldAlert, Shield, ShieldQuestion, FilterX, ListPlus, LayoutList, TrendingUp } from 'lucide-react';
 import { PointOfInterest } from '../../../types/index';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { getPoiCategoryLabel, getSubCategoryLabel } from '../../../utils/common';
 import { PaginationControls } from '../../common/PaginationControls';
 import { getCachedSetting } from '../../../services/settingsService'; 
+import { useVirtualWindow } from '@/hooks/useVirtualWindow';
+
+/** Altezza riga griglia (card 340 + gap). */
+const POI_VIRTUAL_ROW_HEIGHT = 356;
+const POI_VIRTUALIZE_THRESHOLD = 24;
 
 interface PoiListProps {
     pois: PointOfInterest[];
@@ -33,12 +38,51 @@ interface PoiListProps {
     isSuperAdmin: boolean;
 }
 
+function useGridColumnCount(): number {
+    const [cols, setCols] = useState(1);
+    useEffect(() => {
+        const update = () => {
+            const w = window.innerWidth;
+            if (w >= 1280) setCols(4);
+            else if (w >= 1024) setCols(3);
+            else if (w >= 768) setCols(2);
+            else setCols(1);
+        };
+        update();
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
+    }, []);
+    return cols;
+}
+
 export const PoiList: React.FC<PoiListProps> = ({ 
     pois, selectedIds, isLoading, page, totalItems, pageSize, sortBy, 
     isBulkProcessing, viewStatus, actions, isSuperAdmin 
 }) => {
 
-    const isExpandedMode = pageSize > 20; 
+    const isExpandedMode = pageSize > 20;
+    const listRef = useRef<HTMLDivElement>(null);
+    const colCount = useGridColumnCount();
+    const shouldVirtualize = isExpandedMode && pois.length >= POI_VIRTUALIZE_THRESHOLD;
+    const rowCount = Math.max(1, Math.ceil(pois.length / colCount));
+    const { startIndex, endIndex, paddingTop, paddingBottom, totalListHeight } = useVirtualWindow({
+        containerRef: listRef,
+        totalItems: shouldVirtualize ? rowCount : 0,
+        itemHeight: POI_VIRTUAL_ROW_HEIGHT,
+        overscan: 2,
+    });
+
+    const visiblePois = useMemo(() => {
+        if (!shouldVirtualize) return pois;
+        const start = startIndex * colCount;
+        const end = Math.min(pois.length, endIndex * colCount);
+        return pois.slice(start, end);
+    }, [shouldVirtualize, pois, startIndex, endIndex, colCount]);
+
+    useEffect(() => {
+        if (!shouldVirtualize) return;
+        listRef.current?.scrollTo({ top: 0 });
+    }, [shouldVirtualize, page, pageSize, pois]);
 
     // FIX: Aggiunto index per fallback chiave
     const renderPoiCard = (poi: PointOfInterest, idx: number) => {
@@ -90,12 +134,16 @@ export const PoiList: React.FC<PoiListProps> = ({
         // Status Badge (Visible only in 'ALL' view)
         let statusBadge = null;
         if (viewStatus === 'all') {
-            const statusColors: any = { 
-                published: 'text-emerald-500 border-emerald-500/30 bg-emerald-900/20', 
+            const statusColors: Record<'published' | 'draft' | 'needs_check', string> = {
+                published: 'text-emerald-500 border-emerald-500/30 bg-emerald-900/20',
                 draft: 'text-amber-500 border-amber-500/30 bg-amber-900/20',
-                needs_check: 'text-red-500 border-red-500/30 bg-red-900/20'
+                needs_check: 'text-red-500 border-red-500/30 bg-red-900/20',
             };
-            const sColor = statusColors[poi.status || 'draft'] || statusColors.draft;
+            const statusKey =
+                poi.status === 'published' || poi.status === 'draft' || poi.status === 'needs_check'
+                    ? poi.status
+                    : 'draft';
+            const sColor = statusColors[statusKey];
             statusBadge = (
                 <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${sColor} ml-2`}>
                     {poi.status === 'needs_check' ? 'CHECK' : poi.status}
@@ -113,7 +161,7 @@ export const PoiList: React.FC<PoiListProps> = ({
                     {statusBadge}
                 </div>
                 
-                <div className={`absolute top-2 left-12 z-dropdown flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${relColor}`} title={`Affidabilità AI: ${relLabel}`} style={{marginLeft: viewStatus === 'all' ? '40px' : '0px'}}>
+                <div className={`absolute top-2 left-12 z-dropdown flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${relColor} ${viewStatus === 'all' ? 'ml-10' : 'ml-0'}`} title={`Affidabilità AI: ${relLabel}`}>
                     <RelIcon className="w-3 h-3"/> {relLabel}
                 </div>
                 
@@ -185,11 +233,26 @@ export const PoiList: React.FC<PoiListProps> = ({
                 </div>
             )}
 
-            <div className="flex-1">
+            <div className="flex-1 min-h-0">
                 {isLoading ? (
                      <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-4">
                         <Loader2 className="w-12 h-12 animate-spin text-indigo-500"/>
                         <p className="font-bold uppercase tracking-widest text-xs">Caricamento...</p>
+                    </div>
+                ) : shouldVirtualize ? (
+                    <div
+                        ref={listRef}
+                        className="max-h-[min(70vh,720px)] overflow-y-auto custom-scrollbar pr-1"
+                    >
+                        <div style={{ height: totalListHeight, position: 'relative' }}>
+                            <div style={{ paddingTop, paddingBottom }}>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {visiblePois.map((poi, idx) =>
+                                        renderPoiCard(poi, startIndex * colCount + idx),
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -206,6 +269,9 @@ export const PoiList: React.FC<PoiListProps> = ({
                             </div>
                         )}
                     </div>
+                )}
+                {shouldVirtualize && pois.length === 0 && (
+                    <div className="py-20 text-center text-slate-500 italic">Nessun luogo trovato.</div>
                 )}
             </div>
             

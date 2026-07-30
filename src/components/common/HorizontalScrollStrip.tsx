@@ -61,7 +61,7 @@ export const HorizontalScrollStrip: React.FC<HorizontalScrollStripProps> = ({
       )}
 
       <div
-        ref={scrollRef as React.RefObject<HTMLDivElement>}
+        ref={scrollRef}
         className={`flex-1 min-w-0 overflow-x-auto scrollbar-hide scroll-smooth flex items-center gap-1 [-webkit-overflow-scrolling:touch] ${scrollClassName}`}
         role={ariaLabel ? 'tablist' : undefined}
         aria-label={ariaLabel}

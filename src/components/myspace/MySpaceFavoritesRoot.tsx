@@ -1,53 +1,213 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { Bookmark, Loader2, Plus, Search, Trash2, Store, Award } from 'lucide-react';
 import {
   addUserFavorite,
   listUserFavorites,
   removeUserFavorite,
   type UserFavorite,
-  type UserFavoriteEntityKind,
 } from '@/services/myspace/userFavoritesService';
 import {
   getCitiesMinimalByIds,
   searchCitiesMinimalByName,
   type CityGeoMinimal,
 } from '@/services/myspace/cityMinimalRead';
+import {
+  getGuidesMetaByIds,
+  getShopsMetaByIds,
+  getSponsorPoisByIds,
+  getTourOperatorsMetaByIds,
+  isSponsorPoiId,
+  type FavoriteEntityMeta,
+} from '@/services/myspace/favoritesEntityRead';
 import { getPoisByIds } from '@/services/city/poi/poiRead';
 import { showGlobalAlert } from '@/services/ui/toastService';
+import {
+  GeoCascadingFilters,
+  type GeoSelection,
+} from '@/components/admin/cities/GeoCascadingFilters';
+import type { CitySummary } from '@/types/index';
+import type { PointOfInterest } from '@/types/index';
+import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 
-const KIND_LABEL: Record<UserFavoriteEntityKind, string> = {
-  city: 'Città',
-  poi: 'POI',
-  shop: 'Shop',
-  guide: 'Guida',
-  tour_operator: 'Tour Operator',
-  character: 'Personaggio',
-  viaggio: 'Viaggio',
-  suitcase: 'Valigia',
-  template: 'Template',
-};
+type FavoriteMetaMap = Record<string, FavoriteEntityMeta>;
+type FavoriteEntityKind = UserFavorite['entityKind'];
 
-const KIND_ICON: Record<UserFavoriteEntityKind, string> = {
-  city: '🏙️',
-  poi: '📍',
-  shop: '🛍️',
-  guide: '🗺️',
-  tour_operator: '🎫',
-  character: '🎭',
-  viaggio: '✈️',
-  suitcase: '🧳',
-  template: '📋',
-};
+const EMPTY_META: FavoriteMetaMap = {};
 
-function countBy(values: Array<string | null | undefined>): Array<{ label: string; count: number }> {
-  const map = new Map<string, number>();
-  for (const raw of values) {
-    const label = (raw ?? '').trim() || 'Non specificato';
-    map.set(label, (map.get(label) ?? 0) + 1);
+function collectFavoriteEntityIds(list: UserFavorite[]) {
+  const cityIds = new Set<string>();
+  const regularPoiIds: string[] = [];
+  const sponsorPoiIds: string[] = [];
+  const guideIds: string[] = [];
+  const operatorIds: string[] = [];
+  const shopIds: string[] = [];
+
+  for (const f of list) {
+    switch (f.entityKind) {
+      case 'city':
+        cityIds.add(f.entityId);
+        break;
+      case 'poi':
+        if (isSponsorPoiId(f.entityId)) sponsorPoiIds.push(f.entityId);
+        else regularPoiIds.push(f.entityId);
+        break;
+      case 'guide':
+        guideIds.push(f.entityId);
+        break;
+      case 'tour_operator':
+        operatorIds.push(f.entityId);
+        break;
+      case 'shop':
+        shopIds.push(f.entityId);
+        break;
+      default:
+        break;
+    }
   }
-  return [...map.entries()]
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'it'));
+
+  return { cityIds, regularPoiIds, sponsorPoiIds, guideIds, operatorIds, shopIds };
+}
+
+function buildPoiMap(pois: PointOfInterest[]): Record<string, PointOfInterest> {
+  const poiMap: Record<string, PointOfInterest> = {};
+  for (const poi of pois) poiMap[poi.id] = poi;
+  return poiMap;
+}
+
+function collectCityIdsFromMeta(
+  cityIds: Set<string>,
+  poiMap: Record<string, PointOfInterest>,
+  guides: FavoriteMetaMap,
+  operators: FavoriteMetaMap,
+  shops: FavoriteMetaMap,
+) {
+  for (const poi of Object.values(poiMap)) {
+    const cityId = poi.cityId?.trim();
+    if (cityId) cityIds.add(cityId);
+  }
+  for (const meta of Object.values(guides)) {
+    if (meta.cityId) cityIds.add(meta.cityId);
+  }
+  for (const meta of Object.values(operators)) {
+    if (meta.cityId) cityIds.add(meta.cityId);
+  }
+  for (const meta of Object.values(shops)) {
+    if (meta.cityId) cityIds.add(meta.cityId);
+  }
+}
+
+const POI_CATEGORY_LABELS: Record<string, string> = {
+  monument: 'Monumenti',
+  food: 'Cibo & Ristorazione',
+  hotel: 'Hotel & Alloggi',
+  shop: 'Shopping',
+  nature: 'Natura',
+  leisure: 'Svago',
+  discovery: 'Altro/Novità',
+};
+
+const EMPTY_GEO: GeoSelection = {
+  continent: '',
+  nation: '',
+  region: '',
+  zone: '',
+  city: '',
+};
+
+function cityMatchesGeo(city: CityGeoMinimal | undefined, geo: GeoSelection): boolean {
+  if (!city) return false;
+  if (geo.continent && city.continent !== geo.continent) return false;
+  if (geo.nation && city.nation !== geo.nation) return false;
+  if (geo.region && city.adminRegion !== geo.region) return false;
+  if (geo.zone && city.zone !== geo.zone) return false;
+  if (geo.city && city.name !== geo.city) return false;
+  return true;
+}
+
+function FavoriteItemRow({
+  title,
+  subtitle,
+  icon,
+  busy,
+  onRemove,
+}: {
+  title: string;
+  subtitle?: string;
+  icon: React.ReactNode;
+  busy: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <li className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-950/60 px-2 py-1.5">
+      <span className="shrink-0" aria-hidden>
+        {icon}
+      </span>
+      <span className="flex-1 min-w-0">
+        {subtitle ? (
+          <span className="block text-[9px] uppercase tracking-wide text-slate-500 truncate">
+            {subtitle}
+          </span>
+        ) : null}
+        <span className="block text-xs text-white truncate">{title}</span>
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onRemove}
+        className="p-2 rounded-md text-slate-500 hover:text-rose-300 hover:bg-slate-800 disabled:opacity-50"
+        aria-label="Rimuovi dai preferiti"
+      >
+        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+      </button>
+    </li>
+  );
+}
+
+function FavoritesBox({
+  title,
+  icon,
+  testId,
+  suspended,
+  suspendedMessage,
+  emptyMessage,
+  isEmpty,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  testId: string;
+  suspended?: boolean;
+  suspendedMessage?: string;
+  emptyMessage: string;
+  isEmpty: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className="flex flex-col min-h-0 h-full rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden"
+      data-testid={testId}
+    >
+      <header className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 border-b border-slate-800/80 bg-slate-950/40">
+        <span className="text-slate-400" aria-hidden>
+          {icon}
+        </span>
+        <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-300 truncate">
+          {title}
+        </h3>
+      </header>
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-2">
+        {suspended ? (
+          <div className="flex flex-col items-center justify-center text-center h-full min-h-[8rem] px-3 py-4">
+            <p className="text-[11px] text-slate-400 leading-relaxed">{suspendedMessage}</p>
+          </div>
+        ) : isEmpty ? (
+          <p className="text-[11px] text-slate-600 text-center py-6 px-2">{emptyMessage}</p>
+        ) : (
+          children
+        )}
+      </div>
+    </section>
+  );
 }
 
 interface Props {
@@ -55,14 +215,17 @@ interface Props {
 }
 
 /**
- * Root Preferiti — vista trasversale DOC 35 §7 (no cartelle).
+ * Root Preferiti — vista trasversale DOC 35 §7 (filtro geo + 6 box).
  */
 export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
   const [favorites, setFavorites] = useState<UserFavorite[]>([]);
   const [citiesById, setCitiesById] = useState<Record<string, CityGeoMinimal>>({});
-  const [poiTitles, setPoiTitles] = useState<Record<string, string>>({});
-  const [poiCityIds, setPoiCityIds] = useState<Record<string, string>>({});
+  const [poiById, setPoiById] = useState<Record<string, PointOfInterest>>({});
+  const [guideMeta, setGuideMeta] = useState<FavoriteMetaMap>({});
+  const [operatorMeta, setOperatorMeta] = useState<FavoriteMetaMap>({});
+  const [shopMeta, setShopMeta] = useState<FavoriteMetaMap>({});
   const [loading, setLoading] = useState(true);
+  const [geoFilter, setGeoFilter] = useState<GeoSelection>(EMPTY_GEO);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<CityGeoMinimal[]>([]);
   const [searching, setSearching] = useState(false);
@@ -78,25 +241,44 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
       if (seq !== loadSeqRef.current) return;
       setFavorites(list);
 
-      const cityIds = new Set<string>();
-      const poiIds: string[] = [];
-      for (const f of list) {
-        if (f.entityKind === 'city') cityIds.add(f.entityId);
-        else if (f.entityKind === 'poi') poiIds.push(f.entityId);
-      }
-      const pois = poiIds.length > 0 ? await getPoisByIds(poiIds) : [];
+      const { cityIds, regularPoiIds, sponsorPoiIds, guideIds, operatorIds, shopIds } =
+        collectFavoriteEntityIds(list);
+
+      // POI catalogo obbligatorio in all; sorgenti opzionali indipendenti (allSettled).
+      const [regularResult, sponsorResult, guidesResult, operatorsResult, shopsResult] =
+        await Promise.allSettled([
+          regularPoiIds.length > 0 ? getPoisByIds(regularPoiIds) : Promise.resolve([] as PointOfInterest[]),
+          sponsorPoiIds.length > 0 ? getSponsorPoisByIds(sponsorPoiIds) : Promise.resolve([] as PointOfInterest[]),
+          guideIds.length > 0 ? getGuidesMetaByIds(guideIds) : Promise.resolve(EMPTY_META),
+          operatorIds.length > 0 ? getTourOperatorsMetaByIds(operatorIds) : Promise.resolve(EMPTY_META),
+          shopIds.length > 0 ? getShopsMetaByIds(shopIds) : Promise.resolve(EMPTY_META),
+        ]);
       if (seq !== loadSeqRef.current) return;
 
-      const titles = new Map<string, string>();
-      const poiCities = new Map<string, string>();
-      for (const poi of pois) {
-        titles.set(poi.id, poi.name);
-        const cityId = poi.cityId?.trim();
-        if (cityId) {
-          poiCities.set(poi.id, cityId);
-          cityIds.add(cityId);
-        }
+      const regularPois = regularResult.status === 'fulfilled' ? regularResult.value : [];
+      const sponsorPois = sponsorResult.status === 'fulfilled' ? sponsorResult.value : [];
+      const guides = guidesResult.status === 'fulfilled' ? guidesResult.value : EMPTY_META;
+      const operators = operatorsResult.status === 'fulfilled' ? operatorsResult.value : EMPTY_META;
+      const shops = shopsResult.status === 'fulfilled' ? shopsResult.value : EMPTY_META;
+
+      if (regularResult.status === 'rejected') {
+        console.error('[MySpaceFavoritesRoot] getPoisByIds failed', regularResult.reason);
       }
+      if (sponsorResult.status === 'rejected') {
+        console.error('[MySpaceFavoritesRoot] getSponsorPoisByIds failed', sponsorResult.reason);
+      }
+      if (guidesResult.status === 'rejected') {
+        console.error('[MySpaceFavoritesRoot] getGuidesMetaByIds failed', guidesResult.reason);
+      }
+      if (operatorsResult.status === 'rejected') {
+        console.error('[MySpaceFavoritesRoot] getTourOperatorsMetaByIds failed', operatorsResult.reason);
+      }
+      if (shopsResult.status === 'rejected') {
+        console.error('[MySpaceFavoritesRoot] getShopsMetaByIds failed', shopsResult.reason);
+      }
+
+      const poiMap = buildPoiMap([...regularPois, ...sponsorPois]);
+      collectCityIdsFromMeta(cityIds, poiMap, guides, operators, shops);
 
       const cities = cityIds.size > 0 ? await getCitiesMinimalByIds([...cityIds]) : [];
       if (seq !== loadSeqRef.current) return;
@@ -105,8 +287,18 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
       for (const c of cities) cityMap[c.id] = c;
 
       setCitiesById(cityMap);
-      setPoiTitles(Object.fromEntries(titles));
-      setPoiCityIds(Object.fromEntries(poiCities));
+      setPoiById(poiMap);
+      setGuideMeta(guides);
+      setOperatorMeta(operators);
+      setShopMeta(shops);
+    } catch (e) {
+      console.error('[MySpaceFavoritesRoot] reload failed', e);
+      if (seq !== loadSeqRef.current) return;
+      setCitiesById({});
+      setPoiById({});
+      setGuideMeta({});
+      setOperatorMeta({});
+      setShopMeta({});
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);
     }
@@ -119,7 +311,10 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
+      // Invalida ricerche in volo: Promise precedenti non devono più aggiornare lo state.
+      searchSeqRef.current += 1;
       setSuggestions([]);
+      setSearching(false);
       return;
     }
     const seq = ++searchSeqRef.current;
@@ -129,58 +324,113 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
         try {
           const rows = await searchCitiesMinimalByName(q);
           if (seq !== searchSeqRef.current) return;
-          setSuggestions(rows);
+          const geoActive = Boolean(
+            geoFilter.continent ||
+              geoFilter.nation ||
+              geoFilter.region ||
+              geoFilter.zone ||
+              geoFilter.city,
+          );
+          setSuggestions(geoActive ? rows.filter((c) => cityMatchesGeo(c, geoFilter)) : rows);
+        } catch (e) {
+          console.error('[MySpaceFavoritesRoot] searchCitiesMinimalByName failed', e);
+          if (seq === searchSeqRef.current) setSuggestions([]);
         } finally {
           if (seq === searchSeqRef.current) setSearching(false);
         }
       })();
     }, 250);
     return () => window.clearTimeout(t);
-  }, [query]);
+  }, [query, geoFilter]);
 
-  const { cityFavorites, otherFavorites, favoriteCityIds, poiFavorites } = useMemo(() => {
-    const cities: UserFavorite[] = [];
-    const others: UserFavorite[] = [];
-    const pois: UserFavorite[] = [];
+  const geoCities = useMemo(
+    (): CitySummary[] =>
+      Object.values(citiesById).map((c) => ({
+        id: c.id,
+        name: c.name,
+        continent: c.continent ?? '',
+        nation: c.nation ?? '',
+        adminRegion: c.adminRegion ?? '',
+        zone: c.zone ?? '',
+      })) as CitySummary[],
+    [citiesById],
+  );
+
+  const hasGeoFilter = Boolean(
+    geoFilter.continent || geoFilter.nation || geoFilter.region || geoFilter.zone || geoFilter.city,
+  );
+
+  const matchesGeo = useCallback(
+    (cityId: string | null | undefined): boolean => {
+      if (!hasGeoFilter) return true;
+      if (!cityId) return false;
+      return cityMatchesGeo(citiesById[cityId], geoFilter);
+    },
+    [citiesById, geoFilter, hasGeoFilter],
+  );
+
+  const cityFavorites = useMemo(
+    () => favorites.filter((f) => f.entityKind === 'city' && matchesGeo(f.entityId)),
+    [favorites, matchesGeo],
+  );
+
+  const favoriteCityIds = useMemo(
+    () => new Set(favorites.filter((f) => f.entityKind === 'city').map((f) => f.entityId)),
+    [favorites],
+  );
+
+  const { sponsorFavorites, regularPoiByCategory } = useMemo(() => {
+    const sponsors: Array<{ fav: UserFavorite; poi: PointOfInterest }> = [];
+    const byCategory = new Map<string, Array<{ fav: UserFavorite; poi: PointOfInterest }>>();
+
     for (const fav of favorites) {
-      if (fav.entityKind === 'city') {
-        cities.push(fav);
+      if (fav.entityKind !== 'poi') continue;
+      const poi = poiById[fav.entityId];
+      if (!poi) continue;
+      if (!matchesGeo(poi.cityId)) continue;
+
+      const isSponsor = poi.isSponsored === true || isSponsorPoiId(fav.entityId);
+      if (isSponsor) {
+        sponsors.push({ fav, poi });
       } else {
-        others.push(fav);
-        if (fav.entityKind === 'poi') pois.push(fav);
+        const cat = poi.category || 'discovery';
+        const list = byCategory.get(cat) ?? [];
+        list.push({ fav, poi });
+        byCategory.set(cat, list);
       }
     }
-    return {
-      cityFavorites: cities,
-      otherFavorites: others,
-      favoriteCityIds: new Set(cities.map((f) => f.entityId)),
-      poiFavorites: pois,
-    };
-  }, [favorites]);
 
-  const poiRecapCities = useMemo(
+    return { sponsorFavorites: sponsors, regularPoiByCategory: byCategory };
+  }, [favorites, poiById, matchesGeo]);
+
+  const guideFavorites = useMemo(
     () =>
-      poiFavorites
-        .map((f) => citiesById[poiCityIds[f.entityId]])
-        .filter((c): c is CityGeoMinimal => Boolean(c)),
-    [poiFavorites, citiesById, poiCityIds],
+      favorites.filter((f) => {
+        if (f.entityKind !== 'guide') return false;
+        const meta = guideMeta[f.entityId];
+        return matchesGeo(meta?.cityId);
+      }),
+    [favorites, guideMeta, matchesGeo],
   );
 
-  const recapContinent = useMemo(
-    () => countBy(poiRecapCities.map((c) => c.continent)),
-    [poiRecapCities],
+  const operatorFavorites = useMemo(
+    () =>
+      favorites.filter((f) => {
+        if (f.entityKind !== 'tour_operator') return false;
+        const meta = operatorMeta[f.entityId];
+        return matchesGeo(meta?.cityId);
+      }),
+    [favorites, operatorMeta, matchesGeo],
   );
-  const recapNation = useMemo(
-    () => countBy(poiRecapCities.map((c) => c.nation)),
-    [poiRecapCities],
-  );
-  const recapRegion = useMemo(
-    () => countBy(poiRecapCities.map((c) => c.adminRegion)),
-    [poiRecapCities],
-  );
-  const recapZone = useMemo(
-    () => countBy(poiRecapCities.map((c) => c.zone)),
-    [poiRecapCities],
+
+  const shopFavorites = useMemo(
+    () =>
+      favorites.filter((f) => {
+        if (f.entityKind !== 'shop') return false;
+        const meta = shopMeta[f.entityId];
+        return matchesGeo(meta?.cityId);
+      }),
+    [favorites, shopMeta, matchesGeo],
   );
 
   const handleAddCity = async (city: CityGeoMinimal) => {
@@ -194,16 +444,9 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
       }
       setQuery('');
       setSuggestions([]);
-      setFavorites((prev) => [
-        {
-          userId,
-          entityKind: 'city',
-          entityId: city.id,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-      setCitiesById((prev) => ({ ...prev, [city.id]: city }));
+      // TODO: oggi reload completo per semplicità e coerenza post-add; in futuro
+      // valutare update incrementale dello state se il costo di reload diventa rilevante.
+      await reload();
     } finally {
       setBusyKey(null);
     }
@@ -223,24 +466,25 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
           (item) => !(item.entityKind === fav.entityKind && item.entityId === fav.entityId),
         ),
       );
-      if (fav.entityKind === 'city') {
-        setCitiesById((prev) => {
+
+      const removeFromMap = <T,>(
+        setter: React.Dispatch<React.SetStateAction<Record<string, T>>>,
+      ) => {
+        setter((prev) => {
           const next = { ...prev };
           delete next[fav.entityId];
           return next;
         });
-      } else if (fav.entityKind === 'poi') {
-        setPoiTitles((prev) => {
-          const next = { ...prev };
-          delete next[fav.entityId];
-          return next;
-        });
-        setPoiCityIds((prev) => {
-          const next = { ...prev };
-          delete next[fav.entityId];
-          return next;
-        });
-      }
+      };
+
+      const localCleanup: Partial<Record<FavoriteEntityKind, () => void>> = {
+        city: () => removeFromMap(setCitiesById),
+        poi: () => removeFromMap(setPoiById),
+        guide: () => removeFromMap(setGuideMeta),
+        tour_operator: () => removeFromMap(setOperatorMeta),
+        shop: () => removeFromMap(setShopMeta),
+      };
+      localCleanup[fav.entityKind]?.();
     } finally {
       setBusyKey(null);
     }
@@ -261,19 +505,30 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
 
   return (
     <div
-      className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3 sm:p-4 space-y-6"
+      className="flex-1 min-h-0 overflow-hidden flex flex-col p-2 sm:p-3 gap-2 overscroll-contain"
       data-testid="myspace-section-favorites"
       role="tabpanel"
       aria-label="Preferiti"
     >
-      <section className="space-y-2" data-testid="myspace-favorites-cities-section">
-        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-          <Bookmark className="w-4 h-4 text-amber-400" aria-hidden />
-          Città Preferite
-        </h2>
-        <p className="text-[11px] text-slate-500">
-          Puoi aggiungere una città anche se non l’hai ancora visitata.
-        </p>
+      <MySpaceSectionHeader
+        icon={Bookmark}
+        title="Preferiti"
+        description="I luoghi e le risorse che hai scelto di tenere a portata di mano."
+        iconClassName="w-4 h-4 text-amber-400 shrink-0"
+      />
+
+      <section data-testid="myspace-favorites-filter-bar" className="shrink-0">
+        <GeoCascadingFilters
+          cities={geoCities}
+          value={geoFilter}
+          onChange={setGeoFilter}
+          orientation="horizontal"
+          density="compact"
+          headerSubtitle="Seleziona l'area dei preferiti da visualizzare."
+        />
+      </section>
+
+      <section className="shrink-0" data-testid="myspace-favorites-city-add">
         <div className="relative">
           <label className="sr-only" htmlFor="myspace-favorites-city-search">
             Cerca città da aggiungere ai preferiti
@@ -284,9 +539,19 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
               id="myspace-favorites-city-search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Cerca città…"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSuggestions([]);
+              }}
+              onBlur={() => {
+                window.setTimeout(() => setSuggestions([]), 150);
+              }}
+              placeholder="Aggiungi città ai preferiti…"
               className="flex-1 min-w-0 bg-transparent text-sm text-slate-200 placeholder:text-slate-600 outline-none"
               data-testid="myspace-favorites-city-search"
+              aria-controls="myspace-favorites-city-listbox"
+              aria-expanded={suggestions.length > 0}
+              aria-autocomplete="list"
+              role="combobox"
             />
             {searching ? <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-500" /> : null}
           </div>
@@ -295,7 +560,7 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
               id="myspace-favorites-city-listbox"
               role="listbox"
               aria-label="Suggerimenti città"
-              className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-xl"
+              className="absolute z-10 mt-1 w-full max-h-56 sm:max-h-[50vh] overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-xl"
             >
               {suggestions.map((city) => {
                 const already = favoriteCityIds.has(city.id);
@@ -306,6 +571,7 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
                       role="option"
                       aria-selected={already}
                       disabled={already || busyKey === `city:${city.id}`}
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => void handleAddCity(city)}
                       className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-40"
                     >
@@ -322,114 +588,156 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
             </ul>
           ) : null}
         </div>
-        {cityFavorites.length === 0 ? (
-          <p className="text-xs text-slate-500 py-2">Nessuna città preferita.</p>
-        ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      </section>
+
+      <div
+        className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-2"
+        data-testid="myspace-favorites-boxes"
+      >
+        <FavoritesBox
+          title="Città"
+          icon={<Bookmark className="w-3.5 h-3.5 text-amber-400" />}
+          testId="myspace-favorites-box-cities"
+          emptyMessage="Nessuna città preferita per questo filtro."
+          isEmpty={cityFavorites.length === 0}
+        >
+          <ul className="space-y-1">
             {cityFavorites.map((fav) => {
               const city = citiesById[fav.entityId];
               const busy = busyKey === `city:${fav.entityId}`;
               return (
-                <li
+                <FavoriteItemRow
                   key={fav.entityId}
-                  className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
-                >
-                  <span aria-hidden>{KIND_ICON.city}</span>
-                  <span className="flex-1 min-w-0 text-sm text-white truncate">
-                    {city?.name ?? fav.entityId}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void handleRemove(fav)}
-                    className="p-1.5 rounded-md text-slate-400 hover:text-rose-300 hover:bg-slate-800 disabled:opacity-50"
-                    aria-label="Rimuovi dai preferiti"
-                    title="Rimuovi"
-                  >
-                    {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  </button>
-                </li>
+                  title={city?.name ?? fav.entityId}
+                  icon="🏙️"
+                  busy={busy}
+                  onRemove={() => void handleRemove(fav)}
+                />
               );
             })}
           </ul>
-        )}
-      </section>
+        </FavoritesBox>
 
-      <section className="space-y-2" data-testid="myspace-favorites-other-section">
-        <h2 className="text-sm font-bold text-white">Altri Preferiti</h2>
-        {otherFavorites.length === 0 ? (
-          <p className="text-xs text-slate-500 py-2">
-            Nessun altro preferito. Usa il segnalibro sulle schede (POI, Shop, …) per aggiungerli.
-          </p>
-        ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {otherFavorites.map((fav) => {
-              const busy = busyKey === `${fav.entityKind}:${fav.entityId}`;
-              const title =
-                fav.entityKind === 'poi'
-                  ? poiTitles[fav.entityId] ?? fav.entityId
-                  : fav.entityId;
+        <FavoritesBox
+          title="POI"
+          icon={<span className="text-sm">📍</span>}
+          testId="myspace-favorites-box-poi"
+          emptyMessage="Nessun POI preferito per questo filtro."
+          isEmpty={regularPoiByCategory.size === 0}
+        >
+          {[...regularPoiByCategory.entries()]
+            .sort(([a], [b]) =>
+              (POI_CATEGORY_LABELS[a] ?? a).localeCompare(POI_CATEGORY_LABELS[b] ?? b, 'it'),
+            )
+            .map(([category, items]) => (
+              <div key={category} className="mb-2 last:mb-0">
+                <h4 className="text-[9px] font-bold uppercase tracking-wider text-slate-500 px-1 mb-1">
+                  {POI_CATEGORY_LABELS[category] ?? category}
+                </h4>
+                <ul className="space-y-1">
+                  {items.map(({ fav, poi }) => (
+                    <FavoriteItemRow
+                      key={fav.entityId}
+                      title={poi.name}
+                      busy={busyKey === `poi:${fav.entityId}`}
+                      icon="📍"
+                      onRemove={() => void handleRemove(fav)}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))}
+        </FavoritesBox>
+
+        <FavoritesBox
+          title="Sponsor"
+          icon={<Award className="w-3.5 h-3.5 text-amber-300" />}
+          testId="myspace-favorites-box-sponsor"
+          emptyMessage="Nessuno sponsor preferito per questo filtro."
+          isEmpty={sponsorFavorites.length === 0}
+        >
+          <ul className="space-y-1">
+            {sponsorFavorites.map(({ fav, poi }) => (
+              <FavoriteItemRow
+                key={fav.entityId}
+                title={poi.name}
+                busy={busyKey === `poi:${fav.entityId}`}
+                icon={<Award className="w-3 h-3 text-amber-300" />}
+                onRemove={() => void handleRemove(fav)}
+              />
+            ))}
+          </ul>
+        </FavoritesBox>
+
+        <FavoritesBox
+          title="Negozio Digitale"
+          icon={<Store className="w-3.5 h-3.5 text-indigo-300" />}
+          testId="myspace-favorites-box-shop"
+          emptyMessage="Nessun negozio digitale preferito per questo filtro."
+          isEmpty={shopFavorites.length === 0}
+        >
+          <ul className="space-y-1">
+            {shopFavorites.map((fav) => {
+              const meta = shopMeta[fav.entityId];
               return (
-                <li
-                  key={`${fav.entityKind}:${fav.entityId}`}
-                  className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
-                >
-                  <span aria-hidden>{KIND_ICON[fav.entityKind]}</span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[10px] uppercase tracking-wide text-slate-500">
-                      {KIND_LABEL[fav.entityKind]}
-                    </span>
-                    <span className="block text-sm text-white truncate">{title}</span>
-                  </span>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void handleRemove(fav)}
-                    className="p-1.5 rounded-md text-slate-400 hover:text-rose-300 hover:bg-slate-800 disabled:opacity-50"
-                    aria-label="Rimuovi dai preferiti"
-                  >
-                    {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  </button>
-                </li>
+                <FavoriteItemRow
+                  key={fav.entityId}
+                  title={meta?.title ?? fav.entityId}
+                  busy={busyKey === `shop:${fav.entityId}`}
+                  icon="🛍️"
+                  onRemove={() => void handleRemove(fav)}
+                />
               );
             })}
           </ul>
-        )}
-      </section>
+        </FavoritesBox>
 
-      <section className="space-y-3" data-testid="myspace-favorites-recap-section">
-        <h2 className="text-sm font-bold text-white">Recap POI preferiti</h2>
-        <p className="text-[11px] text-slate-500">
-          Quantità aggregate per Continente · Nazione · Regione · Zona.
-        </p>
-        {[
-          { title: 'Continente', rows: recapContinent, testId: 'recap-continent' },
-          { title: 'Nazione', rows: recapNation, testId: 'recap-nation' },
-          { title: 'Regione', rows: recapRegion, testId: 'recap-region' },
-          { title: 'Zona', rows: recapZone, testId: 'recap-zone' },
-        ].map((block) => (
-          <div key={block.title} data-testid={block.testId}>
-            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">
-              {block.title}
-            </h3>
-            {block.rows.length === 0 ? (
-              <p className="text-xs text-slate-600">Nessun POI preferito.</p>
-            ) : (
-              <ul className="flex flex-wrap gap-1.5">
-                {block.rows.map((row) => (
-                  <li
-                    key={row.label}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-950/80 px-2 py-1 text-[11px] text-slate-300"
-                  >
-                    <span className="truncate max-w-[10rem]">{row.label}</span>
-                    <span className="font-bold text-amber-300/90">{row.count}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </section>
+        <FavoritesBox
+          title="Guide Turistiche"
+          icon={<span className="text-sm">🗺️</span>}
+          testId="myspace-favorites-box-guides"
+          emptyMessage="Nessuna guida preferita per questo filtro."
+          isEmpty={guideFavorites.length === 0}
+        >
+          <ul className="space-y-1">
+            {guideFavorites.map((fav) => {
+              const meta = guideMeta[fav.entityId];
+              return (
+                <FavoriteItemRow
+                  key={fav.entityId}
+                  title={meta?.title ?? fav.entityId}
+                  busy={busyKey === `guide:${fav.entityId}`}
+                  icon="🗺️"
+                  onRemove={() => void handleRemove(fav)}
+                />
+              );
+            })}
+          </ul>
+        </FavoritesBox>
+
+        <FavoritesBox
+          title="Tour Operator"
+          icon={<span className="text-sm">🎫</span>}
+          testId="myspace-favorites-box-operators"
+          emptyMessage="Nessun tour operator preferito per questo filtro."
+          isEmpty={operatorFavorites.length === 0}
+        >
+          <ul className="space-y-1">
+            {operatorFavorites.map((fav) => {
+              const meta = operatorMeta[fav.entityId];
+              return (
+                <FavoriteItemRow
+                  key={fav.entityId}
+                  title={meta?.title ?? fav.entityId}
+                  busy={busyKey === `tour_operator:${fav.entityId}`}
+                  icon="🎫"
+                  onRemove={() => void handleRemove(fav)}
+                />
+              );
+            })}
+          </ul>
+        </FavoritesBox>
+      </div>
     </div>
   );
 };

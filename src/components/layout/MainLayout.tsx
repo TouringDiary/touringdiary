@@ -18,7 +18,7 @@ import { useUser } from '@/context/UserContext';
 import { useUI } from '@/context/UIContext';
 import { useModal } from '@/context/ModalContext';
 import { useNavigation } from '@/context/useNavigation';
-import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext'; // NEW IMPORT
+import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { useOpenMyWorld } from '@/hooks/useOpenMyWorld';
@@ -55,13 +55,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
     const { connectionError, showOnboarding } = useUser(); 
     const onboardingFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_ONBOARDING);
     const onboardingEnabled = onboardingFlag?.enabled ?? true;
-    const { isMobile, isSidebarOpen, isUiVisible, setIsUiVisible, mobileShowWeather, mobileDiaryFullScreen, setMobileDiaryFullScreen } = useUI();
-    const { activeModal, openModal, closeModal, modalProps } = useModal(); // FIX: Destructured modalProps correctly
-    const { activeStaticPage, goBack, goHome, setViewMode, activeCityId, virtualCity, navigateToCity, handleNavigateGlobal } = useNavigation();
+    const { isMobile, isSidebarOpen, setIsSidebarOpen, isUiVisible, setIsUiVisible, mobileShowWeather, mobileDiaryFullScreen, setMobileDiaryFullScreen } = useUI();
+    const { activeModal, openModal, closeModal, modalProps } = useModal();
+    const { goBack, goHome, setViewMode, activeCityId, activeShopId, virtualCity, navigateToCity, handleNavigateGlobal } = useNavigation();
     const openMyWorld = useOpenMyWorld();
     
-    // RECUPERO LOGICA DIARIO
     const { handleSmartDrop } = useDiaryInteractionsContext();
+
+    // Shop overlay: auto-close sidebar while Shop is open; reopen on desktop when leaving.
+    // Lives here (not in useAppUI): activeShopId belongs to Navigation, below UIProvider.
+    useEffect(() => {
+        if (activeShopId) {
+            setIsSidebarOpen(false);
+        } else if (!isMobile) {
+            setIsSidebarOpen(true);
+        }
+    }, [activeShopId, isMobile, setIsSidebarOpen]);
 
     const diaryShell = useControlledSlidePanel(mobileDiaryFullScreen);
     const usesVisualViewportGeometry = useMobileDiaryOverlayGeometry(
@@ -126,23 +135,31 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                 }
 
                 sidebar={
-                    <div id="tour-sidebar" className="h-full">
-                        <Sidebar 
-                            onViewPoiDetail={(poi) => openModal('poiDetail', { poi })} 
-                            onDayDrop={handleSmartDrop} // FIXED: Passed the real handler
-                            onOpenFullRankings={() => openModal('fullRankings')} 
-                            onOpenSponsor={() => openModal('sponsor', { sponsorTier: 'gold' })} 
-                            onOpenGlobal={(section) => handleNavigateGlobal(section)} 
-                            onPrint={() => window.print()} 
-                            onCityClick={(id) => { closeModal(); navigateToCity(id); }} 
-                            activeCityId={activeCityId}
-                            onAddToItinerary={(poi) => openModal('add', { poi })}
-                            onOpenAiPlanner={() => openModal('aiPlanner')}
-                            onOpenRoadbook={() => openModal('roadbook')}
-                            isWorkspacePanelOpen={isMyWorldFamilyOpen}
-                            onToggleWorkspacePanel={toggleMyWorldPanel}
-                        />
-                    </div>
+                    // Mobile: AppShell aside is CSS-hidden (`hidden lg:flex`). Mounting Sidebar
+                    // there duplicates TravelDiary/sponsor work when diary/weather overlays own
+                    // their own Sidebar. Skip AppShell Sidebar only while those overlays render
+                    // (safe dedup). Keep it when Valigia/companion may need the hidden mount.
+                    isMobile && (diaryShell.shouldRender || mobileShowWeather) ? (
+                        <div id="tour-sidebar" className="h-full" aria-hidden />
+                    ) : (
+                        <div id="tour-sidebar" className="h-full">
+                            <Sidebar 
+                                onViewPoiDetail={(poi) => openModal('poiDetail', { poi })} 
+                                onDayDrop={handleSmartDrop}
+                                onOpenFullRankings={() => openModal('fullRankings')} 
+                                onOpenSponsor={() => openModal('sponsor', { sponsorTier: 'gold' })} 
+                                onOpenGlobal={(section) => handleNavigateGlobal(section)} 
+                                onPrint={() => window.print()} 
+                                onCityClick={(id) => { closeModal(); navigateToCity(id); }} 
+                                activeCityId={activeCityId}
+                                onAddToItinerary={(poi) => openModal('add', { poi })}
+                                onOpenAiPlanner={() => openModal('aiPlanner')}
+                                onOpenRoadbook={() => openModal('roadbook')}
+                                isWorkspacePanelOpen={isMyWorldFamilyOpen}
+                                onToggleWorkspacePanel={toggleMyWorldPanel}
+                            />
+                        </div>
+                    )
                 }
 
                 mobileNav={
@@ -163,8 +180,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                   * stacking context. Così qualunque z-index interno (anche tier alti
                   * legacy) resta capato sotto la fascia focus (Diario 9100 / Valigia 9300),
                   * che sono portalati/fratelli nel body. Nessun elemento di pagina può
-                  * più emergere sopra i workspace. ModalManager è fratello (fuori da
-                  * questo wrapper) e mantiene la sua fascia consumer 11000+.
+                  * più emergere sopra i workspace. ModalManager è fratello di AppShell
+                  * (fuori da FocusIdleBoundary) e mantiene la fascia consumer 11000+.
                   */}
                 <div 
                     className={`
@@ -175,9 +192,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                 >
                     <AppRouter />
                 </div>
-
-                <ModalManager />
             </AppShell>
+
+            {/*
+              * ModalManager fuori da AppShell / FocusIdleBoundary: i workspace congelano
+              * baseContent, ma i modal classici devono montare/smontare subito al cambio
+              * di activeModal (idle path interno + remount Classic).
+              */}
+            <ModalManager />
             
             {diaryShell.shouldRender && (
                 <div

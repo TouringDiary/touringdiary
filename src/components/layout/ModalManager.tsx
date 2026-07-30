@@ -8,6 +8,7 @@ import { useGps } from '@/context/GpsContext';
 import { useNavigation } from '@/context/useNavigation';
 import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext';
 import { useCityData } from '../../hooks/useCityData';
+import { resolveWorkspaceId } from '@/focus';
 
 import { PointOfInterest, ItineraryItem, User, CitySummary } from '../../types/index';
 import { ModalLoading } from '../common/ModalLoading';
@@ -22,7 +23,25 @@ import { ModalManagerExternalProps } from './ModalManagerTypes';
 import { openCollaborationWorkspaceFlow, type CollaborationWorkspaceTarget } from '@/hooks/useOpenCollaborationWorkspace';
 import { openMyWorldFlow } from '@/hooks/useOpenMyWorld';
 
+/**
+ * ModalManager — entry.
+ *
+ * Workspace keys (MySpace / MyWorld / Valigia / collaboration) are owned by
+ * WorkspaceHost + FocusOverlay, not by classic modal trees. While a workspace
+ * owns `activeModal`, skip the portal and all heavy context fan-out.
+ * Remount Classic immediately when `activeModal` leaves WORKSPACE_REGISTRY
+ * (e.g. auth / poiDetail replacing the workspace key).
+ */
 export const ModalManager = () => {
+    const { activeModal } = useModal();
+    if (resolveWorkspaceId(activeModal) != null) {
+        return null;
+    }
+    return <ModalManagerClassic />;
+};
+
+/** Classic consumer/admin/feature modal portal — mounted only when not in workspace focus. */
+const ModalManagerClassic = () => {
     // 1. CONSUMO CONTEXT (Smart Component)
     const { activeModal, modalProps, closeModal, openModal } = useModal();
     const { user, setUser, cityManifest, closeLevelUp, handleLogout } = useUser();

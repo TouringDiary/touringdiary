@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import { AiItineraryItem, DailyLogistics } from '../services/ai/types';
 
 export interface AiSessionState {
@@ -68,8 +68,14 @@ export const AiPlannerProvider = ({ children }: { children?: ReactNode }) => {
         });
     }, []);
 
+    const value = useMemo<AiPlannerContextType>(() => ({
+        aiSession,
+        updateAiSession,
+        resetAiSession,
+    }), [aiSession, updateAiSession, resetAiSession]);
+
     return (
-        <AiPlannerContext.Provider value={{ aiSession, updateAiSession, resetAiSession }}>
+        <AiPlannerContext.Provider value={value}>
             {children}
         </AiPlannerContext.Provider>
     );

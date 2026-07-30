@@ -1,9 +1,8 @@
-import QRCode from 'qrcode';
 import { Itinerary, ItineraryItem } from '../types/index';
 import { getCityDetails } from '../services/city/cityReadService';
 import { getPoisByIds } from '../services/cityService';
 import { getCategoryPlaceholdersAsync } from '../services/settingsService';
-import { calculateDistance } from '../services/geo';
+import { distanceFromPreviousGeoStop } from '../domain/diary/itineraryDistance';
 import {
   type PoiDisplayImageSource,
   resolvePoiDisplayImageSource,
@@ -276,6 +275,7 @@ const generateQr = async (
         : `${GOOGLE_MAPS_BASE}${encodeURIComponent(query || '')}`;
 
     try {
+        const { default: QRCode } = await import('qrcode');
 
         return await QRCode.toDataURL(targetUrl, {
             errorCorrectionLevel: 'M',
@@ -303,7 +303,6 @@ const generateQr = async (
 export const prepareItineraryForPdf = async (
 
     sourceItinerary: Itinerary,
-    coverImageUrl: string | undefined,
     options: { includePhotos: boolean, includeQr: boolean },
     onProgress: (percent: number) => void
 
@@ -330,8 +329,7 @@ export const prepareItineraryForPdf = async (
                 poiName: item.poi?.name,
                 imageUrl: item.poi?.imageUrl,
             })),
-            coverImageUrlParam: coverImageUrl,
-            note: 'coverImageUrl non è usato nella preparazione: la copertina usa citiesInfo.heroImageBase64',
+            note: 'La copertina usa citiesInfo.heroImageBase64',
         },
     });
 
@@ -441,41 +439,8 @@ export const prepareItineraryForPdf = async (
 
         const item = sortedItems[i];
 
-        let distance: number | null = null;
-
-        if (i > 0) {
-
-            const prev = sortedItems[i - 1];
-
-            if (prev.dayIndex === item.dayIndex && !prev.isCustom && !item.isCustom) {
-
-                if (
-
-                    prev.poi &&
-                    prev.poi.coords &&
-                    item.poi &&
-                    item.poi.coords &&
-                    prev.poi.coords.lat != null &&
-                    prev.poi.coords.lng != null &&
-                    item.poi.coords.lat != null &&
-                    item.poi.coords.lng != null
-
-                ) {
-
-                    distance = calculateDistance(
-
-                        prev.poi.coords.lat,
-                        prev.poi.coords.lng,
-                        item.poi.coords.lat,
-                        item.poi.coords.lng
-
-                    );
-
-                }
-
-            }
-
-        }
+        // SoT identica al Diario: salta Note/memo/risorse/zero-coords (non i-1 adiacente).
+        const distance = distanceFromPreviousGeoStop(sortedItems, i);
 
         let imgBase64: string | undefined;
 

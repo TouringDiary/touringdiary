@@ -421,7 +421,7 @@ Può bloccare pipeline ingestione dati.
 
 ---
 
-# LAYER PDF ENGINE
+# LAYER PDF / EXPORT ENGINE
 
 
 ## src/components/pdf/RoadbookDocument.tsx
@@ -439,6 +439,76 @@ PdfStyles.ts
 Impatto modifiche
 
 Può bloccare export guida viaggio.
+
+
+---
+
+## src/components/pdf/TravelDocument.tsx
+
+Ruolo
+
+Layout PDF itinerario (copertina, giorni, note, footer editoriale).
+
+
+Dipende da:
+
+PdfStyles.ts · `heroCoverCollagePlan.ts` · preparedDoc da `pdfUtils` · distanze da `itineraryDistance.ts`
+
+
+Impatto modifiche
+
+Può alterare layout/paginazione export PDF.
+
+
+---
+
+## src/components/modals/ExportModal.tsx
+
+Ruolo
+
+UI export (PDF/DOCX/TXT) + anteprima WYSIWYG A4 (header, body packing, footer «Pagina X di Y»).
+
+
+Invariante
+
+`startPdfPreparation(true)` una sola volta all’apertura: i toggle UI non rigenerano immagini; PDF/DOCX/Preview condividono lo stesso `preparedDoc`.
+
+
+Impatto modifiche
+
+Può alterare anteprima, opzioni export e handoff a PDF/DOCX.
+
+
+---
+
+## src/components/export/ExportLogo.tsx + src/hooks/useLogoRasterizer.ts
+
+Ruolo
+
+Logo export: viewBox condivisi (`EXPORT_LOGO_*`); raster PNG con icona a proporzioni corrette + tipografia Home.
+
+
+Impatto modifiche
+
+Può schiacciare/distorcere il logo in PDF/DOCX/Preview se viewBox e canvas divergono.
+
+
+---
+
+## src/utils/heroCoverCollagePlan.ts
+
+Ruolo
+
+Collage copertina multi-città condiviso tra PDF, DOCX e Preview HTML.
+
+
+---
+
+## src/utils/exportGenerators.ts
+
+Ruolo
+
+Generazione DOCX allineata strutturalmente al layout PDF (timeline 75%/25%, collage).
 
 
 ---

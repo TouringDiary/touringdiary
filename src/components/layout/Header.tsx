@@ -3,7 +3,7 @@ import { Z_DROPDOWN } from '@/constants/zIndex';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, LogIn, Lock, X, Menu, Info, Send, ShieldCheck, BookOpen, MapPin, CloudSun, Loader2, User as UserIcon, PanelLeftOpen, PanelLeftClose, Sparkles, LogOut, AlertTriangle, type LucideIcon } from 'lucide-react';
-import { getUnreadCount } from '@/services/notificationService'; 
+import { getUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from '@/services/notificationService'; 
 import { useModal } from '@/context/ModalContext';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
@@ -99,10 +99,18 @@ export const Header = ({
     };
     
     checkNotifications();
-    const interval = setInterval(checkNotifications, 3000); 
+    // Event-driven (markAsRead / fetch / add) + visibility; fallback lento (no spam 3s).
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, checkNotifications);
+    const onVisibility = () => {
+        if (!document.hidden) checkNotifications();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    const interval = window.setInterval(checkNotifications, 60000);
 
     return () => {
-        clearInterval(interval);
+        window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, checkNotifications);
+        document.removeEventListener('visibilitychange', onVisibility);
+        window.clearInterval(interval);
     };
   }, [user, notificationsEnabled]);
 

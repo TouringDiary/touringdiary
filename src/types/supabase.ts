@@ -3212,33 +3212,33 @@ export type Database = {
       shop_products: {
         Row: {
           created_at: string
-          description: string | null
+          description: string
           id: string
-          image_url: string | null
+          image_url: string
           name: string
-          price: number | null
+          price: number
           shipping_mode: string | null
           shop_id: string
           status: string | null
         }
         Insert: {
           created_at?: string
-          description?: string | null
+          description: string
           id: string
-          image_url?: string | null
+          image_url: string
           name: string
-          price?: number | null
+          price: number
           shipping_mode?: string | null
           shop_id: string
           status?: string | null
         }
         Update: {
           created_at?: string
-          description?: string | null
+          description?: string
           id?: string
-          image_url?: string | null
+          image_url?: string
           name?: string
-          price?: number | null
+          price?: number
           shipping_mode?: string | null
           shop_id?: string
           status?: string | null

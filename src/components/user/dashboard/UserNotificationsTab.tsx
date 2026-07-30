@@ -62,7 +62,7 @@ export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNav
 
         refreshIfVisible();
 
-        const interval = window.setInterval(refreshIfVisible, 30000);
+        const interval = window.setInterval(refreshIfVisible, 120000);
         const onVisibilityChange = () => {
             if (!document.hidden) void load();
         };

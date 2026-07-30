@@ -69,7 +69,7 @@ MySpace è **privato per natura**. La condivisione è un atto consapevole che po
 
 | Mondo | Contiene |
 |-------|----------|
-| **MySpace** | Viaggi, Preferiti, Strumenti, Inviti Workspace, Esploratore |
+| **MySpace** | Viaggi, Preferiti, Valigia, Inviti Workspace, Esploratore |
 | **Account** | Identità, impostazioni, sicurezza, wallet, abbonamenti, supporto |
 
 ### 2.2 Promessa
@@ -89,7 +89,7 @@ MySpace è **privato per natura**. La condivisione è un atto consapevole che po
 5. **Diario ≠ Viaggio** — il Diario è una risorsa del Viaggio.
 6. **Preferito = stato globale** — non sezione dentro il Viaggio.
 7. **Allegati viaggio ≠ Allegati Workspace**.
-8. **Strumenti ≠ Valigia del Viaggio**.
+8. **Root Valigia ≠ Valigia del Viaggio**.
 9. **Nessuna collaborazione implicita** in MySpace.
 10. **Filosofia silenziosa** — no feed, no gamification, no classifiche in MySpace. Eccezione ufficiale: opt-in **«Ricordami questo viaggio»** (preferenza sul Viaggio; vedi §6.5).
 11. **Anti–tab explosion** — nuove sezioni del Viaggio solo se superano il test di appartenenza (DOC 34A / DOC 37).
@@ -123,7 +123,7 @@ Estensione: creare Workspace **da un Viaggio** (selezione risorse → copie → 
 | 1 | **I miei Viaggi** | Cuore — catalogo dei Viaggi |
 | 2 | **Esploratore** | Archivio personale dell’esploratore (non ricerca / non Scopri) |
 | 3 | **Preferiti** | Vista trasversale (stato Preferito su domini compatibili) |
-| 4 | **Strumenti** | Catalogo globale personale: Diari · Valigie · Template (non filtrati per Viaggio) |
+| 4 | **Valigia** | Catalogo globale personale: Diari · Valigie · Template (non filtrati per Viaggio) |
 | 5 | **Inviti Workspace** | Ponte: ricevuti, inviati, richieste pendenti |
 
 ### Fuori dalla root
@@ -141,8 +141,8 @@ MyWorld
 │     ├── I miei Viaggi
 │     │     └── [Viaggio]     ← struttura → DOC 37
 │     ├── Esploratore          ← archivio (città, luoghi, raccolte, cronologia…)
-│     ├── Preferiti            ← vista trasversale (filtri per tipo)
-│     ├── Strumenti            ← catalogo globale: Diari · Valigie · Template (non filtrati)
+│     ├── Preferiti            ← vista trasversale (filtro geo + box per tipo)
+│     ├── Valigia               ← catalogo globale: Diari · Valigie · Template (non filtrati)
 │     └── Inviti Workspace     ← ricevuti / inviati / pendenti
 └── Workspace
 ```
@@ -168,7 +168,7 @@ Contiene **esclusivamente** il **catalogo dei Viaggi**.
 - Ogni riga rappresenta un **Viaggio**.
 - Il **Viaggio** è l’**Aggregate Root**.
 - Il **Diario** **non** è l’unità di riga del catalogo.
-- I diari personali **non filtrati per Viaggio** vivono in **Strumenti → Diari di Viaggio** (§9), non in questo catalogo.
+- I diari personali **non filtrati per Viaggio** vivono in **Valigia → Diari di Viaggio** (§9), non in questo catalogo.
 
 ### 6.1 Catalogo
 
@@ -247,7 +247,7 @@ Il sito **non** è ancora online. I diari oggi presenti sono **dati di test**.
 
 L’associazione **Diario ⇄ Viaggio** è una **relazione esplicita** del dominio (campo / legame `viaggio_id` sul Diario — dettaglio strutturale → DOC 37).
 
-Un Diario senza associazione **non** compare nella sezione Diario del dettaglio Viaggio; può comparire nel catalogo globale **Strumenti → Diari di Viaggio**.
+Un Diario senza associazione **non** compare nella sezione Diario del dettaglio Viaggio; può comparire nel catalogo globale **Valigia → Diari di Viaggio**.
 
 ### 6.4.2 Cardinalità di associazione Diario ⇄ Viaggio (congelato — Source of Truth)
 
@@ -358,9 +358,16 @@ Icone di categoria (prodotto):
 
 **Organizzazione schermata** (invece di cartelle):
 
-1. **Città Preferite**
-2. **Altri Preferiti**
-3. **Recap statistico** dei POI preferiti — quantità aggregate per Continente · Nazione · Regione · Zona (aiuta a scoprire concentrazioni di interesse e futuri viaggi).
+1. **Barra filtri geografici** in alto — Continente · Nazione · Regione · Zona turistica · Città. Filtra tutti i contenuti sottostanti; non mostra conteggi aggregati.
+2. **Sei box affiancati** (ognuno scrollabile in modo indipendente), da sinistra a destra:
+   - **Città**
+   - **POI** non sponsor (suddivisi per categoria)
+   - **Sponsor** (POI / entità con stato sponsor attuale)
+   - **Negozio Digitale**
+   - **Guide Turistiche**
+   - **Tour Operator**
+3. La **ricerca per aggiungere città** ai Preferiti rispetta lo stesso filtro geografico attivo (se presente), così ricercabile e visualizzato restano coerenti.
+4. La vista Preferiti **non** dipende dai Feature Flag del Centro di Controllo: Sponsor e Negozi Digitali preferiti restano sempre mostrati se presenti tra i Preferiti dell’utente.
 
 ---
 
@@ -375,14 +382,14 @@ Distinto dal **Riepilogo** del singolo Viaggio (DOC 37).
 
 ---
 
-## 9. Strumenti
+## 9. Valigia
 
 La sezione:
 
 ```text
 MyWorld
 → MySpace
-→ Strumenti
+→ Valigia
 ```
 
 deve rappresentare il **catalogo globale** delle risorse personali **NON filtrate per Viaggio**.
@@ -391,11 +398,11 @@ deve rappresentare il **catalogo globale** delle risorse personali **NON filtrat
 
 | Superficie | Natura |
 |------------|--------|
-| **Strumenti** | Catalogo **personale globale** — tutte le risorse dell’utente **senza** filtro per Viaggio |
+| **Valigia** | Catalogo **personale globale** — tutte le risorse dell’utente **senza** filtro per Viaggio |
 | **Dettaglio del Viaggio** | Catalogo **contestuale filtrato** — solo le Resource **associate** a quel Viaggio |
 
 Questa distinzione è **Source of Truth**.  
-**Strumenti ≠ Valigia del Viaggio** (DOC 37 / DOC 31).
+**Root Valigia ≠ Valigia del Viaggio** (DOC 37 / DOC 31).
 
 ### 9.2 Layout (congelato)
 
@@ -416,14 +423,14 @@ Questa distinzione è **Source of Truth**.
 Elementi autonomi e riutilizzabili: possono esistere **indipendentemente da qualsiasi Viaggio**.  
 La valigia di un viaggio vive **dentro** quel Viaggio (DOC 31 / DOC 37).
 
-### 9.4 Apertura delle Resource da Strumenti (congelato — Source of Truth)
+### 9.4 Apertura delle Resource da Valigia (congelato — Source of Truth)
 
 Quando l’utente apre una Resource da:
 
 ```text
 MyWorld
 → MySpace
-→ Strumenti
+→ Valigia
 ```
 
 quella Resource viene aperta **direttamente**.
@@ -436,13 +443,13 @@ Vale per:
 
 **Non** esistono schermate intermedie.
 
-### 9.5 Crea Diario da Strumenti (congelato — Source of Truth)
+### 9.5 Crea Diario da Valigia (congelato — Source of Truth)
 
 Quando l’utente crea un Diario da:
 
 ```text
 MySpace
-→ Strumenti
+→ Valigia
 → Diari
 ```
 
@@ -506,7 +513,7 @@ Questo evita sincronizzazioni indesiderate.
 Le **stesse identiche regole** devono valere per le **Valigie**.
 
 - Creazione dal dettaglio Viaggio (§6.4.4).
-- Creazione da Strumenti (stesso pattern del §9.5: senza Viaggio / Viaggio esistente / nuovo Viaggio).
+- Creazione da Valigia (stesso pattern del §9.5: senza Viaggio / Viaggio esistente / nuovo Viaggio).
 - Salva con nome (stesso pattern del §9.6: indipendente / associa esistente / crea nuovo Viaggio).
 - Creazione contestuale del Viaggio.
 - Associazione ad un Viaggio esistente.
@@ -599,7 +606,7 @@ Idee WOW residue da DOC 34 / appendici (es. modalità **Rivivere**, **On This Da
 |----|-----------|-------|
 | PV-001 | Catalogo: sort default ultima modifica; Prossimi / Passati; cover «+»; collage max 4 città; delete con checkbox | Congelato 2026-07-27 |
 | PV-002 | Diario: Salva / Salva con nome / Auto Save; no cronologia versioni. **Filosofia** Salva con nome invariata; **estensione** associazione Viaggio in PV-016 | Congelato 2026-07-27 · esteso 2026-07-28 |
-| PV-003 | Preferiti: no cartelle; layout Città Preferite · Altri Preferiti · Recap POI (Continente/Nazione/Regione/Zona). **Sostituisce** la precedente organizzazione «POI Preferiti a filtri multipli (incl. Città/Categoria)» documentata fino a v2.1.1 | Congelato 2026-07-27 |
+| PV-003 | Preferiti: no cartelle; layout barra filtri geo + 6 box (Città · POI · Sponsor · Negozio Digitale · Guide · Tour Operator); ricerca città allineata al filtro geo. **Sostituisce** il layout «Città Preferite · Altri Preferiti · Recap POI» e la precedente organizzazione «POI Preferiti a filtri multipli» documentata fino a v2.1.1 | Aggiornato 2026-07-28 |
 | PV-004 | Città Preferita ammissibile anche se non visitata | Congelato 2026-07-27 |
 | PV-005 | Esploratore: città visitate auto + rimozione manuale; delete Viaggio ↛ delete città visitata | Congelato 2026-07-27 |
 | PV-006 | Ricordami: N notifiche indipendenti + deep link cartella Viaggio | Congelato 2026-07-27 |
@@ -610,12 +617,12 @@ Idee WOW residue da DOC 34 / appendici (es. modalità **Rivivere**, **On This Da
 | PV-011 | MySpace = solo originali; mai copie; mai elementi collaborativi vivi | Congelato 2026-07-28 |
 | PV-012 | Catalogo «I miei Viaggi» = solo Viaggi (Aggregate Root), non tutti i diari | Congelato 2026-07-28 |
 | PV-013 | Dettaglio Viaggio: tutte le sezioni filtrate esclusivamente su quel Viaggio; empty state + CTA create/associa Diario | Congelato 2026-07-28 |
-| PV-014 | Strumenti = catalogo globale Diari · Valigie · Template (3 card; desktop affiancate, mobile verticali) ≠ dettaglio Viaggio filtrato | Congelato 2026-07-28 |
+| PV-014 | Valigia = catalogo globale Diari · Valigie · Template (3 card; desktop affiancate, mobile verticali) ≠ dettaglio Viaggio filtrato | Congelato 2026-07-28 |
 | PV-015 | Associazione Diario ⇄ Viaggio esplicita; diari di test non auto-associati | Congelato 2026-07-28 |
-| PV-016 | Apertura Resource da Strumenti = diretta (Diario · Valigia · Template); nessuna schermata intermedia | Congelato 2026-07-28 |
+| PV-016 | Apertura Resource da Valigia = diretta (Diario · Valigia · Template); nessuna schermata intermedia | Congelato 2026-07-28 |
 | PV-017 | Un Diario ↔ un solo Viaggio; riuso su altro Viaggio solo via Duplica (duplicato nasce senza associazione) | Congelato 2026-07-28 |
 | PV-018 | Crea Diario dal dettaglio Viaggio: modale DS (nome, dal, al); associa automatico; popola; apre subito — non apre editor prima del modale | Congelato 2026-07-28 |
-| PV-019 | Crea Diario da Strumenti: stesso modale con A) indipendente · B) Viaggio esistente · C) nuovo Viaggio; crea/popola/apre | Congelato 2026-07-28 |
+| PV-019 | Crea Diario da Valigia: stesso modale con A) indipendente · B) Viaggio esistente · C) nuovo Viaggio; crea/popola/apre | Congelato 2026-07-28 |
 | PV-020 | Salva con nome: filosofia invariata; aggiunge indipendente / associa esistente / crea nuovo Viaggio | Congelato 2026-07-28 |
 | PV-021 | Stesse regole creazione/associazione/Salva con nome per le Valigie | Congelato 2026-07-28 |
 | PV-022 | Resource personale non può appartenere a due Viaggi; se già associata / contesto incompatibile → proposta copia; originale invariato | Congelato 2026-07-28 |
@@ -635,7 +642,7 @@ Idee WOW residue da DOC 34 / appendici (es. modalità **Rivivere**, **On This Da
 | Legacy Account | Destinazione Product Vision |
 |----------------|-----------------------------|
 | `UserSidebar` tab `trips` → `UserTripsTab` | MySpace → **I miei Viaggi** (`MySpaceTripsCatalog` + cartella / sezioni) |
-| `UserSidebar` tab `suitcases` → `UserSuitcasesTab` | MySpace → **Strumenti** → Valigie / Template (`MySpaceToolsRoot`) |
+| `UserSidebar` tab `suitcases` → `UserSuitcasesTab` | MySpace → **Valigia** → Valigie / Template |
 | `UserSidebar` tab `sharing` → `UserSharingTab` | MySpace → **Inviti Workspace** + **Workspace** hub (`MySpaceInvitesRoot`, `GlobalWorkspacePanel` / sezioni) |
 | `UserOverviewTab` → `WorkspaceQuickAccess` | Workspace (accesso rapido ancora montato in Account) |
 
@@ -662,8 +669,8 @@ File destinazione MySpace / Workspace:
 | Funzione | Dove esiste oggi (file) | Stato | Dove dovrebbe vivere (SoT) |
 |----------|-------------------------|-------|----------------------------|
 | Voce menu Account «I Miei Viaggi» | `UserSidebar.tsx` → `openUserTab('trips')` | **Presente** (legacy) | **Non** in Account; catalogo in MySpace |
-| Lista diari personali (`savedProjects`) | `UserTripsTab.tsx` + `useItinerary().savedProjects` | **Completa** come lista **Diari**, **non** come catalogo **Viaggi** | SoT: i diari globali stanno in **Strumenti → Diari di Viaggio**; il catalogo MySpace è **solo Viaggi** |
-| Apri / modifica diario | `UserTripsTab.tsx` → `loadProject` + `onClose` | **Completa** | Apri diario: da sezione Diario del Viaggio **oppure** da Strumenti → Diari |
+| Lista diari personali (`savedProjects`) | `UserTripsTab.tsx` + `useItinerary().savedProjects` | **Completa** come lista **Diari**, **non** come catalogo **Viaggi** | SoT: i diari globali stanno in **Valigia → Diari di Viaggio**; il catalogo MySpace è **solo Viaggi** |
+| Apri / modifica diario | `UserTripsTab.tsx` → `loadProject` + `onClose` | **Completa** | Apri diario: da sezione Diario del Viaggio **oppure** da Valigia → Diari |
 | Elimina diario | `UserTripsTab.tsx` → `deleteProject` + `DeleteConfirmationModal` | **Completa** | Eliminazione Diario come Resource (non = delete Viaggio) |
 | Catalogo **Viaggi** (`listViaggiByUser`) | `MySpaceTripsCatalog.tsx` | **Completa** | MySpace → I miei Viaggi |
 | Crea Viaggio empty | `MySpaceTripsCatalog.tsx` → `createEmptyViaggio` | **Completa** | MySpace → I miei Viaggi |
@@ -678,21 +685,21 @@ File destinazione MySpace / Workspace:
 - La tab Account si chiama «I Miei Viaggi» ma il titolo UI interno è «I Miei Diari» e i dati sono `Itinerary` via `savedProjects` (`UserTripsTab.tsx`).
 - Questo **contraddice** §6.0 di questo documento: il catalogo Viaggi **non** è la lista di tutti i diari.
 
-### 15.3 Confronto B — Account «Le mie Valigie» vs MySpace «Strumenti»
+### 15.3 Confronto B — Account «Le mie Valigie» vs MySpace «Valigia»
 
-| Funzione | Account `UserSuitcasesTab.tsx` | MySpace `MySpaceToolsRoot.tsx` | Stato migrazione | Destinazione SoT |
-|----------|--------------------------------|--------------------------------|------------------|------------------|
-| Lista Valigie | Sì (`isValigia`) | Sì (`fetchUserSuitcasesAsync`, non template) | Account **completa**; Tools **lista+apri** | Strumenti → Valigie |
-| Lista Template | Sì (`isUserTemplate`) | Sì (`fetchUserOwnedTemplatesAsync`) | Account **completa**; Tools **lista+apri** | Strumenti → Template |
-| Card «Diari di Viaggio» (tutti i diari) | **Assente** | **Assente** | **Manca** | Strumenti → Diari di Viaggio (§9.3) |
-| Layout 3 card affiancate / mobile verticali | Tab Valigie\|Template (non 3 card) | Due sezioni stacked (non 3 card) | **Manca** rispetto a §9.2–9.3 | Strumenti |
-| Crea Valigia | Sì (`initialAction: 'create-suitcase'`) | Sì | Presente in entrambi | Strumenti |
-| Crea Template | Sì | Sì | Presente in entrambi | Strumenti |
-| Apri / modifica editor packing | Sì (`openModal('packingList')`) | Sì | Presente in entrambi | Strumenti |
-| Duplica | Sì (`duplicateSuitcaseEntityAsync`) | **Assente** (nessun match `duplicate` nel file) | **Gap** | Strumenti |
-| Elimina | Sì (`deleteSuitcase` + modal + swipe) | **Assente** | **Gap** | Strumenti |
-| Condividi (wizard) | Sì (`useOpenCollaborationShare`) | **Assente** | **Gap** (azione collaborativa: avvia copia → Workspace; entry UX da catalogo originale ammessa) | Entry da Strumenti / risorsa; collaborazione in Workspace |
-| Indicatore «condiviso» | Sì (`SharedResourceIndicator` + `useSharedResourceIndicator`) | **Assente** | **Gap** | Strumenti (indicatore su originale) |
+| Funzione | Account `UserSuitcasesTab.tsx` | MySpace root Valigia | Stato migrazione | Destinazione SoT |
+|----------|--------------------------------|----------------------|------------------|------------------|
+| Lista Valigie | Sì (`isValigia`) | Sì (`fetchUserSuitcasesAsync`, non template) | Account **completa**; MySpace **lista+apri** | Valigia → Valigie |
+| Lista Template | Sì (`isUserTemplate`) | Sì (`fetchUserOwnedTemplatesAsync`) | Account **completa**; MySpace **lista+apri** | Valigia → Template |
+| Card «Diari di Viaggio» (tutti i diari) | **Assente** | **Assente** | **Manca** | Valigia → Diari di Viaggio (§9.3) |
+| Layout 3 card affiancate / mobile verticali | Tab Valigie\|Template (non 3 card) | Due sezioni stacked (non 3 card) | **Manca** rispetto a §9.2–9.3 | Valigia |
+| Crea Valigia | Sì (`initialAction: 'create-suitcase'`) | Sì | Presente in entrambi | Valigia |
+| Crea Template | Sì | Sì | Presente in entrambi | Valigia |
+| Apri / modifica editor packing | Sì (`openModal('packingList')`) | Sì | Presente in entrambi | Valigia |
+| Duplica | Sì (`duplicateSuitcaseEntityAsync`) | **Assente** (nessun match `duplicate` nel root Valigia) | **Gap** | Valigia |
+| Elimina | Sì (`deleteSuitcase` + modal + swipe) | **Assente** | **Gap** | Valigia |
+| Condividi (wizard) | Sì (`useOpenCollaborationShare`) | **Assente** | **Gap** (azione collaborativa: avvia copia → Workspace; entry UX da catalogo originale ammessa) | Entry da Valigia / risorsa; collaborazione in Workspace |
+| Indicatore «condiviso» | Sì (`SharedResourceIndicator` + `useSharedResourceIndicator`) | **Assente** | **Gap** | Valigia (indicatore su originale) |
 | Apri Workspace collegato | Sì (`useResourceWorkspaces` + `useOpenCollaborationWorkspace`) | **Assente** | **Gap** | Ponte verso Workspace |
 
 ### 15.4 Confronto C — Account «Condivisione» vs MySpace Inviti vs Workspace
@@ -700,7 +707,7 @@ File destinazione MySpace / Workspace:
 | Funzione | Account `UserSharingTab.tsx` | MySpace `MySpaceInvitesRoot.tsx` | Workspace hub | Stato | Destinazione SoT |
 |----------|------------------------------|----------------------------------|---------------|-------|------------------|
 | Overview risorse owned + member | Sì (`loadSharingProfileOverview`) | **Assente** | `CondivisioneSection.tsx` = risorse del **workspace attivo**, non overview globale utente | Overview Account **completa**; destinazione **non** equivalente | Redistribuire: overview collaborativa → Workspace / Inviti; **non** hub permanente in Account |
-| Apri risorsa (diario / packing) | Sì | **Assente** | `onOpenResource` in hub | Presente in Account e in Workspace hub | Workspace / Strumenti / dettaglio Viaggio a seconda del contesto |
+| Apri risorsa (diario / packing) | Sì | **Assente** | `onOpenResource` in hub | Presente in Account e in Workspace hub | Workspace / Valigia / dettaglio Viaggio a seconda del contesto |
 | Condividi (owner) | Sì | **Assente** | «Aggiungi elemento» owner in `CondivisioneSection` | Presente in Account e in Workspace | Workspace + wizard share |
 | Apri Workspace da riga | Sì | Accetta invito → `openModal('workspace')` | Hub nativo | Presente | Workspace |
 | Inviti **risorsa** (accept/reject) | Sì (`acceptResourceInvite` / `rejectResourceInvite`) | **Assente** (solo `listIncomingWorkspaceInvitesForUser` / outgoing) | `InvitiSection.tsx` usa **solo** `listPendingWorkspaceInvitesForUser` | **Gap** in MySpace e in Workspace Inviti rispetto ad Account | Ponte Inviti: resource invites oggi **solo** in Account |
@@ -712,7 +719,7 @@ File destinazione MySpace / Workspace:
 - Catalogo **Viaggi** MySpace: list / create empty / delete con modale / cover / Ricordami / sort / Prossimi-Passati — `MySpaceTripsCatalog.tsx`.
 - Cartella Viaggio e sezioni filtrate su `viaggioId` — `ViaggioFolderShell.tsx` + `Viaggio*Section.tsx`.
 - Valigia del Viaggio: create / link / unlink / reopen — `ViaggioValigiaSection.tsx`.
-- Root Strumenti: lista Valigie + Template + create/open — `MySpaceToolsRoot.tsx` (**subset** rispetto ad Account).
+- Root Valigia: lista Valigie + Template + create/open — `MySpaceToolsRoot.tsx` (**subset** rispetto ad Account).
 - Root Inviti Workspace: received / sent / pending + accept/reject/revoke — `MySpaceInvitesRoot.tsx`.
 - Hub Workspace: sezioni Condivisione / Inviti / Utenti / … — `src/components/workspace/global/`.
 - Confine label Account vs MySpace (Macrofase 1) — `UserDashboard.tsx` / `UserSidebar.tsx` / Header.
@@ -728,8 +735,8 @@ File destinazione MySpace / Workspace:
 ### 15.7 Gap reali (evidenza codice)
 
 1. **Catalogo Account «I Miei Viaggi» ≠ catalogo MySpace Viaggi** — Account elenca Diari; MySpace elenca Viaggi. Due SoT di UI ancora vive.
-2. **Strumenti non implementa la terza card «Diari di Viaggio»** né il layout a tre card (§9).
-3. **Parity Valigie/Template:** duplicate, delete, share, SharedResourceIndicator, open Workspace presenti in Account e **assenti** in `MySpaceToolsRoot.tsx`.
+2. **Valigia non implementa la terza card «Diari di Viaggio»** né il layout a tre card (§9).
+3. **Parity Valigie/Template:** duplicate, delete, share, SharedResourceIndicator, open Workspace presenti in Account e **assenti** nel root Valigia (`MySpaceToolsRoot.tsx`).
 4. **Inviti a risorsa** gestiti in Account (`UserSharingTab`) e **non** in `MySpaceInvitesRoot` né in `InvitiSection` Workspace (solo workspace invites).
 5. **CTA «associa Diario esistente»** al Viaggio: **assente** in `ViaggioDiarioSection.tsx` (solo create empty + set active + open). SoT §6.4 richiede create **o** associa.
 6. **Workspace quick access** ancora montato in Account overview — fuori dal confine Account = solo profilo/settings/wallet/supporto (§2.1).
@@ -739,7 +746,7 @@ File destinazione MySpace / Workspace:
 | SoT | Codice attuale |
 |-----|----------------|
 | Catalogo «I miei Viaggi» = solo Viaggi | Account tab omonima = Diari (`UserTripsTab`) |
-| Strumenti = 3 card Diari · Valigie · Template | `MySpaceToolsRoot` = solo Valigie + Template, layout sezioni stacked |
+| Valigia = 3 card Diari · Valigie · Template | root Valigia (`MySpaceToolsRoot`) = solo Valigie + Template, layout sezioni stacked |
 | Account senza patrimonio / collaborazione hub | Tab trips/suitcases/sharing + WorkspaceQuickAccess ancora attive |
 | Inviti Workspace come ponte MySpace | Resource invites ancora solo in Account Condivisione |
 | Empty Diario: CTA create **o** associa | Solo create in `ViaggioDiarioSection` |
@@ -747,10 +754,10 @@ File destinazione MySpace / Workspace:
 ### 15.9 Conclusioni finali
 
 1. **Non** è possibile eliminare oggi le tre voci Account (`trips`, `suitcases`, `sharing`) senza perdita funzionale dimostrata dal codice.
-2. La migrazione del **catalogo Viaggi** verso MySpace è **avanzata e operativa**; la tab Account «I Miei Viaggi» è **legacy semanticamente errata** (Diari, non Viaggi) e va trattata come debito da chiudere dopo aver esposto i Diari globali in **Strumenti**.
-3. **Le mie Valigie** Account resta **più completa** di MySpace Strumenti: serve parity (e card Diari) prima della rimozione.
+2. La migrazione del **catalogo Viaggi** verso MySpace è **avanzata e operativa**; la tab Account «I Miei Viaggi» è **legacy semanticamente errata** (Diari, non Viaggi) e va trattata come debito da chiudere dopo aver esposto i Diari globali in **Valigia**.
+3. **Le mie Valigie** Account resta **più completa** di MySpace Valigia: serve parity (e card Diari) prima della rimozione.
 4. **Condivisione** Account resta l’unico posto con **resource invites** + overview risorse owned/member; MySpace Inviti e Workspace Inviti coprono **solo** workspace invites.
-5. Prossima macrofase di manutenzione/sviluppo: chiudere i gap §15.7 in ordine anti-regressione (Strumenti 3 card + parity → Inviti risorsa → rimozione tab Account + WorkspaceQuickAccess da overview), rispettando §11 «Account Dashboard — tab legacy restano finché migrazione funzionale completa».
+5. Prossima macrofase di manutenzione/sviluppo: chiudere i gap §15.7 in ordine anti-regressione (Valigia 3 card + parity → Inviti risorsa → rimozione tab Account + WorkspaceQuickAccess da overview), rispettando §11 «Account Dashboard — tab legacy restano finché migrazione funzionale completa».
 
 ---
 
@@ -763,13 +770,13 @@ File destinazione MySpace / Workspace:
 
 | Decisione | Coerenza |
 |-----------|----------|
-| Apertura diretta da Strumenti | **Coerente** con Strumenti = catalogo globale di Resource autonome (§9 / DOC 37 VD-013/026). |
+| Apertura diretta da Valigia | **Coerente** con Valigia = catalogo globale di Resource autonome (§9 / DOC 37 VD-013/026). |
 | Un Diario ↔ un solo Viaggio | **Coerente** con Aggregate Root = Viaggio, Diario = Resource, relazione esplicita `viaggio_id` (DOC 37 VD-002/025). Il modello dati Diario ha **un** `viaggioId` (`Itinerary.viaggioId`) — non un multi-link. |
 | Riuso solo via Duplica | **Coerente** con anti-sincronizzazione originali / no stesso oggetto in due contesti (allinea spirito DOC 28 / VD-022 e WF-04 D20 «sempre nuovo ID»). |
 | Modale create dal dettaglio Viaggio | **Coerente** con empty state create/associa (§6.4) e con filtro sezioni sul Viaggio corrente. |
-| Create da Strumenti A/B/C | **Coerente** con Diari indipendenti in Strumenti + associazione esplicita; opzione C (crea Viaggio contestuale) rafforza MySpace come centro di creazione (§11). |
+| Create da Valigia A/B/C | **Coerente** con Diari indipendenti in Valigia + associazione esplicita; opzione C (crea Viaggio contestuale) rafforza MySpace come centro di creazione (§11). |
 | Salva con nome esteso | **Coerente** se si mantiene la filosofia copia/nuovo documento; le tre opzioni di associazione **non** contraddicono Diario ≠ Viaggio. |
-| Stesse regole Valigie | **Coerente** con stereotipo Resource e DOC 31 Parte A (due case: Valigia del Viaggio vs Strumenti). |
+| Stesse regole Valigie | **Coerente** con stereotipo Resource e DOC 31 Parte A (due case: Valigia del Viaggio vs root Valigia). |
 | Proposta copia se già associata | **Coerente** e **necessaria** per evitare sync involontarie tra Viaggi. |
 | Valigia⇄Diario invariata + copia se conflitto | **Coerente**: preserva debito/runtime `itinerary_suitcases` senza collassare Valigia-viaggio e link diario. |
 
@@ -780,7 +787,7 @@ File destinazione MySpace / Workspace:
 | PV-002 / VD-021 («Salva con nome invariato as-is») | Le nuove possibilità **estendono** il modale/flusso | **Risolto in SoT:** filosofia invariata; estensione esplicita (PV-020 / VD-028). Non è un rollback della filosofia. |
 | WF-04 D20 (modello Save A/B/C, «sempre duplica» su Aggiungi al Viaggio; congelato **non STEP-2**) | D20 anticipava un modello molto simile; le decisioni 2026-07-28 lo elevano a **Product Vision / dominio**. D20 diceva «sempre duplica» anche su add a viaggio; il SoT vigente distingue: Resource **indipendente** → associazione diretta ammissibile; Resource **già associata / incompatibile** → sola **copia** | WF-04 D20 va **rivalutato** (marker TODO) quando si riprende quel Workflow: non è più «solo evoluzione futura sospesa», ma allineamento a DOC 35/37. |
 | DOC 31 Parte B (as-is `itinerary_suitcases`) | Dual membership Valigia↔Diario e Valigia↔Viaggio | **Non conflitto di prodotto:** §9.9 mantiene Valigia⇄Diario; impone copia quando si tenta un secondo Viaggio. |
-| Eliminazione Viaggio (§6.6) elenca «diario» tra i dati collegati | Con 0..N diari e diari indipendenti in Strumenti | **Chiarire in implementazione futura:** delete Viaggio elimina i Diari **associati** a quel Viaggio, non i Diari indipendenti in Strumenti. SoT delete già dice «dati collegati al viaggio»; non richiede correzione strutturale ora, ma attenzione anti-regressione. |
+| Eliminazione Viaggio (§6.6) elenca «diario» tra i dati collegati | Con 0..N diari e diari indipendenti in Valigia | **Chiarire in implementazione futura:** delete Viaggio elimina i Diari **associati** a quel Viaggio, non i Diari indipendenti in Valigia. SoT delete già dice «dati collegati al viaggio»; non richiede correzione strutturale ora, ma attenzione anti-regressione. |
 
 ### 16.3 Documentazione che richiedeva / richiede correzione
 
@@ -799,19 +806,19 @@ File destinazione MySpace / Workspace:
 | Create Diario da dettaglio: **nessun** modale nome/dal/al; **non** apre editor | era `createEmptyDiaryForViaggio` | §6.4.3 / PV-018 | **Risolto** — `CreateDiaryModal` + `createDiaryWithAssociation` |
 | Create usa periodo del **Viaggio**, non input utente | era pack da `viaggio.period*` | §6.4.3 | **Risolto** — dal/al sul Diario |
 | CTA **associa** Diario esistente | Assente | §6.4 | **Risolto** — pannello Collega + conflitto→copia |
-| Strumenti: **no** card Diari | `MySpaceToolsRoot` | §9.3–9.5 | **Risolto** — 3 card + create/open |
+| Valigia: **no** card Diari | root Valigia (`MySpaceToolsRoot`) | §9.3–9.5 | **Risolto** — 3 card + create/open |
 | Salva con nome: solo **nome** | `SaveAsModal` | §9.6 | **Risolto** — A/B/C Viaggio |
 | Link Valigia multi-Viaggio / heal | `linkSuitcaseToViaggio` + heal | §9.7 / §9.9 | **Risolto** — Safe + refuse other_viaggio; heal rimosso; migrazione UNIQUE `suitcase_id` |
 | Create Valigia senza modale | create+link diretto | §6.4.4 | **Risolto** — `CreateSuitcaseModal` |
 | Open Valigia richiede Diario attivo | gate `activeDiaryId` | apertura Resource | **Risolto** — open autonomo (hint soft) |
-| Duplica Diario prodotto | Assente | PV-017 | **Risolto** — Duplica in sezione + Strumenti |
+| Duplica Diario prodotto | Assente | PV-017 | **Risolto** — Duplica in sezione + Valigia |
 
 ### 16.5 Miglioramenti consigliati (documentali / di design, non codice)
 
-1. Unificare in un **unico contratto di modale** «Crea Diario / Crea Valigia» con variante `context: viaggio | strumenti | saveAs` per non triplicare UI.
+1. Unificare in un **unico contratto di modale** «Crea Diario / Crea Valigia» con variante `context: viaggio | tools | saveAs` (`tools` = id tecnico del root Valigia) per non triplicare UI.
 2. Definire campi minimi Valigia nel modale create (nome obbligatorio; periodo solo se prodotto packing lo richiede — oggi packing non usa dal/al come il Diario).
 3. Precisare delete Viaggio: cascade solo su Resource con `viaggio_id` / link `viaggio_suitcases` di quel Viaggio.
-4. Distinguere in glossario **Duplica** (copia indipendente in Strumenti) vs **proposta copia su conflitto di associazione** (stesso meccanismo tecnico, trigger diverso).
+4. Distinguere in glossario **Duplica** (copia indipendente in Valigia) vs **proposta copia su conflitto di associazione** (stesso meccanismo tecnico, trigger diverso).
 5. Constraint DB futura: `suitcase_id` non ripetibile su più `viaggio_id` **oppure** enforcement solo applicativo + soft-check — da scegliere in implementazione.
 
 ### 16.6 Criticità future
@@ -839,11 +846,14 @@ Il **debito UX principale** è assenza di modali create/associa e di estensione 
 | 1.x | 2026-07-24/25 | Visioni precedenti MySpace (pre-freeze dominio) |
 | 2.0.0 | 2026-07-26 | Riscrittura completa su dominio Viaggio congelato; no Diario≡Viaggio |
 | 2.1.0 | 2026-07-27 | Cover manuale unica + catalogo; cartella compatta; Ricordami ufficiale; Preferiti vista; Esploratore archivio; memoria navigazione; Mappa embedded |
-| 2.1.1 | 2026-07-27 | Rafforzamento: memoria percorso completo; cover ≠ Ricordo; filosofia Ricordami; Esploratore/Preferiti/Strumenti |
+| 2.1.1 | 2026-07-27 | Rafforzamento: memoria percorso completo; cover ≠ Ricordo; filosofia Ricordami; Esploratore/Preferiti/Valigia |
 | 2.2.0 | 2026-07-27 | Catalogo Prossimi/Passati; delete checkbox; Preferiti layout+recap (PV-003); Esploratore città; Ricordami N notifiche; Mappa clustering |
 | 2.2.1 | 2026-07-27 | Sort persistente; sezioni vuote nascoste; «+» diretto; delete→Ricordami; breadcrumb (PV-008…010) |
 | 2.2.2 | 2026-07-28 | Ricordami: UI su riga catalogo (sx cover), non in cartella; Preferiti entry Città/Guide/TO; rientro MyWorld → ultima superficie |
 | 2.2.3 | 2026-07-28 | Ricordami: frequenza 1..12 mesi oppure data specifica one-shot o ricorrenza annuale; controllo UI compatto senza label permanente |
-| 2.3.0 | 2026-07-28 | Chiarimenti SoT: catalogo=solo Viaggi; filtro sezioni; Strumenti 3 card; associazione Diario esplicita (PV-011…015); §15 Audit migrazione Account |
-| 2.4.0 | 2026-07-28 | Apertura Strumenti; un Diario↔un Viaggio; create modale; Salva con nome esteso; Valigie gemelle; copia su conflitto (PV-016…023); §16 Audit |
+| 2.3.0 | 2026-07-28 | Chiarimenti SoT: catalogo=solo Viaggi; filtro sezioni; Valigia 3 card; associazione Diario esplicita (PV-011…015); §15 Audit migrazione Account |
+| 2.4.0 | 2026-07-28 | Apertura Valigia; un Diario↔un Viaggio; create modale; Salva con nome esteso; Valigie gemelle; copia su conflitto (PV-016…023); §16 Audit |
 | 2.4.1 | 2026-07-28 | WF-13 chiuso: §16.4 gap codice → Risolto; multi-link Valigia hardenizzato (app + migrazione UNIQUE) |
+| 2.4.2 | 2026-07-28 | Preferiti §7 / PV-003: barra filtri geo + 6 box; ricerca città coerente col filtro; indipendenza dai Feature Flag CC |
+| 2.4.3 | 2026-07-28 | Terminologia root: Strumenti → Valigia (allineamento DOC 35 all’architettura vigente) |
+| 2.4.4 | 2026-07-28 | Coerenza naming prodotto/tecnico in audit §15–§16 (root Valigia vs `MySpaceToolsRoot`) |

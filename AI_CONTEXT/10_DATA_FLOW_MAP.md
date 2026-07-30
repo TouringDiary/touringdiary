@@ -123,11 +123,19 @@ Aggiornamento dinamico dell'interfaccia.
 
 ---
 
-## 9. ROADBOOK PIPELINE
+## 9. ROADBOOK / EXPORT ITINERARIO PIPELINE
 
-Generazione documenti PDF di viaggio.
+Generazione documenti PDF/DOCX di viaggio e anteprima WYSIWYG.
 
-**Sequenza Step-by-Step:**
+**Sequenza Step-by-Step (export itinerario):**
+1. **Utente**: Apre `ExportModal` dal diario.
+2. **Prepare (SoT)**: `prepareItineraryForPdf` una sola volta (`startPdfPreparation(true)`); i toggle UI filtrano solo il rendering.
+3. **Logo**: `useLogoRasterizer` → PNG da `ExportLogo` (viewBox icona/completo allineati).
+4. **Collage copertina**: `heroCoverCollagePlan` condiviso da PDF (`TravelDocument`), DOCX (`exportGenerators`) e Preview.
+5. **Distanze (SoT)**: `domain/diary/itineraryDistance.ts` — stessa catena geo del Diario (`distanceFromPreviousGeoStop`); Note/memo/risorse/zero-coords non interrompono il segmento; `prepareItineraryForPdf` scrive `distanceFromPrev` (niente logica adiacente `i-1`).
+6. **Output**: PDF via `TravelDocument` + `PdfStyles`; DOCX via `exportGenerators`; Preview HTML con footer editoriale «Pagina X di Y».
+
+**Roadbook (artifact):**
 1. **Utente**: Clicca "Scarica Roadbook" in `TravelDiary.tsx`.
 2. **Component**: `RoadbookDocument.tsx` renderizza la struttura PDF.
 3. **Styling**: `PdfStyles.ts` applica il layout tipografico.

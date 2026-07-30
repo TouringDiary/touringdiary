@@ -294,4 +294,15 @@ export interface CityDetails extends CitySummary {
      * concetto distinto dal semplice preload.
      */
     isVirtual?: boolean;
+
+    /**
+     * Modalità di costruzione della città virtuale.
+     * Presente solo su oggetti prodotti da `buildVirtualCity`.
+     */
+    virtualMode?: 'around_me' | 'merge';
+
+    /**
+     * Città aggregate nel raggio (nav Around Me). Solo id+name — non CitySummary completo.
+     */
+    aggregatedCities?: ReadonlyArray<{ id: string; name: string }>;
 }

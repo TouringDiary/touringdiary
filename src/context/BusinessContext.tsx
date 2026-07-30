@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from './UserContext';
 import { getSponsorsByOwner } from '../services/sponsors/sponsorContractsService';
@@ -36,7 +36,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // activeBusinessId rimosso dallo stato, ora derivato dall'URL
 
     // -- 1. CARICAMENTO LISTA BUSINESS (OWNERSHIP BASE) --
-    const fetchBusinesses = async () => {
+    const fetchBusinesses = useCallback(async () => {
         if (!user?.id || user.role !== 'business') {
             setUserBusinesses([]);
             setIsLoading(false);
@@ -52,11 +52,11 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user?.id, user?.role]);
 
     useEffect(() => {
         fetchBusinesses();
-    }, [user?.id, user?.role]);
+    }, [fetchBusinesses]);
 
     // -- 2. IDENTIFIER EXTRACTION (URL-DRIVEN & AGNOSTIC) --
     const rawIdentifier = useMemo(() => {
@@ -172,7 +172,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, [isLoading, activeBusinessId, activeBusiness, userBusinesses, location.pathname, user, navigate, buildDashboardPath, rawIdentifier]);
 
     // -- 5. ACTIONS --
-    const switchBusiness = (target: string, options?: { replace?: boolean }) => {
+    const switchBusiness = useCallback((target: string, options?: { replace?: boolean }) => {
         // Determiniamo il tab attuale per preservarlo
         const pathParts = location.pathname.split('/').filter(Boolean);
         const dashboardIdx = pathParts.indexOf('dashboard');
@@ -193,7 +193,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const finalPath = buildDashboardPath(user?.slug, target, currentTab);
         
         navigate(finalPath, { replace: options?.replace });
-    };
+    }, [location.pathname, buildDashboardPath, user?.slug, navigate]);
 
     const value = useMemo(() => ({
         activeBusinessId,

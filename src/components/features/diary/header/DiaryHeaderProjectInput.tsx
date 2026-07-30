@@ -14,7 +14,7 @@ interface DiaryHeaderProjectInputProps {
     onSetName: (name: string) => void;
     loadMenuOpen: boolean;
     handleLoadMenuOpen: () => void;
-    loadMenuRef: React.RefObject<HTMLDivElement>;
+    loadMenuRef: React.RefObject<HTMLDivElement | null>;
     isSyncing: boolean;
     savedProjects: Itinerary[];
     onLoadProject: (p: Itinerary) => void;
@@ -30,7 +30,7 @@ interface DiaryHeaderProjectInputProps {
     handleExportClick: () => void;
     shareMenuOpen: boolean;
     setShareMenuOpen: (v: boolean) => void;
-    shareMenuRef: React.RefObject<HTMLDivElement>;
+    shareMenuRef: React.RefObject<HTMLDivElement | null>;
     onClear: () => void;
     onCollaborativeShare: () => void;
     onPublishRequest: () => void;

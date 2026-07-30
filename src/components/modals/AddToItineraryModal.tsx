@@ -33,6 +33,44 @@ function getLocalDateString(): string {
 
 const MIN_DATE_STR = getLocalDateString();
 
+const toDateKey = (d: Date): string => d.toISOString().split('T')[0];
+
+interface RemovingInstancesViewProps {
+    instances: ItineraryItem[];
+    onRemoveInstance: (itemId: string) => void;
+    onCancel: () => void;
+}
+
+const RemovingInstancesView: React.FC<RemovingInstancesViewProps> = ({
+    instances,
+    onRemoveInstance,
+    onCancel,
+}) => (
+    <div className="space-y-3 animate-in fade-in slide-in-from-right-4">
+        {instances.map(item => (
+            <div key={item.id} className="flex justify-between items-center bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-red-500/50 transition-colors">
+                <div className="flex items-center gap-3 text-sm text-slate-300">
+                    <div className="bg-slate-900 p-1.5 rounded text-amber-500">
+                        <Calendar className="w-4 h-4"/>
+                    </div>
+                    <div>
+                        <div className="font-bold text-white">Giorno {item.dayIndex + 1}</div>
+                        <div className="font-mono text-xs bg-slate-900 px-1.5 rounded inline-block text-slate-400">{item.timeSlotStr}</div>
+                    </div>
+                </div>
+                <button
+                    onClick={() => onRemoveInstance(item.id)}
+                    className="text-red-400 hover:text-white hover:bg-red-600 p-2 rounded-lg transition-colors border border-red-900/30"
+                    title="Elimina questa istanza"
+                >
+                    <Trash2 className="w-4 h-4"/>
+                </button>
+            </div>
+        ))}
+        <button onClick={onCancel} className="w-full mt-4 text-slate-500 text-xs uppercase font-bold hover:text-white py-2">Annulla e torna indietro</button>
+    </div>
+);
+
 interface AddToItineraryModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -89,7 +127,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
         if (isOpen) {
             // Se le date ci sono, pre-seleziona il primo giorno
             if (days.length > 0) {
-                 setSelectedDate(days[0].toISOString().split('T')[0]);
+                 setSelectedDate(toDateKey(days[0]));
                  setIsEditingDates(false);
             } else {
                  // Se non ci sono date, forza la vista date
@@ -110,7 +148,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
 
     // Helper to get day index from selected date
     const getDayIndex = (dateStr: string) => {
-        return days.findIndex(d => d.toISOString().split('T')[0] === dateStr);
+        return days.findIndex(d => toDateKey(d) === dateStr);
     };
 
     // Helper to format date for display
@@ -123,17 +161,14 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
         
         // Safety Fallback: If state is empty but we have days, force first day
         if (!targetDate && days.length > 0) {
-             targetDate = days[0].toISOString().split('T')[0];
+             targetDate = toDateKey(days[0]);
         }
 
         const idx = getDayIndex(targetDate);
         // Per risorse, l'orario è meno critico, ma passiamo comunque selectedTime per sort standard
         if (idx >= 0) {
             onConfirm(idx, selectedTime);
-            // CHIUSURA IMMEDIATA SPOSTATA QUI SE IL PARENT NON LA GESTISCE
-            // Nota: FeatureModals chiude il modale dopo onConfirm, ma per sicurezza...
         } else {
-            console.warn("Date index not found, defaulting to Day 1");
             onConfirm(0, selectedTime);
         }
     };
@@ -174,61 +209,86 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                     aria-labelledby="add-itinerary-dates-title"
                     aria-describedby="add-itinerary-dates-desc"
                 >
-                    <div className={`${bodyShell} flex flex-col items-center text-center gap-4 min-h-0`}>
-                    <div className="text-center mb-6">
-                        <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Calendar className="w-8 h-8 text-amber-500" aria-hidden />
-                        </div>
-                        <h3 id="add-itinerary-dates-title" className={`${modalTitleShell} mb-2`}>Configura il tuo Viaggio</h3>
-                        <p id="add-itinerary-dates-desc" className={modalSubtitleShell}>
-                            Prima di aggiungere <strong className="text-white">{poi.name}</strong>, definisci le date del soggiorno.
-                        </p>
-                    </div>
-
-                    <div className="space-y-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800 mb-6">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold uppercase text-slate-500">Dal</label>
-                                <input 
-                                    type="date" 
-                                    min={MIN_DATE_STR}
-                                    value={initStart}
-                                    onChange={(e) => setInitStart(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
-                                />
+                    <CloseButton
+                        onClose={onClose}
+                        variant="primary"
+                        position="absolute"
+                        className={`${closeOffsetShell} z-local-overlay`}
+                    />
+                    <div className={`${bodyShell} min-h-0`}>
+                        <div className="flex items-center gap-3 mb-4 pr-10">
+                            <div className="p-2 bg-indigo-600 rounded-lg shrink-0">
+                                <Calendar className="w-6 h-6 text-white" aria-hidden />
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold uppercase text-slate-500">Al</label>
-                                <input 
-                                    type="date" 
-                                    min={initStart || MIN_DATE_STR}
-                                    value={initEnd}
-                                    onChange={(e) => setInitEnd(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
-                                />
+                            <div className="min-w-0">
+                                <h3 id="add-itinerary-dates-title" className={modalTitleShell}>
+                                    CONFIGURA VIAGGIO
+                                </h3>
+                                <p id="add-itinerary-dates-desc" className={`${modalSubtitleShell} mt-1`}>
+                                    Definisci prima le date del soggiorno.
+                                </p>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="flex gap-3">
-                        {days.length > 0 ? (
-                            <button onClick={() => setIsEditingDates(false)} className="px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-lg transition-colors border border-slate-700">
-                                Indietro
+                        <div className="space-y-4 mb-6">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <label htmlFor="add-itinerary-date-start" className="text-xs font-bold uppercase text-slate-500">
+                                        Dal
+                                    </label>
+                                    <input
+                                        id="add-itinerary-date-start"
+                                        type="date"
+                                        min={MIN_DATE_STR}
+                                        value={initStart}
+                                        onChange={(e) => setInitStart(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label htmlFor="add-itinerary-date-end" className="text-xs font-bold uppercase text-slate-500">
+                                        Al
+                                    </label>
+                                    <input
+                                        id="add-itinerary-date-end"
+                                        type="date"
+                                        min={initStart || MIN_DATE_STR}
+                                        value={initEnd}
+                                        onChange={(e) => setInitEnd(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            {days.length > 0 ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEditingDates(false)}
+                                    className="px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-lg transition-colors border border-slate-700"
+                                >
+                                    Indietro
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-lg transition-colors border border-slate-700"
+                                >
+                                    Annulla
+                                </button>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={handleSaveDates}
+                                disabled={!initStart || !initEnd}
+                                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Crea
                             </button>
-                        ) : (
-                             <button onClick={onClose} className="px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-lg transition-colors border border-slate-700">
-                                Annulla
-                            </button>
-                        )}
-                        
-                        <button 
-                            onClick={handleSaveDates} 
-                            disabled={!initStart || !initEnd}
-                            className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-amber-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            <CheckCircle className="w-4 h-4"/> Salva Date
-                        </button>
-                    </div>
+                        </div>
                     </div>
                 </div>
             ) : (
@@ -287,6 +347,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                                 onClick={() => setIsEditingDates(true)}
                                 className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700"
                                 title="Modifica date viaggio"
+                                aria-label="Modifica date viaggio"
                             >
                                 <Edit2 className="w-3.5 h-3.5"/>
                             </button>
@@ -310,29 +371,11 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                     </div>
 
                     {isRemoving ? (
-                        <div className="space-y-3 animate-in fade-in slide-in-from-right-4">
-                             {existingInstances.map(item => (
-                                <div key={item.id} className="flex justify-between items-center bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-red-500/50 transition-colors">
-                                    <div className="flex items-center gap-3 text-sm text-slate-300">
-                                        <div className="bg-slate-900 p-1.5 rounded text-amber-500">
-                                             <Calendar className="w-4 h-4"/>
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-white">Giorno {item.dayIndex + 1}</div>
-                                            <div className="font-mono text-xs bg-slate-900 px-1.5 rounded inline-block text-slate-400">{item.timeSlotStr}</div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => handleRemoveInstance(item.id)}
-                                        className="text-red-400 hover:text-white hover:bg-red-600 p-2 rounded-lg transition-colors border border-red-900/30"
-                                        title="Elimina questa istanza"
-                                    >
-                                        <Trash2 className="w-4 h-4"/>
-                                    </button>
-                                </div>
-                            ))}
-                             <button onClick={() => setIsRemoving(false)} className="w-full mt-4 text-slate-500 text-xs uppercase font-bold hover:text-white py-2">Annulla e torna indietro</button>
-                        </div>
+                        <RemovingInstancesView
+                            instances={existingInstances}
+                            onRemoveInstance={handleRemoveInstance}
+                            onCancel={() => setIsRemoving(false)}
+                        />
                     ) : (
                         <>
                             <div className="space-y-4">
@@ -346,7 +389,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                                             className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none cursor-pointer font-bold"
                                         >
                                             {days.map((d, i) => {
-                                                const val = d.toISOString().split('T')[0];
+                                                const val = toDateKey(d);
                                                 return <option key={val} value={val}>Giorno {i + 1} ({getFormattedDate(val)})</option>
                                             })}
                                         </select>
@@ -361,7 +404,7 @@ export const AddToItineraryModal = ({ isOpen, onClose, onConfirm, onRemove, poi,
                                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-amber-500 focus:outline-none cursor-pointer"
                                             >
                                                 {days.map((d) => {
-                                                    const val = d.toISOString().split('T')[0];
+                                                    const val = toDateKey(d);
                                                     return <option key={val} value={val}>{getFormattedDate(val)}</option>
                                                 })}
                                             </select>

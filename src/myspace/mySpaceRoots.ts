@@ -1,13 +1,14 @@
 /**
  * Root MySpace — ordine definitivo DOC 35 / DOC 36.
- * Root «trips» = catalogo/cartella Viaggio. Altre root = Preferiti / Esploratore / Strumenti / Inviti (MP-02 STEP-3).
+ * Root «trips» = catalogo/cartella Viaggio. Altre root = Valigia / Preferiti / Esploratore / Inviti (MP-02 STEP-3).
+ * Nota: l’id tecnico `tools` resta stabile (nav memory / test); label prodotto = «Valigia».
  */
 
 export const MY_SPACE_ROOT_IDS = [
   'trips',
+  'tools',
   'explorer',
   'favorites',
-  'tools',
   'invites',
 ] as const;
 
@@ -29,6 +30,11 @@ export const MY_SPACE_ROOTS: readonly MySpaceRootDefinition[] = [
     placeholder: 'Qui troverai i tuoi viaggi.',
   },
   {
+    id: 'tools',
+    label: 'Valigia',
+    placeholder: 'Qui troverai le tue valigie e i template.',
+  },
+  {
     id: 'explorer',
     label: 'Esploratore',
     placeholder: 'Qui troverai la misura della tua storia.',
@@ -37,11 +43,6 @@ export const MY_SPACE_ROOTS: readonly MySpaceRootDefinition[] = [
     id: 'favorites',
     label: 'Preferiti',
     placeholder: 'Qui troverai i luoghi che hai scelto di tenere.',
-  },
-  {
-    id: 'tools',
-    label: 'Strumenti',
-    placeholder: 'Qui troverai i tuoi strumenti di viaggio.',
   },
   {
     id: 'invites',

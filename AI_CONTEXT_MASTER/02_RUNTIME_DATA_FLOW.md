@@ -14,15 +14,16 @@ Questo documento mappa i flussi di dati principali che avvengono durante l'utili
 
 ### 2. AI PLANNER PIPELINE (Generazione Itinerari)
 *   **Trigger**: Utente richiede un piano in `AiItineraryModal.tsx`.
-*   **Task**: Invocazione Edge Function `gemini-task` con operazione `enrichment`.
-*   **Output**: Ritorno di un JSON strutturato con attività, orari e suggerimenti.
-*   **Persistenza**: Salvataggio nel Diario tramite `communityService.saveUserDraft`.
+*   **Task**: `generateItineraryPlan` (`aiPlanner.ts`) → Edge Function `gemini-task`.
+*   **Output**: JSON strutturato con attività, orari e suggerimenti.
+*   **Applicazione**: `applyPlanToItinerary` (`useAiGeneration.ts`) scrive il piano nello stato Diario runtime via `ItineraryContext` (`clearItinerary` + `setItinerary`).
+*   **Persistenza cloud**: al salvataggio utente, `ItineraryStorageManager` → `saveUserDraft` (crea/collega il Viaggio Aggregate Root). Non è un save immediato a fine generazione.
 
 ### 3. SPONSOR ACTIVATION PIPELINE
 *   **Ingresso**: Un lead compila il form in `PoiClaimModal.tsx`.
-*   **Admin Approval**: L'admin approva in `PartnerManager.tsx`.
-*   **RPC**: Esecuzione `activate_sponsor_with_resource`.
-*   **Effetto**: Creazione record in `sponsors`, aggiornamento `pois.is_sponsored = true`.
+*   **Admin Approval / Attivazione**: L’admin opera in `SponsorManager.tsx` (`useSponsorOperations`).
+*   **RPC**: `activate_sponsor_from_request` tramite `activateSponsorFromRequestAsync` (`sponsorActivationService.ts`).
+*   **Effetto**: Creazione contratto sponsor, risorsa UI, subscription e conversione della richiesta (attivazione atomica post DL-017).
 
 ### 4. SUBSCRIPTION LIMIT RESOLUTION
 *   **Check**: In ogni operazione AI, `getUserModelLimits` verifica il piano attuale.
@@ -40,10 +41,14 @@ Questo documento mappa i flussi di dati principali che avvengono durante l'utili
 *   **Rating POI**: trigger `sync_poi_rating_from_reviews` aggiorna `pois.rating`; sotto soglia → `review_rating_alerts`.
 *   **XP**: trigger `handle_review_approval_xp` su pubblicazione/approve.
 
-### 7. ROADBOOK GENERATION
-*   **Data Source**: Aggregazione dati da `itinerary.items` e `cityManifest`.
-*   **Logic**: `RoadbookDocument.tsx` calcola tempi di percorrenza e orari.
-*   **UI**: Renderizzazione PDF o vista stampabile interattiva.
+### 7. ROADBOOK / EXPORT ITINERARIO
+*   **Data Source**: Aggregazione da `itinerary.items` / city hero; SoT immagini = `prepareItineraryForPdf` (una prepare all’apertura di `ExportModal`).
+*   **Distanze**: SoT unica `domain/diary/itineraryDistance.ts` (stessa catena geo del Diario; Note non spezzano i segmenti).
+*   **Logo**: `ExportLogo` (viewBox condivisi) + `useLogoRasterizer` (icona a proporzioni corrette).
+*   **Collage**: `heroCoverCollagePlan` condiviso PDF / DOCX / Preview.
+*   **Logic PDF**: `TravelDocument.tsx` (+ footer editoriale «Pagina X di Y»); Roadbook artifact → `RoadbookDocument.tsx`.
+*   **Logic DOCX**: `exportGenerators.ts` (struttura editoriale allineata al PDF).
+*   **UI**: Anteprima WYSIWYG in `ExportModal` (stesso preparedDoc) o download PDF/DOCX.
 
 ### 8. ONBOARDING PIPELINE
 *   **Trigger**: Primo accesso rilevato da `useAppInitialization.ts`.
@@ -52,11 +57,12 @@ Questo documento mappa i flussi di dati principali che avvengono durante l'utili
 
 ### 9. AROUND-ME EXPLORER
 *   **Geo**: `geo.ts` calcola la posizione GPS o manuale.
-*   **Service**: `cityReadService.ts` (`buildVirtualCity`) aggrega POI/Eventi in un raggio di 2-50km.
+*   **Service**: `cityReadService.ts` (`buildVirtualCity`) aggrega POI/Eventi/Guide in un raggio di 2-50km via fetch **batch** (`getPoisByCityIds`, `getCityEventsByCityIds`, `getCityGuidesByCityIds`) — evita N+1 per città nel raggio.
 *   **Output**: Generazione di una "Città Virtuale" temporanea con ID `around-me-virtual`.
 
 ### 10. NOTIFICATION & ANALYTICS
-*   **Notify**: `notificationService.ts` scrive persistentemente in tabella `notifications` e popola la cache locale `notificationsCache`.
+*   **Notify**: `notificationService.ts` scrive persistentemente in tabella `notifications` e popola la cache locale `notificationsCache`; emette `NOTIFICATIONS_CHANGED_EVENT` su fetch/mark/add per aggiornare UI senza polling aggressivo.
+*   **Polling hygiene**: Header ~60s + visibility + event; UserNotificationsTab ~120s; AdminDashboard ~180s + visibility.
 *   **Collaboration notify** (Fase 10): `collaborationNotificationService.ts` — categorie filtrate da preferenze profilo; dettaglio in `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 *   **Events**: `trackingService.ts` registra esclusivamente in **LocalStorage** per il tracciamento affiliazioni (chiave `touring_affiliate_stats`). La tabella `analytics_events` non è attualmente alimentata dal service layer.
 
@@ -67,6 +73,7 @@ Questo documento mappa i flussi di dati principali che avvengono durante l'utili
 *   **Dettaglio step-by-step**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md`.
 
 ## COMPONENTI ARCHITETTURALI
-*   **Hooks**: `useAppInitialization`, `useAiGeneration`, `useInteraction`.
-*   **Services**: `communityService`, `cityReadService`, `trackingService`, `subscriptionService`.
-*   **RPC**: `consume_ai_credits`, `activate_sponsor_with_resource`, `get_active_pricing_version_v2`.
+*   **Hooks**: `useAppInitialization`, `useAiGeneration`, `useInteraction`, `useSponsorOperations`.
+*   **Services**: `communityService`, `cityReadService`, `trackingService`, `subscriptionService`, `sponsorActivationService`, `ItineraryStorageManager`.
+*   **RPC**: `consume_ai_credits`, `activate_sponsor_from_request`, `get_active_pricing_version_v2`.
+*   **Context**: `ItineraryContext` (Diario operativo runtime nel dominio Viaggio).

@@ -97,6 +97,40 @@ export const getShopsByFilter = async (cityId: string, category?: ShopCategory):
     });
 };
 
+/** Batch: negozi digitali per più città (Around Me). Stessa visibilità/ordinamento di getShopsByFilter. */
+export const getShopsByCityIds = async (
+    cityIds: string[],
+    category?: ShopCategory,
+): Promise<ShopPartner[]> => {
+    if (cityIds.length === 0) return [];
+
+    let query = supabase
+        .from('shops')
+        .select(`*, shop_products (*)`)
+        .in('city_id', cityIds);
+
+    if (category) {
+        query = query.eq('category', category);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+        console.error('Filter Shops By City Ids Error:', error);
+        return [];
+    }
+
+    let results = mapDatabaseShopsToApp(data || []);
+    results = results.filter((shop) => shop.products && shop.products.length > 0);
+
+    return results.sort((a, b) => {
+        if (a.badge === 'gold' && b.badge !== 'gold') return -1;
+        if (a.badge !== 'gold' && b.badge === 'gold') return 1;
+        if (a.level === 'premium' && b.level !== 'premium') return -1;
+        if (a.level !== 'premium' && b.level === 'premium') return 1;
+        return calculateShopRank(b) - calculateShopRank(a);
+    });
+};
+
 export const calculateShopRank = (shop: ShopPartner): number => {
     const rating = shop.rating || 0;
     const reviews = shop.reviewsCount || 0;
@@ -107,116 +141,111 @@ export const calculateShopRank = (shop: ShopPartner): number => {
 // --- WRITE OPERATIONS ---
 
 export const saveShop = async (shop: ShopPartner): Promise<void> => {
-    try {
-        const dbShop: DatabaseShopInsert = {
-            id: shop.id,
-            city_id: shop.cityId,
-            name: shop.name,
-            category: shop.category,
-            level: shop.level,
-            badge: shop.badge,
-            image_url: shop.imageUrl,
-            gallery: shop.gallery,
-            founded_year: shop.foundedYear,
-            short_bio: shop.shortBio,
-            description: shop.description,
-            vat_number: shop.vatNumber,
-            address: shop.address,
-            coords_lat: shop.coords.lat,
-            coords_lng: shop.coords.lng,
-            phone: shop.phone,
-            email: shop.email,
-            website: shop.website,
-            shipping_info: shop.shippingInfo,
-            payment_info: shop.paymentInfo,
-            ai_credits: shop.aiCredits,
-            is_tipico: shop.isTipico || false,
-            likes: shop.likes,
-            rating: shop.rating,
-            reviews_count: shop.reviewsCount,
-            reviews: shop.reviews as unknown as Json, // Safe cast to recursive Json type
-            owner_id: shop.ownerId, // NEW: Supporto owner_id tipizzato
-            slug: shop.slug || null,
-            updated_at: new Date().toISOString()
-        };
-        await supabase.from('shops').upsert(dbShop);
+    const dbShop: DatabaseShopInsert = {
+        id: shop.id,
+        city_id: shop.cityId,
+        name: shop.name,
+        category: shop.category,
+        level: shop.level,
+        badge: shop.badge,
+        image_url: shop.imageUrl,
+        gallery: shop.gallery,
+        founded_year: shop.foundedYear,
+        short_bio: shop.shortBio,
+        description: shop.description,
+        vat_number: shop.vatNumber,
+        address: shop.address,
+        coords_lat: shop.coords.lat,
+        coords_lng: shop.coords.lng,
+        phone: shop.phone,
+        email: shop.email,
+        website: shop.website,
+        shipping_info: shop.shippingInfo,
+        payment_info: shop.paymentInfo,
+        ai_credits: shop.aiCredits,
+        is_tipico: shop.isTipico || false,
+        likes: shop.likes,
+        rating: shop.rating,
+        reviews_count: shop.reviewsCount,
+        reviews: shop.reviews as unknown as Json, // Safe cast to recursive Json type
+        owner_id: shop.ownerId, // NEW: Supporto owner_id tipizzato
+        slug: shop.slug || null,
+        updated_at: new Date().toISOString()
+    };
+    const { error: upsertShopError } = await supabase.from('shops').upsert(dbShop);
+    if (upsertShopError) {
+        console.error('[ShopService] saveShop upsert failed:', upsertShopError.message);
+        throw upsertShopError;
+    }
 
-        if (shop.id) {
-            const { error: syncError } = await supabase.rpc('sync_sponsor_profile_from_shop', {
-                p_shop_id: shop.id,
-                p_refresh_subscription: false,
-            });
-            if (syncError) {
-                console.error('[ShopService] sync_sponsor_profile_from_shop failed:', syncError.message);
-                throw syncError;
-            }
+    if (shop.id) {
+        const { error: syncError } = await supabase.rpc('sync_sponsor_profile_from_shop', {
+            p_shop_id: shop.id,
+            p_refresh_subscription: false,
+        });
+        if (syncError) {
+            console.error('[ShopService] sync_sponsor_profile_from_shop failed:', syncError.message);
+            throw syncError;
         }
-    } catch (e) {
-        console.error("Save Shop Error:", e);
-        throw e;
     }
 };
 
 export const deleteShop = async (shopId: string): Promise<void> => {
-    try {
-        const { error } = await supabase.from('shops').delete().eq('id', shopId);
-        if (error) throw error;
-    } catch(e) { 
-        console.error("Delete Shop Error:", e); 
-        throw e;
+    const { error } = await supabase.from('shops').delete().eq('id', shopId);
+    if (error) {
+        console.error('[ShopService] deleteShop failed:', error.message);
+        throw error;
     }
 };
 
 export const saveProduct = async (shopId: string, product: ShopProduct): Promise<void> => {
-    try {
-        const dbProduct: DatabaseShopProductInsert = {
-            id: product.id,
-            shop_id: shopId,
-            name: product.name,
-            description: product.description,
-            image_url: product.imageUrl,
-            price: product.price,
-            status: product.status,
-            shipping_mode: product.shippingMode
-        };
-        await supabase.from('shop_products').upsert(dbProduct);
+    assertShopProductInvariants(product);
+    const dbProduct: DatabaseShopProductInsert = {
+        id: product.id,
+        shop_id: shopId,
+        name: product.name.trim(),
+        description: product.description.trim(),
+        image_url: product.imageUrl.trim(),
+        price: product.price,
+        status: product.status,
+        shipping_mode: product.shippingMode
+    };
+    const { error: upsertProductError } = await supabase.from('shop_products').upsert(dbProduct);
+    if (upsertProductError) {
+        console.error('[ShopService] saveProduct upsert failed:', upsertProductError.message);
+        throw upsertProductError;
+    }
 
-        const { data: sponsor, error: sponsorError } = await supabase
-            .from('sponsors')
-            .select('id, tier')
-            .eq('shop_id', shopId)
-            .maybeSingle();
+    const { data: sponsor, error: sponsorError } = await supabase
+        .from('sponsors')
+        .select('id, tier')
+        .eq('shop_id', shopId)
+        .maybeSingle();
 
-        if (sponsorError) {
-            console.error('[ShopService] sponsor lookup failed:', sponsorError.message);
-            throw sponsorError;
+    if (sponsorError) {
+        console.error('[ShopService] sponsor lookup failed:', sponsorError.message);
+        throw sponsorError;
+    }
+
+    if (sponsor) {
+        const tier: 'standard' | 'premium' = sponsor.tier === 'gold' ? 'premium' : 'standard';
+        const { error: syncError } = await supabase.rpc('sync_sponsor_profile_from_shop', {
+            p_shop_id: shopId,
+            p_refresh_subscription: true,
+            p_subscription_tier: tier,
+        });
+        if (syncError) {
+            console.error('[ShopService] sync_sponsor_profile_from_shop failed:', syncError.message);
+            throw syncError;
         }
-
-        if (sponsor) {
-            const tier: 'standard' | 'premium' = sponsor.tier === 'gold' ? 'premium' : 'standard';
-            const { error: syncError } = await supabase.rpc('sync_sponsor_profile_from_shop', {
-                p_shop_id: shopId,
-                p_refresh_subscription: true,
-                p_subscription_tier: tier,
-            });
-            if (syncError) {
-                console.error('[ShopService] sync_sponsor_profile_from_shop failed:', syncError.message);
-                throw syncError;
-            }
-        }
-    } catch(e) { 
-        console.error("Save Product Error:", e);
-        throw e;
     }
 };
 
 export const deleteShopProduct = async (productId: string): Promise<void> => {
-    try {
-        const { error } = await supabase.from('shop_products').delete().eq('id', productId);
-        if (error) throw error;
-    } catch(e) {
-        console.error("Delete Product Error:", e);
-        throw e;
+    const { error } = await supabase.from('shop_products').delete().eq('id', productId);
+    if (error) {
+        console.error('[ShopService] deleteShopProduct failed:', error.message);
+        throw error;
     }
 };
 
@@ -256,19 +285,68 @@ const normalizeShippingMode = (mode: string | null): ShopProduct['shippingMode']
     return valid.includes(mode as ShopProduct['shippingMode']) ? (mode as ShopProduct['shippingMode']) : 'pickup';
 };
 
+/**
+ * Invarianti Negozio Digitale (nome, descrizione, immagine, prezzo > 0).
+ * Nessun backfill inventato: prodotti incompleti restano fuori dal dominio app.
+ * Usa variabili locali ristrette (niente type-predicate) per restare corretto
+ * anche quando strictNullChecks non è attivo nel tsconfig app.
+ */
+const assertShopProductInvariants = (product: ShopProduct): void => {
+    if (!product.name?.trim()) {
+        throw new Error('[ShopService] Product name is required.');
+    }
+    if (!product.description?.trim()) {
+        throw new Error('[ShopService] Product description is required.');
+    }
+    if (!product.imageUrl?.trim()) {
+        throw new Error('[ShopService] Product image is required.');
+    }
+    if (!(product.price > 0)) {
+        throw new Error('[ShopService] Product price must be greater than 0.');
+    }
+};
+
+const mapDatabaseProductToApp = (p: DatabaseShopProduct): ShopProduct | null => {
+    const name = typeof p.name === 'string' ? p.name.trim() : '';
+    const description = typeof p.description === 'string' ? p.description.trim() : '';
+    const imageUrl = typeof p.image_url === 'string' ? p.image_url.trim() : '';
+    const price = p.price == null ? NaN : Number(p.price);
+
+    if (!name || !description || !imageUrl || !(price > 0)) {
+        return null;
+    }
+
+    return {
+        id: p.id,
+        name,
+        description,
+        imageUrl,
+        price,
+        status: normalizeProductStatus(p.status),
+        shippingMode: normalizeShippingMode(p.shipping_mode)
+    };
+};
+
 const normalizeReviews = (data: Json): Review[] => {
     if (!Array.isArray(data)) return [];
-    return (data as unknown as any[]).filter(item => 
-        item && 
-        typeof item === 'object' &&
-        typeof (item as any).id === 'string' &&
-        typeof (item as any).author === 'string' &&
-        typeof (item as any).rating === 'number'
-    ) as unknown as Review[];
+    const reviews: Review[] = [];
+    for (const item of data) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+        const row = item as Record<string, unknown>;
+        if (
+            typeof row.id !== 'string' ||
+            typeof row.author !== 'string' ||
+            typeof row.rating !== 'number'
+        ) {
+            continue;
+        }
+        reviews.push(row as unknown as Review);
+    }
+    return reviews;
 };
 
 const mapDatabaseShopsToApp = (dbShops: (DatabaseShop & { shop_products: DatabaseShopProduct[] })[]): ShopPartner[] => {
-    return dbShops.map(db => ({
+    const result = dbShops.map(db => ({
         id: db.id,
         name: db.name || 'Senza Nome',
         cityId: db.city_id,
@@ -280,15 +358,9 @@ const mapDatabaseShopsToApp = (dbShops: (DatabaseShop & { shop_products: Databas
         foundedYear: db.founded_year,
         shortBio: db.short_bio || '',
         description: db.description || '',
-        products: (db.shop_products || []).map((p: DatabaseShopProduct) => ({
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            imageUrl: p.image_url,
-            price: Number(p.price),
-            status: normalizeProductStatus(p.status),
-            shippingMode: normalizeShippingMode(p.shipping_mode)
-        })),
+        products: (db.shop_products || [])
+            .map(mapDatabaseProductToApp)
+            .filter((p): p is ShopProduct => p !== null),
         likes: Number(db.likes) || 0,
         rating: Number(db.rating) || 0,
         reviewsCount: Number(db.reviews_count) || 0,
@@ -306,4 +378,13 @@ const mapDatabaseShopsToApp = (dbShops: (DatabaseShop & { shop_products: Databas
         ownerId: db.owner_id,
         slug: db.slug || undefined
     }));
+    const rawProductCount = dbShops.reduce((n, db) => n + (db.shop_products || []).length, 0);
+    const mappedProductCount = result.reduce((n, shop) => n + shop.products.length, 0);
+    const skippedIncompleteProducts = rawProductCount - mappedProductCount;
+    if (skippedIncompleteProducts > 0 && import.meta.env.DEV) {
+        console.warn(
+            `[ShopService] Skipped ${skippedIncompleteProducts} incomplete shop_product row(s) (missing name/description/image/price).`,
+        );
+    }
+    return result;
 };

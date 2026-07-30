@@ -1,10 +1,3 @@
-
-import { Buffer } from 'buffer';
-if (typeof window !== 'undefined') {
-    window.Buffer = window.Buffer || Buffer;
-    (window as any).global = window;
-}
-
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -12,9 +5,10 @@ import GlobalErrorBoundary from './components/common/GlobalErrorBoundary';
 import { AppProviders } from '@/context/AppProviders';
 import './index.css';
 
-// Override window.alert to use our custom non-blocking toast
+// Bootstrap: sostituiamo `window.alert` con il nostro toast non-blocking globale,
+// instradando l'evento verso il sistema UI interno (`global-alert`) invece di bloccare l'utente.
 window.alert = (message?: any) => {
-    const event = new CustomEvent('global-alert', { detail: { message: String(message) } });
+    const event = new CustomEvent('global-alert', { detail: { message: String(message ?? '') } });
     window.dispatchEvent(event);
 };
 

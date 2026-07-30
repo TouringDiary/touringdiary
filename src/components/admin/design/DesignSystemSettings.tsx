@@ -48,7 +48,7 @@ const DesignSystemSettings: React.FC = () => {
         const baseRules = allRules.filter(r => !r.component_key.endsWith('_mobile'));
 
         const sortedSections = [...new Set(allRules.map(getRuleSection))]
-            .filter((s) => s !== 'foundation')
+            .filter((s) => s !== 'foundation' && s !== 'myworld')
             .sort((a, b) => {
             if (a === 'uncategorized') return 1;
             if (b === 'uncategorized') return -1;

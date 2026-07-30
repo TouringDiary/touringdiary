@@ -11,7 +11,12 @@ interface Props {
   className?: string;
   draggable?: boolean;
   size?: ImageSize;
+  /** Eager load when true (LCP / above-the-fold). */
   priority?: boolean;
+  /** HTML `sizes` hint for responsive src selection. */
+  sizes?: string;
+  /** Browser fetch priority (LCP heroes → high). */
+  fetchPriority?: 'high' | 'low' | 'auto';
   category?: string;
   onClick?: () => void;
 }
@@ -38,6 +43,8 @@ export const ImageWithFallback = ({
   draggable,
   size = 'medium',
   priority = false,
+  sizes,
+  fetchPriority,
   category = 'discovery',
   onClick,
 }: Props) => {
@@ -80,6 +87,8 @@ export const ImageWithFallback = ({
     return <ErrorBox className={className} />;
   }
 
+  const resolvedFetchPriority = fetchPriority ?? (priority ? 'high' : undefined);
+
   return (
     <div className={`relative overflow-hidden bg-slate-950 ${className}`} onClick={onClick}>
       {!isLoaded && <Spinner />}
@@ -93,6 +102,8 @@ export const ImageWithFallback = ({
         draggable={draggable}
         loading={priority ? 'eager' : 'lazy'}
         decoding="async"
+        sizes={sizes}
+        {...(resolvedFetchPriority ? { fetchPriority: resolvedFetchPriority } : {})}
       />
     </div>
   );

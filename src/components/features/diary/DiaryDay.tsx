@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { StickyNote, Palette, PlusCircle, Briefcase } from 'lucide-react';
 import { ItineraryItem, PointOfInterest, CitySummary } from '@/types';
-import { calculateDistance } from '@/services/geo';
+import { distanceFromPreviousGeoStop } from '@/domain/diary/itineraryDistance';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { ItineraryItemCard } from './ItineraryItemCard';
@@ -112,17 +112,6 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
 
     const alignments = calculateDayAlignments(timelineItems);
 
-    // --- LOGICA DISTANZE ---
-    const findLastValidPoiIndex = (list: ItineraryItem[], currentIndex: number) => {
-        for (let i = currentIndex - 1; i >= 0; i--) {
-            const item = list[i];
-            if (!item.isCustom && item.type !== 'memo' && item.poi.coords && (item.poi.coords.lat !== 0 || item.poi.coords.lng !== 0)) {
-                return i;
-            }
-        }
-        return -1;
-    };
-
     const getItemRowHeight = (item: ItineraryItem): number => {
         if (item.type === 'memo') return 2; // FIXED: 2 righe piene (h-14) per allineamento griglia
         const hasSecondRow = !!(item.poi.address || !item.isCustom || item.poi.visitDuration);
@@ -210,14 +199,7 @@ export const DiaryDay: React.FC<DiaryDayProps> = ({
                         );
                     }
 
-                    let dist = null; 
-                    const lastValidIndex = findLastValidPoiIndex(timelineItems, idx);
-                    
-                    if (!item.isCustom && item.poi.coords && (item.poi.coords.lat !== 0 || item.poi.coords.lng !== 0) && lastValidIndex >= 0) {
-                        const lastValidItem = timelineItems[lastValidIndex];
-                        const d = calculateDistance(lastValidItem.poi.coords.lat, lastValidItem.poi.coords.lng, item.poi.coords.lat, item.poi.coords.lng); 
-                        if (d >= 0) dist = d; 
-                    }
+                    const dist = distanceFromPreviousGeoStop(timelineItems, idx);
 
                     const prevItem = timelineItems[idx - 1];
                     const isBridge = !!prevItem && prevItem.type !== 'memo';

@@ -24,7 +24,6 @@ Il sistema si basa su due tabelle relazionate: `shops` (i partner) e `shop_produ
 ## COMPONENTI ARCHITETTURALI
 *   **Tabelle Database**: `shops`, `shop_products`.
 *   **Services**: `shopService.ts`.
-*   **Hooks**: `useShopData` (implied).
 *   **Componenti UI**: `ShopPage.tsx`, `ShopCard.tsx`, `ProductDetailOverlay.tsx`.
 
 ## ENTITÀ DATI (shops)
@@ -34,3 +33,14 @@ Il sistema si basa su due tabelle relazionate: `shops` (i partner) e `shop_produ
 *   `is_tipico`: Flag per prodotti d'eccellenza territoriale.
 *   `vat_number`: Identificativo per integrazione Sponsor CRM.
 *   `products`: Relazione 1:N con `shop_products`.
+
+## ENTITÀ DATI (shop_products — e-Commerce Negozio Digitale)
+Campi **obbligatori** per ogni prodotto in vetrina (decisione di business):
+*   `name`: Nome prodotto (non vuoto).
+*   `description`: Descrizione prodotto (non vuota; non opzionale).
+*   `image_url`: Immagine prodotto caricata dal proprietario (obbligatoria in creazione; nessun backfill inventato in lettura).
+*   `price`: Prezzo > 0.
+
+Invarianti DB definitivi: `description` / `image_url` / `price` con `NOT NULL` + constraint
+`shop_products_ecommerce_invariants` (`CHECK` su non-vuoto e `price > 0`).
+Il mapper di `shopService` **non** inventa dati mancanti: eventuali righe incomplete sono escluse dal dominio applicativo.

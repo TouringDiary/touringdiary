@@ -58,8 +58,27 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor-react-pdf': ['@react-pdf/renderer'],
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+
+            // No cartografia: Maps resta fuori da questo Workflow (WF-PERF-01).
+            if (id.includes('@react-pdf')) return 'vendor-react-pdf';
+            if (id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-tiptap';
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('/docx/') || id.includes('\\docx\\')) return 'vendor-docx';
+            if (id.includes('/qrcode/') || id.includes('\\qrcode\\')) return 'vendor-qrcode';
+            if (
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules\\react\\') ||
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules\\react-dom\\') ||
+              id.includes('node_modules/react-router') ||
+              id.includes('node_modules\\react-router') ||
+              id.includes('node_modules/scheduler/') ||
+              id.includes('node_modules\\scheduler\\')
+            ) {
+              return 'vendor-react';
+            }
           },
         },
       },
