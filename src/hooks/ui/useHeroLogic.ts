@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CitySummary } from '../../types/index';
-import { generateChatReply } from '../../services/ai/aiText';
-import { aiErrorUserMessage, isAiEdgeError } from '../../services/ai/aiEdgeErrors';
 import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
 import { getSetting, SETTINGS_KEYS } from '../../services/settingsService';
 import { getUniqueCityTypes, getActiveContinents, getActiveNations, getActiveRegions, getActiveTouristZones } from '../../services/geoRegistryService';
@@ -29,7 +27,9 @@ export interface InspirationOption {
     id: string;
     label: string;
     compatibleCategories: string[];
-    [key: string]: any;
+    emoji?: string;
+    desc?: string;
+    [key: string]: unknown;
 }
 
 export interface GeoOptionsState {
@@ -85,8 +85,7 @@ export const useHeroLogic = ({
     const [isAiExpanded, setIsAiExpanded] = useState(false);
     const [aiBgImage, setAiBgImage] = useState<string | null>(null);
 
-    // --- STATE: VISUALS (TYPING & HERO) ---
-    const [heroImage, setHeroImage] = useState<string>('');
+    // --- STATE: VISUALS (TYPING) ---
     const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
 
     const typingText = useTypingCycle(aiSuggestions, Boolean(aiResponse || isAiLoading));
@@ -195,7 +194,6 @@ export const useHeroLogic = ({
     useEffect(() => {
         const loadSettings = async () => {
 
-            setHeroImage('');
             setAiBgImage(null);
 
             // Load Typing Suggestions
@@ -212,7 +210,7 @@ export const useHeroLogic = ({
                 .filter(t => TIPOLOGIA_WHITELIST.includes(t as string));
 
             // Load Ispirazioni
-            const inspirations = await getSetting<any[]>(SETTINGS_KEYS.TRAVEL_STYLES_CONFIG);
+            const inspirations = await getSetting<InspirationOption[]>(SETTINGS_KEYS.TRAVEL_STYLES_CONFIG);
 
             // Load Continents (Level 1)
             const continentsData = await getActiveContinents();
@@ -309,20 +307,20 @@ export const useHeroLogic = ({
     }, []);
 
     // --- HANDLERS: Filters ---
-    const handleContinentChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setContinent(e.target.value); setNation(''); setRegion(''); setSelectedZone(''); setSelectedCity(''); };
+    const handleContinentChange = (value: string) => { setContinent(value); setNation(''); setRegion(''); setSelectedZone(''); setSelectedCity(''); };
     const resetContinent = () => { setContinent(''); setNation(''); setRegion(''); setSelectedZone(''); setSelectedCity(''); };
 
-    const handleNationChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setNation(e.target.value); setRegion(''); setSelectedZone(''); setSelectedCity(''); };
+    const handleNationChange = (value: string) => { setNation(value); setRegion(''); setSelectedZone(''); setSelectedCity(''); };
     const resetNation = () => { setNation(''); setRegion(''); setSelectedZone(''); setSelectedCity(''); };
 
-    const handleRegionChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setRegion(e.target.value); setSelectedZone(''); setSelectedCity(''); };
+    const handleRegionChange = (value: string) => { setRegion(value); setSelectedZone(''); setSelectedCity(''); };
     const resetRegion = () => { setRegion(''); setSelectedZone(''); setSelectedCity(''); };
 
-    const handleZoneChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setSelectedZone(e.target.value); setSelectedCity(''); };
+    const handleZoneChange = (value: string) => { setSelectedZone(value); setSelectedCity(''); };
     const resetZone = () => { setSelectedZone(''); setSelectedCity(''); };
 
-    const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const cityId = e.target.value;
+    const handleCityChange = (value: string) => {
+        const cityId = value;
         setSelectedCity(cityId);
         if (cityId) {
             const city = cityManifest.find(c => c.id === cityId);
@@ -382,10 +380,12 @@ export const useHeroLogic = ({
     };
 
     // --- HANDLERS: AI ---
-    const aiRuntimeStatus = getAiRuntimeStatus({
-        userRole: user?.role ?? null,
-        isAuthenticated: Boolean(user && user.role !== 'guest'),
-    });
+    const userRole = user?.role ?? null;
+    const isAuthenticated = Boolean(user && user.role !== 'guest');
+    const aiRuntimeStatus = useMemo(
+        () => getAiRuntimeStatus({ userRole, isAuthenticated }),
+        [userRole, isAuthenticated]
+    );
 
     const handleAiSubmit = async (queryOverride?: string) => {
         if (isAiLoading) return;
@@ -421,9 +421,12 @@ export const useHeroLogic = ({
         setIsAiExpanded(true); 
 
         try {
+            // Dynamic import: keep aiGateway/aiChat out of Home initial chunk until chat submit.
+            const { generateChatReply } = await import('../../services/ai/aiChat');
             const aiResponseText = await generateChatReply(userInput);
             setAiResponse(aiResponseText);
         } catch (err: unknown) {
+            const { isAiEdgeError, aiErrorUserMessage } = await import('../../services/ai/aiEdgeErrors');
             if (isAiEdgeError(err)) {
                 setAiResponse(err.message);
             } else {
@@ -446,7 +449,6 @@ export const useHeroLogic = ({
         aiResponse, setAiResponse,
         isAiLoading,
         isAiExpanded, setIsAiExpanded,
-        heroImage,
         typingText,
         aiBgImage,
         uniqueZones,

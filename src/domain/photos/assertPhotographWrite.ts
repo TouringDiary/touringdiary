@@ -74,9 +74,9 @@ export function assertPhotographWrite(
     placeholderRegistry: PlatformPlaceholderRegistry,
 ): void {
     const decision = evaluatePhotographWrite(candidate, placeholderRegistry);
-    if (decision.allowed) return;
-
-    throw new Error(
-        `[PhotoDomain] Cannot register as Photograph (${decision.reason}).`,
-    );
+    if (!decision.allowed) {
+        throw new Error(
+            `[PhotoDomain] Cannot register as Photograph (${decision.reason}).`,
+        );
+    }
 }

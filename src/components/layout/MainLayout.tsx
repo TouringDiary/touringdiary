@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { WifiOff } from 'lucide-react';
 import { AppShell } from './AppShell';
 import { NewsTicker } from './NewsTicker';
@@ -8,10 +8,14 @@ import { Sidebar } from './Sidebar';
 import { MobileNavBar } from './MobileNavBar';
 import { AppRouter } from './AppRouter';
 import { ModalManager } from './ModalManager';
-import { OnboardingWizard } from './OnboardingWizard';
 import { useControlledSlidePanel } from '@/hooks/ui/useControlledSlidePanel';
 import { useMobileDiaryOverlayGeometry } from '@/hooks/ui/useMobileDiaryOverlayGeometry';
 import { SLIDE_PANEL_TRANSITION_CLASS, slidePanelEaseClass, slidePanelTransformClass } from '@/constants/slidePanelMotion';
+
+/** Wizard pesante: scaricato solo dopo il controllo leggero `showOnboarding`. */
+const OnboardingWizard = React.lazy(() =>
+    import('./OnboardingWizard').then((module) => ({ default: module.OnboardingWizard }))
+);
 
 // CONTEXT CONSUMER
 import { useUser } from '@/context/UserContext';
@@ -103,11 +107,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
     return (
         <>
             {showOnboarding && onboardingEnabled && (
-                <OnboardingWizard 
-                    onComplete={onCompleteOnboarding} 
-                    onSkip={onCompleteOnboarding} 
-                    isMobile={isMobile} 
-                />
+                <Suspense fallback={null}>
+                    <OnboardingWizard
+                        onComplete={onCompleteOnboarding}
+                        onSkip={onCompleteOnboarding}
+                        isMobile={isMobile}
+                    />
+                </Suspense>
             )}
 
             <AppShell

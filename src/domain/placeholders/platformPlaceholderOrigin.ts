@@ -19,6 +19,7 @@ export const PLATFORM_PLACEHOLDER_SETTING_KEYS = [
     'auth_background_image',
     'social_canvas_bg',
     'ai_consultant_bg',
+    'favicon_image',
     'category_placeholders',
     'suitcase_placeholders',
     /** Former Asset Globali URLs — still Placeholder by origin for Photo writes. */

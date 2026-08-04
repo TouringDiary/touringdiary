@@ -52,7 +52,7 @@ Il write-boundary Photo consulta un **registry di origine** costruito da `PLATFO
 
 | Sorgente | Chiave / forma | Ruolo |
 |----------|----------------|--------|
-| Asset Globali **attivi** | `hero_image`, `category_placeholders`, … | URL attualmente pubblicati in Admin → Asset Globali |
+| Asset Globali **attivi** | `hero_image`, `favicon_image`, `category_placeholders`, … | URL attualmente pubblicati in Admin → Asset Globali |
 | **Origin tombstones** | `retired_platform_placeholder_urls` (`string[]`) | URL che *sono stati* Asset Globali e poi sostituiti/eliminati |
 
 Regola: un URL pubblicato come Asset Globali resta **Placeholder by origin** per le scritture Photo anche se non è più nella mappa attiva.  
@@ -85,7 +85,7 @@ Regola: un URL pubblicato come Asset Globali resta **Placeholder by origin** per
 | `getCityPhotographicGalleryAssets` | Solo `details.gallery` (Galleria Fotografica); alias deprecato `getCityOfficialMedia` |
 | Display Placeholder POI | `resolvePoiDisplayImageUrl` / `ImageWithFallback` — canale Platform Assets, fuori dalle gallerie |
 | Presentation città (Hero/Card) | `cities.hero_image` / `cities.image_url` — UI header/card, **fuori** da Photo |
-| Eliminazione / replace Asset Globali | Clear/update `global_settings` + `retirePlatformPlaceholderUrls` + `deleteAdminAssetByUrl` — **non** tocca `photo_submissions` |
+| Eliminazione / replace Asset Globali | Clear/update `global_settings` + `retirePlatformPlaceholderUrls` (tombstone SoT) + `deleteAdminAssetByUrl` **best-effort** dopo Settings — **non** tocca `photo_submissions` |
 
 ### Invarianti
 
@@ -198,6 +198,7 @@ Hero / Card / cover entità **non** sono Official Photograph: restano Presentati
 * **Community Media:** Approvazione e promozione editoriale **dentro** Photograph (`is_official`); Hero/Card restano Presentation Media
 * **Staging:** Immagini su POI importati = Presentation (non Photo)
 * **Design System / Asset Globali:** Placeholder di categoria e background (DOC 32 Foundation invariato per questo track)
+* **Favicon (Asset Globali):** chiave `favicon_image` in `global_settings`; Admin → Asset Globali → Favicon (stesso `AdminPhotoInspector` / `admin_assets`); runtime `GET /favicon.ico` (Express, sempre HTTP 200) + `<link rel="icon" href="/favicon.ico" sizes="any" />` in `index.html`
 * **Rankings:** foto via SoT dominio Photograph
 
 ---

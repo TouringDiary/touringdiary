@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, X, CheckSquare, Square } from 'lucide-react';
 import { useDynamicStyles } from '../../../../hooks/useDynamicStyles';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 
 interface Option {
@@ -19,8 +20,7 @@ export const MultiFilterSelect = ({ label, selectedValues, onChange, options }: 
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
+    const isMobile = useMobileDetect();
     const labelStyle = useDynamicStyles('filter_label', isMobile);
 
     useEffect(() => {
@@ -64,6 +64,7 @@ export const MultiFilterSelect = ({ label, selectedValues, onChange, options }: 
                         onClick={(e) => { e.stopPropagation(); onChange([]); }}
                         className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 p-1 rounded-full hover:bg-slate-800 transition-colors z-home-hero-surface"
                         title="Resetta Tipologia"
+                        aria-label="Resetta Tipologia"
                     >
                         <X className="w-3 h-3" />
                     </button>
@@ -71,7 +72,7 @@ export const MultiFilterSelect = ({ label, selectedValues, onChange, options }: 
 
                 {isOpen && (
                     <div 
-                        className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar w-48 animate-in fade-in zoom-in-95 duration-100 z-home-hero-popover"
+                        className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar w-full min-w-[140px] animate-in fade-in zoom-in-95 duration-100 z-home-hero-popover"
                     >
                         {options.map(opt => {
                             const isSelected = selectedValues.includes(opt.value);

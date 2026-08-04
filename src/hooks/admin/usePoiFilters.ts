@@ -7,7 +7,7 @@ export const usePoiFilters = () => {
     const [pageSize, setPageSize] = useState(12);
 
     // --- MAIN FILTERS ---
-    const [viewStatus, setViewStatus] = useState<PointOfInterest['status'] | 'all'>('published');
+    const [viewStatus, setViewStatus] = useState<NonNullable<PointOfInterest['status']> | 'all'>('published');
     const [activeCategory, setActiveCategory] = useState<PointOfInterest['category'] | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
 

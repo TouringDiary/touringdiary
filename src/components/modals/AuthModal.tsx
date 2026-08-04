@@ -1,563 +1,668 @@
-import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import React, { useState, useEffect } from 'react';
+import {
+  AlertCircle,
+  ArrowRight,
+  Briefcase,
+  CheckCircle,
+  Gift,
+  Loader2,
+  Lock,
+  Mail,
+  Shield,
+  User,
+  UserCheck,
+  Zap,
+} from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Mail, Lock, User, ArrowRight, CheckCircle, AlertCircle, Loader2, Zap, Shield, Briefcase, UserCheck, Gift } from 'lucide-react';
-import { authenticateUser, registerUser, refreshUsersCache, devLogin } from '../../services/userService';
-import type { RegisterUserInput } from '../../services/userService';
-import { ProfileIdentityFields } from '../user/profile/ProfileIdentityFields';
-import { validateUsernameForSubmit } from '@/services/profileService';
-import { addNotification } from '../../services/notificationService'; 
-import { User as UserType } from '../../types/users';
-import { getSessionItem, removeSessionItem } from '../../services/storageService';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import {
+  PLATFORM_FEATURE_FLAG_KEYS,
+  PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { useConfig } from '@/context/ConfigContext';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
-import { useSystemMessage } from '../../hooks/useSystemMessage';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { validateUsernameForSubmit } from '@/services/profileService';
+import { useSystemMessage } from '../../hooks/useSystemMessage';
+import { addNotification } from '../../services/notificationService';
+import { getSessionItem, removeSessionItem } from '../../services/storageService';
+import type { RegisterUserInput } from '../../services/userService';
 import {
-    PLATFORM_FEATURE_FLAG_KEYS,
-    PLATFORM_MESSAGE_TEMPLATE_KEYS,
-} from '@/constants/platformFeatureFlags';
-
-import { CloseButton } from "@/components/ui/controls/CloseButton";
+  authenticateUser,
+  devLogin,
+  refreshUsersCache,
+  registerUser,
+} from '../../services/userService';
+import type { User as UserType } from '../../types/users';
+import { ProfileIdentityFields } from '../user/profile/ProfileIdentityFields';
 
 interface AuthModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onAuthSuccess: (user: UserType) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  onAuthSuccess: (user: UserType) => void;
 }
 
 export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) => {
-    const [view, setView] = useState<'login' | 'register' | 'verify' | 'dev_quick'>('login');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    
-    const { configs } = useConfig();
-    const authBg = configs.AUTH_BACKGROUND_IMAGE || configs.auth_background_image;
-    const registrationFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION);
-    const registrationEnabled = registrationFlag?.enabled ?? true;
-    const { getText: getRegistrationClosedMsg } = useSystemMessage(
-        PLATFORM_MESSAGE_TEMPLATE_KEYS.REGISTRATION_CLOSED
-    );
+  const [view, setView] = useState<'login' | 'register' | 'verify' | 'dev_quick'>('login');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    // Form States
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
-    const [username, setUsername] = useState('');
-    const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-    
-    // Referral State (Step 2)
-    const [referralCode, setReferralCode] = useState('');
-    const [hasPendingReferral, setHasPendingReferral] = useState(false);
+  const { configs } = useConfig();
+  const authBg = configs.AUTH_BACKGROUND_IMAGE || configs.auth_background_image;
+  const registrationFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.PLATFORM_REGISTRATION);
+  const registrationEnabled = registrationFlag?.enabled ?? true;
+  const { getText: getRegistrationClosedMsg } = useSystemMessage(
+    PLATFORM_MESSAGE_TEMPLATE_KEYS.REGISTRATION_CLOSED,
+  );
 
-    const [pendingUser, setPendingUser] = useState<UserType | null>(null);
-    const [demoUsers, setDemoUsers] = useState<UserType[]>([]);
+  // Form States
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-    // TESTI DINAMICI DAL DB
-    const { getText: getWelcomeMsg } = useSystemMessage('auth_welcome');
-    const welcomeMsg = getWelcomeMsg();
+  // Referral State (Step 2)
+  const [referralCode, setReferralCode] = useState('');
+  const [hasPendingReferral, setHasPendingReferral] = useState(false);
 
-    useEffect(() => {
-        if (!registrationEnabled && view === 'register') {
-            setView('login');
-        }
-    }, [registrationEnabled, view]);
+  const [pendingUser, setPendingUser] = useState<UserType | null>(null);
+  const [demoUsers, setDemoUsers] = useState<UserType[]>([]);
 
-    const resetRegistrationFormFields = () => {
-        setFirstName('');
-        setLastName('');
-        setUsername('');
-        setAvatarFile(null);
-        setAvatarPreview(null);
-    };
+  // TESTI DINAMICI DAL DB
+  const { getText: getWelcomeMsg } = useSystemMessage('auth_welcome');
+  const welcomeMsg = getWelcomeMsg();
 
-    const resetAuthModalOnOpen = () => {
-        setView('login');
-        setError(null);
-        setIsLoading(false);
-        setEmail('');
-        setPassword('');
-        resetRegistrationFormFields();
+  useEffect(() => {
+    if (!registrationEnabled && view === 'register') {
+      setView('login');
+    }
+  }, [registrationEnabled, view]);
 
-        const pendingRef = getSessionItem('pending_referral_code');
-        if (pendingRef) {
-            setReferralCode(pendingRef);
-            setHasPendingReferral(true);
-        } else {
-            setReferralCode('');
-            setHasPendingReferral(false);
-        }
+  const resetRegistrationFormFields = () => {
+    setFirstName('');
+    setLastName('');
+    setUsername('');
+    setAvatarFile(null);
+    setAvatarPreview(null);
+  };
 
-        refreshUsersCache().then(allUsers => {
-            let testAccounts = allUsers.filter(u => u.isTestAccount === true);
-            if (testAccounts.length === 0) {
-                testAccounts = allUsers.filter(u => u.role === 'admin_all' || u.role === 'admin_limited').slice(0, 5);
-            }
-            const sortedTests = testAccounts.sort((a, b) => {
-                const roleOrder: Record<string, number> = { 'admin_all': 0, 'admin_limited': 1, 'business': 2, 'user': 3 };
-                return (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
-            });
-            setDemoUsers(sortedTests.slice(0, 8));
-        });
-    };
+  useEffect(() => {
+    if (!isOpen) return;
 
-    useEffect(() => {
-        if (isOpen) {
-            resetAuthModalOnOpen();
-        }
-    }, [isOpen]);
+    let cancelled = false;
 
-    useGlobalModalEscape(isOpen, onClose);
+    setView('login');
+    setError(null);
+    setIsLoading(false);
+    setEmail('');
+    setPassword('');
+    resetRegistrationFormFields();
 
-    useEffect(() => {
-        if (!avatarFile) {
-            setAvatarPreview(null);
-            return;
-        }
-        const url = URL.createObjectURL(avatarFile);
-        setAvatarPreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [avatarFile]);
+    const pendingRef = getSessionItem('pending_referral_code');
+    if (pendingRef) {
+      setReferralCode(pendingRef);
+      setHasPendingReferral(true);
+    } else {
+      setReferralCode('');
+      setHasPendingReferral(false);
+    }
 
-    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value.replace(/\s/g, '').trim();
-        setEmail(val);
-        setError(null);
-    };
-
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError(null);
-        setIsLoading(true);
-
-        await new Promise(r => setTimeout(r, 500));
-
-        const result = await authenticateUser(email, password);
-        
-        if (result.success && result.user) {
-            // Pulizia codice referral se l'utente fa login invece di registrarsi (non serve più)
-            removeSessionItem('pending_referral_code');
-            onAuthSuccess(result.user);
-        } else {
-            setError(result.error || 'Credenziali non valide.');
-            setIsLoading(false);
-        }
-    };
-
-    const handleRegister = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError(null);
-
-        if (!registrationEnabled) {
-            const closed = getRegistrationClosedMsg({});
-            setError(closed.body || 'Le nuove registrazioni sono temporaneamente sospese.');
-            return;
-        }
-        
-        if (password.length < 6) {
-            setError("La password deve essere di almeno 6 caratteri.");
-            return;
-        }
-
-        const usernameValidation = await validateUsernameForSubmit(username);
-        if (usernameValidation) {
-            setError(usernameValidation);
-            return;
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-             setError("Formato email non valido. Controlla di aver inserito '@' e il dominio.");
-             return;
-        }
-
-        setIsLoading(true);
-        
-        // Passiamo referralCode al servizio
-        const cleanData: RegisterUserInput = {
-            name: `${firstName.trim()} ${lastName.trim()}`,
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: email.trim().toLowerCase(),
-            password: password,
-            username: username.trim(),
-            referralCode: referralCode.trim().toUpperCase() || undefined,
-            avatarFile,
+    refreshUsersCache().then((allUsers) => {
+      if (cancelled) return;
+      let testAccounts = allUsers.filter((u) => u.isTestAccount === true);
+      if (testAccounts.length === 0) {
+        testAccounts = allUsers
+          .filter((u) => u.role === 'admin_all' || u.role === 'admin_limited')
+          .slice(0, 5);
+      }
+      const sortedTests = testAccounts.sort((a, b) => {
+        const roleOrder: Record<string, number> = {
+          admin_all: 0,
+          admin_limited: 1,
+          business: 2,
+          user: 3,
         };
-        
-        const result = await registerUser(cleanData);
+        return (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
+      });
+      setDemoUsers(sortedTests.slice(0, 8));
+    });
 
-        if (result.success && result.user) {
-            // Successo: Rimuovi codice dalla sessione
-            removeSessionItem('pending_referral_code');
-            
-            setPendingUser(result.user);
-            try {
-                addNotification(
-                    result.user.id,
-                    'system',
-                    'Benvenuto su Touring Diary!',
-                    'Completa il tuo profilo per guadagnare i primi 50 XP e sbloccare funzioni esclusive.',
-                    { section: 'rewards' } 
-                );
-            } catch (e) {
-                console.error("Errore invio notifica benvenuto", e);
-            }
-            setView('verify');
-            setIsLoading(false);
-        } else {
-            setError(result.error || 'Errore sconosciuto durante la registrazione.');
-            setIsLoading(false);
-        }
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useGlobalModalEscape(isOpen, onClose);
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(avatarFile);
+    setAvatarPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [avatarFile]);
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\s/g, '').trim();
+    setEmail(val);
+    setError(null);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    await new Promise((r) => setTimeout(r, 500));
+
+    const result = await authenticateUser(email, password);
+
+    if (result.success && result.user) {
+      // Pulizia codice referral se l'utente fa login invece di registrarsi (non serve più)
+      removeSessionItem('pending_referral_code');
+      onAuthSuccess(result.user);
+    } else {
+      setError(result.error || 'Credenziali non valide.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!registrationEnabled) {
+      const closed = getRegistrationClosedMsg({});
+      setError(closed.body || 'Le nuove registrazioni sono temporaneamente sospese.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('La password deve essere di almeno 6 caratteri.');
+      return;
+    }
+
+    const usernameValidation = await validateUsernameForSubmit(username);
+    if (usernameValidation) {
+      setError(usernameValidation);
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Formato email non valido. Controlla di aver inserito '@' e il dominio.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Passiamo referralCode al servizio
+    const cleanData: RegisterUserInput = {
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim().toLowerCase(),
+      password: password,
+      username: username.trim(),
+      referralCode: referralCode.trim().toUpperCase() || undefined,
+      avatarFile,
     };
 
-    const handleFinalizeRegistration = async () => {
-        if (pendingUser) {
-            const loginResult = await authenticateUser(email, password);
-            if (loginResult.success && loginResult.user) {
-                onAuthSuccess(loginResult.user);
-            } else {
-                setError("Account creato ma non attivo. Se hai 'Confirm Email' attivo su Supabase, controlla la posta.");
-            }
-        }
-    };
+    const result = await registerUser(cleanData);
 
+    if (result.success && result.user) {
+      // Successo: Rimuovi codice dalla sessione
+      removeSessionItem('pending_referral_code');
 
+      setPendingUser(result.user);
+      try {
+        addNotification(
+          result.user.id,
+          'system',
+          'Benvenuto su Touring Diary!',
+          'Completa il tuo profilo per guadagnare i primi 50 XP e sbloccare funzioni esclusive.',
+          { section: 'rewards' },
+        );
+      } catch (e) {
+        console.error('Errore invio notifica benvenuto', e);
+      }
+      setView('verify');
+      setIsLoading(false);
+    } else {
+      setError(result.error || 'Errore sconosciuto durante la registrazione.');
+      setIsLoading(false);
+    }
+  };
 
-    const handleQuickLogin = async (mockUser: UserType) => {
-        console.log("[QuickLogin] click ricevuto");
-        console.log("[QuickLogin] handleQuickLogin start", mockUser.email);
-        setIsLoading(true);
-        setError(null);
-        try {
-            console.log("[QuickLogin] Invoking devLogin for:", mockUser.email);
-            const result = await devLogin(mockUser.email);
-            console.log("[QuickLogin] devLogin result:", result);
-            if (result.success) {
-                onAuthSuccess(mockUser);
-            } else {
-                setError(result.error);
-            }
-        } catch (e: any) {
-            setError(e.message || 'Network error.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const handleFinalizeRegistration = async () => {
+    if (pendingUser) {
+      const loginResult = await authenticateUser(email, password);
+      if (loginResult.success && loginResult.user) {
+        onAuthSuccess(loginResult.user);
+      } else {
+        setError(
+          "Account creato ma non attivo. Se hai 'Confirm Email' attivo su Supabase, controlla la posta.",
+        );
+      }
+    }
+  };
 
-    const getRoleIcon = (role: string) => {
-        switch(role) {
-            case 'admin_all': return <Shield className="w-4 h-4 text-amber-500 fill-amber-500"/>;
-            case 'admin_limited': return <Shield className="w-4 h-4 text-indigo-400"/>;
-            case 'business': return <Briefcase className="w-4 h-4 text-blue-400"/>;
-            default: return <UserCheck className="w-4 h-4 text-emerald-400"/>;
-        }
-    };
+  const handleQuickLogin = async (mockUser: UserType) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await devLogin(mockUser.email);
+      if (result.success) {
+        onAuthSuccess(mockUser);
+      } else {
+        setError(result.error ?? null);
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : undefined;
+      setError(message || 'Network error.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    const getRoleName = (role: string) => {
-         switch(role) {
-            case 'admin_all': return 'Admin-All';
-            case 'admin_limited': return 'Admin-Limited';
-            case 'business': return 'Partner / Negoziante';
-            case 'user': return 'Turista';
-            default: return role;
-        }
-    };
-    
-    const getQuickLoginName = (u: UserType) => {
-        return u.name || u.email.split('@')[0];
-    };
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin_all':
+        return <Shield className="w-4 h-4 text-amber-500 fill-amber-500" />;
+      case 'admin_limited':
+        return <Shield className="w-4 h-4 text-indigo-400" />;
+      case 'business':
+        return <Briefcase className="w-4 h-4 text-blue-400" />;
+      default:
+        return <UserCheck className="w-4 h-4 text-emerald-400" />;
+    }
+  };
 
-    if (!isOpen) return null;
+  const getRoleName = (role: string) => {
+    switch (role) {
+      case 'admin_all':
+        return 'Admin-All';
+      case 'admin_limited':
+        return 'Admin-Limited';
+      case 'business':
+        return 'Partner / Negoziante';
+      case 'user':
+        return 'Turista';
+      default:
+        return role;
+    }
+  };
 
-    return createPortal(
-        <div className="td-modal-overlay flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in pointer-events-auto" style={{ zIndex: Z_OVERLAY }}>
-            <div className="absolute inset-0" onClick={onClose}></div>
-            
-            <div 
-                className="relative w-full max-w-4xl bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex animate-in zoom-in-95 max-h-[90vh] pointer-events-auto"
-                style={{ zIndex: Z_MODAL }}
-                onClick={(e) => e.stopPropagation()}
-            >
-                
-                {/* LEFT SIDE: VISUAL (Hidden on Mobile) */}
-                <div className="hidden md:flex w-1/2 relative flex-col items-center justify-center p-12 text-center overflow-hidden">
-                    <div className="absolute inset-0">
-                        {authBg && <img src={authBg} alt="Auth Background" className="w-full h-full object-cover opacity-30"/>}
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/80 to-transparent"></div>
-                    
-                    <div className="relative z-floating-panel">
-                        <h2 className="text-4xl font-display font-bold text-white mb-4 shadow-black drop-shadow-lg whitespace-pre-line">
-                            {welcomeMsg.title?.replace(/\\n/g, '\n')}
-                        </h2>
-                        <p className="text-slate-300 text-lg leading-relaxed mb-8 font-light whitespace-pre-line">
-                            {welcomeMsg.body?.replace(/\\n/g, '\n')}
-                        </p>
-                        
-                        <div className="flex gap-2 justify-center">
-                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse delay-75"></div>
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse delay-150"></div>
+  const getQuickLoginName = (u: UserType) => {
+    return u.name || u.email.split('@')[0];
+  };
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      className="td-modal-overlay flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in pointer-events-auto"
+      style={{ zIndex: Z_OVERLAY }}
+    >
+      <div className="absolute inset-0" onClick={onClose}></div>
+
+      <div
+        className="relative w-full max-w-4xl bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex animate-in zoom-in-95 max-h-[90vh] pointer-events-auto"
+        style={{ zIndex: Z_MODAL }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* LEFT SIDE: VISUAL (Hidden on Mobile) */}
+        <div className="hidden md:flex w-1/2 relative flex-col items-center justify-center p-12 text-center overflow-hidden">
+          <div className="absolute inset-0">
+            {authBg && (
+              <img
+                src={authBg}
+                alt="Auth Background"
+                className="w-full h-full object-cover opacity-30"
+              />
+            )}
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/80 to-transparent"></div>
+
+          <div className="relative z-floating-panel">
+            <h2 className="text-4xl font-display font-bold text-white mb-4 shadow-black drop-shadow-lg whitespace-pre-line">
+              {welcomeMsg.title?.replace(/\\n/g, '\n')}
+            </h2>
+            <p className="text-slate-300 text-lg leading-relaxed mb-8 font-light whitespace-pre-line">
+              {welcomeMsg.body?.replace(/\\n/g, '\n')}
+            </p>
+
+            <div className="flex gap-2 justify-center">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+              <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse delay-75"></div>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse delay-150"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT SIDE: FORMS */}
+        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col relative bg-slate-900 overflow-y-auto">
+          <CloseButton onClose={onClose} position="absolute" variant="primary" />
+
+          {/* VIEW: DEV QUICK LOGIN */}
+          {view === 'dev_quick' ? (
+            <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-8">
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center justify-center gap-2">
+                  <Zap className="w-5 h-5 text-yellow-400 fill-yellow-400" /> Collaudo Rapido
+                </h3>
+                <p className="text-slate-400 text-xs mt-1 uppercase tracking-wide font-bold">
+                  Utenze Test dal Database
+                </p>
+              </div>
+
+              <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[400px]">
+                {demoUsers.length > 0 ? (
+                  demoUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => handleQuickLogin(u)}
+                      className={`w-full border p-3 rounded-xl flex items-center gap-3 transition-all text-left group relative overflow-hidden ${
+                        u.role === 'admin_all'
+                          ? 'bg-amber-900/10 border-amber-500/50 hover:bg-amber-900/30'
+                          : u.role === 'admin_limited'
+                            ? 'bg-purple-900/10 border-purple-500/50 hover:bg-purple-900/30'
+                            : u.role === 'business'
+                              ? 'bg-blue-900/10 border-blue-500/50 hover:bg-blue-900/30'
+                              : 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-indigo-500'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center font-bold text-white border border-slate-600 group-hover:border-indigo-400 shadow-md overflow-hidden">
+                        {u.avatar && !u.avatar.includes('ui-avatars') ? (
+                          <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" />
+                        ) : (
+                          u.name.charAt(0)
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-white truncate">
+                          {getQuickLoginName(u)}
                         </div>
-                    </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-400 group-hover:text-slate-300">
+                          {getRoleIcon(u.role)}
+                          <span className="capitalize font-mono">{getRoleName(u.role)}</span>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-white" />
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-center text-slate-500 text-xs py-10 border border-dashed border-slate-800 rounded-xl">
+                    Nessuna utenza di collaudo trovata.
+                    <br />
+                    Creane una dal pannello Admin &gt; Utenti.
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setView('login')}
+                className="mt-6 text-sm text-slate-500 hover:text-white underline text-center w-full"
+              >
+                Torna al login classico
+              </button>
+            </div>
+          ) : view === 'verify' ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in slide-in-from-right-8">
+              <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 border-2 border-emerald-500/50">
+                <CheckCircle className="w-10 h-10 text-emerald-400 animate-bounce" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Registrazione Completata!</h3>
+              <p className="text-slate-400 mb-8">
+                Il tuo account <strong className="text-white">{email}</strong> è pronto.
+                <br />
+                <span className="text-xs italic text-slate-500">
+                  (Se hai "Confirm Email" attivo su Supabase, controlla la posta.)
+                </span>
+              </p>
+
+              <div className="w-full bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                <button
+                  type="button"
+                  onClick={handleFinalizeRegistration}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg"
+                >
+                  <Zap className="w-4 h-4" /> Accedi Subito
+                </button>
+              </div>
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-xs text-red-300">
+                  {error}
                 </div>
+              )}
 
-                {/* RIGHT SIDE: FORMS */}
-                <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col relative bg-slate-900 overflow-y-auto">
-                    <CloseButton 
-                        onClose={onClose} 
-                        position="absolute"
-                        variant="primary"
+              <button
+                type="button"
+                onClick={() => setView('login')}
+                className="mt-6 text-sm text-slate-500 hover:text-white underline"
+              >
+                Torna al Login
+              </button>
+            </div>
+          ) : (
+            // VIEW: LOGIN / REGISTER FORM
+            <div className="flex-1 flex flex-col justify-center animate-in fade-in">
+              <div className="flex gap-6 mb-6 border-b border-slate-800 pb-1">
+                <button
+                  type="button"
+                  onClick={() => setView('login')}
+                  className={`pb-3 text-sm font-bold uppercase tracking-widest transition-all ${view === 'login' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Accedi
+                </button>
+                {registrationEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => setView('register')}
+                    className={`pb-3 text-sm font-bold uppercase tracking-widest transition-all ${view === 'register' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    Registrati
+                  </button>
+                ) : null}
+              </div>
 
+              {!registrationEnabled ? (
+                <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 space-y-1">
+                  <p className="text-sm font-bold text-amber-200">
+                    {getRegistrationClosedMsg({}).title || 'Registrazioni chiuse'}
+                  </p>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {getRegistrationClosedMsg({}).body ||
+                      'Le nuove registrazioni sono temporaneamente sospese.'}
+                  </p>
+                </div>
+              ) : null}
+
+              <form
+                onSubmit={view === 'login' ? handleLogin : handleRegister}
+                className="space-y-4"
+              >
+                {view === 'register' && registrationEnabled && (
+                  <>
+                    <div className="flex gap-4">
+                      <div className="space-y-1 flex-1">
+                        <label
+                          htmlFor="auth-first-name"
+                          className="text-[10px] font-bold text-slate-500 uppercase"
+                        >
+                          Nome
+                        </label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                          <input
+                            id="auth-first-name"
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm focus:border-amber-500 outline-none"
+                            placeholder="Mario"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <label
+                          htmlFor="auth-last-name"
+                          className="text-[10px] font-bold text-slate-500 uppercase"
+                        >
+                          Cognome
+                        </label>
+                        <input
+                          id="auth-last-name"
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-4 text-white text-sm focus:border-amber-500 outline-none"
+                          placeholder="Rossi"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <ProfileIdentityFields
+                      displayName={`${firstName} ${lastName}`.trim() || 'Utente'}
+                      username={username}
+                      onUsernameChange={setUsername}
+                      avatarPreviewUrl={avatarPreview}
+                      onAvatarFileChange={setAvatarFile}
+                      avatarRecommended
                     />
 
-                    {/* VIEW: DEV QUICK LOGIN */}
-                    {view === 'dev_quick' ? (
-                        <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-8">
-                            <div className="text-center mb-6">
-                                <h3 className="text-xl font-bold text-white flex items-center justify-center gap-2">
-                                    <Zap className="w-5 h-5 text-yellow-400 fill-yellow-400"/> Collaudo Rapido
-                                </h3>
-                                <p className="text-slate-400 text-xs mt-1 uppercase tracking-wide font-bold">Utenze Test dal Database</p>
-                            </div>
-                            
-                            <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[400px]">
-                                {demoUsers.length > 0 ? demoUsers.map(u => (
-                                    <button 
-                                        key={u.id}
-                                        type="button"
-                                        onClick={() => handleQuickLogin(u)}
-                                        className={`w-full border p-3 rounded-xl flex items-center gap-3 transition-all text-left group relative overflow-hidden ${
-                                            u.role === 'admin_all' ? 'bg-amber-900/10 border-amber-500/50 hover:bg-amber-900/30' : 
-                                            u.role === 'admin_limited' ? 'bg-purple-900/10 border-purple-500/50 hover:bg-purple-900/30' : 
-                                            u.role === 'business' ? 'bg-blue-900/10 border-blue-500/50 hover:bg-blue-900/30' : 
-                                            'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-indigo-500'
-                                        }`}
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center font-bold text-white border border-slate-600 group-hover:border-indigo-400 shadow-md overflow-hidden">
-                                            {u.avatar && !u.avatar.includes('ui-avatars') ? <img src={u.avatar} className="w-full h-full object-cover"/> : u.name.charAt(0)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-bold text-white truncate">{getQuickLoginName(u)}</div>
-                                            <div className="flex items-center gap-2 text-xs text-slate-400 group-hover:text-slate-300">
-                                                {getRoleIcon(u.role)}
-                                                <span className="capitalize font-mono">{getRoleName(u.role)}</span>
-                                            </div>
-                                        </div>
-                                        <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-white"/>
-                                    </button>
-                                )) : (
-                                    <div className="text-center text-slate-500 text-xs py-10 border border-dashed border-slate-800 rounded-xl">
-                                        Nessuna utenza di collaudo trovata.<br/>
-                                        Creane una dal pannello Admin &gt; Utenti.
-                                    </div>
-                                )}
-                            </div>
+                    {/* REFERRAL CODE INPUT */}
+                    <div className="space-y-1 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex justify-between items-end">
+                        <label
+                          htmlFor="auth-referral-code"
+                          className={`text-[10px] font-bold uppercase flex items-center gap-1 ${hasPendingReferral ? 'text-emerald-500' : 'text-slate-500'}`}
+                        >
+                          {hasPendingReferral ? <Gift className="w-3 h-3" /> : null}
+                          Codice Amico (Opzionale)
+                        </label>
+                        {hasPendingReferral && (
+                          <span className="text-[9px] bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 font-bold uppercase tracking-wider animate-pulse">
+                            Bonus Attivo
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        id="auth-referral-code"
+                        type="text"
+                        value={referralCode}
+                        onChange={(e) => {
+                          setReferralCode(e.target.value.toUpperCase());
+                          setHasPendingReferral(false);
+                        }}
+                        className={`w-full bg-slate-900 border rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none uppercase tracking-widest font-mono ${hasPendingReferral ? 'border-emerald-500 focus:border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-slate-700 focus:border-amber-500'}`}
+                        placeholder="CODICE-123"
+                      />
+                      {hasPendingReferral && (
+                        <p className="text-[10px] text-emerald-400 font-medium ml-1">
+                          Codice rilevato dal link! Ti spettano +20 Crediti AI.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
 
-                            <button 
-                                type="button"
-                                onClick={() => setView('login')} 
-                                className="mt-6 text-sm text-slate-500 hover:text-white underline text-center w-full"
-                            >
-                                Torna al login classico
-                            </button>
-                        </div>
-                    ) : view === 'verify' ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in slide-in-from-right-8">
-                            <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 border-2 border-emerald-500/50">
-                                <CheckCircle className="w-10 h-10 text-emerald-400 animate-bounce"/>
-                            </div>
-                            <h3 className="text-2xl font-bold text-white mb-2">Registrazione Completata!</h3>
-                            <p className="text-slate-400 mb-8">
-                                Il tuo account <strong className="text-white">{email}</strong> è pronto.
-                                <br/>
-                                <span className="text-xs italic text-slate-500">(Se hai "Confirm Email" attivo su Supabase, controlla la posta.)</span>
-                            </p>
-
-                            <div className="w-full bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                                <button 
-                                    onClick={handleFinalizeRegistration}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg"
-                                >
-                                    <Zap className="w-4 h-4"/> Accedi Subito
-                                </button>
-                            </div>
-                            
-                            {error && (
-                                <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-xs text-red-300">
-                                    {error}
-                                </div>
-                            )}
-                            
-                            <button onClick={() => setView('login')} className="mt-6 text-sm text-slate-500 hover:text-white underline">
-                                Torna al Login
-                            </button>
-                        </div>
-                    ) : (
-                        // VIEW: LOGIN / REGISTER FORM
-                        <div className="flex-1 flex flex-col justify-center animate-in fade-in">
-                            <div className="flex gap-6 mb-6 border-b border-slate-800 pb-1">
-                                <button 
-                                    type="button"
-                                    onClick={() => setView('login')}
-                                    className={`pb-3 text-sm font-bold uppercase tracking-widest transition-all ${view === 'login' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
-                                >
-                                    Accedi
-                                </button>
-                                {registrationEnabled ? (
-                                <button 
-                                    type="button"
-                                    onClick={() => setView('register')}
-                                    className={`pb-3 text-sm font-bold uppercase tracking-widest transition-all ${view === 'register' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
-                                >
-                                    Registrati
-                                </button>
-                                ) : null}
-                            </div>
-
-                            {!registrationEnabled ? (
-                                <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 space-y-1">
-                                    <p className="text-sm font-bold text-amber-200">
-                                        {getRegistrationClosedMsg({}).title || 'Registrazioni chiuse'}
-                                    </p>
-                                    <p className="text-xs text-slate-300 leading-relaxed">
-                                        {getRegistrationClosedMsg({}).body ||
-                                            'Le nuove registrazioni sono temporaneamente sospese.'}
-                                    </p>
-                                </div>
-                            ) : null}
-
-                            <form onSubmit={view === 'login' ? handleLogin : handleRegister} className="space-y-4">
-                                {view === 'register' && registrationEnabled && (
-                                    <>
-                                        <div className="flex gap-4">
-                                            <div className="space-y-1 flex-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nome</label>
-                                                <div className="relative">
-                                                    <User className="absolute left-3 top-3 w-4 h-4 text-slate-500"/>
-                                                    <input 
-                                                        type="text" 
-                                                        value={firstName}
-                                                        onChange={e => setFirstName(e.target.value)}
-                                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm focus:border-amber-500 outline-none"
-                                                        placeholder="Mario"
-                                                        required
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1 flex-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase">Cognome</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={lastName}
-                                                    onChange={e => setLastName(e.target.value)}
-                                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-4 text-white text-sm focus:border-amber-500 outline-none"
-                                                    placeholder="Rossi"
-                                                    required
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <ProfileIdentityFields
-                                            displayName={`${firstName} ${lastName}`.trim() || 'Utente'}
-                                            username={username}
-                                            onUsernameChange={setUsername}
-                                            avatarPreviewUrl={avatarPreview}
-                                            onAvatarFileChange={setAvatarFile}
-                                            avatarRecommended
-                                        />
-
-                                        {/* REFERRAL CODE INPUT */}
-                                        <div className="space-y-1 animate-in fade-in slide-in-from-top-2">
-                                            <div className="flex justify-between items-end">
-                                                <label className={`text-[10px] font-bold uppercase flex items-center gap-1 ${hasPendingReferral ? 'text-emerald-500' : 'text-slate-500'}`}>
-                                                    {hasPendingReferral ? <Gift className="w-3 h-3"/> : null}
-                                                    Codice Amico (Opzionale)
-                                                </label>
-                                                {hasPendingReferral && <span className="text-[9px] bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 font-bold uppercase tracking-wider animate-pulse">Bonus Attivo</span>}
-                                            </div>
-                                            <input 
-                                                type="text" 
-                                                value={referralCode}
-                                                onChange={e => { setReferralCode(e.target.value.toUpperCase()); setHasPendingReferral(false); }}
-                                                className={`w-full bg-slate-900 border rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none uppercase tracking-widest font-mono ${hasPendingReferral ? 'border-emerald-500 focus:border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-slate-700 focus:border-amber-500'}`}
-                                                placeholder="CODICE-123"
-                                            />
-                                            {hasPendingReferral && <p className="text-[10px] text-emerald-400 font-medium ml-1">Codice rilevato dal link! Ti spettano +20 Crediti AI.</p>}
-                                        </div>
-                                    </>
-                                )}
-
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Email</label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-500"/>
-                                        <input 
-                                            type="email" 
-                                            value={email}
-                                            onChange={handleEmailChange}
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm focus:border-amber-500 outline-none"
-                                            placeholder="nome@esempio.com"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <div className="flex justify-between">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase">Password</label>
-                                        {view === 'login' && <a href="#" className="text-[10px] text-indigo-400 hover:text-indigo-300">Recupera password?</a>}
-                                    </div>
-                                    <div className="relative">
-                                        <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-500"/>
-                                        <input 
-                                            type="password" 
-                                            value={password}
-                                            onChange={e => setPassword(e.target.value)}
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm focus:border-amber-500 outline-none"
-                                            placeholder="••••••••"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                {error && (
-                                    <div className="bg-red-900/20 border border-red-500/50 p-3 rounded-lg flex items-center gap-2 text-xs text-red-300 animate-pulse">
-                                        <AlertCircle className="w-4 h-4 shrink-0"/> 
-                                        <span>{error}</span>
-                                    </div>
-                                )}
-
-                                <button 
-                                    type="submit" 
-                                    disabled={isLoading}
-                                    className="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.01] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
-                                >
-                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : <ArrowRight className="w-5 h-5"/>}
-                                    {view === 'login' ? 'Accedi' : 'Crea Account'}
-                                </button>
-                            </form>
-
-                            <div className="mt-6 border-t border-slate-800 pt-4 flex justify-center">
-                                <button 
-                                    type="button"
-                                    onClick={() => setView('dev_quick')}
-                                    className="bg-indigo-900/30 hover:bg-indigo-900/50 text-indigo-400 hover:text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border border-indigo-500/30"
-                                >
-                                    <Zap className="w-3 h-3 fill-current"/> Test Mode: Login Rapido
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                <div className="space-y-1">
+                  <label
+                    htmlFor="auth-email"
+                    className="text-[10px] font-bold text-slate-500 uppercase"
+                  >
+                    Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                    <input
+                      id="auth-email"
+                      type="email"
+                      value={email}
+                      onChange={handleEmailChange}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm focus:border-amber-500 outline-none"
+                      placeholder="nome@esempio.com"
+                      required
+                    />
+                  </div>
                 </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <label
+                      htmlFor="auth-password"
+                      className="text-[10px] font-bold text-slate-500 uppercase"
+                    >
+                      Password
+                    </label>
+                    {view === 'login' && (
+                      <a href="#" className="text-[10px] text-indigo-400 hover:text-indigo-300">
+                        Recupera password?
+                      </a>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                    <input
+                      id="auth-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm focus:border-amber-500 outline-none"
+                      placeholder="••••••••"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="bg-red-900/20 border border-red-500/50 p-3 rounded-lg flex items-center gap-2 text-xs text-red-300 animate-pulse">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.01] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-5 h-5" />
+                  )}
+                  {view === 'login' ? 'Accedi' : 'Crea Account'}
+                </button>
+              </form>
+
+              <div className="mt-6 border-t border-slate-800 pt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setView('dev_quick')}
+                  className="bg-indigo-900/30 hover:bg-indigo-900/50 text-indigo-400 hover:text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border border-indigo-500/30"
+                >
+                  <Zap className="w-3 h-3 fill-current" /> Test Mode: Login Rapido
+                </button>
+              </div>
             </div>
-        </div>,
-        document.body
-    );
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 };
-
-
-

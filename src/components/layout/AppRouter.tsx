@@ -1,10 +1,11 @@
 import React, { useMemo, Suspense } from 'react';
-import { Route, Routes, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { PointOfInterest } from '../../types/index';
 import { HomeContent } from '../home/HomeContent';
 import { getShopByVat } from '../../services/shopService';
 import { useModal } from '@/context/ModalContext';
+import { buildHomeShelf } from '@/domain/city/homeShelf';
 
 // CONTEXT CONSUMER
 import { useUser } from '@/context/UserContext';
@@ -50,15 +51,18 @@ const MainContent: React.FC = () => {
     const { handleSmartDrop } = useDiaryInteractionsContext();
     const router = useAppRouter();
 
-    // --- FILTRO VISIBILITÀ (VIEW DB GIÀ FILTRATA) ---
-    const publicManifest = useMemo(() => {
-        const list = (cityManifest || []);
-        return list;
-    }, [cityManifest]);
-
-    const publicFeatured = useMemo(() => publicManifest.filter(c => c.isFeatured), [publicManifest]);
-    const publicMostVisited = useMemo(() => [...publicManifest].sort((a, b) => (b.visitors || 0) - (a.visitors || 0)).slice(0, 10), [publicManifest]);
-    const publicDestinations = useMemo(() => publicManifest.filter(c => c.specialBadge === 'destination'), [publicManifest]);
+    // CatalogRest (manifest completo) — sorgente dati, NON gate del first paint (DOC-38 §S.4).
+    const publicManifest = useMemo(() => cityManifest || [], [cityManifest]);
+    // HomeShelf — proiezione minima per la vetrina (stesso fetch; nessun secondo round-trip).
+    const homeShelf = useMemo(() => buildHomeShelf(publicManifest), [publicManifest]);
+    const publicMostVisited = useMemo(
+        () => [...homeShelf].sort((a, b) => (b.visitors || 0) - (a.visitors || 0)).slice(0, 10),
+        [homeShelf],
+    );
+    const shelfSortedByVisitors = useMemo(
+        () => [...homeShelf].sort((a, b) => (b.visitors || 0) - (a.visitors || 0)),
+        [homeShelf],
+    );
 
     // ======== DASHBOARD INTERCEPTION (V4 & LEGACY) ========
     if (router.isDashboardPath || location.pathname.includes('/partner/')) {
@@ -88,11 +92,12 @@ const MainContent: React.FC = () => {
     }
     // ====================================================================
 
+    // Allineato a NavigationContext.goBack (autorità Header): Around Me → Home semantica.
     const handleSmartBack = () => {
         if (activeShopId) { goBack(); return; }
-        if (virtualCity) {
-            if (virtualCity.id === 'around-me-virtual') { goHome(); return; }
-            goBack(); return;
+        if (virtualCity?.virtualMode === 'around_me' || virtualCity?.id === 'around-me-virtual') {
+            goHome();
+            return;
         }
         goBack();
     };
@@ -107,12 +112,26 @@ const MainContent: React.FC = () => {
         openModal('poiDetail', { poi });
     };
 
-    if (isLoadingManifest || isBuildingVirtual) {
+    // STEP S.4: Manifest non blocca più la Home. Restano solo loading locali utili:
+    // - isBuildingVirtual (azione utente Around Me / merge)
+    // - citySlug ancora irrisolto mentre CatalogRest è in volo (evita flash Home → città)
+    if (isBuildingVirtual) {
         return (
             <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
                 <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
                 <p className="text-slate-500 uppercase font-black text-xs tracking-widest">
-                    {isBuildingVirtual ? 'Analisi Territorio & Fusione Dati...' : 'Caricamento Campania Cloud...'}
+                    Analisi Territorio & Fusione Dati...
+                </p>
+            </div>
+        );
+    }
+
+    if (router.citySlug && !activeCityId && isLoadingManifest) {
+        return (
+            <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
+                <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
+                <p className="text-slate-500 uppercase font-black text-xs tracking-widest">
+                    Caricamento Città...
                 </p>
             </div>
         );
@@ -211,10 +230,9 @@ const MainContent: React.FC = () => {
     return (
         <HomeContent
             heroProps={{ activeCategories, setActiveCategories, onSelectCity: navigateToCity, selectedZone, setSelectedZone, selectedSeason, setSelectedSeason }}
-            featuredCities={publicFeatured}
             mostVisitedCities={publicMostVisited}
-            allMostVisitedCities={[...publicManifest].sort((a, b) => b.visitors - a.visitors)}
-            destinationCities={publicDestinations}
+            allMostVisitedCities={shelfSortedByVisitors}
+            catalogForSearch={publicManifest}
             onCityClick={navigateToCity}
             onExploreSection={(cities, title, icon, categories) => {
                     // Preview è gestita esclusivamente da activePreview (NavigationContext).

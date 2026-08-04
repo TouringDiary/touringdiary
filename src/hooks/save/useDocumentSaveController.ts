@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getStorageItem, setStorageItem } from '@/services/storageService';
-import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import type { DocumentSavePhase, PersistResult } from '@/domain/save/documentSaveTypes';
+import { snapshotsEqual } from '@/domain/save/documentSnapshot';
+import { getStorageItem, setStorageItem } from '@/services/storageService';
 
 const DEFAULT_DEBOUNCE_MS = 2500;
 const DEFAULT_SAFETY_MS = 60_000;
@@ -11,13 +11,21 @@ export interface UseDocumentSaveControllerOptions<TSnapshot> {
   autosavePreferenceKey: string;
   isGuest: boolean;
   isNeverSaved: () => boolean;
+  /**
+   * Se false, l'autosave (!force) non tenta il persist e non marca `error`
+   * (es. nome obbligatorio ancora assente). Il save manuale usa `force` e resta invariato.
+   */
+  canPersist?: () => boolean;
   getSnapshot: () => TSnapshot;
   getDocumentId: () => string | null;
-  persist: (snapshot: TSnapshot, options: {
-    name?: string;
-    asCopy?: boolean;
-    documentId: string | null;
-  }) => Promise<PersistResult>;
+  persist: (
+    snapshot: TSnapshot,
+    options: {
+      name?: string;
+      asCopy?: boolean;
+      documentId: string | null;
+    },
+  ) => Promise<PersistResult>;
   onPersisted?: (result: PersistResult, snapshot: TSnapshot) => void;
   debounceMs?: number;
   safetyIntervalMs?: number;
@@ -28,6 +36,7 @@ export function useDocumentSaveController<TSnapshot>({
   autosavePreferenceKey,
   isGuest,
   isNeverSaved,
+  canPersist,
   getSnapshot,
   getDocumentId,
   persist,
@@ -55,16 +64,32 @@ export function useDocumentSaveController<TSnapshot>({
 
   const getSnapshotRef = useRef(getSnapshot);
   const isNeverSavedRef = useRef(isNeverSaved);
+  const canPersistRef = useRef(canPersist);
   const persistRef = useRef(persist);
   const onPersistedRef = useRef(onPersisted);
 
-  useEffect(() => { getSnapshotRef.current = getSnapshot; }, [getSnapshot]);
-  useEffect(() => { isNeverSavedRef.current = isNeverSaved; }, [isNeverSaved]);
-  useEffect(() => { persistRef.current = persist; }, [persist]);
-  useEffect(() => { onPersistedRef.current = onPersisted; }, [onPersisted]);
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => {
+    getSnapshotRef.current = getSnapshot;
+  }, [getSnapshot]);
+  useEffect(() => {
+    isNeverSavedRef.current = isNeverSaved;
+  }, [isNeverSaved]);
+  useEffect(() => {
+    canPersistRef.current = canPersist;
+  }, [canPersist]);
+  useEffect(() => {
+    persistRef.current = persist;
+  }, [persist]);
+  useEffect(() => {
+    onPersistedRef.current = onPersisted;
+  }, [onPersisted]);
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
-  const canUseAutosave = !isGuest && phase !== 'never_saved';
+  // Autosave solo dopo il primo salvataggio riuscito (documento persistito), e solo
+  // se il controller è abilitato. Allinea il flag alla possibilità runtime reale.
+  const canUseAutosave = enabled && !isGuest && !isNeverSaved();
 
   const clearDebounce = useCallback(() => {
     if (debounceTimerRef.current !== null) {
@@ -86,36 +111,42 @@ export function useDocumentSaveController<TSnapshot>({
     return 'dirty';
   }, []);
 
-  const markDirty = useCallback((forceExplicit = false) => {
-    if (!enabled) return;
-    if (phaseRef.current === 'saving') return;
-    const next = computePhaseFromSnapshot();
-    if (next === 'dirty') {
-      if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
-      setPhase('dirty');
-      setLastError(null);
-      return;
-    }
-    // `forceExplicit` proviene da una mutazione locale appena applicata
-    // (notifyLocalMutation): lo snapshot letto qui può precedere il commit React,
-    // quindi `computePhaseFromSnapshot` restituirebbe ancora 'synced' e il segnale
-    // andrebbe perso. Onoriamo il segnale solo se il documento è già persistito
-    // (le bozze non fanno autosave); l'effetto di ricomputo post-commit riporta
-    // a 'synced' se la mutazione non ha prodotto differenze reali, e runSave
-    // protegge comunque da salvataggi no-op.
-    if (forceExplicit && !isNeverSavedRef.current()) {
-      if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
-      setPhase('dirty');
-      setLastError(null);
-    }
-  }, [computePhaseFromSnapshot, enabled]);
+  const markDirty = useCallback(
+    (forceExplicit = false) => {
+      if (!enabled) return;
+      if (phaseRef.current === 'saving') return;
+      const next = computePhaseFromSnapshot();
+      if (next === 'dirty') {
+        if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
+        setPhase('dirty');
+        setLastError(null);
+        return;
+      }
+      // `forceExplicit` proviene da una mutazione locale appena applicata
+      // (notifyLocalMutation): lo snapshot letto qui può precedere il commit React,
+      // quindi `computePhaseFromSnapshot` restituirebbe ancora 'synced' e il segnale
+      // andrebbe perso. Onoriamo il segnale solo se il documento è già persistito
+      // (le bozze non fanno autosave); l'effetto di ricomputo post-commit riporta
+      // a 'synced' se la mutazione non ha prodotto differenze reali, e runSave
+      // protegge comunque da salvataggi no-op.
+      if (forceExplicit && !isNeverSavedRef.current()) {
+        if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
+        setPhase('dirty');
+        setLastError(null);
+      }
+    },
+    [computePhaseFromSnapshot, enabled],
+  );
 
-  const setBaseline = useCallback((snapshot: TSnapshot) => {
-    baselineRef.current = snapshot;
-    dirtySinceRef.current = null;
-    setLastError(null);
-    setPhase(computePhaseFromSnapshot());
-  }, [computePhaseFromSnapshot]);
+  const setBaseline = useCallback(
+    (snapshot: TSnapshot) => {
+      baselineRef.current = snapshot;
+      dirtySinceRef.current = null;
+      setLastError(null);
+      setPhase(computePhaseFromSnapshot());
+    },
+    [computePhaseFromSnapshot],
+  );
 
   const seedLastSavedAt = useCallback((at: number) => {
     setLastSavedAt((prev) => prev ?? at);
@@ -129,86 +160,102 @@ export function useDocumentSaveController<TSnapshot>({
     setBaseline(getSnapshotRef.current());
   }, [setBaseline]);
 
-  const runSave = useCallback(async (options?: {
-    name?: string;
-    asCopy?: boolean;
-    force?: boolean;
-  }): Promise<string | null> => {
-    if (isGuest) return null;
+  const runSave = useCallback(
+    async (options?: {
+      name?: string;
+      asCopy?: boolean;
+      force?: boolean;
+    }): Promise<string | null> => {
+      if (isGuest) return null;
 
-    const snapshot = getSnapshotRef.current();
-    const generation = ++saveGenerationRef.current;
+      const snapshot = getSnapshotRef.current();
 
-    if (!options?.force && baselineRef.current !== null && snapshotsEqual(snapshot, baselineRef.current) && !options?.asCopy) {
-      setPhase(isNeverSavedRef.current() ? 'never_saved' : 'synced');
-      return getDocumentId();
-    }
-
-    clearDebounce();
-    setPhase('saving');
-    setLastError(null);
-
-    // Nuovo diario: al primo salvataggio manuale attiva Auto-save (ON). I diari già esistenti non passano da qui.
-    const shouldEnableAutosaveAfter =
-      !!options?.force && !options?.asCopy && isNeverSavedRef.current();
-
-    const savePromise = (async () => {
-      try {
-        const result = await persistRef.current(snapshot, {
-          name: options?.name,
-          asCopy: options?.asCopy,
-          documentId: getDocumentId(),
-        });
-
-        if (generation !== saveGenerationRef.current) {
-          return null;
-        }
-
-        onPersistedRef.current?.(result, snapshot);
-        baselineRef.current = snapshot;
-        setLastSavedAt(Date.now());
-
-        if (shouldEnableAutosaveAfter) {
-          setAutosaveEnabledState(true);
-          setStorageItem(autosavePreferenceKey, true);
-        }
-
-        const currentAfterSave = getSnapshotRef.current();
-        if (!snapshotsEqual(currentAfterSave, snapshot)) {
-          dirtySinceRef.current = Date.now();
-          setPhase('dirty');
-        } else {
-          dirtySinceRef.current = null;
-          setPhase(isNeverSavedRef.current() ? 'never_saved' : 'synced');
-        }
-        return result.id;
-      } catch (error) {
-        if (generation !== saveGenerationRef.current) return null;
-        const message = error instanceof Error ? error.message : 'Salvataggio non riuscito';
-        setLastError(message);
-        setPhase('error');
-        return null;
-      } finally {
-        if (inFlightRef.current === savePromise) {
-          inFlightRef.current = null;
-        }
+      // Percorso autosave (!force): skip silenzioso se il documento non è ancora persistibile.
+      // Nessun phase=error — distingue "non pronto" da un vero fallimento di salvataggio.
+      if (!options?.force && !options?.asCopy) {
+        if (isNeverSavedRef.current()) return null;
+        if (canPersistRef.current && !canPersistRef.current()) return null;
       }
-    })();
 
-    inFlightRef.current = savePromise;
-    return savePromise;
-  }, [autosavePreferenceKey, clearDebounce, getDocumentId, isGuest]);
+      if (
+        !options?.force &&
+        baselineRef.current !== null &&
+        snapshotsEqual(snapshot, baselineRef.current) &&
+        !options?.asCopy
+      ) {
+        setPhase(isNeverSavedRef.current() ? 'never_saved' : 'synced');
+        return getDocumentId();
+      }
+
+      const generation = ++saveGenerationRef.current;
+
+      clearDebounce();
+      setPhase('saving');
+      setLastError(null);
+
+      // Nuovo diario: al primo salvataggio manuale attiva Auto-save (ON). I diari già esistenti non passano da qui.
+      const shouldEnableAutosaveAfter =
+        !!options?.force && !options?.asCopy && isNeverSavedRef.current();
+
+      const savePromise = (async () => {
+        try {
+          const result = await persistRef.current(snapshot, {
+            name: options?.name,
+            asCopy: options?.asCopy,
+            documentId: getDocumentId(),
+          });
+
+          if (generation !== saveGenerationRef.current) {
+            return null;
+          }
+
+          onPersistedRef.current?.(result, snapshot);
+          baselineRef.current = snapshot;
+          setLastSavedAt(Date.now());
+
+          if (shouldEnableAutosaveAfter) {
+            setAutosaveEnabledState(true);
+            setStorageItem(autosavePreferenceKey, true);
+          }
+
+          const currentAfterSave = getSnapshotRef.current();
+          if (!snapshotsEqual(currentAfterSave, snapshot)) {
+            dirtySinceRef.current = Date.now();
+            setPhase('dirty');
+          } else {
+            dirtySinceRef.current = null;
+            setPhase(isNeverSavedRef.current() ? 'never_saved' : 'synced');
+          }
+          return result.id;
+        } catch (error) {
+          if (generation !== saveGenerationRef.current) return null;
+          const message = error instanceof Error ? error.message : 'Salvataggio non riuscito';
+          setLastError(message);
+          setPhase('error');
+          return null;
+        } finally {
+          if (inFlightRef.current === savePromise) {
+            inFlightRef.current = null;
+          }
+        }
+      })();
+
+      inFlightRef.current = savePromise;
+      return savePromise;
+    },
+    [autosavePreferenceKey, clearDebounce, getDocumentId, isGuest],
+  );
 
   const flush = useCallback(() => runSave({ force: true }), [runSave]);
 
   const save = useCallback(
     (options?: { name?: string }) => runSave({ name: options?.name, force: true }),
-    [runSave]
+    [runSave],
   );
 
   const saveAs = useCallback(
     (name: string) => runSave({ name, asCopy: true, force: true }),
-    [runSave]
+    [runSave],
   );
 
   const awaitInFlight = useCallback(async () => {
@@ -219,10 +266,13 @@ export function useDocumentSaveController<TSnapshot>({
 
   const isSaving = useCallback(() => inFlightRef.current !== null, []);
 
-  const setAutosaveEnabled = useCallback((value: boolean) => {
-    setAutosaveEnabledState(value);
-    setStorageItem(autosavePreferenceKey, value);
-  }, [autosavePreferenceKey]);
+  const setAutosaveEnabled = useCallback(
+    (value: boolean) => {
+      setAutosaveEnabledState(value);
+      setStorageItem(autosavePreferenceKey, value);
+    },
+    [autosavePreferenceKey],
+  );
 
   // Recompute dirty when enabled toggles
   useEffect(() => {
@@ -248,7 +298,16 @@ export function useDocumentSaveController<TSnapshot>({
     }, debounceMs);
 
     return clearDebounce;
-  }, [autosaveEnabled, canUseAutosave, clearDebounce, debounceMs, enabled, isGuest, phase, runSave]);
+  }, [
+    autosaveEnabled,
+    canUseAutosave,
+    clearDebounce,
+    debounceMs,
+    enabled,
+    isGuest,
+    phase,
+    runSave,
+  ]);
 
   // Safety interval save
   useEffect(() => {
@@ -274,6 +333,13 @@ export function useDocumentSaveController<TSnapshot>({
     }
   }, [autosavePreferenceKey, isGuest, isNeverSaved, phase, setAutosaveEnabled]);
 
+  const setBaselineForController = useCallback(
+    (snapshot: TSnapshot) => {
+      setBaseline(snapshot);
+    },
+    [setBaseline],
+  );
+
   const controller = useMemo(
     () => ({
       phase,
@@ -288,7 +354,7 @@ export function useDocumentSaveController<TSnapshot>({
       flush,
       setAutosaveEnabled,
       resetBaseline,
-      setBaseline,
+      setBaseline: setBaselineForController,
       seedLastSavedAt,
       restoreLastSavedAt,
       awaitInFlight,
@@ -309,13 +375,13 @@ export function useDocumentSaveController<TSnapshot>({
       flush,
       setAutosaveEnabled,
       resetBaseline,
-      setBaseline,
+      setBaselineForController,
       seedLastSavedAt,
       restoreLastSavedAt,
       awaitInFlight,
       isSaving,
       cancelPendingAutosave,
-    ]
+    ],
   );
 
   return controller;

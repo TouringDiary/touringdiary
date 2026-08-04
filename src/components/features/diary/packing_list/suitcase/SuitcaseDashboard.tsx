@@ -23,6 +23,7 @@ import { DashboardActionGroup } from './DashboardActionGroup';
 import { SuitcaseSidePanel } from './SuitcaseSidePanel';
 import { SuitcaseMobileSuggestionsDrawer } from './SuitcaseMobileSuggestionsDrawer';
 import { SuitcaseOnboardingBox } from './SuitcaseOnboardingBox';
+import { DESKTOP_MIN_QUERY } from '@/constants/breakpoints';
 import { SuitcaseToast } from '../SuitcaseFloatingPanel/components/SuitcaseToast';
 
 import { ToastVariant } from '@/types/toast';
@@ -82,8 +83,8 @@ interface SuitcaseDashboardProps {
 
   // Actions
   isCreatingSuitcase?: boolean;
-  onCreateSuitcase?: () => void;
-  onCreateTemplate?: () => void;
+  onCreateSuitcase: () => void;
+  onCreateTemplate: () => void;
   onOpenRecommendedSuitcase?: () => void;
   showRecommendedSuitcase?: boolean;
   onSaveAsTemplate?: (id: string) => void;
@@ -331,13 +332,13 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(() => {
     if (typeof window === 'undefined') return true;
-    return window.matchMedia('(min-width: 1024px)').matches;
+    return window.matchMedia(DESKTOP_MIN_QUERY).matches;
   });
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const mediaQuery = window.matchMedia(DESKTOP_MIN_QUERY);
     const syncSidebarOpen = (event: MediaQueryListEvent) => {
       setIsSidebarOpen(event.matches);
     };
@@ -386,10 +387,14 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
     [allSuitcases, tripSuitcases]
   );
 
-  const filteredTemplates = normalizedAllSuitcases.filter(tpl => {
-    if (sourceTab === 'default') return isTdTemplate(tpl) || isUserTemplate(tpl);
-    return tpl.user_id === currentUser?.id;
-  });
+  const filteredTemplates = React.useMemo(
+    () =>
+      normalizedAllSuitcases.filter((tpl) => {
+        if (sourceTab === 'default') return isTdTemplate(tpl) || isUserTemplate(tpl);
+        return tpl.user_id === currentUser?.id;
+      }),
+    [normalizedAllSuitcases, sourceTab, currentUser?.id],
+  );
 
   const sourceFilteredTemplates = React.useMemo(() => {
     if (templateSourceFilter === 'td') {

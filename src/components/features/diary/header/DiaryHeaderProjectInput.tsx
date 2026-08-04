@@ -8,6 +8,7 @@ import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
 import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
 import { formatItalianDateTimeWithSeconds, isValidTimestamp } from '@/utils/dateFormatters';
+import { DiaryToolbarPopoverHeader } from '@/components/features/diary/header/DiaryToolbarPopoverHeader';
 
 interface DiaryHeaderProjectInputProps {
     itinerary: Itinerary;
@@ -167,10 +168,10 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                         align="left"
                         className="w-80 sm:w-[22rem] max-w-[calc(100vw-1rem)] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-left"
                     >
-                        <div className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-700 flex justify-between">
-                            <span>Progetti Salvati</span>
-                            {isSyncing && <RefreshCw className="w-3 h-3 animate-spin"/>}
-                        </div>
+                        <DiaryToolbarPopoverHeader
+                            title="Progetti Salvati"
+                            trailing={isSyncing ? <RefreshCw className="w-3 h-3 animate-spin" aria-hidden /> : undefined}
+                        />
                         {savedProjects.length > 0 ? (
                             <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                 {savedProjects.map((p, idx) => (
@@ -214,9 +215,7 @@ export const DiaryHeaderProjectInput: React.FC<DiaryHeaderProjectInputProps> = (
                         align="right"
                         className="w-52 sm:w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-right"
                     >
-                        <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
-                            Condivisione
-                        </div>
+                        <DiaryToolbarPopoverHeader title="Condividi" />
                         <button
                             type="button"
                             onClick={handleShareCollaborative}

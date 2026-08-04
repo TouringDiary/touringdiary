@@ -3,9 +3,11 @@
   packages = [
     pkgs.nodejs_20
   ];
+  # Estensioni allineate a WF-QUAL-01 STEP 3: consumano config del repo (Biome + Deno edge).
+  # Non reintrodurre ESLint/Prettier/Svelte/Vue come toolchain parallela.
   idx.extensions = [
-    "svelte.svelte-vscode"
-    "vue.volar"
+    "biomejs.biome"
+    "denoland.vscode-deno"
   ];
   idx.previews = {
     previews = {

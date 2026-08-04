@@ -1,7 +1,6 @@
-import React from 'react';
-import { Search, ChevronRight, Plus } from 'lucide-react';
-import { SuitcaseItem } from '@/types/suitcase';
-import { SuggestionProduct } from '@/types/suitcase';
+import { ChevronRight, Plus, Search } from 'lucide-react';
+import type React from 'react';
+import type { SuggestionProduct, SuitcaseItem } from '@/types/suitcase';
 import { getRelevantProducts } from '../../EditorialCenterTabs';
 
 interface ProductPickerProps {
@@ -23,16 +22,17 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
   setProductSearch,
   isOpen,
   onOpenToggle,
-  onSelect
+  onSelect,
 }) => {
   const relevantProducts = getRelevantProducts(item, products);
   const displayPickerProducts = productSearch
-    ? relevantProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+    ? relevantProducts.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()))
     : relevantProducts;
 
   return (
     <div className="relative flex-1">
       <button
+        type="button"
         onClick={onOpenToggle}
         className="w-full bg-slate-950 border border-slate-800 px-4 py-2.5 rounded-xl text-left flex items-center justify-between group hover:border-indigo-500/50 transition-all shadow-inner"
       >
@@ -42,7 +42,9 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
             {currentProduct ? currentProduct.name : `Seleziona prodotto...`}
           </span>
         </div>
-        <ChevronRight className={`w-4 h-4 text-slate-600 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+        <ChevronRight
+          className={`w-4 h-4 text-slate-600 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+        />
       </button>
 
       {isOpen && (
@@ -63,6 +65,7 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
 
           <div className="max-h-64 overflow-y-auto p-2 space-y-0.5">
             <button
+              type="button"
               onClick={() => {
                 onSelect(undefined);
                 setProductSearch('');
@@ -73,8 +76,9 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
             </button>
 
             {displayPickerProducts.length > 0 ? (
-              displayPickerProducts.map(p => (
+              displayPickerProducts.map((p) => (
                 <button
+                  type="button"
                   key={p.id}
                   onClick={() => {
                     onSelect(p.id);
@@ -83,16 +87,23 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
                   className="w-full p-2 rounded-lg text-left text-xs text-slate-400 hover:text-white hover:bg-indigo-500/15 flex items-center gap-3 transition-all"
                 >
                   <div className="w-8 h-8 rounded bg-white overflow-hidden shrink-0 shadow-sm p-0.5">
-                    <img src={p.image_url} alt="" className="w-full h-full object-contain" />
+                    <img
+                      src={p.image_url ?? undefined}
+                      alt=""
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <span className="truncate">{p.name}</span>
                 </button>
               ))
             ) : (
-              <div className="p-4 text-center text-xs text-slate-600 italic">Nessun prodotto pertinente nel catalogo</div>
+              <div className="p-4 text-center text-xs text-slate-600 italic">
+                Nessun prodotto pertinente nel catalogo
+              </div>
             )}
 
             <button
+              type="button"
               onClick={() => {
                 onSelect('new');
                 setProductSearch('');

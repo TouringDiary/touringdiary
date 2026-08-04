@@ -279,12 +279,12 @@ export const mapDbSuitcaseToRuntimeSuitcase = (
   return {
     id: dbSuitcase.id,
     title: dbSuitcase.title,
-    icon: dbSuitcase.icon,
+    icon: dbSuitcase.icon ?? '',
     user_id: dbSuitcase.user_id,
-    created_at: dbSuitcase.created_at,
-    updated_at: dbSuitcase.updated_at,
-    last_modified_by: dbSuitcase.last_modified_by,
-    source_template_id: dbSuitcase.source_template_id,
+    created_at: dbSuitcase.created_at ?? undefined,
+    updated_at: dbSuitcase.updated_at ?? undefined,
+    last_modified_by: dbSuitcase.last_modified_by ?? undefined,
+    source_template_id: dbSuitcase.source_template_id ?? undefined,
     custom_categories: parseCustomCategories(dbSuitcase.custom_categories),
     ui_state: parseUiState(dbSuitcase.ui_state),
     is_user_template: dbSuitcase.is_user_template ?? false,
@@ -470,7 +470,7 @@ export const cloneSuitcaseAsync = async (
   const { data, error } = await supabase.rpc('clone_suitcase', {
     p_template_id: suitcaseId,
     p_user_id: userId,
-    p_title: title ?? null,
+    ...(title !== undefined ? { p_title: title } : {}),
   });
 
   if (error) throw error;

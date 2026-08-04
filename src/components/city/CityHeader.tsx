@@ -180,15 +180,15 @@ export const CityHeader = ({ city, onOpenInfo, onOpenPatron, onOpenSurroundings,
                         className="!bg-slate-800/80 backdrop-blur-md shadow-2xl"
                     />
                     )}
-                    <button onClick={handleShare} className="bg-slate-800/80 p-2 rounded-xl border border-white/10 shadow-2xl text-white active:scale-90 transition-transform backdrop-blur-md">
+                    <button onClick={handleShare} aria-label="Condividi città" className="bg-slate-800/80 p-2 rounded-xl border border-white/10 shadow-2xl text-white active:scale-90 transition-transform backdrop-blur-md">
                         <Share2 className="w-4 h-4" />
                     </button>
                     {shopPublicEnabled ? (
-                    <button type="button" onClick={onOpenShop} className="bg-indigo-600 p-2 rounded-xl border border-indigo-400/30 shadow-2xl text-white active:scale-90 transition-transform">
+                    <button type="button" onClick={onOpenShop} aria-label="Apri shop" className="bg-indigo-600 p-2 rounded-xl border border-indigo-400/30 shadow-2xl text-white active:scale-90 transition-transform">
                         <ShoppingCart className="w-4 h-4" />
                     </button>
                     ) : null}
-                    <button onClick={onOpenCulture} className="bg-emerald-600 p-2 rounded-xl border border-emerald-400/30 shadow-2xl text-white active:scale-90 transition-transform">
+                    <button onClick={onOpenCulture} aria-label="Apri Angolo Cultura" className="bg-emerald-600 p-2 rounded-xl border border-emerald-400/30 shadow-2xl text-white active:scale-90 transition-transform">
                         <BookOpen className="w-4 h-4" />
                     </button>
                 </div>

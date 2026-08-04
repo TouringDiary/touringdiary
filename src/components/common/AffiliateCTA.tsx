@@ -1,12 +1,12 @@
-
-import React from 'react';
+import type React from 'react';
+import { useMemo } from 'react';
+import { usePartnerIntegrations } from '../../hooks/usePartnerIntegrations';
+import { affiliateTrackingService } from '../../services/affiliateTrackingService';
 import {
   buildAffiliateLink,
   getPartnerByCapability,
 } from '../../services/partnerIntegrationService';
-import { PartnerCapability } from '../../types/partners';
-import { usePartnerIntegrations } from '../../hooks/usePartnerIntegrations';
-import { affiliateTrackingService } from '../../services/affiliateTrackingService';
+import type { PartnerCapability } from '../../types/partners';
 
 interface AffiliateCTAProps {
   capability: PartnerCapability;
@@ -25,37 +25,45 @@ interface AffiliateCTAProps {
  * Se nessun partner è disponibile, il componente non renderizza nulla.
  */
 const AffiliateCTA: React.FC<AffiliateCTAProps> = ({ capability, context }) => {
-  const { integrations } = usePartnerIntegrations(); // Modificato per estrarre `integrations`
+  const { integrations } = usePartnerIntegrations();
   const partner = getPartnerByCapability(integrations, capability);
 
-  if (!partner) {
+  const buttonStyle = useMemo((): React.CSSProperties | null => {
+    if (!partner) return null;
+    return {
+      display: 'inline-block',
+      padding: '10px 15px',
+      backgroundColor: partner.display_options?.theme_color || '#007bff',
+      color: 'white',
+      textDecoration: 'none',
+      borderRadius: '5px',
+      fontWeight: 'bold',
+      textAlign: 'center',
+      cursor: 'pointer',
+    };
+  }, [partner]);
+
+  if (!partner || !buttonStyle) {
     return null;
   }
 
-  const affiliateLink = buildAffiliateLink(partner, context);
+  const affiliateLink = buildAffiliateLink(partner, {
+    query: context?.query,
+    checkin: context?.checkin,
+    checkout: context?.checkout,
+  });
 
   const handleTrackClick = () => {
-    // Nuovo tracking centralizzato
     affiliateTrackingService.trackClickOut({
       partnerId: partner.id,
       sourceType: 'cta',
       category: capability,
       cityId: context?.city,
-      searchQuery: context?.query
+      searchQuery: context?.query,
     });
   };
 
-  const buttonStyle: React.CSSProperties = {
-    display: 'inline-block',
-    padding: '10px 15px',
-    backgroundColor: partner.display_options.theme_color || '#007bff',
-    color: 'white',
-    textDecoration: 'none',
-    borderRadius: '5px',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    cursor: 'pointer',
-  };
+  const ariaLabel = `Cerca su ${partner.label}`;
 
   return (
     <a
@@ -64,6 +72,7 @@ const AffiliateCTA: React.FC<AffiliateCTAProps> = ({ capability, context }) => {
       rel="noopener noreferrer"
       style={buttonStyle}
       onClick={handleTrackClick}
+      aria-label={ariaLabel}
     >
       Cerca su {partner.label}
     </a>

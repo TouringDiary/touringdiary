@@ -13,7 +13,7 @@ interface CategorySponsorColumnProps {
     silverSponsors: PointOfInterest[];
     onAddToItinerary: (poi: PointOfInterest) => void;
     onOpenPoiDetail: (poi: PointOfInterest) => void;
-    onOpenSponsor: (tier?: string) => void;
+    onOpenSponsor: (tier?: 'gold' | 'silver') => void;
     onLike: (poi: PointOfInterest) => void;
     hasUserLiked: (id: string) => boolean;
     userLocation: { lat: number; lng: number } | null;

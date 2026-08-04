@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Bus, ChevronRight, Phone, Mail, Check, Plus, MessageSquare, PenTool, Globe, Star, ShieldCheck, Flag } from 'lucide-react';
-import { CityDetails, User as UserType, PointOfInterest, CityTourOperator } from '@/types/index';
+import { CityDetails, User as UserType, PointOfInterest, CityTourOperator, Review } from '@/types/index';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
@@ -9,6 +9,7 @@ import { useItinerary } from '@/context/ItineraryContext';
 import { affiliateTrackingService } from '../../../services/affiliateTrackingService';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
+import { LAYOUT } from '@/constants/layout';
 
 interface Props {
     city: CityDetails;
@@ -25,14 +26,14 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
     const { itinerary } = useItinerary();
     const [selectedOperator, setSelectedOperator] = useState<CityTourOperator | null>(null);
     const [showReviewModal, setShowReviewModal] = useState(false);
-    const [localReviews, setLocalReviews] = useState<any[]>([]);
+    const [localReviews, setLocalReviews] = useState<Review[]>([]);
 
     const operatorsList = city.details.tourOperators || [];
 
     const filterSectionLabelStyle = useDynamicStyles('filter_section_title');
 
     useEffect(() => {
-        const isDesktop = window.innerWidth >= 768;
+        const isDesktop = window.innerWidth >= LAYOUT.BREAKPOINTS.MD;
         if (isDesktop && operatorsList.length > 0 && !selectedOperator) {
             setSelectedOperator(operatorsList[0]);
         }
@@ -56,7 +57,7 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
         if (!user) {
             throw new Error('Devi accedere per pubblicare una recensione.');
         }
-        const newReview = {
+        const newReview: Review = {
             id: `new_${Date.now()}`,
             author: user.name,
             rating,
@@ -69,8 +70,8 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
     const renderOperatorDetail = (operator: CityTourOperator | null) => {
         if (!operator) return <div className="h-full flex items-center justify-center text-slate-600 italic">Seleziona un operatore</div>;
         
-        const storedReviews = Array.isArray(operator.reviews) ? operator.reviews : [];
-        const reviews = [...localReviews, ...storedReviews];
+        const storedReviews: Review[] = Array.isArray(operator.reviews) ? operator.reviews : [];
+        const reviews: Review[] = [...localReviews, ...storedReviews];
         const isAdded = operator.id ? isItemInItinerary(operator.id) : false;
 
         const handleAddOperator = () => {
@@ -171,7 +172,7 @@ export const CityTourOperatorsTab = ({ city, onAddToItinerary, user, onOpenAuth,
                         </button>
                     </div>
                     <div className="space-y-4">
-                        {reviews.length > 0 ? reviews.map((rev: any, idx: number) => (
+                        {reviews.length > 0 ? reviews.map((rev, idx) => (
                             <div key={idx} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors">
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-3">

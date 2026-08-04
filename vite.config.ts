@@ -33,6 +33,11 @@ export default defineConfig(({ mode }) => {
           target: 'http://127.0.0.1:3000',
           changeOrigin: true,
         },
+        // Dynamic favicon from Express (Admin → Asset Globali)
+        '/favicon.ico': {
+          target: 'http://127.0.0.1:3000',
+          changeOrigin: true,
+        },
       },
     },
 

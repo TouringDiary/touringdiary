@@ -23,7 +23,7 @@ type SponsorPublicListRow = {
     company_name: string | null;
     vat_number?: string | null;
     address: string | null;
-    city_id: string;
+    city_id: string | null;
     status: string | null;
     tier: string | null;
     type: string | null;
@@ -89,7 +89,7 @@ const mapPublicListRowToSponsorRequest = (row: SponsorPublicListRow): SponsorReq
 
     return {
         id: row.id,
-        cityId: row.city_id,
+        cityId: row.city_id ?? '',
         contactName: '',
         companyName: row.company_name ?? '',
         vatNumber: row.vat_number ?? undefined,
@@ -138,14 +138,16 @@ export const getSponsorsAsync = async (): Promise<SponsorRequest[]> => {
                 .or(`end_date.is.null,end_date.gte.${today}`);
 
             if (error) throw error;
-            rows = supaData ?? [];
+            rows = (supaData ?? []) as SponsorPublicListRow[];
         }
+
+        const activeRows = rows ?? [];
 
         if (import.meta.env.DEV) {
-            console.log(`[SponsorService] Active sponsors loaded from ${source}:`, rows.length);
+            console.log(`[SponsorService] Active sponsors loaded from ${source}:`, activeRows.length);
         }
 
-        return rows.map(mapPublicListRowToSponsorRequest);
+        return activeRows.map(mapPublicListRowToSponsorRequest);
     } catch (e) {
         console.error('Error in getSponsorsAsync:', e);
         return [];

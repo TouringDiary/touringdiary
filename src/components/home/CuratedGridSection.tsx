@@ -1,9 +1,10 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Calendar, Sun, Globe, Star, ArrowUpRight } from 'lucide-react';
 import { CitySummary } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 interface MiniCityCardProps {
     city: CitySummary;
@@ -31,8 +32,7 @@ interface CuratedGridSectionProps {
 
 export const CuratedGridSection = ({ onCityClick, onExplore, cityManifest }: CuratedGridSectionProps) => {
 
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
+    const isMobile = useMobileDetect();
     const catTitleStyle = useDynamicStyles('inspiration_title', isMobile);
 
     const getDisplayItems = (badge: string, count: number = 4) => {
@@ -74,7 +74,15 @@ export const CuratedGridSection = ({ onCityClick, onExplore, cityManifest }: Cur
         { title: 'Scelta Editoriale', badge: 'editor', icon: Star, color: 'text-purple-500', border: 'border-purple-500/30' },
     ];
 
-    const topDestItems = getDisplayItems(topDestCategory.badge, 16);
+    const displayByBadge = useMemo(() => ({
+        destination: getDisplayItems('destination', 16),
+        event: getDisplayItems('event'),
+        season: getDisplayItems('season'),
+        trend: getDisplayItems('trend'),
+        editor: getDisplayItems('editor'),
+    }), [cityManifest]);
+
+    const topDestItems = displayByBadge.destination;
 
     return (
         <div className="flex flex-col gap-6">
@@ -95,7 +103,7 @@ export const CuratedGridSection = ({ onCityClick, onExplore, cityManifest }: Cur
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
                     {topDestItems.map((city, cIdx) => (
                         <div key={`${topDestCategory.badge}-${city.id}-${city.imageUrl || cIdx}`} className={`${cIdx >= 4 ? 'hidden md:block' : ''} ${cIdx >= 8 ? 'hidden lg:block' : ''}`}>
-                            <MiniCityCard city={city} onClick={onCityClick} priority={cIdx < 4} />
+                            <MiniCityCard city={city} onClick={onCityClick} priority={false} />
                         </div>
                     ))}
                 </div>
@@ -118,8 +126,8 @@ export const CuratedGridSection = ({ onCityClick, onExplore, cityManifest }: Cur
                             </button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            {getDisplayItems(cat.badge).map((city, cIdx) => (
-                                <MiniCityCard key={`${cat.badge}-${city.id}-${city.imageUrl || cIdx}`} city={city} onClick={onCityClick} priority={true} />
+                            {(displayByBadge[cat.badge as keyof typeof displayByBadge] || []).map((city, cIdx) => (
+                                <MiniCityCard key={`${cat.badge}-${city.id}-${city.imageUrl || cIdx}`} city={city} onClick={onCityClick} priority={false} />
                             ))}
                         </div>
                     </div>

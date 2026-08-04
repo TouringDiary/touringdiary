@@ -50,7 +50,7 @@ Confini e aggiornamento a cascata → `00_DEVELOPMENT_PROTOCOL.md` · `02_GOVERN
 | `WORKFLOWS/_TEMPLATE_WORKFLOW.md` | Scaffold nuovo Workflow |
 | `WORKFLOWS/_archive/` | Workflow completati archiviati |
 
-Processi permanenti e SoT di collaudo specifici vivono nei rispettivi file sotto `WORKFLOWS/` (es. WF-RV-01, Audit B).
+Processi permanenti e SoT di collaudo specifici vivono nei rispettivi file sotto `WORKFLOWS/` (es. WF-RV-01, Audit B, **WF-QUAL-01** — gate qualità CLI `npm run check`; lint/format SoT = Biome / `biome.json`).
 
 ---
 
@@ -80,6 +80,11 @@ Se l’iniziativa deriva da un Masterplan: partire da `MASTERPLANS/`, non da un 
 |-----------|--------|
 | `03_PROJECT_STATUS.md` | Sempre per lo stato corrente |
 | `01_EXECUTION_ROADMAP.md` | Indice WF / MP / dipendenze |
+| `WORKFLOWS/WF_QUAL_01_QUALITY_TOOLCHAIN_SOT.md` | Gate qualità CLI — `npm run check` (`typecheck` + Biome `lint` + `lint:layers`); STEP 4 hardening TS |
+| `tsconfig.app.json` | SoT tipi app — `strict` + correlate (WF-QUAL-01 STEP 4) |
+| `biome.json` | SoT lint/format Biome (consumata da `npm run lint`) |
+| `GEMINI.md` | Istruzioni AI/Gemini: `npm run check` = SoT (WF-QUAL-01) |
+| `.vscode/` · `.idx/dev.nix` | Editor / Firebase Studio consumano config repo (STEP 3) |
 | `WORKFLOWS/_archive/WF_12_MP02_STEP3_MYSPACE_ROOTS.md` | MP-02 STEP-3 chiuso — **MP-02 concluso** |
 | `WORKFLOWS/_archive/WF_11_MP02_STEP2_VIAGGIO_SECTIONS.md` | MP-02 STEP-2 chiuso |
 | `WORKFLOWS/_archive/WF_10_MP02_STEP1_MYSPACE_SHELL.md` | MP-02 STEP-1 chiuso |

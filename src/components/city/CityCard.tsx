@@ -38,14 +38,14 @@ const DNA_ICONS: Record<string, string> = {
 };
 
 const CityDnaIcons = ({ types }: { types: string[] }) => (
-    <div className="flex items-center gap-0.5 shrink-0" aria-label="DNA della città">
+    <div className="flex items-center gap-0.5 shrink-0" role="img" aria-label="DNA della città">
         {types.slice(0, 4).map((type, idx) => (
-            <span key={idx} className="text-[10px] md:text-xs leading-none" title={type}>
+            <span key={idx} className="text-[10px] md:text-xs leading-none" title={type} aria-hidden>
                 {DNA_ICONS[type] || '📍'}
             </span>
         ))}
         {types.length > 4 && (
-            <span className="text-[8px] md:text-[9px] text-slate-500 font-bold leading-none" title={`+${types.length - 4} altre categorie`}>
+            <span className="text-[8px] md:text-[9px] text-slate-500 font-bold leading-none" title={`+${types.length - 4} altre categorie`} aria-hidden>
                 +{types.length - 4}
             </span>
         )}

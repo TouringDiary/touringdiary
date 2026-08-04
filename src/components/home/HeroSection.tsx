@@ -43,7 +43,6 @@ export const HeroSection = (props: HeroSectionProps) => {
         aiResponse, setAiResponse,
         isAiLoading,
         isAiExpanded, setIsAiExpanded,
-        heroImage,
         typingText,
         
         uniqueZones,
@@ -168,7 +167,6 @@ export const HeroSection = (props: HeroSectionProps) => {
             isFiltersExpanded={isFiltersExpanded}
             manualCitySearch={manualCitySearch}
             isSearchFocused={isSearchFocused}
-            heroImage={heroImage}
             activeCategories={props.activeCategories}
             selectedSeason={selectedSeason}
             isMobileCompact={isMobileCompact}

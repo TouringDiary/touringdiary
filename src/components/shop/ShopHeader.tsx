@@ -69,7 +69,9 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             <div className="flex items-center gap-4 md:gap-6 min-w-0">
                 {(selectedCategory || shop) ? (
                     <button 
+                        type="button"
                         onClick={onInternalBack} 
+                        aria-label="Indietro"
                         className="p-2 md:p-3 bg-slate-900 hover:bg-slate-800 rounded-2xl text-white transition-all shadow-2xl shadow-indigo-900/30 group border-2 border-indigo-500 hover:border-indigo-400 shrink-0"
                     >
                         <ArrowLeft className="w-5 h-5 md:w-6 md:h-6 group-hover:-translate-x-1 transition-transform text-indigo-100"/>
@@ -116,9 +118,11 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
             <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-2">
                 {shop && (
                     <button 
+                        type="button"
                         onClick={handleShare}
                         className="p-2 md:p-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-700 shadow-lg transition-all"
                         title="Condividi Bottega"
+                        aria-label="Condividi Bottega"
                     >
                         <Share2 className="w-4 h-4"/>
                     </button>
@@ -126,9 +130,11 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
 
                 {/* TASTO SPONSOR (AGGIORNATO STILE) */}
                 <button 
+                    type="button"
                     onClick={() => onOpenSponsor('shop')}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-slate-900 transition-all transform hover:-translate-y-0.5 active:scale-95 border border-white/50 animate-metal"
                     title="Diventa Partner Shopping"
+                    aria-label="Sponsor"
                 >
                     <Briefcase className="w-4 h-4"/>
                     <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Sponsor</span>
@@ -137,9 +143,11 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                 {shop && (
                     <>
                         <button 
+                            type="button"
                             onClick={handleAddClick}
                             className={`px-3 md:px-4 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-xl active:scale-95 transition-all border ${isInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white'}`}
                             title={isInItinerary ? "Già nel diario" : "Aggiungi Bottega al Diario"}
+                            aria-label={isInItinerary ? 'Già nel diario' : 'Aggiungi Bottega al Diario'}
                         >
                             {isInItinerary ? <Check className="w-4 h-4"/> : <Plus className="w-4 h-4"/>} 
                             <span className="hidden lg:inline">{isInItinerary ? 'AGGIUNTO' : 'AGGIUNGI'}</span>

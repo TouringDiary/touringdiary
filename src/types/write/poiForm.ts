@@ -14,6 +14,7 @@ import {
     AI_RELIABILITY_VALUES,
     IMAGE_LICENSE_VALUES
 } from '../../constants/governance';
+import { sanitizeMediaStatus } from '../../utils/media';
 
 /**
  * PoiFormData: Stato intermedio per il form di editing POI.
@@ -136,9 +137,9 @@ export const normalizePoiFormData = (formData: PoiFormData): PointOfInterest => 
 
     // Image License validation
     const isValidImageLicense = (
-        value: string
+        value: string | undefined
     ): value is NonNullable<PointOfInterest['imageLicense']> => {
-        return IMAGE_LICENSE_VALUES.includes(
+        return typeof value === 'string' && IMAGE_LICENSE_VALUES.includes(
             value as typeof IMAGE_LICENSE_VALUES[number]
         );
     };
@@ -152,7 +153,7 @@ export const normalizePoiFormData = (formData: PoiFormData): PointOfInterest => 
         return (SPONSOR_TIER_VALUES as readonly string[]).includes(value);
     };
 
-    const tier = isValidSponsorTier(formData.tier) ? formData.tier : null;
+    const tier = isValidSponsorTier(formData.tier) ? formData.tier : undefined;
 
     // 5. Costruzione PointOfInterest STRICT
     const poi: PointOfInterest = {
@@ -261,7 +262,7 @@ export const mapPoiToFormData = (poi: PointOfInterest | null): PoiFormData => {
         name: poi.name,
         description: poi.description,
         imageUrl: poi.imageUrl,
-        image_status: poi.image_status,
+        image_status: sanitizeMediaStatus(poi.image_status),
         category: poi.category,
         subCategory: poi.subCategory || '',
         coords: poi.coords,

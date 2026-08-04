@@ -152,6 +152,10 @@ Viaggio Domain SSOT (Aggregate Root — struttura e lifecycle):
 
 AI_CONTEXT/37_VIAGGIO_DOMAIN.md
 
+Bootstrap Architecture SoT (gate Config/Design/Manifest, decisioni PO, Design Snapshot, Bundle audit knowledge — non implementazione):
+
+AI_CONTEXT/38_BOOTSTRAP_ARCHITECTURE_SOT.md
+
 MySpace Product Vision (casa del viaggiatore / MyWorld):
 
 AI_CONTEXT/35_MYSPACE_PRODUCT_VISION.md

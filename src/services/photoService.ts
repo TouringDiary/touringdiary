@@ -13,7 +13,6 @@ type DbPhotoWithLikes = DatabasePhotoSubmission & {
 
 import { dataURLtoFile } from '../utils/common';
 import { getFullManifestAsync, getCityDetails, resolveCityIdentity } from './city/cityReadService';
-import { saveCityDetails } from './city/cityWriteService';
 import { sanitizeMediaStatus } from '../utils/media';
 import { PHOTO_SUBMISSION_STATUS_VALUES } from '../constants/governance';
 import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../constants/platformFeatureFlags';
@@ -28,7 +27,7 @@ import {
     canRegisterAsPhotograph,
 } from '@/domain/photos/assertPhotographWrite';
 import { getPlatformPlaceholderRegistryAsync } from './settingsService';
-import { mapDbPhotoSubmission } from './mediaService';
+import { mapDbPhotoSubmission } from './photoMapper';
 
 const BUCKET_NAME = 'community-photos';
 const PUBLIC_BUCKET = 'public-media';
@@ -187,6 +186,8 @@ export const propagatePhotoRemoval = async (
                 changed = true;
             }
             if (changed) {
+                // MP-03 STEP-1: dynamic import intenzionale — evita cityWrite/lifecycle/staging nel bootstrap Home.
+                const { saveCityDetails } = await import('./city/cityWriteService');
                 await saveCityDetails(city);
                 globalChanged = true;
             }
@@ -208,7 +209,11 @@ export const syncPhotoDescriptionToCity = async (photoUrl: string, newDescriptio
             city.imageCredit = newDescription;
             changed = true;
         }
-        if (changed) await saveCityDetails(city);
+        if (changed) {
+            // MP-03 STEP-1: dynamic import intenzionale — evita cityWrite/lifecycle/staging nel bootstrap Home.
+            const { saveCityDetails } = await import('./city/cityWriteService');
+            await saveCityDetails(city);
+        }
     } catch (e) { }
 };
 

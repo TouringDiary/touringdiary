@@ -8,9 +8,7 @@ import { useReferralTracking } from '../../hooks/useReferralTracking';
 import { MainLayout } from './MainLayout';
 import { ModalLoading } from '../common/ModalLoading';
 import { useInteraction } from '../../context/InteractionContext';
-import { usePartnerIntegrations } from '../../hooks/usePartnerIntegrations';
 import { FocusModeProvider, FocusOverlay, WorkspaceHost } from '@/focus';
-import { WorkspacePanelProvider } from '@/components/workspace/global/WorkspacePanelContext';
 import { useAppExitProtection } from '@/hooks/save/useAppExitProtection';
 import { UsernameRequiredGate } from '@/collaboration/UsernameRequiredGate';
 import { GlobalAlert } from '@/components/common/GlobalAlert';
@@ -56,38 +54,12 @@ export const AppCoordinator = () => {
         }, 4000);
     };
 
-    const { integrations, loading } = usePartnerIntegrations();
-    useEffect(() => {
-        if (!import.meta.env.DEV) return;
-        if (loading) {
-            console.log('[AppCoordinator] Partner Integrations in caricamento...');
-            return;
-        }
-        if (integrations && Object.keys(integrations).length > 0) {
-            console.log('[AppCoordinator] Partner Integrations caricate con successo:', integrations);
-            return;
-        }
-        console.log('[AppCoordinator] Partner Integrations caricate ma vuote o non trovate.');
-    }, [integrations, loading]);
-
     const { activeModal, modalProps, closeModal } = useModal();
     useUI();
 
-    const isCollaborationWorkspaceOpen = activeModal === 'collaborationWorkspace';
-    const workspaceIdIntent = isCollaborationWorkspaceOpen ? modalProps?.workspaceId : undefined;
-    const initialSectionIntent = isCollaborationWorkspaceOpen ? modalProps?.initialSection : undefined;
-
     const renderLayout = () => {
-        if (loading) {
-            return (
-                <div className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center gap-4">
-                    <ModalLoading />
-                    <p className="text-slate-500 uppercase font-black text-[10px] tracking-widest animate-pulse">
-                        Sincronizzazione Configurazioni...
-                    </p>
-                </div>
-            );
-        }
+        // STEP S.2 (DOC-38): Config fullscreen gate removed — shell mounts immediately.
+        // STEP S.4: Manifest non blocca più Home su `/` (loading locale solo citySlug / virtual).
 
         if (viewMode === 'admin') {
             if (!user || user.role === 'guest') {
@@ -123,29 +95,23 @@ export const AppCoordinator = () => {
 
     return (
         <FocusModeProvider>
-            <WorkspacePanelProvider
-                isPanelOpen={isCollaborationWorkspaceOpen}
-                initialWorkspaceId={workspaceIdIntent}
-                initialSection={initialSectionIntent}
-            >
-                <UsernameRequiredGate />
-                {renderLayout()}
-                <GlobalAlert />
+            <UsernameRequiredGate />
+            {renderLayout()}
+            <GlobalAlert />
 
-                <FocusOverlay />
-                <WorkspaceHost />
-                {activeModal === 'removeSelection' && modalProps?.items && modalProps?.onRemoveSingle && modalProps?.onRemoveAll && (
-                    <Suspense fallback={null}>
-                        <RemoveItemModal
-                            isOpen={true}
-                            onClose={closeModal}
-                            items={modalProps.items}
-                            onRemoveSingle={modalProps.onRemoveSingle}
-                            onRemoveAll={modalProps.onRemoveAll}
-                        />
-                    </Suspense>
-                )}
-            </WorkspacePanelProvider>
+            <FocusOverlay />
+            <WorkspaceHost />
+            {activeModal === 'removeSelection' && modalProps?.items && modalProps?.onRemoveSingle && modalProps?.onRemoveAll && (
+                <Suspense fallback={null}>
+                    <RemoveItemModal
+                        isOpen={true}
+                        onClose={closeModal}
+                        items={modalProps.items}
+                        onRemoveSingle={modalProps.onRemoveSingle}
+                        onRemoveAll={modalProps.onRemoveAll}
+                    />
+                </Suspense>
+            )}
         </FocusModeProvider>
     );
 };

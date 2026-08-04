@@ -11,6 +11,7 @@ import { CityEventsTab } from './cityInfo/CityEventsTab';
 import { CityTourOperatorsTab } from './cityInfo/CityTourOperatorsTab';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from "@/components/ui/controls/CloseButton";
+import { LAYOUT } from '@/constants/layout';
 
 interface Props {
     isOpen: boolean;
@@ -29,7 +30,7 @@ export const CityInfoModal = ({ isOpen, onClose, city, initialTab, user, onOpenA
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
 
     useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        const checkMobile = () => setIsMobile(window.innerWidth < LAYOUT.BREAKPOINTS.MD);
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);

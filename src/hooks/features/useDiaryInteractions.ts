@@ -4,6 +4,15 @@ import { useModal } from '@/context/ModalContext';
 import { useUser } from '@/context/UserContext';
 import { stampItineraryItemAuthor } from '@/domain/diary/diaryAuthorTracking';
 import { PointOfInterest, ItineraryItem } from '../../types/index';
+import { LAYOUT } from '@/constants/layout';
+import { randomUUID } from '@/utils/runtimeId';
+
+/** Resource POI → diary footer (not timeline stop). Includes legacy leisure/agency. */
+const isResourcePoi = (poi: PointOfInterest): boolean =>
+    poi.resourceType === 'guide' ||
+    poi.resourceType === 'operator' ||
+    poi.resourceType === 'service' ||
+    (poi.category === 'leisure' && poi.subCategory === 'agency');
 
 export const useDiaryInteractions = (
     activeCityId: string | null,
@@ -28,19 +37,12 @@ export const useDiaryInteractions = (
             return; 
         }
         
-        // AUTO-CLASSIFICAZIONE RISORSA (Diary 2.0)
-        // Se è una guida, un operatore o un servizio, lo marchiamo come risorsa (footer) invece che tappa (timeline)
-        const isResource = 
-            pendingPoi.resourceType === 'guide' || 
-            pendingPoi.resourceType === 'operator' || 
-            pendingPoi.resourceType === 'service' ||
-            // Fallback su categorie legacy/manuali
-            (pendingPoi.category === 'leisure' && pendingPoi.subCategory === 'agency');
+        const isResource = isResourcePoi(pendingPoi);
 
         // Create Item
         const targetCityId = pendingPoi.cityId || activeCityId || 'unknown';
         const newItem: ItineraryItem = { 
-            id: Date.now().toString(), 
+            id: randomUUID(), 
             poi: pendingPoi, 
             cityId: targetCityId, 
             dayIndex, 
@@ -59,7 +61,7 @@ export const useDiaryInteractions = (
         } else { 
             addItem(stampNewItem(newItem)); 
             closeModal(); 
-            if (window.innerWidth < 768) setMobileDiaryFullScreen(true); 
+            if (window.innerWidth < LAYOUT.BREAKPOINTS.MD) setMobileDiaryFullScreen(true); 
         }
     };
 
@@ -167,17 +169,13 @@ export const useDiaryInteractions = (
 
     // 5. RESOLVE DUPLICATE (From Modal)
     const resolveDuplicate = (poi: PointOfInterest, dayIdx: number, timeSlot: string, existingItem: ItineraryItem, action: 'add' | 'replace') => {
-        // Ricalcola isResource anche qui per sicurezza
-        const isResource = 
-            poi.resourceType === 'guide' || 
-            poi.resourceType === 'operator' || 
-            poi.resourceType === 'service';
+        const isResource = isResourcePoi(poi);
 
         if (action === 'replace') {
             removeItem(existingItem.id);
             const targetCityId = poi.cityId || activeCityId || 'unknown';
             const newItem: ItineraryItem = {
-                id: Date.now().toString(),
+                id: randomUUID(),
                 poi: poi,
                 cityId: targetCityId,
                 dayIndex: dayIdx,
@@ -189,7 +187,7 @@ export const useDiaryInteractions = (
         } else {
             const targetCityId = poi.cityId || activeCityId || 'unknown';
             const newItem: ItineraryItem = {
-                id: `${Date.now()}_dup`,
+                id: `${randomUUID()}_dup`,
                 poi: poi,
                 cityId: targetCityId,
                 dayIndex: dayIdx,

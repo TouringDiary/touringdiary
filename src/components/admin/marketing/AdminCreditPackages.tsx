@@ -15,7 +15,21 @@ export const AdminCreditPackages = () => {
         setLoading(true);
         try {
             const data = await getCreditPackages();
-            setPackages(data);
+            setPackages(
+                (data ?? []).map((pkg) => ({
+                    id: pkg.id,
+                    name: pkg.name,
+                    description: pkg.description ?? '',
+                    flash_credits: pkg.flash_credits,
+                    pro_credits: pkg.pro_credits,
+                    price_eur: pkg.price_eur,
+                    stripe_price_id_test: pkg.stripe_price_id_test ?? '',
+                    stripe_price_id_prod: pkg.stripe_price_id_prod ?? '',
+                    is_active: pkg.is_active ?? false,
+                    sort_order: pkg.sort_order ?? 0,
+                    is_recommended: pkg.is_recommended ?? false,
+                }))
+            );
         } catch (err) {
             console.error("Failed to load packages", err);
         } finally {

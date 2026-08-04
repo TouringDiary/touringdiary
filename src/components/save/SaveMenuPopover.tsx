@@ -1,6 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { Save, FilePlus2 } from 'lucide-react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
+import { DiaryToolbarPopoverHeader } from '@/components/features/diary/header/DiaryToolbarPopoverHeader';
+
+const MENU_ITEM_CLASS =
+  'w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2';
+const MENU_SEPARATOR_CLASS = 'border-t border-slate-700';
 
 interface SaveMenuPopoverProps {
   isGuest: boolean;
@@ -67,23 +72,20 @@ export const SaveMenuPopover: React.FC<SaveMenuPopoverProps> = ({
         align="right"
         className="w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden origin-top-right"
       >
-        <button
-          type="button"
-          onClick={handleSave}
-          className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2"
-        >
+        <DiaryToolbarPopoverHeader title="Salva" />
+        <button type="button" onClick={handleSave} className={MENU_ITEM_CLASS}>
           <Save className="w-3 h-3 text-emerald-500" /> Salva
         </button>
         <button
           type="button"
           onClick={handleSaveAs}
-          className="w-full text-left px-3 py-2 text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700"
+          className={`${MENU_ITEM_CLASS} ${MENU_SEPARATOR_CLASS}`}
         >
           <FilePlus2 className="w-3 h-3 text-amber-500" /> Salva con nome
         </button>
         {!isGuest && (
           <>
-            <div className="border-t border-slate-700" />
+            <div className={MENU_SEPARATOR_CLASS} />
             <label className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-white hover:bg-slate-700 cursor-pointer gap-3">
               <span className="text-slate-300">Auto-save</span>
               <button

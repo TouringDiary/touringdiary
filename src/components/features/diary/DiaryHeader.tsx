@@ -22,7 +22,11 @@ import { DiaryHeaderTabs } from './header/DiaryHeaderTabs';
 import { DiaryHeaderInvalidDateModal } from './header/DiaryHeaderInvalidDateModal';
 import { PublishCommunityModal } from './PublishCommunityModal';
 
-import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
+import {
+    GUEST_SAVE_BADGE_MESSAGE,
+    phaseHasUnsavedChanges,
+    type DocumentSavePhase,
+} from '@/domain/save/documentSaveTypes';
 import type { DiaryActiveTab } from '@/domain/diary/diaryActiveTab';
 import { formatItalianTime, formatItalianTimeWithSeconds } from '@/utils/dateFormatters';
 import { useBelowLg } from '@/hooks/ui/useBelowLg';
@@ -108,8 +112,10 @@ const DiaryHeaderSaveBadge: React.FC<{
     lastSavedAt: number | null;
     lastError: string | null;
     isGuest: boolean;
+    /** Guest: il controller è disabled → phase non vira dirty; segnale contestuale da header. */
+    guestSaveRelevant: boolean;
     isMobile: boolean;
-}> = ({ documentId, phase, lastSavedAt, lastError, isGuest, isMobile }) => {
+}> = ({ documentId, phase, lastSavedAt, lastError, isGuest, guestSaveRelevant, isMobile }) => {
     const [showSyncedLabel, setShowSyncedLabel] = useState(false);
     const prevLastSavedAtRef = useRef(lastSavedAt);
     const prevDocumentIdRef = useRef(documentId);
@@ -135,7 +141,28 @@ const DiaryHeaderSaveBadge: React.FC<{
         return () => clearTimeout(timer);
     }, [documentId, phase, lastSavedAt]);
 
-    if (isGuest || phase === 'never_saved') return null;
+    // Guest: alert giallo solo quando c'è necessità di salvare.
+    // Preferisce phase del controller; con controller disabled (guest) usa guestSaveRelevant.
+    if (isGuest) {
+        if (!phaseHasUnsavedChanges(phase) && !guestSaveRelevant) return null;
+        return (
+            <div
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-950/40 px-2 py-1 text-[10px] font-bold tracking-wide text-amber-200 shadow-sm"
+                role="status"
+                aria-live="polite"
+                title={GUEST_SAVE_BADGE_MESSAGE}
+                aria-label={GUEST_SAVE_BADGE_MESSAGE}
+            >
+                <span className="relative inline-flex" aria-hidden>
+                    <Cloud className="h-4 w-4 text-amber-300" />
+                    <AlertTriangle className="absolute -right-1.5 -top-1.5 h-2.5 w-2.5 text-amber-300" />
+                </span>
+                <span className="whitespace-nowrap">{GUEST_SAVE_BADGE_MESSAGE}</span>
+            </div>
+        );
+    }
+
+    if (phase === 'never_saved') return null;
 
     const isSaving = phase === 'saving';
     const isSynced = phase === 'synced';
@@ -353,6 +380,12 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     };
 
     const isGuest = user.role === 'guest';
+    const guestSaveRelevant =
+        isDocumentDirty ||
+        itinerary.items.length > 0 ||
+        !!itinerary.name?.trim() ||
+        !!itinerary.startDate ||
+        !!itinerary.endDate;
     const canPublish =
         itinerary.items.length > 0 && itinerary.name.trim().length > 0 && !isGuest;
     const canPublishCommunity =
@@ -480,6 +513,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
                             lastSavedAt={lastSavedAt}
                             lastError={lastSaveError}
                             isGuest={isGuest}
+                            guestSaveRelevant={guestSaveRelevant}
                             isMobile={isMobile}
                         />
                     </div>

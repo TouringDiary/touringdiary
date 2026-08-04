@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { CityDetails } from '../types/index';
-import { getCityDetails } from '../services/cityService';
+import { getCityDetails } from '../services/city/cityReadService';
 
 export const useCityData = (cityId: string | null) => {
   const [city, setCity] = useState<CityDetails | null>(null);

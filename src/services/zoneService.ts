@@ -17,11 +17,11 @@ export const getTouristZones = async (region?: string): Promise<TouristZone[]> =
         return [];
     }
     
-    return (data || []).map((z) => ({
+    return (data || []).map((z): TouristZone => ({
         id: z.id,
         name: z.name,
         adminRegion: z.admin_region,
-        description: z.description,
+        description: z.description ?? undefined,
         aiSuggestions: (z.ai_suggestions as unknown as AiCitySuggestion[]) || []
     }));
 };

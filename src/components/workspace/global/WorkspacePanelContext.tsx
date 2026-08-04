@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import type { Workspace } from '@/domain/collaboration';
 import type { WorkspaceAttachmentCategory } from '@/domain/collaboration/workspaceAttachment';
-import { getWorkspace } from '@/services/collaboration';
+import { getWorkspace } from '@/services/collaboration/workspaceService';
 import { useUser } from '@/context/UserContext';
 import {
   WORKSPACE_OPERATIONAL_SECTIONS,

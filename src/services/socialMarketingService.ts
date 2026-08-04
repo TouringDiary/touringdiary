@@ -7,6 +7,16 @@ import { DatabaseSocialTemplate, DatabaseSocialTemplateInsert, Json } from '../t
 
 import { withRetry } from './ai/aiUtils';
 
+const mapDbSocialTemplate = (t: DatabaseSocialTemplate): SocialTemplate => ({
+    id: t.id,
+    name: t.name,
+    bgUrl: t.bg_url,
+    layoutConfig: t.layout_config as unknown as SocialLayoutConfig,
+    theme: t.theme ?? '',
+    isActive: t.is_active ?? false,
+    createdAt: t.created_at ?? undefined,
+});
+
 // --- CRUD OPERATIONS ---
 
 export const getSocialTemplates = async (): Promise<SocialTemplate[]> => {
@@ -18,15 +28,7 @@ export const getSocialTemplates = async (): Promise<SocialTemplate[]> => {
 
         if (error) throw error;
 
-        return (data as DatabaseSocialTemplate[]).map(t => ({
-            id: t.id,
-            name: t.name,
-            bgUrl: t.bg_url,
-            layoutConfig: t.layout_config as unknown as SocialLayoutConfig,
-            theme: t.theme,
-            isActive: t.is_active,
-            createdAt: t.created_at
-        }));
+        return (data as DatabaseSocialTemplate[]).map(mapDbSocialTemplate);
     } catch (e) {
         console.error("Error fetching social templates:", e);
         return [];
@@ -43,15 +45,7 @@ export const getActiveSocialTemplates = async (): Promise<SocialTemplate[]> => {
 
         if (error) throw error;
 
-        return (data as DatabaseSocialTemplate[]).map(t => ({
-            id: t.id,
-            name: t.name,
-            bgUrl: t.bg_url,
-            layoutConfig: t.layout_config as unknown as SocialLayoutConfig,
-            theme: t.theme,
-            isActive: t.is_active,
-            createdAt: t.created_at
-        }));
+        return (data as DatabaseSocialTemplate[]).map(mapDbSocialTemplate);
     } catch (e) {
         console.error("Error fetching active social templates:", e);
         return [];
@@ -81,15 +75,7 @@ export const saveSocialTemplate = async (template: SocialTemplate): Promise<{ su
         const saved = data as DatabaseSocialTemplate;
         return {
             success: true,
-            data: {
-                id: saved.id,
-                name: saved.name,
-                bgUrl: saved.bg_url,
-                layoutConfig: saved.layout_config as unknown as SocialLayoutConfig,
-                theme: saved.theme,
-                isActive: saved.is_active,
-                createdAt: saved.created_at
-            }
+            data: mapDbSocialTemplate(saved),
         };
     } catch (e: any) {
         console.error("Error saving social template:", e);

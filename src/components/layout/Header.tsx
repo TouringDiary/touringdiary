@@ -137,7 +137,11 @@ export const Header = ({
     { id: 'terms', label: 'Termini e Condizioni', Icon: BookOpen },
   ];
 
-  const squareBtnClass = `h-8 w-8 md:h-10 md:w-10 flex items-center justify-center rounded-lg md:rounded-xl border transition-all shadow-sm active:scale-90 shrink-0`;
+  // Hit-area ≥44×44 via ::before (visual size unchanged). Do NOT set before:pointer-events-none —
+  // that would exclude the expanded region from the button's hit testing. Empty ::before is ignored by AT;
+  // hover/focus stay on the <button>; no z-index so stacking is unchanged. Adjacent gap-2 + ±6px may
+  // leave a thin contested strip — browser hit-test order; layout/gap must not be changed here.
+  const squareBtnClass = `relative before:absolute before:content-[''] before:inset-[-6px] md:before:inset-[-2px] h-8 w-8 md:h-10 md:w-10 flex items-center justify-center rounded-lg md:rounded-xl border transition-all shadow-sm active:scale-90 shrink-0`;
   const iconSize = "w-4 h-4 md:w-5 md:h-5"; 
 
   const activeBtnClass = "bg-emerald-900/30 border-emerald-500/50 text-emerald-400";
@@ -166,14 +170,15 @@ export const Header = ({
       </div>
 
       <div className="flex items-center gap-2 shrink min-w-0 mr-1 z-floating-panel relative">
-        <div 
+        <button
+             type="button"
              id="tour-home-btn" 
              onClick={onGoHome} 
              className="cursor-pointer group shrink-0 active:scale-95 transition-transform"
              title="Torna alla Home"
         >
              <BrandLogo className="h-10 md:h-12" variant="light" showText={true} />
-        </div>
+        </button>
 
         {showBack && (
             <div className="hidden md:flex items-center ml-4 pl-4 border-l border-slate-800 animate-in fade-in slide-in-from-left-4 duration-300 shrink-0">
@@ -200,6 +205,7 @@ export const Header = ({
                 onClick={onBack} 
                 className={`md:hidden ${squareBtnClass} bg-slate-800 border-slate-700 text-amber-500 hover:text-white hover:bg-slate-700`}
                 title="Indietro"
+                aria-label="Indietro"
             >
                 <ArrowLeft className={iconSize} />
             </button>
@@ -210,6 +216,7 @@ export const Header = ({
             onClick={isWorkspace ? undefined : toggleSidebar}
             disabled={isWorkspace}
             aria-disabled={isWorkspace}
+            aria-label={isSidebarOpen ? 'Nascondi Diario di Viaggio' : 'Mostra Diario di Viaggio'}
             title={isWorkspace ? 'Sidebar bloccata durante la sessione focus' : undefined}
             className={`hidden md:flex h-10 rounded-xl px-4 gap-2 border items-center justify-center transition-all ${isWorkspace ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''} ${isSidebarOpen ? amberBtnClass : inactiveBtnClass}`}
         >
@@ -221,6 +228,8 @@ export const Header = ({
             <button 
                 onClick={toggleMobileWeather} 
                 className={`${squareBtnClass} ${mobileShowWeather ? skyBtnClass : inactiveBtnClass}`}
+                aria-label={mobileShowWeather ? 'Chiudi meteo' : 'Apri meteo'}
+                aria-pressed={mobileShowWeather}
             >
                 <CloudSun className={iconSize}/>
             </button>
@@ -232,15 +241,17 @@ export const Header = ({
             disabled={isLocating}
             className={`${squareBtnClass} ${userLocation ? activeBtnClass : inactiveBtnClass} ${isLocating ? 'cursor-wait' : ''}`}
             title={userLocation ? "Disattiva GPS" : "Attiva GPS"}
+            aria-label={userLocation ? 'Disattiva GPS' : 'Attiva GPS'}
+            aria-pressed={!!userLocation}
         >
             {isLocating ? <Loader2 className={`${iconSize} animate-spin text-amber-500`}/> : userLocation ? <MapPin className={`${iconSize} animate-pulse fill-current`}/> : <MapPin className={iconSize}/>}
         </button>
         
         <div id="tour-profile-btn" className="relative group hidden md:block">
             {user.role === 'guest' ? (
-                <button onClick={handleProfileClick} className={`${squareBtnClass} ${inactiveBtnClass}`} title="Accedi"><LogIn className={iconSize} /></button>
+                <button onClick={handleProfileClick} className={`${squareBtnClass} ${inactiveBtnClass}`} title="Accedi" aria-label="Accedi"><LogIn className={iconSize} /></button>
             ) : (
-                <button onClick={() => navigate(buildDashboardPath(user.slug))} className={`${squareBtnClass} bg-slate-800 border-slate-600 overflow-hidden hover:border-slate-400 transition-colors`} title="Account">
+                <button onClick={() => navigate(buildDashboardPath(user.slug))} className={`${squareBtnClass} bg-slate-800 border-slate-600 overflow-hidden hover:border-slate-400 transition-colors`} title="Account" aria-label="Account">
                     {user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} alt={user.name} className="w-full h-full object-cover"/> : <span className="text-sm font-bold text-white">{user.name.charAt(0)}</span>}
                 </button>
             )}
@@ -261,6 +272,9 @@ export const Header = ({
             <button 
                 id="tour-trigger-button" 
                 onClick={() => setIsMenuOpen(!isMenuOpen)} 
+                aria-label={isMenuOpen ? 'Chiudi menu' : 'Apri menu'}
+                aria-expanded={isMenuOpen}
+                aria-haspopup="true"
                 className={`
                     ${squareBtnClass} 
                     ${flashHelp 

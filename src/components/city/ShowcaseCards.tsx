@@ -10,6 +10,7 @@ import { calculateDistance } from '../../services/geo';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { getCategoryPlaceholders } from '../../services/settingsService';
 import { resolvePoiDisplayImageUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
+import { LAYOUT } from '@/constants/layout';
 
 // --- TYPES ---
 interface UniversalCardProps {
@@ -90,7 +91,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
     // Responsive Logic
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 1024);
+        const check = () => setIsMobile(window.innerWidth < LAYOUT.BREAKPOINTS.LG);
         check();
         window.addEventListener('resize', check);
         return () => window.removeEventListener('resize', check);

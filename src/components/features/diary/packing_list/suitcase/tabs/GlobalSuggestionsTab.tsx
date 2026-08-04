@@ -1,18 +1,29 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, Search, Plus, Edit3, Trash2, Database as DatabaseIcon, ShoppingBag, X, Save } from 'lucide-react';
+import {
+  Database as DatabaseIcon,
+  Edit3,
+  Loader2,
+  Plus,
+  Save,
+  Search,
+  ShoppingBag,
+  Trash2,
+  X,
+} from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AdminImageInput } from '@/components/admin/AdminImageInput';
 import { usePartnerIntegrations } from '@/hooks/usePartnerIntegrations';
 import {
-  fetchGlobalTriggersAsync,
-  upsertAffiliateProductLinksBulkFromDtosAsync,
-  fetchAllAffiliateProductsAsync,
   fetchAllAffiliateProductLinksAsync,
+  fetchAllAffiliateProductsAsync,
+  fetchGlobalTriggersAsync,
+  type UpsertAffiliateLinkBulkItemDto,
+  type UpsertAffiliateProductDto,
   upsertAffiliateProductFromDtoAsync,
-  UpsertAffiliateProductDto,
-  UpsertAffiliateLinkBulkItemDto
+  upsertAffiliateProductLinksBulkFromDtosAsync,
 } from '@/services/suitcase/suitcaseAffiliateService';
-import { AffiliateProductLink } from '@/types/partners';
-import { AdminImageInput } from '@/components/admin/AdminImageInput';
-import { CanonicalAffiliateTriggerRelation, SuggestionProduct } from '@/types/suitcase';
+import type { AffiliateProductLink } from '@/types/partners';
+import type { CanonicalAffiliateTriggerRelation, SuggestionProduct } from '@/types/suitcase';
 
 type EditableSuggestionProduct = {
   id?: string;
@@ -46,7 +57,7 @@ export const GlobalSuggestionsTab: React.FC = () => {
 
   const activePartners = useMemo(() => {
     if (!integrations?.partners) return [];
-    return Object.values(integrations.partners).filter(p => p.enabled);
+    return Object.values(integrations.partners).filter((p) => p.enabled);
   }, [integrations]);
 
   const fetchData = useCallback(async () => {
@@ -55,7 +66,7 @@ export const GlobalSuggestionsTab: React.FC = () => {
       const [productsData, triggersData, linksData] = await Promise.all([
         fetchAllAffiliateProductsAsync(),
         fetchGlobalTriggersAsync(),
-        fetchAllAffiliateProductLinksAsync()
+        fetchAllAffiliateProductLinksAsync(),
       ]);
 
       setProducts(productsData);
@@ -68,20 +79,22 @@ export const GlobalSuggestionsTab: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     if (editingProduct?.id) {
       const drafts: PartnerLinkDraft[] = productLinks
-        .filter(l => l.product_id === editingProduct.id)
-        .map(l => ({
+        .filter((l) => l.product_id === editingProduct.id)
+        .map((l) => ({
           id: l.id,
           partnerId: l.partner_id,
           searchQuery: l.query,
           urlOverride: l.url_override ?? null,
           imageOverride: l.image_override ?? null,
           trackingOverride: l.tracking_override ?? null,
-          priority: l.priority ?? null
+          priority: l.priority ?? null,
         }));
       setActivePartnerLinks(drafts);
     } else if (editingProduct) {
@@ -99,15 +112,15 @@ export const GlobalSuggestionsTab: React.FC = () => {
         preferredPartners: editingProduct.preferred_partners,
         targetCategories: editingProduct.target_categories,
         targetTags: editingProduct.target_tags,
-        isActive: editingProduct.is_active
+        isActive: editingProduct.is_active,
       };
 
       const savedProduct = await upsertAffiliateProductFromDtoAsync(productDto);
 
       if (activePartnerLinks.length > 0) {
         const dtos: UpsertAffiliateLinkBulkItemDto[] = activePartnerLinks
-          .filter(l => l.partnerId && savedProduct.id && (l.searchQuery || editingProduct.name))
-          .map(l => ({
+          .filter((l) => l.partnerId && savedProduct.id && (l.searchQuery || editingProduct.name))
+          .map((l) => ({
             id: l.id,
             productId: savedProduct.id,
             partnerId: l.partnerId,
@@ -115,7 +128,7 @@ export const GlobalSuggestionsTab: React.FC = () => {
             urlOverride: l.urlOverride ?? null,
             imageOverride: l.imageOverride ?? null,
             trackingOverride: l.trackingOverride ?? null,
-            priority: l.priority ?? null
+            priority: l.priority ?? null,
           }));
 
         if (dtos.length > 0) {
@@ -123,18 +136,24 @@ export const GlobalSuggestionsTab: React.FC = () => {
         }
       }
 
+      await fetchData();
       setEditingProduct(null);
-      fetchData();
     } catch (e) {
       console.error(e);
     }
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredProducts = products.filter((p) =>
+    p.name.toLowerCase().includes(normalizedSearch),
   );
 
-  if (isLoading) return <div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex-1 flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    );
 
   return (
     <div className="flex h-full animate-in fade-in duration-500">
@@ -143,17 +162,22 @@ export const GlobalSuggestionsTab: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-black text-white">Catalogo Prodotti</h2>
-              <p className="text-sm text-slate-400">Gestisci i prodotti di affiliazione globali e i loro trigger.</p>
+              <p className="text-sm text-slate-400">
+                Gestisci i prodotti di affiliazione globali e i loro trigger.
+              </p>
             </div>
             <button
-              onClick={() => setEditingProduct({
-                name: '',
-                image_url: '',
-                preferred_partners: [],
-                target_categories: [],
-                target_tags: [],
-                is_active: true
-              })}
+              type="button"
+              onClick={() =>
+                setEditingProduct({
+                  name: '',
+                  image_url: '',
+                  preferred_partners: [],
+                  target_categories: [],
+                  target_tags: [],
+                  is_active: true,
+                })
+              }
               className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition-all"
             >
               <Plus className="w-4 h-4" /> Nuovo Prodotto
@@ -172,18 +196,28 @@ export const GlobalSuggestionsTab: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredProducts.map(p => {
-              const productTriggers = triggers.filter(t => t.product_id === p.id);
+            {filteredProducts.map((p) => {
+              const productTriggers = triggers.filter((t) => t.product_id === p.id);
               return (
-                <div key={p.id} className="group bg-slate-900/50 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex gap-4 transition-all hover:bg-slate-900 shadow-xl">
+                <div
+                  key={p.id}
+                  className="group bg-slate-900/50 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex gap-4 transition-all hover:bg-slate-900 shadow-xl"
+                >
                   <div className="w-20 h-20 rounded-xl bg-white overflow-hidden p-2 shrink-0 shadow-inner">
-                    <img src={p.image_url} alt="" className="w-full h-full object-contain" />
+                    <img
+                      src={p.image_url ?? undefined}
+                      alt={p.name}
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Prodotto Globale</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">
+                        Prodotto Globale
+                      </span>
                       <div className="flex gap-1">
                         <button
+                          type="button"
                           onClick={() =>
                             setEditingProduct({
                               id: p.id,
@@ -192,17 +226,27 @@ export const GlobalSuggestionsTab: React.FC = () => {
                               preferred_partners: p.preferred_partners || [],
                               target_categories: p.target_categories || [],
                               target_tags: p.target_tags || [],
-                              is_active: p.is_active ?? true
+                              is_active: p.is_active ?? true,
                             })
-                          } className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white transition-all"><Edit3 className="w-4 h-4" /></button>
-                        <button className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-all"><Trash2 className="w-4 h-4" /></button>
+                          }
+                          className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white transition-all"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <h3 className="text-sm font-bold text-slate-200 line-clamp-1 group-hover:text-white transition-colors">{p.name}</h3>
+                    <h3 className="text-sm font-bold text-slate-200 line-clamp-1 group-hover:text-white transition-colors">
+                      {p.name}
+                    </h3>
                     <div className="flex items-center gap-3 mt-2">
                       <div className="flex items-center gap-1.5">
                         <DatabaseIcon className="w-3 h-3 text-slate-600" />
-                        <span className="text-[10px] text-slate-500 font-bold uppercase">{productTriggers.length} Triggers</span>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase">
+                          {productTriggers.length} Triggers
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -214,59 +258,192 @@ export const GlobalSuggestionsTab: React.FC = () => {
       </div>
 
       {editingProduct && (
-        <div className="w-[450px] shrink-0 bg-slate-900 border-l border-slate-800 animate-in slide-in-from-right duration-300 flex flex-col">
+        <div className="absolute inset-y-0 right-0 z-admin-modal w-full max-w-full sm:max-w-md lg:static lg:z-auto lg:w-[450px] shrink-0 bg-slate-900 border-l border-slate-800 animate-in slide-in-from-right duration-300 flex flex-col">
           <div className="p-6 border-b border-white/5 flex items-center justify-between">
             <h3 className="text-lg font-black text-white">Editor Prodotto</h3>
-            <button onClick={() => setEditingProduct(null)} className="p-2 rounded-xl hover:bg-slate-800 text-slate-500"><X className="w-5 h-5" /></button>
+            <button
+              type="button"
+              onClick={() => setEditingProduct(null)}
+              className="p-2 rounded-xl hover:bg-slate-800 text-slate-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           <div className="flex-1 lg:overflow-y-auto p-6 space-y-6">
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">Nome Prodotto</label>
-                <input type="text" value={editingProduct.name || ''} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white" />
+                <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                  Nome Prodotto
+                </label>
+                <input
+                  type="text"
+                  value={editingProduct.name || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white"
+                />
               </div>
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">Preferred Partners (ID list)</label>
-                  <input type="text" placeholder="es. amazon,ebay" value={editingProduct.preferred_partners?.join(',') || ''} onChange={e => setEditingProduct({ ...editingProduct, preferred_partners: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-indigo-400 font-mono" />
+                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                    Preferred Partners (ID list)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="es. amazon,ebay"
+                    value={editingProduct.preferred_partners?.join(',') || ''}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        preferred_partners: e.target.value
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-indigo-400 font-mono"
+                  />
                 </div>
               </div>
               <div className="pt-2">
-                <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">Immagine Prodotto</label>
-                <AdminImageInput imageUrl={editingProduct.image_url || ''} onChange={(data) => setEditingProduct({ ...editingProduct, image_url: data.imageUrl })} category="shop" />
+                <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                  Immagine Prodotto
+                </label>
+                <AdminImageInput
+                  imageUrl={editingProduct.image_url || ''}
+                  onChange={(data) =>
+                    setEditingProduct({ ...editingProduct, image_url: data.imageUrl })
+                  }
+                  category="shop"
+                />
               </div>
               <div className="grid grid-cols-1 gap-4 pt-2">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">Target Categories (separate da virgola)</label>
-                  <input type="text" placeholder="es. Elettronica, Fotografia" value={editingProduct.target_categories?.join(', ') || ''} onChange={e => setEditingProduct({ ...editingProduct, target_categories: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-emerald-400" />
+                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                    Target Categories (separate da virgola)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="es. Elettronica, Fotografia"
+                    value={editingProduct.target_categories?.join(', ') || ''}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        target_categories: e.target.value
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-emerald-400"
+                  />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">Tags per Matching (separati da virgola)</label>
-                  <input type="text" placeholder="es. waterproof, usb-c, leggero" value={editingProduct.target_tags?.join(', ') || ''} onChange={e => setEditingProduct({ ...editingProduct, target_tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-orange-400" />
+                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                    Tags per Matching (separati da virgola)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="es. waterproof, usb-c, leggero"
+                    value={editingProduct.target_tags?.join(', ') || ''}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        target_tags: e.target.value
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-orange-400"
+                  />
                 </div>
               </div>
             </div>
 
             {editingProduct.id && (
               <div className="pt-6 border-t border-white/5 space-y-6">
-                <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">Configurazioni Partner</h4>
+                <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+                  Configurazioni Partner
+                </h4>
                 <div className="space-y-4">
-                  {activePartners.map(partner => {
-                    const link = activePartnerLinks.find(l => l.partnerId === partner.id);
+                  {activePartners.map((partner) => {
+                    const link = activePartnerLinks.find((l) => l.partnerId === partner.id);
                     const isConfigured = !!link;
                     return (
-                      <div key={partner.id} className={`p-4 rounded-2xl border ${isConfigured ? 'bg-indigo-600/5 border-indigo-500/20' : 'bg-slate-950 border-white/5 opacity-60'}`}>
+                      <div
+                        key={partner.id}
+                        className={`p-4 rounded-2xl border ${isConfigured ? 'bg-indigo-600/5 border-indigo-500/20' : 'bg-slate-950 border-white/5 opacity-60'}`}
+                      >
                         <div className="flex items-center gap-3 mb-4">
-                          {partner.display_options?.logo_url ? <img src={partner.display_options.logo_url} alt="" className="h-4 w-auto object-contain" /> : <ShoppingBag className="w-4 h-4 text-slate-500" />}
+                          {partner.display_options?.logo_url ? (
+                            <img
+                              src={partner.display_options.logo_url}
+                              alt={partner.label}
+                              className="h-4 w-auto object-contain"
+                            />
+                          ) : (
+                            <ShoppingBag className="w-4 h-4 text-slate-500" />
+                          )}
                           <span className="text-xs font-bold text-white">{partner.label}</span>
-                          {!isConfigured && <button onClick={() => setActivePartnerLinks(prev => [...prev, { partnerId: partner.id, searchQuery: editingProduct.name }])} className="ml-auto text-[9px] font-black text-indigo-400">Attiva Link</button>}
+                          {!isConfigured && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setActivePartnerLinks((prev) => [
+                                  ...prev,
+                                  { partnerId: partner.id, searchQuery: editingProduct.name },
+                                ])
+                              }
+                              className="ml-auto text-[9px] font-black text-indigo-400"
+                            >
+                              Attiva Link
+                            </button>
+                          )}
                         </div>
                         {isConfigured && (
                           <div className="space-y-3">
-                            <input type="text" placeholder="Query" value={link.searchQuery || ''} onChange={e => setActivePartnerLinks(prev => prev.map(l => l.partnerId === partner.id ? { ...l, searchQuery: e.target.value } : l))} className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white" />
-                            <input type="text" placeholder="URL Override" value={link.urlOverride || ''} onChange={e => setActivePartnerLinks(prev => prev.map(l => l.partnerId === partner.id ? { ...l, urlOverride: e.target.value } : l))} className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-1.5 text-[10px] text-indigo-400 font-mono" />
-                            <button onClick={() => setActivePartnerLinks(prev => prev.filter(l => l.partnerId !== partner.id))} className="text-[9px] font-black uppercase text-red-500">Rimuovi</button>
+                            <input
+                              type="text"
+                              placeholder="Query"
+                              value={link.searchQuery || ''}
+                              onChange={(e) =>
+                                setActivePartnerLinks((prev) =>
+                                  prev.map((l) =>
+                                    l.partnerId === partner.id
+                                      ? { ...l, searchQuery: e.target.value }
+                                      : l,
+                                  ),
+                                )
+                              }
+                              className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white"
+                            />
+                            <input
+                              type="text"
+                              placeholder="URL Override"
+                              value={link.urlOverride || ''}
+                              onChange={(e) =>
+                                setActivePartnerLinks((prev) =>
+                                  prev.map((l) =>
+                                    l.partnerId === partner.id
+                                      ? { ...l, urlOverride: e.target.value }
+                                      : l,
+                                  ),
+                                )
+                              }
+                              className="w-full bg-slate-900 border border-white/5 rounded-lg px-3 py-1.5 text-[10px] text-indigo-400 font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setActivePartnerLinks((prev) =>
+                                  prev.filter((l) => l.partnerId !== partner.id),
+                                )
+                              }
+                              className="text-[9px] font-black uppercase text-red-500"
+                            >
+                              Rimuovi
+                            </button>
                           </div>
                         )}
                       </div>
@@ -278,7 +455,13 @@ export const GlobalSuggestionsTab: React.FC = () => {
           </div>
 
           <div className="p-6 border-t border-white/5 bg-slate-900/50">
-            <button onClick={handleSaveProduct} className="w-full py-3 bg-indigo-600 text-white text-sm font-black rounded-xl flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Salva Prodotto</button>
+            <button
+              type="button"
+              onClick={handleSaveProduct}
+              className="w-full py-3 bg-indigo-600 text-white text-sm font-black rounded-xl flex items-center justify-center gap-2"
+            >
+              <Save className="w-4 h-4" /> Salva Prodotto
+            </button>
           </div>
         </div>
       )}

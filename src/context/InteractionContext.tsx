@@ -9,8 +9,8 @@ import React, {
 } from 'react';
 
 import { PointOfInterest, User } from '../types/index';
-import { votePoiAsync } from '../services/cityService';
-import { saveUnifiedReview } from '../services/communityService';
+import { votePoiAsync } from '../services/city/poi/poiWrite';
+import { saveUnifiedReview } from '../services/community/reviewService';
 import {
     togglePhotoLikeRPC,
     fetchUserPhotoLikes,

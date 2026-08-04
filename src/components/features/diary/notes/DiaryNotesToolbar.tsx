@@ -167,6 +167,8 @@ export const DiaryNotesToolbar: React.FC<DiaryNotesToolbarProps> = ({ editor }) 
 
   if (!editor) return null;
 
+  const states = activeStates ?? INACTIVE_TOOLBAR;
+
   const handleLink = () => {
     const previousUrl = editor.getAttributes('link').href as string | undefined;
     const url = window.prompt('Inserisci il link', previousUrl ?? 'https://');
@@ -183,28 +185,28 @@ export const DiaryNotesToolbar: React.FC<DiaryNotesToolbarProps> = ({ editor }) 
     >
       <ToolbarButton
         title="Grassetto"
-        isActive={activeStates.isBold}
+        isActive={states.isBold}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
         <Bold className={iconClass} />
       </ToolbarButton>
       <ToolbarButton
         title="Corsivo"
-        isActive={activeStates.isItalic}
+        isActive={states.isItalic}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
         <Italic className={iconClass} />
       </ToolbarButton>
       <ToolbarButton
         title="Barrato"
-        isActive={activeStates.isStrike}
+        isActive={states.isStrike}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       >
         <Strikethrough className={iconClass} />
       </ToolbarButton>
       <ToolbarButton
         title="Sottolineato"
-        isActive={activeStates.isUnderline}
+        isActive={states.isUnderline}
         onClick={() => editor.chain().focus().toggleUnderline().run()}
       >
         <Underline className={iconClass} />
@@ -215,7 +217,7 @@ export const DiaryNotesToolbar: React.FC<DiaryNotesToolbarProps> = ({ editor }) 
 
       <ToolbarButton
         title="Titolo"
-        isActive={activeStates.isHeading}
+        isActive={states.isHeading}
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
       >
         <Heading2 className={iconClass} />
@@ -225,21 +227,21 @@ export const DiaryNotesToolbar: React.FC<DiaryNotesToolbarProps> = ({ editor }) 
 
       <ToolbarButton
         title="Elenco puntato"
-        isActive={activeStates.isBulletList}
+        isActive={states.isBulletList}
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       >
         <List className={iconClass} />
       </ToolbarButton>
       <ToolbarButton
         title="Elenco numerato"
-        isActive={activeStates.isOrderedList}
+        isActive={states.isOrderedList}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       >
         <ListOrdered className={iconClass} />
       </ToolbarButton>
       <ToolbarButton
         title="Checklist"
-        isActive={activeStates.isTaskList}
+        isActive={states.isTaskList}
         onClick={() => editor.chain().focus().toggleTaskList().run()}
       >
         <ListTodo className={iconClass} />
@@ -249,7 +251,7 @@ export const DiaryNotesToolbar: React.FC<DiaryNotesToolbarProps> = ({ editor }) 
 
       <ToolbarButton
         title="Link"
-        isActive={activeStates.isLink}
+        isActive={states.isLink}
         onClick={handleLink}
       >
         <Link2 className={iconClass} />

@@ -11,6 +11,14 @@ export const useAffiliateGear = (itineraryTags: string[], currentItems: Suitcase
   const [data, setData] = useState<ResolvedAffiliateProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Il fetch usa solo gli id partner `enabled` (non l'intero oggetto integrations).
+  const enabledPartnerIds = Object.entries(integrations)
+    .filter(([, partner]) => partner.enabled)
+    .map(([id]) => id)
+    .sort();
+  const enabledPartnersKey = enabledPartnerIds.join(',');
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tags/items serializzati per evitare refetch su nuovi array equivalenti; enabledPartnersKey copre i partner rilevanti
   useEffect(() => {
     let isMounted = true;
 
@@ -26,10 +34,6 @@ export const useAffiliateGear = (itineraryTags: string[], currentItems: Suitcase
         const missingItems = currentItems
           .filter((i: SuitcaseItem) => !i.is_checked)
           .map((i: SuitcaseItem) => i.name || '');
-
-        const enabledPartnerIds = Object.entries(integrations)
-          .filter(([, partner]) => partner.enabled)
-          .map(([id]) => id);
 
         const suitcaseItemNames = currentItems.map((i: SuitcaseItem) => i.name || '');
 
@@ -53,8 +57,7 @@ export const useAffiliateGear = (itineraryTags: string[], currentItems: Suitcase
     return () => {
       isMounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(itineraryTags), JSON.stringify(currentItems.map(i => i.is_checked)), JSON.stringify(integrations)]);
+  }, [JSON.stringify(itineraryTags), JSON.stringify(currentItems.map(i => i.is_checked)), enabledPartnersKey]);
 
   return { data, isLoading };
 };

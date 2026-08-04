@@ -30,6 +30,15 @@ Risponde a:
 | **Masterplan** | §4 | No codice da solo — genera Workflow su ordine PO |
 | **Anticipazione** | §6 | Non aperta — solo memoria di prodotto |
 
+### 2.1 Stati Masterplan
+
+| Stato | Significato |
+|-------|-------------|
+| **Draft** | Piano ancora in elaborazione. **Non** può generare Workflow. |
+| **Pronto per ACCETTO PO** | Piano completato e pronto per revisione Product Owner. **Non** autorizza ancora l’apertura di Workflow. |
+| **Approvato** | Il Product Owner ha approvato il Masterplan. Da questo momento possono essere aperti i Workflow esecutivi. |
+| **Completato** | Tutti gli STEP previsti dal Masterplan sono stati completati e accettati. Il Masterplan resta come riferimento storico e **non** genera automaticamente nuovi Workflow. |
+
 ---
 
 ## 3. Indice Workflow
@@ -38,7 +47,9 @@ Risponde a:
 
 | WF | Nome | File | SSOT / Masterplan | Dipende da | Nota stato |
 |----|------|------|-------------------|------------|------------|
-| WF-PERF-01 | Ottimizzazione performance applicativa | `WORKFLOWS/WF_PERF_01_PERFORMANCE_OPTIMIZATION.md` | Audit perf 2026-07-28; layer/focus/context | — (parallelo a WF-02 hold) | **Attivo** — STEP 3 Completato; STEP 4 In verifica PO |
+| WF-QUAL-01 | Quality Toolchain Source of Truth | `WORKFLOWS/WF_QUAL_01_QUALITY_TOOLCHAIN_SOT.md` | Design SoT qualità 2026-08-02; `package.json` + `biome.json` + `tsconfig.app.json` gate | — | **Attivo** — STEP 1–3 Completati; STEP 4 Completato → In verifica PO |
+| WF-PERF-02 | Ottimizzazioni alto ROI (Fonts/LCP Home/Touch/AI/BP) | `WORKFLOWS/WF_PERF_02_HIGH_ROI_OPTIMIZATION.md` | Backlog A evidenze 2026-08-01 | — | **Attivo** — STEP 1–2 implementati → In verifica PO |
+| WF-PERF-01 | Ottimizzazione performance applicativa | `WORKFLOWS/WF_PERF_01_PERFORMANCE_OPTIMIZATION.md` | Audit perf 2026-07-28; layer/focus/context | — (parallelo a WF-02 hold) | **Attivo** — STEP 4 / User-scalable IN DECISIONE PO |
 | WF-02 | Implementation Masterplan | `WORKFLOWS/WF_02_IMPLEMENTATION_MASTERPLAN.md` | DOC 29, 30, 31 (vincoli), 32 (vincoli) | WF-01 | Hold STEP-4 |
 
 ### 3.2 Completati
@@ -74,6 +85,7 @@ Risponde a:
 |----|------|-----------|-------|
 | **MP-01** | `MASTERPLANS/MP_01_VIAGGIO_DOMAIN_IMPLEMENTATION.md` | 5 STEP → WF-05…WF-09. **Completato.** **No WF-10 automatico.** | **Completato** 2026-07-27 |
 | **MP-02** | `MASTERPLANS/MP_02_MYSPACE_UX_REALIGNMENT.md` | 3 STEP UX MySpace → WF-10…WF-12. **Completato.** **Nessun WF successivo automatico.** | **Completato** 2026-07-28 |
+| **MP-03** | `MASTERPLANS/MP_03_HOME_BOOTSTRAP_BARREL_OPTIMIZATION.md` | 2 STEP bootstrap Home (barrel/import). SSOT architettura: DOC-38. | **Approvato** — STEP 1 Completato; STEP 2 **In verifica PO** (2026-08-01) |
 
 ```text
 Dominio (AI_CONTEXT: 34A / 37 / 35 / 36 / 28 Parte A)
@@ -85,6 +97,12 @@ Dominio (AI_CONTEXT: 34A / 37 / 35 / 36 / 28 Parte A)
         ├── STEP-1 → WF-10 (Completato / archiviato)
         ├── STEP-2 → WF-11 (Completato / archiviato)
         └── STEP-3 → WF-12 (Completato / archiviato)
+
+Bootstrap (AI_CONTEXT DOC-38)
+        ↓
+   MP-03 (COME — 2 STEP barrel Home) — APPROVATO
+        ├── STEP-1 Sponsor + aiText + city write/staging — Completato
+        └── STEP-2 communityService — In verifica PO
 ```
 
 ---
@@ -111,6 +129,8 @@ WF-01 Completato
                                 └─► WF-13 Completato (archiviato) — decisioni 1–8 create/associa/Salva con nome
 
 WF-PERF-01 Attivo (STEP 4 In verifica PO; STEP 3 Completato; STEP 1–2 In verifica PO) — parallelo a WF-02 hold; esclusioni cartografia
+
+MP-03 Approvato — STEP 1 Completato; STEP 2 In verifica PO
 ```
 
 ---
@@ -163,3 +183,8 @@ Dettaglio stati / Override → `02_GOVERNANCE.md`.
 | 1.17.0 | 2026-07-29 | **WF-PERF-01 STEP 2** implementato (bundle TipTap/Export/manualChunks) → In verifica PO |
 | 1.18.0 | 2026-07-29 | **WF-PERF-01 STEP 3** Completato (ACCETTO PO — ModalManager idle / FocusIdleBoundary / Sidebar mobile) |
 | 1.19.0 | 2026-07-29 | **WF-PERF-01 STEP 4** implementato (virtual Suitcase+PoiList, sizes/LCP, Around Me batch, polling, benchmark) → In verifica PO; WF resta Attivo |
+| 1.20.0 | 2026-08-01 | Apertura **WF-PERF-02**; STEP 1–2 implementati (Fonts trim zero-uso, priority Home, touch 44px, AI lazy submit, breakpoint SoT) → In verifica PO |
+| 1.21.0 | 2026-08-02 | Apertura **WF-QUAL-01**; STEP 1 infrastruttura CLI (`typecheck` / `check` / alias `lint`) Completato → In verifica PO; STEP 2 attende OK PO |
+| 1.22.0 | 2026-08-02 | **WF-QUAL-01 STEP 1** ACCETTO PO; **STEP 2** Biome SoT (`lint`=`biome check`, `check` include lint, ESLint rimosso) → In verifica PO; STEP 3 non iniziato |
+| 1.23.0 | 2026-08-02 | **WF-QUAL-01 STEP 3** allineamento strumenti (VS Code / IDX / Cursor / GEMINI.md); gate `npm run check` invariato; STEP 4 non iniziato |
+| 1.24.0 | 2026-08-02 | **WF-QUAL-01 STEP 4** hardening TypeScript (`strict` + `noFallthroughCasesInSwitch` + `noImplicitOverride`); `typecheck` verde; `noUncheckedIndexedAccess` debito residuo → In verifica PO |

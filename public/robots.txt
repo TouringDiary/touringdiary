@@ -1,0 +1,13 @@
+# TouringDiary — https://touringdiary-it.com
+# Servito come file statico da Vite/Express (`public/` → `dist/`).
+
+User-agent: *
+Allow: /
+
+# Superfici applicative non destinate all'indicizzazione pubblica
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/
+
+# Sitemap: assente nel repository al momento della creazione di questo file.
+# Aggiungere Sitemap: <url> quando un sitemap.xml sarà pubblicato.

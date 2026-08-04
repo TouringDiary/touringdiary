@@ -59,3 +59,6 @@ export const AUTOSAVE_PREF_KEYS = {
 
 export const GUEST_SAVE_MESSAGE =
   'Effettua il login per salvare e collegare i tuoi contenuti.';
+
+/** Alert breve vicino alla nuvoletta di salvataggio (utente non autenticato). */
+export const GUEST_SAVE_BADGE_MESSAGE = 'Fai login per salvare';

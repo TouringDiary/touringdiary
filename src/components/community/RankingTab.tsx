@@ -34,7 +34,7 @@ export const RankingTab = ({ user }: RankingTabProps) => {
                 <div className="bg-gradient-to-r from-indigo-900 to-purple-900 p-6 rounded-2xl border border-indigo-500/30 shadow-2xl mb-8 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-full bg-slate-800 border-4 border-indigo-500 flex items-center justify-center text-xl font-bold text-white shadow-lg relative">
-                            {user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} className="w-full h-full rounded-full object-cover" /> : user.name.charAt(0)}
+                            {user.avatar && !user.avatar.includes('ui-avatars') ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" /> : user.name.charAt(0)}
                             <CountBadge
                                 display={String(getCurrentLevel(user.xp).level)}
                                 size="md"
@@ -60,7 +60,7 @@ export const RankingTab = ({ user }: RankingTabProps) => {
                             <div key={u.id} className={`flex items-center justify-between p-4 ${isMe ? 'bg-indigo-900/10' : 'hover:bg-slate-800/30'} transition-colors`}>
                                 <div className="flex items-center gap-4">
                                     <div className={`w-8 text-center font-black text-lg ${rankColor}`}>#{index + 1}</div>
-                                    <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-white border border-slate-700 overflow-hidden">{u.avatar && !u.avatar.includes('ui-avatars') ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name.charAt(0)}</div>
+                                    <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-white border border-slate-700 overflow-hidden">{u.avatar && !u.avatar.includes('ui-avatars') ? <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" /> : u.name.charAt(0)}</div>
                                     <div><div className={`font-bold text-sm ${isMe ? 'text-indigo-400' : 'text-white'}`}>{u.name} {isMe && '(Tu)'}</div><div className="text-[10px] text-slate-500">{getCurrentLevel(u.xp).name}</div></div>
                                 </div>
                                 <div className="font-mono font-bold text-emerald-400">{u.xp || 0} XP</div>

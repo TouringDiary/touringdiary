@@ -14,6 +14,16 @@
 
 ---
 
+## Conoscenza bootstrap (confine obbligatorio)
+
+| Regola | Dettaglio |
+|--------|-----------|
+| **Riferimento ufficiale** | Tutta la conoscenza architetturale sul bootstrap (Vision, Principles, gate Config/Design/Manifest, decisioni PO, Design Snapshot, roadmap architetturale) vive **esclusivamente** in **`AI_CONTEXT/38_BOOTSTRAP_ARCHITECTURE_SOT.md` (DOC-38)**. |
+| **Ruolo di questo Workflow** | Solo operativo: STEP, stato, deliverable di performance, esclusione ambiti. |
+| **Vietato** | Duplicare, riassumere o evolvere in questo file decisioni/architettura bootstrap. Aggiornare DOC-38. |
+
+---
+
 ## Metadati
 
 | Campo | Valore |
@@ -22,11 +32,12 @@
 | **Nome** | Ottimizzazione performance applicativa |
 | **Stato Workflow** | Attivo |
 | **Masterplan** | — (piano approvato PO; audit performance 2026-07-28) |
-| **SSOT tecnici** | `src/constants/zIndex.ts` · `src/layering/layerRegistry.ts` · `src/focus/*` · `src/context/*` |
+| **SSOT tecnici (runtime/layer)** | `src/constants/zIndex.ts` · `src/layering/layerRegistry.ts` · `src/focus/*` · `src/context/*` |
+| **SSOT bootstrap (architettura)** | **`AI_CONTEXT/38_BOOTSTRAP_ARCHITECTURE_SOT.md` (DOC-38)** — unica SoT; questo WF non la sostituisce |
 | **Owner** | PO + AI |
 | **Creato** | 2026-07-28 |
-| **Ultimo aggiornamento** | 2026-07-29 |
-| **Aggiornato da** | AI — STEP 4 implementato → In verifica PO; STEP 3 Completato; STEP 1–2 ancora In verifica PO |
+| **Ultimo aggiornamento** | 2026-07-30 |
+| **Aggiornato da** | AI — Confine conoscenza: DOC-38 SoT bootstrap; WF-PERF-01 solo operativo. STEP 4 ancora In verifica PO |
 | **Workflow precedenti** | Nessuno obbligatorio (parallelo a WF-02 hold) |
 | **Workflow successivo** | — (nessuno automatico) |
 
@@ -366,6 +377,8 @@ STEP 4  Virtualizzazione, immagini, fetch/polling, cleanup, benchmark
 | 2026-07-29 | STEP 2 implementato (bundle / TipTap / Export / deps) → In verifica PO | AI |
 | 2026-07-29 | STEP 3 ACCETTO PO — Completato (idle ModalManager / FocusIdleBoundary / Sidebar mobile) | PO + AI |
 | 2026-07-29 | STEP 4 implementato (virtual window Suitcase+PoiList, sizes/LCP, Around Me batch, polling) → In verifica PO | AI |
+| 2026-07-30 | `ImageWithFallback`: DOM Priority Hints come `fetchpriority` (lowercase) — React 18.3 non riconosce camelCase `fetchPriority` (React 19+). API pubblica invariata. Logica auto-derivazione `priority→high` non cambiata; audit A/B/C pending decisione PO | AI |
+| 2026-08-01 | Rifinitura LCP+a11y implementata; audit User-scalable (**B rischi concreti**) + Google Fonts completo in decisione PO. Doc: `WF_PERF_01_RIFINITURA_LCP_A11Y.md` | AI |
 
 ---
 

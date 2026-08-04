@@ -1,10 +1,10 @@
+import { Briefcase, FolderPlus, Loader2, Trash2 } from 'lucide-react';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Loader2, FolderPlus, Trash2 } from 'lucide-react';
+import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { CATEGORY_ID_MAP, getCategoryEmoji, SystemCategoryName } from '@/domain/packing/packingCategories';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import type { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
 import {
   CONFIGURATION_MODAL_OPTIONAL_NAMES,
@@ -13,13 +13,18 @@ import {
   setCategoryEnabled,
   setCategorySeeded,
 } from '@/domain/packing/categorySetupUx';
-import { SuitcaseCategory } from '@/types/suitcase';
-import { CategoryIconPicker } from './CategoryIconPicker';
-import { AnchoredPopover } from '@/components/common/AnchoredPopover';
-import { getIconByName } from './SuitcaseUtils';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
-import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import {
+  CATEGORY_ID_MAP,
+  getCategoryEmoji,
+  type SystemCategoryName,
+} from '@/domain/packing/packingCategories';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import type { SuitcaseCategory } from '@/types/suitcase';
+import { randomUUID } from '@/utils/runtimeId';
+import { CategoryIconPicker } from './CategoryIconPicker';
+import { getIconByName } from './SuitcaseUtils';
 
 export interface CategorySetupConfigurationResult {
   categorySetup: CategorySetupMap;
@@ -42,11 +47,9 @@ interface CategorySetupConfigurationModalProps {
 
 const STATE_PILL_ON =
   'bg-emerald-500/25 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/35';
-const STATE_PILL_OFF =
-  'bg-red-500/15 text-red-300/90 border-red-500/25 hover:bg-red-500/20';
+const STATE_PILL_OFF = 'bg-red-500/15 text-red-300/90 border-red-500/25 hover:bg-red-500/20';
 
-const CATEGORY_NAME_CLASS =
-  'font-sans text-[15px] sm:text-base font-bold text-white leading-none';
+const CATEGORY_NAME_CLASS = 'font-sans text-[15px] sm:text-base font-bold text-white leading-none';
 
 const IosToggle: React.FC<{
   checked: boolean;
@@ -143,14 +146,7 @@ const CategorySettingsItem: React.FC<{
   onToggleEnabled: (enabled: boolean) => void;
   onToggleSeeded: (seeded: boolean) => void;
   isLast?: boolean;
-}> = ({
-  name,
-  enabled,
-  seeded,
-  onToggleEnabled,
-  onToggleSeeded,
-  isLast = false,
-}) => (
+}> = ({ name, enabled, seeded, onToggleEnabled, onToggleSeeded, isLast = false }) => (
   <div className={!isLast ? 'border-b border-white/[0.05]' : ''}>
     <div
       className={`
@@ -158,10 +154,7 @@ const CategorySettingsItem: React.FC<{
         ${enabled ? '' : 'opacity-45'}
       `}
     >
-      <span
-        className={`text-base leading-none shrink-0 ${enabled ? '' : 'grayscale'}`}
-        aria-hidden
-      >
+      <span className={`text-base leading-none shrink-0 ${enabled ? '' : 'grayscale'}`} aria-hidden>
         {getCategoryEmoji(name)}
       </span>
       <span
@@ -202,20 +195,14 @@ const SystemCategorySection: React.FC<{
   categorySetup: CategorySetupMap;
   onToggleEnabled: (categoryId: string, enabled: boolean) => void;
   onToggleSeeded: (categoryId: string, seeded: boolean) => void;
-}> = ({
-  title,
-  names,
-  categorySetup,
-  onToggleEnabled,
-  onToggleSeeded,
-}) => {
+}> = ({ title, names, categorySetup, onToggleEnabled, onToggleSeeded }) => {
   const activeCount = useMemo(
     () =>
       names.filter((name) => {
         const id = CATEGORY_ID_MAP[name];
         return categorySetup[id]?.enabled;
       }).length,
-    [names, categorySetup]
+    [names, categorySetup],
   );
 
   return (
@@ -250,7 +237,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
   onClose,
 }) => {
   const [categorySetup, setCategorySetup] = useState<CategorySetupMap>(
-    getCategorySetupDefaultsForConfigurationModal
+    getCategorySetupDefaultsForConfigurationModal,
   );
   const [customCategories, setCustomCategories] = useState<PendingCustomCategory[]>([]);
   const [newCatName, setNewCatName] = useState('');
@@ -286,7 +273,9 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
     openerRef.current = (document.activeElement as HTMLElement | null) ?? null;
     setShowIconPicker(false);
     setShowAddForm(false);
-    scrollContainerRef.current.scrollTop = 0;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
     dialogPanelRef.current?.focus({ preventScroll: true });
 
     return () => {
@@ -319,15 +308,13 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
     const trimmed = newCatName.trim();
     if (!trimmed) return;
 
-    const duplicate = customCategories.some(
-      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
-    );
+    const duplicate = customCategories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase());
     if (duplicate) return;
 
     setCustomCategories((prev) => [
       ...prev,
       {
-        tempId: `pending-${Date.now()}-${prev.length}`,
+        tempId: `pending-${randomUUID()}`,
         name: trimmed,
         icon_key: newCatIcon,
       },
@@ -343,9 +330,8 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
   };
 
   const handleConfirm = () => {
-    const baseTs = Date.now();
-    const resolvedCustom: SuitcaseCategory[] = customCategories.map((cat, index) => ({
-      id: `custom_${baseTs}_${index}`,
+    const resolvedCustom: SuitcaseCategory[] = customCategories.map((cat) => ({
+      id: `custom_${randomUUID()}`,
       name: cat.name,
       icon_key: cat.icon_key,
     }));
@@ -397,10 +383,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
           </div>
         </header>
 
-        <div
-          ref={scrollContainerRef}
-          className={`${bodyShell} space-y-6 min-h-0`}
-        >
+        <div ref={scrollContainerRef} className={`${bodyShell} space-y-6 min-h-0`}>
           <SystemCategorySection
             title="Standard"
             names={CONFIGURATION_MODAL_STANDARD_NAMES}
@@ -418,10 +401,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
           />
 
           <section>
-            <SettingsSectionHeader
-              title="Personalizzate"
-              count={customCategories.length}
-            />
+            <SettingsSectionHeader title="Personalizzate" count={customCategories.length} />
             <SettingsGroup clip={false}>
               {customCategories.map((cat, index) => (
                 <React.Fragment key={cat.tempId}>
@@ -462,9 +442,11 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
                         onClick={() => setShowIconPicker((v) => !v)}
                         className={`
                           shrink-0 p-2 rounded-xl border transition-colors
-                          ${showIconPicker
-                            ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
-                            : 'bg-slate-800/80 border-white/10 text-indigo-400 hover:border-indigo-500/30'}
+                          ${
+                            showIconPicker
+                              ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
+                              : 'bg-slate-800/80 border-white/10 text-indigo-400 hover:border-indigo-500/30'
+                          }
                         `}
                         aria-label="Scegli icona"
                         aria-expanded={showIconPicker}
@@ -476,7 +458,10 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
                         value={newCatName}
                         onChange={(e) => setNewCatName(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleAddCustomCategory();
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomCategory();
+                          }
                           if (e.key === 'Escape') {
                             setShowAddForm(false);
                             setShowIconPicker(false);
@@ -560,6 +545,6 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
         </footer>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

@@ -24,7 +24,7 @@ export const BottegaSponsorCard: React.FC<BottegaSponsorCardProps> = ({ poi, onA
         onAddToItinerary(poi);
     };
 
-    const stopDrag = (e: any) => e.stopPropagation();
+    const stopDrag = (e: React.SyntheticEvent) => e.stopPropagation();
 
     return (
         <div className={`group relative w-full h-28 rounded-xl border overflow-hidden transition-all bg-slate-900 shadow-md ${isGold ? 'border-amber-500/60 hover:border-amber-400' : 'border-slate-200 hover:border-white shadow-white/5'}`}>
@@ -48,6 +48,7 @@ export const BottegaSponsorCard: React.FC<BottegaSponsorCardProps> = ({ poi, onA
                     onPointerDown={stopDrag}
                     className={`pointer-events-auto p-1.5 rounded-lg transition-all shadow-2xl border shrink-0 flex items-center justify-center w-8 h-8 cursor-pointer relative z-modal ${inItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white active:scale-90 hover:scale-105'}`}
                     title={inItinerary ? "Già Aggiunto" : "Aggiungi all'itinerario"}
+                    aria-label={inItinerary ? 'Già Aggiunto' : "Aggiungi all'itinerario"}
                 >
                     {inItinerary ? <Check className="w-4 h-4"/> : <Plus className="w-4 h-4 font-black"/>}
                 </button>

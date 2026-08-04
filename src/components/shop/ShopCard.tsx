@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Award, MapPin, Star, ArrowRight } from 'lucide-react';
 import { ShopPartner } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
@@ -8,11 +8,19 @@ import { useDynamicStyles } from '../../hooks/useDynamicStyles'; // NEW HOOK
 import { useUser } from '@/context/UserContext';
 import { useModal } from '@/context/ModalContext';
 import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 
 interface ShopCardProps {
     shop: ShopPartner;
     onOpen: (shop: ShopPartner) => void;
 }
+
+const SHOP_PLACEHOLDER_BY_CATEGORY: Record<string, string> = {
+    gusto: 'shop_gusto',
+    cantina: 'shop_cantina',
+    artigianato: 'shop_artigianato',
+    moda: 'shop_moda',
+};
 
 export const ShopCard: React.FC<ShopCardProps> = ({ shop, onOpen }) => {
     const { user } = useUser();
@@ -20,25 +28,10 @@ export const ShopCard: React.FC<ShopCardProps> = ({ shop, onOpen }) => {
     const rank = calculateShopRank(shop);
     const activeProducts = shop.products.filter(p => p.status === 'active');
 
-    // Mappa la categoria dello shop a una delle chiavi placeholder specifiche
-    const getPlaceholderCategory = () => {
-        if (shop.category === 'gusto') return 'shop_gusto';
-        if (shop.category === 'cantina') return 'shop_cantina';
-        if (shop.category === 'artigianato') return 'shop_artigianato';
-        if (shop.category === 'moda') return 'shop_moda';
-        return 'shop'; // Fallback
-    };
+    const placeholderCat = SHOP_PLACEHOLDER_BY_CATEGORY[shop.category] || 'shop';
 
-    const placeholderCat = getPlaceholderCategory();
-
-    // 1. Rileva Mobile (Immediato)
-    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
-
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
+    // MD compact band (same as previous innerWidth < MD) — not useMobileDetect (LG).
+    const isMobile = useMobileCompact();
 
     // 2. Hook Stili Dinamici
     const titleStyle = useDynamicStyles('shop_card_title', isMobile);

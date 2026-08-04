@@ -22,7 +22,7 @@ export const StarRating = ({
     showValue = false
 }: Props) => {
     return (
-        <div className="flex items-center gap-0.5" aria-label={`Valutazione: ${value} su ${max}`}>
+        <div className="flex items-center gap-0.5" role="img" aria-label={`Valutazione: ${value} su ${max}`}>
             {[...Array(max)].map((_, i) => {
                 const isFull = value >= i + 1;
                 const isHalf = value >= i + 0.5 && value < i + 1;

@@ -12,7 +12,8 @@ import { formatVisitors } from '@/utils/common';
 import { WeatherWidget } from '@/components/city/WeatherWidget';
 import { useItinerary } from '@/context/ItineraryContext';
 import { useModal } from '@/context/ModalContext';
-import { fetchActiveSponsorsResolvedAsync, convertSponsorToPoi } from '@/services/sponsorService';
+import { fetchActiveSponsorsResolvedAsync } from '@/services/sponsors/sponsorContractsService';
+import { convertSponsorToPoi } from '@/services/sponsors/sponsorResolvers';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import { StarRating } from '@/components/common/StarRating';
 
@@ -199,10 +200,13 @@ export const Sidebar = ({
         if (companionWidgetsRef.current) observer.observe(companionWidgetsRef.current);
 
         window.addEventListener('resize', syncCompanionTop);
+        // Capture + passive: page/container scroll can move diary top without ResizeObserver
+        window.addEventListener('scroll', syncCompanionTop, { capture: true, passive: true });
 
         return () => {
             observer.disconnect();
             window.removeEventListener('resize', syncCompanionTop);
+            window.removeEventListener('scroll', syncCompanionTop, { capture: true });
         };
     }, [isCompanionPortaled]);
 
@@ -214,7 +218,7 @@ export const Sidebar = ({
                     <h3 className="text-2xl font-display font-bold text-white flex items-center gap-3">
                         <CloudSun className="w-7 h-7 text-sky-500" /> Meteo Locale
                     </h3>
-                    <button onClick={() => setMobileShowWeather?.(false)} className="p-2 bg-slate-800 rounded-full text-slate-400"><X className="w-5 h-5" /></button>
+                    <button type="button" onClick={() => setMobileShowWeather?.(false)} aria-label="Chiudi meteo" className="p-2 bg-slate-800 rounded-full text-slate-400"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     {activeCityId && activeCity ? <WeatherWidget city={activeCity} startDate={itinerary.startDate} endDate={itinerary.endDate} /> : <div className="text-center text-slate-500 py-20 italic">Seleziona una città per il meteo.</div>}
@@ -257,7 +261,12 @@ export const Sidebar = ({
                                 <div className="mb-0.5"><StarRating value={sponsorPoi.rating} size="w-2 h-2" showValue={false} /></div>
                                 <h4 className="text-white font-bold text-sm truncate leading-none mb-1">{sponsorPoi.name}</h4>
                             </div>
-                            <button onClick={(e) => { e.stopPropagation(); openModal('add', { poi: sponsorPoi }); }} className={`p-2 rounded-xl transition-all shadow-lg border flex items-center justify-center w-9 h-9 ${isSponsorInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 border-amber-500 text-white active:scale-95'}`}>
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openModal('add', { poi: sponsorPoi }); }}
+                                aria-label={isSponsorInItinerary ? 'Partner già in itinerario' : 'Aggiungi partner all\'itinerario'}
+                                className={`p-2 rounded-xl transition-all shadow-lg border flex items-center justify-center w-9 h-9 ${isSponsorInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 border-amber-500 text-white active:scale-95'}`}
+                            >
                                 {isSponsorInItinerary ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                             </button>
                         </div>
@@ -355,7 +364,7 @@ export const Sidebar = ({
                                 <div className="w-[55%] flex flex-col border-r border-slate-800 bg-slate-900">
                                     <div className="px-3 py-1 border-b border-slate-800/50 flex justify-center items-center bg-slate-950/20 relative flex-shrink-0">
                                         <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest text-center">{externalZoneFilter ? 'TOP 5 ZONA' : 'TOP 5'}</span>
-                                        <button onClick={onOpenFullRankings} className="group/arrow p-1 hover:bg-slate-800 rounded absolute right-1 top-0.5"><ArrowUpRight className="w-3.5 h-3.5 text-slate-600 group-hover/arrow:text-amber-500" /></button>
+                                        <button type="button" onClick={onOpenFullRankings} aria-label="Apri classifiche complete" className="group/arrow p-1 hover:bg-slate-800 rounded absolute right-1 top-0.5"><ArrowUpRight className="w-3.5 h-3.5 text-slate-600 group-hover/arrow:text-amber-500" /></button>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                                         {topCities.map((c, i) => (
@@ -376,7 +385,7 @@ export const Sidebar = ({
                                         <div className="text-[9px] uppercase font-bold text-amber-500 text-center py-1 bg-slate-950/30 flex-shrink-0 tracking-widest border-b border-slate-800/30"><span>{hoverInspiration || "ISPIRAZIONE"}</span></div>
                                         <div className="grid grid-cols-3 grid-rows-2 flex-1 border-slate-800">
                                             {[{ id: 'sea', label: 'Mare', icon: Waves, color: 'text-cyan-400' }, { id: 'mountain', label: 'Monti', icon: Mountain, color: 'text-stone-400' }, { id: 'lakes', label: 'Laghi', icon: Droplets, color: 'text-blue-400' }, { id: 'rivers', label: 'Fiumi', icon: Wind, color: 'text-sky-300' }, { id: 'villages', label: 'Borghi', icon: Castle, color: 'text-amber-600' }, { id: 'discovery', label: 'Novità', icon: Sparkles, color: 'text-purple-400' }].map(f => (
-                                                <button key={f.id} onClick={() => setActiveContext(activeContext === f.id ? null : f.id)} onMouseEnter={() => setHoverInspiration(f.label)} onMouseLeave={() => setHoverInspiration(null)} className={`flex items-center justify-center border-r border-b border-slate-800 ${activeContext === f.id ? 'bg-slate-800' : 'bg-slate-900 hover:bg-slate-800 text-slate-500 hover:text-slate-300'}`}><f.icon className={`w-3.5 h-3.5 ${activeContext === f.id ? f.color : ''}`} /></button>
+                                                <button key={f.id} type="button" onClick={() => setActiveContext(activeContext === f.id ? null : f.id)} onMouseEnter={() => setHoverInspiration(f.label)} onMouseLeave={() => setHoverInspiration(null)} aria-label={f.label} aria-pressed={activeContext === f.id} className={`flex items-center justify-center border-r border-b border-slate-800 ${activeContext === f.id ? 'bg-slate-800' : 'bg-slate-900 hover:bg-slate-800 text-slate-500 hover:text-slate-300'}`}><f.icon className={`w-3.5 h-3.5 ${activeContext === f.id ? f.color : ''}`} /></button>
                                             ))}
                                         </div>
                                     </div>
@@ -384,7 +393,7 @@ export const Sidebar = ({
                                         <div className="text-[9px] uppercase font-bold text-amber-500 text-center py-1 bg-slate-950/30 flex-shrink-0 tracking-widest border-b border-slate-800/30"><span>{hoverSeason || "STAGIONE"}</span></div>
                                         <div className="grid grid-cols-2 grid-rows-2 flex-1">
                                             {[{ id: 'summer', label: 'Estate', icon: Sun, color: 'text-amber-400' }, { id: 'spring', label: 'Primav.', icon: Flower, color: 'text-emerald-400' }, { id: 'winter', label: 'Inverno', icon: Snowflake, color: 'text-cyan-400' }, { id: 'autumn', label: 'Autunno', icon: Leaf, color: 'text-orange-500' }].map(f => (
-                                                <button key={f.id} onClick={() => setActiveContext(activeContext === f.id ? null : f.id)} onMouseEnter={() => setHoverSeason(f.label)} onMouseLeave={() => setHoverSeason(null)} className={`flex items-center justify-center border-r border-b border-slate-800 ${activeContext === f.id ? 'bg-slate-800' : 'bg-slate-900 hover:bg-slate-800 text-slate-500 hover:text-slate-300'}`}><f.icon className={`w-3.5 h-3.5 ${activeContext === f.id ? f.color : ''}`} /></button>
+                                                <button key={f.id} type="button" onClick={() => setActiveContext(activeContext === f.id ? null : f.id)} onMouseEnter={() => setHoverSeason(f.label)} onMouseLeave={() => setHoverSeason(null)} aria-label={f.label} aria-pressed={activeContext === f.id} className={`flex items-center justify-center border-r border-b border-slate-800 ${activeContext === f.id ? 'bg-slate-800' : 'bg-slate-900 hover:bg-slate-800 text-slate-500 hover:text-slate-300'}`}><f.icon className={`w-3.5 h-3.5 ${activeContext === f.id ? f.color : ''}`} /></button>
                                             ))}
                                         </div>
                                     </div>
@@ -467,7 +476,7 @@ export const Sidebar = ({
                                                     >
                                                         <GripHorizontal className="w-4 h-4" />
                                                     </div>
-                                                    <button onClick={(e) => { e.stopPropagation(); openModal('add', { poi: sponsorPoi }); }} className={`p-1.5 rounded-lg border transition-colors flex items-center justify-center w-8 h-8 ${isSponsorInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white'}`}>{isSponsorInItinerary ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); openModal('add', { poi: sponsorPoi }); }} aria-label={isSponsorInItinerary ? 'Partner già in itinerario' : 'Aggiungi partner all\'itinerario'} className={`p-1.5 rounded-lg border transition-colors flex items-center justify-center w-8 h-8 ${isSponsorInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white'}`}>{isSponsorInItinerary ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}</button>
                                                 </div>
                                             </div>
                                         ) : <AdPlaceholder vertical className="h-16" onClick={onOpenSponsor} />}
@@ -521,7 +530,7 @@ export const Sidebar = ({
                                         >
                                             <GripHorizontal className="w-4 h-4" />
                                         </div>
-                                        <button onClick={(e) => { e.stopPropagation(); openModal('add', { poi: sponsorPoi }); }} className={`p-1.5 rounded-lg border transition-colors flex items-center justify-center w-8 h-8 ${isSponsorInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white'}`}>{isSponsorInItinerary ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}</button>
+                                        <button type="button" onClick={(e) => { e.stopPropagation(); openModal('add', { poi: sponsorPoi }); }} aria-label={isSponsorInItinerary ? 'Partner già in itinerario' : 'Aggiungi partner all\'itinerario'} className={`p-1.5 rounded-lg border transition-colors flex items-center justify-center w-8 h-8 ${isSponsorInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white'}`}>{isSponsorInItinerary ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}</button>
                                     </div>
                                 </div>
                             ) : <AdPlaceholder vertical className="h-16" onClick={onOpenSponsor} />}

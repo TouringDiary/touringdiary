@@ -15,9 +15,9 @@ const SuitcaseFloatingPanel = React.lazy(() =>
   }))
 );
 
-const GlobalWorkspacePanel = React.lazy(() =>
-  import('@/components/workspace/global/GlobalWorkspacePanel').then((module) => ({
-    default: module.GlobalWorkspacePanel,
+const GlobalWorkspacePanelRoot = React.lazy(() =>
+  import('@/components/workspace/global/GlobalWorkspacePanelRoot').then((module) => ({
+    default: module.GlobalWorkspacePanelRoot,
   }))
 );
 
@@ -66,7 +66,7 @@ export const WorkspaceHost: React.FC = () => {
     case 'collaborationWorkspace':
       return (
         <Suspense fallback={null}>
-          <GlobalWorkspacePanel />
+          <GlobalWorkspacePanelRoot />
         </Suspense>
       );
     case 'myWorld':

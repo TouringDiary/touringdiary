@@ -236,12 +236,12 @@ export const useSponsorLogic = () => {
         refreshData();
     }, [activeTab, appliedFilters, searchTerm, page, refreshData]);
 
+    // Solo al cambio soglia Configuration Source: tab/filtro letti dallo scope corrente
+    // per evitare doppio fetch con Effect B (appliedFilters già include onlyBelowRatingThreshold).
+    // biome-ignore lint/correctness/useExhaustiveDependencies: intenzionale — solo ratingThreshold (+ refreshData)
     useEffect(() => {
         if (activeTab !== 'approved' || !onlyBelowRatingThreshold) return;
         refreshData();
-        // Solo al cambio soglia Configuration Source: tab/filtro letti dallo scope corrente
-        // per evitare doppio fetch con Effect B (appliedFilters già include onlyBelowRatingThreshold).
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- intenzionale: solo ratingThreshold
     }, [ratingThreshold, refreshData]);
     // --- FINE STABILIZZAZIONE FETCH ---
 

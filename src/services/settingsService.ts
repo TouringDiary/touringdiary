@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { GlobalSetting, StyleRule } from '../types';
+import type { Database } from '@/types/supabase';
 import {
   PLATFORM_PLACEHOLDER_SETTING_KEYS,
   type PlatformPlaceholderSettingsSnapshot,
@@ -9,6 +10,33 @@ import {
   mergeRetiredPlatformPlaceholderUrls,
   type PlatformPlaceholderRegistry,
 } from '@/domain/placeholders/platformPlaceholderRegistry';
+import {
+  buildDesignSystemSnapshot,
+  rulesArrayToMap,
+  rulesMapFromSnapshot,
+  type DesignSystemSnapshot,
+} from '@/domain/designSystem/designSnapshot';
+
+type DesignSystemRuleInsert = Database['public']['Tables']['design_system_rules']['Insert'];
+
+/** Maps domain StyleRule → typed Supabase Insert (required DB strings default to ''). */
+const toDesignSystemRuleInsert = (rule: StyleRule): DesignSystemRuleInsert => ({
+  component_key: rule.component_key,
+  element_name: rule.element_name ?? '',
+  // Insert.section is non-null string in generated types (DB NOT NULL).
+  section: rule.section ?? '',
+  css_class: rule.css_class ?? null,
+  font_family: rule.font_family ?? '',
+  text_size: rule.text_size ?? '',
+  font_weight: rule.font_weight ?? '',
+  line_height: rule.line_height ?? null,
+  text_transform: rule.text_transform ?? null,
+  tracking: rule.tracking ?? null,
+  color_class: rule.color_class ?? null,
+  effect_class: rule.effect_class ?? null,
+  preview_text: rule.preview_text ?? null,
+  updated_at: new Date().toISOString(),
+});
 
 // --- CHIAVI DELLE IMPOSTAZIONI ---
 export const SETTINGS_KEYS = {
@@ -27,6 +55,8 @@ export const SETTINGS_KEYS = {
   AUTH_BACKGROUND_IMAGE: 'auth_background_image',
   SOCIAL_CANVAS_BG: 'social_canvas_bg',
   AI_CONSULTANT_BG: 'ai_consultant_bg',
+  /** Browser favicon — served at GET /favicon.ico via Express proxy. */
+  FAVICON_IMAGE: 'favicon_image',
   CATEGORY_PLACEHOLDERS: 'category_placeholders',
   SUITCASE_PLACEHOLDERS: 'suitcase_placeholders',
   /** Former Asset Globali URLs — Placeholder origin tombstones for Photo write-boundary. */
@@ -59,12 +89,22 @@ export const SETTINGS_KEYS = {
 
   // Motore workspace/collaborazione — governance globale (Fase 10 Admin)
   WORKSPACE_ENGINE_CONFIG: 'workspace_engine_config',
+
+  /**
+   * Design Snapshot (PO-BOOT-05 / STEP S.1).
+   * Payload versionato `{ version, generatedAt, rules }` — first paint senza fetch Design remoto.
+   */
+  DESIGN_SYSTEM_SNAPSHOT: 'design_system_snapshot',
 };
 
 // --- CACHE IN MEMORIA & LOCK ---
 let settingsCache: Map<string, any> = new Map();
 let designRulesCache: StyleRule[] | null = null;
+/** Regole Design arrivate con `/api/bootstrap/all` — solo seed first-paint se Snapshot assente. */
+let bootstrapDesignRulesHint: StyleRule[] | null = null;
 let pendingLoadPromise: Promise<void> | null = null;
+
+export const getBootstrapDesignRulesHint = (): StyleRule[] | null => bootstrapDesignRulesHint;
 
 export const loadGlobalCache = async (): Promise<void> => {
   if (pendingLoadPromise) return pendingLoadPromise;
@@ -86,8 +126,13 @@ export const loadGlobalCache = async (): Promise<void> => {
                 settingsCache.set(setting.key, setting.value);
               }
             }
-            // Design rules are loaded exclusively via getDesignSystemRules() so
-            // bootstrap snapshots cannot overwrite a fresher post-save Supabase fetch.
+            // Design remoto SoT: non popola designRulesCache (override async in ConfigContext).
+            // Hint first-paint solo se Snapshot settings assente.
+            if (Array.isArray(apiData.designSystem) && apiData.designSystem.length > 0) {
+              bootstrapDesignRulesHint = apiData.designSystem as StyleRule[];
+            } else {
+              bootstrapDesignRulesHint = null;
+            }
             console.log(
               `[Cache] Bootstrap loaded from API in ${Date.now() - startTime}ms.`,
               settingsCache.size, "settings"
@@ -101,12 +146,13 @@ export const loadGlobalCache = async (): Promise<void> => {
 
       // 2. FALLBACK A SUPABASE (LOGICA ORIGINALE)
       console.log("[Cache] Using Supabase fallback for global settings...");
+      bootstrapDesignRulesHint = null;
       
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Timeout: global_settings non risponde in 5s")), 5000)
       );
 
-      const result: any = await Promise.race([
+      const result = await Promise.race([
         supabase.from('global_settings').select('key, value'),
         timeoutPromise
       ]);
@@ -128,8 +174,9 @@ export const loadGlobalCache = async (): Promise<void> => {
           settingsCache.size, "keys"
         );
       }
-    } catch (e: any) {
-      console.error("[Cache] Error/Timeout during global cache load:", e.message);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("[Cache] Error/Timeout during global cache load:", message);
     } finally {
       pendingLoadPromise = null;
     }
@@ -186,7 +233,6 @@ export const retirePlatformPlaceholderUrls = async (
   }
 
   await saveSetting(SETTINGS_KEYS.RETIRED_PLATFORM_PLACEHOLDER_URLS, merged);
-  settingsCache.set(SETTINGS_KEYS.RETIRED_PLATFORM_PLACEHOLDER_URLS, merged);
   return merged;
 };
 
@@ -244,26 +290,39 @@ export const getSetting = async <T>(key: string): Promise<T | null> => {
 export const getCategoryPlaceholdersAsync = (): Promise<Record<string, string> | null> =>
   getSetting<Record<string, string>>(SETTINGS_KEYS.CATEGORY_PLACEHOLDERS);
 
-export const saveSetting = async (key: string, value: any): Promise<any> => {
-  const { data, error } = await supabase.from('global_settings').update({ value, updated_at: new Date().toISOString() }).eq('key', key).select().single();
+export const saveSetting = async <T = unknown>(
+  key: string,
+  value: T,
+): Promise<GlobalSetting> => {
+  const { data, error } = await supabase
+    .from('global_settings')
+    .update({ value: value as GlobalSetting['value'], updated_at: new Date().toISOString() })
+    .eq('key', key)
+    .select('key, value')
+    .single();
   if (error) {
     if (error.code === 'PGRST116') {
-      const { data: newData, error: newError } = await supabase.from('global_settings').insert({ key, value }).select().single();
+      const { data: newData, error: newError } = await supabase
+        .from('global_settings')
+        .insert({ key, value: value as GlobalSetting['value'] })
+        .select('key, value')
+        .single();
       if (newError) throw newError;
-      return newData;
+      settingsCache.set(key, newData.value);
+      return newData as GlobalSetting;
     }
     throw error;
   }
-  return data;
+  settingsCache.set(key, data.value);
+  return data as GlobalSetting;
 };
 
 // ========================================================================
-// DESIGN SYSTEM
+// DESIGN SYSTEM + DESIGN SNAPSHOT (PO-BOOT-05 / STEP S.1)
 // ========================================================================
 
-export const getDesignSystemRules = async (): Promise<StyleRule[]> => {
-  // Se abbiamo i dati in cache (caricati dal bootstrap API), usiamoli
-  if (designRulesCache && designRulesCache.length > 0) {
+export const getDesignSystemRules = async (options?: { force?: boolean }): Promise<StyleRule[]> => {
+  if (!options?.force && designRulesCache && designRulesCache.length > 0) {
     console.log("[DesignSystem] Using cached design rules (in-memory cache)");
     return designRulesCache;
   }
@@ -274,35 +333,72 @@ export const getDesignSystemRules = async (): Promise<StyleRule[]> => {
     console.warn("[DesignSystem] Error fetching from Supabase, returning empty array");
     return [];
   }
-  
-  // Salviamo in cache per chiamate future
-  designRulesCache = data;
-  return data;
+
+  const normalized: StyleRule[] = (data ?? [])
+    .filter((row): row is typeof row & { component_key: string } => Boolean(row.component_key))
+    .map((row) => ({
+      component_key: row.component_key,
+      element_name: row.element_name ?? undefined,
+      section: row.section,
+      css_class: row.css_class,
+      font_family: row.font_family,
+      text_size: row.text_size,
+      font_weight: row.font_weight,
+      line_height: row.line_height,
+      text_transform: row.text_transform,
+      tracking: row.tracking,
+      color_class: row.color_class,
+      effect_class: row.effect_class,
+      preview_text: row.preview_text,
+    }));
+
+  designRulesCache = normalized;
+  return normalized;
 };
 
+/**
+ * First-paint Design bag: Snapshot settings → hint bootstrap/all → {}.
+ * Never awaits Design remoto.
+ */
+export const resolveDesignRulesForFirstPaint = (): Record<string, StyleRule> => {
+  const fromSnapshot = rulesMapFromSnapshot(
+    getCachedSetting<DesignSystemSnapshot>(SETTINGS_KEYS.DESIGN_SYSTEM_SNAPSHOT),
+  );
+  if (fromSnapshot) {
+    console.log("[DesignSnapshot] First paint from settings snapshot.", Object.keys(fromSnapshot).length);
+    return fromSnapshot;
+  }
+
+  const hint = getBootstrapDesignRulesHint();
+  if (hint && hint.length > 0) {
+    console.log("[DesignSnapshot] First paint from bootstrap/all hint (no snapshot yet).", hint.length);
+    return rulesArrayToMap(hint);
+  }
+
+  console.log("[DesignSnapshot] First paint with empty rules (Home still mountable).");
+  return {};
+};
 
 /**
- * Aggiorna una regola nella SOURCE OF TRUTH
+ * Persist Snapshot after SoT mutation. Throws on failure (Admin must see errors).
+ */
+export const publishDesignSystemSnapshot = async (rules?: StyleRule[]): Promise<DesignSystemSnapshot> => {
+  const source = rules ?? (await getDesignSystemRules({ force: true }));
+  const snapshot = buildDesignSystemSnapshot(source);
+  await saveSetting(SETTINGS_KEYS.DESIGN_SYSTEM_SNAPSHOT, snapshot);
+  console.log(
+    `[DesignSnapshot] Published version=${snapshot.version.slice(0, 12)}… rules=${snapshot.rules.length} at ${snapshot.generatedAt}`,
+  );
+  return snapshot;
+};
+
+/**
+ * Aggiorna una regola nella SOURCE OF TRUTH e rigenera lo Snapshot.
  */
 export const updateDesignSystemRule = async (rule: StyleRule): Promise<void> => {
   console.log(`[DesignSystem] Updating rule ${rule.component_key}`);
 
-  const payload = {
-    component_key: rule.component_key,
-    element_name: rule.element_name ?? '',
-    section: rule.section ?? null,
-    css_class: rule.css_class ?? null,
-    font_family: rule.font_family ?? null,
-    text_size: rule.text_size ?? null,
-    font_weight: rule.font_weight ?? null,
-    line_height: rule.line_height ?? null,
-    text_transform: rule.text_transform ?? null,
-    tracking: rule.tracking ?? null,
-    color_class: rule.color_class ?? null,
-    effect_class: rule.effect_class ?? null,
-    preview_text: rule.preview_text ?? null,
-    updated_at: new Date().toISOString(),
-  };
+  const payload = toDesignSystemRuleInsert(rule);
 
   const { error } = await supabase
     .from('design_system_rules')
@@ -313,23 +409,20 @@ export const updateDesignSystemRule = async (rule: StyleRule): Promise<void> => 
     throw error;
   }
 
-  // Invalida la cache in-memory: il prossimo getDesignSystemRules() andrà in Supabase.
   designRulesCache = null;
+  await publishDesignSystemSnapshot();
 };
 
 
 export const rebuildDesignSystemCache = async (): Promise<Record<string, StyleRule>> => {
   console.log("[DesignSystem] Rebuilding cache from Supabase...");
 
-  // getDesignSystemRules() usa la cache in-memory se disponibile.
-  // updateDesignSystemRule() la azzera dopo ogni save, quindi qui troviamo
-  // sempre designRulesCache === null → fetch fresco da Supabase.
-  const rules = await getDesignSystemRules();
+  designRulesCache = null;
+  const rules = await getDesignSystemRules({ force: true });
 
-  const componentsMap = rules.reduce((acc, rule) => {
-    if (rule.component_key) acc[rule.component_key] = rule;
-    return acc;
-  }, {} as Record<string, StyleRule>);
+  const componentsMap = rulesArrayToMap(rules);
+
+  await publishDesignSystemSnapshot(rules);
 
   console.log(`[DesignSystem] Cache rebuilt: ${rules.length} rules`);
   return componentsMap;

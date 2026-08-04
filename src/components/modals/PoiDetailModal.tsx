@@ -15,6 +15,7 @@ import { affiliateTrackingService } from '../../services/affiliateTrackingServic
 import { useFeatureFlag } from '@/context/PlatformControlContext';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
+import { LAYOUT } from '@/constants/layout';
 
 // Imported Sub-Components
 import { PoiImageSection as GallerySection } from './poiDetail/PoiImageSection'; // Rename for clarity
@@ -159,9 +160,9 @@ const StandardView = ({ poi, onClose, onToggleItinerary, isInItinerary, onOpenRe
     const { hasUserVoted, toggleVote } = useInteraction();
     const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
     const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
-    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < LAYOUT.BREAKPOINTS.LG : false);
     useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 1024);
+        const check = () => setIsMobile(window.innerWidth < LAYOUT.BREAKPOINTS.LG);
         window.addEventListener('resize', check);
         return () => window.removeEventListener('resize', check);
     }, []);

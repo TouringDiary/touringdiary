@@ -12,8 +12,9 @@ import { BusinessShopManager } from './BusinessShopManager';
 import { getCurrentLevel, getNextLevelProgress } from '../../services/gamificationService';
 import { useUserDashboardData } from '../../hooks/useUserDashboardData';
 import { useModal } from '@/context/ModalContext';
-import { useBusinessContext } from '@/context/BusinessContext';
+import { BusinessProvider, useBusinessContext } from '@/context/BusinessContext';
 import { useAppRouter, URL_TO_INTERNAL_TAB, type DashboardTab } from '@/hooks/useAppRouter';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 
 
 // Sub-components
@@ -40,9 +41,17 @@ interface Props {
     userSuitcases?: Suitcase[];
 }
 
-export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, onLogout, userSuitcases }: Props) => {
-    if (!user || user.role === 'guest') return null;
+/** Scope BusinessProvider: solo Dashboard (non bootstrap globale Home/shell). */
+export const UserDashboard = (props: Props) => {
+    if (!props.user || props.user.role === 'guest') return null;
+    return (
+        <BusinessProvider>
+            <UserDashboardContent {...props} />
+        </BusinessProvider>
+    );
+};
 
+const UserDashboardContent = ({ isOpen, onClose, user, onNavigate, initialTab, onLogout, userSuitcases }: Props) => {
     const isBusiness = user.role === 'business';
     const location = useLocation();
     const navigate = useNavigate();
@@ -68,7 +77,8 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
     
     // NEW: Mobile View State
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    // MD compact band (same as previous innerWidth < MD) — not useMobileDetect (LG).
+    const isMobile = useMobileCompact();
 
     const { openModal } = useModal();
     
@@ -87,12 +97,6 @@ export const UserDashboard = ({ isOpen, onClose, user, onNavigate, initialTab, o
     const currentXP = user.xp || 0;
     const currentLevel = getCurrentLevel(currentXP);
     const progress = getNextLevelProgress(currentXP);
-
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
 
     // 1. Sincronizzazione Tab con URL e props
     useEffect(() => {

@@ -10,6 +10,7 @@ import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import { AdminPageHeader } from './common/AdminPageHeader';
 import { AdminSectionCard } from './common/AdminSectionCard';
 import * as aiAdmin from '../../services/aiAdminService';
+import type { AdminProfileQuotaRow } from '../../services/ai/legacyExtraQuotaCompat';
 
 type AdminUserSortBy = 'registrationDate' | 'bonusTotal' | 'expiresSoon';
 
@@ -22,6 +23,19 @@ interface AiAdminUserListItem {
     bonus_flash: number;
     bonus_pro: number;
     bonus_expires_at: string | null;
+}
+
+function mapAdminProfileToListItem(row: AdminProfileQuotaRow): AiAdminUserListItem {
+    return {
+        id: row.id,
+        name: row.name ?? '',
+        email: row.email ?? '',
+        role: row.role ?? undefined,
+        bonus_total: row.bonus_total,
+        bonus_flash: row.bonus_flash,
+        bonus_pro: row.bonus_pro,
+        bonus_expires_at: row.bonus_expires_at,
+    };
 }
 
 type PlanLimitField = 'soft_daily_limit' | 'burst_allowed' | 'models';
@@ -96,7 +110,7 @@ export const AiLimitsControlCenter = () => {
         try {
             setIsUserListLoading(true);
             const users = await aiAdmin.getAdminUsersPaged(sort, search);
-            setUserList(users);
+            setUserList(users.map(mapAdminProfileToListItem));
         } catch (e) {
             console.error('Error loading admin user list', e);
         } finally {
@@ -110,7 +124,7 @@ export const AiLimitsControlCenter = () => {
             setData(res);
             syncFormDrafts(res);
             const users = await aiAdmin.getAdminUsersPaged(sortBy, searchEmail);
-            setUserList(users);
+            setUserList(users.map(mapAdminProfileToListItem));
         } catch (e) {
             console.error('Error refreshing AI Admin data', e);
         }

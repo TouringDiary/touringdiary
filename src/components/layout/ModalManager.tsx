@@ -1,5 +1,5 @@
 
-import React, { Suspense, useCallback, useMemo } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useModal } from '@/context/ModalContext';
 import { useUser } from '@/context/UserContext';
@@ -10,18 +10,34 @@ import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsConte
 import { useCityData } from '../../hooks/useCityData';
 import { resolveWorkspaceId } from '@/focus';
 
-import { PointOfInterest, ItineraryItem, User, CitySummary } from '../../types/index';
+import { PointOfInterest, ItineraryItem, User } from '../../types/index';
 import { ModalLoading } from '../common/ModalLoading';
-
-// Sotto-Manager (Organizzati per dominio)
-import { CoreModals } from './modals/CoreModals';
-import { AdminModals } from './modals/AdminModals';
-import { FeatureModals } from './modals/FeatureModals';
 import { COLLABORATION_RETURN_TO } from '@/collaboration/guestGate';
 import { userNeedsUsername } from '@/domain/profile/username';
 import { ModalManagerExternalProps } from './ModalManagerTypes';
 import { openCollaborationWorkspaceFlow, type CollaborationWorkspaceTarget } from '@/hooks/useOpenCollaborationWorkspace';
 import { openMyWorldFlow } from '@/hooks/useOpenMyWorld';
+
+/** Shell modali — fuori dal grafo sync Home; caricati al primo utilizzo del dominio. */
+const CoreModals = React.lazy(() =>
+    import('./modals/CoreModals').then((module) => ({ default: module.CoreModals }))
+);
+const AdminModals = React.lazy(() =>
+    import('./modals/AdminModals').then((module) => ({ default: module.AdminModals }))
+);
+const FeatureModals = React.lazy(() =>
+    import('./modals/FeatureModals').then((module) => ({ default: module.FeatureModals }))
+);
+
+const CORE_MODAL_KEYS = new Set([
+    'auth',
+    'setUsername',
+    'gpsAlert',
+    'gpsError',
+    'reviewSuccess',
+    'static',
+]);
+const ADMIN_MODAL_KEYS = new Set(['adminEditPoi', 'sponsor', 'adminSuccess']);
 
 /**
  * ModalManager — entry.
@@ -44,9 +60,18 @@ export const ModalManager = () => {
 const ModalManagerClassic = () => {
     // 1. CONSUMO CONTEXT (Smart Component)
     const { activeModal, modalProps, closeModal, openModal } = useModal();
-    const { user, setUser, cityManifest, closeLevelUp, handleLogout } = useUser();
+    const { user, setUser, cityManifest, showLevelUp, closeLevelUp, handleLogout } = useUser();
     const { itinerary, setItinerary, removeItem } = useItinerary();
     const { userLocation, confirmGpsFromModal } = useGps();
+
+    // Ripristino cablaggio gamification: detector XP (`showLevelUp`) → modal `levelUp`.
+    // Deve stare prima di eventuali early-return: altrimenti con activeModal null
+    // il manager usciva senza aprire FeatureModals/LevelUpModal.
+    useEffect(() => {
+        if (showLevelUp && activeModal !== 'levelUp') {
+            openModal('levelUp');
+        }
+    }, [showLevelUp, activeModal, openModal]);
 
     const {
         activeCityId,
@@ -230,40 +255,56 @@ const ModalManagerClassic = () => {
 
     if (typeof document === 'undefined') return null;
 
+    const needsCore = activeModal != null && CORE_MODAL_KEYS.has(activeModal);
+    const needsAdmin = activeModal != null && ADMIN_MODAL_KEYS.has(activeModal);
+    // removeSelection è montato in AppCoordinator (lazy dedicato), non in FeatureModals.
+    const needsFeature =
+        activePreview?.isOpen === true ||
+        (activeModal != null &&
+            activeModal !== 'removeSelection' &&
+            !CORE_MODAL_KEYS.has(activeModal) &&
+            !ADMIN_MODAL_KEYS.has(activeModal));
+
+    if (!needsCore && !needsAdmin && !needsFeature) return null;
+
     return createPortal(
         <Suspense fallback={<ModalLoading />}>
+            {needsCore && (
+                <CoreModals
+                    activeModal={activeModal}
+                    modalProps={modalProps}
+                    closeModal={closeModal}
+                    onConfirmGps={confirmGpsFromModal}
+                    onAuthSuccess={handleAuthSuccess}
+                    onCloseAuth={handleCloseAuth}
+                    user={user}
+                    onUsernameComplete={handleUsernameComplete}
+                />
+            )}
 
-            <CoreModals
-                activeModal={activeModal}
-                modalProps={modalProps}
-                closeModal={closeModal}
-                onConfirmGps={confirmGpsFromModal}
-                onAuthSuccess={handleAuthSuccess}
-                onCloseAuth={handleCloseAuth}
-                user={user}
-                onUsernameComplete={handleUsernameComplete}
-            />
+            {needsAdmin && (
+                <AdminModals
+                    activeModal={activeModal}
+                    modalProps={modalProps}
+                    closeModal={closeModal}
+                    openModal={openModal}
+                    user={user}
+                    activeCityId={activeCityId}
+                    activeCitySummary={activeCitySummary}
+                    onUserUpdate={setUser}
+                    onNavigate={handleNavigateGlobal}
+                />
+            )}
 
-            <AdminModals
-                activeModal={activeModal}
-                modalProps={modalProps}
-                closeModal={closeModal}
-                openModal={openModal}
-                user={user}
-                activeCityId={activeCityId}
-                activeCitySummary={activeCitySummary}
-                onUserUpdate={setUser}
-                onNavigate={handleNavigateGlobal}
-            />
-
-            <FeatureModals
-                {...sharedProps}
-                activeModal={activeModal}
-                modalProps={modalProps}
-                closeModal={closeModal}
-                openModal={openModal}
-            />
-
+            {needsFeature && (
+                <FeatureModals
+                    {...sharedProps}
+                    activeModal={activeModal}
+                    modalProps={modalProps}
+                    closeModal={closeModal}
+                    openModal={openModal}
+                />
+            )}
         </Suspense>,
         document.body
     );

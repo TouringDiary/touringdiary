@@ -1,6 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ListRestart, FolderPlus, Eye, EyeOff, CheckSquare, MinusCircle, Trash2 } from 'lucide-react';
-import { TemplateCategoryIcon, ItemCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
+import {
+  CheckSquare,
+  Eye,
+  EyeOff,
+  FolderPlus,
+  ListRestart,
+  MinusCircle,
+  Trash2,
+} from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DraggableSlider } from '@/components/common/DraggableSlider';
+import { CountBadge } from '@/components/ui/CountBadge';
 import {
   buildDisplayCategories,
   enableOptionalSystemCategory,
@@ -10,18 +20,22 @@ import {
   resolveCategorySetup,
   setCategoryEnabled,
 } from '@/domain/packing/categorySetup';
-import { ADDITIONAL_CATEGORY_NAMES } from '@/domain/packing/packingCategories';
-import { normalizeCategoryName } from '@/domain/packing/packingCategories';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { CountBadge } from '@/components/ui/CountBadge';
-import { CategorySetupMap } from '@/types/packingCatalog';
+import {
+  ADDITIONAL_CATEGORY_NAMES,
+  normalizeCategoryName,
+} from '@/domain/packing/packingCategories';
 import { useHiddenCategories } from '@/hooks/suitcase/useHiddenCategories';
+import {
+  composeTdTemplateItemsAsync,
+  ensureTdTemplateCategorySetup,
+} from '@/services/suitcase/packingCompositionService';
+import type { CategorySetupMap } from '@/types/packingCatalog';
+import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
-import { composeTdTemplateItemsAsync, ensureTdTemplateCategorySetup } from '@/services/suitcase/packingCompositionService';
+import { CategoryMobileDialog } from './CategoryMobileDialog';
 import { HiddenCategoriesPanel } from './HiddenCategoriesPanel';
 import { OptionalCategoriesPanel } from './OptionalCategoriesPanel';
-import { CategoryMobileDialog } from './CategoryMobileDialog';
-import { DraggableSlider } from '@/components/common/DraggableSlider';
+import { getSuitcaseItemProgress, ItemCategoryIcon, TemplateCategoryIcon } from './SuitcaseUtils';
 
 interface TemplatePreviewProps {
   template: Suitcase | null;
@@ -31,9 +45,7 @@ interface TemplatePreviewProps {
   onUpdateSuitcaseLocal?: (id: string, updates: Partial<Suitcase>) => void;
   readOnly?: boolean;
   categorySetupOverlay?: CategorySetupMap;
-  onCategorySetupOverlayChange?: (
-    updater: (prev: CategorySetupMap) => CategorySetupMap
-  ) => void;
+  onCategorySetupOverlayChange?: (updater: (prev: CategorySetupMap) => CategorySetupMap) => void;
   /**
    * Riporta al parent lo stato del carosello categorie (avanzamento scroll + numero di tile) così
    * che il `CarouselPositionIndicator` possa essere renderizzato nell'intestazione del box padre.
@@ -74,12 +86,12 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
       resolvedBaseTemplate
         ? mergeTemplateWithOverlay(resolvedBaseTemplate, categorySetupOverlay)
         : null,
-    [resolvedBaseTemplate, categorySetupOverlay]
+    [resolvedBaseTemplate, categorySetupOverlay],
   );
 
   const { toggleCategory, showAll, isHidden, activateOptionalCategory } = useHiddenCategories(
     useOverlayMode ? undefined : template?.id,
-    useOverlayMode ? undefined : editableTemplate ?? undefined,
+    useOverlayMode ? undefined : (editableTemplate ?? undefined),
     (patch) => {
       if (template?.id && onUpdateSuitcaseLocal) {
         onUpdateSuitcaseLocal(template.id, {
@@ -92,7 +104,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
           },
         });
       }
-    }
+    },
   );
 
   const [displayItems, setDisplayItems] = useState<SuitcaseItem[]>([]);
@@ -126,12 +138,15 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
     };
   }, [editableTemplate, isTd]);
 
-  const overlayIsHidden = (categoryId: string): boolean => {
-    if (!editableTemplate) return false;
-    const setup = resolveCategorySetup(editableTemplate);
-    if (setup[categoryId]?.enabled === false) return true;
-    return (editableTemplate.ui_state?.hidden_category_ids ?? []).includes(categoryId);
-  };
+  const overlayIsHidden = useCallback(
+    (categoryId: string): boolean => {
+      if (!editableTemplate) return false;
+      const setup = resolveCategorySetup(editableTemplate);
+      if (setup[categoryId]?.enabled === false) return true;
+      return (editableTemplate.ui_state?.hidden_category_ids ?? []).includes(categoryId);
+    },
+    [editableTemplate],
+  );
 
   const resolvedIsHidden = useOverlayMode ? overlayIsHidden : isHidden;
 
@@ -162,19 +177,13 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
     return getAvailableOptionalCategories(editableTemplate);
   }, [editableTemplate]);
 
-  const progress = useMemo(
-    () => getSuitcaseItemProgress(displayItems),
-    [displayItems]
-  );
+  const progress = useMemo(() => getSuitcaseItemProgress(displayItems), [displayItems]);
 
   const handleActivateOptional = (categoryId: string) => {
     if (useOverlayMode && resolvedBaseTemplate && onCategorySetupOverlayChange) {
       onCategorySetupOverlayChange((prevOverlay) => {
         const base = resolveCategorySetup(resolvedBaseTemplate);
-        const next = enableOptionalSystemCategory(
-          { ...base, ...prevOverlay },
-          categoryId
-        );
+        const next = enableOptionalSystemCategory({ ...base, ...prevOverlay }, categoryId);
         return {
           ...prevOverlay,
           [categoryId]: next[categoryId],
@@ -279,8 +288,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
 
   const renderCategoryTile = (cat: (typeof visibleCategories)[number]) => {
     const count = categoryCounts[cat.name] || 0;
-    const showDeactivateOptional =
-      useOverlayMode && isActiveOptionalCategory(cat.id, cat.name);
+    const showDeactivateOptional = useOverlayMode && isActiveOptionalCategory(cat.id, cat.name);
 
     return (
       <div
@@ -304,6 +312,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
         {!useOverlayMode && (
           <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 lg:group-hover:opacity-100 transition-all z-local-overlay max-lg:top-1 max-lg:right-1">
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 if (isReadOnly) return;
@@ -341,7 +350,11 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
 
         <div className="relative">
           <div className="w-12 h-12 2xl:w-14 2xl:h-14 rounded-2xl flex items-center justify-center bg-slate-800/40 text-slate-400 lg:group-hover:text-indigo-400 transition-colors overflow-hidden max-lg:w-9 max-lg:h-9 max-lg:rounded-xl">
-            <ItemCategoryIcon category={cat.name} iconKey={cat.icon_key} className="text-[22px] 2xl:text-[26px] leading-none max-lg:text-base" />
+            <ItemCategoryIcon
+              category={cat.name}
+              iconKey={cat.icon_key ?? undefined}
+              className="text-[22px] 2xl:text-[26px] leading-none max-lg:text-base"
+            />
           </div>
           {count > 0 && (
             <>
@@ -360,7 +373,9 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
           )}
         </div>
         <div className="flex flex-col items-center">
-          <span className="text-[7px] 2xl:text-[9px] text-slate-500 uppercase tracking-widest font-black text-center line-clamp-1 px-1 max-lg:text-[6px] max-lg:tracking-wider max-lg:line-clamp-2 max-lg:px-0.5 max-lg:leading-tight">{cat.name}</span>
+          <span className="text-[7px] 2xl:text-[9px] text-slate-500 uppercase tracking-widest font-black text-center line-clamp-1 px-1 max-lg:text-[6px] max-lg:tracking-wider max-lg:line-clamp-2 max-lg:px-0.5 max-lg:leading-tight">
+            {cat.name}
+          </span>
         </div>
       </div>
     );
@@ -380,15 +395,19 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
             {PREVIEW_LABELS[sourceTab]}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 max-lg:gap-1">
-            <CheckSquare className={`w-3 h-3 shrink-0 max-lg:w-2.5 max-lg:h-2.5 ${progress.percentage === 100 ? 'text-emerald-500' : 'text-indigo-400'}`} />
+            <CheckSquare
+              className={`w-3 h-3 shrink-0 max-lg:w-2.5 max-lg:h-2.5 ${progress.percentage === 100 ? 'text-emerald-500' : 'text-indigo-400'}`}
+            />
             <span className="text-[9px] xl:text-[11px] text-indigo-400 font-black uppercase tracking-wider tabular-nums max-lg:text-[8px]">
-              {progress.checked}/{progress.total} <span className="opacity-40 mx-0.5">•</span> {progress.percentage}%
+              {progress.checked}/{progress.total} <span className="opacity-40 mx-0.5">•</span>{' '}
+              {progress.percentage}%
             </span>
           </div>
         </div>
         <div className="ml-auto flex items-center gap-1.5 shrink-0 max-lg:gap-1">
           {onAddCategory && !useOverlayMode && (
             <button
+              type="button"
               onClick={() => !isReadOnly && onAddCategory(template.id)}
               disabled={isReadOnly}
               className="hidden lg:flex w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/40 items-center justify-center shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-500/10 disabled:hover:border-indigo-500/20"
@@ -484,6 +503,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
             {onAddCategory && !useOverlayMode && (
               <div className="flex flex-col items-center gap-0.5">
                 <button
+                  type="button"
                   onClick={() => !isReadOnly && onAddCategory(template.id)}
                   disabled={isReadOnly}
                   aria-label="Crea categoria"

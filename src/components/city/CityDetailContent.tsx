@@ -19,6 +19,7 @@ import { useUI } from '@/context/UIContext';
 import AffiliateCTA from '../common/AffiliateCTA';
 import { NearbyCitiesRow } from './components/NearbyCitiesRow';
 import { updateCityMetadata, injectJsonLd, type RouteSeo } from '../../utils/seo';
+import { LAYOUT } from '@/constants/layout';
 
 // --- LAZY IMPORTS ---
 const CityGallery = React.lazy(() => import('./tabs/CityGallery').then(m => ({ default: m.CityGallery })));
@@ -266,7 +267,7 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         setActiveTab(newTab);
         if (onTabChange) onTabChange(newTab);
         // Scroll leggero verso l'alto ma sotto l'header (UX)
-        if (scrollContainerRef.current && window.innerWidth < 768) {
+        if (scrollContainerRef.current && window.innerWidth < LAYOUT.BREAKPOINTS.MD) {
             // Su mobile scrolliamo un po' per mostrare il contenuto
             const headerHeight = 300;
             if (scrollContainerRef.current.scrollTop > headerHeight) {

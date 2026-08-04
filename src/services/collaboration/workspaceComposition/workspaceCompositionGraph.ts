@@ -6,9 +6,10 @@
  * - **Seed Graph** — espansione blueprint da risorsa origine (`resolveWorkspaceCompositionBlueprint`)
  * - **Catalog** — inventario personale completo (`resolveWorkspaceCompositionCatalog`)
  */
-import { supabase } from '@/services/supabaseClient';
-import type { SharedResourceKind } from '@/domain/collaboration';
+
 import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
+import type { SharedResourceKind } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
 
 // -----------------------------------------------------------------------------
 // Shared — tipi
@@ -34,19 +35,14 @@ export interface DiaryGraphRow {
 export async function fetchDiaryTitlesByIds(ids: string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map();
 
-  const { data, error } = await supabase
-    .from('itineraries')
-    .select('id, title')
-    .in('id', ids);
+  const { data, error } = await supabase.from('itineraries').select('id, title').in('id', ids);
 
   if (error) {
     console.error('[workspaceCompositionGraph] fetchDiaryTitlesByIds:', error.message);
     return new Map();
   }
 
-  return new Map(
-    (data ?? []).map((row) => [row.id, row.title?.trim() || 'Diario'])
-  );
+  return new Map((data ?? []).map((row) => [row.id, row.title?.trim() || 'Diario']));
 }
 
 export async function fetchSuitcaseRowsByIds(ids: string[]): Promise<SuitcaseGraphRow[]> {
@@ -65,10 +61,11 @@ export async function fetchSuitcaseRowsByIds(ids: string[]): Promise<SuitcaseGra
   return data ?? [];
 }
 
-export function classifySuitcaseRow(
-  row: SuitcaseGraphRow
-): SharedResourceKind | null {
-  return resolveSuitcaseSharedResourceKind(row);
+export function classifySuitcaseRow(row: SuitcaseGraphRow): SharedResourceKind | null {
+  return resolveSuitcaseSharedResourceKind({
+    user_id: row.user_id,
+    is_user_template: row.is_user_template ?? false,
+  });
 }
 
 export async function fetchLinkedSuitcaseIdsForDiary(diaryId: string): Promise<string[]> {
@@ -125,7 +122,7 @@ export async function fetchDiaryIdsForSuitcases(suitcaseIds: string[]): Promise<
 
 /** Valigie operative derivate da un Template User (source_template_id). */
 export async function fetchOperationalSuitcaseIdsForTemplate(
-  templateId: string
+  templateId: string,
 ): Promise<string[]> {
   const { data, error } = await supabase
     .from('suitcases')
@@ -133,18 +130,25 @@ export async function fetchOperationalSuitcaseIdsForTemplate(
     .eq('source_template_id', templateId);
 
   if (error) {
-    console.error('[workspaceCompositionGraph] fetchOperationalSuitcaseIdsForTemplate:', error.message);
+    console.error(
+      '[workspaceCompositionGraph] fetchOperationalSuitcaseIdsForTemplate:',
+      error.message,
+    );
     return [];
   }
 
   return (data ?? [])
-    .filter((row) => resolveSuitcaseSharedResourceKind(row) === 'suitcase')
+    .filter(
+      (row) =>
+        resolveSuitcaseSharedResourceKind({
+          user_id: row.user_id,
+          is_user_template: row.is_user_template ?? false,
+        }) === 'suitcase',
+    )
     .map((row) => row.id);
 }
 
-export async function fetchUserTemplateRow(
-  templateId: string
-): Promise<SuitcaseGraphRow | null> {
+export async function fetchUserTemplateRow(templateId: string): Promise<SuitcaseGraphRow | null> {
   const rows = await fetchSuitcaseRowsByIds([templateId]);
   const row = rows[0];
   if (!row || classifySuitcaseRow(row) !== 'user_template') return null;
@@ -170,7 +174,7 @@ export async function fetchDiaryRow(diaryId: string): Promise<DiaryGraphRow | nu
 
 /** Pivot diary↔suitcase per un insieme di coppie note. */
 export async function fetchDiarySuitcasePairsForDiary(
-  diaryId: string
+  diaryId: string,
 ): Promise<Array<{ diaryId: string; suitcaseId: string }>> {
   const suitcaseIds = await fetchLinkedSuitcaseIdsForDiary(diaryId);
   return suitcaseIds.map((suitcaseId) => ({ diaryId, suitcaseId }));
@@ -194,7 +198,7 @@ export interface SuitcaseCatalogRow extends SuitcaseGraphRow {
 
 /** Diari personali di proprietà (inventario catalogo create Workspace). */
 export async function fetchOwnedPersonalDiariesForCatalog(
-  userId: string
+  userId: string,
 ): Promise<DiaryCatalogRow[]> {
   if (!userId) return [];
 
@@ -206,7 +210,10 @@ export async function fetchOwnedPersonalDiariesForCatalog(
     .order('updated_at', { ascending: false });
 
   if (error) {
-    console.error('[workspaceCompositionGraph] fetchOwnedPersonalDiariesForCatalog:', error.message);
+    console.error(
+      '[workspaceCompositionGraph] fetchOwnedPersonalDiariesForCatalog:',
+      error.message,
+    );
     return [];
   }
 
@@ -215,7 +222,7 @@ export async function fetchOwnedPersonalDiariesForCatalog(
 
 /** Valigie operative di proprietà (esclude template user). */
 export async function fetchOwnedOperationalSuitcasesForCatalog(
-  userId: string
+  userId: string,
 ): Promise<SuitcaseCatalogRow[]> {
   if (!userId) return [];
 
@@ -229,7 +236,7 @@ export async function fetchOwnedOperationalSuitcasesForCatalog(
   if (error) {
     console.error(
       '[workspaceCompositionGraph] fetchOwnedOperationalSuitcasesForCatalog:',
-      error.message
+      error.message,
     );
     return [];
   }
@@ -239,7 +246,7 @@ export async function fetchOwnedOperationalSuitcasesForCatalog(
 
 /** Template user di proprietà. */
 export async function fetchOwnedUserTemplatesForCatalog(
-  userId: string
+  userId: string,
 ): Promise<SuitcaseCatalogRow[]> {
   if (!userId) return [];
 
@@ -260,7 +267,7 @@ export async function fetchOwnedUserTemplatesForCatalog(
 
 /** Pivot diary↔suitcase per più diari (archi catalogo). */
 export async function fetchDiarySuitcasePairsForDiaryIds(
-  diaryIds: string[]
+  diaryIds: string[],
 ): Promise<Array<{ diaryId: string; suitcaseId: string }>> {
   if (diaryIds.length === 0) return [];
 

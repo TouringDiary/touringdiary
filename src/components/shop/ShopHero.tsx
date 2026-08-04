@@ -22,11 +22,15 @@ export const ShopHero: React.FC<ShopHeroProps> = ({ shop, onOpenLightbox, onTogg
         return res;
     }, [shop.gallery, shop.imageUrl]);
 
+    const gallerySourceLen = shop.gallery?.length ?? 0;
+
     useEffect(() => {
+        setActivePhotoIndex(0);
+        const galleryLen = 5; // padded carousel length (see useMemo above)
         const interval = setInterval(() => {
             if (galleryRef.current) {
                 setActivePhotoIndex(prev => {
-                    const next = (prev + 1) % 5;
+                    const next = (prev + 1) % galleryLen;
                     if (next === 0) galleryRef.current?.scroll('left');
                     else galleryRef.current?.scroll('right');
                     return next;
@@ -34,7 +38,7 @@ export const ShopHero: React.FC<ShopHeroProps> = ({ shop, onOpenLightbox, onTogg
             }
         }, 6000);
         return () => clearInterval(interval);
-    }, []);
+    }, [shop.id, gallerySourceLen, shop.imageUrl]);
 
     return (
         <div className="flex flex-col lg:flex-row w-full border-b border-slate-800 bg-[#020617]">
@@ -62,8 +66,8 @@ export const ShopHero: React.FC<ShopHeroProps> = ({ shop, onOpenLightbox, onTogg
                     ))}
                 </div>
                 
-                <button onClick={() => galleryRef.current?.scroll('left')} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all z-floating-panel border border-white/10 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0"><ChevronLeft className="w-6 h-6"/></button>
-                <button onClick={() => galleryRef.current?.scroll('right')} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all z-floating-panel border border-white/10 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0"><ChevronRight className="w-6 h-6"/></button>
+                <button type="button" onClick={() => galleryRef.current?.scroll('left')} aria-label="Foto precedente" className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all z-floating-panel border border-white/10 opacity-100 translate-x-0 lg:opacity-0 lg:-translate-x-2 lg:group-hover:opacity-100 lg:group-hover:translate-x-0 transform"><ChevronLeft className="w-6 h-6"/></button>
+                <button type="button" onClick={() => galleryRef.current?.scroll('right')} aria-label="Foto successiva" className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/60 text-white rounded-full backdrop-blur-md transition-all z-floating-panel border border-white/10 opacity-100 translate-x-0 lg:opacity-0 lg:translate-x-2 lg:group-hover:opacity-100 lg:group-hover:translate-x-0 transform"><ChevronRight className="w-6 h-6"/></button>
             </div>
 
             {/* RIGHT: INFO COLUMN */}

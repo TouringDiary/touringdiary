@@ -5,7 +5,6 @@ import { useModal } from '@/context/ModalContext';
 import { useAiPlanner } from '@/context/AiPlannerContext';
 import { CityDetails, CitySummary } from '../../types/index';
 import { buildVirtualCity } from '../../services/cityService';
-import { GEO_CONFIG } from '../../constants/geoConfig';
 import { useOpenMyWorld } from '@/hooks/useOpenMyWorld';
 import type { NavigationGlobalExtra } from '@/types/navigationGlobal';
 
@@ -33,23 +32,30 @@ export const useNavigationController = (cityManifest: CitySummary[]) => {
         return () => window.removeEventListener('reset-virtual-city', handleReset);
     }, []);
 
-    // Listener per creazione Virtual City (Around Me)
+    // Listener per creazione Virtual City (Around Me) — allineato a NavigationContext (no DEFAULT_CENTER).
     const handleAroundMeTrigger = async (config: { type: 'gps' | 'manual', cityId?: string, radius: number }, userLoc: { lat: number; lng: number } | null) => {
-        setIsBuildingVirtual(true);
-        let centerCoords = GEO_CONFIG.DEFAULT_CENTER; 
-        
-        if (config.type === 'gps' && userLoc) {
-             centerCoords = userLoc;
+        let centerCoords: { lat: number; lng: number } | null = null;
+
+        if (config.type === 'gps') {
+            if (!userLoc) return;
+            centerCoords = userLoc;
         } else if (config.type === 'manual' && config.cityId) {
             const targetCity = cityManifest.find(c => c.id === config.cityId);
             if (targetCity) centerCoords = targetCity.coords;
         }
 
-        const virtual = await buildVirtualCity(centerCoords, config.radius, cityManifest.filter(c => c.status === 'published'));
-        
-        if (isMounted.current) {
-            setVirtualCity(virtual);
-            setIsBuildingVirtual(false);
+        if (!centerCoords) return;
+
+        setIsBuildingVirtual(true);
+        try {
+            const virtual = await buildVirtualCity(centerCoords, config.radius, cityManifest.filter(c => c.status === 'published'));
+            if (isMounted.current) {
+                setVirtualCity(virtual);
+            }
+        } finally {
+            if (isMounted.current) {
+                setIsBuildingVirtual(false);
+            }
         }
     };
 

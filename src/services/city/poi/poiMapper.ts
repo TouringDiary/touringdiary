@@ -76,11 +76,15 @@ const isSponsorTier = (value: unknown): value is SponsorTier =>
     typeof value === 'string' &&
     (SPONSOR_TIER_VALUES as readonly string[]).includes(value);
 
+/** DB nullable → domain optional (undefined, not null). */
+const toOptional = <T>(value: T | null | undefined): T | undefined =>
+    value ?? undefined;
+
 // --- MAPPING HELPERS (Strict Typing) ---
 export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
     try {
         const cat = (db.category as PoiCategory) || 'monument';
-        const subCat = (db.sub_category as PoiSubCategory | null) || null;
+        const subCat = toOptional(db.sub_category as PoiSubCategory | null);
 
         // Mappatura contatto (Base: Colonne native website/phone, estensione via contact_info JSON)
         const dbContact = db.contact_info as Record<string, any> | null;
@@ -95,7 +99,7 @@ export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
 
         return {
             id: db.id,
-            cityId: db.city_id,
+            cityId: toOptional(db.city_id),
             name: db.name || 'Senza Nome',
             category: cat,
             subCategory: subCat,
@@ -112,9 +116,9 @@ export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
             rating: db.rating || 0,
             votes: db.votes || 0,
             status: (db.status as PointOfInterest['status']) || 'published',
-            dateAdded: db.date_added,
+            dateAdded: toOptional(db.date_added),
 
-            visitDuration: db.visit_duration || getDefaultDuration(db.category, db.sub_category),
+            visitDuration: db.visit_duration || getDefaultDuration(cat, db.sub_category ?? undefined),
 
             priceLevel: (db.price_level as 1 | 2 | 3 | 4) || null,
 
@@ -122,24 +126,24 @@ export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
             openingHours: (db.opening_hours as unknown as OpeningHours) || EMPTY_OPENING_HOURS,
 
             isSponsored: db.is_sponsored || false,
-            tier: isSponsorTier(db.tier) ? db.tier : null,
+            tier: isSponsorTier(db.tier) ? db.tier : undefined,
 
             affiliate: affiliate,
 
-            showcaseExpiry: db.showcase_expiry,
+            showcaseExpiry: toOptional(db.showcase_expiry),
 
             aiReliability: isAiReliability(db.ai_reliability)
                 ? db.ai_reliability
-                : null,
+                : undefined,
             tourismInterest: isTourismInterest(db.tourism_interest)
                 ? db.tourism_interest
-                : null,
+                : undefined,
             // Metadata
-            createdAt: db.created_at,
-            createdBy: db.created_by,
-            updatedAt: db.updated_at,
-            updatedBy: db.updated_by,
-            lastVerified: db.last_verified || db.updated_at,
+            createdAt: toOptional(db.created_at),
+            createdBy: toOptional(db.created_by),
+            updatedAt: toOptional(db.updated_at),
+            updatedBy: toOptional(db.updated_by),
+            lastVerified: toOptional(db.last_verified ?? db.updated_at),
 
             // Link Metadata (Safe JSON casting)
             linkMetadata: (db.link_metadata as unknown as Record<string, LinkMetadata>) || null,
@@ -157,7 +161,7 @@ export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
             distance: undefined,
 
             // --- DIARY 2.0 ---
-            resourceType: inferResourceType(cat, subCat),
+            resourceType: inferResourceType(cat, subCat ?? null),
             contactInfo: contactInfo
         };
     } catch (e) {

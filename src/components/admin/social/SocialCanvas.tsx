@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { SocialLayoutConfig } from '../../../types/models/Social';
 
 interface Props {
@@ -32,8 +32,8 @@ export const SocialCanvas = ({ bgUrl, layout, onLayoutChange, width = 400, heigh
         });
     }, []);
 
-    // Disegna Canvas
-    const draw = () => {
+    // Disegna Canvas — `layout` da useState immutabile del padre: nuovo ref a ogni edit (no stringify).
+    const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -113,13 +113,11 @@ export const SocialCanvas = ({ bgUrl, layout, onLayoutChange, width = 400, heigh
             drawTextObj('userName', 'Mario Rossi');
             drawTextObj('referralCode', 'MARIO-X92');
         }
-    };
+    }, [image, dragging, width, height, fontsLoaded, layout]);
 
     useEffect(() => {
         requestAnimationFrame(draw);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [image, dragging, width, height, fontsLoaded, JSON.stringify(layout)]); 
-    // JSON.stringify(layout) forza il re-render anche se il riferimento oggetto è ambiguo
+    }, [draw]);
 
     // Mouse Handlers
     const handleMouseDown = (e: React.MouseEvent) => {

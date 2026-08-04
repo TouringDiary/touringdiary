@@ -1,40 +1,9 @@
 import { supabase } from './supabaseClient';
-import { PhotoSubmission } from '../types/index';
-import { Database, DatabasePhotoSubmission } from '../types/database';
-import { SmartInsert } from '../types/domain/index';
 // FIX: Import diretti per evitare cicli
-import { getFullManifestAsync, getCityDetails, fetchGlobalCityMediaInfo, resolveCityIdentity } from './city/cityReadService';
-import { saveCityDetails } from './city/cityWriteService';
+import { fetchGlobalCityMediaInfo } from './city/cityReadService';
 import { dataURLtoFile } from '../utils/common';
 
-const BUCKET_NAME = 'community-photos';
 const PUBLIC_BUCKET = 'public-media';
-
-// Helper Regex UUID
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Mapper autoritativo per PhotoSubmission.
- * Centralizza il boundary tra DB e Dominio Media.
- */
-export const mapDbPhotoSubmission = (p: any): PhotoSubmission => {
-    return {
-        id: p.id,
-        userId: p.user_id,
-        user: p.user_name,
-        locationName: p.location_name,
-        description: p.description || undefined,
-        url: p.image_url,
-        status: p.status as 'pending' | 'approved' | 'rejected' | 'city_deleted',
-        date: p.created_at,
-        likes: p.likes || 0,
-        updatedAt: p.updated_at || p.created_at,
-        publishedAt: p.published_at,
-        cityId: p.city_id || undefined,
-        isOfficial: p.is_official ?? (p.user_id === '00000000-0000-0000-0000-000000000000'),
-        mediaStatus: p.media_status ?? (p.image_url ? 'real' : 'missing')
-    };
-};
 
 // --- (Keep existing upload/delete functions unchanged) ---
 export const getPendingPhotoCount = async (): Promise<number> => {

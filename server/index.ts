@@ -11,6 +11,7 @@ import bootstrapRoutes from "./routes/bootstrap.routes";
 import cityRoutes from "./routes/city.routes";
 import adminRoutes from "./routes/admin.routes";
 import contentRoutes from "./routes/content.routes";
+import faviconRoutes from "./routes/favicon.routes";
 
 dotenv.config();
 
@@ -31,6 +32,10 @@ async function startServer() {
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));
+
+  // Favicon before Vite/static — Admin Asset Globali → always HTTP 200
+  app.use(faviconRoutes);
+  console.log("[Route] Loaded: /favicon.ico (Asset Globali)");
 
   // Register Routes
   app.use("/api", healthRoutes);

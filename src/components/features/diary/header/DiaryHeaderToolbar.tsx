@@ -29,6 +29,7 @@ export const DiaryHeaderToolbar: React.FC<DiaryHeaderToolbarProps> = ({
                 onClick={onOpenPackingList}
                 className={`text-white p-1.5 rounded-lg transition-all shadow-md ${shouldFlashSuitcase ? 'bg-amber-500 animate-pulse ring-2 ring-amber-300' : 'bg-indigo-600 hover:bg-indigo-500 border border-transparent'}`}
                 title="Lista Bagaglio"
+                aria-label="Lista Bagaglio"
             >
                 <Briefcase className="w-5 h-5" />
             </button>
@@ -39,6 +40,7 @@ export const DiaryHeaderToolbar: React.FC<DiaryHeaderToolbarProps> = ({
                 onClick={onOpenRoadbook}
                 className={`text-white p-1.5 rounded-lg transition-all shadow-md ${shouldFlashRoadbook ? 'bg-amber-500 animate-pulse ring-2 ring-amber-300' : 'bg-indigo-600 hover:bg-indigo-500'}`}
                 title="Roadbook"
+                aria-label="Roadbook"
             >
                 <Map className="w-5 h-5" />
             </button>
@@ -49,6 +51,7 @@ export const DiaryHeaderToolbar: React.FC<DiaryHeaderToolbarProps> = ({
                 onClick={onOpenAiPlanner}
                 className="text-white bg-indigo-600 hover:bg-indigo-500 p-1.5 rounded-lg shadow-md"
                 title="Magic Planner AI"
+                aria-label="Magic Planner AI"
             >
                 <Sparkles className="w-5 h-5" />
             </button>

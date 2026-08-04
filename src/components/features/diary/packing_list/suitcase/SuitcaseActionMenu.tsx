@@ -1,16 +1,17 @@
-import React, { useRef, useState } from 'react';
 import {
-  MoreVertical,
-  Edit2,
-  Save,
-  FilePlus2,
-  Trash2,
-  Link2,
-  Layout,
-  CloudOff,
-  Sparkles,
   Ban,
+  CloudOff,
+  Edit2,
+  FilePlus2,
+  Layout,
+  Link2,
+  MoreVertical,
+  Save,
+  Sparkles,
+  Trash2,
 } from 'lucide-react';
+import type React from 'react';
+import { useId, useRef, useState } from 'react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { CountBadge } from '@/components/ui/CountBadge';
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
@@ -26,7 +27,7 @@ interface SuitcaseActionMenuProps {
   savePhase: DocumentSavePhase;
   isGuest: boolean;
   onGuestSaveAction?: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   // Diario
   isLinkedToItinerary: boolean;
   isAssociable: boolean;
@@ -93,6 +94,7 @@ export const SuitcaseActionMenu: React.FC<SuitcaseActionMenuProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const autosaveLabelId = useId();
 
   const run = (fn?: () => void) => {
     setOpen(false);
@@ -149,125 +151,155 @@ export const SuitcaseActionMenu: React.FC<SuitcaseActionMenuProps> = ({
         className="w-56 max-w-[80vw] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 overflow-hidden py-1 pointer-events-auto"
       >
         <MenuSection label="Documento" divider={false}>
-        <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => run(onRename)}>
-          <Edit2 className="w-4 h-4 text-indigo-400 shrink-0" aria-hidden /> Rinomina
-        </button>
-        {canSave && (
-        <button
-          type="button"
-          role="menuitem"
-          className={ITEM_CLASS}
-          disabled={savePhase === 'saving'}
-          onClick={handleSave}
-        >
-          <Save className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden />
-          <span className="flex-1">Salva</span>
-          {saveStatusLabel && (
-            <span
-              className={`text-[9px] font-bold uppercase tracking-wide ${
-                savePhase === 'error' ? 'text-rose-400' : 'text-slate-400'
-              }`}
-            >
-              {saveStatusLabel}
-            </span>
-          )}
-        </button>
-        )}
-        {canSaveAs && (
-        <button type="button" role="menuitem" className={ITEM_CLASS} onClick={handleSaveAs}>
-          <FilePlus2 className="w-4 h-4 text-amber-500 shrink-0" aria-hidden /> Salva con nome
-        </button>
-        )}
-        {!isGuest && onAutosaveToggle && (
-          <label className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-slate-100 hover:bg-slate-700/70 cursor-pointer gap-3">
-            <span className="text-slate-300">Auto-save</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={canUseAutosave && autosaveEnabled}
-              disabled={!canUseAutosave}
-              onClick={() => canUseAutosave && onAutosaveToggle?.(!autosaveEnabled)}
-              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
-                !canUseAutosave
-                  ? 'bg-slate-700 opacity-50 cursor-not-allowed'
-                  : autosaveEnabled
-                    ? 'bg-emerald-500'
-                    : 'bg-slate-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform mt-0.5 ${
-                  autosaveEnabled && canUseAutosave ? 'translate-x-4' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </label>
-        )}
-        <button
-          type="button"
-          role="menuitem"
-          className={`${ITEM_CLASS} text-rose-300 hover:bg-rose-500/10 hover:text-rose-200`}
-          onClick={() => run(onDelete)}
-        >
-          <Trash2 className="w-4 h-4 shrink-0" aria-hidden /> Elimina
-        </button>
-        </MenuSection>
-
-        <MenuSection label="Diario">
-        {isLinkedToItinerary ? (
-          <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => run(onUnlink)}>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 ml-1 mr-0.5 animate-pulse motion-reduce:animate-none" aria-hidden />
-            Sincronizzato · Scollega
-          </button>
-        ) : onLink && isAssociable ? (
           <button
             type="button"
             role="menuitem"
             className={ITEM_CLASS}
-            disabled={!isDiaryAssociable}
-            onClick={() => run(onLink)}
+            onClick={() => run(onRename)}
           >
-            <Link2 className="w-4 h-4 text-indigo-400 shrink-0" aria-hidden />
-            {isDiaryAssociable ? 'Collega al diario' : 'Collega (completa date e tappe)'}
+            <Edit2 className="w-4 h-4 text-indigo-400 shrink-0" aria-hidden /> Rinomina
           </button>
-        ) : !isAssociable ? (
-          <div className={`${ITEM_CLASS} text-slate-500`}>
-            <Layout className="w-4 h-4 shrink-0" aria-hidden /> Template · non associabile
-          </div>
-        ) : (
-          <div className={`${ITEM_CLASS} text-slate-500`}>
-            <CloudOff className="w-4 h-4 shrink-0" aria-hidden /> Offline
-          </div>
-        )}
+          {canSave && (
+            <button
+              type="button"
+              role="menuitem"
+              className={ITEM_CLASS}
+              disabled={savePhase === 'saving'}
+              onClick={handleSave}
+            >
+              <Save className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden />
+              <span className="flex-1">Salva</span>
+              {saveStatusLabel && (
+                <span
+                  className={`text-[9px] font-bold uppercase tracking-wide ${
+                    savePhase === 'error' ? 'text-rose-400' : 'text-slate-400'
+                  }`}
+                >
+                  {saveStatusLabel}
+                </span>
+              )}
+            </button>
+          )}
+          {canSaveAs && (
+            <button type="button" role="menuitem" className={ITEM_CLASS} onClick={handleSaveAs}>
+              <FilePlus2 className="w-4 h-4 text-amber-500 shrink-0" aria-hidden /> Salva con nome
+            </button>
+          )}
+          {!isGuest && onAutosaveToggle && (
+            <div className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-slate-100 hover:bg-slate-700/70 cursor-pointer gap-3">
+              <span className="text-slate-300" id={autosaveLabelId}>
+                Auto-save
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-labelledby={autosaveLabelId}
+                aria-checked={canUseAutosave && autosaveEnabled}
+                disabled={!canUseAutosave}
+                onClick={() => canUseAutosave && onAutosaveToggle?.(!autosaveEnabled)}
+                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
+                  !canUseAutosave
+                    ? 'bg-slate-700 opacity-50 cursor-not-allowed'
+                    : autosaveEnabled
+                      ? 'bg-emerald-500'
+                      : 'bg-slate-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform mt-0.5 ${
+                    autosaveEnabled && canUseAutosave ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              role="menuitem"
+              className={`${ITEM_CLASS} text-rose-300 hover:bg-rose-500/10 hover:text-rose-200`}
+              onClick={() => run(onDelete)}
+            >
+              <Trash2 className="w-4 h-4 shrink-0" aria-hidden /> Elimina
+            </button>
+          )}
+        </MenuSection>
+
+        <MenuSection label="Diario">
+          {isLinkedToItinerary ? (
+            <button
+              type="button"
+              role="menuitem"
+              className={ITEM_CLASS}
+              onClick={() => run(onUnlink)}
+            >
+              <span
+                className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 ml-1 mr-0.5 animate-pulse motion-reduce:animate-none"
+                aria-hidden
+              />
+              Sincronizzato · Scollega
+            </button>
+          ) : onLink && isAssociable ? (
+            <button
+              type="button"
+              role="menuitem"
+              className={ITEM_CLASS}
+              disabled={!isDiaryAssociable}
+              onClick={() => run(onLink)}
+            >
+              <Link2 className="w-4 h-4 text-indigo-400 shrink-0" aria-hidden />
+              {isDiaryAssociable ? 'Collega al diario' : 'Collega (completa date e tappe)'}
+            </button>
+          ) : !isAssociable ? (
+            <div className={`${ITEM_CLASS} text-slate-500`}>
+              <Layout className="w-4 h-4 shrink-0" aria-hidden /> Template · non associabile
+            </div>
+          ) : (
+            <div className={`${ITEM_CLASS} text-slate-500`}>
+              <CloudOff className="w-4 h-4 shrink-0" aria-hidden /> Offline
+            </div>
+          )}
         </MenuSection>
 
         {hasSuggestions && (
-        <MenuSection label="Suggerimenti">
-        {onOpenAiModal && (
-        <button
-          type="button"
-          role="menuitem"
-          className={ITEM_CLASS}
-          disabled={isSeedingAi}
-          onClick={() => run(onOpenAiModal)}
-        >
-          <Sparkles
-            className={`w-4 h-4 text-amber-400 shrink-0 ${isSeedingAi ? 'animate-spin' : ''}`}
-            aria-hidden
-          />
-          {isSeedingAi ? 'Generazione…' : 'Richiedi suggerimenti'}
-        </button>
-        )}
-        {onOpenBlacklist && (
-        <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => run(onOpenBlacklist)}>
-          <Ban className="w-4 h-4 text-slate-400 shrink-0" aria-hidden />
-          <span className="flex-1">Suggerimenti rifiutati</span>
-          {blacklistCount > 0 && (
-            <CountBadge count={blacklistCount} max={99} size="sm" variant="indigo" position="inline" aria-hidden />
-          )}
-        </button>
-        )}
-        </MenuSection>
+          <MenuSection label="Suggerimenti">
+            {onOpenAiModal && (
+              <button
+                type="button"
+                role="menuitem"
+                className={ITEM_CLASS}
+                disabled={isSeedingAi}
+                onClick={() => run(onOpenAiModal)}
+              >
+                <Sparkles
+                  className={`w-4 h-4 text-amber-400 shrink-0 ${isSeedingAi ? 'animate-spin' : ''}`}
+                  aria-hidden
+                />
+                {isSeedingAi ? 'Generazione…' : 'Richiedi suggerimenti'}
+              </button>
+            )}
+            {onOpenBlacklist && (
+              <button
+                type="button"
+                role="menuitem"
+                className={ITEM_CLASS}
+                onClick={() => run(onOpenBlacklist)}
+              >
+                <Ban className="w-4 h-4 text-slate-400 shrink-0" aria-hidden />
+                <span className="flex-1">Suggerimenti rifiutati</span>
+                {blacklistCount > 0 && (
+                  <CountBadge
+                    count={blacklistCount}
+                    max={99}
+                    size="sm"
+                    variant="indigo"
+                    position="inline"
+                    aria-hidden
+                  />
+                )}
+              </button>
+            )}
+          </MenuSection>
         )}
       </AnchoredPopover>
     </>

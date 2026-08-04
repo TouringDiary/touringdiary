@@ -222,7 +222,7 @@ export const useAdminExport = () => {
                 escapeCsv(item.coords_lng),
                 escapeCsv(item.processing_status),
                 escapeCsv(item.ai_rating),
-                escapeCsv(new Date(item.created_at).toLocaleString())
+                escapeCsv(item.created_at ? new Date(item.created_at).toLocaleString() : '')
             ]);
 
             const csvContent = [STAGING_HEADERS.join(DELIMITER), ...rows.map(r => r.join(DELIMITER))].join("\n");

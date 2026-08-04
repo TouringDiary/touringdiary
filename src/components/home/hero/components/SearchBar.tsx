@@ -15,7 +15,7 @@ interface SearchBarProps {
     onFocus: (val: boolean) => void;
     results: CitySummary[];
     onSelect: (id: string) => void;
-    containerRef: React.RefObject<HTMLDivElement>;
+    containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const SearchBar = ({ className = "", variant = "default", compact = false, value, onChange, isFocused, onFocus, results, onSelect, containerRef }: SearchBarProps) => {
@@ -30,6 +30,7 @@ export const SearchBar = ({ className = "", variant = "default", compact = false
                     <input
                         type="text"
                         placeholder="Cerca una città"
+                        aria-label="Cerca una città"
                         value={value}
                         onChange={(e) => { onChange(e.target.value); onFocus(true); }}
                         onFocus={() => onFocus(true)}
@@ -48,6 +49,7 @@ export const SearchBar = ({ className = "", variant = "default", compact = false
                         onClick={() => onChange('')}
                         className="shrink-0 p-1.5 hover:bg-white/10 rounded-full text-slate-500 hover:text-white transition-colors"
                         title="Cancella ricerca"
+                        aria-label="Cancella ricerca"
                     >
                         <X className="w-3.5 h-3.5" />
                     </button>
@@ -62,6 +64,7 @@ export const SearchBar = ({ className = "", variant = "default", compact = false
             <input
                 type="text"
                 placeholder="Cerca una città"
+                aria-label="Cerca una città"
                 value={value}
                 onChange={(e) => { onChange(e.target.value); onFocus(true); }}
                 onFocus={() => onFocus(true)}
@@ -75,9 +78,11 @@ export const SearchBar = ({ className = "", variant = "default", compact = false
             />
             {value && (
                 <button
+                    type="button"
                     onClick={() => onChange('')}
                     className="p-1.5 hover:bg-white/10 rounded-full text-slate-500 hover:text-white transition-colors shrink-0"
                     title="Cancella ricerca"
+                    aria-label="Cancella ricerca"
                 >
                     <X className="w-3.5 h-3.5" />
                 </button>

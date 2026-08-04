@@ -1,10 +1,11 @@
 import { Z_OVERLAY, Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { MapPin, Navigation, ArrowRight, Layers, Search, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Navigation, ArrowRight, Layers, Search, Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useGps } from '@/context/GpsContext';
 import { CitySummary } from '../../types/index';
 import { calculateDistance } from '../../services/geo';
 import { ImageWithFallback } from '../common/ImageWithFallback';
@@ -19,6 +20,8 @@ interface Props {
 }
 
 export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm }: Props) => {
+    const { userLocation, isLocating, requestPosition } = useGps();
+
     const [mode, setMode] = useState<'gps' | 'manual' | null>(null);
     const [selectedCityId, setSelectedCityId] = useState<string>('');
     const [radius, setRadius] = useState<number>(25); // Default 25km
@@ -29,6 +32,8 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
     
     // GPS Warning Overlay State
     const [showGpsWarning, setShowGpsWarning] = useState(false);
+    /** Esito errore dell'ultima requestPosition di questo overlay (non GpsContext.error: evita stale da Header). */
+    const [gpsRequestError, setGpsRequestError] = useState<string | null>(null);
     
     const searchRef = useRef<HTMLDivElement>(null);
     const sliderRef = useRef<DraggableSliderHandle>(null);
@@ -37,6 +42,13 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
     const dragStartRef = useRef({ x: 0, y: 0 });
 
     useGlobalModalEscape(isOpen, onClose);
+
+    // Se l'utente spegne il GPS dall'Header mentre è in modalità gps, torna allo stato neutro.
+    useEffect(() => {
+        if (mode === 'gps' && !userLocation && !isLocating) {
+            setMode(null);
+        }
+    }, [mode, userLocation, isLocating]);
 
 
 
@@ -77,13 +89,18 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
             .sort((a,b) => a.dist - b.dist);
     }, [mode, selectedCity, radius, cityManifest]);
 
+    const canConfirmGps = mode === 'gps' && !!userLocation;
+    const canConfirmManual = mode === 'manual' && !!selectedCityId;
+    const canConfirm = canConfirmGps || canConfirmManual;
+
     const handleConfirm = () => {
-        if (!mode) return;
+        if (!canConfirm || !mode) return;
+        if (mode === 'gps' && !userLocation) return;
         if (mode === 'manual' && !selectedCityId) {
             alert("Seleziona una città di partenza.");
             return;
         }
-        
+
         onConfirm({
             type: mode,
             cityId: selectedCityId || undefined,
@@ -108,13 +125,31 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
         setIsSearching(false);
     };
 
+    const activateGpsMode = () => {
+        setGpsRequestError(null);
+        setShowGpsWarning(false);
+        setMode('gps');
+    };
+
     const handleGpsClick = () => {
+        // Posizione già acquisita via Header / GpsContext → stessa SoT, nessuna seconda richiesta.
+        if (userLocation) {
+            activateGpsMode();
+            return;
+        }
+        setGpsRequestError(null);
         setShowGpsWarning(true);
     };
 
-    const confirmGps = () => {
-        setShowGpsWarning(false);
-        setMode('gps');
+    const confirmGps = async () => {
+        setGpsRequestError(null);
+        const result = await requestPosition();
+        if (result.success) {
+            activateGpsMode();
+            return;
+        }
+        // SoT errore di questa richiesta = result.error (scritto anche in GpsContext dallo stesso call).
+        setGpsRequestError(result.error ?? 'Impossibile recuperare la posizione.');
     };
 
     const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
@@ -135,18 +170,37 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
                     <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in" style={{ zIndex: Z_MODAL_NESTED }}>
                         <div className="max-w-sm text-center" style={{ zIndex: Z_MODAL_NESTED }}>
                             <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-                                <MapPin className="w-8 h-8 text-blue-500 animate-pulse"/>
+                                {isLocating
+                                    ? <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                                    : <MapPin className="w-8 h-8 text-blue-500 animate-pulse"/>}
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Attiva il GPS</h3>
-                            <p className="text-sm text-slate-300 mb-6">
-                                Per individuare la tua posizione e le attrazioni vicine, assicurati di aver attivato la geolocalizzazione sul tuo dispositivo.
+                            <h3 className="text-xl font-bold text-white mb-2">
+                                {isLocating ? 'Ricerca posizione…' : 'Attiva il GPS'}
+                            </h3>
+                            <p className="text-sm text-slate-300 mb-4">
+                                Per individuare la tua posizione e le attrazioni vicine, il browser richiederà l&apos;accesso alla geolocalizzazione.
                             </p>
+                            {gpsRequestError && (
+                                <p className="text-xs text-rose-300 bg-rose-950/40 border border-rose-500/30 rounded-lg p-3 mb-4 text-left">
+                                    {gpsRequestError}
+                                </p>
+                            )}
                             <div className="flex gap-3">
-                                <button onClick={() => setShowGpsWarning(false)} className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold hover:bg-slate-700 transition-colors">
+                                <button
+                                    type="button"
+                                    disabled={isLocating}
+                                    onClick={() => { setShowGpsWarning(false); setGpsRequestError(null); }}
+                                    className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                >
                                     Annulla
                                 </button>
-                                <button onClick={confirmGps} className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition-colors shadow-lg">
-                                    Ho acceso il GPS
+                                <button
+                                    type="button"
+                                    disabled={isLocating}
+                                    onClick={() => { void confirmGps(); }}
+                                    className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition-colors shadow-lg disabled:opacity-50"
+                                >
+                                    {isLocating ? 'Attendere…' : gpsRequestError ? 'Riprova' : 'Consenti Accesso GPS'}
                                 </button>
                             </div>
                         </div>
@@ -331,8 +385,9 @@ export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm
                 {/* COMPACTED FOOTER BUTTON */}
                 <div className="p-4 border-t border-slate-800 bg-[#0f172a] shrink-0">
                     <button 
+                        type="button"
                         onClick={handleConfirm}
-                        disabled={!mode || (mode === 'manual' && !selectedCityId)}
+                        disabled={!canConfirm}
                         className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase text-xs tracking-widest py-3 rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-3"
                     >
                         Esplora Area <ArrowRight className="w-4 h-4"/>

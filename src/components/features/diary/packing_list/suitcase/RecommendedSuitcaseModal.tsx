@@ -139,7 +139,9 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
       userModifiedSelectionRef.current = false;
       setActiveTab('templates');
       setSelectedIds(new Set(suggestedTemplateIds));
-      scrollContainerRef.current.scrollTop = 0;
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
       dialogPanelRef.current?.focus({ preventScroll: true });
     } else if (!userModifiedSelectionRef.current && suggestedTemplateIds.length > 0) {
       setSelectedIds((prev) => {

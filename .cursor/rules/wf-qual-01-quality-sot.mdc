@@ -1,0 +1,25 @@
+---
+description: WF-QUAL-01 — CLI npm run check è l’unica SoT qualità; editor/AI consumano solo config repo
+alwaysApply: true
+---
+
+# WF-QUAL-01 — Quality Source of Truth (agenti)
+
+## Verdetto ufficiale
+
+- L’unico verdetto qualitativo del progetto applicativo è: `npm run check`
+- Tipi: `npm run typecheck` (SoT tipi app)
+- Lint / format: `npm run lint` → Biome (`biome.json`)
+- Layering: `npm run lint:layers`
+
+## Vietato
+
+- Inventare o applicare regole ESLint / Prettier / lint “proprie” dell’IDE o dell’agente
+- Usare diagnostiche editor come autorità al posto della CLI
+- Introdurre `biome.inlineConfig` o altre SoT parallele in settings locali
+- Dichiarare “qualità OK” senza aver eseguito (o riferito) `npm run check`
+
+## Obbligo
+
+- In caso di dubbio sullo stato qualitativo: eseguire `npm run check`
+- Contratto e composizione del gate: `AI_DEV_WORKFLOW/WORKFLOWS/WF_QUAL_01_QUALITY_TOOLCHAIN_SOT.md`

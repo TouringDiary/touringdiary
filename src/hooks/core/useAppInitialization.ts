@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase, validateSession, isAuthOperationInProgress } from '../../services/supabaseClient';
 
-import { getFullManifestAsync } from '../../services/cityService';
+import { getFullManifestAsync } from '../../services/city/cityReadService';
 import { refreshUsersCache, getUserById, getCurrentUserProfile } from '../../services/userService';
 import { getGuestUser } from '../../utils/userUtils';
 import { loadGlobalCache, getSetting } from '../../services/settingsService';
@@ -125,7 +125,9 @@ export const useAppInitialization = (viewMode: string) => {
         };
     }, []);
 
-    // 2. Manifest Loading
+    // 2. CatalogRest (ex Manifest) — STEP S.4: NON gate del first paint Home.
+    // isLoadingManifest resta per resolve slug / deep link / AI quota; AppRouter
+    // monta HomeContent subito su `/` e aggiorna la vetrina quando i dati arrivano.
     useEffect(() => {
         if (viewMode === 'app') {
             setIsLoadingManifest(true);
@@ -134,7 +136,7 @@ export const useAppInitialization = (viewMode: string) => {
                 setIsLoadingManifest(false);
             });
         } else {
-            // In modalità admin non carichiamo il manifest consumer, 
+            // In modalità admin non carichiamo il manifest consumer,
             // ma segnamo comunque l'inizializzazione come completata.
             setIsLoadingManifest(false);
         }
@@ -158,8 +160,17 @@ export const useAppInitialization = (viewMode: string) => {
         prevLevelRef.current = currentLvl;
     }, [user.xp, user.id]);
 
-    // 5. Onboarding Trigger
+    // 5. Onboarding — controllo leggero (flag + setting + already-seen).
+    // Solo se serve: setShowOnboarding(true) → MainLayout fa dynamic import del Wizard.
     useEffect(() => {
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        let cancelled = false;
+
+        const scheduleShowOnboarding = () => {
+            if (cancelled) return;
+            timer = setTimeout(() => setShowOnboarding(true), 800);
+        };
+
         const checkAutoStart = async () => {
             if (hasSeenOnboarding || viewMode !== 'app') return;
 
@@ -176,15 +187,13 @@ export const useAppInitialization = (viewMode: string) => {
                 if (config && config.autoStart === false) {
                     return;
                 }
-                const timer = setTimeout(() => setShowOnboarding(true), 800);
-                return () => clearTimeout(timer);
-            } catch (e) {
-                const timer = setTimeout(() => setShowOnboarding(true), 800);
-                return () => clearTimeout(timer);
+                scheduleShowOnboarding();
+            } catch {
+                scheduleShowOnboarding();
             }
         };
 
-        checkAutoStart();
+        void checkAutoStart();
 
         const handleManualRestart = () => {
             const onboardingEnabled =
@@ -197,7 +206,11 @@ export const useAppInitialization = (viewMode: string) => {
         };
 
         window.addEventListener('restart-onboarding', handleManualRestart);
-        return () => window.removeEventListener('restart-onboarding', handleManualRestart);
+        return () => {
+            cancelled = true;
+            if (timer != null) clearTimeout(timer);
+            window.removeEventListener('restart-onboarding', handleManualRestart);
+        };
     }, [hasSeenOnboarding, viewMode]);
 
     const completeOnboarding = () => {

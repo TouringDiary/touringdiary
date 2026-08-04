@@ -21,7 +21,11 @@ Il modulo Admin Operations fornisce gli strumenti necessari alla redazione e agl
 *   **Logica**: Modifica parametri runtime (es. Manutenzione on/off, configurazione Onboarding, **motore Workspace**).
 *   **Tabella**: `global_settings`, `system_messages`.
 *   **UI**: `SettingsPage.tsx` (tab **Workspace** → `WorkspaceEngineSettingsPanel.tsx` per engine, lock live e `storage_limits`).
+*   **Asset Globali** (`AdminHeaderManager.tsx`): Hero, Patrono, Placeholder, background funzionali e **Favicon** (`favicon_image` → runtime `GET /favicon.ico`).
+*   **Retired Placeholder URLs**: chiave `retired_platform_placeholder_urls` in `global_settings` — tombstone SoT per write-boundary Photo (URL già Asset Globali restano Placeholder by origin).
+*   **Cleanup Storage**: dopo update/delete Settings, `deleteAdminAssetByUrl` è **best-effort** (fallimento cleanup non annulla il salvataggio Settings).
 *   **Dettaglio collaborazione**: `AI_CONTEXT/28_COLLABORATION_WORKSPACE_SYSTEM.md` § Admin.
+*   **Dettaglio media / Placeholder**: `AI_CONTEXT/16_CITY_MEDIA_MANAGEMENT.md`.
 
 ### 4. Export System
 *   **Funzioni**: Generazione report in CSV, JSON o PDF per utenti e admin; export itinerario utente (PDF/DOCX/TXT) da `ExportModal`.

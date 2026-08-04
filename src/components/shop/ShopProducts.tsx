@@ -36,8 +36,8 @@ export const ShopProducts: React.FC<ShopProductsProps> = ({ shop, onSelectProduc
                     <h3 className="text-2xl md:text-3xl font-display font-bold text-amber-500 tracking-tight leading-none">I nostri prodotti</h3>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => productsRef.current?.scroll('left')} className="p-2 bg-slate-900 border border-slate-700 hover:border-slate-500 rounded-xl text-slate-400 hover:text-white transition-all"><ChevronLeft className="w-4 h-4"/></button>
-                    <button onClick={() => productsRef.current?.scroll('right')} className="p-2 bg-slate-900 border border-slate-700 hover:border-slate-500 rounded-xl text-slate-400 hover:text-white transition-all"><ChevronRight className="w-4 h-4"/></button>
+                    <button type="button" onClick={() => productsRef.current?.scroll('left')} aria-label="Scorri prodotti a sinistra" className="p-2 bg-slate-900 border border-slate-700 hover:border-slate-500 rounded-xl text-slate-400 hover:text-white transition-all"><ChevronLeft className="w-4 h-4"/></button>
+                    <button type="button" onClick={() => productsRef.current?.scroll('right')} aria-label="Scorri prodotti a destra" className="p-2 bg-slate-900 border border-slate-700 hover:border-slate-500 rounded-xl text-slate-400 hover:text-white transition-all"><ChevronRight className="w-4 h-4"/></button>
                 </div>
             </div>
 

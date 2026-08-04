@@ -15,3 +15,9 @@ AI_DELETED_CODE_REVIEW.md
 AI_DELETED_CODE_REVIEW.accept
 AI_REMOVED_CODE_REVIEW.md
 scripts/_gen_deleted_code_review.js
+
+# TypeScript incremental cache
+*.tsbuildinfo
+
+# Temporary bootstrap audit outputs
+scripts/_tmp_boot_audit*.txt

@@ -15,8 +15,8 @@ export const PoiMediaTab = ({ formData, updateField, setIsImageValid }: PoiMedia
         <div className="max-w-3xl mx-auto space-y-6">
             <AdminImageInput 
                 imageUrl={formData.imageUrl} 
-                imageCredit={formData.imageCredit} 
-                imageLicense={formData.imageLicense} 
+                imageCredit={formData.imageCredit || undefined} 
+                imageLicense={formData.imageLicense === '' ? undefined : formData.imageLicense} 
                 onChange={(data) => { 
                     updateField('imageUrl', data.imageUrl); 
                     updateField('image_status', data.image_status);

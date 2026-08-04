@@ -71,7 +71,7 @@ export const MoveItemCategoryPopover: React.FC<MoveItemCategoryPopoverProps> = (
           >
             <ItemCategoryIcon
               category={category.name}
-              iconKey={category.icon_key}
+              iconKey={category.icon_key ?? undefined}
               className="w-3.5 h-3.5 shrink-0 text-slate-400"
             />
             <span className="text-sm font-medium truncate">{category.name}</span>

@@ -6,6 +6,7 @@ import {
     serializeGallery,
     serializeStringArray,
 } from '../../utils/jsonSerialization';
+import { sanitizeMediaStatus } from '../../utils/media';
 
 const calculateDerivedRating = (ratings: Record<string, number> | undefined): number => {
     if (!ratings) return 0;
@@ -35,11 +36,11 @@ export const buildCityWritePayload = (city: CityDetails): CityUpsertPayload => {
         description: city.description ?? null,
         status: city.status ?? null,
         image_url: city.imageUrl ?? null,
-        image_status: city.image_status,
+        image_status: sanitizeMediaStatus(city.image_status),
         image_credit: city.imageCredit ?? null,
         image_license: city.imageLicense ?? null,
         hero_image: heroImage ?? null,
-        hero_status: city.hero_status,
+        hero_status: sanitizeMediaStatus(city.hero_status),
         rating: derivedRating,
         visitors: city.visitors ?? null,
         is_featured: city.isFeatured ?? null,

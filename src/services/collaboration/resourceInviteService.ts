@@ -240,6 +240,10 @@ export async function sendResourceInvite(
     return { success: false, error: 'Impossibile inviare l\'invito.' };
   }
 
+  if (!data) {
+    return { success: false, error: 'Dati invito non validi.' };
+  }
+
   const invite = mapResourceInviteRow(data);
   if (!invite) {
     return { success: false, error: 'Dati invito non validi.' };

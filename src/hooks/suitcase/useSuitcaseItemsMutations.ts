@@ -1,43 +1,37 @@
-import {
-  updateSuitcaseItemAsync,
-  addSuitcaseItemAsync,
-  deleteSuitcaseItemAsync,
-  persistSuitcaseItemsFromRuntimeAsync,
-  AddSuitcaseItemMetadata,
-  UpdateSuitcaseItemDto,
-} from '@/services/suitcase/suitcaseItemsService';
-import {
-  addRejectionAsync
-} from '@/services/suitcase/suitcaseRejectionsService';
-import {
-  updateSuitcaseAsync,
-  createSuitcaseAsync
-} from '@/services/suitcase/suitcaseCoreService';
-import {
-  applyStandardSeedToSuitcaseInMemory,
-} from '@/services/suitcase/packingSeedService';
-import { ensureUiStateForPersist, resolveCategorySetup } from '@/domain/packing/categorySetup';
+import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
+import { applyStandardSeedToSuitcaseInMemory } from '@/services/suitcase/packingSeedService';
+import { createSuitcaseAsync, updateSuitcaseAsync } from '@/services/suitcase/suitcaseCoreService';
 import {
   checkProfileExistsAsync,
   createEmergencyProfileAsync,
-  getAuthUserAsync
+  getAuthUserAsync,
 } from '@/services/suitcase/suitcaseGuestService';
+import {
+  type AddSuitcaseItemMetadata,
+  addSuitcaseItemAsync,
+  deleteSuitcaseItemAsync,
+  persistSuitcaseItemsFromRuntimeAsync,
+  type UpdateSuitcaseItemDto,
+  updateSuitcaseItemAsync,
+} from '@/services/suitcase/suitcaseItemsService';
+import { addRejectionAsync } from '@/services/suitcase/suitcaseRejectionsService';
+import type { Suitcase } from '@/types/suitcase';
 import {
   appendDraftLocalRejection,
   DRAFT_ITEM_ID_PREFIX,
   DRAFT_SUITCASE_ID_PREFIX,
+  deleteGuestSuitcase,
   getGuestSuitcase,
   isDraftWorkspaceId,
   LEGACY_GUEST_ITEM_ID_PREFIX,
   removeDraftItemFromWorkspace,
   saveGuestSuitcase,
-  deleteGuestSuitcase
 } from '@/utils/guestSuitcaseHelper';
+import { randomUUID } from '@/utils/runtimeId';
 import { isEphemeralItemId } from '@/utils/runtimeItemId';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
 import { deleteSuitcase } from './useSuitcaseCrud';
-import { unlinkSuitcase, linkSuitcaseToTrip } from './useSuitcaseLinking';
+import { linkSuitcaseToTrip, unlinkSuitcase } from './useSuitcaseLinking';
 
 function getPostgrestErrorCode(error: unknown): string | undefined {
   if (typeof error !== 'object' || error === null || !('code' in error)) {
@@ -51,9 +45,17 @@ const updateDraftWorkspaceItem = (itemId: string, updates: UpdateSuitcaseItemDto
   const draftSc = getGuestSuitcase();
   if (!draftSc?.suitcase_items) return;
 
-  const updatedItems = draftSc.suitcase_items.map((item) =>
-    item.id === itemId ? { ...item, ...updates } : item
-  );
+  const updatedItems = draftSc.suitcase_items.map((item) => {
+    if (item.id !== itemId) return item;
+    return {
+      ...item,
+      ...updates,
+      is_checked: updates.is_checked ?? item.is_checked,
+      is_ai_suggestion: updates.is_ai_suggestion ?? item.is_ai_suggestion,
+      quantity: updates.quantity ?? item.quantity,
+      accepted_from_ai: updates.accepted_from_ai ?? item.accepted_from_ai,
+    };
+  });
   saveGuestSuitcase({ ...draftSc, suitcase_items: updatedItems });
 };
 
@@ -66,34 +68,42 @@ export const useSuitcaseItemsMutations = () => {
     await updateSuitcaseItemAsync(itemId, updates);
   };
 
-  const addItem = async (suitcaseId: string, name: string, category: string, metadata: AddSuitcaseItemMetadata = {}) => {
+  const addItem = async (
+    suitcaseId: string,
+    name: string,
+    category: string,
+    metadata: AddSuitcaseItemMetadata = {},
+  ) => {
     if (isDraftWorkspaceId(suitcaseId)) {
       const itemIdPrefix = suitcaseId.startsWith(DRAFT_SUITCASE_ID_PREFIX)
         ? DRAFT_ITEM_ID_PREFIX
         : LEGACY_GUEST_ITEM_ID_PREFIX;
 
       return {
-        id: metadata.id || `${itemIdPrefix}${Date.now()}`,
+        id: metadata.id ?? `${itemIdPrefix}${randomUUID()}`,
         suitcase_id: suitcaseId,
         name,
         category,
         is_checked: metadata.is_checked ?? false,
         is_ai_suggestion: metadata.is_ai_suggestion ?? false,
         quantity: metadata.quantity ?? 1,
-        ai_suggestion_context: metadata.ai_suggestion_context || null,
-        suggested_at: metadata.suggested_at || null,
+        ai_suggestion_context: metadata.ai_suggestion_context ?? null,
+        suggested_at: metadata.suggested_at ?? null,
         accepted_from_ai: metadata.accepted_from_ai ?? false,
       };
     }
-    return await addSuitcaseItemAsync(suitcaseId, name, category, metadata);
+    return addSuitcaseItemAsync(suitcaseId, name, category, metadata);
   };
 
   const deleteItem = async (itemId: string) => {
-    if (isEphemeralItemId(itemId) || itemId.startsWith('temp-')) return;
+    if (isEphemeralItemId(itemId)) return;
     await deleteSuitcaseItemAsync(itemId);
   };
 
-  const rejectItem = async (suitcaseId: string, item: { name: string; category: string; id?: string; ai_suggestion_context?: string | null }) => {
+  const rejectItem = async (
+    suitcaseId: string,
+    item: { name: string; category: string; id?: string; ai_suggestion_context?: string | null },
+  ) => {
     if (isDraftWorkspaceId(suitcaseId)) {
       appendDraftLocalRejection(suitcaseId, item);
       if (item.id && isEphemeralItemId(item.id)) {
@@ -107,18 +117,18 @@ export const useSuitcaseItemsMutations = () => {
         suitcaseId,
         item.name,
         item.category,
-        item.ai_suggestion_context || null
+        item.ai_suggestion_context || null,
       );
     } catch (e) {
       if (getPostgrestErrorCode(e) === '23505') {
-        console.warn("[rejectItem] Item already in blacklist, proceeding with deletion.");
+        console.warn('[rejectItem] Item already in blacklist, proceeding with deletion.');
       } else {
-        console.error("[rejectItem] Critical failure during rejection persistence:", e);
+        console.error('[rejectItem] Critical failure during rejection persistence:', e);
         throw e;
       }
     }
 
-    if (item.id && !item.id.startsWith('temp-')) {
+    if (item.id && !isEphemeralItemId(item.id)) {
       await deleteItem(item.id);
     }
   };
@@ -137,7 +147,7 @@ export const useSuitcaseItemsMutations = () => {
   const persistGuestSuitcase = async (
     userId: string,
     itineraryId: string | null = null,
-    titleOverride?: string
+    titleOverride?: string,
   ): Promise<Suitcase | null> => {
     const draftSc = getGuestSuitcase();
     if (!draftSc || !isDraftWorkspaceId(draftSc.id)) return null;
@@ -154,7 +164,9 @@ export const useSuitcaseItemsMutations = () => {
       const profileCheck = await checkProfileExistsAsync(userId);
 
       if (!profileCheck) {
-        console.warn(`[persistGuestSuitcase] Profilo (public.profiles) mancante per user_id: ${userId}. Avvio auto-provisioning di emergenza...`);
+        console.warn(
+          `[persistGuestSuitcase] Profilo (public.profiles) mancante per user_id: ${userId}. Avvio auto-provisioning di emergenza...`,
+        );
         const user = await getAuthUserAsync();
 
         if (user) {
@@ -162,9 +174,11 @@ export const useSuitcaseItemsMutations = () => {
           const name = user.user_metadata?.full_name || email.split('@')[0] || 'Nuovo Utente';
 
           await createEmergencyProfileAsync(userId, email, name);
-          console.log("[persistGuestSuitcase] ✅ Profilo auto-creato con successo.");
+          console.log('[persistGuestSuitcase] ✅ Profilo auto-creato con successo.');
         } else {
-          throw new Error("Impossibile sincronizzare la valigia: Sessione auth invalida per recupero profilo.");
+          throw new Error(
+            'Impossibile sincronizzare la valigia: Sessione auth invalida per recupero profilo.',
+          );
         }
       }
 
@@ -180,7 +194,7 @@ export const useSuitcaseItemsMutations = () => {
       });
 
       if (!suitcase) {
-        throw new Error("[persistGuestSuitcase] Valigia non inserita.");
+        throw new Error('[persistGuestSuitcase] Valigia non inserita.');
       }
 
       // 2. Persistiamo gli item runtime (draft-item-* / guest-item-* → UUID DB)
@@ -206,20 +220,22 @@ export const useSuitcaseItemsMutations = () => {
 
       // 4. Migriamo i rifiuti AI locali → suitcase_rejections sulla valigia persistita
       const localRejections = draftForPersist.local_rejections ?? [];
-      for (const rejection of localRejections) {
-        try {
-          await addRejectionAsync(
-            suitcase.id,
-            rejection.name,
-            rejection.category,
-            rejection.ai_suggestion_context ?? null
-          );
-        } catch (e) {
-          if (getPostgrestErrorCode(e) !== '23505') {
-            throw e;
+      await Promise.all(
+        localRejections.map(async (rejection) => {
+          try {
+            await addRejectionAsync(
+              suitcase.id,
+              rejection.name,
+              rejection.category,
+              rejection.ai_suggestion_context ?? null,
+            );
+          } catch (e) {
+            if (getPostgrestErrorCode(e) !== '23505') {
+              throw e;
+            }
           }
-        }
-      }
+        }),
+      );
 
       // 5. Colleghiamo all'itinerario solo per valigie operative
       if (itineraryId && workspaceKind === 'suitcase') {
@@ -235,7 +251,7 @@ export const useSuitcaseItemsMutations = () => {
         suitcase_items: persistedItems,
       };
     } catch (e) {
-      console.error("Error persisting guest suitcase", e);
+      console.error('Error persisting guest suitcase', e);
       throw e;
     }
   };
@@ -249,6 +265,6 @@ export const useSuitcaseItemsMutations = () => {
     deleteSuitcase,
     unlinkSuitcase,
     linkSuitcaseToTrip,
-    rejectItem
+    rejectItem,
   };
 };

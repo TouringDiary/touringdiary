@@ -28,7 +28,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
                 {/* 1. WORKSPACE */}
                 <button 
                     onClick={() => onOpenGlobal('workspace')} 
-                    className={`flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'workspace' ? 'text-indigo-400 bg-indigo-500/10 border-t-2 border-indigo-500' : 'text-slate-500 hover:text-indigo-400'}`}
+                    className={`relative min-h-[44px] flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'workspace' ? 'text-indigo-400 bg-indigo-500/10 border-t-2 border-indigo-500' : 'text-slate-500 hover:text-indigo-400'}`}
                 >
                     <FolderKanban className="w-5 h-5"/>
                     <span className={labelStyle}>MyWorld</span>
@@ -37,7 +37,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
                 {/* 2. SOCIAL */}
                 <button 
                     onClick={() => onOpenGlobal('community')} 
-                    className={`flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'community' ? 'text-emerald-400 bg-emerald-500/10 border-t-2 border-emerald-500' : 'text-slate-500 hover:text-emerald-400'}`}
+                    className={`relative min-h-[44px] flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'community' ? 'text-emerald-400 bg-emerald-500/10 border-t-2 border-emerald-500' : 'text-slate-500 hover:text-emerald-400'}`}
                 >
                     <Users className="w-5 h-5"/>
                     <span className={labelStyle}>Social</span>
@@ -48,6 +48,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
                     <button 
                         id="tour-mobile-diary-btn"
                         onClick={onOpenDiary}
+                        aria-label="Apri Diario"
                         className="absolute -top-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30 border-4 border-[#020617] active:scale-95 transition-transform z-floating-panel"
                     >
                         <BookOpen className="w-6 h-6 text-[#020617] fill-[#020617]"/>
@@ -58,7 +59,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
                 {/* 4. AROUND ME */}
                 <button 
                     onClick={() => onOpenGlobal('around_me')} 
-                    className={`flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'around_me' ? 'text-blue-400 bg-blue-500/10 border-t-2 border-blue-500' : 'text-slate-500 hover:text-blue-400'}`}
+                    className={`relative min-h-[44px] flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'around_me' ? 'text-blue-400 bg-blue-500/10 border-t-2 border-blue-500' : 'text-slate-500 hover:text-blue-400'}`}
                 >
                     <Radar className="w-5 h-5"/>
                     <span className={labelStyle}>Around Me</span>
@@ -67,7 +68,7 @@ export const MobileNavBar = ({ activeSection, onOpenDiary, onOpenGlobal, onOpenR
                 {/* 5. PARTNER (ATTIVITÀ COMMERCIALE) */}
                 <button 
                     onClick={() => onOpenGlobal('sponsors')} 
-                    className={`flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'sponsors' ? 'text-purple-400 bg-purple-500/10 border-t-2 border-purple-500' : 'text-slate-500 hover:text-purple-400'}`}
+                    className={`relative min-h-[44px] flex flex-col items-center justify-center gap-1 p-1 transition-all h-full pb-2 rounded-t-xl ${activeSection === 'sponsors' ? 'text-purple-400 bg-purple-500/10 border-t-2 border-purple-500' : 'text-slate-500 hover:text-purple-400'}`}
                 >
                     <Store className="w-5 h-5"/>
                     <span className="text-[9px] font-black uppercase tracking-wide">Partner</span>

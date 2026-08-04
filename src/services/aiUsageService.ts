@@ -47,9 +47,11 @@ export const getCurrentModelCosts = async () => {
  */
 export const logUniversalUsage = async (userId: string | null, guestId: string | null, modelType: AIModelType) => {
     try {
+        if (!userId && !guestId) return;
+
         const { error } = await supabase.rpc('increment_global_usage', {
-            p_user_id: userId,
-            p_guest_id: guestId,
+            p_user_id: userId ?? '',
+            p_guest_id: guestId ?? '',
             p_model_type: modelType
         });
 
@@ -90,10 +92,10 @@ export const incrementAiUsage = async (userId: string | null, modelType: AIModel
     try {
         const guestId = userId ? null : getGuestId();
         const { data, error } = await supabase.rpc('consume_ai_credits', {
-            p_user_id: userId,
+            p_user_id: userId ?? '',
             p_model_type: modelType,
             p_feature: feature,
-            p_guest_id: guestId,
+            ...(guestId ? { p_guest_id: guestId } : {}),
         });
 
         if (error) {
@@ -135,6 +137,8 @@ export const logAiTokenUsage = async (
     pricingVersionId?: string
 ) => {
     try {
+        if (!userId) return;
+
         await supabase.rpc('log_ai_usage_tokens', {
             p_user_id: userId,
             p_feature_name: featureName,

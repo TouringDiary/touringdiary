@@ -1,13 +1,30 @@
 
 import { supabase } from './supabaseClient';
-import { DatabaseAiConfig, DatabaseAiConfigInsert } from '../types/database';
+import { DatabaseAiConfigInsert } from '../types/database';
 
-// Cache in memoria per evitare troppe chiamate al DB durante il loop
+/**
+ * Cache locale in-memory dei prompt risolti per chiave.
+ * Nessuna invalidazione cross-tab / cross-session / TTL: un valore resta finché
+ * il modulo resta caricato o viene sovrascritto da un successivo fetch/save locale.
+ */
 const promptCache: Record<string, string> = {};
 
 export interface AiPreset {
     name: string;
     text: string;
+}
+
+/** Parser runtime minimale: scarta elementi che non rispettano `{ name, text: string }`. */
+function parseAiPresets(raw: unknown): AiPreset[] {
+    if (!Array.isArray(raw)) return [];
+    const presets: AiPreset[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+        const row = item as Record<string, unknown>;
+        if (typeof row.name !== 'string' || typeof row.text !== 'string') continue;
+        presets.push({ name: row.name, text: row.text });
+    }
+    return presets;
 }
 
 /**
@@ -73,7 +90,7 @@ export const getAiConfig = async (key: string): Promise<{ prompts: string[], sel
         return {
             prompts: data[0].prompts || [],
             selected: data[0].selected || [],
-            presets: (data[0].presets as AiPreset[]) || []
+            presets: parseAiPresets(data[0].presets)
         };
     } catch (e) {
         console.error("Error fetching AI config:", e);
@@ -100,7 +117,9 @@ export const saveAiConfig = async (key: string, prompts: string[], selected: str
 
         if (error) throw error;
         
-        // Aggiorna cache immediata
+        // Aggiorna cache locale immediata con il `selected` appena inviato.
+        // Non garantisce allineamento al valore persistito se trigger DB o writer
+        // concorrenti modificano la riga dopo l'upsert.
         promptCache[key] = selected.join(' ');
         
     } catch (e) {

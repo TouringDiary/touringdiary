@@ -60,6 +60,11 @@ export function useDiaryDocumentSave({
     [savedProjects]
   );
 
+  const canPersist = useCallback(
+    () => !!itineraryRef.current.name?.trim(),
+    []
+  );
+
   const persist = useCallback(
     async (
       snapshot: ReturnType<typeof diarySnapshot>,
@@ -114,6 +119,7 @@ export function useDiaryDocumentSave({
     autosavePreferenceKey: AUTOSAVE_PREF_KEYS.diary,
     isGuest,
     isNeverSaved,
+    canPersist,
     getSnapshot: () => diarySnapshot(itineraryRef.current),
     getDocumentId: () => itineraryRef.current.id,
     persist,

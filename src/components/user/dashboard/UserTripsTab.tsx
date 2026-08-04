@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
-import { Map, Calendar, PencilLine, Pencil, Trash2, MapPin } from 'lucide-react';
-import { Itinerary } from '../../../types/index';
+import { Calendar, Map, MapPin, Pencil, PencilLine, Trash2 } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 import { useItinerary } from '@/context/ItineraryContext';
+import { formatItalianDateTime } from '@/utils/dateFormatters';
+import type { Itinerary } from '../../../types/index';
+import { safeArray } from '../../../utils/safeTypes';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import {
-  IconActionButton,
-  ICON_ACTION_DANGER_CLASS,
   ICON_ACTION_AMBER_SOLID_CLASS,
+  ICON_ACTION_DANGER_CLASS,
+  IconActionButton,
 } from '../../features/diary/packing_list/suitcase/DashboardActionGroup';
 import { SUITCASE_TOOLBAR_BTN_CLASS } from '../../features/diary/packing_list/suitcase/SuitcaseUtils';
-import { formatItalianDateTime } from '@/utils/dateFormatters';
-import { safeArray } from '../../../utils/safeTypes';
 
 interface Props {
   /** Chiude il Profilo Utente dopo aver avviato il Diario (stessa pipeline odierna). */
@@ -96,12 +97,20 @@ export const UserTripsTab: React.FC<Props> = ({ onClose }) => {
                 {/* Date incolonnate: icona | label | valore */}
                 <div className="grid grid-cols-[auto_auto_auto] items-center gap-x-2.5 gap-y-1.5 w-fit">
                   <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Data Creazione:</span>
-                  <span className="text-xs text-slate-300 font-medium tabular-nums">{formatItalianDateTime(proj.createdAt)}</span>
+                  <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+                    Data Creazione:
+                  </span>
+                  <span className="text-xs text-slate-300 font-medium tabular-nums">
+                    {formatItalianDateTime(proj.createdAt)}
+                  </span>
 
                   <PencilLine className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Data Modifica:</span>
-                  <span className="text-xs text-slate-300 font-medium tabular-nums">{proj.updatedAt ? formatItalianDateTime(proj.updatedAt) : '—'}</span>
+                  <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+                    Data Modifica:
+                  </span>
+                  <span className="text-xs text-slate-300 font-medium tabular-nums">
+                    {proj.updatedAt ? formatItalianDateTime(proj.updatedAt) : '—'}
+                  </span>
                 </div>
               </div>
 
@@ -119,7 +128,10 @@ export const UserTripsTab: React.FC<Props> = ({ onClose }) => {
                   label="Elimina Diario"
                   icon={Trash2}
                   className={ICON_ACTION_DANGER_CLASS}
-                  onClick={() => setProjectToDelete({ id: proj.id, name: proj.name || 'Senza Nome' })}
+                  onClick={() => {
+                    if (!proj.id) return;
+                    setProjectToDelete({ id: proj.id, name: proj.name || 'Senza Nome' });
+                  }}
                 />
               </div>
             </div>

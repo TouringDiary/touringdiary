@@ -223,9 +223,10 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                     type="button"
                     onClick={() => props.handleAiSubmit()}
                     disabled={!props.aiQuery.trim() || props.isAiLoading || aiBlocked}
+                    aria-label="Invia domanda al consulente AI"
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 shrink-0 p-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-95"
                 >
-                    <Send className="w-3 h-3" />
+                    <Send className="w-3 h-3" aria-hidden />
                 </button>
             </HeroCompactInputShell>
         </div>
@@ -315,8 +316,14 @@ export const HeroAiModule = (props: HeroAiModuleProps) => {
                             placeholder={aiBlocked ? 'Consulente AI non disponibile' : "Chiedi all'AI..."} 
                             className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-4 pr-12 py-3 text-sm text-white focus:border-purple-500 focus:outline-none resize-none shadow-inner h-12 min-h-[3rem] overflow-hidden leading-tight placeholder:text-slate-600 transition-all backdrop-blur-sm"
                         />
-                        <button onClick={() => props.handleAiSubmit()} disabled={!props.aiQuery.trim() || props.isAiLoading || aiBlocked} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-95">
-                            <Send className="w-3.5 h-3.5"/>
+                        <button
+                            type="button"
+                            onClick={() => props.handleAiSubmit()}
+                            disabled={!props.aiQuery.trim() || props.isAiLoading || aiBlocked}
+                            aria-label="Invia domanda al consulente AI"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-95"
+                        >
+                            <Send className="w-3.5 h-3.5" aria-hidden />
                         </button>
                     </div>
                 </>

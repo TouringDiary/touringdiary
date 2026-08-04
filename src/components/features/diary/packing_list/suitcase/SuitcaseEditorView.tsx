@@ -240,25 +240,15 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   } = enhancedHiddenCategoriesLogic;
 
   const resolvedIsHidden = useTdOverlayMode ? overlayIsHidden : isHidden;
-  
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.matchMedia('(min-width: 1024px)').matches;
-  });
+
+  // SoT breakpoint: useBelowLg (HERO_STACKED_QUERY = sotto LG). Desktop = !isBelowLg
+  // (equivalente a DESKTOP_MIN_QUERY). Sidebar aperta su desktop; smart toolbar solo <lg.
+  const isBelowLg = useBelowLg();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isBelowLg);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const mediaQuery = window.matchMedia('(min-width: 1024px)');
-    const syncSidebarOpen = (event: MediaQueryListEvent) => {
-      setIsSidebarOpen(event.matches);
-    };
-
-    mediaQuery.addEventListener('change', syncSidebarOpen);
-    return () => {
-      mediaQuery.removeEventListener('change', syncSidebarOpen);
-    };
-  }, []);
+    setIsSidebarOpen(!isBelowLg);
+  }, [isBelowLg]);
 
   const [newItemName, setNewItemName] = useState("");
   const [activeCategoryForAdd, setActiveCategoryForAdd] = useState<string | null>(null);
@@ -275,7 +265,6 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   // verso il basso e riappare scorrendo verso l'alto, riusando il container scrollabile esistente.
   // Il gate è esplicitamente legato sia al breakpoint sia alla modalità della vista: così il
   // dominio della feature è chiaro e non si attiva da solo se SuitcaseEditorView verrà riusato altrove.
-  const isBelowLg = useBelowLg();
   const enableSmartToolbar =
     isBelowLg && (panelViewMode === 'viewer' || panelViewMode === 'editor');
   const isToolbarHidden = useHideOnScrollDown(scrollContainerRef, enableSmartToolbar);
@@ -331,7 +320,10 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
     );
   };
 
-  const allCategories = buildDisplayCategories(displaySuitcase);
+  const allCategories = useMemo(
+    () => buildDisplayCategories(displaySuitcase),
+    [displaySuitcase],
+  );
 
   const visibleCategories = allCategories.filter(
     (cat) => cat.source === 'system' || !resolvedIsHidden(cat.id)
@@ -343,12 +335,9 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   const visibleCategoryIds = visibleCategories.map((cat) => cat.id);
   const aiInitialCategories = getEnabledSystemCategoryNames(displaySuitcase);
 
-  // `allCategories` è già `buildDisplayCategories(displaySuitcase)`: lo riusiamo per evitare una
-  // seconda chiamata. La dipendenza resta `displaySuitcase` (allCategories ne è derivato in modo puro),
-  // quindi la memoizzazione è identica a prima.
   const groupedItems = useMemo(
     () => buildGroupedItemsByCategory(displaySuitcase, allCategories),
-    [displaySuitcase] // eslint-disable-line react-hooks/exhaustive-deps
+    [displaySuitcase, allCategories],
   );
 
   const resetItemDragState = useCallback(() => {

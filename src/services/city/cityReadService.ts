@@ -15,7 +15,8 @@ import {
 import { DatabaseCityRouteView } from '../../types/database';
 import { getFromCache, setInCache, LONG_CACHE_TTL } from './cityCache';
 import { calculateDistance } from '../geo';
-import { getPoisByCityId, getPoisByCityIds, mapDbPoiToApp } from './poiService';
+import { getPoisByCityId, getPoisByCityIds } from './poi/poiRead';
+import { mapDbPoiToApp } from './poi/poiMapper';
 import {
     getCityEvents,
     getCityEventsByCityIds,

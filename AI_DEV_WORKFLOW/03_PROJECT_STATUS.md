@@ -4,20 +4,23 @@
 > **Nessun dettaglio** STEP/Fasi/checklist (→ `WORKFLOWS/WF_XX_*.md` / `MASTERPLANS/`).
 > **Nessuna definizione Gate** (→ SSOT in `AI_CONTEXT`).
 
-**Ultimo aggiornamento:** 2026-07-29 — **Aggiornato da:** AI — **WF-PERF-01 STEP 4** implementato → In verifica PO
+**Ultimo aggiornamento:** 2026-08-02 — **Aggiornato da:** AI — **WF-QUAL-01:** STEP 4 implementato; Workflow Attivo in attesa di ACCETTO PO finale
 
 ---
 
 ## In sintesi
 
-- **WF-PERF-01:** **Attivo** — STEP 3 Completato; STEP 4 In verifica PO; STEP 1–2 ancora In verifica PO. WF **non** chiuso (mancano ACCETTO residui + validazione PO finale).
+- **WF-QUAL-01:** **Attivo** (solo perché manca l’ACCETTO PO finale di chiusura Workflow). **Implementazione:** STEP 1–3 chiusi (ACCETTO PO); STEP 4 **implementato** (`strict` + `noFallthroughCasesInSwitch` + `noImplicitOverride`; `npm run typecheck` verde; `noUncheckedIndexedAccess` debito residuo) e in **verifica PO** — non è “lavoro aperto”, è solo il gate formale di chiusura. Doc: `WORKFLOWS/WF_QUAL_01_QUALITY_TOOLCHAIN_SOT.md`. Gate ufficiale: `npm run check`.
+- **WF-PERF-02:** **Attivo** — STEP 1–2 **IMPLEMENTATI** (Fonts trim zero-uso, priority Home, touch 44px, AI lazy submit, breakpoint SoT) → In verifica PO. Doc: `WORKFLOWS/WF_PERF_02_HIGH_ROI_OPTIMIZATION.md`.
+- **WF-PERF-01:** **Attivo** — STEP 3 Completato; STEP 4 In verifica PO; User-scalable ancora **IN DECISIONE PO**. Trim Fonts zero-uso assorbito da WF-PERF-02.
 - **MP-01 / MP-02:** **Completati**.
+- **MP-03:** **Approvato** — STEP 1 **Completato**; **STEP 2 In verifica PO**.
 - **WF-13…WF-05:** **Completati** (archiviati).
 - **WF-02:** Attivo — hold STEP-4; **PO-OV-001**.
 - **WF-04:** **Sospeso** (`PO-OV-002`).
 
-**Prossima attività:** ACCETTO PO su WF-PERF-01 STEP 4 (e residui STEP 1–2); poi validazione PO finale e archivio WF. Hold WF-02 STEP-4 resta.  
-**SoT:** `03_PROJECT_STATUS.md` · `01_EXECUTION_ROADMAP.md` · `WORKFLOWS/WF_PERF_01_PERFORMANCE_OPTIMIZATION.md`
+**Prossima attività:** ACCETTO PO su **WF-QUAL-01 STEP 4** (chiusura formale Workflow).  
+**SoT:** `03_PROJECT_STATUS.md` · `WORKFLOWS/WF_QUAL_01_QUALITY_TOOLCHAIN_SOT.md` · `tsconfig.app.json` · `biome.json` · `GEMINI.md` · `WORKFLOWS/WF_PERF_02_HIGH_ROI_OPTIMIZATION.md`
 
 ---
 
@@ -25,7 +28,9 @@
 
 | WF | Nome | Stato WF | STEP corrente | Fase corrente | % | Blocco |
 |----|------|----------|---------------|---------------|---|--------|
-| WF-PERF-01 | Ottimizzazione performance applicativa | Attivo | STEP 4 | In verifica PO | 90 | STEP 1–2 e 4 In verifica PO |
+| WF-QUAL-01 | Quality Toolchain Source of Truth | Attivo (impl. STEP 4 fatta; manca solo ACCETTO PO) | STEP 4 | In verifica PO | 95 | ACCETTO PO STEP 4 (chiusura WF) |
+| WF-PERF-02 | Ottimizzazioni alto ROI (Fonts/LCP/Touch/AI/BP) | Attivo | STEP 1–2 | In verifica PO | 85 | Smoke + ACCETTO PO |
+| WF-PERF-01 | Ottimizzazione performance applicativa | Attivo | STEP 4 | In verifica PO | 90 | User-scalable IN DECISIONE PO |
 | WF-02 | Implementation Masterplan | Attivo | STEP-3 | Post-3.4 — hold | 99 | Audit A + Validazione STEP-3 |
 | WF-03 | MySpace Macrofase 1 | Completato | — | — | 100 | — |
 | WF-04 | MySpace Macrofase 2 | Sospeso | — | — | — | PO-OV-002 |
@@ -55,6 +60,10 @@
 | Gate chiusura WF-13 (STEP 2) | WF-13 | WF-13 | ☑ Completato |
 | Gate WF-PERF-01 STEP 3 | WF-PERF-01 | WF-PERF-01 | ☑ Completato (ACCETTO PO) |
 | Gate WF-PERF-01 STEP 4 + benchmark | WF-PERF-01 | WF-PERF-01 | ☐ In verifica PO |
+| Gate WF-QUAL-01 STEP 1 (CLI SoT) | WF-QUAL-01 | WF-QUAL-01 | ☑ Completato (ACCETTO PO) |
+| Gate WF-QUAL-01 STEP 2 (Biome) | WF-QUAL-01 | WF-QUAL-01 | ☑ Completato (avvio STEP 3) |
+| Gate WF-QUAL-01 STEP 3 (tool alignment) | WF-QUAL-01 | WF-QUAL-01 | ☑ Completato (avvio STEP 4) |
+| Gate WF-QUAL-01 STEP 4 (TS hardening) | WF-QUAL-01 | WF-QUAL-01 | ☐ In verifica PO |
 
 ---
 
@@ -84,6 +93,10 @@
 
 | Data | Nota |
 |------|------|
+| 2026-08-02 | **WF-QUAL-01 STEP 4** hardening TS (`strict` + correlate; `typecheck` verde; `noUncheckedIndexedAccess` rimandata) → In verifica PO |
+| 2026-08-02 | **WF-QUAL-01 STEP 3** allineamento VS Code / IDX / Cursor / Gemini Completato (avvio STEP 4); gate CLI invariato |
+| 2026-08-02 | **WF-QUAL-01 STEP 2** Biome SoT (`lint`=`biome check`, ESLint rimosso, `check` include lint) Completato; avvio STEP 3 |
+| 2026-08-02 | **WF-QUAL-01** aperto; **STEP 1** infrastruttura CLI (`typecheck` / `check`) Completato → In verifica PO; STEP 2 attende OK PO |
 | 2026-07-29 | **WF-PERF-01 STEP 4** implementato (virtual / immagini / Around Me batch / polling / benchmark) → In verifica PO |
 | 2026-07-29 | **WF-PERF-01 STEP 3** Completato (ACCETTO PO — overlay idle / freeze); WF resta Attivo (4 STEP) |
 | 2026-07-29 | **WF-PERF-01 STEP 2** implementato (bundle) → In verifica PO |

@@ -1,16 +1,41 @@
-import React, { useCallback, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, FolderPlus } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { CountBadge } from '@/components/ui/CountBadge';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
 import { getCategoryShortLabel } from '@/domain/packing/packingCategories';
+import { CategoryStatusFilterDropdown } from './CategoryStatusFilter';
 import type { CategoryStatusFilter } from './SuitcaseUtils';
 import {
   ItemCategoryIcon,
+  SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS,
   SUITCASE_TOOLBAR_ICON_BTN_CLASS,
   SUITCASE_TOOLBAR_ICON_SIZE_CLASS,
-  SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS,
 } from './SuitcaseUtils';
-import { CategoryStatusFilterDropdown } from './CategoryStatusFilter';
-import { CountBadge } from '@/components/ui/CountBadge';
+
+type ToolbarSlot =
+  | 'statusFilterStart'
+  | 'leftArrow'
+  | 'newCategory'
+  | 'categories'
+  | 'rightArrow'
+  | 'statusFilterInlineEnd';
+
+/** Ordini slot stabili a livello modulo — non ricreati a ogni render. */
+const DESKTOP_SLOT_ORDER: readonly ToolbarSlot[] = [
+  'statusFilterStart',
+  'leftArrow',
+  'newCategory',
+  'categories',
+  'rightArrow',
+];
+
+const COMPACT_SLOT_ORDER: readonly ToolbarSlot[] = [
+  'newCategory',
+  'leftArrow',
+  'categories',
+  'rightArrow',
+  'statusFilterInlineEnd',
+];
 
 interface CategoryToolbarNavProps {
   categories: DisplayCategory[];
@@ -71,6 +96,10 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const scrollTrackRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    buttonRefs.current.length = categories.length;
+  }, [categories.length]);
+
   const resetDragState = useCallback(() => {
     dragIdRef.current = null;
     dragMovedRef.current = false;
@@ -104,7 +133,7 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', categoryId);
     },
-    [readOnly]
+    [readOnly],
   );
 
   const handleDragEnd = useCallback(() => {
@@ -120,7 +149,7 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
       if (dragMovedRef.current) return;
       onNavigate(categoryId);
     },
-    [onNavigate]
+    [onNavigate],
   );
 
   const handleDragOver = useCallback(
@@ -131,14 +160,17 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
       dragMovedRef.current = true;
       setDropTargetIndex(index);
     },
-    [readOnly]
+    [readOnly],
   );
 
-  const handleDragLeave = useCallback((index: number) => (e: React.DragEvent) => {
-    const related = e.relatedTarget as Node | null;
-    if (related && e.currentTarget.contains(related)) return;
-    setDropTargetIndex((current) => (current === index ? null : current));
-  }, []);
+  const handleDragLeave = useCallback(
+    (index: number) => (e: React.DragEvent) => {
+      const related = e.relatedTarget as Node | null;
+      if (related && e.currentTarget.contains(related)) return;
+      setDropTargetIndex((current) => (current === index ? null : current));
+    },
+    [],
+  );
 
   const handleDrop = useCallback(
     (index: number) => (e: React.DragEvent) => {
@@ -151,7 +183,7 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
       }
       resetDragState();
     },
-    [onReorder, readOnly, resetDragState, suppressClickAfterDrag]
+    [onReorder, readOnly, resetDragState, suppressClickAfterDrag],
   );
 
   const handleContainerDragLeave = useCallback((e: React.DragEvent) => {
@@ -160,10 +192,13 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
     setDropTargetIndex(null);
   }, []);
 
-  const focusButtonAt = useCallback((index: number) => {
-    const clamped = Math.max(0, Math.min(index, categories.length - 1));
-    buttonRefs.current[clamped]?.focus();
-  }, [categories.length]);
+  const focusButtonAt = useCallback(
+    (index: number) => {
+      const clamped = Math.max(0, Math.min(index, categories.length - 1));
+      buttonRefs.current[clamped]?.focus();
+    },
+    [categories.length],
+  );
 
   const handleKeyDown = useCallback(
     (index: number) => (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -188,27 +223,32 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
           break;
       }
     },
-    [categories.length, focusButtonAt]
+    [categories.length, focusButtonAt],
   );
 
   // Rendering del filtro stato centralizzato: trigger e varianti per ogni posizione sono definiti
   // qui, una sola volta. I call-site nel JSX sono semplici ancore di layout; per aggiungere una
   // nuova posizione basta estendere questo helper in un unico punto.
-  const renderStatusFilter = (at: 'start' | 'inline-end') => {
-    if (statusFilterPlacement !== at || !onCategoryStatusFilterChange) return null;
-    const isInlineEnd = at === 'inline-end';
-    return (
-      <CategoryStatusFilterDropdown
-        value={categoryStatusFilter}
-        onChange={onCategoryStatusFilterChange}
-        iconOnly={isInlineEnd}
-        triggerClassName={
-          isInlineEnd ? `${FILTER_ICON_BTN_BASE_CLASS} ${NAV_CATEGORY_BTN_ACTIVE_CLASS}` : undefined
-        }
-        iconClassName={isInlineEnd ? SUITCASE_TOOLBAR_ICON_SIZE_CLASS : undefined}
-      />
-    );
-  };
+  const renderStatusFilter = useCallback(
+    (at: 'start' | 'inline-end') => {
+      if (statusFilterPlacement !== at || !onCategoryStatusFilterChange) return null;
+      const isInlineEnd = at === 'inline-end';
+      return (
+        <CategoryStatusFilterDropdown
+          value={categoryStatusFilter}
+          onChange={onCategoryStatusFilterChange}
+          iconOnly={isInlineEnd}
+          triggerClassName={
+            isInlineEnd
+              ? `${FILTER_ICON_BTN_BASE_CLASS} ${NAV_CATEGORY_BTN_ACTIVE_CLASS}`
+              : undefined
+          }
+          iconClassName={isInlineEnd ? SUITCASE_TOOLBAR_ICON_SIZE_CLASS : undefined}
+        />
+      );
+    },
+    [statusFilterPlacement, onCategoryStatusFilterChange, categoryStatusFilter],
+  );
 
   // Freccia destra: ultimo elemento nel layout desktop; in compatto resta dopo le categorie (invariato).
   const rightArrowButton = (
@@ -238,25 +278,27 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
     </button>
   );
 
-  const newCategoryButton =
-    onAddCategory ? (
-      <button
-        type="button"
-        onClick={onAddCategory}
-        disabled={readOnly}
-        className={`${ADD_CATEGORY_BTN_CLASS} relative overflow-visible shrink-0`}
-        title={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
-        aria-label={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
+  const newCategoryButton = onAddCategory ? (
+    <button
+      type="button"
+      onClick={onAddCategory}
+      disabled={readOnly}
+      className={`${ADD_CATEGORY_BTN_CLASS} relative overflow-visible shrink-0`}
+      title={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
+      aria-label={readOnly ? 'Non disponibile in sola lettura' : 'Crea categoria'}
+    >
+      <FolderPlus
+        className={`${SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS} text-emerald-500`}
+        aria-hidden
+      />
+      <span
+        className="text-[8px] font-black uppercase tracking-wider leading-none text-indigo-400/80"
+        aria-hidden
       >
-        <FolderPlus className={`${SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS} text-emerald-500`} aria-hidden />
-        <span
-          className="text-[8px] font-black uppercase tracking-wider leading-none text-indigo-400/80"
-          aria-hidden
-        >
-          NEW
-        </span>
-      </button>
-    ) : null;
+        NEW
+      </span>
+    </button>
+  ) : null;
 
   const categoryScrollTrack = (
     <div
@@ -295,20 +337,18 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
               isDropTarget ? 'ring-2 ring-indigo-500/60 border-indigo-500/40' : ''
             } ${!readOnly ? 'cursor-grab active:cursor-grabbing' : ''}`}
             title={
-              incompleteCount > 0
-                ? `${cat.name} (${incompleteCount} da completare)`
-                : cat.name
+              incompleteCount > 0 ? `${cat.name} (${incompleteCount} da completare)` : cat.name
             }
             aria-label={
               incompleteCount > 0
                 ? `${cat.name}, ${incompleteCount} oggetti da completare`
                 : cat.name
             }
-            aria-current={isActive ? 'true' : undefined}
+            aria-current={isActive ? true : undefined}
           >
             <ItemCategoryIcon
               category={cat.name}
-              iconKey={cat.icon_key}
+              iconKey={cat.icon_key ?? undefined}
               className={SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS}
             />
             <span
@@ -335,30 +375,6 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
     </div>
   );
 
-  type ToolbarSlot =
-    | 'statusFilterStart'
-    | 'leftArrow'
-    | 'newCategory'
-    | 'categories'
-    | 'rightArrow'
-    | 'statusFilterInlineEnd';
-
-  const DESKTOP_SLOT_ORDER: ToolbarSlot[] = [
-    'statusFilterStart',
-    'leftArrow',
-    'newCategory',
-    'categories',
-    'rightArrow',
-  ];
-
-  const COMPACT_SLOT_ORDER: ToolbarSlot[] = [
-    'newCategory',
-    'leftArrow',
-    'categories',
-    'rightArrow',
-    'statusFilterInlineEnd',
-  ];
-
   const toolbarSlots: Record<ToolbarSlot, React.ReactNode> = {
     statusFilterStart: renderStatusFilter('start'),
     leftArrow: leftArrowButton,
@@ -368,8 +384,7 @@ export const CategoryToolbarNav: React.FC<CategoryToolbarNavProps> = ({
     statusFilterInlineEnd: renderStatusFilter('inline-end'),
   };
 
-  const slotOrder =
-    statusFilterPlacement === 'start' ? DESKTOP_SLOT_ORDER : COMPACT_SLOT_ORDER;
+  const slotOrder = statusFilterPlacement === 'start' ? DESKTOP_SLOT_ORDER : COMPACT_SLOT_ORDER;
 
   return (
     <>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Plus, Layout, Sparkles, Loader2, type LucideIcon } from 'lucide-react';
+import { Layout, Loader2, type LucideIcon, Plus, Sparkles } from 'lucide-react';
+import type React from 'react';
 import { SUITCASE_TOOLBAR_BTN_CLASS } from './SuitcaseUtils';
 
 interface DashboardActionGroupProps {
@@ -61,21 +61,25 @@ export const IconActionButton: React.FC<IconActionButtonProps> = ({
   const baseBtnClass = compact ? SUITCASE_TOOLBAR_BTN_COMPACT_CLASS : SUITCASE_TOOLBAR_BTN_CLASS;
   const iconSizeClass = compact ? 'w-3.5 h-3.5 sm:w-4 sm:h-4' : 'w-4 h-4';
   return (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled || loading}
-    aria-label={label}
-    className={`relative group ${baseBtnClass} disabled:opacity-50 ${className}`}
-  >
-    {loading ? <Loader2 className={`${iconSizeClass} animate-spin`} aria-hidden /> : <Icon className={iconSizeClass} aria-hidden />}
-    <span
-      role="tooltip"
-      className="pointer-events-none absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-100 z-local-overlay shadow-lg"
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || loading}
+      aria-label={label}
+      className={`relative group ${baseBtnClass} disabled:opacity-50 ${className}`}
     >
-      {label}
-    </span>
-  </button>
+      {loading ? (
+        <Loader2 className={`${iconSizeClass} animate-spin`} aria-hidden />
+      ) : (
+        <Icon className={iconSizeClass} aria-hidden />
+      )}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-100 z-local-overlay shadow-lg"
+      >
+        {label}
+      </span>
+    </button>
   );
 };
 

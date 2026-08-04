@@ -7,6 +7,7 @@ import { getPoiCategoryLabel, getSubCategoryLabel } from '../../../utils/common'
 import { PaginationControls } from '../../common/PaginationControls';
 import { getCachedSetting } from '../../../services/settingsService'; 
 import { useVirtualWindow } from '@/hooks/useVirtualWindow';
+import { LAYOUT } from '@/constants/layout';
 
 /** Altezza riga griglia (card 340 + gap). */
 const POI_VIRTUAL_ROW_HEIGHT = 356;
@@ -43,9 +44,9 @@ function useGridColumnCount(): number {
     useEffect(() => {
         const update = () => {
             const w = window.innerWidth;
-            if (w >= 1280) setCols(4);
-            else if (w >= 1024) setCols(3);
-            else if (w >= 768) setCols(2);
+            if (w >= LAYOUT.BREAKPOINTS.XL) setCols(4);
+            else if (w >= LAYOUT.BREAKPOINTS.LG) setCols(3);
+            else if (w >= LAYOUT.BREAKPOINTS.MD) setCols(2);
             else setCols(1);
         };
         update();

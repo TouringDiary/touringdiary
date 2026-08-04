@@ -1,14 +1,5 @@
-import { useState, useEffect } from 'react';
-
-export function useIsMobile(): boolean {
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 1024);
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
-
-    return isMobile;
-}
+/**
+ * Alias of useMobileDetect — below LAYOUT.BREAKPOINTS.LG (mobile + tablet shell).
+ * Prefer importing useMobileDetect in new code.
+ */
+export { useMobileDetect as useIsMobile } from './useMobileDetect';

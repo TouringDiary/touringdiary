@@ -278,7 +278,7 @@ export const orphanCityStaging = async (cityId: string, cityName: string): Promi
         // Step 2: Rendi orfani (city_id = null)
         await supabase
             .from('pois_staging')
-            .update({ city_id: null })
+            .update({ city_id: null } as unknown as DatabasePoiStagingUpdate)
             .eq('city_id', cityId);
 
     } catch (e) {

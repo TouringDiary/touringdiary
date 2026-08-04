@@ -216,7 +216,7 @@ export function useSuitcasePanelComposition({
   }, [data.showToast, suitcaseDocumentSave.lastError, suitcaseDocumentSave.phase]);
 
   const editorLogic = useSuitcaseEditorLogic({
-    activeSuitcase: data.activeSuitcase,
+    activeSuitcase: data.activeSuitcase ?? null,
     ...itemActions,
     fetchBlacklist: data.fetchBlacklist,
     modalState: data.modalState,
@@ -441,6 +441,7 @@ export function useSuitcasePanelComposition({
     ...data.panelState,
     ...data.modalState,
     ...data.mutations,
+    linkedSuitcaseIds: data.linkedSuitcaseIds ?? [],
     requestClose: requestCloseGuarded,
     handleLinkExisting: associationFlow.handleLinkExisting,
     onDocumentDirty:

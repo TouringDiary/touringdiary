@@ -45,7 +45,7 @@ interface FeatureModalsProps extends ModalManagerExternalProps {
      * accessi senza un ModalPayloadMap condiviso → più complesso e fragile dell’attuale.
      * Typing stretto rinviato finché non esiste un payload map per-modale.
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vedi commento sopra
+    // biome-ignore lint/suspicious/noExplicitAny: vedi commento sopra — payload map per-modale assente
     modalProps: any;
     closeModal: () => void;
     openModal: (type: string, props?: Record<string, unknown>) => void;

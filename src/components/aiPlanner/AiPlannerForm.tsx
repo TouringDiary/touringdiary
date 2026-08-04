@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, ChevronUp, ChevronDown, Coffee, Lightbulb, Sparkles, Route, AlertTriangle, Loader2, Clock, Calendar, Hash, Flag, Navigation, Zap, Lock, Gift, Crown } from 'lucide-react';
-import { useAiPlanner } from '@/context/AiPlannerContext';
+import { useAiPlanner, type AiSessionState } from '@/context/AiPlannerContext';
 import { DailyLogistics } from '../../services/ai/aiPlanner';
 import { useModal } from '@/context/ModalContext';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
@@ -10,6 +10,7 @@ import { getAiRuntimeStatus } from '../../services/ai/aiRuntimeStatus';
 import { AiRuntimeBanner } from '../ai/AiRuntimeBanner';
 import { useUser } from '@/context/UserContext';
 import { usePlatformControl } from '@/context/PlatformControlContext';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 interface Props {
     onGenerate: () => void;
@@ -17,8 +18,15 @@ interface Props {
     error: string | null;
 }
 
+interface TravelStyleOption {
+    id: string;
+    label: string;
+    emoji?: string;
+    desc?: string;
+}
+
 // Fallback minimo se il DB non è ancora popolato
-const FALLBACK_STYLES = [
+const FALLBACK_STYLES: TravelStyleOption[] = [
     { id: 'balanced', label: 'Equilibrato', emoji: '⚖️', desc: 'Mix di tutto' }
 ];
 
@@ -53,18 +61,19 @@ const DateRangePicker = ({ startDate, endDate, minDate, onStartDateChange, onEnd
                         }}
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 pr-9 text-white text-base font-black font-mono text-center outline-none focus:border-indigo-500 transition-colors"
                     />
-                    <div
+                    <button
+    type="button"
     className="absolute right-2 top-1/2 -translate-y-1/2 z-dropdown cursor-pointer select-none pointer-events-auto flex items-center justify-center w-6 h-6 group"
     onClick={() => {
         if (startRef.current?.showPicker) {
             startRef.current.showPicker();
         } else {
-            startRef.current.focus();
+            startRef.current?.focus();
         }
     }}
 >
     <span className="text-base">📅</span>
-</div>
+</button>
                 </div>
             </div>
             {/* AL */}
@@ -83,28 +92,27 @@ const DateRangePicker = ({ startDate, endDate, minDate, onStartDateChange, onEnd
                         }}
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 pr-9 text-white text-base font-black font-mono text-center outline-none focus:border-indigo-500 transition-colors"
                     />
-                    <div
+                    <button
+    type="button"
     className="absolute right-2 top-1/2 -translate-y-1/2 z-dropdown cursor-pointer select-none pointer-events-auto flex items-center justify-center w-6 h-6 group"
     onClick={() => {
         if (endRef.current?.showPicker) {
             endRef.current.showPicker();
         } else {
-            endRef.current.focus();
+            endRef.current?.focus();
         }
     }}
 >
     <span className="text-base">📅</span>
-</div>
+</button>
                 </div>
             </div>
         </div>
     );
 };
 
-// Dynamic Header Component
-const SectionHeader = ({ num, title }: { num: string, title: string }) => {
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
+// Presentational step header — isMobile comes from parent (single responsive source).
+const SectionHeader = ({ num, title, isMobile }: { num: string; title: string; isMobile: boolean }) => {
     const titleStyle = useDynamicStyles('planner_step_title', isMobile);
     
     return (
@@ -136,10 +144,9 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
     const aiUnavailableLabel = aiRuntimeStatus.title || 'AI non disponibile';
     
     // FETCH STYLES FROM DB CACHE
-    const travelStyles = getCachedSetting<any[]>(SETTINGS_KEYS.TRAVEL_STYLES_CONFIG) || FALLBACK_STYLES;
+    const travelStyles = getCachedSetting<TravelStyleOption[]>(SETTINGS_KEYS.TRAVEL_STYLES_CONFIG) || FALLBACK_STYLES;
 
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
+    const isMobile = useMobileDetect();
     const textStyle = useDynamicStyles('planner_text', isMobile);
     const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
 
@@ -222,7 +229,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
             else newStyles = ['balanced'];
         }
         setSelectedStyles(newStyles);
-        updateAiSession({ style: newStyles[0] as any });
+        updateAiSession({ style: newStyles[0] as AiSessionState['style'] });
     };
 
     const updateDayLogistic = (index: number, field: keyof DailyLogistics, value: string) => {
@@ -288,7 +295,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
             )}
 
             <section>
-                <SectionHeader num="1" title="DOVE VUOI ANDARE" />
+                <SectionHeader num="1" title="DOVE VUOI ANDARE" isMobile={isMobile} />
                 <div className="relative group">
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500 group-focus-within:text-indigo-400 transition-colors"/>
                     <input 
@@ -301,7 +308,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
             </section>
 
             <section>
-                <SectionHeader num="2" title="quando e quanto" />
+                <SectionHeader num="2" title="quando e quanto" isMobile={isMobile} />
                 <div className="space-y-4">
                     <div className="flex justify-between items-end mb-1 px-1">
                         <label className="text-[10px] font-black text-[#f97316] uppercase tracking-[0.2em] flex items-center gap-2">
@@ -354,7 +361,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
             </section>
 
             <section>
-                <SectionHeader num="3" title="logistica" />
+                <SectionHeader num="3" title="logistica" isMobile={isMobile} />
                 <div className="space-y-4">
                     <div className="flex justify-between items-center mb-1 px-1">
                         <button type="button" onClick={() => setShowDailyLogistics(!showDailyLogistics)} className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors ${showDailyLogistics ? 'text-[#facc15]' : 'text-slate-500 hover:text-slate-300'}`}>
@@ -463,7 +470,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
             </section>
 
             <section>
-                <SectionHeader num="4" title="stile e ritmo" />
+                <SectionHeader num="4" title="stile e ritmo" isMobile={isMobile} />
                 <div className="space-y-5">
                     <div className="grid grid-cols-3 gap-3">
                         {travelStyles.map(s => (
@@ -498,7 +505,7 @@ export const AiPlannerForm = ({ onGenerate, isLoading, error }: Props) => {
             </section>
             
             <section>
-                <SectionHeader num="5" title="note extra" />
+                <SectionHeader num="5" title="note extra" isMobile={isMobile} />
                 <div className="space-y-4">
                     <textarea 
                         value={aiSession.preferences} 

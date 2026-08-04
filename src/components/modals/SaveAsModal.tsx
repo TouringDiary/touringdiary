@@ -52,9 +52,13 @@ export const SaveAsModal = ({
   const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
   const containerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalContainer);
   const bodyShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalBody);
+  const footerShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooter);
+  const footerActionsShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalFooterActions);
   const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
   const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
   const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
+  const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary, isMobile);
+  const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel, isMobile);
 
   useGlobalModalEscape(isOpen, onClose);
 
@@ -150,23 +154,6 @@ export const SaveAsModal = ({
                   </p>
                 </div>
               </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(false)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors border border-slate-700"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onConfirm(buildPayload())}
-                  className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-amber-900/20"
-                >
-                  Sovrascrivi
-                </button>
-              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -196,17 +183,49 @@ export const SaveAsModal = ({
                   viaggi={viaggi}
                 />
               )}
-
-              <button
-                type="button"
-                onClick={handleSaveClick}
-                className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-amber-900/20"
-              >
-                Salva
-              </button>
             </div>
           )}
         </div>
+
+        <footer className={footerShell}>
+          <div className={footerActionsShell}>
+            {showConfirm ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(false)}
+                  className={btnCancelShell || 'bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors border border-slate-700'}
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onConfirm(buildPayload())}
+                  className={btnPrimaryShell || 'bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg'}
+                >
+                  Sovrascrivi
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={btnCancelShell || 'bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors border border-slate-700'}
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveClick}
+                  className={btnPrimaryShell || 'bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg'}
+                >
+                  Salva
+                </button>
+              </>
+            )}
+          </div>
+        </footer>
       </div>
     </div>,
     document.body,

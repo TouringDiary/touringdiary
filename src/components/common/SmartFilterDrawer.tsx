@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { createPortal } from 'react-dom';
-import { X, Check, Filter, Utensils, Landmark, Bed, ShoppingBag, Music, Sun, EyeOff, Eye, Star, Layers, CheckSquare, Square, AlertTriangle, TrendingUp, Coins, RotateCcw, Box, FileText, List, Search } from 'lucide-react';
+import { X, Check, Filter, Utensils, Landmark, Bed, ShoppingBag, Music, Sun, EyeOff, Eye, Star, Layers, CheckSquare, Square, AlertTriangle, TrendingUp, Coins, RotateCcw, Box, FileText, List, Search, type LucideIcon } from 'lucide-react';
 import { PointOfInterest } from '../../types/index';
 import { getSubCategoryLabel } from '../../utils/common';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
 import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 
 interface SmartFilterDrawerProps {
     isOpen: boolean;
@@ -28,7 +29,19 @@ interface SmartFilterDrawerProps {
     rawCategoryOptions?: string[]; 
 }
 
-const CATEGORY_ICONS: any = {
+interface PoiCategoryOption {
+    id: string;
+    label: string;
+    icon?: string;
+    color?: string;
+}
+
+interface PoiStructureGroup {
+    label: string;
+    items: string[];
+}
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
     monument: Landmark,
     food: Utensils,
     hotel: Bed,
@@ -47,16 +60,11 @@ export const SmartFilterDrawer = ({
     const [rawCatSearch, setRawCatSearch] = useState('');
     
     // --- DYNAMIC DATA ---
-    const CATEGORIES = getCachedSetting<any[]>(SETTINGS_KEYS.POI_CATEGORIES_CONFIG) || [];
-    const POI_STRUCTURE = getCachedSetting<Record<string, any[]>>(SETTINGS_KEYS.POI_ADVANCED_STRUCTURE) || {};
+    const CATEGORIES = getCachedSetting<PoiCategoryOption[]>(SETTINGS_KEYS.POI_CATEGORIES_CONFIG) || [];
+    const POI_STRUCTURE = getCachedSetting<Record<string, PoiStructureGroup[]>>(SETTINGS_KEYS.POI_ADVANCED_STRUCTURE) || {};
 
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768);
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, []);
+    // MD compact band (same as previous innerWidth < MD) — not useMobileDetect (LG).
+    const isMobile = useMobileCompact();
 
     const headerStyle = useDynamicStyles('filter_header_title', isMobile);
     const sectionTitleStyle = useDynamicStyles('filter_section_title', isMobile);
@@ -102,7 +110,7 @@ export const SmartFilterDrawer = ({
         
         // Uso POI_STRUCTURE dinamico invece di SUB_CATS hardcoded
         const standardGroups = activeCatForSubs && POI_STRUCTURE[activeCatForSubs]
-            ? POI_STRUCTURE[activeCatForSubs].map((group: any) => {
+            ? POI_STRUCTURE[activeCatForSubs].map((group: PoiStructureGroup) => {
                 const presentKeys = group.items.filter((key: string) => uniqueKeys.has(key));
                 const uniqueButtons: string[] = [];
                 presentKeys.forEach((key: string) => {
@@ -113,7 +121,7 @@ export const SmartFilterDrawer = ({
                     }
                 });
                 return { ...group, items: uniqueButtons };
-            }).filter((group: any) => group.items.length > 0)
+            }).filter((group: PoiStructureGroup) => group.items.length > 0)
             : [];
 
         const orphans: string[] = [];
@@ -358,9 +366,9 @@ export const SmartFilterDrawer = ({
                                             <span>Tutti</span>
                                         </button>
                                         
-                                        {CATEGORIES.map((cat: any) => {
+                                        {CATEGORIES.map((cat) => {
                                             const isSelected = localFilters.category === cat.id;
-                                            const Icon = getCatIcon(cat.icon);
+                                            const Icon = getCatIcon(cat.icon || '');
                                             return (
                                                 <button 
                                                     key={cat.id}
@@ -383,12 +391,12 @@ export const SmartFilterDrawer = ({
                                     <div className="flex items-center gap-2 mb-3">
                                         <Layers className="w-4 h-4 text-indigo-500"/>
                                         <h4 className={sectionTitleStyle || "text-xs font-black text-slate-500 uppercase tracking-widest"}>
-                                            {hideCategory ? 'Tipologia Specifica' : `Tipi di ${CATEGORIES.find((c:any) => c.id === activeCatForSubs)?.label || activeCatForSubs}`}
+                                            {hideCategory ? 'Tipologia Specifica' : `Tipi di ${CATEGORIES.find((c) => c.id === activeCatForSubs)?.label || activeCatForSubs}`}
                                         </h4>
                                     </div>
                                     
                                     <div className="space-y-4">
-                                        {visibleSubCatGroups.map((group: any, groupIdx: number) => (
+                                        {visibleSubCatGroups.map((group: PoiStructureGroup, groupIdx: number) => (
                                             <div key={groupIdx} className="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/50">
                                                 <h5 className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider mb-2 ml-1">{group.label}</h5>
                                                 <div className="flex flex-wrap gap-2">

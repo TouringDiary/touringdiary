@@ -13,6 +13,7 @@ import { useSystemMessage } from '../../hooks/useSystemMessage';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles'; // NEW IMPORT
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { LAYOUT } from '@/constants/layout';
 
 
 // Re-export loader for compatibility
@@ -34,8 +35,15 @@ export const AiItineraryModal = ({ isOpen, onClose, defaultCity = '', user }: Pr
     const blockMsg = getBlockMessage();
     
     // DYNAMIC STYLES
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
+    const [isMobile, setIsMobile] = useState(() =>
+        typeof window !== 'undefined' ? window.innerWidth < LAYOUT.BREAKPOINTS.LG : false
+    );
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < LAYOUT.BREAKPOINTS.LG);
+        check();
+        window.addEventListener('resize', check, { passive: true });
+        return () => window.removeEventListener('resize', check);
+    }, []);
     
     const titleStyle = useDynamicStyles('planner_title', isMobile);
 

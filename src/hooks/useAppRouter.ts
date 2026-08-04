@@ -227,17 +227,18 @@ export const useAppRouter = () => {
         navigate(-1);
     };
 
-    const goHome = () => {
+    const goHome = (options?: { replace?: boolean }) => {
         setActiveShopId(null); 
-        navigate('/');
-        window.scrollTo(0, 0);
+        navigate('/', { replace: options?.replace === true });
     };
 
+    // Admin è un realm separato: enter/leave con replace così /admin* non resta
+    // sotto lo stack consumer (Around Me / città) e Back non può finire in Admin.
     const setViewModeAction = (mode: NavigationViewMode) => {
         if (mode === 'admin') {
-            navigate('/admin');
+            navigate('/admin', { replace: true });
         } else {
-            navigate('/');
+            navigate('/', { replace: true });
         }
     };
 
@@ -274,6 +275,8 @@ export const useAppRouter = () => {
         isDashboardPath: isDashboardPath(location.pathname),
         isCheckoutSuccessPath: isCheckoutSuccessPath(location.pathname),
         viewMode, activeCityId, activeShopId, targetShopVat,
+        /** Ultimo segmento path città (null su `/` / dashboard). STEP S.4: resolve aspetta CatalogRest. */
+        citySlug,
         activeStaticPage, 
         currentCityTab, activePreview,
         deepLinkParams, 

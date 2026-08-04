@@ -1,47 +1,63 @@
+import type { User } from '@supabase/supabase-js';
 import type { Dispatch, SetStateAction } from 'react';
-import { User } from '@supabase/supabase-js';
 import {
+  ensureUiStateForPersist,
+  mergeTemplateWithOverlay,
+  resolveCategorySetup,
+} from '@/domain/packing/categorySetup';
+import { createWorkspaceFromConfiguration } from '@/hooks/suitcase/createWorkspaceFromConfiguration';
+import {
+  createDraftWorkspaceFromMergedItems,
+  createDraftWorkspaceFromSuitcase,
+  createDraftWorkspaceFromTemplate,
+  DRAFT_OVERWRITE_NEW_SUITCASE,
+  DRAFT_OVERWRITE_NEW_TEMPLATE,
+  DRAFT_OVERWRITE_SAVE_AS_TEMPLATE,
+  DRAFT_OVERWRITE_SUGGESTED_TEMPLATES,
+} from '@/hooks/suitcase/useSuitcaseCrud';
+import { mergeTemplateItems } from '@/hooks/useSuitcaseSystem';
+import { composeTdTemplateItemsAsync } from '@/services/suitcase/packingCompositionService';
+import {
+  duplicateSuitcaseEntityAsync,
+  fetchClonedTemplateDetailsAsync,
+} from '@/services/suitcaseService';
+import type { CategorySetupMap } from '@/types/packingCatalog';
+import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { SUITCASE_MODIFIED_TOAST, type ToastVariant } from '@/types/toast';
+import {
+  abandonDraftWorkspace,
   getGuestSuitcase,
   hasDraftWorkspaceInStorage,
   isDraftWorkspaceId,
-  abandonDraftWorkspace,
   saveGuestSuitcase,
   toDraftWorkspaceSeedItems,
 } from '@/utils/guestSuitcaseHelper';
 import {
-  createDraftWorkspaceFromTemplate,
-  createDraftWorkspaceFromMergedItems,
-  createDraftWorkspaceFromSuitcase,
-  DRAFT_OVERWRITE_NEW_SUITCASE,
-  DRAFT_OVERWRITE_NEW_TEMPLATE,
-  DRAFT_OVERWRITE_SUGGESTED_TEMPLATES,
-  DRAFT_OVERWRITE_SAVE_AS_TEMPLATE,
-} from '@/hooks/suitcase/useSuitcaseCrud';
-import { createWorkspaceFromConfiguration } from '@/hooks/suitcase/createWorkspaceFromConfiguration';
+  getDraftWorkspaceKind,
+  isAssociableSuitcase,
+  isTdTemplate,
+  isUserTemplate,
+} from '@/utils/suitcaseDomain';
 import type { CategorySetupConfigurationResult } from '../../suitcase/CategorySetupConfigurationModal';
-import type { PendingWorkspaceCreate } from './useFloatingPanelModals';
-import { mergeTemplateItems } from '@/hooks/useSuitcaseSystem';
-import { duplicateSuitcaseEntityAsync, fetchClonedTemplateDetailsAsync } from '@/services/suitcaseService';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { SUITCASE_MODIFIED_TOAST, ToastVariant } from '@/types/toast';
-import { isTdTemplate, isUserTemplate, isAssociableSuitcase, getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
-import { resolveCategorySetup, mergeTemplateWithOverlay, ensureUiStateForPersist } from '@/domain/packing/categorySetup';
-import { composeTdTemplateItemsAsync } from '@/services/suitcase/packingCompositionService';
-import { CategorySetupMap } from '@/types/packingCatalog';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
+import type { PendingWorkspaceCreate } from './useFloatingPanelModals';
 
 interface ActionsProps {
   currentUser: User | null;
   itineraryId: string | null;
   requestClose: () => void;
   activeTabId: string | null;
-  setActiveTabId: (id: string | null) => void;
-  setViewMode: (v: SuitcasePanelViewMode) => void;
+  setActiveTabId: Dispatch<SetStateAction<string | null>>;
+  setViewMode: Dispatch<SetStateAction<SuitcasePanelViewMode>>;
   fetchLinkedIds: () => Promise<void>;
   fetchUserSuitcases: () => void | Promise<void>;
   setUserSuitcases: Dispatch<SetStateAction<Suitcase[]>>;
-  cloneSuitcase: (tempId: string, itId: string | null, userId: string, title?: string) => Promise<string>;
-  linkSuitcaseToTrip: (itId: string, scId: string, userId: string) => Promise<void>;
+  cloneSuitcase: (
+    tempId: string,
+    itId: string | null,
+    userId: string,
+    title?: string,
+  ) => Promise<string>;
   unlinkSuitcase: (itId: string, scId: string) => Promise<void>;
   deleteSuitcase: (scId: string) => Promise<void>;
   updateSuitcase: (scId: string, updates: Partial<Suitcase>) => Promise<void>;
@@ -51,37 +67,36 @@ interface ActionsProps {
   linkedSuitcaseIds: string[];
   mergedSuggestedItems: SuitcaseItem[];
   suggestedTemplates: Suitcase[];
-  setIsMerging: (v: boolean) => void;
-  setSaveStatus: (v: string | null) => void;
-  setAutoOpenNewCategory: (v: boolean) => void;
+  setIsMerging: Dispatch<SetStateAction<boolean>>;
+  setAutoOpenNewCategory: Dispatch<SetStateAction<boolean>>;
   activeSuitcase: Suitcase | undefined;
   showToast: (message: string, description?: string, variant?: ToastVariant) => void;
   suitcaseToDelete: string | null;
-  setSuitcaseToDelete: (id: string | null) => void;
+  setSuitcaseToDelete: Dispatch<SetStateAction<string | null>>;
   suitcaseToUnlink: string | null;
-  setSuitcaseToUnlink: (id: string | null) => void;
+  setSuitcaseToUnlink: Dispatch<SetStateAction<string | null>>;
   isDeleting: boolean;
-  setIsDeleting: (v: boolean) => void;
+  setIsDeleting: Dispatch<SetStateAction<boolean>>;
   isEditingTitle: boolean;
-  setIsEditingTitle: (v: boolean) => void;
+  setIsEditingTitle: Dispatch<SetStateAction<boolean>>;
   tempTitle: string;
-  setTempTitle: (v: string) => void;
+  setTempTitle: Dispatch<SetStateAction<string>>;
   newSuitcaseId: string | null;
   isNewSuitcaseSession: boolean;
   beginNewSuitcaseSession: (suitcaseId: string) => void;
   clearNewSuitcaseSession: () => void;
-  setShowAssociationModal: (v: boolean) => void;
-  setShowDraftOverwriteModal: (v: boolean) => void;
-  setShowRecommendedSuitcaseModal: (v: boolean) => void;
+  setShowAssociationModal: Dispatch<SetStateAction<boolean>>;
+  setShowDraftOverwriteModal: Dispatch<SetStateAction<boolean>>;
+  setShowRecommendedSuitcaseModal: Dispatch<SetStateAction<boolean>>;
   showCategorySetupModal: boolean;
-  setShowCategorySetupModal: (v: boolean) => void;
+  setShowCategorySetupModal: Dispatch<SetStateAction<boolean>>;
   pendingWorkspaceCreate: PendingWorkspaceCreate | null;
-  setPendingWorkspaceCreate: (v: PendingWorkspaceCreate | null) => void;
-  setIsCreatingFromConfiguration: (v: boolean) => void;
+  setPendingWorkspaceCreate: Dispatch<SetStateAction<PendingWorkspaceCreate | null>>;
+  setIsCreatingFromConfiguration: Dispatch<SetStateAction<boolean>>;
   draftOverwriteIntent: string | null;
-  setDraftOverwriteIntent: (v: string | null) => void;
+  setDraftOverwriteIntent: Dispatch<SetStateAction<string | null>>;
   pendingMergeSources: Suitcase[] | null;
-  setPendingMergeSources: (v: Suitcase[] | null) => void;
+  setPendingMergeSources: Dispatch<SetStateAction<Suitcase[] | null>>;
   handleLinkExisting: (suitcaseId: string) => Promise<void>;
   templatePreviewOverlays?: Record<string, CategorySetupMap>;
   onDocumentDirty?: () => void;
@@ -99,7 +114,6 @@ export const useSuitcaseActions = ({
   fetchUserSuitcases,
   setUserSuitcases,
   cloneSuitcase,
-  linkSuitcaseToTrip,
   unlinkSuitcase,
   deleteSuitcase,
   updateSuitcase,
@@ -110,7 +124,6 @@ export const useSuitcaseActions = ({
   mergedSuggestedItems,
   suggestedTemplates,
   setIsMerging,
-  setSaveStatus,
   setAutoOpenNewCategory,
   activeSuitcase,
   showToast,
@@ -145,7 +158,6 @@ export const useSuitcaseActions = ({
   onDocumentDirty,
   onSuitcaseLocalUpdate,
 }: ActionsProps) => {
-
   const openNewSuitcaseEditor = (suitcase: Suitcase) => {
     setUserSuitcases((prev) => [
       suitcase,
@@ -231,7 +243,7 @@ export const useSuitcaseActions = ({
       currentUser.id,
       `Valigia ${names}`,
       mergedItems,
-      icon
+      icon,
     );
     openNewSuitcaseEditor(draft);
   };
@@ -270,7 +282,7 @@ export const useSuitcaseActions = ({
       showToast(
         'Creazione non riuscita',
         'Non è stato possibile creare la valigia. Riprova.',
-        'destructive'
+        'destructive',
       );
     } finally {
       setIsCreatingFromConfiguration(false);
@@ -306,17 +318,13 @@ export const useSuitcaseActions = ({
       try {
         abandonDraftWorkspace();
         await fetchUserSuitcases();
-        showToast(
-          'Modifiche non salvate',
-          'La bozza locale è stata abbandonata.',
-          'success'
-        );
+        showToast('Modifiche non salvate', 'La bozza locale è stata abbandonata.', 'success');
       } catch (err) {
         console.error('Error abandoning draft workspace:', err);
         showToast(
           'Operazione non riuscita',
           'Non è stato possibile abbandonare la bozza. Riprova.',
-          'destructive'
+          'destructive',
         );
         return;
       }
@@ -347,7 +355,7 @@ export const useSuitcaseActions = ({
       showToast(
         'Accesso richiesto',
         'Effettua il login per usare la Valigia Personalizzata.',
-        'destructive'
+        'destructive',
       );
       return;
     }
@@ -394,7 +402,7 @@ export const useSuitcaseActions = ({
       showToast(
         'Operazione non disponibile',
         'Solo le valigie possono essere salvate come template.',
-        'destructive'
+        'destructive',
       );
       return;
     }
@@ -405,11 +413,7 @@ export const useSuitcaseActions = ({
       return;
     }
 
-    const draft = createDraftWorkspaceFromSuitcase(
-      currentUser.id,
-      source,
-      'user_template'
-    );
+    const draft = createDraftWorkspaceFromSuitcase(currentUser.id, source, 'user_template');
     openNewSuitcaseEditor(draft);
   };
 
@@ -419,7 +423,11 @@ export const useSuitcaseActions = ({
     await fetchLinkedIds();
     await fetchUserSuitcases();
     setSuitcaseToUnlink(null);
-    showToast("Valigia rimossa dal diario", "La valigia resta salvata tra le tue valigie personali.", 'success');
+    showToast(
+      'Valigia rimossa dal diario',
+      'La valigia resta salvata tra le tue valigie personali.',
+      'success',
+    );
   };
 
   const confirmDeleteSuitcase = async () => {
@@ -440,7 +448,7 @@ export const useSuitcaseActions = ({
         setActiveTabId(null);
       }
       const draftEntity = wasDraft
-        ? userSuitcases.find((s) => s.id === suitcaseToDelete) ?? getGuestSuitcase()
+        ? (userSuitcases.find((s) => s.id === suitcaseToDelete) ?? getGuestSuitcase())
         : null;
       const draftKind = draftEntity ? getDraftWorkspaceKind(draftEntity) : 'suitcase';
       showToast(
@@ -449,15 +457,15 @@ export const useSuitcaseActions = ({
           ? draftKind === 'user_template'
             ? 'Il template in pausa è stato rimosso.'
             : 'La valigia in pausa è stata rimossa.'
-          : 'L\'elemento è stato eliminato dal tuo profilo.',
-        'success'
+          : "L'elemento è stato eliminato dal tuo profilo.",
+        'success',
       );
     } catch (err) {
       console.error('Error deleting suitcase:', err);
       showToast(
         'Eliminazione non riuscita',
         'Non è stato possibile eliminare. Riprova.',
-        'destructive'
+        'destructive',
       );
     } finally {
       setIsDeleting(false);
@@ -488,11 +496,7 @@ export const useSuitcaseActions = ({
     await updateSuitcase(activeTabId, { title: tempTitle.trim() });
     await fetchUserSuitcases();
     setIsEditingTitle(false);
-    showToast(
-      SUITCASE_MODIFIED_TOAST.message,
-      SUITCASE_MODIFIED_TOAST.description,
-      'success'
-    );
+    showToast(SUITCASE_MODIFIED_TOAST.message, SUITCASE_MODIFIED_TOAST.description, 'success');
   };
 
   const startEditingTitle = () => {
@@ -528,7 +532,7 @@ export const useSuitcaseActions = ({
       showToast(
         'Template di sistema',
         'I template TD non sono modificabili. Usa «Usa template» per creare una valigia.',
-        'neutral'
+        'neutral',
       );
       return;
     }
@@ -574,11 +578,7 @@ export const useSuitcaseActions = ({
       if (suitcaseId && currentUser) {
         const source = await fetchClonedTemplateDetailsAsync(suitcaseId);
         if (source) {
-          const draft = createDraftWorkspaceFromSuitcase(
-            currentUser.id,
-            source,
-            'user_template'
-          );
+          const draft = createDraftWorkspaceFromSuitcase(currentUser.id, source, 'user_template');
           openNewSuitcaseEditor(draft);
         }
       }
@@ -608,9 +608,9 @@ export const useSuitcaseActions = ({
       allResolvableTemplates.find((t) => t.id === entityId) ??
       (await fetchClonedTemplateDetailsAsync(entityId));
 
-    const isTemplateSource =
-      source && (isTdTemplate(source) || isUserTemplate(source));
-    const baseTitle = source?.title?.replace(/ \(Copia\)$/i, '') ?? (isTemplateSource ? 'Template' : 'Valigia');
+    const isTemplateSource = source && (isTdTemplate(source) || isUserTemplate(source));
+    const baseTitle =
+      source?.title?.replace(/ \(Copia\)$/i, '') ?? (isTemplateSource ? 'Template' : 'Valigia');
     const newTitle = `${baseTitle} (Copia)`;
 
     try {
@@ -622,7 +622,7 @@ export const useSuitcaseActions = ({
           isTemplateSource
             ? 'La copia è disponibile nel tab Template.'
             : 'La copia è disponibile tra le tue valigie.',
-          'success'
+          'success',
         );
       }
     } catch (e) {
@@ -630,7 +630,7 @@ export const useSuitcaseActions = ({
       showToast(
         'Duplicazione non riuscita',
         'Non è stato possibile completare la duplicazione. Riprova.',
-        'destructive'
+        'destructive',
       );
     }
   };
@@ -675,6 +675,6 @@ export const useSuitcaseActions = ({
     tempTitle,
     setTempTitle,
     newSuitcaseId,
-    isNewSuitcaseSession
+    isNewSuitcaseSession,
   };
 };

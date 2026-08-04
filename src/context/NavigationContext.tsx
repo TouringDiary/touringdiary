@@ -5,9 +5,9 @@ import { useUser } from './UserContext';
 import { useModal } from './ModalContext';
 import { useAiPlanner } from './AiPlannerContext';
 import { CityDetails, PointOfInterest } from '../types/index';
-import { buildVirtualCity, getPoisByCityId } from '../services/cityService';
+import { buildVirtualCity } from '../services/city/cityReadService';
+import { getPoisByCityId } from '../services/city/poi/poiRead';
 import { getShopByVat } from '../services/shopService';
-import { GEO_CONFIG } from '../constants/geoConfig';
 import { useGps } from './GpsContext';
 import type { NavigationViewMode } from '../types/navigationViewMode';
 import type { NavigationPreviewState } from '../types/navigationPreview';
@@ -191,22 +191,27 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
     // --- NAVIGATION ACTIONS ---
 
     const handleAroundMeTrigger = useCallback(async (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => {
-        setIsBuildingVirtual(true);
-        aroundMeSessionRef.current = null;
-        setVirtualCity(null);
-        // Sentinel history: Around Me vive su `/`, così Back da una città drill-in
-        // ripristina esattamente questa sessione senza rebuild.
-        if (router.pathname !== '/') {
-            router.goHome();
-        }
+        // Centro: GPS = solo userLocation (GpsContext SoT); manuale = coords città.
+        // Nessun fallback geografico silenzioso (es. DEFAULT_CENTER).
+        let centerCoords: { lat: number; lng: number } | null = null;
 
-        let centerCoords = GEO_CONFIG.DEFAULT_CENTER; 
-        
-        if (config.type === 'gps' && gpsContext.userLocation) {
-             centerCoords = gpsContext.userLocation;
+        if (config.type === 'gps') {
+            if (!gpsContext.userLocation) return;
+            centerCoords = gpsContext.userLocation;
         } else if (config.type === 'manual' && config.cityId) {
             const targetCity = cityManifest.find(c => c.id === config.cityId);
             if (targetCity) centerCoords = targetCity.coords;
+        }
+
+        if (!centerCoords) return;
+
+        setIsBuildingVirtual(true);
+        aroundMeSessionRef.current = null;
+        setVirtualCity(null);
+        // Sentinel history: Around Me vive su `/` (replace), così Back da una città
+        // drill-in ripristina questa sessione senza rebuild e senza impilare `/` sullo stack.
+        if (router.pathname !== '/') {
+            router.goHome({ replace: true });
         }
 
         try {
@@ -239,18 +244,6 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
         }
     }, [cityManifest]);
 
-    const goBack = useCallback(() => {
-        // 1. Se c'è una modale aperta, la chiudiamo (comportamento standard UX)
-        if (modalContext.activeModal) { 
-            modalContext.closeModal(); 
-            return; 
-        }
-        
-        // 2. Altrimenti seguiamo la history naturale del browser (URL-driven)
-        // Il cleanup di virtualCity e altri stati avverrà reattivamente tramite l'effetto su pathname
-        router.goBack();
-    }, [modalContext.activeModal, modalContext.closeModal, router]);
-
     const goHome = useCallback(() => {
         aroundMeSessionRef.current = null;
         router.goHome();
@@ -258,6 +251,32 @@ export const NavigationProvider = ({ children }: { children?: ReactNode }) => {
         setVirtualCity(null);
         aiPlannerContext.resetAiSession();
     }, [router, modalContext.closeModal, aiPlannerContext.resetAiSession]);
+
+    const goBack = useCallback(() => {
+        // 1. Se c'è una modale aperta, la chiudiamo (comportamento standard UX)
+        if (modalContext.activeModal) { 
+            modalContext.closeModal(); 
+            return; 
+        }
+
+        // 2. Shop overlay: chiusura locale (nessun history.back)
+        if (router.activeShopId) {
+            router.goBack();
+            return;
+        }
+
+        // 3. Flusso Around Me (stesso handler del logo: goHome).
+        //    - Vista Around Me: virtualCity attiva.
+        //    - Drill-in città: virtualCity è null (sospesa) ma aroundMeSessionRef è pieno.
+        //      history.back() ripristinerebbe Around Me via effect pathname — non la Home.
+        if (isAroundMeCity(virtualCity) || isAroundMeCity(aroundMeSessionRef.current)) {
+            goHome();
+            return;
+        }
+        
+        // 4. History naturale (città fuori dal flusso Around Me)
+        router.goBack();
+    }, [goHome, modalContext.activeModal, modalContext.closeModal, router, virtualCity]);
 
     // TODO(WF-03): handleNavigateGlobal is duplicated in useNavigationController — consolidate when that hook is retired or wired as thin delegate (no behavior change).
     const handleNavigateGlobal = useCallback((section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => {

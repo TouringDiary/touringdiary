@@ -1,18 +1,37 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Edit2, Trash2, ChevronLeft, Link2, Layout, Undo2, Redo2, CloudOff, CalendarDays, Search, Wrench, Save, Sparkles, Users } from 'lucide-react';
+import {
+  CalendarDays,
+  ChevronLeft,
+  CloudOff,
+  Edit2,
+  Layout,
+  Link2,
+  Redo2,
+  Save,
+  Search,
+  Sparkles,
+  Trash2,
+  Undo2,
+  Users,
+  Wrench,
+} from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { DocumentSaveStatus } from '@/components/save/DocumentSaveStatus';
+import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Suitcase } from '@/types/suitcase';
-import { TemplateCategoryIcon } from './SuitcaseUtils';
-import { SuitcaseAscentProgressIndicator, getAscentProgressColor } from './SuitcaseAscentProgressIndicator';
-import { DashboardActionGroup } from './DashboardActionGroup';
+import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import type { Suitcase } from '@/types/suitcase';
+import { formatItalianDateTime } from '@/utils/dateFormatters';
 import { isSessionReadOnly } from '@/utils/suitcaseDomain';
 import type { SuitcasePanelViewMode } from '../SuitcaseFloatingPanel/types/panelViewMode';
-import { SaveMenuPopover } from '@/components/save/SaveMenuPopover';
+import { DashboardActionGroup } from './DashboardActionGroup';
 import { SuitcaseActionMenu } from './SuitcaseActionMenu';
-import { DocumentSaveStatus } from '@/components/save/DocumentSaveStatus';
-import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
-import { formatItalianDateTime } from '@/utils/dateFormatters';
-import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import {
+  getAscentProgressColor,
+  SuitcaseAscentProgressIndicator,
+} from './SuitcaseAscentProgressIndicator';
+import { TemplateCategoryIcon } from './SuitcaseUtils';
 
 /**
  * Cella quadrata condivisa dei 4 pulsanti azione mobile (Undo, Redo, Visualizza/Modifica, Azione).
@@ -20,14 +39,14 @@ import { useDynamicStyles } from '@/hooks/useDynamicStyles';
  * griglia 2×2 risulta perfettamente regolare e coerente con il resto dei pulsanti.
  */
 const MOBILE_ACTION_BTN_CLASS =
-  'inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-xl border border-white/10 bg-slate-800/50 text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-800/50 disabled:hover:text-slate-300';
+  'inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-xl border border-white/10 bg-slate-800/50 text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-800/50 disabled:hover:text-slate-300';
 
 interface SuitcaseHeaderProps {
   viewMode: SuitcasePanelViewMode;
   activeSuitcase: Suitcase | null;
   isEditingTitle: boolean;
   tempTitle: string;
-  titleInputRef: React.RefObject<HTMLInputElement>;
+  titleInputRef: React.RefObject<HTMLInputElement | null>;
   saveStatus: string | null;
   isLinkedToItinerary: boolean;
   isDiaryAssociable?: boolean;
@@ -138,9 +157,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
   const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
   const isDetailView = viewMode === 'editor' || viewMode === 'viewer';
   const isReadOnlySession =
-    isDetailView && activeSuitcase
-      ? isSessionReadOnly(activeSuitcase, viewMode)
-      : false;
+    isDetailView && activeSuitcase ? isSessionReadOnly(activeSuitcase, viewMode) : false;
   const serverSavedAt =
     activeSuitcase?.updated_at && !Number.isNaN(Date.parse(activeSuitcase.updated_at))
       ? Date.parse(activeSuitcase.updated_at)
@@ -152,7 +169,6 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
   // origine (salvataggio locale o timestamp del server). Negli altri momenti resta l'avanzamento.
   const [showInfo, setShowInfo] = useState(true);
   const savedDisplayTs = lastSavedAt ?? serverSavedAt;
-  const infoPulse = `${activeSuitcase?.id ?? ''}|${savedDisplayTs ?? ''}`;
   const infoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     setShowInfo(true);
@@ -164,7 +180,7 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
         infoTimerRef.current = null;
       }
     };
-  }, [infoPulse]);
+  }, [activeSuitcase?.id, savedDisplayTs]);
 
   const progressAccent = getAscentProgressColor(progressPerc);
   const isViewer = panelViewMode === 'viewer';
@@ -230,7 +246,8 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 min-h-[3.75rem] py-1.5 md:py-0 md:h-24 w-full gap-2 md:gap-4">
         <div className="flex items-center gap-3 md:gap-4 min-w-0 justify-self-start">
           {isDetailView ? (
-            <button 
+            <button
+              type="button"
               onClick={onBackToSelector}
               className="p-2 md:p-2.5 -ml-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-all group"
               title="Torna alla selezione"
@@ -267,7 +284,9 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       <h2
                         onClick={isReadOnlySession ? undefined : onEditTitle}
                         className={`flex-1 min-w-0 text-base font-bold text-slate-50 truncate ${
-                          isReadOnlySession ? '' : 'cursor-pointer hover:text-indigo-400 transition-colors'
+                          isReadOnlySession
+                            ? ''
+                            : 'cursor-pointer hover:text-indigo-400 transition-colors'
                         }`}
                       >
                         {activeSuitcase.title}
@@ -290,13 +309,17 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       {activeSuitcase.created_at && (
                         <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 tabular-nums">
                           <CalendarDays className="w-3 h-3 shrink-0 text-slate-500" aria-hidden />
-                          <span className="truncate">Creata il {formatItalianDateTime(activeSuitcase.created_at)}</span>
+                          <span className="truncate">
+                            Creata il {formatItalianDateTime(activeSuitcase.created_at)}
+                          </span>
                         </span>
                       )}
                       {!isGuest && savedDisplayTs && (
                         <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 tabular-nums">
                           <Save className="w-3 h-3 shrink-0 text-slate-500" aria-hidden />
-                          <span className="truncate">Salvato il {formatItalianDateTime(savedDisplayTs)}</span>
+                          <span className="truncate">
+                            Salvato il {formatItalianDateTime(savedDisplayTs)}
+                          </span>
                         </span>
                       )}
                     </div>
@@ -308,7 +331,10 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       role="status"
                       aria-label={`Avanzamento valigia: ${checkedCount} su ${totalCount}, ${progressPerc} percento`}
                     >
-                      <span className="text-xs font-black tabular-nums leading-none" style={{ color: progressAccent }}>
+                      <span
+                        className="text-xs font-black tabular-nums leading-none"
+                        style={{ color: progressAccent }}
+                      >
                         {progressPerc}%
                       </span>
                       <div className="w-14 shrink-0">
@@ -316,7 +342,9 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       </div>
                       <span className="text-[11px] font-black text-white tabular-nums leading-none">
                         {checkedCount}
-                        <span className="text-slate-400 font-bold mx-0.5" aria-hidden>/</span>
+                        <span className="text-slate-400 font-bold mx-0.5" aria-hidden>
+                          /
+                        </span>
                         {totalCount}
                       </span>
                     </div>
@@ -344,7 +372,9 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                       <h2
                         onClick={isReadOnlySession ? undefined : onEditTitle}
                         className={`text-2xl font-bold text-slate-50 truncate flex items-center gap-2 min-w-0 ${
-                          isReadOnlySession ? '' : 'cursor-pointer hover:text-indigo-400 transition-colors'
+                          isReadOnlySession
+                            ? ''
+                            : 'cursor-pointer hover:text-indigo-400 transition-colors'
                         }`}
                       >
                         {activeSuitcase.title}
@@ -353,19 +383,23 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                         )}
                       </h2>
                     )}
-                    {viewMode === 'editor' && !isReadOnlySession && onSave && onSaveAs && onAutosaveToggle && (
-                      <SaveMenuPopover
-                        isGuest={isGuest}
-                        autosaveEnabled={autosaveEnabled}
-                        canUseAutosave={canUseAutosave}
-                        onSave={onSave}
-                        onSaveAs={onSaveAs}
-                        onAutosaveToggle={onAutosaveToggle}
-                        onGuestAction={onGuestSaveAction}
-                        disabled={savePhase === 'saving'}
-                        className="shrink-0 hidden lg:block"
-                      />
-                    )}
+                    {viewMode === 'editor' &&
+                      !isReadOnlySession &&
+                      onSave &&
+                      onSaveAs &&
+                      onAutosaveToggle && (
+                        <SaveMenuPopover
+                          isGuest={isGuest}
+                          autosaveEnabled={autosaveEnabled}
+                          canUseAutosave={canUseAutosave}
+                          onSave={onSave}
+                          onSaveAs={onSaveAs}
+                          onAutosaveToggle={onAutosaveToggle}
+                          onGuestAction={onGuestSaveAction}
+                          disabled={savePhase === 'saving'}
+                          className="shrink-0 hidden lg:block"
+                        />
+                      )}
                   </div>
                 </div>
 
@@ -393,9 +427,11 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
                 )}
               </div>
             ) : (
-              <h2 className="text-base md:text-2xl font-bold text-white tracking-tight">Le mie Valigie</h2>
+              <h2 className="text-base md:text-2xl font-bold text-white tracking-tight">
+                Le mie Valigie
+              </h2>
             )}
-            
+
             {!isDetailView && (
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] whitespace-nowrap">
@@ -414,55 +450,61 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
           {isDetailView && activeSuitcase && viewMode === 'editor' && !isReadOnlySession && (
             <div className="hidden lg:flex items-center gap-3">
               <div className="flex items-center shrink-0">
-              {isLinkedToItinerary ? (
-                <button
-                  onClick={onUnlink}
-                  className="flex items-center gap-0 md:gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all group shadow-lg shadow-emerald-500/5"
-                  title="Scollega dal diario"
-                  aria-label="Scollega dal diario"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 group-hover:bg-amber-500 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Sincronizzato</span>
-                </button>
-              ) : onLink && isAssociable ? (
-                <button
-                  onClick={onLink}
-                  disabled={!isDiaryAssociable}
-                  className={`flex items-center gap-0 md:gap-2 p-2 md:px-4 md:py-2 rounded-xl border border-white/10 transition-all shadow-lg ${
-                    isDiaryAssociable
-                      ? 'bg-slate-800 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-400 hover:border-indigo-500/20'
-                      : 'bg-slate-800/50 text-slate-600 opacity-50 cursor-not-allowed'
-                  }`}
-                  title={
-                    isDiaryAssociable
-                      ? 'Collega al diario'
-                      : 'Completa date e almeno una tappa nel diario per associare'
-                  }
-                  aria-label={
-                    isDiaryAssociable
-                      ? 'Collega al diario'
-                      : 'Completa date e almeno una tappa nel diario per associare'
-                  }
-                >
-                  <Link2 className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Collega</span>
-                </button>
-              ) : onLink && !isAssociable ? (
-                <div
-                  className="flex items-center gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10"
-                  title="I template non possono essere collegati al diario"
-                >
-                  <Layout className="w-4 h-4 text-slate-500" />
-                  <span className={`${filterSectionLabel10Style} hidden md:inline`}>
-                    Template · Non associabile
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10">
-                  <CloudOff className="w-4 h-4 text-slate-500" />
-                  <span className={`${filterSectionLabel10Style} hidden md:inline`}>Offline</span>
-                </div>
-              )}
+                {isLinkedToItinerary ? (
+                  <button
+                    type="button"
+                    onClick={onUnlink}
+                    className="flex items-center gap-0 md:gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all group shadow-lg shadow-emerald-500/5"
+                    title="Scollega dal diario"
+                    aria-label="Scollega dal diario"
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 group-hover:bg-amber-500 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">
+                      Sincronizzato
+                    </span>
+                  </button>
+                ) : onLink && isAssociable ? (
+                  <button
+                    type="button"
+                    onClick={onLink}
+                    disabled={!isDiaryAssociable}
+                    className={`flex items-center gap-0 md:gap-2 p-2 md:px-4 md:py-2 rounded-xl border border-white/10 transition-all shadow-lg ${
+                      isDiaryAssociable
+                        ? 'bg-slate-800 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-400 hover:border-indigo-500/20'
+                        : 'bg-slate-800/50 text-slate-600 opacity-50 cursor-not-allowed'
+                    }`}
+                    title={
+                      isDiaryAssociable
+                        ? 'Collega al diario'
+                        : 'Completa date e almeno una tappa nel diario per associare'
+                    }
+                    aria-label={
+                      isDiaryAssociable
+                        ? 'Collega al diario'
+                        : 'Completa date e almeno una tappa nel diario per associare'
+                    }
+                  >
+                    <Link2 className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">
+                      Collega
+                    </span>
+                  </button>
+                ) : onLink && !isAssociable ? (
+                  <div
+                    className="flex items-center gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10"
+                    title="I template non possono essere collegati al diario"
+                  >
+                    <Layout className="w-4 h-4 text-slate-500" />
+                    <span className={`${filterSectionLabel10Style} hidden md:inline`}>
+                      Template · Non associabile
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 md:px-4 md:py-2 rounded-xl bg-slate-800/50 border border-white/10">
+                    <CloudOff className="w-4 h-4 text-slate-500" />
+                    <span className={`${filterSectionLabel10Style} hidden md:inline`}>Offline</span>
+                  </div>
+                )}
               </div>
 
               {undoRedoGroup}
@@ -480,88 +522,93 @@ export const SuitcaseHeader: React.FC<SuitcaseHeaderProps> = ({
               )}
 
               {canDeleteResource && (
-              <button
-                onClick={onDelete}
-                className="flex items-center justify-center p-2.5 rounded-xl bg-slate-800/50 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 border border-white/10 hover:border-rose-500/20 transition-all shadow-lg"
-                title="Elimina valigia"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="flex items-center justify-center p-2.5 rounded-xl bg-slate-800/50 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 border border-white/10 hover:border-rose-500/20 transition-all shadow-lg"
+                  title="Elimina valigia"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
               )}
             </div>
           )}
 
           {/* Mobile/Tablet (<lg): due righe accanto alla X →
               riga 1: Undo/Redo · riga 2: Visualizza/Modifica + Azione. */}
-          {isDetailView && activeSuitcase && (viewModeMobileControl || (viewMode === 'editor' && !isReadOnlySession)) && (
-            <div className="flex flex-col items-end gap-1 lg:hidden">
-              {viewMode === 'editor' && !isReadOnlySession && (
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={performUndo}
-                    disabled={!canUndo}
-                    className={MOBILE_ACTION_BTN_CLASS}
-                    title="Annulla (Ctrl+Z)"
-                    aria-label="Annulla"
-                  >
-                    <Undo2 className="w-4 h-4 md:w-5 md:h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={performRedo}
-                    disabled={!canRedo}
-                    className={MOBILE_ACTION_BTN_CLASS}
-                    title="Ripristina (Ctrl+Y)"
-                    aria-label="Ripristina"
-                  >
-                    <Redo2 className="w-4 h-4 md:w-5 md:h-5" />
-                  </button>
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                {viewModeMobileControl}
+          {isDetailView &&
+            activeSuitcase &&
+            (viewModeMobileControl || (viewMode === 'editor' && !isReadOnlySession)) && (
+              <div className="flex flex-col items-end gap-1 lg:hidden">
                 {viewMode === 'editor' && !isReadOnlySession && (
-                  <SuitcaseActionMenu
-                    className="w-9 h-9 inline-flex items-center justify-center"
-                    onRename={onEditTitle}
-                    onSave={onSave}
-                    onSaveAs={onSaveAs}
-                    onAutosaveToggle={onAutosaveToggle}
-                    autosaveEnabled={autosaveEnabled}
-                    canUseAutosave={canUseAutosave}
-                    savePhase={savePhase}
-                    isGuest={isGuest}
-                    onGuestSaveAction={onGuestSaveAction}
-                    onDelete={canDeleteResource ? onDelete : undefined}
-                    isLinkedToItinerary={isLinkedToItinerary}
-                    isAssociable={isAssociable}
-                    isDiaryAssociable={isDiaryAssociable}
-                    onLink={onLink}
-                    onUnlink={onUnlink}
-                    onOpenAiModal={onOpenAiModal}
-                    onOpenBlacklist={onOpenBlacklist}
-                    blacklistCount={blacklistCount}
-                    isSeedingAi={isSeedingAi}
-                    isBlacklistFlashing={isBlacklistFlashing}
-                  />
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={performUndo}
+                      disabled={!canUndo}
+                      className={MOBILE_ACTION_BTN_CLASS}
+                      title="Annulla (Ctrl+Z)"
+                      aria-label="Annulla"
+                    >
+                      <Undo2 className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={performRedo}
+                      disabled={!canRedo}
+                      className={MOBILE_ACTION_BTN_CLASS}
+                      title="Ripristina (Ctrl+Y)"
+                      aria-label="Ripristina"
+                    >
+                      <Redo2 className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
+                  </div>
                 )}
+                <div className="flex items-center gap-1">
+                  {viewModeMobileControl}
+                  {viewMode === 'editor' && !isReadOnlySession && (
+                    <SuitcaseActionMenu
+                      className="w-9 h-9 inline-flex items-center justify-center"
+                      onRename={onEditTitle}
+                      onSave={onSave}
+                      onSaveAs={onSaveAs}
+                      onAutosaveToggle={onAutosaveToggle}
+                      autosaveEnabled={autosaveEnabled}
+                      canUseAutosave={canUseAutosave}
+                      savePhase={savePhase}
+                      isGuest={isGuest}
+                      onGuestSaveAction={onGuestSaveAction}
+                      onDelete={canDeleteResource ? onDelete : undefined}
+                      isLinkedToItinerary={isLinkedToItinerary}
+                      isAssociable={isAssociable}
+                      isDiaryAssociable={isDiaryAssociable}
+                      onLink={onLink}
+                      onUnlink={onUnlink}
+                      onOpenAiModal={onOpenAiModal}
+                      onOpenBlacklist={onOpenBlacklist}
+                      blacklistCount={blacklistCount}
+                      isSeedingAi={isSeedingAi}
+                      isBlacklistFlashing={isBlacklistFlashing}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {saveStatus && !lastSavedAt && (
             <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 mr-2 shadow-lg shadow-emerald-500/5">
-              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{saveStatus}</span>
+              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">
+                {saveStatus}
+              </span>
             </div>
           )}
 
           {/*
-            * Selector view, mobile/tablet (< lg): le azioni di creazione vivono qui accanto
-            * alla X per liberare la riga dei tab della Dashboard. Su desktop restano nella
-            * toolbar della Dashboard, quindi qui sono lg:hidden. Riuso diretto di
-            * DashboardActionGroup (stessi pulsanti, incluso "Crea Valigia Personalizzata").
-            */}
+           * Selector view, mobile/tablet (< lg): le azioni di creazione vivono qui accanto
+           * alla X per liberare la riga dei tab della Dashboard. Su desktop restano nella
+           * toolbar della Dashboard, quindi qui sono lg:hidden. Riuso diretto di
+           * DashboardActionGroup (stessi pulsanti, incluso "Crea Valigia Personalizzata").
+           */}
           {!isDetailView && onCreateSuitcase && onCreateTemplate && (
             <div className="lg:hidden -mr-1 sm:mr-0">
               <DashboardActionGroup

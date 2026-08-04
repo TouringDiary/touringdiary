@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { useDynamicStyles } from '../../../../hooks/useDynamicStyles';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 
 
 interface Option {
@@ -12,7 +13,8 @@ interface Option {
 interface FilterSelectProps {
     label: string;
     value: string;
-    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+    /** Selected option value (custom listbox — not a native <select>). */
+    onChange: (value: string) => void;
     onReset: () => void;
     options: Option[];
     disabled?: boolean;
@@ -22,9 +24,7 @@ export const FilterSelect = ({ label, value, onChange, onReset, options, disable
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     
-    // Stili dinamici per coerenza col design system
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => { setIsMobile(window.innerWidth < 1024); }, []);
+    const isMobile = useMobileDetect();
     const labelStyle = useDynamicStyles('filter_label', isMobile);
 
     useEffect(() => {
@@ -38,9 +38,7 @@ export const FilterSelect = ({ label, value, onChange, onReset, options, disable
     }, []);
 
     const handleSelect = (val: string) => {
-        // Simuliamo un evento change nativo per mantenere compatibilità con la logica padre
-        const syntheticEvent = { target: { value: val } } as React.ChangeEvent<HTMLSelectElement>;
-        onChange(syntheticEvent);
+        onChange(val);
         setIsOpen(false);
     };
 
@@ -66,6 +64,7 @@ export const FilterSelect = ({ label, value, onChange, onReset, options, disable
                         onClick={(e) => { e.stopPropagation(); onReset(); }}
                         className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 p-1 rounded-full hover:bg-slate-800 transition-colors z-home-hero-surface"
                         title={`Resetta ${label}`}
+                        aria-label={`Resetta ${label}`}
                     >
                         <X className="w-3 h-3" />
                     </button>

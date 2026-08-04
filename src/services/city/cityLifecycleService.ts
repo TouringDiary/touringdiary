@@ -2,16 +2,31 @@
 import { supabase } from '../supabaseClient';
 import { AiZoneSuggestion, CityDeleteOptions } from '../../types/index';
 import { DatabaseCityInsert, Json } from '../../types/database';
+import type { Database } from '../../types/supabase';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
 import { ensureZoneExists } from '../zoneService';
 import { orphanCityStaging, reclaimStagingByCityName } from '../stagingService';
 import { resolveCanonicalCityId } from './cityIdService';
+
+/** Generated Update types omit null for nullable FK columns; cast when clearing FK at runtime. */
+const nullCityFkUpdate = <
+    T extends 'shops' | 'city_people' | 'pois' | 'pois_staging',
+>(): Database['public']['Tables'][T]['Update'] =>
+    ({ city_id: null }) as unknown as Database['public']['Tables'][T]['Update'];
 
 export const reclaimOrphanedItems = async (cityId: string, cityName: string) => {
     // 0. RECLAIM STAGING OSM
     await reclaimStagingByCityName(cityName, cityId);
 
     // 1. RECLAIM FOTO (FIX: Aggiorna anche location_name per consistenza filtri)
+    //
+    // ARCHITETTURA — reclaim euristico:
+    // `photo_submissions` orfane hanno `city_id = null`; l'unica colonna di collocazione
+    // disponibile è `location_name` (testo libero). Non esiste un identificatore più
+    // affidabile (slug città, FK tipizzata, ecc.) utilizzabile in questo stato.
+    // Il match `ilike('%{cityName}%')` resta quindi intenzionalmente euristico e può
+    // produrre false positive (es. "Via Roma", "Roma Nord"). Non stringere qui senza
+    // un contratto dati più forte sul lato submissions.
     await supabase
         .from('photo_submissions')
         .update({ 
@@ -21,7 +36,7 @@ export const reclaimOrphanedItems = async (cityId: string, cityName: string) => 
             updated_at: new Date().toISOString() 
         })
         .is('city_id', null)
-        .ilike('location_name', `%${cityName}%`) // Cerca match parziale
+        .ilike('location_name', `%${cityName}%`)
         .select('id');
 
 
@@ -83,7 +98,7 @@ export const deleteCity = async (cityId: string, options: CityDeleteOptions, cit
         }
 
         if (options.keepShops) {
-            await supabase.from('shops').update({ city_id: null }).eq('city_id', cityId);
+            await supabase.from('shops').update(nullCityFkUpdate<'shops'>()).eq('city_id', cityId);
         } else {
             const { data: shops } = await supabase.from('shops').select('id').eq('city_id', cityId);
             if (shops && shops.length > 0) {
@@ -97,7 +112,7 @@ export const deleteCity = async (cityId: string, options: CityDeleteOptions, cit
     // 3. PEOPLE
     try {
         if (options.keepPeople) {
-            await supabase.from('city_people').update({ city_id: null }).eq('city_id', cityId);
+            await supabase.from('city_people').update(nullCityFkUpdate<'city_people'>()).eq('city_id', cityId);
         } else {
             await supabase.from('city_people').delete().eq('city_id', cityId);
         }
@@ -110,7 +125,7 @@ export const deleteCity = async (cityId: string, options: CityDeleteOptions, cit
             const poiIds = pois.map(p => p.id);
 
             if (options.keepPOIs) {
-                await supabase.from('pois').update({ city_id: null }).eq('city_id', cityId); 
+                await supabase.from('pois').update(nullCityFkUpdate<'pois'>()).eq('city_id', cityId); 
             } else {
                 await supabase.from('reviews').delete().in('poi_id', poiIds);
                 await supabase.from('suggestions').delete().in('poi_id', poiIds);

@@ -107,11 +107,11 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
 
     const handleNavClick = (newView: string) => {
         if (editingCityId) setEditingCityId(null);
-        // La Dashboard Generale punta alla root /admin
+        // Realm Admin: replace sulle sezioni così non si accumulano /admin* sotto lo stack consumer.
         if (newView === 'dashboard') {
-            navigate('/admin');
+            navigate('/admin', { replace: true });
         } else {
-            navigate(`/admin/${newView}`);
+            navigate(`/admin/${newView}`, { replace: true });
         }
         setIsMobileMenuOpen(false);
     };

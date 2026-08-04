@@ -15,7 +15,7 @@ import { ProcessLogModal } from './cities/ProcessLogModal';
 export interface AdminPoiManagerProps {
     cityId: string;
     cityName: string;
-    currentUser: User;
+    currentUser?: User;
 }
 
 export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({ cityId, cityName, currentUser }) => {

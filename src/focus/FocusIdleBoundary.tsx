@@ -26,11 +26,11 @@ interface FocusIdleBoundaryProps {
  * Intentionally keyed only on `nextProps.idle` (not prev idle / children identity).
  */
 class IdleGate extends Component<{ idle: boolean; children: ReactNode }> {
-  shouldComponentUpdate(nextProps: { idle: boolean; children: ReactNode }): boolean {
+  override shouldComponentUpdate(nextProps: { idle: boolean; children: ReactNode }): boolean {
     return !nextProps.idle;
   }
 
-  render(): ReactNode {
+  override render(): ReactNode {
     return this.props.children;
   }
 }

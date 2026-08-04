@@ -8,7 +8,8 @@ import { HeroSection } from '@/components/home/HeroSection';
 import { CuratedGridSection } from '@/components/home/CuratedGridSection';
 import { CityCard } from '@/components/city/CityCard';
 import { DraggableSlider, DraggableSliderHandle } from '@/components/common/DraggableSlider';
-import { fetchActiveSponsorsResolvedAsync, convertSponsorToPoi } from '@/services/sponsorService';
+import { fetchActiveSponsorsResolvedAsync } from '@/services/sponsors/sponsorContractsService';
+import { convertSponsorToPoi } from '@/services/sponsors/sponsorResolvers';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import { useItinerary } from '@/context/ItineraryContext';
 import { StarRating } from '@/components/common/StarRating';
@@ -31,10 +32,15 @@ interface HeroSectionProps {
 
 interface HomeContentProps {
     heroProps: HeroSectionProps;
-    featuredCities: CitySummary[];
     mostVisitedCities: CitySummary[];
+    /** HomeShelf ordinato (vetrina). DOC-38 §S.4 */
     allMostVisitedCities?: CitySummary[];
-    destinationCities: CitySummary[];
+    /**
+     * CatalogRest per ricerca/filtri Hero (progressivo).
+     * Vuoto al first paint; si popola quando il manifest è pronto.
+     * Query server dedicata (PO-BOOT-06) resta follow-up senza cambiare UX corrente.
+     */
+    catalogForSearch?: CitySummary[];
     onCityClick: (id: string) => void;
     onExploreSection: (cities: CitySummary[], title: string, icon: React.ReactNode, categories?: any[]) => void;
     onAddToItinerary: (poi: PointOfInterest) => void;
@@ -88,8 +94,8 @@ const SectionHeaderWithAction = ({ title, icon, color, onExplore, onScrollLeft, 
                 <div className="flex items-center gap-3">
                     {(onScrollLeft && onScrollRight) && (
                         <div className="flex bg-slate-900 rounded-lg border border-slate-800">
-                            <button onClick={onScrollLeft} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4" /></button>
-                            <button onClick={onScrollRight} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
+                            <button type="button" onClick={onScrollLeft} aria-label="Scorri a sinistra" className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4" /></button>
+                            <button type="button" onClick={onScrollRight} aria-label="Scorri a destra" className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
                         </div>
                     )}
                     <ExploreButton onClick={onExplore} />
@@ -156,7 +162,8 @@ const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = 
             </div>
 
             <div className="absolute bottom-2 right-2 z-home-card-overlay flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
-                <div
+                <button
+                    type="button"
                     className="hidden lg:flex p-1.5 rounded-lg bg-black/50 hover:bg-indigo-600 text-slate-300 hover:text-white backdrop-blur-sm cursor-grab active:cursor-grabbing border border-white/10 transition-all shadow-lg"
                     draggable="true"
                     onDragStart={(e) => {
@@ -165,9 +172,10 @@ const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = 
                         e.dataTransfer.effectAllowed = 'copy';
                     }}
                     title="Trascina nel diario"
+                    aria-label="Trascina nel Diario"
                 >
-                    <GripHorizontal className="w-3.5 h-3.5" />
-                </div>
+                    <GripHorizontal className="w-3.5 h-3.5" aria-hidden />
+                </button>
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -176,6 +184,7 @@ const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = 
                     }}
                     className={`rounded-lg text-white shadow-lg border transition-colors cursor-pointer pointer-events-auto flex items-center justify-center w-9 h-9 ${inItinerary ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500' : 'bg-amber-600 hover:bg-amber-500 border-amber-500'}`}
                     title={inItinerary ? "Aggiunto" : "Aggiungi al diario"}
+                    aria-label={inItinerary ? 'Aggiunto al diario' : 'Aggiungi al diario'}
                 >
                     {inItinerary ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 </button>
@@ -184,7 +193,17 @@ const HomeSideSponsorCard = ({ poi, onOpenDetail, onAddToItinerary, className = 
     );
 };
 
-export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allMostVisitedCities, destinationCities, onCityClick, onExploreSection, onAddToItinerary, onOpenPoiDetail, onOpenSponsor }: HomeContentProps) => {
+export const HomeContent = ({
+    heroProps,
+    mostVisitedCities,
+    allMostVisitedCities,
+    catalogForSearch = [],
+    onCityClick,
+    onExploreSection,
+    onAddToItinerary,
+    onOpenPoiDetail,
+    onOpenSponsor,
+}: HomeContentProps) => {
 
     useDocumentTitle('Scopri la Campania');
 
@@ -256,7 +275,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
             const allCities = allMostVisitedCities || mostVisitedCities || [];
             const ids = allCities.map(c => c.id);
 
-            const { getSeasonalRanking } = await import('@/services/cityService');
+            const { getSeasonalRanking } = await import('@/services/city/cityReadService');
             const ranking = await getSeasonalRanking(ids, heroProps.selectedSeason);
             setSeasonalRanking(ranking);
         };
@@ -330,7 +349,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
             };
         });
 
-    }, [dynamicAllCities]);
+    }, [dynamicAllCities, seasonalRanking]);
 
     const sponsorsToDisplay = useMemo(() => {
         if (goldSponsors.length === 0) return [];
@@ -371,7 +390,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                         setSelectedZone={heroProps.setSelectedZone}
                         selectedSeason={heroProps.selectedSeason}
                         setSelectedSeason={heroProps.setSelectedSeason}
-                        cityManifest={allMostVisitedCities || mostVisitedCities || []}
+                        cityManifest={catalogForSearch}
                         onFilteredCitiesChange={setHeroFilteredCities}
                     />
                 </div>
@@ -392,8 +411,8 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                                     </div>
                                     <div className="flex gap-2">
                                         <div className="flex bg-slate-900 rounded-lg border border-slate-800">
-                                            <button onClick={() => featuredRef.current?.scroll('left')} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4" /></button>
-                                            <button onClick={() => featuredRef.current?.scroll('right')} className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
+                                            <button type="button" onClick={() => featuredRef.current?.scroll('left')} aria-label="Scorri In Evidenza a sinistra" className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors border-r border-slate-800 rounded-l-lg"><ChevronLeft className="w-4 h-4" /></button>
+                                            <button type="button" onClick={() => featuredRef.current?.scroll('right')} aria-label="Scorri In Evidenza a destra" className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-white transition-colors rounded-r-lg"><ChevronRight className="w-4 h-4" /></button>
                                         </div>
                                         <ExploreButton
                                             onClick={() => onExploreSection(dynamicAllCities, "Ispirazioni di Viaggio", <Grid className="w-5 h-5 text-indigo-500" />, ISPIRAZIONI_CATEGORIES)}
@@ -416,7 +435,7 @@ export const HomeContent = ({ heroProps, featuredCities, mostVisitedCities, allM
                                                         onClick={onCityClick}
                                                         userLocation={userLocation}
                                                         forcedBadge={slot.config.id}
-                                                        priority={idx < 2}
+                                                        priority={false}
                                                     />
                                                 </div>
                                             );

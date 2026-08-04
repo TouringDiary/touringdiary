@@ -1,6 +1,5 @@
 import React from 'react';
 import { UserProvider } from './UserContext';
-import { BusinessProvider } from './BusinessContext';
 import { UIProvider } from './UIContext';
 import { ModalProvider } from './ModalContext';
 import { ItineraryProvider } from './ItineraryContext';
@@ -22,40 +21,41 @@ interface AppProvidersProps {
 /**
  * AppProviders
  * Componente "Wrapper" unico che gestisce tutta la logica di stato globale.
- * 
+ *
  * ORDINE DI INIEZIONE (CRITICO):
  * UserProvider deve essere il wrapper più esterno.
- * PlatformControlProvider subito sotto UserProvider (useFeatureFlag in BusinessProvider/useAppRouter).
+ * PlatformControlProvider subito sotto UserProvider (useFeatureFlag / useAppRouter).
  * GlobalErrorBoundary sotto ConfigProvider (DeleteConfirmationModal richiede useConfig).
+ *
+ * BusinessProvider: NON globale — montato solo con UserDashboard
+ * (`src/components/user/UserDashboard.tsx`). Consumer: UserDashboard / UserSidebar / useUserDashboardData.
  */
 export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
     return (
         <UserProvider>
             <PlatformControlProvider>
-                <BusinessProvider>
-                    <ConfigProvider>
-                        <GlobalErrorBoundary variant="application">
-                            <UIProvider>
-                                <AiPlannerProvider>
-                                    <ModalProvider>
-                                        <GpsProvider>
-                                            <NavigationProvider>
-                                                <InteractionProvider>
-                                                    <ItineraryProvider>
-                                                        <DiaryInteractionProvider>
-                                                            <AppCoordinator />
-                                                            {children}
-                                                        </DiaryInteractionProvider>
-                                                    </ItineraryProvider>
-                                                </InteractionProvider>
-                                            </NavigationProvider>
-                                        </GpsProvider>
-                                    </ModalProvider>
-                                </AiPlannerProvider>
-                            </UIProvider>
-                        </GlobalErrorBoundary>
-                    </ConfigProvider>
-                </BusinessProvider>
+                <ConfigProvider>
+                    <GlobalErrorBoundary variant="application">
+                        <UIProvider>
+                            <AiPlannerProvider>
+                                <ModalProvider>
+                                    <GpsProvider>
+                                        <NavigationProvider>
+                                            <InteractionProvider>
+                                                <ItineraryProvider>
+                                                    <DiaryInteractionProvider>
+                                                        <AppCoordinator />
+                                                        {children}
+                                                    </DiaryInteractionProvider>
+                                                </ItineraryProvider>
+                                            </InteractionProvider>
+                                        </NavigationProvider>
+                                    </GpsProvider>
+                                </ModalProvider>
+                            </AiPlannerProvider>
+                        </UIProvider>
+                    </GlobalErrorBoundary>
+                </ConfigProvider>
             </PlatformControlProvider>
         </UserProvider>
     );

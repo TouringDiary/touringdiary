@@ -83,7 +83,7 @@ export const CoreModals = ({
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600"></div>
-                        <button onClick={closeModal} className="absolute top-4 right-4 text-slate-500 hover:text-white p-2"><X className="w-5 h-5"/></button>
+                        <button type="button" onClick={closeModal} aria-label="Chiudi" className="absolute top-4 right-4 text-slate-500 hover:text-white p-2"><X className="w-5 h-5"/></button>
                         <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
                             <Trophy className="w-10 h-10 text-emerald-500 animate-bounce"/>
                         </div>

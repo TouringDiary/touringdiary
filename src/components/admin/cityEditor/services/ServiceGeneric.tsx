@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, MinusCircle, Save, Loader2, Eye } from 'lucide-react';
 import { useCityEditor } from '@/context/CityEditorContext';
+import type { CityService } from '@/types';
 import { getCityServices, saveCityService, deleteCityService } from '../../../../services/cityService';
 import { getServicesConfig, SERVICE_TYPE_MAPPING, getBoxIdForType } from '../../../../constants/services';
 import { getSafeServiceType } from '../../../../utils/common';
@@ -45,7 +46,8 @@ export const ServiceGeneric = () => {
 
     // CRUD Operations
     const handleAddService = async (boxId: string) => {
-        const defaultType = SERVICE_TYPE_MAPPING[boxId]?.types[0]?.val || 'other';
+        // SERVICE_TYPE_MAPPING espone `val: string`; il dominio richiede CityService['type'].
+        const defaultType = (SERVICE_TYPE_MAPPING[boxId]?.types[0]?.val || 'other') as CityService['type'];
         const temp = { name: 'Nuovo Servizio', type: defaultType, contact: '', category: 'Utilità', description: '', url: '', address: '', orderIndex: servicesList.length + 1 };
         await saveCityService(city!.id, temp);
         loadData();
