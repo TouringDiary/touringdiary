@@ -1,17 +1,16 @@
 import type {
-  FriendConnection,
   FriendRequest,
   FriendRequestStatus,
   FriendRequestWithProfile,
   FriendWithProfile,
 } from '@/domain/collaboration/friendship';
 import { supabase } from '@/services/supabaseClient';
-import { areUsersBlocked } from './userBlockService';
-import { searchUsersForCollaborationInvite } from './collaborationUserSearchService';
 import {
   notifyFriendRequestAccepted,
   notifyFriendRequestReceived,
 } from './collaborationNotificationService';
+import { searchUsersForCollaborationInvite } from './collaborationUserSearchService';
+import { areUsersBlocked } from './userBlockService';
 
 interface FriendRequestRow {
   id: string;
@@ -58,7 +57,7 @@ async function loadProfiles(userIds: string[]): Promise<Map<string, ProfileSnipp
 
 export async function sendFriendRequest(
   requesterId: string,
-  addresseeId: string
+  addresseeId: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (requesterId === addresseeId) {
     return { success: false, error: 'Non puoi inviare una richiesta a te stesso.' };
@@ -86,7 +85,7 @@ export async function sendFriendRequest(
       status: 'pending',
       responded_at: null,
     },
-    { onConflict: 'requester_id,addressee_id' }
+    { onConflict: 'requester_id,addressee_id' },
   );
 
   if (error) {
@@ -108,7 +107,7 @@ export async function sendFriendRequest(
     void notifyFriendRequestReceived(addresseeId, requesterName, requestRow.id).catch(
       (notificationError) => {
         console.error('[friendService] notifyFriendRequestReceived:', notificationError);
-      }
+      },
     );
   }
 
@@ -121,7 +120,7 @@ async function insertFriendPair(userA: string, userB: string): Promise<boolean> 
       { user_id: userA, friend_id: userB },
       { user_id: userB, friend_id: userA },
     ],
-    { onConflict: 'user_id,friend_id', ignoreDuplicates: true }
+    { onConflict: 'user_id,friend_id', ignoreDuplicates: true },
   );
 
   if (error) {
@@ -134,7 +133,7 @@ async function insertFriendPair(userA: string, userB: string): Promise<boolean> 
 
 export async function acceptFriendRequest(
   addresseeId: string,
-  requestId: string
+  requestId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { data, error } = await supabase
     .from('user_friend_requests')
@@ -154,7 +153,7 @@ export async function acceptFriendRequest(
 
   const pairInserted = await insertFriendPair(data.requester_id, data.addressee_id);
   if (!pairInserted) {
-    return { success: false, error: 'Impossibile registrare l\'amicizia.' };
+    return { success: false, error: "Impossibile registrare l'amicizia." };
   }
 
   const addresseeProfiles = await loadProfiles([addresseeId]);
@@ -168,7 +167,7 @@ export async function acceptFriendRequest(
 
 export async function rejectFriendRequest(
   addresseeId: string,
-  requestId: string
+  requestId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { error } = await supabase
     .from('user_friend_requests')
@@ -189,7 +188,7 @@ export async function rejectFriendRequest(
 
 export async function removeFriend(
   userId: string,
-  friendId: string
+  friendId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { error: a } = await supabase
     .from('user_friends')
@@ -203,7 +202,7 @@ export async function removeFriend(
     .eq('friend_id', userId);
 
   if (a || b) {
-    return { success: false, error: 'Impossibile rimuovere l\'amicizia.' };
+    return { success: false, error: "Impossibile rimuovere l'amicizia." };
   }
 
   return { success: true };
@@ -238,7 +237,9 @@ export async function listFriends(userId: string): Promise<FriendWithProfile[]> 
   });
 }
 
-export async function listIncomingFriendRequests(userId: string): Promise<FriendRequestWithProfile[]> {
+export async function listIncomingFriendRequests(
+  userId: string,
+): Promise<FriendRequestWithProfile[]> {
   const { data, error } = await supabase
     .from('user_friend_requests')
     .select('*')
@@ -271,7 +272,9 @@ export async function listIncomingFriendRequests(userId: string): Promise<Friend
   });
 }
 
-export async function listOutgoingFriendRequests(userId: string): Promise<FriendRequestWithProfile[]> {
+export async function listOutgoingFriendRequests(
+  userId: string,
+): Promise<FriendRequestWithProfile[]> {
   const { data, error } = await supabase
     .from('user_friend_requests')
     .select('*')
@@ -306,7 +309,7 @@ export async function listOutgoingFriendRequests(userId: string): Promise<Friend
 
 export async function searchUsersForFriendRequest(
   actorId: string,
-  query: string
+  query: string,
 ): Promise<Awaited<ReturnType<typeof searchUsersForCollaborationInvite>>> {
   return searchUsersForCollaborationInvite(actorId, query);
 }

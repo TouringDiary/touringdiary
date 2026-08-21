@@ -1,4 +1,4 @@
-import { Itinerary, ItineraryItem } from '@/types';
+import type { Itinerary, ItineraryItem } from '@/types';
 
 /** Tappa reale: esclude risorse footer e memo. */
 export const isRealItineraryStop = (item: ItineraryItem): boolean =>
@@ -9,7 +9,7 @@ export const isRealItineraryStop = (item: ItineraryItem): boolean =>
  * Non dipende da persistenza, itineraryId, nome o autenticazione.
  */
 export const isDiaryAssociable = (
-  diary: Pick<Itinerary, 'startDate' | 'endDate' | 'items'> | null | undefined
+  diary: Pick<Itinerary, 'startDate' | 'endDate' | 'items'> | null | undefined,
 ): boolean => {
   if (!diary) return false;
 

@@ -1,5 +1,5 @@
-import React from 'react';
 import { FolderKanban } from 'lucide-react';
+import type React from 'react';
 import type { WorkspaceActiveRole } from './globalWorkspacePresentation';
 
 interface Props {

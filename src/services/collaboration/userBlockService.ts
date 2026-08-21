@@ -30,20 +30,28 @@ export async function areUsersBlocked(userA: string, userB: string): Promise<boo
  */
 export async function getMutuallyBlockedUserIds(
   userId: string,
-  candidateIds: string[]
+  candidateIds: string[],
 ): Promise<Set<string>> {
   const ids = [...new Set(candidateIds.filter((id) => id !== userId))];
   if (ids.length === 0) return new Set();
 
   const [outgoing, incoming] = await Promise.all([
-    supabase.from('user_blocks').select('blocked_id').eq('blocker_id', userId).in('blocked_id', ids),
-    supabase.from('user_blocks').select('blocker_id').eq('blocked_id', userId).in('blocker_id', ids),
+    supabase
+      .from('user_blocks')
+      .select('blocked_id')
+      .eq('blocker_id', userId)
+      .in('blocked_id', ids),
+    supabase
+      .from('user_blocks')
+      .select('blocker_id')
+      .eq('blocked_id', userId)
+      .in('blocker_id', ids),
   ]);
 
   if (outgoing.error || incoming.error) {
     console.error(
       '[userBlockService] getMutuallyBlockedUserIds:',
-      outgoing.error?.message ?? incoming.error?.message
+      outgoing.error?.message ?? incoming.error?.message,
     );
     return new Set(ids);
   }
@@ -56,7 +64,7 @@ export async function getMutuallyBlockedUserIds(
 
 export async function blockUser(
   blockerId: string,
-  blockedId: string
+  blockedId: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (blockerId === blockedId) {
     return { success: false, error: 'Non puoi bloccare te stesso.' };
@@ -72,7 +80,7 @@ export async function blockUser(
       return { success: true };
     }
     console.error('[userBlockService] blockUser:', error.message);
-    return { success: false, error: 'Impossibile bloccare l\'utente.' };
+    return { success: false, error: "Impossibile bloccare l'utente." };
   }
 
   return { success: true };
@@ -80,7 +88,7 @@ export async function blockUser(
 
 export async function unblockUser(
   blockerId: string,
-  blockedId: string
+  blockedId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { data, error } = await supabase
     .from('user_blocks')
@@ -91,7 +99,7 @@ export async function unblockUser(
 
   if (error) {
     console.error('[userBlockService] unblockUser:', error.message);
-    return { success: false, error: 'Impossibile sbloccare l\'utente.' };
+    return { success: false, error: "Impossibile sbloccare l'utente." };
   }
   if (!data?.length) {
     return { success: false, error: 'Blocco non trovato.' };

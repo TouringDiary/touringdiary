@@ -1,11 +1,11 @@
-import { supabase } from '../supabaseClient';
-import type { Database } from '@/types/supabase';
 import type {
   ViaggioAttachment,
   ViaggioAttachmentCategory,
 } from '@/types/models/ViaggioAttachment';
 import { VIAGGIO_ATTACHMENT_CATEGORIES } from '@/types/models/ViaggioAttachment';
+import type { Database } from '@/types/supabase';
 import { validateWorkspaceAttachmentFile } from '@/utils/fileValidation';
+import { supabase } from '../supabaseClient';
 
 const VIAGGIO_ATTACHMENTS_BUCKET = 'viaggio-attachments';
 
@@ -62,7 +62,7 @@ export async function uploadViaggioAttachment(params: {
     throw new Error(validation.error);
   }
 
-  const safeName = params.file.name.replace(/[^\w.\-]+/g, '_');
+  const safeName = params.file.name.replace(/[^\w.-]+/g, '_');
   const storagePath = `${params.userId}/${params.viaggioId}/${crypto.randomUUID()}_${safeName}`;
 
   const { error: uploadError } = await supabase.storage
@@ -105,7 +105,9 @@ export async function deleteViaggioAttachment(attachment: ViaggioAttachment): Pr
   await supabase.storage.from(VIAGGIO_ATTACHMENTS_BUCKET).remove([attachment.storagePath]);
 }
 
-export async function createSignedViaggioAttachmentUrl(storagePath: string): Promise<string | null> {
+export async function createSignedViaggioAttachmentUrl(
+  storagePath: string,
+): Promise<string | null> {
   const { data, error } = await supabase.storage
     .from(VIAGGIO_ATTACHMENTS_BUCKET)
     .createSignedUrl(storagePath, 60 * 60);

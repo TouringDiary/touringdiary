@@ -1,8 +1,9 @@
-import React, { useRef } from 'react';
 import { ChevronRight } from 'lucide-react';
+import type React from 'react';
+import { useRef } from 'react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
-import { ItemCategoryIcon } from './SuitcaseUtils';
 import { CategoryIconPicker } from './CategoryIconPicker';
+import { ItemCategoryIcon } from './SuitcaseUtils';
 
 interface NewCategoryPanelProps {
   newCatName: string;
@@ -33,13 +34,23 @@ export const NewCategoryPanel: React.FC<NewCategoryPanelProps> = ({
     <div className="bg-slate-900/60 rounded-3xl border border-indigo-500/30 p-8 flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in-95 duration-300 shadow-2xl shadow-indigo-500/10">
       <div className="max-w-[400px] w-full space-y-6">
         <div className="text-center">
-          <h5 className="text-[11px] uppercase font-black text-indigo-400 tracking-widest mb-1">Nuova Categoria</h5>
-          <p className="text-[10px] text-slate-500">Organizza i tuoi oggetti in una nuova sezione dedicata</p>
+          <h5 className="text-[11px] uppercase font-black text-indigo-400 tracking-widest mb-1">
+            Nuova Categoria
+          </h5>
+          <p className="text-[10px] text-slate-500">
+            Organizza i tuoi oggetti in una nuova sezione dedicata
+          </p>
         </div>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Nome Sezione</label>
+            <label
+              htmlFor="fld-diary-packing-list-suitcase-newcategorypanel-tsx-l46"
+              className="text-[10px] font-black text-slate-600 uppercase tracking-wider"
+            >
+              Nome Sezione
+            </label>
             <input
+              id="fld-diary-packing-list-suitcase-newcategorypanel-tsx-l46"
               autoFocus
               value={newCatName}
               onChange={(e) => onNameChange(e.target.value)}
@@ -49,8 +60,11 @@ export const NewCategoryPanel: React.FC<NewCategoryPanelProps> = ({
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Icona Sezione</label>
+            <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
+              Icona Sezione
+            </label>
             <button
+              type="button"
               ref={iconTriggerRef}
               onClick={(e) => {
                 e.stopPropagation();
@@ -64,7 +78,9 @@ export const NewCategoryPanel: React.FC<NewCategoryPanelProps> = ({
                 </div>
                 <span className="text-xs font-bold text-slate-300 tracking-wide">{newCatIcon}</span>
               </div>
-              <ChevronRight className={`w-4 h-4 text-slate-600 transition-transform ${showIconPicker ? 'rotate-90' : ''}`} />
+              <ChevronRight
+                className={`w-4 h-4 text-slate-600 transition-transform ${showIconPicker ? 'rotate-90' : ''}`}
+              />
             </button>
 
             <AnchoredPopover
@@ -81,12 +97,14 @@ export const NewCategoryPanel: React.FC<NewCategoryPanelProps> = ({
 
         <div className="flex items-center gap-3 pt-4">
           <button
+            type="button"
             onClick={onCancel}
             className="flex-1 py-4 rounded-xl bg-slate-800 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-colors"
           >
             Annulla
           </button>
           <button
+            type="button"
             onClick={onSave}
             className="flex-[2] py-4 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 shadow-xl shadow-indigo-500/20 transition-all active:scale-95"
           >

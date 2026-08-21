@@ -1,7 +1,6 @@
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { CityDetails } from '../types/index';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCityDetails } from '../services/city/cityReadService';
+import type { CityDetails } from '../types/index';
 
 export const useCityData = (cityId: string | null) => {
   const [city, setCity] = useState<CityDetails | null>(null);
@@ -35,9 +34,9 @@ export const useCityData = (cityId: string | null) => {
       if (!data) {
         setError('Dati città non disponibili.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Ignora silenziosamente gli errori di cancellazione (AbortError)
-      if (err.name === 'AbortError') {
+      if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
       console.error(err);

@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
 import { Bell, BellOff, ChevronDown, Loader2 } from 'lucide-react';
+import type React from 'react';
+import { useMemo, useState } from 'react';
+import { showGlobalAlert } from '@/services/ui/toastService';
 import { updateViaggio } from '@/services/viaggio/viaggioService';
 import type { Viaggio } from '@/types/models/Viaggio';
 import {
@@ -8,7 +10,6 @@ import {
   RICORDAMI_MAX_INTERVAL_MONTHS,
   withViaggioRicordamiConfig,
 } from '@/types/models/Viaggio';
-import { showGlobalAlert } from '@/services/ui/toastService';
 import { RicordamiConfigModal } from './RicordamiConfigModal';
 
 interface Props {
@@ -81,12 +82,11 @@ export const ViaggioRicordamiControl: React.FC<Props> = ({
     });
   };
 
-  const title =
-    suspended
-      ? 'Le notifiche del sito sono temporaneamente disabilitate dall’amministrazione.'
-      : lockedOff
-        ? 'Notifiche sito disabilitate: non puoi attivare Ricordami.'
-        : 'Ricordami questo viaggio';
+  const title = suspended
+    ? 'Le notifiche del sito sono temporaneamente disabilitate dall’amministrazione.'
+    : lockedOff
+      ? 'Notifiche sito disabilitate: non puoi attivare Ricordami.'
+      : 'Ricordami questo viaggio';
 
   const pad2 = (n: number) => String(n).padStart(2, '0');
   const formatCustomDate = (customDateIso: string | null): string => {
@@ -125,8 +125,7 @@ export const ViaggioRicordamiControl: React.FC<Props> = ({
     : viaggio.ricordamiEnabled
       ? 'border-emerald-500/30 bg-emerald-950/10'
       : 'border-slate-700/80 bg-slate-950/85';
-  const selectValue =
-    ricordamiConfig.mode === 'interval' ? String(intervalMonths) : 'custom';
+  const selectValue = ricordamiConfig.mode === 'interval' ? String(intervalMonths) : 'custom';
 
   return (
     <div
@@ -135,11 +134,7 @@ export const ViaggioRicordamiControl: React.FC<Props> = ({
       title={title}
       onClick={(e) => e.stopPropagation()}
     >
-      <div
-        className={`flex items-center ${
-          compact ? 'gap-2 px-2 py-1.5' : 'gap-3 px-3 py-2'
-        }`}
-      >
+      <div className={`flex items-center ${compact ? 'gap-2 px-2 py-1.5' : 'gap-3 px-3 py-2'}`}>
         <div
           role="switch"
           aria-checked={viaggio.ricordamiEnabled}
@@ -253,15 +248,15 @@ export const ViaggioRicordamiControl: React.FC<Props> = ({
       )}
       {!compact && viaggio.ricordamiEnabled && !suspended && (
         <p className="px-3 pb-2 text-[9px] text-slate-500 leading-snug max-w-[16rem]">
-          {ricordamiConfig.mode === 'interval' ? (
-            `Ti ricorderemo di rivivere questo viaggio ogni ${intervalMonths} ${
-              intervalMonths === 1 ? 'mese' : 'mesi'
-            }.`
-          ) : ricordamiConfig.mode === 'custom_date' ? (
-            customDateValue ? `Promemoria previsto per il ${customDateValue}.` : 'Scegli una data.'
-          ) : (
-            `Ogni anno il ${pad2(ricordamiConfig.yearlyDay)} / ${pad2(ricordamiConfig.yearlyMonth)}.`
-          )}
+          {ricordamiConfig.mode === 'interval'
+            ? `Ti ricorderemo di rivivere questo viaggio ogni ${intervalMonths} ${
+                intervalMonths === 1 ? 'mese' : 'mesi'
+              }.`
+            : ricordamiConfig.mode === 'custom_date'
+              ? customDateValue
+                ? `Promemoria previsto per il ${customDateValue}.`
+                : 'Scegli una data.'
+              : `Ogni anno il ${pad2(ricordamiConfig.yearlyDay)} / ${pad2(ricordamiConfig.yearlyMonth)}.`}
         </p>
       )}
 

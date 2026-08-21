@@ -1,5 +1,5 @@
-import { supabase } from '@/services/supabaseClient';
 import { isSharingMode } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
 
 /**
  * ID Diari in modalità Collaborativa accessibili come membro (non proprietario).
@@ -12,7 +12,10 @@ export async function fetchCollaborativeDiaryIdsForMember(userId: string): Promi
     .eq('user_id', userId);
 
   if (error) {
-    console.error('[diaryCollaborationService] fetchCollaborativeDiaryIdsForMember:', error.message);
+    console.error(
+      '[diaryCollaborationService] fetchCollaborativeDiaryIdsForMember:',
+      error.message,
+    );
     return [];
   }
 

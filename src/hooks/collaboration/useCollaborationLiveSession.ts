@@ -1,31 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useConfig } from '@/context/ConfigContext';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import type {
   CollaborationLiveSessionState,
   CollaborationPresencePeer,
 } from '@/domain/collaboration/collaborationLive';
 import { buildCollaborationResourceChannelName } from '@/domain/collaboration/collaborationLive';
-import { useConfig } from '@/context/ConfigContext';
-import { SETTINGS_KEYS } from '@/services/settingsService';
-import { getShareableResource } from '@/services/collaboration/sharedResourceService';
+import {
+  collaborationLockHeartbeatMs,
+  collaborationLockTimeoutMs,
+  resolveCollaborationLiveConfig,
+} from '@/services/collaboration/collaborationLiveConfig';
+import {
+  buildCollaborationEditingStatusMessage,
+  buildCollaborationLockBlockedMessage,
+} from '@/services/collaboration/collaborationLivePresentation';
 import {
   getSharedResourceEditLockState,
   refreshSharedResourceEditLock,
   releaseSharedResourceEditLock,
   tryAcquireSharedResourceEditLock,
 } from '@/services/collaboration/sharedResourceLockService';
-import { fetchCollaborationUserProfiles } from '@/services/collaboration/workspaceResourcePresentation';
-import {
-  buildCollaborationEditingStatusMessage,
-  buildCollaborationLockBlockedMessage,
-} from '@/services/collaboration/collaborationLivePresentation';
-import {
-  collaborationLockHeartbeatMs,
-  collaborationLockTimeoutMs,
-  resolveCollaborationLiveConfig,
-} from '@/services/collaboration/collaborationLiveConfig';
+import { getShareableResource } from '@/services/collaboration/sharedResourceService';
 import { resolveWorkspaceEngineConfig } from '@/services/collaboration/workspaceEngineConfigService';
+import { fetchCollaborationUserProfiles } from '@/services/collaboration/workspaceResourcePresentation';
+import { SETTINGS_KEYS } from '@/services/settingsService';
 import { supabase } from '@/services/supabaseClient';
 
 export interface UseCollaborationLiveSessionOptions {
@@ -65,7 +65,7 @@ function detach(promise: Promise<unknown>, scope: string): void {
 }
 
 export function useCollaborationLiveSession(
-  options: UseCollaborationLiveSessionOptions
+  options: UseCollaborationLiveSessionOptions,
 ): CollaborationLiveSessionState & {
   notifyLocalActivity: () => void;
   retryAcquireLock: () => Promise<boolean>;
@@ -86,11 +86,13 @@ export function useCollaborationLiveSession(
   const { configs } = useConfig();
   const liveConfig = useMemo(
     () => resolveCollaborationLiveConfig(configs[SETTINGS_KEYS.COLLABORATION_LIVE_CONFIG]),
-    [configs]
+    [configs],
   );
   const livePresenceEnabled = useMemo(
-    () => resolveWorkspaceEngineConfig(configs[SETTINGS_KEYS.WORKSPACE_ENGINE_CONFIG]).livePresenceEnabled,
-    [configs]
+    () =>
+      resolveWorkspaceEngineConfig(configs[SETTINGS_KEYS.WORKSPACE_ENGINE_CONFIG])
+        .livePresenceEnabled,
+    [configs],
   );
 
   const [sharedResourceId, setSharedResourceId] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export function useCollaborationLiveSession(
       setLockLockedAt(lockedAt);
       setHoldsLock(!!userId && lockedBy === userId);
     },
-    [userId]
+    [userId],
   );
 
   const loadLockState = useCallback(async () => {
@@ -271,7 +273,7 @@ export function useCollaborationLiveSession(
               onExitEditModeRef.current?.();
             }
           })(),
-          'lockInactivityTimeout'
+          'lockInactivityTimeout',
         );
         return;
       }
@@ -339,7 +341,7 @@ export function useCollaborationLiveSession(
             edit_locked_at?: string | null;
           };
           applyLockState(next.edit_locked_by ?? null, next.edit_locked_at ?? null);
-        }
+        },
       )
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<{
@@ -375,7 +377,7 @@ export function useCollaborationLiveSession(
           if (row.last_modified_by && row.last_modified_by !== userId && !holdsLockRef.current) {
             detach(Promise.resolve(onRemoteContentRefreshRef.current?.()), 'remoteDiaryRefresh');
           }
-        }
+        },
       );
     }
 
@@ -398,7 +400,7 @@ export function useCollaborationLiveSession(
           (payload) => {
             const row = payload.new as { last_modified_by?: string | null };
             refreshIfRemote(row.last_modified_by);
-          }
+          },
         )
         .on(
           'postgres_changes',
@@ -410,9 +412,12 @@ export function useCollaborationLiveSession(
           },
           () => {
             if (!holdsLockRef.current) {
-              detach(Promise.resolve(onRemoteContentRefreshRef.current?.()), 'remoteSuitcaseItemsRefresh');
+              detach(
+                Promise.resolve(onRemoteContentRefreshRef.current?.()),
+                'remoteSuitcaseItemsRefresh',
+              );
             }
-          }
+          },
         );
     }
 
@@ -493,7 +498,7 @@ export function useCollaborationLiveSession(
         }
         setProfileNames(names);
       }),
-      'fetchCollaborationUserProfiles'
+      'fetchCollaborationUserProfiles',
     );
 
     return () => {
@@ -501,7 +506,7 @@ export function useCollaborationLiveSession(
     };
   }, [presenceUserIdsKey]);
 
-  const lockHolderName = lockHolderId ? profileNames[lockHolderId] ?? 'Un collaboratore' : null;
+  const lockHolderName = lockHolderId ? (profileNames[lockHolderId] ?? 'Un collaboratore') : null;
   const isLockedByOther = !!lockHolderId && lockHolderId !== userId;
 
   const editingStatusMessage = useMemo(() => {
@@ -521,7 +526,7 @@ export function useCollaborationLiveSession(
         ...peer,
         displayName: profileNames[peer.userId] ?? peer.displayName,
       })),
-    [presencePeers, profileNames]
+    [presencePeers, profileNames],
   );
 
   if (!isCollaborativeSession) {

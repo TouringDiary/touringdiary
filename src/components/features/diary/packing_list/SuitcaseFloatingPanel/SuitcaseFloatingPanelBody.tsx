@@ -1,29 +1,32 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { SuitcaseItem } from '@/types/suitcase';
-import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
-import { SuitcaseHeader } from '../suitcase/SuitcaseHeader';
-import { SuitcaseDashboard } from '../suitcase/SuitcaseDashboard';
-import { SuitcaseEditorView } from '../suitcase/SuitcaseEditorView';
-import { SuitcaseModals } from './components/SuitcaseModals';
-import { RecommendedSuitcaseModal } from '../suitcase/RecommendedSuitcaseModal';
-import { CategorySetupConfigurationModal } from '../suitcase/CategorySetupConfigurationModal';
-import { isAssociableSuitcase, isTdTemplate } from '@/utils/suitcaseDomain';
-import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
-import type { SuitcasePanelComposition } from './hooks/useSuitcasePanelComposition';
-import { SaveAsModal, type SaveAsConfirmPayload } from '@/components/modals/SaveAsModal';
-import { applyViaggioAssociationToSuitcase } from '@/services/viaggio/resourceAssociationService';
-import { UnsavedChangesModal } from '@/components/modals/UnsavedChangesModal';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { useResourcePermission } from '@/hooks/useResourcePermission';
-import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
-import { CollaborationLiveProvider } from '@/context/CollaborationLiveContext';
-import { useCollaborationLive, useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
+import { CollaborationLastEditorLine } from '@/components/collaboration/CollaborationLastEditorLine';
 import { CollaborationLiveBar } from '@/components/collaboration/live/CollaborationLiveBar';
 import { CollaborationLockBanner } from '@/components/collaboration/live/CollaborationLockBanner';
-import { CollaborationLastEditorLine } from '@/components/collaboration/CollaborationLastEditorLine';
+import { type SaveAsConfirmPayload, SaveAsModal } from '@/components/modals/SaveAsModal';
+import { UnsavedChangesModal } from '@/components/modals/UnsavedChangesModal';
+import {
+  CollaborationLiveProvider,
+  useCollaborationLive,
+  useCollaborationReadOnly,
+} from '@/context/CollaborationLiveContext';
 import { useUser } from '@/context/UserContext';
 import { phaseHasUnsavedChanges } from '@/domain/save/documentSaveTypes';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
+import { useResourcePermission } from '@/hooks/useResourcePermission';
+import { applyViaggioAssociationToSuitcase } from '@/services/viaggio/resourceAssociationService';
+import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
+import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
+import { isAssociableSuitcase, isTdTemplate } from '@/utils/suitcaseDomain';
+import { CategorySetupConfigurationModal } from '../suitcase/CategorySetupConfigurationModal';
+import { RecommendedSuitcaseModal } from '../suitcase/RecommendedSuitcaseModal';
+import { SuitcaseDashboard } from '../suitcase/SuitcaseDashboard';
+import { SuitcaseEditorView } from '../suitcase/SuitcaseEditorView';
+import { SuitcaseHeader } from '../suitcase/SuitcaseHeader';
+import { SuitcaseModals } from './components/SuitcaseModals';
+import type { SuitcasePanelComposition } from './hooks/useSuitcasePanelComposition';
 
 interface Props {
   composition: SuitcasePanelComposition;
@@ -67,11 +70,13 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
   const activeResourceKind = data.activeSuitcase
     ? resolveSuitcaseSharedResourceKind(data.activeSuitcase)
     : null;
-  const activeSuitcaseIsTdTemplate = data.activeSuitcase ? isTdTemplate(data.activeSuitcase) : false;
+  const activeSuitcaseIsTdTemplate = data.activeSuitcase
+    ? isTdTemplate(data.activeSuitcase)
+    : false;
   const { permission: activeResourcePermission } = useResourcePermission(
     activeResourceKind,
     data.activeSuitcase?.id ?? null,
-    isGuest ? null : appUser.id
+    isGuest ? null : appUser.id,
   );
 
   const canModifyActiveSuitcase =
@@ -105,7 +110,9 @@ export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
       resourceTitle={data.activeSuitcase?.title}
       userId={isGuest ? null : appUser.id}
       userDisplayName={appUser.name ?? 'Utente'}
-      canModifyContent={canModifyActiveSuitcase && !!data.activeSuitcase && !activeSuitcaseIsTdTemplate}
+      canModifyContent={
+        canModifyActiveSuitcase && !!data.activeSuitcase && !activeSuitcaseIsTdTemplate
+      }
       isEditSessionActive={
         data.panelState.viewMode === 'editor' &&
         canModifyActiveSuitcase &&
@@ -172,11 +179,13 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
   const activeResourceKind = data.activeSuitcase
     ? resolveSuitcaseSharedResourceKind(data.activeSuitcase)
     : null;
-  const activeSuitcaseIsTdTemplate = data.activeSuitcase ? isTdTemplate(data.activeSuitcase) : false;
+  const activeSuitcaseIsTdTemplate = data.activeSuitcase
+    ? isTdTemplate(data.activeSuitcase)
+    : false;
   const { permission: activeResourcePermission } = useResourcePermission(
     activeResourceKind,
     data.activeSuitcase?.id ?? null,
-    data.currentUser?.id
+    data.currentUser?.id,
   );
 
   const openSuitcaseWithPermission = (id: string, preferredMode: 'viewer' | 'editor') => {
@@ -194,17 +203,12 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
     ) {
       data.panelState.setViewMode('viewer');
     }
-  }, [
-    data.activeSuitcase,
-    activeResourcePermission,
-    data.panelState.viewMode,
-    data.panelState,
-  ]);
+  }, [data.activeSuitcase, activeResourcePermission, data.panelState.viewMode, data.panelState]);
 
   // ESC chiude (annulla) il dialogo unico "Modifiche non salvate" senza uscire dal pannello.
   useGlobalModalEscape(
     data.modalState.showUnsavedChangesModal === true,
-    handleCancelUnsavedChanges
+    handleCancelUnsavedChanges,
   );
 
   // "Salva" dal dialogo di chiusura: per ospiti rimanda al login, per documenti mai salvati apre
@@ -261,7 +265,9 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
         onLinkModalCancel={associationFlow.handleLinkModalCancel}
         onConfirmAssociateSaved={handleConfirmAssociateSaved}
         isTemplateDraftSession={actions.isTemplateDraftSession}
-        pausedDraftKind={data.guestSuitcase ? data.guestSuitcase.workspace_kind ?? 'suitcase' : undefined}
+        pausedDraftKind={
+          data.guestSuitcase ? (data.guestSuitcase.workspace_kind ?? 'suitcase') : undefined
+        }
       />
 
       <UnsavedChangesModal
@@ -303,7 +309,9 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
                 peers={collaborationLive.presencePeers}
                 editingStatusMessage={collaborationLive.editingStatusMessage}
               />
-              <CollaborationLastEditorLine editorName={data.activeSuitcase?.last_modified_by_name} />
+              <CollaborationLastEditorLine
+                editorName={data.activeSuitcase?.last_modified_by_name}
+              />
             </>
           )}
           {collaborationLive.lockBlockedMessage && (
@@ -325,26 +333,29 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
         tempTitle={data.tempTitle}
         titleInputRef={data.titleInputRef}
         saveStatus={data.saveStatus}
-        isLinkedToItinerary={data.linkedSuitcaseIds?.includes(data.panelState.activeTabId || '') || false}
+        isLinkedToItinerary={
+          data.linkedSuitcaseIds?.includes(data.panelState.activeTabId || '') || false
+        }
         onEditTitle={actions.startEditingTitle}
         onSaveTitle={actions.handleSaveSuitcaseTitle}
         onTitleChange={data.setTempTitle}
         onClose={actions.handleClose}
         onDelete={() => data.modalState.setSuitcaseToDelete(data.panelState.activeTabId)}
-        onUnlink={() => data.panelState.activeTabId && data.modalState.setSuitcaseToUnlink(data.panelState.activeTabId)}
+        onUnlink={() =>
+          data.panelState.activeTabId &&
+          data.modalState.setSuitcaseToUnlink(data.panelState.activeTabId)
+        }
         onCreateSuitcase={actions.handleCreateNew}
         onCreateTemplate={actions.handleCreateTemplate}
         onOpenRecommendedSuitcase={actions.handleOpenRecommendedSuitcase}
         showRecommendedSuitcase={
-          !!data.currentUser &&
-          !!data.itineraryId &&
-          (data.itineraryCityTypes?.length ?? 0) > 0
+          !!data.currentUser && !!data.itineraryId && (data.itineraryCityTypes?.length ?? 0) > 0
         }
         isDiaryAssociable={data.isDiaryAssociable}
-        isAssociable={
-          data.activeSuitcase ? isAssociableSuitcase(data.activeSuitcase) : false
+        isAssociable={data.activeSuitcase ? isAssociableSuitcase(data.activeSuitcase) : false}
+        onLink={() =>
+          data.panelState.activeTabId && actions.handleLinkExisting(data.panelState.activeTabId)
         }
-        onLink={() => data.panelState.activeTabId && actions.handleLinkExisting(data.panelState.activeTabId)}
         onBackToSelector={handleBackToSelector}
         performUndo={performUndo}
         performRedo={performRedo}
@@ -504,7 +515,8 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
                   data.tripSuitcases.find((s) => s.id === suitcaseId);
                 if (!suitcase) return;
                 const itemCount =
-                  suitcase.suitcase_items?.filter((item) => item.category === category.name).length ?? 0;
+                  suitcase.suitcase_items?.filter((item) => item.category === category.name)
+                    .length ?? 0;
                 data.modalState.setCategoryToDelete({
                   id: category.id,
                   name: category.name,
@@ -519,7 +531,7 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
                 data.showToast(
                   SUITCASE_MODIFIED_TOAST.message,
                   SUITCASE_MODIFIED_TOAST.description,
-                  'success'
+                  'success',
                 );
               }}
               onUpdateSuitcaseLocal={data.handleUpdateSuitcaseLocal}
@@ -545,76 +557,74 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
           )}
           {(data.panelState.viewMode === 'editor' || data.panelState.viewMode === 'viewer') &&
             data.activeSuitcase && (
-            <SuitcaseEditorView
-              suitcase={data.activeSuitcase}
-              readOnly={
-                data.panelState.viewMode === 'viewer' ||
-                activeSuitcaseIsTdTemplate ||
-                !canModifyActiveSuitcase ||
-                collaborationReadOnly
-              }
-              categorySetupOverlay={
-                activeSuitcaseIsTdTemplate
-                  ? data.templatePreviewOverlays[data.activeSuitcase.id]
-                  : undefined
-              }
-              onCategorySetupOverlayChange={
-                activeSuitcaseIsTdTemplate
-                  ? (updater) =>
-                      data.updateTemplatePreviewOverlay(data.activeSuitcase!.id, updater)
-                  : undefined
-              }
-              {...editorLogic}
-              onUpdateSuitcase={async (updates) => {
-                await data.mutations.updateSuitcase(data.activeSuitcase!.id, updates);
-                await data.fetchUserSuitcases();
-              }}
-              onUpdateSuitcaseLocal={data.handleUpdateSuitcaseLocal}
-              onSeedAi={data.handleSeedAi}
-              isSeedingAi={data.isSeedingAi}
-              aiSuggestions={data.aiSuggestions}
-              onAcceptAiSuggestion={handleAcceptAiSuggestion}
-              onRejectAiSuggestion={handleRejectAiSuggestion}
-              onShowMoreAi={data.handleShowMoreAi}
-              hasMoreAi={data.hasMoreAi}
-              aiQuotaFeedback={data.aiQuotaFeedback}
-              exhaustedCategories={data.exhaustedCategories}
-              itemMap={data.affiliateMaps.items}
-              categoryMap={data.affiliateMaps.categories}
-              globalMap={data.affiliateMaps.global}
-              placeholders={data.affiliateMaps.placeholders}
-              overrides={data.affiliateMaps.overrides}
-              onLinkBuild={handleLinkBuild}
-              onLinkBuildSearch={handleLinkBuildSearch}
-              highlightItemId={data.panelState.highlightItemId}
-              selectedItemName={data.panelState.selectedItemName}
-              autoOpenNewCategory={data.panelState.autoOpenNewCategory}
-              hiddenCategories={hiddenCategories}
-              onActivateOptionalCategory={handleActivateOptionalCategory}
-              showToast={data.showToast}
-              toast={data.toast}
-              blacklistCount={data.blacklistCount}
-              isBlacklistFlashing={data.isBlacklistFlashing}
-              isAddingNewCategory={data.panelState.isAddingNewCategory}
-              setIsAddingNewCategory={data.panelState.setIsAddingNewCategory}
-              showGuestWarning={
-                !data.currentUser &&
-                !!data.activeSuitcase?.id &&
-                isDraftWorkspaceId(data.activeSuitcase.id)
-              }
-              panelViewMode={
-                data.panelState.viewMode === 'viewer' ? 'viewer' : 'editor'
-              }
-              onSetViewMode={(mode) => data.panelState.setViewMode(mode)}
-              onUseTemplate={
-                activeSuitcaseIsTdTemplate
-                  ? () => actions.handleUseTemplate(data.activeSuitcase!.id)
-                  : undefined
-              }
-              aiModalOpen={aiModalOpen}
-              onAiModalOpenChange={setAiModalOpen}
-            />
-          )}
+              <SuitcaseEditorView
+                suitcase={data.activeSuitcase}
+                readOnly={
+                  data.panelState.viewMode === 'viewer' ||
+                  activeSuitcaseIsTdTemplate ||
+                  !canModifyActiveSuitcase ||
+                  collaborationReadOnly
+                }
+                categorySetupOverlay={
+                  activeSuitcaseIsTdTemplate
+                    ? data.templatePreviewOverlays[data.activeSuitcase.id]
+                    : undefined
+                }
+                onCategorySetupOverlayChange={
+                  activeSuitcaseIsTdTemplate
+                    ? (updater) =>
+                        data.updateTemplatePreviewOverlay(data.activeSuitcase!.id, updater)
+                    : undefined
+                }
+                {...editorLogic}
+                onUpdateSuitcase={async (updates) => {
+                  await data.mutations.updateSuitcase(data.activeSuitcase!.id, updates);
+                  await data.fetchUserSuitcases();
+                }}
+                onUpdateSuitcaseLocal={data.handleUpdateSuitcaseLocal}
+                onSeedAi={data.handleSeedAi}
+                isSeedingAi={data.isSeedingAi}
+                aiSuggestions={data.aiSuggestions}
+                onAcceptAiSuggestion={handleAcceptAiSuggestion}
+                onRejectAiSuggestion={handleRejectAiSuggestion}
+                onShowMoreAi={data.handleShowMoreAi}
+                hasMoreAi={data.hasMoreAi}
+                aiQuotaFeedback={data.aiQuotaFeedback}
+                exhaustedCategories={data.exhaustedCategories}
+                itemMap={data.affiliateMaps.items}
+                categoryMap={data.affiliateMaps.categories}
+                globalMap={data.affiliateMaps.global}
+                placeholders={data.affiliateMaps.placeholders}
+                overrides={data.affiliateMaps.overrides}
+                onLinkBuild={handleLinkBuild}
+                onLinkBuildSearch={handleLinkBuildSearch}
+                highlightItemId={data.panelState.highlightItemId}
+                selectedItemName={data.panelState.selectedItemName}
+                autoOpenNewCategory={data.panelState.autoOpenNewCategory}
+                hiddenCategories={hiddenCategories}
+                onActivateOptionalCategory={handleActivateOptionalCategory}
+                showToast={data.showToast}
+                toast={data.toast}
+                blacklistCount={data.blacklistCount}
+                isBlacklistFlashing={data.isBlacklistFlashing}
+                isAddingNewCategory={data.panelState.isAddingNewCategory}
+                setIsAddingNewCategory={data.panelState.setIsAddingNewCategory}
+                showGuestWarning={
+                  !data.currentUser &&
+                  !!data.activeSuitcase?.id &&
+                  isDraftWorkspaceId(data.activeSuitcase.id)
+                }
+                panelViewMode={data.panelState.viewMode === 'viewer' ? 'viewer' : 'editor'}
+                onSetViewMode={(mode) => data.panelState.setViewMode(mode)}
+                onUseTemplate={
+                  activeSuitcaseIsTdTemplate
+                    ? () => actions.handleUseTemplate(data.activeSuitcase!.id)
+                    : undefined
+                }
+                aiModalOpen={aiModalOpen}
+                onAiModalOpenChange={setAiModalOpen}
+              />
+            )}
         </div>
       </div>
     </>

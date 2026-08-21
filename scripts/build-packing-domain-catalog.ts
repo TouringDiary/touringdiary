@@ -2,18 +2,17 @@
  * Genera src/domain/packing/packingDomainCatalog.ts dal catalogo congelato.
  * Eseguire: npx tsx scripts/build-packing-domain-catalog.ts
  */
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import { validatePackingDomainCatalogData } from '../src/domain/packing/packingDomainCatalogValidation';
 import catalogJson from './packing-domain-catalog-data.json';
 import { parsePackingDomainCatalogJson } from './packing-domain-catalog-data.schema';
-import { validatePackingDomainCatalogData } from '../src/domain/packing/packingDomainCatalogValidation';
 
 const data = parsePackingDomainCatalogJson(catalogJson);
 
-import { CATEGORY_ORDER } from '../src/domain/packing/packingCategories';
 import type { SystemCategoryName } from '../src/domain/packing/packingCategories';
+import { CATEGORY_ORDER } from '../src/domain/packing/packingCategories';
 import { TEMPLATE_KEYS } from '../src/domain/packing/packingDomainCatalogTypes';
-import type { PackingTemplateKey } from '../src/domain/packing/packingDomainCatalogTypes';
 
 function flattenAiCatalog() {
   const out: Array<{ name: string; category: SystemCategoryName; tags: readonly string[] }> = [];
@@ -61,7 +60,7 @@ function buildTsFile(): string {
     for (const [name, tags] of items) {
       const tagStr = tags.map((t) => `'${t}'`).join(', ');
       aiEntries.push(
-        `  { name: '${name.replace(/'/g, "\\'")}', category: '${cat}', tags: [${tagStr}], sort_order: ${sort} },`
+        `  { name: '${name.replace(/'/g, "\\'")}', category: '${cat}', tags: [${tagStr}], sort_order: ${sort} },`,
       );
       sort += 10;
     }

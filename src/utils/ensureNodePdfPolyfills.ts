@@ -14,7 +14,7 @@ export function ensureNodePdfPolyfills(): Promise<void> {
   if (polyfillsReady) return polyfillsReady;
 
   polyfillsReady = (async () => {
-    const { Buffer } = await import('buffer');
+    const { Buffer } = await import('node:buffer');
 
     if (typeof window !== 'undefined' && !window.Buffer) {
       window.Buffer = Buffer;

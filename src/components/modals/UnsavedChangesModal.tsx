@@ -1,11 +1,11 @@
-import { Z_MODAL } from '@/constants/zIndex';
-import React from 'react';
-import { createPortal } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
+import type React from 'react';
+import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 
 interface UnsavedChangesModalProps {
   isOpen: boolean;
@@ -50,11 +50,17 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
     <div
       className={`td-modal-overlay ${overlayShell} !items-center`}
       style={{ zIndex: Z_MODAL }}
-      onClick={onCancel}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onCancel}
+      />
       <div
         className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 border-amber-500/30`}
-        onClick={(e) => e.stopPropagation()}
         style={{ zIndex: Z_MODAL }}
         role="dialog"
         aria-modal="true"
@@ -69,8 +75,12 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
         />
         <div className={`${bodyShell} flex flex-col items-center text-center gap-4 min-h-0`}>
           <AlertTriangle className="w-10 h-10 text-amber-500" aria-hidden />
-          <h3 id="unsaved-changes-title" className={modalTitleShell}>{title}</h3>
-          <p id="unsaved-changes-desc" className={`${modalSubtitleShell} whitespace-pre-line`}>{message}</p>
+          <h3 id="unsaved-changes-title" className={modalTitleShell}>
+            {title}
+          </h3>
+          <p id="unsaved-changes-desc" className={`${modalSubtitleShell} whitespace-pre-line`}>
+            {message}
+          </p>
           <div className="flex flex-col gap-2 w-full mt-2">
             <button
               type="button"
@@ -102,6 +112,6 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

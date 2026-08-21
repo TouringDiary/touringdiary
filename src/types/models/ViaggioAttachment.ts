@@ -3,12 +3,7 @@
  * Distinti da Workspace Allegati (`workspace_attachments`).
  */
 
-export type ViaggioAttachmentCategory =
-  | 'documents'
-  | 'tickets'
-  | 'bookings'
-  | 'expenses'
-  | 'misc';
+export type ViaggioAttachmentCategory = 'documents' | 'tickets' | 'bookings' | 'expenses' | 'misc';
 
 export const VIAGGIO_ATTACHMENT_CATEGORIES: ViaggioAttachmentCategory[] = [
   'documents',

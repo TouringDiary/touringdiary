@@ -15,7 +15,7 @@ export interface PartnerIntegration {
   label: string;
   enabled: boolean;
   capabilities: PartnerCapability[];
-  group?: string; 
+  group?: string;
   priority?: number;
   is_primary?: boolean;
   display_options?: PartnerDisplayOptions;

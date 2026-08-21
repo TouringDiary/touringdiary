@@ -1,8 +1,7 @@
+import type { SharedResource, SharedResourceKind, SharingMode } from '@/domain/collaboration';
+import { isSharedResourceKind, isSharingMode } from '@/domain/collaboration';
 import { supabase } from '@/services/supabaseClient';
-import type { SharedResourceKind, SharingMode } from '@/domain/collaboration';
-import { isSharingMode, isSharedResourceKind } from '@/domain/collaboration';
 import { mapSharedResourceRow } from './sharedResourceMappers';
-import type { SharedResource } from '@/domain/collaboration';
 import { verifyShareableResourceOwnership } from './sharedResourceOwnershipVerifiers';
 
 export type RegisterShareableResourceResult =
@@ -11,7 +10,7 @@ export type RegisterShareableResourceResult =
 
 export async function getShareableResource(
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<SharedResource | null> {
   const { data, error } = await supabase
     .from('shared_resources')
@@ -36,7 +35,7 @@ export async function ensureShareableResource(
   kind: SharedResourceKind,
   resourceId: string,
   ownerId: string,
-  sharingMode: SharingMode = 'collaborative'
+  sharingMode: SharingMode = 'collaborative',
 ): Promise<RegisterShareableResourceResult> {
   const existing = await getShareableResource(kind, resourceId);
   if (existing) {
@@ -49,7 +48,7 @@ export async function registerShareableResource(
   kind: SharedResourceKind,
   resourceId: string,
   ownerId: string,
-  sharingMode: SharingMode = 'collaborative'
+  sharingMode: SharingMode = 'collaborative',
 ): Promise<RegisterShareableResourceResult> {
   if (!isSharedResourceKind(kind)) {
     return { success: false, error: 'Tipo di risorsa non valido.' };
@@ -94,7 +93,7 @@ export async function registerShareableResource(
 export async function updateShareableResourceMode(
   sharedResourceId: string,
   ownerId: string,
-  sharingMode: SharingMode
+  sharingMode: SharingMode,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isSharingMode(sharingMode)) {
     return { success: false, error: 'Modalità di condivisione non valida.' };
@@ -120,7 +119,7 @@ export async function updateShareableResourceMode(
 
 export async function deleteShareableResource(
   sharedResourceId: string,
-  ownerId: string
+  ownerId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { data, error } = await supabase
     .from('shared_resources')

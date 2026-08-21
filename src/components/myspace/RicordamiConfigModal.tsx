@@ -1,12 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import { CalendarDays } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CustomCalendar } from '@/components/common/CustomCalendar';
-import { CalendarDays } from 'lucide-react';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
-import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { showGlobalAlert } from '@/services/ui/toastService';
+import { updateViaggio } from '@/services/viaggio/viaggioService';
 import type { Viaggio, ViaggioRicordamiConfig } from '@/types/models/Viaggio';
 import {
   computeRicordamiNextYearlyAt,
@@ -14,8 +17,6 @@ import {
   localDateStringToRicordamiIso,
   withViaggioRicordamiConfig,
 } from '@/types/models/Viaggio';
-import { updateViaggio } from '@/services/viaggio/viaggioService';
-import { showGlobalAlert } from '@/services/ui/toastService';
 
 interface RicordamiConfigModalProps {
   isOpen: boolean;
@@ -42,7 +43,9 @@ function formatYmdToHuman(ymd: string | null): string {
   return `${d}/${m}/${y}`;
 }
 
-function parseDdMmYyyy(value: string): { ymd: string; day: number; month: number; year: number } | null {
+function parseDdMmYyyy(
+  value: string,
+): { ymd: string; day: number; month: number; year: number } | null {
   const raw = value.trim().replace(/\s+/g, '');
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(raw);
   if (!m) return null;
@@ -80,6 +83,11 @@ function parsePositiveInteger(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** Typing buffer for yearly day/month: empty or digits only. */
+function isYearlyDigitsOrEmpty(value: string): boolean {
+  return /^\d*$/.test(value);
+}
+
 function parseSpecificDateInput(value: string): { ymd: string | null; human: string } {
   const human = value;
   if (value.trim().length === 0) {
@@ -104,9 +112,13 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
 
   useGlobalModalEscape(isOpen, onClose);
 
-  const ricordamiConfig = useMemo(() => getViaggioRicordamiConfig(viaggio.metadata), [viaggio.metadata]);
+  const ricordamiConfig = useMemo(
+    () => getViaggioRicordamiConfig(viaggio.metadata),
+    [viaggio.metadata],
+  );
 
-  const defaultTab: ModalTab = ricordamiConfig.mode === 'yearly_date' ? 'yearly_date' : 'specific_date';
+  const defaultTab: ModalTab =
+    ricordamiConfig.mode === 'yearly_date' ? 'yearly_date' : 'specific_date';
   const [tab, setTab] = useState<ModalTab>(defaultTab);
 
   // Specific date (A)
@@ -117,7 +129,9 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
     return toYmdLocal(d);
   }, [ricordamiConfig]);
   const [specificYmd, setSpecificYmd] = useState<string | null>(initialSpecificYmd);
-  const [specificHuman, setSpecificHuman] = useState<string>(() => formatYmdToHuman(initialSpecificYmd));
+  const [specificHuman, setSpecificHuman] = useState<string>(() =>
+    formatYmdToHuman(initialSpecificYmd),
+  );
   const specificAnchorRef = useRef<HTMLDivElement>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -154,10 +168,7 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
 
   const yearlyDay = useMemo(() => parsePositiveInteger(yearlyDayInput), [yearlyDayInput]);
   const yearlyMonth = useMemo(() => parsePositiveInteger(yearlyMonthInput), [yearlyMonthInput]);
-  const yearlyMaxDay = useMemo(
-    () => getMaxDayForYearlyMonth(yearlyMonthInput),
-    [yearlyMonthInput],
-  );
+  const yearlyMaxDay = useMemo(() => getMaxDayForYearlyMonth(yearlyMonthInput), [yearlyMonthInput]);
   const yearlyCombinationValid =
     yearlyDay != null &&
     yearlyMonth != null &&
@@ -187,10 +198,7 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
       return Number.isFinite(ms) && ms > Date.now();
     })();
 
-  const canSaveYearly =
-    tab === 'yearly_date' &&
-    yearlyCombinationValid &&
-    Boolean(yearlyNextAtIso);
+  const canSaveYearly = tab === 'yearly_date' && yearlyCombinationValid && Boolean(yearlyNextAtIso);
 
   const selectedSummary = useMemo(() => {
     if (tab === 'specific_date') {
@@ -282,14 +290,20 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
   return createPortal(
     <div
       className={`td-modal-overlay ${overlayShell}`}
-      onClick={onClose}
       style={{ zIndex: Z_OVERLAY }}
       role="presentation"
     >
+      {/* Backdrop dismiss: dedicated control (not onClick on td-modal-overlay). */}
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Chiudi"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
-        className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 border-emerald-500/30`}
+        className={`relative ${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 border-emerald-500/30`}
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ricordami-config-title"
@@ -345,10 +359,14 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                    <label
+                      htmlFor="fld-myspace-ricordamiconfigmodal-tsx-l351"
+                      className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1"
+                    >
                       Data (gg/mm/aaaa)
                     </label>
                     <input
+                      id="fld-myspace-ricordamiconfigmodal-tsx-l351"
                       type="text"
                       inputMode="numeric"
                       placeholder="29/07/2026"
@@ -404,18 +422,22 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                    <label
+                      htmlFor="fld-myspace-ricordamiconfigmodal-tsx-l410"
+                      className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1"
+                    >
                       Giorno (gg)
                     </label>
                     <input
-                      type="number"
+                      id="fld-myspace-ricordamiconfigmodal-tsx-l410"
+                      type="text"
                       inputMode="numeric"
-                      min={1}
-                      max={yearlyMaxDay ?? 31}
+                      autoComplete="off"
+                      maxLength={2}
                       value={yearlyDayInput}
                       onChange={(e) => {
                         const nextValue = e.target.value;
-                        if (!/^\d*$/.test(nextValue)) return;
+                        if (!isYearlyDigitsOrEmpty(nextValue)) return;
                         setYearlyDayInput(nextValue);
                       }}
                       className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
@@ -425,18 +447,22 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                    <label
+                      htmlFor="fld-myspace-ricordamiconfigmodal-tsx-l431"
+                      className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1"
+                    >
                       Mese (mm)
                     </label>
                     <input
-                      type="number"
+                      id="fld-myspace-ricordamiconfigmodal-tsx-l431"
+                      type="text"
                       inputMode="numeric"
-                      min={1}
-                      max={12}
+                      autoComplete="off"
+                      maxLength={2}
                       value={yearlyMonthInput}
                       onChange={(e) => {
                         const nextValue = e.target.value;
-                        if (!/^\d*$/.test(nextValue)) return;
+                        if (!isYearlyDigitsOrEmpty(nextValue)) return;
                         setYearlyMonthInput(nextValue);
                       }}
                       className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
@@ -447,11 +473,13 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
                   </div>
                 </div>
 
-                {!yearlyCombinationValid && yearlyDayInput.trim().length > 0 && yearlyMonthInput.trim().length > 0 && (
-                  <div className="text-[12px] text-rose-400">
-                    Combinazione giorno/mese non valida.
-                  </div>
-                )}
+                {!yearlyCombinationValid &&
+                  yearlyDayInput.trim().length > 0 &&
+                  yearlyMonthInput.trim().length > 0 && (
+                    <div className="text-[12px] text-rose-400">
+                      Combinazione giorno/mese non valida.
+                    </div>
+                  )}
 
                 <div className="text-[12px] text-slate-400">
                   {yearlyDay != null && yearlyMonth != null && yearlyCombinationValid
@@ -491,4 +519,3 @@ export const RicordamiConfigModal: React.FC<RicordamiConfigModalProps> = ({
     document.body,
   );
 };
-

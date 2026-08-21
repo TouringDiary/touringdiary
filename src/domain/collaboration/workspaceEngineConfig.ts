@@ -1,6 +1,6 @@
+import type { StorageLimitsConfig } from '@/domain/storage/storageLimits';
 import type { SharedResourceKind } from './sharedResource';
 import { SHARED_RESOURCE_KINDS } from './sharedResource';
-import type { StorageLimitsConfig } from '@/domain/storage/storageLimits';
 
 export interface CollaborationNotificationCategoryPrefs {
   invites: boolean;

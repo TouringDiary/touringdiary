@@ -1,33 +1,60 @@
-
-import React, { useState, useMemo, useEffect, Suspense, useRef } from 'react';
-import { Layout, MapPin, Utensils, Bed, Camera, Sparkles, PartyPopper, Trees, Loader2, ShoppingBag, type LucideIcon } from 'lucide-react';
-import { PointOfInterest, SuggestionType, CityDetails, CitySummary } from '../../types/index';
-import { useCityData } from '../../hooks/useCityData';
-import { CityHeader } from './CityHeader';
-import { CityInfoModal } from '../modals/CityInfoModal';
-import { ProvinceModal } from '../modals/ProvinceModal';
-import { CultureCornerModal } from '../modals/CultureCornerModal';
-import { PatronSaintModal } from '../modals/PatronSaintModal';
-import { HistoryModal } from '../modals/HistoryModal';
-import { isPoiNew } from '../../utils/common';
-import { fetchSponsorsByCityAsync, fetchSponsorsByCityIdsAsync } from '../../services/sponsorService';
-import { useModal } from '@/context/ModalContext';
-import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { useUser } from '@/context/UserContext';
-import { useGps } from '@/context/GpsContext';
-import { useUI } from '@/context/UIContext';
-import AffiliateCTA from '../common/AffiliateCTA';
-import { NearbyCitiesRow } from './components/NearbyCitiesRow';
-import { updateCityMetadata, injectJsonLd, type RouteSeo } from '../../utils/seo';
+import {
+  Bed,
+  Camera,
+  Layout,
+  Loader2,
+  type LucideIcon,
+  MapPin,
+  PartyPopper,
+  ShoppingBag,
+  Sparkles,
+  Trees,
+  Utensils,
+} from 'lucide-react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { LAYOUT } from '@/constants/layout';
+import { useGps } from '@/context/GpsContext';
+import { useModal } from '@/context/ModalContext';
+import { useUI } from '@/context/UIContext';
+import { useUser } from '@/context/UserContext';
+import { useCityData } from '../../hooks/useCityData';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import {
+  fetchSponsorsByCityAsync,
+  fetchSponsorsByCityIdsAsync,
+} from '../../services/sponsorService';
+import type { CityDetails, CitySummary, PointOfInterest, SuggestionType } from '../../types/index';
+import { isPoiNew } from '../../utils/common';
+import { injectJsonLd, type RouteSeo, updateCityMetadata } from '../../utils/seo';
+import { CityInfoModal } from '../modals/CityInfoModal';
+import { CultureCornerModal } from '../modals/CultureCornerModal';
+import { HistoryModal } from '../modals/HistoryModal';
+import { PatronSaintModal } from '../modals/PatronSaintModal';
+import { ProvinceModal } from '../modals/ProvinceModal';
+import { CityHeader } from './CityHeader';
+import { NearbyCitiesRow } from './components/NearbyCitiesRow';
 
 // --- LAZY IMPORTS ---
-const CityGallery = React.lazy(() => import('./tabs/CityGallery').then(m => ({ default: m.CityGallery })));
-const CityShowcaseTab = React.lazy(() => import('./tabs/CityShowcaseTab').then(m => ({ default: m.CityShowcaseTab })));
-const CityCategoryTab = React.lazy(() => import('./tabs/CityCategoryTab').then(m => ({ default: m.CityCategoryTab })));
+const CityGallery = React.lazy(() =>
+  import('./tabs/CityGallery').then((m) => ({ default: m.CityGallery })),
+);
+const CityShowcaseTab = React.lazy(() =>
+  import('./tabs/CityShowcaseTab').then((m) => ({ default: m.CityShowcaseTab })),
+);
+const CityCategoryTab = React.lazy(() =>
+  import('./tabs/CityCategoryTab').then((m) => ({ default: m.CityCategoryTab })),
+);
 
 const CITY_TAB_IDS = [
-    'vetrina', 'destinazioni', 'natura', 'sapori', 'alloggi', 'shopping', 'svago', 'novita', 'galleria',
+  'vetrina',
+  'destinazioni',
+  'natura',
+  'sapori',
+  'alloggi',
+  'shopping',
+  'svago',
+  'novita',
+  'galleria',
 ] as const;
 
 type CityTab = (typeof CITY_TAB_IDS)[number];
@@ -36,442 +63,524 @@ type CityInfoTab = 'guides' | 'services' | 'events' | 'tour_operators';
 type ActiveModal = 'none' | CityInfoTab | 'province' | 'culture' | 'patron' | 'history';
 
 interface CityTabConfig {
-    id: CityTab;
-    label: string;
-    icon: LucideIcon;
+  id: CityTab;
+  label: string;
+  icon: LucideIcon;
 }
 
 const CITY_INFO_TABS: readonly CityInfoTab[] = ['guides', 'services', 'events', 'tour_operators'];
 
 const TABS: CityTabConfig[] = [
-    { id: 'vetrina', label: 'Vetrina', icon: Layout },
-    { id: 'destinazioni', label: 'Destinazioni', icon: MapPin },
-    { id: 'sapori', label: 'Sapori', icon: Utensils },
-    { id: 'alloggi', label: 'Alloggi', icon: Bed },
-    { id: 'shopping', label: 'Shopping', icon: ShoppingBag },
-    { id: 'svago', label: 'Svago', icon: PartyPopper },
-    { id: 'natura', label: 'Natura', icon: Trees },
-    { id: 'novita', label: 'Novità', icon: Sparkles },
-    { id: 'galleria', label: 'Galleria', icon: Camera },
+  { id: 'vetrina', label: 'Vetrina', icon: Layout },
+  { id: 'destinazioni', label: 'Destinazioni', icon: MapPin },
+  { id: 'sapori', label: 'Sapori', icon: Utensils },
+  { id: 'alloggi', label: 'Alloggi', icon: Bed },
+  { id: 'shopping', label: 'Shopping', icon: ShoppingBag },
+  { id: 'svago', label: 'Svago', icon: PartyPopper },
+  { id: 'natura', label: 'Natura', icon: Trees },
+  { id: 'novita', label: 'Novità', icon: Sparkles },
+  { id: 'galleria', label: 'Galleria', icon: Camera },
 ];
 
 function isCityTab(value: string): value is CityTab {
-    return (CITY_TAB_IDS as readonly string[]).includes(value);
+  return (CITY_TAB_IDS as readonly string[]).includes(value);
 }
 
 function parseCityTab(value: string | undefined): CityTab {
-    return value !== undefined && isCityTab(value) ? value : 'vetrina';
+  return value !== undefined && isCityTab(value) ? value : 'vetrina';
 }
 
 function isCityInfoTab(modal: ActiveModal): modal is CityInfoTab {
-    return (CITY_INFO_TABS as readonly string[]).includes(modal);
+  return (CITY_INFO_TABS as readonly string[]).includes(modal);
 }
 
 type CityDetailsWithRouteSeo = CityDetails['details'] & { route_seo?: RouteSeo | null };
 
 function getCityRouteSeo(city: CityDetails): RouteSeo | null {
-    return (city.details as CityDetailsWithRouteSeo).route_seo ?? null;
+  return (city.details as CityDetailsWithRouteSeo).route_seo ?? null;
 }
 
 interface CityDetailContentProps {
-    cityId: string;
-    onBack: () => void;
-    onToggleLocation: () => void;
-    onAddToItinerary: (poi: PointOfInterest) => void;
-    onRemoveFromItinerary: (poiId: string) => void;
-    onOpenPoiDetail: (poi: PointOfInterest) => void;
-    onOpenReview: (poi: PointOfInterest) => void;
-    onSwitchCity: (cityId: string) => void;
-    onOpenSponsor: (tier?: 'gold' | 'silver') => void;
-    initialTab?: string;
-    onTabChange?: (tab: string) => void;
-    onOpenShop: (poi?: PointOfInterest) => void;
-    onOpenAuth: () => void;
-    cityManifest: CitySummary[];
-    isSidebarOpen?: boolean;
-    preloadedCity?: CityDetails | null;
-    onMergeCities?: (baseCity: CityDetails, radius: number, selectedCityIds: string[]) => void;
-    isUiVisible?: boolean;
+  cityId: string;
+  onBack: () => void;
+  onToggleLocation: () => void;
+  onAddToItinerary: (poi: PointOfInterest) => void;
+  onRemoveFromItinerary: (poiId: string) => void;
+  onOpenPoiDetail: (poi: PointOfInterest) => void;
+  onOpenReview: (poi: PointOfInterest) => void;
+  onSwitchCity: (cityId: string) => void;
+  onOpenSponsor: (tier?: 'gold' | 'silver') => void;
+  initialTab?: string;
+  onTabChange?: (tab: string) => void;
+  onOpenShop: (poi?: PointOfInterest) => void;
+  onOpenAuth: () => void;
+  cityManifest: CitySummary[];
+  isSidebarOpen?: boolean;
+  preloadedCity?: CityDetails | null;
+  onMergeCities?: (baseCity: CityDetails, radius: number, selectedCityIds: string[]) => void;
+  isUiVisible?: boolean;
 }
 
 const TabLoader = () => (
-    <div className="flex flex-col items-center justify-center py-20 w-full text-slate-500 gap-4 min-h-[300px]">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
-        <p className="font-bold uppercase tracking-widest text-xs">Caricamento Sezione...</p>
-    </div>
+  <div className="flex flex-col items-center justify-center py-20 w-full text-slate-500 gap-4 min-h-[300px]">
+    <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
+    <p className="font-bold uppercase tracking-widest text-xs">Caricamento Sezione...</p>
+  </div>
 );
 
 // Helper per mappare Tab -> Categoria Tecnica
 const getCategoryFromTab = (tab: CityTab): string => {
-    switch (tab) {
-        case 'destinazioni': return 'monument';
-        case 'natura': return 'nature';
-        case 'sapori': return 'food';
-        case 'alloggi': return 'hotel';
-        case 'shopping': return 'shop';
-        case 'svago': return 'leisure';
-        default: return 'all';
-    }
+  switch (tab) {
+    case 'destinazioni':
+      return 'monument';
+    case 'natura':
+      return 'nature';
+    case 'sapori':
+      return 'food';
+    case 'alloggi':
+      return 'hotel';
+    case 'shopping':
+      return 'shop';
+    case 'svago':
+      return 'leisure';
+    default:
+      return 'all';
+  }
 };
 
 export const CityDetailContent: React.FC<CityDetailContentProps> = ({
-    cityId, onBack, onToggleLocation, onAddToItinerary,
-    onRemoveFromItinerary, onOpenPoiDetail, onOpenReview, onSwitchCity,
-    onOpenSponsor, initialTab = 'vetrina', onTabChange,
-    onOpenShop, onOpenAuth, cityManifest, isSidebarOpen, preloadedCity,
-    onMergeCities, isUiVisible = true
+  cityId,
+  onBack,
+  onToggleLocation,
+  onAddToItinerary,
+  onRemoveFromItinerary,
+  onOpenPoiDetail,
+  onOpenReview,
+  onSwitchCity,
+  onOpenSponsor,
+  initialTab = 'vetrina',
+  onTabChange,
+  onOpenShop,
+  onOpenAuth,
+  cityManifest,
+  isSidebarOpen,
+  preloadedCity,
+  onMergeCities,
+  isUiVisible = true,
 }) => {
+  // --- CONTEXT HOOKS ---
+  const { user } = useUser();
+  const { userLocation } = useGps();
+  const { handleMainScroll } = useUI(); // SCROLL HANDLER
 
-    // --- CONTEXT HOOKS ---
-    const { user } = useUser();
-    const { userLocation } = useGps();
-    const { handleMainScroll } = useUI(); // SCROLL HANDLER
+  const hookData = useCityData(preloadedCity ? null : cityId);
 
-    const hookData = useCityData(preloadedCity ? null : cityId);
+  // [SAFETY SYNC] Priorità a preloadedCity solo se coerente con l'ID corrente (cityId).
+  // Questo previene visualizzazioni stale dopo navigazione back/forward se virtualCity non fosse ancora resettata.
+  const hasValidPreloadedCity =
+    preloadedCity && preloadedCity.id === cityId && preloadedCity.coords;
 
-    // [SAFETY SYNC] Priorità a preloadedCity solo se coerente con l'ID corrente (cityId).
-    // Questo previene visualizzazioni stale dopo navigazione back/forward se virtualCity non fosse ancora resettata.
-    const hasValidPreloadedCity =
-        preloadedCity &&
-        preloadedCity.id === cityId &&
-        preloadedCity.coords;
+  const city = hasValidPreloadedCity ? preloadedCity : hookData.city;
+  const loading = hasValidPreloadedCity ? false : hookData.loading;
 
-    const city = hasValidPreloadedCity
-        ? preloadedCity
-        : hookData.city;
-    const loading = hasValidPreloadedCity
-        ? false
-        : hookData.loading;
+  useDocumentTitle(city?.name || 'Caricamento...');
 
-    useDocumentTitle(city?.name || 'Caricamento...');
+  const [activeTab, setActiveTab] = useState<CityTab>(() => parseCityTab(initialTab));
+  const [activeModal, setActiveModal] = useState<ActiveModal>('none');
 
-    const [activeTab, setActiveTab] = useState<CityTab>(() => parseCityTab(initialTab));
-    const [activeModal, setActiveModal] = useState<ActiveModal>('none');
+  const [referencePoint, setReferencePoint] = useState<PointOfInterest | null>(null);
+  const [activeSponsors, setActiveSponsors] = useState<PointOfInterest[]>([]);
 
-    const [referencePoint, setReferencePoint] = useState<PointOfInterest | null>(null);
-    const [activeSponsors, setActiveSponsors] = useState<PointOfInterest[]>([]);
+  const { openModal } = useModal();
 
-    const { openModal } = useModal();
+  // Gestione Scroll Reset al cambio Tab
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    // Gestione Scroll Reset al cambio Tab
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!city || loading) return;
 
-    useEffect(() => {
-        if (!city || loading) return;
+    // 1. Sincronizzazione Metadati (Title, Description, Canonical)
+    const routeSeo = getCityRouteSeo(city);
+    const canonicalUrl = updateCityMetadata(city, routeSeo);
 
-        // 1. Sincronizzazione Metadati (Title, Description, Canonical)
-        const routeSeo = getCityRouteSeo(city);
-        const canonicalUrl = updateCityMetadata(city, routeSeo);
+    // 2. Iniezione Structured Data (JSON-LD)
+    let cleanupJson: (() => void) | undefined;
+    if (canonicalUrl) {
+      cleanupJson = injectJsonLd(city, canonicalUrl);
+    }
 
-        // 2. Iniezione Structured Data (JSON-LD)
-        let cleanupJson: (() => void) | undefined;
-        if (canonicalUrl) {
-            cleanupJson = injectJsonLd(city, canonicalUrl);
-        }
+    return () => {
+      if (cleanupJson) cleanupJson();
+    };
+  }, [city, loading]);
 
-        return () => {
-            if (cleanupJson) cleanupJson();
-        };
-    }, [city, loading]);
+  useEffect(() => {
+    let cancelled = false;
 
-    useEffect(() => {
-        if (!preloadedCity) {
-            fetchSponsorsByCityAsync(cityId).then(setActiveSponsors);
-            return;
-        }
+    if (!preloadedCity) {
+      void fetchSponsorsByCityAsync(cityId).then((sponsors) => {
+        if (!cancelled) setActiveSponsors(sponsors);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
 
-        const isAroundMe =
-            preloadedCity.virtualMode === 'around_me' || preloadedCity.id === 'around-me-virtual';
-        if (isAroundMe) {
-            const ids = (preloadedCity.aggregatedCities ?? []).map((c) => c.id);
-            if (ids.length === 0) {
-                setActiveSponsors([]);
-                return;
-            }
-            void fetchSponsorsByCityIdsAsync(ids).then(setActiveSponsors);
-            return;
-        }
-
+    const isAroundMe =
+      preloadedCity.virtualMode === 'around_me' || preloadedCity.id === 'around-me-virtual';
+    if (isAroundMe) {
+      const ids = (preloadedCity.aggregatedCities ?? []).map((c) => c.id);
+      if (ids.length === 0) {
         setActiveSponsors([]);
-    }, [cityId, preloadedCity]);
-
-    const isAdmin = user.role === 'admin_all' || user.role === 'admin_limited';
-
-    const visibleAllPois = useMemo(() => {
-        if (!city || !city.details.allPois) return [];
-        return city.details.allPois.filter(p => (p.status || 'published') === 'published');
-    }, [city]);
-
-    const openSuggestionModal = (type: SuggestionType, prefilledName?: string) => {
-        if (!city) return;
-        openModal('suggestion', {
-            type,
-            prefilledName,
-            cityId: city.id,
-            cityName: city.name,
-            existingPois: visibleAllPois,
-        });
-    };
-
-    const sourceList = useMemo(() => {
-        if (!city) return [];
-
-        const mixWithSponsors = (category: string) => {
-            // Ordina gli sponsor per tier: gold prima, silver dopo
-            const sortedSponsors = activeSponsors
-                .filter(s => s.category === category)
-                .sort((a, b) => {
-                    const tierA = a.tier === 'gold' ? 1 : (a.tier === 'silver' ? 2 : 3);
-                    const tierB = b.tier === 'gold' ? 1 : (b.tier === 'silver' ? 2 : 3);
-                    return tierA - tierB;
-                });
-
-            // Filtra POI editoriali
-            const editorial = visibleAllPois.filter(p => p.category === category);
-
-            // Rimuovi duplicati (se uno sponsor è anche editoriale, usa lo sponsor)
-            const uniqueEditorial = editorial.filter(ep =>
-                !sortedSponsors.some(sp => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim())
-            );
-            return [...sortedSponsors, ...uniqueEditorial];
+        return () => {
+          cancelled = true;
         };
+      }
+      void fetchSponsorsByCityIdsAsync(ids).then((sponsors) => {
+        if (!cancelled) setActiveSponsors(sponsors);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
 
-        switch (activeTab) {
-            case 'destinazioni': return mixWithSponsors('monument');
-            case 'natura': return mixWithSponsors('nature');
-            case 'sapori': return mixWithSponsors('food');
-            case 'alloggi': return mixWithSponsors('hotel');
-            case 'shopping': return mixWithSponsors('shop');
-            case 'svago': return mixWithSponsors('leisure');
-            case 'novita': {
-                // Logica 'novita' mantenuta ma con ordinamento sponsor
-                const newsSponsors = activeSponsors
-                    .filter(s => isPoiNew(s))
-                    .sort((a, b) => {
-                        const tierA = a.tier === 'gold' ? 1 : (a.tier === 'silver' ? 2 : 3);
-                        const tierB = b.tier === 'gold' ? 1 : (b.tier === 'silver' ? 2 : 3);
-                        return tierA - tierB;
-                    });
+    setActiveSponsors([]);
+    return () => {
+      cancelled = true;
+    };
+  }, [cityId, preloadedCity]);
 
-                const newsEditorial = visibleAllPois.filter(p => isPoiNew(p));
-                const uniqueEditorial = newsEditorial.filter(ep =>
-                    !newsSponsors.some(sp => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim())
-                );
-                return [...newsSponsors, ...uniqueEditorial];
-            }
-            default: return [];
-        }
-    }, [activeTab, city, visibleAllPois, activeSponsors]);
+  const isAdmin = user.role === 'admin_all' || user.role === 'admin_limited';
 
-    const handleTabChange = (newTab: CityTab) => {
-        setActiveTab(newTab);
-        if (onTabChange) onTabChange(newTab);
-        // Scroll leggero verso l'alto ma sotto l'header (UX)
-        if (scrollContainerRef.current && window.innerWidth < LAYOUT.BREAKPOINTS.MD) {
-            // Su mobile scrolliamo un po' per mostrare il contenuto
-            const headerHeight = 300;
-            if (scrollContainerRef.current.scrollTop > headerHeight) {
-                scrollContainerRef.current.scrollTo({ top: headerHeight, behavior: 'smooth' });
-            }
-        }
+  const visibleAllPois = useMemo(() => {
+    if (!city || !city.details.allPois) return [];
+    return city.details.allPois.filter((p) => (p.status || 'published') === 'published');
+  }, [city]);
+
+  const openSuggestionModal = (type: SuggestionType, prefilledName?: string) => {
+    if (!city) return;
+    openModal('suggestion', {
+      type,
+      prefilledName,
+      cityId: city.id,
+      cityName: city.name,
+      existingPois: visibleAllPois,
+    });
+  };
+
+  const sourceList = useMemo(() => {
+    if (!city) return [];
+
+    const mixWithSponsors = (category: string) => {
+      // Ordina gli sponsor per tier: gold prima, silver dopo
+      const sortedSponsors = activeSponsors
+        .filter((s) => s.category === category)
+        .sort((a, b) => {
+          const tierA = a.tier === 'gold' ? 1 : a.tier === 'silver' ? 2 : 3;
+          const tierB = b.tier === 'gold' ? 1 : b.tier === 'silver' ? 2 : 3;
+          return tierA - tierB;
+        });
+
+      // Filtra POI editoriali
+      const editorial = visibleAllPois.filter((p) => p.category === category);
+
+      // Rimuovi duplicati (se uno sponsor è anche editoriale, usa lo sponsor)
+      const uniqueEditorial = editorial.filter(
+        (ep) =>
+          !sortedSponsors.some(
+            (sp) => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim(),
+          ),
+      );
+      return [...sortedSponsors, ...uniqueEditorial];
     };
 
-    const handleMergeTrigger = (isActive: boolean, radius: number, selectedCityIds: string[]) => {
-        if (isActive && city) {
-            // Fusione "Tutto Incluso": riusa la logica esistente (buildVirtualCity)
-            // passando SOLO le città selezionate dall'utente.
-            onMergeCities?.(city, radius, selectedCityIds);
-        } else if (onSwitchCity && city) {
-            onSwitchCity(city.id);
-        }
-        setActiveModal('none');
-    };
+    switch (activeTab) {
+      case 'destinazioni':
+        return mixWithSponsors('monument');
+      case 'natura':
+        return mixWithSponsors('nature');
+      case 'sapori':
+        return mixWithSponsors('food');
+      case 'alloggi':
+        return mixWithSponsors('hotel');
+      case 'shopping':
+        return mixWithSponsors('shop');
+      case 'svago':
+        return mixWithSponsors('leisure');
+      case 'novita': {
+        // Logica 'novita' mantenuta ma con ordinamento sponsor
+        const newsSponsors = activeSponsors
+          .filter((s) => isPoiNew(s))
+          .sort((a, b) => {
+            const tierA = a.tier === 'gold' ? 1 : a.tier === 'silver' ? 2 : 3;
+            const tierB = b.tier === 'gold' ? 1 : b.tier === 'silver' ? 2 : 3;
+            return tierA - tierB;
+          });
 
-    const handleAdminEdit = (poi: PointOfInterest) => {
-        if (isAdmin) {
-            openModal('adminEditPoi', { poi });
-        }
-    };
+        const newsEditorial = visibleAllPois.filter((p) => isPoiNew(p));
+        const uniqueEditorial = newsEditorial.filter(
+          (ep) =>
+            !newsSponsors.some(
+              (sp) => sp.name.toLowerCase().trim() === ep.name.toLowerCase().trim(),
+            ),
+        );
+        return [...newsSponsors, ...uniqueEditorial];
+      }
+      default:
+        return [];
+    }
+  }, [activeTab, city, visibleAllPois, activeSponsors]);
 
-    // 3.5 STRICT DB-DRIVEN HERO
-    const displayCity = useMemo(() => {
-        return city || null;
-    }, [city]);
+  const handleTabChange = (newTab: CityTab) => {
+    setActiveTab(newTab);
+    if (onTabChange) onTabChange(newTab);
+    // Scroll leggero verso l'alto ma sotto l'header (UX)
+    if (scrollContainerRef.current && window.innerWidth < LAYOUT.BREAKPOINTS.MD) {
+      // Su mobile scrolliamo un po' per mostrare il contenuto
+      const headerHeight = 300;
+      if (scrollContainerRef.current.scrollTop > headerHeight) {
+        scrollContainerRef.current.scrollTo({ top: headerHeight, behavior: 'smooth' });
+      }
+    }
+  };
 
-    if (loading || !city || !displayCity) return (
-        <div className="h-[600px] flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-                <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
-                <span className="text-slate-500 font-mono text-sm animate-pulse">Caricamento città...</span>
-            </div>
-        </div>
-    );
+  const handleMergeTrigger = (isActive: boolean, radius: number, selectedCityIds: string[]) => {
+    if (isActive && city) {
+      // Fusione "Tutto Incluso": riusa la logica esistente (buildVirtualCity)
+      // passando SOLO le città selezionate dall'utente.
+      onMergeCities?.(city, radius, selectedCityIds);
+    } else if (onSwitchCity && city) {
+      onSwitchCity(city.id);
+    }
+    setActiveModal('none');
+  };
 
-    // Virtual City = informazione di dominio (flag stampato da buildVirtualCity),
-    // unica fonte autorevole. NON il preload, NON l'ID legacy.
-    const isVirtual = !!city.isVirtual;
+  const handleAdminEdit = (poi: PointOfInterest) => {
+    if (isAdmin) {
+      openModal('adminEditPoi', { poi });
+    }
+  };
 
+  // 3.5 STRICT DB-DRIVEN HERO
+  if (loading || !city)
     return (
-        <div
-            ref={scrollContainerRef}
-            onScroll={handleMainScroll}
-            className="flex flex-col w-full bg-[#020617] relative custom-scrollbar scrollbar-hide-mobile scroll-smooth h-full overflow-y-auto lg:overflow-hidden"
-        >
-
-            {/* 1. HEADER CITTÀ (IMMAGINE HERO) */}
-            <div className="shrink-0 z-local-raised relative">
-                <CityHeader
-                    city={displayCity}
-                    onOpenInfo={(t) => setActiveModal(t)}
-                    onOpenPatron={() => setActiveModal('patron')}
-                    onOpenSurroundings={() => setActiveModal('province')}
-                    onOpenCulture={() => setActiveModal('culture')}
-                    onOpenShop={() => onOpenShop()}
-                    onOpenSponsor={() => onOpenSponsor()}
-                    onOpenHistory={() => setActiveModal('history')}
-                    onToggleLocation={onToggleLocation}
-                    isLocationActive={!!userLocation}
-                    onSelectAggregatedCity={(id) => onSwitchCity(id)}
-                />
-            </div>
-
-            {/* 1.5 RIGA SEO / INTERNAL LINKING GEOGRAFICO */}
-            {!isVirtual && (
-                <>
-                    <NearbyCitiesRow
-                        currentCity={city}
-                        allCities={cityManifest}
-                        onExploreAround={() => setActiveModal('province')}
-                        onSwitchCity={onSwitchCity}
-                    />
-                </>
-            )}
-
-            {/* 2. TAB NAVIGATION - NOT STICKY ON MOBILE */}
-            <div className="sticky top-0 z-local-sticky bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl shrink-0">
-                {/* DESKTOP TABS */}
-                <div className="hidden md:flex flex-nowrap justify-center gap-0 overflow-x-auto no-scrollbar px-1 w-full">
-                    {TABS.map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        return (
-                            <React.Fragment key={tab.id}>
-                                <button onClick={() => handleTabChange(tab.id)} className={`flex-shrink-0 py-3 px-3 text-sm font-bold uppercase tracking-wider transition-all relative group whitespace-nowrap ${isActive ? 'text-orange-500' : 'text-yellow-400 hover:text-orange-500'}`}>
-                                    <span className="flex items-center gap-1.5 relative z-local-raised">
-                                        <Icon className={`w-4 h-4 ${isActive ? 'text-orange-500' : 'text-yellow-400 group-hover:text-orange-500'}`} />
-                                        {tab.label}
-                                    </span>
-                                </button>
-                                <div className="w-px h-3 bg-slate-800 flex-shrink-0 opacity-50 mx-1 self-center"></div>
-                            </React.Fragment>
-                        );
-                    })}
-                </div>
-
-                {/* MOBILE TABS (GRID 2 ROWS) */}
-                <div className="md:hidden grid grid-cols-5 grid-rows-2 gap-1 p-2 bg-slate-900">
-                    {TABS.filter((tab) => tab.id !== 'galleria').map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => handleTabChange(tab.id)}
-                                className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all h-10 ${isActive ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-orange-500'}`}
-                            >
-                                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-orange-500' : 'text-slate-500'}`} />
-                                <span className="text-[7px] font-bold uppercase text-center leading-none mt-0.5 w-full truncate px-0.5">{tab.label}</span>
-                            </button>
-                        );
-                    })}
-
-                    {TABS.filter((tab) => tab.id === 'galleria').map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => handleTabChange(tab.id)}
-                                className={`col-start-5 row-start-1 row-span-2 flex flex-col items-center justify-center rounded-xl border transition-all shadow-md active:scale-95 ${isActive ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
-                            >
-                                <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                                <span className="text-[8px] font-black uppercase text-center leading-none">GALLERIA</span>
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* 3. CONTENUTO - MD: FLEX-1 MIN-H-0 */}
-            <div className="w-full bg-[#020617] relative z-0 lg:flex-1 lg:min-h-0 lg:overflow-hidden">
-                <div key={activeTab} className="w-full h-full animate-in fade-in duration-500">
-                    <Suspense fallback={<TabLoader />}>
-                        {activeTab === 'galleria' ? (
-                            <CityGallery city={city} user={user} onOpenAuth={onOpenAuth} />
-                        ) : activeTab === 'vetrina' ? (
-                            <CityShowcaseTab
-                                city={city} visibleAllPois={visibleAllPois} activeSponsors={activeSponsors}
-                                onOpenPoiDetail={onOpenPoiDetail} onAddToItinerary={onAddToItinerary}
-                                onOpenSponsor={onOpenSponsor} onOpenSuggestion={() => openSuggestionModal('new_place')}
-                                user={user}
-                                onOpenAuth={onOpenAuth}
-                                userLocation={userLocation}
-                            />
-                        ) : (
-                            <CityCategoryTab
-                                sourceList={sourceList}
-                                activeSponsors={activeSponsors}
-                                userLocation={userLocation}
-                                onToggleLocation={onToggleLocation}
-                                onAddToItinerary={onAddToItinerary}
-                                onOpenPoiDetail={onOpenPoiDetail}
-                                onOpenReview={onOpenReview}
-                                onOpenSponsor={() => onOpenSponsor()}
-                                referencePoint={referencePoint}
-                                setReferencePoint={setReferencePoint}
-                                onOpenSuggestion={(type) => openSuggestionModal(type)}
-                                isSidebarOpen={isSidebarOpen}
-                                onOpenShopFromPoi={onOpenShop}
-                                user={user}
-                                onOpenAuth={onOpenAuth}
-                                isUiVisible={isUiVisible}
-                                onAdminEdit={handleAdminEdit}
-                                onTabChange={(tab) => { if (isCityTab(tab)) handleTabChange(tab); }}
-                                currentCategory={getCategoryFromTab(activeTab)}
-                            />
-                        )}
-                    </Suspense>
-                </div>
-            </div>
-
-            {/* SPAZIO EXTRA PER MOBILE NAV (Solo mobile) */}
-            <div className="h-24 md:hidden w-full shrink-0"></div>
-
-            {/* MODALI */}
-            {isCityInfoTab(activeModal) && (
-                <CityInfoModal
-                    isOpen={true}
-                    onClose={() => setActiveModal('none')}
-                    city={city}
-                    initialTab={activeModal}
-                    onAddToItinerary={onAddToItinerary}
-                    user={user}
-                    onOpenAuth={onOpenAuth}
-                    onSuggestEdit={(name) => openSuggestionModal('edit_info', name)}
-                />
-            )}
-            <ProvinceModal
-                isOpen={activeModal === 'province'}
-                onClose={() => setActiveModal('none')}
-                currentCity={city}
-                onSelectCity={(id) => onSwitchCity && onSwitchCity(id)}
-                liveManifest={cityManifest}
-                onToggleMerge={handleMergeTrigger}
-                isMergeActive={isVirtual}
-            />
-            <CultureCornerModal isOpen={activeModal === 'culture'} onClose={() => setActiveModal('none')} city={city} onAddToItinerary={onAddToItinerary} />
-            <PatronSaintModal isOpen={activeModal === 'patron'} onClose={() => setActiveModal('none')} city={city} />
-            <HistoryModal isOpen={activeModal === 'history'} onClose={() => setActiveModal('none')} city={city} openSuggestion={() => openSuggestionModal('history_culture')} />
+      <div className="h-[600px] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
+          <span className="text-slate-500 font-mono text-sm animate-pulse">
+            Caricamento città...
+          </span>
         </div>
+      </div>
     );
+
+  // Virtual City = informazione di dominio (flag stampato da buildVirtualCity),
+  // unica fonte autorevole. NON il preload, NON l'ID legacy.
+  const isVirtual = !!city.isVirtual;
+
+  return (
+    <div
+      ref={scrollContainerRef}
+      onScroll={handleMainScroll}
+      className="flex flex-col w-full bg-[#020617] relative custom-scrollbar scrollbar-hide-mobile scroll-smooth h-full overflow-y-auto lg:overflow-hidden"
+    >
+      {/* 1. HEADER CITTÀ (IMMAGINE HERO) */}
+      <div className="shrink-0 z-local-raised relative">
+        <CityHeader
+          city={city}
+          onOpenInfo={(t) => setActiveModal(t)}
+          onOpenPatron={() => setActiveModal('patron')}
+          onOpenSurroundings={() => setActiveModal('province')}
+          onOpenCulture={() => setActiveModal('culture')}
+          onOpenShop={() => onOpenShop()}
+          onOpenSponsor={() => onOpenSponsor()}
+          onOpenHistory={() => setActiveModal('history')}
+          onToggleLocation={onToggleLocation}
+          isLocationActive={!!userLocation}
+          onSelectAggregatedCity={(id) => onSwitchCity(id)}
+        />
+      </div>
+
+      {/* 1.5 RIGA SEO / INTERNAL LINKING GEOGRAFICO */}
+      {!isVirtual && (
+        <NearbyCitiesRow
+          currentCity={city}
+          allCities={cityManifest}
+          onExploreAround={() => setActiveModal('province')}
+          onSwitchCity={onSwitchCity}
+        />
+      )}
+
+      {/*
+        Scroll container:
+        - < lg: questo root (scrollContainerRef) con overflow-y-auto — unico scroll di pagina.
+        - lg+: root overflow-hidden; lo scroll passa ai tab children (es. Showcase lg:overflow-y-auto).
+
+        Tab sticky:
+        - < md: relative (non sticky), scorrono con il contenuto.
+        - md+: sticky sul root scrollabile; md:self-start evita lo stretch flex che annulla sticky.
+        - lg+: le tab restano comunque fisse (shrink-0 fuori dall’area scroll interna).
+      */}
+      <div className="relative w-full shrink-0 md:sticky md:top-0 md:self-start z-local-sticky bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
+        {/* DESKTOP TABS */}
+        <div className="hidden md:flex flex-nowrap justify-center gap-0 overflow-x-auto no-scrollbar px-1 w-full">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <React.Fragment key={tab.id}>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`flex-shrink-0 py-3 px-3 text-sm font-bold uppercase tracking-wider transition-all relative group whitespace-nowrap ${isActive ? 'text-orange-500' : 'text-yellow-400 hover:text-orange-500'}`}
+                >
+                  <span className="flex items-center gap-1.5 relative z-local-raised">
+                    <Icon
+                      className={`w-4 h-4 ${isActive ? 'text-orange-500' : 'text-yellow-400 group-hover:text-orange-500'}`}
+                    />
+                    {tab.label}
+                  </span>
+                </button>
+                <div className="w-px h-3 bg-slate-800 flex-shrink-0 opacity-50 mx-1 self-center"></div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* MOBILE TABS (GRID 2 ROWS) */}
+        <div className="md:hidden grid grid-cols-5 grid-rows-2 gap-1 p-2 bg-slate-900">
+          {TABS.filter((tab) => tab.id !== 'galleria').map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                type="button"
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all min-h-11 h-11 ${isActive ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-orange-500'}`}
+              >
+                <Icon
+                  className={`w-3.5 h-3.5 ${isActive ? 'text-orange-500' : 'text-slate-500'}`}
+                />
+                <span className="text-[7px] font-bold uppercase text-center leading-none mt-0.5 w-full truncate px-0.5">
+                  {tab.label}
+                </span>
+              </button>
+            );
+          })}
+
+          {TABS.filter((tab) => tab.id === 'galleria').map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                type="button"
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`col-start-5 row-start-1 row-span-2 flex flex-col items-center justify-center rounded-xl border transition-all shadow-md active:scale-95 ${isActive ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
+              >
+                <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <span className="text-[8px] font-black uppercase text-center leading-none">
+                  GALLERIA
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. CONTENUTO - MD: FLEX-1 MIN-H-0 */}
+      <div className="w-full bg-[#020617] relative z-0 lg:flex-1 lg:min-h-0 lg:overflow-hidden">
+        <div key={activeTab} className="w-full h-full animate-in fade-in duration-500">
+          <Suspense fallback={<TabLoader />}>
+            {activeTab === 'galleria' ? (
+              <CityGallery city={city} user={user} onOpenAuth={onOpenAuth} />
+            ) : activeTab === 'vetrina' ? (
+              <CityShowcaseTab
+                city={city}
+                visibleAllPois={visibleAllPois}
+                activeSponsors={activeSponsors}
+                onOpenPoiDetail={onOpenPoiDetail}
+                onAddToItinerary={onAddToItinerary}
+                onOpenSponsor={onOpenSponsor}
+                onOpenSuggestion={() => openSuggestionModal('new_place')}
+                user={user}
+                onOpenAuth={onOpenAuth}
+                userLocation={userLocation}
+              />
+            ) : (
+              <CityCategoryTab
+                sourceList={sourceList}
+                activeSponsors={activeSponsors}
+                userLocation={userLocation}
+                onToggleLocation={onToggleLocation}
+                onAddToItinerary={onAddToItinerary}
+                onOpenPoiDetail={onOpenPoiDetail}
+                onOpenReview={onOpenReview}
+                onOpenSponsor={() => onOpenSponsor()}
+                referencePoint={referencePoint}
+                setReferencePoint={setReferencePoint}
+                onOpenSuggestion={(type) => openSuggestionModal(type)}
+                isSidebarOpen={isSidebarOpen}
+                onOpenShopFromPoi={onOpenShop}
+                user={user}
+                onOpenAuth={onOpenAuth}
+                isUiVisible={isUiVisible}
+                onAdminEdit={handleAdminEdit}
+                onTabChange={(tab) => {
+                  if (isCityTab(tab)) handleTabChange(tab);
+                }}
+                currentCategory={getCategoryFromTab(activeTab)}
+              />
+            )}
+          </Suspense>
+        </div>
+      </div>
+
+      {/* SPAZIO EXTRA PER MOBILE NAV (Solo mobile) */}
+      <div className="h-24 md:hidden w-full shrink-0"></div>
+
+      {/* MODALI */}
+      {isCityInfoTab(activeModal) && (
+        <CityInfoModal
+          isOpen={true}
+          onClose={() => setActiveModal('none')}
+          city={city}
+          initialTab={activeModal}
+          onAddToItinerary={onAddToItinerary}
+          user={user}
+          onOpenAuth={onOpenAuth}
+          onSuggestEdit={(name) => openSuggestionModal('edit_info', name)}
+        />
+      )}
+      <ProvinceModal
+        isOpen={activeModal === 'province'}
+        onClose={() => setActiveModal('none')}
+        currentCity={city}
+        onSelectCity={(id) => onSwitchCity && onSwitchCity(id)}
+        liveManifest={cityManifest}
+        onToggleMerge={handleMergeTrigger}
+        isMergeActive={isVirtual}
+      />
+      <CultureCornerModal
+        isOpen={activeModal === 'culture'}
+        onClose={() => setActiveModal('none')}
+        city={city}
+        onAddToItinerary={onAddToItinerary}
+      />
+      <PatronSaintModal
+        isOpen={activeModal === 'patron'}
+        onClose={() => setActiveModal('none')}
+        city={city}
+        user={user}
+        onOpenAuth={onOpenAuth}
+      />
+      <HistoryModal
+        isOpen={activeModal === 'history'}
+        onClose={() => setActiveModal('none')}
+        city={city}
+        openSuggestion={() => openSuggestionModal('history_culture')}
+      />
+    </div>
+  );
 };

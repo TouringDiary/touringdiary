@@ -1,5 +1,5 @@
-import { SponsorRequest } from '../types/models/Sponsor';
 import { PLAN_TYPES } from '../constants/planTypes';
+import type { SponsorRequest } from '../types/models/Sponsor';
 
 /**
  * Soglia sotto la quale uno sponsor è considerato "partner critico" (es. basso rating).
@@ -11,34 +11,37 @@ export const CRITICAL_RATING_THRESHOLD = 3.0;
  * Gestisce safely null e undefined.
  */
 export const isShopCategory = (request: SponsorRequest | null | undefined): boolean => {
-    if (!request) return false;
-    return request.type === PLAN_TYPES.DIGITAL_SHOWCASE || request.poiCategory === 'shop';
+  if (!request) return false;
+  return request.type === PLAN_TYPES.DIGITAL_SHOWCASE || request.poiCategory === 'shop';
 };
 
 /**
  * Esito validazione dati attivazione sponsor (discriminated union per narrowing TypeScript).
  */
 export type ActivationDataValidation =
-    | { isValid: true; amount: number; invoiceNumber: string }
-    | { isValid: false; error: string };
+  | { isValid: true; amount: number; invoiceNumber: string }
+  | { isValid: false; error: string };
 
 /**
  * Valida i dati di attivazione per garantire la presenza di amount e invoiceNumber corretti.
  * Gestisce safely valori non definiti o nulli.
  */
 export const validateActivationData = (
-    amount: number | null | undefined,
-    invoiceNumber: string | null | undefined
+  amount: number | null | undefined,
+  invoiceNumber: string | null | undefined,
 ): ActivationDataValidation => {
-    if (amount === undefined || amount === null || isNaN(amount) || amount <= 0) {
-        return { isValid: false as const, error: "L'importo deve essere maggiore di zero." };
-    }
+  if (amount === undefined || amount === null || Number.isNaN(amount) || amount <= 0) {
+    return { isValid: false as const, error: "L'importo deve essere maggiore di zero." };
+  }
 
-    if (!invoiceNumber || invoiceNumber.trim().length < 2) {
-        return { isValid: false as const, error: "Il numero fattura è obbligatorio (min 2 caratteri)." };
-    }
+  if (!invoiceNumber || invoiceNumber.trim().length < 2) {
+    return {
+      isValid: false as const,
+      error: 'Il numero fattura è obbligatorio (min 2 caratteri).',
+    };
+  }
 
-    return { isValid: true as const, amount, invoiceNumber: invoiceNumber.trim() };
+  return { isValid: true as const, amount, invoiceNumber: invoiceNumber.trim() };
 };
 
 /**
@@ -47,19 +50,19 @@ export const validateActivationData = (
  * Gestisce array vuoti, null e dati malformati.
  */
 export const getCriticalPartnersCount = (
-    sponsorsList: SponsorRequest[] | null | undefined, 
-    threshold: number = CRITICAL_RATING_THRESHOLD
+  sponsorsList: SponsorRequest[] | null | undefined,
+  threshold: number = CRITICAL_RATING_THRESHOLD,
 ): number => {
-    if (!sponsorsList || !Array.isArray(sponsorsList) || sponsorsList.length === 0) {
-        return 0;
-    }
+  if (!sponsorsList || !Array.isArray(sponsorsList) || sponsorsList.length === 0) {
+    return 0;
+  }
 
-    return sponsorsList.filter(s => {
-        const isApproved = s.status === 'approved';
-        if (!isApproved) return false;
+  return sponsorsList.filter((s) => {
+    const isApproved = s.status === 'approved';
+    if (!isApproved) return false;
 
-        const rating = typeof s.rating === 'number' ? s.rating : null;
+    const rating = typeof s.rating === 'number' ? s.rating : null;
 
-        return rating !== null && rating < threshold;
-    }).length;
+    return rating !== null && rating < threshold;
+  }).length;
 };

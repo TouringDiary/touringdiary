@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Database, Json } from '../types/supabase';
+import type { Database, Json } from '../types/supabase';
 
 export type { Json };
 
@@ -15,7 +15,7 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   throw new Error(
-    '[Supabase] Configurazione mancante: definire VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nel file .env'
+    '[Supabase] Configurazione mancante: definire VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nel file .env',
   );
 }
 
@@ -29,7 +29,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     storageKey: STORAGE_KEY,
-  }
+  },
 });
 
 export const isSupabaseConfigured = () => {
@@ -45,7 +45,7 @@ export const isSupabaseConfigured = () => {
  * ------------------------------------------------------------------
  */
 export let isAuthOperationInProgress = false;
-let authLockTimeout: any = null;
+let authLockTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export const setAuthOperationInProgress = (value: boolean) => {
   isAuthOperationInProgress = value;
@@ -60,7 +60,7 @@ export const setAuthOperationInProgress = (value: boolean) => {
     // Safety timeout: reset flag dopo 10 secondi per evitare blocchi permanenti
     authLockTimeout = setTimeout(() => {
       if (isAuthOperationInProgress) {
-        console.warn("[SupabaseClient] ⚠️ Auth lock safety timeout reached. Auto-resetting flag.");
+        console.warn('[SupabaseClient] ⚠️ Auth lock safety timeout reached. Auto-resetting flag.');
         isAuthOperationInProgress = false;
       }
     }, 10000);
@@ -70,8 +70,8 @@ export const setAuthOperationInProgress = (value: boolean) => {
 };
 
 /**
- * Valida la sessione corrente. 
- * Orchestrazione reale: se un'operazione auth è in corso, attende lo sblocco 
+ * Valida la sessione corrente.
+ * Orchestrazione reale: se un'operazione auth è in corso, attende lo sblocco
  * invece di falsificare il risultato.
  */
 export const validateSession = async (): Promise<boolean> => {
@@ -79,17 +79,20 @@ export const validateSession = async (): Promise<boolean> => {
   let retryCount = 0;
   while (isAuthOperationInProgress && retryCount < 10) {
     console.log(`[SupabaseClient] validateSession waiting for auth lock... (${retryCount + 1}/10)`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     retryCount++;
   }
 
   if (isAuthOperationInProgress) {
-    console.error("[SupabaseClient] validateSession ABORTED: Auth lock did not release in time.");
+    console.error('[SupabaseClient] validateSession ABORTED: Auth lock did not release in time.');
     return false; // Non mentiamo più: se è bloccato, la validazione è fallita/indeterminata
   }
 
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
     if (error || !session) return false;
 
     // Verifica che il token non sia scaduto
@@ -100,12 +103,16 @@ export const validateSession = async (): Promise<boolean> => {
     const isValid = expiresAt > nowSec;
 
     if (!isValid) {
-      console.warn("[Supabase] Sessione scaduta (token exp:", new Date(expiresAt * 1000).toISOString(), ")");
+      console.warn(
+        '[Supabase] Sessione scaduta (token exp:',
+        new Date(expiresAt * 1000).toISOString(),
+        ')',
+      );
     }
 
     return isValid;
   } catch (e) {
-    console.error("[Supabase] validateSession error:", e);
+    console.error('[Supabase] validateSession error:', e);
     return false;
   }
 };

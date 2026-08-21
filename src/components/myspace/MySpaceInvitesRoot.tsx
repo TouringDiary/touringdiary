@@ -1,5 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Loader2, Mail, X } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useModal } from '@/context/ModalContext';
 import type { WorkspaceInvite } from '@/domain/collaboration';
 import {
   acceptWorkspaceInvite,
@@ -10,7 +12,6 @@ import {
   rejectWorkspaceInvite,
   revokeWorkspaceInvite,
 } from '@/services/collaboration';
-import { useModal } from '@/context/ModalContext';
 import { showGlobalAlert } from '@/services/ui/toastService';
 import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 
@@ -63,14 +64,9 @@ export const MySpaceInvitesRoot: React.FC<Props> = ({ userId, onBeforeLeaveMySpa
       setOutgoing(outList);
 
       const profileIds = [
-        ...new Set([
-          ...inList.map((i) => i.inviterId),
-          ...outList.map((i) => i.inviteeId),
-        ]),
+        ...new Set([...inList.map((i) => i.inviterId), ...outList.map((i) => i.inviteeId)]),
       ];
-      const workspaceIds = [
-        ...new Set([...inList, ...outList].map((i) => i.workspaceId)),
-      ];
+      const workspaceIds = [...new Set([...inList, ...outList].map((i) => i.workspaceId))];
 
       try {
         const [loadedProfiles, loadedWorkspaceNames] = await Promise.all([
@@ -97,10 +93,7 @@ export const MySpaceInvitesRoot: React.FC<Props> = ({ userId, onBeforeLeaveMySpa
     void reload();
   }, [reload]);
 
-  const pending = useMemo(
-    () => incoming.filter((i) => i.status === 'pending'),
-    [incoming],
-  );
+  const pending = useMemo(() => incoming.filter((i) => i.status === 'pending'), [incoming]);
 
   const visible = useMemo(() => {
     if (tab === 'pending') return pending;

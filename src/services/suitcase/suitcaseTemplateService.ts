@@ -1,27 +1,28 @@
-import { supabase } from '../supabaseClient';
-import { Insert, DbSuitcase, DbSuitcaseItem } from '../../types/domain/index';
-import { Json } from '../supabaseClient';
-import { Suitcase, SuitcaseItem } from '../../types/suitcase';
+import type { DbSuitcase, DbSuitcaseItem } from '../../types/domain/index';
+import type { Suitcase, SuitcaseItem } from '../../types/suitcase';
 import { dedupeTemplateIds } from '../../utils/deriveItineraryCityTypes';
+import { isTdTemplate, isUserTemplate, isValigia } from '../../utils/suitcaseDomain';
+import { type Json, supabase } from '../supabaseClient';
 import {
-  mapDbSuitcaseToRuntimeSuitcase,
-  mapDbSuitcaseItemToRuntimeItem,
-  serializeUiState,
-  parseUiState,
-  createSuitcaseAsync,
+  enrichTdTemplateAsync,
+  enrichTdTemplatesAsync,
+  ensureTdTemplateCategorySetup,
+} from './packingCompositionService';
+import {
   cloneSuitcaseAsync,
+  createSuitcaseAsync,
+  mapDbSuitcaseToRuntimeSuitcase,
+  parseUiState,
+  serializeUiState,
 } from './suitcaseCoreService';
 import { persistSuitcaseItemsFromRuntimeAsync } from './suitcaseItemsService';
-import { getRejectionsBySuitcaseAsync, addRejectionAsync } from './suitcaseRejectionsService';
-import { enrichTdTemplateAsync, enrichTdTemplatesAsync, ensureTdTemplateCategorySetup } from './packingCompositionService';
-import { isTdTemplate, isUserTemplate, isValigia } from '../../utils/suitcaseDomain';
+import { addRejectionAsync, getRejectionsBySuitcaseAsync } from './suitcaseRejectionsService';
 
 /** Suggerimento AI ancora in attesa di accettazione/rifiuto — escluso dalla duplicazione. */
 const isPendingAiSuggestion = (item: SuitcaseItem): boolean =>
   item.is_ai_suggestion === true && item.accepted_from_ai !== true;
 
-const shouldIncludeItemInDuplicate = (item: SuitcaseItem): boolean =>
-  !isPendingAiSuggestion(item);
+const shouldIncludeItemInDuplicate = (item: SuitcaseItem): boolean => !isPendingAiSuggestion(item);
 
 const mapItemForDuplicateSeed = (item: SuitcaseItem): SuitcaseItem => ({
   ...item,
@@ -38,9 +39,9 @@ const copyRejectionsAsync = async (sourceId: string, targetId: string): Promise<
         targetId,
         rejection.name,
         rejection.category,
-        rejection.ai_suggestion_context
-      )
-    )
+        rejection.ai_suggestion_context,
+      ),
+    ),
   );
 };
 
@@ -51,21 +52,19 @@ const copyRejectionsAsync = async (sourceId: string, targetId: string): Promise<
    SERVIZI RUNTIME UTENTE (RIPRISTINATI)
    ========================================== */
 
-const mapSuitcaseRowWithItems = (
-  item: {
-    id: string;
-    title: string;
-    icon: string | null;
-    user_id: string | null;
-    created_at: string | null;
-    updated_at: string | null;
-    source_template_id: string | null;
-    custom_categories: Json;
-    ui_state: Json;
-    is_user_template?: boolean;
-    suitcase_items?: DbSuitcaseItem[];
-  }
-): Suitcase => {
+const mapSuitcaseRowWithItems = (item: {
+  id: string;
+  title: string;
+  icon: string | null;
+  user_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  source_template_id: string | null;
+  custom_categories: Json;
+  ui_state: Json;
+  is_user_template?: boolean;
+  suitcase_items?: DbSuitcaseItem[];
+}): Suitcase => {
   const rawItems = Array.isArray(item.suitcase_items) ? item.suitcase_items : [];
   const dbSuitcase: DbSuitcase = {
     id: item.id,
@@ -145,7 +144,7 @@ export const fetchGlobalTemplatesAsync = async (): Promise<Suitcase[]> => {
 
   if (error) throw error;
   if (!data) {
-    throw new Error("[suitcaseTemplateService] fetchGlobalTemplatesAsync ha restituito data null.");
+    throw new Error('[suitcaseTemplateService] fetchGlobalTemplatesAsync ha restituito data null.');
   }
 
   const templates = data.map((item) => {
@@ -170,7 +169,7 @@ export const fetchGlobalTemplatesAsync = async (): Promise<Suitcase[]> => {
   } catch (enrichError) {
     console.error('[fetchGlobalTemplatesAsync] enrichTdTemplatesAsync failed:', enrichError);
     return templates.map((template) =>
-      isTdTemplate(template) ? ensureTdTemplateCategorySetup(template) : template
+      isTdTemplate(template) ? ensureTdTemplateCategorySetup(template) : template,
     );
   }
 };
@@ -188,7 +187,9 @@ export const fetchUserOwnedTemplatesAsync = async (userId: string): Promise<Suit
 
   if (error) throw error;
   if (!data) {
-    throw new Error("[suitcaseTemplateService] fetchUserOwnedTemplatesAsync ha restituito data null.");
+    throw new Error(
+      '[suitcaseTemplateService] fetchUserOwnedTemplatesAsync ha restituito data null.',
+    );
   }
 
   return data.map(mapSuitcaseRowWithItems);
@@ -200,7 +201,7 @@ export const fetchUserOwnedTemplatesAsync = async (userId: string): Promise<Suit
  */
 export const fetchCityTypeTemplatesAsync = async (cityType: string): Promise<string[]> => {
   if (!cityType) {
-    throw new Error("[suitcaseTemplateService] fetchCityTypeTemplatesAsync: cityType mancante.");
+    throw new Error('[suitcaseTemplateService] fetchCityTypeTemplatesAsync: cityType mancante.');
   }
 
   const { data, error } = await supabase
@@ -211,7 +212,9 @@ export const fetchCityTypeTemplatesAsync = async (cityType: string): Promise<str
 
   if (error) throw error;
   if (!data) {
-    throw new Error("[suitcaseTemplateService] fetchCityTypeTemplatesAsync ha restituito data null.");
+    throw new Error(
+      '[suitcaseTemplateService] fetchCityTypeTemplatesAsync ha restituito data null.',
+    );
   }
 
   return dedupeTemplateIds(data.map((d) => d.template_id));
@@ -236,9 +239,13 @@ export const fetchCityTypesTemplatesAsync = async (cityTypes: string[]): Promise
 /**
  * Recupera i dettagli specifici di un template clonato (comprensivo di items).
  */
-export const fetchClonedTemplateDetailsAsync = async (suitcaseId: string): Promise<Suitcase | null> => {
+export const fetchClonedTemplateDetailsAsync = async (
+  suitcaseId: string,
+): Promise<Suitcase | null> => {
   if (!suitcaseId) {
-    throw new Error("[suitcaseTemplateService] fetchClonedTemplateDetailsAsync: suitcaseId mancante.");
+    throw new Error(
+      '[suitcaseTemplateService] fetchClonedTemplateDetailsAsync: suitcaseId mancante.',
+    );
   }
 
   const { data, error } = await supabase
@@ -300,10 +307,12 @@ export const fetchClonedTemplateDetailsAsync = async (suitcaseId: string): Promi
  * Recupera le preferenze dell'utente sui template.
  */
 export const fetchUserTemplatePreferencesAsync = async (
-  userId: string
+  userId: string,
 ): Promise<{ template_id: string; enabled: boolean; priority: number }[]> => {
   if (!userId) {
-    throw new Error("[suitcaseTemplateService] fetchUserTemplatePreferencesAsync: userId mancante.");
+    throw new Error(
+      '[suitcaseTemplateService] fetchUserTemplatePreferencesAsync: userId mancante.',
+    );
   }
 
   const { data, error } = await supabase
@@ -313,7 +322,9 @@ export const fetchUserTemplatePreferencesAsync = async (
 
   if (error) throw error;
   if (!data) {
-    throw new Error("[suitcaseTemplateService] fetchUserTemplatePreferencesAsync ha restituito data null.");
+    throw new Error(
+      '[suitcaseTemplateService] fetchUserTemplatePreferencesAsync ha restituito data null.',
+    );
   }
 
   return data;
@@ -325,25 +336,30 @@ export const fetchUserTemplatePreferencesAsync = async (
 export const upsertUserTemplatePreferenceAsync = async (
   userId: string,
   templateId: string,
-  enabled: boolean
+  enabled: boolean,
 ): Promise<void> => {
   if (!userId) {
-    throw new Error("[suitcaseTemplateService] upsertUserTemplatePreferenceAsync: userId mancante.");
+    throw new Error(
+      '[suitcaseTemplateService] upsertUserTemplatePreferenceAsync: userId mancante.',
+    );
   }
   if (!templateId) {
-    throw new Error("[suitcaseTemplateService] upsertUserTemplatePreferenceAsync: templateId mancante.");
+    throw new Error(
+      '[suitcaseTemplateService] upsertUserTemplatePreferenceAsync: templateId mancante.',
+    );
   }
 
-  const { error } = await supabase
-    .from('user_template_preferences')
-    .upsert({
+  const { error } = await supabase.from('user_template_preferences').upsert(
+    {
       user_id: userId,
       template_id: templateId,
       enabled,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id,template_id'
-    });
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: 'user_id,template_id',
+    },
+  );
 
   if (error) throw error;
 };
@@ -353,13 +369,15 @@ export const upsertUserTemplatePreferenceAsync = async (
  */
 export const updateHiddenCategoriesAsync = async (
   suitcaseId: string,
-  hiddenCategoryIds: string[]
+  hiddenCategoryIds: string[],
 ): Promise<void> => {
   if (!suitcaseId) {
-    throw new Error("[suitcaseTemplateService] updateHiddenCategoriesAsync: suitcaseId mancante.");
+    throw new Error('[suitcaseTemplateService] updateHiddenCategoriesAsync: suitcaseId mancante.');
   }
   if (!hiddenCategoryIds) {
-    throw new Error("[suitcaseTemplateService] updateHiddenCategoriesAsync: hiddenCategoryIds mancante.");
+    throw new Error(
+      '[suitcaseTemplateService] updateHiddenCategoriesAsync: hiddenCategoryIds mancante.',
+    );
   }
 
   const { data: current, error: fetchError } = await supabase
@@ -394,7 +412,7 @@ export const updateHiddenCategoriesAsync = async (
 export const duplicateSuitcaseEntityAsync = async (
   sourceId: string,
   userId: string,
-  title?: string
+  title?: string,
 ): Promise<string> => {
   if (!sourceId || !userId) {
     throw new Error('[suitcaseTemplateService] duplicateSuitcaseEntityAsync: parametri mancanti.');
@@ -402,7 +420,9 @@ export const duplicateSuitcaseEntityAsync = async (
 
   const source = await fetchClonedTemplateDetailsAsync(sourceId);
   if (!source) {
-    throw new Error('[suitcaseTemplateService] duplicateSuitcaseEntityAsync: sorgente non trovata.');
+    throw new Error(
+      '[suitcaseTemplateService] duplicateSuitcaseEntityAsync: sorgente non trovata.',
+    );
   }
 
   const baseTitle = source.title?.replace(/ \(Copia\)$/i, '') ?? 'Valigia';
@@ -423,7 +443,9 @@ export const duplicateSuitcaseEntityAsync = async (
     });
 
     if (!created?.id) {
-      throw new Error('[suitcaseTemplateService] duplicateSuitcaseEntityAsync: creazione template fallita.');
+      throw new Error(
+        '[suitcaseTemplateService] duplicateSuitcaseEntityAsync: creazione template fallita.',
+      );
     }
 
     const seedItems = (source.suitcase_items ?? [])
@@ -439,5 +461,7 @@ export const duplicateSuitcaseEntityAsync = async (
     return created.id;
   }
 
-  throw new Error('[suitcaseTemplateService] duplicateSuitcaseEntityAsync: tipo sorgente non supportato.');
+  throw new Error(
+    '[suitcaseTemplateService] duplicateSuitcaseEntityAsync: tipo sorgente non supportato.',
+  );
 };

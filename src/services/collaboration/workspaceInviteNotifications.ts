@@ -1,17 +1,17 @@
-import { supabase } from '@/services/supabaseClient';
 import type { Workspace } from '@/domain/collaboration';
-import { getWorkspace } from './workspaceService';
+import { supabase } from '@/services/supabaseClient';
 import {
   notifyWorkspaceInviteAccepted,
   notifyWorkspaceInviteReceived,
   notifyWorkspaceInviteRejected,
 } from './workspaceNotificationHelper';
+import { getWorkspace } from './workspaceService';
 
 export async function notifyWorkspaceInviteReceivedForSentInvite(
   ownerId: string,
   inviteeId: string,
   workspaceId: string,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   const workspace = await getWorkspace(workspaceId);
   const { data: inviterProfile } = await supabase
@@ -26,7 +26,7 @@ export async function notifyWorkspaceInviteReceivedForSentInvite(
       inviterProfile?.name?.trim() || 'Un collaboratore',
       workspace?.name ?? 'Workspace',
       inviteId,
-      workspaceId
+      workspaceId,
     );
   } catch (notificationError) {
     console.error('[workspaceInviteService] notifyWorkspaceInviteReceived:', notificationError);
@@ -38,7 +38,7 @@ export async function notifyWorkspaceInviteAcceptedForInvitee(
   inviteeId: string,
   workspaceName: string,
   inviteId: string,
-  workspaceId: string
+  workspaceId: string,
 ): Promise<void> {
   const { data: inviteeProfile } = await supabase
     .from('profiles')
@@ -52,7 +52,7 @@ export async function notifyWorkspaceInviteAcceptedForInvitee(
       inviteeProfile?.name?.trim() || 'Un collaboratore',
       workspaceName,
       inviteId,
-      workspaceId
+      workspaceId,
     );
   } catch (notificationError) {
     console.error('[workspaceInviteService] notifyWorkspaceInviteAccepted:', notificationError);
@@ -62,7 +62,7 @@ export async function notifyWorkspaceInviteAcceptedForInvitee(
 export async function notifyWorkspaceInviteRejectedForInvitee(
   workspace: Workspace | null,
   inviteeId: string,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   if (!workspace) return;
 
@@ -78,7 +78,7 @@ export async function notifyWorkspaceInviteRejectedForInvitee(
       inviteeProfile?.name?.trim() || 'Un collaboratore',
       workspace.name,
       inviteId,
-      workspace.id
+      workspace.id,
     );
   } catch (notificationError) {
     console.error('[workspaceInviteService] notifyWorkspaceInviteRejected:', notificationError);

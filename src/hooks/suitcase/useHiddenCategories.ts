@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   countRestorableHiddenCategories,
   enableOptionalSystemCategory,
@@ -8,12 +8,15 @@ import {
   removeDismissedCategoryId,
   setCategoryEnabled,
 } from '@/domain/packing/categorySetup';
-import { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
+import type { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
 import { persistCategoryVisibilityAsync } from '@/services/suitcase/packingSeedService';
-import { SuitcaseUiState } from '@/types/suitcase';
-import { getGuestSuitcase, isDraftWorkspaceId, saveGuestSuitcase } from '@/utils/guestSuitcaseHelper';
+import type { Suitcase, SuitcaseUiState } from '@/types/suitcase';
+import {
+  getGuestSuitcase,
+  isDraftWorkspaceId,
+  saveGuestSuitcase,
+} from '@/utils/guestSuitcaseHelper';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
-import { Suitcase } from '@/types/suitcase';
 
 export type CategoryVisibilityPatch = Pick<
   SuitcaseUiState,
@@ -27,7 +30,7 @@ export type CategoryVisibilityPatch = Pick<
 export const useHiddenCategories = (
   suitcaseId: string | undefined,
   suitcase: Suitcase | undefined,
-  onSync?: (patch: CategoryVisibilityPatch) => void
+  onSync?: (patch: CategoryVisibilityPatch) => void,
 ) => {
   const materialized = useMemo(
     () =>
@@ -39,11 +42,13 @@ export const useHiddenCategories = (
             dismissed_category_ids: [],
             category_display_order: [],
           },
-    [suitcase]
+    [suitcase],
   );
 
   const [categorySetup, setCategorySetup] = useState<CategorySetupMap>(materialized.setup);
-  const [customHiddenIds, setCustomHiddenIds] = useState<string[]>(materialized.hidden_category_ids);
+  const [customHiddenIds, setCustomHiddenIds] = useState<string[]>(
+    materialized.hidden_category_ids,
+  );
   const [dismissedIds, setDismissedIds] = useState<string[]>(materialized.dismissed_category_ids);
   const [displayOrder, setDisplayOrder] = useState<string[]>(materialized.category_display_order);
   const isInitialMount = useRef(true);
@@ -62,12 +67,7 @@ export const useHiddenCategories = (
   ]);
 
   const emitSync = useCallback(
-    (
-      setup: CategorySetupMap,
-      hiddenIds: string[],
-      dismissed: string[],
-      order: string[]
-    ) => {
+    (setup: CategorySetupMap, hiddenIds: string[], dismissed: string[], order: string[]) => {
       onSync?.({
         category_setup: setup,
         hidden_category_ids: hiddenIds,
@@ -75,7 +75,7 @@ export const useHiddenCategories = (
         category_display_order: order,
       });
     },
-    [onSync]
+    [onSync],
   );
 
   const toggleCategory = useCallback(
@@ -94,7 +94,7 @@ export const useHiddenCategories = (
       setCustomHiddenIds(nextHidden);
       emitSync(categorySetup, nextHidden, dismissedIds, displayOrder);
     },
-    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
+    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync],
   );
 
   const activateOptionalCategory = useCallback(
@@ -105,7 +105,7 @@ export const useHiddenCategories = (
       setDismissedIds(nextDismissed);
       emitSync(nextSetup, customHiddenIds, nextDismissed, displayOrder);
     },
-    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
+    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync],
   );
 
   const moveCategory = useCallback(
@@ -114,7 +114,7 @@ export const useHiddenCategories = (
       setDisplayOrder(nextOrder);
       emitSync(categorySetup, customHiddenIds, dismissedIds, nextOrder);
     },
-    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
+    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync],
   );
 
   const reorderCategoryToIndex = useCallback(
@@ -131,7 +131,12 @@ export const useHiddenCategories = (
 
       const working = baseOrder.filter((id) => visibleSet.has(id));
       const currentIdx = working.indexOf(categoryId);
-      if (currentIdx === -1 || targetIndex < 0 || targetIndex >= working.length || currentIdx === targetIndex) {
+      if (
+        currentIdx === -1 ||
+        targetIndex < 0 ||
+        targetIndex >= working.length ||
+        currentIdx === targetIndex
+      ) {
         return;
       }
 
@@ -155,7 +160,7 @@ export const useHiddenCategories = (
       setDisplayOrder(nextOrder);
       emitSync(categorySetup, customHiddenIds, dismissedIds, nextOrder);
     },
-    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync]
+    [categorySetup, customHiddenIds, dismissedIds, displayOrder, emitSync],
   );
 
   const showAll = useCallback(() => {
@@ -177,7 +182,7 @@ export const useHiddenCategories = (
       }
       return customHiddenIds.includes(categoryId);
     },
-    [categorySetup, customHiddenIds]
+    [categorySetup, customHiddenIds],
   );
 
   const hiddenIds = useMemo(() => {

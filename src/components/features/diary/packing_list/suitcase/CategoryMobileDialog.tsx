@@ -1,10 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Z_OVERLAY, Z_MODAL_NESTED } from '@/constants/zIndex';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL_NESTED, Z_OVERLAY } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+
+function getFocusableElements(root: HTMLElement): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+}
 
 interface CategoryMobileDialogProps {
   isOpen: boolean;
@@ -59,14 +68,64 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!isOpen || !dialog) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+
+      const focusable = getFocusableElements(dialog);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      // Initial focus is on the dialog itself (tabIndex={-1}): Shift+Tab must wrap to last.
+      if (event.shiftKey && (active === first || active === dialog)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || dialog.contains(target)) return;
+      const focusable = getFocusableElements(dialog);
+      (focusable[0] ?? dialog).focus();
+    };
+
+    dialog.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn);
+    return () => {
+      dialog.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return createPortal(
     <div
-      className={`td-modal-overlay lg:hidden ${overlayShell} !items-center`}
-      onClick={onClose}
+      className={`td-modal-overlay lg:hidden ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
         ref={dialogRef}
         role="dialog"
@@ -75,7 +134,6 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
         tabIndex={-1}
         className={`${containerShell} max-w-sm outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL_NESTED }}
-        onClick={(e) => e.stopPropagation()}
       >
         <CloseButton
           onClose={onClose}
@@ -87,6 +145,6 @@ export const CategoryMobileDialog: React.FC<CategoryMobileDialogProps> = ({
         <div className={`${bodyShell} min-h-0`}>{children}</div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

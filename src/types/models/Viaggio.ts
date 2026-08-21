@@ -72,7 +72,10 @@ export const DEFAULT_VIAGGIO_RICORDAMI_CONFIG: ViaggioRicordamiConfig = {
 };
 
 /** Empty Viaggio ammesso dal dominio (0 diari). */
-export function createEmptyViaggioDraft(userId: string, title = 'Viaggio'): Omit<Viaggio, 'id'> & { id: null } {
+export function createEmptyViaggioDraft(
+  userId: string,
+  title = 'Viaggio',
+): Omit<Viaggio, 'id'> & { id: null } {
   const now = Date.now();
   return {
     id: null,
@@ -93,10 +96,7 @@ export function createEmptyViaggioDraft(userId: string, title = 'Viaggio'): Omit
 }
 
 /** Calcola next_at da ora + N mesi (calendario reale via `Date.setMonth`). */
-export function computeRicordamiNextAt(
-  from: Date,
-  intervalMonths: number,
-): string {
+export function computeRicordamiNextAt(from: Date, intervalMonths: number): string {
   let months = intervalMonths;
   if (!Number.isFinite(months)) {
     months = RICORDAMI_DEFAULT_INTERVAL_MONTHS;
@@ -110,7 +110,9 @@ export function computeRicordamiNextAt(
 }
 
 /** Normalizza l’intervallo Ricordami al range prodotto supportato (1..12 mesi). */
-export function normalizeRicordamiIntervalMonths(intervalMonths: number | null | undefined): number {
+export function normalizeRicordamiIntervalMonths(
+  intervalMonths: number | null | undefined,
+): number {
   const n = Number(intervalMonths);
   if (!Number.isFinite(n)) return RICORDAMI_DEFAULT_INTERVAL_MONTHS;
   const rounded = Math.round(n);

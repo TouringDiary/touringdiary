@@ -1,15 +1,15 @@
-import { Suitcase, SuitcaseCategory, SuitcaseItem } from '@/types/suitcase';
 import {
   addDismissedCategoryId,
   materializeCategorySetupForWrite,
   setCategoryEnabled,
 } from '@/domain/packing/categorySetup';
+import type { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
 import {
   cloneItemDisplayOrder,
   getItemDisplayOrder,
   removeCategoryFromDisplayOrder,
 } from '@/domain/packing/itemDisplayOrder';
-import { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
+import type { Suitcase, SuitcaseCategory, SuitcaseItem } from '@/types/suitcase';
 
 export type CategoryDeleteTarget = {
   id: string;
@@ -30,7 +30,7 @@ export type CategoryDeleteSnapshot = {
 
 export function createCategoryDeleteSnapshot(
   suitcase: Suitcase,
-  target: CategoryDeleteTarget
+  target: CategoryDeleteTarget,
 ): CategoryDeleteSnapshot {
   const materialized = materializeCategorySetupForWrite(suitcase);
 
@@ -48,7 +48,7 @@ export function createCategoryDeleteSnapshot(
 
 export function computeCategoryDeleteUpdates(
   suitcase: Suitcase,
-  target: CategoryDeleteTarget
+  target: CategoryDeleteTarget,
 ): Partial<Suitcase> {
   const items = suitcase.suitcase_items ?? [];
   const materialized = materializeCategorySetupForWrite(suitcase);
@@ -56,14 +56,14 @@ export function computeCategoryDeleteUpdates(
   const nextItems = items.filter((item) => item.category !== target.name);
   const nextItemDisplayOrder = removeCategoryFromDisplayOrder(
     getItemDisplayOrder(suitcase),
-    target.id
+    target.id,
   );
 
   if (target.source === 'user') {
     return {
       suitcase_items: nextItems,
       custom_categories: customCategories.filter(
-        (category) => category.id !== target.id && category.name !== target.name
+        (category) => category.id !== target.id && category.name !== target.name,
       ),
       ui_state: {
         ...suitcase.ui_state,
@@ -71,7 +71,7 @@ export function computeCategoryDeleteUpdates(
         hidden_category_ids: materialized.hidden_category_ids.filter((id) => id !== target.id),
         dismissed_category_ids: materialized.dismissed_category_ids,
         category_display_order: materialized.category_display_order.filter(
-          (id) => id !== target.id
+          (id) => id !== target.id,
         ),
         item_display_order: nextItemDisplayOrder,
       },
@@ -87,17 +87,13 @@ export function computeCategoryDeleteUpdates(
       category_setup: setCategoryEnabled(materialized.setup, target.id, false),
       hidden_category_ids: materialized.hidden_category_ids,
       dismissed_category_ids: dismissed,
-      category_display_order: materialized.category_display_order.filter(
-        (id) => id !== target.id
-      ),
+      category_display_order: materialized.category_display_order.filter((id) => id !== target.id),
       item_display_order: nextItemDisplayOrder,
     },
   };
 }
 
-export function computeCategoryRestoreUpdates(
-  snapshot: CategoryDeleteSnapshot
-): Partial<Suitcase> {
+export function computeCategoryRestoreUpdates(snapshot: CategoryDeleteSnapshot): Partial<Suitcase> {
   return {
     suitcase_items: snapshot.previousItems,
     custom_categories: snapshot.previousCustomCategories,
@@ -113,7 +109,7 @@ export function computeCategoryRestoreUpdates(
 
 export function getItemsRemovedByCategoryDelete(
   suitcase: Suitcase,
-  target: CategoryDeleteTarget
+  target: CategoryDeleteTarget,
 ): SuitcaseItem[] {
   return (suitcase.suitcase_items ?? []).filter((item) => item.category === target.name);
 }

@@ -2,16 +2,16 @@
  * Validazione del catalogo dominio Macrofase C (congelato).
  */
 
-import { CATEGORY_ORDER } from './packingCategories';
 import type { SystemCategoryName } from './packingCategories';
+import { CATEGORY_ORDER } from './packingCategories';
 import {
   PACKING_AI_MIN_PER_CATEGORY,
   PACKING_STANDARD_MIN_BY_CATEGORY,
   PACKING_TEMPLATE_MIN_EXCEPTIONS,
   PACKING_TEMPLATE_MIN_PER_CATEGORY,
-  TEMPLATE_KEYS,
   type PackingDomainValidationReport,
   type PackingTemplateKey,
+  TEMPLATE_KEYS,
 } from './packingDomainCatalogTypes';
 
 export interface ValidatablePackingCatalog {
@@ -21,7 +21,7 @@ export interface ValidatablePackingCatalog {
 }
 
 export function validatePackingDomainCatalogData(
-  catalog: ValidatablePackingCatalog
+  catalog: ValidatablePackingCatalog,
 ): PackingDomainValidationReport {
   const anomalies: string[] = [];
 

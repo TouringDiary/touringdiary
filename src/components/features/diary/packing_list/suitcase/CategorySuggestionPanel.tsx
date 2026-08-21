@@ -1,12 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ShoppingBag, ExternalLink, ChevronRight, ChevronLeft, Search, Package, ArrowRight } from 'lucide-react';
-import { useAutoRotateSuggestions } from '@/hooks/useAutoRotateSuggestions';
-import { normalizeItemName } from '@/utils/tagDerivation';
+import { ArrowRight, ChevronLeft, ChevronRight, Package, ShoppingBag } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useConfig } from '@/context/ConfigContext';
-import { SETTINGS_KEYS } from '@/services/settingsService';
-import { ResolvedAffiliateProduct } from '@/types/suitcase';
-import { ItemCategoryIcon, resolveAffiliateProductImage, resolveAffiliatePartnerDisplay } from './SuitcaseUtils';
+import { useAutoRotateSuggestions } from '@/hooks/useAutoRotateSuggestions';
 import { affiliateTrackingService } from '@/services/affiliateTrackingService';
+import type { ResolvedAffiliateProduct } from '@/types/suitcase';
+import { normalizeItemName } from '@/utils/tagDerivation';
+import {
+  ItemCategoryIcon,
+  resolveAffiliatePartnerDisplay,
+  resolveAffiliateProductImage,
+} from './SuitcaseUtils';
 
 const EMPTY_OBJECT: Record<string, never> = {};
 
@@ -35,21 +39,21 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
   globalMap,
   placeholders = EMPTY_OBJECT,
   onLinkBuild,
-  onLinkBuildSearch
+  onLinkBuildSearch,
 }) => {
   const [isHoveringPanel, setIsHoveringPanel] = useState(false);
   const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
   const { configs } = useConfig();
 
-  const suitcasePlaceholders = useMemo(() =>
-    configs?.[SETTINGS_KEYS.SUITCASE_PLACEHOLDERS] || EMPTY_OBJECT,
-    [configs]
+  const suitcasePlaceholders = useMemo(
+    () => configs.suitcase_placeholders ?? {},
+    [configs.suitcase_placeholders],
   );
 
   // Filter global products to ensure we only show active ones
-  const activeGlobalProducts = useMemo(() =>
-    (globalMap || []).filter(p => p.is_active === true),
-    [globalMap]
+  const activeGlobalProducts = useMemo(
+    () => (globalMap || []).filter((p) => p.is_active === true),
+    [globalMap],
   );
 
   // Resolve which product to show
@@ -61,13 +65,15 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
     if (overrides[normalizedName]) return overrides[normalizedName];
 
     // 2. Try manual mapping BY NAME (stessa SoT di normalizzazione)
-    if (itemMap[normalizedName] && itemMap[normalizedName].length > 0) return itemMap[normalizedName][0];
+    if (itemMap[normalizedName] && itemMap[normalizedName].length > 0)
+      return itemMap[normalizedName][0];
 
     // 3. Try item mapping by tags
     if (selectedItem.tags && selectedItem.tags.length > 0) {
       for (const tag of selectedItem.tags) {
         const normalizedTag = normalizeItemName(tag);
-        if (itemMap[normalizedTag] && itemMap[normalizedTag].length > 0) return itemMap[normalizedTag][0];
+        if (itemMap[normalizedTag] && itemMap[normalizedTag].length > 0)
+          return itemMap[normalizedTag][0];
       }
     }
 
@@ -78,7 +84,7 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
   const { activeIndex, setActiveIndex, next } = useAutoRotateSuggestions(
     activeGlobalProducts.length,
     5000,
-    !!selectedItem || isHoveringPanel || activeGlobalProducts.length <= 1
+    !!selectedItem || isHoveringPanel || activeGlobalProducts.length <= 1,
   );
 
   const finalProduct = selectedItem ? productToShow : activeGlobalProducts[activeIndex];
@@ -88,13 +94,10 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
     setFailedImages(new Set());
   }, [finalProduct?.id, finalProduct?.image_url, finalProduct?.imageUrl]);
 
-  const partnerIntegrations = configs?.[SETTINGS_KEYS.PARTNER_INTEGRATIONS];
+  const partnerIntegrations = configs.partner_integrations ?? undefined;
   const partnerDisplay = useMemo(
-    () =>
-      finalProduct
-        ? resolveAffiliatePartnerDisplay(finalProduct, partnerIntegrations)
-        : null,
-    [finalProduct, partnerIntegrations]
+    () => (finalProduct ? resolveAffiliatePartnerDisplay(finalProduct, partnerIntegrations) : null),
+    [finalProduct, partnerIntegrations],
   );
 
   // Fallback Image Logic (4 Levels Centralized)
@@ -103,7 +106,7 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
       product: finalProduct,
       partnerId: finalProduct?.provider,
       adminSuitcasePlaceholders: suitcasePlaceholders,
-      failedImages: failedImages
+      failedImages: failedImages,
     });
   }, [finalProduct, suitcasePlaceholders, failedImages]);
 
@@ -116,10 +119,14 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
       {/* Header Badge */}
       <div className="shrink-0 p-4 pb-0 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-lg ${isFeatured ? 'bg-amber-500/10 text-amber-500' : 'bg-indigo-500/10 text-indigo-400'}`}>
+          <div
+            className={`p-1.5 rounded-lg ${isFeatured ? 'bg-amber-500/10 text-amber-500' : 'bg-indigo-500/10 text-indigo-400'}`}
+          >
             <ShoppingBag className="w-3.5 h-3.5" />
           </div>
-          <span className={`text-[10px] font-black uppercase tracking-widest ${isFeatured ? 'text-amber-500/80' : 'text-indigo-400/80'}`}>
+          <span
+            className={`text-[10px] font-black uppercase tracking-widest ${isFeatured ? 'text-amber-500/80' : 'text-indigo-400/80'}`}
+          >
             e-Commerce
           </span>
         </div>
@@ -129,7 +136,12 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
             <button
               type="button"
               aria-label="Prodotto precedente"
-              onClick={(e) => { e.stopPropagation(); setActiveIndex((activeIndex - 1 + activeGlobalProducts.length) % activeGlobalProducts.length); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveIndex(
+                  (activeIndex - 1 + activeGlobalProducts.length) % activeGlobalProducts.length,
+                );
+              }}
               className="p-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -137,7 +149,10 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
             <button
               type="button"
               aria-label="Prodotto successivo"
-              onClick={(e) => { e.stopPropagation(); next(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                next();
+              }}
               className="p-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -160,7 +175,7 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                     onError={(e) => {
                       const src = (e.target as HTMLImageElement).src;
                       if (src) {
-                        setFailedImages(prev => {
+                        setFailedImages((prev) => {
                           const next = new Set(prev);
                           next.add(src);
                           return next;
@@ -170,7 +185,10 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-800">
-                    <ItemCategoryIcon category={selectedItem?.category || category} className="w-16 h-16 opacity-20" />
+                    <ItemCategoryIcon
+                      category={selectedItem?.category || category}
+                      className="w-16 h-16 opacity-20"
+                    />
                   </div>
                 )}
                 {finalProduct.price && (
@@ -204,12 +222,12 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
             <div className="space-y-3">
               <a
                 href={(() => {
-                  const pid = finalProduct.product_id || "";
-                  if (pid.startsWith("search:")) {
-                    const keyword = pid.replace("search:", "");
+                  const pid = finalProduct.product_id || '';
+                  if (pid.startsWith('search:')) {
+                    const keyword = pid.replace('search:', '');
                     return onLinkBuildSearch(keyword, selectedItem?.category || category);
                   }
-                  return onLinkBuild(finalProduct.provider || "amazon", pid);
+                  return onLinkBuild(finalProduct.provider || 'amazon', pid);
                 })()}
                 onClick={(e) => {
                   e.preventDefault();
@@ -220,7 +238,9 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                       sourceType: 'suitcase',
                       category: finalProduct.category || category || 'gear',
                       productId: finalProduct.product_id || undefined,
-                      searchQuery: finalProduct.product_id?.startsWith('search:') ? finalProduct.product_id.replace('search:', '') : undefined
+                      searchQuery: finalProduct.product_id?.startsWith('search:')
+                        ? finalProduct.product_id.replace('search:', '')
+                        : undefined,
                     })
                     .finally(() => {
                       window.open(href, '_blank', 'noopener,noreferrer');
@@ -230,9 +250,7 @@ export const CategorySuggestionPanel: React.FC<CategorySuggestionPanelProps> = (
                 rel="noopener noreferrer"
                 className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-white flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-orange-500/20 group/btn"
               >
-                <span>
-                  {partnerDisplay?.ctaLabel ?? 'Scopri il prodotto'}
-                </span>
+                <span>{partnerDisplay?.ctaLabel ?? 'Scopri il prodotto'}</span>
                 <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
               </a>
               <p className="text-[9px] text-slate-500 text-center font-medium opacity-60">

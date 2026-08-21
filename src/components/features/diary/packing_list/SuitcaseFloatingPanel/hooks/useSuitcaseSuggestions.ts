@@ -1,18 +1,21 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { MutableRefObject } from 'react';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { Itinerary } from '@/types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  seedAiSuggestions,
-  mergeTemplateItems,
+  getSystemCategoryOrderIndexExact,
+  type SystemCategoryName,
+} from '@/domain/packing/packingCategories';
+import {
+  type AiCandidate,
+  type GetAiCandidatesOptions,
   getAiCandidates,
-  AiCandidate,
-  GetAiCandidatesOptions,
+  mergeTemplateItems,
+  seedAiSuggestions,
 } from '@/hooks/useSuitcaseSystem';
-import { getSystemCategoryOrderIndexExact, SystemCategoryName } from '@/domain/packing/packingCategories';
-import { deriveItineraryTags, normalizeItemName } from '@/utils/tagDerivation';
-import { ToastVariant } from '@/types/toast';
+import type { Itinerary } from '@/types';
+import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import type { ToastVariant } from '@/types/toast';
 import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
+import { deriveItineraryTags, normalizeItemName } from '@/utils/tagDerivation';
 import type { SeedItemsLocallyFn } from './useSuitcasePanelData';
 
 export interface AiSuggestion {
@@ -51,7 +54,7 @@ function countByCategory(candidates: AiCandidate[]): Record<string, number> {
 export function buildQuotaFeedback(
   categories: string[],
   options: GetAiCandidatesOptions | undefined,
-  candidates: AiCandidate[]
+  candidates: AiCandidate[],
 ): AiQuotaFeedback | null {
   if (!options?.limitPerCategory) return null;
   return {
@@ -63,12 +66,10 @@ export function buildQuotaFeedback(
 
 function buildCategoryOrder(
   selectedCategories: string[],
-  byCategory: Map<string, AiCandidate[]>
+  byCategory: Map<string, AiCandidate[]>,
 ): string[] {
   const selected =
-    selectedCategories.length > 0
-      ? selectedCategories.filter((cat) => byCategory.has(cat))
-      : [];
+    selectedCategories.length > 0 ? selectedCategories.filter((cat) => byCategory.has(cat)) : [];
 
   const orphan = [...byCategory.keys()].filter((cat) => !selected.includes(cat));
   orphan.sort((a, b) => {
@@ -87,7 +88,7 @@ function takeNextCategoryAwareBatch(
   candidates: AiCandidate[],
   selectedCategories: string[],
   alreadyShownKeys: Set<string>,
-  maxBatchSize: number
+  maxBatchSize: number,
 ): AiCandidate[] {
   const remaining = candidates.filter((c) => !alreadyShownKeys.has(normalizeItemName(c.name)));
   const byCategory = new Map<string, AiCandidate[]>();
@@ -151,7 +152,7 @@ function sortCategoriesBySystemOrder(categories: string[]): string[] {
 function buildExhaustedCategories(
   selectedCategories: string[],
   candidates: AiCandidate[],
-  quotaFeedback: AiQuotaFeedback | null
+  quotaFeedback: AiQuotaFeedback | null,
 ): string[] {
   if (!selectedCategories.length) return [];
 
@@ -238,8 +239,12 @@ export const useSuitcaseSuggestions = ({
       return;
     }
 
-    if (linkedSuitcaseIds.length === 0 && suggestedTemplateIds.length > 0 && globalTemplates.length > 0) {
-      const suggested = globalTemplates.filter(t => suggestedTemplateIds.includes(t.id));
+    if (
+      linkedSuitcaseIds.length === 0 &&
+      suggestedTemplateIds.length > 0 &&
+      globalTemplates.length > 0
+    ) {
+      const suggested = globalTemplates.filter((t) => suggestedTemplateIds.includes(t.id));
       if (suggested.length > 0) {
         setSuggestedTemplates(suggested);
         const merged = mergeTemplateItems(suggested);
@@ -254,7 +259,7 @@ export const useSuitcaseSuggestions = ({
   const handleSeedAi = async (
     selectedCategories?: string[],
     mode: 'direct' | 'review' = 'direct',
-    options?: GetAiCandidatesOptions
+    options?: GetAiCandidatesOptions,
   ) => {
     if (!activeSuitcase || !itinerary) return;
     const targetSuitcaseId = activeSuitcase.id;
@@ -267,15 +272,14 @@ export const useSuitcaseSuggestions = ({
       const tags = deriveItineraryTags(itinerary?.items || []);
       const context = `Viaggio: ${itinerary.name} | Tags: ${tags.join(', ')}`;
 
-      const itemsForAi = (activeSuitcase.suitcase_items || []).map(i => ({
+      const itemsForAi = (activeSuitcase.suitcase_items || []).map((i) => ({
         name: i.name,
-        is_ai_suggestion: !!i.is_ai_suggestion
+        is_ai_suggestion: !!i.is_ai_suggestion,
       }));
 
       if (mode === 'direct') {
         const localSeed = seedItemsLocallyRef?.current;
-        const useLocalDocumentSeed =
-          !!localSeed && !isDraftWorkspaceId(activeSuitcase.id);
+        const useLocalDocumentSeed = !!localSeed && !isDraftWorkspaceId(activeSuitcase.id);
 
         let count = 0;
         let feedback: AiQuotaFeedback | null = null;
@@ -287,7 +291,7 @@ export const useSuitcaseSuggestions = ({
             itemsForAi,
             categories,
             activeSuitcase,
-            options
+            options,
           );
           if (!isSessionCurrent()) return;
 
@@ -303,15 +307,13 @@ export const useSuitcaseSuggestions = ({
                 itemsForAi,
                 categories,
                 activeSuitcase,
-                options
+                options,
               )
             : undefined;
 
           if (quotaActive && !isSessionCurrent()) return;
 
-          feedback = candidates
-            ? buildQuotaFeedback(categories, options, candidates)
-            : null;
+          feedback = candidates ? buildQuotaFeedback(categories, options, candidates) : null;
 
           count = await seedAiSuggestions(
             activeSuitcase.id,
@@ -321,7 +323,7 @@ export const useSuitcaseSuggestions = ({
             categories,
             activeSuitcase,
             options,
-            candidates
+            candidates,
           );
           if (!isSessionCurrent()) return;
 
@@ -348,13 +350,13 @@ export const useSuitcaseSuggestions = ({
           showToast(
             'Suggerimenti aggiunti',
             partialNote ?? `Abbiamo aggiunto ${count} oggetti dalle categorie selezionate.`,
-            'success'
+            'success',
           );
         } else {
           showToast(
             'Nessun nuovo suggerimento trovato',
             'La valigia copre già tutti gli oggetti disponibili nelle categorie selezionate.',
-            'neutral'
+            'neutral',
           );
         }
       } else {
@@ -364,7 +366,7 @@ export const useSuitcaseSuggestions = ({
           itemsForAi,
           categories,
           activeSuitcase,
-          options
+          options,
         );
         if (!isSessionCurrent()) return;
 
@@ -383,7 +385,7 @@ export const useSuitcaseSuggestions = ({
             candidates,
             categories,
             new Set(),
-            REVIEW_INITIAL_BATCH_MAX
+            REVIEW_INITIAL_BATCH_MAX,
           );
           setAiSuggestions(initialBatch.map(toAiSuggestion));
           setShownCount(initialBatch.length);
@@ -404,24 +406,24 @@ export const useSuitcaseSuggestions = ({
       allAiCandidates,
       lastSelectedCategories,
       shownKeys,
-      REVIEW_SHOW_MORE_BATCH_MAX
+      REVIEW_SHOW_MORE_BATCH_MAX,
     );
 
     if (nextBatch.length > 0) {
-      setAiSuggestions(prev => [...prev, ...nextBatch.map(toAiSuggestion)]);
-      setShownCount(prev => prev + nextBatch.length);
+      setAiSuggestions((prev) => [...prev, ...nextBatch.map(toAiSuggestion)]);
+      setShownCount((prev) => prev + nextBatch.length);
     } else {
       showToast(
         'Fine dei suggerimenti',
         'Abbiamo esaurito gli oggetti disponibili nelle categorie selezionate.',
-        'neutral'
+        'neutral',
       );
     }
   };
 
   const exhaustedCategories = useMemo(
     () => buildExhaustedCategories(lastSelectedCategories, allAiCandidates, aiQuotaFeedback),
-    [lastSelectedCategories, allAiCandidates, aiQuotaFeedback]
+    [lastSelectedCategories, allAiCandidates, aiQuotaFeedback],
   );
 
   return {

@@ -1,4 +1,4 @@
-import { CitySummary, Itinerary } from '@/types';
+import type { CitySummary, Itinerary } from '@/types';
 
 /**
  * Striscia "bandiera" dell'header del Diario.
@@ -72,7 +72,7 @@ export const buildFlagGradient = (colors: FlagColors): string =>
  */
 export const getDiaryNation = (
   itinerary: Itinerary,
-  cityManifest?: CitySummary[]
+  cityManifest?: CitySummary[],
 ): string | null => {
   if (!cityManifest || cityManifest.length === 0) return null;
   const items = itinerary.items;
@@ -108,7 +108,5 @@ export const getDiaryNation = (
 };
 
 /** Gradient pronto per l'header del Diario in base ai POI presenti. */
-export const getDiaryFlagGradient = (
-  itinerary: Itinerary,
-  cityManifest?: CitySummary[]
-): string => buildFlagGradient(getNationFlagColors(getDiaryNation(itinerary, cityManifest)));
+export const getDiaryFlagGradient = (itinerary: Itinerary, cityManifest?: CitySummary[]): string =>
+  buildFlagGradient(getNationFlagColors(getDiaryNation(itinerary, cityManifest)));

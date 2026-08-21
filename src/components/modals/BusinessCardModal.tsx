@@ -1,4 +1,3 @@
-
 import { PoiDetailModal } from './PoiDetailModal';
 
 // --- DEPRECATED ---

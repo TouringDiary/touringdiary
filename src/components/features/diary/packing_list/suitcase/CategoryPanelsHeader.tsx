@@ -1,7 +1,7 @@
-import React from 'react';
+import type React from 'react';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
-import { OptionalCategoriesPanel } from './OptionalCategoriesPanel';
 import { HiddenCategoriesPanel } from './HiddenCategoriesPanel';
+import { OptionalCategoriesPanel } from './OptionalCategoriesPanel';
 import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
 
 type CategoryPanelsHeaderProps = {

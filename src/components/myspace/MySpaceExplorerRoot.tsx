@@ -1,15 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Compass, Loader2, Trash2 } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { type CityGeoMinimal, getCitiesMinimalByIds } from '@/services/myspace/cityMinimalRead';
 import {
   listVisitedCities,
   removeVisitedCity,
   syncVisitedCitiesFromUserViaggi,
   type UserVisitedCity,
 } from '@/services/myspace/userVisitedCitiesService';
-import {
-  getCitiesMinimalByIds,
-  type CityGeoMinimal,
-} from '@/services/myspace/cityMinimalRead';
 import { showGlobalAlert } from '@/services/ui/toastService';
 import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 
@@ -128,7 +126,11 @@ export const MySpaceExplorerRoot: React.FC<Props> = ({ userId }) => {
                   title="Rimuovi dall’archivio"
                   data-testid={`explorer-remove-${row.cityId}`}
                 >
-                  {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  {busy ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </li>
             );

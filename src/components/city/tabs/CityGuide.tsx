@@ -36,6 +36,16 @@ import { useInteraction } from '../../../context/InteractionContext';
  */
 const PRICE_LEVEL_SLOTS = [1, 2, 3, 4, 5] as const;
 
+/** Coordinate usabili per distanza: finite; (0,0) = placeholder non valido; lat=0 da sola è ok. */
+function hasUsableCoords(
+  coords: { lat: number; lng: number } | null | undefined,
+): coords is { lat: number; lng: number } {
+  if (!coords) return false;
+  if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) return false;
+  if (coords.lat === 0 && coords.lng === 0) return false;
+  return true;
+}
+
 const PriceLevelIndicator = ({ level }: { level?: number }) => {
   const MAX_LEVEL = PRICE_LEVEL_SLOTS.length;
   const activeLevel = level ?? 0;
@@ -118,12 +128,12 @@ const PoiListItem = ({
   const uiStyle = getPoiColorStyle(poi.category);
 
   const distFromUser =
-    userLocation && poi.coords.lat !== 0
+    userLocation && hasUsableCoords(poi.coords)
       ? calculateDistance(userLocation.lat, userLocation.lng, poi.coords.lat, poi.coords.lng)
       : null;
 
   const distFromRef =
-    isGlobalRefActive && !isRef && poi.coords.lat !== 0
+    isGlobalRefActive && !isRef && hasUsableCoords(poi.coords) && hasUsableCoords(referencePoint)
       ? calculateDistance(referencePoint.lat, referencePoint.lng, poi.coords.lat, poi.coords.lng)
       : null;
 
@@ -135,9 +145,12 @@ const PoiListItem = ({
     }
     if (isVoting) return;
     setIsVoting(true);
-    const newCount = await toggleVote(poi.id);
-    if (newCount !== null) setLocalVotes(newCount);
-    setIsVoting(false);
+    try {
+      const newCount = await toggleVote(poi.id);
+      if (newCount !== null) setLocalVotes(newCount);
+    } finally {
+      setIsVoting(false);
+    }
   };
 
   const handleReviewClick = (e: MouseEvent) => {
@@ -183,6 +196,7 @@ const PoiListItem = ({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
+            if (!poi.coords) return;
             openMap(poi.coords.lat, poi.coords.lng, poi.name, poi.address);
           }}
           className={`${sideBtnClass} border-b border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-amber-400`}
@@ -195,6 +209,7 @@ const PoiListItem = ({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
+            if (!poi.coords) return;
             open3DView(poi.coords.lat, poi.coords.lng, poi.name, poi.address);
           }}
           className={`${sideBtnClass} border-b border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-indigo-400`}
@@ -251,17 +266,12 @@ const PoiListItem = ({
       </div>
 
       <div className="relative flex min-w-0 flex-1 overflow-hidden">
-        {/* Hit-area dettaglio/drag POI — button semantico sotto i controlli nested */}
+        {/* Hit-area dettaglio POI — button semantico sotto i controlli nested (drag solo dal grip) */}
         <button
           type="button"
           aria-label={`Apri dettagli ${poi.name}`}
-          draggable={!isMobile}
-          onDragStart={(e) => {
-            if (isMobile) e.preventDefault();
-            else e.dataTransfer.setData('application/json', JSON.stringify(poi));
-          }}
           onClick={() => onOpenDetail(poi)}
-          className={`absolute inset-0 z-0 border-0 bg-transparent p-0 ${!isMobile ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+          className="absolute inset-0 z-0 cursor-pointer border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/70 focus-visible:ring-inset"
         />
 
         <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 overflow-hidden">
@@ -316,6 +326,13 @@ const PoiListItem = ({
               </div>
 
               <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+                <div
+                  className={`flex h-5 items-center gap-1.5 rounded border px-2 md:hidden ${interestColor}`}
+                >
+                  <span className="text-[8px] leading-none font-black uppercase">
+                    {interestLabel}
+                  </span>
+                </div>
                 <div
                   className={`hidden h-5 items-center gap-1.5 rounded border px-2 md:flex ${interestColor}`}
                 >
@@ -383,17 +400,20 @@ const PoiListItem = ({
                     size="sm"
                   />
                   <div className="hidden items-center gap-3 lg:flex">
-                    <div
-                      className={`flex h-5 items-center gap-1.5 rounded border px-2 md:hidden ${interestColor}`}
+                    <button
+                      type="button"
+                      draggable
+                      title="Trascina nel diario"
+                      aria-label="Trascina nel diario"
+                      onClick={(e) => e.stopPropagation()}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/json', JSON.stringify(poi));
+                        e.dataTransfer.effectAllowed = 'copy';
+                      }}
+                      className="rounded p-1 text-slate-700 transition-all group-hover:bg-cyan-500/10 group-hover:text-cyan-400 group-hover:ring-1 group-hover:ring-cyan-500/50 cursor-grab active:cursor-grabbing"
                     >
-                      <span className="text-[8px] leading-none font-black uppercase">
-                        {interestLabel}
-                      </span>
-                    </div>
-
-                    <div className="rounded p-1 text-slate-700 transition-all group-hover:bg-cyan-500/10 group-hover:text-cyan-400 group-hover:ring-1 group-hover:ring-cyan-500/50">
                       <GripHorizontal className="h-5 w-5" />
-                    </div>
+                    </button>
                   </div>
                 </div>
               </div>

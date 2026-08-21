@@ -1,7 +1,7 @@
-import { Itinerary } from '@/types';
-import { isDiaryPersisted, isDiaryTempId } from '@/utils/suitcaseAssociation';
 import type { DocumentSaveController } from '@/domain/save/documentSaveTypes';
 import { SuitcaseAssociationError } from '@/services/suitcase/associateSuitcaseWithDiary';
+import type { Itinerary } from '@/types';
+import { isDiaryPersisted, isDiaryTempId } from '@/utils/suitcaseAssociation';
 
 export interface PrepareForAssociationInput {
   isGuest: boolean;
@@ -28,7 +28,7 @@ export type AssociationReadiness =
   | { ready: false; reason: 'login' | 'error' | 'needs_name' | 'saving' };
 
 function getPhase(
-  controller: PrepareForAssociationInput['diaryController']
+  controller: PrepareForAssociationInput['diaryController'],
 ): DocumentSaveController['phase'] {
   return controller.getPhase?.() ?? controller.phase;
 }
@@ -38,7 +38,7 @@ function getPhase(
  * Cancels pending autosave debounce, then flushes the latest snapshot immediately.
  */
 export async function prepareForAssociation(
-  input: PrepareForAssociationInput
+  input: PrepareForAssociationInput,
 ): Promise<AssociationReadiness> {
   if (input.isGuest || input.diaryController.isGuest || input.suitcaseController?.isGuest) {
     input.onLoginRequired();
@@ -105,19 +105,19 @@ export async function prepareForAssociation(
       throw new SuitcaseAssociationError('Impossibile salvare la valigia.', 'persist-suitcase');
     }
     suitcaseId = savedId;
-  } else if (
-    input.suitcaseController &&
-    getPhase(input.suitcaseController) === 'dirty'
-  ) {
+  } else if (input.suitcaseController && getPhase(input.suitcaseController) === 'dirty') {
     const flushed = await input.suitcaseController.flush();
     if (!flushed) {
-      throw new SuitcaseAssociationError('Impossibile sincronizzare la valigia.', 'persist-suitcase');
+      throw new SuitcaseAssociationError(
+        'Impossibile sincronizzare la valigia.',
+        'persist-suitcase',
+      );
     }
     suitcaseId = flushed;
   }
 
   if (!itineraryId || isDiaryTempId(itineraryId)) {
-    throw new SuitcaseAssociationError('Diario non disponibile per l\'associazione.', 'link');
+    throw new SuitcaseAssociationError("Diario non disponibile per l'associazione.", 'link');
   }
 
   return { ready: true, itineraryId, suitcaseId };

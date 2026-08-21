@@ -1,9 +1,9 @@
+import type { SharedResourceKind } from '@/domain/collaboration';
+import { isSharedResourceKind } from '@/domain/collaboration';
 import type {
   CollaborationDomainEvent,
   RecordCollaborationEventInput,
 } from '@/domain/collaboration/domainEvent';
-import type { SharedResourceKind } from '@/domain/collaboration';
-import { isSharedResourceKind } from '@/domain/collaboration';
 import { resolveAuthenticatedUserId } from '@/services/auth/authIdentity';
 import { supabase } from '@/services/supabaseClient';
 import type { Json } from '@/types/supabase';
@@ -40,12 +40,12 @@ export function mapCollaborationDomainEventRow(row: DomainEventRow): Collaborati
 
 /** Registra un evento nel motore dominio (§20). */
 export async function recordCollaborationDomainEvent(
-  input: RecordCollaborationEventInput
+  input: RecordCollaborationEventInput,
 ): Promise<void> {
   const actorId = await resolveAuthenticatedUserId();
   if (!actorId) {
     console.error(
-      '[domainEventService] recordCollaborationDomainEvent: utente autenticato non disponibile'
+      '[domainEventService] recordCollaborationDomainEvent: utente autenticato non disponibile',
     );
     return;
   }
@@ -69,7 +69,7 @@ export async function recordCollaborationDomainEvent(
 
 export async function listCollaborationEventsForWorkspace(
   workspaceId: string,
-  limit = 50
+  limit = 50,
 ): Promise<CollaborationDomainEvent[]> {
   const { data, error } = await supabase
     .from('collaboration_domain_events')
@@ -89,7 +89,7 @@ export async function listCollaborationEventsForWorkspace(
 export async function listCollaborationEventsForResource(
   kind: SharedResourceKind,
   resourceId: string,
-  limit = 50
+  limit = 50,
 ): Promise<CollaborationDomainEvent[]> {
   const { data, error } = await supabase
     .from('collaboration_domain_events')

@@ -1,14 +1,14 @@
-import { supabase } from '../supabaseClient';
-import { SuitcaseRejection } from '../../types/suitcase';
+import type { SuitcaseRejection } from '../../types/suitcase';
 import { normalizeItemName } from '../../utils/tagDerivation';
+import { supabase } from '../supabaseClient';
 
 /**
  * SERVICE: Suitcase Rejections
  * Gestisce la blacklist persistente dei suggerimenti AI rifiutati dall'utente.
- * 
- * Invariante di Dominio: 
- * Tutti i nomi salvati e confrontati in questa tabella sono normalizzati tramite 
- * normalizeItemName() per garantire l'integrità del vincolo UNIQUE e l'efficacia 
+ *
+ * Invariante di Dominio:
+ * Tutti i nomi salvati e confrontati in questa tabella sono normalizzati tramite
+ * normalizeItemName() per garantire l'integrità del vincolo UNIQUE e l'efficacia
  * dei filtri AI.
  */
 
@@ -20,7 +20,7 @@ export const addRejectionAsync = async (
   suitcaseId: string,
   name: string,
   category: string,
-  context?: string | null
+  context?: string | null,
 ): Promise<SuitcaseRejection> => {
   // Preserviamo la capitalizzazione per il ripristino, ma normalizziamo il resto (accenti, spazi, ecc.)
   const processedName = normalizeItemName(name, { preserveCase: true });
@@ -31,7 +31,7 @@ export const addRejectionAsync = async (
       suitcase_id: suitcaseId,
       name: processedName,
       category,
-      ai_suggestion_context: context ?? null
+      ai_suggestion_context: context ?? null,
     })
     .select()
     .single();
@@ -44,10 +44,7 @@ export const addRejectionAsync = async (
  * Rimuove un oggetto dalla blacklist.
  */
 export const removeRejectionAsync = async (rejectionId: string): Promise<void> => {
-  const { error } = await supabase
-    .from('suitcase_rejections')
-    .delete()
-    .eq('id', rejectionId);
+  const { error } = await supabase.from('suitcase_rejections').delete().eq('id', rejectionId);
 
   if (error) throw error;
 };
@@ -56,7 +53,7 @@ export const removeRejectionAsync = async (rejectionId: string): Promise<void> =
  * Recupera tutti i rifiuti associati a una specifica valigia.
  */
 export const getRejectionsBySuitcaseAsync = async (
-  suitcaseId: string
+  suitcaseId: string,
 ): Promise<SuitcaseRejection[]> => {
   const { data, error } = await supabase
     .from('suitcase_rejections')
@@ -72,10 +69,7 @@ export const getRejectionsBySuitcaseAsync = async (
  * Verifica se un oggetto è già presente nella blacklist di una valigia.
  * Applica internamente la normalizzazione per il confronto case-insensitive.
  */
-export const existsRejectionAsync = async (
-  suitcaseId: string,
-  name: string
-): Promise<boolean> => {
+export const existsRejectionAsync = async (suitcaseId: string, name: string): Promise<boolean> => {
   const processedName = normalizeItemName(name, { preserveCase: true });
 
   const { data, error } = await supabase
@@ -95,7 +89,7 @@ export const existsRejectionAsync = async (
  */
 export const removeRejectionByNameAsync = async (
   suitcaseId: string,
-  name: string
+  name: string,
 ): Promise<void> => {
   const processedName = normalizeItemName(name, { preserveCase: true });
 

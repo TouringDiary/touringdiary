@@ -14,20 +14,19 @@
 
 /** Setting keys owned by Admin → Asset Globali (Placeholder SoT). */
 export const PLATFORM_PLACEHOLDER_SETTING_KEYS = [
-    'hero_image',
-    'default_patron_image',
-    'auth_background_image',
-    'social_canvas_bg',
-    'ai_consultant_bg',
-    'favicon_image',
-    'category_placeholders',
-    'suitcase_placeholders',
-    /** Former Asset Globali URLs — still Placeholder by origin for Photo writes. */
-    'retired_platform_placeholder_urls',
+  'hero_image',
+  'default_patron_image',
+  'auth_background_image',
+  'social_canvas_bg',
+  'ai_consultant_bg',
+  'favicon_image',
+  'category_placeholders',
+  'suitcase_placeholders',
+  /** Former Asset Globali URLs — still Placeholder by origin for Photo writes. */
+  'retired_platform_placeholder_urls',
 ] as const;
 
-export type PlatformPlaceholderSettingKey =
-    (typeof PLATFORM_PLACEHOLDER_SETTING_KEYS)[number];
+export type PlatformPlaceholderSettingKey = (typeof PLATFORM_PLACEHOLDER_SETTING_KEYS)[number];
 
 /**
  * Raw values as stored in `global_settings.value`:
@@ -36,13 +35,13 @@ export type PlatformPlaceholderSettingKey =
  * - string[] for retired Placeholder URLs (origin tombstones)
  */
 export type PlatformPlaceholderSettingValue =
-    | string
-    | string[]
-    | Record<string, string>
-    | null
-    | undefined;
+  | string
+  | string[]
+  | Record<string, string>
+  | null
+  | undefined;
 
 /** Snapshot of Asset Globali settings used to build the URL registry. */
 export type PlatformPlaceholderSettingsSnapshot = Partial<
-    Record<PlatformPlaceholderSettingKey, PlatformPlaceholderSettingValue>
+  Record<PlatformPlaceholderSettingKey, PlatformPlaceholderSettingValue>
 >;

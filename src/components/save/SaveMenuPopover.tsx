@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { Save, FilePlus2 } from 'lucide-react';
+import { FilePlus2, Save } from 'lucide-react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { DiaryToolbarPopoverHeader } from '@/components/features/diary/header/DiaryToolbarPopoverHeader';
 

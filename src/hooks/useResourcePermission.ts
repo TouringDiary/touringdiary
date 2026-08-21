@@ -10,7 +10,7 @@ export interface UseResourcePermissionResult {
 export function useResourcePermission(
   kind: SharedResourceKind | null | undefined,
   resourceId: string | null | undefined,
-  userId: string | null | undefined
+  userId: string | null | undefined,
 ): UseResourcePermissionResult {
   const [permission, setPermission] = useState<ResolvedResourcePermission | null>(null);
   const [isLoading, setIsLoading] = useState(false);

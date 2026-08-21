@@ -9,14 +9,16 @@ const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !anonKey) {
   throw new Error(
-    '[supabaseAdmin] Configurazione mancante: definire VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nelle variabili ambiente'
+    '[supabaseAdmin] Configurazione mancante: definire VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nelle variabili ambiente',
   );
 }
 
-export const supabaseAdmin = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
-}) : null;
+export const supabaseAdmin = serviceRoleKey
+  ? createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
 
 export const supabaseClient = createClient(supabaseUrl, anonKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
+  auth: { autoRefreshToken: false, persistSession: false },
 });

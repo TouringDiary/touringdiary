@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { SharedResourceKind } from '@/domain/collaboration';
+import type { WorkspaceViaggioShellSettings } from '@/domain/collaboration/workspaceViaggioShell';
+import { sectionIdForSharedResourceKind } from '@/domain/collaboration/workspaceViaggioShell';
 import {
   VIAGGIO_FOLDER_SECTIONS,
   type ViaggioFolderSectionId,
 } from '@/myspace/viaggioFolderSections';
-import type { WorkspaceViaggioShellSettings } from '@/domain/collaboration/workspaceViaggioShell';
-import type { SharedResourceKind } from '@/domain/collaboration';
-import { sectionIdForSharedResourceKind } from '@/domain/collaboration/workspaceViaggioShell';
 
 export interface WorkspaceViaggioShellResource {
   kind: SharedResourceKind;
@@ -27,11 +28,7 @@ function defaultShellSection(shell: WorkspaceViaggioShellSettings): ViaggioFolde
  * Nav isomorfa DOC 37 per Workspace da Viaggio.
  * Sezioni non in `populatedSections` restano vuote (placeholder).
  */
-export const WorkspaceViaggioShellNav: React.FC<Props> = ({
-  shell,
-  resources,
-  onOpenResource,
-}) => {
+export const WorkspaceViaggioShellNav: React.FC<Props> = ({ shell, resources, onOpenResource }) => {
   const [activeSection, setActiveSection] = useState<ViaggioFolderSectionId>(() =>
     defaultShellSection(shell),
   );
@@ -42,10 +39,7 @@ export const WorkspaceViaggioShellNav: React.FC<Props> = ({
     setActiveSection(defaultShellSection(shell));
   }, [shell.sourceViaggioId]);
 
-  const populated = useMemo(
-    () => new Set(shell.populatedSections),
-    [shell.populatedSections],
-  );
+  const populated = useMemo(() => new Set(shell.populatedSections), [shell.populatedSections]);
 
   const sectionResources = useMemo(() => {
     return resources.filter((resource) => {
@@ -80,9 +74,11 @@ export const WorkspaceViaggioShellNav: React.FC<Props> = ({
               className={`
                 px-3 py-2 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap
                 border-b-2 transition-colors shrink-0
-                ${isActive
-                  ? 'border-amber-500 text-white'
-                  : 'border-transparent text-slate-500 hover:text-slate-300'}
+                ${
+                  isActive
+                    ? 'border-amber-500 text-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-300'
+                }
                 ${hasContent ? '' : 'opacity-60'}
               `}
             >

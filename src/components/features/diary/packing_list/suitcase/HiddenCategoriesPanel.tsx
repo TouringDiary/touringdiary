@@ -1,5 +1,5 @@
-import React from 'react';
 import { Eye, EyeOff, RotateCcw } from 'lucide-react';
+import type React from 'react';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
 
 interface HiddenCategoriesPanelProps {
@@ -49,7 +49,9 @@ export const HiddenCategoriesPanel: React.FC<HiddenCategoriesPanelProps> = ({
             title={readOnly ? cat.name : 'Ripristina categoria'}
           >
             <Eye className="w-3 h-3 text-amber-400/80 group-hover:text-amber-300 transition-colors" />
-            <span className="text-[9px] font-bold text-slate-400 group-hover:text-white uppercase tracking-wider">{cat.name}</span>
+            <span className="text-[9px] font-bold text-slate-400 group-hover:text-white uppercase tracking-wider">
+              {cat.name}
+            </span>
           </button>
         ))}
       </div>

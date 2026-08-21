@@ -1,102 +1,91 @@
-import { supabase } from '../supabaseClient';
-import { UUID_REGEX } from '../../utils/uuid';
-import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '../../constants/platformFeatureFlags';
-import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
 import { resolvePlatformUserBody } from '@/services/platformControl/resolvePlatformUserMessage';
+import {
+  PLATFORM_FEATURE_FLAG_KEYS,
+  PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '../../constants/platformFeatureFlags';
+import { evaluateCachedFeatureFlag } from '../../domain/platformControl/platformFlagCache';
+import { UUID_REGEX } from '../../utils/uuid';
+import { supabase } from '../supabaseClient';
 
 function assertQaLocalWriteAllowed(isAuthenticated: boolean): void {
-    // Security Gate (service boundary): Feature Flag Runtime → Database.
-    const qaFlag = evaluateCachedFeatureFlag(
-        PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS,
-        {
-            userRole: null,
-            isAuthenticated,
-        }
+  // Security Gate (service boundary): Feature Flag Runtime → Database.
+  const qaFlag = evaluateCachedFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS, {
+    userRole: null,
+    isAuthenticated,
+  });
+  if (!qaFlag?.enabled) {
+    throw new Error(
+      resolvePlatformUserBody(
+        qaFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED,
+        'Le domande e risposte locali sono temporaneamente disabilitate.',
+      ),
     );
-    if (!qaFlag?.enabled) {
-        throw new Error(
-            resolvePlatformUserBody(
-                qaFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED,
-                'Le domande e risposte locali sono temporaneamente disabilitate.'
-            )
-        );
-    }
+  }
 }
 
-export const togglePostLike = async (postId: string, userId: string): Promise<{ liked: boolean, count: number }> => {
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) {
-        return { liked: false, count: 0 };
-    }
-
-    assertQaLocalWriteAllowed(true);
-
-    try {
-        const { data: existing } = await supabase
-            .from('user_interactions')
-            .select('id')
-            .match({
-                user_id: userId,
-                target_id: postId,
-                target_type: 'community_post',
-                interaction_type: 'like'
-            })
-            .maybeSingle();
-
-        let liked = false;
-
-        if (existing) {
-            await supabase
-                .from('user_interactions')
-                .delete()
-                .match({
-                    user_id: userId,
-                    target_id: postId,
-                    target_type: 'community_post',
-                    interaction_type: 'like'
-                });
-        } else {
-            await supabase
-                .from('user_interactions')
-                .insert({
-                    user_id: userId,
-                    target_id: postId,
-                    target_type: 'community_post',
-                    interaction_type: 'like'
-                });
-
-            liked = true;
-        }
-
-        const { count } = await supabase
-            .from('user_interactions')
-            .select('*', { count: 'exact', head: true })
-            .match({
-                target_id: postId,
-                target_type: 'community_post',
-                interaction_type: 'like'
-            });
-
-        return { liked, count: count || 0 };
-
-    } catch (e) {
-        console.error("Errore toggle like community post:", e);
-        return { liked: false, count: 0 };
-    }
+export const getUserPostFollows = async (userId: string): Promise<string[]> => {
+  if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return [];
+  try {
+    const { data } = await supabase.from('user_interactions').select('target_id').match({
+      user_id: userId,
+      target_type: 'community_post',
+      interaction_type: 'follow',
+    });
+    return (data || []).map((row) => row.target_id);
+  } catch {
+    return [];
+  }
 };
 
-export const getUserPostLikes = async (userId: string): Promise<string[]> => {
-    if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) return [];
-    try {
-        const { data } = await supabase
-            .from('user_interactions')
-            .select('target_id')
-            .match({
-                user_id: userId,
-                target_type: 'community_post',
-                interaction_type: 'like'
-  });
-        return (data || []).map((row: any) => row.target_id);
-    } catch (e) {
-        return [];
+export const togglePostFollow = async (
+  postId: string,
+  userId: string,
+): Promise<{ following: boolean }> => {
+  if (!userId || userId === 'guest' || !UUID_REGEX.test(userId)) {
+    return { following: false };
+  }
+
+  assertQaLocalWriteAllowed(true);
+
+  const { data: existing, error: existingError } = await supabase
+    .from('user_interactions')
+    .select('id')
+    .match({
+      user_id: userId,
+      target_id: postId,
+      target_type: 'community_post',
+      interaction_type: 'follow',
+    })
+    .maybeSingle();
+
+  if (existingError) {
+    console.error('Errore lettura follow community post:', existingError);
+    throw new Error('Errore aggiornamento follow.');
+  }
+
+  if (existing) {
+    const { error } = await supabase.from('user_interactions').delete().match({
+      user_id: userId,
+      target_id: postId,
+      target_type: 'community_post',
+      interaction_type: 'follow',
+    });
+    if (error) {
+      console.error('Errore unfollow community post:', error);
+      throw new Error('Errore aggiornamento follow.');
     }
+    return { following: false };
+  }
+
+  const { error } = await supabase.from('user_interactions').insert({
+    user_id: userId,
+    target_id: postId,
+    target_type: 'community_post',
+    interaction_type: 'follow',
+  });
+  if (error) {
+    console.error('Errore follow community post:', error);
+    throw new Error('Errore aggiornamento follow.');
+  }
+  return { following: true };
 };

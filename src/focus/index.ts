@@ -1,47 +1,47 @@
-export {
-  deriveFocusState,
-  getOverlayKind,
-  getSurfacePolicy,
-  resolveWorkspaceId,
-  blocksAppKeyboardShortcuts,
-  focusSessionOwnsKeyboardShortcuts,
-  workspaceOwnsKeyboardShortcuts,
-  diaryHandlesKeyboardShortcuts,
-  shouldDismissWorkspaceOnViewModeChange,
-  isAppFocusShell,
-  workspaceRequiresStableSidebar,
-  workspaceUsesCompanionPortal,
-  type KeyboardShortcutContext,
-  WORKSPACE_REGISTRY,
-  FOCUS_SURFACE_ATTR,
-  type UIMode,
-  type FocusSurface,
-  type OverlayKind,
-  type WorkspaceId,
-  type SurfacePolicy,
-  type DerivedFocusState,
-} from './focusModeRegistry';
+export { FocusIdleBoundary } from './FocusIdleBoundary';
 
 export {
+  type FocusModeContextValue,
   FocusModeProvider,
   useFocusMode,
   useFocusModeOptional,
-  type FocusModeContextValue,
 } from './FocusModeContext';
 
 export { FocusOverlay } from './FocusOverlay';
-export { FocusIdleBoundary } from './FocusIdleBoundary';
-export { WorkspaceHost } from './WorkspaceHost';
+export {
+  blocksAppKeyboardShortcuts,
+  type DerivedFocusState,
+  deriveFocusState,
+  diaryHandlesKeyboardShortcuts,
+  FOCUS_SURFACE_ATTR,
+  type FocusSurface,
+  focusSessionOwnsKeyboardShortcuts,
+  getOverlayKind,
+  getSurfacePolicy,
+  isAppFocusShell,
+  type KeyboardShortcutContext,
+  type OverlayKind,
+  resolveWorkspaceId,
+  type SurfacePolicy,
+  shouldDismissWorkspaceOnViewModeChange,
+  type UIMode,
+  WORKSPACE_REGISTRY,
+  type WorkspaceId,
+  workspaceOwnsKeyboardShortcuts,
+  workspaceRequiresStableSidebar,
+  workspaceUsesCompanionPortal,
+} from './focusModeRegistry';
 export { useWorkspaceCloseRegistration } from './useWorkspaceCloseRegistration';
 export { useWorkspaceSessionEnd } from './useWorkspaceSessionEnd';
+export { WorkspaceHost } from './WorkspaceHost';
 export {
   registerWorkspaceClose,
-  unregisterWorkspaceClose,
   requestWorkspaceClose,
+  unregisterWorkspaceClose,
   type WorkspaceCloseRegistration,
 } from './workspaceCloseRegistry';
 export {
+  endWorkspaceSession,
   registerWorkspaceSessionEnd,
   unregisterWorkspaceSessionEnd,
-  endWorkspaceSession,
 } from './workspaceSessionRegistry';

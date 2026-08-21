@@ -14,13 +14,15 @@ import {
   buildWorkspaceViaggioShellSettings,
   toWorkspaceSettingsBagViaggioShell,
 } from '@/domain/collaboration/workspaceViaggioShell';
-import {
-  addResourceToExistingWorkspace,
-  listWorkspacesForUser,
-} from '@/services/collaboration';
+import { addResourceToExistingWorkspace, listWorkspacesForUser } from '@/services/collaboration';
 import { duplicateSharedResourceForOwner } from '@/services/collaboration/personalShareService';
-import type { ShareIntent, SharePath, WizardStep, WorkspacePendingInvite } from './collaborationSharePresentation';
 import { finalizeCreateWorkspacePipeline } from './collaborationSharePipeline';
+import type {
+  ShareIntent,
+  SharePath,
+  WizardStep,
+  WorkspacePendingInvite,
+} from './collaborationSharePresentation';
 import type { WorkspacePickedElement } from './WorkspaceShareWizardSteps';
 
 export function useCollaborationShareWizardActions(input: {
@@ -47,9 +49,7 @@ export function useCollaborationShareWizardActions(input: {
   effectiveResourceIdRef: MutableRefObject<string>;
   setWizardStep: Dispatch<SetStateAction<WizardStep>>;
   setActionError: Dispatch<SetStateAction<string | null>>;
-  setUserWorkspaces: Dispatch<
-    SetStateAction<Awaited<ReturnType<typeof listWorkspacesForUser>>>
-  >;
+  setUserWorkspaces: Dispatch<SetStateAction<Awaited<ReturnType<typeof listWorkspacesForUser>>>>;
   setShareKind: Dispatch<SetStateAction<SharedResourceKind>>;
   setEffectiveResourceId: Dispatch<SetStateAction<string>>;
   setHasAppliedShareDuplicate: Dispatch<SetStateAction<boolean>>;
@@ -58,7 +58,7 @@ export function useCollaborationShareWizardActions(input: {
   loadWorkspaceWizardData: (
     seedKind: SharedResourceKind,
     originResourceId: string,
-    generation?: number
+    generation?: number,
   ) => Promise<void>;
   resolveShareTargetResourceId: () => Promise<string | null>;
   runSubmittingAction: (action: () => Promise<void>) => Promise<void>;
@@ -126,7 +126,7 @@ export function useCollaborationShareWizardActions(input: {
       const duplicateResult = await duplicateSharedResourceForOwner(
         pickedElement.kind,
         pickedElement.resourceId,
-        userId
+        userId,
       );
       if (duplicateResult.success === false) {
         setActionError(duplicateResult.error);
@@ -138,7 +138,7 @@ export function useCollaborationShareWizardActions(input: {
         resourceId: duplicateResult.copiedResourceId,
       });
       if (!result.success) {
-        setActionError(result.error ?? 'Impossibile collegare l\'elemento.');
+        setActionError(result.error ?? "Impossibile collegare l'elemento.");
         return;
       }
 
@@ -192,7 +192,7 @@ export function useCollaborationShareWizardActions(input: {
     const validationError = validateWorkspaceCompositionDraft(
       compositionDraft,
       compositionBlueprint,
-      { allowEmpty: isCreateEntry }
+      { allowEmpty: isCreateEntry },
     );
     if (validationError) {
       setActionError(validationError);
@@ -259,11 +259,9 @@ export function useCollaborationShareWizardActions(input: {
     const draft = snapshot.draft;
     const blueprint = snapshot.blueprint;
 
-    const validationError = validateWorkspaceCompositionDraft(
-      draft,
-      blueprint,
-      { allowEmpty: isCreateEntry }
-    );
+    const validationError = validateWorkspaceCompositionDraft(draft, blueprint, {
+      allowEmpty: isCreateEntry,
+    });
     if (validationError) {
       setActionError(validationError);
       return;

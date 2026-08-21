@@ -1,23 +1,23 @@
-import React, { useEffect, useRef } from 'react';
 import { Extension } from '@tiptap/core';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import { TaskList } from '@tiptap/extension-list';
-import { DiaryNotesTaskItem } from './diaryNotesTaskItem';
+import { Color } from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
+import { TaskList } from '@tiptap/extension-list';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyle } from '@tiptap/extension-text-style';
-import { Color } from '@tiptap/extension-color';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import React, { useEffect, useRef } from 'react';
+import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import type { DiaryNotesDocument } from '@/types/models/DiaryNotes';
 import { isDiaryNotesDocument, normalizeDiaryNotes } from '@/types/models/DiaryNotes';
-import { snapshotsEqual } from '@/domain/save/documentSnapshot';
-import { DiaryNotesToolbar } from './DiaryNotesToolbar';
 import { DiaryNotesLinkBubbleMenu } from './DiaryNotesLinkBubbleMenu';
+import { DiaryNotesToolbar } from './DiaryNotesToolbar';
 import {
   createDiaryNotesLinkClickPlugin,
   dismissDiaryNotesLinkUi,
   restoreDiaryNotesEditorInputMode,
 } from './diaryNotesLinkUtils';
+import { DiaryNotesTaskItem } from './diaryNotesTaskItem';
 import './diaryNotesEditor.css';
 
 const DiaryNotesLinkInteraction = Extension.create({
@@ -37,160 +37,157 @@ export interface DiaryNotesEditorProps {
   readOnly?: boolean;
 }
 
-export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(({
-  document,
-  onDocumentChange,
-  isActive = true,
-  readOnly = false,
-}) => {
-  const hadEditorFocusRef = useRef(false);
-  const hasInitialFocusedRef = useRef(false);
+export const DiaryNotesEditor: React.FC<DiaryNotesEditorProps> = React.memo(
+  ({ document, onDocumentChange, isActive = true, readOnly = false }) => {
+    const hadEditorFocusRef = useRef(false);
+    const hasInitialFocusedRef = useRef(false);
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    editable: !readOnly,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [2] },
-        blockquote: false,
-        code: false,
-        codeBlock: false,
-        horizontalRule: false,
-        undoRedo: false,
-        link: false,
-      }),
-      Link.configure({
-        openOnClick: false,
-        enableClickSelection: false,
-        HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
-      }),
-      TextStyle,
-      Color,
-      Placeholder.configure({
-        placeholder: DIARY_NOTES_PLACEHOLDER,
-        emptyEditorClass: 'is-editor-empty',
-      }),
-      TaskList,
-      DiaryNotesTaskItem.configure({
-        nested: false,
-        a11y: {
-          checkboxLabel: (node, checked) => {
-            const text = node.textContent?.trim();
-            const state = checked ? 'completata' : 'da completare';
-            return text ? `Attività ${state}: ${text}` : `Attività ${state}`;
+    const editor = useEditor({
+      immediatelyRender: false,
+      editable: !readOnly,
+      extensions: [
+        StarterKit.configure({
+          heading: { levels: [2] },
+          blockquote: false,
+          code: false,
+          codeBlock: false,
+          horizontalRule: false,
+          undoRedo: false,
+          link: false,
+        }),
+        Link.configure({
+          openOnClick: false,
+          enableClickSelection: false,
+          HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+        }),
+        TextStyle,
+        Color,
+        Placeholder.configure({
+          placeholder: DIARY_NOTES_PLACEHOLDER,
+          emptyEditorClass: 'is-editor-empty',
+        }),
+        TaskList,
+        DiaryNotesTaskItem.configure({
+          nested: false,
+          a11y: {
+            checkboxLabel: (node, checked) => {
+              const text = node.textContent?.trim();
+              const state = checked ? 'completata' : 'da completare';
+              return text ? `Attività ${state}: ${text}` : `Attività ${state}`;
+            },
           },
+        }),
+        DiaryNotesLinkInteraction,
+      ],
+      content: normalizeDiaryNotes(document),
+      editorProps: {
+        attributes: {
+          class: 'diary-notes-prosemirror',
+          spellcheck: 'true',
+          'aria-label': 'Contenuto note di viaggio',
         },
-      }),
-      DiaryNotesLinkInteraction,
-    ],
-    content: normalizeDiaryNotes(document),
-    editorProps: {
-      attributes: {
-        class: 'diary-notes-prosemirror',
-        spellcheck: 'true',
-        'aria-label': 'Contenuto note di viaggio',
       },
-    },
-    onUpdate: ({ editor: currentEditor }) => {
-      const json = currentEditor.getJSON();
-      if (!isDiaryNotesDocument(json)) return;
-      onDocumentChange(json);
-    },
-  });
+      onUpdate: ({ editor: currentEditor }) => {
+        const json = currentEditor.getJSON();
+        if (!isDiaryNotesDocument(json)) return;
+        onDocumentChange(json);
+      },
+    });
 
-  useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-
-    const next = normalizeDiaryNotes(document);
-    if (snapshotsEqual(editor.getJSON(), next)) return;
-
-    const hadFocus = editor.isFocused;
-
-    // Cambio tab / sync esterna: emitUpdate: false evita onUpdate ridondanti verso il parent.
-    // undoRedo è disabilitato nello StarterKit → nessuna history interna Tiptap da gestire.
-    editor.commands.setContent(next, { emitUpdate: false });
-    dismissDiaryNotesLinkUi(editor);
-
-    // Cursore e selezione intenzionali: se l'utente stava scrivendo, focus a fine documento;
-    // altrimenti il dismiss sopra ha già azzerato selezione e chiuso il BubbleMenu link.
-    if (hadFocus && isActive && !readOnly) {
-      editor.commands.focus('end', { scrollIntoView: false });
-    }
-
-    hasInitialFocusedRef.current = false;
-  }, [document, editor, isActive, readOnly]);
-
-  useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-
-    if (!isActive) {
-      hadEditorFocusRef.current = editor.isFocused;
-      dismissDiaryNotesLinkUi(editor);
-      return;
-    }
-
-    const frameId = requestAnimationFrame(() => {
+    useEffect(() => {
       if (!editor || editor.isDestroyed) return;
 
-      if (hadEditorFocusRef.current) {
-        editor.commands.focus(undefined, { scrollIntoView: false });
+      const next = normalizeDiaryNotes(document);
+      if (snapshotsEqual(editor.getJSON(), next)) return;
+
+      const hadFocus = editor.isFocused;
+
+      // Cambio tab / sync esterna: emitUpdate: false evita onUpdate ridondanti verso il parent.
+      // undoRedo è disabilitato nello StarterKit → nessuna history interna Tiptap da gestire.
+      editor.commands.setContent(next, { emitUpdate: false });
+      dismissDiaryNotesLinkUi(editor);
+
+      // Cursore e selezione intenzionali: se l'utente stava scrivendo, focus a fine documento;
+      // altrimenti il dismiss sopra ha già azzerato selezione e chiuso il BubbleMenu link.
+      if (hadFocus && isActive && !readOnly) {
+        editor.commands.focus('end', { scrollIntoView: false });
+      }
+
+      hasInitialFocusedRef.current = false;
+    }, [document, editor, isActive, readOnly]);
+
+    useEffect(() => {
+      if (!editor || editor.isDestroyed) return;
+
+      if (!isActive) {
+        hadEditorFocusRef.current = editor.isFocused;
+        dismissDiaryNotesLinkUi(editor);
         return;
       }
 
-      if (!hasInitialFocusedRef.current && editor.isEmpty && !readOnly) {
-        editor.commands.focus('end', { scrollIntoView: false });
-        hasInitialFocusedRef.current = true;
-      }
-    });
+      const frameId = requestAnimationFrame(() => {
+        if (!editor || editor.isDestroyed) return;
 
-    return () => cancelAnimationFrame(frameId);
-  }, [isActive, editor, readOnly]);
+        if (hadEditorFocusRef.current) {
+          editor.commands.focus(undefined, { scrollIntoView: false });
+          return;
+        }
 
-  useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-    editor.setEditable(!readOnly);
-    if (readOnly) {
-      dismissDiaryNotesLinkUi(editor);
-      if (editor.isFocused) {
-        editor.commands.blur();
-      }
-    }
-  }, [editor, readOnly]);
-
-  useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-
-    const syncLinkTitles = () => {
-      editor.view.dom.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((anchor) => {
-        const href = anchor.getAttribute('href');
-        if (href) anchor.setAttribute('title', href);
+        if (!hasInitialFocusedRef.current && editor.isEmpty && !readOnly) {
+          editor.commands.focus('end', { scrollIntoView: false });
+          hasInitialFocusedRef.current = true;
+        }
       });
-    };
 
-    const syncLinkUiState = () => {
-      syncLinkTitles();
-      if (!editor.isActive('link')) {
-        restoreDiaryNotesEditorInputMode(editor);
+      return () => cancelAnimationFrame(frameId);
+    }, [isActive, editor, readOnly]);
+
+    useEffect(() => {
+      if (!editor || editor.isDestroyed) return;
+      editor.setEditable(!readOnly);
+      if (readOnly) {
+        dismissDiaryNotesLinkUi(editor);
+        if (editor.isFocused) {
+          editor.commands.blur();
+        }
       }
-    };
+    }, [editor, readOnly]);
 
-    editor.on('update', syncLinkUiState);
-    editor.on('selectionUpdate', syncLinkUiState);
-    syncLinkUiState();
+    useEffect(() => {
+      if (!editor || editor.isDestroyed) return;
 
-    return () => {
-      editor.off('update', syncLinkUiState);
-      editor.off('selectionUpdate', syncLinkUiState);
-    };
-  }, [editor]);
+      const syncLinkTitles = () => {
+        editor.view.dom.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((anchor) => {
+          const href = anchor.getAttribute('href');
+          if (href) anchor.setAttribute('title', href);
+        });
+      };
 
-  return (
-    <div className="diary-notes-editor flex flex-col flex-1 min-h-0" data-diary-notes-editor>
-      <DiaryNotesToolbar editor={editor} />
-      {editor && !editor.isDestroyed && <DiaryNotesLinkBubbleMenu editor={editor} />}
-      <EditorContent editor={editor} className="diary-notes-editor-content flex-1 min-h-0" />
-    </div>
-  );
-});
+      const syncLinkUiState = () => {
+        syncLinkTitles();
+        if (!editor.isActive('link')) {
+          restoreDiaryNotesEditorInputMode(editor);
+        }
+      };
+
+      editor.on('update', syncLinkUiState);
+      editor.on('selectionUpdate', syncLinkUiState);
+      syncLinkUiState();
+
+      return () => {
+        editor.off('update', syncLinkUiState);
+        editor.off('selectionUpdate', syncLinkUiState);
+      };
+    }, [editor]);
+
+    return (
+      <div className="diary-notes-editor flex flex-col flex-1 min-h-0" data-diary-notes-editor>
+        <DiaryNotesToolbar editor={editor} />
+        {editor && !editor.isDestroyed && <DiaryNotesLinkBubbleMenu editor={editor} />}
+        <EditorContent editor={editor} className="diary-notes-editor-content flex-1 min-h-0" />
+      </div>
+    );
+  },
+);
 
 DiaryNotesEditor.displayName = 'DiaryNotesEditor';

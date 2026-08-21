@@ -8,7 +8,7 @@ function isoNow(): string {
 /** Conserva autore su elemento itinerario (§21 — POI aggiunto da). */
 export function stampItineraryItemAuthor(
   item: ItineraryItem,
-  userId: string | null | undefined
+  userId: string | null | undefined,
 ): ItineraryItem {
   if (!userId) return item;
   return {
@@ -21,7 +21,7 @@ export function stampItineraryItemAuthor(
 /** Conserva autore su tab Nota alla creazione (§21 — Nota creata da). */
 export function stampDiaryNoteTabCreated(
   tab: DiaryNoteTab,
-  userId: string | null | undefined
+  userId: string | null | undefined,
 ): DiaryNoteTab {
   if (!userId) return tab;
   const now = isoNow();
@@ -37,7 +37,7 @@ export function stampDiaryNoteTabCreated(
 /** Conserva ultima modifica su tab Nota (§21). */
 export function stampDiaryNoteTabModified(
   tab: DiaryNoteTab,
-  userId: string | null | undefined
+  userId: string | null | undefined,
 ): DiaryNoteTab {
   if (!userId) return tab;
   return {

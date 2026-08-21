@@ -1,7 +1,7 @@
-import React from 'react';
+import type React from 'react';
+import { WorkspaceInvitesSection } from '@/components/collaboration/workspace/WorkspaceInvitesSection';
 import type { WorkspaceInvite } from '@/domain/collaboration';
 import type { WorkspaceResourceLabel } from '@/services/collaboration';
-import { WorkspaceInvitesSection } from '@/components/collaboration/workspace/WorkspaceInvitesSection';
 
 interface Props {
   invites: WorkspaceInvite[];
@@ -33,7 +33,9 @@ export const WorkspaceBlockedUsersSubsection: React.FC<Props> = ({
 
   return (
     <section className="space-y-2">
-      <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Utenti Bloccati</h3>
+      <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+        Utenti Bloccati
+      </h3>
       <WorkspaceInvitesSection
         invites={blockedInvites}
         inviteeProfiles={inviteeProfiles}

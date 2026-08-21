@@ -1,42 +1,51 @@
 import { Router } from 'express';
-import { supabaseAdmin } from '../supabaseAdmin';
 import {
-  persistCityDetails,
-  updateCityStatus,
-  patchCityManifestFields,
+  type CityManifestPatch,
+  type CityWritePayload,
   patchCityBadge,
   patchCityHomeOrder,
-  type CityWritePayload,
-  type CityManifestPatch,
+  patchCityManifestFields,
+  persistCityDetails,
+  updateCityStatus,
 } from '../services/cityAdminService';
+import { supabaseAdmin } from '../supabaseAdmin';
 
 const router = Router();
 
-router.post("/create-user", async (req, res) => {
+router.post('/create-user', async (req, res) => {
   try {
     const { email, password, firstName, lastName, name, role, isTestAccount } = req.body;
 
-    console.log("[AdminCreateUser] Payload ricevuto:", JSON.stringify({ 
-      email, 
-      hasPassword: !!password, 
-      firstName, 
-      lastName, 
-      name, 
-      role 
-    }, null, 2));
+    console.log(
+      '[AdminCreateUser] Payload ricevuto:',
+      JSON.stringify(
+        {
+          email,
+          hasPassword: !!password,
+          firstName,
+          lastName,
+          name,
+          role,
+        },
+        null,
+        2,
+      ),
+    );
 
     // Validazione flessibile: richiediamo email, password e almeno un formato di nome
     const hasName = (firstName && lastName) || name;
     if (!email || !password || !hasName) {
-      console.warn("[AdminCreateUser] Validazione fallita: campi mancanti");
-      return res.status(400).json({ 
-        success: false, 
-        error: "Missing required fields (email, password, and a name format)" 
+      console.warn('[AdminCreateUser] Validazione fallita: campi mancanti');
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields (email, password, and a name format)',
       });
     }
 
     if (!supabaseAdmin) {
-      return res.status(500).json({ success: false, error: "Supabase Admin client not initialized" });
+      return res
+        .status(500)
+        .json({ success: false, error: 'Supabase Admin client not initialized' });
     }
 
     // Normalizziamo il nome completo
@@ -45,74 +54,68 @@ router.post("/create-user", async (req, res) => {
     // 0️⃣ Controllo preventivo: esiste già un profilo con questa email?
     // Può capitare se l'utente Auth è stato rimosso ma il profilo SQL è rimasto (orfano).
     const { data: existingProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id,email")
-      .eq("email", email)
+      .from('profiles')
+      .select('id,email')
+      .eq('email', email)
       .maybeSingle();
 
     if (existingProfile) {
-      console.warn("[AdminCreateUser] Existing profile detected by email:", existingProfile);
+      console.warn('[AdminCreateUser] Existing profile detected by email:', existingProfile);
     }
 
-    console.log("[AdminCreateUser] Attempting to create auth user:", email);
+    console.log('[AdminCreateUser] Attempting to create auth user:', email);
 
     // 1️⃣ Crea utente in Auth con metadata espansi
-    const { data: userData, error: createError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: safeName,
-          firstName,
-          lastName,
-          role: role || 'user'
-        }
-      });
+    const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: safeName,
+        firstName,
+        lastName,
+        role: role || 'user',
+      },
+    });
 
     if (createError || !userData?.user) {
-      console.error(
-        "[AdminCreateUser] Auth Error FULL:",
-        JSON.stringify(createError, null, 2)
-      );
+      console.error('[AdminCreateUser] Auth Error FULL:', JSON.stringify(createError, null, 2));
 
       // Distinguiamo tra errore 409 (conflitto email) e 500 (trigger/database)
-      const isConflict = createError?.status === 409 || createError?.message?.includes("already registered");
-      
+      const isConflict =
+        createError?.status === 409 || createError?.message?.includes('already registered');
+
       return res.status(isConflict ? 409 : 400).json({
         success: false,
-        error: createError?.message || "User creation failed"
+        error: createError?.message || 'User creation failed',
       });
     }
 
-    const referralCode =
-      (safeName.split(' ')[0] + Math.floor(Math.random() * 1000)).toLowerCase();
+    const referralCode = (safeName.split(' ')[0] + Math.floor(Math.random() * 1000)).toLowerCase();
 
-    console.log("[AdminCreateUser] Creating profile for:", userData.user.id);
+    console.log('[AdminCreateUser] Creating profile for:', userData.user.id);
 
     // 2️⃣ Insert profile (safe even if trigger already created it)
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .upsert(
-        {
-          id: userData.user.id,
-          email,
-          name: safeName,
-          role: role || 'user',
-          status: 'active',
-          is_test_account: isTestAccount || false,
-          referral_code: referralCode,
-          xp: 0
-        },
-        { onConflict: 'id' }
-      );
+    const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
+      {
+        id: userData.user.id,
+        email,
+        name: safeName,
+        role: role || 'user',
+        status: 'active',
+        is_test_account: isTestAccount || false,
+        referral_code: referralCode,
+        xp: 0,
+      },
+      { onConflict: 'id' },
+    );
 
     if (profileError) {
-      console.error("[AdminCreateUser] Profile Error:", profileError);
+      console.error('[AdminCreateUser] Profile Error:', profileError);
     }
 
     console.log(
-      `[AdminCreateUser] SUCCESS: Created active user ${email} with ID ${userData.user.id}`
+      `[AdminCreateUser] SUCCESS: Created active user ${email} with ID ${userData.user.id}`,
     );
 
     res.json({
@@ -120,21 +123,20 @@ router.post("/create-user", async (req, res) => {
       user: {
         id: userData.user.id,
         email,
-        name: safeName
-      }
+        name: safeName,
+      },
     });
-
-  } catch (e: any) {
-    console.error("[AdminCreateUser] Crash:", e);
+  } catch (e: unknown) {
+    console.error('[AdminCreateUser] Crash:', e);
     res.status(500).json({
       success: false,
-      error: e.message
+      error: e instanceof Error ? e.message : String(e),
     });
   }
 });
 
 /** Aggiornamento stato città (draft / published / needs_check) — evaluate & admin. */
-router.patch("/cities/:cityId/status", async (req, res) => {
+router.patch('/cities/:cityId/status', async (req, res) => {
   try {
     const { cityId } = req.params;
     const { status } = req.body as { status?: string };
@@ -155,7 +157,7 @@ router.patch("/cities/:cityId/status", async (req, res) => {
 });
 
 /** Persistenza editor — UPDATE esplicito (INSERT solo se riga assente). */
-router.patch("/cities/:cityId/details", async (req, res) => {
+router.patch('/cities/:cityId/details', async (req, res) => {
   try {
     const { cityId } = req.params;
     const payload = req.body as CityWritePayload;
@@ -172,7 +174,7 @@ router.patch("/cities/:cityId/details", async (req, res) => {
 });
 
 /** Aggiornamento minimale manifest (name, zone, status). */
-router.patch("/cities/:cityId/manifest", async (req, res) => {
+router.patch('/cities/:cityId/manifest', async (req, res) => {
   try {
     const { cityId } = req.params;
     const patch = req.body as CityManifestPatch;
@@ -189,7 +191,7 @@ router.patch("/cities/:cityId/manifest", async (req, res) => {
 });
 
 /** Aggiornamento special_badge. */
-router.patch("/cities/:cityId/badge", async (req, res) => {
+router.patch('/cities/:cityId/badge', async (req, res) => {
   try {
     const { cityId } = req.params;
     const { badge } = req.body as { badge?: string | null };
@@ -206,7 +208,7 @@ router.patch("/cities/:cityId/badge", async (req, res) => {
 });
 
 /** Aggiornamento home_order. */
-router.patch("/cities/:cityId/home-order", async (req, res) => {
+router.patch('/cities/:cityId/home-order', async (req, res) => {
   try {
     const { cityId } = req.params;
     const { home_order } = req.body as { home_order?: number | null };

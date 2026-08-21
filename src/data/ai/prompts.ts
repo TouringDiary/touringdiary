@@ -1,13 +1,12 @@
-
 import { getCachedSetting, SETTINGS_KEYS } from '../../services/settingsService';
 
 // I template vengono ora recuperati dalla cache globale caricata all'avvio.
 // Se mancano (es. primo avvio o offline), usiamo stringhe di fallback hardcoded qui.
 
 const getTemplate = (key: string, fallback: string): string => {
-    // Prova a leggere dalla cache settingsService
-    const val = getCachedSetting<string>(key);
-    return (val && val.length > 10) ? val : fallback;
+  // Prova a leggere dalla cache settingsService
+  const val = getCachedSetting<string>(key);
+  return val && val.length > 10 ? val : fallback;
 };
 
 export const SYSTEM_PRECISION_HEADER = `
@@ -23,11 +22,18 @@ OBIETTIVO: Fornire dati biografici precisi, date verificate e narrazioni coinvol
 `;
 
 export const buildCityAuditPrompt = (cityName: string) => {
-    const tpl = getTemplate(SETTINGS_KEYS.PROMPT_CITY_AUDIT, `SEI UN AUDITOR TURISTICO PER "{cityName}". OBIETTIVO: Identificare i 15-20 "Must-See" POI. OUTPUT JSON ARRAY.`);
-    return tpl.replace('{cityName}', cityName);
+  const tpl = getTemplate(
+    SETTINGS_KEYS.PROMPT_CITY_AUDIT,
+    `SEI UN AUDITOR TURISTICO PER "{cityName}". OBIETTIVO: Identificare i 15-20 "Must-See" POI. OUTPUT JSON ARRAY.`,
+  );
+  return tpl.replace('{cityName}', cityName);
 };
 
-export const buildRegionalAnalysisPrompt = (regionName: string, existingZones: string[], minVisitors: number = 50000) => `
+export const buildRegionalAnalysisPrompt = (
+  regionName: string,
+  existingZones: string[],
+  minVisitors: number = 50000,
+) => `
     SEI UN PIANIFICATORE TERRITORIALE STRATEGICO.
     Analizza la regione: "${regionName}".
     OBIETTIVO: Suddividere la regione in "Zone Turistiche".
@@ -36,7 +42,12 @@ export const buildRegionalAnalysisPrompt = (regionName: string, existingZones: s
     OUTPUT JSON: { "region": "${regionName}", "zones": [{ "name": "...", "mainCities": [...] }] }
 `;
 
-export const buildZoneAnalysisPrompt = (zoneName: string, regionName: string, existingCities: string[], minVisitors: number = 5000) => `
+export const buildZoneAnalysisPrompt = (
+  zoneName: string,
+  regionName: string,
+  existingCities: string[],
+  minVisitors: number = 5000,
+) => `
     SEI UN ESPERTO DI GEOGRAFIA TURISTICA.
     ANALISI MICRO-ZONA: "${zoneName}" (${regionName}).
     COMPITO: Elenca TUTTE le città/borghi rilevanti.
@@ -45,7 +56,10 @@ export const buildZoneAnalysisPrompt = (zoneName: string, regionName: string, ex
     { "region": "${regionName}", "zones": [ { "name": "${zoneName}", "mainCities": [ { "name": "...", "visitors": 10000, "reason": "..." } ] } ] }
 `;
 
-export const buildVerifyPoisPrompt = (cityName: string, candidates: any[]) => `
+export const buildVerifyPoisPrompt = (
+  cityName: string,
+  candidates: ReadonlyArray<{ id?: string | number; name?: string }>,
+) => `
     SEI UN AUDITOR DIGITALE.
     Città: "${cityName}".
     Verifica esistenza/orari.
@@ -53,7 +67,15 @@ export const buildVerifyPoisPrompt = (cityName: string, candidates: any[]) => `
     OUTPUT JSON ARRAY: [{ "id": 0, "status": "valid"|"invalid" ... }]
 `;
 
-export const buildSuggestNewPoisPrompt = (cityName: string, needed: number, categoryFilter: string, instruction: string, retryInstruction: string, exclusionStr: string, allowedSubcategories: string) => `
+export const buildSuggestNewPoisPrompt = (
+  cityName: string,
+  needed: number,
+  categoryFilter: string,
+  instruction: string,
+  retryInstruction: string,
+  exclusionStr: string,
+  allowedSubcategories: string,
+) => `
     USA GOOGLE SEARCH. Cerca ${needed} luoghi REALI a ${cityName} (Cat: "${categoryFilter}").
     ${instruction} ${exclusionStr}
     OUTPUT JSON: [{ "name": "...", "category": "...", ... }]
@@ -65,19 +87,32 @@ export const buildRegeneratePoiPrompt = (poiName: string, cityName: string) => `
     OUTPUT JSON COMPLETO.
 `;
 
-export const buildSuggestItemsPrompt = (cityName: string, type: string, count: number, contextQuery: string, exclusionStr: string, allowedSubcategories: string) => {
-    const tourOperatorSchema = type === 'tour_operators' ? `
+export const buildSuggestItemsPrompt = (
+  cityName: string,
+  type: string,
+  count: number,
+  contextQuery: string,
+  exclusionStr: string,
+  allowedSubcategories: string,
+) => {
+  const tourOperatorSchema =
+    type === 'tour_operators'
+      ? `
     SCHEMA tour_operators (OBBLIGATORIO per ogni elemento):
     { "name": "...", "phone": "...", "website": "...", "email": "...", "address": "...", "description": "..." }
     NON usare i campi "contact" o "url". Usa SOLO "phone" e "website" per i contatti.
-    ` : '';
+    `
+      : '';
 
-    const servicesSchema = type === 'services' ? `
+  const servicesSchema =
+    type === 'services'
+      ? `
     SCHEMA services (SOLO servizi utilitari — NO tour operator, NO agenzie viaggio):
     { "name": "...", "type": "...", "contact": "...", "url": "...", "address": "...", "description": "...", "category": "..." }
-    ` : '';
+    `
+      : '';
 
-    return `
+  return `
     esperto di "${cityName}".
     Trova ${count} elementi reali per "${type}".
     ${contextQuery ? `CONTESTO: "${contextQuery}"` : ''}
@@ -88,7 +123,7 @@ export const buildSuggestItemsPrompt = (cityName: string, type: string, count: n
     `;
 };
 
-export const buildRefineServicePrompt = (cityName: string, draftData: any) => `
+export const buildRefineServicePrompt = (cityName: string, draftData: Record<string, unknown>) => `
     DATA MANAGER. Città: ${cityName}.
     Unisci e bonifica.
     INPUT: ${JSON.stringify(draftData)}
@@ -105,28 +140,30 @@ export const buildRefineServicePrompt = (cityName: string, draftData: any) => `
 // --- PERSONE & CULTURA ---
 
 export const buildSuggestPeoplePrompt = (
-    cityName: string, 
-    count: number, 
-    existingNames: string[] = [],
-    contextQuery: string = ''
+  cityName: string,
+  count: number,
+  existingNames: string[] = [],
+  contextQuery: string = '',
 ) => {
-    const exclusionStr = existingNames.length > 0 ? `ESCLUDI TASSATIVAMENTE: ${existingNames.join(', ')}` : '';
-    const contextStr = contextQuery ? `FOCUS UTENTE: "${contextQuery}"` : '';
+  const exclusionStr =
+    existingNames.length > 0 ? `ESCLUDI TASSATIVAMENTE: ${existingNames.join(', ')}` : '';
+  const contextStr = contextQuery ? `FOCUS UTENTE: "${contextQuery}"` : '';
 
-    const fallback = `TASK: Trova {count} personaggi famosi legati a {cityName}.
+  const fallback = `TASK: Trova {count} personaggi famosi legati a {cityName}.
     {contextStr} {exclusionStr}
     REGOLA DATE: Formato "YYYY - YYYY" obbligatorio.
     OUTPUT JSON ARRAY.`;
 
-    let tpl = getTemplate(SETTINGS_KEYS.PROMPT_PEOPLE_SUGGEST, fallback);
-    
-    // Replace vars
-    tpl = tpl.replace('{cityName}', cityName)
-             .replace('{count}', count.toString())
-             .replace('{contextStr}', contextStr)
-             .replace('{exclusionStr}', exclusionStr);
-             
-    return `${SYSTEM_PEOPLE_HEADER}\n${tpl}`;
+  let tpl = getTemplate(SETTINGS_KEYS.PROMPT_PEOPLE_SUGGEST, fallback);
+
+  // Replace vars
+  tpl = tpl
+    .replace('{cityName}', cityName)
+    .replace('{count}', count.toString())
+    .replace('{contextStr}', contextStr)
+    .replace('{exclusionStr}', exclusionStr);
+
+  return `${SYSTEM_PEOPLE_HEADER}\n${tpl}`;
 };
 
 export const buildEnrichPersonPrompt = (personName: string, cityName: string) => `
@@ -138,15 +175,22 @@ export const buildEnrichPersonPrompt = (personName: string, cityName: string) =>
 `;
 
 // CITY GENERATION PROMPTS (Use DB Cache where possible)
-export const buildCityGeneralPrompt = (cityName: string, baseContext: string, existingZones: string[]) => {
-    const tpl = getTemplate('prompt_city_general', `
+export const buildCityGeneralPrompt = (
+  cityName: string,
+  baseContext: string,
+  existingZones: string[],
+) => {
+  const tpl = getTemplate(
+    'prompt_city_general',
+    `
     ${baseContext}
     Analizza "${cityName}".
     ZONE UFFICIALI: [${existingZones.join(', ')}]
     Assegna la zona corretta.
     OUTPUT JSON: { "description": "...", "subtitle": "...", "zone": "...", "coords": ... }
-    `);
-    return tpl.replace('{cityName}', cityName);
+    `,
+  );
+  return tpl.replace('{cityName}', cityName);
 };
 
 export const buildCityStatsPrompt = (cityName: string, baseContext: string) => `
@@ -173,7 +217,14 @@ export const buildCityPatronPrompt = (cityName: string, baseContext: string) => 
     OUTPUT JSON: { "patron": { "name": "...", "date": "...", "history": "..." } }
 `;
 
-export const buildPlannerItineraryPrompt = (destination: string, style: string, daysCount: number, preferences: string, dailyInstructions: string, dbSourceList: string) => `
+export const buildPlannerItineraryPrompt = (
+  destination: string,
+  style: string,
+  daysCount: number,
+  preferences: string,
+  dailyInstructions: string,
+  dbSourceList: string,
+) => `
     ITINERARIO ${daysCount} GIORNI A ${destination}.
     STILE: ${style}. PREF: "${preferences}".
     LOGISTICA: ${dailyInstructions}
@@ -187,7 +238,12 @@ export const buildPlannerRoadbookPrompt = (cityName: string, scheduleJson: strin
     OUTPUT JSON ARRAY (RoadbookDay).
 `;
 
-export const buildPlannerModifyPrompt = (destination: string, planSummary: string, userRequest: string, dbAlternatives: string) => `
+export const buildPlannerModifyPrompt = (
+  destination: string,
+  planSummary: string,
+  userRequest: string,
+  dbAlternatives: string,
+) => `
     MODIFICA ITINERARIO ${destination}.
     PIANO: ${planSummary}
     RICHIESTA: "${userRequest}"
@@ -195,6 +251,8 @@ export const buildPlannerModifyPrompt = (destination: string, planSummary: strin
     OUTPUT JSON: { "updatedPlan": [...], "chatReply": "..." }
 `;
 
-export const buildImageCaptionPrompt = () => "Analizza immagine. Didascalia turistica breve.";
-export const buildTipIllustrationPrompt = (text: string) => `Illustrazione vettoriale minimalista, flat design dark mode: "${text}"`;
-export const buildImageSafetyPrompt = () => `Check Nudo/Violenza/Spam. JSON: { "isSafe": boolean, "reason": "..." }`;
+export const buildImageCaptionPrompt = () => 'Analizza immagine. Didascalia turistica breve.';
+export const buildTipIllustrationPrompt = (text: string) =>
+  `Illustrazione vettoriale minimalista, flat design dark mode: "${text}"`;
+export const buildImageSafetyPrompt = () =>
+  `Check Nudo/Violenza/Spam. JSON: { "isSafe": boolean, "reason": "..." }`;

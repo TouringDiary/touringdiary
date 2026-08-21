@@ -1,12 +1,12 @@
-import { supabase } from '@/services/supabaseClient';
 import type { SharedResourceKind, WorkspaceResource } from '@/domain/collaboration';
 import { isSharedResourceKind } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
 import { mapWorkspaceResourceRow } from './workspaceMappers';
 
 export async function getWorkspaceResourceByKindAndId(
   workspaceId: string,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<WorkspaceResource | null> {
   const { data, error } = await supabase
     .from('workspace_resources')
@@ -25,7 +25,7 @@ export async function getWorkspaceResourceByKindAndId(
 }
 
 export async function listWorkspaceResourceLinks(
-  workspaceId: string
+  workspaceId: string,
 ): Promise<WorkspaceResource[]> {
   const { data, error } = await supabase
     .from('workspace_resources')
@@ -46,7 +46,7 @@ export async function listWorkspaceResourceLinks(
 export async function isResourceLinkedInWorkspace(
   workspaceId: string,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<boolean> {
   if (!isSharedResourceKind(kind)) return false;
   const linked = await getWorkspaceResourceByKindAndId(workspaceId, kind, resourceId);

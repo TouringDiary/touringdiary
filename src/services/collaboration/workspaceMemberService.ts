@@ -7,7 +7,7 @@ import { getWorkspace, isWorkspaceMember } from './workspaceService';
  */
 export async function leaveWorkspace(
   workspaceId: string,
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const workspace = await getWorkspace(workspaceId);
   if (!workspace) {

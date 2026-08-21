@@ -1,12 +1,7 @@
 import type { CollaborativeMemberRole } from './sharedResource';
 
 /** Stati del ciclo di vita invito a risorsa (§6). */
-export const RESOURCE_INVITE_STATUSES = [
-  'pending',
-  'accepted',
-  'rejected',
-  'revoked',
-] as const;
+export const RESOURCE_INVITE_STATUSES = ['pending', 'accepted', 'rejected', 'revoked'] as const;
 export type ResourceInviteStatus = (typeof RESOURCE_INVITE_STATUSES)[number];
 
 export interface ResourceInvite {

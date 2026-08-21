@@ -1,13 +1,13 @@
-export { DiaryNotesPanel } from './DiaryNotesPanel';
-export type { DiaryNotesPanelProps } from './DiaryNotesPanel';
-export { DiaryNotesTabs } from './DiaryNotesTabs';
-export { DiaryNotesEditor, DIARY_NOTES_PLACEHOLDER } from './DiaryNotesEditor';
 export type { DiaryNotesEditorProps } from './DiaryNotesEditor';
-export { computeDiaryNotesChecklistStats } from './diaryNotesChecklistStats';
+export { DIARY_NOTES_PLACEHOLDER, DiaryNotesEditor } from './DiaryNotesEditor';
+export type { DiaryNotesPanelProps } from './DiaryNotesPanel';
+export { DiaryNotesPanel } from './DiaryNotesPanel';
+export { DiaryNotesTabs } from './DiaryNotesTabs';
 export type { DiaryNotesChecklistStats } from './diaryNotesChecklistStats';
+export { computeDiaryNotesChecklistStats } from './diaryNotesChecklistStats';
 export {
   diaryNotesDocumentToPlainText,
+  diaryNotesHasMeaningfulContent,
   diaryNotesStateToPlainText,
   diaryNotesToPlainText,
-  diaryNotesHasMeaningfulContent,
 } from './diaryNotesDocumentToPlainText';

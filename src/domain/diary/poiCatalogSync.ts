@@ -1,14 +1,10 @@
-import type { ItineraryItem } from '@/types/models/Itinerary';
 import type { PointOfInterest } from '@/types/models/City';
+import type { ItineraryItem } from '@/types/models/Itinerary';
 
 /** ID POI catalogo presenti nel diario (esclude custom). */
 export function getCatalogPoiIds(items: ItineraryItem[]): string[] {
   return [
-    ...new Set(
-      items
-        .filter((item) => !item.isCustom && item.poi?.id)
-        .map((item) => item.poi.id),
-    ),
+    ...new Set(items.filter((item) => !item.isCustom && item.poi?.id).map((item) => item.poi.id)),
   ];
 }
 

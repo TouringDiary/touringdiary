@@ -1,4 +1,5 @@
-import React, { useId } from 'react';
+import type React from 'react';
+import { useId } from 'react';
 import type { Viaggio } from '@/types/models/Viaggio';
 import type { ViaggioAssociationChoice } from '@/types/resourceAssociation';
 
@@ -62,9 +63,7 @@ export const ViaggioAssociationFields: React.FC<Props> = ({
             aria-busy={loading || undefined}
             className="w-full bg-slate-950 border border-slate-700 text-sm text-slate-200 rounded-lg px-2 py-2 disabled:opacity-60"
           >
-            <option value="">
-              {loading ? 'Caricamento Viaggi…' : 'Seleziona un Viaggio…'}
-            </option>
+            <option value="">{loading ? 'Caricamento Viaggi…' : 'Seleziona un Viaggio…'}</option>
             {!loading &&
               viaggi.map((v) => (
                 <option key={v.id} value={v.id}>

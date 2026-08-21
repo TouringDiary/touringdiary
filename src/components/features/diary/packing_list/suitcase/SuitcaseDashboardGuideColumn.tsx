@@ -1,6 +1,7 @@
-import React from 'react';
 import { Sparkles } from 'lucide-react';
+import type React from 'react';
 import {
+  getSuitcaseTabIcon,
   SUITCASE_DASHBOARD_PANEL_PADDING_CLASS,
   SUITCASE_DASHBOARD_PANEL_SHELL_CLASS,
   SUITCASE_GUIDE_COMPACT_PADDING_CLASS,
@@ -8,7 +9,6 @@ import {
   SUITCASE_GUIDE_ITEM_TITLE_CLASS,
   SUITCASE_GUIDE_SUGGESTIONS_SHELL_CLASS,
   SuitcaseDashboardSectionLabel,
-  getSuitcaseTabIcon,
 } from './suitcaseDashboardPanelUi';
 
 interface GuideItemProps {
@@ -44,7 +44,7 @@ const GuidePanel: React.FC<GuidePanelProps> = ({
   compact = false,
   accent = false,
 }) => (
-  <div
+  <section
     className={[
       'flex flex-col min-h-0',
       accent ? SUITCASE_GUIDE_SUGGESTIONS_SHELL_CLASS : SUITCASE_DASHBOARD_PANEL_SHELL_CLASS,
@@ -54,7 +54,7 @@ const GuidePanel: React.FC<GuidePanelProps> = ({
     aria-label={ariaLabel}
   >
     {children}
-  </div>
+  </section>
 );
 
 const TripIcon = getSuitcaseTabIcon('trip')!;
@@ -63,7 +63,7 @@ const TemplateIcon = getSuitcaseTabIcon('default')!;
 
 const SUGGESTIONS_COPY =
   'Durante la compilazione puoi ricevere suggerimenti per arricchire la valigia. ' +
-  'Ti aiutano a non dimenticare l\'essenziale e a preparare il viaggio con serenità.';
+  "Ti aiutano a non dimenticare l'essenziale e a preparare il viaggio con serenità.";
 
 export const SuitcaseDashboardGuideColumn: React.FC = () => {
   return (

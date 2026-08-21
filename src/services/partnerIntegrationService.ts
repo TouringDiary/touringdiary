@@ -1,7 +1,35 @@
-import { PartnerIntegration, PartnerIntegrations, PartnerCapability } from '../types';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '../types/database';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PartnerCapability, PartnerIntegration, PartnerIntegrations } from '../types';
+import type { Database, Json } from '../types/database';
 
+/** Shape grezza partner da JSON settings (campi opzionali, non dominio). */
+type RawPartnerIntegration = {
+  label?: string;
+  enabled?: boolean;
+  capabilities?: unknown;
+  group?: string;
+  priority?: number;
+  is_primary?: boolean;
+  display_options?: {
+    logo_url?: string;
+    theme_color?: string;
+  };
+  ai_hints?: {
+    prompt_trigger?: string | string[];
+    preferred_for_capability?: unknown;
+  };
+  tracking?: PartnerIntegration['tracking'];
+  affiliate?: PartnerIntegration['affiliate'];
+  api_config?: PartnerIntegration['api_config'];
+};
+
+const asRawPartner = (raw: unknown): RawPartnerIntegration =>
+  typeof raw === 'object' && raw !== null ? (raw as RawPartnerIntegration) : {};
+
+const asSettingsObject = (value: Json | null): Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 
 /**
  * Helper esterno per la costruzione dei link di affiliazione universali.
@@ -12,13 +40,13 @@ export const buildAffiliateLink = (
     query?: string;
     checkin?: string;
     checkout?: string;
-  }
+  },
 ): string => {
   if (!partner.affiliate?.base_url || !partner.affiliate.tracking_id) {
     return '';
   }
 
-  let url = new URL(partner.affiliate.base_url);
+  const url = new URL(partner.affiliate.base_url);
 
   // Parametri di tracciamento universali (da config Supabase)
   const trackingParam = partner.affiliate.param_name || 'tag';
@@ -43,7 +71,7 @@ export const buildAffiliateLink = (
  */
 export const buildProductAffiliateLink = (
   partner: PartnerIntegration,
-  productId: string
+  productId: string,
 ): string => {
   if (!partner || !partner.affiliate?.base_url || !partner.affiliate?.tracking_id || !productId) {
     return '';
@@ -63,7 +91,7 @@ export const buildProductAffiliateLink = (
 
   // Fallback generico per altri provider
   try {
-    let url = new URL(partner.affiliate.base_url);
+    const url = new URL(partner.affiliate.base_url);
     url.searchParams.set(partner.affiliate.param_name, partner.affiliate.tracking_id);
 
     if (partner.id === 'decathlon' || partner.id === 'booking_gear') {
@@ -80,32 +108,35 @@ export const buildProductAffiliateLink = (
  * Mappa e normalizza un oggetto grezzo dal DB nel modello PartnerIntegration.
  * Esportata per test e riuso.
  */
-export const mapDbPartnerIntegration = (id: string, raw: any): PartnerIntegration => {
+export const mapDbPartnerIntegration = (id: string, raw: unknown): PartnerIntegration => {
+  const partner = asRawPartner(raw);
   return {
     id,
-    label: raw.label || id,
-    enabled: !!raw.enabled,
-    capabilities: Array.isArray(raw.capabilities) ? raw.capabilities : [],
-    group: raw.group,
-    priority: typeof raw.priority === 'number' ? raw.priority : 0,
-    is_primary: !!raw.is_primary,
+    label: partner.label || id,
+    enabled: !!partner.enabled,
+    capabilities: Array.isArray(partner.capabilities)
+      ? (partner.capabilities as PartnerCapability[])
+      : [],
+    group: partner.group,
+    priority: typeof partner.priority === 'number' ? partner.priority : 0,
+    is_primary: !!partner.is_primary,
     display_options: {
-      logo_url: raw.display_options?.logo_url,
-      theme_color: raw.display_options?.theme_color
+      logo_url: partner.display_options?.logo_url,
+      theme_color: partner.display_options?.theme_color,
     },
     ai_hints: {
-      prompt_trigger: Array.isArray(raw.ai_hints?.prompt_trigger) 
-        ? raw.ai_hints.prompt_trigger 
-        : raw.ai_hints?.prompt_trigger 
-          ? [raw.ai_hints.prompt_trigger] 
+      prompt_trigger: Array.isArray(partner.ai_hints?.prompt_trigger)
+        ? partner.ai_hints.prompt_trigger
+        : partner.ai_hints?.prompt_trigger
+          ? [partner.ai_hints.prompt_trigger]
           : [],
-      preferred_for_capability: Array.isArray(raw.ai_hints?.preferred_for_capability) 
-        ? raw.ai_hints.preferred_for_capability 
-        : []
+      preferred_for_capability: Array.isArray(partner.ai_hints?.preferred_for_capability)
+        ? (partner.ai_hints.preferred_for_capability as string[])
+        : [],
     },
-    tracking: raw.tracking,
-    affiliate: raw.affiliate,
-    api_config: raw.api_config
+    tracking: partner.tracking,
+    affiliate: partner.affiliate,
+    api_config: partner.api_config,
   };
 };
 
@@ -130,7 +161,7 @@ export const partnerIntegrationService = (supabase: SupabaseClient<Database>) =>
       return data;
     } catch (error) {
       console.error('Error fetching partner integrations via API:', error);
-      
+
       const { data, error: sbError } = await supabase
         .from('global_settings')
         .select('value')
@@ -141,12 +172,17 @@ export const partnerIntegrationService = (supabase: SupabaseClient<Database>) =>
         return { partners: {} };
       }
 
-      const rawValue = (data as any).value || {};
+      const rawValue = asSettingsObject(data.value);
       const result: PartnerIntegrations = { partners: {} };
 
       // Estrazione priorità categorie se presente
-      if (rawValue.category_partner_priority) {
-        result.category_partner_priority = rawValue.category_partner_priority;
+      const categoryPriority = rawValue.category_partner_priority;
+      if (
+        categoryPriority &&
+        typeof categoryPriority === 'object' &&
+        !Array.isArray(categoryPriority)
+      ) {
+        result.category_partner_priority = categoryPriority as Record<string, string[]>;
       }
 
       // Normalizzazione partner
@@ -170,7 +206,7 @@ export const partnerIntegrationService = (supabase: SupabaseClient<Database>) =>
  */
 export const getPartnerById = (
   integrations: PartnerIntegrations,
-  id: string
+  id: string,
 ): PartnerIntegration | undefined => {
   const p = integrations.partners?.[id];
   return p?.enabled ? p : undefined;
@@ -181,21 +217,21 @@ export const getPartnerById = (
  */
 export const getPartnerByAiIntent = (
   userPrompt: string,
-  integrations: PartnerIntegrations
+  integrations: PartnerIntegrations,
 ): PartnerIntegration | undefined => {
   if (!integrations?.partners || !userPrompt) {
     return undefined;
   }
 
   const lowerCasePrompt = userPrompt.toLowerCase();
-  const enabledPartners = Object.values(integrations.partners).filter(p => p.enabled);
+  const enabledPartners = Object.values(integrations.partners).filter((p) => p.enabled);
 
-  return enabledPartners.find(partner => {
+  return enabledPartners.find((partner) => {
     const trigger = partner.ai_hints?.prompt_trigger;
     if (!trigger) return false;
 
     const triggers = Array.isArray(trigger) ? trigger : [trigger];
-    return triggers.some(keyword => lowerCasePrompt.includes(keyword.toLowerCase()));
+    return triggers.some((keyword) => lowerCasePrompt.includes(keyword.toLowerCase()));
   });
 };
 
@@ -204,17 +240,15 @@ export const getPartnerByAiIntent = (
  */
 export const getPartnerByCapability = (
   integrations: PartnerIntegrations | null,
-  capability: PartnerCapability
+  capability: PartnerCapability,
 ): PartnerIntegration | undefined => {
   if (!integrations?.partners) {
     return undefined;
   }
 
-  const enabledPartners = Object.values(integrations.partners).filter(p => p.enabled);
+  const enabledPartners = Object.values(integrations.partners).filter((p) => p.enabled);
 
-  return enabledPartners.find(partner =>
-    partner.capabilities.includes(capability)
-  );
+  return enabledPartners.find((partner) => partner.capabilities.includes(capability));
 };
 
 /**
@@ -225,7 +259,7 @@ export const resolveBestPartner = (
   options: {
     category?: string;
     capability?: PartnerCapability;
-  }
+  },
 ): PartnerIntegration | undefined => {
   if (!integrations?.partners) return undefined;
 
@@ -242,7 +276,7 @@ export const resolveBestPartner = (
   }
 
   // 2. Global Primary Partner
-  const primary = Object.values(integrations.partners).find(p => p.enabled && p.is_primary);
+  const primary = Object.values(integrations.partners).find((p) => p.enabled && p.is_primary);
   if (primary) return primary;
 
   // 3. Capability Match

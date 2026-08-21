@@ -1,14 +1,14 @@
-import { supabase } from './supabaseClient';
-import { randomUUID } from '../utils/runtimeId';
 import type { Json } from '../types/supabase';
+import { randomUUID } from '../utils/runtimeId';
+import { supabase } from './supabaseClient';
 
 export type AIModelType = 'flash' | 'pro';
 
 export interface AIUsageResult {
-    allowed: boolean;
-    warning: boolean;
-    reason?: string;
-    source?: string;
+  allowed: boolean;
+  warning: boolean;
+  reason?: string;
+  source?: string;
 }
 
 /**
@@ -18,138 +18,145 @@ export interface AIUsageResult {
  * esattamente i campi letti dal client per leggerli in modo type-safe.
  */
 type ConsumeAiCreditsResult = {
-    allowed?: boolean;
-    source?: string;
-    reason?: string;
+  allowed?: boolean;
+  source?: string;
+  reason?: string;
 };
 
-const isConsumeAiCreditsResult = (
-    value: Json | null
-): value is ConsumeAiCreditsResult =>
-    typeof value === 'object' && value !== null && !Array.isArray(value);
+const isConsumeAiCreditsResult = (value: Json | null): value is ConsumeAiCreditsResult =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const getCurrentModelCosts = async () => {
-    // Note: Do not implement recalculation logic yet, only support reading values.
-    const { data, error } = await supabase
-        .from('ai_model_prices')
-        .select('*');
+  // Note: Do not implement recalculation logic yet, only support reading values.
+  const { data, error } = await supabase.from('ai_model_prices').select('*');
 
-    if (error) {
-        console.error('Failed to fetch model prices', error);
-        return [];
-    }
-    return data;
+  if (error) {
+    console.error('Failed to fetch model prices', error);
+    return [];
+  }
+  return data;
 };
 
 /**
  * @deprecated Edge-only consume (gemini-chat / gemini-task). Do not call from client — risk of double consume.
  * RPC increment_global_usage is revoked for anon/authenticated clients.
  */
-export const logUniversalUsage = async (userId: string | null, guestId: string | null, modelType: AIModelType) => {
-    try {
-        if (!userId && !guestId) return;
+export const logUniversalUsage = async (
+  userId: string | null,
+  guestId: string | null,
+  modelType: AIModelType,
+) => {
+  try {
+    if (!userId && !guestId) return;
 
-        const { error } = await supabase.rpc('increment_global_usage', {
-            p_user_id: userId ?? '',
-            p_guest_id: guestId ?? '',
-            p_model_type: modelType
-        });
+    const { error } = await supabase.rpc('increment_global_usage', {
+      p_user_id: userId ?? '',
+      p_guest_id: guestId ?? '',
+      p_model_type: modelType,
+    });
 
-        if (error) {
-            console.error("[AI LOG ERROR] Failed to increment global usage:", error);
-        }
-    } catch (err) {
-        console.error("[AI LOG ERROR] Unexpected error during usage logging:", err);
+    if (error) {
+      console.error('[AI LOG ERROR] Failed to increment global usage:', error);
     }
+  } catch (err) {
+    console.error('[AI LOG ERROR] Unexpected error during usage logging:', err);
+  }
 };
 
 // Helper per ottenere l'utilizzo giornaliero aggregato
-export const getDailyUsageCount = async (userId: string | null, guestId: string | null, date: string): Promise<number> => {
-    const query = supabase.from('ai_global_usage').select('request_count');
-    
-    if (userId) query.eq('user_id', userId);
-    else if (guestId) query.eq('guest_id', guestId);
-    else return 0;
+export const getDailyUsageCount = async (
+  userId: string | null,
+  guestId: string | null,
+  date: string,
+): Promise<number> => {
+  const query = supabase.from('ai_global_usage').select('request_count');
 
-    const { data } = await query.eq('date', date);
-    return (data || []).reduce((acc, curr) => acc + (curr.request_count || 0), 0);
+  if (userId) query.eq('user_id', userId);
+  else if (guestId) query.eq('guest_id', guestId);
+  else return 0;
+
+  const { data } = await query.eq('date', date);
+  return (data || []).reduce((acc, curr) => acc + (curr.request_count || 0), 0);
 };
 
 // Helper per generare/ottenere ID ospite persistente nel browser
 export const getGuestId = (): string => {
-    const KEY = 'td_guest_uuid';
-    let id = localStorage.getItem(KEY);
-    if (!id) {
-        id = randomUUID();
-        localStorage.setItem(KEY, id);
-    }
-    return id;
+  const KEY = 'td_guest_uuid';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = randomUUID();
+    localStorage.setItem(KEY, id);
+  }
+  return id;
 };
 /**
  * @deprecated Edge-only consume via gemini-* functions. Client RPC would bypass single-shot runtime.
  */
-export const incrementAiUsage = async (userId: string | null, modelType: AIModelType, feature: string = 'generic'): Promise<AIUsageResult> => {
-    try {
-        const guestId = userId ? null : getGuestId();
-        const { data, error } = await supabase.rpc('consume_ai_credits', {
-            p_user_id: userId ?? '',
-            p_model_type: modelType,
-            p_feature: feature,
-            ...(guestId ? { p_guest_id: guestId } : {}),
-        });
+export const incrementAiUsage = async (
+  userId: string | null,
+  modelType: AIModelType,
+  feature: string = 'generic',
+): Promise<AIUsageResult> => {
+  try {
+    const guestId = userId ? null : getGuestId();
+    const { data, error } = await supabase.rpc('consume_ai_credits', {
+      p_user_id: userId ?? '',
+      p_model_type: modelType,
+      p_feature: feature,
+      ...(guestId ? { p_guest_id: guestId } : {}),
+    });
 
-        if (error) {
-            console.error("[AI USAGE ERROR] RPC consume_ai_credits failed:", error);
-            return { allowed: false, warning: false, reason: 'Internal database error' };
-        }
-
-        const result = isConsumeAiCreditsResult(data) ? data : null;
-
-        if (result?.allowed) {
-            return { 
-                allowed: true, 
-                warning: false, 
-                source: result.source,
-                reason: result.reason
-            };
-        }
-
-        return { 
-            allowed: false, 
-            warning: false, 
-            reason: result?.reason || 'CREDITS_EXHAUSTED' 
-        };
-
-    } catch (err) {
-        console.error("[AI USAGE ERROR] Unexpected error:", err);
-        return { allowed: false, warning: false, reason: 'Unexpected error' };
+    if (error) {
+      console.error('[AI USAGE ERROR] RPC consume_ai_credits failed:', error);
+      return { allowed: false, warning: false, reason: 'Internal database error' };
     }
+
+    const result = isConsumeAiCreditsResult(data) ? data : null;
+
+    if (result?.allowed) {
+      return {
+        allowed: true,
+        warning: false,
+        source: result.source,
+        reason: result.reason,
+      };
+    }
+
+    return {
+      allowed: false,
+      warning: false,
+      reason: result?.reason || 'CREDITS_EXHAUSTED',
+    };
+  } catch (err) {
+    console.error('[AI USAGE ERROR] Unexpected error:', err);
+    return { allowed: false, warning: false, reason: 'Unexpected error' };
+  }
 };
 
 /**
  * @deprecated Token logging runs inside edge functions after provider success.
  */
 export const logAiTokenUsage = async (
-    userId: string | null,
-    featureName: string,
-    modelName: string,
-    tokens: { prompt: number, completion: number, total: number },
-    pricingVersionId?: string
+  userId: string | null,
+  featureName: string,
+  modelName: string,
+  tokens: { prompt: number; completion: number; total: number },
+  pricingVersionId?: string,
 ) => {
-    try {
-        if (!userId) return;
+  try {
+    if (!userId) return;
 
-        await supabase.rpc('log_ai_usage_tokens', {
-            p_user_id: userId,
-            p_feature_name: featureName,
-            p_model_name: modelName,
-            p_prompt_tokens: tokens.prompt,
-            p_completion_tokens: tokens.completion,
-            p_total_tokens: tokens.total,
-            p_estimated_cost_eur: 0, // Calcolato poi lato admin o server
-            p_pricing_version_id: pricingVersionId
-        });
-    } catch (err) {
-        console.error("[AI LOG ERROR] Failed to log tokens:", err);
-    }
+    await supabase.rpc('log_ai_usage_tokens', {
+      p_user_id: userId,
+      p_feature_name: featureName,
+      p_model_name: modelName,
+      p_prompt_tokens: tokens.prompt,
+      p_completion_tokens: tokens.completion,
+      p_total_tokens: tokens.total,
+      p_estimated_cost_eur: 0, // Calcolato poi lato admin o server
+      p_pricing_version_id: pricingVersionId,
+    });
+  } catch (err) {
+    console.error('[AI LOG ERROR] Failed to log tokens:', err);
+  }
 };

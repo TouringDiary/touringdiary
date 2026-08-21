@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useHiddenCategories } from '@/hooks/suitcase/useHiddenCategories';
 import type { CategoryVisibilityPatch } from '@/hooks/suitcase/useHiddenCategories';
+import { useHiddenCategories } from '@/hooks/suitcase/useHiddenCategories';
 import type { Suitcase } from '@/types/suitcase';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
 
@@ -16,12 +16,12 @@ export function useSuitcaseHiddenCategories({
   const hiddenCategoriesLogic = useHiddenCategories(
     activeSuitcase && !isTdTemplate(activeSuitcase) ? activeSuitcase.id : undefined,
     activeSuitcase,
-    onUpdateCategoryVisibility
+    onUpdateCategoryVisibility,
   );
 
   const enhancedHiddenCategoriesLogic = useMemo(
     () => hiddenCategoriesLogic,
-    [hiddenCategoriesLogic]
+    [hiddenCategoriesLogic],
   );
 
   return {

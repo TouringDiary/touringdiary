@@ -4,10 +4,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  filterRicordiMediaForScope,
-} from '../src/services/viaggio/viaggioRicordiFilters';
 import { unionViaggioMapPins } from '../src/services/viaggio/viaggioMappaUnion';
+import { filterRicordiMediaForScope } from '../src/services/viaggio/viaggioRicordiFilters';
 import type { Itinerary } from '../src/types/index';
 import type { ViaggioRicordoMedia } from '../src/types/models/ViaggioRicordi';
 
@@ -34,33 +32,27 @@ function assertIncludes(relativePath: string, needle: string, label: string): vo
 }
 
 // 2) Ricordi service + UX
-{
-  assertIncludes(
-    'src/services/viaggio/viaggioRicordiService.ts',
-    'setRicordoMediaDayLinks',
-    'set day links',
-  );
-  assertIncludes(
-    'src/services/viaggio/viaggioRicordiService.ts',
-    'moveRicordoMediaDay',
-    'move day',
-  );
-  assertIncludes(
-    'src/components/myspace/ViaggioRicordiSection.tsx',
-    'ricordi-day-all',
-    'all-trip day',
-  );
-  assertIncludes(
-    'src/components/myspace/ViaggioRicordiSection.tsx',
-    'ricordi-folder-${kind}',
-    'FOTO/VIDEO folders',
-  );
-  assertIncludes(
-    'src/components/myspace/ViaggioRicordiSection.tsx',
-    'Elimina da TouringDiary',
-    'delete TD copy',
-  );
-}
+assertIncludes(
+  'src/services/viaggio/viaggioRicordiService.ts',
+  'setRicordoMediaDayLinks',
+  'set day links',
+);
+assertIncludes('src/services/viaggio/viaggioRicordiService.ts', 'moveRicordoMediaDay', 'move day');
+assertIncludes(
+  'src/components/myspace/ViaggioRicordiSection.tsx',
+  'ricordi-day-all',
+  'all-trip day',
+);
+assertIncludes(
+  'src/components/myspace/ViaggioRicordiSection.tsx',
+  'ricordi-folder-${kind}',
+  'FOTO/VIDEO folders',
+);
+assertIncludes(
+  'src/components/myspace/ViaggioRicordiSection.tsx',
+  'Elimina da TouringDiary',
+  'delete TD copy',
+);
 
 // 3) filter scope
 {
@@ -102,24 +94,18 @@ function assertIncludes(relativePath: string, needle: string, label: string): vo
 }
 
 // 4) Mappa embed + clustering + POI
-{
-  assertIncludes(
-    'src/components/myspace/ViaggioMappaGoogleEmbed.tsx',
-    'MarkerClusterer',
-    'clusterer',
-  );
-  assertIncludes(
-    'src/components/myspace/ViaggioMappaSection.tsx',
-    'mappa-open-poi',
-    'open POI CTA',
-  );
-  assertIncludes(
-    'src/components/myspace/ViaggioMappaSection.tsx',
-    "returnTo: 'mySpace'",
-    'return MySpace',
-  );
-  assertIncludes('.env.example', 'VITE_GOOGLE_MAPS_API_KEY', 'maps env');
-}
+assertIncludes(
+  'src/components/myspace/ViaggioMappaGoogleEmbed.tsx',
+  'MarkerClusterer',
+  'clusterer',
+);
+assertIncludes('src/components/myspace/ViaggioMappaSection.tsx', 'mappa-open-poi', 'open POI CTA');
+assertIncludes(
+  'src/components/myspace/ViaggioMappaSection.tsx',
+  "returnTo: 'mySpace'",
+  'return MySpace',
+);
+assertIncludes('.env.example', 'VITE_GOOGLE_MAPS_API_KEY', 'maps env');
 
 // 5) Pin carries POI
 {
@@ -155,15 +141,17 @@ function assertIncludes(relativePath: string, needle: string, label: string): vo
 }
 
 // 6) Valigia create/link
-{
-  assertIncludes('src/components/myspace/ViaggioValigiaSection.tsx', 'valigia-create', 'create CTA');
-  assertIncludes('src/components/myspace/ViaggioValigiaSection.tsx', 'valigia-link-panel', 'link panel');
-  assertIncludes(
-    'src/components/myspace/ViaggioValigiaSection.tsx',
-    'linkSuitcaseToViaggio',
-    'uses link service',
-  );
-}
+assertIncludes('src/components/myspace/ViaggioValigiaSection.tsx', 'valigia-create', 'create CTA');
+assertIncludes(
+  'src/components/myspace/ViaggioValigiaSection.tsx',
+  'valigia-link-panel',
+  'link panel',
+);
+assertIncludes(
+  'src/components/myspace/ViaggioValigiaSection.tsx',
+  'linkSuitcaseToViaggio',
+  'uses link service',
+);
 
 // 7) Diario save untouched (gate)
 {
@@ -173,9 +161,7 @@ function assertIncludes(relativePath: string, needle: string, label: string): vo
 }
 
 // 8) GlobalAlert mounted
-{
-  assertIncludes('src/components/layout/AppCoordinator.tsx', 'GlobalAlert', 'GlobalAlert mount');
-}
+assertIncludes('src/components/layout/AppCoordinator.tsx', 'GlobalAlert', 'GlobalAlert mount');
 
 if (issues.length > 0) {
   console.error('smoke-mp02-step2 FAILED:');

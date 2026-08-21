@@ -21,7 +21,10 @@ export type MySpaceNavMemory = {
 
 const storageKey = (userId: string) => `td.myspace.nav.${userId}`;
 
-export function saveMySpaceNavMemory(userId: string, memory: Omit<MySpaceNavMemory, 'savedAt'>): void {
+export function saveMySpaceNavMemory(
+  userId: string,
+  memory: Omit<MySpaceNavMemory, 'savedAt'>,
+): void {
   if (!userId || typeof sessionStorage === 'undefined') return;
   try {
     const payload: MySpaceNavMemory = { ...memory, savedAt: Date.now() };

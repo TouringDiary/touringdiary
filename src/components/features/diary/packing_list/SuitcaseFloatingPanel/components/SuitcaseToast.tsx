@@ -1,6 +1,6 @@
+import type React from 'react';
 import { Z_TOAST } from '@/constants/zIndex';
-import React from 'react';
-import { ToastVariant } from '@/types/toast';
+import type { ToastVariant } from '@/types/toast';
 
 interface ToastProps {
   visible: boolean;
@@ -75,7 +75,9 @@ export const SuitcaseToast: React.FC<ToastProps> = ({
             {message}
           </span>
           {description && (
-            <span className={`text-[11px] font-medium ${style.description} whitespace-nowrap leading-snug`}>
+            <span
+              className={`text-[11px] font-medium ${style.description} whitespace-nowrap leading-snug`}
+            >
               {description}
             </span>
           )}

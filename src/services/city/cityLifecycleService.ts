@@ -1,264 +1,276 @@
-
-import { supabase } from '../supabaseClient';
-import { AiZoneSuggestion, CityDeleteOptions } from '../../types/index';
-import { DatabaseCityInsert, Json } from '../../types/database';
+import type { DatabaseCityInsert, Json } from '../../types/database';
+import type { AiZoneSuggestion, CityDeleteOptions } from '../../types/index';
 import type { Database } from '../../types/supabase';
-import { clearCacheKey, invalidateCityCache } from './cityCache';
-import { ensureZoneExists } from '../zoneService';
 import { orphanCityStaging, reclaimStagingByCityName } from '../stagingService';
+import { supabase } from '../supabaseClient';
+import { ensureZoneExists } from '../zoneService';
+import { clearCacheKey, invalidateCityCache } from './cityCache';
 import { resolveCanonicalCityId } from './cityIdService';
 
 /** Generated Update types omit null for nullable FK columns; cast when clearing FK at runtime. */
 const nullCityFkUpdate = <
-    T extends 'shops' | 'city_people' | 'pois' | 'pois_staging',
+  T extends 'shops' | 'city_people' | 'pois' | 'pois_staging',
 >(): Database['public']['Tables'][T]['Update'] =>
-    ({ city_id: null }) as unknown as Database['public']['Tables'][T]['Update'];
+  ({ city_id: null }) as unknown as Database['public']['Tables'][T]['Update'];
 
 export const reclaimOrphanedItems = async (cityId: string, cityName: string) => {
-    // 0. RECLAIM STAGING OSM
-    await reclaimStagingByCityName(cityName, cityId);
+  // 0. RECLAIM STAGING OSM
+  await reclaimStagingByCityName(cityName, cityId);
 
-    // 1. RECLAIM FOTO (FIX: Aggiorna anche location_name per consistenza filtri)
-    //
-    // ARCHITETTURA — reclaim euristico:
-    // `photo_submissions` orfane hanno `city_id = null`; l'unica colonna di collocazione
-    // disponibile è `location_name` (testo libero). Non esiste un identificatore più
-    // affidabile (slug città, FK tipizzata, ecc.) utilizzabile in questo stato.
-    // Il match `ilike('%{cityName}%')` resta quindi intenzionalmente euristico e può
-    // produrre false positive (es. "Via Roma", "Roma Nord"). Non stringere qui senza
-    // un contratto dati più forte sul lato submissions.
-    await supabase
-        .from('photo_submissions')
-        .update({ 
-            city_id: cityId,
-            location_name: cityName, // Allinea il nome location al nuovo nome città
-            status: 'approved', 
-            updated_at: new Date().toISOString() 
-        })
-        .is('city_id', null)
-        .ilike('location_name', `%${cityName}%`)
-        .select('id');
+  // 1. RECLAIM FOTO (FIX: Aggiorna anche location_name per consistenza filtri)
+  //
+  // ARCHITETTURA — reclaim euristico:
+  // `photo_submissions` orfane hanno `city_id = null`; l'unica colonna di collocazione
+  // disponibile è `location_name` (testo libero). Non esiste un identificatore più
+  // affidabile (slug città, FK tipizzata, ecc.) utilizzabile in questo stato.
+  // Il match `ilike('%{cityName}%')` resta quindi intenzionalmente euristico e può
+  // produrre false positive (es. "Via Roma", "Roma Nord"). Non stringere qui senza
+  // un contratto dati più forte sul lato submissions.
+  await supabase
+    .from('photo_submissions')
+    .update({
+      city_id: cityId,
+      location_name: cityName, // Allinea il nome location al nuovo nome città
+      status: 'approved',
+      updated_at: new Date().toISOString(),
+    })
+    .is('city_id', null)
+    .ilike('location_name', `%${cityName}%`)
+    .select('id');
 
+  // 3. RECLAIM SHOPS
+  await supabase
+    .from('shops')
+    .update({ city_id: cityId })
+    .is('city_id', null)
+    .ilike('address', `%${cityName}%`);
 
-    // 3. RECLAIM SHOPS
-    await supabase
-        .from('shops')
-        .update({ city_id: cityId })
-        .is('city_id', null)
-        .ilike('address', `%${cityName}%`);
+  // 4. RECLAIM SPONSORS (RPC gateway — DL-022)
+  const { error: relinkError } = await supabase.rpc('relink_orphaned_sponsors_to_city', {
+    p_city_id: cityId,
+    p_city_name: cityName,
+  });
+  if (relinkError) {
+    console.warn('[CityLifecycle] relink_orphaned_sponsors_to_city failed:', relinkError.message);
+  }
 
-    // 4. RECLAIM SPONSORS (RPC gateway — DL-022)
-    const { error: relinkError } = await supabase.rpc('relink_orphaned_sponsors_to_city', {
-        p_city_id: cityId,
-        p_city_name: cityName,
-    });
-    if (relinkError) {
-        console.warn('[CityLifecycle] relink_orphaned_sponsors_to_city failed:', relinkError.message);
-    }
+  // 5. RECLAIM POI
+  await supabase
+    .from('pois')
+    .update({ city_id: cityId })
+    .is('city_id', null)
+    .ilike('address', `%${cityName}%`);
 
-    // 5. RECLAIM POI
-    await supabase
-        .from('pois')
-        .update({ city_id: cityId })
-        .is('city_id', null)
-        .ilike('address', `%${cityName}%`);
-        
-    // 6. PEOPLE - skipped as per original logic
+  // 6. PEOPLE - skipped as per original logic
 };
 
-export const deleteCity = async (cityId: string, options: CityDeleteOptions, cityName: string): Promise<void> => {
-    
-    // PRE-CLEANUP (Staging Orphans con Tagging Sicuro)
-    try {
-        await orphanCityStaging(cityId, cityName);
-    } catch(e) {
-        console.warn("Orphaning staging failed", e);
+export const deleteCity = async (
+  cityId: string,
+  options: CityDeleteOptions,
+  cityName: string,
+): Promise<void> => {
+  // PRE-CLEANUP (Staging Orphans con Tagging Sicuro)
+  try {
+    await orphanCityStaging(cityId, cityName);
+  } catch (e) {
+    console.warn('Orphaning staging failed', e);
+  }
+
+  // 1. MEDIA
+  try {
+    if (options.keepUserPhotos) {
+      await supabase
+        .from('photo_submissions')
+        .update({ city_id: null, status: 'city_deleted', updated_at: new Date().toISOString() })
+        .eq('city_id', cityId);
+    } else {
+      await supabase.from('photo_submissions').delete().eq('city_id', cityId);
+    }
+  } catch (e) {}
+
+  // 2. BUSINESS — sponsor: transizione Da ricollegare (DL-022), mai DELETE
+  try {
+    const { error: sponsorDetachError } = await supabase.rpc('handle_city_deleted_for_sponsors', {
+      p_city_id: cityId,
+    });
+    if (sponsorDetachError) {
+      console.warn(
+        '[CityLifecycle] handle_city_deleted_for_sponsors failed:',
+        sponsorDetachError.message,
+      );
     }
 
-    // 1. MEDIA
-    try {
-        if (options.keepUserPhotos) {
-            await supabase
-                .from('photo_submissions')
-                .update({ city_id: null, status: 'city_deleted', updated_at: new Date().toISOString() })
-                .eq('city_id', cityId);
-            
-        } else {
-            await supabase.from('photo_submissions').delete().eq('city_id', cityId);
-        }
-    } catch (e) {}
-
-    // 2. BUSINESS — sponsor: transizione Da ricollegare (DL-022), mai DELETE
-    try {
-        const { error: sponsorDetachError } = await supabase.rpc('handle_city_deleted_for_sponsors', {
-            p_city_id: cityId,
-        });
-        if (sponsorDetachError) {
-            console.warn('[CityLifecycle] handle_city_deleted_for_sponsors failed:', sponsorDetachError.message);
-        }
-
-        if (options.keepShops) {
-            await supabase.from('shops').update(nullCityFkUpdate<'shops'>()).eq('city_id', cityId);
-        } else {
-            const { data: shops } = await supabase.from('shops').select('id').eq('city_id', cityId);
-            if (shops && shops.length > 0) {
-                const shopIds = shops.map(s => s.id);
-                await supabase.from('shop_products').delete().in('shop_id', shopIds);
-                await supabase.from('shops').delete().eq('city_id', cityId);
-            }
-        }
-    } catch (e) {}
-
-    // 3. PEOPLE
-    try {
-        if (options.keepPeople) {
-            await supabase.from('city_people').update(nullCityFkUpdate<'city_people'>()).eq('city_id', cityId);
-        } else {
-            await supabase.from('city_people').delete().eq('city_id', cityId);
-        }
-    } catch (e) {}
-
-    // 4. POI
-    try {
-        const { data: pois } = await supabase.from('pois').select('id').eq('city_id', cityId);
-        if (pois && pois.length > 0) {
-            const poiIds = pois.map(p => p.id);
-
-            if (options.keepPOIs) {
-                await supabase.from('pois').update(nullCityFkUpdate<'pois'>()).eq('city_id', cityId); 
-            } else {
-                await supabase.from('reviews').delete().in('poi_id', poiIds);
-                await supabase.from('suggestions').delete().in('poi_id', poiIds);
-                await supabase.from('pois').delete().eq('city_id', cityId);
-            }
-        }
-    } catch (e) {}
-
-    // 5. DIPENDENZE SEMPLICI
-    try {
-        await supabase.from('city_events').delete().eq('city_id', cityId);
-        await supabase.from('city_services').delete().eq('city_id', cityId);
-        await supabase.from('city_guides').delete().eq('city_id', cityId);
-        await supabase.from('city_tour_operators').delete().eq('city_id', cityId);
-    } catch (e) {}
-
-    // 6. CANCELLAZIONE CITTÀ
-    clearCacheKey('manifest'); 
-    invalidateCityCache(cityId);
-    
-    const { error } = await supabase.from('cities').delete().eq('id', cityId);
-    
-    if (error) {
-        throw error;
+    if (options.keepShops) {
+      await supabase.from('shops').update(nullCityFkUpdate<'shops'>()).eq('city_id', cityId);
+    } else {
+      const { data: shops } = await supabase.from('shops').select('id').eq('city_id', cityId);
+      if (shops && shops.length > 0) {
+        const shopIds = shops.map((s) => s.id);
+        await supabase.from('shop_products').delete().in('shop_id', shopIds);
+        await supabase.from('shops').delete().eq('city_id', cityId);
+      }
     }
+  } catch (e) {}
+
+  // 3. PEOPLE
+  try {
+    if (options.keepPeople) {
+      await supabase
+        .from('city_people')
+        .update(nullCityFkUpdate<'city_people'>())
+        .eq('city_id', cityId);
+    } else {
+      await supabase.from('city_people').delete().eq('city_id', cityId);
+    }
+  } catch (e) {}
+
+  // 4. POI
+  try {
+    const { data: pois } = await supabase.from('pois').select('id').eq('city_id', cityId);
+    if (pois && pois.length > 0) {
+      const poiIds = pois.map((p) => p.id);
+
+      if (options.keepPOIs) {
+        await supabase.from('pois').update(nullCityFkUpdate<'pois'>()).eq('city_id', cityId);
+      } else {
+        await supabase.from('reviews').delete().in('poi_id', poiIds);
+        await supabase.from('suggestions').delete().in('poi_id', poiIds);
+        await supabase.from('pois').delete().eq('city_id', cityId);
+      }
+    }
+  } catch (e) {}
+
+  // 5. DIPENDENZE SEMPLICI
+  try {
+    await supabase.from('city_events').delete().eq('city_id', cityId);
+    await supabase.from('city_services').delete().eq('city_id', cityId);
+    await supabase.from('city_guides').delete().eq('city_id', cityId);
+    await supabase.from('city_tour_operators').delete().eq('city_id', cityId);
+  } catch (e) {}
+
+  // 6. CANCELLAZIONE CITTÀ
+  clearCacheKey('manifest');
+  invalidateCityCache(cityId);
+
+  const { error } = await supabase.from('cities').delete().eq('id', cityId);
+
+  if (error) {
+    throw error;
+  }
 };
 
 export const importRegionalData = async (
-    zones: AiZoneSuggestion[], 
-    selectedCities: string[], 
-    adminRegion: string
-): Promise<{ 
-    createdZones: number, 
-    createdCities: number, 
-    logs: string[], 
-    createdItems: {id: string, name: string}[] 
+  zones: AiZoneSuggestion[],
+  selectedCities: string[],
+  adminRegion: string,
+): Promise<{
+  createdZones: number;
+  createdCities: number;
+  logs: string[];
+  createdItems: { id: string; name: string }[];
 }> => {
-    let zoneCount = 0;
-    let cityCount = 0;
-    const logs: string[] = [];
-    const createdItems: {id: string, name: string}[] = [];
-    
-    const selectedSet = new Set(selectedCities.map(c => c.toLowerCase().trim()));
+  let zoneCount = 0;
+  let cityCount = 0;
+  const logs: string[] = [];
+  const createdItems: { id: string; name: string }[] = [];
 
-    for (const zone of zones) {
+  const selectedSet = new Set(selectedCities.map((c) => c.toLowerCase().trim()));
+
+  for (const zone of zones) {
+    try {
+      const result = await ensureZoneExists(zone.name, adminRegion);
+      if (result.created) {
+        zoneCount++;
+        logs.push(result.log);
+      }
+    } catch (e) {
+      logs.push(`[Error] Fallita creazione zona ${zone.name}`);
+    }
+  }
+
+  const { data: existingDbCities } = await supabase.from('cities').select('id, name, visitors');
+
+  const existingMap = new Map<string, { id: string; visitors: number }>();
+  if (existingDbCities) {
+    existingDbCities.forEach((c) =>
+      existingMap.set(c.name.toLowerCase().trim(), { id: c.id, visitors: c.visitors || 0 }),
+    );
+  }
+
+  for (const zone of zones) {
+    for (const city of zone.mainCities) {
+      const normalizedName = city.name.toLowerCase().trim();
+      const isSelected = selectedSet.has(normalizedName);
+
+      if (isSelected) {
+        const existing = existingMap.get(normalizedName);
+
         try {
-            const result = await ensureZoneExists(zone.name, adminRegion); 
-            if (result.created) {
-                zoneCount++;
-                logs.push(result.log);
+          if (existing) {
+            const shouldUpdateVisitors =
+              city.visitors > existing.visitors || existing.visitors === 0;
+            if (shouldUpdateVisitors) {
+              await supabase
+                .from('cities')
+                .update({
+                  visitors: city.visitors,
+                  zone: zone.name,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', existing.id);
+
+              cityCount++;
             }
-        } catch (e) {
-             logs.push(`[Error] Fallita creazione zona ${zone.name}`);
-        }
-    }
 
-    const { data: existingDbCities } = await supabase
-        .from('cities')
-        .select('id, name, visitors');
-    
-    const existingMap = new Map<string, { id: string, visitors: number }>();
-    if (existingDbCities) {
-        existingDbCities.forEach(c => existingMap.set(c.name.toLowerCase().trim(), { id: c.id, visitors: c.visitors || 0 }));
-    }
-
-    for (const zone of zones) {
-        for (const city of zone.mainCities) {
-            const normalizedName = city.name.toLowerCase().trim();
-            const isSelected = selectedSet.has(normalizedName);
-
-            if (isSelected) {
-                const existing = existingMap.get(normalizedName);
-
-                try {
-                    if (existing) {
-                        const shouldUpdateVisitors = city.visitors > existing.visitors || existing.visitors === 0;
-                        if (shouldUpdateVisitors) {
-                            await supabase
-                                .from('cities')
-                                .update({ 
-                                    visitors: city.visitors,
-                                    zone: zone.name, 
-                                    updated_at: new Date().toISOString()
-                                })
-                                .eq('id', existing.id);
-                            
-                            cityCount++; 
-                        }
-                        
-                        await reclaimOrphanedItems(existing.id, city.name);
-                        createdItems.push({ id: existing.id, name: city.name });
-
-                    } else {
-                        // RISOLUZIONE ID CANONICO (Strict Registry Requirement)
-                        let newId: string;
-                        try {
-                            newId = await resolveCanonicalCityId(city.name, adminRegion);
-                        } catch (err: any) {
-                            logs.push(`[Skip] La città ${city.name} è stata saltata: non presente in cities_registry.`);
-                            continue; // Salta questa città se non è nel registro
-                        }
-                        
-                        const payload: DatabaseCityInsert = {
-                            id: newId,
-                            name: city.name,
-                            admin_region: adminRegion,
-                            zone: zone.name,
-                            status: 'draft',
-                            image_url: 'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1200',
-                            visitors: city.visitors,
-                            coords_lat: 0,
-                            coords_lng: 0,
-                            created_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString(),
-                            generation_logs: [] as Json,
-                        };
-
-                        await supabase.from('cities').insert(payload);
-                        cityCount++;
-                        existingMap.set(normalizedName, { id: newId, visitors: city.visitors });
-                        
-                        await reclaimOrphanedItems(newId, city.name);
-                        createdItems.push({ id: newId, name: city.name });
-                    }
-                } catch (e: any) {
-                    logs.push(`[Error] Fallita operazione su città ${city.name}: ${e.message}`);
-                }
+            await reclaimOrphanedItems(existing.id, city.name);
+            createdItems.push({ id: existing.id, name: city.name });
+          } else {
+            // RISOLUZIONE ID CANONICO (Strict Registry Requirement)
+            let newId: string;
+            try {
+              newId = await resolveCanonicalCityId(city.name, adminRegion);
+            } catch (err: unknown) {
+              logs.push(
+                `[Skip] La città ${city.name} è stata saltata: non presente in cities_registry.`,
+              );
+              continue; // Salta questa città se non è nel registro
             }
-        }
-    }
 
-    clearCacheKey('manifest'); 
-    return { createdZones: zoneCount, createdCities: cityCount, logs, createdItems };
+            const payload: DatabaseCityInsert = {
+              id: newId,
+              name: city.name,
+              admin_region: adminRegion,
+              zone: zone.name,
+              status: 'draft',
+              image_url: 'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1200',
+              visitors: city.visitors,
+              coords_lat: 0,
+              coords_lng: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              generation_logs: [] as Json,
+            };
+
+            await supabase.from('cities').insert(payload);
+            cityCount++;
+            existingMap.set(normalizedName, { id: newId, visitors: city.visitors });
+
+            await reclaimOrphanedItems(newId, city.name);
+            createdItems.push({ id: newId, name: city.name });
+          }
+        } catch (e: unknown) {
+          logs.push(
+            `[Error] Fallita operazione su città ${city.name}: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+      }
+    }
+  }
+
+  clearCacheKey('manifest');
+  return { createdZones: zoneCount, createdCities: cityCount, logs, createdItems };
 };
 
-export const seedNapoliData = async () => { return true; };
+export const seedNapoliData = async () => {
+  return true;
+};

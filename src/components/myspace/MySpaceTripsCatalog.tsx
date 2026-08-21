@@ -1,33 +1,37 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, Map, Plus, Trash2 } from 'lucide-react';
-import type { CitySummary } from '@/types';
-import type { Viaggio } from '@/types/models/Viaggio';
-import { createEmptyViaggio, listViaggiByUser } from '@/services/viaggio/viaggioService';
-import { deleteViaggio } from '@/services/viaggio/viaggioService';
-import { listCityIdsForViaggio } from '@/services/viaggio/viaggioCityService';
-import { emitDueRicordamiNotifications } from '@/services/viaggio/viaggioRicordamiService';
-import { useUser } from '@/context/UserContext';
-import { useModal } from '@/context/ModalContext';
-import { useNavigation } from '@/context/useNavigation';
-import { useFeatureFlag } from '@/context/PlatformControlContext';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SwipeToDelete } from '@/components/common/SwipeToDelete';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
-import { findCityInManifest } from '@/myspace/resolveCityPresentation';
+import { useModal } from '@/context/ModalContext';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useUser } from '@/context/UserContext';
+import { useNavigation } from '@/context/useNavigation';
+import { saveMySpaceNavMemory } from '@/myspace/mySpaceNavMemory';
+import { MY_SPACE_DEFAULT_ROOT } from '@/myspace/mySpaceRoots';
 import {
   isViaggioPast,
   loadTripsSortMode,
-  saveTripsSortMode,
   type MySpaceTripsSortMode,
+  saveTripsSortMode,
 } from '@/myspace/mySpaceTripsCatalogPrefs';
-import { saveMySpaceNavMemory } from '@/myspace/mySpaceNavMemory';
-import { MY_SPACE_DEFAULT_ROOT } from '@/myspace/mySpaceRoots';
 import { MY_SPACE_TRIPS_CATALOG } from '@/myspace/mySpaceTripsSession';
+import { findCityInManifest } from '@/myspace/resolveCityPresentation';
+import { listCityIdsForViaggio } from '@/services/viaggio/viaggioCityService';
+import { emitDueRicordamiNotifications } from '@/services/viaggio/viaggioRicordamiService';
+import {
+  createEmptyViaggio,
+  deleteViaggio,
+  listViaggiByUser,
+} from '@/services/viaggio/viaggioService';
+import type { CitySummary } from '@/types';
+import type { Viaggio } from '@/types/models/Viaggio';
 import { MySpaceCityPickModal } from './MySpaceCityPickModal';
+import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 import { MySpaceViaggioCityThumbButton } from './MySpaceViaggioCityThumbButton';
 import { MySpaceViaggioCoverPreview } from './MySpaceViaggioCoverPreview';
 import { MySpaceViaggioDeleteModal } from './MySpaceViaggioDeleteModal';
 import { ViaggioRicordamiControl } from './ViaggioRicordamiControl';
-import { SwipeToDelete } from '@/components/common/SwipeToDelete';
-import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 
 interface Props {
   userId: string;
@@ -89,7 +93,7 @@ function ViaggioRow({
   onRequestDelete: () => void;
 }) {
   const primaryCity = v.destination
-    ? citiesForThumb.find((c) => c.id === v.destination) ?? citiesForThumb[0]
+    ? (citiesForThumb.find((c) => c.id === v.destination) ?? citiesForThumb[0])
     : citiesForThumb[0];
   const cityLabel = primaryCity?.name ?? null;
   const startLabel = formatDay(v.periodStart);
@@ -107,16 +111,9 @@ function ViaggioRow({
         className="w-[5.5rem] sm:w-28 md:w-40 lg:w-56 min-h-[3.5rem] self-stretch"
       />
 
-      <div
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={onOpen}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onOpen();
-          }
-        }}
         className="min-w-0 flex-1 text-left self-center outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 rounded-xl"
         aria-label={`Apri viaggio ${v.title || 'Viaggio'}`}
       >
@@ -125,9 +122,7 @@ function ViaggioRow({
             {v.title || 'Viaggio'}
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400">
-            {cityLabel && (
-              <span className="truncate max-w-full sm:max-w-[14rem]">{cityLabel}</span>
-            )}
+            {cityLabel && <span className="truncate max-w-full sm:max-w-[14rem]">{cityLabel}</span>}
             {(startLabel || endLabel) && (
               <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-500">
                 {startLabel && (
@@ -149,7 +144,7 @@ function ViaggioRow({
             )}
           </span>
         </div>
-      </div>
+      </button>
 
       <div className="shrink-0 self-start pt-0.5">
         <ViaggioRicordamiControl
@@ -165,9 +160,7 @@ function ViaggioRow({
           cities={citiesForThumb}
           busy={thumbBusy}
           onClick={onCityThumb}
-          aria-label={
-            cityLabel ? `Apri pagina città: ${cityLabel}` : 'Scegli città da aprire'
-          }
+          aria-label={cityLabel ? `Apri pagina città: ${cityLabel}` : 'Scegli città da aprire'}
           title={cityLabel ?? 'Apri città'}
         />
       </div>
@@ -215,9 +208,7 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
   const siteNotificationsOn = notificationsFlag?.enabled ?? true;
 
   const [items, setItems] = useState<Viaggio[]>([]);
-  const [sortMode, setSortMode] = useState<MySpaceTripsSortMode>(() =>
-    loadTripsSortMode(userId),
-  );
+  const [sortMode, setSortMode] = useState<MySpaceTripsSortMode>(() => loadTripsSortMode(userId));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -274,9 +265,7 @@ export const MySpaceTripsCatalog: React.FC<Props> = ({
     // 2) refresh asincrono via listCityIdsForViaggio() → lista completa delle città del viaggio
     const seed: Record<string, CitySummary[]> = {};
     for (const v of items) {
-      const primary = v.destination
-        ? findCityInManifest(v.destination, cityManifest)
-        : undefined;
+      const primary = v.destination ? findCityInManifest(v.destination, cityManifest) : undefined;
       seed[v.id] = primary ? [primary] : [];
     }
     setCitiesByViaggioId(seed);

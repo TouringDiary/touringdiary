@@ -76,8 +76,7 @@ const VARIANT_CLASSES: Record<CountBadgeVariant, string> = {
 
 const POSITION_CLASSES: Record<CountBadgePosition, string> = {
   inline: '',
-  'overlay-tr':
-    'pointer-events-none absolute top-0 right-0 z-20 translate-x-1/4 -translate-y-1/4',
+  'overlay-tr': 'pointer-events-none absolute top-0 right-0 z-20 translate-x-1/4 -translate-y-1/4',
   'overlay-corner': 'absolute -top-1 -right-1',
   'overlay-tl': 'absolute top-2 left-2 z-floating-panel',
   'overlay-br': 'absolute -bottom-2 -right-2',

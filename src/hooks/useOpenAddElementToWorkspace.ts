@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
-import { useModal } from '@/context/ModalContext';
-import { useUser } from '@/context/UserContext';
 import {
   COLLABORATION_RETURN_TO,
   isGuestUser,
   requestCollaborationAuth,
 } from '@/collaboration/guestGate';
+import type { WizardEntryMode } from '@/components/collaboration/collaborationSharePresentation';
+import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
 import { userNeedsUsername } from '@/domain/profile/username';
 import { isCollaborationEngineEnabled } from '@/services/collaboration/workspaceEngineConfigService';
-import type { WizardEntryMode } from '@/components/collaboration/collaborationSharePresentation';
 
 export interface AddElementToWorkspaceModalProps {
   entryMode: Extract<WizardEntryMode, 'add_element_to_workspace'>;
@@ -46,6 +46,6 @@ export function useOpenAddElementToWorkspace() {
 
       openModal('collaborationShare', modalProps);
     },
-    [openModal, user]
+    [openModal, user],
   );
 }

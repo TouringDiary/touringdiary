@@ -36,11 +36,15 @@ function resolveExisting(base) {
   for (const ext of EXT_CANDIDATES) {
     const candidate = normalized.endsWith(ext) && ext !== '' ? normalized : normalized + ext;
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-      return { kind: 'file', id: path.relative(ROOT, candidate).replace(/\\/g, '/'), abs: candidate };
+      return {
+        kind: 'file',
+        id: path.relative(ROOT, candidate).replace(/\\/g, '/'),
+        abs: candidate,
+      };
     }
   }
   for (const ext of ['.tsx', '.ts', '.jsx', '.js']) {
-    const idx = path.join(normalized, 'index' + ext);
+    const idx = path.join(normalized, `index${ext}`);
     if (fs.existsSync(idx) && fs.statSync(idx).isFile()) {
       return { kind: 'file', id: path.relative(ROOT, idx).replace(/\\/g, '/'), abs: idx };
     }
@@ -199,7 +203,9 @@ function main() {
 
   walk(entryAbs, '', [], 0);
 
-  const sorted = [...nodes.values()].sort((a, b) => a.depth - b.depth || a.file.localeCompare(b.file));
+  const sorted = [...nodes.values()].sort(
+    (a, b) => a.depth - b.depth || a.file.localeCompare(b.file),
+  );
 
   log('## Albero import statici');
   log('');
@@ -210,7 +216,9 @@ function main() {
     log(`↓`);
     log(`percorso: ${n.pathFromEntry}`);
     log(`↓`);
-    log(`bootstrap_statico: ${n.inBootstrapStatic ? 'SI' : 'NO'} (kind=${n.kind}, depth=${n.depth})`);
+    log(
+      `bootstrap_statico: ${n.inBootstrapStatic ? 'SI' : 'NO'} (kind=${n.kind}, depth=${n.depth})`,
+    );
     log('');
   }
 

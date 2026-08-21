@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { getBlockingExitGates } from '@/focus/exitGate/documentExitRegistry';
 import { phaseBlocksExit } from '@/domain/save/documentSaveTypes';
+import { getBlockingExitGates } from '@/focus/exitGate/documentExitRegistry';
 
 /**
  * Browser-level protection for unsaved document changes.
@@ -9,7 +9,7 @@ export function useAppExitProtection(): void {
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       const blocking = getBlockingExitGates().filter(
-        (g) => !g.isGuest && phaseBlocksExit(g.getPhase())
+        (g) => !g.isGuest && phaseBlocksExit(g.getPhase()),
       );
       if (blocking.length === 0) return;
       event.preventDefault();

@@ -4,7 +4,7 @@ import { isResourceShared } from '@/services/collaboration';
 
 export function useSharedResourceIndicator(
   kind: SharedResourceKind | null | undefined,
-  resourceId: string | null | undefined
+  resourceId: string | null | undefined,
 ): boolean {
   const [isShared, setIsShared] = useState(false);
 

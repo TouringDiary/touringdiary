@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Itinerary } from '@/types';
-import type { SaveUserDraftViaggioOptions } from '@/types/resourceAssociation';
-import { useDocumentSaveController } from '@/hooks/save/useDocumentSaveController';
+import { registerDocumentSaveController } from '@/domain/save/documentSaveRegistry';
 import { AUTOSAVE_PREF_KEYS, phaseHasUnsavedChanges } from '@/domain/save/documentSaveTypes';
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
-import { isDiaryPersisted, isDiaryTempId } from '@/utils/suitcaseAssociation';
-import { registerDocumentExitGate, controllerToExitRegistration } from '@/focus/exitGate/documentExitRegistry';
-import { registerDocumentSaveController } from '@/domain/save/documentSaveRegistry';
+import {
+  controllerToExitRegistration,
+  registerDocumentExitGate,
+} from '@/focus/exitGate/documentExitRegistry';
+import { useDocumentSaveController } from '@/hooks/save/useDocumentSaveController';
 import { notifySharedResourceContentModified } from '@/services/collaboration/collaborationNotificationService';
 import { recordCollaborationDomainEvent } from '@/services/collaboration/domainEventService';
 import { listWorkspacesContainingResource } from '@/services/collaboration/workspaceCompositionService';
+import type { Itinerary } from '@/types';
+import type { SaveUserDraftViaggioOptions } from '@/types/resourceAssociation';
+import { isDiaryPersisted, isDiaryTempId } from '@/utils/suitcaseAssociation';
 
 interface UseDiaryDocumentSaveOptions {
   itinerary: Itinerary;
@@ -57,18 +60,15 @@ export function useDiaryDocumentSave({
 
   const isNeverSaved = useCallback(
     () => !isDiaryPersisted(itineraryRef.current, savedProjects),
-    [savedProjects]
+    [savedProjects],
   );
 
-  const canPersist = useCallback(
-    () => !!itineraryRef.current.name?.trim(),
-    []
-  );
+  const canPersist = useCallback(() => !!itineraryRef.current.name?.trim(), []);
 
   const persist = useCallback(
     async (
       snapshot: ReturnType<typeof diarySnapshot>,
-      options: { name?: string; asCopy?: boolean; documentId: string | null }
+      options: { name?: string; asCopy?: boolean; documentId: string | null },
     ) => {
       const name = options.name ?? snapshot.name;
       if (!name?.trim()) {
@@ -84,15 +84,13 @@ export function useDiaryDocumentSave({
         onSaveAsNavigate?.(id);
       } else {
         onSaved?.(id);
-        const wasPersisted =
-          !!options.documentId && !isDiaryTempId(options.documentId);
+        const wasPersisted = !!options.documentId && !isDiaryTempId(options.documentId);
         if (userId && wasPersisted) {
-          void notifySharedResourceContentModified(
-            'diary',
-            id,
-            name
-          ).catch((notificationError) => {
-            console.error('[useDiaryDocumentSave] notifySharedResourceContentModified:', notificationError);
+          void notifySharedResourceContentModified('diary', id, name).catch((notificationError) => {
+            console.error(
+              '[useDiaryDocumentSave] notifySharedResourceContentModified:',
+              notificationError,
+            );
           });
           void listWorkspacesContainingResource('diary', id)
             .then((workspaces) => {
@@ -112,7 +110,7 @@ export function useDiaryDocumentSave({
       }
       return { id };
     },
-    [onSaveAsNavigate, onSaved, saveProject, userId]
+    [onSaveAsNavigate, onSaved, saveProject, userId],
   );
 
   const controller = useDocumentSaveController({
@@ -175,7 +173,7 @@ export function useDiaryDocumentSave({
 
   useEffect(() => {
     const unregister = registerDocumentExitGate(
-      controllerToExitRegistration('diary', 'Diario di viaggio', controller)
+      controllerToExitRegistration('diary', 'Diario di viaggio', controller),
     );
     const unregisterSave = registerDocumentSaveController('diary', controller);
     return () => {
@@ -192,15 +190,9 @@ export function useDiaryDocumentSave({
     return controller.save();
   }, [controller, isGuest, isNeverSaved, itinerary.name]);
 
-  const handleSaveAs = useCallback(
-    async (name: string) => controller.saveAs(name),
-    [controller]
-  );
+  const handleSaveAs = useCallback(async (name: string) => controller.saveAs(name), [controller]);
 
-  const isDirty = useMemo(
-    () => phaseHasUnsavedChanges(controller.phase),
-    [controller.phase]
-  );
+  const isDirty = useMemo(() => phaseHasUnsavedChanges(controller.phase), [controller.phase]);
 
   return {
     ...controller,

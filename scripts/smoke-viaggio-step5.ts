@@ -5,18 +5,18 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { MY_SPACE_DEFAULT_ROOT, MY_SPACE_ROOTS } from '../src/myspace/mySpaceRoots';
 import {
   VIAGGIO_FOLDER_SECTION_IDS,
   VIAGGIO_FOLDER_SECTIONS,
   viaggioFolderHasAiSection,
 } from '../src/myspace/viaggioFolderSections';
-import { MY_SPACE_ROOTS, MY_SPACE_DEFAULT_ROOT } from '../src/myspace/mySpaceRoots';
+import { unionViaggioMapPins } from '../src/services/viaggio/viaggioMappaUnion';
 import {
   buildDaysFromDiaryTimeline,
   buildDaysFromViaggioPeriod,
   buildRicordiDaySlots,
 } from '../src/services/viaggio/viaggioRicordiDayStructure';
-import { unionViaggioMapPins } from '../src/services/viaggio/viaggioMappaUnion';
 import type { Itinerary } from '../src/types/index';
 import type { ViaggioRicordoMedia } from '../src/types/models/ViaggioRicordi';
 
@@ -54,27 +54,41 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
 }
 
 // 2) Root MySpace gate (DOC 35 labels presenti; trips = default)
-{
-  assert(MY_SPACE_DEFAULT_ROOT === 'trips', 'default root trips');
-  for (const id of ['trips', 'explorer', 'favorites', 'tools', 'invites'] as const) {
-    assert(MY_SPACE_ROOTS.some((r) => r.id === id), `myspace root ${id}`);
-  }
+assert(MY_SPACE_DEFAULT_ROOT === 'trips', 'default root trips');
+for (const id of ['trips', 'explorer', 'favorites', 'tools', 'invites'] as const) {
+  assert(
+    MY_SPACE_ROOTS.some((r) => r.id === id),
+    `myspace root ${id}`,
+  );
 }
 
 // 3) Service exports STEP-5
-{
-  assertExportedAsyncFunction('src/services/viaggio/viaggioRicordiService.ts', 'listRicordiMediaByViaggio');
-  assertExportedAsyncFunction('src/services/viaggio/viaggioRicordiService.ts', 'uploadRicordoMedia');
-  assertExportedAsyncFunction('src/services/viaggio/viaggioRicordiService.ts', 'upsertRicordiDayNote');
-  assertExportedAsyncFunction('src/services/viaggio/viaggioAttachmentService.ts', 'listViaggioAttachments');
-  assertExportedAsyncFunction('src/services/viaggio/viaggioAttachmentService.ts', 'uploadViaggioAttachment');
-  assertExportedAsyncFunction('src/services/viaggio/viaggioMappaService.ts', 'listViaggioMapPins');
-  assertExportedAsyncFunction('src/services/viaggio/viaggioRiepilogoService.ts', 'computeViaggioRiepilogo');
-  assertExportedAsyncFunction(
-    'src/services/viaggio/viaggioRiepilogoService.ts',
-    'upsertViaggioRiepilogoAnnotations',
-  );
-}
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioRicordiService.ts',
+  'listRicordiMediaByViaggio',
+);
+assertExportedAsyncFunction('src/services/viaggio/viaggioRicordiService.ts', 'uploadRicordoMedia');
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioRicordiService.ts',
+  'upsertRicordiDayNote',
+);
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioAttachmentService.ts',
+  'listViaggioAttachments',
+);
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioAttachmentService.ts',
+  'uploadViaggioAttachment',
+);
+assertExportedAsyncFunction('src/services/viaggio/viaggioMappaService.ts', 'listViaggioMapPins');
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioRiepilogoService.ts',
+  'computeViaggioRiepilogo',
+);
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioRiepilogoService.ts',
+  'upsertViaggioRiepilogoAnnotations',
+);
 
 // 4) Shell wire + ownership Allegati
 {
@@ -104,10 +118,7 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
   assert(migration.includes('viaggio_riepilogo_annotations'), 'migration riepilogo');
   assert(migration.includes("'viaggio-ricordi'"), 'bucket ricordi');
   assert(migration.includes("'viaggio-attachments'"), 'bucket allegati');
-  assert(
-    migration.includes('Distinti da workspace_attachments'),
-    'allegati ≠ workspace comment',
-  );
+  assert(migration.includes('Distinti da workspace_attachments'), 'allegati ≠ workspace comment');
   assert(migration.includes('set_viaggio_updated_at'), 'updated_at trigger fn');
   assert(
     migration.includes('trg_viaggio_ricordi_day_notes_updated_at'),
@@ -244,9 +255,18 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
   ];
   const pins = unionViaggioMapPins([diary], media);
   assert(pins.length === 2, 'union excludes 0,0 coords');
-  assert(pins.some((p) => p.source === 'diary_poi'), 'has diary pin');
-  assert(pins.some((p) => p.source === 'ricordo_media'), 'has media pin');
-  assert(pins.some((p) => p.source === 'diary_poi' && p.poiId === 'p1'), 'diary pin has poiId');
+  assert(
+    pins.some((p) => p.source === 'diary_poi'),
+    'has diary pin',
+  );
+  assert(
+    pins.some((p) => p.source === 'ricordo_media'),
+    'has media pin',
+  );
+  assert(
+    pins.some((p) => p.source === 'diary_poi' && p.poiId === 'p1'),
+    'diary pin has poiId',
+  );
 }
 
 if (issues.length > 0) {

@@ -2,9 +2,10 @@
  * Morphologia Workspace «da Viaggio» (DOC 28 Parte A · DOC 37).
  * Persistita in `workspaces.settings` — non altera lo schema fondazione.
  */
-import type { SharedResourceKind } from './sharedResource';
+
 import type { ViaggioFolderSectionId } from '../../myspace/viaggioFolderSections';
 import { VIAGGIO_FOLDER_SECTION_IDS } from '../../myspace/viaggioFolderSections';
+import type { SharedResourceKind } from './sharedResource';
 
 export const WORKSPACE_MORPHOLOGY_VIAGGIO_SHELL = 'viaggio_shell' as const;
 

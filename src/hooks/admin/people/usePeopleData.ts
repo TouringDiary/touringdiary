@@ -1,163 +1,175 @@
-
-import { useState, useEffect, useCallback } from 'react';
-import { FamousPerson } from '../../../types/index';
-import {
-    getCityPeople,
-    saveCityPerson,
-    deleteCityPerson,
-    type SaveCityPersonInput,
-} from '../../../services/cityService';
+import { useCallback, useEffect, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
+import {
+  deleteCityPerson,
+  getCityPeople,
+  type SaveCityPersonInput,
+  saveCityPerson,
+} from '../../../services/cityService';
+import type { FamousPerson } from '../../../types/index';
 
 export const usePeopleData = (cityId: string) => {
-    const { reloadCurrentCity } = useCityEditor();
+  const { reloadCurrentCity } = useCityEditor();
 
-    // --- DATA STATE ---
-    const [peopleList, setPeopleList] = useState<FamousPerson[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    
-    // --- SELECTION STATE ---
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    
-    // --- ACTION STATES ---
-    const [isDeleting, setIsDeleting] = useState(false);
+  // --- DATA STATE ---
+  const [peopleList, setPeopleList] = useState<FamousPerson[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-    // 1. LOAD DATA
-    const loadPeople = useCallback(async () => {
-        if (!cityId) return;
-        setIsLoading(true);
-        try {
-            const data = await getCityPeople(cityId, 'admin');
-            const sorted = data.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0));
-            setPeopleList(sorted);
-        } catch (e) {
-            console.error("Error loading people", e);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [cityId]);
+  // --- SELECTION STATE ---
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        loadPeople();
-    }, [loadPeople]);
+  // --- ACTION STATES ---
+  const [isDeleting, setIsDeleting] = useState(false);
 
-    // 2. SELECTION LOGIC
-    const toggleSelection = (id: string) => {
-        const newSet = new Set(selectedIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedIds(newSet);
+  // 1. LOAD DATA
+  const loadPeople = useCallback(async () => {
+    if (!cityId) return;
+    setIsLoading(true);
+    try {
+      const data = await getCityPeople(cityId, 'admin');
+      const sorted = data.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+      setPeopleList(sorted);
+    } catch (e) {
+      console.error('Error loading people', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [cityId]);
+
+  useEffect(() => {
+    loadPeople();
+  }, [loadPeople]);
+
+  // 2. SELECTION LOGIC
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === peopleList.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(peopleList.map((p) => p.id!)));
+    }
+  };
+
+  const resetSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  // 3. CRUD OPERATIONS
+
+  // Add Placeholder
+  const addManualPerson = async () => {
+    const tempPerson: SaveCityPersonInput = {
+      name: 'Nuovo Personaggio',
+      role: 'Artista',
+      bio: '',
+      imageUrl: 'https://images.unsplash.com/photo-1555626040-3b731de3a81c?q=80&w=400',
+      relatedPlaces: [],
+      famousWorks: [],
+      fullBio: '',
+      privateLife: '',
+      awards: [],
+      collaborations: [],
+      careerStats: [],
+      status: 'draft',
+      orderIndex: peopleList.length + 1,
     };
+    const saved = await saveCityPerson(cityId, tempPerson);
+    setPeopleList((prev) => [...prev, saved]);
+    return saved.id;
+  };
 
-    const toggleAll = () => {
-        if (selectedIds.size === peopleList.length) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(peopleList.map(p => p.id!)));
-        }
-    };
+  // Delete Single
+  const deletePerson = async (id: string) => {
+    setIsDeleting(true);
+    try {
+      await deleteCityPerson(id);
+      setPeopleList((prev) => prev.filter((p) => p.id !== id));
+      reloadCurrentCity();
+      // Clean selection if deleted
+      if (selectedIds.has(id)) toggleSelection(id);
+      return true;
+    } catch (e) {
+      return false;
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
-    const resetSelection = () => {
-        setSelectedIds(new Set());
-    };
+  // Local Update (Optimistic input)
+  const updatePersonLocal = (
+    id: string,
+    field: keyof FamousPerson,
+    value: FamousPerson[keyof FamousPerson],
+  ) => {
+    setPeopleList((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+  };
 
-    // 3. CRUD OPERATIONS
-    
-    // Add Placeholder
-    const addManualPerson = async () => {
-        const tempPerson: SaveCityPersonInput = {
-             name: 'Nuovo Personaggio', role: 'Artista', bio: '', 
-             imageUrl: 'https://images.unsplash.com/photo-1555626040-3b731de3a81c?q=80&w=400', 
-             relatedPlaces: [], famousWorks: [], fullBio: '', privateLife: '', awards: [], 
-             collaborations: [], careerStats: [], status: 'draft', orderIndex: peopleList.length + 1
-        };
-        const saved = await saveCityPerson(cityId, tempPerson);
-        setPeopleList(prev => [...prev, saved]);
-        return saved.id;
-    };
+  // Save Changes (DB)
+  const savePersonChanges = async (person: FamousPerson) => {
+    try {
+      await saveCityPerson(cityId, person);
+      reloadCurrentCity();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
 
-    // Delete Single
-    const deletePerson = async (id: string) => {
-        setIsDeleting(true);
-        try {
-            await deleteCityPerson(id);
-            setPeopleList(prev => prev.filter(p => p.id !== id));
-            reloadCurrentCity();
-            // Clean selection if deleted
-            if (selectedIds.has(id)) toggleSelection(id);
-            return true;
-        } catch (e) {
-            return false;
-        } finally {
-            setIsDeleting(false);
-        }
-    };
+  // Toggle Status (Published/Draft)
+  const toggleStatus = async (person: FamousPerson) => {
+    const newStatus: 'published' | 'draft' = person.status === 'published' ? 'draft' : 'published';
+    const updated: FamousPerson = { ...person, status: newStatus };
 
-    // Local Update (Optimistic input)
-    const updatePersonLocal = (id: string, field: keyof FamousPerson, value: any) => {
-        setPeopleList(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-    };
+    // Optimistic
+    setPeopleList((prev) => prev.map((p) => (p.id === person.id ? updated : p)));
 
-    // Save Changes (DB)
-    const savePersonChanges = async (person: FamousPerson) => {
-        try {
-            await saveCityPerson(cityId, person);
-            reloadCurrentCity();
-            return true;
-        } catch (e) {
-            return false;
-        }
-    };
+    await saveCityPerson(cityId, updated);
+    reloadCurrentCity();
+  };
 
-    // Toggle Status (Published/Draft)
-    const toggleStatus = async (person: FamousPerson) => {
-        const newStatus: 'published' | 'draft' = person.status === 'published' ? 'draft' : 'published';
-        const updated: FamousPerson = { ...person, status: newStatus };
-        
-        // Optimistic
-        setPeopleList(prev => prev.map(p => p.id === person.id ? updated : p));
-        
-        await saveCityPerson(cityId, updated);
-        reloadCurrentCity();
-    };
+  // Reorder
+  const reorderPerson = async (id: string, newRank: number) => {
+    if (Number.isNaN(newRank) || newRank < 1) return;
+    const index = newRank - 1;
+    const currentList = [...peopleList];
+    const itemIndex = currentList.findIndex((p) => p.id === id);
 
-    // Reorder
-    const reorderPerson = async (id: string, newRank: number) => {
-        if (isNaN(newRank) || newRank < 1) return;
-        const index = newRank - 1;
-        const currentList = [...peopleList];
-        const itemIndex = currentList.findIndex(p => p.id === id);
-        
-        if (itemIndex === -1 || index >= currentList.length) return;
+    if (itemIndex === -1 || index >= currentList.length) return;
 
-        const [item] = currentList.splice(itemIndex, 1);
-        currentList.splice(index, 0, item);
+    const [item] = currentList.splice(itemIndex, 1);
+    currentList.splice(index, 0, item);
 
-        const updatedList = currentList.map((p, idx) => ({ ...p, orderIndex: idx + 1 }));
-        setPeopleList(updatedList);
+    const updatedList = currentList.map((p, idx) => ({ ...p, orderIndex: idx + 1 }));
+    setPeopleList(updatedList);
 
-        for (const p of updatedList) {
-             await saveCityPerson(cityId, p);
-        }
-    };
+    for (const p of updatedList) {
+      await saveCityPerson(cityId, p);
+    }
+  };
 
-    return {
-        peopleList,
-        setPeopleList, // Exposed for AI Hook updates
-        isLoading,
-        selectedIds,
-        isDeleting,
-        
-        toggleSelection,
-        toggleAll,
-        resetSelection,
-        
-        addManualPerson,
-        deletePerson,
-        updatePersonLocal,
-        savePersonChanges,
-        toggleStatus,
-        reorderPerson,
-        reloadList: loadPeople,
-    };
+  return {
+    peopleList,
+    setPeopleList, // Exposed for AI Hook updates
+    isLoading,
+    selectedIds,
+    isDeleting,
+
+    toggleSelection,
+    toggleAll,
+    resetSelection,
+
+    addManualPerson,
+    deletePerson,
+    updatePersonLocal,
+    savePersonChanges,
+    toggleStatus,
+    reorderPerson,
+    reloadList: loadPeople,
+  };
 };

@@ -1,20 +1,21 @@
 import { useCallback } from 'react';
-import { useModal } from '@/context/ModalContext';
-import { useUser } from '@/context/UserContext';
 import {
   COLLABORATION_RETURN_TO,
   isGuestUser,
   requestCollaborationAuth,
 } from '@/collaboration/guestGate';
+import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
 import { userNeedsUsername } from '@/domain/profile/username';
-import type { User } from '@/types/users';
 import {
   loadLastMyWorldSurface,
-  saveLastMyWorldSurface,
   type MyWorldFamilyModalKey,
+  saveLastMyWorldSurface,
 } from '@/myworld/myWorldSession';
+import type { ModalPropsBag } from '@/types/modalProps';
+import type { User } from '@/types/users';
 
-type OpenModalFn = (type: string, props?: object) => void;
+type OpenModalFn = (type: string, props?: ModalPropsBag) => void;
 
 /**
  * Flusso unico di apertura MyWorld (guest → auth, username obbligatorio).
@@ -22,10 +23,7 @@ type OpenModalFn = (type: string, props?: object) => void;
  * (DOC 35 §11 — memoria path + rientro binder MyWorld). Altrimenti apre il chooser.
  * Deep link Workspace continuano a usare {@link openCollaborationWorkspaceFlow} (bypass chooser — D4).
  */
-export function openMyWorldFlow(
-  user: User | null | undefined,
-  openModal: OpenModalFn,
-): void {
+export function openMyWorldFlow(user: User | null | undefined, openModal: OpenModalFn): void {
   if (isGuestUser(user)) {
     requestCollaborationAuth(openModal, 'myworld');
     return;

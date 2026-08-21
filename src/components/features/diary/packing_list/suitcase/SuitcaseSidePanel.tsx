@@ -1,5 +1,5 @@
-import React from 'react';
-import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import type React from 'react';
 
 interface SuitcaseSidePanelProps {
   children: React.ReactNode;
@@ -13,22 +13,18 @@ interface SuitcaseSidePanelProps {
 
 export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
   children,
-  title = "e-Commerce",
+  title = 'e-Commerce',
   isOpen = true,
   onToggle,
   isCollapsible = false,
-  className = "",
-  sticky = false
+  className = '',
+  sticky = false,
 }) => {
   return (
-    <div 
+    <div
       className={`hidden lg:flex flex-col shrink-0 self-stretch lg:border-l border-white/10 bg-[#030508] lg:bg-[#030508]/80 lg:h-full lg:min-h-0 relative z-local-chrome overflow-visible transition-all duration-500 ease-in-out ${
         sticky ? 'lg:sticky lg:top-0' : ''
-      } ${
-        isOpen 
-          ? 'lg:w-[280px] xl:w-[360px] 2xl:w-[440px]' 
-          : 'lg:w-[60px]'
-      } ${className}`}
+      } ${isOpen ? 'lg:w-[280px] xl:w-[360px] 2xl:w-[440px]' : 'lg:w-[60px]'} ${className}`}
     >
       {isCollapsible && (
         <button
@@ -38,7 +34,11 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
           aria-label={isOpen ? 'Chiudi e-Commerce' : 'Apri e-Commerce'}
           title={isOpen ? 'Chiudi e-Commerce' : 'Apri e-Commerce'}
         >
-          {isOpen ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+          {isOpen ? (
+            <ChevronRight className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronLeft className="w-3.5 h-3.5" />
+          )}
         </button>
       )}
 
@@ -49,26 +49,26 @@ export const SuitcaseSidePanel: React.FC<SuitcaseSidePanelProps> = ({
       >
         <div className="flex items-center mb-1 px-1 h-6 shrink-0">
           <div className="w-[3px] h-full bg-amber-500 rounded-full mr-3" />
-          <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">{title}</h3>
+          <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.2em]">
+            {title}
+          </h3>
         </div>
-        <div className="w-full mt-6 flex-1 min-h-0 flex flex-col">
-          {children}
-        </div>
+        <div className="w-full mt-6 flex-1 min-h-0 flex flex-col">{children}</div>
       </div>
 
       {!isOpen && isCollapsible && (
-        <div 
+        <div
           onClick={onToggle}
           className="absolute inset-0 hidden lg:flex flex-col items-center pt-24 cursor-pointer hover:bg-white/[0.02] transition-colors group"
         >
           <div className="flex flex-col items-center gap-12">
-             <div className="w-[1px] h-16 bg-gradient-to-b from-transparent via-amber-500/30 to-transparent group-hover:via-amber-500 transition-all duration-500" />
-             <div className="rotate-90 origin-center whitespace-nowrap">
-                <span className="text-[9px] font-black text-amber-500/20 group-hover:text-amber-500 uppercase tracking-[0.4em] transition-all duration-500">
-                  {title}
-                </span>
-             </div>
-             <Sparkles className="w-3.5 h-3.5 text-amber-500/10 group-hover:text-amber-500 transition-all duration-500" />
+            <div className="w-[1px] h-16 bg-gradient-to-b from-transparent via-amber-500/30 to-transparent group-hover:via-amber-500 transition-all duration-500" />
+            <div className="rotate-90 origin-center whitespace-nowrap">
+              <span className="text-[9px] font-black text-amber-500/20 group-hover:text-amber-500 uppercase tracking-[0.4em] transition-all duration-500">
+                {title}
+              </span>
+            </div>
+            <Sparkles className="w-3.5 h-3.5 text-amber-500/10 group-hover:text-amber-500 transition-all duration-500" />
           </div>
         </div>
       )}

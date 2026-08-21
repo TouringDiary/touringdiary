@@ -13,28 +13,25 @@ import type { ItineraryItem } from '@/types';
 
 /** Tappa con coordinate utili per la catena distanze (non nota/memo/risorsa/zero). */
 export function isValidGeoItineraryStop(item: ItineraryItem): boolean {
-    if (item.isCustom || item.isResource || item.type === 'memo') return false;
-    const coords = item.poi?.coords;
-    if (!coords) return false;
-    return coords.lat !== 0 || coords.lng !== 0;
+  if (item.isCustom || item.isResource || item.type === 'memo') return false;
+  const coords = item.poi?.coords;
+  if (!coords) return false;
+  return coords.lat !== 0 || coords.lng !== 0;
 }
 
 /** Indice dell’ultima tappa geo valida prima di `currentIndex` (−1 se assente). */
-export function findLastValidGeoStopIndex(
-    list: ItineraryItem[],
-    currentIndex: number,
-): number {
-    for (let i = currentIndex - 1; i >= 0; i--) {
-        const candidate = list[i];
-        if (
-            candidate &&
-            isValidGeoItineraryStop(candidate) &&
-            candidate.dayIndex === list[currentIndex]?.dayIndex
-        ) {
-            return i;
-        }
+export function findLastValidGeoStopIndex(list: ItineraryItem[], currentIndex: number): number {
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    const candidate = list[i];
+    if (
+      candidate &&
+      isValidGeoItineraryStop(candidate) &&
+      candidate.dayIndex === list[currentIndex]?.dayIndex
+    ) {
+      return i;
     }
-    return -1;
+  }
+  return -1;
 }
 
 /**
@@ -42,19 +39,19 @@ export function findLastValidGeoStopIndex(
  * `null` se lo stop corrente non è geo o non esiste un predecessore geo nello stesso giorno.
  */
 export function distanceFromPreviousGeoStop(
-    list: ItineraryItem[],
-    currentIndex: number,
+  list: ItineraryItem[],
+  currentIndex: number,
 ): number | null {
-    const item = list[currentIndex];
-    if (!item || !isValidGeoItineraryStop(item)) return null;
+  const item = list[currentIndex];
+  if (!item || !isValidGeoItineraryStop(item)) return null;
 
-    const lastIndex = findLastValidGeoStopIndex(list, currentIndex);
-    if (lastIndex < 0) return null;
+  const lastIndex = findLastValidGeoStopIndex(list, currentIndex);
+  if (lastIndex < 0) return null;
 
-    const prev = list[lastIndex];
-    const from = prev.poi.coords;
-    const to = item.poi.coords;
-    if (!from || !to) return null;
+  const prev = list[lastIndex];
+  const from = prev.poi.coords;
+  const to = item.poi.coords;
+  if (!from || !to) return null;
 
-    return calculateDistance(from.lat, from.lng, to.lat, to.lng);
+  return calculateDistance(from.lat, from.lng, to.lat, to.lng);
 }

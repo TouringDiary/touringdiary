@@ -1,5 +1,5 @@
-import React from 'react';
 import { CloudOff } from 'lucide-react';
+import type React from 'react';
 
 type GuestDraftBannerProps = {
   isTemplate: boolean;

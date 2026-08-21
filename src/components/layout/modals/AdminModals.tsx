@@ -1,99 +1,120 @@
-import { Z_OVERLAY, Z_ADMIN_MODAL } from '@/constants/zIndex';
+import { CheckCircle, RefreshCw } from 'lucide-react';
 
 import React from 'react';
-import { CheckCircle, RefreshCw } from 'lucide-react';
+import { Z_ADMIN_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { saveSinglePoi } from '../../../services/cityService';
-import { PointOfInterest } from '../../../types/index';
+import type { CitySummary, PointOfInterest, User } from '../../../types/index';
+import type { ModalPropsBag } from '../../../types/modalProps';
 
 // Lazy Imports per Admin
-const AdminDashboard = React.lazy(() => import('../../admin/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
-const AdminPoiModal = React.lazy(() => import('../../admin/AdminPoiModal').then(module => ({ default: module.AdminPoiModal })));
-const SponsorModal = React.lazy(() => import('../../modals/SponsorModal').then(module => ({ default: module.SponsorModal })));
+const AdminDashboard = React.lazy(() =>
+  import('../../admin/AdminDashboard').then((module) => ({ default: module.AdminDashboard })),
+);
+const AdminPoiModal = React.lazy(() =>
+  import('../../admin/AdminPoiModal').then((module) => ({ default: module.AdminPoiModal })),
+);
+const SponsorModal = React.lazy(() =>
+  import('../../modals/SponsorModal').then((module) => ({ default: module.SponsorModal })),
+);
 
 interface AdminModalsProps {
-    activeModal: string | null;
-    modalProps: any;
-    closeModal: () => void;
-    openModal: (type: string, props?: any) => void;
-    user: any;
-    activeCityId: string | null;
-    activeCitySummary: any;
-    onUserUpdate: (u: any) => void;
-    onNavigate: (section: any) => void; // Per tornare alla app dall'admin
+  activeModal: string | null;
+  modalProps: ModalPropsBag;
+  closeModal: () => void;
+  openModal: (type: string, props?: ModalPropsBag) => void;
+  user: User;
+  activeCityId: string | null;
+  activeCitySummary?: CitySummary | null;
+  onUserUpdate: (u: User) => void;
+  onNavigate: (section: string) => void; // Per tornare alla app dall'admin
 }
 
-export const AdminModals = ({ 
-    activeModal, modalProps, closeModal, openModal, 
-    user, activeCityId, activeCitySummary, onUserUpdate, onNavigate 
+export const AdminModals = ({
+  activeModal,
+  modalProps,
+  closeModal,
+  openModal,
+  user,
+  activeCityId,
+  activeCitySummary,
+  onUserUpdate,
+  onNavigate,
 }: AdminModalsProps) => {
+  const handleAdminSave = async (updatedPoi: PointOfInterest) => {
+    if (!user || (user.role !== 'admin_all' && user.role !== 'admin_limited')) return;
+    const targetCityId = updatedPoi.cityId || activeCityId || 'napoli';
+    try {
+      await saveSinglePoi(updatedPoi, targetCityId, user);
+      openModal('adminSuccess');
+    } catch (e) {
+      console.error('Save error', e);
+      alert('Errore salvataggio POI.');
+    }
+  };
 
-    const handleAdminSave = async (updatedPoi: PointOfInterest) => {
-        if (!user || (user.role !== 'admin_all' && user.role !== 'admin_limited')) return;
-        const targetCityId = updatedPoi.cityId || activeCityId || 'napoli';
-        try {
-            await saveSinglePoi(updatedPoi, targetCityId, user);
-            openModal('adminSuccess'); 
-        } catch (e) {
-            console.error("Save error", e);
-            alert("Errore salvataggio POI.");
-        }
-    };
-
-    const handleReload = () => {
-        window.dispatchEvent(new CustomEvent('refresh-city-data', { detail: { cityId: activeCityId } }));
-        closeModal();
-    };
-
-    if (!activeModal) return null;
-
-    // Nota: AdminDashboard di solito è una vista full-screen gestita da AppRouter, 
-    // ma se viene aperta come modale (es. overlay), la gestiamo qui.
-    // Attualmente AppRouter gestisce viewMode='admin', quindi questo case potrebbe essere ridondante 
-    // ma lo teniamo per sicurezza o future implementazioni popup.
-    
-    return (
-        <>
-            {activeModal === 'adminEditPoi' && modalProps.poi && (
-                <AdminPoiModal 
-                    isOpen={true} 
-                    onClose={closeModal} 
-                    onSave={handleAdminSave} 
-                    poi={modalProps.poi} 
-                    cityName={activeCitySummary?.name || ''} 
-                />
-            )}
-
-            {activeModal === 'sponsor' && (
-                <SponsorModal 
-                    isOpen={true} 
-                    onClose={closeModal} 
-                    user={user} 
-                    initialType={modalProps.sponsorType} 
-                />
-            )}
-
-            {activeModal === 'adminSuccess' && (
-                <div className="td-modal-overlay bg-black/90 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95" style={{ zIndex: Z_OVERLAY }}>
-                    {/* admin-super-layer modal | intentionally rendered above global modal stack */}
-                    <div 
-                        className="relative bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl overflow-hidden animate-in zoom-in-95"
-                        style={{ zIndex: Z_ADMIN_MODAL }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                         <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] mx-auto mb-6">
-                            <CheckCircle className="w-8 h-8 text-emerald-500"/>
-                        </div>
-                        <h3 className="text-xl font-bold text-white mb-2">Salvataggio Completato</h3>
-                        <p className="text-slate-300 text-sm mb-6">POI Aggiornato con successo.<br/>I dati sono stati salvati nel cloud.</p>
-                        <button onClick={handleReload} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 uppercase tracking-wide text-xs transition-all active:scale-95">
-                            <RefreshCw className="w-4 h-4"/> OK, Aggiorna Vista
-                        </button>
-                    </div>
-                </div>
-            )}
-        </>
+  const handleReload = () => {
+    window.dispatchEvent(
+      new CustomEvent('refresh-city-data', { detail: { cityId: activeCityId } }),
     );
+    closeModal();
+  };
+
+  if (!activeModal) return null;
+
+  // Nota: AdminDashboard di solito è una vista full-screen gestita da AppRouter,
+  // ma se viene aperta come modale (es. overlay), la gestiamo qui.
+  // Attualmente AppRouter gestisce viewMode='admin', quindi questo case potrebbe essere ridondante
+  // ma lo teniamo per sicurezza o future implementazioni popup.
+
+  return (
+    <>
+      {activeModal === 'adminEditPoi' && modalProps.poi && (
+        <AdminPoiModal
+          isOpen={true}
+          onClose={closeModal}
+          onSave={handleAdminSave}
+          poi={modalProps.poi}
+          cityName={activeCitySummary?.name || ''}
+        />
+      )}
+
+      {activeModal === 'sponsor' && (
+        <SponsorModal
+          isOpen={true}
+          onClose={closeModal}
+          user={user}
+          initialType={modalProps.sponsorType}
+        />
+      )}
+
+      {activeModal === 'adminSuccess' && (
+        <div
+          className="td-modal-overlay bg-black/90 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95"
+          style={{ zIndex: Z_OVERLAY }}
+        >
+          {/* admin-super-layer modal | intentionally rendered above global modal stack */}
+          <div
+            className="relative bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl overflow-hidden animate-in zoom-in-95"
+            style={{ zIndex: Z_ADMIN_MODAL }}
+          >
+            <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] mx-auto mb-6">
+              <CheckCircle className="w-8 h-8 text-emerald-500" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Salvataggio Completato</h3>
+            <p className="text-slate-300 text-sm mb-6">
+              POI Aggiornato con successo.
+              <br />I dati sono stati salvati nel cloud.
+            </p>
+            <button
+              type="button"
+              onClick={handleReload}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 uppercase tracking-wide text-xs transition-all active:scale-95"
+            >
+              <RefreshCw className="w-4 h-4" /> OK, Aggiorna Vista
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 };
-
-
-

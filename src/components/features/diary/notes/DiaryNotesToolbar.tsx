@@ -1,20 +1,21 @@
-import React, { useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
 import {
   Bold,
+  Heading2,
   Italic,
-  Strikethrough,
-  Underline,
+  Link2,
   List,
   ListOrdered,
-  Heading2,
-  Link2,
   ListTodo,
+  Strikethrough,
+  Underline,
 } from 'lucide-react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
-import { DIARY_NOTES_DEFAULT_TEXT_COLOR, DIARY_NOTES_TEXT_COLORS } from './diaryTextColors';
 import { applyDiaryNotesLink } from './diaryNotesLinkUtils';
+import { DIARY_NOTES_DEFAULT_TEXT_COLOR, DIARY_NOTES_TEXT_COLORS } from './diaryTextColors';
 
 interface DiaryNotesToolbarProps {
   editor: Editor | null;
@@ -104,7 +105,9 @@ const TextColorButton: React.FC<{ editor: Editor }> = ({ editor }) => {
           ${currentColor ? 'bg-amber-100 text-amber-800' : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'}
         `}
       >
-        <span className="text-xs font-bold leading-none" style={{ color: swatchColor }}>A</span>
+        <span className="text-xs font-bold leading-none" style={{ color: swatchColor }}>
+          A
+        </span>
         <span
           className="mt-0.5 h-0.5 w-3.5 rounded-full"
           style={{ backgroundColor: swatchColor }}
@@ -249,11 +252,7 @@ export const DiaryNotesToolbar: React.FC<DiaryNotesToolbarProps> = ({ editor }) 
 
       <div className="w-px h-4 bg-stone-200 mx-0.5 shrink-0" aria-hidden />
 
-      <ToolbarButton
-        title="Link"
-        isActive={states.isLink}
-        onClick={handleLink}
-      >
+      <ToolbarButton title="Link" isActive={states.isLink} onClick={handleLink}>
         <Link2 className={iconClass} />
       </ToolbarButton>
     </div>

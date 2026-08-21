@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, MapPin } from 'lucide-react';
-import type { ViaggioMapPin } from '@/types/models/ViaggioMappa';
-import { listViaggioMapPins } from '@/services/viaggio/viaggioMappaService';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useModal } from '@/context/ModalContext';
-import { ViaggioMappaGoogleEmbed, getGoogleMapsApiKey } from './ViaggioMappaGoogleEmbed';
+import { listViaggioMapPins } from '@/services/viaggio/viaggioMappaService';
+import type { ViaggioMapPin } from '@/types/models/ViaggioMappa';
+import { getGoogleMapsApiKey, ViaggioMappaGoogleEmbed } from './ViaggioMappaGoogleEmbed';
 
 interface Props {
   viaggioId: string;
@@ -36,7 +37,9 @@ export const ViaggioMappaSection: React.FC<Props> = ({ viaggioId }) => {
       const list = await listViaggioMapPins(viaggioId);
       if (!mountedRef.current) return;
       setPins(list);
-      setSelectedId((prev) => (prev && list.some((p) => p.id === prev) ? prev : list[0]?.id ?? null));
+      setSelectedId((prev) =>
+        prev && list.some((p) => p.id === prev) ? prev : (list[0]?.id ?? null),
+      );
     } catch (e) {
       console.error('[ViaggioMappaSection] reload failed', e);
       if (!mountedRef.current) return;
@@ -51,21 +54,12 @@ export const ViaggioMappaSection: React.FC<Props> = ({ viaggioId }) => {
     void reload();
   }, [reload]);
 
-  const selected = useMemo(
-    () => pins.find((p) => p.id === selectedId) ?? null,
-    [pins, selectedId],
-  );
+  const selected = useMemo(() => pins.find((p) => p.id === selectedId) ?? null, [pins, selectedId]);
 
   // Due filter distinti: N tipicamente piccolo (pin di un singolo Viaggio).
   // Una sola scansione non porta guadagno misurabile; si lasciano due filter chiari.
-  const diaryPins = useMemo(
-    () => pins.filter((p) => p.source === 'diary_poi'),
-    [pins],
-  );
-  const mediaPins = useMemo(
-    () => pins.filter((p) => p.source === 'ricordo_media'),
-    [pins],
-  );
+  const diaryPins = useMemo(() => pins.filter((p) => p.source === 'diary_poi'), [pins]);
+  const mediaPins = useMemo(() => pins.filter((p) => p.source === 'ricordo_media'), [pins]);
 
   const handleSelect = useCallback((pin: ViaggioMapPin) => {
     setSelectedId(pin.id);
@@ -192,9 +186,7 @@ export const ViaggioMappaSection: React.FC<Props> = ({ viaggioId }) => {
                   <p className="text-xs text-slate-400 font-mono">
                     {selected.lat.toFixed(5)}, {selected.lng.toFixed(5)}
                   </p>
-                  {selected.address && (
-                    <p className="text-sm text-slate-300">{selected.address}</p>
-                  )}
+                  {selected.address && <p className="text-sm text-slate-300">{selected.address}</p>}
                   {selected.diaryName && (
                     <p className="text-xs text-slate-500">Diario: {selected.diaryName}</p>
                   )}

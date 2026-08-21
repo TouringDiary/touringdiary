@@ -7,11 +7,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SHARED_RESOURCE_KINDS } from '../src/domain/collaboration/sharedResource';
 import {
-  WORKSPACE_MORPHOLOGY_VIAGGIO_SHELL,
   buildWorkspaceViaggioShellSettings,
   isWorkspaceViaggioShellSettings,
   readWorkspaceViaggioShellSettings,
   resolvePopulatedSectionsFromResources,
+  WORKSPACE_MORPHOLOGY_VIAGGIO_SHELL,
 } from '../src/domain/collaboration/workspaceViaggioShell';
 import { VIAGGIO_FOLDER_SECTION_IDS } from '../src/myspace/viaggioFolderSections';
 
@@ -27,11 +27,9 @@ function readSrc(relativePath: string): string {
 }
 
 // 1) Nessun kind viaggio shareable
-{
-  assert(!(SHARED_RESOURCE_KINDS as readonly string[]).includes('viaggio'), 'no viaggio shared kind');
-  assert(SHARED_RESOURCE_KINDS.includes('diary'), 'diary shareable');
-  assert(SHARED_RESOURCE_KINDS.includes('suitcase'), 'suitcase shareable');
-}
+assert(!(SHARED_RESOURCE_KINDS as readonly string[]).includes('viaggio'), 'no viaggio shared kind');
+assert(SHARED_RESOURCE_KINDS.includes('diary'), 'diary shareable');
+assert(SHARED_RESOURCE_KINDS.includes('suitcase'), 'suitcase shareable');
 
 // 2) ShareIntent copy-only (sorgenti)
 {
@@ -42,13 +40,16 @@ function readSrc(relativePath: string): string {
   );
   assert(!presentation.includes("'share_current'"), 'presentation: no share_current');
   assert(
-    presentation.includes("Nessuno step share_intent"),
+    presentation.includes('Nessuno step share_intent'),
     'wizard steps comment: no share_intent',
   );
   const materialize = readSrc(
     'src/services/collaboration/workspaceComposition/materializeWorkspaceComposition.ts',
   );
-  assert(!materialize.includes("shareIntent === 'share_current'"), 'materialize: no share_current branch');
+  assert(
+    !materialize.includes("shareIntent === 'share_current'"),
+    'materialize: no share_current branch',
+  );
   const wizard = readSrc('src/components/collaboration/CollaborationShareWizard.tsx');
   assert(!wizard.includes('Condividi Originale'), 'wizard: no Condividi Originale');
 }
@@ -57,11 +58,16 @@ function readSrc(relativePath: string): string {
 {
   const presentation = readSrc('src/components/collaboration/collaborationSharePresentation.ts');
   assert(
-    presentation.includes("return ['workspace_setup', 'workspace_composition', 'workspace_invite']"),
+    presentation.includes(
+      "return ['workspace_setup', 'workspace_composition', 'workspace_invite']",
+    ),
     'create / from_viaggio steps without share_intent',
   );
   assert(presentation.includes("return ['pick_element']"), 'add_element = pick only');
-  assert(presentation.includes("return ['path', 'mode', 'invite']"), 'simple path without share_intent');
+  assert(
+    presentation.includes("return ['path', 'mode', 'invite']"),
+    'simple path without share_intent',
+  );
   assert(
     presentation.includes("'workspace_from_viaggio'"),
     'workspace_from_viaggio in presentation',
@@ -85,7 +91,10 @@ function readSrc(relativePath: string): string {
   const sections = resolvePopulatedSectionsFromResources([{ kind: 'user_template' }]);
   assert(sections.length === 0, 'template does not populate DOC 37 sections');
   for (const id of settings.populatedSections) {
-    assert((VIAGGIO_FOLDER_SECTION_IDS as readonly string[]).includes(id), `section ${id} in DOC 37`);
+    assert(
+      (VIAGGIO_FOLDER_SECTION_IDS as readonly string[]).includes(id),
+      `section ${id} in DOC 37`,
+    );
   }
 }
 
@@ -108,7 +117,9 @@ function readSrc(relativePath: string): string {
   assert(modal.includes('useCollaborationShareWizardActions'), 'modal uses wizard actions hook');
   const loaders = readSrc('src/components/collaboration/collaborationShareLoaders.ts');
   assert(loaders.includes('loadViaggioWorkspaceCatalog'), 'modal viaggio catalog loader');
-  const wizardActions = readSrc('src/components/collaboration/useCollaborationShareWizardActions.ts');
+  const wizardActions = readSrc(
+    'src/components/collaboration/useCollaborationShareWizardActions.ts',
+  );
   assert(
     wizardActions.includes('buildWorkspaceViaggioShellSettings'),
     'modal persists shell settings',

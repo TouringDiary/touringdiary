@@ -1,22 +1,20 @@
+import { normalizeCategoryName } from '@/domain/packing/packingCategories';
+import type { UpsertPackingTemplateItemDto } from '@/types/packingCatalog';
+import type { DbSuitcase } from '../../types/domain/index';
+import type { Suitcase, SuitcaseItem } from '../../types/suitcase';
 import { supabase } from '../supabaseClient';
+import {
+  cloneTemplateSpecificItemsAsync,
+  deleteTemplateSpecificItemAsync,
+  fetchAllTemplateSpecificItemsAsync,
+  upsertTemplateSpecificItemAsync,
+} from './packingCatalogService';
 import {
   createProductWithOverrideTriggerAsync,
   deleteAffiliateTriggerAsync,
-  upsertAffiliateTriggerFromDtoAsync
+  upsertAffiliateTriggerFromDtoAsync,
 } from './suitcaseAffiliateService';
-import { DbSuitcase } from '../../types/domain/index';
-import { Suitcase, SuitcaseItem } from '../../types/suitcase';
-import {
-  mapDbSuitcaseToRuntimeSuitcase,
-} from './suitcaseCoreService';
-import {
-  fetchAllTemplateSpecificItemsAsync,
-  upsertTemplateSpecificItemAsync,
-  deleteTemplateSpecificItemAsync,
-  cloneTemplateSpecificItemsAsync,
-} from './packingCatalogService';
-import { UpsertPackingTemplateItemDto } from '@/types/packingCatalog';
-import { normalizeCategoryName } from '@/domain/packing/packingCategories';
+import { mapDbSuitcaseToRuntimeSuitcase } from './suitcaseCoreService';
 
 /* ==========================================
    SERVIZI EDITORIALI MASTER TEMPLATE (MIGRATI)
@@ -34,10 +32,12 @@ export const fetchMasterTemplatesAsync = async (): Promise<Suitcase[]> => {
 
   if (error) throw error;
   if (!data) {
-    throw new Error("[suitcaseEditorialService] fetchMasterTemplatesAsync ha restituito data null.");
+    throw new Error(
+      '[suitcaseEditorialService] fetchMasterTemplatesAsync ha restituito data null.',
+    );
   }
 
-  return data.map(row => {
+  return data.map((row) => {
     const dbSuitcase: DbSuitcase = {
       id: row.id,
       title: row.title,
@@ -61,7 +61,7 @@ export const fetchMasterTemplatesAsync = async (): Promise<Suitcase[]> => {
  */
 export const fetchTemplateItemsAsync = async (suitcaseId: string): Promise<SuitcaseItem[]> => {
   if (!suitcaseId) {
-    throw new Error("[suitcaseEditorialService] fetchTemplateItemsAsync: suitcaseId mancante.");
+    throw new Error('[suitcaseEditorialService] fetchTemplateItemsAsync: suitcaseId mancante.');
   }
 
   const rows = await fetchAllTemplateSpecificItemsAsync(suitcaseId);
@@ -81,7 +81,7 @@ export const fetchTemplateItemsAsync = async (suitcaseId: string): Promise<Suitc
  */
 export const createMasterTemplateAsync = async (
   title: string = 'Nuovo Template',
-  icon: string = '🎒'
+  icon: string = '🎒',
 ): Promise<Suitcase> => {
   const { data, error } = await supabase
     .from('suitcases')
@@ -91,7 +91,7 @@ export const createMasterTemplateAsync = async (
 
   if (error) throw error;
   if (!data) {
-    throw new Error("[suitcaseEditorialService] createMasterTemplateAsync: nessun record creato.");
+    throw new Error('[suitcaseEditorialService] createMasterTemplateAsync: nessun record creato.');
   }
 
   const dbSuitcase: DbSuitcase = {
@@ -116,16 +116,18 @@ export const createMasterTemplateAsync = async (
  */
 export const cloneMasterTemplateAsync = async (sourceId: string): Promise<string> => {
   if (!sourceId) {
-    throw new Error("[suitcaseEditorialService] cloneMasterTemplateAsync: sourceId mancante.");
+    throw new Error('[suitcaseEditorialService] cloneMasterTemplateAsync: sourceId mancante.');
   }
 
   const { data, error } = await supabase.rpc('clone_suitcase_master', {
-    p_source_id: sourceId
+    p_source_id: sourceId,
   });
 
   if (error) throw error;
   if (typeof data !== 'string') {
-    throw new Error("[suitcaseEditorialService] Chiamata RPC clone_suitcase_master non ha restituito un ID valido.");
+    throw new Error(
+      '[suitcaseEditorialService] Chiamata RPC clone_suitcase_master non ha restituito un ID valido.',
+    );
   }
 
   await cloneTemplateSpecificItemsAsync(sourceId, data);
@@ -137,13 +139,10 @@ export const cloneMasterTemplateAsync = async (sourceId: string): Promise<string
  */
 export const deleteMasterTemplateAsync = async (suitcaseId: string): Promise<void> => {
   if (!suitcaseId) {
-    throw new Error("[suitcaseEditorialService] deleteMasterTemplateAsync: suitcaseId mancante.");
+    throw new Error('[suitcaseEditorialService] deleteMasterTemplateAsync: suitcaseId mancante.');
   }
 
-  const { error } = await supabase
-    .from('suitcases')
-    .delete()
-    .eq('id', suitcaseId);
+  const { error } = await supabase.from('suitcases').delete().eq('id', suitcaseId);
 
   if (error) throw error;
 };
@@ -151,18 +150,20 @@ export const deleteMasterTemplateAsync = async (suitcaseId: string): Promise<voi
 /**
  * Aggiorna il titolo di un master template.
  */
-export const updateMasterTemplateTitleAsync = async (suitcaseId: string, title: string): Promise<void> => {
+export const updateMasterTemplateTitleAsync = async (
+  suitcaseId: string,
+  title: string,
+): Promise<void> => {
   if (!suitcaseId) {
-    throw new Error("[suitcaseEditorialService] updateMasterTemplateTitleAsync: suitcaseId mancante.");
+    throw new Error(
+      '[suitcaseEditorialService] updateMasterTemplateTitleAsync: suitcaseId mancante.',
+    );
   }
   if (!title) {
-    throw new Error("[suitcaseEditorialService] updateMasterTemplateTitleAsync: title mancante.");
+    throw new Error('[suitcaseEditorialService] updateMasterTemplateTitleAsync: title mancante.');
   }
 
-  const { error } = await supabase
-    .from('suitcases')
-    .update({ title })
-    .eq('id', suitcaseId);
+  const { error } = await supabase.from('suitcases').update({ title }).eq('id', suitcaseId);
 
   if (error) throw error;
 };
@@ -181,20 +182,20 @@ export interface UpsertTemplateItemDto {
  * Crea o aggiorna un oggetto specifico template TD (packing_template_items).
  */
 export const upsertTemplateItemAsync = async (
-  item: UpsertTemplateItemDto
+  item: UpsertTemplateItemDto,
 ): Promise<SuitcaseItem> => {
   const template_id = item.suitcase_id;
   const name = item.name;
   const category = item.category;
 
   if (!template_id) {
-    throw new Error("[suitcaseEditorialService] upsertTemplateItemAsync: suitcase_id mancante.");
+    throw new Error('[suitcaseEditorialService] upsertTemplateItemAsync: suitcase_id mancante.');
   }
   if (!name) {
-    throw new Error("[suitcaseEditorialService] upsertTemplateItemAsync: name mancante.");
+    throw new Error('[suitcaseEditorialService] upsertTemplateItemAsync: name mancante.');
   }
   if (!category) {
-    throw new Error("[suitcaseEditorialService] upsertTemplateItemAsync: category mancante.");
+    throw new Error('[suitcaseEditorialService] upsertTemplateItemAsync: category mancante.');
   }
 
   const dto: UpsertPackingTemplateItemDto = {
@@ -222,7 +223,7 @@ export const upsertTemplateItemAsync = async (
  */
 export const deleteTemplateItemAsync = async (itemId: string): Promise<void> => {
   if (!itemId) {
-    throw new Error("[suitcaseEditorialService] deleteTemplateItemAsync: itemId mancante.");
+    throw new Error('[suitcaseEditorialService] deleteTemplateItemAsync: itemId mancante.');
   }
 
   await deleteTemplateSpecificItemAsync(itemId);
@@ -242,7 +243,7 @@ export const saveTemplateOverrideAsync = async (
   itemName: string,
   overrideId: string | undefined,
   productId: string | undefined,
-  triggerKey: string
+  triggerKey: string,
 ): Promise<SaveOverrideResult> => {
   if (!productId) {
     if (overrideId) {
@@ -252,18 +253,21 @@ export const saveTemplateOverrideAsync = async (
   }
 
   if (productId === 'new') {
-    const { product, trigger } = await createProductWithOverrideTriggerAsync({
-      name: itemName,
-      imageUrl: 'https://placehold.co/400x400/0f172a/6366f1?text=' + encodeURIComponent(itemName),
-      preferredPartners: [],
-      targetCategories: [],
-      targetTags: []
-    }, triggerKey);
+    const { product, trigger } = await createProductWithOverrideTriggerAsync(
+      {
+        name: itemName,
+        imageUrl: `https://placehold.co/400x400/0f172a/6366f1?text=${encodeURIComponent(itemName)}`,
+        preferredPartners: [],
+        targetCategories: [],
+        targetTags: [],
+      },
+      triggerKey,
+    );
 
     return {
       action: 'create',
       finalTriggerId: trigger.id,
-      targetProductId: product.id
+      targetProductId: product.id,
     };
   }
 
@@ -272,12 +276,12 @@ export const saveTemplateOverrideAsync = async (
     triggerKey,
     triggerType: 'item',
     productId,
-    priority: 100
+    priority: 100,
   });
 
   return {
     action: 'upsert',
     finalTriggerId: trigger.id,
-    targetProductId: productId
+    targetProductId: productId,
   };
 };

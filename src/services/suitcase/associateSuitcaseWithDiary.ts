@@ -1,10 +1,10 @@
-import { Suitcase } from '@/types/suitcase';
-import { AssociationCase } from '@/utils/suitcaseAssociation';
+import type { Suitcase } from '@/types/suitcase';
+import type { AssociationCase } from '@/utils/suitcaseAssociation';
 
 export class SuitcaseAssociationError extends Error {
   constructor(
     message: string,
-    public readonly step: 'save-diary' | 'persist-suitcase' | 'link'
+    public readonly step: 'save-diary' | 'persist-suitcase' | 'link',
   ) {
     super(message);
     this.name = 'SuitcaseAssociationError';
@@ -14,11 +14,7 @@ export class SuitcaseAssociationError extends Error {
 export interface AssociationDeps {
   saveDiary: (name: string) => Promise<string>;
   persistGuestSuitcase: (userId: string, title?: string) => Promise<Suitcase>;
-  linkSuitcaseToTrip: (
-    itineraryId: string,
-    suitcaseId: string,
-    userId: string
-  ) => Promise<void>;
+  linkSuitcaseToTrip: (itineraryId: string, suitcaseId: string, userId: string) => Promise<void>;
 }
 
 export interface ExecuteAssociationInput {
@@ -41,7 +37,7 @@ export interface AssociationResult {
  * Nessun link parziale: fallisce al primo errore.
  */
 export const executeSuitcaseDiaryAssociation = async (
-  input: ExecuteAssociationInput
+  input: ExecuteAssociationInput,
 ): Promise<AssociationResult> => {
   const { associationCase, userId, deps } = input;
   let itineraryId = input.itineraryId;
@@ -52,7 +48,7 @@ export const executeSuitcaseDiaryAssociation = async (
     if (!name) {
       throw new SuitcaseAssociationError(
         'Inserisci un nome per il diario di viaggio.',
-        'save-diary'
+        'save-diary',
       );
     }
     return name;
@@ -61,10 +57,7 @@ export const executeSuitcaseDiaryAssociation = async (
   const requireSuitcaseName = () => {
     const name = input.suitcaseName?.trim();
     if (!name) {
-      throw new SuitcaseAssociationError(
-        'Inserisci un nome per la valigia.',
-        'persist-suitcase'
-      );
+      throw new SuitcaseAssociationError('Inserisci un nome per la valigia.', 'persist-suitcase');
     }
     return name;
   };
@@ -73,18 +66,12 @@ export const executeSuitcaseDiaryAssociation = async (
     try {
       const savedId = await deps.saveDiary(requireDiaryName());
       if (!savedId) {
-        throw new SuitcaseAssociationError(
-          'Impossibile salvare il diario. Riprova.',
-          'save-diary'
-        );
+        throw new SuitcaseAssociationError('Impossibile salvare il diario. Riprova.', 'save-diary');
       }
       itineraryId = savedId;
     } catch (error) {
       if (error instanceof SuitcaseAssociationError) throw error;
-      throw new SuitcaseAssociationError(
-        'Errore durante il salvataggio del diario.',
-        'save-diary'
-      );
+      throw new SuitcaseAssociationError('Errore durante il salvataggio del diario.', 'save-diary');
     }
   };
 
@@ -92,14 +79,12 @@ export const executeSuitcaseDiaryAssociation = async (
     try {
       const persisted = await deps.persistGuestSuitcase(
         userId,
-        associationCase === 'C' || associationCase === 'D'
-          ? requireSuitcaseName()
-          : undefined
+        associationCase === 'C' || associationCase === 'D' ? requireSuitcaseName() : undefined,
       );
       if (!persisted?.id) {
         throw new SuitcaseAssociationError(
           'Impossibile salvare la valigia. Riprova.',
-          'persist-suitcase'
+          'persist-suitcase',
         );
       }
       suitcaseId = persisted.id;
@@ -107,35 +92,26 @@ export const executeSuitcaseDiaryAssociation = async (
       if (error instanceof SuitcaseAssociationError) throw error;
       throw new SuitcaseAssociationError(
         'Errore durante il salvataggio della valigia.',
-        'persist-suitcase'
+        'persist-suitcase',
       );
     }
   };
 
   const linkStep = async () => {
     if (!itineraryId) {
-      throw new SuitcaseAssociationError(
-        'Diario non disponibile per l\'associazione.',
-        'link'
-      );
+      throw new SuitcaseAssociationError("Diario non disponibile per l'associazione.", 'link');
     }
     try {
       await deps.linkSuitcaseToTrip(itineraryId, suitcaseId, userId);
     } catch {
-      throw new SuitcaseAssociationError(
-        'Impossibile collegare la valigia al diario.',
-        'link'
-      );
+      throw new SuitcaseAssociationError('Impossibile collegare la valigia al diario.', 'link');
     }
   };
 
   switch (associationCase) {
     case 'A':
       if (!itineraryId) {
-        throw new SuitcaseAssociationError(
-          'Diario non disponibile per l\'associazione.',
-          'link'
-        );
+        throw new SuitcaseAssociationError("Diario non disponibile per l'associazione.", 'link');
       }
       await linkStep();
       break;

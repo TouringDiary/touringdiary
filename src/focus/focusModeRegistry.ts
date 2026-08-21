@@ -105,7 +105,7 @@ const WORKSPACE_BY_MODAL_KEY: WorkspaceByModalKey = {
 };
 
 function isWorkspaceModalKey(key: string): key is WorkspaceModalKey {
-  return Object.prototype.hasOwnProperty.call(WORKSPACE_BY_MODAL_KEY, key);
+  return Object.hasOwn(WORKSPACE_BY_MODAL_KEY, key);
 }
 
 export function resolveWorkspaceId(activeModal: string | null): WorkspaceId | null {
@@ -218,7 +218,9 @@ export function workspaceOwnsKeyboardShortcuts(mode: UIMode): boolean {
 }
 
 /** Workspace focus requires sidebar expanded for stable companion layout. */
-export function workspaceRequiresStableSidebar(ctx: Pick<DerivedFocusState, 'workspaceId'>): boolean {
+export function workspaceRequiresStableSidebar(
+  ctx: Pick<DerivedFocusState, 'workspaceId'>,
+): boolean {
   if (!ctx.workspaceId) return false;
   return WORKSPACE_REGISTRY[ctx.workspaceId].requiresStableSidebar;
 }

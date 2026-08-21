@@ -5,7 +5,10 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { VIAGGIO_FOLDER_SECTION_IDS, VIAGGIO_FOLDER_SECTIONS } from '../src/myspace/viaggioFolderSections';
+import {
+  VIAGGIO_FOLDER_SECTION_IDS,
+  VIAGGIO_FOLDER_SECTIONS,
+} from '../src/myspace/viaggioFolderSections';
 import type { ViaggioRoadbookArtifact } from '../src/types/models/ViaggioRoadbookArtifact';
 
 const issues: string[] = [];
@@ -28,38 +31,40 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
 }
 
 // 1) Sezioni operative STEP-3 dalla nav cartella condivisa
-{
-  assert(VIAGGIO_FOLDER_SECTION_IDS.includes('diario'), 'section id diario');
-  assert(VIAGGIO_FOLDER_SECTION_IDS.includes('valigia'), 'section id valigia');
-  assert(VIAGGIO_FOLDER_SECTION_IDS.includes('roadbook'), 'section id roadbook');
-  assert(
-    VIAGGIO_FOLDER_SECTIONS.some((s) => s.id === 'diario' && s.label === 'Diario'),
-    'section label Diario',
-  );
-}
+assert(VIAGGIO_FOLDER_SECTION_IDS.includes('diario'), 'section id diario');
+assert(VIAGGIO_FOLDER_SECTION_IDS.includes('valigia'), 'section id valigia');
+assert(VIAGGIO_FOLDER_SECTION_IDS.includes('roadbook'), 'section id roadbook');
+assert(
+  VIAGGIO_FOLDER_SECTIONS.some((s) => s.id === 'diario' && s.label === 'Diario'),
+  'section label Diario',
+);
 
 // 2) Surface service STEP-3 + WF-13 create Diario (modale / association hub)
-{
-  assertExportedAsyncFunction('src/services/viaggio/viaggioDiaryService.ts', 'listDiariesByViaggio');
-  assertExportedAsyncFunction(
-    'src/services/viaggio/resourceAssociationService.ts',
-    'createDiaryWithAssociation',
-  );
-  assertExportedAsyncFunction('src/services/viaggio/viaggioSuitcaseService.ts', 'listSuitcasesByViaggio');
-  assertExportedAsyncFunction('src/services/viaggio/viaggioSuitcaseService.ts', 'linkSuitcaseToViaggio');
-  assertExportedAsyncFunction(
-    'src/services/viaggio/viaggioRoadbookService.ts',
-    'listRoadbookArtifactsByViaggio',
-  );
-  assertExportedAsyncFunction(
-    'src/services/viaggio/viaggioRoadbookService.ts',
-    'createRoadbookArtifactFromDiary',
-  );
-  assertExportedAsyncFunction(
-    'src/services/viaggio/viaggioRoadbookService.ts',
-    'insertRoadbookArtifactSnapshot',
-  );
-}
+assertExportedAsyncFunction('src/services/viaggio/viaggioDiaryService.ts', 'listDiariesByViaggio');
+assertExportedAsyncFunction(
+  'src/services/viaggio/resourceAssociationService.ts',
+  'createDiaryWithAssociation',
+);
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioSuitcaseService.ts',
+  'listSuitcasesByViaggio',
+);
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioSuitcaseService.ts',
+  'linkSuitcaseToViaggio',
+);
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioRoadbookService.ts',
+  'listRoadbookArtifactsByViaggio',
+);
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioRoadbookService.ts',
+  'createRoadbookArtifactFromDiary',
+);
+assertExportedAsyncFunction(
+  'src/services/viaggio/viaggioRoadbookService.ts',
+  'insertRoadbookArtifactSnapshot',
+);
 
 // 3) Invarianti leggibili dal sorgente (no DB)
 {
@@ -88,10 +93,7 @@ function assertExportedAsyncFunction(relativePath: string, name: string): void {
   const migration = readSrc(
     'supabase/migrations/20260726190100_create_viaggio_roadbook_artifacts.sql',
   );
-  assert(
-    /source_diary_id\s+uuid\s+NOT NULL/.test(migration),
-    'migration source_diary_id NOT NULL',
-  );
+  assert(/source_diary_id\s+uuid\s+NOT NULL/.test(migration), 'migration source_diary_id NOT NULL');
   assert(
     migration.includes('(user_id, created_at DESC)'),
     'migration index (user_id, created_at DESC)',

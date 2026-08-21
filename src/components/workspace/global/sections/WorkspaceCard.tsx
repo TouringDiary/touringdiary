@@ -1,8 +1,8 @@
-import React from 'react';
 import { Calendar, Clock, LogOut, Trash2, Users } from 'lucide-react';
+import type React from 'react';
 import type { Workspace } from '@/domain/collaboration';
-import type { WorkspaceActiveRole } from '../globalWorkspacePresentation';
 import { formatRelativeActivity, formatWorkspaceCreated } from '@/utils/formatRelativeActivity';
+import type { WorkspaceActiveRole } from '../globalWorkspacePresentation';
 
 interface Props {
   workspace: Workspace;
@@ -31,9 +31,11 @@ export const WorkspaceCard: React.FC<Props> = ({
     className={`
       w-full text-left rounded-lg border transition-all
       ${compact ? 'px-3 py-2.5' : 'px-4 py-3 rounded-xl'}
-      ${isActive
-        ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40 shadow-[0_0_16px_rgba(99,102,241,0.12)]'
-        : 'border-slate-800 bg-slate-900/50 hover:border-indigo-500/30 hover:bg-slate-900'}
+      ${
+        isActive
+          ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40 shadow-[0_0_16px_rgba(99,102,241,0.12)]'
+          : 'border-slate-800 bg-slate-900/50 hover:border-indigo-500/30 hover:bg-slate-900'
+      }
     `}
   >
     <div className="flex items-start justify-between gap-2 mb-1.5">

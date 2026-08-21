@@ -12,9 +12,7 @@ export interface CompanionSurfaceInput {
 }
 
 /** Derives companion surface tier from UI state. */
-export function resolveCompanionSurfaceTier(
-  input: CompanionSurfaceInput
-): CompanionSurfaceTier {
+export function resolveCompanionSurfaceTier(input: CompanionSurfaceInput): CompanionSurfaceTier {
   return input.mobileDiaryFullScreen ? 'modal' : 'focus';
 }
 
@@ -31,8 +29,6 @@ export function resolveCompanionSurfaceTier(
  * overlay also lives in the focus band (Z_FOCUS_COMPANION), so no modal-band
  * elevation is required to keep the panel above it.
  */
-export function resolveWorkspacePanelZIndex(
-  _companionTier: CompanionSurfaceTier
-): number {
+export function resolveWorkspacePanelZIndex(_companionTier: CompanionSurfaceTier): number {
   return Z_FOCUS_ACTIVE;
 }

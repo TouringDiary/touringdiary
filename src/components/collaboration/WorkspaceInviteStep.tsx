@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import type { SharedResourceKind, WorkspaceResourceAccess } from '@/domain/collaboration';
 import type { WorkspacePendingInvite } from './collaborationSharePresentation';
 import { WorkspaceResourcePermissionSelect } from './workspace/WorkspaceResourcePermissionSelect';
@@ -12,7 +12,7 @@ interface WorkspaceInviteStepProps {
     userId: string,
     kind: SharedResourceKind,
     resourceId: string,
-    accessLevel: WorkspaceResourceAccess
+    accessLevel: WorkspaceResourceAccess,
   ) => void;
 }
 
@@ -25,8 +25,8 @@ export const WorkspaceInviteStep: React.FC<WorkspaceInviteStepProps> = ({
 }) => (
   <div className="space-y-3">
     <p className={`${introClassName} text-slate-400 leading-relaxed`}>
-      Invita utenti al Workspace e imposta il livello di accesso per ogni elemento incluso.
-      Potrai modificare inviti e permessi in qualsiasi momento dalla gestione del Workspace.
+      Invita utenti al Workspace e imposta il livello di accesso per ogni elemento incluso. Potrai
+      modificare inviti e permessi in qualsiasi momento dalla gestione del Workspace.
     </p>
     {pendingInvites.length === 0 ? (
       <p className="text-sm text-slate-500">Nessun invito aggiunto (opzionale).</p>
@@ -40,9 +40,7 @@ export const WorkspaceInviteStep: React.FC<WorkspaceInviteStepProps> = ({
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{invite.name}</p>
-                {invite.slug && (
-                  <p className="text-xs text-slate-500 truncate">@{invite.slug}</p>
-                )}
+                {invite.slug && <p className="text-xs text-slate-500 truncate">@{invite.slug}</p>}
               </div>
               <button
                 type="button"
@@ -62,7 +60,7 @@ export const WorkspaceInviteStep: React.FC<WorkspaceInviteStepProps> = ({
                 {compositionElements.map((element) => {
                   const permission = invite.permissions.find(
                     (entry) =>
-                      entry.kind === element.kind && entry.resourceId === element.resourceId
+                      entry.kind === element.kind && entry.resourceId === element.resourceId,
                   );
                   return (
                     <li
@@ -79,7 +77,7 @@ export const WorkspaceInviteStep: React.FC<WorkspaceInviteStepProps> = ({
                             invite.userId,
                             element.kind,
                             element.resourceId,
-                            accessLevel
+                            accessLevel,
                           )
                         }
                         className="shrink-0 max-w-[9.5rem]"

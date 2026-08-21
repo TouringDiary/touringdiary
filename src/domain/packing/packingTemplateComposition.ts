@@ -3,11 +3,11 @@
  * Usata da packingCompositionService e dagli script QA.
  */
 
-import { getCategoryId, normalizeCategoryName } from './packingCategories';
-import type { CategorySetupMap } from './categorySetupTypes';
 import type { PackingStandardItemTier } from '@/types/packingCatalog';
 import type { SuitcaseItem } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
+import type { CategorySetupMap } from './categorySetupTypes';
+import { getCategoryId, normalizeCategoryName } from './packingCategories';
 
 export interface ComposeCatalogStandardRow {
   category: string;
@@ -31,7 +31,7 @@ export interface ComposeTdTemplateItemsParams {
  * Unisce standard e specifici template rispettando category_setup e dedup per nome.
  */
 export function composeTdTemplateItemsFromCatalog(
-  params: ComposeTdTemplateItemsParams
+  params: ComposeTdTemplateItemsParams,
 ): SuitcaseItem[] {
   const { setup, suitcaseId, standardRows, specificRows } = params;
   const merged: { name: string; category: string }[] = [];

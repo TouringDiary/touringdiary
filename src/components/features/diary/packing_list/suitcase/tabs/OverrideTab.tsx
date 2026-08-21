@@ -1,33 +1,35 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, Package } from 'lucide-react';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { normalizeItemName } from '@/utils/tagDerivation';
-import { usePartnerIntegrations } from '@/hooks/usePartnerIntegrations';
-import {
-  fetchMasterTemplatesAsync,
-  fetchTemplateItemsAsync,
-  saveTemplateOverrideAsync
-} from '@/services/suitcase/suitcaseEditorialService';
-import {
-  fetchAllAffiliateProductsAsync,
-  fetchAllAffiliateProductLinksAsync,
-  fetchTemplateOverridesAsync
-} from '@/services/suitcase/suitcaseAffiliateService';
-import { AffiliateProductLink } from '@/types/partners';
-import { SuggestionProduct, ItemOverride } from '@/types/suitcase';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getSystemCategoryOrderIndexExact,
   normalizeCategoryName,
 } from '@/domain/packing/packingCategories';
-
-// Sub-components
-import { TemplateSelector } from './override/TemplateSelector';
+import { usePartnerIntegrations } from '@/hooks/usePartnerIntegrations';
+import {
+  fetchAllAffiliateProductLinksAsync,
+  fetchAllAffiliateProductsAsync,
+  fetchTemplateOverridesAsync,
+} from '@/services/suitcase/suitcaseAffiliateService';
+import {
+  fetchMasterTemplatesAsync,
+  fetchTemplateItemsAsync,
+  saveTemplateOverrideAsync,
+} from '@/services/suitcase/suitcaseEditorialService';
+import type { AffiliateProductLink } from '@/types/partners';
+import type { ItemOverride, SuggestionProduct, Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { normalizeItemName } from '@/utils/tagDerivation';
 import { CategoryAccordion } from './override/CategoryAccordion';
-import { ProductPicker } from './override/ProductPicker';
 import { ItemOverrideRow } from './override/ItemOverrideRow';
 import { PartnerLinksPanel } from './override/PartnerLinksPanel';
+import { ProductPicker } from './override/ProductPicker';
+// Sub-components
+import { TemplateSelector } from './override/TemplateSelector';
 
-export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMaster: (id: string) => void }> = ({ selectedMasterId, onSelectMaster }) => {
+export const OverrideTab: React.FC<{
+  selectedMasterId: string | null;
+  onSelectMaster: (id: string) => void;
+}> = ({ selectedMasterId, onSelectMaster }) => {
   const [masters, setMasters] = useState<Suitcase[]>([]);
   const [items, setItems] = useState<SuitcaseItem[]>([]);
   const [products, setProducts] = useState<SuggestionProduct[]>([]);
@@ -40,7 +42,7 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
   const { integrations } = usePartnerIntegrations();
   const activePartners = useMemo(() => {
     if (!integrations?.partners) return [];
-    return Object.values(integrations.partners).filter(p => p.enabled);
+    return Object.values(integrations.partners).filter((p) => p.enabled);
   }, [integrations]);
 
   const detectPartnerFromUrl = (url: string) => {
@@ -50,7 +52,7 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
         try {
           const domain = new URL(p.affiliate.base_url).hostname.replace('www.', '').split('.')[0];
           if (domain && domain.length > 2 && lowerUrl.includes(domain)) return p.id;
-        } catch (e) { }
+        } catch (e) {}
       }
     }
     if (lowerUrl.includes('amazon.')) return 'amazon';
@@ -64,17 +66,27 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
   };
 
   const groupedPartners = useMemo(() => {
-    const groups: Record<string, typeof activePartners> = { 'Generale': [], 'Elettronica': [], 'Fashion': [], 'Esperienze': [], 'Trasporti': [], 'Ticket': [], 'Hotel': [], 'Altro': [] };
-    activePartners.forEach(p => {
+    const groups: Record<string, typeof activePartners> = {
+      Generale: [],
+      Elettronica: [],
+      Fashion: [],
+      Esperienze: [],
+      Trasporti: [],
+      Ticket: [],
+      Hotel: [],
+      Altro: [],
+    };
+    activePartners.forEach((p) => {
       const groupName = p.group || 'Generale';
-      if (groups[groupName]) groups[groupName].push(p); else groups['Altro'].push(p);
+      if (groups[groupName]) groups[groupName].push(p);
+      else groups.Altro.push(p);
     });
     return Object.entries(groups).filter(([_, list]) => list.length > 0);
   }, [activePartners]);
 
   const groupedItems = useMemo(() => {
-    const groups: Record<string, { items: SuitcaseItem[], configured: number }> = {};
-    items.forEach(item => {
+    const groups: Record<string, { items: SuitcaseItem[]; configured: number }> = {};
+    items.forEach((item) => {
       const cat = normalizeCategoryName(item.category || 'Extra');
       if (!groups[cat]) groups[cat] = { items: [], configured: 0 };
       groups[cat].items.push(item);
@@ -96,7 +108,7 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
       const [mastersData, productsData, linksData] = await Promise.all([
         fetchMasterTemplatesAsync(),
         fetchAllAffiliateProductsAsync(),
-        fetchAllAffiliateProductLinksAsync()
+        fetchAllAffiliateProductLinksAsync(),
       ]);
 
       setMasters(mastersData);
@@ -106,10 +118,16 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
 
       setProducts(productsData);
       setProductLinks(linksData);
-    } catch (e) { console.error(e); } finally { setIsLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
   }, [selectedMasterId, onSelectMaster]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     if (!selectedMasterId) return;
@@ -117,17 +135,22 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
       try {
         const [itemsData, triggersData] = await Promise.all([
           fetchTemplateItemsAsync(selectedMasterId),
-          fetchTemplateOverridesAsync(selectedMasterId)
+          fetchTemplateOverridesAsync(selectedMasterId),
         ]);
 
         setItems(itemsData);
 
         const map: Record<string, ItemOverride> = {};
-        triggersData.forEach(t => {
+        triggersData.forEach((t) => {
           const parts = t.trigger_key.split(':');
           if (parts.length >= 3) {
             const name = parts.slice(2).join(':');
-            map[name] = { id: t.id, trigger_key: t.trigger_key, product_id: t.product_id || undefined, is_saved: true };
+            map[name] = {
+              id: t.id,
+              trigger_key: t.trigger_key,
+              product_id: t.product_id || undefined,
+              is_saved: true,
+            };
           }
         });
         setOverrides(map);
@@ -140,24 +163,32 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
 
   const handleOverrideChange = (itemName: string, productId: string | undefined) => {
     const normalized = normalizeItemName(itemName);
-    setOverrides(prev => ({ ...prev, [normalized]: { ...prev[normalized], trigger_key: `override:${selectedMasterId}:${normalized}`, product_id: productId, is_saved: false } }));
+    setOverrides((prev) => ({
+      ...prev,
+      [normalized]: {
+        ...prev[normalized],
+        trigger_key: `override:${selectedMasterId}:${normalized}`,
+        product_id: productId,
+        is_saved: false,
+      },
+    }));
   };
 
   const saveOverride = async (itemName: string) => {
     const normalized = normalizeItemName(itemName);
     const override = overrides[normalized];
     if (!override || !selectedMasterId) return;
-    setOverrides(prev => ({ ...prev, [normalized]: { ...prev[normalized], is_saving: true } }));
+    setOverrides((prev) => ({ ...prev, [normalized]: { ...prev[normalized], is_saving: true } }));
     try {
       const result = await saveTemplateOverrideAsync(
         itemName,
         override.id,
         override.product_id,
-        override.trigger_key
+        override.trigger_key,
       );
 
       if (result.action === 'delete') {
-        setOverrides(prev => {
+        setOverrides((prev) => {
           const next = { ...prev };
           delete next[normalized];
           return next;
@@ -168,35 +199,49 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
           setProducts(updatedProds);
         }
 
-        setOverrides(prev => ({
+        setOverrides((prev) => ({
           ...prev,
           [normalized]: {
             ...prev[normalized],
             id: result.finalTriggerId,
             product_id: result.targetProductId,
             is_saving: false,
-            is_saved: true
-          }
+            is_saved: true,
+          },
         }));
       }
     } catch (e) {
       console.error(e);
-      setOverrides(prev => ({ ...prev, [normalized]: { ...prev[normalized], is_saving: false } }));
+      setOverrides((prev) => ({
+        ...prev,
+        [normalized]: { ...prev[normalized], is_saving: false },
+      }));
     }
   };
 
-  if (isLoading) return <div className="flex-1 flex items-center justify-center bg-slate-950"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>;
+  if (isLoading)
+    return (
+      <div className="flex-1 flex items-center justify-center bg-slate-950">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    );
 
   return (
     <div className="flex h-full animate-in fade-in duration-500">
-      <TemplateSelector masters={masters} selectedMasterId={selectedMasterId} onSelectMaster={onSelectMaster} />
+      <TemplateSelector
+        masters={masters}
+        selectedMasterId={selectedMasterId}
+        onSelectMaster={onSelectMaster}
+      />
 
       <main className="flex-1 lg:overflow-y-auto bg-slate-950 p-8">
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="flex items-center justify-between border-b border-white/5 pb-6">
             <div>
               <h2 className="text-2xl font-black text-white">Override Prodotti</h2>
-              <p className="text-sm text-slate-400 mt-1">Configura suggerimenti specifici per ogni oggetto di questo template.</p>
+              <p className="text-sm text-slate-400 mt-1">
+                Configura suggerimenti specifici per ogni oggetto di questo template.
+              </p>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-orange-200 text-sm font-bold">
               <Package className="w-4 h-4" /> {items.length} Oggetti
@@ -217,7 +262,8 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
                     isExpanded={isExpanded}
                     onToggle={() => {
                       const next = new Set(expandedItemCats);
-                      if (next.has(category)) next.delete(category); else next.add(category);
+                      if (next.has(category)) next.delete(category);
+                      else next.add(category);
                       setExpandedItemCats(next);
                     }}
                     allSaved={allSaved}
@@ -225,10 +271,10 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
 
                   {isExpanded && (
                     <div className="grid gap-4 pl-4 border-l border-white/5 ml-6 animate-in slide-in-from-top-2 duration-300">
-                      {data.items.map(item => {
+                      {data.items.map((item) => {
                         const normalized = normalizeItemName(item.name);
                         const override = overrides[normalized];
-                        const currentProduct = products.find(p => p.id === override?.product_id);
+                        const currentProduct = products.find((p) => p.id === override?.product_id);
 
                         return (
                           <ItemOverrideRow
@@ -246,20 +292,27 @@ export const OverrideTab: React.FC<{ selectedMasterId: string | null; onSelectMa
                                 productSearch={productSearch}
                                 setProductSearch={setProductSearch}
                                 isOpen={openPickerId === item.id}
-                                onOpenToggle={() => setOpenPickerId(openPickerId === item.id ? null : item.id)}
-                                onSelect={(pid) => { handleOverrideChange(item.name, pid); setOpenPickerId(null); }}
+                                onOpenToggle={() =>
+                                  setOpenPickerId(openPickerId === item.id ? null : item.id)
+                                }
+                                onSelect={(pid) => {
+                                  handleOverrideChange(item.name, pid);
+                                  setOpenPickerId(null);
+                                }}
                               />
                             }
-                            partnerPanel={currentProduct && (
-                              <PartnerLinksPanel
-                                currentProduct={currentProduct}
-                                groupedPartners={groupedPartners}
-                                productLinks={productLinks}
-                                override={override}
-                                detectPartnerFromUrl={detectPartnerFromUrl}
-                                onLinksUpdated={(newLinks) => setProductLinks(newLinks)}
-                              />
-                            )}
+                            partnerPanel={
+                              currentProduct && (
+                                <PartnerLinksPanel
+                                  currentProduct={currentProduct}
+                                  groupedPartners={groupedPartners}
+                                  productLinks={productLinks}
+                                  override={override}
+                                  detectPartnerFromUrl={detectPartnerFromUrl}
+                                  onLinksUpdated={(newLinks) => setProductLinks(newLinks)}
+                                />
+                              )
+                            }
                           />
                         );
                       })}

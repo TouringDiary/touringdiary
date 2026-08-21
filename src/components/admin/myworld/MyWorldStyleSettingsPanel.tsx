@@ -1,21 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  AlertTriangle,
-  ChevronRight,
-  Globe2,
-  Loader2,
-  RefreshCw,
-  Smartphone,
-} from 'lucide-react';
+import { AlertTriangle, ChevronRight, Globe2, Loader2, RefreshCw, Smartphone } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useConfig } from '@/context/ConfigContext';
-import type { StyleRule } from '@/types/designSystem';
-import { updateDesignSystemRule, rebuildDesignSystemCache } from '@/services/settingsService';
 import { MYWORLD_SETTINGS_GROUPS } from '@/data/system/myWorldSettingsCatalog';
+import { rebuildDesignSystemCache, updateDesignSystemRule } from '@/services/settingsService';
+import type { StyleRule } from '@/types/designSystem';
 import ComponentPreviewHost from '../design/ComponentPreviewHost';
 import { SideEditorPanel } from '../design/SideEditorPanel';
 
-const isMyWorldRule = (rule: StyleRule): boolean =>
-  (rule.section?.trim() ?? '') === 'myworld';
+const isMyWorldRule = (rule: StyleRule): boolean => (rule.section?.trim() ?? '') === 'myworld';
 
 /** Confronto locale StyleRule (nessuna utility condivisa nel progetto; evita JSON.stringify). */
 const isSameStyleRule = (a: StyleRule | undefined, b: StyleRule): boolean => {
@@ -158,8 +151,8 @@ const MyWorldStyleSettingsPanel: React.FC = () => {
             <code className="text-indigo-300">design_system_rules</code>.
           </p>
           <p className="mt-1 text-sm text-slate-400">
-            Esegui la migration seed MyWorld Style. I componenti usano già i seed di default
-            finché il DB non è popolato.
+            Esegui la migration seed MyWorld Style. I componenti usano già i seed di default finché
+            il DB non è popolato.
           </p>
           {rebuildError && (
             <div className="mt-4 p-3 bg-red-900/50 border border-red-500/50 rounded-lg text-sm text-red-300">
@@ -173,7 +166,11 @@ const MyWorldStyleSettingsPanel: React.FC = () => {
               disabled={isRebuilding}
               className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-50 mx-auto"
             >
-              {isRebuilding ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+              {isRebuilding ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-5 h-5" />
+              )}
               {isRebuilding ? 'Rigenerazione in corso...' : 'Rigenera Cache'}
             </button>
           </div>
@@ -208,7 +205,11 @@ const MyWorldStyleSettingsPanel: React.FC = () => {
           disabled={isRebuilding}
           className="self-start lg:self-center bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 border border-slate-700 disabled:opacity-50"
         >
-          {isRebuilding ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {isRebuilding ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4" />
+          )}
           Rigenera cache
         </button>
       </div>

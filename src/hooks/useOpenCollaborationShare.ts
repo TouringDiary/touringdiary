@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
-import { useModal } from '@/context/ModalContext';
-import { useUser } from '@/context/UserContext';
 import {
   COLLABORATION_RETURN_TO,
   isGuestUser,
   requestCollaborationAuth,
 } from '@/collaboration/guestGate';
-import { userNeedsUsername } from '@/domain/profile/username';
+import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
 import type { SharedResourceKind } from '@/domain/collaboration';
+import { userNeedsUsername } from '@/domain/profile/username';
 import {
   isCollaborationEngineEnabled,
   isSharedResourceKindEnabled,
@@ -45,6 +45,6 @@ export function useOpenCollaborationShare() {
 
       openModal('collaborationShare', target);
     },
-    [openModal, user]
+    [openModal, user],
   );
 }

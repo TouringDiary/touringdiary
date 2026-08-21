@@ -1,11 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {
-  filterCategoriesByStatus,
-  getIncompleteItemCount,
-  getSuitcaseItemProgress,
-  CategoryStatusFilter,
-} from './SuitcaseUtils';
-import { buildGroupedItemsByCategory } from '@/domain/packing/itemDisplayOrder';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildDisplayCategories,
   enableOptionalSystemCategory,
@@ -16,31 +10,39 @@ import {
   resolveCategorySetup,
   setCategoryEnabled,
 } from '@/domain/packing/categorySetup';
-import { normalizeCategoryName } from '@/domain/packing/packingCategories';
-import { Suitcase, SuitcaseItem, RuntimeAffiliateProduct } from '@/types/suitcase';
-import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
-import { AiSuggestion, AiQuotaFeedback } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
-import { GetAiCandidatesOptions } from '@/hooks/useSuitcaseSystem';
-import { CategorySuggestionPanel } from './CategorySuggestionPanel';
-import { SuitcaseSidePanel } from './SuitcaseSidePanel';
-import { SuitcaseMobileSuggestionsDrawer } from './SuitcaseMobileSuggestionsDrawer';
-import { SuitcaseToast } from '../SuitcaseFloatingPanel/components/SuitcaseToast';
-import { AiSuggestionsModal } from './AiSuggestionsModal';
-import { SuitcaseEditorToolbar } from './SuitcaseEditorToolbar';
-import { NewCategoryPanel } from './NewCategoryPanel';
-import { CategorySection } from './CategorySection';
-import { CategoryPanelsHeader } from './CategoryPanelsHeader';
-import { GuestDraftBanner } from './GuestDraftBanner';
-import { isTdTemplate, getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
-import { CategorySetupMap } from '@/types/packingCatalog';
+import { buildGroupedItemsByCategory } from '@/domain/packing/itemDisplayOrder';
+import { useBelowLg } from '@/hooks/ui/useBelowLg';
+import { useHideOnScrollDown } from '@/hooks/ui/useHideOnScrollDown';
+import type { GetAiCandidatesOptions } from '@/hooks/useSuitcaseSystem';
 import {
   composeTdTemplateItemsAsync,
   ensureTdTemplateCategorySetup,
 } from '@/services/suitcase/packingCompositionService';
-import { useBelowLg } from '@/hooks/ui/useBelowLg';
-import { useHideOnScrollDown } from '@/hooks/ui/useHideOnScrollDown';
-
-import { ToastVariant, CATEGORY_ADDED_TOAST } from '@/types/toast';
+import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
+import type { CategorySetupMap } from '@/types/packingCatalog';
+import type { RuntimeAffiliateProduct, Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { CATEGORY_ADDED_TOAST, type ToastVariant } from '@/types/toast';
+import { getDraftWorkspaceKind, isTdTemplate } from '@/utils/suitcaseDomain';
+import { SuitcaseToast } from '../SuitcaseFloatingPanel/components/SuitcaseToast';
+import type {
+  AiQuotaFeedback,
+  AiSuggestion,
+} from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
+import { AiSuggestionsModal } from './AiSuggestionsModal';
+import { CategoryPanelsHeader } from './CategoryPanelsHeader';
+import { CategorySection } from './CategorySection';
+import { CategorySuggestionPanel } from './CategorySuggestionPanel';
+import { GuestDraftBanner } from './GuestDraftBanner';
+import { NewCategoryPanel } from './NewCategoryPanel';
+import { SuitcaseEditorToolbar } from './SuitcaseEditorToolbar';
+import { SuitcaseMobileSuggestionsDrawer } from './SuitcaseMobileSuggestionsDrawer';
+import { SuitcaseSidePanel } from './SuitcaseSidePanel';
+import {
+  type CategoryStatusFilter,
+  filterCategoriesByStatus,
+  getIncompleteItemCount,
+  getSuitcaseItemProgress,
+} from './SuitcaseUtils';
 
 /**
  * Tolleranza sub-pixel per riconoscere il fondo dello scroll: scrollTop/clientHeight/scrollHeight
@@ -73,7 +75,7 @@ interface SuitcaseEditorViewProps {
   onSeedAi: (
     categories?: string[],
     mode?: 'direct' | 'review',
-    options?: GetAiCandidatesOptions
+    options?: GetAiCandidatesOptions,
   ) => void;
   onOpenBlacklist: () => void;
   autoOpenNewCategory?: boolean;
@@ -100,7 +102,7 @@ interface SuitcaseEditorViewProps {
     categoryId: string,
     draggedName: string,
     targetName: string,
-    visibleNamesInOrder: string[]
+    visibleNamesInOrder: string[],
   ) => void;
   onActivateOptionalCategory?: (categoryId: string) => void | Promise<void>;
   hiddenCategories: HiddenCategories;
@@ -115,9 +117,7 @@ interface SuitcaseEditorViewProps {
   onSetViewMode?: (mode: 'viewer' | 'editor') => void;
   onUseTemplate?: () => void;
   categorySetupOverlay?: CategorySetupMap;
-  onCategorySetupOverlayChange?: (
-    updater: (prev: CategorySetupMap) => CategorySetupMap
-  ) => void;
+  onCategorySetupOverlayChange?: (updater: (prev: CategorySetupMap) => CategorySetupMap) => void;
   /** Apertura del modale AI controllata dall'esterno (es. dal menu "Azione" nell'header).
    *  Se non fornita, il componente usa uno stato locale (comportamento legacy). */
   aiModalOpen?: boolean;
@@ -151,7 +151,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   onActivateOptionalCategory,
   hiddenCategories,
   showToast,
-  toast = { visible: false, message: "" },
+  toast = { visible: false, message: '' },
   blacklistCount = 0,
   isBlacklistFlashing = false,
   isAddingNewCategory,
@@ -178,7 +178,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
 
   const resolvedBaseTemplate = useMemo(
     () => (isTd ? ensureTdTemplateCategorySetup(suitcase) : suitcase),
-    [suitcase, isTd]
+    [suitcase, isTd],
   );
 
   const effectiveSuitcase = useMemo(
@@ -186,7 +186,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       useTdOverlayMode
         ? mergeTemplateWithOverlay(resolvedBaseTemplate, categorySetupOverlay)
         : resolvedBaseTemplate,
-    [resolvedBaseTemplate, categorySetupOverlay, useTdOverlayMode]
+    [resolvedBaseTemplate, categorySetupOverlay, useTdOverlayMode],
   );
 
   const [composedTdItems, setComposedTdItems] = useState<SuitcaseItem[] | null>(null);
@@ -217,7 +217,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       useTdOverlayMode && composedTdItems !== null
         ? { ...effectiveSuitcase, suitcase_items: composedTdItems }
         : effectiveSuitcase,
-    [effectiveSuitcase, composedTdItems, useTdOverlayMode]
+    [effectiveSuitcase, composedTdItems, useTdOverlayMode],
   );
 
   const overlayIsHidden = useCallback(
@@ -226,7 +226,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       if (setup[categoryId]?.enabled === false) return true;
       return (displaySuitcase.ui_state?.hidden_category_ids ?? []).includes(categoryId);
     },
-    [displaySuitcase]
+    [displaySuitcase],
   );
 
   const { enhancedHiddenCategoriesLogic } = hiddenCategories;
@@ -250,14 +250,14 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
     setIsSidebarOpen(!isBelowLg);
   }, [isBelowLg]);
 
-  const [newItemName, setNewItemName] = useState("");
+  const [newItemName, setNewItemName] = useState('');
   const [activeCategoryForAdd, setActiveCategoryForAdd] = useState<string | null>(null);
   // Apertura modale AI: controllata dall'esterno se forniti i props, altrimenti stato locale.
   const [internalAiModalOpen, setInternalAiModalOpen] = useState(false);
   const showAiModal = aiModalOpen ?? internalAiModalOpen;
   const setShowAiModal = onAiModalOpenChange ?? setInternalAiModalOpen;
-  const [newCatName, setNewCatName] = useState("");
-  const [newCatIcon, setNewCatIcon] = useState("Package");
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState('Package');
   const [showIconPicker, setShowIconPicker] = useState(false);
   const categorySectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -294,7 +294,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   const handleAdd = (category: string) => {
     if (!newItemName.trim()) return;
     onAddItem(category, newItemName.trim());
-    setNewItemName("");
+    setNewItemName('');
     setActiveCategoryForAdd(null);
   };
 
@@ -306,27 +306,20 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       icon_key: newCatIcon,
       order: (suitcase.custom_categories?.length || 0) + 1,
       source: 'user',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
     const updatedCustomCats = [...(suitcase.custom_categories || []), newCat];
     onUpdateSuitcase({ custom_categories: updatedCustomCats });
-    setNewCatName("");
-    setNewCatIcon("Package");
+    setNewCatName('');
+    setNewCatIcon('Package');
     setIsAddingNewCategory(false);
-    showToast?.(
-      CATEGORY_ADDED_TOAST.message,
-      CATEGORY_ADDED_TOAST.description,
-      'success'
-    );
+    showToast?.(CATEGORY_ADDED_TOAST.message, CATEGORY_ADDED_TOAST.description, 'success');
   };
 
-  const allCategories = useMemo(
-    () => buildDisplayCategories(displaySuitcase),
-    [displaySuitcase],
-  );
+  const allCategories = useMemo(() => buildDisplayCategories(displaySuitcase), [displaySuitcase]);
 
   const visibleCategories = allCategories.filter(
-    (cat) => cat.source === 'system' || !resolvedIsHidden(cat.id)
+    (cat) => cat.source === 'system' || !resolvedIsHidden(cat.id),
   );
 
   const hiddenCategoriesList = getRestorableHiddenCategories(displaySuitcase, resolvedIsHidden);
@@ -356,7 +349,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', itemId);
     },
-    [readOnly]
+    [readOnly],
   );
 
   const handleItemDragOver = useCallback(
@@ -367,7 +360,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       dragMovedRef.current = true;
       setDropTarget({ categoryId, index });
     },
-    [readOnly]
+    [readOnly],
   );
 
   const handleItemDragLeave = useCallback(
@@ -375,10 +368,10 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       const related = e.relatedTarget as Node | null;
       if (related && e.currentTarget.contains(related)) return;
       setDropTarget((current) =>
-        current?.categoryId === categoryId && current.index === index ? null : current
+        current?.categoryId === categoryId && current.index === index ? null : current,
       );
     },
-    []
+    [],
   );
 
   const handleItemDrop = useCallback(
@@ -392,22 +385,17 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       const items = groupedItems[categoryName] ?? [];
       const draggedItem = items.find((entry) => entry.id === draggedId);
       const targetItem = items[targetIndex];
-      if (
-        draggedItem &&
-        targetItem &&
-        draggedItem.id !== targetItem.id &&
-        onSwapItemsInCategory
-      ) {
+      if (draggedItem && targetItem && draggedItem.id !== targetItem.id && onSwapItemsInCategory) {
         onSwapItemsInCategory(
           categoryId,
           draggedItem.name,
           targetItem.name,
-          items.map((entry) => entry.name)
+          items.map((entry) => entry.name),
         );
       }
       resetItemDragState();
     },
-    [groupedItems, onSwapItemsInCategory, readOnly, resetItemDragState]
+    [groupedItems, onSwapItemsInCategory, readOnly, resetItemDragState],
   );
 
   const incompleteCountsByCategoryId = useMemo(() => {
@@ -420,12 +408,12 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
 
   const filteredVisibleCategories = useMemo(
     () => filterCategoriesByStatus(visibleCategories, groupedItems, categoryStatusFilter),
-    [visibleCategories, groupedItems, categoryStatusFilter]
+    [visibleCategories, groupedItems, categoryStatusFilter],
   );
 
   const filteredVisibleCategoryIds = useMemo(
     () => filteredVisibleCategories.map((cat) => cat.id),
-    [filteredVisibleCategories]
+    [filteredVisibleCategories],
   );
 
   useEffect(() => {
@@ -490,7 +478,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
 
   const suitcaseProgress = useMemo(
     () => getSuitcaseItemProgress(displaySuitcase.suitcase_items),
-    [displaySuitcase.suitcase_items]
+    [displaySuitcase.suitcase_items],
   );
 
   const handleNavigateToCategory = useCallback((categoryId: string) => {
@@ -525,7 +513,7 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
       if (fullTargetIndex < 0) return;
       reorderCategoryToIndex(categoryId, fullTargetIndex, visibleCategoryIds);
     },
-    [readOnly, reorderCategoryToIndex, visibleCategoryIds, filteredVisibleCategories]
+    [readOnly, reorderCategoryToIndex, visibleCategoryIds, filteredVisibleCategories],
   );
 
   const handleActivateOptional = async (categoryId: string) => {
@@ -578,12 +566,13 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
     showAll();
   };
 
-  const selectedItemData = displaySuitcase.suitcase_items?.find(i => i.name === selectedItemName);
+  const selectedItemData = displaySuitcase.suitcase_items?.find((i) => i.name === selectedItemName);
   const canToggleViewMode = !!onSetViewMode && !isTdTemplate(suitcase);
   const canUseTemplateAction =
     !!onUseTemplate && isTdTemplate(suitcase) && panelViewMode === 'viewer';
 
-  return (    <div className="relative flex flex-col lg:flex-row gap-0 items-stretch w-full h-full lg:min-h-0 lg:overflow-y-hidden lg:overflow-x-visible bg-slate-900 lg:bg-transparent">
+  return (
+    <div className="relative flex flex-col lg:flex-row gap-0 items-stretch w-full h-full lg:min-h-0 lg:overflow-y-hidden lg:overflow-x-visible bg-slate-900 lg:bg-transparent">
       {/* LEFT: Items List */}
       <div className="flex-1 w-full h-full flex flex-col min-h-0 overflow-hidden lg:overflow-visible">
         {/* Wrapper "barra intelligente": su <lg collassa con transizione fluida (grid-rows + opacity,
@@ -622,113 +611,118 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
             />
           </div>
         </div>
-        <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 lg:px-10 pb-4 md:pb-6 lg:pb-10 lg:pr-6 custom-scrollbar relative">
-        <div className="pt-6 space-y-8">
-          {/* Toast localizzato sopra la lista */}
-          <SuitcaseToast {...toast} />
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 lg:px-10 pb-4 md:pb-6 lg:pb-10 lg:pr-6 custom-scrollbar relative"
+        >
+          <div className="pt-6 space-y-8">
+            {/* Toast localizzato sopra la lista */}
+            <SuitcaseToast {...toast} />
 
-        {showGuestWarning && <GuestDraftBanner isTemplate={guestDraftIsTemplate} />}
+            {showGuestWarning && <GuestDraftBanner isTemplate={guestDraftIsTemplate} />}
 
-        <CategoryPanelsHeader
-          availableOptionalCategories={availableOptionalCategories}
-          hiddenCategoriesList={hiddenCategoriesList}
-          readOnly={categorySectionsReadOnly}
-          onActivateOptional={handleActivateOptional}
-          onRestoreHidden={handleRestoreHiddenCategory}
-          onRestoreAllHidden={handleShowAllHidden}
-          progress={suitcaseProgress}
-        />
-
-        {isAddingNewCategory && !readOnly && (
-          <NewCategoryPanel
-            newCatName={newCatName}
-            onNameChange={setNewCatName}
-            newCatIcon={newCatIcon}
-            showIconPicker={showIconPicker}
-            onToggleIconPicker={() => setShowIconPicker(!showIconPicker)}
-            onSelectIcon={setNewCatIcon}
-            onCloseIconPicker={() => setShowIconPicker(false)}
-            onCancel={() => setIsAddingNewCategory(false)}
-            onSave={handleAddNewCategory}
-          />
-        )}
-        
-        {/* LISTA CATEGORIE VISIBILI */}
-        <div className="suitcase-category-sections space-y-4">
-        {filteredVisibleCategories.map((cat) => {
-          const items = groupedItems[cat.name] ?? [];
-          const checked = items.filter((i) => i.is_checked).length;
-          const total = items.length;
-          const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
-          return (
-            <CategorySection
-              key={cat.id}
-              category={cat}
-              items={items}
-              categoryProgress={{
-                checked,
-                total,
-                percentage,
-                isComplete: total > 0 && checked === total,
-              }}
-              readOnly={!!readOnly}
-              highlighted={highlightedCategoryId === cat.id}
-              visibleCategoryIds={visibleCategoryIds}
-              sectionRef={(el) => {
-                categorySectionRefs.current[cat.id] = el;
-              }}
-              selection={{
-                highlightItemId,
-                selectedItemName,
-                onSelectItem,
-              }}
-              itemActions={{
-                overrides,
-                moveTargets: visibleCategories.filter((target) => target.name !== cat.name),
-                onUpdateItem,
-                onDeleteItem,
-                onLinkBuildSearch,
-              }}
-              drag={{
-                dropTarget,
-                onSwapItemsInCategory,
-                handleItemDragStart,
-                handleItemDragOver,
-                handleItemDragLeave,
-                handleItemDrop,
-                resetItemDragState,
-              }}
-              activeCategoryForAdd={activeCategoryForAdd}
-              newItemName={newItemName}
-              onNewItemNameChange={setNewItemName}
-              onToggleAdd={() =>
-                setActiveCategoryForAdd(cat.name === activeCategoryForAdd ? null : cat.name)
-              }
-              onConfirmAdd={() => handleAdd(cat.name)}
-              onMoveCategory={(direction) => moveCategory(cat.id, direction, visibleCategoryIds)}
-              onHideCategory={() => toggleCategory(cat.id)}
-              onDeleteCategory={
-                onDeleteCategory
-                  ? () =>
-                      onDeleteCategory({
-                        id: cat.id,
-                        name: cat.name,
-                        source: cat.source,
-                      })
-                  : undefined
-              }
+            <CategoryPanelsHeader
+              availableOptionalCategories={availableOptionalCategories}
+              hiddenCategoriesList={hiddenCategoriesList}
+              readOnly={categorySectionsReadOnly}
+              onActivateOptional={handleActivateOptional}
+              onRestoreHidden={handleRestoreHiddenCategory}
+              onRestoreAllHidden={handleShowAllHidden}
+              progress={suitcaseProgress}
             />
-          );
-        })}
-        </div>
-        </div>
+
+            {isAddingNewCategory && !readOnly && (
+              <NewCategoryPanel
+                newCatName={newCatName}
+                onNameChange={setNewCatName}
+                newCatIcon={newCatIcon}
+                showIconPicker={showIconPicker}
+                onToggleIconPicker={() => setShowIconPicker(!showIconPicker)}
+                onSelectIcon={setNewCatIcon}
+                onCloseIconPicker={() => setShowIconPicker(false)}
+                onCancel={() => setIsAddingNewCategory(false)}
+                onSave={handleAddNewCategory}
+              />
+            )}
+
+            {/* LISTA CATEGORIE VISIBILI */}
+            <div className="suitcase-category-sections space-y-4">
+              {filteredVisibleCategories.map((cat) => {
+                const items = groupedItems[cat.name] ?? [];
+                const checked = items.filter((i) => i.is_checked).length;
+                const total = items.length;
+                const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
+                return (
+                  <CategorySection
+                    key={cat.id}
+                    category={cat}
+                    items={items}
+                    categoryProgress={{
+                      checked,
+                      total,
+                      percentage,
+                      isComplete: total > 0 && checked === total,
+                    }}
+                    readOnly={!!readOnly}
+                    highlighted={highlightedCategoryId === cat.id}
+                    visibleCategoryIds={visibleCategoryIds}
+                    sectionRef={(el) => {
+                      categorySectionRefs.current[cat.id] = el;
+                    }}
+                    selection={{
+                      highlightItemId,
+                      selectedItemName,
+                      onSelectItem,
+                    }}
+                    itemActions={{
+                      overrides,
+                      moveTargets: visibleCategories.filter((target) => target.name !== cat.name),
+                      onUpdateItem,
+                      onDeleteItem,
+                      onLinkBuildSearch,
+                    }}
+                    drag={{
+                      dropTarget,
+                      onSwapItemsInCategory,
+                      handleItemDragStart,
+                      handleItemDragOver,
+                      handleItemDragLeave,
+                      handleItemDrop,
+                      resetItemDragState,
+                    }}
+                    activeCategoryForAdd={activeCategoryForAdd}
+                    newItemName={newItemName}
+                    onNewItemNameChange={setNewItemName}
+                    onToggleAdd={() =>
+                      setActiveCategoryForAdd(cat.name === activeCategoryForAdd ? null : cat.name)
+                    }
+                    onConfirmAdd={() => handleAdd(cat.name)}
+                    onMoveCategory={(direction) =>
+                      moveCategory(cat.id, direction, visibleCategoryIds)
+                    }
+                    onHideCategory={() => toggleCategory(cat.id)}
+                    onDeleteCategory={
+                      onDeleteCategory
+                        ? () =>
+                            onDeleteCategory({
+                              id: cat.id,
+                              name: cat.name,
+                              source: cat.source,
+                            })
+                        : undefined
+                    }
+                  />
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* RIGHT: Sidebar Suggestions Unificata (Sticky & Collapsible) */}
-      <SuitcaseSidePanel 
-        isCollapsible={true} 
-        isOpen={isSidebarOpen} 
+      <SuitcaseSidePanel
+        isCollapsible={true}
+        isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         sticky={true}
       >
@@ -736,11 +730,15 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           // 'General' è solo un fallback UI quando nessun oggetto è selezionato:
           // non è una categoria del dominio.
           category={selectedItemData?.category || 'General'}
-          selectedItem={selectedItemData ? {
-            name: selectedItemData.name,
-            category: selectedItemData.category,
-            tags: selectedItemData.affiliate_tags || []
-          } : null}
+          selectedItem={
+            selectedItemData
+              ? {
+                  name: selectedItemData.name,
+                  category: selectedItemData.category,
+                  tags: selectedItemData.affiliate_tags || [],
+                }
+              : null
+          }
           itemMap={itemMap}
           categoryMap={categoryMap}
           overrides={overrides}
@@ -759,11 +757,15 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
           // 'General' è solo un fallback UI quando nessun oggetto è selezionato:
           // non è una categoria del dominio.
           category={selectedItemData?.category || 'General'}
-          selectedItem={selectedItemData ? {
-            name: selectedItemData.name,
-            category: selectedItemData.category,
-            tags: selectedItemData.affiliate_tags || []
-          } : null}
+          selectedItem={
+            selectedItemData
+              ? {
+                  name: selectedItemData.name,
+                  category: selectedItemData.category,
+                  tags: selectedItemData.affiliate_tags || [],
+                }
+              : null
+          }
           itemMap={itemMap}
           categoryMap={categoryMap}
           overrides={overrides}

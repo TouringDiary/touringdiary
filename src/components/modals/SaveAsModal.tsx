@@ -1,18 +1,18 @@
-import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
+import { AlertTriangle, Save } from 'lucide-react';
 
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Save, AlertTriangle } from 'lucide-react';
+import { ViaggioAssociationFields } from '@/components/myspace/ViaggioAssociationFields';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { useSystemMessage } from '../../hooks/useSystemMessage';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
-import type { ViaggioAssociationChoice, SaveAsViaggioOptions } from '@/types/resourceAssociation';
-import { ViaggioAssociationFields } from '@/components/myspace/ViaggioAssociationFields';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { listViaggiByUser } from '@/services/viaggio/viaggioService';
 import type { Viaggio } from '@/types/models/Viaggio';
+import type { SaveAsViaggioOptions, ViaggioAssociationChoice } from '@/types/resourceAssociation';
+import { useSystemMessage } from '../../hooks/useSystemMessage';
 
 export interface SaveAsConfirmPayload {
   name: string;
@@ -107,14 +107,20 @@ export const SaveAsModal = ({
 
   return createPortal(
     <div
-      className={`td-modal-overlay ${overlayShell} !items-center`}
-      onClick={onClose}
+      className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
         className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="save-as-title"
@@ -158,8 +164,14 @@ export const SaveAsModal = ({
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Nome</label>
+                <label
+                  htmlFor="fld-modals-saveasmodal-tsx-l161"
+                  className="text-xs font-bold uppercase text-slate-500"
+                >
+                  Nome
+                </label>
                 <input
+                  id="fld-modals-saveasmodal-tsx-l161"
                   autoFocus
                   type="text"
                   value={name}
@@ -194,14 +206,20 @@ export const SaveAsModal = ({
                 <button
                   type="button"
                   onClick={() => setShowConfirm(false)}
-                  className={btnCancelShell || 'bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors border border-slate-700'}
+                  className={
+                    btnCancelShell ||
+                    'bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors border border-slate-700'
+                  }
                 >
                   Annulla
                 </button>
                 <button
                   type="button"
                   onClick={() => onConfirm(buildPayload())}
-                  className={btnPrimaryShell || 'bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg'}
+                  className={
+                    btnPrimaryShell ||
+                    'bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg'
+                  }
                 >
                   Sovrascrivi
                 </button>
@@ -211,14 +229,20 @@ export const SaveAsModal = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className={btnCancelShell || 'bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors border border-slate-700'}
+                  className={
+                    btnCancelShell ||
+                    'bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors border border-slate-700'
+                  }
                 >
                   Annulla
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveClick}
-                  className={btnPrimaryShell || 'bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg'}
+                  className={
+                    btnPrimaryShell ||
+                    'bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg'
+                  }
                 >
                   Salva
                 </button>

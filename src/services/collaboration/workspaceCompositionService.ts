@@ -1,20 +1,20 @@
-import { supabase } from '@/services/supabaseClient';
 import type {
   SharedResourceKind,
   Workspace,
   WorkspaceResourcePermissionEntry,
 } from '@/domain/collaboration';
 import { isSharedResourceKind } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
 import { mapWorkspaceRow } from './workspaceMappers';
-import { createWorkspace, deleteWorkspace, getWorkspace } from './workspaceService';
-import {
-  addWorkspaceResource,
-  setWorkspaceResourcePermissionsForUser,
-} from './workspaceResourceService';
 import {
   getWorkspaceResourceByKindAndId,
   listWorkspaceResourceLinks,
 } from './workspaceResourceLinkLookup';
+import {
+  addWorkspaceResource,
+  setWorkspaceResourcePermissionsForUser,
+} from './workspaceResourceService';
+import { createWorkspace, deleteWorkspace, getWorkspace } from './workspaceService';
 
 export interface WorkspaceCompositionResource {
   kind: SharedResourceKind;
@@ -36,7 +36,7 @@ export type CreateWorkspaceWithCompositionResult =
  */
 export async function suggestWorkspaceCompositionFromResource(
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<WorkspaceCompositionResource[]> {
   const composition: WorkspaceCompositionResource[] = [{ kind, resourceId }];
 
@@ -50,7 +50,10 @@ export async function suggestWorkspaceCompositionFromResource(
     .eq('itinerary_id', resourceId);
 
   if (error) {
-    console.error('[workspaceCompositionService] suggestWorkspaceCompositionFromResource:', error.message);
+    console.error(
+      '[workspaceCompositionService] suggestWorkspaceCompositionFromResource:',
+      error.message,
+    );
     return composition;
   }
 
@@ -71,7 +74,7 @@ export async function createWorkspaceWithComposition(
     settings?: Record<string, unknown>;
     resources?: WorkspaceCompositionResource[];
     memberPermissions?: WorkspaceMemberPermissionDraft[];
-  }
+  },
 ): Promise<CreateWorkspaceWithCompositionResult> {
   const resources = input.resources ?? [];
   const diaryCount = resources.filter((resource) => resource.kind === 'diary').length;
@@ -106,7 +109,7 @@ export async function createWorkspaceWithComposition(
       workspace.id,
       ownerId,
       memberDraft.userId,
-      memberDraft.permissions
+      memberDraft.permissions,
     );
     if (!permResult.success) {
       await deleteWorkspace(workspace.id, ownerId);
@@ -125,14 +128,15 @@ export async function createWorkspaceFromResource(
     seedResource: WorkspaceCompositionResource;
     includeSuggestedComposition?: boolean;
     memberPermissions?: WorkspaceMemberPermissionDraft[];
-  }
+  },
 ): Promise<CreateWorkspaceWithCompositionResult> {
-  const resources = input.includeSuggestedComposition !== false
-    ? await suggestWorkspaceCompositionFromResource(
-        input.seedResource.kind,
-        input.seedResource.resourceId
-      )
-    : [input.seedResource];
+  const resources =
+    input.includeSuggestedComposition !== false
+      ? await suggestWorkspaceCompositionFromResource(
+          input.seedResource.kind,
+          input.seedResource.resourceId,
+        )
+      : [input.seedResource];
 
   return createWorkspaceWithComposition(ownerId, {
     name: input.name,
@@ -146,7 +150,7 @@ export async function addResourceToExistingWorkspace(
   workspaceId: string,
   actorId: string,
   resource: WorkspaceCompositionResource,
-  memberPermissions?: WorkspaceMemberPermissionDraft[]
+  memberPermissions?: WorkspaceMemberPermissionDraft[],
 ): Promise<{ success: boolean; error?: string }> {
   const addResult = await addWorkspaceResource(workspaceId, actorId, resource);
   if (addResult.success !== true) {
@@ -163,7 +167,7 @@ export async function addResourceToExistingWorkspace(
       ...memberDraft.permissions,
     ];
     const hasEntry = permissionsWithNewResource.some(
-      (entry) => entry.kind === resource.kind && entry.resourceId === resource.resourceId
+      (entry) => entry.kind === resource.kind && entry.resourceId === resource.resourceId,
     );
     if (!hasEntry) {
       permissionsWithNewResource.push({
@@ -177,7 +181,7 @@ export async function addResourceToExistingWorkspace(
       workspaceId,
       workspace.ownerId,
       memberDraft.userId,
-      permissionsWithNewResource
+      permissionsWithNewResource,
     );
     if (!permResult.success) {
       return permResult;
@@ -190,7 +194,7 @@ export async function addResourceToExistingWorkspace(
 export async function isResourceInWorkspace(
   workspaceId: string,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<boolean> {
   const linked = await getWorkspaceResourceByKindAndId(workspaceId, kind, resourceId);
   return linked !== null;
@@ -198,7 +202,7 @@ export async function isResourceInWorkspace(
 
 export async function listWorkspacesContainingResource(
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<Workspace[]> {
   const { data, error } = await supabase
     .from('workspace_resources')
@@ -224,7 +228,7 @@ export async function listWorkspacesContainingResource(
 }
 
 export async function listWorkspaceComposition(
-  workspaceId: string
+  workspaceId: string,
 ): Promise<WorkspaceCompositionResource[]> {
   const resources = await listWorkspaceResourceLinks(workspaceId);
   return resources.map((resource) => ({

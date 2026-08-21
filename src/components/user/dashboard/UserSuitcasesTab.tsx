@@ -1,26 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import { Briefcase, LayoutTemplate, Calendar, PencilLine, Pencil, Copy, Trash2, Loader2, Users, Layers } from 'lucide-react';
-import { useUserTemplates, deleteSuitcase } from '@/hooks/useSuitcaseSystem';
-import { duplicateSuitcaseEntityAsync } from '@/services/suitcaseService';
-import { isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
-import { formatItalianDateTime } from '@/utils/dateFormatters';
-import { User } from '@/types';
-import { Suitcase } from '@/types/suitcase';
+import {
+  Briefcase,
+  Calendar,
+  Copy,
+  Layers,
+  LayoutTemplate,
+  Loader2,
+  Pencil,
+  PencilLine,
+  Trash2,
+  Users,
+} from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
 import { useModal } from '@/context/ModalContext';
+import type { SharedResourceKind } from '@/domain/collaboration';
 import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
 import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
 import { useResourceWorkspaces } from '@/hooks/useResourceWorkspaces';
 import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
-import type { SharedResourceKind } from '@/domain/collaboration';
-import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
+import { deleteSuitcase, useUserTemplates } from '@/hooks/useSuitcaseSystem';
+import { duplicateSuitcaseEntityAsync } from '@/services/suitcaseService';
+import type { User } from '@/types';
+import type { Suitcase } from '@/types/suitcase';
+import { formatItalianDateTime } from '@/utils/dateFormatters';
+import { isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import { SwipeToDelete } from '../../common/SwipeToDelete';
 import {
   DashboardActionGroup,
-  IconActionButton,
-  ICON_ACTION_SLATE_CLASS,
-  ICON_ACTION_INDIGO_CLASS,
   ICON_ACTION_DANGER_CLASS,
+  ICON_ACTION_INDIGO_CLASS,
+  ICON_ACTION_SLATE_CLASS,
+  IconActionButton,
 } from '../../features/diary/packing_list/suitcase/DashboardActionGroup';
 
 interface Props {
@@ -72,21 +84,33 @@ const UserSuitcaseEntityCard: React.FC<UserSuitcaseEntityCardProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-2 lg:mb-3">
             <span className="text-2xl drop-shadow-md shrink-0">{entity.icon}</span>
-            <h3 className={`text-lg font-bold text-white leading-tight truncate ${titleHover} transition-colors`}>
+            <h3
+              className={`text-lg font-bold text-white leading-tight truncate ${titleHover} transition-colors`}
+            >
               {entity.title}
             </h3>
             {isShared && <SharedResourceIndicator />}
           </div>
 
           <div className="grid grid-cols-[auto_auto] items-center gap-x-2.5 gap-y-1 lg:gap-y-1.5 w-fit pl-0.5">
-            <span title="Data Creazione" className="flex items-center" aria-label="Data Creazione">
+            <span
+              role="img"
+              title="Data Creazione"
+              className="flex items-center"
+              aria-label="Data Creazione"
+            >
               <Calendar className="w-3.5 h-3.5 text-slate-500" aria-hidden />
             </span>
             <span className="text-xs text-slate-300 font-medium tabular-nums">
               {entity.created_at ? formatItalianDateTime(entity.created_at) : '—'}
             </span>
 
-            <span title="Data Modifica" className="flex items-center" aria-label="Data Modifica">
+            <span
+              role="img"
+              title="Data Modifica"
+              className="flex items-center"
+              aria-label="Data Modifica"
+            >
               <PencilLine className="w-3.5 h-3.5 text-slate-500" aria-hidden />
             </span>
             <span className="text-xs text-slate-300 font-medium tabular-nums">
@@ -154,7 +178,11 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
   const valigie = allUserSuitcases.filter(isValigia).sort(sortByUpdated);
   const templates = allUserSuitcases.filter(isUserTemplate).sort(sortByUpdated);
 
-  const [deletingEntity, setDeletingEntity] = useState<{ id: string; title: string; isTemplate: boolean } | null>(null);
+  const [deletingEntity, setDeletingEntity] = useState<{
+    id: string;
+    title: string;
+    isTemplate: boolean;
+  } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
@@ -243,7 +271,9 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
 
   const tabBtnClass = (tab: SuitcaseTab) =>
     `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-      activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+      activeTab === tab
+        ? 'bg-indigo-600 text-white shadow-lg'
+        : 'text-slate-400 hover:text-white hover:bg-slate-800'
     }`;
 
   return (
@@ -256,7 +286,9 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">Le mie Valigie</h2>
-            <p className="text-sm text-slate-400">Gestisci le tue valigie e i tuoi template di viaggio.</p>
+            <p className="text-sm text-slate-400">
+              Gestisci le tue valigie e i tuoi template di viaggio.
+            </p>
           </div>
         </div>
         {/* Pulsanti di creazione: riuso diretto del componente della Dashboard Valigia */}
@@ -269,11 +301,19 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
 
       {/* TABS: VALIGIE / TEMPLATE */}
       <div className="inline-flex items-center gap-1 p-1 bg-slate-900/70 border border-slate-800 rounded-xl">
-        <button onClick={() => setActiveTab('valigie')} className={tabBtnClass('valigie')}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('valigie')}
+          className={tabBtnClass('valigie')}
+        >
           <Briefcase className="w-4 h-4" /> Valigie
           <span className="text-[10px] opacity-70">({valigie.length})</span>
         </button>
-        <button onClick={() => setActiveTab('template')} className={tabBtnClass('template')}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('template')}
+          className={tabBtnClass('template')}
+        >
           <LayoutTemplate className="w-4 h-4" /> Template
           <span className="text-[10px] opacity-70">({templates.length})</span>
         </button>
@@ -286,7 +326,9 @@ export const UserSuitcasesTab: React.FC<Props> = ({ user }) => {
           <p className="text-slate-400 text-sm max-w-sm mx-auto">{emptyState.text}</p>
         </div>
       ) : (
-        <div className="space-y-3 animate-in fade-in duration-200">{list.map(renderEntityCard)}</div>
+        <div className="space-y-3 animate-in fade-in duration-200">
+          {list.map(renderEntityCard)}
+        </div>
       )}
 
       <DeleteConfirmationModal

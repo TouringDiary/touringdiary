@@ -12,7 +12,6 @@ export const COLORS = {
 };
 
 export const styles = StyleSheet.create({
-
   page: {
     /** Header brand più alto (~2× logo): paddingTop allineato all’area fissa. */
     paddingTop: 72,
@@ -21,7 +20,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 40,
     fontFamily: 'Helvetica',
     backgroundColor: '#ffffff',
-    color: COLORS.black
+    color: COLORS.black,
   },
 
   headerFixed: {
@@ -77,14 +76,14 @@ export const styles = StyleSheet.create({
 
   headerLogoImage: {
     width: 320,
-    height: 52
+    height: 52,
   },
 
   headerLink: {
     fontSize: 9,
     color: '#94a3b8',
     textDecoration: 'none',
-    fontFamily: 'Helvetica'
+    fontFamily: 'Helvetica',
   },
 
   coverContainer: {
@@ -119,7 +118,7 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#1e293b',
     textTransform: 'uppercase',
-    textAlign: 'center'
+    textAlign: 'center',
   },
 
   coverSubtitle: {
@@ -128,7 +127,7 @@ export const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     marginBottom: 8,
-    lineHeight: 1.5
+    lineHeight: 1.5,
   },
 
   coverDates: {
@@ -141,7 +140,7 @@ export const styles = StyleSheet.create({
   coverImageSingle: {
     width: '100%',
     height: 380,
-    objectFit: 'cover'
+    objectFit: 'cover',
   },
 
   /** Collage multi-città: colonna centrata con margini laterali ariosi. */
@@ -183,39 +182,39 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
     borderBottomWidth: 2,
     borderBottomColor: COLORS.accent,
-    paddingBottom: 5
+    paddingBottom: 5,
   },
 
   dayTitle: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 16,
     color: COLORS.accent,
-    textTransform: 'uppercase'
+    textTransform: 'uppercase',
   },
 
   timelineItem: {
     flexDirection: 'row',
     minHeight: 60,
-    position: 'relative'
+    position: 'relative',
   },
 
   colTime: {
     width: 60,
     alignItems: 'flex-end',
     paddingTop: 2,
-    paddingRight: 10
+    paddingRight: 10,
   },
 
   timeText: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 11,
-    color: '#334155'
+    color: '#334155',
   },
 
   colLine: {
     width: 20,
     alignItems: 'center',
-    position: 'relative'
+    position: 'relative',
   },
 
   verticalLine: {
@@ -224,7 +223,7 @@ export const styles = StyleSheet.create({
     bottom: -10,
     width: 1,
     borderLeftWidth: 1,
-    borderLeftColor: COLORS.redLine
+    borderLeftColor: COLORS.redLine,
   },
 
   timelineDot: {
@@ -234,7 +233,7 @@ export const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 2,
     borderColor: '#475569',
-    marginTop: 4
+    marginTop: 4,
   },
 
   /** Area a destra del QR: riga 75% testo + 25% durata/foto. */
@@ -264,14 +263,14 @@ export const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     color: '#94a3b8',
     textTransform: 'uppercase',
-    marginBottom: 2
+    marginBottom: 2,
   },
 
   poiName: {
     fontSize: 13,
     fontFamily: 'Helvetica-Bold',
     color: '#0f172a',
-    marginBottom: 2
+    marginBottom: 2,
   },
 
   poiDuration: {
@@ -286,7 +285,7 @@ export const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: 'Helvetica-Oblique',
     color: '#64748b',
-    marginBottom: 4
+    marginBottom: 4,
   },
 
   poiDescription: {
@@ -294,7 +293,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     color: '#334155',
     lineHeight: 1.4,
-    marginBottom: 6
+    marginBottom: 6,
   },
 
   /** Distanza in testa alla tappa di arrivo (= segmento dalla precedente geo). */
@@ -326,27 +325,26 @@ export const styles = StyleSheet.create({
     padding: 8,
     borderLeftWidth: 3,
     borderLeftColor: '#f59e0b',
-    marginTop: 4
+    marginTop: 4,
   },
 
   notesTitle: {
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
     color: '#92400e',
-    marginBottom: 2
+    marginBottom: 2,
   },
 
   notesText: {
     fontSize: 8,
     lineHeight: 1.2,
     color: '#92400e',
-    fontFamily: 'Helvetica'
+    fontFamily: 'Helvetica',
   },
 
   qrImageSmall: {
     width: 35,
     height: 35,
-    marginTop: 4
-  }
-
+    marginTop: 4,
+  },
 });

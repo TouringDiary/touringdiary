@@ -1,5 +1,5 @@
-import React from 'react';
 import { Loader2, Search } from 'lucide-react';
+import type React from 'react';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 
 export interface CollaborationUserInviteSearchProps {
@@ -71,9 +71,7 @@ export const CollaborationUserInviteSearch: React.FC<CollaborationUserInviteSear
             </div>
             <div className="min-w-0">
               <div className="text-sm font-medium text-white truncate">{result.name}</div>
-              {result.slug && (
-                <div className="text-xs text-slate-400 truncate">@{result.slug}</div>
-              )}
+              {result.slug && <div className="text-xs text-slate-400 truncate">@{result.slug}</div>}
             </div>
           </button>
         ))}

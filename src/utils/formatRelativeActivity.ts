@@ -15,7 +15,7 @@ export function formatRelativeActivity(isoDate: string, now = new Date()): strin
   const time = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
   const dayDiff = Math.floor(
-    (startOfLocalDay(now).getTime() - startOfLocalDay(date).getTime()) / MS_PER_DAY
+    (startOfLocalDay(now).getTime() - startOfLocalDay(date).getTime()) / MS_PER_DAY,
   );
 
   if (dayDiff < 0) {

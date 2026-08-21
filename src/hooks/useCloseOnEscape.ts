@@ -11,56 +11,55 @@ const escapeStack: (() => void)[] = [];
  * Implementa logica di stacking (solo l'ultimo layer aperto risponde a ESC).
  */
 export const useCloseOnEscape = (onClose: () => void, enabled: boolean = true) => {
-    const onCloseRef = useRef(onClose);
-    
-    useEffect(() => {
-        onCloseRef.current = onClose;
-    }, [onClose]);
+  const onCloseRef = useRef(onClose);
 
-    useEffect(() => {
-        if (!enabled) return;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
-        // Registriamo la callback corrente nello stack globale
-        const currentCallback = () => onCloseRef.current();
-        escapeStack.push(currentCallback);
+  useEffect(() => {
+    if (!enabled) return;
 
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                // Verifichiamo se questa istanza è quella in cima allo stack (l'ultima aperta)
-                if (escapeStack[escapeStack.length - 1] !== currentCallback) {
-                    return;
-                }
+    // Registriamo la callback corrente nello stack globale
+    const currentCallback = () => onCloseRef.current();
+    escapeStack.push(currentCallback);
 
-                // Se l'evento è già stato prevenuto da logiche interne (es. input focus gestito dal browser)
-                if (e.defaultPrevented) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Verifichiamo se questa istanza è quella in cima allo stack (l'ultima aperta)
+        if (escapeStack[escapeStack.length - 1] !== currentCallback) {
+          return;
+        }
 
-                // Identifichiamo il target dell'evento per proteggere input/textarea
-                const target = e.target as HTMLElement;
-                const isInput = target.tagName === 'INPUT' || 
-                               target.tagName === 'TEXTAREA' || 
-                               target.isContentEditable;
+        // Se l'evento è già stato prevenuto da logiche interne (es. input focus gestito dal browser)
+        if (e.defaultPrevented) return;
 
-                if (isInput) return;
+        // Identifichiamo il target dell'evento per proteggere input/textarea
+        const target = e.target as HTMLElement;
+        const isInput =
+          target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-                // Blocchiamo la propagazione verso layer sottostanti o altri listener
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Eseguiamo la chiusura
-                currentCallback();
-            }
-        };
+        if (isInput) return;
 
-        // Usa capture: true per intercettare l'evento prima che lo facciano i listener standard del DOM
-        window.addEventListener('keydown', handleKeyDown, true);
+        // Blocchiamo la propagazione verso layer sottostanti o altri listener
+        e.preventDefault();
+        e.stopPropagation();
 
-        return () => {
-            // Rimuoviamo la callback dallo stack quando il componente smonta o viene disabilitato
-            const index = escapeStack.indexOf(currentCallback);
-            if (index !== -1) {
-                escapeStack.splice(index, 1);
-            }
-            window.removeEventListener('keydown', handleKeyDown, true);
-        };
-    }, [enabled]);
+        // Eseguiamo la chiusura
+        currentCallback();
+      }
+    };
+
+    // Usa capture: true per intercettare l'evento prima che lo facciano i listener standard del DOM
+    window.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      // Rimuoviamo la callback dallo stack quando il componente smonta o viene disabilitato
+      const index = escapeStack.indexOf(currentCallback);
+      if (index !== -1) {
+        escapeStack.splice(index, 1);
+      }
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [enabled]);
 };

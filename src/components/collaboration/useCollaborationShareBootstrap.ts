@@ -2,13 +2,19 @@
  * Bootstrap / refresh / duplicate-target — solo CollaborationShareModal.
  * Lo stato resta nel modal; qui solo callback + effect di apertura.
  */
-import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+} from 'react';
 import type {
+  ResourceInvite,
   SharedResource,
   SharedResourceKind,
   SharedResourceMemberWithProfile,
   SharingMode,
-  ResourceInvite,
 } from '@/domain/collaboration';
 import { getSharedResourceKindLabel } from '@/domain/collaboration';
 import {
@@ -24,6 +30,10 @@ import {
   resolveWorkspaceCompositionBlueprint,
 } from '@/services/collaboration';
 import { duplicateSharedResourceForOwner } from '@/services/collaboration/personalShareService';
+import {
+  loadCreateWorkspaceCatalog,
+  loadViaggioWorkspaceCatalog,
+} from './collaborationShareLoaders';
 import type {
   ModalView,
   PendingInvite,
@@ -32,10 +42,6 @@ import type {
   WizardStep,
   WorkspacePendingInvite,
 } from './collaborationSharePresentation';
-import {
-  loadCreateWorkspaceCatalog,
-  loadViaggioWorkspaceCatalog,
-} from './collaborationShareLoaders';
 import type { WorkspacePickedElement } from './WorkspaceShareWizardSteps';
 
 export interface CollaborationShareBootstrapInput {
@@ -77,9 +83,7 @@ export interface CollaborationShareBootstrapInput {
   setWorkspaceDescription: Dispatch<SetStateAction<string>>;
   setCompositionBlueprint: Dispatch<SetStateAction<WorkspaceCompositionBlueprint | null>>;
   setCompositionDraft: Dispatch<SetStateAction<WorkspaceCompositionDraft | null>>;
-  setUserWorkspaces: Dispatch<
-    SetStateAction<Awaited<ReturnType<typeof listWorkspacesForUser>>>
-  >;
+  setUserWorkspaces: Dispatch<SetStateAction<Awaited<ReturnType<typeof listWorkspacesForUser>>>>;
   setPickedElement: Dispatch<SetStateAction<WorkspacePickedElement | null>>;
   setIsExpandingCompositionDiary: Dispatch<SetStateAction<boolean>>;
   setSearchQuery: Dispatch<SetStateAction<string>>;
@@ -135,17 +139,20 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
     compositionExpansionGenRef,
   } = input;
 
-  const isAsyncStale = useCallback((generation: number, expectedResourceId?: string): boolean => {
-    if (generation !== asyncGenerationRef.current) return true;
-    if (!isOpenRef.current) return true;
-    if (
-      expectedResourceId !== undefined &&
-      expectedResourceId !== effectiveResourceIdRef.current
-    ) {
-      return true;
-    }
-    return false;
-  }, [asyncGenerationRef, effectiveResourceIdRef, isOpenRef]);
+  const isAsyncStale = useCallback(
+    (generation: number, expectedResourceId?: string): boolean => {
+      if (generation !== asyncGenerationRef.current) return true;
+      if (!isOpenRef.current) return true;
+      if (
+        expectedResourceId !== undefined &&
+        expectedResourceId !== effectiveResourceIdRef.current
+      ) {
+        return true;
+      }
+      return false;
+    },
+    [asyncGenerationRef, effectiveResourceIdRef, isOpenRef],
+  );
 
   const resetWizardTransientState = useCallback(() => {
     compositionExpansionGenRef.current += 1;
@@ -175,7 +182,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
     async (
       seedKind: SharedResourceKind,
       originResourceId: string,
-      generation = asyncGenerationRef.current
+      generation = asyncGenerationRef.current,
     ) => {
       const blueprint = await resolveWorkspaceCompositionBlueprint({
         seed: { kind: seedKind, resourceId: originResourceId },
@@ -185,9 +192,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
       setCompositionBlueprint(blueprint);
       setCompositionDraft(createDefaultCompositionDraft(blueprint));
       setWorkspaceName(
-        isCreateEntry
-          ? ''
-          : resourceTitle.trim() || getSharedResourceKindLabel(seedKind)
+        isCreateEntry ? '' : resourceTitle.trim() || getSharedResourceKindLabel(seedKind),
       );
 
       const workspaces = await listWorkspacesForUser(userId);
@@ -205,7 +210,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
       setUserWorkspaces,
       setWorkspaceName,
       userId,
-    ]
+    ],
   );
 
   const initializeCreateWorkspaceFlow = useCallback(
@@ -215,27 +220,24 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
       setSharePath('create_workspace');
       setSharingMode('collaborative');
       setShareIntent('duplicate_and_share');
-      setWorkspaceName(
-        isFromViaggioEntry
-          ? (viaggioTitle?.trim() || 'Workspace da Viaggio')
-          : ''
-      );
+      setWorkspaceName(isFromViaggioEntry ? viaggioTitle?.trim() || 'Workspace da Viaggio' : '');
       setWorkspaceDescription('');
 
-      const bootstrap = isFromViaggioEntry && viaggioId?.trim()
-        ? await loadViaggioWorkspaceCatalog(
-            userId,
-            viaggioId.trim(),
-            generation,
-            isAsyncStale,
-            preselectedDiaryId?.trim(),
-          )
-        : await loadCreateWorkspaceCatalog(
-            userId,
-            generation,
-            isAsyncStale,
-            preselectedDiaryId?.trim(),
-          );
+      const bootstrap =
+        isFromViaggioEntry && viaggioId?.trim()
+          ? await loadViaggioWorkspaceCatalog(
+              userId,
+              viaggioId.trim(),
+              generation,
+              isAsyncStale,
+              preselectedDiaryId?.trim(),
+            )
+          : await loadCreateWorkspaceCatalog(
+              userId,
+              generation,
+              isAsyncStale,
+              preselectedDiaryId?.trim(),
+            );
       if (!bootstrap) return;
 
       setCompositionBlueprint(bootstrap.blueprint);
@@ -259,7 +261,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
       userId,
       viaggioId,
       viaggioTitle,
-    ]
+    ],
   );
 
   const initializeAddElementFlow = useCallback(
@@ -290,7 +292,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
       setView,
       setWizardStep,
       userId,
-    ]
+    ],
   );
 
   const resolveShareTargetResourceId = useCallback(async (): Promise<string | null> => {
@@ -301,7 +303,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
     const duplicateResult = await duplicateSharedResourceForOwner(
       shareKind,
       effectiveResourceId,
-      userId
+      userId,
     );
     if (duplicateResult.success === false) {
       setActionError(duplicateResult.error);
@@ -324,7 +326,10 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
   ]);
 
   const refreshCollaborationState = useCallback(
-    async (generation = asyncGenerationRef.current, loadResourceId = effectiveResourceIdRef.current) => {
+    async (
+      generation = asyncGenerationRef.current,
+      loadResourceId = effectiveResourceIdRef.current,
+    ) => {
       setIsLoading(true);
       setError(null);
       try {
@@ -343,9 +348,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
 
         const hasCollaboration =
           memberList.length > 0 ||
-          inviteList.some((invite) =>
-            ['pending', 'accepted', 'rejected'].includes(invite.status)
-          );
+          inviteList.some((invite) => ['pending', 'accepted', 'rejected'].includes(invite.status));
 
         if (hasCollaboration) {
           setView('management');
@@ -383,7 +386,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
       setWizardStep,
       shareKind,
       userId,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -438,7 +441,7 @@ export function useCollaborationShareBootstrap(input: CollaborationShareBootstra
         } catch (loadError) {
           if (!isAsyncStale(generation)) {
             console.error('[CollaborationShareModal] add element init:', loadError);
-            setError('Impossibile avviare l\'aggiunta dell\'elemento.');
+            setError("Impossibile avviare l'aggiunta dell'elemento.");
           }
         } finally {
           if (!isAsyncStale(generation)) {

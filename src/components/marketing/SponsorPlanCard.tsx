@@ -82,9 +82,10 @@ const SponsorPlanCard: React.FC<SponsorPlanCardProps> = ({
         <div className="flex-grow mb-6">
           <ul className="space-y-3 text-gray-300">
             {customFeatureLabels &&
-              customFeatureLabels.map((feature, index) => (
-                <li key={index} className="flex items-center">
+              customFeatureLabels.map((feature) => (
+                <li key={`${planKey}-${feature}`} className="flex items-center">
                   <svg
+                    aria-hidden="true"
                     className="w-5 h-5 text-green-500 mr-2 flex-shrink-0"
                     fill="none"
                     stroke="currentColor"

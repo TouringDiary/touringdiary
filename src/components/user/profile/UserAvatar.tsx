@@ -1,5 +1,5 @@
-import React from 'react';
 import { User } from 'lucide-react';
+import type React from 'react';
 
 interface UserAvatarProps {
   name: string;

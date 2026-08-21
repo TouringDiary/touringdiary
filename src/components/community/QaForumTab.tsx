@@ -1,357 +1,526 @@
-
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronDown, MapPin, Send, Loader2, MessageCircleQuestion, Filter, User, ChevronRight, Heart, MessageSquare } from 'lucide-react';
-import { User as UserType, CommunityPost, CommunityReply, CitySummary } from '../../types/index';
-import { getCommunityPostsAsync, addCommunityPostAsync, togglePostLike, getUserPostLikes } from '../../services/communityService';
-import { getFullManifestAsync } from '../../services/cityService';
-import { addNotification } from '../../services/notificationService';
+import { Filter, User } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { saveQaCityReturn } from '@/community/qaCityReturnMemory';
+import { FeatureFlagPausedBanner } from '@/components/platform/FeatureFlagPausedBanner';
+import {
+  PLATFORM_FEATURE_FLAG_KEYS,
+  PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
+import { useModal } from '@/context/ModalContext';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useNavigation } from '@/context/useNavigation';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { useSystemMessage } from '@/hooks/useSystemMessage';
 import {
-    PLATFORM_FEATURE_FLAG_KEYS,
-    PLATFORM_MESSAGE_TEMPLATE_KEYS,
-} from '@/constants/platformFeatureFlags';
-import { FeatureFlagPausedBanner } from '@/components/platform/FeatureFlagPausedBanner';
-import { resolvePlatformUserBody, resolvePlatformUserTitle } from '@/services/platformControl/resolvePlatformUserMessage';
+  resolvePlatformUserBody,
+  resolvePlatformUserTitle,
+} from '@/services/platformControl/resolvePlatformUserMessage';
+import { showGlobalAlert } from '@/services/ui/toastService';
+import { getFullManifestAsync } from '../../services/cityService';
+import {
+  addCommunityPostAsync,
+  addCommunityReplyAsync,
+  type CommunityPostCreateInput,
+  getCommunityPostsAsync,
+  getUserPostFollows,
+  togglePostFollow,
+  updateCommunityPostAsync,
+} from '../../services/communityService';
+import type { CitySummary, CommunityPost, User as UserType } from '../../types/index';
+import { QaAuthorDetailDialog, type QaAuthorDetailDialogHandle } from './qa/QaAuthorDetailDialog';
+import { QaPostList } from './qa/QaPostList';
+import { QaQuestionComposer } from './qa/QaQuestionComposer';
+import { QaThread } from './qa/QaThread';
+import { resolveQaCityName, sortCitiesByName } from './qa/qaForumShared';
 
 interface QaForumTabProps {
-    user: UserType;
-    initialSelectedPostId?: string;
+  user: UserType;
+  initialSelectedPostId?: string;
+  /** Stesso AuthModal del diario (`openModal('auth')`). Preferisce `onOpenAuth` del parent (Community Hub: returnTo global). */
+  onOpenAuth?: () => void;
+  /** Ripristino filtro/scroll dopo Indietro dalla città (CARD-17). */
+  qaRestore?: {
+    showMyPostsOnly: boolean;
+    listScrollTop: number;
+  };
 }
 
-export const QaForumTab = ({ user, initialSelectedPostId }: QaForumTabProps) => {
-    const qaFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS);
-    const qaEnabled = qaFlag?.enabled ?? true;
-    const qaMsgKey =
-        qaFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED;
-    const { getText: getQaPausedMsg } = useSystemMessage(qaMsgKey);
-    const pausedCopy = getQaPausedMsg({});
+/** Mapping ruolo app → author_role persistito su community_posts (payload creazione). */
+function resolveAuthorRole(role: UserType['role']): string {
+  if (role === 'business') return 'business';
+  if (role === 'admin_all') return 'admin';
+  return 'user';
+}
 
-    const [qaPosts, setQaPosts] = useState<CommunityPost[]>([]);
-    const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
-    const [cityManifest, setCityManifest] = useState<CitySummary[]>([]);
-    
-    const [questionText, setQuestionText] = useState('');
-    const [questionCity, setQuestionCity] = useState('');
-    const [isPostingQa, setIsPostingQa] = useState(false);
-    const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
-    const [replyText, setReplyText] = useState('');
-    const [showMyPostsOnly, setShowMyPostsOnly] = useState(false);
-    
-    const loadPosts = async () => {
+export const QaForumTab = ({
+  user,
+  initialSelectedPostId,
+  onOpenAuth,
+  qaRestore,
+}: QaForumTabProps) => {
+  const { openModal, closeModal } = useModal();
+  const { navigateToCity } = useNavigation();
+  const qaFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS);
+  const qaEnabled = qaFlag?.enabled ?? true;
+  const qaMsgKey =
+    qaFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED;
+  const { getText: getQaPausedMsg } = useSystemMessage(qaMsgKey);
+  const pausedCopy = getQaPausedMsg({});
+
+  const isGuest = user.role === 'guest';
+  const isMobile = useMobileDetect();
+  const sectionTitleClass = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
+  const sectionDescriptionClass = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.sectionDescription,
+    isMobile,
+  );
+
+  const [qaPosts, setQaPosts] = useState<CommunityPost[]>([]);
+  const [followedPostIds, setFollowedPostIds] = useState<string[]>([]);
+  const [cityManifest, setCityManifest] = useState<CitySummary[]>([]);
+
+  const [questionText, setQuestionText] = useState('');
+  const [questionCity, setQuestionCity] = useState('');
+  const [isPostingQa, setIsPostingQa] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replyParentId, setReplyParentId] = useState<string | null>(null);
+  const [isPostingReply, setIsPostingReply] = useState(false);
+  const [togglingFollowPostId, setTogglingFollowPostId] = useState<string | null>(null);
+  const [showMyPostsOnly, setShowMyPostsOnly] = useState(false);
+
+  const [isEditingQuestion, setIsEditingQuestion] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
+  const authorDialogRef = useRef<QaAuthorDetailDialogHandle>(null);
+
+  const requireAuth = () => {
+    // Diario: openModal('auth'). Community Hub: onOpenAuth → stesso AuthModal + returnTo global.
+    if (onOpenAuth) {
+      onOpenAuth();
+      return;
+    }
+    openModal('auth');
+  };
+
+  const restoreShowMyPostsOnly = qaRestore?.showMyPostsOnly;
+  const restoreListScrollTop = qaRestore?.listScrollTop;
+
+  useLayoutEffect(() => {
+    if (restoreShowMyPostsOnly === undefined) return;
+    setShowMyPostsOnly(restoreShowMyPostsOnly);
+  }, [restoreShowMyPostsOnly]);
+
+  const listCountForRestore = showMyPostsOnly
+    ? qaPosts.filter((p) => !isGuest && p.authorId === user.id).length
+    : qaPosts.length;
+
+  // Restore scroll sulla lista (non nel thread), dopo paint di filtro/lista.
+  useLayoutEffect(() => {
+    if (restoreListScrollTop === undefined || selectedPost) return;
+    const el = listScrollRef.current;
+    if (!el) return;
+    if (listCountForRestore === 0) {
+      el.scrollTop = restoreListScrollTop;
+      return;
+    }
+    el.scrollTop = Math.min(restoreListScrollTop, Math.max(0, el.scrollHeight - el.clientHeight));
+  }, [restoreListScrollTop, selectedPost, listCountForRestore]);
+
+  const openCityFromPost = (post: CommunityPost) => {
+    if (!post.cityId || post.cityId === 'general') {
+      showGlobalAlert('Questa domanda non è collegata a una città navigabile.');
+      return;
+    }
+    const exists = cityManifest.some((c) => c.id === post.cityId);
+    if (!exists) {
+      showGlobalAlert('Città non disponibile nel catalogo.');
+      return;
+    }
+    saveQaCityReturn({
+      cityId: post.cityId,
+      postId: post.id,
+      showMyPostsOnly,
+      listScrollTop: listScrollRef.current?.scrollTop ?? 0,
+    });
+    closeModal();
+    navigateToCity(post.cityId);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
         const posts = await getCommunityPostsAsync();
+        if (cancelled) return;
         setQaPosts(posts);
-        
         if (initialSelectedPostId) {
-            const post = posts.find(p => p.id === initialSelectedPostId);
-            if (post) setSelectedPost(post);
+          const post = posts.find((p) => p.id === initialSelectedPostId);
+          if (post) setSelectedPost(post);
         }
-    };
-
-    useEffect(() => {
-        loadPosts();
-        getFullManifestAsync().then(setCityManifest);
-        if (user && user.id) {
-            getUserPostLikes(user.id).then(setLikedPostIds);
-        }
-    }, [user, initialSelectedPostId]);
-
-    const pausedAlertMessage = () =>
-        pausedCopy.body ||
-        resolvePlatformUserBody(
-            qaMsgKey,
-            'Le domande e risposte locali sono temporaneamente disabilitate.'
+      } catch (e: unknown) {
+        if (cancelled) return;
+        console.error('Errore caricamento Q&A Local:', e);
+        setQaPosts([]);
+        showGlobalAlert(
+          e instanceof Error ? e.message : 'Impossibile caricare le domande Q&A Local.',
         );
+      }
+    })();
 
-    const handlePostQuestion = async () => {
-        if (!qaEnabled) {
-            alert(pausedAlertMessage());
-            return;
-        }
-        if (!questionText.trim()) { alert("Scrivi una domanda!"); return; }
-        if (!questionCity) { alert("Seleziona una città!"); return; }
-        
-        setIsPostingQa(true);
-        const selectedCityName = cityManifest.find(c => c.id === questionCity)?.name || "Campania";
-        
-        const newPost: CommunityPost = {
-            id: `post_${Date.now()}`,
-            authorId: user.id,
-            authorName: user.name,
-            authorRole: user.role === 'business' ? 'business' : user.role === 'admin_all' ? 'admin' : 'user',
-            authorAvatar: user.avatar,
-            text: questionText,
-            cityId: questionCity,
-            cityName: selectedCityName,
-            date: new Date().toISOString(),
-            likes: 0,
-            repliesCount: 0,
-            replies: []
-        };
+    void getFullManifestAsync()
+      .then((manifest) => {
+        if (!cancelled) setCityManifest(sortCitiesByName(manifest));
+      })
+      .catch((e: unknown) => {
+        console.error('Errore caricamento manifest città Q&A:', e);
+        if (!cancelled) setCityManifest([]);
+      });
 
-        try {
-            const savedPost = await addCommunityPostAsync(newPost);
-            
-            if (savedPost) {
-                setQaPosts(prev => [savedPost, ...prev]);
-                if (user.role !== 'guest') {
-                     setShowMyPostsOnly(true);
-                }
-                setQuestionText('');
-            } else {
-                alert("Errore invio domanda.");
-            }
-        } catch (e: unknown) {
-            alert(e instanceof Error ? e.message : pausedAlertMessage());
-        }
-        setIsPostingQa(false);
-    };
-
-    const handleLikePost = async (postId: string) => {
-        if (!qaEnabled) {
-            alert(pausedAlertMessage());
-            return;
-        }
-        if (user.role === 'guest') {
-            alert("Accedi per supportare!");
-            return;
-        }
-        try {
-            const result = await togglePostLike(postId, user.id);
-            
-            if (result.liked) {
-                setLikedPostIds(prev => [...prev, postId]);
-            } else {
-                setLikedPostIds(prev => prev.filter(id => id !== postId));
-            }
-            
-            setQaPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: result.count } : p));
-            
-            if (selectedPost && selectedPost.id === postId) {
-                 setSelectedPost({ ...selectedPost, likes: result.count });
-            }
-        } catch (e: unknown) {
-            alert(e instanceof Error ? e.message : pausedAlertMessage());
-        }
-    };
-    
-    const handlePostReply = async () => {
-        if (!qaEnabled) {
-            alert(pausedAlertMessage());
-            return;
-        }
-        if (!replyText.trim() || !selectedPost) return;
-        
-        if (user.role === 'guest') {
-            alert("Accedi per rispondere!");
-            return;
-        }
-        
-        // NOTA: Le risposte sono ancora salvate dentro il JSON del post per semplicità in questa fase
-        // In una versione futura, andrebbero in una tabella `community_replies` separata.
-        // Per ora simuliamo l'aggiornamento locale, ma non persisterà se non aggiorniamo l'intero post su DB.
-        // Dato che non ho implementato `updateCommunityPostAsync` completo, questo è un limite accettabile per ora.
-        
-        const newReply: CommunityReply = {
-            id: `rep_${Date.now()}`,
-            authorName: user.name,
-            authorRole: user.role === 'business' ? 'business' : user.role === 'admin_all' ? 'admin' : 'user',
-            text: replyText,
-            date: new Date().toISOString(),
-            likes: 0
-        };
-
-        const updatedReplies = [...(selectedPost.replies || []), newReply];
-        const updatedPost = { 
-            ...selectedPost, 
-            repliesCount: updatedReplies.length,
-            replies: updatedReplies
-        };
-        
-        // Mock Notification to author
-        if (selectedPost.authorId !== user.id) {
-             addNotification(
-                 selectedPost.authorId,
-                 'reply_qa',
-                 'Nuova risposta!',
-                 `${user.name} ha risposto alla tua domanda su ${selectedPost.cityName}`,
-                 { section: 'community', tab: 'qa', targetId: selectedPost.id }
-             );
-        }
-        
-        setQaPosts(prev => prev.map(p => p.id === selectedPost.id ? updatedPost : p));
-        setSelectedPost(updatedPost); 
-        setReplyText('');
-        
-        // TODO: Implementare `updateCommunityPostAsync` per salvare le risposte su DB
-        alert("Risposta inviata! (Nota: in questa demo la persistenza delle risposte è limitata)");
-    };
-
-    if (selectedPost) {
-        const isLiked = likedPostIds.includes(selectedPost.id);
-        const replies = selectedPost.replies || [];
-        
-        return (
-            <div className="flex flex-col h-full animate-in slide-in-from-right-4 px-4 md:px-8">
-                <FeatureFlagPausedBanner
-                    flagKey={PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS}
-                    defaultMessageKey={PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED}
-                    className="mb-3"
-                />
-                <div className="flex items-center gap-4 mb-4 border-b border-slate-800 pb-3">
-                    <button onClick={() => setSelectedPost(null)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5"/></button>
-                    <h3 className="text-lg font-bold text-white">Discussione</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
-                    <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 shadow-lg">
-                        <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-indigo-600 border border-indigo-500 flex items-center justify-center font-bold text-white shadow-md">{selectedPost.authorName.charAt(0)}</div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-bold text-white text-base">{selectedPost.authorName}</span>
-                                        {selectedPost.authorRole === 'guide' && <span className="bg-indigo-900/50 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded uppercase font-bold border border-indigo-500/30">Guida</span>}
-                                    </div>
-                                    <div className="text-[10px] text-slate-500 flex items-center gap-2"><span>{new Date(selectedPost.date).toLocaleString()}</span><span>•</span><span className="flex items-center gap-1 text-indigo-400 font-bold uppercase"><MapPin className="w-3 h-3"/> {selectedPost.cityName}</span></div>
-                                </div>
-                            </div>
-                        </div>
-                        <p className="text-slate-200 text-lg font-medium leading-relaxed mb-4">{selectedPost.text}</p>
-                        <div className="flex items-center gap-4 border-t border-slate-800 pt-3">
-                            <button
-                                type="button"
-                                onClick={() => handleLikePost(selectedPost.id)}
-                                disabled={!qaEnabled}
-                                className={`flex items-center gap-1.5 text-xs font-bold uppercase transition-colors px-2 py-1 rounded hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed ${isLiked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}
-                            >
-                                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}/> {selectedPost.likes || 0}
-                            </button>
-                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-500"><MessageSquare className="w-4 h-4"/> {replies.length}</div>
-                        </div>
-                    </div>
-                    <div className="space-y-3 pl-4 border-l-2 border-slate-800 ml-4">
-                        {replies.map(reply => (
-                            <div key={reply.id} className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-slate-700 transition-colors">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-400">{reply.authorName.charAt(0)}</div>
-                                        <span className="font-bold text-slate-300 text-sm">{reply.authorName}</span>
-                                        {reply.authorRole === 'guide' && <span className="text-[9px] bg-indigo-900/30 text-indigo-400 px-1.5 rounded uppercase font-bold">Guida</span>}
-                                    </div>
-                                    <span className="text-[10px] text-slate-600">{new Date(reply.date).toLocaleDateString()}</span>
-                                </div>
-                                <p className="text-slate-400 text-sm leading-relaxed">{reply.text}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-800">
-                    {qaEnabled ? (
-                        <div className="flex gap-2">
-                            <input value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Scrivi una risposta..." className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none" onKeyDown={(e) => e.key === 'Enter' && handlePostReply()}/>
-                            <button type="button" onClick={handlePostReply} disabled={!replyText.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"><Send className="w-5 h-5"/></button>
-                        </div>
-                    ) : (
-                        <p className="text-xs text-amber-200/90 font-bold">
-                            {pausedCopy.title ||
-                                resolvePlatformUserTitle(qaMsgKey, 'Q&A Local sospeso')}
-                            {' — '}
-                            {pausedAlertMessage()}
-                        </p>
-                    )}
-                </div>
-            </div>
-        );
+    if (!isGuest && user.id) {
+      void getUserPostFollows(user.id)
+        .then((ids) => {
+          if (!cancelled) setFollowedPostIds(ids);
+        })
+        .catch((e: unknown) => {
+          console.error('Errore caricamento follow Q&A:', e);
+          // Nessuno stato di follow simulato: lista vuota (coerente col ramo guest).
+          if (!cancelled) setFollowedPostIds([]);
+        });
+    } else {
+      setFollowedPostIds([]);
     }
 
-    const filteredPosts = showMyPostsOnly ? qaPosts.filter(p => p.authorId === user.id) : qaPosts;
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, isGuest, initialSelectedPostId]);
 
-    return (
-        <div className="flex flex-col h-full gap-6 pb-10 px-4 md:px-8">
-            <FeatureFlagPausedBanner
-                flagKey={PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS}
-                defaultMessageKey={PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED}
-            />
-            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl shrink-0 animate-in fade-in slide-in-from-top-4">
-                <div className="flex gap-4 items-start">
-                    <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0">{user.name.charAt(0)}</div>
-                    <div className="flex-1 space-y-3">
-                        {qaEnabled ? (
-                            <>
-                                <textarea value={questionText} onChange={e => setQuestionText(e.target.value)} placeholder="Dubbi su trasporti, cibo o luoghi? Chiedi ai local..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white text-sm focus:border-indigo-500 outline-none resize-none h-24 placeholder:text-slate-500 transition-all focus:ring-1 focus:ring-indigo-500/50"/>
-                                <div className="flex items-center justify-between gap-3">
-                                    <div className="relative group flex-1 max-w-[200px]">
-                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-500"/>
-                                        <select value={questionCity} onChange={e => setQuestionCity(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-xs font-bold text-white uppercase tracking-wide focus:border-indigo-500 outline-none cursor-pointer appearance-none hover:bg-slate-900 transition-colors">
-                                            <option value="">Seleziona Città...</option>
-                                            {cityManifest.sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                            <option value="general">Generale / Campania</option>
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none"/>
-                                    </div>
-                                    <button type="button" onClick={handlePostQuestion} disabled={!questionText.trim() || !questionCity || isPostingQa} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg transition-all active:scale-95">
-                                        {isPostingQa ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>} Pubblica Domanda
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="space-y-2 py-2">
-                                <h4 className="text-amber-200 font-bold text-sm">
-                                    {pausedCopy.title ||
-                                        resolvePlatformUserTitle(qaMsgKey, 'Q&A Local sospeso')}
-                                </h4>
-                                <p className="text-slate-400 text-xs">{pausedAlertMessage()}</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-            <div className="flex items-center justify-between bg-slate-900/50 border border-slate-800 rounded-xl p-2">
-                <div className="flex items-center gap-2"><Filter className="w-4 h-4 text-slate-500 ml-2"/><span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Filtra Discussioni:</span></div>
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                    <button onClick={() => setShowMyPostsOnly(false)} className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${!showMyPostsOnly ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Tutte</button>
-                    <button onClick={() => setShowMyPostsOnly(true)} className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${showMyPostsOnly ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><User className="w-3.5 h-3.5"/> Le Mie</button>
-                </div>
-            </div>
-            <div className="flex-1 space-y-4">
-                {filteredPosts.length === 0 && (
-                    <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
-                        <MessageCircleQuestion className="w-12 h-12 text-slate-600 mx-auto mb-3"/>
-                        <p className="text-slate-500 italic">{showMyPostsOnly ? "Non hai ancora fatto domande." : "Nessuna domanda ancora. Sii il primo a chiedere!"}</p>
-                    </div>
-                )}
-                {filteredPosts.map(post => {
-                    const isLiked = likedPostIds.includes(post.id);
-                    const isMyPost = post.authorId === user.id;
-                    return (
-                        <div key={post.id} onClick={() => setSelectedPost(post)} className={`bg-slate-900 border rounded-xl p-5 transition-all animate-in fade-in slide-in-from-bottom-2 shadow-md cursor-pointer group relative ${isMyPost ? 'border-indigo-500/50 hover:border-indigo-500' : 'border-slate-800 hover:border-slate-700'}`}>
-                            {isMyPost && <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[9px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-xl shadow-lg border-b border-l border-indigo-400">TU</div>}
-                            <div className="flex justify-between items-start mb-3">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-full border flex items-center justify-center font-bold text-slate-300 ${isMyPost ? 'bg-indigo-900/30 border-indigo-500/50' : 'bg-slate-800 border-slate-700'}`}>{post.authorName.charAt(0)}</div>
-                                    <div>
-                                        <div className="flex items-center gap-2"><span className={`font-bold text-sm transition-colors ${isMyPost ? 'text-indigo-300' : 'text-white group-hover:text-indigo-400'}`}>{post.authorName}</span>{post.authorRole === 'guide' && <span className="bg-indigo-900/50 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded uppercase font-bold border border-indigo-500/30">Guida</span>}</div>
-                                        <div className="text-[10px] text-slate-500 flex items-center gap-2"><span>{new Date(post.date).toLocaleDateString()}</span><span>•</span><span className="flex items-center gap-1 text-indigo-400 font-bold uppercase"><MapPin className="w-3 h-3"/> {post.cityName}</span></div>
-                                    </div>
-                                </div>
-                                {!isMyPost && <button className="text-slate-500 hover:text-white p-1"><ChevronRight className="w-4 h-4"/></button>}
-                            </div>
-                            <p className="text-slate-200 text-lg font-medium leading-relaxed mb-4 group-hover:text-white transition-colors">{post.text}</p>
-                            <div className="flex items-center gap-4 border-t border-slate-800 pt-3">
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); handleLikePost(post.id); }}
-                                    disabled={!qaEnabled}
-                                    className={`flex items-center gap-1.5 text-xs font-bold uppercase transition-colors px-2 py-1 rounded hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed ${isLiked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}
-                                >
-                                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}/> {post.likes || 0} <span className="hidden sm:inline">Supporti</span>
-                                </button>
-                                <button className={`flex items-center gap-1.5 text-xs font-bold uppercase transition-colors px-2 py-1 rounded hover:bg-slate-800 ${post.repliesCount > 0 ? 'text-indigo-400' : 'text-slate-500 hover:text-indigo-400'}`}><MessageCircleQuestion className="w-4 h-4"/> {post.repliesCount || 0} <span className="hidden sm:inline">Risposte</span></button>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
+  const pausedAlertMessage = () =>
+    pausedCopy.body ||
+    resolvePlatformUserBody(
+      qaMsgKey,
+      'Le domande e risposte locali sono temporaneamente disabilitate.',
     );
+
+  const pausedTitle = pausedCopy.title || resolvePlatformUserTitle(qaMsgKey, 'Consigli sospesi');
+  const pausedBody = pausedAlertMessage();
+
+  const syncPostState = (updated: CommunityPost) => {
+    setQaPosts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    setSelectedPost((prev) => (prev && prev.id === updated.id ? updated : prev));
+  };
+
+  const handlePostQuestion = async () => {
+    if (!qaEnabled) {
+      showGlobalAlert(pausedAlertMessage());
+      return;
+    }
+    if (isGuest) {
+      requireAuth();
+      return;
+    }
+    if (!questionText.trim()) {
+      showGlobalAlert('Scrivi una domanda!');
+      return;
+    }
+    if (!questionCity) {
+      showGlobalAlert('Seleziona una città!');
+      return;
+    }
+
+    const selectedCityName = resolveQaCityName(questionCity, cityManifest);
+    if (!selectedCityName) {
+      showGlobalAlert('Città non valida. Seleziona una città dall’elenco.');
+      return;
+    }
+
+    // PK assegnata dal DB (community_posts.id DEFAULT gen_random_uuid()).
+    const newPost: CommunityPostCreateInput = {
+      authorId: user.id,
+      authorName: user.name,
+      authorRole: resolveAuthorRole(user.role),
+      authorAvatar: user.avatar,
+      text: questionText,
+      cityId: questionCity,
+      cityName: selectedCityName,
+    };
+
+    setIsPostingQa(true);
+    try {
+      const savedPost = await addCommunityPostAsync(newPost);
+      setQaPosts((prev) => [savedPost, ...prev]);
+      // Owner auto-follow: trigger DB; allinea stato UI solo dopo successo.
+      setFollowedPostIds((prev) => (prev.includes(savedPost.id) ? prev : [...prev, savedPost.id]));
+      setShowMyPostsOnly(true);
+      setQuestionText('');
+    } catch (e: unknown) {
+      showGlobalAlert(e instanceof Error ? e.message : pausedAlertMessage());
+    } finally {
+      setIsPostingQa(false);
+    }
+  };
+
+  const handleToggleFollow = async (postId: string) => {
+    if (!qaEnabled) {
+      showGlobalAlert(pausedAlertMessage());
+      return;
+    }
+    if (isGuest) {
+      requireAuth();
+      return;
+    }
+    if (togglingFollowPostId === postId) return;
+
+    setTogglingFollowPostId(postId);
+    try {
+      const result = await togglePostFollow(postId, user.id);
+      setFollowedPostIds((prev) => {
+        if (result.following) {
+          return prev.includes(postId) ? prev : [...prev, postId];
+        }
+        return prev.filter((id) => id !== postId);
+      });
+    } catch (e: unknown) {
+      showGlobalAlert(e instanceof Error ? e.message : pausedAlertMessage());
+    } finally {
+      setTogglingFollowPostId(null);
+    }
+  };
+
+  const startEditQuestion = () => {
+    if (!selectedPost) return;
+    if (isGuest) {
+      requireAuth();
+      return;
+    }
+    setEditText(selectedPost.text);
+    setEditCity(selectedPost.cityId);
+    setIsEditingQuestion(true);
+  };
+
+  const cancelEditQuestion = () => {
+    setIsEditingQuestion(false);
+    setEditText('');
+    setEditCity('');
+  };
+
+  const handleSaveQuestion = async () => {
+    if (!selectedPost || isSavingEdit) return;
+    if (isGuest) {
+      requireAuth();
+      return;
+    }
+    if (!editText.trim() || !editCity) {
+      showGlobalAlert('Compila testo e città.');
+      return;
+    }
+
+    const cityName = resolveQaCityName(editCity, cityManifest);
+    if (!cityName) {
+      showGlobalAlert('Città non valida. Seleziona una città dall’elenco.');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      const updated = await updateCommunityPostAsync(selectedPost.id, {
+        text: editText,
+        cityId: editCity,
+        cityName,
+      });
+      syncPostState(updated);
+      setIsEditingQuestion(false);
+    } catch (e: unknown) {
+      showGlobalAlert(e instanceof Error ? e.message : 'Errore salvataggio domanda.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const beginReplyTo = (parentId: string | null) => {
+    if (isGuest) {
+      requireAuth();
+      return;
+    }
+    // Cambia destinatario senza cancellare il testo già digitato.
+    setReplyParentId(parentId);
+  };
+
+  const clearReplyTarget = () => {
+    setReplyParentId(null);
+  };
+
+  const handlePostReply = async () => {
+    if (!qaEnabled) {
+      showGlobalAlert(pausedAlertMessage());
+      return;
+    }
+    if (!replyText.trim() || !selectedPost || isPostingReply) return;
+
+    if (isGuest) {
+      requireAuth();
+      return;
+    }
+
+    const isOwner = selectedPost.authorId === user.id;
+    const parentId = replyParentId;
+    if (isOwner && parentId === null) {
+      showGlobalAlert(
+        'Non puoi rispondere direttamente alla tua domanda. Rispondi a una risposta ricevuta.',
+      );
+      return;
+    }
+
+    setIsPostingReply(true);
+    try {
+      const savedReply = await addCommunityReplyAsync({
+        postId: selectedPost.id,
+        text: replyText,
+        parentReplyId: parentId,
+      });
+
+      const updatedReplies = [...(selectedPost.replies || []), savedReply];
+      const updatedPost: CommunityPost = {
+        ...selectedPost,
+        replies: updatedReplies,
+        repliesCount: (selectedPost.repliesCount || 0) + 1,
+      };
+      syncPostState(updatedPost);
+      setReplyText('');
+      setReplyParentId(null);
+    } catch (e: unknown) {
+      showGlobalAlert(e instanceof Error ? e.message : pausedAlertMessage());
+    } finally {
+      setIsPostingReply(false);
+    }
+  };
+
+  if (selectedPost) {
+    return (
+      <QaThread
+        post={selectedPost}
+        isGuest={isGuest}
+        currentUserId={user.id}
+        qaEnabled={qaEnabled}
+        isFollowing={!isGuest && followedPostIds.includes(selectedPost.id)}
+        followLoading={togglingFollowPostId === selectedPost.id}
+        replyText={replyText}
+        replyParentId={replyParentId}
+        isPostingReply={isPostingReply}
+        isEditingQuestion={isEditingQuestion}
+        editText={editText}
+        editCity={editCity}
+        isSavingEdit={isSavingEdit}
+        cityManifest={cityManifest}
+        pausedTitle={pausedTitle}
+        pausedBody={pausedBody}
+        onBack={() => {
+          cancelEditQuestion();
+          setReplyParentId(null);
+          setReplyText('');
+          setSelectedPost(null);
+        }}
+        onToggleFollow={() => void handleToggleFollow(selectedPost.id)}
+        onRequireAuth={requireAuth}
+        onStartEdit={startEditQuestion}
+        onCancelEdit={cancelEditQuestion}
+        onEditTextChange={setEditText}
+        onEditCityChange={setEditCity}
+        onSaveEdit={() => void handleSaveQuestion()}
+        onBeginReply={beginReplyTo}
+        onClearReplyTarget={clearReplyTarget}
+        onReplyTextChange={setReplyText}
+        onSubmitReply={() => void handlePostReply()}
+      />
+    );
+  }
+
+  const filteredPosts = showMyPostsOnly
+    ? qaPosts.filter((p) => !isGuest && p.authorId === user.id)
+    : qaPosts;
+
+  return (
+    <div className="flex flex-col h-full gap-6 pb-10 px-4 md:px-8 pt-8 relative">
+      <QaAuthorDetailDialog ref={authorDialogRef} />
+      <FeatureFlagPausedBanner
+        flagKey={PLATFORM_FEATURE_FLAG_KEYS.MODERATION_COMMUNITY_POSTS}
+        defaultMessageKey={PLATFORM_MESSAGE_TEMPLATE_KEYS.MODERATION_COMMUNITY_POSTS_PAUSED}
+      />
+
+      <header className="shrink-0 space-y-1">
+        <h3 className={sectionTitleClass}>Consigli</h3>
+        <p className={sectionDescriptionClass}>Chiedi ai viaggiatori consigli ed esperienze.</p>
+      </header>
+
+      <div className="flex items-center justify-between bg-slate-900/50 border border-slate-800 rounded-xl p-2 gap-2 flex-wrap shrink-0">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-slate-500 ml-2" aria-hidden />
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Filtra Discussioni:
+          </span>
+        </div>
+        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setShowMyPostsOnly(false)}
+            className={`px-4 py-1.5 min-h-10 rounded-md text-xs font-bold uppercase transition-all ${!showMyPostsOnly ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+          >
+            Tutte
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (isGuest) {
+                requireAuth();
+                return;
+              }
+              setShowMyPostsOnly(true);
+            }}
+            className={`px-4 py-1.5 min-h-10 rounded-md text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${showMyPostsOnly ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+          >
+            <User className="w-3.5 h-3.5" aria-hidden /> Le Mie
+          </button>
+        </div>
+      </div>
+
+      <QaPostList
+        posts={filteredPosts}
+        showMyPostsOnly={showMyPostsOnly}
+        isGuest={isGuest}
+        currentUserId={user.id}
+        followedPostIds={followedPostIds}
+        togglingFollowPostId={togglingFollowPostId}
+        qaEnabled={qaEnabled}
+        listScrollRef={listScrollRef}
+        onOpenAuthor={(post, trigger) => {
+          void authorDialogRef.current?.open(post, trigger);
+        }}
+        onOpenCity={openCityFromPost}
+        onToggleFollow={(postId) => void handleToggleFollow(postId)}
+        onOpenThread={setSelectedPost}
+      />
+
+      <QaQuestionComposer
+        qaEnabled={qaEnabled}
+        isGuest={isGuest}
+        pausedTitle={pausedTitle}
+        pausedBody={pausedBody}
+        questionText={questionText}
+        questionCity={questionCity}
+        isPostingQa={isPostingQa}
+        cityManifest={cityManifest}
+        onRequireAuth={requireAuth}
+        onQuestionTextChange={setQuestionText}
+        onQuestionCityChange={setQuestionCity}
+        onSubmit={() => void handlePostQuestion()}
+      />
+    </div>
+  );
 };

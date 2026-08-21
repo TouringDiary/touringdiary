@@ -1,14 +1,11 @@
 import { addNotification } from '@/services/notificationService';
-import {
-  listViaggiByUser,
-  updateViaggio,
-} from '@/services/viaggio/viaggioService';
+import { listViaggiByUser, updateViaggio } from '@/services/viaggio/viaggioService';
 import {
   computeRicordamiNextAt,
   computeRicordamiNextYearlyAt,
   getViaggioRicordamiConfig,
-  withViaggioRicordamiConfig,
   RICORDAMI_DEFAULT_INTERVAL_MONTHS,
+  withViaggioRicordamiConfig,
 } from '@/types/models/Viaggio';
 
 /**
@@ -29,9 +26,10 @@ export async function emitDueRicordamiNotifications(userId: string): Promise<num
 
     try {
       const ricordamiConfig = getViaggioRicordamiConfig(v.metadata);
-      const months = Number.isFinite(v.ricordamiIntervalMonths) && v.ricordamiIntervalMonths >= 1
-        ? v.ricordamiIntervalMonths
-        : RICORDAMI_DEFAULT_INTERVAL_MONTHS;
+      const months =
+        Number.isFinite(v.ricordamiIntervalMonths) && v.ricordamiIntervalMonths >= 1
+          ? v.ricordamiIntervalMonths
+          : RICORDAMI_DEFAULT_INTERVAL_MONTHS;
 
       await addNotification(
         userId,
@@ -71,10 +69,7 @@ export async function emitDueRicordamiNotifications(userId: string): Promise<num
       }
       emitted += 1;
     } catch (e) {
-      console.error(
-        `[viaggioRicordamiService] emissione fallita per viaggio ${v.id}`,
-        e,
-      );
+      console.error(`[viaggioRicordamiService] emissione fallita per viaggio ${v.id}`, e);
     }
   }
 

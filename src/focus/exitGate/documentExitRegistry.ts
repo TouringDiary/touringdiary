@@ -41,10 +41,9 @@ export function getBlockingExitGates(): DocumentExitRegistration[] {
 export function controllerToExitRegistration(
   id: string,
   label: string,
-  controller: Pick<
-    DocumentSaveController,
-    'phase' | 'flush' | 'awaitInFlight' | 'isGuest'
-  > & { getPhase?: () => DocumentSavePhase }
+  controller: Pick<DocumentSaveController, 'phase' | 'flush' | 'awaitInFlight' | 'isGuest'> & {
+    getPhase?: () => DocumentSavePhase;
+  },
 ): DocumentExitRegistration {
   return {
     id,

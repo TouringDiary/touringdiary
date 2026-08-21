@@ -4,7 +4,7 @@ import { listWorkspacesContainingResource } from '@/services/collaboration';
 
 export function useResourceWorkspaces(
   kind: SharedResourceKind | null,
-  resourceId: string | null | undefined
+  resourceId: string | null | undefined,
 ) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);

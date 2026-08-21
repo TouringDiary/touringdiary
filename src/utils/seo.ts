@@ -1,3 +1,4 @@
+import type { CityDetails } from '@/types';
 
 export interface RouteSeo {
   continent_slug: string;
@@ -7,16 +8,24 @@ export interface RouteSeo {
   city_slug: string;
 }
 
+type SeoCityDetails = CityDetails['details'] & {
+  seo_title?: string;
+  seo_description?: string;
+  main_image?: string;
+};
+
 /**
  * Gestione centralizzata metadati SEO con Strict Canonical Policy
  */
-export const updateCityMetadata = (city: any, route: RouteSeo | null) => {
+export const updateCityMetadata = (city: CityDetails, route: RouteSeo | null) => {
   if (!city) return null;
 
+  const details = city.details as SeoCityDetails | undefined;
+
   // 1. Title - Sempre aggiornato per UX e indicizzazione base
-  const newTitle = city.details?.seo_title || `${city.name} cosa vedere | Touring Diary`;
+  const newTitle = details?.seo_title || `${city.name} cosa vedere | Touring Diary`;
   if (document.title !== newTitle) {
-      document.title = newTitle;
+    document.title = newTitle;
   }
 
   // 2. Meta Description - Sempre aggiornata
@@ -26,7 +35,11 @@ export const updateCityMetadata = (city: any, route: RouteSeo | null) => {
     metaDesc.setAttribute('name', 'description');
     document.head.appendChild(metaDesc);
   }
-  metaDesc.setAttribute('content', city.details?.seo_description || `Scopri cosa vedere a ${city.name}, esperienze autentiche e consigli locali.`);
+  metaDesc.setAttribute(
+    'content',
+    details?.seo_description ||
+      `Scopri cosa vedere a ${city.name}, esperienze autentiche e consigli locali.`,
+  );
 
   // 3. Canonical Tag - RIGOROSAMENTE SOLO SE LA ROTTA È COMPLETA
   // Evita l'indicizzazione di URL piatti (es. /sorrento) a favore di quelli gerarchici
@@ -34,11 +47,11 @@ export const updateCityMetadata = (city: any, route: RouteSeo | null) => {
 
   // Costruzione path pulita (senza slash multipli se mancano zone o regioni)
   const segments = [
-      route.continent_slug,
-      route.nation_slug,
-      route.region_slug,
-      route.zone_slug,
-      route.city_slug
+    route.continent_slug,
+    route.nation_slug,
+    route.region_slug,
+    route.zone_slug,
+    route.city_slug,
   ].filter(Boolean);
 
   const path = `/${segments.join('/')}`;
@@ -59,7 +72,7 @@ export const updateCityMetadata = (city: any, route: RouteSeo | null) => {
  * Iniezione Structured Data JSON-LD (TouristDestination)
  * Utilizza esclusivamente i dati certificati del registro.
  */
-export const injectJsonLd = (city: any, canonicalUrl: string) => {
+export const injectJsonLd = (city: CityDetails, canonicalUrl: string) => {
   const id = 'json-ld-city';
   let script = document.getElementById(id) as HTMLScriptElement;
   if (!script) {
@@ -69,21 +82,23 @@ export const injectJsonLd = (city: any, canonicalUrl: string) => {
     document.head.appendChild(script);
   }
 
-  const schema: any = {
-    "@context": "https://schema.org",
-    "@type": "TouristDestination",
-    "name": city.name,
-    "description": city.details?.seo_description || city.description,
-    "url": canonicalUrl,
-    "image": city.details?.main_image || city.imageUrl // Priorità immagine registro
+  const details = city.details as SeoCityDetails | undefined;
+
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'TouristDestination',
+    name: city.name,
+    description: details?.seo_description || city.description,
+    url: canonicalUrl,
+    image: details?.main_image || city.imageUrl, // Priorità immagine registro
   };
 
   // Validazione geospaziale
   if (city.coords?.lat && city.coords?.lng) {
     schema.geo = {
-      "@type": "GeoCoordinates",
-      "latitude": city.coords.lat,
-      "longitude": city.coords.lng
+      '@type': 'GeoCoordinates',
+      latitude: city.coords.lat,
+      longitude: city.coords.lng,
     };
   }
 

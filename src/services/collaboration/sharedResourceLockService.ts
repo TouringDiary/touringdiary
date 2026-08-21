@@ -1,5 +1,5 @@
-import { supabase } from '@/services/supabaseClient';
 import type { SharedResourceEditLockState } from '@/domain/collaboration/collaborationLive';
+import { supabase } from '@/services/supabaseClient';
 
 type LockBooleanRpc =
   | 'try_acquire_shared_resource_edit_lock'
@@ -21,7 +21,7 @@ function parseLockState(data: unknown): SharedResourceEditLockState {
 async function callLockBooleanRpc(
   rpcName: LockBooleanRpc,
   sharedResourceId: string,
-  logLabel: string
+  logLabel: string,
 ): Promise<boolean> {
   const { data, error } = await supabase.rpc(rpcName, {
     p_shared_resource_id: sharedResourceId,
@@ -36,7 +36,11 @@ async function callLockBooleanRpc(
 }
 
 export async function tryAcquireSharedResourceEditLock(sharedResourceId: string): Promise<boolean> {
-  return callLockBooleanRpc('try_acquire_shared_resource_edit_lock', sharedResourceId, 'tryAcquire');
+  return callLockBooleanRpc(
+    'try_acquire_shared_resource_edit_lock',
+    sharedResourceId,
+    'tryAcquire',
+  );
 }
 
 export async function refreshSharedResourceEditLock(sharedResourceId: string): Promise<boolean> {
@@ -47,7 +51,9 @@ export async function releaseSharedResourceEditLock(sharedResourceId: string): P
   return callLockBooleanRpc('release_shared_resource_edit_lock', sharedResourceId, 'release');
 }
 
-export async function getSharedResourceEditLockHolder(sharedResourceId: string): Promise<string | null> {
+export async function getSharedResourceEditLockHolder(
+  sharedResourceId: string,
+): Promise<string | null> {
   const { data, error } = await supabase.rpc('get_shared_resource_edit_lock_holder', {
     p_shared_resource_id: sharedResourceId,
   });
@@ -61,7 +67,7 @@ export async function getSharedResourceEditLockHolder(sharedResourceId: string):
 }
 
 export async function getSharedResourceEditLockState(
-  sharedResourceId: string
+  sharedResourceId: string,
 ): Promise<SharedResourceEditLockState> {
   const { data, error } = await supabase.rpc('get_shared_resource_edit_lock_state', {
     p_shared_resource_id: sharedResourceId,

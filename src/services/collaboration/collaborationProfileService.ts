@@ -1,10 +1,10 @@
-import type { SharedResourceKind, ResourceInvite, Workspace } from '@/domain/collaboration';
+import type { ResourceInvite, SharedResourceKind, Workspace } from '@/domain/collaboration';
 import { getSharedResourceKindLabel } from '@/domain/collaboration';
 import { supabase } from '@/services/supabaseClient';
-import { listPendingInvitesForUser, listResourceInvites } from './resourceInviteService';
-import { listPendingWorkspaceInvitesForUser, listWorkspaceInvites } from './workspaceInviteService';
-import { listWorkspacesForUser } from './workspaceService';
 import { fetchCollaborativeDiaryIdsForMember } from './diaryCollaborationService';
+import { listPendingInvitesForUser, listResourceInvites } from './resourceInviteService';
+import { listPendingWorkspaceInvitesForUser } from './workspaceInviteService';
+import { listWorkspacesForUser } from './workspaceService';
 
 export interface SharingProfileResourceRow {
   id: string;
@@ -36,16 +36,12 @@ function resourceRefKey(kind: SharedResourceKind, resourceId: string): string {
   return `${kind}:${resourceId}`;
 }
 
-async function batchResolveResourceTitles(
-  refs: ResourceRef[]
-): Promise<Map<string, string>> {
+async function batchResolveResourceTitles(refs: ResourceRef[]): Promise<Map<string, string>> {
   const titles = new Map<string, string>();
   if (refs.length === 0) return titles;
 
   const diaryIds = [...new Set(refs.filter((r) => r.kind === 'diary').map((r) => r.resourceId))];
-  const suitcaseIds = [
-    ...new Set(refs.filter((r) => r.kind !== 'diary').map((r) => r.resourceId)),
-  ];
+  const suitcaseIds = [...new Set(refs.filter((r) => r.kind !== 'diary').map((r) => r.resourceId))];
 
   const [diaryRows, suitcaseRows] = await Promise.all([
     diaryIds.length
@@ -59,7 +55,7 @@ async function batchResolveResourceTitles(
   for (const row of diaryRows.data ?? []) {
     titles.set(
       resourceRefKey('diary', row.id),
-      row.title?.trim() || getSharedResourceKindLabel('diary')
+      row.title?.trim() || getSharedResourceKindLabel('diary'),
     );
   }
 
@@ -68,7 +64,7 @@ async function batchResolveResourceTitles(
     const row = (suitcaseRows.data ?? []).find((s) => s.id === ref.resourceId);
     titles.set(
       resourceRefKey(ref.kind, ref.resourceId),
-      row?.title?.trim() || getSharedResourceKindLabel(ref.kind)
+      row?.title?.trim() || getSharedResourceKindLabel(ref.kind),
     );
   }
 
@@ -76,7 +72,7 @@ async function batchResolveResourceTitles(
 }
 
 async function batchListWorkspaceIdsByResource(
-  refs: ResourceRef[]
+  refs: ResourceRef[],
 ): Promise<Map<string, string[]>> {
   const workspaceIdsByRef = new Map<string, string[]>();
   if (refs.length === 0) return workspaceIdsByRef;
@@ -115,7 +111,7 @@ function buildSharingProfileResourceRow(
     isShared: boolean;
   },
   titles: Map<string, string>,
-  workspaceIdsByRef: Map<string, string[]>
+  workspaceIdsByRef: Map<string, string[]>,
 ): SharingProfileResourceRow {
   const refKey = resourceRefKey(input.kind, input.resourceId);
   return {
@@ -166,9 +162,7 @@ async function fetchOwnedSharedResources(userId: string): Promise<SharingProfile
     batchListWorkspaceIdsByResource(refs),
   ]);
 
-  return rawRows.map((row) =>
-    buildSharingProfileResourceRow(row, titles, workspaceIdsByRef)
-  );
+  return rawRows.map((row) => buildSharingProfileResourceRow(row, titles, workspaceIdsByRef));
 }
 
 async function fetchMemberSharedResources(userId: string): Promise<SharingProfileResourceRow[]> {
@@ -220,9 +214,7 @@ async function fetchMemberSharedResources(userId: string): Promise<SharingProfil
     batchListWorkspaceIdsByResource(refs),
   ]);
 
-  return rawRows.map((row) =>
-    buildSharingProfileResourceRow(row, titles, workspaceIdsByRef)
-  );
+  return rawRows.map((row) => buildSharingProfileResourceRow(row, titles, workspaceIdsByRef));
 }
 
 export async function loadSharingProfileOverview(userId: string): Promise<SharingProfileOverview> {

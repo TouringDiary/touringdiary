@@ -1,10 +1,5 @@
 /** Lifecycle phase of a persisted document (Diario / Valigia). */
-export type DocumentSavePhase =
-  | 'never_saved'
-  | 'synced'
-  | 'dirty'
-  | 'saving'
-  | 'error';
+export type DocumentSavePhase = 'never_saved' | 'synced' | 'dirty' | 'saving' | 'error';
 
 /**
  * Phase semantics:
@@ -57,8 +52,7 @@ export const AUTOSAVE_PREF_KEYS = {
   suitcase: 'prefs.autosave.suitcase',
 } as const;
 
-export const GUEST_SAVE_MESSAGE =
-  'Effettua il login per salvare e collegare i tuoi contenuti.';
+export const GUEST_SAVE_MESSAGE = 'Effettua il login per salvare e collegare i tuoi contenuti.';
 
 /** Alert breve vicino alla nuvoletta di salvataggio (utente non autenticato). */
 export const GUEST_SAVE_BADGE_MESSAGE = 'Fai login per salvare';

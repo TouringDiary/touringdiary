@@ -1,14 +1,10 @@
-import { supabase } from '@/services/supabaseClient';
 import { addNotification } from '@/services/notificationService';
+import { supabase } from '@/services/supabaseClient';
 import { shouldDeliverCollaborationNotification } from './collaborationNotificationPrefsService';
 import { getWorkspace } from './workspaceService';
 
 async function getProfileName(userId: string): Promise<string> {
-  const { data } = await supabase
-    .from('profiles')
-    .select('name')
-    .eq('id', userId)
-    .maybeSingle();
+  const { data } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle();
   return data?.name?.trim() || 'Un collaboratore';
 }
 
@@ -17,7 +13,7 @@ async function notifyIfAllowed(
   category: 'invites' | 'resource_updates' | 'workspace_updates' | 'friend_requests',
   title: string,
   message: string,
-  linkData?: Parameters<typeof addNotification>[4]
+  linkData?: Parameters<typeof addNotification>[4],
 ): Promise<void> {
   if (!(await shouldDeliverCollaborationNotification(userId, category))) return;
   await addNotification(userId, 'collaboration', title, message, linkData);
@@ -28,7 +24,7 @@ export async function notifyWorkspaceInviteReceived(
   inviterName: string,
   workspaceName: string,
   inviteId: string,
-  workspaceId: string
+  workspaceId: string,
 ): Promise<void> {
   await notifyIfAllowed(
     inviteeId,
@@ -41,7 +37,7 @@ export async function notifyWorkspaceInviteReceived(
       workspaceId,
       inviteId,
       targetId: inviteId,
-    }
+    },
   );
 }
 
@@ -50,7 +46,7 @@ export async function notifyWorkspaceInviteAccepted(
   inviteeName: string,
   workspaceName: string,
   inviteId: string,
-  workspaceId: string
+  workspaceId: string,
 ): Promise<void> {
   await notifyIfAllowed(
     ownerId,
@@ -63,7 +59,7 @@ export async function notifyWorkspaceInviteAccepted(
       workspaceId,
       inviteId,
       targetId: inviteId,
-    }
+    },
   );
 }
 
@@ -72,7 +68,7 @@ export async function notifyWorkspaceInviteRejected(
   inviteeName: string,
   workspaceName: string,
   inviteId: string,
-  workspaceId: string
+  workspaceId: string,
 ): Promise<void> {
   await notifyIfAllowed(
     ownerId,
@@ -85,7 +81,7 @@ export async function notifyWorkspaceInviteRejected(
       workspaceId,
       inviteId,
       targetId: inviteId,
-    }
+    },
   );
 }
 
@@ -93,7 +89,7 @@ export async function notifyWorkspaceInviteRejected(
 export async function notifyWorkspaceSuitcaseAdded(
   workspaceId: string,
   actorId: string,
-  suitcaseId: string
+  suitcaseId: string,
 ): Promise<void> {
   const workspace = await getWorkspace(workspaceId);
   if (!workspace || workspace.ownerId === actorId) return;
@@ -117,6 +113,6 @@ export async function notifyWorkspaceSuitcaseAdded(
       workspaceId,
       targetId: workspaceId,
       resourceKind: 'suitcase',
-    }
+    },
   );
 }

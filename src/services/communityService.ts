@@ -4,12 +4,11 @@
  * riesportando le funzionalità dai moduli di dominio isolati.
  */
 
-export * from './community/itineraryService';
-export * from './community/postService';
-export * from './community/interactionService';
-export * from './community/suggestionService';
-export * from './community/reviewService';
-export * from './community/businessStatsService';
-
 // Riesposizione utility UUID per compatibilità legacy interna
 export { UUID_REGEX } from '../utils/uuid';
+export * from './community/businessStatsService';
+export * from './community/interactionService';
+export * from './community/itineraryService';
+export * from './community/postService';
+export * from './community/reviewService';
+export * from './community/suggestionService';

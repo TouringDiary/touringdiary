@@ -1,11 +1,11 @@
-import React from 'react';
+import type React from 'react';
 import {
   buildCountBadgeClassName,
-  formatCompactCount,
   type CountBadgePosition,
   type CountBadgeShape,
   type CountBadgeSize,
   type CountBadgeVariant,
+  formatCompactCount,
 } from '@/utils/countBadge';
 
 export interface CountBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {

@@ -1,21 +1,21 @@
 import { normalizeCategoryName } from '@/domain/packing/packingCategories';
-import { Suitcase } from '@/types/suitcase';
+import type { Suitcase } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 
 export const checkDuplicateItem = (
-  id: string, 
-  name: string, 
-  category: string, 
-  suitcaseId: string | null, 
+  id: string,
+  name: string,
+  category: string,
+  suitcaseId: string | null,
   activeTabId: string | null,
   userSuitcases: Suitcase[],
-  _isUndo = false
+  _isUndo = false,
 ) => {
   const targetId = suitcaseId || activeTabId;
   if (!targetId) return true;
-  const suitcase = userSuitcases.find(s => s.id === targetId);
+  const suitcase = userSuitcases.find((s) => s.id === targetId);
   if (!suitcase) return true;
-  
+
   const items = suitcase.suitcase_items || [];
   const targetCategory = normalizeCategoryName(category);
   const normalizedName = normalizeItemName(name);
@@ -24,6 +24,6 @@ export const checkDuplicateItem = (
     (item) =>
       item.id !== id &&
       normalizeItemName(item.name) === normalizedName &&
-      normalizeCategoryName(item.category) === targetCategory
+      normalizeCategoryName(item.category) === targetCategory,
   );
 };

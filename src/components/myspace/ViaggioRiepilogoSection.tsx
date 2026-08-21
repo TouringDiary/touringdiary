@@ -1,14 +1,15 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BarChart3 } from 'lucide-react';
-import type {
-  ViaggioRiepilogoAnnotations,
-  ViaggioRiepilogoComputed,
-} from '@/types/models/ViaggioRiepilogo';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   computeViaggioRiepilogo,
   getViaggioRiepilogoAnnotations,
   upsertViaggioRiepilogoAnnotations,
 } from '@/services/viaggio/viaggioRiepilogoService';
+import type {
+  ViaggioRiepilogoAnnotations,
+  ViaggioRiepilogoComputed,
+} from '@/types/models/ViaggioRiepilogo';
 
 interface Props {
   viaggioId: string;
@@ -166,10 +167,14 @@ export const ViaggioRiepilogoSection: React.FC<Props> = ({ viaggioId, userId }) 
               Annotazioni (View)
             </h4>
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <label
+                htmlFor="fld-myspace-viaggioriepilogosection-tsx-l170"
+                className="text-[10px] font-bold uppercase tracking-wider text-slate-500"
+              >
                 Luogo preferito
               </label>
               <input
+                id="fld-myspace-viaggioriepilogosection-tsx-l170"
                 value={preferredPlace}
                 onChange={(e) => setPreferredPlace(e.target.value)}
                 className="mt-1 w-full rounded-lg bg-slate-900 border border-slate-700 text-sm text-slate-200 px-3 py-2"
@@ -177,10 +182,14 @@ export const ViaggioRiepilogoSection: React.FC<Props> = ({ viaggioId, userId }) 
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <label
+                htmlFor="fld-myspace-viaggioriepilogosection-tsx-l181"
+                className="text-[10px] font-bold uppercase tracking-wider text-slate-500"
+              >
                 Note
               </label>
               <textarea
+                id="fld-myspace-viaggioriepilogosection-tsx-l181"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}

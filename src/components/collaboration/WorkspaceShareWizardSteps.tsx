@@ -1,11 +1,10 @@
-import React from 'react';
 import { Loader2 } from 'lucide-react';
-import type { Workspace } from '@/domain/collaboration';
+import type React from 'react';
+import type { CollaborationUserSearchResult, Workspace } from '@/domain/collaboration';
 import type {
   WorkspaceCompositionBlueprint,
   WorkspaceCompositionDraft,
 } from '@/domain/collaboration/workspaceComposition';
-import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
 import {
   buildCompositionCandidateMetadata,
@@ -33,10 +32,14 @@ export const WorkspaceSetupStep: React.FC<WorkspaceSetupStepProps> = ({
 }) => (
   <div className="space-y-4">
     <div className="space-y-2">
-      <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+      <label
+        htmlFor="fld-collaboration-workspacesharewizardsteps-tsx-l35"
+        className="text-xs font-bold uppercase tracking-wider text-slate-400"
+      >
         Nome Workspace
       </label>
       <input
+        id="fld-collaboration-workspacesharewizardsteps-tsx-l35"
         type="text"
         value={workspaceName}
         onChange={(e) => onNameChange(e.target.value)}
@@ -45,10 +48,14 @@ export const WorkspaceSetupStep: React.FC<WorkspaceSetupStepProps> = ({
       />
     </div>
     <div className="space-y-2">
-      <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+      <label
+        htmlFor="fld-collaboration-workspacesharewizardsteps-tsx-l47"
+        className="text-xs font-bold uppercase tracking-wider text-slate-400"
+      >
         Descrizione (opzionale)
       </label>
       <textarea
+        id="fld-collaboration-workspacesharewizardsteps-tsx-l47"
         value={workspaceDescription}
         onChange={(e) => onDescriptionChange(e.target.value)}
         rows={3}
@@ -99,7 +106,9 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
         </h4>
         {blueprint.diary.candidates.length === 0 ? (
           <p className="text-sm text-slate-500">
-            {catalogMode ? 'Nessun elemento Diario disponibile.' : 'Nessun Diario collegato disponibile.'}
+            {catalogMode
+              ? 'Nessun elemento Diario disponibile.'
+              : 'Nessun Diario collegato disponibile.'}
           </p>
         ) : (
           <ul
@@ -129,9 +138,7 @@ export const WorkspaceCompositionStep: React.FC<WorkspaceCompositionStepProps> =
                   onClick={() => {
                     if (blueprint.diary.mode === 'fixed') return;
                     onSelectDiary(
-                      draft.selectedDiaryId === candidate.resourceId
-                        ? null
-                        : candidate.resourceId
+                      draft.selectedDiaryId === candidate.resourceId ? null : candidate.resourceId,
                     );
                   }}
                 />
@@ -241,7 +248,9 @@ export const WorkspaceSelectStep: React.FC<WorkspaceSelectStepProps> = ({
             >
               <p className="text-sm font-semibold text-white truncate">{workspace.name}</p>
               {workspace.description && (
-                <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{workspace.description}</p>
+                <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                  {workspace.description}
+                </p>
               )}
             </button>
           </li>

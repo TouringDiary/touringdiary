@@ -1,8 +1,8 @@
-import React from 'react';
-import { Plus, X, Sparkles, Check } from 'lucide-react';
-import { ItemCategoryIcon } from './SuitcaseUtils';
-import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { Check, Plus, Sparkles, X } from 'lucide-react';
+import type React from 'react';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { ItemCategoryIcon } from './SuitcaseUtils';
 
 interface AiSuggestionReviewRowProps {
   name: string;
@@ -15,10 +15,8 @@ interface AiSuggestionReviewRowProps {
   onToggleSelectForAccept?: () => void;
 }
 
-const ROW_CATEGORY_LABEL_CLASS =
-  'text-[10px] text-slate-500 uppercase font-black tracking-widest';
-const ROW_RECOMMENDED_BADGE_CLASS =
-  'text-[9px] font-black uppercase tracking-widest';
+const ROW_CATEGORY_LABEL_CLASS = 'text-[10px] text-slate-500 uppercase font-black tracking-widest';
+const ROW_RECOMMENDED_BADGE_CLASS = 'text-[9px] font-black uppercase tracking-widest';
 
 export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
   name,
@@ -35,21 +33,31 @@ export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
   const itemPrimaryStyle = useDynamicStyles('suitcase_item_primary', isMobile);
 
   return (
-    <div className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
-      status === 'accepted' ? 'bg-emerald-500/10 border-emerald-500/30' :
-      status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30 opacity-50' :
-      isSelectedForAccept ? 'bg-indigo-500/10 border-indigo-500/35' :
-      tripRelevant ? 'bg-violet-500/5 border-violet-500/20 hover:border-violet-500/30' :
-      'bg-white/5 border-white/5 hover:border-white/10'
-    }`}>
+    <div
+      className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+        status === 'accepted'
+          ? 'bg-emerald-500/10 border-emerald-500/30'
+          : status === 'rejected'
+            ? 'bg-rose-500/10 border-rose-500/30 opacity-50'
+            : isSelectedForAccept
+              ? 'bg-indigo-500/10 border-indigo-500/35'
+              : tripRelevant
+                ? 'bg-violet-500/5 border-violet-500/20 hover:border-violet-500/30'
+                : 'bg-white/5 border-white/5 hover:border-white/10'
+      }`}
+    >
       <div className="flex items-center gap-3 min-w-0">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-          tripRelevant ? 'bg-violet-500/10 text-violet-300' : 'bg-indigo-500/10 text-indigo-400'
-        }`}>
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+            tripRelevant ? 'bg-violet-500/10 text-violet-300' : 'bg-indigo-500/10 text-indigo-400'
+          }`}
+        >
           <ItemCategoryIcon category={category} className="w-4 h-4" />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className={`${itemPrimaryStyle || "text-base font-bold text-white"} truncate`}>{name}</span>
+          <span className={`${itemPrimaryStyle || 'text-base font-bold text-white'} truncate`}>
+            {name}
+          </span>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={`${ROW_CATEGORY_LABEL_CLASS} truncate`}>{category}</span>
             {tripRelevant && status === 'pending' && (
@@ -94,7 +102,13 @@ export const AiSuggestionReviewRow: React.FC<AiSuggestionReviewRowProps> = ({
                   ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
                   : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
               }`}
-              title={useSelectionMode ? (isSelectedForAccept ? 'Deseleziona' : 'Seleziona per accettare') : 'Accetta'}
+              title={
+                useSelectionMode
+                  ? isSelectedForAccept
+                    ? 'Deseleziona'
+                    : 'Seleziona per accettare'
+                  : 'Accetta'
+              }
               aria-pressed={useSelectionMode ? isSelectedForAccept : undefined}
             >
               {useSelectionMode && isSelectedForAccept ? (

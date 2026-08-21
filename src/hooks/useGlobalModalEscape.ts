@@ -13,5 +13,5 @@
 import { useCloseOnEscape } from './useCloseOnEscape';
 
 export function useGlobalModalEscape(isOpen: boolean, onClose: (e?: KeyboardEvent) => void) {
-    useCloseOnEscape(() => onClose(), isOpen);
+  useCloseOnEscape(() => onClose(), isOpen);
 }

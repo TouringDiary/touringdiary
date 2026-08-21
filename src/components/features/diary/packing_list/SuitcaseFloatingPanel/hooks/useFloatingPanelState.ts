@@ -1,14 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { useBelowLg } from '@/hooks/ui/useBelowLg';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 import type { SuitcaseSourceTab } from '../types/sourceTab';
-import { useBelowLg } from '@/hooks/ui/useBelowLg';
 
-export type { SuitcasePanelViewMode };
-export type { SuitcaseSourceTab };
+export type { SuitcasePanelViewMode, SuitcaseSourceTab };
 
 export const useFloatingPanelState = (
   initialViewMode: SuitcasePanelViewMode = 'selector',
-  defaultTab: SuitcaseSourceTab = 'start'
+  defaultTab: SuitcaseSourceTab = 'start',
 ) => {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<SuitcasePanelViewMode>(initialViewMode);
@@ -37,18 +36,26 @@ export const useFloatingPanelState = (
   }, []);
 
   return {
-    activeTabId, setActiveTabId,
-    viewMode, setViewMode,
-    sourceTab, setSourceTab,
-    selectedItemName, setSelectedItemName,
-    hoveredItemId, setHoveredItemId,
-    highlightItemId, setHighlightItemId,
-    autoOpenNewCategory, setAutoOpenNewCategory,
+    activeTabId,
+    setActiveTabId,
+    viewMode,
+    setViewMode,
+    sourceTab,
+    setSourceTab,
+    selectedItemName,
+    setSelectedItemName,
+    hoveredItemId,
+    setHoveredItemId,
+    highlightItemId,
+    setHighlightItemId,
+    autoOpenNewCategory,
+    setAutoOpenNewCategory,
     isNewSuitcaseSession,
     newSuitcaseId,
     beginNewSuitcaseSession,
     clearNewSuitcaseSession,
-    isAddingNewCategory, setIsAddingNewCategory,
-    isMobile
+    isAddingNewCategory,
+    setIsAddingNewCategory,
+    isMobile,
   };
 };

@@ -1,5 +1,5 @@
-import { isPhotograph, PHOTOGRAPH_MEDIA_STATUS } from './photograph';
 import type { PhotographMediaFields } from './photograph';
+import { isPhotograph, PHOTOGRAPH_MEDIA_STATUS } from './photograph';
 
 /**
  * Single Source of Truth for photograph gallery reads.
@@ -15,5 +15,5 @@ export const PHOTOGRAPH_READ_MEDIA_STATUS = PHOTOGRAPH_MEDIA_STATUS;
  * if legacy/odd rows slip through the query layer.
  */
 export function filterPhotographs<T extends PhotographMediaFields>(items: T[]): T[] {
-    return items.filter((item) => isPhotograph(item));
+  return items.filter((item) => isPhotograph(item));
 }

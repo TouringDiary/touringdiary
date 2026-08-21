@@ -1,8 +1,7 @@
-import React from 'react';
-import { Copy } from 'lucide-react';
-import { TemplateRow } from './TemplateRow';
+import type React from 'react';
+import type { Suitcase } from '@/types/suitcase';
 import { TemplatePreview } from './TemplatePreview';
-import { Suitcase } from '@/types/suitcase';
+import { TemplateRow } from './TemplateRow';
 
 interface TemplateSelectorSectionProps {
   globalTemplates: Suitcase[];
@@ -29,20 +28,21 @@ export const TemplateSelectorSection: React.FC<TemplateSelectorSectionProps> = (
   onTogglePreference,
   onUseTemplate,
   onViewTemplate,
-  onAddCategory
+  onAddCategory,
 }) => {
   const filteredTemplates = globalTemplates.filter(
-    tpl => showDismissed || preferences[tpl.id]?.enabled !== false
+    (tpl) => showDismissed || preferences[tpl.id]?.enabled !== false,
   );
 
-  const hoveredTemplate = globalTemplates.find(t => t.id === hoveredItemId) || filteredTemplates[0] || null;
+  const hoveredTemplate =
+    globalTemplates.find((t) => t.id === hoveredItemId) || filteredTemplates[0] || null;
 
   return (
     <div>
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 items-start max-w-[1280px] mx-auto w-full px-4 lg:px-0">
         {/* Lista template */}
         <div role="listbox" aria-label="Template valigia disponibili" className="space-y-2">
-          {filteredTemplates.map(tpl => {
+          {filteredTemplates.map((tpl) => {
             const isSuggested = suggestedTemplateIds.includes(tpl.id);
             const isPreferred = preferences[tpl.id]?.enabled === true;
             const isHovered = hoveredItemId === tpl.id;
@@ -65,7 +65,11 @@ export const TemplateSelectorSection: React.FC<TemplateSelectorSectionProps> = (
         </div>
 
         {/* Preview dinamica (Sticky su desktop) */}
-        <div aria-live="polite" aria-atomic="true" className="block animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="block animate-in fade-in slide-in-from-bottom-4 duration-500"
+        >
           <TemplatePreview template={hoveredTemplate} onAddCategory={onAddCategory} />
         </div>
       </div>

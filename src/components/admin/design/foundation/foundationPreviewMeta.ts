@@ -18,7 +18,9 @@ export function getFoundationPreviewMeta(baseKey: string): StyleRuleEditorMeta |
   return FOUNDATION_PREVIEW_META[baseKey];
 }
 
-export function getFoundationPreviewMetaForKey(componentKey: string): StyleRuleEditorMeta | undefined {
+export function getFoundationPreviewMetaForKey(
+  componentKey: string,
+): StyleRuleEditorMeta | undefined {
   const baseKey = componentKey.replace(/_mobile$/, '');
   return FOUNDATION_PREVIEW_META[baseKey];
 }

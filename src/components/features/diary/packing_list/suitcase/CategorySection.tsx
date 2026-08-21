@@ -1,13 +1,22 @@
-import React from 'react';
-import { Plus, FolderX, Check, Package, ChevronUp, ChevronDown, Eye, CheckSquare } from 'lucide-react';
+import {
+  Check,
+  CheckSquare,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  FolderX,
+  Package,
+  Plus,
+} from 'lucide-react';
+import type React from 'react';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
 import type { SuitcaseItem } from '@/types/suitcase';
+import { CategoryItemsGrid, type CategoryItemsGridProps } from './CategoryItemsGrid';
 import {
   ItemCategoryIcon,
-  SUITCASE_CATEGORY_SECTION_SHELL_CLASS,
   SUITCASE_CATEGORY_SECTION_HEADER_CLASS,
+  SUITCASE_CATEGORY_SECTION_SHELL_CLASS,
 } from './SuitcaseUtils';
-import { CategoryItemsGrid, type CategoryItemsGridProps } from './CategoryItemsGrid';
 import { CATEGORY_INLINE_EDITOR_HEIGHT_PX } from './suitcaseLayoutConstants';
 
 export type CategoryProgress = {
@@ -79,6 +88,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             aria-label="Ordine categoria"
           >
             <button
+              type="button"
               onClick={() => !readOnly && onMoveCategory('up')}
               disabled={readOnly || categoryIndex <= 0}
               className="w-7 h-7 rounded bg-slate-900/50 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
@@ -87,6 +97,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
               <ChevronUp className="w-3 h-3" />
             </button>
             <button
+              type="button"
               onClick={() => !readOnly && onMoveCategory('down')}
               disabled={readOnly || categoryIndex >= visibleCategoryIds.length - 1}
               className="w-7 h-7 rounded bg-slate-900/50 hover:bg-white/10 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
@@ -119,6 +130,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
         <div className="flex items-center gap-1 md:gap-2 shrink-0">
           <button
+            type="button"
             onClick={() => !readOnly && onToggleAdd()}
             disabled={readOnly}
             className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-white/10 text-indigo-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
@@ -127,6 +139,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             <Plus className="w-4 h-4 md:w-4.5 md:h-4.5" />
           </button>
           <button
+            type="button"
             onClick={() => !readOnly && onHideCategory()}
             disabled={readOnly}
             className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-amber-500/10 text-amber-400/80 hover:text-amber-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-amber-400/80"
@@ -135,6 +148,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
           <button
+            type="button"
             onClick={() => !readOnly && onDeleteCategory?.()}
             disabled={readOnly}
             className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900/50 disabled:hover:text-slate-400"
@@ -170,6 +184,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
                 className="flex-1 bg-transparent border-none text-sm text-white focus:ring-0 placeholder:text-slate-600 font-medium"
               />
               <button
+                type="button"
                 onClick={onConfirmAdd}
                 className="p-2 rounded-lg bg-indigo-500 text-white hover:bg-indigo-400 transition-all font-bold shadow-lg shadow-indigo-500/20"
               >

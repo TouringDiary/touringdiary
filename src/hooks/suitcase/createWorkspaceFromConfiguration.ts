@@ -1,15 +1,20 @@
-import { createSuitcaseAsync } from '@/services/suitcase/suitcaseCoreService';
+import type { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
 import {
   applyStandardSeedToSuitcaseInMemory,
   seedStandardItemsOnSuitcaseAsync,
 } from '@/services/suitcase/packingSeedService';
-import type { CategorySetupMap } from '@/domain/packing/categorySetupTypes';
+import { createSuitcaseAsync } from '@/services/suitcase/suitcaseCoreService';
+import type {
+  DraftWorkspaceKind,
+  Suitcase,
+  SuitcaseCategory,
+  SuitcaseUiState,
+} from '@/types/suitcase';
 import {
   createDraftWorkspaceObject,
   createGuestSuitcaseObject,
   saveGuestSuitcase,
 } from '@/utils/guestSuitcaseHelper';
-import { DraftWorkspaceKind, Suitcase, SuitcaseCategory, SuitcaseUiState } from '@/types/suitcase';
 
 export interface CreateWorkspaceFromConfigurationParams {
   userId: string;
@@ -26,7 +31,7 @@ export interface CreateWorkspaceFromConfigurationParams {
  * Crea valigia/template con category_setup scelto e seed condizionato (enabled && seeded).
  */
 export async function createWorkspaceFromConfiguration(
-  params: CreateWorkspaceFromConfigurationParams
+  params: CreateWorkspaceFromConfigurationParams,
 ): Promise<Suitcase> {
   const {
     userId,

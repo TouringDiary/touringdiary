@@ -1,5 +1,5 @@
-import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 import type { FoundationStyleKey } from '@/data/system/foundationSettingsCatalog';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
 
 /**
  * Legge una regola Foundation dal Design System runtime.
@@ -7,7 +7,7 @@ import type { FoundationStyleKey } from '@/data/system/foundationSettingsCatalog
  */
 export function useFoundationStyles(
   componentKey: FoundationStyleKey | string,
-  isMobile = false
+  isMobile = false,
 ): string {
   return useDynamicStyles(componentKey, isMobile);
 }

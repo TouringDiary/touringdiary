@@ -1,7 +1,6 @@
 import { getMarkRange } from '@tiptap/core';
+import { Plugin, TextSelection } from '@tiptap/pm/state';
 import type { Editor } from '@tiptap/react';
-import { Plugin } from '@tiptap/pm/state';
-import { TextSelection } from '@tiptap/pm/state';
 import type { EditorView } from 'prosemirror-view';
 
 const ALLOWED_LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:']);
@@ -64,7 +63,10 @@ function getEventElementTarget(event: LinkPointerEvent): HTMLElement | null {
   return null;
 }
 
-function getLinkAnchorFromEvent(view: EditorView, event: LinkPointerEvent): HTMLAnchorElement | null {
+function getLinkAnchorFromEvent(
+  view: EditorView,
+  event: LinkPointerEvent,
+): HTMLAnchorElement | null {
   const element = getEventElementTarget(event);
   if (!element) return null;
 

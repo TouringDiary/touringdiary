@@ -11,7 +11,7 @@ import {
  */
 export function useWorkspaceSessionEnd(
   workspaceId: WorkspaceId | null,
-  endSession: () => void
+  endSession: () => void,
 ): void {
   useLayoutEffect(() => {
     if (!workspaceId) return;

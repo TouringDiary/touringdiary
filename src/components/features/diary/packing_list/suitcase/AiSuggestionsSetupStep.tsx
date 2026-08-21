@@ -1,13 +1,27 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Plus, Minus, LayoutGrid, Settings2, ListChecks, ChevronDown, Check, Hash, Layers } from 'lucide-react';
-import { ItemCategoryIcon } from './SuitcaseUtils';
-import { useDynamicStyles } from '@/hooks/useDynamicStyles';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import {
+  Check,
+  ChevronDown,
+  Hash,
+  Layers,
+  LayoutGrid,
+  ListChecks,
+  Minus,
+  Plus,
+  Settings2,
+} from 'lucide-react';
+import type React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import {
+  getSystemCategoryOrderIndexExact,
+  type SystemCategoryName,
+} from '@/domain/packing/packingCategories';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { useCloseOnEscape } from '@/hooks/useCloseOnEscape';
-import { getSystemCategoryOrderIndexExact, SystemCategoryName } from '@/domain/packing/packingCategories';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { clampCategoryLimit } from '@/hooks/useSuitcaseSystem';
+import { ItemCategoryIcon } from './SuitcaseUtils';
 
 export type AiQuotaMode = 'uniform' | 'custom';
 
@@ -64,20 +78,41 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
 
   const sectionTitle = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
   const sectionTitleIcon = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitleIcon, isMobile);
-  const sectionDescription = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionDescription, isMobile);
+  const sectionDescription = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.sectionDescription,
+    isMobile,
+  );
   const selectableCardBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardBase);
   const selectableCardSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardSelected);
-  const selectableCardUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardUnselected);
-  const selectableCardHeaderRow = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardHeaderRow);
+  const selectableCardUnselected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableCardUnselected,
+  );
+  const selectableCardHeaderRow = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableCardHeaderRow,
+  );
   const selectableBadgeBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeBase);
-  const selectableBadgeSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeSelected);
-  const selectableBadgeUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeUnselected);
+  const selectableBadgeSelected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableBadgeSelected,
+  );
+  const selectableBadgeUnselected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableBadgeUnselected,
+  );
   const selectableCheckIcon = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCheckIcon);
   const selectableIconBoxBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxBase);
-  const selectableIconBoxSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxSelected);
-  const selectableIconBoxUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxUnselected);
-  const selectableCardTitle = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardTitle, isMobile);
-  const selectableCardDescription = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardDescription, isMobile);
+  const selectableIconBoxSelected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableIconBoxSelected,
+  );
+  const selectableIconBoxUnselected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableIconBoxUnselected,
+  );
+  const selectableCardTitle = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableCardTitle,
+    isMobile,
+  );
+  const selectableCardDescription = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableCardDescription,
+    isMobile,
+  );
 
   const [showSelectedDropdown, setShowSelectedDropdown] = useState(false);
   const [showAvailableDropdown, setShowAvailableDropdown] = useState(false);
@@ -189,18 +224,22 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
             >
               <LayoutGrid className="w-4 h-4" />
               Categorie selezionate ({selectedCategories.length})
-              <ChevronDown className={`w-3 h-3 transition-transform ${showSelectedDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                className={`w-3 h-3 transition-transform ${showSelectedDropdown ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {showSelectedDropdown && (
               <div className={DROPDOWN_PANEL_CLASS}>
                 {selectedCategories.length > 0 ? (
-                  selectedCategories.map(cat => (
+                  selectedCategories.map((cat) => (
                     <div
                       key={cat}
                       className="w-full px-4 py-2 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors"
                     >
-                      <span className={`flex items-center gap-3 min-w-0 ${categoryChipClassName} text-slate-200`}>
+                      <span
+                        className={`flex items-center gap-3 min-w-0 ${categoryChipClassName} text-slate-200`}
+                      >
                         <ItemCategoryIcon category={cat} className="w-4 h-4 shrink-0" />
                         <span className="truncate">{cat}</span>
                       </span>
@@ -226,18 +265,22 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
           {availableCategories.length > 0 && (
             <div className="relative" ref={addCategoryDropdownRef}>
               <button
+                type="button"
                 onClick={toggleAddCategoryDropdown}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/5 border border-white/5 text-slate-300 hover:border-white/10 hover:text-slate-200 transition-all text-[13px] font-bold"
               >
                 <Plus className="w-4 h-4" />
                 Aggiungi
-                <ChevronDown className={`w-3 h-3 transition-transform ${showAddCategoryDropdown ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform ${showAddCategoryDropdown ? 'rotate-180' : ''}`}
+                />
               </button>
 
               {showAddCategoryDropdown && (
                 <div className="absolute top-full left-0 mt-2 w-56 bg-slate-800 border border-white/10 rounded-2xl shadow-2xl z-local-flyout py-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {availableCategories.map(cat => (
+                  {availableCategories.map((cat) => (
                     <button
+                      type="button"
                       key={cat}
                       onClick={() => onAddCategory(cat)}
                       className={`w-full px-4 py-2.5 text-left ${categoryChipClassName} text-slate-200 hover:bg-white/5 hover:text-white flex items-center gap-3 transition-colors`}
@@ -264,7 +307,9 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
               Categorie che puoi aggiungere ai suggerimenti. Clicca sul + per selezionarle.
             </p>
           </div>
-          <span className={SECTION_COUNTER_CLASS}>{sortedRemovedCategories.length} disponibili</span>
+          <span className={SECTION_COUNTER_CLASS}>
+            {sortedRemovedCategories.length} disponibili
+          </span>
         </div>
 
         {sortedRemovedCategories.length > 0 ? (
@@ -277,17 +322,21 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
             >
               <Layers className="w-4 h-4" />
               Aggiungi categoria
-              <ChevronDown className={`w-3 h-3 transition-transform ${showAvailableDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                className={`w-3 h-3 transition-transform ${showAvailableDropdown ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {showAvailableDropdown && (
               <div className={DROPDOWN_PANEL_CLASS}>
-                {sortedRemovedCategories.map(cat => (
+                {sortedRemovedCategories.map((cat) => (
                   <div
                     key={cat}
                     className="w-full px-4 py-2 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors"
                   >
-                    <span className={`flex items-center gap-3 min-w-0 ${categoryChipClassName} text-slate-200`}>
+                    <span
+                      className={`flex items-center gap-3 min-w-0 ${categoryChipClassName} text-slate-200`}
+                    >
                       <ItemCategoryIcon category={cat} className="w-4 h-4 opacity-70 shrink-0" />
                       <span className="truncate">{cat}</span>
                     </span>
@@ -305,9 +354,7 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
             )}
           </div>
         ) : (
-          <p className={emptyStateClassName}>
-            Nessuna categoria disponibile.
-          </p>
+          <p className={emptyStateClassName}>Nessuna categoria disponibile.</p>
         )}
       </div>
 
@@ -318,7 +365,8 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
             <span className={sectionTitle}>Quantità suggerimenti</span>
           </h4>
           <p className={sectionDescription}>
-            Quanti oggetti suggeriti ricevere per ogni categoria attiva. Se il catalogo ne offre meno, verranno mostrati solo quelli disponibili.
+            Quanti oggetti suggeriti ricevere per ogni categoria attiva. Se il catalogo ne offre
+            meno, verranno mostrati solo quelli disponibili.
           </p>
         </div>
 
@@ -353,21 +401,21 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
               Oggetti per categoria
             </p>
             <div className="flex flex-wrap gap-2">
-            {UNIFORM_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => onSetUniformLimit(preset)}
-                aria-label={`${preset} oggetti per categoria`}
-                className={`min-w-[3rem] px-4 py-2 rounded-xl text-sm font-black tabular-nums border transition-all ${
-                  uniformLimit === preset
-                    ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-200'
-                    : 'bg-white/5 border-white/5 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {preset}
-              </button>
-            ))}
+              {UNIFORM_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => onSetUniformLimit(preset)}
+                  aria-label={`${preset} oggetti per categoria`}
+                  className={`min-w-[3rem] px-4 py-2 rounded-xl text-sm font-black tabular-nums border transition-all ${
+                    uniformLimit === preset
+                      ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-200'
+                      : 'bg-white/5 border-white/5 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -384,14 +432,20 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <ItemCategoryIcon category={cat} className="w-4 h-4 text-indigo-400 shrink-0" />
-                    <span className={`${itemPrimaryStyle || "text-[15px] font-bold text-white"} truncate`}>{cat}</span>
+                    <span
+                      className={`${itemPrimaryStyle || 'text-[15px] font-bold text-white'} truncate`}
+                    >
+                      {cat}
+                    </span>
                   </div>
                   <input
                     type="number"
                     min={0}
                     step={1}
                     value={value}
-                    onChange={(e) => onSetCustomLimit(catKey, clampCategoryLimit(Number(e.target.value)))}
+                    onChange={(e) =>
+                      onSetCustomLimit(catKey, clampCategoryLimit(Number(e.target.value)))
+                    }
                     className="w-20 px-3 py-2 rounded-xl bg-slate-800 border border-white/10 text-white text-[15px] font-bold text-center focus:outline-none focus:border-indigo-500/50"
                     aria-label={`Quantità suggerimenti per ${cat}`}
                   />
@@ -433,7 +487,9 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
               >
                 <ListChecks className="w-5 h-5" aria-hidden />
               </div>
-              <span className={`${selectableCardTitle} ${mode === 'review' ? 'text-white' : 'text-slate-300'}`}>
+              <span
+                className={`${selectableCardTitle} ${mode === 'review' ? 'text-white' : 'text-slate-300'}`}
+              >
                 Valuta ed inserisci
               </span>
             </div>
@@ -466,7 +522,9 @@ export const AiSuggestionsSetupStep: React.FC<AiSuggestionsSetupStepProps> = ({
               >
                 <Plus className="w-5 h-5" aria-hidden />
               </div>
-              <span className={`${selectableCardTitle} ${mode === 'direct' ? 'text-white' : 'text-slate-300'}`}>
+              <span
+                className={`${selectableCardTitle} ${mode === 'direct' ? 'text-white' : 'text-slate-300'}`}
+              >
                 Inserimento diretto
               </span>
             </div>

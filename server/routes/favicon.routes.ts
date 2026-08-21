@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from 'express';
+import { type Request, type Response, Router } from 'express';
 import { supabaseAdmin, supabaseClient } from '../supabaseAdmin';
 
 const FAVICON_SETTING_KEY = 'favicon_image';

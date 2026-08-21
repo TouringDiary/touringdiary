@@ -310,13 +310,22 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
     <div
       className="td-modal-overlay flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in pointer-events-auto"
       style={{ zIndex: Z_OVERLAY }}
+      role="presentation"
     >
-      <div className="absolute inset-0" onClick={onClose}></div>
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Chiudi"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
 
       <div
         className="relative w-full max-w-4xl bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex animate-in zoom-in-95 max-h-[90vh] pointer-events-auto"
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Autenticazione"
       >
         {/* LEFT SIDE: VISUAL (Hidden on Mobile) */}
         <div className="hidden md:flex w-1/2 relative flex-col items-center justify-center p-12 text-center overflow-hidden">
@@ -348,7 +357,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }: AuthModalProps) =>
         </div>
 
         {/* RIGHT SIDE: FORMS */}
-        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col relative bg-slate-900 overflow-y-auto">
+        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col relative bg-slate-900 overflow-y-auto min-h-0">
           <CloseButton onClose={onClose} position="absolute" variant="primary" />
 
           {/* VIEW: DEV QUICK LOGIN */}

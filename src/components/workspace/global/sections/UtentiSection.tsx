@@ -1,10 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useUser } from '@/context/UserContext';
-import { useWorkspaceDashboard } from '@/hooks/useWorkspaceDashboard';
-import { useWorkspacePanelState } from '../WorkspacePanelContext';
-import { WorkspaceMembersSection } from '@/components/collaboration/workspace/WorkspaceMembersSection';
+import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { WorkspaceInvitesSection } from '@/components/collaboration/workspace/WorkspaceInvitesSection';
-import { WorkspaceBlockedUsersSubsection } from './WorkspaceBlockedUsersSubsection';
+import { WorkspaceMembersSection } from '@/components/collaboration/workspace/WorkspaceMembersSection';
+import { WORKSPACE_SECTION_PLACEHOLDER_CLASS } from '@/constants/workspacePanelLayout';
+import { useUser } from '@/context/UserContext';
+import type {
+  CollaborationUserSearchResult,
+  WorkspaceResourcePermissionEntry,
+} from '@/domain/collaboration';
+import { useWorkspaceDashboard } from '@/hooks/useWorkspaceDashboard';
 import {
   removeWorkspaceMember,
   resendWorkspaceInvite,
@@ -13,11 +17,8 @@ import {
   sendWorkspaceInvite,
   setWorkspaceResourcePermissionsForUser,
 } from '@/services/collaboration';
-import type {
-  CollaborationUserSearchResult,
-  WorkspaceResourcePermissionEntry,
-} from '@/domain/collaboration';
-import { WORKSPACE_SECTION_PLACEHOLDER_CLASS } from '@/constants/workspacePanelLayout';
+import { useWorkspacePanelState } from '../WorkspacePanelContext';
+import { WorkspaceBlockedUsersSubsection } from './WorkspaceBlockedUsersSubsection';
 
 const INVITE_DEBOUNCE_MS = 250;
 
@@ -35,19 +36,22 @@ export const UtentiSection: React.FC = () => {
   const ownerId = user?.id;
   const workspaceId = dashboard.workspace?.id;
 
-  const searchUsers = useCallback(async (query: string) => {
-    if (!ownerId || !query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const results = await searchUsersForCollaborationInvite(ownerId, query.trim());
-      setSearchResults(results);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [ownerId]);
+  const searchUsers = useCallback(
+    async (query: string) => {
+      if (!ownerId || !query.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      setIsSearching(true);
+      try {
+        const results = await searchUsersForCollaborationInvite(ownerId, query.trim());
+        setSearchResults(results);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [ownerId],
+  );
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -59,7 +63,7 @@ export const UtentiSection: React.FC = () => {
   const handleInviteUser = async (target: CollaborationUserSearchResult) => {
     if (!ownerId || !workspaceId) return;
     if (dashboard.resources.length === 0) {
-      setError('Non ci sono risorse nel workspace da condividere con l\'invitato.');
+      setError("Non ci sono risorse nel workspace da condividere con l'invitato.");
       return;
     }
 
@@ -72,7 +76,12 @@ export const UtentiSection: React.FC = () => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const result = await sendWorkspaceInvite(ownerId, workspaceId, { userId: target.id }, permissions);
+      const result = await sendWorkspaceInvite(
+        ownerId,
+        workspaceId,
+        { userId: target.id },
+        permissions,
+      );
       if (result.success === true) {
         setSearchQuery('');
         setSearchResults([]);
@@ -102,12 +111,17 @@ export const UtentiSection: React.FC = () => {
 
   const handleUpdateMemberPermissions = async (
     userId: string,
-    permissions: WorkspaceResourcePermissionEntry[]
+    permissions: WorkspaceResourcePermissionEntry[],
   ) => {
     if (!ownerId || !workspaceId) return;
     setIsSubmitting(true);
     try {
-      const result = await setWorkspaceResourcePermissionsForUser(workspaceId, ownerId, userId, permissions);
+      const result = await setWorkspaceResourcePermissionsForUser(
+        workspaceId,
+        ownerId,
+        userId,
+        permissions,
+      );
       if (result.success) {
         await dashboard.refresh();
       } else {

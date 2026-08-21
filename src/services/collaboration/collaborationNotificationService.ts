@@ -1,11 +1,11 @@
-import { addNotification } from '@/services/notificationService';
 import { getSharedResourceKindLabel, type SharedResourceKind } from '@/domain/collaboration';
-import { getShareableResource } from './sharedResourceService';
-import { listSharedResourceMembers } from './sharedResourceAclService';
-import { listWorkspacesContainingResource } from './workspaceCompositionService';
-import { shouldDeliverCollaborationNotification } from './collaborationNotificationPrefsService';
 import { resolveAuthenticatedUserId } from '@/services/auth/authIdentity';
+import { addNotification } from '@/services/notificationService';
 import { supabase } from '@/services/supabaseClient';
+import { shouldDeliverCollaborationNotification } from './collaborationNotificationPrefsService';
+import { listSharedResourceMembers } from './sharedResourceAclService';
+import { getShareableResource } from './sharedResourceService';
+import { listWorkspacesContainingResource } from './workspaceCompositionService';
 
 async function getActorDisplayName(actorId: string): Promise<string> {
   const { data, error } = await supabase
@@ -23,7 +23,7 @@ async function notifyIfAllowed(
   category: 'invites' | 'resource_updates' | 'workspace_updates' | 'friend_requests',
   title: string,
   message: string,
-  linkData?: Parameters<typeof addNotification>[4]
+  linkData?: Parameters<typeof addNotification>[4],
 ): Promise<void> {
   if (!(await shouldDeliverCollaborationNotification(userId, category))) return;
   await addNotification(userId, 'collaboration', title, message, linkData);
@@ -33,14 +33,14 @@ export async function notifyResourceInviteReceived(
   inviteeId: string,
   inviterName: string,
   resourceKind: SharedResourceKind,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   await notifyIfAllowed(
     inviteeId,
     'invites',
     `${inviterName} ti ha invitato`,
     `Hai ricevuto un invito a collaborare su un ${getSharedResourceKindLabel(resourceKind)}.`,
-    { section: 'collaboration', inviteId, targetId: inviteId, resourceKind }
+    { section: 'collaboration', inviteId, targetId: inviteId, resourceKind },
   );
 }
 
@@ -48,14 +48,14 @@ export async function notifyResourceInviteAccepted(
   inviterId: string,
   inviteeName: string,
   resourceKind: SharedResourceKind,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   await notifyIfAllowed(
     inviterId,
     'invites',
     `${inviteeName} ha accettato il tuo invito`,
     `Ora può collaborare al ${getSharedResourceKindLabel(resourceKind)} condiviso.`,
-    { section: 'collaboration', inviteId, targetId: inviteId, resourceKind }
+    { section: 'collaboration', inviteId, targetId: inviteId, resourceKind },
   );
 }
 
@@ -63,14 +63,14 @@ export async function notifyResourceInviteRejected(
   inviterId: string,
   inviteeName: string,
   resourceKind: SharedResourceKind,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   await notifyIfAllowed(
     inviterId,
     'invites',
     `${inviteeName} ha rifiutato il tuo invito`,
     `L'invito al ${getSharedResourceKindLabel(resourceKind)} non è stato accettato.`,
-    { section: 'collaboration', inviteId, targetId: inviteId, resourceKind }
+    { section: 'collaboration', inviteId, targetId: inviteId, resourceKind },
   );
 }
 
@@ -78,13 +78,9 @@ export async function notifyResourceInviteRejected(
 export async function notifySharedResourceContentModified(
   resourceKind: SharedResourceKind,
   resourceId: string,
-  resourceTitle: string
+  resourceTitle: string,
 ): Promise<void> {
-  if (
-    resourceKind !== 'suitcase' &&
-    resourceKind !== 'user_template' &&
-    resourceKind !== 'diary'
-  ) {
+  if (resourceKind !== 'suitcase' && resourceKind !== 'user_template' && resourceKind !== 'diary') {
     return;
   }
 
@@ -138,8 +134,14 @@ export async function notifySharedResourceContentModified(
 
   await Promise.all(
     [...recipientIds].map((recipientId) =>
-      notifyIfAllowed(recipientId, primaryWorkspace ? 'workspace_updates' : 'resource_updates', title, body, linkData)
-    )
+      notifyIfAllowed(
+        recipientId,
+        primaryWorkspace ? 'workspace_updates' : 'resource_updates',
+        title,
+        body,
+        linkData,
+      ),
+    ),
   );
 }
 
@@ -148,7 +150,7 @@ export async function notifyPersonalTemplateReceived(
   inviteeId: string,
   inviterName: string,
   templateTitle: string,
-  copiedResourceId: string
+  copiedResourceId: string,
 ): Promise<void> {
   await notifyIfAllowed(
     inviteeId,
@@ -159,33 +161,33 @@ export async function notifyPersonalTemplateReceived(
       section: 'collaboration',
       targetId: copiedResourceId,
       resourceKind: 'user_template',
-    }
+    },
   );
 }
 
 export async function notifyFriendRequestReceived(
   addresseeId: string,
   requesterName: string,
-  requestId: string
+  requestId: string,
 ): Promise<void> {
   await notifyIfAllowed(
     addresseeId,
     'friend_requests',
     `${requesterName} ti ha inviato una richiesta di amicizia`,
     'Puoi accettare o rifiutare dalla sezione Amici del profilo.',
-    { section: 'profile', tab: 'friends', targetId: requestId }
+    { section: 'profile', tab: 'friends', targetId: requestId },
   );
 }
 
 export async function notifyFriendRequestAccepted(
   requesterId: string,
-  addresseeName: string
+  addresseeName: string,
 ): Promise<void> {
   await notifyIfAllowed(
     requesterId,
     'friend_requests',
     `${addresseeName} ha accettato la tua richiesta di amicizia`,
     'Ora siete amici su TouringDiary.',
-    { section: 'profile', tab: 'friends' }
+    { section: 'profile', tab: 'friends' },
   );
 }

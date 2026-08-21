@@ -1,6 +1,4 @@
-import { supabase } from '../supabaseClient';
 import type { Itinerary } from '../../types/index';
-import type { Json } from '../../types/supabase';
 import type {
   CreateDiaryInput,
   CreateSuitcaseInput,
@@ -8,17 +6,19 @@ import type {
   SaveAsViaggioOptions,
   SuitcaseLinkConflict,
 } from '../../types/resourceAssociation';
-import { SuitcaseLinkConflictError, ResourceAssociationError } from '../../types/resourceAssociation';
-import { createViaggio, setActiveDiary, getViaggio } from './viaggioService';
 import {
-  mapDiaryRowFromDb,
-  type PersistedItinerary,
-} from './viaggioDiaryService';
-import { linkSuitcaseToViaggio } from './viaggioSuitcaseService';
+  ResourceAssociationError,
+  SuitcaseLinkConflictError,
+} from '../../types/resourceAssociation';
+import type { Json } from '../../types/supabase';
 import { duplicatePersonalDiary } from '../collaboration/personalShareService';
-import { duplicateSuitcaseEntityAsync } from '../suitcase/suitcaseTemplateService';
-import { createSuitcaseAsync, deleteSuitcaseAsync } from '../suitcase/suitcaseCoreService';
 import { deleteUserDraft, getUserDrafts } from '../community/itineraryService';
+import { createSuitcaseAsync, deleteSuitcaseAsync } from '../suitcase/suitcaseCoreService';
+import { duplicateSuitcaseEntityAsync } from '../suitcase/suitcaseTemplateService';
+import { supabase } from '../supabaseClient';
+import { mapDiaryRowFromDb, type PersistedItinerary } from './viaggioDiaryService';
+import { createViaggio, getViaggio, setActiveDiary } from './viaggioService';
+import { linkSuitcaseToViaggio } from './viaggioSuitcaseService';
 
 const toDbJson = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? null));
 
@@ -161,11 +161,7 @@ export async function copyDiaryAndAssociateToViaggio(params: {
   userId: string;
   title?: string;
 }): Promise<PersistedItinerary> {
-  const dup = await duplicatePersonalDiary(
-    params.sourceDiaryId,
-    params.userId,
-    params.title,
-  );
+  const dup = await duplicatePersonalDiary(params.sourceDiaryId, params.userId, params.title);
   if (dup.success === false) {
     throw new ResourceAssociationError(dup.error);
   }
@@ -191,7 +187,9 @@ export async function copyDiaryAndAssociateToViaggio(params: {
   }
 }
 
-export async function createDiaryWithAssociation(input: CreateDiaryInput): Promise<PersistedItinerary> {
+export async function createDiaryWithAssociation(
+  input: CreateDiaryInput,
+): Promise<PersistedItinerary> {
   const title = input.name.trim() || 'Nuovo diario';
   const viaggioId = await resolveViaggioIdForCreate({
     userId: input.userId,
@@ -239,7 +237,8 @@ export async function createDiaryWithAssociation(input: CreateDiaryInput): Promi
     .single();
 
   if (error) throw error;
-  if (!data) throw new ResourceAssociationError('[resourceAssociation] Creazione diario non riuscita.');
+  if (!data)
+    throw new ResourceAssociationError('[resourceAssociation] Creazione diario non riuscita.');
 
   if (viaggioId) {
     const viaggio = await getViaggio(viaggioId);

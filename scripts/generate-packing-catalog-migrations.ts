@@ -6,19 +6,19 @@
  * docs/packing/MACROFASE_C_MIGRATION_CONSTRAINTS.sql
  * ON CONFLICT è valido solo dove esiste il UNIQUE corrispondente.
  */
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { CATEGORY_ORDER, type SystemCategoryName } from '../src/domain/packing/packingCategories';
 import {
+  CITY_TYPE_TO_TEMPLATE,
   expandStandardCatalog,
   PACKING_AI_CATALOG,
   PACKING_TEMPLATE_CATALOG,
   TEMPLATE_DB_TITLES,
   TEMPLATE_KEYS,
-  CITY_TYPE_TO_TEMPLATE,
   validatePackingDomainCatalog,
 } from '../src/domain/packing/packingDomainCatalog';
-import { CATEGORY_ORDER, type SystemCategoryName } from '../src/domain/packing/packingCategories';
 
 /** SQL string escaping: raddoppia gli apostrofi per valori letterali in SQL generato. */
 function esc(s: string): string {
@@ -182,7 +182,7 @@ VALUES
 `;
 m4 += PACKING_AI_CATALOG.map(
   (a) =>
-    `  ('${esc(a.name)}', '${esc(a.category)}', ARRAY[${a.tags.map((t) => `'${esc(t)}'`).join(', ')}], ${a.sort_order}, true)`
+    `  ('${esc(a.name)}', '${esc(a.category)}', ARRAY[${a.tags.map((t) => `'${esc(t)}'`).join(', ')}], ${a.sort_order}, true)`,
 ).join(',\n');
 m4 += `
 ON CONFLICT (name) DO UPDATE SET

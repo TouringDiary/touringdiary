@@ -1,23 +1,33 @@
 /**
  * Callback composizione + inviti workspace pending — solo CollaborationShareModal.
  */
-import { useCallback, useEffect, useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
-import type { SharedResourceKind, WorkspaceResourcePermissionEntry } from '@/domain/collaboration';
-import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
+import type {
+  CollaborationUserSearchResult,
+  SharedResourceKind,
+  WorkspaceResourcePermissionEntry,
+} from '@/domain/collaboration';
+import {
+  draftToCompositionResources,
   type WorkspaceCompositionBlueprint,
   type WorkspaceCompositionDraft,
 } from '@/domain/collaboration/workspaceComposition';
-import { draftToCompositionResources } from '@/domain/collaboration/workspaceComposition';
 import type { WorkspaceCompositionResource } from '@/services/collaboration';
 import { resolveWorkspaceCompositionBlueprint } from '@/services/collaboration';
+import { mergeCompositionDraftWithBlueprint } from './collaborationShareDraft';
 import {
   buildDefaultWorkspaceInvitePermissions,
   resolveCompositionResourceTitles,
   syncWorkspacePendingInvitePermissions,
   type WorkspacePendingInvite,
 } from './collaborationSharePresentation';
-import { mergeCompositionDraftWithBlueprint } from './collaborationShareDraft';
 
 export function useCollaborationShareCompositionHandlers(input: {
   isCreateEntry: boolean;
@@ -61,7 +71,7 @@ export function useCollaborationShareCompositionHandlers(input: {
 
   const buildWorkspaceInvitePermissions = useCallback(
     () => buildDefaultWorkspaceInvitePermissions(selectedComposition),
-    [selectedComposition]
+    [selectedComposition],
   );
 
   const refreshCompositionBlueprint = useCallback(
@@ -78,7 +88,7 @@ export function useCollaborationShareCompositionHandlers(input: {
 
         setCompositionBlueprint(nextBlueprint);
         setCompositionDraft((current) =>
-          mergeCompositionDraftWithBlueprint(current, nextBlueprint, selectedDiaryId)
+          mergeCompositionDraftWithBlueprint(current, nextBlueprint, selectedDiaryId),
         );
       } finally {
         if (generation === compositionExpansionGenRef.current) {
@@ -91,14 +101,14 @@ export function useCollaborationShareCompositionHandlers(input: {
       setCompositionBlueprint,
       setCompositionDraft,
       setIsExpandingCompositionDiary,
-    ]
+    ],
   );
 
   const handleSelectCompositionDiary = useCallback(
     (diaryId: string | null) => {
       if (isCreateEntry) {
         setCompositionDraft((current) =>
-          current ? { ...current, selectedDiaryId: diaryId } : current
+          current ? { ...current, selectedDiaryId: diaryId } : current,
         );
         return;
       }
@@ -106,28 +116,34 @@ export function useCollaborationShareCompositionHandlers(input: {
       if (!compositionBlueprint || compositionBlueprint.seed.kind === 'diary') return;
       void refreshCompositionBlueprint(compositionBlueprint.seed, diaryId);
     },
-    [compositionBlueprint, isCreateEntry, refreshCompositionBlueprint, setCompositionDraft]
+    [compositionBlueprint, isCreateEntry, refreshCompositionBlueprint, setCompositionDraft],
   );
 
-  const handleToggleCompositionSuitcase = useCallback((suitcaseId: string) => {
-    setCompositionDraft((current) => {
-      if (!current) return current;
-      const next = new Set(current.selectedSuitcaseIds);
-      if (next.has(suitcaseId)) next.delete(suitcaseId);
-      else next.add(suitcaseId);
-      return { ...current, selectedSuitcaseIds: next };
-    });
-  }, [setCompositionDraft]);
+  const handleToggleCompositionSuitcase = useCallback(
+    (suitcaseId: string) => {
+      setCompositionDraft((current) => {
+        if (!current) return current;
+        const next = new Set(current.selectedSuitcaseIds);
+        if (next.has(suitcaseId)) next.delete(suitcaseId);
+        else next.add(suitcaseId);
+        return { ...current, selectedSuitcaseIds: next };
+      });
+    },
+    [setCompositionDraft],
+  );
 
-  const handleToggleCompositionUserTemplate = useCallback((templateId: string) => {
-    setCompositionDraft((current) => {
-      if (!current) return current;
-      const next = new Set(current.selectedUserTemplateIds);
-      if (next.has(templateId)) next.delete(templateId);
-      else next.add(templateId);
-      return { ...current, selectedUserTemplateIds: next };
-    });
-  }, [setCompositionDraft]);
+  const handleToggleCompositionUserTemplate = useCallback(
+    (templateId: string) => {
+      setCompositionDraft((current) => {
+        if (!current) return current;
+        const next = new Set(current.selectedUserTemplateIds);
+        if (next.has(templateId)) next.delete(templateId);
+        else next.add(templateId);
+        return { ...current, selectedUserTemplateIds: next };
+      });
+    },
+    [setCompositionDraft],
+  );
 
   const handleAddWorkspacePendingInvite = (result: CollaborationUserSearchResult) => {
     setWorkspacePendingInvites((current) => [
@@ -151,28 +167,28 @@ export function useCollaborationShareCompositionHandlers(input: {
       userId: string,
       kind: SharedResourceKind,
       resourceId: string,
-      accessLevel: WorkspaceResourcePermissionEntry['accessLevel']
+      accessLevel: WorkspaceResourcePermissionEntry['accessLevel'],
     ) => {
       setWorkspacePendingInvites((current) =>
         current.map((invite) => {
           if (invite.userId !== userId) return invite;
 
           const hasEntry = invite.permissions.some(
-            (entry) => entry.kind === kind && entry.resourceId === resourceId
+            (entry) => entry.kind === kind && entry.resourceId === resourceId,
           );
           const permissions = hasEntry
             ? invite.permissions.map((entry) =>
                 entry.kind === kind && entry.resourceId === resourceId
                   ? { ...entry, accessLevel }
-                  : entry
+                  : entry,
               )
             : [...invite.permissions, { kind, resourceId, accessLevel }];
 
           return { ...invite, permissions };
-        })
+        }),
       );
     },
-    [setWorkspacePendingInvites]
+    [setWorkspacePendingInvites],
   );
 
   return {

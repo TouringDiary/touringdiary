@@ -1,19 +1,16 @@
-import { supabase } from '@/services/supabaseClient';
 import type { WorkspaceInvite, WorkspaceResourcePermissionEntry } from '@/domain/collaboration';
-import {
-  mapWorkspaceInvitePermissionRow,
-  mapWorkspaceInviteRow,
-} from './workspaceMappers';
+import { supabase } from '@/services/supabaseClient';
+import { mapWorkspaceInvitePermissionRow, mapWorkspaceInviteRow } from './workspaceMappers';
 
 export async function fetchInvitePermissions(
-  inviteId: string
+  inviteId: string,
 ): Promise<WorkspaceResourcePermissionEntry[]> {
   const map = await fetchInvitePermissionsByInviteIds([inviteId]);
   return map.get(inviteId) ?? [];
 }
 
 export async function fetchInvitePermissionsByInviteIds(
-  inviteIds: string[]
+  inviteIds: string[],
 ): Promise<Map<string, WorkspaceResourcePermissionEntry[]>> {
   const result = new Map<string, WorkspaceResourcePermissionEntry[]>();
   if (inviteIds.length === 0) return result;
@@ -62,7 +59,7 @@ export async function loadWorkspaceInvite(inviteId: string): Promise<WorkspaceIn
 
 export async function restoreWorkspaceInvitePermissions(
   inviteId: string,
-  permissions: WorkspaceResourcePermissionEntry[]
+  permissions: WorkspaceResourcePermissionEntry[],
 ): Promise<void> {
   if (!permissions.length) return;
   await supabase.from('workspace_invite_permissions').insert(
@@ -71,13 +68,13 @@ export async function restoreWorkspaceInvitePermissions(
       kind: entry.kind,
       resource_id: entry.resourceId,
       access_level: entry.accessLevel,
-    }))
+    })),
   );
 }
 
 export async function rollbackWorkspaceMembership(
   workspaceId: string,
-  userId: string
+  userId: string,
 ): Promise<void> {
   await supabase
     .from('workspace_resource_permissions')

@@ -1,6 +1,8 @@
-import type { CollaborativeMemberRole, ResourceInvite, SharingMode } from '@/domain/collaboration';
 import type {
+  CollaborativeMemberRole,
+  ResourceInvite,
   SharedResourceKind,
+  SharingMode,
   WorkspaceResourceAccess,
   WorkspaceResourcePermissionEntry,
 } from '@/domain/collaboration';
@@ -93,7 +95,7 @@ export interface WorkspacePendingInvite {
 
 export function getWizardStepTitle(
   wizardStep: WizardStep,
-  options?: { sharePath?: SharePath; entryMode?: WizardEntryMode }
+  options?: { sharePath?: SharePath; entryMode?: WizardEntryMode },
 ): string {
   const entryMode = options?.entryMode;
 
@@ -117,22 +119,31 @@ export function getWizardStepTitle(
 /** Etichette brevi per lo step indicator. */
 export function getWizardStepShortLabel(step: WizardStep, entryMode?: WizardEntryMode): string {
   switch (step) {
-    case 'path': return 'Percorso';
-    case 'mode': return 'Modalità';
-    case 'share_intent': return 'Dettagli';
-    case 'invite': return 'Inviti';
-    case 'workspace_setup': return 'Setup';
+    case 'path':
+      return 'Percorso';
+    case 'mode':
+      return 'Modalità';
+    case 'share_intent':
+      return 'Dettagli';
+    case 'invite':
+      return 'Inviti';
+    case 'workspace_setup':
+      return 'Setup';
     case 'workspace_composition':
       return entryMode && isWorkspaceCreationEntryMode(entryMode) ? 'CONDIVISIONE' : 'Risorse';
-    case 'workspace_select': return 'Workspace';
-    case 'workspace_invite': return 'Inviti';
-    case 'pick_element': return 'Elemento';
-    default: return '';
+    case 'workspace_select':
+      return 'Workspace';
+    case 'workspace_invite':
+      return 'Inviti';
+    case 'pick_element':
+      return 'Elemento';
+    default:
+      return '';
   }
 }
 
 export function buildDefaultWorkspaceInvitePermissions(
-  composition: Array<{ kind: SharedResourceKind; resourceId: string }>
+  composition: Array<{ kind: SharedResourceKind; resourceId: string }>,
 ): WorkspaceResourcePermissionEntry[] {
   return composition.map((resource) => ({
     kind: resource.kind,
@@ -144,10 +155,10 @@ export function buildDefaultWorkspaceInvitePermissions(
 /** Risincronizza permessi inviti pendenti dopo modifica composizione (DOM-I-05). */
 export function syncWorkspacePendingInvitePermissions(
   invites: WorkspacePendingInvite[],
-  composition: Array<{ kind: SharedResourceKind; resourceId: string }>
+  composition: Array<{ kind: SharedResourceKind; resourceId: string }>,
 ): WorkspacePendingInvite[] {
   const compositionKeys = new Set(
-    composition.map((resource) => workspaceResourceKey(resource.kind, resource.resourceId))
+    composition.map((resource) => workspaceResourceKey(resource.kind, resource.resourceId)),
   );
 
   return invites.map((invite) => {
@@ -175,7 +186,7 @@ export function syncWorkspacePendingInvitePermissions(
 
 export function resolveCompositionResourceTitles(
   blueprint: WorkspaceCompositionBlueprint,
-  composition: Array<{ kind: SharedResourceKind; resourceId: string }>
+  composition: Array<{ kind: SharedResourceKind; resourceId: string }>,
 ): Array<{ kind: SharedResourceKind; resourceId: string; title: string }> {
   return composition.map((resource) => {
     const candidates =
@@ -197,7 +208,7 @@ export function resolveCompositionResourceTitles(
 export function mapWorkspaceInvitePermissionsToMaterialized(
   permissions: WorkspaceResourcePermissionEntry[],
   originals: Array<{ kind: SharedResourceKind; resourceId: string }>,
-  materialized: Array<{ kind: SharedResourceKind; resourceId: string }>
+  materialized: Array<{ kind: SharedResourceKind; resourceId: string }>,
 ): WorkspaceResourcePermissionEntry[] {
   const materializedIdByKey = new Map<string, string>();
   for (let index = 0; index < originals.length; index += 1) {
@@ -206,7 +217,7 @@ export function mapWorkspaceInvitePermissionsToMaterialized(
     if (!original || !next) continue;
     materializedIdByKey.set(
       workspaceResourceKey(original.kind, original.resourceId),
-      next.resourceId
+      next.resourceId,
     );
   }
 
@@ -263,7 +274,7 @@ export interface ResolveWizardStepsForContextInput {
 
 /** Risolve i parametri `getWizardSteps` in base al contesto di apertura del wizard. */
 export function resolveWizardStepsForContext(
-  input: ResolveWizardStepsForContextInput
+  input: ResolveWizardStepsForContextInput,
 ): WizardStep[] {
   if (isWorkspaceCreationEntryMode(input.entryMode)) {
     return getWizardSteps({ entryMode: input.entryMode });

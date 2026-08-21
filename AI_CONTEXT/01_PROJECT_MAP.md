@@ -313,8 +313,11 @@ Componenti:
 
 • photoService
 • community_posts
+• community_replies (SoT risposte Q&A Local)
 • live_snaps
 • photo_likes
+• user_interactions (like + follow su community_post)
+• add_community_reply (RPC)
 
 
 Pipeline:
@@ -323,10 +326,13 @@ upload contenuto
 → salvataggio database
 → interazioni utenti
 
+Q&A Local:
+domanda → auto-follow → reply RPC → notifiche follower → deep-link community/qa
+
 
 DESCRIZIONE SEMPLICE
 
-Gli utenti possono condividere contenuti.
+Gli utenti possono condividere contenuti e discutere in Q&A Local.
 
 
 ---

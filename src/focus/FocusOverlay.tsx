@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { Z_FOCUS_DIM, Z_OVERLAY } from '@/constants/zIndex';
 import { useFocusMode } from './FocusModeContext';
 

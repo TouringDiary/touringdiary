@@ -56,9 +56,7 @@ export async function listUserFavorites(userId: string): Promise<UserFavorite[]>
     return [];
   }
 
-  return (data ?? [])
-    .map(mapRow)
-    .filter((row): row is UserFavorite => row !== null);
+  return (data ?? []).map(mapRow).filter((row): row is UserFavorite => row !== null);
 }
 
 export async function isUserFavorite(
@@ -138,8 +136,8 @@ export async function toggleUserFavorite(
   const currently = await isUserFavorite(userId, entityKind, entityId);
   if (currently) {
     const ok = await removeUserFavorite(userId, entityKind, entityId);
-    return { ok, isFavorite: ok ? false : true };
+    return { ok, isFavorite: !ok };
   }
   const ok = await addUserFavorite(userId, entityKind, entityId);
-  return { ok, isFavorite: ok ? true : false };
+  return { ok, isFavorite: !!ok };
 }

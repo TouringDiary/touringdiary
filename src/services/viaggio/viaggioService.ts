@@ -1,5 +1,3 @@
-import { supabase } from '../supabaseClient';
-import type { Json } from '../../types/supabase';
 import type { CreateViaggioInput, UpdateViaggioInput, Viaggio } from '../../types/models/Viaggio';
 import {
   computeRicordamiNextAt,
@@ -10,6 +8,8 @@ import {
   RICORDAMI_DEFAULT_INTERVAL_MONTHS,
   withViaggioRicordamiConfig,
 } from '../../types/models/Viaggio';
+import type { Json } from '../../types/supabase';
+import { supabase } from '../supabaseClient';
 import { mapDbViaggioToRuntime } from './viaggioMappers';
 
 export { mapDbViaggioToRuntime } from './viaggioMappers';
@@ -26,9 +26,7 @@ export async function createViaggio(input: CreateViaggioInput): Promise<Viaggio>
   const ricordamiEnabled = input.ricordamiEnabled ?? true;
   const rawInterval = input.ricordamiIntervalMonths ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS;
   const interval = normalizeRicordamiIntervalMonths(rawInterval);
-  const nextAt = ricordamiEnabled
-    ? computeRicordamiNextAt(now, interval)
-    : null;
+  const nextAt = ricordamiEnabled ? computeRicordamiNextAt(now, interval) : null;
   const metadata = withViaggioRicordamiConfig(
     input.metadata ?? {},
     DEFAULT_VIAGGIO_RICORDAMI_CONFIG,
@@ -103,7 +101,10 @@ export async function listViaggiByUser(
   return (data || []).map(mapDbViaggioToRuntime);
 }
 
-export async function updateViaggio(viaggioId: string, patch: UpdateViaggioInput): Promise<Viaggio> {
+export async function updateViaggio(
+  viaggioId: string,
+  patch: UpdateViaggioInput,
+): Promise<Viaggio> {
   const current = await getViaggio(viaggioId);
   if (!current) {
     throw new Error('[viaggioService] updateViaggio: viaggio non trovato');
@@ -136,15 +137,13 @@ export async function updateViaggio(viaggioId: string, patch: UpdateViaggioInput
     const currentNextAtMs = current.ricordamiNextAt
       ? new Date(current.ricordamiNextAt).getTime()
       : Number.NaN;
-    const hasValidFutureNextAt =
-      Number.isFinite(currentNextAtMs) && currentNextAtMs > Date.now();
+    const hasValidFutureNextAt = Number.isFinite(currentNextAtMs) && currentNextAtMs > Date.now();
 
     if (!hasValidFutureNextAt) {
       const now = new Date();
       if (nextRicordamiConfig.mode === 'interval') {
         const months =
-          normalizedInterval ??
-          normalizeRicordamiIntervalMonths(current.ricordamiIntervalMonths);
+          normalizedInterval ?? normalizeRicordamiIntervalMonths(current.ricordamiIntervalMonths);
         payload.ricordami_next_at = computeRicordamiNextAt(now, months);
       } else if (nextRicordamiConfig.mode === 'yearly_date') {
         payload.ricordami_next_at = computeRicordamiNextYearlyAt(
@@ -171,9 +170,7 @@ export async function updateViaggio(viaggioId: string, patch: UpdateViaggioInput
     }
   }
 
-  payload.metadata = toDbJson(
-    withViaggioRicordamiConfig(nextMetadata, nextRicordamiConfig),
-  );
+  payload.metadata = toDbJson(withViaggioRicordamiConfig(nextMetadata, nextRicordamiConfig));
 
   if (
     nextRicordamiConfig.mode === 'custom_date' &&

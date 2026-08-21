@@ -7,7 +7,7 @@ import { UUID_REGEX } from '@/utils/uuid';
  * Usare per ogni scrittura protetta da RLS che confronta `auth.uid()`.
  */
 export async function resolveAuthenticatedUserId(
-  fallbackUserId?: string | null
+  fallbackUserId?: string | null,
 ): Promise<string | null> {
   const { data: sessionData } = await supabase.auth.getSession();
 

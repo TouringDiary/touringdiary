@@ -4,7 +4,7 @@
 * in formato YYYY-MM-DD compatibile con Supabase/Postgres.
   */
 export const getTodayDateString = (): string => {
-    return new Date().toISOString().split('T')[0];
+  return new Date().toISOString().split('T')[0];
 };
 
 /**
@@ -12,8 +12,8 @@ export const getTodayDateString = (): string => {
 * Coordinate geografiche frontend.
   */
 export interface SponsorCoordinates {
-    lat: number;
-    lng: number;
+  lat: number;
+  lng: number;
 }
 
 /**
@@ -25,35 +25,35 @@ export interface SponsorCoordinates {
 * Nessun parsing CSV o normalizzazione implicita.
   */
 export interface SponsorSubmitFormData {
-    companyName: string;
-    vatNumber: string;
-    contactName: string;
+  companyName: string;
+  vatNumber: string;
+  contactName: string;
 
-    adminEmail: string;
-    adminPhone: string;
+  adminEmail: string;
+  adminPhone: string;
 
-    address: string;
-    cityId: string;
+  address: string;
+  cityId: string;
 
-    description: string;
+  description: string;
 
-    imageUrl?: string;
+  imageUrl?: string;
 
-    coords?: SponsorCoordinates;
+  coords?: SponsorCoordinates;
 
-    /**
+  /**
   
     * Lista lingue supportate.
     * Parsing UI/CSV esterno al DTO.
       */
-    languages?: string[];
+  languages?: string[];
 
-    /**
+  /**
   
     * Lista specializzazioni guida/operator.
     * Parsing UI/CSV esterno al DTO.
       */
-    specialties?: string[];
+  specialties?: string[];
 
-    licenseNumber?: string;
+  licenseNumber?: string;
 }

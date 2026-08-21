@@ -15,8 +15,8 @@
  *   npm run lint:layers                 → fail if new violations appear
  *   npx tsx scripts/check-layers.ts --update-baseline   → snapshot current violations
  */
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, sep, dirname } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -26,7 +26,7 @@ const BASELINE_PATH = join(SCRIPT_DIR, 'layers-baseline.json');
 
 // Files that DEFINE the system (allowed to contain numbers).
 const ALLOWLIST = new Set(
-  ['src/constants/zIndex.ts', 'src/layering/layerRegistry.ts'].map((p) => p.split('/').join(sep))
+  ['src/constants/zIndex.ts', 'src/layering/layerRegistry.ts'].map((p) => p.split('/').join(sep)),
 );
 
 const CLASS_NUMERIC = /(?:^|[\s"'`{])-?z-(?:\[[^\]]*\]|[1-9]\d*)\b/;
@@ -74,7 +74,7 @@ const current = new Map(violations.map((v) => [sig(v), v]));
 
 if (process.argv.includes('--update-baseline')) {
   const signatures = [...current.keys()].sort();
-  writeFileSync(BASELINE_PATH, JSON.stringify({ signatures }, null, 2) + '\n');
+  writeFileSync(BASELINE_PATH, `${JSON.stringify({ signatures }, null, 2)}\n`);
   console.log(`Layer baseline updated: ${signatures.length} known (legacy) violations recorded.`);
   process.exit(0);
 }
@@ -88,17 +88,21 @@ const fresh = [...current.values()].filter((v) => !known.has(sig(v)));
 
 if (fresh.length > 0) {
   console.error('\n✖ Layer System violation(s): numeric z-index is forbidden in components.');
-  console.error('  Use a semantic token (z-local-*, z-popover, z-modal, …). See src/layering/layerRegistry.ts.\n');
+  console.error(
+    '  Use a semantic token (z-local-*, z-popover, z-modal, …). See src/layering/layerRegistry.ts.\n',
+  );
   for (const v of fresh) {
     console.error(`  ${v.file}:${v.line}  [${v.kind}]`);
     console.error(`     ${v.text}`);
   }
-  console.error(`\n  ${fresh.length} new violation(s). If intentional & legacy, run: npx tsx scripts/check-layers.ts --update-baseline\n`);
+  console.error(
+    `\n  ${fresh.length} new violation(s). If intentional & legacy, run: npx tsx scripts/check-layers.ts --update-baseline\n`,
+  );
   process.exit(1);
 }
 
 const fixed = baseline.signatures.filter((s) => !current.has(s)).length;
 console.log(
   `✓ Layer System OK — no new numeric z-index. ${current.size} legacy violation(s) tracked` +
-    (fixed > 0 ? `, ${fixed} cleaned since baseline (consider --update-baseline).` : '.')
+    (fixed > 0 ? `, ${fixed} cleaned since baseline (consider --update-baseline).` : '.'),
 );

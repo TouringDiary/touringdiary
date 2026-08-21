@@ -12,17 +12,15 @@ import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { evaluateCachedFeatureFlag } from '@/domain/platformControl/platformFlagCache';
 
 /** Key Platform Control — unica fonte per helper e hook. */
-export const GAMIFICATION_REWARDS_FLAG_KEY =
-    PLATFORM_FEATURE_FLAG_KEYS.GAMIFICATION_REWARDS;
+export const GAMIFICATION_REWARDS_FLAG_KEY = PLATFORM_FEATURE_FLAG_KEYS.GAMIFICATION_REWARDS;
 
 /**
  * Messaggio positivo mostrato quando l'utente guadagna XP durante il freeze.
  * Non è un errore: informa che i punti restano e i premi arriveranno.
  */
 export const REWARDS_FREEZE_XP_NOTICE = {
-    headline: '🔒 Premio disponibile prossimamente.',
-    body:
-        'Continua ad accumulare XP: quando la Gamification sarà attivata, potrai utilizzare automaticamente tutti i punti già guadagnati.',
+  headline: '🔒 Premio disponibile prossimamente.',
+  body: 'Continua ad accumulare XP: quando la Gamification sarà attivata, potrai utilizzare automaticamente tutti i punti già guadagnati.',
 } as const;
 
 /**
@@ -32,14 +30,14 @@ export const REWARDS_FREEZE_XP_NOTICE = {
  * Fallback sicuro: se il flag non è in cache, `false` (freeze).
  */
 export function areRewardsEnabled(): boolean {
-    const result = evaluateCachedFeatureFlag(GAMIFICATION_REWARDS_FLAG_KEY, {
-        userRole: null,
-        isAuthenticated: false,
-    });
-    return result?.enabled === true;
+  const result = evaluateCachedFeatureFlag(GAMIFICATION_REWARDS_FLAG_KEY, {
+    userRole: null,
+    isAuthenticated: false,
+  });
+  return result?.enabled === true;
 }
 
 /** Inverso esplicito per copy / branch UI. */
 export function areRewardsFrozen(): boolean {
-    return !areRewardsEnabled();
+  return !areRewardsEnabled();
 }

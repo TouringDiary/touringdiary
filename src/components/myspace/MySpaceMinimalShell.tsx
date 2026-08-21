@@ -1,7 +1,9 @@
-import { useUI } from '@/context/UIContext';
-import { useUser } from '@/context/UserContext';
-import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
-import { resolveGlobalWorkspacePanelGeometry } from '@/layering/resolveGlobalWorkspacePanelGeometry';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
+import { MyWorldBreadcrumb, type MyWorldCrumb } from '@/components/myworld/MyWorldBreadcrumb';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import {
   binderPanelMaxHeightClass,
   binderPanelMinHeightClass,
@@ -9,40 +11,35 @@ import {
   slidePanelEaseClass,
   slidePanelTransformClassFromTop,
 } from '@/constants/slidePanelMotion';
-import { resolveWorkspacePanelZIndex, resolveCompanionSurfaceTier } from '@/layering/resolveWorkspacePanelZIndex';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
 import { useModal } from '@/context/ModalContext';
-import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { MyWorldBreadcrumb, type MyWorldCrumb } from '@/components/myworld/MyWorldBreadcrumb';
+import { useUI } from '@/context/UIContext';
+import { useUser } from '@/context/UserContext';
+import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
+import { resolveGlobalWorkspacePanelGeometry } from '@/layering/resolveGlobalWorkspacePanelGeometry';
 import {
-  getMySpaceRoot,
-  MY_SPACE_DEFAULT_ROOT,
-  type MySpaceRootId,
-} from '@/myspace/mySpaceRoots';
+  resolveCompanionSurfaceTier,
+  resolveWorkspacePanelZIndex,
+} from '@/layering/resolveWorkspacePanelZIndex';
+import { loadMySpaceNavMemory, saveMySpaceNavMemory } from '@/myspace/mySpaceNavMemory';
+import { getMySpaceRoot, MY_SPACE_DEFAULT_ROOT, type MySpaceRootId } from '@/myspace/mySpaceRoots';
 import {
   MY_SPACE_TRIPS_CATALOG,
-  openTripsFolder,
   type MySpaceTripsView,
+  openTripsFolder,
 } from '@/myspace/mySpaceTripsSession';
 import {
   getViaggioFolderSection,
   VIAGGIO_FOLDER_DEFAULT_SECTION,
   type ViaggioFolderSectionId,
 } from '@/myspace/viaggioFolderSections';
-import {
-  loadMySpaceNavMemory,
-  saveMySpaceNavMemory,
-} from '@/myspace/mySpaceNavMemory';
 import type { Viaggio } from '@/types/models/Viaggio';
+import { MySpaceExplorerRoot } from './MySpaceExplorerRoot';
+import { MySpaceFavoritesRoot } from './MySpaceFavoritesRoot';
+import { MySpaceInvitesRoot } from './MySpaceInvitesRoot';
 import { MySpaceRootNav } from './MySpaceRootNav';
+import { MySpaceToolsRoot } from './MySpaceToolsRoot';
 import { MySpaceTripsCatalog } from './MySpaceTripsCatalog';
 import { ViaggioFolderShell } from './ViaggioFolderShell';
-import { MySpaceFavoritesRoot } from './MySpaceFavoritesRoot';
-import { MySpaceExplorerRoot } from './MySpaceExplorerRoot';
-import { MySpaceToolsRoot } from './MySpaceToolsRoot';
-import { MySpaceInvitesRoot } from './MySpaceInvitesRoot';
 
 function parseInitialTripsView(raw: unknown): MySpaceTripsView | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -65,9 +62,7 @@ export const MySpaceMinimalShell: React.FC = () => {
   const restoredRef = useRef(false);
   const initialFromProps = parseInitialTripsView(modalProps?.initialTripsView);
   const initialRootProp =
-    typeof modalProps?.initialRoot === 'string'
-      ? (modalProps.initialRoot as MySpaceRootId)
-      : null;
+    typeof modalProps?.initialRoot === 'string' ? (modalProps.initialRoot as MySpaceRootId) : null;
 
   const [activeRoot, setActiveRoot] = useState<MySpaceRootId>(
     initialRootProp || MY_SPACE_DEFAULT_ROOT,
@@ -152,9 +147,7 @@ export const MySpaceMinimalShell: React.FC = () => {
   };
 
   const handleSectionChange = (section: ViaggioFolderSectionId) => {
-    setTripsView((prev) =>
-      prev.kind === 'folder' ? { ...prev, section } : prev,
-    );
+    setTripsView((prev) => (prev.kind === 'folder' ? { ...prev, section } : prev));
   };
 
   const crumbs: MyWorldCrumb[] = [

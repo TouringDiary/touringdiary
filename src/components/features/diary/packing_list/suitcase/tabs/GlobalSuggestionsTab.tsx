@@ -144,9 +144,7 @@ export const GlobalSuggestionsTab: React.FC = () => {
   };
 
   const normalizedSearch = search.trim().toLowerCase();
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(normalizedSearch),
-  );
+  const filteredProducts = products.filter((p) => p.name.toLowerCase().includes(normalizedSearch));
 
   if (isLoading)
     return (
@@ -233,7 +231,10 @@ export const GlobalSuggestionsTab: React.FC = () => {
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
-                        <button className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-all">
+                        <button
+                          type="button"
+                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-all"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -273,10 +274,14 @@ export const GlobalSuggestionsTab: React.FC = () => {
           <div className="flex-1 lg:overflow-y-auto p-6 space-y-6">
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                <label
+                  htmlFor="fld-king-list-suitcase-tabs-globalsuggestionstab-tsx-l277"
+                  className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block"
+                >
                   Nome Prodotto
                 </label>
                 <input
+                  id="fld-king-list-suitcase-tabs-globalsuggestionstab-tsx-l277"
                   type="text"
                   value={editingProduct.name || ''}
                   onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
@@ -285,10 +290,14 @@ export const GlobalSuggestionsTab: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                  <label
+                    htmlFor="fld-king-list-suitcase-tabs-globalsuggestionstab-tsx-l296"
+                    className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block"
+                  >
                     Preferred Partners (ID list)
                   </label>
                   <input
+                    id="fld-king-list-suitcase-tabs-globalsuggestionstab-tsx-l296"
                     type="text"
                     placeholder="es. amazon,ebay"
                     value={editingProduct.preferred_partners?.join(',') || ''}
@@ -319,10 +328,14 @@ export const GlobalSuggestionsTab: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 pt-2">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                  <label
+                    htmlFor="fld-king-list-suitcase-tabs-globalsuggestionstab-tsx-l323"
+                    className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block"
+                  >
                     Target Categories (separate da virgola)
                   </label>
                   <input
+                    id="fld-king-list-suitcase-tabs-globalsuggestionstab-tsx-l323"
                     type="text"
                     placeholder="es. Elettronica, Fotografia"
                     value={editingProduct.target_categories?.join(', ') || ''}
@@ -339,10 +352,14 @@ export const GlobalSuggestionsTab: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block">
+                  <label
+                    htmlFor="fld-king-list-suitcase-tabs-globalsuggestionstab-tsx-l343"
+                    className="text-[10px] font-black uppercase text-slate-500 mb-1.5 block"
+                  >
                     Tags per Matching (separati da virgola)
                   </label>
                   <input
+                    id="fld-king-list-suitcase-tabs-globalsuggestionstab-tsx-l343"
                     type="text"
                     placeholder="es. waterproof, usb-c, leggero"
                     value={editingProduct.target_tags?.join(', ') || ''}

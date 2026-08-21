@@ -1,123 +1,137 @@
-
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { clearCacheKey } from '../services/city/cityCache';
+import { getFullManifestAsync } from '../services/cityService';
+import type { CitySummary } from '../types/index';
 import { useAdminData } from './useAdminData';
 import { usePagination } from './usePagination';
-import { getFullManifestAsync } from '../services/cityService';
-import { clearCacheKey } from '../services/city/cityCache';
-import { CitySummary } from '../types/index';
 
 export const useCityList = () => {
-    const { cities: localCities } = useAdminData();
-    const [cloudCities, setCloudCities] = useState<CitySummary[]>([]);
-    const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const { cities: localCities } = useAdminData();
+  const [cloudCities, setCloudCities] = useState<CitySummary[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-    // Filters & Sorting
-    const [searchTerm, setSearchTerm] = useState('');
-    const [sortKey, setSortKey] = useState<keyof CitySummary>('updatedAt');
-    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-    const [pageInput, setPageInput] = useState('1');
-    const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Filters & Sorting
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortKey, setSortKey] = useState<keyof CitySummary>('updatedAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [pageInput, setPageInput] = useState('1');
+  const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    const loadManifest = useCallback(async (bypassCache: boolean) => {
-        const data = await getFullManifestAsync(false, { bypassCache });
-        setCloudCities(data);
-    }, []);
+  const loadManifest = useCallback(async (bypassCache: boolean) => {
+    const data = await getFullManifestAsync(false, { bypassCache });
+    setCloudCities(data);
+  }, []);
 
-    // Force reload logic
-    const forceReload = useCallback(async () => {
-        setIsInitialLoading(true);
-        try {
-            clearCacheKey('manifest');
-            await loadManifest(true);
-        } catch (e) {
-            console.error("Errore ricaricamento lista:", e);
-        } finally {
-            setIsInitialLoading(false);
+  // Force reload logic
+  const forceReload = useCallback(async () => {
+    setIsInitialLoading(true);
+    try {
+      clearCacheKey('manifest');
+      await loadManifest(true);
+    } catch (e) {
+      console.error('Errore ricaricamento lista:', e);
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, [loadManifest]);
+
+  const reloadManifest = useCallback(async () => {
+    try {
+      clearCacheKey('manifest');
+      await loadManifest(true);
+    } catch (e) {
+      console.error('Errore ricaricamento manifest:', e);
+    }
+  }, [loadManifest]);
+
+  // Initial load & Event Listener
+  useEffect(() => {
+    forceReload();
+
+    const handleRefresh = () => {
+      void reloadManifest();
+    };
+    window.addEventListener('refresh-city-list', handleRefresh);
+    return () => window.removeEventListener('refresh-city-list', handleRefresh);
+  }, [forceReload, reloadManifest]);
+
+  // Derived Data
+  const effectiveCities = cloudCities.length > 0 ? cloudCities : localCities;
+
+  const filteredCities = useMemo(() => {
+    const lower = searchTerm.toLowerCase();
+    return effectiveCities
+      .filter(
+        (c) =>
+          c.name.toLowerCase().includes(lower) || (c.zone?.toLowerCase() || '').includes(lower),
+      )
+      .sort((a, b) => {
+        const valA = a[sortKey];
+        const valB = b[sortKey];
+
+        if (sortKey === 'createdAt' || sortKey === 'updatedAt' || sortKey === 'publishedAt') {
+          const timeA = typeof valA === 'string' ? new Date(valA).getTime() : 0;
+          const timeB = typeof valB === 'string' ? new Date(valB).getTime() : 0;
+          return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
         }
-    }, [loadManifest]);
 
-    const reloadManifest = useCallback(async () => {
-        try {
-            clearCacheKey('manifest');
-            await loadManifest(true);
-        } catch (e) {
-            console.error("Errore ricaricamento manifest:", e);
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortDir === 'asc' ? valA - valB : valB - valA;
         }
-    }, [loadManifest]);
 
-    // Initial load & Event Listener
-    useEffect(() => {
-        forceReload();
+        const strA = String(valA || '').toLowerCase();
+        const strB = String(valB || '').toLowerCase();
+        return sortDir === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      });
+  }, [effectiveCities, searchTerm, sortKey, sortDir]);
 
-        const handleRefresh = () => { void reloadManifest(); };
-        window.addEventListener('refresh-city-list', handleRefresh);
-        return () => window.removeEventListener('refresh-city-list', handleRefresh);
-    }, [forceReload, reloadManifest]);
+  // Pagination Hook usage
+  const pagination = usePagination(filteredCities, 15);
 
-    // Derived Data
-    const effectiveCities = cloudCities.length > 0 ? cloudCities : localCities;
+  // Helpers
+  const handleSort = (key: keyof CitySummary) => {
+    if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  };
 
-    const filteredCities = useMemo(() => {
-        const lower = searchTerm.toLowerCase();
-        return effectiveCities.filter(c =>
-            c.name.toLowerCase().includes(lower) || (c.zone?.toLowerCase() || '').includes(lower)
-        ).sort((a, b) => {
-            let valA = a[sortKey];
-            let valB = b[sortKey];
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+  };
 
-            if (sortKey === 'createdAt' || sortKey === 'updatedAt' || sortKey === 'publishedAt') {
-                const timeA = typeof valA === 'string' ? new Date(valA).getTime() : 0;
-                const timeB = typeof valB === 'string' ? new Date(valB).getTime() : 0;
-                return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
-            }
+  const toggleAllPage = () => {
+    const currentData = pagination.currentData;
+    const allSelected = currentData.every((c) => selectedIds.has(c.id));
+    const newSet = new Set(selectedIds);
+    if (allSelected) currentData.forEach((c) => newSet.delete(c.id));
+    else currentData.forEach((c) => newSet.add(c.id));
+    setSelectedIds(newSet);
+  };
 
-            if (typeof valA === 'number' && typeof valB === 'number') {
-                return sortDir === 'asc' ? valA - valB : valB - valA;
-            }
-
-            const strA = String(valA || '').toLowerCase();
-            const strB = String(valB || '').toLowerCase();
-            return sortDir === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
-        });
-    }, [effectiveCities, searchTerm, sortKey, sortDir]);
-
-    // Pagination Hook usage
-    const pagination = usePagination(filteredCities, 15);
-
-    // Helpers
-    const handleSort = (key: keyof CitySummary) => {
-        if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-        else { setSortKey(key); setSortDir('desc'); }
-    };
-
-    const toggleSelection = (id: string) => {
-        const newSet = new Set(selectedIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedIds(newSet);
-    };
-
-    const toggleAllPage = () => {
-        const currentData = pagination.currentData;
-        const allSelected = currentData.every(c => selectedIds.has(c.id));
-        const newSet = new Set(selectedIds);
-        if (allSelected) currentData.forEach(c => newSet.delete(c.id));
-        else currentData.forEach(c => newSet.add(c.id));
-        setSelectedIds(newSet);
-    };
-
-    return {
-        cities: filteredCities,
-        currentData: pagination.currentData,
-        pagination,
-        isInitialLoading,
-        searchTerm, setSearchTerm,
-        sortKey, sortDir, handleSort,
-        pageInput, setPageInput,
-        selectedIds, setSelectedIds, toggleSelection, toggleAllPage,
-        forceReload,
-        reloadManifest,
-        effectiveCities
-    };
+  return {
+    cities: filteredCities,
+    currentData: pagination.currentData,
+    pagination,
+    isInitialLoading,
+    searchTerm,
+    setSearchTerm,
+    sortKey,
+    sortDir,
+    handleSort,
+    pageInput,
+    setPageInput,
+    selectedIds,
+    setSelectedIds,
+    toggleSelection,
+    toggleAllPage,
+    forceReload,
+    reloadManifest,
+    effectiveCities,
+  };
 };

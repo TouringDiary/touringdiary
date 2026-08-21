@@ -1,4 +1,3 @@
-import { supabase } from '@/services/supabaseClient';
 import type {
   SharedResourceKind,
   WorkspaceMemberWithProfile,
@@ -7,20 +6,21 @@ import type {
   WorkspaceResourcePermissionEntry,
 } from '@/domain/collaboration';
 import { isSharedResourceKind, isWorkspaceResourceAccess } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
+import { resolveResourcePermission } from './permissionService';
 import { isShareableResourceOwner } from './sharedResourceOwnershipVerifiers';
 import {
+  type MemberWithProfileRow,
   mapWorkspaceMemberWithProfile,
   mapWorkspaceResourcePermissionRow,
   mapWorkspaceResourceRow,
-  type MemberWithProfileRow,
 } from './workspaceMappers';
-import { getWorkspace, isWorkspaceMember, isWorkspaceOwner } from './workspaceService';
 import { notifyWorkspaceSuitcaseAdded } from './workspaceNotificationHelper';
-import { resolveResourcePermission } from './permissionService';
 import {
-  getWorkspaceResourceByKindAndId as lookupWorkspaceResource,
   listWorkspaceResourceLinks,
+  getWorkspaceResourceByKindAndId as lookupWorkspaceResource,
 } from './workspaceResourceLinkLookup';
+import { getWorkspace, isWorkspaceMember, isWorkspaceOwner } from './workspaceService';
 
 export { getWorkspaceResourceAccessForUser } from './workspaceAccessLookup';
 
@@ -37,7 +37,7 @@ async function canActorLinkResource(
   workspaceId: string,
   actorId: string,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<string | null> {
   const workspace = await getWorkspace(workspaceId);
   if (!workspace) {
@@ -79,7 +79,7 @@ export async function listWorkspaceResources(workspaceId: string): Promise<Works
 export async function getWorkspaceResourceByKindAndId(
   workspaceId: string,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<WorkspaceResource | null> {
   return lookupWorkspaceResource(workspaceId, kind, resourceId);
 }
@@ -87,18 +87,13 @@ export async function getWorkspaceResourceByKindAndId(
 export async function addWorkspaceResource(
   workspaceId: string,
   actorId: string,
-  input: AddWorkspaceResourceInput
+  input: AddWorkspaceResourceInput,
 ): Promise<WorkspaceResourceResult> {
   if (!isSharedResourceKind(input.kind)) {
     return { success: false, error: 'Tipo di risorsa non valido.' };
   }
 
-  const linkError = await canActorLinkResource(
-    workspaceId,
-    actorId,
-    input.kind,
-    input.resourceId
-  );
+  const linkError = await canActorLinkResource(workspaceId, actorId, input.kind, input.resourceId);
   if (linkError) {
     return { success: false, error: linkError };
   }
@@ -143,7 +138,7 @@ export async function addWorkspaceResource(
 export async function removeWorkspaceResource(
   workspaceId: string,
   ownerId: string,
-  workspaceResourceId: string
+  workspaceResourceId: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!(await isWorkspaceOwner(workspaceId, ownerId))) {
     return { success: false, error: 'Solo il proprietario del workspace può rimuovere risorse.' };
@@ -168,7 +163,7 @@ export async function removeWorkspaceResource(
 }
 
 export async function listWorkspaceMembers(
-  workspaceId: string
+  workspaceId: string,
 ): Promise<WorkspaceMemberWithProfile[]> {
   const { data, error } = await supabase
     .from('workspace_members')
@@ -181,13 +176,15 @@ export async function listWorkspaceMembers(
     return [];
   }
 
-  return (data as MemberWithProfileRow[] | null)
-    ?.map(mapWorkspaceMemberWithProfile)
-    .filter((member): member is WorkspaceMemberWithProfile => member !== null) ?? [];
+  return (
+    (data as MemberWithProfileRow[] | null)
+      ?.map(mapWorkspaceMemberWithProfile)
+      .filter((member): member is WorkspaceMemberWithProfile => member !== null) ?? []
+  );
 }
 
 export async function listWorkspaceResourcePermissions(
-  workspaceId: string
+  workspaceId: string,
 ): Promise<WorkspaceResourcePermission[]> {
   const { data, error } = await supabase
     .from('workspace_resource_permissions')
@@ -209,7 +206,7 @@ export async function setWorkspaceResourcePermission(
   ownerId: string,
   workspaceResourceId: string,
   userId: string,
-  accessLevel: WorkspaceResourcePermissionEntry['accessLevel']
+  accessLevel: WorkspaceResourcePermissionEntry['accessLevel'],
 ): Promise<{ success: boolean; error?: string }> {
   if (!(await isWorkspaceOwner(workspaceId, ownerId))) {
     return { success: false, error: 'Solo il proprietario del workspace può gestire i permessi.' };
@@ -230,7 +227,7 @@ export async function setWorkspaceResourcePermission(
       user_id: userId,
       access_level: accessLevel,
     },
-    { onConflict: 'workspace_resource_id,user_id' }
+    { onConflict: 'workspace_resource_id,user_id' },
   );
 
   if (error) {
@@ -245,11 +242,11 @@ export async function setWorkspaceResourcePermissionsForUser(
   workspaceId: string,
   ownerId: string,
   userId: string,
-  permissions: WorkspaceResourcePermissionEntry[]
+  permissions: WorkspaceResourcePermissionEntry[],
 ): Promise<{ success: boolean; error?: string }> {
   const resources = await listWorkspaceResources(workspaceId);
   const resourceByKey = new Map(
-    resources.map((resource) => [`${resource.kind}:${resource.resourceId}`, resource])
+    resources.map((resource) => [`${resource.kind}:${resource.resourceId}`, resource]),
   );
 
   for (const entry of permissions) {
@@ -262,7 +259,7 @@ export async function setWorkspaceResourcePermissionsForUser(
       ownerId,
       linked.id,
       userId,
-      entry.accessLevel
+      entry.accessLevel,
     );
     if (!result.success) {
       return result;

@@ -1,0 +1,436 @@
+[
+  {
+    "file": "src/components/myspace/RicordamiConfigModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L296 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/photos/PhotoAcquireDialog.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L55 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/myspace/CreateDiaryModal.tsx",
+    "status": "OK",
+    "old": "busy ? undefined : onClose",
+    "neu": "button L143 → onClose",
+    "gates": "yes"
+  },
+  {
+    "file": "src/components/myspace/CreateSuitcaseModal.tsx",
+    "status": "OK",
+    "old": "busy ? undefined : onClose",
+    "neu": "button L138 → onClose",
+    "gates": "yes"
+  },
+  {
+    "file": "src/components/myspace/ResourceConflictCopyModal.tsx",
+    "status": "OK",
+    "old": "busy ? undefined : onClose",
+    "neu": "button L55 → onClose",
+    "gates": "yes"
+  },
+  {
+    "file": "src/components/modals/AddToItineraryModal.tsx",
+    "status": "OK_OTHER",
+    "old": "—",
+    "neu": "button L230 → onClose",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/modals/BuyCreditsModal.tsx",
+    "status": "OK_OTHER",
+    "old": "—",
+    "neu": "button L146 → onClose",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/common/DeleteConfirmationModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L110 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/header/DiaryHeaderInvalidDateModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L46 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/DiaryModals.tsx",
+    "status": "OK",
+    "old": "handleCloseXpToast",
+    "neu": "button L171 → handleCloseXpToast",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/BlacklistModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L59 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/admin/ItineraryManager.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L323 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/collaboration/CollaborationShareModal.tsx",
+    "status": "OK",
+    "old": "handleClose",
+    "neu": "button L420 → handleClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/CategoryMobileDialog.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L75 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/CategorySetupConfigurationModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L355 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/ItemDeleteConfirmationModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L77 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/tabs/AiCatalogTab.tsx",
+    "status": "OK",
+    "old": "closeEditModal",
+    "neu": "button L196 → closeEditModal",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/tabs/StandardItemsTab.tsx",
+    "status": "OK",
+    "old": "closeEditModal",
+    "neu": "button L184 → closeEditModal",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/tabs/TemplateSpecificItemsTab.tsx",
+    "status": "OK",
+    "old": "closeEditModal",
+    "neu": "button L217 → closeEditModal",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/AiItineraryModal.tsx",
+    "status": "OK",
+    "old": "onClose | onClose",
+    "neu": "button L90 → onClose; button L145 → onClose; div L151 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/DuplicateResolutionModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L64 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/EmptyDiaryModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L48 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/FullRankingsModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L159 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/GpsAlertModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L29 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/GpsErrorModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L37 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/HistoryModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L86 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/CityInfoModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L134 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/ConfirmClearModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L44 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/CultureCornerModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L190 → () => setSelectedPerson(null); button L372 → onClose; div L411 → () => setSelectedPerson(person)",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/DateChangeWarningModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L50 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/LevelUpModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L35 → onClose; div L44 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/MobileMoveModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L80 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/PatronSaintModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L83 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/PoiDetailModal.tsx",
+    "status": "OK",
+    "old": "onClose | onClose",
+    "neu": "button L192 → onClose; button L385 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/ProvinceModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L174 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/QuotaExceededModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L48 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/RemoveItemModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L53 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/SaveAsModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L118 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/ShareModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L96 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/SectionPreviewModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L147 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/SponsorModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L94 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/SuggestionReviewModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L257 → onClose; div L262 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/TimeConflictModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L143 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/shop/ProductDetailOverlay.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L33 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/shop/ShopBioOverlay.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L27 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/user/UserDashboard.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L181 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/admin/NewsTickerManager.tsx",
+    "status": "N/A",
+    "old": "—",
+    "neu": "HEAD senza close su td-modal-overlay",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/admin/sponsor/SponsorModals.tsx",
+    "status": "N/A",
+    "old": "—",
+    "neu": "HEAD senza close su td-modal-overlay",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/aiPlanner/AiPlannerForm.tsx",
+    "status": "N/A",
+    "old": "—",
+    "neu": "HEAD senza close su td-modal-overlay",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/modals/sponsor/SponsorForm.tsx",
+    "status": "N/A",
+    "old": "—",
+    "neu": "HEAD senza close su td-modal-overlay",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/admin/poiManager/PoiList.tsx",
+    "status": "N/A",
+    "old": "—",
+    "neu": "HEAD senza close su td-modal-overlay",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/rankings/PoiList.tsx",
+    "status": "N/A",
+    "old": "—",
+    "neu": "HEAD senza close su td-modal-overlay",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/admin/layout/AdminSidebar.tsx",
+    "status": "N/A",
+    "old": "—",
+    "neu": "HEAD senza close su td-modal-overlay",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/admin/observatory/ObservatoryFilterDrawer.tsx",
+    "status": "N/A",
+    "old": "—",
+    "neu": "HEAD senza close su td-modal-overlay",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/modals/AuthModal.tsx",
+    "status": "OK_OTHER",
+    "old": "—",
+    "neu": "div L318 → onClose",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/photos/CommunityPhotoPublishModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L137 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/RecommendedSuitcaseModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L267 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/myspace/MySpaceCityPickModal.tsx",
+    "status": "OK_OTHER",
+    "old": "—",
+    "neu": "button L30 → onClose",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/myspace/SuitcaseDiariesModal.tsx",
+    "status": "OK_OTHER",
+    "old": "—",
+    "neu": "button L55 → onClose",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/city/gallery/GalleryLightbox.tsx",
+    "status": "OK_OTHER",
+    "old": "—",
+    "neu": "button L112 → onClose",
+    "gates": "n/a"
+  },
+  {
+    "file": "src/components/modals/PoiClaimModal.tsx",
+    "status": "OK",
+    "old": "onClose",
+    "neu": "button L119 → onClose",
+    "gates": "none"
+  },
+  {
+    "file": "src/components/modals/shell/BaseFullscreenModalShell.tsx",
+    "status": "OK",
+    "old": "closeOnOverlayClick ? onClose : undefined",
+    "neu": "button L89 → onClose",
+    "gates": "none"
+  }
+]

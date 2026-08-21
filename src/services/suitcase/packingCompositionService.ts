@@ -3,9 +3,12 @@ import {
   resolveCategorySetup,
 } from '@/domain/packing/categorySetup';
 import { composeTdTemplateItemsFromCatalog } from '@/domain/packing/packingTemplateComposition';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { CategorySetupMap } from '@/types/packingCatalog';
-import { PackingStandardItem, PackingTemplateItem } from '@/types/packingCatalog';
+import type {
+  CategorySetupMap,
+  PackingStandardItem,
+  PackingTemplateItem,
+} from '@/types/packingCatalog';
+import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
 import {
   fetchActiveStandardItemsAsync,
@@ -28,7 +31,7 @@ export function composeTdTemplateItems(
   template: Suitcase,
   standardRows: PackingStandardItem[],
   specificRows: PackingTemplateItem[],
-  options: Pick<ComposeTemplateItemsOptions, 'categorySetup' | 'suitcaseId'> = {}
+  options: Pick<ComposeTemplateItemsOptions, 'categorySetup' | 'suitcaseId'> = {},
 ): SuitcaseItem[] {
   if (!isTdTemplate(template)) {
     throw new Error('[packingCompositionService] composeTdTemplateItems: non è un template TD.');
@@ -47,7 +50,7 @@ export function composeTdTemplateItems(
 
 export const composeTdTemplateItemsAsync = async (
   template: Suitcase,
-  options: ComposeTemplateItemsOptions = {}
+  options: ComposeTemplateItemsOptions = {},
 ): Promise<SuitcaseItem[]> => {
   const [standardRows, specificRows] = await Promise.all([
     options.standardRows ?? fetchActiveStandardItemsAsync(),
@@ -59,7 +62,10 @@ export const composeTdTemplateItemsAsync = async (
 
 export const ensureTdTemplateCategorySetup = (template: Suitcase): Suitcase => {
   if (!isTdTemplate(template)) return template;
-  if (template.ui_state?.category_setup && Object.keys(template.ui_state.category_setup).length > 0) {
+  if (
+    template.ui_state?.category_setup &&
+    Object.keys(template.ui_state.category_setup).length > 0
+  ) {
     return template;
   }
 
@@ -102,7 +108,7 @@ export const enrichTdTemplatesAsync = async (templates: Suitcase[]): Promise<Sui
     const items = composeTdTemplateItems(
       withSetup,
       standardRows,
-      specificsByTemplate.get(template.id) ?? []
+      specificsByTemplate.get(template.id) ?? [],
     );
 
     return {

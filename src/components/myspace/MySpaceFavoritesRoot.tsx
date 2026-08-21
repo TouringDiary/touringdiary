@@ -1,32 +1,32 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, Loader2, Plus, Search, Trash2, Store, Award } from 'lucide-react';
+import { Award, Bookmark, Loader2, Plus, Search, Store, Trash2 } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  GeoCascadingFilters,
+  type GeoSelection,
+} from '@/components/admin/cities/GeoCascadingFilters';
+import { getPoisByIds } from '@/services/city/poi/poiRead';
+import {
+  type CityGeoMinimal,
+  getCitiesMinimalByIds,
+  searchCitiesMinimalByName,
+} from '@/services/myspace/cityMinimalRead';
+import {
+  type FavoriteEntityMeta,
+  getGuidesMetaByIds,
+  getShopsMetaByIds,
+  getSponsorPoisByIds,
+  getTourOperatorsMetaByIds,
+  isSponsorPoiId,
+} from '@/services/myspace/favoritesEntityRead';
 import {
   addUserFavorite,
   listUserFavorites,
   removeUserFavorite,
   type UserFavorite,
 } from '@/services/myspace/userFavoritesService';
-import {
-  getCitiesMinimalByIds,
-  searchCitiesMinimalByName,
-  type CityGeoMinimal,
-} from '@/services/myspace/cityMinimalRead';
-import {
-  getGuidesMetaByIds,
-  getShopsMetaByIds,
-  getSponsorPoisByIds,
-  getTourOperatorsMetaByIds,
-  isSponsorPoiId,
-  type FavoriteEntityMeta,
-} from '@/services/myspace/favoritesEntityRead';
-import { getPoisByIds } from '@/services/city/poi/poiRead';
 import { showGlobalAlert } from '@/services/ui/toastService';
-import {
-  GeoCascadingFilters,
-  type GeoSelection,
-} from '@/components/admin/cities/GeoCascadingFilters';
-import type { CitySummary } from '@/types/index';
-import type { PointOfInterest } from '@/types/index';
+import type { CitySummary, PointOfInterest } from '@/types/index';
 import { MySpaceSectionHeader } from './MySpaceSectionHeader';
 
 type FavoriteMetaMap = Record<string, FavoriteEntityMeta>;
@@ -247,10 +247,16 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
       // POI catalogo obbligatorio in all; sorgenti opzionali indipendenti (allSettled).
       const [regularResult, sponsorResult, guidesResult, operatorsResult, shopsResult] =
         await Promise.allSettled([
-          regularPoiIds.length > 0 ? getPoisByIds(regularPoiIds) : Promise.resolve([] as PointOfInterest[]),
-          sponsorPoiIds.length > 0 ? getSponsorPoisByIds(sponsorPoiIds) : Promise.resolve([] as PointOfInterest[]),
+          regularPoiIds.length > 0
+            ? getPoisByIds(regularPoiIds)
+            : Promise.resolve([] as PointOfInterest[]),
+          sponsorPoiIds.length > 0
+            ? getSponsorPoisByIds(sponsorPoiIds)
+            : Promise.resolve([] as PointOfInterest[]),
           guideIds.length > 0 ? getGuidesMetaByIds(guideIds) : Promise.resolve(EMPTY_META),
-          operatorIds.length > 0 ? getTourOperatorsMetaByIds(operatorIds) : Promise.resolve(EMPTY_META),
+          operatorIds.length > 0
+            ? getTourOperatorsMetaByIds(operatorIds)
+            : Promise.resolve(EMPTY_META),
           shopIds.length > 0 ? getShopsMetaByIds(shopIds) : Promise.resolve(EMPTY_META),
         ]);
       if (seq !== loadSeqRef.current) return;
@@ -271,7 +277,10 @@ export const MySpaceFavoritesRoot: React.FC<Props> = ({ userId }) => {
         console.error('[MySpaceFavoritesRoot] getGuidesMetaByIds failed', guidesResult.reason);
       }
       if (operatorsResult.status === 'rejected') {
-        console.error('[MySpaceFavoritesRoot] getTourOperatorsMetaByIds failed', operatorsResult.reason);
+        console.error(
+          '[MySpaceFavoritesRoot] getTourOperatorsMetaByIds failed',
+          operatorsResult.reason,
+        );
       }
       if (shopsResult.status === 'rejected') {
         console.error('[MySpaceFavoritesRoot] getShopsMetaByIds failed', shopsResult.reason);

@@ -18,9 +18,7 @@ export const usePartnerIntegrations = (): {
 
   const integrations = useMemo<PartnerIntegrations>(() => {
     const partners =
-      configs && configs.partner_integrations
-        ? configs.partner_integrations
-        : EMPTY_PARTNER_MAP;
+      configs && configs.partner_integrations ? configs.partner_integrations : EMPTY_PARTNER_MAP;
     return { partners };
   }, [configs.partner_integrations]);
 

@@ -17,7 +17,10 @@ function collectCityIdsFromDiaries(
  * Nessuna deduzione da stringhe display.
  * I Diari sono solo sorgente dati; la responsabilità è del dominio Viaggio.
  */
-export async function listCityIdsForViaggio(viaggioId: string, destination: string | null): Promise<string[]> {
+export async function listCityIdsForViaggio(
+  viaggioId: string,
+  destination: string | null,
+): Promise<string[]> {
   const ids = new Set<string>();
   const dest = destination?.trim();
   if (dest) ids.add(dest);

@@ -1,15 +1,16 @@
-import React, { useCallback, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-import { useUser } from '@/context/UserContext';
-import { useWorkspaceDashboard } from '@/hooks/useWorkspaceDashboard';
-import { useWorkspaceResourceNavigation } from '@/hooks/useWorkspaceResourceNavigation';
-import { useOpenAddElementToWorkspace } from '@/hooks/useOpenAddElementToWorkspace';
+import type React from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { WorkspaceResourcesSection } from '@/components/collaboration/workspace/WorkspaceResourcesSection';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
+import { useUser } from '@/context/UserContext';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { getSharedResourceKindLabel, workspaceResourceKey } from '@/domain/collaboration';
 import { readWorkspaceViaggioShellSettings } from '@/domain/collaboration/workspaceViaggioShell';
+import { useOpenAddElementToWorkspace } from '@/hooks/useOpenAddElementToWorkspace';
+import { useWorkspaceDashboard } from '@/hooks/useWorkspaceDashboard';
+import { useWorkspaceResourceNavigation } from '@/hooks/useWorkspaceResourceNavigation';
 import { savePersonalCopyFromWorkspace } from '@/services/collaboration';
 import { useWorkspacePanelState } from '../WorkspacePanelContext';
 import { WorkspaceViaggioShellNav } from '../WorkspaceViaggioShellNav';
@@ -37,11 +38,11 @@ export const CondivisioneSection: React.FC = () => {
   const resolveResourceTitle = useCallback(
     (kind: SharedResourceKind, resourceId: string): string => {
       const label = dashboard.resourceLabels.find(
-        (entry) => entry.kind === kind && entry.resourceId === resourceId
+        (entry) => entry.kind === kind && entry.resourceId === resourceId,
       );
       return label?.title ?? getSharedResourceKindLabel(kind);
     },
-    [dashboard.resourceLabels]
+    [dashboard.resourceLabels],
   );
 
   const handleRequestSavePersonalCopy = useCallback(
@@ -54,7 +55,7 @@ export const CondivisioneSection: React.FC = () => {
         title: resolveResourceTitle(kind, resourceId),
       });
     },
-    [resolveResourceTitle]
+    [resolveResourceTitle],
   );
 
   const handleConfirmSavePersonalCopy = useCallback(async () => {
@@ -71,7 +72,7 @@ export const CondivisioneSection: React.FC = () => {
       user.id,
       activeWorkspaceId,
       pendingCopy.kind,
-      pendingCopy.resourceId
+      pendingCopy.resourceId,
     );
 
     setIsSavingCopy(false);
@@ -84,7 +85,7 @@ export const CondivisioneSection: React.FC = () => {
 
     setPendingCopy(null);
     setCopySuccessMessage(
-      `Copia personale di «${pendingCopy.title}» creata nel tuo spazio. È indipendente da questo Workspace.`
+      `Copia personale di «${pendingCopy.title}» creata nel tuo spazio. È indipendente da questo Workspace.`,
     );
   }, [activeWorkspaceId, isSavingCopy, pendingCopy, user?.id]);
 
@@ -92,7 +93,7 @@ export const CondivisioneSection: React.FC = () => {
   const shellResources = useMemo(() => {
     return dashboard.resources.map((resource) => {
       const label = dashboard.resourceLabels.find(
-        (entry) => entry.kind === resource.kind && entry.resourceId === resource.resourceId
+        (entry) => entry.kind === resource.kind && entry.resourceId === resource.resourceId,
       );
       return {
         kind: resource.kind,

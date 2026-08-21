@@ -1,5 +1,5 @@
-import React from 'react';
 import { ChevronRight } from 'lucide-react';
+import React from 'react';
 
 export type MyWorldCrumb = {
   id: 'myWorld' | 'mySpace' | string;
@@ -27,9 +27,7 @@ export const MyWorldBreadcrumb: React.FC<Props> = ({ crumbs }) => {
 
         return (
           <React.Fragment key={`${crumb.id}-${index}`}>
-            {index > 0 && (
-              <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" aria-hidden />
-            )}
+            {index > 0 && <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" aria-hidden />}
             {clickable ? (
               <button
                 type="button"

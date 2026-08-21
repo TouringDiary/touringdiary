@@ -1,29 +1,29 @@
 import type {
-    FeatureFlagEvaluationContext,
-    FeatureFlagEvaluationResult,
-    FeatureFlagResolutionSource,
-    PlatformFeatureFlagRecord,
-    PlatformFlagSchedule,
-    PlatformFlagValueType,
+  FeatureFlagEvaluationContext,
+  FeatureFlagEvaluationResult,
+  FeatureFlagResolutionSource,
+  PlatformFeatureFlagRecord,
+  PlatformFlagSchedule,
+  PlatformFlagValueType,
 } from '@/types/platformControl';
 import { isAdminAllExempt, isAudienceBlocked } from './platformAudience';
 
 function coerceBoolean(value: boolean | number | null | undefined, fallback: boolean): boolean {
-    if (typeof value === 'boolean') return value;
-    if (typeof value === 'number') return value !== 0;
-    return fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  return fallback;
 }
 
 /** Accept override only when its runtime type matches the flag valueType. */
 function typedOverride(
-    value: boolean | number | null | undefined,
-    valueType: PlatformFlagValueType
+  value: boolean | number | null | undefined,
+  valueType: PlatformFlagValueType,
 ): boolean | number | null {
-    if (value === null || value === undefined) return null;
-    if (valueType === 'number') {
-        return typeof value === 'number' && !Number.isNaN(value) ? value : null;
-    }
-    return typeof value === 'boolean' ? value : null;
+  if (value === null || value === undefined) return null;
+  if (valueType === 'number') {
+    return typeof value === 'number' && !Number.isNaN(value) ? value : null;
+  }
+  return typeof value === 'boolean' ? value : null;
 }
 
 /**
@@ -33,29 +33,29 @@ function typedOverride(
  * No chronological re-sort. Documented in DOC 30 (Feature Flag Engine).
  */
 function getActiveScheduleValue(
-    schedules: PlatformFlagSchedule[],
-    now: Date
+  schedules: PlatformFlagSchedule[],
+  now: Date,
 ): boolean | number | null {
-    const nowMs = now.getTime();
+  const nowMs = now.getTime();
 
-    for (const schedule of schedules) {
-        // Programmazione disattivata (OFF): resta in storico, ignorata dal runtime.
-        if (schedule.enabled === false) continue;
+  for (const schedule of schedules) {
+    // Programmazione disattivata (OFF): resta in storico, ignorata dal runtime.
+    if (schedule.enabled === false) continue;
 
-        const startMs = Date.parse(schedule.startsAt);
-        const endMs = Date.parse(schedule.endsAt);
-        if (Number.isNaN(startMs) || Number.isNaN(endMs)) continue;
-        if (nowMs >= startMs && nowMs < endMs) {
-            return schedule.value;
-        }
+    const startMs = Date.parse(schedule.startsAt);
+    const endMs = Date.parse(schedule.endsAt);
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) continue;
+    if (nowMs >= startMs && nowMs < endMs) {
+      return schedule.value;
     }
+  }
 
-    return null;
+  return null;
 }
 
 export type EvaluateFeatureFlagOptions = {
-    /** When true, ignore all schedules (global pause — schedules remain stored). */
-    schedulesSuspended?: boolean;
+  /** When true, ignore all schedules (global pause — schedules remain stored). */
+  schedulesSuspended?: boolean;
 };
 
 /**
@@ -64,46 +64,46 @@ export type EvaluateFeatureFlagOptions = {
  * When schedulesSuspended, schedule layer is skipped (pause globale programmazioni).
  */
 export function evaluateFeatureFlag(
-    flag: PlatformFeatureFlagRecord,
-    ctx: FeatureFlagEvaluationContext,
-    now: Date = new Date(),
-    options?: EvaluateFeatureFlagOptions
+  flag: PlatformFeatureFlagRecord,
+  ctx: FeatureFlagEvaluationContext,
+  now: Date = new Date(),
+  options?: EvaluateFeatureFlagOptions,
 ): FeatureFlagEvaluationResult {
-    const messageKey = flag.messageKey;
-    const manual = typedOverride(flag.manualOverride, flag.valueType);
-    const scheduled =
-        flag.supportsSchedule && !options?.schedulesSuspended
-            ? getActiveScheduleValue(flag.schedules, now)
-            : null;
-    const effectiveValue = manual ?? scheduled ?? flag.defaultValue;
+  const messageKey = flag.messageKey;
+  const manual = typedOverride(flag.manualOverride, flag.valueType);
+  const scheduled =
+    flag.supportsSchedule && !options?.schedulesSuspended
+      ? getActiveScheduleValue(flag.schedules, now)
+      : null;
+  const effectiveValue = manual ?? scheduled ?? flag.defaultValue;
 
-    let source: FeatureFlagResolutionSource = 'default';
-    if (manual != null) {
-        source = 'manual_override';
-    } else if (scheduled != null) {
-        source = 'schedule';
-    }
+  let source: FeatureFlagResolutionSource = 'default';
+  if (manual != null) {
+    source = 'manual_override';
+  } else if (scheduled != null) {
+    source = 'schedule';
+  }
 
-    if (
-        !isAdminAllExempt(ctx.userRole) &&
-        flag.supportsAudience &&
-        flag.valueType === 'boolean' &&
-        isAudienceBlocked(flag.audience, flag.blockedAudiences, ctx)
-    ) {
-        return {
-            key: flag.key,
-            effectiveValue: false,
-            enabled: false,
-            source: 'audience_blocked',
-            messageKey,
-        };
-    }
-
+  if (
+    !isAdminAllExempt(ctx.userRole) &&
+    flag.supportsAudience &&
+    flag.valueType === 'boolean' &&
+    isAudienceBlocked(flag.audience, flag.blockedAudiences, ctx)
+  ) {
     return {
-        key: flag.key,
-        effectiveValue,
-        enabled: flag.valueType === 'boolean' ? coerceBoolean(effectiveValue, false) : true,
-        source,
-        messageKey,
+      key: flag.key,
+      effectiveValue: false,
+      enabled: false,
+      source: 'audience_blocked',
+      messageKey,
     };
+  }
+
+  return {
+    key: flag.key,
+    effectiveValue,
+    enabled: flag.valueType === 'boolean' ? coerceBoolean(effectiveValue, false) : true,
+    source,
+    messageKey,
+  };
 }

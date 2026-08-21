@@ -36,10 +36,8 @@ const OPEN_BY_AXIS: Record<SlidePanelAxis, string> = {
  * Classe transform condivisa: fuori schermo sull'asse indicato → aperto a 0.
  * `y`: dal basso (default storico). `x`: da destra.
  */
-export const slidePanelTransformClassByAxis = (
-  axis: SlidePanelAxis,
-  isRaised: boolean
-): string => (isRaised ? OPEN_BY_AXIS[axis] : OFF_SCREEN_BY_AXIS[axis]);
+export const slidePanelTransformClassByAxis = (axis: SlidePanelAxis, isRaised: boolean): string =>
+  isRaised ? OPEN_BY_AXIS[axis] : OFF_SCREEN_BY_AXIS[axis];
 
 /** Posizione: a riposo fuori schermo in basso, da aperto a 0. */
 export const slidePanelTransformClass = (isRaised: boolean): string =>
@@ -84,7 +82,9 @@ export const binderPanelMaxHeightClass = (
   reserveBottomNav = true,
 ): string => {
   if (!isRaised) return 'max-h-0';
-  return BINDER_PANEL_MAX_HEIGHT_RAISED[resolveBinderPanelRaisedVariant(isMobileViewport, reserveBottomNav)];
+  return BINDER_PANEL_MAX_HEIGHT_RAISED[
+    resolveBinderPanelRaisedVariant(isMobileViewport, reserveBottomNav)
+  ];
 };
 
 /** Min-height del pannello binder — stessa metrica del max quando aperto, per altezza fissa del hub. */
@@ -94,7 +94,9 @@ export const binderPanelMinHeightClass = (
   reserveBottomNav = true,
 ): string => {
   if (!isRaised) return '';
-  return BINDER_PANEL_MIN_HEIGHT_RAISED[resolveBinderPanelRaisedVariant(isMobileViewport, reserveBottomNav)];
+  return BINDER_PANEL_MIN_HEIGHT_RAISED[
+    resolveBinderPanelRaisedVariant(isMobileViewport, reserveBottomNav)
+  ];
 };
 
 /** @deprecated Preferire {@link slidePanelTransformClassByAxis}('x', …). Mantenuto per retrocompatibilità. */

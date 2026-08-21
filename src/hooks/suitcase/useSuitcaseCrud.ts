@@ -1,18 +1,18 @@
 import { useState } from 'react';
+import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
 import {
   cloneSuitcaseAsync,
   deleteSuitcaseAsync,
-  fetchClonedTemplateDetailsAsync
+  fetchClonedTemplateDetailsAsync,
 } from '@/services/suitcaseService';
+import type { DraftWorkspaceKind, Suitcase, SuitcaseItem } from '@/types/suitcase';
 import {
-  saveGuestSuitcase,
-  deleteGuestSuitcase,
   createDraftWorkspaceObject,
+  deleteGuestSuitcase,
   isDraftWorkspaceId,
+  saveGuestSuitcase,
   toDraftWorkspaceSeedItems,
 } from '@/utils/guestSuitcaseHelper';
-import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
-import { Suitcase, SuitcaseItem, DraftWorkspaceKind } from '@/types/suitcase';
 
 export const DRAFT_OVERWRITE_NEW_SUITCASE = 'new-suitcase';
 export const DRAFT_OVERWRITE_NEW_TEMPLATE = 'new-template';
@@ -25,7 +25,7 @@ export const DRAFT_OVERWRITE_SAVE_AS_TEMPLATE = 'save-as-template';
 export const createDraftWorkspaceFromTemplate = (
   userId: string,
   template: Suitcase,
-  title?: string
+  title?: string,
 ): Suitcase => {
   let resolvedTitle = title ?? template.title;
   if (resolvedTitle?.startsWith('Template ')) {
@@ -42,7 +42,7 @@ export const createDraftWorkspaceFromTemplate = (
     resolvedTitle || 'Valigia',
     template.icon || '🎒',
     seedItems,
-    'suitcase'
+    'suitcase',
   );
 
   const draft: Suitcase = {
@@ -68,34 +68,33 @@ export const createDraftWorkspaceFromSuitcase = (
   userId: string,
   source: Suitcase,
   workspaceKind: DraftWorkspaceKind,
-  title?: string
+  title?: string,
 ): Suitcase => {
   const seedItems = toDraftWorkspaceSeedItems(source.suitcase_items ?? [], {
-    is_checked: workspaceKind === 'suitcase' ? false : false,
+    is_checked: false,
     is_ai_suggestion: false,
   });
 
   const resolvedTitle =
-    title ??
-    (workspaceKind === 'user_template'
-      ? `Template ${source.title}`
-      : source.title);
+    title ?? (workspaceKind === 'user_template' ? `Template ${source.title}` : source.title);
 
   const draftSc = createDraftWorkspaceObject(
     userId,
     resolvedTitle,
     source.icon || '🎒',
     seedItems,
-    workspaceKind
+    workspaceKind,
   );
 
   const draft: Suitcase = {
     ...draftSc,
-    source_template_id: workspaceKind === 'suitcase' ? source.id : source.source_template_id ?? source.id,
+    source_template_id:
+      workspaceKind === 'suitcase' ? source.id : (source.source_template_id ?? source.id),
     custom_categories: source.custom_categories ?? [],
     ui_state: ensureUiStateForPersist({
       ...draftSc,
-      source_template_id: workspaceKind === 'suitcase' ? source.id : source.source_template_id ?? source.id,
+      source_template_id:
+        workspaceKind === 'suitcase' ? source.id : (source.source_template_id ?? source.id),
       custom_categories: source.custom_categories ?? [],
       ui_state: source.ui_state,
     }),
@@ -112,7 +111,7 @@ export const createDraftWorkspaceFromMergedItems = (
   userId: string,
   title: string,
   items: SuitcaseItem[],
-  icon = '🎒'
+  icon = '🎒',
 ): Suitcase => {
   const seedItems = toDraftWorkspaceSeedItems(items, {
     is_checked: false,
@@ -135,7 +134,7 @@ export const useCloneSuitcase = () => {
     suitcaseId: string,
     itineraryId: string | null,
     userId: string,
-    title?: string
+    title?: string,
   ) => {
     setIsCloning(true);
     try {
@@ -149,7 +148,7 @@ export const useCloneSuitcase = () => {
           name: item.name,
           category: item.category,
           quantity: item.quantity || 1,
-          is_checked: false
+          is_checked: false,
         }));
 
         const guestScBase: Suitcase = {

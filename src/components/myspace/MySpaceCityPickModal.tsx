@@ -1,10 +1,10 @@
-import React from 'react';
-import { createPortal } from 'react-dom';
 import { Map } from 'lucide-react';
-import type { CitySummary } from '@/types';
+import type React from 'react';
+import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_MODAL } from '@/constants/zIndex';
 import { cityHeaderImageUrl } from '@/myspace/resolveCityPresentation';
+import type { CitySummary } from '@/types';
 
 interface Props {
   cities: CitySummary[];
@@ -22,14 +22,17 @@ export const MySpaceCityPickModal: React.FC<Props> = ({ cities, onSelect, onClos
       className="fixed inset-0 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm"
       style={{ zIndex: Z_MODAL }}
       role="presentation"
-      onClick={onClose}
     >
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default"
+        onClick={onClose}
+      />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="myspace-city-pick-title"
-        className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800">
           <h2 id="myspace-city-pick-title" className="text-sm font-bold text-white">

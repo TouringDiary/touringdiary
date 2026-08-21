@@ -1,11 +1,9 @@
-import React, { useRef, useState } from 'react';
 import { ImagePlus, Loader2, Trash2 } from 'lucide-react';
-import {
-  clearViaggioCover,
-  uploadViaggioCover,
-} from '@/services/viaggio/viaggioCoverService';
-import type { Viaggio } from '@/types/models/Viaggio';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import { showGlobalAlert } from '@/services/ui/toastService';
+import { clearViaggioCover, uploadViaggioCover } from '@/services/viaggio/viaggioCoverService';
+import type { Viaggio } from '@/types/models/Viaggio';
 
 interface Props {
   viaggio: Viaggio;
@@ -92,11 +90,7 @@ export const MySpaceViaggioCoverPreview: React.FC<Props> = ({
             aria-label="Cambia cover del viaggio"
             title="Cambia cover"
           >
-            <img
-              src={viaggio.coverImage}
-              alt=""
-              className="w-full h-full object-cover"
-            />
+            <img src={viaggio.coverImage} alt="" className="w-full h-full object-cover" />
           </button>
           <button
             type="button"

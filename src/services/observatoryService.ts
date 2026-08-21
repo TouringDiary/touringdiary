@@ -30,14 +30,41 @@ export const getObservatoryStats = async (): Promise<ObservatoryStats | null> =>
 
 /**
  * Recupera la lista delle anomalie dalla vista dedicata.
+ * - Con `limit`: singolo batch (al più `limit` record).
+ * - Senza `limit`: paginazione `.range` fino a esaurimento (dataset completo per Inspector).
  */
-export const getAnomalies = async (limit: number = 50): Promise<AnomalyRecord[]> => {
+export const getAnomalies = async (limit?: number): Promise<AnomalyRecord[]> => {
   try {
-    const { data, error } = await supabase.from('obs_poi_anomalies').select('*').limit(limit);
+    if (limit != null) {
+      const { data, error } = await supabase.from('obs_poi_anomalies').select('*').limit(limit);
+      if (error) throw error;
+      return (data ?? []) as AnomalyRecord[];
+    }
 
-    if (error) throw error;
+    // Ordinamento stabile su `id` (campo AnomalyRecord / Row di obs_poi_anomalies).
+    // Senza order, .range può saltare/duplicare righe tra pagine.
+    const pageSize = 1000;
+    const all: AnomalyRecord[] = [];
+    let from = 0;
 
-    return data as AnomalyRecord[];
+    for (;;) {
+      const to = from + pageSize - 1;
+      const { data, error } = await supabase
+        .from('obs_poi_anomalies')
+        .select('*')
+        .order('id', { ascending: true })
+        .range(from, to);
+
+      if (error) throw error;
+
+      const batch = (data ?? []) as AnomalyRecord[];
+      all.push(...batch);
+
+      if (batch.length < pageSize) break;
+      from += pageSize;
+    }
+
+    return all;
   } catch (e) {
     console.error('[Observatory] Error fetching anomalies:', e);
     return [];

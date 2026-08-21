@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
 import { Clock, Loader2 } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CollaborationDomainEvent } from '@/domain/collaboration/domainEvent';
 import {
   listCollaborationEventsForWorkspace,
@@ -71,7 +72,7 @@ export const CollaborationActivityFeed: React.FC<Props> = ({
             const next = [event, ...prev];
             return next.length > limit ? next.slice(0, limit) : next;
           });
-        }
+        },
       )
       .subscribe();
 

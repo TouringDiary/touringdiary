@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import { useModal } from '@/context/ModalContext';
 import { useItinerary } from '@/context/ItineraryContext';
-import { endWorkspaceSession } from '@/focus/workspaceSessionRegistry';
+import { useModal } from '@/context/ModalContext';
 import type { SharedResourceKind } from '@/domain/collaboration';
+import { endWorkspaceSession } from '@/focus/workspaceSessionRegistry';
 import { fetchDiariesByIds } from '@/services/community/itineraryService';
 
 /**
@@ -29,7 +29,7 @@ export function useWorkspaceResourceNavigation() {
         openModal('packingList', { suitcaseId: resourceId });
       }
     },
-    [loadProject, openModal]
+    [loadProject, openModal],
   );
 
   return { openResource };

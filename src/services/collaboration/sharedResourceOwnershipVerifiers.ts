@@ -1,15 +1,9 @@
-import { supabase } from '@/services/supabaseClient';
 import type { SharedResourceKind } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
 
-type OwnershipVerifier = (
-  resourceId: string,
-  ownerId: string
-) => Promise<string | null>;
+type OwnershipVerifier = (resourceId: string, ownerId: string) => Promise<string | null>;
 
-async function verifyDiaryOwnership(
-  resourceId: string,
-  ownerId: string
-): Promise<string | null> {
+async function verifyDiaryOwnership(resourceId: string, ownerId: string): Promise<string | null> {
   const { data, error } = await supabase
     .from('itineraries')
     .select('id, user_id, type')
@@ -29,7 +23,7 @@ async function verifyDiaryOwnership(
 async function verifySuitcaseEntityOwnership(
   resourceId: string,
   ownerId: string,
-  kind: 'suitcase' | 'user_template'
+  kind: 'suitcase' | 'user_template',
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from('suitcases')
@@ -64,8 +58,7 @@ async function verifySuitcaseEntityOwnership(
 /** Registro estensibile: un verifier per kind (§3). */
 const OWNERSHIP_VERIFIERS: Record<SharedResourceKind, OwnershipVerifier> = {
   diary: verifyDiaryOwnership,
-  suitcase: (resourceId, ownerId) =>
-    verifySuitcaseEntityOwnership(resourceId, ownerId, 'suitcase'),
+  suitcase: (resourceId, ownerId) => verifySuitcaseEntityOwnership(resourceId, ownerId, 'suitcase'),
   user_template: (resourceId, ownerId) =>
     verifySuitcaseEntityOwnership(resourceId, ownerId, 'user_template'),
 };
@@ -73,7 +66,7 @@ const OWNERSHIP_VERIFIERS: Record<SharedResourceKind, OwnershipVerifier> = {
 export async function verifyShareableResourceOwnership(
   kind: SharedResourceKind,
   resourceId: string,
-  ownerId: string
+  ownerId: string,
 ): Promise<string | null> {
   return OWNERSHIP_VERIFIERS[kind](resourceId, ownerId);
 }
@@ -82,7 +75,7 @@ export async function verifyShareableResourceOwnership(
 export async function isShareableResourceOwner(
   kind: SharedResourceKind,
   resourceId: string,
-  userId: string
+  userId: string,
 ): Promise<boolean> {
   return (await verifyShareableResourceOwnership(kind, resourceId, userId)) === null;
 }

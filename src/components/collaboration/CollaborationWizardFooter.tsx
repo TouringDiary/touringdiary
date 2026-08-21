@@ -1,8 +1,13 @@
-import React from 'react';
 import { Loader2 } from 'lucide-react';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import type React from 'react';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
-import type { ModalView, SharePath, WizardEntryMode, WizardStep } from './collaborationSharePresentation';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import type {
+  ModalView,
+  SharePath,
+  WizardEntryMode,
+  WizardStep,
+} from './collaborationSharePresentation';
 
 export interface CollaborationWizardFooterProps {
   view: ModalView;
@@ -49,7 +54,7 @@ function resolveWizardPrimaryAction(
     | 'onPickElementContinue'
     | 'onWorkspaceSelectContinue'
     | 'onCreateWorkspace'
-  >
+  >,
 ): WizardPrimaryAction | null {
   const isWorkspacePath = sharePath === 'create_workspace' || sharePath === 'add_workspace';
   const isAddElementEntry = entryMode === 'add_element_to_workspace';
@@ -198,7 +203,9 @@ export const CollaborationWizardFooter: React.FC<CollaborationWizardFooterProps>
                 onClick={primaryAction.onClick}
                 className={btnPrimaryShell}
               >
-                {primaryAction.showSpinner && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
+                {primaryAction.showSpinner && (
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+                )}
                 {primaryAction.label}
               </button>
             )}

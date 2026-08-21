@@ -1,4 +1,3 @@
-import { supabase, type Json } from '../supabaseClient';
 import type { Viaggio } from '@/types/models/Viaggio';
 import type {
   ViaggioRiepilogoAnnotations,
@@ -6,11 +5,12 @@ import type {
   ViaggioRiepilogoDayAnnotations,
   ViaggioRiepilogoGeneralAnnotations,
 } from '@/types/models/ViaggioRiepilogo';
-import { getViaggio } from './viaggioService';
-import { listDiariesByViaggio } from './viaggioDiaryService';
-import { listRicordiDayNotesByViaggio, listRicordiMediaByViaggio } from './viaggioRicordiService';
+import { type Json, supabase } from '../supabaseClient';
 import { listViaggioAttachments } from './viaggioAttachmentService';
+import { listDiariesByViaggio } from './viaggioDiaryService';
 import { listViaggioMapPins } from './viaggioMappaService';
+import { listRicordiDayNotesByViaggio, listRicordiMediaByViaggio } from './viaggioRicordiService';
+import { getViaggio } from './viaggioService';
 
 const DAY_MS = 86_400_000;
 
@@ -68,7 +68,9 @@ function periodDayCount(viaggio: Viaggio): number | null {
 /**
  * Aggregato calcolato della View Riepilogo (DOC 37 §10) — non persistito come Resource.
  */
-export async function computeViaggioRiepilogo(viaggioId: string): Promise<ViaggioRiepilogoComputed | null> {
+export async function computeViaggioRiepilogo(
+  viaggioId: string,
+): Promise<ViaggioRiepilogoComputed | null> {
   const viaggio = await getViaggio(viaggioId);
   if (!viaggio) return null;
 

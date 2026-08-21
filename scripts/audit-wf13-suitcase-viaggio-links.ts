@@ -2,9 +2,10 @@
  * STEP 2 audit — multi-link Valigia↔Viaggio (read-only).
  * npx tsx scripts/audit-wf13-suitcase-viaggio-links.ts
  */
+
+import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import path from 'path';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 

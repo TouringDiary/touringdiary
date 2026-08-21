@@ -1,5 +1,6 @@
-import { supabase } from '../supabaseClient';
-import {
+import type { Insert, Row } from '../../types/domain/index';
+import type { AffiliateProductLink } from '../../types/partners';
+import type {
   AdminOverrideTrigger,
   CanonicalAffiliateProductRelation,
   CanonicalAffiliateTriggerRelation,
@@ -8,10 +9,9 @@ import {
   RuntimeAffiliateProduct,
   SuggestionProduct,
 } from '../../types/suitcase';
-import { AffiliateProductLink } from '../../types/partners';
-import { Row, Insert } from '../../types/domain/index';
-import { normalizeItemName } from '../../utils/tagDerivation';
 import { randomUUID } from '../../utils/runtimeId';
+import { normalizeItemName } from '../../utils/tagDerivation';
+import { supabase } from '../supabaseClient';
 
 // =============================================================================
 // SECTION 1 — INTERNAL BOUNDARY TYPES
@@ -52,7 +52,7 @@ type WithProductNameJoin = Row<'affiliate_triggers'> & {
  * Output: CanonicalAffiliateProductRelation with links: [] guaranteed.
  */
 function adaptAffiliateProductRelation(
-  raw: AffiliateTriggerRawProductSlot
+  raw: AffiliateTriggerRawProductSlot,
 ): CanonicalAffiliateProductRelation {
   const links = raw.links ?? raw.affiliate_product_links ?? [];
   return { ...raw, links };
@@ -64,11 +64,9 @@ function adaptAffiliateProductRelation(
  * Output: CanonicalAffiliateTriggerRelation — no union types, no alias leakage.
  */
 function adaptAffiliateTriggerRelation(
-  row: AffiliateTriggerRawRow
+  row: AffiliateTriggerRawRow,
 ): CanonicalAffiliateTriggerRelation {
-  const rawProduct = Array.isArray(row.product)
-    ? (row.product[0] ?? null)
-    : (row.product ?? null);
+  const rawProduct = Array.isArray(row.product) ? (row.product[0] ?? null) : (row.product ?? null);
   const product = rawProduct ? adaptAffiliateProductRelation(rawProduct) : null;
   return { ...row, product };
 }
@@ -81,9 +79,7 @@ function adaptAdminOverrideTriggerBoundary(row: WithProductNameJoin): AdminOverr
  * Normalises a raw DB product row into the SuggestionProduct runtime model.
  * Centralises null → default handling; consumers never see nullable arrays.
  */
-function adaptDbProductToSuggestionProduct(
-  row: Row<'affiliate_products'>
-): SuggestionProduct {
+function adaptDbProductToSuggestionProduct(row: Row<'affiliate_products'>): SuggestionProduct {
   return {
     id: row.id,
     name: row.name,
@@ -91,7 +87,7 @@ function adaptDbProductToSuggestionProduct(
     preferred_partners: row.preferred_partners ?? [],
     target_categories: row.target_categories ?? [],
     target_tags: row.target_tags ?? [],
-    is_active: row.is_active ?? true
+    is_active: row.is_active ?? true,
   };
 }
 
@@ -101,7 +97,7 @@ function adaptDbProductToSuggestionProduct(
  * never receive raw DB nullability.
  */
 function adaptDbLinkToAffiliateProductLink(
-  row: Row<'affiliate_product_links'>
+  row: Row<'affiliate_product_links'>,
 ): AffiliateProductLink {
   return {
     id: row.id,
@@ -113,7 +109,7 @@ function adaptDbLinkToAffiliateProductLink(
     tracking_override: row.tracking_override ?? undefined,
     priority: row.priority ?? undefined,
     created_at: row.created_at ?? undefined,
-    updated_at: row.updated_at ?? undefined
+    updated_at: row.updated_at ?? undefined,
   };
 }
 
@@ -122,7 +118,7 @@ function adaptDbLinkToAffiliateProductLink(
  * trigger_items and other persistence-only fields are not exposed.
  */
 function adaptDbProductToResolvedAffiliateProduct(
-  row: Row<'affiliate_products'>
+  row: Row<'affiliate_products'>,
 ): ResolvedAffiliateProduct {
   return {
     id: row.id,
@@ -133,7 +129,7 @@ function adaptDbProductToResolvedAffiliateProduct(
     is_active: row.is_active ?? true,
     preferred_partners: row.preferred_partners ?? [],
     target_categories: row.target_categories ?? [],
-    price: row.estimated_price ?? null
+    price: row.estimated_price ?? null,
   };
 }
 
@@ -144,7 +140,7 @@ function adaptDbProductToResolvedAffiliateProduct(
 // =============================================================================
 
 async function insertAffiliateProductAsync(
-  payload: Insert<'affiliate_products'>
+  payload: Insert<'affiliate_products'>,
 ): Promise<Row<'affiliate_products'>> {
   const { data, error } = await supabase
     .from('affiliate_products')
@@ -157,7 +153,7 @@ async function insertAffiliateProductAsync(
 }
 
 async function insertAffiliateTriggerAsync(
-  payload: Insert<'affiliate_triggers'>
+  payload: Insert<'affiliate_triggers'>,
 ): Promise<Row<'affiliate_triggers'>> {
   const { data, error } = await supabase
     .from('affiliate_triggers')
@@ -182,7 +178,7 @@ export const fetchAffiliateGearAsync = async (
   itineraryTags: string[],
   missingItems: string[],
   enabledPartnerIds: string[],
-  suitcaseItemNames: string[]
+  suitcaseItemNames: string[],
 ): Promise<ResolvedAffiliateProduct[]> => {
   let query = supabase.from('affiliate_products').select('*').eq('is_active', true);
 
@@ -205,13 +201,13 @@ export const fetchAffiliateGearAsync = async (
   const normalizedSuitcaseItemNames = suitcaseItemNames.map((name) => normalizeItemName(name));
 
   return (data ?? [])
-    .filter(row => {
+    .filter((row) => {
       if (!row.provider || !enabledPartnerSet.has(row.provider)) return false;
 
       const triggerItems = row.trigger_items ?? [];
       if (triggerItems.length > 0) {
-        const hasOverlap = triggerItems.some(trigger =>
-          normalizedSuitcaseItemNames.includes(normalizeItemName(trigger))
+        const hasOverlap = triggerItems.some((trigger) =>
+          normalizedSuitcaseItemNames.includes(normalizeItemName(trigger)),
         );
         if (hasOverlap) return false;
       }
@@ -230,9 +226,7 @@ export const fetchAffiliateTriggersAsync = async (params: {
   uniqueCategories?: string[];
   sourceTemplateId?: string | null;
 }): Promise<CanonicalAffiliateTriggerRelation[]> => {
-  const orConditions = [
-    'trigger_type.eq.global'
-  ];
+  const orConditions = ['trigger_type.eq.global'];
 
   const keys: string[] = [];
   if (params.uniqueTags && params.uniqueTags.length > 0) {
@@ -243,7 +237,7 @@ export const fetchAffiliateTriggersAsync = async (params: {
   }
 
   if (keys.length > 0) {
-    const keysEscaped = keys.map(k => `"${k}"`).join(',');
+    const keysEscaped = keys.map((k) => `"${k}"`).join(',');
     orConditions.push(`trigger_key.in.(${keysEscaped})`);
   }
 
@@ -257,7 +251,7 @@ export const fetchAffiliateTriggersAsync = async (params: {
     .or(orConditions.join(','));
 
   if (error) throw error;
-  return (data as AffiliateTriggerRawRow[] ?? []).map(adaptAffiliateTriggerRelation);
+  return ((data as AffiliateTriggerRawRow[]) ?? []).map(adaptAffiliateTriggerRelation);
 };
 
 /**
@@ -283,20 +277,22 @@ export const fetchGlobalTriggersAsync = async (): Promise<CanonicalAffiliateTrig
     .not('trigger_key', 'ilike', 'override:%');
 
   if (error) throw error;
-  return (data as AffiliateTriggerRawRow[] ?? []).map(adaptAffiliateTriggerRelation);
+  return ((data as AffiliateTriggerRawRow[]) ?? []).map(adaptAffiliateTriggerRelation);
 };
 
 /**
  * Recupera i trigger di override associati a un determinato master template.
  */
-export const fetchTemplateOverridesAsync = async (templateId: string): Promise<CanonicalAffiliateTriggerRelation[]> => {
+export const fetchTemplateOverridesAsync = async (
+  templateId: string,
+): Promise<CanonicalAffiliateTriggerRelation[]> => {
   const { data, error } = await supabase
     .from('affiliate_triggers')
     .select('*, product:affiliate_products(*)')
     .like('trigger_key', `override:${templateId}:%`);
 
   if (error) throw error;
-  return (data as AffiliateTriggerRawRow[] ?? []).map(adaptAffiliateTriggerRelation);
+  return ((data as AffiliateTriggerRawRow[]) ?? []).map(adaptAffiliateTriggerRelation);
 };
 
 /**
@@ -306,7 +302,7 @@ export const fetchTemplateOverridesAsync = async (templateId: string): Promise<C
  * NEVER exported — used exclusively by adaptTriggerRelationToRuntime.
  */
 function adaptDbLinkToResolvedProductLink(
-  row: Row<'affiliate_product_links'>
+  row: Row<'affiliate_product_links'>,
 ): ResolvedAffiliateProductLink {
   return {
     id: row.id,
@@ -328,7 +324,7 @@ function adaptDbLinkToResolvedProductLink(
  * Returns null when the trigger carries no associated product.
  */
 export function adaptTriggerRelationToRuntime(
-  trigger: CanonicalAffiliateTriggerRelation
+  trigger: CanonicalAffiliateTriggerRelation,
 ): RuntimeAffiliateProduct | null {
   const p = trigger.product;
   if (!p) return null;
@@ -338,9 +334,7 @@ export function adaptTriggerRelationToRuntime(
     title: p.name ?? undefined,
     description: p.description ?? undefined,
     price: p.estimated_price != null ? String(p.estimated_price) : null,
-    category: p.target_categories && p.target_categories.length > 0
-      ? p.target_categories[0]
-      : null,
+    category: p.target_categories && p.target_categories.length > 0 ? p.target_categories[0] : null,
     image_url: p.image_url,
     imageUrl: p.image_url,
     target_categories: p.target_categories,
@@ -358,7 +352,9 @@ export function adaptTriggerRelationToRuntime(
  * Recupera tutti i link commerciali configurati per un singolo prodotto.
  * Ritorna AffiliateProductLink[] — runtime model normalizzato, null rimosso.
  */
-export const fetchProductLinksForProductAsync = async (productId: string): Promise<AffiliateProductLink[]> => {
+export const fetchProductLinksForProductAsync = async (
+  productId: string,
+): Promise<AffiliateProductLink[]> => {
   const { data, error } = await supabase
     .from('affiliate_product_links')
     .select('*')
@@ -373,10 +369,7 @@ export const fetchProductLinksForProductAsync = async (productId: string): Promi
  * Ritorna SuggestionProduct[] — runtime model normalizzato, array null rimossi.
  */
 export const fetchAllAffiliateProductsAsync = async (): Promise<SuggestionProduct[]> => {
-  const { data, error } = await supabase
-    .from('affiliate_products')
-    .select('*')
-    .order('name');
+  const { data, error } = await supabase.from('affiliate_products').select('*').order('name');
 
   if (error) throw error;
   return (data ?? []).map(adaptDbProductToSuggestionProduct);
@@ -387,9 +380,7 @@ export const fetchAllAffiliateProductsAsync = async (): Promise<SuggestionProduc
  * Ritorna AffiliateProductLink[] — runtime model normalizzato, null rimosso.
  */
 export const fetchAllAffiliateProductLinksAsync = async (): Promise<AffiliateProductLink[]> => {
-  const { data, error } = await supabase
-    .from('affiliate_product_links')
-    .select('*');
+  const { data, error } = await supabase.from('affiliate_product_links').select('*');
 
   if (error) throw error;
   return (data ?? []).map(adaptDbLinkToAffiliateProductLink);
@@ -403,10 +394,7 @@ export const fetchAllAffiliateProductLinksAsync = async (): Promise<AffiliatePro
  * Elimina un trigger editoriale.
  */
 export const deleteAffiliateTriggerAsync = async (triggerId: string): Promise<void> => {
-  const { error } = await supabase
-    .from('affiliate_triggers')
-    .delete()
-    .eq('id', triggerId);
+  const { error } = await supabase.from('affiliate_triggers').delete().eq('id', triggerId);
 
   if (error) throw error;
 };
@@ -416,16 +404,10 @@ export const deleteAffiliateTriggerAsync = async (triggerId: string): Promise<vo
  * Chiamata anche dal rollback applicativo in createProductWithOverrideTriggerAsync.
  */
 export const deleteAffiliateProductAsync = async (productId: string): Promise<void> => {
-  const { error } = await supabase
-    .from('affiliate_products')
-    .delete()
-    .eq('id', productId);
+  const { error } = await supabase.from('affiliate_products').delete().eq('id', productId);
 
   if (error) {
-    console.error(
-      "Errore critico durante la rimozione del prodotto orfano in rollback:",
-      error
-    );
+    console.error('Errore critico durante la rimozione del prodotto orfano in rollback:', error);
     throw error;
   }
 };
@@ -434,10 +416,7 @@ export const deleteAffiliateProductAsync = async (productId: string): Promise<vo
  * Elimina un link di affiliazione di un partner.
  */
 export const deleteAffiliateProductLinkAsync = async (linkId: string): Promise<void> => {
-  const { error } = await supabase
-    .from('affiliate_product_links')
-    .delete()
-    .eq('id', linkId);
+  const { error } = await supabase.from('affiliate_product_links').delete().eq('id', linkId);
 
   if (error) throw error;
 };
@@ -468,7 +447,7 @@ export interface UpsertAffiliateProductDto {
  * Costruisce internamente il payload Insert<'affiliate_products'>.
  */
 export const upsertAffiliateProductFromDtoAsync = async (
-  dto: UpsertAffiliateProductDto
+  dto: UpsertAffiliateProductDto,
 ): Promise<Row<'affiliate_products'>> => {
   const payload: Insert<'affiliate_products'> = {
     id: dto.id,
@@ -478,7 +457,7 @@ export const upsertAffiliateProductFromDtoAsync = async (
     target_categories: dto.targetCategories ?? [],
     target_tags: dto.targetTags ?? [],
     is_active: dto.isActive ?? true,
-    provider: 'manual'
+    provider: 'manual',
   };
 
   const { data, error } = await supabase
@@ -516,10 +495,10 @@ export interface UpsertAffiliateLinkBulkItemDto {
  * Costruisce internamente il payload Insert<'affiliate_product_links'>[].
  */
 export const upsertAffiliateProductLinksBulkFromDtosAsync = async (
-  dtos: UpsertAffiliateLinkBulkItemDto[]
+  dtos: UpsertAffiliateLinkBulkItemDto[],
 ): Promise<Row<'affiliate_product_links'>[]> => {
   const now = new Date().toISOString();
-  const links: Insert<'affiliate_product_links'>[] = dtos.map(dto => ({
+  const links: Insert<'affiliate_product_links'>[] = dtos.map((dto) => ({
     id: dto.id ?? randomUUID(),
     product_id: dto.productId,
     partner_id: dto.partnerId,
@@ -528,13 +507,10 @@ export const upsertAffiliateProductLinksBulkFromDtosAsync = async (
     image_override: dto.imageOverride ?? null,
     tracking_override: dto.trackingOverride ?? null,
     priority: dto.priority ?? null,
-    updated_at: now
+    updated_at: now,
   }));
 
-  const { data, error } = await supabase
-    .from('affiliate_product_links')
-    .upsert(links)
-    .select();
+  const { data, error } = await supabase.from('affiliate_product_links').upsert(links).select();
 
   if (error) throw error;
   return data ?? [];
@@ -559,7 +535,7 @@ export interface UpsertAffiliateLinkDto {
  * Accetta UpsertAffiliateLinkDto; costruisce internamente il payload Insert<'affiliate_product_links'>.
  */
 export const upsertAffiliateProductLinkWithConflictAsync = async (
-  dto: UpsertAffiliateLinkDto
+  dto: UpsertAffiliateLinkDto,
 ): Promise<Row<'affiliate_product_links'>> => {
   const insert: Insert<'affiliate_product_links'> = {
     id: dto.existingLinkId,
@@ -567,7 +543,7 @@ export const upsertAffiliateProductLinkWithConflictAsync = async (
     partner_id: dto.partnerId,
     query: dto.searchQuery,
     url_override: dto.urlOverride,
-    image_override: dto.imageOverride ?? null
+    image_override: dto.imageOverride ?? null,
   };
 
   const { data, error } = await supabase
@@ -597,14 +573,14 @@ export interface UpsertAffiliateTriggerDto {
  * Costruisce internamente il payload Insert<'affiliate_triggers'>.
  */
 export const upsertAffiliateTriggerFromDtoAsync = async (
-  dto: UpsertAffiliateTriggerDto
+  dto: UpsertAffiliateTriggerDto,
 ): Promise<Row<'affiliate_triggers'>> => {
   const payload: Insert<'affiliate_triggers'> = {
     id: dto.id,
     trigger_key: dto.triggerKey,
     trigger_type: dto.triggerType,
     product_id: dto.productId,
-    priority: dto.priority ?? 100
+    priority: dto.priority ?? 100,
   };
 
   const { data, error } = await supabase
@@ -625,7 +601,7 @@ export const upsertAffiliateTriggerFromDtoAsync = async (
  */
 export const createProductWithOverrideTriggerAsync = async (
   productDto: UpsertAffiliateProductDto,
-  triggerKey: string
+  triggerKey: string,
 ): Promise<{
   product: Row<'affiliate_products'>;
   trigger: Row<'affiliate_triggers'>;
@@ -637,7 +613,7 @@ export const createProductWithOverrideTriggerAsync = async (
     target_categories: productDto.targetCategories ?? [],
     target_tags: productDto.targetTags ?? [],
     is_active: productDto.isActive ?? true,
-    provider: 'manual'
+    provider: 'manual',
   };
 
   const product = await insertAffiliateProductAsync(productPayload);
@@ -647,16 +623,19 @@ export const createProductWithOverrideTriggerAsync = async (
       trigger_key: triggerKey,
       trigger_type: 'item',
       product_id: product.id,
-      priority: 100
+      priority: 100,
     });
 
     return { product, trigger };
   } catch (error) {
-    console.warn("Fallimento durante la creazione del trigger. Esecuzione rollback del prodotto:", product.id);
+    console.warn(
+      'Fallimento durante la creazione del trigger. Esecuzione rollback del prodotto:',
+      product.id,
+    );
     try {
       await deleteAffiliateProductAsync(product.id);
     } catch (cleanupErr) {
-      console.error("Eccezione imprevista durante il rollback del prodotto orfano:", cleanupErr);
+      console.error('Eccezione imprevista durante il rollback del prodotto orfano:', cleanupErr);
     }
     throw error;
   }

@@ -1,102 +1,133 @@
-
-import React from 'react';
-import { Paperclip, Link2, Trash2 } from 'lucide-react';
-import { ItineraryItem } from '@/types';
+import { Link2, Paperclip, Trash2 } from 'lucide-react';
+import type React from 'react';
+import type { ItineraryItem } from '@/types';
 import { TL_LINE_X, TL_RAIL_W } from './timelineLayout';
 
 interface DiaryMemoCardProps {
-    item: ItineraryItem;
-    onMemoClick: (linkedId: string) => void;
-    onRemove: (id: string) => void;
-    onSetEditingTime: (id: string | null) => void;
-    isMobile: boolean;
-    editingTimeId: string | null;
-    onTimeChange: (id: string, time: string) => void;
-    isFirstNode?: boolean;
-    isLastNode?: boolean;
+  item: ItineraryItem;
+  onMemoClick: (linkedId: string) => void;
+  onRemove: (id: string) => void;
+  onSetEditingTime: (id: string | null) => void;
+  isMobile: boolean;
+  editingTimeId: string | null;
+  onTimeChange: (id: string, time: string) => void;
+  isFirstNode?: boolean;
+  isLastNode?: boolean;
 }
 
 const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
-    const h = Math.floor(i / 4);
-    const m = (i % 4) * 15;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  const h = Math.floor(i / 4);
+  const m = (i % 4) * 15;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 });
 
-export const DiaryMemoCard: React.FC<DiaryMemoCardProps> = ({ 
-    item, onMemoClick, onRemove, onSetEditingTime, isMobile, editingTimeId, onTimeChange,
-    isFirstNode, isLastNode
+export const DiaryMemoCard: React.FC<DiaryMemoCardProps> = ({
+  item,
+  onMemoClick,
+  onRemove,
+  onSetEditingTime,
+  isMobile,
+  editingTimeId,
+  onTimeChange,
+  isFirstNode,
+  isLastNode,
 }) => {
-    
-    // LAYOUT RIGIDO PER ALLINEAMENTO GRIGLIA — rispecchia ItineraryItemCard:
-    // 1. Timeline (linea + nodo): w-14
-    // 2. Colonna Orario: w-12
-    // 3. Colonna Contenuto: Flex-1
+  // LAYOUT RIGIDO PER ALLINEAMENTO GRIGLIA — rispecchia ItineraryItemCard:
+  // 1. Timeline (linea + nodo): w-14
+  // 2. Colonna Orario: w-12
+  // 3. Colonna Contenuto: Flex-1
 
-    return (
-        <div className="flex w-full h-[1.75rem] group relative z-floating-panel mb-0 items-center">
-            
-            {/* 1. TIMELINE RAIL: stessa geometria calcolata delle tappe; il nodo è SULLA linea */}
-            <div className="shrink-0 relative h-full pointer-events-none" style={{ width: `${TL_RAIL_W}px` }}>
-                <div className="absolute top-0 bottom-0 w-[2px] -translate-x-1/2 bg-stone-300 lg:bg-stone-400 z-0" style={{ left: `${TL_LINE_X}px` }} />
-                {isFirstNode && (
-                    <div className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10" style={{ left: `${TL_LINE_X}px` }} />
-                )}
-                {isLastNode && (
-                    <div className="absolute bottom-0 -translate-x-1/2 translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10" style={{ left: `${TL_LINE_X}px` }} />
-                )}
-                <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-[27px] h-[27px] lg:w-[23px] lg:h-[23px] rounded-full bg-[#e7e5e4] border border-stone-300 shadow-sm flex items-center justify-center z-20" style={{ left: `${TL_LINE_X}px` }}>
-                    <Paperclip className="w-3 h-3 text-stone-500 transform -rotate-45"/>
-                </div>
-            </div>
-
-            {/* 2. COLONNA ORARIO & CONTENUTO */}
-            <div className="flex-1 flex items-center gap-0 min-w-0 h-full">
-                
-                {/* 3a. ORARIO */}
-                <div className="w-12 flex items-center justify-center shrink-0 h-full">
-                     {editingTimeId === item.id ? (
-                        <select 
-                            autoFocus 
-                            className="bg-white border border-indigo-500 rounded text-[10px] font-mono px-0 py-0 outline-none w-10 text-center shadow-lg h-5"
-                            value={item.timeSlotStr} 
-                            onChange={(e) => { onTimeChange(item.id, e.target.value); onSetEditingTime(null); }} 
-                            onBlur={() => onSetEditingTime(null)}
-                        >
-                            {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                    ) : (
-                        <button 
-                            onClick={() => onSetEditingTime(item.id)} 
-                            className="text-[10px] font-mono font-bold text-slate-400 hover:text-indigo-600 transition-colors leading-[1.75rem] h-full flex items-center"
-                        >
-                            {item.timeSlotStr || '--:--'}
-                        </button>
-                    )}
-                </div>
-
-                {/* 3b. CARD MEMO (ELEGANT SOFT STYLE) */}
-                <div 
-                    onClick={() => item.linkedResourceId && onMemoClick(item.linkedResourceId)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 h-[1.75rem] shadow-sm flex items-center justify-between cursor-pointer hover:bg-white hover:border-indigo-200 hover:shadow-md transition-all group/card ml-1 relative overflow-hidden"
-                >
-                    <div className="w-0.5 h-full absolute left-0 top-0 bg-indigo-400/50"></div>
-                    
-                    <div className="flex items-center gap-2 overflow-hidden h-full">
-                        <span className="text-xs font-serif italic text-slate-600 truncate leading-[1.75rem] h-full flex items-center">
-                            Nota: <span className="font-semibold text-slate-800 not-italic ml-1">{item.poi.name}</span>
-                        </span>
-                        {item.linkedResourceId && <Link2 className="w-3 h-3 text-indigo-300"/>}
-                    </div>
-
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-                        className="p-1 text-slate-300 hover:text-stone-700 rounded transition-colors opacity-0 group-hover/card:opacity-100"
-                        title="Rimuovi Memo"
-                    >
-                        <Trash2 className="w-3 h-3"/>
-                    </button>
-                </div>
-            </div>
+  return (
+    <div className="flex w-full h-[1.75rem] group relative z-floating-panel mb-0 items-center">
+      {/* 1. TIMELINE RAIL: stessa geometria calcolata delle tappe; il nodo è SULLA linea */}
+      <div
+        className="shrink-0 relative h-full pointer-events-none"
+        style={{ width: `${TL_RAIL_W}px` }}
+      >
+        <div
+          className="absolute top-0 bottom-0 w-[2px] -translate-x-1/2 bg-stone-300 lg:bg-stone-400 z-0"
+          style={{ left: `${TL_LINE_X}px` }}
+        />
+        {isFirstNode && (
+          <div
+            className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10"
+            style={{ left: `${TL_LINE_X}px` }}
+          />
+        )}
+        {isLastNode && (
+          <div
+            className="absolute bottom-0 -translate-x-1/2 translate-y-1/2 w-2.5 h-2.5 rounded-full bg-stone-400 ring-4 ring-[#e7e5e4] z-10"
+            style={{ left: `${TL_LINE_X}px` }}
+          />
+        )}
+        <div
+          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-[27px] h-[27px] lg:w-[23px] lg:h-[23px] rounded-full bg-[#e7e5e4] border border-stone-300 shadow-sm flex items-center justify-center z-20"
+          style={{ left: `${TL_LINE_X}px` }}
+        >
+          <Paperclip className="w-3 h-3 text-stone-500 transform -rotate-45" />
         </div>
-    );
+      </div>
+
+      {/* 2. COLONNA ORARIO & CONTENUTO */}
+      <div className="flex-1 flex items-center gap-0 min-w-0 h-full">
+        {/* 3a. ORARIO */}
+        <div className="w-12 flex items-center justify-center shrink-0 h-full">
+          {editingTimeId === item.id ? (
+            <select
+              autoFocus
+              className="bg-white border border-indigo-500 rounded text-[10px] font-mono px-0 py-0 outline-none w-10 text-center shadow-lg h-5"
+              value={item.timeSlotStr}
+              onChange={(e) => {
+                onTimeChange(item.id, e.target.value);
+                onSetEditingTime(null);
+              }}
+              onBlur={() => onSetEditingTime(null)}
+            >
+              {TIME_SLOTS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onSetEditingTime(item.id)}
+              className="text-[10px] font-mono font-bold text-slate-400 hover:text-indigo-600 transition-colors leading-[1.75rem] h-full flex items-center"
+            >
+              {item.timeSlotStr || '--:--'}
+            </button>
+          )}
+        </div>
+
+        {/* 3b. CARD MEMO (ELEGANT SOFT STYLE) */}
+        <div
+          onClick={() => item.linkedResourceId && onMemoClick(item.linkedResourceId)}
+          className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 h-[1.75rem] shadow-sm flex items-center justify-between cursor-pointer hover:bg-white hover:border-indigo-200 hover:shadow-md transition-all group/card ml-1 relative overflow-hidden"
+        >
+          <div className="w-0.5 h-full absolute left-0 top-0 bg-indigo-400/50"></div>
+
+          <div className="flex items-center gap-2 overflow-hidden h-full">
+            <span className="text-xs font-serif italic text-slate-600 truncate leading-[1.75rem] h-full flex items-center">
+              Nota:{' '}
+              <span className="font-semibold text-slate-800 not-italic ml-1">{item.poi.name}</span>
+            </span>
+            {item.linkedResourceId && <Link2 className="w-3 h-3 text-indigo-300" />}
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(item.id);
+            }}
+            className="p-1 text-slate-300 hover:text-stone-700 rounded transition-colors opacity-0 group-hover/card:opacity-100"
+            title="Rimuovi Memo"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };

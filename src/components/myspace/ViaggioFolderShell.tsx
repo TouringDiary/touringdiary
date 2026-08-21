@@ -1,25 +1,26 @@
-import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Trash2, Users } from 'lucide-react';
-import type { Viaggio } from '@/types/models/Viaggio';
-import { deleteViaggio, getViaggio } from '@/services/viaggio/viaggioService';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { useOpenWorkspaceFromViaggio } from '@/hooks/useOpenWorkspaceFromViaggio';
 import {
-  VIAGGIO_FOLDER_SECTIONS,
   getViaggioFolderSection,
+  VIAGGIO_FOLDER_SECTIONS,
   type ViaggioFolderSectionId,
 } from '@/myspace/viaggioFolderSections';
-import { ViaggioSectionPlaceholder } from './ViaggioSectionPlaceholder';
-import { ViaggioDiarioSection } from './ViaggioDiarioSection';
-import { ViaggioValigiaSection } from './ViaggioValigiaSection';
-import { ViaggioRoadbookSection } from './ViaggioRoadbookSection';
-import { ViaggioRicordiSection } from './ViaggioRicordiSection';
-import { ViaggioAllegatiSection } from './ViaggioAllegatiSection';
-import { ViaggioMappaSection } from './ViaggioMappaSection';
-import { ViaggioRiepilogoSection } from './ViaggioRiepilogoSection';
-import { useOpenWorkspaceFromViaggio } from '@/hooks/useOpenWorkspaceFromViaggio';
 import { isCollaborationEngineEnabled } from '@/services/collaboration/workspaceEngineConfigService';
-import { MySpaceViaggioDeleteModal } from './MySpaceViaggioDeleteModal';
-import { syncVisitedCitiesFromViaggio } from '@/services/myspace/userVisitedCitiesService';
 import { getCitiesMinimalByIds } from '@/services/myspace/cityMinimalRead';
+import { syncVisitedCitiesFromViaggio } from '@/services/myspace/userVisitedCitiesService';
+import { deleteViaggio, getViaggio } from '@/services/viaggio/viaggioService';
+import type { Viaggio } from '@/types/models/Viaggio';
+import { MySpaceViaggioDeleteModal } from './MySpaceViaggioDeleteModal';
+import { ViaggioAllegatiSection } from './ViaggioAllegatiSection';
+import { ViaggioDiarioSection } from './ViaggioDiarioSection';
+import { ViaggioMappaSection } from './ViaggioMappaSection';
+import { ViaggioRicordiSection } from './ViaggioRicordiSection';
+import { ViaggioRiepilogoSection } from './ViaggioRiepilogoSection';
+import { ViaggioRoadbookSection } from './ViaggioRoadbookSection';
+import { ViaggioSectionPlaceholder } from './ViaggioSectionPlaceholder';
+import { ViaggioValigiaSection } from './ViaggioValigiaSection';
 
 interface Props {
   viaggioId: string;
@@ -131,9 +132,7 @@ export const ViaggioFolderShell: React.FC<Props> = ({
           />
         );
       case 'valigia':
-        return (
-          <ViaggioValigiaSection viaggioId={viaggioId} viaggioTitle={viaggio?.title} />
-        );
+        return <ViaggioValigiaSection viaggioId={viaggioId} viaggioTitle={viaggio?.title} />;
       case 'roadbook':
         return <ViaggioRoadbookSection viaggioId={viaggioId} userId={userId} />;
       case 'ricordi':
@@ -232,9 +231,11 @@ export const ViaggioFolderShell: React.FC<Props> = ({
                 className={`
                   px-3 py-2 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap
                   border-b-2 transition-colors shrink-0
-                  ${isActive
-                    ? 'border-amber-500 text-white'
-                    : 'border-transparent text-slate-500 hover:text-slate-300'}
+                  ${
+                    isActive
+                      ? 'border-amber-500 text-white'
+                      : 'border-transparent text-slate-500 hover:text-slate-300'
+                  }
                 `}
                 title={`${s.label} · ${s.stereotype}`}
               >
@@ -252,9 +253,7 @@ export const ViaggioFolderShell: React.FC<Props> = ({
           </p>
         )}
         {!error && !loading && renderSection()}
-        {loading && (
-          <p className="text-sm text-slate-500 p-8 text-center">Caricamento…</p>
-        )}
+        {loading && <p className="text-sm text-slate-500 p-8 text-center">Caricamento…</p>}
       </div>
 
       {showDelete && viaggio && (

@@ -1,6 +1,5 @@
-
-import { PartnerIntegrations } from '../types';
-import { getPartnerByAiIntent, buildAffiliateLink } from '../services/partnerIntegrationService';
+import { buildAffiliateLink, getPartnerByAiIntent } from '../services/partnerIntegrationService';
+import type { PartnerIntegrations } from '../types';
 
 /**
  * Renderizza un suggerimento di affiliazione in formato stringa a partire da un prompt utente.
@@ -18,10 +17,9 @@ export const renderAffiliateSuggestionFromPrompt = (
     city?: string;
     checkin?: string;
     checkout?: string;
-    query?: string, // Aggiunto per coerenza con buildAffiliateLink
-  }
+    query?: string; // Aggiunto per coerenza con buildAffiliateLink
+  },
 ): string | null => {
-
   // 1. Trova il partner basandosi sull'intento del prompt
   const partner = getPartnerByAiIntent(userPrompt, integrations);
 

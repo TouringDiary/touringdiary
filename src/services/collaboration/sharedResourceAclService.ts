@@ -1,23 +1,23 @@
-import { supabase } from '@/services/supabaseClient';
 import type {
   CollaborativeMemberRole,
   SharedResourceMember,
   SharedResourceMemberWithProfile,
 } from '@/domain/collaboration';
 import { isCollaborativeMemberRole } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
 import {
+  type MemberWithProfileRow,
   mapMemberWithProfile,
   mapSharedResourceMemberRow,
-  type MemberWithProfileRow,
 } from './sharedResourceMappers';
 
 export async function listSharedResourceMembers(
-  sharedResourceId: string
+  sharedResourceId: string,
 ): Promise<SharedResourceMemberWithProfile[]> {
   const { data, error } = await supabase
     .from('shared_resource_members')
     .select(
-      'id, shared_resource_id, user_id, role, created_at, updated_at, profiles(name, slug, avatar_url)'
+      'id, shared_resource_id, user_id, role, created_at, updated_at, profiles(name, slug, avatar_url)',
     )
     .eq('shared_resource_id', sharedResourceId)
     .order('created_at', { ascending: true });
@@ -27,14 +27,16 @@ export async function listSharedResourceMembers(
     return [];
   }
 
-  return (data as MemberWithProfileRow[] | null)
-    ?.map(mapMemberWithProfile)
-    .filter((member): member is SharedResourceMemberWithProfile => member !== null) ?? [];
+  return (
+    (data as MemberWithProfileRow[] | null)
+      ?.map(mapMemberWithProfile)
+      .filter((member): member is SharedResourceMemberWithProfile => member !== null) ?? []
+  );
 }
 
 export async function getSharedResourceMember(
   sharedResourceId: string,
-  userId: string
+  userId: string,
 ): Promise<SharedResourceMember | null> {
   const { data, error } = await supabase
     .from('shared_resource_members')
@@ -63,7 +65,7 @@ export async function setSharedResourceMember(
   sharedResourceId: string,
   ownerId: string,
   userId: string,
-  role: CollaborativeMemberRole
+  role: CollaborativeMemberRole,
 ): Promise<SetSharedResourceMemberResult> {
   if (!isCollaborativeMemberRole(role)) {
     return { success: false, error: 'Ruolo collaborativo non valido.' };
@@ -93,7 +95,7 @@ export async function setSharedResourceMember(
         user_id: userId,
         role,
       },
-      { onConflict: 'shared_resource_id,user_id' }
+      { onConflict: 'shared_resource_id,user_id' },
     )
     .select('*')
     .single();
@@ -114,7 +116,7 @@ export async function setSharedResourceMember(
 export async function removeSharedResourceMember(
   sharedResourceId: string,
   ownerId: string,
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { data: resource } = await supabase
     .from('shared_resources')
@@ -123,7 +125,7 @@ export async function removeSharedResourceMember(
     .maybeSingle();
 
   if (!resource || resource.owner_id !== ownerId) {
-    return { success: false, error: 'Solo il proprietario può revocare l\'accesso.' };
+    return { success: false, error: "Solo il proprietario può revocare l'accesso." };
   }
 
   const { data, error } = await supabase
@@ -135,7 +137,7 @@ export async function removeSharedResourceMember(
 
   if (error) {
     console.error('[sharedResourceAclService] removeSharedResourceMember:', error.message);
-    return { success: false, error: 'Impossibile revocare l\'accesso.' };
+    return { success: false, error: "Impossibile revocare l'accesso." };
   }
   if (!data?.length) {
     return { success: false, error: 'Membro non trovato.' };

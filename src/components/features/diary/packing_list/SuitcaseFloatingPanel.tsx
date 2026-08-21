@@ -1,16 +1,21 @@
+import type React from 'react';
+import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  SLIDE_PANEL_TRANSITION_CLASS,
+  slidePanelEaseClass,
+  slidePanelTransformClass,
+} from '@/constants/slidePanelMotion';
 import { useUI } from '@/context/UIContext';
 import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
-import { resolveWorkspaceShellGeometry } from '@/layering/resolveWorkspaceShellGeometry';
-import { SLIDE_PANEL_TRANSITION_CLASS, slidePanelEaseClass, slidePanelTransformClass } from '@/constants/slidePanelMotion';
 import {
   resolveCompanionSurfaceTier,
   resolveWorkspacePanelZIndex,
 } from '@/layering/resolveWorkspacePanelZIndex';
-import React, { useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { SuitcaseFloatingPanelBody } from './SuitcaseFloatingPanel/SuitcaseFloatingPanelBody';
+import { resolveWorkspaceShellGeometry } from '@/layering/resolveWorkspaceShellGeometry';
 import { useFloatingPanelShellLifecycle } from './SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
 import { useSuitcasePanelComposition } from './SuitcaseFloatingPanel/hooks/useSuitcasePanelComposition';
+import { SuitcaseFloatingPanelBody } from './SuitcaseFloatingPanel/SuitcaseFloatingPanelBody';
 
 export type SuitcasePanelInitialAction = 'create-suitcase' | 'create-template';
 
@@ -30,7 +35,7 @@ export const SuitcaseFloatingPanel: React.FC<Props> = ({
 }) => {
   const { mobileDiaryFullScreen, isMobile } = useUI();
   const panelZIndex = resolveWorkspacePanelZIndex(
-    resolveCompanionSurfaceTier({ mobileDiaryFullScreen })
+    resolveCompanionSurfaceTier({ mobileDiaryFullScreen }),
   );
 
   const closeAttemptRef = useRef<() => void>(() => {});
@@ -76,6 +81,6 @@ export const SuitcaseFloatingPanel: React.FC<Props> = ({
     >
       <SuitcaseFloatingPanelBody composition={composition} />
     </div>,
-    document.body
+    document.body,
   );
 };

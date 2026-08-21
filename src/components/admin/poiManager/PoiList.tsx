@@ -1,13 +1,12 @@
 
-import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { CheckSquare, Square, Star, Calendar, RefreshCw, Eye, Trash2, Loader2, Check, Layers, X, User, ImageOff, ShieldCheck, ShieldAlert, Shield, ShieldQuestion, FilterX, ListPlus, LayoutList, TrendingUp } from 'lucide-react';
-import { PointOfInterest } from '../../../types/index';
+import { useRef, useState, useEffect, useLayoutEffect, useMemo, type FC } from 'react';
+import { CheckSquare, Square, Star, Calendar, RefreshCw, Eye, Trash2, Loader2, Check, Layers, X, User, ImageOff, ShieldCheck, ShieldAlert, Shield, ShieldQuestion, FilterX, LayoutList, TrendingUp } from 'lucide-react';
+import type { PointOfInterest } from '../../../types/index';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { getPoiCategoryLabel, getSubCategoryLabel } from '../../../utils/common';
 import { PaginationControls } from '../../common/PaginationControls';
 import { getCachedSetting } from '../../../services/settingsService'; 
 import { useVirtualWindow } from '@/hooks/useVirtualWindow';
-import { LAYOUT } from '@/constants/layout';
 
 /** Altezza riga griglia (card 340 + gap). */
 const POI_VIRTUAL_ROW_HEIGHT = 356;
@@ -39,32 +38,66 @@ interface PoiListProps {
     isSuperAdmin: boolean;
 }
 
-function useGridColumnCount(): number {
+function resetVirtualizedListScroll(
+    container: HTMLDivElement | null,
+    enabled: boolean,
+    currentPage: number,
+    currentPageSize: number,
+): void {
+    if (!enabled || !container || currentPage < 1 || currentPageSize < 1) return;
+    container.scrollTo({ top: 0 });
+}
+
+function hasDisplayedPoiSequenceChanged(
+    previousIds: readonly string[] | null,
+    nextPois: readonly PointOfInterest[],
+): boolean {
+    if (previousIds === null) return true;
+    if (previousIds.length !== nextPois.length) return true;
+    return previousIds.some((id, index) => id !== nextPois[index].id);
+}
+
+function countRenderedGridColumns(el: HTMLElement): number {
+    const raw = getComputedStyle(el).gridTemplateColumns.trim();
+    if (!raw || raw === 'none') return 1;
+    const tracks = raw.split(/\s+/).filter(Boolean);
+    return Math.max(1, tracks.length);
+}
+
+function useGridColumnCount(gridEl: HTMLDivElement | null): number {
     const [cols, setCols] = useState(1);
-    useEffect(() => {
+    useLayoutEffect(() => {
+        if (!gridEl) return;
+
         const update = () => {
-            const w = window.innerWidth;
-            if (w >= LAYOUT.BREAKPOINTS.XL) setCols(4);
-            else if (w >= LAYOUT.BREAKPOINTS.LG) setCols(3);
-            else if (w >= LAYOUT.BREAKPOINTS.MD) setCols(2);
-            else setCols(1);
+            setCols(countRenderedGridColumns(gridEl));
         };
+
         update();
-        window.addEventListener('resize', update);
-        return () => window.removeEventListener('resize', update);
-    }, []);
+        const observer = new ResizeObserver(update);
+        observer.observe(gridEl);
+        return () => observer.disconnect();
+    }, [gridEl]);
     return cols;
 }
 
-export const PoiList: React.FC<PoiListProps> = ({ 
+export const PoiList: FC<PoiListProps> = ({ 
     pois, selectedIds, isLoading, page, totalItems, pageSize, sortBy, 
     isBulkProcessing, viewStatus, actions, isSuperAdmin 
 }) => {
 
     const isExpandedMode = pageSize > 20;
     const listRef = useRef<HTMLDivElement>(null);
-    const colCount = useGridColumnCount();
+    const prevVirtualizedViewRef = useRef<{
+        page: number;
+        pageSize: number;
+        shouldVirtualize: boolean;
+        isLoading: boolean;
+        ids: readonly string[];
+    } | null>(null);
+    const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
     const shouldVirtualize = isExpandedMode && pois.length >= POI_VIRTUALIZE_THRESHOLD;
+    const colCount = useGridColumnCount(gridEl);
     const rowCount = Math.max(1, Math.ceil(pois.length / colCount));
     const { startIndex, endIndex, paddingTop, paddingBottom, totalListHeight } = useVirtualWindow({
         containerRef: listRef,
@@ -81,9 +114,28 @@ export const PoiList: React.FC<PoiListProps> = ({
     }, [shouldVirtualize, pois, startIndex, endIndex, colCount]);
 
     useEffect(() => {
-        if (!shouldVirtualize) return;
-        listRef.current?.scrollTo({ top: 0 });
-    }, [shouldVirtualize, page, pageSize, pois]);
+        const prev = prevVirtualizedViewRef.current;
+        const loadCycleCompleted = prev?.isLoading === true && !isLoading;
+        const skipReset =
+            prev !== null &&
+            !loadCycleCompleted &&
+            prev.page === page &&
+            prev.pageSize === pageSize &&
+            prev.shouldVirtualize === shouldVirtualize &&
+            !hasDisplayedPoiSequenceChanged(prev.ids, pois);
+
+        prevVirtualizedViewRef.current = {
+            page,
+            pageSize,
+            shouldVirtualize,
+            isLoading,
+            ids: pois.map((poi) => poi.id),
+        };
+
+        if (skipReset) return;
+
+        resetVirtualizedListScroll(listRef.current, shouldVirtualize, page, pageSize);
+    }, [shouldVirtualize, page, pageSize, pois, isLoading]);
 
     // FIX: Aggiunto index per fallback chiave
     const renderPoiCard = (poi: PointOfInterest, idx: number) => {
@@ -155,24 +207,24 @@ export const PoiList: React.FC<PoiListProps> = ({
         return (
             <div key={poi.id || `poi-card-${idx}`} className={`bg-slate-900 rounded-2xl border overflow-hidden group hover:border-slate-600 transition-all shadow-md flex flex-col h-[340px] relative ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500' : isAssetMissing ? 'border-red-500/50' : 'border-slate-800'}`}>
                 
-                <div className="absolute top-2 left-2 z-dropdown flex items-center">
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); actions.toggleSelection(poi.id); }} className={`p-1.5 rounded-lg shadow-lg border transition-all ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-black/50 border-white/20 text-slate-300 hover:bg-black/70'}`}>
+                <div className="absolute top-2 left-2 z-local-overlay flex items-center">
+                    <button type="button" aria-label={isSelected ? `Deseleziona ${poi.name}` : `Seleziona ${poi.name}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); actions.toggleSelection(poi.id); }} className={`p-1.5 min-h-11 min-w-11 flex items-center justify-center rounded-lg shadow-lg border transition-all ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-black/50 border-white/20 text-slate-300 hover:bg-black/70'}`}>
                         {isSelected ? <CheckSquare className="w-4 h-4"/> : <Square className="w-4 h-4"/>}
                     </button>
                     {statusBadge}
                 </div>
                 
-                <div className={`absolute top-2 left-12 z-dropdown flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${relColor} ${viewStatus === 'all' ? 'ml-10' : 'ml-0'}`} title={`Affidabilità AI: ${relLabel}`}>
+                <div className={`absolute top-2 left-12 z-local-overlay flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${relColor} ${viewStatus === 'all' ? 'ml-10' : 'ml-0'}`} title={`Affidabilità AI: ${relLabel}`}>
                     <RelIcon className="w-3 h-3"/> {relLabel}
                 </div>
                 
                 {/* INTEREST BADGE ALWAYS VISIBLE (Shows N/C if missing) */}
-                <div className={`absolute top-2 right-2 z-dropdown flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${interestColor}`} title={`Interesse Turistico: ${poi.tourismInterest || 'Non Classificato'}`}>
+                <div className={`absolute top-2 right-2 z-local-overlay flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border backdrop-blur-md shadow-lg ${interestColor}`} title={`Interesse Turistico: ${poi.tourismInterest || 'Non Classificato'}`}>
                     <TrendingUp className="w-3 h-3"/> {interestLabel}
                 </div>
                 
                 {isAssetMissing && (
-                    <div className="absolute top-10 right-2 z-dropdown bg-red-600 text-white text-[9px] font-black uppercase px-2 py-1 rounded shadow-lg border border-red-400 flex items-center gap-1 animate-pulse pointer-events-none">
+                    <div className="absolute top-10 right-2 z-local-overlay bg-red-600 text-white text-[9px] font-black uppercase px-2 py-1 rounded shadow-lg border border-red-400 flex items-center gap-1 animate-pulse pointer-events-none">
                         <ImageOff className="w-3 h-3"/> No Asset
                     </div>
                 )}
@@ -184,7 +236,7 @@ export const PoiList: React.FC<PoiListProps> = ({
                 </div>
                 <div className="p-4 flex flex-col flex-1 min-h-0 relative">
                     <div className="flex justify-between mb-2">
-                        <h4 className="font-bold text-white text-sm truncate pr-2 cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => actions.onEdit(poi)}>{poi.name}</h4>
+                        <button type="button" onClick={() => actions.onEdit(poi)} className="font-bold text-white text-sm truncate pr-2 cursor-pointer hover:text-indigo-400 transition-colors bg-transparent border-0 p-0 text-left min-w-0 flex-1">{poi.name}</button>
                         <div className="flex flex-col items-end shrink-0">
                             <div className="flex items-center gap-1 text-amber-500 text-xs font-bold"><Star className="w-3 h-3 fill-current"/> {poi.rating}</div>
                             <div className="text-[9px] text-slate-500 flex items-center gap-1 mt-1">{sortBy === 'updated_at' ? <RefreshCw className="w-2.5 h-2.5"/> : <Calendar className="w-2.5 h-2.5"/>}{new Date(poi.updatedAt || poi.dateAdded || '').toLocaleDateString(undefined, {month:'short', day:'numeric'})}</div>
@@ -199,10 +251,10 @@ export const PoiList: React.FC<PoiListProps> = ({
                     </div>
                     
                     <div className="flex-1 overflow-hidden mt-1"><p className="text-sm text-slate-400 line-clamp-3 leading-relaxed italic">"{poi.description || 'Nessuna descrizione.'}"</p></div>
-                    <div className="flex gap-2 mt-auto pt-3 border-t border-slate-800/50 relative z-dropdown">
-                        <button onClick={() => actions.onPreview(poi)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors" title="Anteprima"><Eye className="w-4 h-4"/></button>
-                        <button onClick={() => actions.onEdit(poi)} className="flex-1 bg-slate-800 hover:bg-indigo-600 text-white px-2 py-0.5 rounded-xl text-[10px] font-black border border-slate-700 uppercase transition-all shadow-md">Modifica</button>
-                        {isSuperAdmin && (<button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); actions.onDeleteRequest(poi); }} className="p-2 rounded-xl border border-red-500/30 text-red-500 bg-red-900/10 hover:bg-red-900/40 transition-all cursor-pointer relative z-admin-modal pointer-events-auto" title="Elimina Definitivamente"><Trash2 className="w-4 h-4 pointer-events-none"/></button>)}
+                    <div className="flex gap-2 mt-auto pt-3 border-t border-slate-800/50 relative z-local-overlay">
+                        <button type="button" aria-label="Anteprima" onClick={() => actions.onPreview(poi)} className="p-2 min-h-11 min-w-11 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors" title="Anteprima"><Eye className="w-4 h-4"/></button>
+                        <button type="button" onClick={() => actions.onEdit(poi)} className="flex-1 min-h-11 flex items-center justify-center bg-slate-800 hover:bg-indigo-600 text-white px-2 py-0.5 rounded-xl text-[10px] font-black border border-slate-700 uppercase transition-all shadow-md">Modifica</button>
+                        {isSuperAdmin && (<button type="button" aria-label="Elimina definitivamente" onClick={(e) => { e.preventDefault(); e.stopPropagation(); actions.onDeleteRequest(poi); }} className="p-2 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-red-500/30 text-red-500 bg-red-900/10 hover:bg-red-900/40 transition-all cursor-pointer relative z-admin-modal pointer-events-auto" title="Elimina Definitivamente"><Trash2 className="w-4 h-4 pointer-events-none"/></button>)}
                     </div>
                 </div>
             </div>
@@ -212,25 +264,27 @@ export const PoiList: React.FC<PoiListProps> = ({
     return (
         <div className="flex flex-col flex-1 min-h-0">
             {selectedIds.size > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-toast bg-slate-900 border border-indigo-500/50 rounded-2xl shadow-2xl p-2 flex items-center gap-2 animate-in slide-in-from-bottom-10">
-                    <div className="bg-indigo-600 px-3 py-1.5 rounded-xl text-white font-bold text-xs flex items-center gap-2 mr-2">
+                <div className="fixed bottom-6 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 z-toast max-w-[calc(100vw-2rem)] md:max-w-none overflow-x-auto no-scrollbar">
+                    <div className="bg-slate-900 border border-indigo-500/50 rounded-2xl shadow-2xl p-2 flex items-center gap-2 animate-in slide-in-from-bottom-10 w-max md:w-auto">
+                    <div className="bg-indigo-600 px-3 py-1.5 rounded-xl text-white font-bold text-xs flex items-center gap-2 mr-2 shrink-0 min-h-11">
                         <CheckSquare className="w-4 h-4"/> {selectedIds.size}
                     </div>
                     
-                    <button onClick={() => actions.bulkStatusChange('published')} disabled={isBulkProcessing} className="px-4 py-2 hover:bg-emerald-900/30 text-emerald-400 hover:text-emerald-300 rounded-lg text-xs font-black uppercase transition-colors flex items-center gap-2 border border-transparent hover:border-emerald-500/30">
+                    <button type="button" onClick={() => actions.bulkStatusChange('published')} disabled={isBulkProcessing} className="px-4 py-2 min-h-11 shrink-0 hover:bg-emerald-900/30 text-emerald-400 hover:text-emerald-300 rounded-lg text-xs font-black uppercase transition-colors flex items-center gap-2 border border-transparent hover:border-emerald-500/30">
                         {isBulkProcessing ? <Loader2 className="w-3 h-3 animate-spin"/> : <Check className="w-3 h-3"/>} Pubblica
                     </button>
-                    <button onClick={() => actions.bulkStatusChange('draft')} disabled={isBulkProcessing} className="px-4 py-2 hover:bg-amber-900/30 text-amber-400 hover:text-amber-300 rounded-lg text-xs font-black uppercase transition-colors flex items-center gap-2 border border-transparent hover:border-amber-500/30">
+                    <button type="button" onClick={() => actions.bulkStatusChange('draft')} disabled={isBulkProcessing} className="px-4 py-2 min-h-11 shrink-0 hover:bg-amber-900/30 text-amber-400 hover:text-amber-300 rounded-lg text-xs font-black uppercase transition-colors flex items-center gap-2 border border-transparent hover:border-amber-500/30">
                         <Layers className="w-3 h-3"/> Bozza
                     </button>
-                    <div className="w-px h-6 bg-slate-700 mx-1"></div>
-                    <button onClick={actions.bulkDelete} disabled={isBulkProcessing} className="px-4 py-2 hover:bg-red-900/30 text-red-400 hover:text-red-300 rounded-lg text-xs font-black uppercase transition-colors flex items-center gap-2 border border-transparent hover:border-red-500/30">
+                    <div className="w-px h-6 bg-slate-700 mx-1 shrink-0"></div>
+                    <button type="button" onClick={actions.bulkDelete} disabled={isBulkProcessing} className="px-4 py-2 min-h-11 shrink-0 hover:bg-red-900/30 text-red-400 hover:text-red-300 rounded-lg text-xs font-black uppercase transition-colors flex items-center gap-2 border border-transparent hover:border-red-500/30">
                          <Trash2 className="w-3 h-3"/> Elimina
                     </button>
                     
-                    <button onClick={actions.resetSelection} className="ml-2 p-2 hover:bg-slate-800 rounded-full text-slate-500 hover:text-white transition-colors">
+                    <button type="button" aria-label="Annulla selezione" onClick={actions.resetSelection} className="ml-2 p-2 min-h-11 min-w-11 shrink-0 hover:bg-slate-800 rounded-full text-slate-500 hover:text-white transition-colors flex items-center justify-center">
                         <X className="w-4 h-4"/>
                     </button>
+                    </div>
                 </div>
             )}
 
@@ -247,7 +301,7 @@ export const PoiList: React.FC<PoiListProps> = ({
                     >
                         <div style={{ height: totalListHeight, position: 'relative' }}>
                             <div style={{ paddingTop, paddingBottom }}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                <div ref={setGridEl} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                     {visiblePois.map((poi, idx) =>
                                         renderPoiCard(poi, startIndex * colCount + idx),
                                     )}
@@ -256,12 +310,13 @@ export const PoiList: React.FC<PoiListProps> = ({
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div ref={setGridEl} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {pois.map((poi, idx) => renderPoiCard(poi, idx))}
                         {pois.length === 0 && (
                             <div className="col-span-full py-20 text-center text-slate-500 italic bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed flex flex-col items-center justify-center gap-3">
                                 <p>Nessun luogo trovato in questa vista ({viewStatus}).</p>
                                 <button 
+                                    type="button"
                                     onClick={actions.resetFiltersAndReload} 
                                     className="flex items-center gap-2 text-xs font-bold uppercase text-indigo-400 hover:text-white bg-slate-800 px-4 py-2 rounded-lg transition-colors border border-slate-700"
                                 >
@@ -299,6 +354,7 @@ export const PoiList: React.FC<PoiListProps> = ({
 
                     {isExpandedMode && (
                         <button 
+                            type="button"
                             onClick={() => { 
                                 actions.setPageSize(12); 
                                 actions.setPage(1); 

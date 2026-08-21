@@ -1,5 +1,5 @@
-
-import React, { useRef, useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import type React from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 interface Props {
   children?: React.ReactNode;
@@ -8,142 +8,147 @@ interface Props {
 }
 
 export interface DraggableSliderHandle {
-    scroll: (direction: 'left' | 'right') => void;
+  scroll: (direction: 'left' | 'right') => void;
 }
 
-export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(({ children, className = '', onScroll }, ref) => {
+export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
+  ({ children, className = '', onScroll }, ref) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [isDown, setIsDown] = useState(false);
-    
+
     // Refs for drag state
-    const stateRef = useRef({ 
-        isDown: false, 
-        startX: 0, 
-        startY: 0,
-        scrollLeft: 0,
-        isDragging: false
+    const stateRef = useRef({
+      isDown: false,
+      startX: 0,
+      startY: 0,
+      scrollLeft: 0,
+      isDragging: false,
     });
 
     useImperativeHandle(ref, () => ({
-        scroll: (direction: 'left' | 'right') => {
-            if (scrollRef.current) {
-                const scrollAmount = 400; 
-                scrollRef.current.scrollBy({ 
-                    left: direction === 'left' ? -scrollAmount : scrollAmount, 
-                    behavior: 'smooth' 
-                });
-            }
-        }
+      scroll: (direction: 'left' | 'right') => {
+        const el = scrollRef.current;
+        if (!el) return;
+        // Una “pagina” ≈ 80% della viewport dello slider (clamp): più coerente di 400px fissi
+        // su thumb piccole (Patrono), card medie (Home) e slide full-width (ShopHero).
+        const amount = Math.max(120, Math.min(Math.round(el.clientWidth * 0.8), 560));
+        el.scrollBy({
+          left: direction === 'left' ? -amount : amount,
+          behavior: 'smooth',
+        });
+      },
     }));
 
     // Cleanup listeners on unmount
     useEffect(() => {
-        const handleUp = () => {
-             if (stateRef.current.isDown) {
-                 setIsDown(false);
-                 stateRef.current.isDown = false;
-             }
-        };
-        // Use window for mouseup to catch release outside component
-        window.addEventListener('mouseup', handleUp);
-        return () => window.removeEventListener('mouseup', handleUp);
+      const handleUp = () => {
+        if (stateRef.current.isDown) {
+          setIsDown(false);
+          stateRef.current.isDown = false;
+        }
+      };
+      // Use window for mouseup to catch release outside component
+      window.addEventListener('mouseup', handleUp);
+      return () => window.removeEventListener('mouseup', handleUp);
     }, []);
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (!scrollRef.current) return;
-        setIsDown(true);
-        stateRef.current = {
-            isDown: true,
-            startX: e.pageX,
-            startY: e.pageY,
-            scrollLeft: scrollRef.current.scrollLeft,
-            isDragging: false
-        };
+      if (!scrollRef.current) return;
+      setIsDown(true);
+      stateRef.current = {
+        isDown: true,
+        startX: e.pageX,
+        startY: e.pageY,
+        scrollLeft: scrollRef.current.scrollLeft,
+        isDragging: false,
+      };
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!stateRef.current.isDown || !scrollRef.current) return;
-        e.preventDefault();
-        const x = e.pageX;
-        const walk = (x - stateRef.current.startX) * 2; 
-        scrollRef.current.scrollLeft = stateRef.current.scrollLeft - walk;
-        stateRef.current.isDragging = true;
+      if (!stateRef.current.isDown || !scrollRef.current) return;
+      e.preventDefault();
+      const x = e.pageX;
+      const walk = (x - stateRef.current.startX) * 2;
+      scrollRef.current.scrollLeft = stateRef.current.scrollLeft - walk;
+      stateRef.current.isDragging = true;
     };
 
     const handleMouseUp = () => {
+      setIsDown(false);
+      stateRef.current.isDown = false;
+    };
+
+    const handleMouseLeave = () => {
+      if (stateRef.current.isDown) {
         setIsDown(false);
         stateRef.current.isDown = false;
-    };
-    
-    const handleMouseLeave = () => {
-        if (stateRef.current.isDown) {
-             setIsDown(false);
-             stateRef.current.isDown = false;
-        }
+      }
     };
 
     const handleTouchStart = (e: React.TouchEvent) => {
-        if (!scrollRef.current) return;
-        const touch = e.touches[0];
-        setIsDown(true);
-        stateRef.current = {
-            isDown: true,
-            startX: touch.pageX,
-            startY: touch.pageY,
-            scrollLeft: scrollRef.current.scrollLeft,
-            isDragging: false
-        };
+      if (!scrollRef.current) return;
+      const touch = e.touches[0];
+      setIsDown(true);
+      stateRef.current = {
+        isDown: true,
+        startX: touch.pageX,
+        startY: touch.pageY,
+        scrollLeft: scrollRef.current.scrollLeft,
+        isDragging: false,
+      };
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
-        if (!scrollRef.current || !stateRef.current.isDown) return;
-        
-        const touch = e.touches[0];
-        const x = touch.pageX;
-        const y = touch.pageY;
-        
-        const walkX = x - stateRef.current.startX;
-        const walkY = y - stateRef.current.startY;
+      if (!scrollRef.current || !stateRef.current.isDown) return;
 
-        if (Math.abs(walkY) > Math.abs(walkX)) return;
+      const touch = e.touches[0];
+      const x = touch.pageX;
+      const y = touch.pageY;
 
-        if (e.cancelable) e.preventDefault();
-        
-        scrollRef.current.scrollLeft = stateRef.current.scrollLeft - (walkX * 1.5);
-        stateRef.current.isDragging = true;
+      const walkX = x - stateRef.current.startX;
+      const walkY = y - stateRef.current.startY;
+
+      if (Math.abs(walkY) > Math.abs(walkX)) return;
+
+      if (e.cancelable) e.preventDefault();
+
+      scrollRef.current.scrollLeft = stateRef.current.scrollLeft - walkX * 1.5;
+      stateRef.current.isDragging = true;
     };
 
     const handleTouchEnd = () => {
-        setIsDown(false);
-        stateRef.current.isDown = false;
+      setIsDown(false);
+      stateRef.current.isDown = false;
     };
 
     return (
-        <>
-            <style>{`
+      <>
+        <style>{`
                 .hide-scrollbar::-webkit-scrollbar { display: none; }
                 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
-            <div
-                ref={scrollRef}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onScroll={onScroll}
-                
-                className={`
-                    flex gap-4 overflow-x-auto hide-scrollbar select-none 
+        {/* Superficie drag/scroll orizzontale (mouse + touch) — non un controllo singolo. */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: track DraggableSlider, interazione intenzionale */}
+        <div
+          ref={scrollRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onScroll={onScroll}
+          className={`
+                    flex min-w-0 w-full max-w-full gap-4 overflow-x-auto hide-scrollbar select-none
                     ${isDown ? 'cursor-grabbing snap-none' : 'cursor-grab snap-x snap-mandatory'} 
                     ${className}
                 `}
-                style={{ touchAction: 'pan-y', scrollbarWidth: 'none', msOverflowStyle: 'none' }} 
-            >
-                {children}
-            </div>
-        </>
+          style={{ touchAction: 'pan-y', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {children}
+        </div>
+      </>
     );
-});
+  },
+);

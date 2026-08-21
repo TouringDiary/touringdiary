@@ -1,19 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpen, Briefcase, FileText, FolderKanban, Loader2, Share2, StickyNote } from 'lucide-react';
-import type { User } from '@/types/users';
-import type { SharingProfileResourceRow } from '@/services/collaboration/collaborationProfileService';
-import { loadSharingProfileOverview } from '@/services/collaboration/collaborationProfileService';
 import {
-  acceptResourceInvite,
-  rejectResourceInvite,
-  acceptWorkspaceInvite,
-  rejectWorkspaceInvite,
-} from '@/services/collaboration';
+  BookOpen,
+  Briefcase,
+  FileText,
+  FolderKanban,
+  Loader2,
+  Share2,
+  StickyNote,
+} from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useModal } from '@/context/ModalContext';
 import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
 import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
-import { useItinerary } from '@/context/ItineraryContext';
+import {
+  acceptResourceInvite,
+  acceptWorkspaceInvite,
+  rejectResourceInvite,
+  rejectWorkspaceInvite,
+} from '@/services/collaboration';
+import type { SharingProfileResourceRow } from '@/services/collaboration/collaborationProfileService';
+import { loadSharingProfileOverview } from '@/services/collaboration/collaborationProfileService';
 import { fetchDiariesByIds } from '@/services/community/itineraryService';
-import { useModal } from '@/context/ModalContext';
+import type { User } from '@/types/users';
 
 interface Props {
   user: User;
@@ -33,7 +42,9 @@ function ResourceKindIcons({ row }: { row: SharingProfileResourceRow }) {
 
 export const UserSharingTab: React.FC<Props> = ({ user, onClose }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [overview, setOverview] = useState<Awaited<ReturnType<typeof loadSharingProfileOverview>> | null>(null);
+  const [overview, setOverview] = useState<Awaited<
+    ReturnType<typeof loadSharingProfileOverview>
+  > | null>(null);
   const openShare = useOpenCollaborationShare();
   const openWorkspace = useOpenCollaborationWorkspace();
   const { loadProject } = useItinerary();
@@ -83,10 +94,7 @@ export const UserSharingTab: React.FC<Props> = ({ user, onClose }) => {
     openModal('packingList', { suitcaseId: row.resourceId });
   };
 
-  const allRows = [
-    ...(overview?.ownedResources ?? []),
-    ...(overview?.memberResources ?? []),
-  ];
+  const allRows = [...(overview?.ownedResources ?? []), ...(overview?.memberResources ?? [])];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -108,7 +116,9 @@ export const UserSharingTab: React.FC<Props> = ({ user, onClose }) => {
       ) : (
         <>
           <section className="space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Collaborazioni</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Collaborazioni
+            </h3>
             {allRows.length === 0 ? (
               <p className="text-sm text-slate-500">Nessuna collaborazione attiva.</p>
             ) : (
@@ -122,7 +132,9 @@ export const UserSharingTab: React.FC<Props> = ({ user, onClose }) => {
                       <p className="text-sm font-semibold text-white truncate">{row.title}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <ResourceKindIcons row={row} />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-500">{row.role}</span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-500">
+                          {row.role}
+                        </span>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -166,7 +178,9 @@ export const UserSharingTab: React.FC<Props> = ({ user, onClose }) => {
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Inviti ricevuti</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Inviti ricevuti
+            </h3>
             {(overview?.incomingResourceInvites.length ?? 0) === 0 &&
             (overview?.incomingWorkspaceInvites.length ?? 0) === 0 ? (
               <p className="text-sm text-slate-500">Nessun invito in attesa.</p>
@@ -225,7 +239,9 @@ export const UserSharingTab: React.FC<Props> = ({ user, onClose }) => {
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Workspace</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Workspace
+            </h3>
             {(overview?.workspaces.length ?? 0) === 0 ? (
               <p className="text-sm text-slate-500">Nessun workspace.</p>
             ) : (

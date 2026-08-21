@@ -7,14 +7,14 @@
  *
  * Esecuzione: `npx tsx scripts/generate-myworld-migration.ts`
  */
+
+import fs from 'node:fs';
 import { MYWORLD_DESIGN_RULES } from '../src/data/system/myWorldDesignRules.ts';
-import fs from 'fs';
 
 const MIGRATION_BASENAME = '20260730120001_seed_myworld_design_system_rules';
 const MIGRATION_PATH = `supabase/migrations/${MIGRATION_BASENAME}.sql`;
 
-const esc = (v: unknown) =>
-  v == null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`;
+const esc = (v: unknown) => (v == null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`);
 
 const lines = MYWORLD_DESIGN_RULES.map(
   (r) => `    (

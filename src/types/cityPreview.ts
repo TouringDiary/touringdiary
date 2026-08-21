@@ -4,8 +4,8 @@ export const CITY_INFO_PREVIEW_TABS = ['guides', 'events', 'services', 'tour_ope
 export type CityInfoPreviewTab = (typeof CITY_INFO_PREVIEW_TABS)[number];
 
 export function isCityInfoPreviewTab(value: string): value is CityInfoPreviewTab {
-    for (const tab of CITY_INFO_PREVIEW_TABS) {
-        if (value === tab) return true;
-    }
-    return false;
+  for (const tab of CITY_INFO_PREVIEW_TABS) {
+    if (value === tab) return true;
+  }
+  return false;
 }

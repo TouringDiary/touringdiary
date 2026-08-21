@@ -12,8 +12,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
@@ -40,10 +40,7 @@ function walkFiles(dir, base = dir, acc = []) {
 }
 
 function loadManifest() {
-  const candidates = [
-    path.join(DIST, '.vite', 'manifest.json'),
-    path.join(DIST, 'manifest.json'),
-  ];
+  const candidates = [path.join(DIST, '.vite', 'manifest.json'), path.join(DIST, 'manifest.json')];
   for (const p of candidates) {
     if (!fs.existsSync(p)) continue;
     try {
@@ -230,14 +227,21 @@ function main() {
   });
   log('');
   log('### Entry vs resto (conteggio file classificato)');
-  const byQuando = rows.reduce((acc, r) => {
-    acc[r.quando] = (acc[r.quando] || 0) + 1;
-    return acc;
-  }, /** @type {Record<string, number>} */ ({}));
+  const byQuando = rows.reduce(
+    (acc, r) => {
+      acc[r.quando] = (acc[r.quando] || 0) + 1;
+      return acc;
+    },
+    /** @type {Record<string, number>} */ ({}),
+  );
   for (const [k, v] of Object.entries(byQuando)) log(`${k}: ${v}`);
   log('');
-  log('> Nota: dimensione per file SORGENTE non è dimostrabile da dist/ senza meta Rollup per-modulo.');
-  log('> Le schede seguenti descrivono CHUNK/ASSET di build. Flag bootstrap = IPOTESI (DOC-38 §S.3.2).');
+  log(
+    '> Nota: dimensione per file SORGENTE non è dimostrabile da dist/ senza meta Rollup per-modulo.',
+  );
+  log(
+    '> Le schede seguenti descrivono CHUNK/ASSET di build. Flag bootstrap = IPOTESI (DOC-38 §S.3.2).',
+  );
   log('');
 
   log('## Schede MODULO (formato DOC-38 §9.5)');
@@ -268,11 +272,7 @@ function main() {
               : 'NON DIMOSTRABILE'
       }`,
     );
-    log(
-      `necessario_bootstrap: ${
-        r.isEntry ? 'SI' : isDyn ? 'NO' : 'IPOTESI DA VERIFICARE'
-      }`,
-    );
+    log(`necessario_bootstrap: ${r.isEntry ? 'SI' : isDyn ? 'NO' : 'IPOTESI DA VERIFICARE'}`);
     log(`teoricamente_differibile: IPOTESI DA VERIFICARE`);
     log(`classificazione_evidenza: ${r.evidence}`);
     log('');

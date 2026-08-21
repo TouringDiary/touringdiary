@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
 import { StickyNote, Trash2 } from 'lucide-react';
-import type { DiaryNotesDocument, DiaryNotesState } from '@/types/models/DiaryNotes';
+import React, { useCallback, useMemo, useState } from 'react';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
 import { useUser } from '@/context/UserContext';
 import {
   addDiaryNoteTab,
@@ -14,11 +15,10 @@ import {
   setActiveTabId,
   updateActiveTabDocument,
 } from '@/domain/diary/diaryNotesState';
-import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
-import { DiaryNotesEditor } from './DiaryNotesEditor';
+import type { DiaryNotesDocument, DiaryNotesState } from '@/types/models/DiaryNotes';
 import { DiaryNotesChecklistStatsBar } from './DiaryNotesChecklistStatsBar';
+import { DiaryNotesEditor } from './DiaryNotesEditor';
 import { DiaryNotesTabs } from './DiaryNotesTabs';
-import { useCollaborationReadOnly } from '@/context/CollaborationLiveContext';
 
 export interface DiaryNotesPanelProps {
   notesState: DiaryNotesState | null | undefined;
@@ -29,132 +29,126 @@ export interface DiaryNotesPanelProps {
 /**
  * Shell dell'area NOTE del Diario — header, tab, editor Rich Text.
  */
-export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(({
-  notesState,
-  onNotesStateChange,
-  isActive = true,
-}) => {
-  const { user } = useUser();
-  const authorId = user?.role !== 'guest' ? user?.id : undefined;
-  const collaborationReadOnly = useCollaborationReadOnly();
+export const DiaryNotesPanel: React.FC<DiaryNotesPanelProps> = React.memo(
+  ({ notesState, onNotesStateChange, isActive = true }) => {
+    const { user } = useUser();
+    const authorId = user?.role !== 'guest' ? user?.id : undefined;
+    const collaborationReadOnly = useCollaborationReadOnly();
 
-  const [deleteTabId, setDeleteTabId] = useState<string | null>(null);
+    const [deleteTabId, setDeleteTabId] = useState<string | null>(null);
 
-  const state = useMemo(
-    () => normalizeDiaryNotesState(notesState),
-    [notesState],
-  );
+    const state = useMemo(() => normalizeDiaryNotesState(notesState), [notesState]);
 
-  const activeDocument = useMemo(() => getActiveTabDocument(state), [state]);
+    const activeDocument = useMemo(() => getActiveTabDocument(state), [state]);
 
-  const deleteTargetTitle = state.tabs.find((t) => t.id === deleteTabId)?.title ?? 'questa nota';
+    const deleteTargetTitle = state.tabs.find((t) => t.id === deleteTabId)?.title ?? 'questa nota';
 
-  const handleDocumentChange = useCallback(
-    (document: DiaryNotesDocument) => {
-      onNotesStateChange(updateActiveTabDocument(state, document, authorId));
-    },
-    [authorId, onNotesStateChange, state],
-  );
+    const handleDocumentChange = useCallback(
+      (document: DiaryNotesDocument) => {
+        onNotesStateChange(updateActiveTabDocument(state, document, authorId));
+      },
+      [authorId, onNotesStateChange, state],
+    );
 
-  const handleSelectTab = useCallback(
-    (tabId: string) => {
-      onNotesStateChange(setActiveTabId(state, tabId));
-    },
-    [onNotesStateChange, state],
-  );
+    const handleSelectTab = useCallback(
+      (tabId: string) => {
+        onNotesStateChange(setActiveTabId(state, tabId));
+      },
+      [onNotesStateChange, state],
+    );
 
-  const handleAddTab = useCallback(() => {
-    if (collaborationReadOnly) return;
-    onNotesStateChange(addDiaryNoteTab(state, authorId));
-  }, [authorId, collaborationReadOnly, onNotesStateChange, state]);
-
-  const handleRenameTab = useCallback(
-    (tabId: string, title: string) => {
+    const handleAddTab = useCallback(() => {
       if (collaborationReadOnly) return;
-      onNotesStateChange(renameDiaryNoteTab(state, tabId, title));
-    },
-    [collaborationReadOnly, onNotesStateChange, state],
-  );
+      onNotesStateChange(addDiaryNoteTab(state, authorId));
+    }, [authorId, collaborationReadOnly, onNotesStateChange, state]);
 
-  const handleDuplicateTab = useCallback(
-    (tabId: string) => {
-      if (collaborationReadOnly) return;
-      onNotesStateChange(duplicateDiaryNoteTab(state, tabId, authorId));
-    },
-    [authorId, collaborationReadOnly, onNotesStateChange, state],
-  );
+    const handleRenameTab = useCallback(
+      (tabId: string, title: string) => {
+        if (collaborationReadOnly) return;
+        onNotesStateChange(renameDiaryNoteTab(state, tabId, title));
+      },
+      [collaborationReadOnly, onNotesStateChange, state],
+    );
 
-  const handleMoveTabBefore = useCallback(
-    (tabId: string, beforeTabId: string) => {
-      if (collaborationReadOnly) return;
-      onNotesStateChange(moveDiaryNoteTabBefore(state, tabId, beforeTabId));
-    },
-    [collaborationReadOnly, onNotesStateChange, state],
-  );
+    const handleDuplicateTab = useCallback(
+      (tabId: string) => {
+        if (collaborationReadOnly) return;
+        onNotesStateChange(duplicateDiaryNoteTab(state, tabId, authorId));
+      },
+      [authorId, collaborationReadOnly, onNotesStateChange, state],
+    );
 
-  const handleMoveTabToEnd = useCallback(
-    (tabId: string) => {
-      if (collaborationReadOnly) return;
-      onNotesStateChange(moveDiaryNoteTabToEnd(state, tabId));
-    },
-    [collaborationReadOnly, onNotesStateChange, state],
-  );
+    const handleMoveTabBefore = useCallback(
+      (tabId: string, beforeTabId: string) => {
+        if (collaborationReadOnly) return;
+        onNotesStateChange(moveDiaryNoteTabBefore(state, tabId, beforeTabId));
+      },
+      [collaborationReadOnly, onNotesStateChange, state],
+    );
 
-  const confirmDeleteTab = useCallback(() => {
-    if (!deleteTabId || collaborationReadOnly) return;
-    onNotesStateChange(deleteDiaryNoteTab(state, deleteTabId));
-    setDeleteTabId(null);
-  }, [collaborationReadOnly, deleteTabId, onNotesStateChange, state]);
+    const handleMoveTabToEnd = useCallback(
+      (tabId: string) => {
+        if (collaborationReadOnly) return;
+        onNotesStateChange(moveDiaryNoteTabToEnd(state, tabId));
+      },
+      [collaborationReadOnly, onNotesStateChange, state],
+    );
 
-  return (
-    <div className="w-full flex-1 min-w-0 flex flex-col min-h-0 px-1.5 sm:px-2 select-text">
-      <DeleteConfirmationModal
-        isOpen={!!deleteTabId}
-        onClose={() => setDeleteTabId(null)}
-        onConfirm={confirmDeleteTab}
-        title="Eliminare definitivamente?"
-        message="L'operazione non può essere annullata."
-        confirmLabel="Elimina"
-        cancelLabel="Annulla"
-        variant="danger"
-        icon={<Trash2 className="w-8 h-8 text-red-500" />}
-      />
+    const confirmDeleteTab = useCallback(() => {
+      if (!deleteTabId || collaborationReadOnly) return;
+      onNotesStateChange(deleteDiaryNoteTab(state, deleteTabId));
+      setDeleteTabId(null);
+    }, [collaborationReadOnly, deleteTabId, onNotesStateChange, state]);
 
-      <header className="h-7 flex items-center gap-1.5 shrink-0">
-        <StickyNote className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" aria-hidden />
-        <h2 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-600">
-          Note di viaggio
-        </h2>
-      </header>
+    return (
+      <div className="w-full flex-1 min-w-0 flex flex-col min-h-0 px-1.5 sm:px-2 select-text">
+        <DeleteConfirmationModal
+          isOpen={!!deleteTabId}
+          onClose={() => setDeleteTabId(null)}
+          onConfirm={confirmDeleteTab}
+          title="Eliminare definitivamente?"
+          message="L'operazione non può essere annullata."
+          confirmLabel="Elimina"
+          cancelLabel="Annulla"
+          variant="danger"
+          icon={<Trash2 className="w-8 h-8 text-red-500" />}
+        />
 
-      <DiaryNotesTabs
-        tabs={state.tabs}
-        activeTabId={state.activeTabId}
-        onSelectTab={handleSelectTab}
-        onAddTab={handleAddTab}
-        onRenameTab={handleRenameTab}
-        onDuplicateTab={handleDuplicateTab}
-        onMoveTabBefore={handleMoveTabBefore}
-        onMoveTabToEnd={handleMoveTabToEnd}
-        onDeleteTab={setDeleteTabId}
-        readOnly={collaborationReadOnly}
-      />
+        <header className="h-7 flex items-center gap-1.5 shrink-0">
+          <StickyNote className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" aria-hidden />
+          <h2 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-600">
+            Note di viaggio
+          </h2>
+        </header>
 
-      <div
-        className="flex-1 min-h-0 flex flex-col overflow-hidden mt-1 rounded-sm border border-stone-300/70 bg-white/95 shadow-inner"
-        role="region"
-        aria-label="Area note del diario"
-      >
-        <DiaryNotesChecklistStatsBar document={activeDocument} />
-        <DiaryNotesEditor
-          document={activeDocument}
-          onDocumentChange={handleDocumentChange}
-          isActive={isActive}
+        <DiaryNotesTabs
+          tabs={state.tabs}
+          activeTabId={state.activeTabId}
+          onSelectTab={handleSelectTab}
+          onAddTab={handleAddTab}
+          onRenameTab={handleRenameTab}
+          onDuplicateTab={handleDuplicateTab}
+          onMoveTabBefore={handleMoveTabBefore}
+          onMoveTabToEnd={handleMoveTabToEnd}
+          onDeleteTab={setDeleteTabId}
           readOnly={collaborationReadOnly}
         />
+
+        <section
+          className="flex-1 min-h-0 flex flex-col overflow-hidden mt-1 rounded-sm border border-stone-300/70 bg-white/95 shadow-inner"
+          aria-label="Area note del diario"
+        >
+          <DiaryNotesChecklistStatsBar document={activeDocument} />
+          <DiaryNotesEditor
+            document={activeDocument}
+            onDocumentChange={handleDocumentChange}
+            isActive={isActive}
+            readOnly={collaborationReadOnly}
+          />
+        </section>
       </div>
-    </div>
-  );
-});
+    );
+  },
+);
 
 DiaryNotesPanel.displayName = 'DiaryNotesPanel';

@@ -1,15 +1,15 @@
-import { getCategoryId, normalizeCategoryName } from '@/domain/packing/packingCategories';
 import {
   getDefaultCategorySetupForNewEntity,
   resolveCategorySetup,
 } from '@/domain/packing/categorySetup';
-import { Suitcase, SuitcaseItem, SuitcaseUiState } from '@/types/suitcase';
-import { CategorySetupMap } from '@/types/packingCatalog';
-import { fetchActiveStandardItemsAsync } from './packingCatalogService';
-import { serializeUiState, parseUiState } from './suitcaseCoreService';
-import { persistSuitcaseItemsFromRuntimeAsync } from './suitcaseItemsService';
-import { supabase } from '../supabaseClient';
+import { getCategoryId, normalizeCategoryName } from '@/domain/packing/packingCategories';
+import type { CategorySetupMap } from '@/types/packingCatalog';
+import type { Suitcase, SuitcaseItem, SuitcaseUiState } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
+import { supabase } from '../supabaseClient';
+import { fetchActiveStandardItemsAsync } from './packingCatalogService';
+import { parseUiState, serializeUiState } from './suitcaseCoreService';
+import { persistSuitcaseItemsFromRuntimeAsync } from './suitcaseItemsService';
 
 /**
  * Genera item seed per nuova valigia / template utente da packing_standard_items.
@@ -17,7 +17,7 @@ import { normalizeItemName } from '@/utils/tagDerivation';
 export const buildStandardSeedItems = (
   standardRows: { name: string; category: string; tier: string }[],
   setup: CategorySetupMap,
-  suitcaseId: string
+  suitcaseId: string,
 ): SuitcaseItem[] => {
   const items: SuitcaseItem[] = [];
   let index = 0;
@@ -46,7 +46,7 @@ export const buildStandardSeedItems = (
 
 export const fetchStandardSeedItemsForSetupAsync = async (
   setup: CategorySetupMap,
-  suitcaseId: string
+  suitcaseId: string,
 ): Promise<SuitcaseItem[]> => {
   const rows = await fetchActiveStandardItemsAsync();
   return buildStandardSeedItems(rows, setup, suitcaseId);
@@ -61,7 +61,7 @@ export const getDefaultUiStateForNewEntity = (): SuitcaseUiState => ({
 
 /** Applica seed standard in memoria (draft/guest) se la valigia è ancora vuota. */
 export const applyStandardSeedToSuitcaseInMemory = async (
-  suitcase: Suitcase
+  suitcase: Suitcase,
 ): Promise<Suitcase> => {
   if ((suitcase.suitcase_items?.length ?? 0) > 0) {
     return suitcase;
@@ -86,7 +86,7 @@ export const applyStandardSeedToSuitcaseInMemory = async (
  */
 export const persistItemDisplayOrderAsync = async (
   suitcaseId: string,
-  itemDisplayOrder: SuitcaseUiState['item_display_order']
+  itemDisplayOrder: SuitcaseUiState['item_display_order'],
 ): Promise<void> => {
   const { data, error: fetchError } = await supabase
     .from('suitcases')
@@ -118,7 +118,7 @@ export const persistCategoryVisibilityAsync = async (
   patch: Pick<
     SuitcaseUiState,
     'category_setup' | 'hidden_category_ids' | 'dismissed_category_ids' | 'category_display_order'
-  >
+  >,
 ): Promise<void> => {
   const { data, error: fetchError } = await supabase
     .from('suitcases')
@@ -151,7 +151,7 @@ export const persistCategoryVisibilityAsync = async (
  */
 export const updateCategorySetupAsync = async (
   suitcaseId: string,
-  setup: CategorySetupMap
+  setup: CategorySetupMap,
 ): Promise<void> => {
   const { data, error: fetchError } = await supabase
     .from('suitcases')
@@ -180,7 +180,7 @@ export const updateCategorySetupAsync = async (
  */
 export const seedStandardItemsOnSuitcaseAsync = async (
   suitcaseId: string,
-  setup: CategorySetupMap
+  setup: CategorySetupMap,
 ): Promise<number> => {
   const items = await fetchStandardSeedItemsForSetupAsync(setup, suitcaseId);
   if (items.length === 0) return 0;
@@ -193,11 +193,9 @@ export const seedStandardItemsOnSuitcaseAsync = async (
  */
 export const buildMissingStandardSeedItems = async (
   suitcase: Suitcase,
-  setup: CategorySetupMap
+  setup: CategorySetupMap,
 ): Promise<SuitcaseItem[]> => {
-  const existing = new Set(
-    (suitcase.suitcase_items ?? []).map((i) => normalizeItemName(i.name))
-  );
+  const existing = new Set((suitcase.suitcase_items ?? []).map((i) => normalizeItemName(i.name)));
   const rows = await fetchActiveStandardItemsAsync();
   const candidates = buildStandardSeedItems(rows, setup, suitcase.id);
   return candidates.filter((item) => !existing.has(normalizeItemName(item.name)));

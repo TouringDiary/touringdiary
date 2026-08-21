@@ -1,27 +1,37 @@
 import { useCallback, useEffect, useRef } from 'react';
+import type { UndoAction } from '@/hooks/useUndoStack';
 import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
-import { Suitcase, SuitcaseItem, SuitcaseRejection } from '@/types/suitcase';
+import type { Suitcase, SuitcaseItem, SuitcaseRejection } from '@/types/suitcase';
+import type { ToastVariant } from '@/types/toast';
 import { normalizeItemName } from '@/utils/tagDerivation';
-import { UndoAction } from '@/hooks/useUndoStack';
-
-import { ToastVariant } from '@/types/toast';
+import type { useFloatingPanelModals } from './useFloatingPanelModals';
+import type { useFloatingPanelState } from './useFloatingPanelState';
 
 interface EditorLogicProps {
   activeSuitcase: Suitcase | null;
-  handleUpdateItemConfirmed: (itemId: string, updates: UpdateSuitcaseItemDto, currentItem: SuitcaseItem) => Promise<void>;
+  handleUpdateItemConfirmed: (
+    itemId: string,
+    updates: UpdateSuitcaseItemDto,
+    currentItem: SuitcaseItem,
+  ) => Promise<void>;
   handleDeleteItemConfirmed: (itemToDelete: SuitcaseItem) => Promise<void>;
-  handleAddItemConfirmed: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
+  handleAddItemConfirmed: (
+    suitcaseId: string,
+    name: string,
+    category: string,
+    metadata?: Partial<SuitcaseItem>,
+  ) => Promise<SuitcaseItem | undefined>;
   handleSwapItemsInCategory: (
     categoryId: string,
     draggedName: string,
     targetName: string,
-    visibleNamesInOrder: string[]
+    visibleNamesInOrder: string[],
   ) => Promise<void>;
   handleRestoreFromBlacklist: (rejection: SuitcaseRejection) => Promise<void>;
   handleRemoveFromBlacklist: (rejectionId: string, name: string) => Promise<void>;
   fetchBlacklist?: (options?: { force?: boolean }) => Promise<void>;
-  modalState: any;
-  panelState: any;
+  modalState: ReturnType<typeof useFloatingPanelModals>;
+  panelState: ReturnType<typeof useFloatingPanelState>;
   showToast: (message: string, description?: string, variant?: ToastVariant) => void;
   pushAction: (action: UndoAction) => void;
 }
@@ -38,7 +48,7 @@ export const useSuitcaseEditorLogic = ({
   modalState,
   panelState,
   showToast,
-  pushAction
+  pushAction,
 }: EditorLogicProps) => {
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -50,86 +60,105 @@ export const useSuitcaseEditorLogic = ({
     };
   }, []);
 
-  const triggerItemHighlight = useCallback((itemId: string) => {
-    if (highlightTimeoutRef.current) {
-      clearTimeout(highlightTimeoutRef.current);
-    }
-    panelState.setHighlightItemId(itemId);
-    highlightTimeoutRef.current = setTimeout(() => {
-      panelState.setHighlightItemId(null);
-      highlightTimeoutRef.current = null;
-    }, 2500);
-  }, [panelState]);
+  const triggerItemHighlight = useCallback(
+    (itemId: string) => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+      panelState.setHighlightItemId(itemId);
+      highlightTimeoutRef.current = setTimeout(() => {
+        panelState.setHighlightItemId(null);
+        highlightTimeoutRef.current = null;
+      }, 2500);
+    },
+    [panelState],
+  );
 
-  const onUpdateItem = useCallback(async (itemId: string, updates: UpdateSuitcaseItemDto) => {
-    if (!activeSuitcase) return;
-    const item = activeSuitcase.suitcase_items?.find(i => i.id === itemId);
-    if (!item) return;
+  const onUpdateItem = useCallback(
+    async (itemId: string, updates: UpdateSuitcaseItemDto) => {
+      if (!activeSuitcase) return;
+      const item = activeSuitcase.suitcase_items?.find((i) => i.id === itemId);
+      if (!item) return;
 
-    if (
-      updates.is_checked !== undefined ||
-      updates.quantity !== undefined ||
-      updates.category !== undefined
-    ) {
-      triggerItemHighlight(itemId);
-    }
+      if (
+        updates.is_checked !== undefined ||
+        updates.quantity !== undefined ||
+        updates.category !== undefined
+      ) {
+        triggerItemHighlight(itemId);
+      }
 
-    await handleUpdateItemConfirmed(itemId, updates, item);
-  }, [activeSuitcase, handleUpdateItemConfirmed, triggerItemHighlight]);
+      await handleUpdateItemConfirmed(itemId, updates, item);
+    },
+    [activeSuitcase, handleUpdateItemConfirmed, triggerItemHighlight],
+  );
 
-  const onDeleteItem = useCallback((id: string) => {
-    if (!activeSuitcase) return;
-    const item = activeSuitcase.suitcase_items?.find(i => i.id === id);
-    if (item) {
-      modalState.setItemToDelete(item);
-    }
-  }, [activeSuitcase, modalState]);
+  const onDeleteItem = useCallback(
+    (id: string) => {
+      if (!activeSuitcase) return;
+      const item = activeSuitcase.suitcase_items?.find((i) => i.id === id);
+      if (item) {
+        modalState.setItemToDelete(item);
+      }
+    },
+    [activeSuitcase, modalState],
+  );
 
-  const onAddItem = useCallback(async (cat: string, name: string) => {
-    if (!activeSuitcase) return;
+  const onAddItem = useCallback(
+    async (cat: string, name: string) => {
+      if (!activeSuitcase) return;
 
-    const isDuplicate = activeSuitcase.suitcase_items?.some(i => 
-      normalizeItemName(i.name) === normalizeItemName(name) && i.category === cat
-    );
+      const isDuplicate = activeSuitcase.suitcase_items?.some(
+        (i) => normalizeItemName(i.name) === normalizeItemName(name) && i.category === cat,
+      );
 
-    if (isDuplicate) {
-      showToast(`"${name}" è già presente in ${cat}`, undefined, 'neutral');
-      return;
-    }
+      if (isDuplicate) {
+        showToast(`"${name}" è già presente in ${cat}`, undefined, 'neutral');
+        return;
+      }
 
-    await handleAddItemConfirmed(activeSuitcase.id, name, cat);
-  }, [activeSuitcase, handleAddItemConfirmed, showToast]);
+      await handleAddItemConfirmed(activeSuitcase.id, name, cat);
+    },
+    [activeSuitcase, handleAddItemConfirmed, showToast],
+  );
 
-  const onSelectItem = useCallback((name: string | null) => {
-    pushAction({
-      id: name || 'none',
-      type: 'selection',
-      payload: {
-        previousValue: panelState.selectedItemName,
-        newValue: name,
-        setter: panelState.setSelectedItemName
-      },
-      label: name || panelState.selectedItemName || 'Oggetto'
-    });
-    panelState.setSelectedItemName(name);
-  }, [panelState, pushAction]);
+  const onSelectItem = useCallback(
+    (name: string | null) => {
+      pushAction({
+        id: name || 'none',
+        type: 'selection',
+        payload: {
+          previousValue: panelState.selectedItemName,
+          newValue: name,
+          setter: panelState.setSelectedItemName,
+        },
+        label: name || panelState.selectedItemName || 'Oggetto',
+      });
+      panelState.setSelectedItemName(name);
+    },
+    [panelState, pushAction],
+  );
 
   const onOpenBlacklist = useCallback(() => {
     modalState.setShowBlacklistModal(true);
     void fetchBlacklist?.();
   }, [fetchBlacklist, modalState]);
 
-  const onDeleteCategory = useCallback((category: { id: string; name: string; source: string }) => {
-    if (!activeSuitcase) return;
-    const itemCount =
-      activeSuitcase.suitcase_items?.filter((item) => item.category === category.name).length ?? 0;
-    modalState.setCategoryToDelete({
-      id: category.id,
-      name: category.name,
-      source: category.source === 'user' ? 'user' : 'system',
-      itemCount,
-    });
-  }, [activeSuitcase, modalState]);
+  const onDeleteCategory = useCallback(
+    (category: { id: string; name: string; source: string }) => {
+      if (!activeSuitcase) return;
+      const itemCount =
+        activeSuitcase.suitcase_items?.filter((item) => item.category === category.name).length ??
+        0;
+      modalState.setCategoryToDelete({
+        id: category.id,
+        name: category.name,
+        source: category.source === 'user' ? 'user' : 'system',
+        itemCount,
+      });
+    },
+    [activeSuitcase, modalState],
+  );
 
   return {
     onUpdateItem,
@@ -140,6 +169,6 @@ export const useSuitcaseEditorLogic = ({
     onDeleteCategory,
     onSwapItemsInCategory: handleSwapItemsInCategory,
     onRestoreFromBlacklist: handleRestoreFromBlacklist,
-    onRemoveFromBlacklist: handleRemoveFromBlacklist
+    onRemoveFromBlacklist: handleRemoveFromBlacklist,
   };
 };

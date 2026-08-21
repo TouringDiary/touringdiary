@@ -1,118 +1,133 @@
-
-import { useState, useEffect, useRef } from 'react';
-import { useAppRouter } from '../useAppRouter';
-import { useModal } from '@/context/ModalContext';
+import { useEffect, useRef, useState } from 'react';
 import { useAiPlanner } from '@/context/AiPlannerContext';
-import { CityDetails, CitySummary } from '../../types/index';
-import { buildVirtualCity } from '../../services/cityService';
+import { useModal } from '@/context/ModalContext';
 import { useOpenMyWorld } from '@/hooks/useOpenMyWorld';
 import type { NavigationGlobalExtra } from '@/types/navigationGlobal';
+import { buildVirtualCity } from '../../services/cityService';
+import type { CityDetails, CitySummary } from '../../types/index';
+import { useAppRouter } from '../useAppRouter';
 
 export const useNavigationController = (cityManifest: CitySummary[]) => {
-    const router = useAppRouter();
-    const { openModal, closeModal, activeModal } = useModal();
-    const { resetAiSession } = useAiPlanner();
-    const openMyWorld = useOpenMyWorld();
+  const router = useAppRouter();
+  const { openModal, closeModal, activeModal } = useModal();
+  const { resetAiSession } = useAiPlanner();
+  const openMyWorld = useOpenMyWorld();
 
-    // Virtual Mode State (Around Me / Merged)
-    const [virtualCity, setVirtualCity] = useState<CityDetails | null>(null);
-    const [isBuildingVirtual, setIsBuildingVirtual] = useState(false);
-    
-    // Mount Ref per sicurezza async
-    const isMounted = useRef(true);
-    useEffect(() => {
-        isMounted.current = true;
-        return () => { isMounted.current = false; };
-    }, []);
-    
-    // Listener per Reset Globale
-    useEffect(() => {
-        const handleReset = () => { if(isMounted.current) setVirtualCity(null); };
-        window.addEventListener('reset-virtual-city', handleReset);
-        return () => window.removeEventListener('reset-virtual-city', handleReset);
-    }, []);
+  // Virtual Mode State (Around Me / Merged)
+  const [virtualCity, setVirtualCity] = useState<CityDetails | null>(null);
+  const [isBuildingVirtual, setIsBuildingVirtual] = useState(false);
 
-    // Listener per creazione Virtual City (Around Me) — allineato a NavigationContext (no DEFAULT_CENTER).
-    const handleAroundMeTrigger = async (config: { type: 'gps' | 'manual', cityId?: string, radius: number }, userLoc: { lat: number; lng: number } | null) => {
-        let centerCoords: { lat: number; lng: number } | null = null;
-
-        if (config.type === 'gps') {
-            if (!userLoc) return;
-            centerCoords = userLoc;
-        } else if (config.type === 'manual' && config.cityId) {
-            const targetCity = cityManifest.find(c => c.id === config.cityId);
-            if (targetCity) centerCoords = targetCity.coords;
-        }
-
-        if (!centerCoords) return;
-
-        setIsBuildingVirtual(true);
-        try {
-            const virtual = await buildVirtualCity(centerCoords, config.radius, cityManifest.filter(c => c.status === 'published'));
-            if (isMounted.current) {
-                setVirtualCity(virtual);
-            }
-        } finally {
-            if (isMounted.current) {
-                setIsBuildingVirtual(false);
-            }
-        }
+  // Mount Ref per sicurezza async
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
     };
+  }, []);
 
-    // Global Back Handler
-    const handleGlobalBack = () => {
-        // PRIORITY 1: Close active modal if any
-        if (activeModal) { 
-            closeModal(); 
-            return; 
-        }
-
-        // PRIORITY 2: Exit Virtual City if active (Around Me)
-        if (virtualCity) { 
-            setVirtualCity(null); 
-            // If we were in "Around Me", reset to home completely
-            if (virtualCity.id === 'around-me-virtual') {
-                 router.goHome(); 
-            }
-            return; 
-        } 
-        
-        // PRIORITY 3: Standard Router Back
-        router.goBack();
+  // Listener per Reset Globale
+  useEffect(() => {
+    const handleReset = () => {
+      if (isMounted.current) setVirtualCity(null);
     };
-    
-    // Global Home Handler
-    const handleGoHome = () => {
+    window.addEventListener('reset-virtual-city', handleReset);
+    return () => window.removeEventListener('reset-virtual-city', handleReset);
+  }, []);
+
+  // Listener per creazione Virtual City (Around Me) — allineato a NavigationContext (no DEFAULT_CENTER).
+  const handleAroundMeTrigger = async (
+    config: { type: 'gps' | 'manual'; cityId?: string; radius: number },
+    userLoc: { lat: number; lng: number } | null,
+  ) => {
+    let centerCoords: { lat: number; lng: number } | null = null;
+
+    if (config.type === 'gps') {
+      if (!userLoc) return;
+      centerCoords = userLoc;
+    } else if (config.type === 'manual' && config.cityId) {
+      const targetCity = cityManifest.find((c) => c.id === config.cityId);
+      if (targetCity) centerCoords = targetCity.coords;
+    }
+
+    if (!centerCoords) return;
+
+    setIsBuildingVirtual(true);
+    try {
+      const virtual = await buildVirtualCity(
+        centerCoords,
+        config.radius,
+        cityManifest.filter((c) => c.status === 'published'),
+      );
+      if (isMounted.current) {
+        setVirtualCity(virtual);
+      }
+    } finally {
+      if (isMounted.current) {
+        setIsBuildingVirtual(false);
+      }
+    }
+  };
+
+  // Global Back Handler
+  const handleGlobalBack = () => {
+    // PRIORITY 1: Close active modal if any
+    if (activeModal) {
+      closeModal();
+      return;
+    }
+
+    // PRIORITY 2: Exit Virtual City if active (Around Me)
+    if (virtualCity) {
+      setVirtualCity(null);
+      // If we were in "Around Me", reset to home completely
+      if (virtualCity.id === 'around-me-virtual') {
         router.goHome();
-        closeModal();
-        setVirtualCity(null);
-        resetAiSession();
-    };
+      }
+      return;
+    }
 
-    // TODO(WF-03): Duplicate of NavigationContext.handleNavigateGlobal — leave as-is this STEP; centralize later without changing call sites.
-    // TODO(WF-03): section 'workspace' opens MyWorld; keep token until a coordinated rename of public nav IDs.
-    const handleNavigateGlobal = (section: string, tab?: string, id?: string, extra?: NavigationGlobalExtra) => {
-        if (section === 'city' && id) router.navigateToCity(id, tab); 
-        else if (section === 'auth') openModal('auth');
-        else if (section === 'rewards') openModal('userDashboard', { tab: 'wallet' });
-        else if (section === 'profile') openModal('userDashboard', { tab: tab || 'overview' });
-        else if (section === 'workspace') openMyWorld();
-        else if (section === 'community') openModal('global', { section: 'community', tab, id });
-        else if (section === 'sponsors') openModal('global', { section: 'sponsors' });
-        else if (section === 'around_me') openModal('aroundMe'); 
-        else if (section === 'suggestion') openModal('suggestion', extra);
-        else openModal('global', { section });
-    };
+    // PRIORITY 3: Standard Router Back
+    router.goBack();
+  };
 
-    return {
-        router,
-        virtualCity,
-        isBuildingVirtual,
-        handleAroundMeTrigger,
-        handleGlobalBack,
-        handleGoHome,
-        handleNavigateGlobal,
-        // Espone setter safe
-        setVirtualCity
-    };
+  // Global Home Handler
+  const handleGoHome = () => {
+    router.goHome();
+    closeModal();
+    setVirtualCity(null);
+    resetAiSession();
+  };
+
+  // TODO(WF-03): Duplicate of NavigationContext.handleNavigateGlobal — leave as-is this STEP; centralize later without changing call sites.
+  // TODO(WF-03): section 'workspace' opens MyWorld; keep token until a coordinated rename of public nav IDs.
+  const handleNavigateGlobal = (
+    section: string,
+    tab?: string,
+    id?: string,
+    extra?: NavigationGlobalExtra,
+  ) => {
+    if (section === 'city' && id) router.navigateToCity(id, tab);
+    else if (section === 'auth') openModal('auth');
+    else if (section === 'rewards') openModal('userDashboard', { tab: 'wallet' });
+    else if (section === 'profile') openModal('userDashboard', { tab: tab || 'overview' });
+    else if (section === 'workspace') openMyWorld();
+    else if (section === 'community') openModal('global', { section: 'community', tab, id });
+    else if (section === 'sponsors') openModal('global', { section: 'sponsors' });
+    else if (section === 'around_me') openModal('aroundMe');
+    else if (section === 'suggestion') openModal('suggestion', extra);
+    else openModal('global', { section });
+  };
+
+  return {
+    router,
+    virtualCity,
+    isBuildingVirtual,
+    handleAroundMeTrigger,
+    handleGlobalBack,
+    handleGoHome,
+    handleNavigateGlobal,
+    // Espone setter safe
+    setVirtualCity,
+  };
 };

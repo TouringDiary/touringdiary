@@ -1,4 +1,4 @@
-import { unlinkSuitcaseAsync, linkSuitcaseToTripAsync } from '@/services/suitcaseService';
+import { linkSuitcaseToTripAsync, unlinkSuitcaseAsync } from '@/services/suitcaseService';
 import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 
 export const unlinkSuitcase = async (itineraryId: string, suitcaseId: string) => {
@@ -6,7 +6,11 @@ export const unlinkSuitcase = async (itineraryId: string, suitcaseId: string) =>
   await unlinkSuitcaseAsync(itineraryId, suitcaseId);
 };
 
-export const linkSuitcaseToTrip = async (itineraryId: string, suitcaseId: string, userId?: string) => {
+export const linkSuitcaseToTrip = async (
+  itineraryId: string,
+  suitcaseId: string,
+  userId?: string,
+) => {
   if (isDraftWorkspaceId(suitcaseId)) return;
   await linkSuitcaseToTripAsync(itineraryId, suitcaseId, userId);
 };

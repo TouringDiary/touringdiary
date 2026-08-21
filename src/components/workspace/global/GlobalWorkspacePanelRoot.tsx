@@ -1,8 +1,8 @@
-import React from 'react';
+import type React from 'react';
 import { useModal } from '@/context/ModalContext';
 import { GlobalWorkspacePanel } from './GlobalWorkspacePanel';
-import { WorkspacePanelProvider } from './WorkspacePanelContext';
 import type { WorkspacePanelSection } from './globalWorkspacePresentation';
+import { WorkspacePanelProvider } from './WorkspacePanelContext';
 
 /**
  * Entry lazy del hub Workspace: Provider + panel nello stesso chunk.

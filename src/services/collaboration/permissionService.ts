@@ -4,16 +4,13 @@ import type {
   WorkspaceResourceAccess,
 } from '@/domain/collaboration';
 import {
+  applyPersonalModeWorkspaceContentRules,
   deriveResourceCapabilities,
   resolveEffectiveAccessLevel,
-  applyPersonalModeWorkspaceContentRules,
 } from '@/domain/collaboration';
-import { getShareableResource } from './sharedResourceService';
-import {
-  getSharedResourceMember,
-  countSharedResourceMembers,
-} from './sharedResourceAclService';
+import { countSharedResourceMembers, getSharedResourceMember } from './sharedResourceAclService';
 import { isShareableResourceOwner } from './sharedResourceOwnershipVerifiers';
+import { getShareableResource } from './sharedResourceService';
 import { getWorkspaceResourceAccessForUser } from './workspaceAccessLookup';
 
 export interface ResolvePermissionOptions {
@@ -31,7 +28,7 @@ export async function resolveResourcePermission(
   userId: string,
   kind: SharedResourceKind,
   resourceId: string,
-  options: ResolvePermissionOptions = {}
+  options: ResolvePermissionOptions = {},
 ): Promise<ResolvedResourcePermission> {
   let workspaceAccess = options.workspaceAccess ?? 'none';
   if (options.workspaceId && workspaceAccess === 'none') {
@@ -39,7 +36,7 @@ export async function resolveResourcePermission(
       userId,
       options.workspaceId,
       kind,
-      resourceId
+      resourceId,
     );
   }
 
@@ -141,7 +138,7 @@ function buildResolvedPermission(input: {
 /** Stato «condiviso» derivabile per le card (§11.1) — solo dato, senza UI. */
 export async function isResourceShared(
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<boolean> {
   const resource = await getShareableResource(kind, resourceId);
   if (!resource) return false;
@@ -154,7 +151,7 @@ export async function canUserModifyResource(
   userId: string,
   kind: SharedResourceKind,
   resourceId: string,
-  options?: ResolvePermissionOptions
+  options?: ResolvePermissionOptions,
 ): Promise<boolean> {
   const permission = await resolveResourcePermission(userId, kind, resourceId, options);
   return permission.capabilities.canModifyContent;
@@ -165,7 +162,7 @@ export async function canUserDeleteResource(
   userId: string,
   kind: SharedResourceKind,
   resourceId: string,
-  options?: ResolvePermissionOptions
+  options?: ResolvePermissionOptions,
 ): Promise<boolean> {
   const permission = await resolveResourcePermission(userId, kind, resourceId, options);
   return permission.capabilities.canDeleteResource;
@@ -175,7 +172,7 @@ export async function canUserDeleteResource(
 export async function canUserManageCollaboration(
   userId: string,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<boolean> {
   const permission = await resolveResourcePermission(userId, kind, resourceId);
   return permission.capabilities.canManageCollaboration;

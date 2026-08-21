@@ -1,9 +1,5 @@
 /** Sessioni focus della famiglia MyWorld (chooser + MySpace + hub Workspace). */
-export const MY_WORLD_FAMILY_MODAL_KEYS = [
-  'myWorld',
-  'mySpace',
-  'collaborationWorkspace',
-] as const;
+export const MY_WORLD_FAMILY_MODAL_KEYS = ['myWorld', 'mySpace', 'collaborationWorkspace'] as const;
 
 export type MyWorldFamilyModalKey = (typeof MY_WORLD_FAMILY_MODAL_KEYS)[number];
 

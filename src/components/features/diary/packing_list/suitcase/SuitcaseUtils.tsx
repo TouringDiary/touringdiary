@@ -1,47 +1,83 @@
-import { ResolvedAffiliateProductLink, ResolvedAffiliateProduct, Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { isTdTemplate, isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
 import {
-  getCategoryId as getDomainCategoryId,
-  getCategoryEmoji,
-  normalizeCategoryName,
-  isSystemCategoryName,
-  CATEGORY_ID_MAP,
-  ADMIN_CATEGORY_OPTIONS,
-} from '@/domain/packing/packingCategories';
+  Anchor,
+  Backpack,
+  Beer,
+  Bike,
+  Book,
+  Briefcase,
+  Calculator,
+  Camera,
+  Car,
+  CloudRain,
+  Coffee,
+  Compass,
+  FlaskConical,
+  Ghost,
+  Globe,
+  Heart,
+  Home,
+  Laptop,
+  Map,
+  MapPin,
+  Moon,
+  Mountain,
+  Music,
+  Package,
+  Palmtree,
+  Pill,
+  Plane,
+  Rocket,
+  Shirt,
+  ShoppingBag,
+  Smartphone,
+  Smile,
+  Sparkles,
+  Star,
+  Sun,
+  Target,
+  Tent,
+  Umbrella,
+  User as UserIcon,
+  Utensils,
+  Watch,
+  Waves,
+  Wind,
+  Wine,
+  Zap,
+} from 'lucide-react';
 import React from 'react';
 import {
-  Backpack, Briefcase, Camera, Car, Coffee,
-  Compass, Globe, Heart, Home, Map,
-  Moon, Music, Package, Palmtree, Pill,
-  Plane, Smartphone, Sparkles, Star, Sun,
-  Umbrella, User as UserIcon, Watch, Zap,
-  Shirt, Waves, Mountain, Wind,
-  CloudRain, MapPin, Calculator, Book,
-  ShoppingBag, Trash2, ArrowRight, Copy,
-  Plus, Check, X, ChevronDown, ChevronUp,
-  Search, Shield, AlertTriangle, Info,
-  Save, LogIn, LogOut, CheckCircle2, Clock,
-  Smile, Cloud, Zap as ZapIcon, Moon as MoonIcon, Sun as SunIcon,
-  MapPin as MapPinIcon, Camera as CameraIcon, Laptop, Coffee as CoffeeIcon,
-  Utensils, Beer, Wine, Music as MusicIcon, Ghost, Heart as HeartIcon,
-  Tent, Anchor, Bike, Rocket, FlaskConical, Target,
-  Eye, EyeOff
-} from 'lucide-react';
+  ADMIN_CATEGORY_OPTIONS,
+  CATEGORY_ID_MAP,
+  getCategoryEmoji,
+  getCategoryId as getDomainCategoryId,
+  isSystemCategoryName,
+  normalizeCategoryName,
+} from '@/domain/packing/packingCategories';
+import type {
+  ResolvedAffiliateProduct,
+  ResolvedAffiliateProductLink,
+  Suitcase,
+  SuitcaseItem,
+} from '@/types/suitcase';
 import {
   buildCountBadgeClassName,
-  getCountBadgeLabelAdjustClass,
   formatCompactCount,
+  getCountBadgeLabelAdjustClass,
 } from '@/utils/countBadge';
+import { isTdTemplate, isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
 
 export { ADMIN_CATEGORY_OPTIONS };
 
-export const getCategoryId = (categoryName: string, customCategories?: { id: string; name: string }[]) =>
-  getDomainCategoryId(categoryName, customCategories);
+export const getCategoryId = (
+  categoryName: string,
+  customCategories?: { id: string; name: string }[],
+) => getDomainCategoryId(categoryName, customCategories);
 
 export const getSuitcaseItemProgress = (items: SuitcaseItem[] | undefined | null) => {
   const list = items || [];
   const total = list.length;
-  const checked = list.filter(i => i.is_checked).length;
+  const checked = list.filter((i) => i.is_checked).length;
   const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
   return { checked, total, percentage };
 };
@@ -63,7 +99,7 @@ const compareUpdatedAtDesc = (a: Suitcase, b: Suitcase): number => {
 export const sortSuitcaseList = (
   items: Suitcase[],
   mode: SuitcaseListSortMode,
-  options?: SuitcaseListSortOptions
+  options?: SuitcaseListSortOptions,
 ): Suitcase[] => {
   const sorted = [...items];
   sorted.sort((a, b) => {
@@ -92,14 +128,12 @@ export const sortSuitcaseList = (
  * e accepted_from_ai !== true): queste sono proposte, non oggetti reali della valigia.
  */
 export const getIncompleteItemCount = (items: SuitcaseItem[] | undefined | null): number =>
-  (items || []).filter(
-    (i) => !i.is_checked && !(i.is_ai_suggestion && !i.accepted_from_ai)
-  ).length;
+  (items || []).filter((i) => !i.is_checked && !(i.is_ai_suggestion && !i.accepted_from_ai)).length;
 
 export const filterCategoriesByStatus = <T extends { id: string; name: string }>(
   categories: T[],
   groupedItems: Record<string, SuitcaseItem[]>,
-  filter: CategoryStatusFilter
+  filter: CategoryStatusFilter,
 ): T[] => {
   if (filter === 'all') return categories;
   return categories.filter((cat) => {
@@ -158,33 +192,60 @@ export const CATEGORY_ICON_REGISTRY: Record<string, React.ReactElement> = {
 };
 
 export const getIconByName = (name: string, className?: string) => {
-  const IconComponent = CATEGORY_ICON_REGISTRY[name] || CATEGORY_ICON_REGISTRY['Package'];
-  return React.cloneElement(IconComponent as React.ReactElement<{ className?: string }>, { className });
+  const IconComponent = CATEGORY_ICON_REGISTRY[name] || CATEGORY_ICON_REGISTRY.Package;
+  return React.cloneElement(IconComponent as React.ReactElement<{ className?: string }>, {
+    className,
+  });
 };
 
 export const TEMPLATE_COLOR_CONFIG = [
-  { keywords: ['mare', 'spiaggia', 'sole', 'estate', 'beach', 'summer'], color: { bg: 'bg-orange-500/15', text: 'text-orange-400' } },
-  { keywords: ['montagna', 'neve', 'trekking', 'mountain', 'snow', 'hike'], color: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' } },
-  { keywords: ['business', 'lavoro', 'ufficio', 'office'], color: { bg: 'bg-blue-500/15', text: 'text-blue-400' } },
-  { keywords: ['citta', 'city', 'urban', 'short'], color: { bg: 'bg-sky-500/15', text: 'text-sky-400' } },
-  { keywords: ['volo', 'aereo', 'flight'], color: { bg: 'bg-purple-500/15', text: 'text-purple-400' } },
+  {
+    keywords: ['mare', 'spiaggia', 'sole', 'estate', 'beach', 'summer'],
+    color: { bg: 'bg-orange-500/15', text: 'text-orange-400' },
+  },
+  {
+    keywords: ['montagna', 'neve', 'trekking', 'mountain', 'snow', 'hike'],
+    color: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' },
+  },
+  {
+    keywords: ['business', 'lavoro', 'ufficio', 'office'],
+    color: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
+  },
+  {
+    keywords: ['citta', 'city', 'urban', 'short'],
+    color: { bg: 'bg-sky-500/15', text: 'text-sky-400' },
+  },
+  {
+    keywords: ['volo', 'aereo', 'flight'],
+    color: { bg: 'bg-purple-500/15', text: 'text-purple-400' },
+  },
   { keywords: ['treno', 'train'], color: { bg: 'bg-rose-500/15', text: 'text-rose-400' } },
   { keywords: ['pioggia', 'rain'], color: { bg: 'bg-slate-500/15', text: 'text-slate-400' } },
-  { keywords: ['freddo', 'cold', 'winter'], color: { bg: 'bg-cyan-500/15', text: 'text-cyan-400' } },
+  {
+    keywords: ['freddo', 'cold', 'winter'],
+    color: { bg: 'bg-cyan-500/15', text: 'text-cyan-400' },
+  },
 ];
 
 export const DEFAULT_TEMPLATE_COLOR = { bg: 'bg-indigo-500/15', text: 'text-indigo-400' };
 
 export const normalizeText = (text: string) =>
-  text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
 export const getTemplateColor = (title: string) => {
   const normalized = normalizeText(title);
-  const match = TEMPLATE_COLOR_CONFIG.find(c => c.keywords.some(k => normalized.includes(k)));
+  const match = TEMPLATE_COLOR_CONFIG.find((c) => c.keywords.some((k) => normalized.includes(k)));
   return match ? match.color : DEFAULT_TEMPLATE_COLOR;
 };
 
-export const ItemCategoryIcon: React.FC<{ category: string; iconKey?: string; className?: string }> = ({ category, iconKey, className }) => {
+export const ItemCategoryIcon: React.FC<{
+  category: string;
+  iconKey?: string;
+  className?: string;
+}> = ({ category, iconKey, className }) => {
   if (iconKey) return getIconByName(iconKey, className);
 
   const emoji = getCategoryEmoji(normalizeCategoryName(category));
@@ -195,11 +256,9 @@ export const TemplateCategoryIcon: React.FC<{
   template: Pick<Suitcase, 'icon' | 'title'>;
   className?: string;
 }> = ({ template, className }) => {
-  if (template.icon && template.icon !== "🎒") {
+  if (template.icon && template.icon !== '🎒') {
     return (
-      <span
-        className={`${className} flex items-center justify-center text-[26px] leading-none`}
-      >
+      <span className={`${className} flex items-center justify-center text-[26px] leading-none`}>
         {template.icon}
       </span>
     );
@@ -207,27 +266,31 @@ export const TemplateCategoryIcon: React.FC<{
   const title = template.title.toLowerCase();
 
   // Weekend priority icon
-  if (title.includes('week')) return <span className={`${className} flex items-center justify-center`}>❤️</span>;
+  if (title.includes('week'))
+    return <span className={`${className} flex items-center justify-center`}>❤️</span>;
 
   if (title.includes('mare') || title.includes('beach')) return <Waves className={className} />;
-  if (title.includes('montagna') || title.includes('mountain')) return <Mountain className={className} />;
-  if (title.includes('business') || title.includes('lavoro')) return <Briefcase className={className} />;
+  if (title.includes('montagna') || title.includes('mountain'))
+    return <Mountain className={className} />;
+  if (title.includes('business') || title.includes('lavoro'))
+    return <Briefcase className={className} />;
   if (title.includes('citta') || title.includes('city')) return <Globe className={className} />;
   if (title.includes('volo') || title.includes('aereo')) return <Plane className={className} />;
   if (title.includes('treno')) return <Car className={className} />;
-  if (title.includes('pioggia') || title.includes('rain')) return <CloudRain className={className} />;
+  if (title.includes('pioggia') || title.includes('rain'))
+    return <CloudRain className={className} />;
   if (title.includes('freddo') || title.includes('winter')) return <Wind className={className} />;
   return <Backpack className={className} />;
 };
 
 export const normalizeAllSuitcases = (
   allSuitcases: Suitcase[],
-  tripSuitcases: Suitcase[]
+  tripSuitcases: Suitcase[],
 ): Suitcase[] => {
   const map = new globalThis.Map<string, Suitcase>();
 
   // 1. Template TD e USER (priorità base)
-  allSuitcases.forEach(s => {
+  allSuitcases.forEach((s) => {
     if (!s || !s.id) return;
     if (isTdTemplate(s) || isUserTemplate(s)) {
       map.set(s.id, s);
@@ -235,13 +298,13 @@ export const normalizeAllSuitcases = (
   });
 
   // 2. Valigie del viaggio (priorità media)
-  tripSuitcases.forEach(s => {
+  tripSuitcases.forEach((s) => {
     if (!s || !s.id) return;
     map.set(s.id, s);
   });
 
   // 3. Valigie reali dell'utente (priorità massima)
-  allSuitcases.forEach(s => {
+  allSuitcases.forEach((s) => {
     if (!s || !s.id) return;
     if (isValigia(s)) {
       map.set(s.id, s);
@@ -278,10 +341,7 @@ export const ensurePublicUrl = (url?: string | null): string | undefined => {
   return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${BUCKET}/${cleanPath}`;
 };
 
-const INVALID_IMAGE_PATTERNS = [
-  'via.placeholder.com',
-  'placeholder.com'
-];
+const INVALID_IMAGE_PATTERNS = ['via.placeholder.com', 'placeholder.com'];
 
 /** Chiave placeholder admin: nome canonico da dominio (alias, slug ID, match case-insensitive). */
 const resolveAdminPlaceholderCategoryKey = (raw: string): string => {
@@ -299,7 +359,7 @@ export const resolveAffiliateProductImage = ({
   product,
   partnerId,
   adminSuitcasePlaceholders = {},
-  failedImages = new Set()
+  failedImages = new Set(),
 }: ResolveImageParams): string | null => {
   if (!product) return null;
 
@@ -310,7 +370,7 @@ export const resolveAffiliateProductImage = ({
     if (failedImages && failedImages.has(url)) return true;
 
     // Protezione centralizzata contro i fake placeholder esterni
-    if (INVALID_IMAGE_PATTERNS.some(pattern => url.includes(pattern))) return true;
+    if (INVALID_IMAGE_PATTERNS.some((pattern) => url.includes(pattern))) return true;
 
     return false;
   };
@@ -318,7 +378,9 @@ export const resolveAffiliateProductImage = ({
   const placeholders = adminSuitcasePlaceholders || {};
 
   const links = product.product_links || [];
-  const partnerLink = partnerId ? links.find((l: ResolvedAffiliateProductLink) => l.partner_id === partnerId) : null;
+  const partnerLink = partnerId
+    ? links.find((l: ResolvedAffiliateProductLink) => l.partner_id === partnerId)
+    : null;
 
   // LIVELLO 1 — Override Admin
   // - immagine custom caricata da admin
@@ -356,12 +418,11 @@ export const resolveAffiliateProductImage = ({
   const catLower = categoryName.toLowerCase();
   const adminKey = resolveAdminPlaceholderCategoryKey(categoryName);
 
-  const adminCategoryPhRaw = placeholders[adminKey] ||
+  const adminCategoryPhRaw =
+    placeholders[adminKey] ||
     placeholders[categoryName] ||
     placeholders[catLower] ||
-    Object.entries(placeholders).find(
-      ([key]) => key.toLowerCase() === adminKey.toLowerCase()
-    )?.[1];
+    Object.entries(placeholders).find(([key]) => key.toLowerCase() === adminKey.toLowerCase())?.[1];
 
   const adminCategoryPh = ensurePublicUrl(adminCategoryPhRaw);
   if (adminCategoryPh && !isFailed(adminCategoryPh)) {
@@ -370,7 +431,7 @@ export const resolveAffiliateProductImage = ({
 
   // LIVELLO 4 — Placeholder Globale
   // - Sempre dagli Asset Globali DB-driven
-  const adminGlobalPh = ensurePublicUrl(placeholders['global']);
+  const adminGlobalPh = ensurePublicUrl(placeholders.global);
   if (adminGlobalPh && !isFailed(adminGlobalPh)) {
     return adminGlobalPh;
   }
@@ -398,7 +459,7 @@ export const resolveAffiliatePartnerDisplay = (
     ResolvedAffiliateProduct,
     'provider' | 'preferred_partners' | 'product_links' | 'product_id'
   >,
-  partnerIntegrations?: PartnerIntegrationsMap | null
+  partnerIntegrations?: PartnerIntegrationsMap | null,
 ): AffiliatePartnerDisplay => {
   const integrations = partnerIntegrations ?? {};
 
@@ -445,8 +506,8 @@ export const resolveAffiliatePartnerDisplay = (
   if (hasDirectLink) {
     return {
       badgeLabel: 'Offerta consigliata',
-      ctaLabel: 'Apri l\'offerta',
-      scopriCtaLabel: 'Scopri l\'offerta',
+      ctaLabel: "Apri l'offerta",
+      scopriCtaLabel: "Scopri l'offerta",
     };
   }
 
@@ -548,4 +609,5 @@ export const SUITCASE_VIEW_MODE_ACTION_BTN_CLASS =
 export const SUITCASE_TOOLBAR_ICON_SIZE_CLASS = 'w-4 h-4 md:w-5 md:h-5';
 
 /** Icone leggermente più grandi nella barra navigazione categorie. */
-export const SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS = 'w-[18px] h-[18px] md:w-[22px] md:h-[22px]';
+export const SUITCASE_CATEGORY_TOOLBAR_ICON_SIZE_CLASS =
+  'w-[18px] h-[18px] md:w-[22px] md:h-[22px]';

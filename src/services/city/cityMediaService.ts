@@ -1,5 +1,5 @@
-import { CityDetails, MediaAsset } from '../../types';
 import { isPhotographMediaAsset } from '@/domain/photos/photograph';
+import type { CityDetails, MediaAsset } from '../../types';
 
 /**
  * CITY MEDIA → PHOTOGRAPH (Galleria Fotografica only)
@@ -18,18 +18,18 @@ import { isPhotographMediaAsset } from '@/domain/photos/photograph';
  * Does NOT include Hero, Card Anteprima, or entity presentation images.
  */
 export const getCityPhotographicGalleryAssets = (city: CityDetails): MediaAsset[] => {
-    const assets: MediaAsset[] = [];
+  const assets: MediaAsset[] = [];
 
-    if (!city) return assets;
+  if (!city) return assets;
 
-    const gallery = city.details?.gallery || [];
-    gallery.forEach((asset: MediaAsset) => {
-        if (isPhotographMediaAsset(asset)) {
-            assets.push(asset);
-        }
-    });
+  const gallery = city.details?.gallery || [];
+  gallery.forEach((asset: MediaAsset) => {
+    if (isPhotographMediaAsset(asset)) {
+      assets.push(asset);
+    }
+  });
 
-    return assets;
+  return assets;
 };
 
 /**

@@ -1,90 +1,96 @@
-
-import React, { useState } from 'react';
-import { Palette, Puzzle, Link, Settings, FolderKanban, Layers, Globe2 } from 'lucide-react';
+import { FolderKanban, Globe2, Layers, Link, Palette, Puzzle, Settings } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 import { useConfig } from '@/context/ConfigContext';
-import { GlobalSettingsPanel } from './GlobalSettingsPanel';
-import { PartnerIntegrationsPanel } from './PartnerIntegrationsPanel';
-import { WorkspaceEngineSettingsPanel } from './WorkspaceEngineSettingsPanel';
+import { AdminPageHeader } from '../common/AdminPageHeader';
 import DesignSystemSettings from '../design/DesignSystemSettings';
 import FoundationSettingsPanel from '../foundation/FoundationSettingsPanel';
 import MyWorldStyleSettingsPanel from '../myworld/MyWorldStyleSettingsPanel';
-import { AdminPageHeader } from '../common/AdminPageHeader';
+import { GlobalSettingsPanel } from './GlobalSettingsPanel';
+import { PartnerIntegrationsPanel } from './PartnerIntegrationsPanel';
+import { WorkspaceEngineSettingsPanel } from './WorkspaceEngineSettingsPanel';
 
 const TABS = [
-    { id: 'design_system', label: 'Design System', icon: Palette },
-    { id: 'foundation', label: 'Foundation', icon: Layers },
-    { id: 'myworld_style', label: 'MyWorld Style', icon: Globe2 },
-    { id: 'poi_categories_config', label: 'Categorie POI', icon: Puzzle },
-    { id: 'partner_integrations', label: 'Integrazioni Partner', icon: Link },
-    { id: 'workspace_engine', label: 'Workspace', icon: FolderKanban },
+  { id: 'design_system', label: 'Design System', icon: Palette },
+  { id: 'foundation', label: 'Foundation', icon: Layers },
+  { id: 'myworld_style', label: 'MyWorld Style', icon: Globe2 },
+  { id: 'poi_categories_config', label: 'Categorie POI', icon: Puzzle },
+  { id: 'partner_integrations', label: 'Integrazioni Partner', icon: Link },
+  { id: 'workspace_engine', label: 'Workspace', icon: FolderKanban },
 ];
 export const SettingsPage: React.FC = () => {
-    const { configs, isLoading, refreshConfig } = useConfig();
-    const [activeTab, setActiveTab] = useState('design_system');
+  const { configs, isLoading, refreshConfig } = useConfig();
+  const [activeTab, setActiveTab] = useState('design_system');
 
-    if (isLoading) {
-        return <div>Caricamento configurazioni...</div>;
-    }
+  if (isLoading) {
+    return <div>Caricamento configurazioni...</div>;
+  }
 
-    const activeConfigData = activeTab && configs ? configs[activeTab] : null;
+  const activeConfigData = activeTab && configs ? configs[activeTab] : null;
 
-    return (
-        <div className="flex flex-col h-full">
-            <AdminPageHeader
-                icon={Settings}
-                title="Impostazioni Globali"
-                subtitle="Gestione centralizzata delle configurazioni del sito."
-                accent="indigo"
-                className="!mb-6"
-            />
+  return (
+    <div className="flex flex-col h-full">
+      <AdminPageHeader
+        icon={Settings}
+        title="Impostazioni Globali"
+        subtitle="Gestione centralizzata delle configurazioni del sito."
+        accent="indigo"
+        className="!mb-6"
+      />
 
-            <div className="flex gap-2 border-b border-slate-800 mb-6">
-                {TABS.map(tab => {
-                    const isActive = activeTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-t-lg border-b-2 ${isActive ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`}>
-                            <tab.icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : ''}`} />
-                            {tab.label}
-                        </button>
-                    );
-                })}
-            </div>
+      <div className="flex gap-2 border-b border-slate-800 mb-6">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              type="button"
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-t-lg border-b-2 ${isActive ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`}
+            >
+              <tab.icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : ''}`} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-            <div className="flex-1 overflow-y-auto">
-                {activeTab === 'design_system' ? (
-                    <DesignSystemSettings />
-                ) : activeTab === 'foundation' ? (
-                    <FoundationSettingsPanel />
-                ) : activeTab === 'myworld_style' ? (
-                    <MyWorldStyleSettingsPanel />
-                ) : activeTab === 'workspace_engine' ? (
-                    <WorkspaceEngineSettingsPanel onSaveSuccess={refreshConfig} />
-                ) : activeTab === 'partner_integrations' && activeConfigData ? (
-                    <PartnerIntegrationsPanel 
-                        key={activeTab}
-                        configKey={activeTab} 
-                        data={activeConfigData} 
-                        onSaveSuccess={refreshConfig} 
-                    />
-                ) : activeConfigData !== undefined && activeConfigData !== null ? (
-                    <GlobalSettingsPanel
-                        key={activeTab}
-                        title={TABS.find(t => t.id === activeTab)?.label || 'Pannello'}
-                        configKey={activeTab}
-                        data={activeConfigData}
-                        onSaveSuccess={refreshConfig}
-                    />
-                ) : (
-                    <div className="text-center p-8 bg-slate-800/50 rounded-lg">
-                        <h4 className="font-bold text-lg text-white">Nessuna Configurazione</h4>
-                        <p className="text-sm text-slate-400 mt-1">Nessun dato di configurazione trovato per la chiave <strong>{activeTab}</strong>.</p>
-                        <p className="text-xs text-slate-500 mt-2">Verifica che esista un record corrispondente nella tabella 'global_settings'.</p>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'design_system' ? (
+          <DesignSystemSettings />
+        ) : activeTab === 'foundation' ? (
+          <FoundationSettingsPanel />
+        ) : activeTab === 'myworld_style' ? (
+          <MyWorldStyleSettingsPanel />
+        ) : activeTab === 'workspace_engine' ? (
+          <WorkspaceEngineSettingsPanel onSaveSuccess={refreshConfig} />
+        ) : activeTab === 'partner_integrations' && configs.partner_integrations ? (
+          <PartnerIntegrationsPanel
+            key={activeTab}
+            configKey={activeTab}
+            data={configs.partner_integrations}
+            onSaveSuccess={refreshConfig}
+          />
+        ) : activeConfigData !== undefined && activeConfigData !== null ? (
+          <GlobalSettingsPanel
+            key={activeTab}
+            title={TABS.find((t) => t.id === activeTab)?.label || 'Pannello'}
+            configKey={activeTab}
+            data={activeConfigData}
+            onSaveSuccess={refreshConfig}
+          />
+        ) : (
+          <div className="text-center p-8 bg-slate-800/50 rounded-lg">
+            <h4 className="font-bold text-lg text-white">Nessuna Configurazione</h4>
+            <p className="text-sm text-slate-400 mt-1">
+              Nessun dato di configurazione trovato per la chiave <strong>{activeTab}</strong>.
+            </p>
+            <p className="text-xs text-slate-500 mt-2">
+              Verifica che esista un record corrispondente nella tabella 'global_settings'.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };

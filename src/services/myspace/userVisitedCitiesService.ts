@@ -4,8 +4,8 @@
  * Delete Viaggio non elimina le città visitate (nessuna FK verso viaggi).
  */
 import { supabase } from '@/services/supabaseClient';
+import { listCityIdsForViaggi, listCityIdsForViaggio } from '@/services/viaggio/viaggioCityService';
 import { listViaggiByUser } from '@/services/viaggio/viaggioService';
-import { listCityIdsForViaggio, listCityIdsForViaggi } from '@/services/viaggio/viaggioCityService';
 
 export type VisitedCitySource = 'auto' | 'manual';
 
@@ -43,16 +43,11 @@ export async function listVisitedCities(userId: string): Promise<UserVisitedCity
     return [];
   }
 
-  return (data ?? [])
-    .map(mapRow)
-    .filter((row): row is UserVisitedCity => row !== null);
+  return (data ?? []).map(mapRow).filter((row): row is UserVisitedCity => row !== null);
 }
 
 /** Upsert auto: non sovrascrive first_seen_at / source se già presente. */
-export async function ensureVisitedCitiesAuto(
-  userId: string,
-  cityIds: string[],
-): Promise<void> {
+export async function ensureVisitedCitiesAuto(userId: string, cityIds: string[]): Promise<void> {
   const unique = [...new Set(cityIds.map((id) => id.trim()).filter(Boolean))];
   if (unique.length === 0) return;
 

@@ -1,12 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BookOpen, Copy, Link2, Plus, Star } from 'lucide-react';
-import type { Itinerary } from '@/types/index';
-import type { Viaggio } from '@/types/models/Viaggio';
-import {
-  listDiariesByViaggio,
-  setViaggioActiveDiary,
-} from '@/services/viaggio/viaggioDiaryService';
-import { getViaggio } from '@/services/viaggio/viaggioService';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useModal } from '@/context/ModalContext';
+import { duplicatePersonalDiary } from '@/services/collaboration/personalShareService';
 import {
   associateDiaryToViaggio,
   copyDiaryAndAssociateToViaggio,
@@ -14,9 +11,13 @@ import {
   getDiaryAssociationConflict,
   listDiariesAssociableToViaggio,
 } from '@/services/viaggio/resourceAssociationService';
-import { duplicatePersonalDiary } from '@/services/collaboration/personalShareService';
-import { useItinerary } from '@/context/ItineraryContext';
-import { useModal } from '@/context/ModalContext';
+import {
+  listDiariesByViaggio,
+  setViaggioActiveDiary,
+} from '@/services/viaggio/viaggioDiaryService';
+import { getViaggio } from '@/services/viaggio/viaggioService';
+import type { Itinerary } from '@/types/index';
+import type { Viaggio } from '@/types/models/Viaggio';
 import { CreateDiaryModal, type CreateDiaryModalResult } from './CreateDiaryModal';
 import { ResourceConflictCopyModal } from './ResourceConflictCopyModal';
 
@@ -238,10 +239,14 @@ export const ViaggioDiarioSection: React.FC<Props> = ({
           data-testid="diario-link-panel"
         >
           <div className="min-w-[12rem] flex-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <label
+              htmlFor="fld-myspace-viaggiodiariosection-tsx-l242"
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-500"
+            >
               Collega diario esistente
             </label>
             <select
+              id="fld-myspace-viaggiodiariosection-tsx-l242"
               value={linkDiaryId}
               onChange={(e) => setLinkDiaryId(e.target.value)}
               className="mt-1 w-full bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-1.5"

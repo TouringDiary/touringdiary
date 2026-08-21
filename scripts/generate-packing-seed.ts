@@ -4,7 +4,7 @@
  *
  * Eseguire: npx tsx scripts/generate-packing-seed.ts
  */
-import fs from 'fs';
+import fs from 'node:fs';
 import { TAG_ITEM_MAP, UNIVERSAL_DEFAULTS } from '../src/domain/packing/packingAiSeedSource';
 import type { PackingStandardItemTier } from '../src/types/packingCatalog';
 
@@ -90,7 +90,7 @@ sql += 'INSERT INTO public.packing_ai_catalog (name, category, tags, sort_order)
 sql += aiCatalog
   .map(
     (a) =>
-      `  ('${esc(a.name)}', '${esc(a.category)}', ARRAY[${a.tags.map((t) => `'${esc(t)}'`).join(',')}], ${a.sort_order})`
+      `  ('${esc(a.name)}', '${esc(a.category)}', ARRAY[${a.tags.map((t) => `'${esc(t)}'`).join(',')}], ${a.sort_order})`,
   )
   .join(',\n');
 sql += '\nON CONFLICT (name) DO NOTHING;\n\n';

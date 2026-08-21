@@ -1,7 +1,7 @@
-import React from 'react';
 import { Map } from 'lucide-react';
-import type { CitySummary } from '@/types';
+import type React from 'react';
 import { cityHeaderImageUrl } from '@/myspace/resolveCityPresentation';
+import type { CitySummary } from '@/types';
 
 const MAX_VISIBLE = 4;
 
@@ -10,13 +10,7 @@ interface Props {
   className?: string;
 }
 
-function ThumbCell({
-  city,
-  overflowLabel,
-}: {
-  city: CitySummary;
-  overflowLabel?: string;
-}) {
+function ThumbCell({ city, overflowLabel }: { city: CitySummary; overflowLabel?: string }) {
   const url = cityHeaderImageUrl(city);
   return (
     <span className="relative block min-w-0 min-h-0 w-full h-full overflow-hidden bg-slate-800">
@@ -65,10 +59,7 @@ export const MySpaceCityThumbCollage: React.FC<Props> = ({ cities, className = '
     return (
       <span className={`grid grid-cols-2 grid-rows-1 ${mosaicClass}`}>
         <ThumbCell city={visible[0]} />
-        <ThumbCell
-          city={visible[1]}
-          overflowLabel={overflow > 0 ? `+${overflow}` : undefined}
-        />
+        <ThumbCell city={visible[1]} overflowLabel={overflow > 0 ? `+${overflow}` : undefined} />
       </span>
     );
   }
@@ -80,10 +71,7 @@ export const MySpaceCityThumbCollage: React.FC<Props> = ({ cities, className = '
           <ThumbCell city={visible[0]} />
         </span>
         <ThumbCell city={visible[1]} />
-        <ThumbCell
-          city={visible[2]}
-          overflowLabel={overflow > 0 ? `+${overflow}` : undefined}
-        />
+        <ThumbCell city={visible[2]} overflowLabel={overflow > 0 ? `+${overflow}` : undefined} />
       </span>
     );
   }
@@ -94,10 +82,7 @@ export const MySpaceCityThumbCollage: React.FC<Props> = ({ cities, className = '
       <ThumbCell city={visible[0]} />
       <ThumbCell city={visible[1]} />
       <ThumbCell city={visible[2]} />
-      <ThumbCell
-        city={visible[3]}
-        overflowLabel={overflow > 0 ? `+${overflow}` : undefined}
-      />
+      <ThumbCell city={visible[3]} overflowLabel={overflow > 0 ? `+${overflow}` : undefined} />
     </span>
   );
 };

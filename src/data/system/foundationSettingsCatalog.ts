@@ -20,7 +20,8 @@ export const FOUNDATION_SETTINGS_GROUPS: FoundationSettingsGroup[] = [
   {
     id: 'shell',
     label: 'Shell modale',
-    description: 'Overlay visivo, contenitore, aree strutturali e posizione del pulsante di chiusura.',
+    description:
+      'Overlay visivo, contenitore, aree strutturali e posizione del pulsante di chiusura.',
     items: [
       { baseKey: 'foundation_modal_overlay' },
       { baseKey: 'foundation_modal_container' },
@@ -65,7 +66,8 @@ export const FOUNDATION_SETTINGS_GROUPS: FoundationSettingsGroup[] = [
   {
     id: 'selectable_cards',
     label: 'Card selezionabili',
-    description: 'Opzioni a scelta singola con badge, stati selezionato/non selezionato e gerarchia tipografica.',
+    description:
+      'Opzioni a scelta singola con badge, stati selezionato/non selezionato e gerarchia tipografica.',
     items: [
       { baseKey: 'foundation_selectable_card_base' },
       { baseKey: 'foundation_selectable_card_selected' },
@@ -86,10 +88,7 @@ export const FOUNDATION_SETTINGS_GROUPS: FoundationSettingsGroup[] = [
     id: 'actions',
     label: 'Pulsanti footer',
     description: 'Azioni primarie e secondarie (Annulla / Conferma) nel footer modale.',
-    items: [
-      { baseKey: 'foundation_btn_cancel' },
-      { baseKey: 'foundation_btn_primary' },
-    ],
+    items: [{ baseKey: 'foundation_btn_cancel' }, { baseKey: 'foundation_btn_primary' }],
   },
 ];
 
@@ -129,5 +128,4 @@ export const FOUNDATION_STYLE_KEYS = {
   btnPrimary: 'foundation_btn_primary',
 } as const;
 
-export type FoundationStyleKey =
-  (typeof FOUNDATION_STYLE_KEYS)[keyof typeof FOUNDATION_STYLE_KEYS];
+export type FoundationStyleKey = (typeof FOUNDATION_STYLE_KEYS)[keyof typeof FOUNDATION_STYLE_KEYS];

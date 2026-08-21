@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { fetchAccessibleSuitcasesForUserAsync } from '@/services/suitcaseService';
-import { Suitcase } from '@/types/suitcase';
+import type { Suitcase } from '@/types/suitcase';
 import { isDraftWorkspaceId, preserveDraftLocalStorageFields } from '@/utils/guestSuitcaseHelper';
 
 const LOCAL_DRAFT_STORAGE_KEY = 'GUEST_LOCAL_SUITCASE';
@@ -22,16 +22,13 @@ export const useUserSuitcases = (userId: string | undefined) => {
         const data = await fetchAccessibleSuitcasesForUserAsync(userId);
         finalSuitcases = [...data];
       }
-      
+
       // Inseriamo la valigia guest locale se esiste (Merge per loggati, Fetch base per anonimi)
       const localData = localStorage.getItem(LOCAL_DRAFT_STORAGE_KEY);
       if (localData) {
         try {
           const draftSc = JSON.parse(localData) as Suitcase;
-          if (
-            isDraftWorkspaceId(draftSc.id) &&
-            !finalSuitcases.some((s) => s.id === draftSc.id)
-          ) {
+          if (isDraftWorkspaceId(draftSc.id) && !finalSuitcases.some((s) => s.id === draftSc.id)) {
             finalSuitcases = [draftSc, ...finalSuitcases];
           }
         } catch (e) {
@@ -64,7 +61,7 @@ export const useUserSuitcases = (userId: string | undefined) => {
   const setSuitcasesIntercepted = useCallback((value: React.SetStateAction<Suitcase[]>) => {
     setSuitcases((prev) => {
       const next = typeof value === 'function' ? value(prev) : value;
-      
+
       // Sincronizzazione localStorage per workspace draft (guest e auth).
       const draftSc = next.find((s) => isDraftWorkspaceId(s.id));
 

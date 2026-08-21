@@ -1,6 +1,6 @@
-import { CATEGORY_ID_MAP, CATEGORY_ORDER, SystemCategoryName } from './packingCategories';
-import type { CategorySetupMap } from './categorySetupTypes';
 import { setCategoryEnabled } from './categorySetup';
+import type { CategorySetupMap } from './categorySetupTypes';
+import { CATEGORY_ID_MAP, CATEGORY_ORDER, type SystemCategoryName } from './packingCategories';
 
 /** Categorie standard attive (e con oggetti standard) di default nella modale di configurazione. */
 export const CONFIGURATION_MODAL_STANDARD_NAMES = [
@@ -42,7 +42,7 @@ export function getCategorySetupDefaultsForConfigurationModal(): CategorySetupMa
 export function setCategorySeeded(
   setup: CategorySetupMap,
   categoryId: string,
-  seeded: boolean
+  seeded: boolean,
 ): CategorySetupMap {
   const current = setup[categoryId] ?? { enabled: false, seeded: false };
   if (!current.enabled) {

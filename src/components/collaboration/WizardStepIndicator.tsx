@@ -1,9 +1,9 @@
-import React from 'react';
 import { Check } from 'lucide-react';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import React from 'react';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
-import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import type { SharingMode } from '@/domain/collaboration';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import {
   getWizardStepShortLabel,
   resolveWizardStepsForContext,

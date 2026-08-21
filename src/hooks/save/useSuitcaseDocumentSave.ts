@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { useDocumentSaveController } from '@/hooks/save/useDocumentSaveController';
-import { AUTOSAVE_PREF_KEYS } from '@/domain/save/documentSaveTypes';
-import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
-import { registerDocumentExitGate, controllerToExitRegistration } from '@/focus/exitGate/documentExitRegistry';
+import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
 import { registerDocumentSaveController } from '@/domain/save/documentSaveRegistry';
+import { AUTOSAVE_PREF_KEYS } from '@/domain/save/documentSaveTypes';
+import { snapshotsEqual } from '@/domain/save/documentSnapshot';
+import {
+  controllerToExitRegistration,
+  registerDocumentExitGate,
+} from '@/focus/exitGate/documentExitRegistry';
+import { useDocumentSaveController } from '@/hooks/save/useDocumentSaveController';
+import { notifySharedResourceContentModified } from '@/services/collaboration/collaborationNotificationService';
+import { recordCollaborationDomainEvent } from '@/services/collaboration/domainEventService';
+import { listWorkspacesContainingResource } from '@/services/collaboration/workspaceCompositionService';
 import {
   saveSuitcaseDocumentAsync,
   syncSuitcaseItemsDiff,
 } from '@/services/suitcase/suitcaseDocumentSaveService';
-import { snapshotsEqual } from '@/domain/save/documentSnapshot';
-import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
-import { notifySharedResourceContentModified } from '@/services/collaboration/collaborationNotificationService';
-import { recordCollaborationDomainEvent } from '@/services/collaboration/domainEventService';
-import { listWorkspacesContainingResource } from '@/services/collaboration/workspaceCompositionService';
+import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 
 interface UseSuitcaseDocumentSaveOptions {
   activeSuitcase: Suitcase | null | undefined;
@@ -47,9 +50,7 @@ function toContentSnapshot(sc: Suitcase) {
         is_ai_suggestion: i.is_ai_suggestion ?? false,
         accepted_from_ai: i.accepted_from_ai ?? null,
       }))
-      .sort((a, b) =>
-        `${a.category}|${a.name}`.localeCompare(`${b.category}|${b.name}`)
-      ),
+      .sort((a, b) => `${a.category}|${a.name}`.localeCompare(`${b.category}|${b.name}`)),
   };
 }
 
@@ -74,13 +75,12 @@ export function useSuitcaseDocumentSave({
   const persist = useCallback(
     async (
       _snapshot: ReturnType<typeof toContentSnapshot>,
-      options: { name?: string; asCopy?: boolean; documentId: string | null }
+      options: { name?: string; asCopy?: boolean; documentId: string | null },
     ) => {
       if (!userId) throw new Error('Utente non autenticato');
 
       const sc = suitcaseRef.current!;
-      const wasPersisted =
-        !!options.documentId && !isDraftWorkspaceId(options.documentId);
+      const wasPersisted = !!options.documentId && !isDraftWorkspaceId(options.documentId);
 
       const result = await saveSuitcaseDocumentAsync(sc, {
         userId,
@@ -99,7 +99,7 @@ export function useSuitcaseDocumentSave({
         const syncedItems = await syncSuitcaseItemsDiff(
           result.id,
           sc.suitcase_items ?? [],
-          baselineSuitcaseRef.current.suitcase_items ?? []
+          baselineSuitcaseRef.current.suitcase_items ?? [],
         );
         savedSuitcase = { ...sc, id: result.id, suitcase_items: syncedItems };
       } else {
@@ -117,9 +117,12 @@ export function useSuitcaseDocumentSave({
         void notifySharedResourceContentModified(
           resourceKind,
           savedSuitcase.id,
-          savedSuitcase.title
+          savedSuitcase.title,
         ).catch((notificationError) => {
-          console.error('[useSuitcaseDocumentSave] notifySharedResourceContentModified:', notificationError);
+          console.error(
+            '[useSuitcaseDocumentSave] notifySharedResourceContentModified:',
+            notificationError,
+          );
         });
         void listWorkspacesContainingResource(resourceKind, savedSuitcase.id)
           .then((workspaces) => {
@@ -139,7 +142,7 @@ export function useSuitcaseDocumentSave({
 
       return result;
     },
-    [onDocumentSaved, onSaveAsNavigate, userId]
+    [onDocumentSaved, onSaveAsNavigate, userId],
   );
 
   const controller = useDocumentSaveController({
@@ -174,7 +177,7 @@ export function useSuitcaseDocumentSave({
       baselineSuitcaseRef.current.id === activeSuitcase.id &&
       !snapshotsEqual(
         toContentSnapshot(baselineSuitcaseRef.current),
-        toContentSnapshot(activeSuitcase)
+        toContentSnapshot(activeSuitcase),
       )
     ) {
       controller.markDirty();
@@ -185,11 +188,7 @@ export function useSuitcaseDocumentSave({
     if (!enabled || !activeSuitcase) return;
     const gateId = `suitcase-${activeSuitcase.id}`;
     const unregister = registerDocumentExitGate(
-      controllerToExitRegistration(
-        gateId,
-        activeSuitcase.title || 'Valigia',
-        controller
-      )
+      controllerToExitRegistration(gateId, activeSuitcase.title || 'Valigia', controller),
     );
     const unregisterSave = registerDocumentSaveController('suitcase-active', controller);
     return () => {
@@ -204,10 +203,13 @@ export function useSuitcaseDocumentSave({
     controller.markDirty(true);
   }, [controller]);
 
-  const onBaselineSynced = useCallback((sc: Suitcase) => {
-    baselineSuitcaseRef.current = structuredClone(sc);
-    controller.setBaseline(toContentSnapshot(sc));
-  }, [controller]);
+  const onBaselineSynced = useCallback(
+    (sc: Suitcase) => {
+      baselineSuitcaseRef.current = structuredClone(sc);
+      controller.setBaseline(toContentSnapshot(sc));
+    },
+    [controller],
+  );
 
   return {
     ...controller,

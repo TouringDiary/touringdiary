@@ -5,10 +5,8 @@ import {
   Bed,
   Bot,
   Calendar,
-  Check,
   CheckCircle,
   CheckSquare,
-  ChevronDown,
   Clock,
   Coins,
   Database,
@@ -22,7 +20,6 @@ import {
   Loader2,
   Music,
   Plus,
-  RefreshCw,
   Search,
   Shield,
   ShoppingBag,
@@ -31,7 +28,6 @@ import {
   Star,
   Sun,
   Target,
-  Trash2,
   Utensils,
   Wand2,
   X,
@@ -296,6 +292,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
           {/* STOP BUTTON (Visible only when processing) */}
           {state.isBulkProcessing && (
             <button
+              type="button"
               onClick={actions.stopBulkProcess}
               className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold uppercase animate-pulse shadow-lg hover:bg-red-500 transition-colors"
             >
@@ -307,6 +304,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
         <div className="flex gap-2 w-full xl:w-auto justify-end">
           {/* DAILY DEEP SCAN BUTTON */}
           <button
+            type="button"
             onClick={handleDailyDeepScan}
             disabled={state.isGenerating || state.isBulkProcessing}
             className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 shadow-lg shadow-purple-900/20 border border-purple-500 disabled:opacity-50 transition-all active:scale-95"
@@ -321,6 +319,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={() => actions.bulkResetImages(currentUser)}
             disabled={state.selectedIds.size === 0}
             className="bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 px-3 py-2 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 border border-slate-700 transition-colors disabled:opacity-30"
@@ -328,6 +327,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
             <ImageOff className="w-3.5 h-3.5" /> Reset Img
           </button>
           <button
+            type="button"
             onClick={() => exportPoiCsv(cityId)}
             disabled={isExporting}
             className="bg-slate-800 hover:bg-emerald-900/30 text-slate-400 hover:text-emerald-400 px-3 py-2 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 border border-slate-700 transition-colors"
@@ -340,6 +340,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
             EXPORT POI
           </button>
           <button
+            type="button"
             onClick={actions.fixTaxonomy}
             disabled={state.isFixingTaxonomy}
             className="bg-slate-800 hover:bg-cyan-900/30 text-slate-400 hover:text-cyan-400 px-3 py-2 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 border border-slate-700 transition-colors disabled:opacity-50"
@@ -352,6 +353,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
             Auto-Fix Tax
           </button>
           <button
+            type="button"
             onClick={actions.openTaxonomy}
             className="bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 border border-slate-700 transition-colors"
           >
@@ -366,6 +368,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
       {isDiscoveryOpen && (
         <div className="bg-emerald-900/10 border border-emerald-500/30 rounded-2xl p-4 animate-in fade-in slide-in-from-top-2 relative">
           <button
+            type="button"
             onClick={() => setIsDiscoveryOpen(false)}
             className="absolute top-2 right-2 p-1 text-emerald-400 hover:text-white rounded-full hover:bg-emerald-900/30"
           >
@@ -387,6 +390,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {CATEGORY_TABS.filter((c) => c.id !== 'all').map((cat) => (
                   <button
+                    type="button"
                     key={cat.id}
                     onClick={() => toggleDiscCat(cat.id)}
                     className={`flex items-center gap-2 p-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${selectedDiscCats.includes(cat.id) ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-emerald-500/50'}`}
@@ -404,10 +408,14 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
 
             <div className="w-full md:w-auto flex flex-col gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">
+                <label
+                  htmlFor="fld-admin-poimanager-poitoolbar-tsx-l411"
+                  className="text-[10px] font-bold text-slate-400 uppercase block mb-2"
+                >
                   Quantità per Categoria
                 </label>
                 <select
+                  id="fld-admin-poimanager-poitoolbar-tsx-l411"
                   value={discoveryCount}
                   onChange={(e) => setDiscoveryCount(Number(e.target.value))}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-sm font-bold outline-none focus:border-emerald-500"
@@ -419,6 +427,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
                 </select>
               </div>
               <button
+                type="button"
                 onClick={runDiscovery}
                 disabled={state.isGenerating}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95 disabled:opacity-50"
@@ -442,6 +451,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900 p-4 rounded-2xl border border-slate-800">
         <div className="flex items-center gap-2 w-full md:w-auto">
           <button
+            type="button"
             onClick={actions.toggleAllPage}
             className={`p-2 rounded-xl border transition-all shadow-sm shrink-0 ${areAllSelected ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-950 border-slate-700 text-slate-500 hover:text-white'}`}
             title="Seleziona/Deseleziona Tutti"
@@ -459,6 +469,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
               const isActive = state.viewStatus === st.id;
               return (
                 <button
+                  type="button"
                   key={st.id}
                   onClick={() =>
                     actions.setViewStatus(st.id as NonNullable<PointOfInterest['status']> | 'all')
@@ -477,6 +488,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
           {/* GROUP: POI MANAGEMENT */}
 
           <button
+            type="button"
             onClick={actions.fixSelectedPois}
             disabled={state.selectedIds.size === 0 || state.isGenerating}
             className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-lg font-bold text-[11px] uppercase tracking-wide flex items-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:bg-slate-800 disabled:text-slate-500 border border-purple-500 disabled:border-slate-700 whitespace-nowrap"
@@ -491,6 +503,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
 
           {/* BUTTON TO TOGGLE DISCOVERY PANEL (RENAMED) */}
           <button
+            type="button"
             onClick={() => setIsDiscoveryOpen(!isDiscoveryOpen)}
             disabled={state.isGenerating}
             className={`px-4 py-2.5 rounded-lg font-black text-[11px] uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all border whitespace-nowrap ${isDiscoveryOpen ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500' : 'bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-500 border-emerald-500/30'}`}
@@ -500,6 +513,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={actions.openNewModal}
             className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-black text-[11px] uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all border border-indigo-500 whitespace-nowrap"
           >
@@ -518,6 +532,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
             );
             return (
               <button
+                type="button"
                 key={cat.id}
                 onClick={() => actions.setCategory(cat.id)}
                 className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl border transition-all min-w-[80px] ${isActive ? `${cat.bg} ${cat.borderActive} ${cat.color} shadow-md` : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300'}`}
@@ -553,6 +568,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           {showLoadAllButton && (
             <button
+              type="button"
               onClick={() => {
                 actions.setPageSize(state.totalItems + 100);
                 actions.setPage(1);
@@ -632,6 +648,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
 
           {/* FILTRI EXTRA (DRAWER) - ALWAYS VISIBLE NOW */}
           <button
+            type="button"
             onClick={actions.openFilterDrawer}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap bg-indigo-600 text-white border-indigo-500 shadow-md`}
           >
@@ -640,6 +657,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
 
           {/* RESET */}
           <button
+            type="button"
             onClick={actions.resetFiltersAndReload}
             className="p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
             title="Reset filtri"
@@ -651,6 +669,7 @@ export const PoiToolbar: React.FC<PoiToolbarProps> = ({
 
           {/* SORT */}
           <button
+            type="button"
             onClick={actions.toggleSort}
             className="flex items-center gap-1 bg-slate-950 px-3 py-2 rounded-lg border border-slate-700 text-[10px] font-bold text-white hover:bg-slate-800 transition-colors whitespace-nowrap"
           >

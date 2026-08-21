@@ -2,9 +2,9 @@
  * One-off generator for temp/review/*.md — Foundation migration review docs.
  * Run: npx tsx scripts/generate-foundation-review-docs.ts
  */
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT_DIR = path.join(ROOT, 'temp', 'review');
@@ -25,7 +25,7 @@ function readFile(rel: string): string {
 }
 
 function fence(lang: string, content: string): string {
-  return '```' + lang + '\n' + content.replace(/\r\n/g, '\n') + '\n```';
+  return `\`\`\`${lang}\n${content.replace(/\r\n/g, '\n')}\n\`\`\``;
 }
 
 function buildBatch(batch: ReviewBatch): string {
@@ -51,7 +51,22 @@ function buildBatch(batch: ReviewBatch): string {
 
     const finalContent = readFile(rel);
 
-    lines.push(`## \`${rel}\``, '', motivazione, '', '### Diff', '', fence('diff', diff), '', '### File definitivo proposto', '', fence('tsx', finalContent), '', '---', '');
+    lines.push(
+      `## \`${rel}\``,
+      '',
+      motivazione,
+      '',
+      '### Diff',
+      '',
+      fence('diff', diff),
+      '',
+      '### File definitivo proposto',
+      '',
+      fence('tsx', finalContent),
+      '',
+      '---',
+      '',
+    );
   }
 
   return lines.join('\n');
@@ -129,7 +144,7 @@ const batches: ReviewBatch[] = [
       },
       {
         rel: 'src/components/features/diary/header/DiaryHeaderInvalidDateModal.tsx',
-        motivazione: 'Confirm compatto Foundation per date invalide nell\'header diario.',
+        motivazione: "Confirm compatto Foundation per date invalide nell'header diario.",
       },
       {
         rel: 'src/components/modals/UnsavedChangesModal.tsx',
@@ -145,7 +160,8 @@ const batches: ReviewBatch[] = [
       },
       {
         rel: 'src/components/modals/EmptyDiaryModal.tsx',
-        motivazione: 'Confirm compatto Foundation per diario vuoto; aggiunto `stopPropagation` sul container.',
+        motivazione:
+          'Confirm compatto Foundation per diario vuoto; aggiunto `stopPropagation` sul container.',
       },
       {
         rel: 'src/components/modals/DuplicateResolutionModal.tsx',
@@ -157,11 +173,13 @@ const batches: ReviewBatch[] = [
       },
       {
         rel: 'src/components/modals/TimeConflictModal.tsx',
-        motivazione: 'Shell header/body/footer Foundation per conflitto orario con swap e cambio slot.',
+        motivazione:
+          'Shell header/body/footer Foundation per conflitto orario con swap e cambio slot.',
       },
       {
         rel: 'src/components/modals/AddToItineraryModal.tsx',
-        motivazione: 'Foundation per entrambe le viste (config date + aggiunta tappa); close offset shell.',
+        motivazione:
+          'Foundation per entrambe le viste (config date + aggiunta tappa); close offset shell.',
       },
       {
         rel: 'src/components/modals/SaveAsModal.tsx',
@@ -173,7 +191,8 @@ const batches: ReviewBatch[] = [
       },
       {
         rel: 'src/components/modals/ReviewModal.tsx',
-        motivazione: 'Foundation per modale recensione + nested confirm "dati non salvati". Sostituito `useDynamicStyles` con token Foundation.',
+        motivazione:
+          'Foundation per modale recensione + nested confirm "dati non salvati". Sostituito `useDynamicStyles` con token Foundation.',
       },
       {
         rel: 'src/components/modals/ShareModal.tsx',

@@ -1,186 +1,227 @@
-import { Z_ADMIN_MODAL_TOP, Z_ADMIN_MODAL } from '@/constants/zIndex';
-import React from 'react';
+import { AlertTriangle, Camera, CheckCircle2, Loader2, Trash2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { Camera, CheckCircle2, AlertTriangle, X, Loader2, Trash2 } from 'lucide-react';
-import { User as UserType } from '../../types/users';
+import { Z_ADMIN_MODAL, Z_ADMIN_MODAL_TOP } from '@/constants/zIndex';
 import { usePhotoModeration } from '../../hooks/admin/usePhotoModeration';
-import { PhotoFilters } from './photos/PhotoFilters';
-import { PhotoTable } from './photos/PhotoTable';
-import { PhotoMetadataModal } from './photos/PhotoMetadataModal';
+import type { User as UserType } from '../../types/users';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
 import { AdminPageHeader } from './common/AdminPageHeader';
-
+import { PhotoFilters } from './photos/PhotoFilters';
+import { PhotoMetadataModal } from './photos/PhotoMetadataModal';
+import { PhotoTable } from './photos/PhotoTable';
 
 // Toast Locale (Mantenuto qui o spostato in shared se preferisci, per ora qui va bene)
-const PhotoToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-    <div 
-        className={`fixed top-6 right-6 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}
-        style={{ zIndex: Z_ADMIN_MODAL_TOP }}
-    >
-        {type === 'success' ? <CheckCircle2 className="w-6 h-6 shrink-0"/> : <AlertTriangle className="w-6 h-6 shrink-0"/>}
-        <div className="font-bold text-sm leading-snug">{message}</div>
-        <button onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full"><X className="w-4 h-4"/></button>
-    </div>
+const PhotoToast = ({
+  message,
+  type,
+  onClose,
+}: {
+  message: string;
+  type: 'success' | 'error';
+  onClose: () => void;
+}) => (
+  <div
+    className={`fixed top-6 right-6 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}
+    style={{ zIndex: Z_ADMIN_MODAL_TOP }}
+  >
+    {type === 'success' ? (
+      <CheckCircle2 className="w-6 h-6 shrink-0" />
+    ) : (
+      <AlertTriangle className="w-6 h-6 shrink-0" />
+    )}
+    <div className="font-bold text-sm leading-snug">{message}</div>
+    <button type="button" onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full">
+      <X className="w-4 h-4" />
+    </button>
+  </div>
 );
 
 interface PhotoModerationProps {
-    currentUser: UserType;
-    onUpdate?: () => void;
+  currentUser: UserType;
+  onUpdate?: () => void;
 }
 
 export const PhotoModeration = ({ currentUser, onUpdate }: PhotoModerationProps) => {
-    // USE HOOK
-    const {
-        filteredList,
-        isLoading,
-        filterStatus, setFilterStatus,
-        filterCity, setFilterCity,
-        filterOrigin, setFilterOrigin,
-        sortDir, setSortDir,
-        cityOptions,
-        
-        isInspectorOpen, setIsInspectorOpen,
-        photoToEdit, setPhotoToEdit,
-        metadataModal, setMetadataModal,
-        deleteTarget, setDeleteTarget,
-        isDeleting,
-        isUploading,
-        uploadStep,
-        toast, setToast,
-        fileInputRef,
-        isSuperAdmin,
+  // USE HOOK
+  const {
+    filteredList,
+    isLoading,
+    filterStatus,
+    setFilterStatus,
+    filterCity,
+    setFilterCity,
+    filterOrigin,
+    setFilterOrigin,
+    sortDir,
+    setSortDir,
+    cityOptions,
 
-        handleFileUpload,
-        handleStatusUpdate,
-        requestDelete,
-        confirmDelete,
-        handleInspectorSave,
-        saveMetadata,
-        handleToggleOfficial
-    } = usePhotoModeration({ currentUser, onUpdate });
+    isInspectorOpen,
+    setIsInspectorOpen,
+    photoToEdit,
+    setPhotoToEdit,
+    metadataModal,
+    setMetadataModal,
+    deleteTarget,
+    setDeleteTarget,
+    isDeleting,
+    isUploading,
+    uploadStep,
+    toast,
+    setToast,
+    fileInputRef,
+    isSuperAdmin,
 
-    if (isLoading) {
-        return (
-            <div className="h-full flex flex-col items-center justify-center gap-4 text-slate-500">
-                <Loader2 className="w-12 h-12 animate-spin text-indigo-500"/>
-                <p className="font-bold uppercase tracking-widest text-xs">Sincronizzazione Cloud...</p>
-            </div>
-        );
-    }
+    handleFileUpload,
+    handleStatusUpdate,
+    requestDelete,
+    confirmDelete,
+    handleInspectorSave,
+    saveMetadata,
+    handleToggleOfficial,
+  } = usePhotoModeration({ currentUser, onUpdate });
 
+  if (isLoading) {
     return (
-        <div className="space-y-4 flex flex-col h-full animate-in fade-in relative">
-            
-            {toast && <PhotoToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-            
-            {/* DELETE CONFIRMATION MODAL */}
-            {deleteTarget && createPortal(
-                // admin-super-layer modal | intentionally rendered above global modal stack
-                <div 
-                    className="td-modal-overlay p-4 bg-black/90 backdrop-blur-sm animate-in fade-in flex items-center justify-center fixed inset-0"
-                    style={{ zIndex: Z_ADMIN_MODAL }}
-                >
-                    <div 
-                        className="bg-slate-900 border border-red-500/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95"
-                        style={{ zIndex: Z_ADMIN_MODAL_TOP }}
-                    >
-                        <div className="flex flex-col items-center text-center gap-4">
-                            <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse"/>
-                            <div>
-                                <h3 className="text-xl font-bold text-white mb-2 font-display">Eliminare Foto?</h3>
-                                <p className="text-sm text-slate-300 leading-relaxed">
-                                    Stai per cancellare definitivamente la foto di <br/>
-                                    <strong className="text-white">"{deleteTarget.locationName}"</strong>.
-                                    <br/>L'azione è irreversibile.
-                                </p>
-                            </div>
-                            <div className="flex gap-3 w-full mt-2">
-                                <button 
-                                    onClick={() => setDeleteTarget(null)} 
-                                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors"
-                                >
-                                    Annulla
-                                </button>
-                                <button 
-                                    onClick={confirmDelete} 
-                                    disabled={isDeleting} 
-                                    className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
-                                >
-                                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Trash2 className="w-4 h-4"/>} 
-                                    Elimina
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
-
-            {/* INSPECTOR MODAL */}
-            {isInspectorOpen && photoToEdit && (
-                <AdminPhotoInspector 
-                    isOpen={true}
-                    imageUrl={photoToEdit.url}
-                    initialData={{ 
-                        locationName: photoToEdit.locationName, 
-                        user: photoToEdit.user,
-                        description: photoToEdit.description
-                    }}
-                    onClose={() => { setIsInspectorOpen(false); setPhotoToEdit(null); }}
-                    onSave={handleInspectorSave}
-                    mode="moderation"
-                />
-            )}
-            
-            <AdminPageHeader
-                icon={Camera}
-                accent="purple"
-                title="Foto & Moderazione"
-                subtitle="Gestisci i contributi visivi della community"
-            />
-
-            <PhotoFilters 
-                filterStatus={filterStatus}
-                setFilterStatus={setFilterStatus}
-                filterCity={filterCity}
-                setFilterCity={setFilterCity}
-                filterOrigin={filterOrigin}
-                setFilterOrigin={setFilterOrigin}
-                cityOptions={cityOptions}
-                sortDir={sortDir}
-                setSortDir={setSortDir}
-                onUploadClick={() => fileInputRef.current?.click()}
-                fileInputRef={fileInputRef}
-                isUploading={isUploading}
-                uploadStep={uploadStep}
-                onFileChange={handleFileUpload}
-            />
-
-            <PhotoTable 
-                photos={filteredList}
-                manifest={cityOptions} // Reuse options as they contain minimal city data needed
-                isSuperAdmin={isSuperAdmin}
-                actions={{
-                    onStatusUpdate: handleStatusUpdate,
-                    onDeleteRequest: requestDelete,
-                    onOpenInspector: (photo) => { setPhotoToEdit(photo); setIsInspectorOpen(true); },
-                    onOpenMetadata: (photo) => setMetadataModal({ isOpen: true, photoId: photo.id, description: photo.description || '', locationName: photo.locationName || '' }), onToggleOfficial: handleToggleOfficial
-                }}
-            />
-            
-            {metadataModal && (
-                <PhotoMetadataModal
-                    modal={metadataModal}
-                    cityOptions={cityOptions}
-                    onChange={(next) => setMetadataModal(next)}
-                    onClose={() => setMetadataModal(null)}
-                    onSave={saveMetadata}
-                />
-            )}
-        </div>
+      <div className="h-full flex flex-col items-center justify-center gap-4 text-slate-500">
+        <Loader2 className="w-12 h-12 animate-spin text-indigo-500" />
+        <p className="font-bold uppercase tracking-widest text-xs">Sincronizzazione Cloud...</p>
+      </div>
     );
+  }
+
+  return (
+    <div className="space-y-4 flex flex-col h-full animate-in fade-in relative">
+      {toast && (
+        <PhotoToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteTarget &&
+        createPortal(
+          // admin-super-layer modal | intentionally rendered above global modal stack
+          <div
+            className="td-modal-overlay p-4 bg-black/90 backdrop-blur-sm animate-in fade-in flex items-center justify-center fixed inset-0"
+            style={{ zIndex: Z_ADMIN_MODAL }}
+          >
+            <div
+              className="bg-slate-900 border border-red-500/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95"
+              style={{ zIndex: Z_ADMIN_MODAL_TOP }}
+            >
+              <div className="flex flex-col items-center text-center gap-4">
+                <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse" />
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-2 font-display">
+                    Eliminare Foto?
+                  </h3>
+                  <p className="text-sm text-slate-300 leading-relaxed">
+                    Stai per cancellare definitivamente la foto di <br />
+                    <strong className="text-white">"{deleteTarget.locationName}"</strong>.
+                    <br />
+                    L'azione è irreversibile.
+                  </p>
+                </div>
+                <div className="flex gap-3 w-full mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(null)}
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDelete}
+                    disabled={isDeleting}
+                    className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    Elimina
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* INSPECTOR MODAL */}
+      {isInspectorOpen && photoToEdit && (
+        <AdminPhotoInspector
+          isOpen={true}
+          imageUrl={photoToEdit.url}
+          initialData={{
+            locationName: photoToEdit.locationName,
+            user: photoToEdit.user,
+            description: photoToEdit.description,
+          }}
+          onClose={() => {
+            setIsInspectorOpen(false);
+            setPhotoToEdit(null);
+          }}
+          onSave={handleInspectorSave}
+          mode="moderation"
+        />
+      )}
+
+      <AdminPageHeader
+        icon={Camera}
+        accent="purple"
+        title="Foto & Moderazione"
+        subtitle="Gestisci i contributi visivi della community"
+      />
+
+      <PhotoFilters
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
+        filterCity={filterCity}
+        setFilterCity={setFilterCity}
+        filterOrigin={filterOrigin}
+        setFilterOrigin={setFilterOrigin}
+        cityOptions={cityOptions}
+        sortDir={sortDir}
+        setSortDir={setSortDir}
+        onUploadClick={() => fileInputRef.current?.click()}
+        fileInputRef={fileInputRef}
+        isUploading={isUploading}
+        uploadStep={uploadStep}
+        onFileChange={handleFileUpload}
+      />
+
+      <PhotoTable
+        photos={filteredList}
+        manifest={cityOptions} // Reuse options as they contain minimal city data needed
+        isSuperAdmin={isSuperAdmin}
+        actions={{
+          onStatusUpdate: handleStatusUpdate,
+          onDeleteRequest: requestDelete,
+          onOpenInspector: (photo) => {
+            setPhotoToEdit(photo);
+            setIsInspectorOpen(true);
+          },
+          onOpenMetadata: (photo) =>
+            setMetadataModal({
+              isOpen: true,
+              photoId: photo.id,
+              description: photo.description || '',
+              locationName: photo.locationName || '',
+            }),
+          onToggleOfficial: handleToggleOfficial,
+        }}
+      />
+
+      {metadataModal && (
+        <PhotoMetadataModal
+          modal={metadataModal}
+          cityOptions={cityOptions}
+          onChange={(next) => setMetadataModal(next)}
+          onClose={() => setMetadataModal(null)}
+          onSave={saveMetadata}
+        />
+      )}
+    </div>
+  );
 };
-
-
-
-

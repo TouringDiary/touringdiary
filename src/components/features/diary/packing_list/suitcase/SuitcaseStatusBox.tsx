@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { Suitcase } from '@/types/suitcase';
-import { getSuitcaseItemProgress } from './SuitcaseUtils';
-import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
+import type React from 'react';
+import { useMemo } from 'react';
+import type { Suitcase } from '@/types/suitcase';
 import { SuitcaseAscentProgressIndicator } from './SuitcaseAscentProgressIndicator';
+import { SuitcaseToolbarProgressBox } from './SuitcaseToolbarProgressBox';
+import { getSuitcaseItemProgress } from './SuitcaseUtils';
 
 interface SuitcaseStatusBoxProps {
   suitcases: Suitcase[];
@@ -26,10 +27,7 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
 
   if (suitcases.length === 0) return null;
 
-  const suitcaseGridClass =
-    suitcases.length === 2
-      ? 'grid-cols-2'
-      : 'grid-cols-1';
+  const suitcaseGridClass = suitcases.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
 
   return (
     <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/5 p-2 sm:p-4 w-full grid grid-cols-1 min-[420px]:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 items-stretch animate-in fade-in zoom-in duration-500">
@@ -58,12 +56,13 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
           }`;
 
           return (
-            <div
+            <button
+              type="button"
               key={s.id}
               onClick={() => (onSelectSuitcase ? onSelectSuitcase(s.id) : onOpenSuitcase(s.id))}
               onMouseEnter={() => onHoverSuitcase(s.id)}
               onMouseLeave={() => onHoverSuitcase(null)}
-              className={`flex flex-col justify-center h-full rounded-xl border transition-all cursor-pointer px-2.5 py-1.5 min-h-0 lg:px-3 lg:py-2.5 lg:min-h-[4.5rem] ${
+              className={`flex flex-col justify-center h-full rounded-xl border transition-all cursor-pointer px-2.5 py-1.5 min-h-0 lg:px-3 lg:py-2.5 lg:min-h-[4.5rem] text-left w-full ${
                 isActive
                   ? 'bg-indigo-500/10 border-indigo-500/30 text-white'
                   : 'bg-slate-950/40 border-white/5 hover:border-white/10 hover:bg-slate-800 text-slate-400'
@@ -76,7 +75,9 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
                   <span className="text-[10px] font-bold leading-snug truncate flex-1 min-w-0">
                     {s.title}
                   </span>
-                  <span className="text-[10px] font-black tabular-nums text-white shrink-0">{perc}%</span>
+                  <span className="text-[10px] font-black tabular-nums text-white shrink-0">
+                    {perc}%
+                  </span>
                 </div>
                 <SuitcaseAscentProgressIndicator progressPerc={perc} />
               </div>
@@ -87,9 +88,11 @@ export const SuitcaseStatusBox: React.FC<SuitcaseStatusBoxProps> = ({
                   <div className={dotClass} />
                   <span className="text-[10px] font-bold line-clamp-2 leading-snug">{s.title}</span>
                 </div>
-                <span className="text-[10px] font-black tabular-nums text-white self-end">{perc}%</span>
+                <span className="text-[10px] font-black tabular-nums text-white self-end">
+                  {perc}%
+                </span>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

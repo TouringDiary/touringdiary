@@ -1,4 +1,4 @@
-import { User } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 
 /**
@@ -12,7 +12,7 @@ export const checkProfileExistsAsync = async (userId: string): Promise<boolean> 
     .maybeSingle();
 
   if (error) {
-    console.error("[suitcaseService] Errore verifica profilo:", error);
+    console.error('[suitcaseService] Errore verifica profilo:', error);
     return false;
   }
   return !!data;
@@ -21,16 +21,18 @@ export const checkProfileExistsAsync = async (userId: string): Promise<boolean> 
 /**
  * Crea un profilo utente base di emergenza (previene violazioni di FK silenziose).
  */
-export const createEmergencyProfileAsync = async (userId: string, email: string, name: string): Promise<void> => {
-  const { error } = await supabase
-    .from('profiles')
-    .insert({
-      id: userId,
-      email: email,
-      name: name,
-      role: 'user',
-      status: 'active'
-    });
+export const createEmergencyProfileAsync = async (
+  userId: string,
+  email: string,
+  name: string,
+): Promise<void> => {
+  const { error } = await supabase.from('profiles').insert({
+    id: userId,
+    email: email,
+    name: name,
+    role: 'user',
+    status: 'active',
+  });
 
   if (error) throw error;
 };

@@ -1,7 +1,8 @@
-import { useUI } from '@/context/UIContext';
-import { useUser } from '@/context/UserContext';
-import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
-import { resolveGlobalWorkspacePanelGeometry } from '@/layering/resolveGlobalWorkspacePanelGeometry';
+import { Briefcase, Home, type LucideIcon } from 'lucide-react';
+import type React from 'react';
+import { createPortal } from 'react-dom';
+import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import {
   binderPanelMaxHeightClass,
   binderPanelMinHeightClass,
@@ -9,22 +10,21 @@ import {
   slidePanelEaseClass,
   slidePanelTransformClassFromTop,
 } from '@/constants/slidePanelMotion';
-import { resolveWorkspacePanelZIndex, resolveCompanionSurfaceTier } from '@/layering/resolveWorkspacePanelZIndex';
-import React from 'react';
-import { createPortal } from 'react-dom';
-import { Briefcase, Home, type LucideIcon } from 'lucide-react';
-import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
 import { useModal } from '@/context/ModalContext';
+import { useUI } from '@/context/UIContext';
+import { useUser } from '@/context/UserContext';
+import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
 import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
-import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { resolveGlobalWorkspacePanelGeometry } from '@/layering/resolveGlobalWorkspacePanelGeometry';
+import {
+  resolveCompanionSurfaceTier,
+  resolveWorkspacePanelZIndex,
+} from '@/layering/resolveWorkspacePanelZIndex';
 import { MyWorldBreadcrumb } from './MyWorldBreadcrumb';
 
 type ChooserAccent = 'amber' | 'indigo';
 
-const CHOOSER_CARD_ACCENT: Record<
-  ChooserAccent,
-  { borderHover: string; iconWrap: string }
-> = {
+const CHOOSER_CARD_ACCENT: Record<ChooserAccent, { borderHover: string; iconWrap: string }> = {
   amber: {
     borderHover: 'hover:border-amber-500/50',
     iconWrap: 'bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20',
@@ -59,9 +59,7 @@ const MyWorldChooserCard: React.FC<{
       </span>
       <span>
         <span className="block text-base font-bold text-white">{title}</span>
-        <span className="block text-xs text-slate-400 mt-1 leading-relaxed">
-          {description}
-        </span>
+        <span className="block text-xs text-slate-400 mt-1 leading-relaxed">{description}</span>
       </span>
     </button>
   );

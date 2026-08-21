@@ -15,7 +15,7 @@ export function formatCollaborationLockDurationItalian(lockedAtIso: string | nul
 export function buildCollaborationEditingStatusMessage(
   editorName: string,
   kind: SharedResourceKind,
-  resourceTitle?: string | null
+  resourceTitle?: string | null,
 ): string {
   if (kind === 'diary') {
     return `${editorName} sta modificando il Diario`;
@@ -31,7 +31,7 @@ export function buildCollaborationEditingStatusMessage(
 
 export function buildCollaborationLockBlockedMessage(
   editorName: string,
-  lockedAtIso: string | null
+  lockedAtIso: string | null,
 ): string {
   const duration = formatCollaborationLockDurationItalian(lockedAtIso);
   if (duration) {

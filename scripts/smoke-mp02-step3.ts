@@ -55,12 +55,10 @@ function parseTsEntityKinds(serviceSrc: string): string[] {
 }
 
 // 2) Root ids
-{
-  assert(MY_SPACE_ROOT_IDS.includes('favorites'), 'favorites root');
-  assert(MY_SPACE_ROOT_IDS.includes('explorer'), 'explorer root');
-  assert(MY_SPACE_ROOT_IDS.includes('tools'), 'tools root');
-  assert(MY_SPACE_ROOT_IDS.includes('invites'), 'invites root');
-}
+assert(MY_SPACE_ROOT_IDS.includes('favorites'), 'favorites root');
+assert(MY_SPACE_ROOT_IDS.includes('explorer'), 'explorer root');
+assert(MY_SPACE_ROOT_IDS.includes('tools'), 'tools root');
+assert(MY_SPACE_ROOT_IDS.includes('invites'), 'invites root');
 
 // 3) Shell wiring (no placeholder for STEP-3 roots)
 {
@@ -73,129 +71,107 @@ function parseTsEntityKinds(serviceSrc: string): string[] {
 }
 
 // 4) Preferiti layout + Segnalibro
-{
-  assertIncludes(
-    'src/components/myspace/MySpaceFavoritesRoot.tsx',
-    'data-testid="myspace-favorites-cities-section"',
-    'cities section testid',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceFavoritesRoot.tsx',
-    'data-testid="myspace-favorites-other-section"',
-    'other favorites section testid',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceFavoritesRoot.tsx',
-    'data-testid="myspace-favorites-recap-section"',
-    'poi recap section testid',
-  );
-  assertIncludes(
-    'src/components/myspace/FavoriteBookmarkButton.tsx',
-    'data-testid={`favorite-bookmark-${entityKind}`}',
-    'segnalibro testid',
-  );
-  assertIncludes(
-    'src/components/myspace/FavoriteBookmarkButton.tsx',
-    'Bookmark',
-    'segnalibro icon',
-  );
-}
+assertIncludes(
+  'src/components/myspace/MySpaceFavoritesRoot.tsx',
+  'data-testid="myspace-favorites-cities-section"',
+  'cities section testid',
+);
+assertIncludes(
+  'src/components/myspace/MySpaceFavoritesRoot.tsx',
+  'data-testid="myspace-favorites-other-section"',
+  'other favorites section testid',
+);
+assertIncludes(
+  'src/components/myspace/MySpaceFavoritesRoot.tsx',
+  'data-testid="myspace-favorites-recap-section"',
+  'poi recap section testid',
+);
+assertIncludes(
+  'src/components/myspace/FavoriteBookmarkButton.tsx',
+  'data-testid={`favorite-bookmark-${entityKind}`}',
+  'segnalibro testid',
+);
+assertIncludes('src/components/myspace/FavoriteBookmarkButton.tsx', 'Bookmark', 'segnalibro icon');
 
 // 5) Esploratore sync + batch city ids
-{
-  assertIncludes(
-    'src/services/myspace/userVisitedCitiesService.ts',
-    'listCityIdsForViaggi',
-    'batch city ids from viaggi',
-  );
-  assertIncludes(
-    'src/services/viaggio/viaggioCityService.ts',
-    'listDiariesByViaggioIds',
-    'batch diaries helper',
-  );
-  assertIncludes(
-    'src/services/myspace/userVisitedCitiesService.ts',
-    'removeVisitedCity',
-    'manual remove',
-  );
-  assertIncludes(
-    'src/components/myspace/ViaggioFolderShell.tsx',
-    'syncVisitedCitiesFromViaggio',
-    'sync on folder open',
-  );
-}
+assertIncludes(
+  'src/services/myspace/userVisitedCitiesService.ts',
+  'listCityIdsForViaggi',
+  'batch city ids from viaggi',
+);
+assertIncludes(
+  'src/services/viaggio/viaggioCityService.ts',
+  'listDiariesByViaggioIds',
+  'batch diaries helper',
+);
+assertIncludes(
+  'src/services/myspace/userVisitedCitiesService.ts',
+  'removeVisitedCity',
+  'manual remove',
+);
+assertIncludes(
+  'src/components/myspace/ViaggioFolderShell.tsx',
+  'syncVisitedCitiesFromViaggio',
+  'sync on folder open',
+);
 
 // 6) Strumenti packing
-{
-  assertIncludes(
-    'src/components/myspace/MySpaceToolsRoot.tsx',
-    "openModal('packingList'",
-    'open packing from tools',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceToolsRoot.tsx',
-    'fetchUserOwnedTemplatesAsync',
-    'templates list',
-  );
-}
+assertIncludes(
+  'src/components/myspace/MySpaceToolsRoot.tsx',
+  "openModal('packingList'",
+  'open packing from tools',
+);
+assertIncludes(
+  'src/components/myspace/MySpaceToolsRoot.tsx',
+  'fetchUserOwnedTemplatesAsync',
+  'templates list',
+);
 
 // 7) Inviti tabs + batch workspace names
-{
-  assertIncludes(
-    'src/components/myspace/MySpaceInvitesRoot.tsx',
-    'myspace-invites-tab-',
-    'invites tab testids',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceInvitesRoot.tsx',
-    "id: 'pending'",
-    'pending tab id',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceInvitesRoot.tsx',
-    "id: 'received'",
-    'received tab id',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceInvitesRoot.tsx',
-    "id: 'sent'",
-    'sent tab id',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceInvitesRoot.tsx',
-    'getWorkspaceNamesByIds',
-    'batch workspace names',
-  );
-  assertIncludes(
-    'src/services/collaboration/workspaceInviteService.ts',
-    'listOutgoingWorkspaceInvitesForUser',
-    'outgoing invites API',
-  );
-  assertIncludes(
-    'src/services/collaboration/workspaceInviteService.ts',
-    'listIncomingWorkspaceInvitesForUser',
-    'incoming invites API',
-  );
-}
+assertIncludes(
+  'src/components/myspace/MySpaceInvitesRoot.tsx',
+  'myspace-invites-tab-',
+  'invites tab testids',
+);
+assertIncludes('src/components/myspace/MySpaceInvitesRoot.tsx', "id: 'pending'", 'pending tab id');
+assertIncludes(
+  'src/components/myspace/MySpaceInvitesRoot.tsx',
+  "id: 'received'",
+  'received tab id',
+);
+assertIncludes('src/components/myspace/MySpaceInvitesRoot.tsx', "id: 'sent'", 'sent tab id');
+assertIncludes(
+  'src/components/myspace/MySpaceInvitesRoot.tsx',
+  'getWorkspaceNamesByIds',
+  'batch workspace names',
+);
+assertIncludes(
+  'src/services/collaboration/workspaceInviteService.ts',
+  'listOutgoingWorkspaceInvitesForUser',
+  'outgoing invites API',
+);
+assertIncludes(
+  'src/services/collaboration/workspaceInviteService.ts',
+  'listIncomingWorkspaceInvitesForUser',
+  'incoming invites API',
+);
 
 // 8) Responsive grids mobile-first
-{
-  assertIncludes(
-    'src/components/myspace/MySpaceFavoritesRoot.tsx',
-    'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-    'favorites responsive grid',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceExplorerRoot.tsx',
-    'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-    'explorer responsive grid',
-  );
-  assertIncludes(
-    'src/components/myspace/MySpaceToolsRoot.tsx',
-    'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-    'tools responsive grid',
-  );
-}
+assertIncludes(
+  'src/components/myspace/MySpaceFavoritesRoot.tsx',
+  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  'favorites responsive grid',
+);
+assertIncludes(
+  'src/components/myspace/MySpaceExplorerRoot.tsx',
+  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  'explorer responsive grid',
+);
+assertIncludes(
+  'src/components/myspace/MySpaceToolsRoot.tsx',
+  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  'tools responsive grid',
+);
 
 if (issues.length > 0) {
   console.error('MP-02 STEP-3 smoke FAILED:');

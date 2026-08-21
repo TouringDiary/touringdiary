@@ -9,7 +9,7 @@ function parseMaxTransitionDurationMs(transitionDuration: string): number {
       if (value.endsWith('s')) return parseFloat(value) * 1000;
       return parseFloat(value) || 0;
     }),
-    0
+    0,
   );
 }
 

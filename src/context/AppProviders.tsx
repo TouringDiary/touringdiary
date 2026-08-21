@@ -1,21 +1,21 @@
-import React from 'react';
-import { UserProvider } from './UserContext';
-import { UIProvider } from './UIContext';
-import { ModalProvider } from './ModalContext';
-import { ItineraryProvider } from './ItineraryContext';
-import { NavigationProvider } from './NavigationContext';
-import { GpsProvider } from './GpsContext';
-import { InteractionProvider } from './InteractionContext';
-import { ConfigProvider } from './ConfigContext';
-import { PlatformControlProvider } from './PlatformControlContext';
-import { DiaryInteractionProvider } from './DiaryInteractionContext';
-import { AiPlannerProvider } from './AiPlannerContext';
-
+import type React from 'react';
 import GlobalErrorBoundary from '../components/common/GlobalErrorBoundary';
 import { AppCoordinator } from '../components/layout/AppCoordinator';
+import { AiPlannerProvider } from './AiPlannerContext';
+import { ConfigProvider } from './ConfigContext';
+import { DiaryInteractionProvider } from './DiaryInteractionContext';
+import { DiaryUndoBridgeProvider } from './DiaryUndoBridgeContext';
+import { GpsProvider } from './GpsContext';
+import { InteractionProvider } from './InteractionContext';
+import { ItineraryProvider } from './ItineraryContext';
+import { ModalProvider } from './ModalContext';
+import { NavigationProvider } from './NavigationContext';
+import { PlatformControlProvider } from './PlatformControlContext';
+import { UIProvider } from './UIContext';
+import { UserProvider } from './UserContext';
 
 interface AppProvidersProps {
-    children?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 /**
@@ -31,32 +31,34 @@ interface AppProvidersProps {
  * (`src/components/user/UserDashboard.tsx`). Consumer: UserDashboard / UserSidebar / useUserDashboardData.
  */
 export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
-    return (
-        <UserProvider>
-            <PlatformControlProvider>
-                <ConfigProvider>
-                    <GlobalErrorBoundary variant="application">
-                        <UIProvider>
-                            <AiPlannerProvider>
-                                <ModalProvider>
-                                    <GpsProvider>
-                                        <NavigationProvider>
-                                            <InteractionProvider>
-                                                <ItineraryProvider>
-                                                    <DiaryInteractionProvider>
-                                                        <AppCoordinator />
-                                                        {children}
-                                                    </DiaryInteractionProvider>
-                                                </ItineraryProvider>
-                                            </InteractionProvider>
-                                        </NavigationProvider>
-                                    </GpsProvider>
-                                </ModalProvider>
-                            </AiPlannerProvider>
-                        </UIProvider>
-                    </GlobalErrorBoundary>
-                </ConfigProvider>
-            </PlatformControlProvider>
-        </UserProvider>
-    );
+  return (
+    <UserProvider>
+      <PlatformControlProvider>
+        <ConfigProvider>
+          <GlobalErrorBoundary variant="application">
+            <UIProvider>
+              <AiPlannerProvider>
+                <ModalProvider>
+                  <GpsProvider>
+                    <NavigationProvider>
+                      <InteractionProvider>
+                        <ItineraryProvider>
+                          <DiaryUndoBridgeProvider>
+                            <DiaryInteractionProvider>
+                              <AppCoordinator />
+                              {children}
+                            </DiaryInteractionProvider>
+                          </DiaryUndoBridgeProvider>
+                        </ItineraryProvider>
+                      </InteractionProvider>
+                    </NavigationProvider>
+                  </GpsProvider>
+                </ModalProvider>
+              </AiPlannerProvider>
+            </UIProvider>
+          </GlobalErrorBoundary>
+        </ConfigProvider>
+      </PlatformControlProvider>
+    </UserProvider>
+  );
 };

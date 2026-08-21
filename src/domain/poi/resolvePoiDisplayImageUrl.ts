@@ -1,10 +1,6 @@
 import type { PoiCategory } from '@/types/models/City';
 
-export type PoiDisplayImageSource =
-  | 'snapshot'
-  | 'catalog'
-  | 'category_placeholder'
-  | 'none';
+export type PoiDisplayImageSource = 'snapshot' | 'catalog' | 'category_placeholder' | 'none';
 
 export interface ResolvePoiDisplayImageUrlParams {
   /** URL persistito nello snapshot / su PointOfInterest.imageUrl */

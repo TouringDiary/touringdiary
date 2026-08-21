@@ -1,7 +1,7 @@
-import { listDiariesByViaggio } from './viaggioDiaryService';
-import { listRicordiMediaByViaggio } from './viaggioRicordiService';
-import { unionViaggioMapPins } from './viaggioMappaUnion';
 import type { ViaggioMapPin } from '@/types/models/ViaggioMappa';
+import { listDiariesByViaggio } from './viaggioDiaryService';
+import { unionViaggioMapPins } from './viaggioMappaUnion';
+import { listRicordiMediaByViaggio } from './viaggioRicordiService';
 
 /**
  * Vista Mappa — unione geolocalizzata del patrimonio Viaggio (DOC 37 §9).

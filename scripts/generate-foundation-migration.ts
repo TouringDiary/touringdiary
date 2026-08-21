@@ -1,11 +1,10 @@
+import fs from 'node:fs';
 import { FOUNDATION_DESIGN_RULES } from '../src/data/system/foundationDesignRules.ts';
-import fs from 'fs';
 
 const MIGRATION_BASENAME = '20260705120001_seed_foundation_design_system_rules';
 const MIGRATION_PATH = `supabase/migrations/${MIGRATION_BASENAME}.sql`;
 
-const esc = (v: unknown) =>
-  v == null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`;
+const esc = (v: unknown) => (v == null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`);
 
 const lines = FOUNDATION_DESIGN_RULES.map(
   (r) => `    (
@@ -22,7 +21,7 @@ const lines = FOUNDATION_DESIGN_RULES.map(
         ${esc(r.effect_class ?? 'none')},
         ${esc(r.css_class)},
         ${esc(r.preview_text)}
-    )`
+    )`,
 );
 
 const sql = `-- =============================================================================

@@ -1,0 +1,802 @@
+{
+  "totals": {
+    "hits": 101,
+    "files": 68,
+    "locations": 101
+  },
+  "macros": [
+    {
+      "id": "S-FP-DRAG",
+      "name": "Drag/drop surfaces (no button)",
+      "risk": "FP",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Drag/drop only — do not propose button",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/admin/AdminItineraryEditor.tsx",
+          "line": 620,
+          "why": "Draggable POI source row; no click action"
+        },
+        {
+          "file": "src/components/admin/AdminItineraryEditor.tsx",
+          "line": 650,
+          "why": "Day column drop zone; drag handlers only"
+        },
+        {
+          "file": "src/components/features/diary/ItineraryItemCard.tsx",
+          "line": 313,
+          "why": "Card shell drag/reorder; no onClick"
+        },
+        {
+          "file": "src/components/features/diary/DiaryDay.tsx",
+          "line": 284,
+          "why": "Explicit drop zone; drag enter/over/drop"
+        },
+        {
+          "file": "src/components/features/diary/TravelDiary.tsx",
+          "line": 393,
+          "why": "Scroll area drag-enter/leave/drop"
+        },
+        {
+          "file": "src/components/features/diary/TravelDiary.tsx",
+          "line": 457,
+          "why": "Empty-state drop container"
+        }
+      ],
+      "hits": 6,
+      "locations": 6,
+      "files": 4
+    },
+    {
+      "id": "S-FP-POINTER",
+      "name": "Pointer/hover/pan surfaces (no button)",
+      "risk": "FP",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Pointer/hover without click-as-control — do not propose button",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/admin/AdminPhotoInspector.tsx",
+          "line": 394,
+          "why": "Canvas pan cursor-move; mouse handlers only"
+        },
+        {
+          "file": "src/components/admin/onboarding/OnboardingVisualEditor.tsx",
+          "line": 310,
+          "why": "Editor stage mouse drag positioning"
+        },
+        {
+          "file": "src/components/admin/onboarding/OnboardingVisualEditor.tsx",
+          "line": 347,
+          "why": "Target box cursor-move drag"
+        },
+        {
+          "file": "src/components/admin/onboarding/OnboardingVisualEditor.tsx",
+          "line": 388,
+          "why": "Mascot drag handle"
+        },
+        {
+          "file": "src/components/admin/onboarding/OnboardingVisualEditor.tsx",
+          "line": 403,
+          "why": "Bubble drag handle"
+        },
+        {
+          "file": "src/components/common/DraggableSlider.tsx",
+          "line": 128,
+          "why": "Horizontal drag-scroll track"
+        },
+        {
+          "file": "src/components/features/diary/DiaryTimeline.tsx",
+          "line": 216,
+          "why": "City overflow tooltip hover anchor"
+        },
+        {
+          "file": "src/components/features/diary/packing_list/suitcase/CategorySuggestionPanel.tsx",
+          "line": 114,
+          "why": "Hover-only preview panel"
+        },
+        {
+          "file": "src/components/features/diary/packing_list/suitcase/SuitcaseCard.tsx",
+          "line": 121,
+          "why": "onMouseEnter select only; nested buttons separate"
+        },
+        {
+          "file": "src/components/modals/ProvinceModal.tsx",
+          "line": 352,
+          "why": "Mouse-drag scroll strip; children already buttons"
+        },
+        {
+          "file": "src/components/features/diary/packing_list/suitcase/CategoryStatusFilter.tsx",
+          "line": 131,
+          "why": "Pointer schedule wrapper around existing option buttons"
+        }
+      ],
+      "hits": 11,
+      "locations": 11,
+      "files": 8
+    },
+    {
+      "id": "S-FP-CONTENT",
+      "name": "contentEditable surface",
+      "risk": "FP",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "contentEditable — do not propose button",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/admin/NewsTickerManager.tsx",
+          "line": 166,
+          "why": "Rich-text contentEditable editor"
+        }
+      ],
+      "hits": 1,
+      "locations": 1,
+      "files": 1
+    },
+    {
+      "id": "S-UPLOAD",
+      "name": "Dashed upload zone → hidden file input",
+      "risk": "LOW_COND",
+      "contract": "label|button activating hidden file input (C-P2d); preserve click→input.click()",
+      "trancheA_reuse": "none",
+      "excluded_from_batch": null,
+      "smoke": "Open form → click dropzone → native file picker",
+      "items": [
+        {
+          "file": "src/components/modals/sponsor/SponsorForm.tsx",
+          "line": 517,
+          "why": "Cover dropzone clicks fileInputRefCover"
+        },
+        {
+          "file": "src/components/user/BusinessShopManager.tsx",
+          "line": 238,
+          "why": "Product photo dropzone clicks fileInputRefProducts"
+        }
+      ],
+      "hits": 2,
+      "locations": 2,
+      "files": 2
+    },
+    {
+      "id": "S-HEADER-CTRL",
+      "name": "Expand/sort header → button type=button",
+      "risk": "LOW",
+      "contract": "Replace static header with button type=button; same handler; no nested interactives in node",
+      "trancheA_reuse": "A3",
+      "excluded_from_batch": null,
+      "smoke": "Toggle expand / sort column; keyboard activates",
+      "items": [
+        {
+          "file": "src/components/admin/AiFieldHelper.tsx",
+          "line": 140,
+          "why": "AI helper accordion header; no nested controls"
+        },
+        {
+          "file": "src/components/admin/cityEditor/culture/CulturePeople.tsx",
+          "line": 464,
+          "why": "Person expand click area; siblings are outside node"
+        },
+        {
+          "file": "src/components/admin/GlobalEventsManager.tsx",
+          "line": 212,
+          "why": "SortHeader column sort; icon-only children"
+        }
+      ],
+      "hits": 3,
+      "locations": 3,
+      "files": 3
+    },
+    {
+      "id": "S-ADD-TILE",
+      "name": "Dashed add tile → button (URL prompt, not file)",
+      "risk": "LOW",
+      "contract": "button type=button same onClick; not file-input pattern",
+      "trancheA_reuse": "A3",
+      "excluded_from_batch": null,
+      "smoke": "Click Aggiungi → prompt/URL flow unchanged",
+      "items": [
+        {
+          "file": "src/components/admin/cityEditor/EditorMedia.tsx",
+          "line": 430,
+          "why": "Gallery dashed add calls addImageToGallery (prompt URL)"
+        },
+        {
+          "file": "src/components/admin/cityEditor/tabs/TabMedia.tsx",
+          "line": 429,
+          "why": "Same dashed add pattern as EditorMedia"
+        }
+      ],
+      "hits": 2,
+      "locations": 2,
+      "files": 2
+    },
+    {
+      "id": "S-SIMPLE-SELECT",
+      "name": "Filter/option/thumb without nested controls",
+      "risk": "LOW",
+      "contract": "button type=button (or role=option where listbox); same handler",
+      "trancheA_reuse": "A3",
+      "excluded_from_batch": null,
+      "smoke": "Select filter/option/open thumb; no nested click conflict",
+      "items": [
+        {
+          "file": "src/components/admin/import/components/ImportStatsBar.tsx",
+          "line": 42,
+          "why": "Filter stat chip; text-only children"
+        },
+        {
+          "file": "src/components/admin/poiManager/RegenerateConfirmModal.tsx",
+          "line": 76,
+          "why": "Status toggle row; icon-only children"
+        },
+        {
+          "file": "src/components/features/diary/packing_list/suitcase/SuitcaseStatusBox.tsx",
+          "line": 59,
+          "why": "Suitcase select tile; no nested controls"
+        },
+        {
+          "file": "src/components/admin/photos/PhotoRow.tsx",
+          "line": 74,
+          "why": "Thumbnail opens inspector; no nested controls"
+        }
+      ],
+      "hits": 4,
+      "locations": 4,
+      "files": 4
+    },
+    {
+      "id": "S-DIMMER-DISMISS",
+      "name": "Backdrop/dimmer dismiss (A1/A4/A5)",
+      "risk": "LOW_COND",
+      "contract": "Mouse-only dismiss button absolute inset-0 tabIndex=-1 aria-hidden; wrapper presentation without onClick when A1 shell pattern",
+      "trancheA_reuse": "A1",
+      "excluded_from_batch": null,
+      "smoke": "Click dimmer closes; click panel/content does not; ESC/close if present",
+      "items": [
+        {
+          "file": "src/components/modals/sectionPreview/PreviewHero.tsx",
+          "line": 141,
+          "why": "Desc modal absolute inset-0 overlay dismiss"
+        },
+        {
+          "file": "src/components/shop/ShopPage.tsx",
+          "line": 299,
+          "why": "Mobile planner sibling backdrop dismiss"
+        },
+        {
+          "file": "src/components/itineraries/ItinerariesExplorer.tsx",
+          "line": 81,
+          "why": "Filter dropdown fixed backdrop dismiss"
+        }
+      ],
+      "hits": 3,
+      "locations": 3,
+      "files": 3
+    },
+    {
+      "id": "S-LIGHTBOX-DISMISS",
+      "name": "Lightbox root dismiss (A6)",
+      "risk": "LOW_COND",
+      "contract": "A1-style dismiss on lightbox root; media/chrome stopProp untouched if present",
+      "trancheA_reuse": "A6",
+      "excluded_from_batch": null,
+      "smoke": "Open shop lightbox → click backdrop closes; close button works",
+      "items": [
+        {
+          "file": "src/components/shop/ShopPage.tsx",
+          "line": 237,
+          "why": "fixed inset-0 lightbox onClick clears image"
+        }
+      ],
+      "hits": 1,
+      "locations": 1,
+      "files": 1
+    },
+    {
+      "id": "S-POPOVER-TRIG",
+      "name": "HeaderPopover trigger → button+ref",
+      "risk": "LOW_COND",
+      "contract": "Trigger becomes button type=button with ref=triggerRef; preserve handleToggle",
+      "trancheA_reuse": "partial",
+      "excluded_from_batch": null,
+      "smoke": "Toggle popover via trigger; ref positioning intact",
+      "items": [
+        {
+          "file": "src/components/ui/header/HeaderPopover.tsx",
+          "line": 165,
+          "why": "Trigger wrapper div with ref+onClick"
+        }
+      ],
+      "hits": 1,
+      "locations": 1,
+      "files": 1
+    },
+    {
+      "id": "S-SURFACE-TOGGLE",
+      "name": "SuitcaseSidePanel collapsed toggle surface",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Not modal dimmer; collapsible panel open surface needs UX/layout review",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/features/diary/packing_list/suitcase/SuitcaseSidePanel.tsx",
+          "line": 60,
+          "why": "absolute inset-0 collapsed panel toggle ≠ A1 dimmer"
+        }
+      ],
+      "hits": 1,
+      "locations": 1,
+      "files": 1
+    },
+    {
+      "id": "S-ONBOARDING",
+      "name": "OnboardingWizard conditional dismiss / mascot",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Conditional e.target dismiss + mascot next; separate from A1 dimmer",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/layout/OnboardingWizard.tsx",
+          "line": 262,
+          "why": "Root fixed inset-0 dismiss only if e.target===currentTarget"
+        },
+        {
+          "file": "src/components/layout/OnboardingWizard.tsx",
+          "line": 289,
+          "why": "UI layer stopProp shield over root"
+        },
+        {
+          "file": "src/components/layout/OnboardingWizard.tsx",
+          "line": 294,
+          "why": "Mascot click advances step"
+        }
+      ],
+      "hits": 3,
+      "locations": 3,
+      "files": 1
+    },
+    {
+      "id": "S-DUP-CONTROL",
+      "name": "Duplicate open control beside sibling button",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Duplicates sibling patron button — UX choose single control",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/city/CityHeader.tsx",
+          "line": 172,
+          "why": "Santo Patrono row duplicates onOpenPatron button below"
+        }
+      ],
+      "hits": 1,
+      "locations": 1,
+      "files": 1
+    },
+    {
+      "id": "S-CALENDAR-TRIG",
+      "name": "Date-range calendar icon triggers",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "stopProp calendar toggles in date field; parent overlay audit",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/features/diary/header/DiaryHeaderDateRange.tsx",
+          "line": 78,
+          "why": "Start calendar icon toggle with stopProp"
+        },
+        {
+          "file": "src/components/features/diary/header/DiaryHeaderDateRange.tsx",
+          "line": 130,
+          "why": "End calendar icon toggle with stopProp"
+        }
+      ],
+      "hits": 2,
+      "locations": 2,
+      "files": 1
+    },
+    {
+      "id": "S-NOTE-EDIT",
+      "name": "Click-to-edit note activation",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "cursor-text edit activation; not mechanical button-only",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/features/diary/ItineraryItemCard.tsx",
+          "line": 605,
+          "why": "Custom note click enters edit mode"
+        }
+      ],
+      "hits": 1,
+      "locations": 1,
+      "files": 1
+    },
+    {
+      "id": "S-HERO-EXPAND",
+      "name": "Hero module expand headers (nested/duplicate chevron)",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Expand headers with nested chevron/banner; button-in-button risk",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/home/hero/HeroAiModule.tsx",
+          "line": 113,
+          "why": "Compact expand header contains nested chevron+banner"
+        },
+        {
+          "file": "src/components/home/hero/HeroAiModule.tsx",
+          "line": 141,
+          "why": "Desktop expand header with nested banner shield"
+        },
+        {
+          "file": "src/components/home/hero/HeroFilterModule.tsx",
+          "line": 177,
+          "why": "Compact twin expand header with nested chevron"
+        },
+        {
+          "file": "src/components/home/hero/HeroFilterModule.tsx",
+          "line": 237,
+          "why": "Expanded module header toggle"
+        },
+        {
+          "file": "src/components/home/hero/HeroFilterModule.tsx",
+          "line": 248,
+          "why": "Filter body header toggle with nested banner"
+        }
+      ],
+      "hits": 5,
+      "locations": 5,
+      "files": 2
+    },
+    {
+      "id": "S-HERO-SUBMIT",
+      "name": "Hero AI typing preview click-to-submit",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Separate from hero expand/lightbox; submit-surface UX",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/home/hero/HeroAiModule.tsx",
+          "line": 303,
+          "why": "Typing bubble click submits query"
+        }
+      ],
+      "hits": 1,
+      "locations": 1,
+      "files": 1
+    },
+    {
+      "id": "S-HERO-LIGHTBOX",
+      "name": "LiveFeed hero open lightbox",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Keep separate from hero expand; lightbox open with nested admin controls",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/community/liveFeed/LiveFeedHero.tsx",
+          "line": 38,
+          "why": "Hero media opens lightbox; nested admin shield sibling"
+        }
+      ],
+      "hits": 1,
+      "locations": 1,
+      "files": 1
+    },
+    {
+      "id": "S-SHIELD-NESTED",
+      "name": "Nested stopPropagation shields (card/hero/panel)",
+      "risk": "MED",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Nested shields; parent still clickable or not proven A1-redundant — needs parent-overlay audit",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/city/CityCard.tsx",
+          "line": 179,
+          "why": "Favorite bookmark stopProp inside city card"
+        },
+        {
+          "file": "src/components/city/ShowcaseCards.tsx",
+          "line": 63,
+          "why": "ActionRow like/add stopProp on card"
+        },
+        {
+          "file": "src/components/community/liveFeed/LiveFeedHero.tsx",
+          "line": 86,
+          "why": "Admin controls stopProp on hero"
+        },
+        {
+          "file": "src/components/home/hero/HeroAiModule.tsx",
+          "line": 104,
+          "why": "AI runtime banner stopProp wrapper"
+        },
+        {
+          "file": "src/components/home/hero/HeroAiModule.tsx",
+          "line": 123,
+          "why": "Chevron stopProp+toggle nested in expand header"
+        },
+        {
+          "file": "src/components/home/hero/HeroAiModule.tsx",
+          "line": 135,
+          "why": "Mobile banner stopProp under header"
+        },
+        {
+          "file": "src/components/home/hero/HeroAiModule.tsx",
+          "line": 152,
+          "why": "Desktop banner stopProp in header"
+        },
+        {
+          "file": "src/components/home/hero/HeroFilterModule.tsx",
+          "line": 185,
+          "why": "Chevron stopProp+toggle nested in expand"
+        },
+        {
+          "file": "src/components/home/hero/HeroFilterModule.tsx",
+          "line": 257,
+          "why": "Runtime banner stopProp in filter header"
+        },
+        {
+          "file": "src/components/home/hero/HeroFilterModule.tsx",
+          "line": 264,
+          "why": "Centered banner stopProp overlay"
+        },
+        {
+          "file": "src/components/shop/ShopCard.tsx",
+          "line": 73,
+          "why": "Favorite stopProp inside shop card"
+        },
+        {
+          "file": "src/components/ui/header/HeaderPopover.tsx",
+          "line": 150,
+          "why": "Panel stopProp nested chrome"
+        },
+        {
+          "file": "src/components/common/AnchoredPopover.tsx",
+          "line": 88,
+          "why": "Popover panel stopProp+mouseenter"
+        },
+        {
+          "file": "src/components/modals/cityInfo/ServicesCategoryList.tsx",
+          "line": 223,
+          "why": "Phone/actions stopProp on expand card"
+        },
+        {
+          "file": "src/components/layout/Sidebar.tsx",
+          "line": 704,
+          "why": "Sponsor grip/add stopProp cluster"
+        },
+        {
+          "file": "src/components/layout/Sidebar.tsx",
+          "line": 796,
+          "why": "Sponsor grip/add stopProp cluster (second surface)"
+        },
+        {
+          "file": "src/components/rankings/CityRow.tsx",
+          "line": 53,
+          "why": "Thumb zoom stopProp inside navigable row"
+        },
+        {
+          "file": "src/components/modals/SectionPreviewModal.tsx",
+          "line": 366,
+          "why": "Lightbox bottom chrome stopProp"
+        },
+        {
+          "file": "src/components/modals/sectionPreview/PreviewHero.tsx",
+          "line": 146,
+          "why": "Desc panel stopProp; parent overlay still has onClick (case B)"
+        },
+        {
+          "file": "src/components/myspace/ViaggioRicordamiControl.tsx",
+          "line": 131,
+          "why": "Control wrapper stopProp shielding parent card"
+        }
+      ],
+      "hits": 20,
+      "locations": 20,
+      "files": 14
+    },
+    {
+      "id": "S-CARD-ROW",
+      "name": "Card/row/tile open/select (nesting or UX review)",
+      "risk": "ARCH",
+      "contract": null,
+      "trancheA_reuse": "none",
+      "excluded_from_batch": "Card/row open/select — nesting or product pattern; not mechanical button batch",
+      "smoke": null,
+      "items": [
+        {
+          "file": "src/components/admin/AdminSocialStudio.tsx",
+          "line": 181,
+          "why": "Template row select with nested delete button"
+        },
+        {
+          "file": "src/components/admin/cities/RegionalAnalysisModal.tsx",
+          "line": 725,
+          "why": "City selection card"
+        },
+        {
+          "file": "src/components/admin/cities/ZoneCard.tsx",
+          "line": 312,
+          "why": "City row select with nested action buttons"
+        },
+        {
+          "file": "src/components/admin/observatory/AnomalyInspector.tsx",
+          "line": 369,
+          "why": "POI anomaly card opens edit"
+        },
+        {
+          "file": "src/components/city/CityCard.tsx",
+          "line": 142,
+          "why": "City card open with nested favorite"
+        },
+        {
+          "file": "src/components/city/CityHistory.tsx",
+          "line": 16,
+          "why": "Expand header with nested Angolo Cultura button"
+        },
+        {
+          "file": "src/components/city/gallery/GalleryGrid.tsx",
+          "line": 50,
+          "why": "Photo tile opens lightbox"
+        },
+        {
+          "file": "src/components/city/ShowcaseCards.tsx",
+          "line": 138,
+          "why": "Horizontal POI card open+drag+actions"
+        },
+        {
+          "file": "src/components/city/ShowcaseCards.tsx",
+          "line": 218,
+          "why": "Vertical POI card open+drag+actions"
+        },
+        {
+          "file": "src/components/common/AdPlaceholder.tsx",
+          "line": 44,
+          "why": "Optional onClick ad tile"
+        },
+        {
+          "file": "src/components/common/ImageWithFallback.tsx",
+          "line": 108,
+          "why": "Generic onClick wrapper utility"
+        },
+        {
+          "file": "src/components/community/liveFeed/LiveFeedCarousel.tsx",
+          "line": 40,
+          "why": "Snap tile select/lightbox"
+        },
+        {
+          "file": "src/components/community/QaForumTab.tsx",
+          "line": 454,
+          "why": "Post card open with nested like/reply"
+        },
+        {
+          "file": "src/components/features/diary/DiaryMemoCard.tsx",
+          "line": 104,
+          "why": "Memo open with nested remove button"
+        },
+        {
+          "file": "src/components/features/diary/packing_list/suitcase/SuitcaseItemRow.tsx",
+          "line": 113,
+          "why": "Item select row with drag grip nested"
+        },
+        {
+          "file": "src/components/home/CuratedGridSection.tsx",
+          "line": 17,
+          "why": "MiniCityCard open"
+        },
+        {
+          "file": "src/components/home/HomeContent.tsx",
+          "line": 214,
+          "why": "Sponsor POI card with nested add/drag"
+        },
+        {
+          "file": "src/components/itineraries/ItinerariesList.tsx",
+          "line": 53,
+          "why": "Itinerary card select with nested like"
+        },
+        {
+          "file": "src/components/layout/Sidebar.tsx",
+          "line": 352,
+          "why": "Compact sponsor card open"
+        },
+        {
+          "file": "src/components/layout/Sidebar.tsx",
+          "line": 676,
+          "why": "Focus-companion sponsor card with nested actions"
+        },
+        {
+          "file": "src/components/layout/Sidebar.tsx",
+          "line": 772,
+          "why": "Tour sponsor card with nested actions"
+        },
+        {
+          "file": "src/components/modals/cityInfo/CityEventsTab.tsx",
+          "line": 133,
+          "why": "Event expand header with nested add/chevron buttons"
+        },
+        {
+          "file": "src/components/modals/cityInfo/ServicesCategoryList.tsx",
+          "line": 194,
+          "why": "Service expand card with nested actions"
+        },
+        {
+          "file": "src/components/modals/sectionPreview/PreviewGallery.tsx",
+          "line": 123,
+          "why": "Gallery tile opens lightbox"
+        },
+        {
+          "file": "src/components/modals/sectionPreview/PreviewSidebar.tsx",
+          "line": 55,
+          "why": "Sidebar city/service select row"
+        },
+        {
+          "file": "src/components/rankings/PhotoGrid.tsx",
+          "line": 29,
+          "why": "Photo tile opens viewer"
+        },
+        {
+          "file": "src/components/rankings/PoiList.tsx",
+          "line": 15,
+          "why": "POI list row open"
+        },
+        {
+          "file": "src/components/shop/ShopCard.tsx",
+          "line": 39,
+          "why": "Shop card open with nested favorite/products"
+        },
+        {
+          "file": "src/components/shop/ShopHero.tsx",
+          "line": 52,
+          "why": "Hero gallery slide opens lightbox"
+        },
+        {
+          "file": "src/components/shop/ShopHomeView.tsx",
+          "line": 99,
+          "why": "Empty gold promo CTA surface"
+        },
+        {
+          "file": "src/components/shop/ShopProducts.tsx",
+          "line": 64,
+          "why": "Product card select"
+        },
+        {
+          "file": "src/components/user/dashboard/UserNotificationsTab.tsx",
+          "line": 237,
+          "why": "Notification row open"
+        }
+      ],
+      "hits": 32,
+      "locations": 32,
+      "files": 29
+    }
+  ],
+  "low_risk_total_hits": 16,
+  "notes": [
+    "Auto S-DIMMER-A1 largely false-positive: absolute inset-0 often image overlays inside cards, not modal dimmers.",
+    "stopProp: no proven type-A redundant-only cases (would need parent already A1 sibling button); all uncertain/B/C → MED S-SHIELD-NESTED.",
+    "EditorMedia/TabMedia dashed tiles use prompt(URL), not file input — separate from S-UPLOAD.",
+    "Hero expand vs LiveFeed lightbox kept separate (S-HERO-EXPAND / S-HERO-LIGHTBOX); AI typing submit is S-HERO-SUBMIT.",
+    "Prefer safety: card/row open defaults ARCH even when no nested controls proven for richer tiles (e.g. CuratedGrid, PreviewSidebar, RegionalAnalysis)."
+  ]
+}

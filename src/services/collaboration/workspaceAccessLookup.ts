@@ -1,14 +1,14 @@
-import { supabase } from '@/services/supabaseClient';
 import type { SharedResourceKind, WorkspaceResourceAccess } from '@/domain/collaboration';
 import { isWorkspaceResourceAccess } from '@/domain/collaboration';
-import { getWorkspace } from './workspaceService';
 import { getWorkspaceResourceByKindAndId } from '@/services/collaboration/workspaceResourceLinkLookup';
+import { supabase } from '@/services/supabaseClient';
+import { getWorkspace } from './workspaceService';
 
 export async function getWorkspaceResourceAccessForUser(
   userId: string,
   workspaceId: string,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<WorkspaceResourceAccess> {
   const workspace = await getWorkspace(workspaceId);
   if (!workspace) return 'none';

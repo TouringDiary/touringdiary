@@ -8,11 +8,11 @@ export type CityPeopleAudience = 'public' | 'admin';
  * Usato da getCityPeople e dal ramo API di getCityDetails.
  */
 export function filterFamousPeopleByAudience(
-    people: FamousPerson[],
-    audience: CityPeopleAudience,
+  people: FamousPerson[],
+  audience: CityPeopleAudience,
 ): FamousPerson[] {
-    if (audience === 'admin') {
-        return people;
-    }
-    return people.filter((person) => person.status === 'published');
+  if (audience === 'admin') {
+    return people;
+  }
+  return people.filter((person) => person.status === 'published');
 }

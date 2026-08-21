@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Camera capture for phone/tablet only (D-007).
@@ -9,30 +9,29 @@ import { useState, useEffect } from 'react';
  * `<input capture>` (that backgrounds the tab on mobile).
  */
 export function useCanCapturePhoto(): boolean {
-    const [canCapture, setCanCapture] = useState(false);
+  const [canCapture, setCanCapture] = useState(false);
 
-    useEffect(() => {
-        const evaluate = () => {
-            if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-                setCanCapture(false);
-                return;
-            }
+  useEffect(() => {
+    const evaluate = () => {
+      if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+        setCanCapture(false);
+        return;
+      }
 
-            const hasTouch = (navigator.maxTouchPoints ?? 0) > 0;
-            const coarsePrimary =
-                typeof window.matchMedia === 'function' &&
-                window.matchMedia('(pointer: coarse)').matches;
-            const coarseAny =
-                typeof window.matchMedia === 'function' &&
-                window.matchMedia('(any-pointer: coarse)').matches;
+      const hasTouch = (navigator.maxTouchPoints ?? 0) > 0;
+      const coarsePrimary =
+        typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+      const coarseAny =
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(any-pointer: coarse)').matches;
 
-            setCanCapture(hasTouch || coarsePrimary || coarseAny);
-        };
+      setCanCapture(hasTouch || coarsePrimary || coarseAny);
+    };
 
-        evaluate();
-        window.addEventListener('resize', evaluate, { passive: true });
-        return () => window.removeEventListener('resize', evaluate);
-    }, []);
+    evaluate();
+    window.addEventListener('resize', evaluate, { passive: true });
+    return () => window.removeEventListener('resize', evaluate);
+  }, []);
 
-    return canCapture;
+  return canCapture;
 }

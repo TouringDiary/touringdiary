@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { getSharedResourceKindLabel } from '@/domain/collaboration';
 import type {
@@ -41,7 +41,7 @@ export const WorkspacePickElementStep: React.FC<WorkspacePickElementStepProps> =
     heading: string,
     kind: SharedResourceKind,
     candidates: WorkspaceCompositionCandidate[],
-    emptyLabel: string
+    emptyLabel: string,
   ) => (
     <section className="space-y-2" aria-labelledby={`workspace-pick-${kind}-heading`}>
       <h4
@@ -63,7 +63,7 @@ export const WorkspacePickElementStep: React.FC<WorkspacePickElementStepProps> =
                 subtitle={buildCompositionCandidateMetadata(
                   getSharedResourceKindLabel(kind),
                   candidate,
-                  true
+                  true,
                 )}
                 onClick={() => togglePick(kind, candidate)}
               />
@@ -83,19 +83,19 @@ export const WorkspacePickElementStep: React.FC<WorkspacePickElementStepProps> =
         'Diario di Viaggio',
         'diary',
         blueprint.diary.candidates,
-        'Nessun elemento Diario disponibile.'
+        'Nessun elemento Diario disponibile.',
       )}
       {renderSection(
         'Valigie',
         'suitcase',
         blueprint.suitcases.candidates,
-        'Nessun elemento Valigia disponibile.'
+        'Nessun elemento Valigia disponibile.',
       )}
       {renderSection(
         'Template User',
         'user_template',
         blueprint.userTemplates.candidates,
-        'Nessun elemento Template disponibile.'
+        'Nessun elemento Template disponibile.',
       )}
     </div>
   );

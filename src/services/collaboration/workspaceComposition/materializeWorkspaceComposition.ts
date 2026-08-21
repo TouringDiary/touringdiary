@@ -1,15 +1,13 @@
+import type { SharedResourceKind } from '@/domain/collaboration';
+import { workspaceResourceKey } from '@/domain/collaboration';
 import type {
   WorkspaceCompositionBlueprint,
   WorkspaceCompositionDraft,
 } from '@/domain/collaboration/workspaceComposition';
-import {
-  draftToCompositionResources,
-} from '@/domain/collaboration/workspaceComposition';
-import type { SharedResourceKind } from '@/domain/collaboration';
-import { workspaceResourceKey } from '@/domain/collaboration';
+import { draftToCompositionResources } from '@/domain/collaboration/workspaceComposition';
 import { duplicateSharedResourceForOwner } from '@/services/collaboration/personalShareService';
-import { linkSuitcaseToTripAsync } from '@/services/suitcase/suitcaseLinkingService';
 import { deleteSuitcaseAsync, updateSuitcaseAsync } from '@/services/suitcase/suitcaseCoreService';
+import { linkSuitcaseToTripAsync } from '@/services/suitcase/suitcaseLinkingService';
 import { supabase } from '@/services/supabaseClient';
 import type { WorkspaceCompositionResource } from '../workspaceCompositionService';
 
@@ -26,7 +24,7 @@ function toKey(kind: SharedResourceKind, resourceId: string): ResourceKey {
 function isResourceSelected(
   draft: WorkspaceCompositionDraft,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): boolean {
   if (kind === 'diary') return draft.selectedDiaryId === resourceId;
   if (kind === 'suitcase') return draft.selectedSuitcaseIds.has(resourceId);
@@ -35,7 +33,7 @@ function isResourceSelected(
 
 async function deleteDuplicatedResource(
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<void> {
   if (kind === 'diary') {
     await supabase.from('itineraries').delete().eq('id', resourceId);
@@ -47,7 +45,7 @@ async function deleteDuplicatedResource(
 
 /** Rimuove copie create da una materializzazione fallita a valle (es. creazione workspace). */
 export async function rollbackDuplicatedCompositionResources(
-  resources: WorkspaceCompositionResource[]
+  resources: WorkspaceCompositionResource[],
 ): Promise<void> {
   const diaryResources = resources.filter((resource) => resource.kind === 'diary');
   const nonDiaryResources = resources.filter((resource) => resource.kind !== 'diary');
@@ -56,7 +54,10 @@ export async function rollbackDuplicatedCompositionResources(
     try {
       await deleteDuplicatedResource(resource.kind, resource.resourceId);
     } catch (rollbackError) {
-      console.error('[materializeWorkspaceComposition] rollbackDuplicatedCompositionResources:', rollbackError);
+      console.error(
+        '[materializeWorkspaceComposition] rollbackDuplicatedCompositionResources:',
+        rollbackError,
+      );
     }
   }
 
@@ -64,7 +65,10 @@ export async function rollbackDuplicatedCompositionResources(
     try {
       await deleteDuplicatedResource(resource.kind, resource.resourceId);
     } catch (rollbackError) {
-      console.error('[materializeWorkspaceComposition] rollbackDuplicatedCompositionResources:', rollbackError);
+      console.error(
+        '[materializeWorkspaceComposition] rollbackDuplicatedCompositionResources:',
+        rollbackError,
+      );
     }
   }
 }
@@ -108,7 +112,7 @@ export async function materializeWorkspaceComposition(input: {
 
   const duplicateOne = async (
     kind: SharedResourceKind,
-    resourceId: string
+    resourceId: string,
   ): Promise<string | null> => {
     const result = await duplicateSharedResourceForOwner(kind, resourceId, ownerId);
     if (result.success !== true) {
@@ -178,7 +182,7 @@ export async function materializeWorkspaceComposition(input: {
 
         const templateSelected = isResourceSelected(draft, 'user_template', edge.templateId);
         const nextSourceTemplateId = templateSelected
-          ? idMap.get(toKey('user_template', edge.templateId)) ?? null
+          ? (idMap.get(toKey('user_template', edge.templateId)) ?? null)
           : null;
 
         await updateSuitcaseAsync(copiedSuitcaseId, {
@@ -195,7 +199,7 @@ export async function materializeWorkspaceComposition(input: {
         (edge) =>
           edge.type === 'suitcase_template' &&
           edge.suitcaseId === resource.resourceId &&
-          isResourceSelected(draft, 'user_template', edge.templateId)
+          isResourceSelected(draft, 'user_template', edge.templateId),
       );
 
       if (!hasTemplateEdgeInBlueprint) {

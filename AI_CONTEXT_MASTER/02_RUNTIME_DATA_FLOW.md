@@ -39,7 +39,8 @@ Questo documento mappa i flussi di dati principali che avvengono durante l'utili
 *   **Submit**: `ReviewModal.tsx` → `saveUnifiedReview` (INSERT o UPDATE se già esiste per utente+target).
 *   **Persistence**: `reviews` con `status = approved` immediato; `updated_at` su modifica.
 *   **Rating POI**: trigger `sync_poi_rating_from_reviews` aggiorna `pois.rating`; sotto soglia → `review_rating_alerts`.
-*   **XP**: trigger `handle_review_approval_xp` su pubblicazione/approve.
+*   **XP**: trigger `handle_review_approval_xp` solo alla prima pubblicazione (INSERT `approved`). L’UPDATE di contenuto non ristampa `status`/`approved_at` e non riaccredita XP.
+*   **UI conferma**: dopo persist riuscito, `FeatureModals` apre `reviewSuccess` (INSERT: +XP; UPDATE: `intent: 'update'`, senza XP). Errore/annulla non aprono la conferma.
 
 ### 7. ROADBOOK / EXPORT ITINERARIO
 *   **Data Source**: Aggregazione da `itinerary.items` / city hero; SoT immagini = `prepareItineraryForPdf` (una prepare all’apertura di `ExportModal`).

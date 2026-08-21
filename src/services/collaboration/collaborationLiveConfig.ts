@@ -9,7 +9,7 @@ function parsePositiveInt(value: unknown, fallback: number): number {
 }
 
 export function resolveCollaborationLiveConfig(
-  raw: unknown = getCachedSetting(SETTINGS_KEYS.COLLABORATION_LIVE_CONFIG)
+  raw: unknown = getCachedSetting(SETTINGS_KEYS.COLLABORATION_LIVE_CONFIG),
 ): CollaborationLiveConfig {
   if (!raw || typeof raw !== 'object') {
     return DEFAULT_COLLABORATION_LIVE_CONFIG;
@@ -19,11 +19,11 @@ export function resolveCollaborationLiveConfig(
   return {
     editLockTimeoutMinutes: parsePositiveInt(
       record.edit_lock_timeout_minutes,
-      DEFAULT_COLLABORATION_LIVE_CONFIG.editLockTimeoutMinutes
+      DEFAULT_COLLABORATION_LIVE_CONFIG.editLockTimeoutMinutes,
     ),
     editLockHeartbeatSeconds: parsePositiveInt(
       record.edit_lock_heartbeat_seconds,
-      DEFAULT_COLLABORATION_LIVE_CONFIG.editLockHeartbeatSeconds
+      DEFAULT_COLLABORATION_LIVE_CONFIG.editLockHeartbeatSeconds,
     ),
   };
 }

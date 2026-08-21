@@ -69,9 +69,10 @@ export const getNewsTickerItemsAsync = async (): Promise<NewsTickerItem[]> => {
       active: n.active ?? false,
       order: n.order_index ?? undefined,
     }));
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Degradazione graziosa: se è un errore di rete, non inondare la console di errori rossi
-    if (e?.message === 'TypeError: Failed to fetch' || e?.message?.includes('fetch')) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'TypeError: Failed to fetch' || msg.includes('fetch')) {
       console.warn('Ticker offline: Database non raggiungibile. Uso fallback.');
     } else {
       console.error('Errore critico ticker:', e);

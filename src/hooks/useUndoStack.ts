@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export type UndoActionType = 'update' | 'add' | 'delete' | 'selection' | 'move' | 'diaryNotes';
 
-export interface UndoAction<T = any> {
+export interface UndoAction<T = unknown> {
   id: string;
   type?: UndoActionType;
   payload: T;
@@ -10,8 +10,8 @@ export interface UndoAction<T = any> {
   timestamp?: number;
   groupId?: string;
   merge?: boolean;
-  apply?: (payload: any) => Promise<void>;
-  inverse?: (payload: any) => Promise<void>;
+  apply?(payload: T): Promise<void>;
+  inverse?(payload: T): Promise<void>;
 }
 
 interface UndoState<T> {
@@ -22,7 +22,7 @@ interface UndoState<T> {
 export function useUndoStack<T>(maxSize = 30) {
   const [state, setState] = useState<UndoState<T>>({
     history: [],
-    pointer: -1
+    pointer: -1,
   });
 
   const isExecutingRef = useRef(false);
@@ -43,54 +43,57 @@ export function useUndoStack<T>(maxSize = 30) {
     stateRef.current = state;
   }, [state]);
 
-  const pushAction = useCallback((action: UndoAction<T>) => {
-    if (isExecutingRef.current) return;
-    
-    // Immutabilità e Fallback Timestamp Automatica
-    const safeAction = { 
-      ...action, 
-      timestamp: action.timestamp ?? Date.now() 
-    };
+  const pushAction = useCallback(
+    (action: UndoAction<T>) => {
+      if (isExecutingRef.current) return;
 
-    // Validazione Atomica Pro-Grade
-    if (!safeAction.id || !(safeAction.type || (safeAction.apply && safeAction.inverse))) {
-      console.warn("[UndoStack] Invalid or core-missing action rejected:", safeAction);
-      return;
-    }
-
-    setState(prev => {
-      // Inizia la nuova storia dal puntatore corrente (tronca rami redo)
-      const newHistory = prev.history.slice(0, prev.pointer + 1);
-      const last = newHistory[newHistory.length - 1];
-
-      // Smart Merge Logic (consecutive actions with same groupId)
-      if (safeAction.merge && last && last.merge && last.groupId === safeAction.groupId) {
-        const lastPayload = last.payload as { previousValue?: unknown; newValue?: unknown };
-        const nextPayload = safeAction.payload as { previousValue?: unknown; newValue?: unknown };
-        const mergedPayload =
-          lastPayload?.previousValue !== undefined && nextPayload?.newValue !== undefined
-            ? { ...safeAction.payload, previousValue: lastPayload.previousValue }
-            : safeAction.payload;
-        newHistory[newHistory.length - 1] = { ...safeAction, payload: mergedPayload };
-      } else {
-        newHistory.push(safeAction);
-      }
-      
-      let newPointer = newHistory.length - 1;
-      
-      // Gestione dimensione massima (Editor-Grade Overflow)
-      if (newHistory.length > maxSize) {
-        const overflow = newHistory.length - maxSize;
-        newHistory.splice(0, overflow);
-        newPointer -= overflow;
-      }
-      
-      return {
-        history: newHistory,
-        pointer: newPointer
+      // Immutabilità e Fallback Timestamp Automatica
+      const safeAction = {
+        ...action,
+        timestamp: action.timestamp ?? Date.now(),
       };
-    });
-  }, [maxSize]);
+
+      // Validazione Atomica Pro-Grade
+      if (!safeAction.id || !(safeAction.type || (safeAction.apply && safeAction.inverse))) {
+        console.warn('[UndoStack] Invalid or core-missing action rejected:', safeAction);
+        return;
+      }
+
+      setState((prev) => {
+        // Inizia la nuova storia dal puntatore corrente (tronca rami redo)
+        const newHistory = prev.history.slice(0, prev.pointer + 1);
+        const last = newHistory[newHistory.length - 1];
+
+        // Smart Merge Logic (consecutive actions with same groupId)
+        if (safeAction.merge && last && last.merge && last.groupId === safeAction.groupId) {
+          const lastPayload = last.payload as { previousValue?: unknown; newValue?: unknown };
+          const nextPayload = safeAction.payload as { previousValue?: unknown; newValue?: unknown };
+          const mergedPayload =
+            lastPayload?.previousValue !== undefined && nextPayload?.newValue !== undefined
+              ? { ...safeAction.payload, previousValue: lastPayload.previousValue }
+              : safeAction.payload;
+          newHistory[newHistory.length - 1] = { ...safeAction, payload: mergedPayload };
+        } else {
+          newHistory.push(safeAction);
+        }
+
+        let newPointer = newHistory.length - 1;
+
+        // Gestione dimensione massima (Editor-Grade Overflow)
+        if (newHistory.length > maxSize) {
+          const overflow = newHistory.length - maxSize;
+          newHistory.splice(0, overflow);
+          newPointer -= overflow;
+        }
+
+        return {
+          history: newHistory,
+          pointer: newPointer,
+        };
+      });
+    },
+    [maxSize],
+  );
 
   const undo = useCallback(() => {
     const current = stateRef.current;
@@ -98,15 +101,15 @@ export function useUndoStack<T>(maxSize = 30) {
     if (current.pointer < 0) return null;
 
     const actionToReturn = current.history[current.pointer];
-    
-    setState(prev => {
+
+    setState((prev) => {
       if (prev.pointer < 0) return prev;
       return {
         ...prev,
-        pointer: prev.pointer - 1
+        pointer: prev.pointer - 1,
       };
     });
-    
+
     return actionToReturn;
   }, []);
 
@@ -117,16 +120,16 @@ export function useUndoStack<T>(maxSize = 30) {
 
     const nextPointer = current.pointer + 1;
     const actionToReturn = current.history[nextPointer];
-    
-    setState(prev => {
+
+    setState((prev) => {
       const maxPointer = prev.history.length - 1;
       if (prev.pointer >= maxPointer) return prev;
       return {
         ...prev,
-        pointer: prev.pointer + 1
+        pointer: prev.pointer + 1,
       };
     });
-    
+
     return actionToReturn;
   }, []);
 
@@ -158,20 +161,36 @@ export function useUndoStack<T>(maxSize = 30) {
     state.pointer >= 0 &&
     state.history.slice(0, state.pointer + 1).some((action) => action.type !== 'selection');
 
-  return useMemo(() => ({ 
-    pushAction, 
-    undo, 
-    redo,
-    cancelUndo,
-    cancelRedo,
-    resetStack,
-    isExecuting,
-    beginExecution,
-    endExecution,
-    canUndo: state.pointer >= 0, 
-    canRedo: state.pointer < state.history.length - 1,
-    hasPersistentUndo,
-    historySize: state.history.length,
-    currentPointer: state.pointer
-  }), [pushAction, undo, redo, cancelUndo, cancelRedo, resetStack, isExecuting, beginExecution, endExecution, state.pointer, state.history.length, hasPersistentUndo]);
+  return useMemo(
+    () => ({
+      pushAction,
+      undo,
+      redo,
+      cancelUndo,
+      cancelRedo,
+      resetStack,
+      isExecuting,
+      beginExecution,
+      endExecution,
+      canUndo: state.pointer >= 0,
+      canRedo: state.pointer < state.history.length - 1,
+      hasPersistentUndo,
+      historySize: state.history.length,
+      currentPointer: state.pointer,
+    }),
+    [
+      pushAction,
+      undo,
+      redo,
+      cancelUndo,
+      cancelRedo,
+      resetStack,
+      isExecuting,
+      beginExecution,
+      endExecution,
+      state.pointer,
+      state.history.length,
+      hasPersistentUndo,
+    ],
+  );
 }

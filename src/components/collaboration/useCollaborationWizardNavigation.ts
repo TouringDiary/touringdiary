@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import type { SharingMode } from '@/domain/collaboration';
 import {
-  resolveWizardStepsForContext,
   resolveWizardNextStep,
   resolveWizardPreviousStep,
+  resolveWizardStepsForContext,
   type SharePath,
   type WizardEntryMode,
   type WizardStep,
@@ -35,7 +35,7 @@ export function useCollaborationWizardNavigation({
         sharePath,
         sharingMode,
       }),
-    [entryMode, sharePath, sharingMode]
+    [entryMode, sharePath, sharingMode],
   );
 
   const canShowWizardBack = wizardSteps.length > 0 && wizardSteps[0] !== wizardStep;

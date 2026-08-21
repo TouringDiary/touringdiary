@@ -1,20 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Briefcase, Link2, Plus } from 'lucide-react';
-import type { Suitcase } from '@/types/suitcase';
-import {
-  listSuitcasesByViaggio,
-  unlinkSuitcaseFromViaggio,
-} from '@/services/viaggio/viaggioSuitcaseService';
-import { getViaggio } from '@/services/viaggio/viaggioService';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
 import { fetchUserSuitcasesAsync } from '@/services/suitcase/suitcaseCoreService';
 import {
   createSuitcaseWithAssociation,
   linkSuitcaseToViaggioSafe,
 } from '@/services/viaggio/resourceAssociationService';
+import { getViaggio } from '@/services/viaggio/viaggioService';
+import {
+  listSuitcasesByViaggio,
+  unlinkSuitcaseFromViaggio,
+} from '@/services/viaggio/viaggioSuitcaseService';
 import { SuitcaseLinkConflictError } from '@/types/resourceAssociation';
-import { useModal } from '@/context/ModalContext';
-import { useUser } from '@/context/UserContext';
-import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import type { Suitcase } from '@/types/suitcase';
 import { CreateSuitcaseModal } from './CreateSuitcaseModal';
 import { ResourceConflictCopyModal } from './ResourceConflictCopyModal';
 
@@ -245,10 +246,14 @@ export const ViaggioValigiaSection: React.FC<Props> = ({ viaggioId, viaggioTitle
           data-testid="valigia-link-panel"
         >
           <div className="min-w-[12rem] flex-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <label
+              htmlFor="fld-myspace-viaggiovaligiasection-tsx-l249"
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-500"
+            >
               Collega valigia esistente
             </label>
             <select
+              id="fld-myspace-viaggiovaligiasection-tsx-l249"
               value={linkId}
               onChange={(e) => setLinkId(e.target.value)}
               className="mt-1 w-full bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-1.5"

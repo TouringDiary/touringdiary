@@ -1,6 +1,6 @@
-﻿import { supabase } from '../supabaseClient';
-import type { Suitcase } from '../../types/suitcase';
+﻿import type { Suitcase } from '../../types/suitcase';
 import { fetchSuitcasesByIdsAsync } from '../suitcase/suitcaseCoreService';
+import { supabase } from '../supabaseClient';
 import { listDiariesByViaggio } from './viaggioDiaryService';
 
 /** ID valigie collegate al Viaggio (SoT STEP-3). */

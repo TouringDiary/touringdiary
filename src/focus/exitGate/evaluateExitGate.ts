@@ -1,5 +1,5 @@
 import type { DocumentSavePhase } from '@/domain/save/documentSaveTypes';
-import { getDocumentExitGates, type ExitIntent } from './documentExitRegistry';
+import { type ExitIntent, getDocumentExitGates } from './documentExitRegistry';
 
 export type { ExitIntent };
 

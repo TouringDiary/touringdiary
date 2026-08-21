@@ -10,7 +10,7 @@ export function useCollaborationInviteSearch(
   userId: string,
   enabled: boolean,
   searchQuery: string,
-  excludedUserIds: readonly string[]
+  excludedUserIds: readonly string[],
 ) {
   const [searchResults, setSearchResults] = useState<CollaborationUserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);

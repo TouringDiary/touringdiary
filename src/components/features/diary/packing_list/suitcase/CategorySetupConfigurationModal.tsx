@@ -1,5 +1,5 @@
 import { Briefcase, FolderPlus, Loader2, Trash2 } from 'lucide-react';
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
@@ -65,21 +65,27 @@ const IosToggle: React.FC<{
     disabled={disabled}
     onClick={() => !disabled && onChange(!checked)}
     className={`
-      relative inline-flex h-[22px] w-[40px] shrink-0 rounded-full p-0 border-0
-      transition-colors duration-200 ease-out
+      relative inline-flex items-center justify-center min-h-[44px] min-w-[44px] shrink-0 p-0 border-0 bg-transparent
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
       ${disabled ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer active:opacity-90'}
-      ${checked ? 'bg-indigo-500' : 'bg-slate-600'}
     `}
   >
     <span
       aria-hidden
       className={`
-        pointer-events-none absolute top-[2px] left-[2px] h-[18px] w-[18px] rounded-full bg-white
-        shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-200 ease-out
-        ${checked ? 'translate-x-[18px]' : 'translate-x-0'}
+        relative inline-flex h-[22px] w-[40px] rounded-full
+        transition-colors duration-200 ease-out
+        ${checked ? 'bg-indigo-500' : 'bg-slate-600'}
       `}
-    />
+    >
+      <span
+        className={`
+          pointer-events-none absolute top-[2px] left-[2px] h-[18px] w-[18px] rounded-full bg-white
+          shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-200 ease-out
+          ${checked ? 'translate-x-[18px]' : 'translate-x-0'}
+        `}
+      />
+    </span>
   </button>
 );
 
@@ -96,8 +102,8 @@ const StatePill: React.FC<{
     disabled={disabled}
     onClick={onToggle}
     className={`
-      shrink-0 rounded-md border transition-colors duration-150
-      min-w-[40px] px-2 py-0.5 text-[11px] font-bold tracking-wide
+      shrink-0 inline-flex items-center justify-center rounded-md border transition-colors duration-150
+      min-h-[44px] min-w-[44px] px-2 text-[11px] font-bold tracking-wide
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
       ${disabled ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer active:scale-[0.97]'}
       ${on ? STATE_PILL_ON : STATE_PILL_OFF}
@@ -267,31 +273,31 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
   const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
   const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary);
 
+  // Reset before paint so a reopen never flashes previous local state.
   useLayoutEffect(() => {
     if (!isOpen) return;
 
-    openerRef.current = (document.activeElement as HTMLElement | null) ?? null;
+    setCategorySetup(getCategorySetupDefaultsForConfigurationModal());
+    setCustomCategories([]);
+    setNewCatName('');
+    setNewCatIcon('Package');
     setShowIconPicker(false);
     setShowAddForm(false);
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
+  }, [isOpen]);
+
+  // Focus lifecycle kept separate from state reset.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    openerRef.current = (document.activeElement as HTMLElement | null) ?? null;
     dialogPanelRef.current?.focus({ preventScroll: true });
 
     return () => {
       openerRef.current?.focus?.();
     };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      setCategorySetup(getCategorySetupDefaultsForConfigurationModal());
-      setCustomCategories([]);
-      setNewCatName('');
-      setNewCatIcon('Package');
-      setShowIconPicker(false);
-      setShowAddForm(false);
-    }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -346,8 +352,15 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
     <div
       className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
-      onClick={onClose}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
         ref={dialogPanelRef}
         tabIndex={-1}
@@ -357,7 +370,6 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
         aria-describedby="category-setup-desc"
         className={`${containerShell} max-w-3xl outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
       >
         <CloseButton
           onClose={onClose}
@@ -416,7 +428,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
                     <button
                       type="button"
                       onClick={() => handleRemoveCustom(cat.tempId)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                       aria-label={`Rimuovi ${cat.name}`}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -441,7 +453,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
                         type="button"
                         onClick={() => setShowIconPicker((v) => !v)}
                         className={`
-                          shrink-0 p-2 rounded-xl border transition-colors
+                          shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border transition-colors
                           ${
                             showIconPicker
                               ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
@@ -475,7 +487,7 @@ export const CategorySetupConfigurationModal: React.FC<CategorySetupConfiguratio
                         type="button"
                         onClick={handleAddCustomCategory}
                         disabled={!newCatName.trim()}
-                        className="shrink-0 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
+                        className="shrink-0 min-h-[44px] px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-[10px] font-black uppercase tracking-widest transition-colors inline-flex items-center justify-center"
                       >
                         OK
                       </button>

@@ -1,210 +1,341 @@
-
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Bell, MessageCircle, Info, ArrowRight } from 'lucide-react';
-import { AppNotification } from '../../../types/index';
-import { markAsRead, markAllAsRead, fetchNotificationsAsync } from '../../../services/notificationService';
-import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
-import { useFeatureFlag } from '@/context/PlatformControlContext';
-import { PLATFORM_FEATURE_FLAG_KEYS, PLATFORM_MESSAGE_TEMPLATE_KEYS } from '@/constants/platformFeatureFlags';
-import { useSystemMessage } from '@/hooks/useSystemMessage';
+import { ArrowLeft, ArrowRight, Bell, Info, MessageCircle } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import {
+  PLATFORM_FEATURE_FLAG_KEYS,
+  PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
 import { useModal } from '@/context/ModalContext';
+import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { useSystemMessage } from '@/hooks/useSystemMessage';
 import { openTripsFolder } from '@/myspace/mySpaceTripsSession';
 import type { ViaggioFolderSectionId } from '@/myspace/viaggioFolderSections';
 import { VIAGGIO_FOLDER_DEFAULT_SECTION } from '@/myspace/viaggioFolderSections';
+import {
+  fetchNotificationsAsync,
+  markAllAsRead,
+  markAsRead,
+  markAsUnread,
+} from '../../../services/notificationService';
+import type { AppNotification } from '../../../types/index';
 
 interface Props {
-    userId: string;
-    notifications: AppNotification[];
-    unreadCount: number;
-    onNavigate: (section: any, tab?: string, id?: string, extra?: any) => void;
-    onClose: () => void;
-    setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
-    setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
+  userId: string;
+  notifications: AppNotification[];
+  unreadCount: number;
+  onNavigate: (
+    section: 'community' | 'trips' | 'rewards' | 'profile' | 'city' | 'collaboration',
+    tab?: string,
+    id?: string,
+    extra?: Record<string, unknown>,
+  ) => void;
+  onClose: () => void;
+  setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
+  setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-export const UserNotificationsTab = ({ userId, notifications, unreadCount, onNavigate, onClose, setNotifications, setUnreadCount }: Props) => {
-    const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
-    const openWorkspace = useOpenCollaborationWorkspace();
-    const { openModal } = useModal();
-    const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
-    const notificationsEnabled = notificationsFlag?.enabled ?? true;
-    const notificationsMsgKey =
-        notificationsFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_NOTIFICATIONS_PAUSED;
-    const { getText: getNotificationsPausedMsg } = useSystemMessage(notificationsMsgKey);
-    const pausedCopy = getNotificationsPausedMsg({});
+export const UserNotificationsTab = ({
+  userId,
+  notifications,
+  unreadCount,
+  onNavigate,
+  onClose,
+  setNotifications,
+  setUnreadCount,
+}: Props) => {
+  const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
+  const openWorkspace = useOpenCollaborationWorkspace();
+  const { openModal } = useModal();
+  const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
+  const notificationsEnabled = notificationsFlag?.enabled ?? true;
+  const notificationsMsgKey =
+    notificationsFlag?.messageKey ?? PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_NOTIFICATIONS_PAUSED;
+  const { getText: getNotificationsPausedMsg } = useSystemMessage(notificationsMsgKey);
+  const pausedCopy = getNotificationsPausedMsg({});
 
-    // FETCH REAL DATA ON MOUNT + polling ogni 30s (sospeso in background / se flag OFF)
-    useEffect(() => {
-        if (!notificationsEnabled) {
-            setNotifications([]);
-            setUnreadCount(0);
-            setSelectedNotification(null);
-            return;
-        }
-
-        let cancelled = false;
-
-        const load = async () => {
-             try {
-                 const data = await fetchNotificationsAsync(userId);
-                 if (cancelled) return;
-                 setNotifications(data);
-                 setUnreadCount(data.filter(n => !n.isRead).length);
-             } catch (e) {
-                 console.error('[UserNotificationsTab] fetchNotificationsAsync failed', e);
-             }
-        };
-
-        const refreshIfVisible = () => {
-            if (document.hidden) return;
-            void load();
-        };
-
-        refreshIfVisible();
-
-        const interval = window.setInterval(refreshIfVisible, 120000);
-        const onVisibilityChange = () => {
-            if (!document.hidden) void load();
-        };
-        document.addEventListener('visibilitychange', onVisibilityChange);
-
-        return () => {
-            cancelled = true;
-            window.clearInterval(interval);
-            document.removeEventListener('visibilitychange', onVisibilityChange);
-        };
-    }, [userId, notificationsEnabled, setNotifications, setUnreadCount]);
-
-    const handleNotificationClick = async (notif: AppNotification) => {
-        if (!notificationsEnabled) return;
-        try {
-            await markAsRead(notif.id);
-            setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
-            setUnreadCount(prev => Math.max(0, prev - 1));
-            setSelectedNotification(notif);
-        } catch (e) {
-            console.error('[UserNotificationsTab] markAsRead failed', e);
-        }
-    };
-
-    const handleMarkAllRead = async () => {
-        if (!notificationsEnabled) return;
-        try {
-            await markAllAsRead(userId);
-            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-            setUnreadCount(0);
-        } catch (e) {
-            console.error('[UserNotificationsTab] markAllAsRead failed', e);
-        }
-    };
-
-    const handleNotifAction = (notif: AppNotification) => {
-        if (notif.linkData) {
-            const { section, tab, targetId, poiId, intent, workspaceId } = notif.linkData;
-            if (intent === 'workspace' && workspaceId) {
-                onClose();
-                openWorkspace({ workspaceId });
-                return;
-            }
-            if (intent === 'myspace_viaggio' && targetId) {
-                const sectionId = (tab as ViaggioFolderSectionId) || VIAGGIO_FOLDER_DEFAULT_SECTION;
-                onClose();
-                openModal('mySpace', {
-                    initialRoot: 'trips',
-                    initialTripsView: openTripsFolder(targetId, sectionId),
-                });
-                return;
-            }
-            onNavigate(section, tab, targetId, poiId ? { poiId } : undefined);
-            onClose();
-        }
-    };
-
+  // FETCH REAL DATA ON MOUNT + polling ogni 120s / 2 minuti (sospeso in background / se flag OFF)
+  useEffect(() => {
     if (!notificationsEnabled) {
-        return (
-            <div className="space-y-6 animate-in fade-in h-full flex flex-col">
-                <div>
-                    <h3 className="text-2xl font-bold text-white flex items-center gap-3">
-                        <Bell className="w-6 h-6 text-indigo-500" /> Centro Notifiche
-                    </h3>
-                    <p className="text-slate-500 text-sm">Aggiornamenti e avvisi dalla community.</p>
-                </div>
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-6 space-y-2">
-                    <p className="text-sm font-bold text-amber-200">
-                        {pausedCopy.title || 'Notifiche sospese'}
-                    </p>
-                    <p className="text-sm text-slate-300 leading-relaxed">
-                        {pausedCopy.body ||
-                            'Il centro notifiche in-app è temporaneamente non disponibile.'}
-                    </p>
-                </div>
-            </div>
-        );
+      setNotifications([]);
+      setUnreadCount(0);
+      setSelectedNotification(null);
+      return;
     }
 
-    if (selectedNotification) return (
-        <div className="flex flex-col h-full animate-in slide-in-from-right-4 duration-300">
-            <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
-                <button onClick={() => setSelectedNotification(null)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"><ArrowLeft className="w-6 h-6"/></button>
-                <h3 className="text-2xl font-bold text-white">Dettaglio Messaggio</h3>
-            </div>
-            <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <span className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest mb-1 block">{selectedNotification.type.replace('_', ' ')}</span>
-                        <h4 className="text-3xl font-display font-bold text-white leading-tight">{selectedNotification.title}</h4>
-                    </div>
-                    <span className="text-xs text-slate-500 font-mono">{new Date(selectedNotification.date).toLocaleString()}</span>
-                </div>
-                <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap">{selectedNotification.message}</p>
-                {selectedNotification.linkData && (
-                    <div className="pt-6 border-t border-slate-800 flex justify-end">
-                        <button onClick={() => handleNotifAction(selectedNotification)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all active:scale-95">Vai alla sezione <ArrowRight className="w-5 h-5"/></button>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+    let cancelled = false;
 
+    const load = async () => {
+      try {
+        const data = await fetchNotificationsAsync(userId);
+        if (cancelled) return;
+        setNotifications(data);
+        setUnreadCount(data.filter((n) => !n.isRead).length);
+      } catch (e) {
+        console.error('[UserNotificationsTab] fetchNotificationsAsync failed', e);
+      }
+    };
+
+    const refreshIfVisible = () => {
+      if (document.hidden) return;
+      void load();
+    };
+
+    refreshIfVisible();
+
+    const interval = window.setInterval(refreshIfVisible, 120000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) void load();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [userId, notificationsEnabled, setNotifications, setUnreadCount]);
+
+  const handleNotificationClick = async (notif: AppNotification) => {
+    if (!notificationsEnabled) return;
+    const wasUnread = !notif.isRead;
+    try {
+      await markAsRead(notif.id);
+      setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)));
+      if (wasUnread) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+      setSelectedNotification({ ...notif, isRead: true });
+    } catch (e) {
+      console.error('[UserNotificationsTab] markAsRead failed', e);
+    }
+  };
+
+  /** Pallino: toggle letto ↔ non letto senza aprire il dettaglio. */
+  const handleToggleReadDot = async (notif: AppNotification) => {
+    if (!notificationsEnabled) return;
+    try {
+      if (notif.isRead) {
+        await markAsUnread(notif.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, isRead: false } : n)),
+        );
+        setUnreadCount((prev) => prev + 1);
+      } else {
+        await markAsRead(notif.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)),
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch (err) {
+      console.error(
+        `[UserNotificationsTab] ${notif.isRead ? 'markAsUnread' : 'markAsRead'} (dot) failed`,
+        err,
+      );
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (!notificationsEnabled) return;
+    try {
+      await markAllAsRead(userId);
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (e) {
+      console.error('[UserNotificationsTab] markAllAsRead failed', e);
+    }
+  };
+
+  const handleNotifAction = (notif: AppNotification) => {
+    if (notif.linkData) {
+      const { section, tab, targetId, poiId, intent, workspaceId } = notif.linkData;
+      if (intent === 'workspace' && workspaceId) {
+        onClose();
+        openWorkspace({ workspaceId });
+        return;
+      }
+      if (intent === 'myspace_viaggio' && targetId) {
+        const sectionId = (tab as ViaggioFolderSectionId) || VIAGGIO_FOLDER_DEFAULT_SECTION;
+        onClose();
+        openModal('mySpace', {
+          initialRoot: 'trips',
+          initialTripsView: openTripsFolder(targetId, sectionId),
+        });
+        return;
+      }
+      onNavigate(section, tab, targetId, poiId ? { poiId } : undefined);
+      onClose();
+    }
+  };
+
+  if (!notificationsEnabled) {
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 h-full flex flex-col">
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h3 className="text-2xl font-bold text-white flex items-center gap-3"><Bell className="w-6 h-6 text-indigo-500"/> Centro Notifiche</h3>
-                    <p className="text-slate-500 text-sm">Aggiornamenti e avvisi dalla community.</p>
-                </div>
-                {unreadCount > 0 && (
-                    <button onClick={handleMarkAllRead} className="text-xs font-bold text-indigo-400 hover:text-white uppercase tracking-widest transition-colors">Segna tutte come lette</button>
-                )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
-                {notifications.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-600 italic bg-slate-900/20 rounded-2xl border border-slate-800 border-dashed">
-                        <Bell className="w-12 h-12 opacity-10 mb-3"/>
-                        <p>Ancora nessuna notifica per te.</p>
-                    </div>
-                ) : (
-                    notifications.map(notif => (
-                        <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-5 rounded-2xl border transition-all cursor-pointer group flex items-start gap-4 ${notif.isRead ? 'bg-slate-900/50 border-slate-800 opacity-70' : 'bg-slate-900 border-indigo-500/30 shadow-lg hover:border-indigo-500/60'}`}>
-                            <div className={`p-2.5 rounded-xl shrink-0 ${notif.isRead ? 'bg-slate-800 text-slate-600' : 'bg-indigo-600 text-white shadow-lg'}`}>
-                                {notif.type === 'reply_qa' ? <MessageCircle className="w-5 h-5"/> : <Info className="w-5 h-5"/>}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-center mb-1">
-                                    <h4 className={`font-bold text-lg truncate pr-4 ${notif.isRead ? 'text-slate-400' : 'text-white'}`}>{notif.title}</h4>
-                                    {!notif.isRead && <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.5)] shrink-0"></div>}
-                                </div>
-                                <p className={`text-sm line-clamp-2 leading-relaxed ${notif.isRead ? 'text-slate-500' : 'text-slate-400'}`}>{notif.message}</p>
-                                <div className="flex items-center gap-3 mt-3">
-                                    <span className="text-[10px] text-slate-600 font-mono uppercase">{new Date(notif.date).toLocaleDateString()}</span>
-                                    {notif.linkData && <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest group-hover:translate-x-1 transition-transform flex items-center gap-1">Vedi <ArrowRight className="w-3 h-3"/></span>}
-                                </div>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
+      <div className="space-y-6 animate-in fade-in h-full flex flex-col">
+        <div>
+          <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+            <Bell className="w-6 h-6 text-indigo-500" /> Centro Notifiche
+          </h3>
+          <p className="text-slate-500 text-sm">Aggiornamenti e avvisi dalla community.</p>
         </div>
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-6 space-y-2">
+          <p className="text-sm font-bold text-amber-200">
+            {pausedCopy.title || 'Notifiche sospese'}
+          </p>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            {pausedCopy.body || 'Il centro notifiche in-app è temporaneamente non disponibile.'}
+          </p>
+        </div>
+      </div>
     );
+  }
+
+  if (selectedNotification)
+    return (
+      <div className="flex flex-col h-full animate-in slide-in-from-right-4 duration-300">
+        <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
+          <button
+            type="button"
+            onClick={() => setSelectedNotification(null)}
+            className="inline-flex items-center justify-center min-h-11 min-w-11 p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors touch-manipulation"
+            aria-label="Torna alle notifiche"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h3 className="text-2xl font-bold text-white">Dettaglio Messaggio</h3>
+        </div>
+        <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest mb-1 block">
+                {selectedNotification.type.replace('_', ' ')}
+              </span>
+              <h4 className="text-3xl font-display font-bold text-white leading-tight">
+                {selectedNotification.title}
+              </h4>
+            </div>
+            <span className="text-xs text-slate-500 font-mono">
+              {new Date(selectedNotification.date).toLocaleString()}
+            </span>
+          </div>
+          <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap">
+            {selectedNotification.message}
+          </p>
+          {selectedNotification.linkData && (
+            <div className="pt-6 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => handleNotifAction(selectedNotification)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all active:scale-95"
+              >
+                Vai alla sezione <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 h-full flex flex-col">
+      <div className="flex justify-between items-center mb-2">
+        <div>
+          <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+            <Bell className="w-6 h-6 text-indigo-500" /> Centro Notifiche
+          </h3>
+          <p className="text-slate-500 text-sm">Aggiornamenti e avvisi dalla community.</p>
+        </div>
+        {unreadCount > 0 && (
+          <button
+            type="button"
+            onClick={handleMarkAllRead}
+            className="inline-flex items-center justify-center min-h-11 px-3 py-2 text-xs font-bold text-indigo-400 hover:text-white uppercase tracking-widest transition-colors touch-manipulation"
+          >
+            Segna tutte come lette
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+        {notifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-600 italic bg-slate-900/20 rounded-2xl border border-slate-800 border-dashed">
+            <Bell className="w-12 h-12 opacity-10 mb-3" />
+            <p>Ancora nessuna notifica per te.</p>
+          </div>
+        ) : (
+          notifications.map((notif) => (
+            <div
+              key={notif.id}
+              className={`p-5 rounded-2xl border transition-all group flex items-start gap-4 ${notif.isRead ? 'bg-slate-900/50 border-slate-800 opacity-70' : 'bg-slate-900 border-indigo-500/30 shadow-lg hover:border-indigo-500/60'}`}
+            >
+              <button
+                type="button"
+                onClick={() => handleNotificationClick(notif)}
+                className="flex flex-1 min-w-0 items-start gap-4 text-left border-0 bg-transparent p-0 cursor-pointer rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+                aria-label={`Apri notifica: ${notif.title}`}
+              >
+                <div
+                  className={`p-2.5 rounded-xl shrink-0 ${notif.isRead ? 'bg-slate-800 text-slate-600' : 'bg-indigo-600 text-white shadow-lg'}`}
+                >
+                  {notif.type === 'reply_qa' ? (
+                    <MessageCircle className="w-5 h-5" />
+                  ) : (
+                    <Info className="w-5 h-5" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4
+                    className={`font-bold text-lg truncate pr-2 mb-1 ${notif.isRead ? 'text-slate-400' : 'text-white'}`}
+                  >
+                    {notif.title}
+                  </h4>
+                  <p
+                    className={`text-sm line-clamp-2 leading-relaxed ${notif.isRead ? 'text-slate-500' : 'text-slate-400'}`}
+                  >
+                    {notif.message}
+                  </p>
+                  <div className="flex items-center gap-3 mt-3">
+                    <span className="text-[10px] text-slate-600 font-mono uppercase">
+                      {new Date(notif.date).toLocaleDateString()}
+                    </span>
+                    {notif.linkData && (
+                      <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                        Vedi <ArrowRight className="w-3 h-3" />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleToggleReadDot(notif)}
+                className="relative shrink-0 min-h-11 min-w-11 flex items-center justify-center -mr-2 -mt-1 touch-manipulation group/dot self-start rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+                aria-label={notif.isRead ? 'Segna da leggere' : 'Segna come letta'}
+                title={notif.isRead ? 'Segna da leggere' : 'Segna come letta'}
+              >
+                {notif.isRead ? (
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border-2 border-indigo-400/70 bg-transparent"
+                    aria-hidden
+                  />
+                ) : (
+                  <span
+                    className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.5)]"
+                    aria-hidden
+                  />
+                )}
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 whitespace-nowrap rounded-md bg-slate-950 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition-opacity group-hover/dot:opacity-100 group-focus-visible/dot:opacity-100"
+                >
+                  {notif.isRead ? 'Segna da leggere' : 'Segna come letta'}
+                </span>
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
 };

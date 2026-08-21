@@ -90,21 +90,21 @@ const REACT_PDF_IMAGE_WARN = /Image with src|invalid dimensions|skipped due to|I
  * Intercetta temporaneamente console.warn di @react-pdf durante toBlob().
  * Solo diagnostica — non altera il rendering.
  */
-export async function runWithPdfPipelineWarningCapture<T>(
-  fn: () => Promise<T>,
-): Promise<T> {
+export async function runWithPdfPipelineWarningCapture<T>(fn: () => Promise<T>): Promise<T> {
   const captured: string[] = [];
   const originalWarn = console.warn;
 
   console.warn = (...args: unknown[]) => {
-    const message = args.map((arg) => {
-      if (typeof arg === 'string') return arg;
-      try {
-        return JSON.stringify(arg);
-      } catch {
-        return String(arg);
-      }
-    }).join(' ');
+    const message = args
+      .map((arg) => {
+        if (typeof arg === 'string') return arg;
+        try {
+          return JSON.stringify(arg);
+        } catch {
+          return String(arg);
+        }
+      })
+      .join(' ');
 
     if (REACT_PDF_IMAGE_WARN.test(message)) {
       captured.push(message);

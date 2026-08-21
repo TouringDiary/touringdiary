@@ -188,6 +188,34 @@ Gli utenti possono pubblicare contenuti e ricevere interazioni.
 
 ---
 
+# Q&A LOCAL FLOW (CERTIFICATO)
+
+Pipeline:
+
+creazione domanda (`community_posts`, id da `gen_random_uuid()`)
+→ trigger auto-follow owner (`user_interactions` follow)
+→ risposte persistenti (`community_replies` via RPC `add_community_reply`)
+→ identità autore da `auth.uid()` + `profiles`
+→ owner: vietata root reply; consentite nested reply
+→ trigger after reply: `replies_count` + notifiche ai follower attivi
+→ deep-link notifica: `section=community`, `tab=qa`, `targetId=postId`
+
+Contratto:
+- `community_posts.replies` jsonb = legacy (non write path nuove reply)
+- guest → AuthModal standard (`openModal('auth')` / `onOpenAuth`, come diario e Live Feed)
+- Segui ≠ like: `interaction_type='follow'`
+- Ritorno città: click città nella lista → `navigateToCity` + memoria session (`qaCityReturnMemory`: cityId/postId/filtro/scroll); Back dalla stessa città consuma la memoria, torna Home path e riapre Community Hub tab Q&A **dopo** il cleanup pathname (evita che `closeModal` dell'effect cancelli il hub); restore filtro/scroll; postId ancora logica opzionale (non apre automaticamente il thread); memoria ignorata se cityId ≠ città attiva
+- Dettaglio autore Q&A: overlay locale (pattern dialog A1 + `CloseButton` / Escape LIFO); non chiude Community Hub e non altera la browser history
+
+
+DESCRIZIONE SEMPLICE
+
+Q&A Local: domande persistenti, follow, thread di risposte e notifiche follower.
+Click città → pagina città; Indietro → ritorno al Q&A nello stesso punto lista.
+
+
+---
+
 # RANKING FLOW (CERTIFICATO)
 
 Pipeline:

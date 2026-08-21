@@ -1,19 +1,16 @@
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
-import { isEphemeralItemId } from '@/utils/runtimeItemId';
-import {
-  updateSuitcaseAsync,
-  createSuitcaseAsync,
-} from '@/services/suitcase/suitcaseCoreService';
+import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
+import { snapshotsEqual } from '@/domain/save/documentSnapshot';
+import { createSuitcaseAsync, updateSuitcaseAsync } from '@/services/suitcase/suitcaseCoreService';
 import {
   addSuitcaseItemAsync,
   deleteSuitcaseItemAsync,
-  updateSuitcaseItemAsync,
   persistSuitcaseItemsFromRuntimeAsync,
+  updateSuitcaseItemAsync,
 } from '@/services/suitcase/suitcaseItemsService';
-import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
+import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
+import { isEphemeralItemId } from '@/utils/runtimeItemId';
 import { getDraftWorkspaceKind } from '@/utils/suitcaseDomain';
-import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 
 export interface SaveSuitcaseDocumentOptions {
   userId: string;
@@ -22,8 +19,7 @@ export interface SaveSuitcaseDocumentOptions {
   documentId: string | null;
 }
 
-const listContentKey = (values?: string[] | null) =>
-  (values ?? []).slice().sort().join('\0');
+const listContentKey = (values?: string[] | null) => (values ?? []).slice().sort().join('\0');
 
 const itemContentKey = (item: SuitcaseItem) =>
   // ai_suggestion_context e suggested_at sono impostati solo in INSERT (addSuitcaseItemAsync);
@@ -37,7 +33,7 @@ const itemContentKey = (item: SuitcaseItem) =>
 async function createSuitcaseFromSnapshot(
   snapshot: Suitcase,
   userId: string,
-  title: string
+  title: string,
 ): Promise<{ id: string }> {
   const workspaceKind = getDraftWorkspaceKind(snapshot);
   const isUserTemplate = workspaceKind === 'user_template';
@@ -69,7 +65,7 @@ async function updateSuitcaseMetadataFromSnapshot(
   suitcaseId: string,
   snapshot: Suitcase,
   title: string,
-  lastModifiedById: string
+  lastModifiedById: string,
 ): Promise<void> {
   const normalizedUi = ensureUiStateForPersist(snapshot);
   await updateSuitcaseAsync(
@@ -81,7 +77,7 @@ async function updateSuitcaseMetadataFromSnapshot(
       ui_state: normalizedUi,
       source_template_id: snapshot.source_template_id,
     },
-    { lastModifiedById }
+    { lastModifiedById },
   );
 }
 
@@ -92,7 +88,7 @@ async function updateSuitcaseMetadataFromSnapshot(
  */
 export async function saveSuitcaseDocumentAsync(
   snapshot: Suitcase,
-  options: SaveSuitcaseDocumentOptions
+  options: SaveSuitcaseDocumentOptions,
 ): Promise<{ id: string }> {
   const { userId, name, asCopy, documentId } = options;
 
@@ -119,11 +115,11 @@ export async function saveSuitcaseDocumentAsync(
 export async function syncSuitcaseItemsDiff(
   suitcaseId: string,
   currentItems: SuitcaseItem[],
-  baselineItems: SuitcaseItem[]
+  baselineItems: SuitcaseItem[],
 ): Promise<SuitcaseItem[]> {
   const baselineById = new Map(baselineItems.filter((i) => i.id).map((i) => [i.id, i]));
   const currentById = new Map(
-    currentItems.filter((i) => i.id && !isEphemeralItemId(i.id)).map((i) => [i.id, i])
+    currentItems.filter((i) => i.id && !isEphemeralItemId(i.id)).map((i) => [i.id, i]),
   );
 
   for (const base of baselineItems) {
@@ -201,6 +197,6 @@ export function suitcaseSnapshotsEqual(a: Suitcase, b: Suitcase): boolean {
         is_ai_suggestion: i.is_ai_suggestion,
         accepted_from_ai: i.accepted_from_ai,
       })),
-    }
+    },
   );
 }

@@ -8,7 +8,7 @@ import { registerWorkspaceClose, unregisterWorkspaceClose } from './workspaceClo
  */
 export function useWorkspaceCloseRegistration(
   workspaceId: WorkspaceId,
-  requestClose: () => void
+  requestClose: () => void,
 ): void {
   const ownerIdRef = useRef<symbol>(Symbol('workspace-close-owner'));
 

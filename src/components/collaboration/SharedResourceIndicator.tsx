@@ -1,13 +1,16 @@
-import React from 'react';
 import { Users } from 'lucide-react';
+import type React from 'react';
 
 interface SharedResourceIndicatorProps {
   className?: string;
 }
 
 /** Indicatore unico risorsa condivisa (§11.1). */
-export const SharedResourceIndicator: React.FC<SharedResourceIndicatorProps> = ({ className = '' }) => (
+export const SharedResourceIndicator: React.FC<SharedResourceIndicatorProps> = ({
+  className = '',
+}) => (
   <span
+    role="img"
     title="Condiviso"
     aria-label="Condiviso"
     className={`inline-flex items-center justify-center text-indigo-300 shrink-0 ${className}`}

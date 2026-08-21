@@ -1,5 +1,5 @@
-import React from 'react';
 import { Lock } from 'lucide-react';
+import type React from 'react';
 
 export interface CollaborationLockBannerProps {
   message: string;

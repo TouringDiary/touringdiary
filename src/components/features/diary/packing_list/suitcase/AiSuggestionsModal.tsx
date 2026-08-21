@@ -1,32 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { Check, ChevronLeft, Sparkles, XCircle } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, ChevronLeft, Check, XCircle } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import {
-  CORE_CATEGORY_NAMES,
   CATEGORY_ORDER,
+  CORE_CATEGORY_NAMES,
   normalizeCategoryName,
-  SystemCategoryName,
+  type SystemCategoryName,
 } from '@/domain/packing/packingCategories';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import {
+  buildUniformLimitMap,
+  type GetAiCandidatesOptions,
+  normalizeLimitPerCategory,
+} from '@/hooks/useSuitcaseSystem';
+import type { ToastVariant } from '@/types/toast';
+import type {
   AiQuotaFeedback,
   AiSuggestion,
 } from '../SuitcaseFloatingPanel/hooks/useSuitcaseSuggestions';
-import {
-  AiSuggestionsSetupStep,
-  AiQuotaMode,
-} from './AiSuggestionsSetupStep';
 import { AiSuggestionsReviewStep } from './AiSuggestionsReviewStep';
-import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
-import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
-import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
-import { ToastVariant } from '@/types/toast';
-import {
-  buildUniformLimitMap,
-  GetAiCandidatesOptions,
-  normalizeLimitPerCategory,
-} from '@/hooks/useSuitcaseSystem';
+import { type AiQuotaMode, AiSuggestionsSetupStep } from './AiSuggestionsSetupStep';
 
 interface AiSuggestionsModalProps {
   isOpen: boolean;
@@ -34,7 +32,7 @@ interface AiSuggestionsModalProps {
   onGenerate: (
     categories: string[],
     mode: 'direct' | 'review',
-    options?: GetAiCandidatesOptions
+    options?: GetAiCandidatesOptions,
   ) => void;
   onShowMore: () => void;
   onAccept: (name: string, category: string) => Promise<void>;
@@ -109,7 +107,9 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
 
   useEffect(() => {
     if (isOpen && selectedCategories.length === 0) {
-      setSelectedCategories(initialCategories.length > 0 ? initialCategories : [...CORE_CATEGORY_NAMES].slice(0, 4));
+      setSelectedCategories(
+        initialCategories.length > 0 ? initialCategories : [...CORE_CATEGORY_NAMES].slice(0, 4),
+      );
     }
   }, [isOpen, initialCategories, selectedCategories.length]);
 
@@ -151,10 +151,10 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const pendingSuggestions = suggestions.filter(s => s.status === 'pending');
+  const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
   const bulkDisabled = isGenerating || isBulkRunning || pendingSuggestions.length === 0;
   const selectedPendingCount = pendingSuggestions.filter((s) =>
-    selectedForAcceptKeys.has(buildSuggestionKey(s.name, s.category))
+    selectedForAcceptKeys.has(buildSuggestionKey(s.name, s.category)),
   ).length;
   const hasSelectedPending = selectedPendingCount > 0;
 
@@ -198,9 +198,11 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
         return next;
       });
       showToast?.(
-        toAccept.length === 1 ? 'Suggerimento accettato' : `${toAccept.length} suggerimenti accettati`,
+        toAccept.length === 1
+          ? 'Suggerimento accettato'
+          : `${toAccept.length} suggerimenti accettati`,
         'Gli oggetti sono stati aggiunti alla valigia.',
-        'success'
+        'success',
       );
       onClose();
     } finally {
@@ -210,7 +212,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
 
   const runAcceptSelected = () => {
     const toAccept = pendingSuggestions.filter((s) =>
-      selectedForAcceptKeys.has(buildSuggestionKey(s.name, s.category))
+      selectedForAcceptKeys.has(buildSuggestionKey(s.name, s.category)),
     );
     void acceptPendingSuggestions(toAccept);
   };
@@ -243,7 +245,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
       showToast?.(
         count === 1 ? 'Suggerimento rifiutato' : `${count} suggerimenti rifiutati`,
         'Gli oggetti non verranno più suggeriti per questa valigia.',
-        'success'
+        'success',
       );
       onClose();
     } finally {
@@ -253,10 +255,10 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   };
 
   const removeCategory = (cat: string) => {
-    setSelectedCategories(prev => prev.filter(c => c !== cat));
-    setRemovedCategories(prev => (prev.includes(cat) ? prev : [...prev, cat]));
+    setSelectedCategories((prev) => prev.filter((c) => c !== cat));
+    setRemovedCategories((prev) => (prev.includes(cat) ? prev : [...prev, cat]));
     const normalized = normalizeCategoryName(cat) as SystemCategoryName;
-    setCustomLimits(prev => {
+    setCustomLimits((prev) => {
       const next = { ...prev };
       delete next[normalized];
       return next;
@@ -264,17 +266,17 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   };
 
   const restoreCategory = (cat: string) => {
-    setRemovedCategories(prev => prev.filter(c => c !== cat));
+    setRemovedCategories((prev) => prev.filter((c) => c !== cat));
     if (!selectedCategories.includes(cat)) {
-      setSelectedCategories(prev => [...prev, cat]);
+      setSelectedCategories((prev) => [...prev, cat]);
     }
   };
 
   const addCategory = (cat: string) => {
     if (!selectedCategories.includes(cat)) {
-      setSelectedCategories(prev => [...prev, cat]);
+      setSelectedCategories((prev) => [...prev, cat]);
     }
-    setRemovedCategories(prev => prev.filter(c => c !== cat));
+    setRemovedCategories((prev) => prev.filter((c) => c !== cat));
     setShowAddCategoryDropdown(false);
   };
 
@@ -283,7 +285,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
   };
 
   const availableCategories = CATEGORY_ORDER.filter(
-    c => !selectedCategories.includes(c) && !removedCategories.includes(c)
+    (c) => !selectedCategories.includes(c) && !removedCategories.includes(c),
   );
 
   const handleGenerate = () => {
@@ -301,12 +303,18 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
     <div
       className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
-      onClick={handleDismiss}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={handleDismiss}
+      />
       <div
         className={containerShell}
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-suggestions-modal-title"
@@ -330,7 +338,9 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               />
             </div>
             <div className="min-w-0">
-              <h3 id="ai-suggestions-modal-title" className={`${modalTitleShell} mb-1`}>Suggerimenti AI</h3>
+              <h3 id="ai-suggestions-modal-title" className={`${modalTitleShell} mb-1`}>
+                Suggerimenti AI
+              </h3>
               <p id="ai-suggestions-modal-desc" className={modalSubtitleShell}>
                 {step === 'setup'
                   ? 'Scegli categorie e quantità dei suggerimenti'
@@ -359,7 +369,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
               onSetQuotaMode={handleSetQuotaMode}
               onSetUniformLimit={setUniformLimit}
               onSetCustomLimit={(category, limit) =>
-                setCustomLimits(prev => ({ ...prev, [category]: limit }))
+                setCustomLimits((prev) => ({ ...prev, [category]: limit }))
               }
             />
           ) : (
@@ -386,11 +396,7 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
         <div className={footerShell}>
           {step === 'setup' ? (
             <div className={footerActionsShell}>
-              <button
-                type="button"
-                onClick={onClose}
-                className={btnCancelShell}
-              >
+              <button type="button" onClick={onClose} className={btnCancelShell}>
                 Annulla
               </button>
               <button
@@ -490,6 +496,6 @@ export const AiSuggestionsModal: React.FC<AiSuggestionsModalProps> = ({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

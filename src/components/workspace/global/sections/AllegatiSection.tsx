@@ -1,9 +1,9 @@
-import React from 'react';
+import type React from 'react';
 import { useUser } from '@/context/UserContext';
-import { useWorkspaceDashboard } from '@/hooks/useWorkspaceDashboard';
-import { useWorkspacePanelState } from '../WorkspacePanelContext';
-import { WORKSPACE_ATTACHMENT_CATEGORY_LABELS } from '../globalWorkspacePresentation';
 import { WORKSPACE_ATTACHMENT_CATEGORIES } from '@/domain/collaboration/workspaceAttachment';
+import { useWorkspaceDashboard } from '@/hooks/useWorkspaceDashboard';
+import { WORKSPACE_ATTACHMENT_CATEGORY_LABELS } from '../globalWorkspacePresentation';
+import { useWorkspacePanelState } from '../WorkspacePanelContext';
 import { AllegatiCategoryPanel } from './AllegatiCategoryPanel';
 
 export const AllegatiSection: React.FC = () => {
@@ -59,9 +59,11 @@ export const AllegatiSection: React.FC = () => {
               onClick={() => setAllegatiCategory(category)}
               className={`
                 shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors
-                ${isActive
-                  ? 'bg-indigo-600/25 text-indigo-200 border border-indigo-500/40'
-                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 border border-transparent'}
+                ${
+                  isActive
+                    ? 'bg-indigo-600/25 text-indigo-200 border border-indigo-500/40'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 border border-transparent'
+                }
               `}
             >
               {WORKSPACE_ATTACHMENT_CATEGORY_LABELS[category]}

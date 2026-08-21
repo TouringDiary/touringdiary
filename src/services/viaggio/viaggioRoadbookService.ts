@@ -1,12 +1,11 @@
-import { supabase } from '../supabaseClient';
-import type { Json } from '../../types/supabase';
-import type { RoadbookDay } from '../../types/models/Itinerary';
+import type { ItineraryItem, RoadbookDay } from '../../types/models/Itinerary';
 import type { ViaggioRoadbookArtifact } from '../../types/models/ViaggioRoadbookArtifact';
+import type { Json } from '../../types/supabase';
 import { generateRoadbook } from '../ai/aiPlanner';
 import { getCityNameById } from '../geoRegistryService';
-import { getViaggio } from './viaggioService';
+import { supabase } from '../supabaseClient';
 import { getDiaryOfViaggio } from './viaggioDiaryService';
-import type { ItineraryItem } from '../../types/models/Itinerary';
+import { getViaggio } from './viaggioService';
 
 const toDbJson = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? []));
 

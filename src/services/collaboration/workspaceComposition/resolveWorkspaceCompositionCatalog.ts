@@ -35,7 +35,7 @@ function templateTitle(title: string | null | undefined): string {
  * Non usare nel wizard «Condividi» — lì resta `resolveWorkspaceCompositionBlueprint`.
  */
 export async function resolveWorkspaceCompositionCatalog(
-  input: ResolveWorkspaceCompositionCatalogInput
+  input: ResolveWorkspaceCompositionCatalogInput,
 ): Promise<WorkspaceCompositionBlueprint> {
   const { ownerId } = input;
   const preselectedDiaryId = input.preselectedDiaryId?.trim() || '';
@@ -48,14 +48,10 @@ export async function resolveWorkspaceCompositionCatalog(
 
   const diaryIds = new Set(diaryRows.map((row) => row.id));
   const suitcaseIds = new Set(
-    suitcaseRows
-      .filter((row) => classifySuitcaseRow(row) === 'suitcase')
-      .map((row) => row.id)
+    suitcaseRows.filter((row) => classifySuitcaseRow(row) === 'suitcase').map((row) => row.id),
   );
   const templateIds = new Set(
-    templateRows
-      .filter((row) => classifySuitcaseRow(row) === 'user_template')
-      .map((row) => row.id)
+    templateRows.filter((row) => classifySuitcaseRow(row) === 'user_template').map((row) => row.id),
   );
 
   const edges: WorkspaceCompositionEdge[] = [];

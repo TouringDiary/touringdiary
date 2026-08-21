@@ -59,7 +59,10 @@ export const DocumentSaveStatus: React.FC<DocumentSaveStatusProps> = ({
     case 'saving':
       content = (
         <span className="text-slate-300 flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin" aria-hidden />
+          <span
+            className="inline-block w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin"
+            aria-hidden
+          />
           Salvataggio...
         </span>
       );
@@ -75,19 +78,21 @@ export const DocumentSaveStatus: React.FC<DocumentSaveStatusProps> = ({
         const displayTs = lastSavedAt ?? fallbackSavedAt;
         if (displayTs) {
           const formatted =
-            dateFormat === 'datetime' ? formatItalianDateTime(displayTs) : formatItalianTime(displayTs);
+            dateFormat === 'datetime'
+              ? formatItalianDateTime(displayTs)
+              : formatItalianTime(displayTs);
           content =
             layout === 'stacked' ? (
               <>
                 <span className="text-slate-500 whitespace-nowrap text-[1em] leading-[1.25]">
                   Ultimo salvataggio
                 </span>
-                <span className="text-slate-400 tabular-nums text-[1em] leading-[1.25]">{formatted}</span>
+                <span className="text-slate-400 tabular-nums text-[1em] leading-[1.25]">
+                  {formatted}
+                </span>
               </>
             ) : (
-              <span className="text-slate-400 tabular-nums">
-                Ultimo salvataggio {formatted}
-              </span>
+              <span className="text-slate-400 tabular-nums">Ultimo salvataggio {formatted}</span>
             );
         }
       }

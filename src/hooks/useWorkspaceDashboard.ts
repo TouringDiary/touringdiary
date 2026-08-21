@@ -15,9 +15,9 @@ import {
   listWorkspaceResources,
 } from '@/services/collaboration';
 import {
+  type CollaborationUserProfileSummary,
   fetchCollaborationUserProfiles,
   resolveWorkspaceResourceLabels,
-  type CollaborationUserProfileSummary,
   type WorkspaceResourceLabel,
 } from '@/services/collaboration/workspaceResourcePresentation';
 
@@ -62,16 +62,15 @@ function clearDashboardDerivedState(setters: {
 
 export function useWorkspaceDashboard(
   workspaceId: string | null | undefined,
-  userId: string | undefined
+  userId: string | undefined,
 ): WorkspaceDashboardState {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [resources, setResources] = useState<WorkspaceResource[]>([]);
   const [resourceLabels, setResourceLabels] = useState<WorkspaceResourceLabel[]>([]);
   const [members, setMembers] = useState<WorkspaceMemberWithProfile[]>([]);
   const [invites, setInvites] = useState<WorkspaceInvite[]>([]);
-  const [inviteeProfiles, setInviteeProfiles] = useState<
-    Record<string, CollaborationUserProfileSummary>
-  >(EMPTY_INVITEE_PROFILES);
+  const [inviteeProfiles, setInviteeProfiles] =
+    useState<Record<string, CollaborationUserProfileSummary>>(EMPTY_INVITEE_PROFILES);
   const [ownerProfile, setOwnerProfile] = useState<CollaborationUserProfileSummary | undefined>();
   const [permissions, setPermissions] = useState<WorkspaceResourcePermission[]>([]);
   const [isOwner, setIsOwner] = useState(false);

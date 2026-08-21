@@ -1,28 +1,38 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useModal } from '@/context/ModalContext';
-import { useUndoStack } from '@/hooks/useUndoStack';
-import { buildProductAffiliateLink, buildAffiliateLink, getPartnerById, resolveBestPartner } from '@/services/partnerIntegrationService';
-import { checkDuplicateItem } from '../utils/duplicateCheck';
-import { useSuitcaseActions } from './useSuitcaseActions';
-import { useSuitcaseEditorLogic } from './useSuitcaseEditorLogic';
-import { useSuitcaseDocumentSave } from '@/hooks/save/useSuitcaseDocumentSave';
-import { hasDraftWorkspaceInStorage, isDraftWorkspaceId, deleteGuestSuitcase } from '@/utils/guestSuitcaseHelper';
-import { useSuitcaseHiddenCategories } from './useSuitcaseHiddenCategories';
-import { useSuitcaseItemActions } from './useSuitcaseItemActions';
-import { useSuitcasePanelData, type SeedItemsLocallyFn } from './useSuitcasePanelData';
-import { useSuitcaseUndo } from './useSuitcaseUndo';
-import { useSuitcaseUndoHandlers } from './useSuitcaseUndoHandlers';
-import { getSuitcaseItemProgress } from '../../suitcase/SuitcaseUtils';
-import { useSuitcaseAssociationFlow } from './useSuitcaseAssociationFlow';
-import { isTdTemplate } from '@/utils/suitcaseDomain';
-import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
-import { CATEGORY_ID_MAP, normalizeCategoryName } from '@/domain/packing/packingCategories';
 import {
   enableOptionalSystemCategory,
   materializeCategorySetupForWrite,
 } from '@/domain/packing/categorySetup';
+import { CATEGORY_ID_MAP, normalizeCategoryName } from '@/domain/packing/packingCategories';
+import { useSuitcaseDocumentSave } from '@/hooks/save/useSuitcaseDocumentSave';
+import { useUndoStack } from '@/hooks/useUndoStack';
+import {
+  buildAffiliateLink,
+  buildProductAffiliateLink,
+  getPartnerById,
+  resolveBestPartner,
+} from '@/services/partnerIntegrationService';
 import { buildMissingStandardSeedItems } from '@/services/suitcase/packingSeedService';
+import type { PartnerIntegrations } from '@/types/partners';
+import { SUITCASE_MODIFIED_TOAST } from '@/types/toast';
+import {
+  deleteGuestSuitcase,
+  hasDraftWorkspaceInStorage,
+  isDraftWorkspaceId,
+} from '@/utils/guestSuitcaseHelper';
+import { isTdTemplate } from '@/utils/suitcaseDomain';
 import { normalizeItemName } from '@/utils/tagDerivation';
+import { getSuitcaseItemProgress } from '../../suitcase/SuitcaseUtils';
+import { checkDuplicateItem } from '../utils/duplicateCheck';
+import { useSuitcaseActions } from './useSuitcaseActions';
+import { useSuitcaseAssociationFlow } from './useSuitcaseAssociationFlow';
+import { useSuitcaseEditorLogic } from './useSuitcaseEditorLogic';
+import { useSuitcaseHiddenCategories } from './useSuitcaseHiddenCategories';
+import { useSuitcaseItemActions } from './useSuitcaseItemActions';
+import { type SeedItemsLocallyFn, useSuitcasePanelData } from './useSuitcasePanelData';
+import { useSuitcaseUndo } from './useSuitcaseUndo';
+import { useSuitcaseUndoHandlers } from './useSuitcaseUndoHandlers';
 
 interface UseSuitcasePanelCompositionOptions {
   itineraryId: string | null;
@@ -118,9 +128,16 @@ export function useSuitcasePanelComposition({
     activeTabId: data.panelState.activeTabId,
     showToast: data.showToast,
     handleStateSync: data.handleStateSync,
-    checkDuplicateItem: (id, name, cat, scId, isUndo) => checkDuplicateItem(
-      id, name, cat, scId, data.panelState.activeTabId, data.userSuitcasesRef.current, isUndo
-    ),
+    checkDuplicateItem: (id, name, cat, scId, isUndo) =>
+      checkDuplicateItem(
+        id,
+        name,
+        cat,
+        scId,
+        data.panelState.activeTabId,
+        data.userSuitcasesRef.current,
+        isUndo,
+      ),
     stack: { pushAction, undo, redo, canUndo, canRedo },
   });
 
@@ -140,17 +157,31 @@ export function useSuitcasePanelComposition({
     activeSuitcaseId: activeTabId,
     onShowToast: data.showToast,
     onStateSync: data.handleStateSync,
-    onCheckDuplicate: (id, name, cat, scId, isUndo) => checkDuplicateItem(
-      id, name, cat, scId, data.panelState.activeTabId, data.userSuitcasesRef.current, isUndo
-    ),
+    onCheckDuplicate: (id, name, cat, scId, isUndo) =>
+      checkDuplicateItem(
+        id,
+        name,
+        cat,
+        scId,
+        data.panelState.activeTabId,
+        data.userSuitcasesRef.current,
+        isUndo,
+      ),
   });
 
   const itemActions = useSuitcaseItemActions({
     activeTabId: data.panelState.activeTabId,
     ...data.mutations,
-    checkDuplicateItem: (id, name, cat, scId, isUndo) => checkDuplicateItem(
-      id, name, cat, scId, data.panelState.activeTabId, data.userSuitcasesRef.current, isUndo
-    ),
+    checkDuplicateItem: (id, name, cat, scId, isUndo) =>
+      checkDuplicateItem(
+        id,
+        name,
+        cat,
+        scId,
+        data.panelState.activeTabId,
+        data.userSuitcasesRef.current,
+        isUndo,
+      ),
     getActiveSuitcase: () => {
       const id = data.panelState.activeTabId;
       if (!id) return undefined;
@@ -191,7 +222,7 @@ export function useSuitcasePanelComposition({
               is_ai_suggestion: true,
               ai_suggestion_context: context ?? null,
               suggested_at: new Date().toISOString(),
-            }
+            },
           );
         }
         return candidates.length;
@@ -208,11 +239,7 @@ export function useSuitcasePanelComposition({
     }
     if (lastAutosaveErrorToastRef.current === suitcaseDocumentSave.lastError) return;
     lastAutosaveErrorToastRef.current = suitcaseDocumentSave.lastError;
-    data.showToast(
-      'Salvataggio non riuscito',
-      suitcaseDocumentSave.lastError,
-      'destructive'
-    );
+    data.showToast('Salvataggio non riuscito', suitcaseDocumentSave.lastError, 'destructive');
   }, [data.showToast, suitcaseDocumentSave.lastError, suitcaseDocumentSave.phase]);
 
   const editorLogic = useSuitcaseEditorLogic({
@@ -244,14 +271,14 @@ export function useSuitcasePanelComposition({
         (item) =>
           normalizeItemName(item.name) === normalizeItemName(name) &&
           !!item.is_ai_suggestion &&
-          !item.accepted_from_ai
+          !item.accepted_from_ai,
       );
 
       if (existing) {
         await itemActions.handleUpdateItemConfirmed(
           existing.id,
           { is_ai_suggestion: false, accepted_from_ai: true },
-          existing
+          existing,
         );
       } else {
         await itemActions.handleAddItemConfirmed(suitcase.id, name, category, {
@@ -261,10 +288,10 @@ export function useSuitcasePanelComposition({
       }
 
       data.setAiSuggestions((prev) =>
-        prev.map((s) => (s.name === name ? { ...s, status: 'accepted' as const } : s))
+        prev.map((s) => (s.name === name ? { ...s, status: 'accepted' as const } : s)),
       );
     },
-    [data.setAiSuggestions, itemActions, resolveActiveSuitcase]
+    [data.setAiSuggestions, itemActions, resolveActiveSuitcase],
   );
 
   const handleRejectAiSuggestion = useCallback(
@@ -275,34 +302,33 @@ export function useSuitcasePanelComposition({
       await data.mutations.rejectItem(suitcase.id, { name, category });
       await data.fetchBlacklist({ force: true });
       data.setAiSuggestions((prev) =>
-        prev.map((s) => (s.name === name ? { ...s, status: 'rejected' as const } : s))
+        prev.map((s) => (s.name === name ? { ...s, status: 'rejected' as const } : s)),
       );
     },
-    [data.fetchBlacklist, data.mutations, data.setAiSuggestions, resolveActiveSuitcase]
+    [data.fetchBlacklist, data.mutations, data.setAiSuggestions, resolveActiveSuitcase],
   );
 
-  const handleActivateOptionalCategory = useCallback(async (categoryId: string) => {
-    const suitcase = data.activeSuitcase;
-    if (!suitcase) return;
+  const handleActivateOptionalCategory = useCallback(
+    async (categoryId: string) => {
+      const suitcase = data.activeSuitcase;
+      if (!suitcase) return;
 
-    const { setup } = materializeCategorySetupForWrite(suitcase);
-    const nextSetup = enableOptionalSystemCategory(setup, categoryId);
-    hiddenCategories.enhancedHiddenCategoriesLogic.activateOptionalCategory(categoryId);
+      const { setup } = materializeCategorySetupForWrite(suitcase);
+      const nextSetup = enableOptionalSystemCategory(setup, categoryId);
+      hiddenCategories.enhancedHiddenCategoriesLogic.activateOptionalCategory(categoryId);
 
-    const categoryName = Object.entries(CATEGORY_ID_MAP).find(([, id]) => id === categoryId)?.[0];
-    const seedItems = await buildMissingStandardSeedItems(suitcase, nextSetup);
-    const toAdd = seedItems.filter(
-      (item) => !categoryName || normalizeCategoryName(item.category) === categoryName
-    );
+      const categoryName = Object.entries(CATEGORY_ID_MAP).find(([, id]) => id === categoryId)?.[0];
+      const seedItems = await buildMissingStandardSeedItems(suitcase, nextSetup);
+      const toAdd = seedItems.filter(
+        (item) => !categoryName || normalizeCategoryName(item.category) === categoryName,
+      );
 
-    for (const item of toAdd) {
-      await itemActions.handleAddItemConfirmed(suitcase.id, item.name, item.category);
-    }
-  }, [
-    data.activeSuitcase,
-    hiddenCategories.enhancedHiddenCategoriesLogic,
-    itemActions,
-  ]);
+      for (const item of toAdd) {
+        await itemActions.handleAddItemConfirmed(suitcase.id, item.name, item.category);
+      }
+    },
+    [data.activeSuitcase, hiddenCategories.enhancedHiddenCategoriesLogic, itemActions],
+  );
 
   const handleLogin = () => {
     requestAnimationFrame(() => {
@@ -364,10 +390,7 @@ export function useSuitcasePanelComposition({
     // (al suo completamento la fase diventa idle o error, e in error rientriamo nel guard).
     const hasUnsavedChanges =
       inEditor &&
-      (isDraft ||
-        hasDraftWorkspaceInStorage() ||
-        savePhase === 'dirty' ||
-        savePhase === 'error');
+      (isDraft || hasDraftWorkspaceInStorage() || savePhase === 'dirty' || savePhase === 'error');
 
     if (!hasUnsavedChanges) {
       requestClose();
@@ -390,9 +413,7 @@ export function useSuitcasePanelComposition({
 
   useLayoutEffect(() => {
     const m = data.modalState;
-    onOverlayModalOpenChange?.(
-      m.showCategorySetupModal || m.showRecommendedSuitcaseModal
-    );
+    onOverlayModalOpenChange?.(m.showCategorySetupModal || m.showRecommendedSuitcaseModal);
   }, [
     data.modalState.showCategorySetupModal,
     data.modalState.showRecommendedSuitcaseModal,
@@ -474,9 +495,7 @@ export function useSuitcasePanelComposition({
 
   const handleBackToSelector = useCallback(async () => {
     const isExistingPersisted =
-      activeTabId &&
-      !isDraftWorkspaceId(activeTabId) &&
-      !data.panelState.isNewSuitcaseSession;
+      activeTabId && !isDraftWorkspaceId(activeTabId) && !data.panelState.isNewSuitcaseSession;
 
     await suitcaseDocumentSave.awaitInFlight();
 
@@ -490,14 +509,13 @@ export function useSuitcasePanelComposition({
         data.showToast(
           SUITCASE_MODIFIED_TOAST.message,
           SUITCASE_MODIFIED_TOAST.description,
-          'success'
+          'success',
         );
       } else if (phase === 'error') {
         data.showToast(
           'Salvataggio non riuscito',
-          suitcaseDocumentSave.lastError ||
-            'Le ultime modifiche non sono state salvate. Riprova.',
-          'destructive'
+          suitcaseDocumentSave.lastError || 'Le ultime modifiche non sono state salvate. Riprova.',
+          'destructive',
         );
       }
     }
@@ -530,12 +548,13 @@ export function useSuitcasePanelComposition({
     const isTemplateDraft = actions.isTemplateDraftSession;
     try {
       if (wasDraft) {
-        const persisted = await data.mutations.persistGuestSuitcase(
-          data.currentUser.id,
-          null
-        );
+        const persisted = await data.mutations.persistGuestSuitcase(data.currentUser.id, null);
         if (!persisted) {
-          throw new Error(isTemplateDraft ? 'Impossibile salvare il template.' : 'Impossibile salvare la valigia.');
+          throw new Error(
+            isTemplateDraft
+              ? 'Impossibile salvare il template.'
+              : 'Impossibile salvare la valigia.',
+          );
         }
       }
       await data.fetchUserSuitcases();
@@ -544,13 +563,17 @@ export function useSuitcasePanelComposition({
       data.panelState.setViewMode('selector');
       data.panelState.setActiveTabId(null);
       data.showToast(
-        isTemplateDraft ? 'Template salvato' : wasDraft ? 'Valigia salvata' : SUITCASE_MODIFIED_TOAST.message,
+        isTemplateDraft
+          ? 'Template salvato'
+          : wasDraft
+            ? 'Valigia salvata'
+            : SUITCASE_MODIFIED_TOAST.message,
         isTemplateDraft
           ? 'È ora disponibile nel tab Template.'
           : wasDraft
             ? 'È ora disponibile tra le tue valigie personali.'
             : SUITCASE_MODIFIED_TOAST.description,
-        'success'
+        'success',
       );
     } catch (e) {
       console.error('Error saving suitcase:', e);
@@ -559,23 +582,32 @@ export function useSuitcasePanelComposition({
         isTemplateDraft
           ? 'Non è stato possibile salvare il template. Riprova.'
           : 'Non è stato possibile salvare la valigia. Riprova.',
-        'destructive'
+        'destructive',
       );
     }
   };
 
-  const handleLinkBuild = useCallback((providerId: string, productId: string) => {
-    const integrations = data.configs.partner_integrations || {};
-    const partner = getPartnerById(integrations, providerId);
-    return partner ? buildProductAffiliateLink(partner, productId) : '';
-  }, [data.configs.partner_integrations]);
+  const partnerIntegrations = useMemo<PartnerIntegrations>(
+    () => ({ partners: data.configs.partner_integrations ?? {} }),
+    [data.configs.partner_integrations],
+  );
 
-  const handleLinkBuildSearch = useCallback((query: string, category?: string) => {
-    const integrations = data.configs.partner_integrations || {};
-    const bestPartner = resolveBestPartner(integrations, { category });
-    if (bestPartner) return buildAffiliateLink(bestPartner, { query });
-    return `https://www.amazon.it/s?k=${encodeURIComponent(query)}`;
-  }, [data.configs.partner_integrations]);
+  const handleLinkBuild = useCallback(
+    (providerId: string, productId: string) => {
+      const partner = getPartnerById(partnerIntegrations, providerId);
+      return partner ? buildProductAffiliateLink(partner, productId) : '';
+    },
+    [partnerIntegrations],
+  );
+
+  const handleLinkBuildSearch = useCallback(
+    (query: string, category?: string) => {
+      const bestPartner = resolveBestPartner(partnerIntegrations, { category });
+      if (bestPartner) return buildAffiliateLink(bestPartner, { query });
+      return `https://www.amazon.it/s?k=${encodeURIComponent(query)}`;
+    },
+    [partnerIntegrations],
+  );
 
   const {
     checked: checkedCount,
@@ -584,10 +616,13 @@ export function useSuitcasePanelComposition({
   } = getSuitcaseItemProgress(data.activeSuitcase?.suitcase_items);
 
   const panelInsetStyle: React.CSSProperties = {
-    left: (!data.panelState.isMobile && data.isSidebarOpen)
-      ? 'var(--active-sidebar-width, 30rem)'
-      : (!data.panelState.isMobile ? '5rem' : '0px'),
-    right: (!data.panelState.isMobile && !data.isSidebarOpen) ? '5rem' : '0px',
+    left:
+      !data.panelState.isMobile && data.isSidebarOpen
+        ? 'var(--active-sidebar-width, 30rem)'
+        : !data.panelState.isMobile
+          ? '5rem'
+          : '0px',
+    right: !data.panelState.isMobile && !data.isSidebarOpen ? '5rem' : '0px',
   };
 
   return {

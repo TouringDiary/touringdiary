@@ -1,5 +1,5 @@
-import React from 'react';
-import { Briefcase, Layout, Sparkles, LogIn, ChevronRight, MousePointerClick } from 'lucide-react';
+import { Briefcase, ChevronRight, Layout, LogIn, MousePointerClick, Sparkles } from 'lucide-react';
+import type React from 'react';
 import { SuitcaseDashboardGuideColumn } from './SuitcaseDashboardGuideColumn';
 import {
   SUITCASE_DASHBOARD_PANEL_PADDING_CLASS,

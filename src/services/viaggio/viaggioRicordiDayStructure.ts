@@ -25,7 +25,9 @@ function formatDayLabel(isoDate: string): string {
 }
 
 /** Giorni dal periodo Viaggio (un giorno per data inclusa). */
-export function buildDaysFromViaggioPeriod(viaggio: Pick<Viaggio, 'periodStart' | 'periodEnd'>): RicordiDaySlot[] {
+export function buildDaysFromViaggioPeriod(
+  viaggio: Pick<Viaggio, 'periodStart' | 'periodEnd'>,
+): RicordiDaySlot[] {
   const { periodStart, periodEnd } = viaggio;
   if (!periodStart || !periodEnd) return [];
   const start = Date.parse(periodStart);

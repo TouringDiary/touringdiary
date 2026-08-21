@@ -1,12 +1,15 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { workspaceOwnsKeyboardShortcuts } from '@/focus/focusModeRegistry';
-import { useFocusMode } from '@/focus';
-import { UndoAction } from '@/hooks/useUndoStack';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import type { AddSuitcaseItemMetadata, UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
+import { useCallback, useEffect, useRef } from 'react';
 import { ensureUiStateForPersist } from '@/domain/packing/categorySetup';
+import { useFocusMode } from '@/focus';
+import { workspaceOwnsKeyboardShortcuts } from '@/focus/focusModeRegistry';
+import type { UndoAction } from '@/hooks/useUndoStack';
+import type {
+  AddSuitcaseItemMetadata,
+  UpdateSuitcaseItemDto,
+} from '@/services/suitcase/suitcaseItemsService';
+import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
 
-import { ToastVariant } from '@/types/toast';
+import type { ToastVariant } from '@/types/toast';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
 const UNDO_UPDATE_FIELDS = ['category', 'is_checked', 'quantity', 'accepted_from_ai'] as const;
@@ -18,7 +21,7 @@ const isUndoUpdateField = (field: string): field is UndoUpdateField =>
 const buildUndoItemUpdate = (
   field: UndoUpdateField,
   val: string | boolean | number,
-  extra?: UpdateSuitcaseItemDto
+  extra?: UpdateSuitcaseItemDto,
 ): UpdateSuitcaseItemDto => {
   const base: UpdateSuitcaseItemDto = extra ? { ...extra } : {};
   switch (field) {
@@ -37,10 +40,20 @@ const buildUndoItemUpdate = (
   }
 };
 
-const toAddItemMetadata = (
-  payload: SuitcaseItem,
-  id: string
-): AddSuitcaseItemMetadata => ({
+/** Payload undo valigia: campi strutturali + eventuale SuitcaseItem su add/delete. */
+export type SuitcaseUndoPayload = Partial<SuitcaseItem> & {
+  previousItemDisplayOrder?: Record<string, string[]>;
+  newItemDisplayOrder?: Record<string, string[]>;
+  previousValue?: string | boolean | number;
+  newValue?: string | boolean | number;
+  inverseExtraUpdates?: UpdateSuitcaseItemDto;
+  extraUpdates?: UpdateSuitcaseItemDto;
+  field?: string;
+  setter?: (val: unknown) => void;
+  category?: string;
+};
+
+const toAddItemMetadata = (payload: SuitcaseItem, id: string): AddSuitcaseItemMetadata => ({
   id,
   is_checked: payload.is_checked,
   is_ai_suggestion: payload.is_ai_suggestion,
@@ -63,7 +76,7 @@ interface UndoProps {
     suitcaseId: string,
     name: string,
     category: string,
-    metadata?: AddSuitcaseItemMetadata
+    metadata?: AddSuitcaseItemMetadata,
   ) => Promise<SuitcaseItem | undefined>;
   deleteItem: (id: string) => Promise<void>;
   fetchUserSuitcases: () => Promise<void> | void;
@@ -71,7 +84,13 @@ interface UndoProps {
   activeSuitcaseId: string | null;
   onShowToast: (message: string, description?: string, variant?: ToastVariant) => void;
   onStateSync: (action: UndoAction, inverse: boolean, suitcaseId: string | null) => void;
-  onCheckDuplicate: (id: string, name: string, category: string, suitcaseId: string | null, isUndo?: boolean) => boolean;
+  onCheckDuplicate: (
+    id: string,
+    name: string,
+    category: string,
+    suitcaseId: string | null,
+    isUndo?: boolean,
+  ) => boolean;
   isExecuting: () => boolean;
   beginExecution: () => void;
   endExecution: () => void;
@@ -96,7 +115,7 @@ export const useSuitcaseUndo = ({
   onCheckDuplicate,
   isExecuting,
   beginExecution,
-  endExecution
+  endExecution,
 }: UndoProps) => {
   const { mode } = useFocusMode();
 
@@ -116,9 +135,8 @@ export const useSuitcaseUndo = ({
     async (action: UndoAction, inverse: boolean) => {
       const suitcase = getActiveSuitcase();
       if (!suitcase || !activeSuitcaseId) return;
-      const order = inverse
-        ? action.payload.previousItemDisplayOrder
-        : action.payload.newItemDisplayOrder;
+      const payload = action.payload as SuitcaseUndoPayload;
+      const order = inverse ? payload.previousItemDisplayOrder : payload.newItemDisplayOrder;
       if (!order) return;
 
       const mergedUiState = ensureUiStateForPersist({
@@ -131,149 +149,198 @@ export const useSuitcaseUndo = ({
       });
       await updateSuitcase(activeSuitcaseId, { ui_state: mergedUiState });
     },
-    [activeSuitcaseId, getActiveSuitcase, updateSuitcase]
+    [activeSuitcaseId, getActiveSuitcase, updateSuitcase],
   );
 
-  const executeAction = useCallback(async (action: UndoAction, inverse: boolean) => {
-    beginExecution();
-    try {
-      if (inverse && action.inverse) {
-        await action.inverse(action.payload);
-        return;
-      } else if (!inverse && action.apply) {
-        await action.apply(action.payload);
-        return;
-      }
-
-      if (action.type === 'update') {
-        const val = inverse ? action.payload.previousValue : action.payload.newValue;
-        const extra = inverse ? action.payload.inverseExtraUpdates : action.payload.extraUpdates;
-        const field = action.payload.field;
-
-        if (!isUndoUpdateField(field)) {
-          console.warn('[useSuitcaseUndo] Unsupported update field:', field);
+  const executeAction = useCallback(
+    async (action: UndoAction, inverse: boolean) => {
+      beginExecution();
+      try {
+        if (inverse && action.inverse) {
+          await action.inverse(action.payload);
+          return;
+        } else if (!inverse && action.apply) {
+          await action.apply(action.payload);
           return;
         }
 
-        if (field === 'category' && activeSuitcaseId) {
-          const isDuplicate = onCheckDuplicate(
-            action.id,
-            action.label || '',
-            val,
-            activeSuitcaseId,
-            true
-          );
+        const payload = action.payload as SuitcaseUndoPayload;
 
-          if (isDuplicate) {
-            onShowToast(`"${action.label}" è già presente in ${val}`, undefined, 'destructive');
-            if (inverse) {
-              cancelUndoRef.current();
-            } else {
-              cancelRedoRef.current();
+        if (action.type === 'update') {
+          const val = (inverse ? payload.previousValue : payload.newValue) as
+            | string
+            | boolean
+            | number;
+          const extra = inverse ? payload.inverseExtraUpdates : payload.extraUpdates;
+          const field = payload.field;
+
+          if (!field || !isUndoUpdateField(field)) {
+            console.warn('[useSuitcaseUndo] Unsupported update field:', field);
+            return;
+          }
+
+          if (field === 'category' && activeSuitcaseId) {
+            const isDuplicate = onCheckDuplicate(
+              action.id,
+              action.label || '',
+              val as string,
+              activeSuitcaseId,
+              true,
+            );
+
+            if (isDuplicate) {
+              onShowToast(`"${action.label}" è già presente in ${val}`, undefined, 'destructive');
+              if (inverse) {
+                cancelUndoRef.current();
+              } else {
+                cancelRedoRef.current();
+              }
+              return;
             }
+
+            await updateItem(action.id, buildUndoItemUpdate(field, val, extra));
+            await restoreItemDisplayOrder(action, inverse);
+            await fetchUserSuitcases();
+            onStateSync(action, inverse, activeSuitcaseId);
+            setHighlightItemId(action.id);
+            onShowToast(
+              inverse
+                ? `${action.label} riportato in ${val}.`
+                : `${action.label} spostato in ${val}.`,
+              undefined,
+              'success',
+            );
             return;
           }
 
           await updateItem(action.id, buildUndoItemUpdate(field, val, extra));
-          await restoreItemDisplayOrder(action, inverse);
-          await fetchUserSuitcases();
+
           onStateSync(action, inverse, activeSuitcaseId);
+
           setHighlightItemId(action.id);
+
+          if (field === 'is_checked') {
+            const state = val ? 'selezionato' : 'rimosso';
+            onShowToast(
+              `${action.label} è stato ${state}`,
+              undefined,
+              inverse ? 'destructive' : 'success',
+            );
+          } else {
+            onShowToast(
+              `${action.label} aggiornato`,
+              undefined,
+              inverse ? 'destructive' : 'success',
+            );
+          }
+        } else if (action.type === 'selection') {
+          const val = inverse ? payload.previousValue : payload.newValue;
+          if (payload.setter && typeof payload.setter === 'function') {
+            payload.setter(val);
+          }
           onShowToast(
-            inverse
-              ? `${action.label} riportato in ${val}.`
-              : `${action.label} spostato in ${val}.`,
+            val ? `Selezionato: ${action.label}` : `Selezione di ${action.label} rimossa`,
             undefined,
-            'success'
+            inverse ? 'destructive' : 'success',
           );
           return;
-        }
-
-        await updateItem(action.id, buildUndoItemUpdate(field, val, extra));
-
-        onStateSync(action, inverse, activeSuitcaseId);
-
-        setHighlightItemId(action.id);
-
-        if (field === 'is_checked') {
-          const state = val ? "selezionato" : "rimosso";
-          onShowToast(`${action.label} è stato ${state}`, undefined, inverse ? 'destructive' : 'success');
-        } else {
-          onShowToast(`${action.label} aggiornato`, undefined, inverse ? 'destructive' : 'success');
-        }
-      }
-      else if (action.type === 'selection') {
-        const val = inverse ? action.payload.previousValue : action.payload.newValue;
-        if (action.payload.setter && typeof action.payload.setter === 'function') {
-          action.payload.setter(val);
-        }
-        onShowToast(
-          val ? `Selezionato: ${action.label}` : `Selezione di ${action.label} rimossa`,
-          undefined,
-          inverse ? 'destructive' : 'success'
-        );
-        return;
-      }
-      else if (action.type === 'add') {
-        if (inverse) {
-          await deleteItem(action.id);
-          onStateSync(action, inverse, activeSuitcaseId);
-          onShowToast(`Oggetto rimosso: ${action.label}`, undefined, 'destructive');
-        } else if (activeSuitcaseId) {
-          const isDuplicate = onCheckDuplicate(action.id, action.label || '', action.payload.category, activeSuitcaseId, true);
-
-          if (!isDuplicate) {
-            await addItem(
-              activeSuitcaseId,
-              action.label || '',
-              action.payload.category,
-              toAddItemMetadata(action.payload, action.id)
-            );
+        } else if (action.type === 'add') {
+          if (inverse) {
+            await deleteItem(action.id);
             onStateSync(action, inverse, activeSuitcaseId);
-            onShowToast(`Oggetto ripristinato: ${action.label}`, undefined, 'success');
-          } else {
-            cancelRedoRef.current();
-            onShowToast(`"${action.label}" è già presente in ${action.payload.category}`, undefined, 'neutral');
-          }
-        }
-      }
-      else if (action.type === 'delete') {
-        if (inverse) {
-          if (activeSuitcaseId) {
-            const isDuplicate = onCheckDuplicate(action.id, action.label || '', action.payload.category, activeSuitcaseId, true);
+            onShowToast(`Oggetto rimosso: ${action.label}`, undefined, 'destructive');
+          } else if (activeSuitcaseId) {
+            const category = payload.category;
+            if (typeof category !== 'string') {
+              console.warn('[useSuitcaseUndo] Missing category on add payload');
+              return;
+            }
+            const isDuplicate = onCheckDuplicate(
+              action.id,
+              action.label || '',
+              category,
+              activeSuitcaseId,
+              true,
+            );
 
             if (!isDuplicate) {
               await addItem(
-              activeSuitcaseId,
-              action.label || '',
-              action.payload.category,
-              toAddItemMetadata(action.payload, action.id)
-            );
+                activeSuitcaseId,
+                action.label || '',
+                category,
+                toAddItemMetadata(payload as SuitcaseItem, action.id),
+              );
               onStateSync(action, inverse, activeSuitcaseId);
               onShowToast(`Oggetto ripristinato: ${action.label}`, undefined, 'success');
             } else {
-              cancelUndoRef.current();
-              onShowToast(`"${action.label}" è già presente in ${action.payload.category}`, undefined, 'neutral');
+              cancelRedoRef.current();
+              onShowToast(`"${action.label}" è già presente in ${category}`, undefined, 'neutral');
             }
           }
-        } else {
-          await deleteItem(action.id);
-          onStateSync(action, inverse, activeSuitcaseId);
-          onShowToast(`Oggetto eliminato: ${action.label}`, undefined, 'destructive');
+        } else if (action.type === 'delete') {
+          if (inverse) {
+            if (activeSuitcaseId) {
+              const category = payload.category;
+              if (typeof category !== 'string') {
+                console.warn('[useSuitcaseUndo] Missing category on delete payload');
+                return;
+              }
+              const isDuplicate = onCheckDuplicate(
+                action.id,
+                action.label || '',
+                category,
+                activeSuitcaseId,
+                true,
+              );
+
+              if (!isDuplicate) {
+                await addItem(
+                  activeSuitcaseId,
+                  action.label || '',
+                  category,
+                  toAddItemMetadata(payload as SuitcaseItem, action.id),
+                );
+                onStateSync(action, inverse, activeSuitcaseId);
+                onShowToast(`Oggetto ripristinato: ${action.label}`, undefined, 'success');
+              } else {
+                cancelUndoRef.current();
+                onShowToast(
+                  `"${action.label}" è già presente in ${category}`,
+                  undefined,
+                  'neutral',
+                );
+              }
+            }
+          } else {
+            await deleteItem(action.id);
+            onStateSync(action, inverse, activeSuitcaseId);
+            onShowToast(`Oggetto eliminato: ${action.label}`, undefined, 'destructive');
+          }
         }
+      } catch (err) {
+        console.error('Action execution failed:', err);
+        onShowToast("Errore durante l'operazione", undefined, 'destructive');
+        void fetchUserSuitcases();
+      } finally {
+        endExecution();
       }
-    } catch (err) {
-      console.error("Action execution failed:", err);
-      onShowToast("Errore durante l'operazione", undefined, 'destructive');
-      void fetchUserSuitcases();
-    } finally {
-      endExecution();
-    }
-  }, [
-    activeSuitcaseId, onStateSync, onCheckDuplicate,
-    updateItem, updateSuitcase, restoreItemDisplayOrder, setHighlightItemId, onShowToast, deleteItem,
-    addItem, fetchUserSuitcases, beginExecution, endExecution
-  ]);
+    },
+    [
+      activeSuitcaseId,
+      onStateSync,
+      onCheckDuplicate,
+      updateItem,
+      updateSuitcase,
+      restoreItemDisplayOrder,
+      setHighlightItemId,
+      onShowToast,
+      deleteItem,
+      addItem,
+      fetchUserSuitcases,
+      beginExecution,
+      endExecution,
+    ],
+  );
 
   const performUndo = useCallback(async () => {
     if (isExecuting()) return false;
@@ -303,8 +370,9 @@ export const useSuitcaseUndo = ({
         await performUndo();
       }
 
-      const isRedo = ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
-                     ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z');
+      const isRedo =
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z');
 
       if (isRedo) {
         e.preventDefault();
@@ -318,6 +386,6 @@ export const useSuitcaseUndo = ({
 
   return {
     performUndo,
-    performRedo
+    performRedo,
   };
 };

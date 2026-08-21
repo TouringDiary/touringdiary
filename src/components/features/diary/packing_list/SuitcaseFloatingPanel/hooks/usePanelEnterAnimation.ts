@@ -1,4 +1,4 @@
-import { useLayoutEffect, type RefObject } from 'react';
+import { type RefObject, useLayoutEffect } from 'react';
 
 interface UsePanelEnterAnimationOptions {
   panelRef: RefObject<HTMLDivElement | null>;

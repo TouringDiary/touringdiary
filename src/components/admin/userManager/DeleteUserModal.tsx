@@ -1,25 +1,27 @@
-import { Trash2 } from "lucide-react";
-import { CloseButton } from "@/components/ui/controls/CloseButton";
+import { Trash2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 
 interface Props {
-  userName: string
-  onCancel: () => void
-  onConfirm: () => void
-  isDeleting: boolean
+  userName: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  isDeleting: boolean;
 }
 
 export const DeleteUserModal = ({ userName, onCancel, onConfirm, isDeleting }: Props) => {
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-admin-modal">
-
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-[420px] shadow-2xl relative">
-        <CloseButton onClose={onCancel} variant="primary" position="absolute" className="top-4 right-4" />
+        <CloseButton
+          onClose={onCancel}
+          variant="primary"
+          position="absolute"
+          className="top-4 right-4"
+        />
 
         <div className="flex items-center gap-3 mb-4">
-          <Trash2 className="text-red-500"/>
-          <h3 className="text-lg font-bold text-white">
-            Elimina utente
-          </h3>
+          <Trash2 className="text-red-500" />
+          <h3 className="text-lg font-bold text-white">Elimina utente</h3>
         </div>
 
         <p className="text-slate-400 mb-6">
@@ -28,8 +30,8 @@ export const DeleteUserModal = ({ userName, onCancel, onConfirm, isDeleting }: P
         </p>
 
         <div className="flex justify-end gap-3">
-
           <button
+            type="button"
             onClick={onCancel}
             className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white"
           >
@@ -37,16 +39,15 @@ export const DeleteUserModal = ({ userName, onCancel, onConfirm, isDeleting }: P
           </button>
 
           <button
+            type="button"
             onClick={onConfirm}
             disabled={isDeleting}
             className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white"
           >
-            {isDeleting ? "Eliminazione..." : "Elimina"}
+            {isDeleting ? 'Eliminazione...' : 'Elimina'}
           </button>
-
         </div>
-
       </div>
     </div>
-  )
-}
+  );
+};

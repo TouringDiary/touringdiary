@@ -1,7 +1,7 @@
-import { supabase } from '@/services/supabaseClient';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { workspaceResourceKey } from '@/domain/collaboration';
 import type { WorkspaceCompositionResource } from '@/services/collaboration';
+import { supabase } from '@/services/supabaseClient';
 
 export interface WorkspaceResourceLabel {
   kind: SharedResourceKind;
@@ -13,7 +13,7 @@ export interface WorkspaceResourceLabel {
  * Risolve titoli leggibili per le risorse collegate a un workspace (UI dashboard).
  */
 export async function resolveWorkspaceResourceLabels(
-  resources: WorkspaceCompositionResource[]
+  resources: WorkspaceCompositionResource[],
 ): Promise<WorkspaceResourceLabel[]> {
   if (resources.length === 0) return [];
 
@@ -32,10 +32,10 @@ export async function resolveWorkspaceResourceLabels(
   ]);
 
   const diaryTitles = new Map(
-    (diaryResult.data ?? []).map((row) => [row.id, row.title?.trim() || 'Diario'])
+    (diaryResult.data ?? []).map((row) => [row.id, row.title?.trim() || 'Diario']),
   );
   const suitcaseTitles = new Map(
-    (suitcaseResult.data ?? []).map((row) => [row.id, row.title?.trim() || 'Valigia'])
+    (suitcaseResult.data ?? []).map((row) => [row.id, row.title?.trim() || 'Valigia']),
   );
 
   return resources.map((resource) => {
@@ -59,17 +59,17 @@ export async function resolveWorkspaceResourceLabels(
 export function findWorkspaceResourceLabel(
   labels: WorkspaceResourceLabel[],
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): WorkspaceResourceLabel | undefined {
   const key = workspaceResourceKey(kind, resourceId);
   return labels.find((label) => workspaceResourceKey(label.kind, label.resourceId) === key);
 }
 
 export function buildWorkspaceResourceLabelMap(
-  labels: WorkspaceResourceLabel[]
+  labels: WorkspaceResourceLabel[],
 ): Map<string, WorkspaceResourceLabel> {
   return new Map(
-    labels.map((label) => [workspaceResourceKey(label.kind, label.resourceId), label])
+    labels.map((label) => [workspaceResourceKey(label.kind, label.resourceId), label]),
   );
 }
 
@@ -80,7 +80,7 @@ export interface CollaborationUserProfileSummary {
 
 /** Profili utente per UI collaborativa (proprietario workspace, invitati, ecc.). */
 export async function fetchCollaborationUserProfiles(
-  userIds: string[]
+  userIds: string[],
 ): Promise<Record<string, CollaborationUserProfileSummary>> {
   if (userIds.length === 0) return {};
 

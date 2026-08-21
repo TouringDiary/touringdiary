@@ -1,0 +1,497 @@
+[
+  {
+    "file": "src/components/myspace/RicordamiConfigModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/photos/PhotoAcquireDialog.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2 | workHasBtn=true workHasOverlayOnClick=false",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/myspace/CreateDiaryModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "busy ? undefined : onClose",
+      "busy ? undefined : onClose"
+    ]
+  },
+  {
+    "file": "src/components/myspace/CreateSuitcaseModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "busy ? undefined : onClose",
+      "busy ? undefined : onClose"
+    ]
+  },
+  {
+    "file": "src/components/myspace/ResourceConflictCopyModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "busy ? undefined : onClose",
+      "busy ? undefined : onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/AddToItineraryModal.tsx",
+    "status": "OK_NO_HEAD_CLOSE",
+    "detail": "HEAD senza close su overlay",
+    "headCloserExprs": []
+  },
+  {
+    "file": "src/components/modals/BuyCreditsModal.tsx",
+    "status": "OK_NO_HEAD_CLOSE",
+    "detail": "HEAD senza close su overlay",
+    "headCloserExprs": []
+  },
+  {
+    "file": "src/components/common/DeleteConfirmationModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/header/DiaryHeaderInvalidDateModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/DiaryModals.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "handleCloseXpToast",
+      "handleCloseXpToast"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/BlacklistModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/admin/ItineraryManager.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/collaboration/CollaborationShareModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "handleClose",
+      "handleClose"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/CategoryMobileDialog.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/CategorySetupConfigurationModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/ItemDeleteConfirmationModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/tabs/AiCatalogTab.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "closeEditModal",
+      "closeEditModal"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/tabs/StandardItemsTab.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "closeEditModal",
+      "closeEditModal"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/tabs/TemplateSpecificItemsTab.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "closeEditModal",
+      "closeEditModal"
+    ]
+  },
+  {
+    "file": "src/components/modals/AiItineraryModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=2 drawerBtn=false headClosers=4",
+    "headCloserExprs": [
+      "onClose",
+      "onClose",
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/DuplicateResolutionModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/EmptyDiaryModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/FullRankingsModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/GpsAlertModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/GpsErrorModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/HistoryModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/CityInfoModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/ConfirmClearModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/CultureCornerModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=2 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/DateChangeWarningModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/LevelUpModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/MobileMoveModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/PatronSaintModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/PoiDetailModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=2 drawerBtn=false headClosers=4",
+    "headCloserExprs": [
+      "onClose",
+      "onClose",
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/ProvinceModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/QuotaExceededModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/RemoveItemModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/SaveAsModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/ShareModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/SectionPreviewModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=true headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/SponsorModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/SuggestionReviewModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/modals/TimeConflictModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/shop/ProductDetailOverlay.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/shop/ShopBioOverlay.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/user/UserDashboard.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/admin/NewsTickerManager.tsx",
+    "status": "OK_NON_MODAL"
+  },
+  {
+    "file": "src/components/admin/sponsor/SponsorModals.tsx",
+    "status": "OK_NON_MODAL"
+  },
+  {
+    "file": "src/components/aiPlanner/AiPlannerForm.tsx",
+    "status": "OK_NON_MODAL"
+  },
+  {
+    "file": "src/components/modals/sponsor/SponsorForm.tsx",
+    "status": "OK_NON_MODAL"
+  },
+  {
+    "file": "src/components/admin/poiManager/PoiList.tsx",
+    "status": "OK_NON_MODAL"
+  },
+  {
+    "file": "src/components/rankings/PoiList.tsx",
+    "status": "OK_NON_MODAL"
+  },
+  {
+    "file": "src/components/admin/layout/AdminSidebar.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=0 drawerBtn=true headClosers=0",
+    "headCloserExprs": []
+  },
+  {
+    "file": "src/components/admin/observatory/ObservatoryFilterDrawer.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=0 drawerBtn=true headClosers=0",
+    "headCloserExprs": []
+  },
+  {
+    "file": "src/components/modals/AuthModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=0",
+    "headCloserExprs": []
+  },
+  {
+    "file": "src/components/photos/CommunityPhotoPublishModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/features/diary/packing_list/suitcase/RecommendedSuitcaseModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  },
+  {
+    "file": "src/components/myspace/MySpaceCityPickModal.tsx",
+    "status": "OK_NON_MODAL"
+  },
+  {
+    "file": "src/components/myspace/SuitcaseDiariesModal.tsx",
+    "status": "OK_NON_MODAL"
+  },
+  {
+    "file": "src/components/city/gallery/GalleryLightbox.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=true headClosers=0",
+    "headCloserExprs": []
+  },
+  {
+    "file": "src/components/modals/PoiClaimModal.tsx",
+    "status": "OK_DISMISS_PRESENT",
+    "detail": "dismissButtons=1 drawerBtn=false headClosers=2",
+    "headCloserExprs": [
+      "onClose",
+      "onClose"
+    ]
+  }
+]

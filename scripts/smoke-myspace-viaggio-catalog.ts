@@ -2,16 +2,13 @@
  * Smoke — MySpace catalogo / cartella Viaggio (MP-01 STEP-2 / WF-06).
  * Pure logic + anti-alias. Eseguire: npx tsx scripts/smoke-myspace-viaggio-catalog.ts
  */
-import { MY_SPACE_ROOTS, MY_SPACE_DEFAULT_ROOT } from '../src/myspace/mySpaceRoots';
+import { MY_SPACE_DEFAULT_ROOT, MY_SPACE_ROOTS } from '../src/myspace/mySpaceRoots';
+import { MY_SPACE_TRIPS_CATALOG, openTripsFolder } from '../src/myspace/mySpaceTripsSession';
 import {
-  VIAGGIO_FOLDER_SECTIONS,
-  VIAGGIO_FOLDER_DEFAULT_SECTION,
   getViaggioFolderSection,
+  VIAGGIO_FOLDER_DEFAULT_SECTION,
+  VIAGGIO_FOLDER_SECTIONS,
 } from '../src/myspace/viaggioFolderSections';
-import {
-  MY_SPACE_TRIPS_CATALOG,
-  openTripsFolder,
-} from '../src/myspace/mySpaceTripsSession';
 
 const issues: string[] = [];
 
@@ -65,15 +62,8 @@ function assert(condition: boolean, message: string): void {
 // 5) Breadcrumb depth model
 {
   type Crumb = { id: string };
-  const catalogCrumbs: Crumb[] = [
-    { id: 'myWorld' },
-    { id: 'mySpace' },
-    { id: 'trips' },
-  ];
-  const folderCrumbs: Crumb[] = [
-    ...catalogCrumbs,
-    { id: 'viaggio-uuid' },
-  ];
+  const catalogCrumbs: Crumb[] = [{ id: 'myWorld' }, { id: 'mySpace' }, { id: 'trips' }];
+  const folderCrumbs: Crumb[] = [...catalogCrumbs, { id: 'viaggio-uuid' }];
   assert(catalogCrumbs.length === 3, 'catalog breadcrumb depth');
   assert(folderCrumbs.length === 4, 'folder breadcrumb includes viaggio');
 }

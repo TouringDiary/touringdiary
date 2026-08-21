@@ -1,15 +1,15 @@
+import type { SharedResourceKind } from '@/domain/collaboration';
+import { isSharedResourceKind } from '@/domain/collaboration';
 import type {
   CollaborationNotificationCategoryPrefs,
-  WorkspaceEngineConfig,
   WorkspaceAdminConfigBundle,
+  WorkspaceEngineConfig,
 } from '@/domain/collaboration/workspaceEngineConfig';
 import {
   DEFAULT_COLLABORATION_NOTIFICATION_PREFS,
   DEFAULT_WORKSPACE_ENGINE_CONFIG,
 } from '@/domain/collaboration/workspaceEngineConfig';
 import type { StorageLimitsConfig } from '@/domain/storage/storageLimits';
-import type { SharedResourceKind } from '@/domain/collaboration';
-import { isSharedResourceKind } from '@/domain/collaboration';
 import { getCachedSetting, SETTINGS_KEYS } from '@/services/settingsService';
 import { resolveCollaborationLiveConfig } from './collaborationLiveConfig';
 import { resolveStorageLimitsConfig } from './workspaceAttachmentService';
@@ -29,7 +29,9 @@ function parseEngineConfig(raw: unknown): WorkspaceEngineConfig {
   const record = raw as Record<string, unknown>;
   const kindsRaw = record.enabled_shared_resource_kinds;
   const enabledSharedResourceKinds = Array.isArray(kindsRaw)
-    ? kindsRaw.filter((k): k is SharedResourceKind => typeof k === 'string' && isSharedResourceKind(k))
+    ? kindsRaw.filter(
+        (k): k is SharedResourceKind => typeof k === 'string' && isSharedResourceKind(k),
+      )
     : DEFAULT_WORKSPACE_ENGINE_CONFIG.enabledSharedResourceKinds;
 
   const notifRaw = record.notification_categories;
@@ -56,7 +58,7 @@ function parseEngineConfig(raw: unknown): WorkspaceEngineConfig {
 }
 
 export function resolveWorkspaceEngineConfig(
-  raw: unknown = getCachedSetting(SETTINGS_KEYS.WORKSPACE_ENGINE_CONFIG)
+  raw: unknown = getCachedSetting(SETTINGS_KEYS.WORKSPACE_ENGINE_CONFIG),
 ): WorkspaceEngineConfig {
   return parseEngineConfig(raw);
 }
@@ -84,7 +86,9 @@ export function resolveWorkspaceAdminConfigBundle(): WorkspaceAdminConfigBundle 
   };
 }
 
-export function serializeWorkspaceEngineConfig(config: WorkspaceEngineConfig): Record<string, unknown> {
+export function serializeWorkspaceEngineConfig(
+  config: WorkspaceEngineConfig,
+): Record<string, unknown> {
   return {
     collaboration_enabled: config.collaborationEnabled,
     live_presence_enabled: config.livePresenceEnabled,
@@ -93,7 +97,9 @@ export function serializeWorkspaceEngineConfig(config: WorkspaceEngineConfig): R
   };
 }
 
-export function serializeCollaborationLiveConfig(live: WorkspaceAdminConfigBundle['live']): Record<string, unknown> {
+export function serializeCollaborationLiveConfig(
+  live: WorkspaceAdminConfigBundle['live'],
+): Record<string, unknown> {
   return {
     edit_lock_timeout_minutes: live.editLockTimeoutMinutes,
     edit_lock_heartbeat_seconds: live.editLockHeartbeatSeconds,

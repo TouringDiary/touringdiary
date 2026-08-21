@@ -2,13 +2,10 @@
  * Fixture tipizzate per QA/script del catalogo packing (template TD).
  */
 
+import type { Suitcase, SuitcaseUiState } from '@/types/suitcase';
 import { getDefaultCategorySetupForTdTemplate } from './categorySetup';
 import type { CategorySetupMap } from './categorySetupTypes';
-import type { Suitcase, SuitcaseUiState } from '@/types/suitcase';
-import {
-  TEMPLATE_DB_TITLES,
-  type PackingTemplateKey,
-} from './packingDomainCatalogTypes';
+import { type PackingTemplateKey, TEMPLATE_DB_TITLES } from './packingDomainCatalogTypes';
 
 function buildTdTemplateUiState(categorySetup: CategorySetupMap): SuitcaseUiState {
   return {
@@ -28,7 +25,7 @@ export interface TdTemplateSuitcaseFixtureOptions {
 
 /** Crea un Suitcase runtime coerente con il modello TD (user_id null, non user template). */
 export function createTdTemplateSuitcaseFixture(
-  options: TdTemplateSuitcaseFixtureOptions
+  options: TdTemplateSuitcaseFixtureOptions,
 ): Suitcase {
   const title = TEMPLATE_DB_TITLES[options.templateKey];
   return {
@@ -38,7 +35,7 @@ export function createTdTemplateSuitcaseFixture(
     user_id: null,
     is_user_template: false,
     ui_state: buildTdTemplateUiState(
-      options.categorySetup ?? getDefaultCategorySetupForTdTemplate(title)
+      options.categorySetup ?? getDefaultCategorySetupForTdTemplate(title),
     ),
     suitcase_items: [],
   };

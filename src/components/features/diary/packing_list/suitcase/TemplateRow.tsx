@@ -1,11 +1,11 @@
-import React from 'react';
-import { Star, Sparkles, Trash2, Wrench, Copy, Eye, Users } from 'lucide-react';
-import { TemplateCategoryIcon } from './SuitcaseUtils';
-import { Suitcase } from '@/types/suitcase';
-import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
+import { Copy, Eye, Sparkles, Star, Trash2, Users, Wrench } from 'lucide-react';
+import type React from 'react';
 import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
 import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
 import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
+import type { Suitcase } from '@/types/suitcase';
+import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
+import { TemplateCategoryIcon } from './SuitcaseUtils';
 
 interface TemplateRowProps {
   template: Suitcase;
@@ -81,12 +81,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
   };
 
   return (
-    <div
-      role="option"
-      aria-selected={isHovered}
-      className={containerClass}
-      onMouseEnter={onSelect}
-    >
+    <div role="option" aria-selected={isHovered} className={containerClass} onMouseEnter={onSelect}>
       <div
         className={`w-[96px] shrink-0 flex flex-col border-r border-white/10 overflow-hidden bg-white/[0.03] cursor-default ${
           isHovered ? 'bg-indigo-500/10' : ''
@@ -247,7 +242,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
             }`}
           >
             <span className="text-[9px] xl:text-[11px] text-slate-300 font-bold uppercase tracking-widest truncate">
-              {isUser ? 'TEMPLATE PERSONALE' : 'TEMPLATE PRONTO ALL\'USO'}
+              {isUser ? 'TEMPLATE PERSONALE' : "TEMPLATE PRONTO ALL'USO"}
             </span>
             {isSuggested && (
               <div className="flex justify-center items-center min-w-0 px-1">

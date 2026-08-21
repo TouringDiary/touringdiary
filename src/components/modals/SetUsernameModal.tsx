@@ -1,21 +1,20 @@
-import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Loader2 } from 'lucide-react';
-import type { User } from '@/types/users';
-import {
-  ProfileIdentityFields,
-} from '@/components/user/profile/ProfileIdentityFields';
-import { validateUsernameForSubmit } from '@/services/profileService';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { ProfileIdentityFields } from '@/components/user/profile/ProfileIdentityFields';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import {
   updateProfileAvatarUrl,
   updateProfileSlug,
   uploadProfileAvatar,
+  validateUsernameForSubmit,
 } from '@/services/profileService';
-import { mapProfileToUser } from '@/services/userService';
 import { supabase } from '@/services/supabaseClient';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { mapProfileToUser } from '@/services/userService';
+import type { User } from '@/types/users';
 
 interface SetUsernameModalProps {
   isOpen: boolean;
@@ -115,11 +114,8 @@ export const SetUsernameModal: React.FC<SetUsernameModalProps> = ({
       <div
         className="relative w-full max-w-md bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl p-8 pointer-events-auto animate-in zoom-in-95"
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
       >
-        {!mandatory && (
-          <CloseButton onClose={onClose} position="absolute" variant="primary" />
-        )}
+        {!mandatory && <CloseButton onClose={onClose} position="absolute" variant="primary" />}
 
         <h3 className="text-xl font-bold text-white mb-1">Scegli il tuo Nome utente</h3>
         <p className="text-sm text-slate-400 mb-6">
@@ -155,6 +151,6 @@ export const SetUsernameModal: React.FC<SetUsernameModalProps> = ({
         </form>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

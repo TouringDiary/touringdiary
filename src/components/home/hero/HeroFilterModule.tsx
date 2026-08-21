@@ -15,6 +15,7 @@ import {
   Wine,
 } from 'lucide-react';
 import type React from 'react';
+import type { GeoSelectOption } from '../../../hooks/ui/useHeroLogic';
 import { useTypingCycle } from '../../../hooks/ui/useTypingCycle';
 import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
 import type { CitySummary } from '../../../types/index';
@@ -47,10 +48,10 @@ interface HeroFilterModuleProps {
   searchResults: CitySummary[];
 
   geoOptions?: {
-    continents: any[];
-    nations: any[];
-    regions: any[];
-    zones?: any[];
+    continents: GeoSelectOption[];
+    nations: GeoSelectOption[];
+    regions: GeoSelectOption[];
+    zones?: GeoSelectOption[];
   };
 
   searchRef: React.RefObject<HTMLDivElement | null>;

@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AtSign, Camera, Loader2 } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { normalizeUsernameToSlug, validateUsernameFormat } from '@/domain/profile/username';
 import {
   checkUsernameAvailability,
-  USERNAME_TAKEN_MESSAGE,
   USERNAME_CHECK_NETWORK_MESSAGE,
   USERNAME_CHECK_TECHNICAL_MESSAGE,
+  USERNAME_TAKEN_MESSAGE,
 } from '@/services/profileService';
 import { UserAvatar } from './UserAvatar';
 
@@ -69,7 +70,7 @@ export const ProfileIdentityFields: React.FC<ProfileIdentityFieldsProps> = ({
           setUsernameError(
             result.kind === 'network'
               ? USERNAME_CHECK_NETWORK_MESSAGE
-              : USERNAME_CHECK_TECHNICAL_MESSAGE
+              : USERNAME_CHECK_TECHNICAL_MESSAGE,
           );
         }
         return false;
@@ -79,7 +80,7 @@ export const ProfileIdentityFields: React.FC<ProfileIdentityFieldsProps> = ({
         }
       }
     },
-    [excludeUserId]
+    [excludeUserId],
   );
 
   useEffect(() => {
@@ -139,10 +140,14 @@ export const ProfileIdentityFields: React.FC<ProfileIdentityFieldsProps> = ({
       )}
 
       <div className="space-y-1">
-        <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+        <label
+          htmlFor="fld-user-profile-profileidentityfields-tsx-l143"
+          className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"
+        >
           <AtSign className="w-3 h-3" /> Nome utente
         </label>
         <input
+          id="fld-user-profile-profileidentityfields-tsx-l143"
           type="text"
           value={username}
           onChange={(e) => onUsernameChange(e.target.value)}
@@ -166,9 +171,7 @@ export const ProfileIdentityFields: React.FC<ProfileIdentityFieldsProps> = ({
           {!checkingUsername && usernameAvailable === true && (
             <span className="text-[10px] text-emerald-400">Nome utente disponibile</span>
           )}
-          {usernameError && (
-            <span className="text-[10px] text-red-400">{usernameError}</span>
-          )}
+          {usernameError && <span className="text-[10px] text-red-400">{usernameError}</span>}
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import type { ModalPropsBag } from '@/types/modalProps';
 import type { User } from '@/types/users';
 
 /** Intenti collaborativi / MyWorld (§6.1) — estesi nelle fasi successive */
@@ -12,10 +13,10 @@ export function isGuestUser(
   return !user || user.role === 'guest';
 }
 
-export function requestCollaborationAuth<TReturnProps extends object = object>(
-  openModal: (type: string, props?: object) => void,
+export function requestCollaborationAuth(
+  openModal: (type: string, props?: ModalPropsBag) => void,
   intent: CollaborationIntent,
-  returnProps?: TReturnProps
+  returnProps?: ModalPropsBag,
 ): void {
   openModal('auth', {
     returnTo: COLLABORATION_RETURN_TO,

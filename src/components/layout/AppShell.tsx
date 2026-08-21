@@ -1,17 +1,18 @@
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { Z_GLOBAL_CHROME } from '@/constants/zIndex';
-import { FOCUS_SURFACE_ATTR, workspaceRequiresStableSidebar } from '@/focus/focusModeRegistry';
-import { FocusIdleBoundary, useFocusMode } from '@/focus';
 import { useUI } from '@/context/UIContext';
+import { FocusIdleBoundary, useFocusMode } from '@/focus';
+import { FOCUS_SURFACE_ATTR, workspaceRequiresStableSidebar } from '@/focus/focusModeRegistry';
 
 interface AppShellProps {
-    newsTicker?: React.ReactNode;
-    header: React.ReactNode;
-    sidebar: React.ReactNode;
-    mobileNav?: React.ReactNode;
-    children: React.ReactNode;
-    isSidebarOpen: boolean;
-    isUiVisible?: boolean;
+  newsTicker?: React.ReactNode;
+  header: React.ReactNode;
+  sidebar: React.ReactNode;
+  mobileNav?: React.ReactNode;
+  children: React.ReactNode;
+  isSidebarOpen: boolean;
+  isUiVisible?: boolean;
 }
 
 /**
@@ -21,109 +22,101 @@ interface AppShellProps {
  * companion-driven sidebar (Valigia) stays live — see FocusIdleBoundary.
  */
 export const AppShell: React.FC<AppShellProps> = ({
-    newsTicker,
-    header,
-    sidebar,
-    mobileNav,
-    children,
-    isSidebarOpen,
-    isUiVisible = true
+  newsTicker,
+  header,
+  sidebar,
+  mobileNav,
+  children,
+  isSidebarOpen,
+  isUiVisible = true,
 }) => {
-    const { isWorkspace, workspaceId } = useFocusMode();
-    const { setIsSidebarOpen } = useUI();
+  const { isWorkspace, workspaceId } = useFocusMode();
+  const { setIsSidebarOpen } = useUI();
 
-    const headerWrapperRef = useRef<HTMLDivElement>(null);
-    const lastMeasuredHeight = useRef<number>(0);
+  const headerWrapperRef = useRef<HTMLDivElement>(null);
+  const lastMeasuredHeight = useRef<number>(0);
 
-    const requiresStableSidebar = workspaceRequiresStableSidebar({ workspaceId });
+  const requiresStableSidebar = workspaceRequiresStableSidebar({ workspaceId });
 
-    useEffect(() => {
-        if (requiresStableSidebar && !isSidebarOpen) {
-            setIsSidebarOpen(true);
+  useEffect(() => {
+    if (requiresStableSidebar && !isSidebarOpen) {
+      setIsSidebarOpen(true);
+    }
+  }, [requiresStableSidebar, isSidebarOpen, setIsSidebarOpen]);
+
+  useEffect(() => {
+    if (!headerWrapperRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const height = Math.ceil(entry.target.getBoundingClientRect().height);
+
+        if (height !== lastMeasuredHeight.current) {
+          lastMeasuredHeight.current = height;
+          document.documentElement.style.setProperty('--header-height', `${height}px`);
         }
-    }, [requiresStableSidebar, isSidebarOpen, setIsSidebarOpen]);
+      }
+    });
 
-    useEffect(() => {
-        if (!headerWrapperRef.current) return;
+    observer.observe(headerWrapperRef.current);
+    return () => observer.disconnect();
+  }, []);
 
-        const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                const height = Math.ceil(entry.target.getBoundingClientRect().height);
+  return (
+    <div className="h-screen w-screen overflow-hidden bg-slate-950 flex flex-col font-sans text-slate-200 selection:bg-amber-500/30">
+      <div
+        ref={headerWrapperRef}
+        className="flex flex-col shrink-0 relative"
+        style={{ zIndex: Z_GLOBAL_CHROME }}
+        data-focus-surface={FOCUS_SURFACE_ATTR.globalChrome}
+      >
+        <div className="relative shrink-0 transition-transform duration-300">{newsTicker}</div>
 
-                if (height !== lastMeasuredHeight.current) {
-                    lastMeasuredHeight.current = height;
-                    document.documentElement.style.setProperty('--header-height', `${height}px`);
-                }
-            }
-        });
+        <div className="relative shrink-0 bg-[#0f172a] border-b border-slate-800 shadow-md">
+          <div className="h-header-mob md:h-header">{header}</div>
+        </div>
+      </div>
 
-        observer.observe(headerWrapperRef.current);
-        return () => observer.disconnect();
-    }, []);
-
-    return (
-        <div className="h-screen w-screen overflow-hidden bg-slate-950 flex flex-col font-sans text-slate-200 selection:bg-amber-500/30">
-
-            <div
-                ref={headerWrapperRef}
-                className="flex flex-col shrink-0 relative"
-                style={{ zIndex: Z_GLOBAL_CHROME }}
-                data-focus-surface={FOCUS_SURFACE_ATTR.globalChrome}
-            >
-                <div className="relative shrink-0 transition-transform duration-300">
-                    {newsTicker}
-                </div>
-
-                <div className="relative shrink-0 bg-[#0f172a] border-b border-slate-800 shadow-md">
-                    <div className="h-header-mob md:h-header">
-                        {header}
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex-1 flex overflow-hidden relative">
-
-                <aside
-                    className={`
+      <div className="flex-1 flex overflow-hidden relative">
+        <aside
+          className={`
                         hidden lg:flex flex-col bg-[#0b0f1a]
                         transition-[width,opacity] duration-300 ease-in-out overflow-hidden relative
                         ${isWorkspace ? 'border-r-0' : 'border-r border-slate-800/50'}
                         ${isSidebarOpen ? 'w-sidebar 2xl:w-sidebar-wide opacity-100' : 'w-0 opacity-0'}
                     `}
-                    data-focus-surface={FOCUS_SURFACE_ATTR.baseContent}
-                >
-                    <FocusIdleBoundary
-                        surface="baseContent"
-                        className="h-full w-sidebar 2xl:w-sidebar-wide overflow-hidden flex flex-col"
-                    >
-                        {sidebar}
-                    </FocusIdleBoundary>
-                </aside>
+          data-focus-surface={FOCUS_SURFACE_ATTR.baseContent}
+        >
+          <FocusIdleBoundary
+            surface="baseContent"
+            className="h-full w-sidebar 2xl:w-sidebar-wide overflow-hidden flex flex-col"
+          >
+            {sidebar}
+          </FocusIdleBoundary>
+        </aside>
 
-                <main
-                    className="flex-1 relative min-w-0 overflow-hidden bg-slate-950 flex flex-col"
-                    data-focus-surface={FOCUS_SURFACE_ATTR.baseContent}
-                >
-                    <FocusIdleBoundary
-                        surface="baseContent"
-                        className="flex-1 relative min-w-0 overflow-hidden flex flex-col h-full"
-                    >
-                        {children}
-                    </FocusIdleBoundary>
-                </main>
+        <main
+          className="flex-1 relative min-w-0 overflow-hidden bg-slate-950 flex flex-col"
+          data-focus-surface={FOCUS_SURFACE_ATTR.baseContent}
+        >
+          <FocusIdleBoundary
+            surface="baseContent"
+            className="flex-1 relative min-w-0 overflow-hidden flex flex-col h-full"
+          >
+            {children}
+          </FocusIdleBoundary>
+        </main>
+      </div>
 
-            </div>
-
-            {mobileNav && (
-                <div
-                    className="lg:hidden relative"
-                    style={{ zIndex: Z_GLOBAL_CHROME }}
-                    data-focus-surface={FOCUS_SURFACE_ATTR.globalChrome}
-                >
-                    {mobileNav}
-                </div>
-            )}
-
+      {mobileNav && (
+        <div
+          className="lg:hidden relative"
+          style={{ zIndex: Z_GLOBAL_CHROME }}
+          data-focus-surface={FOCUS_SURFACE_ATTR.globalChrome}
+        >
+          {mobileNav}
         </div>
-    );
+      )}
+    </div>
+  );
 };

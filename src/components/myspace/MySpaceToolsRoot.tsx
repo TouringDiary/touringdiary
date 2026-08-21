@@ -1,23 +1,24 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Briefcase, FileStack, Loader2, List, Plus, Trash2 } from 'lucide-react';
-import type { Suitcase } from '@/types/suitcase';
+import { Briefcase, FileStack, List, Loader2, Plus, Trash2 } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { SwipeToDelete } from '@/components/common/SwipeToDelete';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useModal } from '@/context/ModalContext';
+import { MYWORLD_STYLE_KEYS } from '@/data/system/myWorldSettingsCatalog';
+import { useMyWorldStyles } from '@/hooks/useMyWorldStyles';
 import {
-  fetchUserSuitcasesAsync,
   deleteSuitcaseAsync,
+  fetchUserSuitcasesAsync,
 } from '@/services/suitcase/suitcaseCoreService';
 import { fetchUserOwnedTemplatesAsync } from '@/services/suitcase/suitcaseTemplateService';
-import { createSuitcaseWithAssociation } from '@/services/viaggio/resourceAssociationService';
-import { useModal } from '@/context/ModalContext';
-import { useItinerary } from '@/context/ItineraryContext';
 import { showGlobalAlert } from '@/services/ui/toastService';
-import { CreateSuitcaseModal } from './CreateSuitcaseModal';
-import { SuitcaseDiariesModal } from './SuitcaseDiariesModal';
-import { MySpaceSectionHeader } from './MySpaceSectionHeader';
-import { SwipeToDelete } from '@/components/common/SwipeToDelete';
-import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
-import { useMyWorldStyles } from '@/hooks/useMyWorldStyles';
-import { MYWORLD_STYLE_KEYS } from '@/data/system/myWorldSettingsCatalog';
+import { createSuitcaseWithAssociation } from '@/services/viaggio/resourceAssociationService';
 import type { Itinerary } from '@/types/index';
+import type { Suitcase } from '@/types/suitcase';
+import { CreateSuitcaseModal } from './CreateSuitcaseModal';
+import { MySpaceSectionHeader } from './MySpaceSectionHeader';
+import { SuitcaseDiariesModal } from './SuitcaseDiariesModal';
 
 interface Props {
   userId: string;
@@ -76,7 +77,10 @@ export const MySpaceToolsRoot: React.FC<Props> = ({ userId, onBeforeLeaveMySpace
   }, [reload]);
 
   const openPacking = useCallback(
-    (opts?: { suitcaseId?: string | null; initialAction?: 'create-suitcase' | 'create-template' }) => {
+    (opts?: {
+      suitcaseId?: string | null;
+      initialAction?: 'create-suitcase' | 'create-template';
+    }) => {
       onBeforeLeaveMySpace?.();
       openModal('packingList', {
         itineraryId: null,

@@ -3,7 +3,7 @@
  * Kept as a thin re-export for transitional imports.
  */
 export {
-    useCommunityPhotoPublish as useLiveFeedUpload,
-    type CommunityPhotoMode as LiveFeedUploadMode,
-    type CommunityPhotoPreview as LiveFeedUploadPreview,
+  type CommunityPhotoMode as LiveFeedUploadMode,
+  type CommunityPhotoPreview as LiveFeedUploadPreview,
+  useCommunityPhotoPublish as useLiveFeedUpload,
 } from '@/hooks/photos/useCommunityPhotoPublish';

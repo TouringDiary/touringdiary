@@ -1,6 +1,6 @@
-import { supabase } from '@/services/supabaseClient';
-import { normalizeUsernameToSlug } from '@/domain/profile/username';
 import type { CollaborationUserSearchResult } from '@/domain/collaboration';
+import { normalizeUsernameToSlug } from '@/domain/profile/username';
+import { supabase } from '@/services/supabaseClient';
 import { getMutuallyBlockedUserIds } from './userBlockService';
 
 const SEARCH_LIMIT = 10;
@@ -28,14 +28,14 @@ function isEligibleInviteProfile(profile: ProfileSearchRow, searcherId: string):
 
 async function toInviteSearchResults(
   searcherId: string,
-  profiles: ProfileSearchRow[]
+  profiles: ProfileSearchRow[],
 ): Promise<CollaborationUserSearchResult[]> {
   const eligible = profiles.filter((profile) => isEligibleInviteProfile(profile, searcherId));
   if (eligible.length === 0) return [];
 
   const blockedIds = await getMutuallyBlockedUserIds(
     searcherId,
-    eligible.map((profile) => profile.id)
+    eligible.map((profile) => profile.id),
   );
 
   const results: CollaborationUserSearchResult[] = [];
@@ -90,7 +90,7 @@ export async function resolveUserIdByUsername(username: string): Promise<string 
  */
 export async function searchUsersForCollaborationInvite(
   searcherId: string,
-  query: string
+  query: string,
 ): Promise<CollaborationUserSearchResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];

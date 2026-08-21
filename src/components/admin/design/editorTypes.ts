@@ -9,26 +9,32 @@ import type { StyleRule } from '../../../types/designSystem';
  * hooks, services, context, componenti non-admin.
  */
 export interface StyleRuleEditorMeta {
-    /**
-     * 'text': preview testo semplice su span (default).
-     * 'html': preview HTML strutturato, usato per sezioni composite/typography.
-     */
-    preview_type?: 'text' | 'html';
+  /**
+   * 'text': preview testo semplice su span (default).
+   * 'html': preview HTML strutturato, usato per sezioni composite/typography.
+   */
+  preview_type?: 'text' | 'html';
 
-    /**
-     * Semantica del renderer preview.
-     * Determina quale preview component usare nell'editor.
-     * 'typography': preview testo semplice su span (default).
-     * 'html': preview HTML strutturato, usato per sezioni composite/typography.
-     */
-    preview_kind?: 'typography' | 'modal_shell' | 'modal_overlay' | 'modal_frame' | 'selectable_card' | 'button';
-    /** HTML da renderizzare per preview_type === 'html'. */
-    preview_content?: string;
-    /**
-     * 'small': contenitore compatto h-10 (default).
-     * 'large': contenitore h-48 per preview multi-riga o HTML complesso.
-     */
-    preview_size?: 'small' | 'large';
+  /**
+   * Semantica del renderer preview.
+   * Determina quale preview component usare nell'editor.
+   * 'typography': preview testo semplice su span (default).
+   * 'html': preview HTML strutturato, usato per sezioni composite/typography.
+   */
+  preview_kind?:
+    | 'typography'
+    | 'modal_shell'
+    | 'modal_overlay'
+    | 'modal_frame'
+    | 'selectable_card'
+    | 'button';
+  /** HTML da renderizzare per preview_type === 'html'. */
+  preview_content?: string;
+  /**
+   * 'small': contenitore compatto h-10 (default).
+   * 'large': contenitore h-48 per preview multi-riga o HTML complesso.
+   */
+  preview_size?: 'small' | 'large';
 }
 
 /**

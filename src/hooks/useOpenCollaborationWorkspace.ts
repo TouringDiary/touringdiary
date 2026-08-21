@@ -1,21 +1,22 @@
 import { useCallback } from 'react';
-import { useModal } from '@/context/ModalContext';
-import { useUser } from '@/context/UserContext';
 import {
   COLLABORATION_RETURN_TO,
   isGuestUser,
   requestCollaborationAuth,
 } from '@/collaboration/guestGate';
-import { userNeedsUsername } from '@/domain/profile/username';
-import type { User } from '@/types/users';
 import type { WorkspacePanelSection } from '@/components/workspace/global/globalWorkspacePresentation';
+import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
+import { userNeedsUsername } from '@/domain/profile/username';
+import type { ModalPropsBag } from '@/types/modalProps';
+import type { User } from '@/types/users';
 
 export interface CollaborationWorkspaceTarget {
   workspaceId?: string;
   initialSection?: WorkspacePanelSection;
 }
 
-type OpenModalFn = (type: string, props?: object) => void;
+type OpenModalFn = (type: string, props?: ModalPropsBag) => void;
 
 /**
  * Flusso unico di apertura Workspace (guest → auth, username obbligatorio, altrimenti panel).

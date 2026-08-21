@@ -1,197 +1,178 @@
+export { resolveCollaborationLiveConfig } from './collaborationLiveConfig';
 export {
-  ensureShareableResource,
-  registerShareableResource,
-  getShareableResource,
-  updateShareableResourceMode,
-  deleteShareableResource,
-} from './sharedResourceService';
+  getCollaborationNotificationPrefs,
+  shouldDeliverCollaborationNotification,
+  updateCollaborationNotificationPrefs,
+} from './collaborationNotificationPrefsService';
+export type {
+  SharingProfileOverview,
+  SharingProfileResourceRow,
+} from './collaborationProfileService';
+export { loadSharingProfileOverview } from './collaborationProfileService';
 
 export {
-  listSharedResourceMembers,
-  getSharedResourceMember,
-  setSharedResourceMember,
-  removeSharedResourceMember,
-  countSharedResourceMembers,
-} from './sharedResourceAclService';
-
-export {
-  resolveResourcePermission,
-  isResourceShared,
-  canUserModifyResource,
-  canUserDeleteResource,
-  canUserManageCollaboration,
-} from './permissionService';
-
-export {
-  sendResourceInvite,
-  acceptResourceInvite,
-  rejectResourceInvite,
-  revokeResourceInvite,
-  resendResourceInvite,
-  getResourceInvite,
-  listResourceInvites,
-  listPendingInvitesForUser,
-} from './resourceInviteService';
-
-export {
-  searchUsersForCollaborationInvite,
   resolveUserIdByEmail,
   resolveUserIdByUsername,
+  searchUsersForCollaborationInvite,
 } from './collaborationUserSearchService';
-
-export { blockUser, unblockUser, areUsersBlocked, listBlockedUserIds } from './userBlockService';
-
+export { fetchCollaborativeDiaryIdsForMember } from './diaryCollaborationService';
 export {
-  createWorkspace,
-  getWorkspace,
-  getWorkspaceNamesByIds,
-  listWorkspacesForUser,
-  getWorkspaceMemberCounts,
-  updateWorkspace,
-  isWorkspaceOwner,
-  isWorkspaceMember,
-  deleteWorkspace,
-  MAX_OWNED_WORKSPACES_PER_USER,
-  OWNED_WORKSPACE_LIMIT_MESSAGE,
-} from './workspaceService';
-
-export {
-  listWorkspaceResources,
-  addWorkspaceResource,
-  removeWorkspaceResource,
-  listWorkspaceMembers,
-  listWorkspaceResourcePermissions,
-  setWorkspaceResourcePermission,
-  setWorkspaceResourcePermissionsForUser,
-  getWorkspaceResourceAccessForUser,
-} from './workspaceResourceService';
-
-export {
-  suggestWorkspaceCompositionFromResource,
-  createWorkspaceWithComposition,
-  createWorkspaceFromResource,
-  addResourceToExistingWorkspace,
-  isResourceInWorkspace,
-  listWorkspacesContainingResource,
-  listWorkspaceComposition,
-} from './workspaceCompositionService';
-
-export {
-  resolveWorkspaceCompositionBlueprint,
-  resolveWorkspaceCompositionCatalog,
-  resolveWorkspaceCompositionCatalogFromViaggio,
-  materializeWorkspaceComposition,
-  rollbackDuplicatedCompositionResources,
-  blueprintCandidatesToLabels,
-  type ResolveWorkspaceCompositionBlueprintInput,
-  type ResolveWorkspaceCompositionCatalogInput,
-  type ResolveWorkspaceCompositionCatalogFromViaggioInput,
-  type WorkspaceCompositionShareIntent,
-} from './workspaceComposition';
-
-export {
-  sendWorkspaceInvite,
-  acceptWorkspaceInvite,
-  rejectWorkspaceInvite,
-  revokeWorkspaceInvite,
-  resendWorkspaceInvite,
-  getWorkspaceInvite,
-  listWorkspaceInvites,
-  listPendingWorkspaceInvitesForUser,
-  listIncomingWorkspaceInvitesForUser,
-  listOutgoingWorkspaceInvitesForUser,
-  removeWorkspaceMember,
-  updateWorkspaceInvitePermissions,
-} from './workspaceInviteService';
-
-export { leaveWorkspace } from './workspaceMemberService';
-
-export {
-  fetchCollaborativeDiaryIdsForMember,
-} from './diaryCollaborationService';
-
-export {
-  resolveWorkspaceResourceLabels,
-  findWorkspaceResourceLabel,
-  buildWorkspaceResourceLabelMap,
-  fetchCollaborationUserProfiles,
-} from './workspaceResourcePresentation';
-export type {
-  WorkspaceResourceLabel,
-  CollaborationUserProfileSummary,
-} from './workspaceResourcePresentation';
-
-export {
-  tryAcquireDiaryEditLock,
-  releaseDiaryEditLock,
   getDiaryEditLockHolder,
+  releaseDiaryEditLock,
+  tryAcquireDiaryEditLock,
 } from './diaryLockService';
-
 export {
-  tryAcquireSharedResourceEditLock,
-  refreshSharedResourceEditLock,
-  releaseSharedResourceEditLock,
-  getSharedResourceEditLockHolder,
-  getSharedResourceEditLockState,
-} from './sharedResourceLockService';
-
-export { resolveCollaborationLiveConfig } from './collaborationLiveConfig';
-
-export {
-  resolveWorkspaceEngineConfig,
-  isCollaborationEngineEnabled,
-  isSharedResourceKindEnabled,
-} from './workspaceEngineConfigService';
-
-export {
-  recordCollaborationDomainEvent,
-  listCollaborationEventsForWorkspace,
   listCollaborationEventsForResource,
+  listCollaborationEventsForWorkspace,
+  recordCollaborationDomainEvent,
 } from './domainEventService';
-
 export {
-  sendFriendRequest,
   acceptFriendRequest,
-  rejectFriendRequest,
-  removeFriend,
   listFriends,
   listIncomingFriendRequests,
   listOutgoingFriendRequests,
+  rejectFriendRequest,
+  removeFriend,
   searchUsersForFriendRequest,
+  sendFriendRequest,
 } from './friendService';
-
+export type { ResolvePermissionOptions } from './permissionService';
 export {
-  getCollaborationNotificationPrefs,
-  updateCollaborationNotificationPrefs,
-  shouldDeliverCollaborationNotification,
-} from './collaborationNotificationPrefsService';
-
-export { loadSharingProfileOverview } from './collaborationProfileService';
-export type { SharingProfileOverview, SharingProfileResourceRow } from './collaborationProfileService';
-
+  canUserDeleteResource,
+  canUserManageCollaboration,
+  canUserModifyResource,
+  isResourceShared,
+  resolveResourcePermission,
+} from './permissionService';
 export {
   duplicateSharedResourceForOwner,
   savePersonalCopyFromWorkspace,
 } from './personalShareService';
+export type { InviteTarget, ResourceInviteResult } from './resourceInviteService';
+export {
+  acceptResourceInvite,
+  getResourceInvite,
+  listPendingInvitesForUser,
+  listResourceInvites,
+  rejectResourceInvite,
+  resendResourceInvite,
+  revokeResourceInvite,
+  sendResourceInvite,
+} from './resourceInviteService';
+export type { SetSharedResourceMemberResult } from './sharedResourceAclService';
+export {
+  countSharedResourceMembers,
+  getSharedResourceMember,
+  listSharedResourceMembers,
+  removeSharedResourceMember,
+  setSharedResourceMember,
+} from './sharedResourceAclService';
 
 export {
-  listWorkspaceAttachments,
-  uploadWorkspaceAttachment,
-  deleteWorkspaceAttachment,
-  resolveStorageLimitsConfig,
-} from './workspaceAttachmentService';
-
-export { syncSharedResourceAccessFromWorkspacePermission } from './workspaceMemberAclSync';
-
-export type { ResolvePermissionOptions } from './permissionService';
+  getSharedResourceEditLockHolder,
+  getSharedResourceEditLockState,
+  refreshSharedResourceEditLock,
+  releaseSharedResourceEditLock,
+  tryAcquireSharedResourceEditLock,
+} from './sharedResourceLockService';
 export type { RegisterShareableResourceResult } from './sharedResourceService';
-export type { SetSharedResourceMemberResult } from './sharedResourceAclService';
-export type { ResourceInviteResult, InviteTarget } from './resourceInviteService';
-export type { CreateWorkspaceResult, CreateWorkspaceInput } from './workspaceService';
-export type { WorkspaceResourceResult, AddWorkspaceResourceInput } from './workspaceResourceService';
+export {
+  deleteShareableResource,
+  ensureShareableResource,
+  getShareableResource,
+  registerShareableResource,
+  updateShareableResourceMode,
+} from './sharedResourceService';
+export { areUsersBlocked, blockUser, listBlockedUserIds, unblockUser } from './userBlockService';
+export {
+  deleteWorkspaceAttachment,
+  listWorkspaceAttachments,
+  resolveStorageLimitsConfig,
+  uploadWorkspaceAttachment,
+} from './workspaceAttachmentService';
+export {
+  blueprintCandidatesToLabels,
+  materializeWorkspaceComposition,
+  type ResolveWorkspaceCompositionBlueprintInput,
+  type ResolveWorkspaceCompositionCatalogFromViaggioInput,
+  type ResolveWorkspaceCompositionCatalogInput,
+  resolveWorkspaceCompositionBlueprint,
+  resolveWorkspaceCompositionCatalog,
+  resolveWorkspaceCompositionCatalogFromViaggio,
+  rollbackDuplicatedCompositionResources,
+  type WorkspaceCompositionShareIntent,
+} from './workspaceComposition';
 export type {
   CreateWorkspaceWithCompositionResult,
   WorkspaceCompositionResource,
   WorkspaceMemberPermissionDraft,
 } from './workspaceCompositionService';
+export {
+  addResourceToExistingWorkspace,
+  createWorkspaceFromResource,
+  createWorkspaceWithComposition,
+  isResourceInWorkspace,
+  listWorkspaceComposition,
+  listWorkspacesContainingResource,
+  suggestWorkspaceCompositionFromResource,
+} from './workspaceCompositionService';
+export {
+  isCollaborationEngineEnabled,
+  isSharedResourceKindEnabled,
+  resolveWorkspaceEngineConfig,
+} from './workspaceEngineConfigService';
 export type { WorkspaceInviteResult } from './workspaceInviteService';
+export {
+  acceptWorkspaceInvite,
+  getWorkspaceInvite,
+  listIncomingWorkspaceInvitesForUser,
+  listOutgoingWorkspaceInvitesForUser,
+  listPendingWorkspaceInvitesForUser,
+  listWorkspaceInvites,
+  rejectWorkspaceInvite,
+  removeWorkspaceMember,
+  resendWorkspaceInvite,
+  revokeWorkspaceInvite,
+  sendWorkspaceInvite,
+  updateWorkspaceInvitePermissions,
+} from './workspaceInviteService';
+export { syncSharedResourceAccessFromWorkspacePermission } from './workspaceMemberAclSync';
+export { leaveWorkspace } from './workspaceMemberService';
+export type {
+  CollaborationUserProfileSummary,
+  WorkspaceResourceLabel,
+} from './workspaceResourcePresentation';
+export {
+  buildWorkspaceResourceLabelMap,
+  fetchCollaborationUserProfiles,
+  findWorkspaceResourceLabel,
+  resolveWorkspaceResourceLabels,
+} from './workspaceResourcePresentation';
+export type {
+  AddWorkspaceResourceInput,
+  WorkspaceResourceResult,
+} from './workspaceResourceService';
+export {
+  addWorkspaceResource,
+  getWorkspaceResourceAccessForUser,
+  listWorkspaceMembers,
+  listWorkspaceResourcePermissions,
+  listWorkspaceResources,
+  removeWorkspaceResource,
+  setWorkspaceResourcePermission,
+  setWorkspaceResourcePermissionsForUser,
+} from './workspaceResourceService';
+export type { CreateWorkspaceInput, CreateWorkspaceResult } from './workspaceService';
+export {
+  createWorkspace,
+  deleteWorkspace,
+  getWorkspace,
+  getWorkspaceMemberCounts,
+  getWorkspaceNamesByIds,
+  isWorkspaceMember,
+  isWorkspaceOwner,
+  listWorkspacesForUser,
+  MAX_OWNED_WORKSPACES_PER_USER,
+  OWNED_WORKSPACE_LIMIT_MESSAGE,
+  updateWorkspace,
+} from './workspaceService';

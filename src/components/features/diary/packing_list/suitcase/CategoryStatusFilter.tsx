@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, SlidersHorizontal } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import {
-  SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS,
   type CategoryStatusFilter,
+  SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS,
 } from './SuitcaseUtils';
 
 interface CategoryStatusFilterDropdownProps {
@@ -89,11 +90,16 @@ export const CategoryStatusFilterDropdown: React.FC<CategoryStatusFilterDropdown
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((open) => !open)}
-        onMouseEnter={() => { if (isOpen) scheduleAutoClose(); }}
+        onMouseEnter={() => {
+          if (isOpen) scheduleAutoClose();
+        }}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={`Filtro categorie: ${selected.label}`}
-        className={triggerClassName ?? `${SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS} gap-1 px-2 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${ACTIVE_TRIGGER_CLASS[value]}`}
+        className={
+          triggerClassName ??
+          `${SUITCASE_COMPACT_DROPDOWN_TRIGGER_LAYOUT_CLASS} gap-1 px-2 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${ACTIVE_TRIGGER_CLASS[value]}`
+        }
         title={`Filtro: ${selected.label}`}
       >
         {iconOnly ? (
@@ -127,30 +133,30 @@ export const CategoryStatusFilterDropdown: React.FC<CategoryStatusFilterDropdown
           onPointerDown={scheduleAutoClose}
           onKeyDown={scheduleAutoClose}
         >
-        {FILTER_OPTIONS.map((option) => {
-          const isSelected = option.value === value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={isSelected}
-              onClick={() => handleSelect(option.value)}
-              className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${
-                isSelected
-                  ? 'bg-indigo-500/15 text-indigo-100'
-                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <span className="w-3.5 shrink-0 flex items-center justify-center">
-                {isSelected ? <Check className="w-3 h-3 text-indigo-400" aria-hidden /> : null}
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-wider leading-none">
-                {option.label}
-              </span>
-            </button>
-          );
-        })}
+          {FILTER_OPTIONS.map((option) => {
+            const isSelected = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => handleSelect(option.value)}
+                className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${
+                  isSelected
+                    ? 'bg-indigo-500/15 text-indigo-100'
+                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <span className="w-3.5 shrink-0 flex items-center justify-center">
+                  {isSelected ? <Check className="w-3 h-3 text-indigo-400" aria-hidden /> : null}
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-wider leading-none">
+                  {option.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </AnchoredPopover>
     </>

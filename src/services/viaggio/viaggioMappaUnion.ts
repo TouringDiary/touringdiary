@@ -57,6 +57,9 @@ export function pinsFromRicordi(media: ViaggioRicordoMedia[]): ViaggioMapPin[] {
   }));
 }
 
-export function unionViaggioMapPins(diaries: Itinerary[], media: ViaggioRicordoMedia[]): ViaggioMapPin[] {
+export function unionViaggioMapPins(
+  diaries: Itinerary[],
+  media: ViaggioRicordoMedia[],
+): ViaggioMapPin[] {
   return [...pinsFromDiaries(diaries), ...pinsFromRicordi(media)];
 }

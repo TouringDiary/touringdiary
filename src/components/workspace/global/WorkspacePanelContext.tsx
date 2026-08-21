@@ -1,17 +1,17 @@
 import React, {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
+import { useUser } from '@/context/UserContext';
 import type { Workspace } from '@/domain/collaboration';
 import type { WorkspaceAttachmentCategory } from '@/domain/collaboration/workspaceAttachment';
 import { getWorkspace } from '@/services/collaboration/workspaceService';
-import { useUser } from '@/context/UserContext';
 import {
   WORKSPACE_OPERATIONAL_SECTIONS,
   WORKSPACE_SECTION_REQUIRES_ACTIVE,
@@ -53,14 +53,15 @@ export const WorkspacePanelProvider: React.FC<WorkspacePanelProviderProps> = ({
 }) => {
   const { user } = useUser();
   const [activeSection, setActiveSectionState] = useState<WorkspacePanelSection>(
-    initialWorkspaceId ? (initialSection ?? 'condivisione') : 'workspace'
+    initialWorkspaceId ? (initialSection ?? 'condivisione') : 'workspace',
   );
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
-    initialWorkspaceId ?? null
+    initialWorkspaceId ?? null,
   );
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [activeWorkspaceRole, setActiveWorkspaceRole] = useState<WorkspaceActiveRole | null>(null);
-  const [allegatiCategory, setAllegatiCategoryState] = useState<WorkspaceAttachmentCategory>('documents');
+  const [allegatiCategory, setAllegatiCategoryState] =
+    useState<WorkspaceAttachmentCategory>('documents');
   const wasPanelOpenRef = useRef(false);
   /** Workspace a cui è legata la categoria Allegati corrente; null = nessun binding (es. post-clear). */
   const allegatiCategoryWorkspaceIdRef = useRef<string | null>(activeWorkspaceId);
@@ -76,10 +77,13 @@ export const WorkspacePanelProvider: React.FC<WorkspacePanelProviderProps> = ({
     }
   }, [activeWorkspaceId]);
 
-  const setAllegatiCategory = useCallback((category: WorkspaceAttachmentCategory) => {
-    setAllegatiCategoryState(category);
-    allegatiCategoryWorkspaceIdRef.current = activeWorkspaceId;
-  }, [activeWorkspaceId]);
+  const setAllegatiCategory = useCallback(
+    (category: WorkspaceAttachmentCategory) => {
+      setAllegatiCategoryState(category);
+      allegatiCategoryWorkspaceIdRef.current = activeWorkspaceId;
+    },
+    [activeWorkspaceId],
+  );
 
   const clearActiveWorkspace = useCallback(() => {
     setActiveWorkspaceId(null);
@@ -94,10 +98,13 @@ export const WorkspacePanelProvider: React.FC<WorkspacePanelProviderProps> = ({
     setActiveWorkspaceRole(role);
   }, []);
 
-  const selectWorkspace = useCallback((workspace: Workspace, role: WorkspaceActiveRole) => {
-    hydrateActiveWorkspace(workspace, role);
-    setActiveSectionState('condivisione');
-  }, [hydrateActiveWorkspace]);
+  const selectWorkspace = useCallback(
+    (workspace: Workspace, role: WorkspaceActiveRole) => {
+      hydrateActiveWorkspace(workspace, role);
+      setActiveSectionState('condivisione');
+    },
+    [hydrateActiveWorkspace],
+  );
 
   const navigateToSection = useCallback(
     (section: WorkspacePanelSection) => {
@@ -107,14 +114,14 @@ export const WorkspacePanelProvider: React.FC<WorkspacePanelProviderProps> = ({
       }
       setActiveSectionState(section);
     },
-    [activeWorkspaceId]
+    [activeWorkspaceId],
   );
 
   const setActiveSection = useCallback(
     (section: WorkspacePanelSection) => {
       navigateToSection(section);
     },
-    [navigateToSection]
+    [navigateToSection],
   );
 
   // 1. Intent esterni = evento di ingresso al pannello (deep link), non stato di sessione.
@@ -171,12 +178,10 @@ export const WorkspacePanelProvider: React.FC<WorkspacePanelProviderProps> = ({
       clearActiveWorkspace,
       navigateToSection,
       allegatiCategory,
-    ]
+    ],
   );
 
-  return (
-    <WorkspacePanelContext.Provider value={value}>{children}</WorkspacePanelContext.Provider>
-  );
+  return <WorkspacePanelContext.Provider value={value}>{children}</WorkspacePanelContext.Provider>;
 };
 
 export function useWorkspacePanelState(): WorkspacePanelStateValue {

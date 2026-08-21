@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  fetchAffiliateTriggersAsync,
   adaptTriggerRelationToRuntime,
+  fetchAffiliateTriggersAsync,
 } from '@/services/suitcase/suitcaseAffiliateService';
-import {
+import type {
   CanonicalAffiliateTriggerRelation,
   RuntimeAffiliateProduct,
   Suitcase,
@@ -27,8 +27,8 @@ export const useSuitcaseAffiliate = (contextSuitcase: Suitcase | undefined | nul
       setIsLoadingTriggers(true);
       try {
         const items = contextSuitcase?.suitcase_items || [];
-        const uniqueTags = Array.from(new Set(items.flatMap(i => i.affiliate_tags || [])));
-        const uniqueCategories = Array.from(new Set(items.map(i => i.category.toLowerCase())));
+        const uniqueTags = Array.from(new Set(items.flatMap((i) => i.affiliate_tags || [])));
+        const uniqueCategories = Array.from(new Set(items.map((i) => i.category.toLowerCase())));
         const sourceTemplateId = contextSuitcase?.source_template_id ?? null;
 
         const uniqueTagsParam = contextSuitcase ? uniqueTags : [];
@@ -37,7 +37,7 @@ export const useSuitcaseAffiliate = (contextSuitcase: Suitcase | undefined | nul
         const data = await fetchAffiliateTriggersAsync({
           uniqueTags: uniqueTagsParam,
           uniqueCategories: uniqueCategoriesParam,
-          sourceTemplateId
+          sourceTemplateId,
         });
 
         if (!isMounted) return;
@@ -53,7 +53,7 @@ export const useSuitcaseAffiliate = (contextSuitcase: Suitcase | undefined | nul
           categories: {},
           overrides: {},
           global: [],
-          placeholders: {}
+          placeholders: {},
         };
 
         (data || []).forEach((t: CanonicalAffiliateTriggerRelation) => {
@@ -80,20 +80,26 @@ export const useSuitcaseAffiliate = (contextSuitcase: Suitcase | undefined | nul
         });
 
         // Ensure priority sorting (DESC)
-        Object.values(maps.items).forEach(list => list.sort((a, b) => b.trigger_priority - a.trigger_priority));
-        Object.values(maps.categories).forEach(list => list.sort((a, b) => b.trigger_priority - a.trigger_priority));
+        Object.values(maps.items).forEach((list) =>
+          list.sort((a, b) => b.trigger_priority - a.trigger_priority),
+        );
+        Object.values(maps.categories).forEach((list) =>
+          list.sort((a, b) => b.trigger_priority - a.trigger_priority),
+        );
         maps.global.sort((a, b) => b.trigger_priority - a.trigger_priority);
 
         setAffiliateMaps(maps);
       } catch (err) {
-        console.error("Error pre-fetching affiliate triggers:", err);
+        console.error('Error pre-fetching affiliate triggers:', err);
       } finally {
         if (isMounted) setIsLoadingTriggers(false);
       }
     };
 
     fetchTriggers();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [contextSuitcase?.id]);
 
   return { affiliateMaps, isLoadingTriggers };

@@ -14,7 +14,7 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 
 ### 2. User Review System
 *   **Logica**: Feedback multi-criterio su POI e Itinerari (`criteria` jsonb + `rating` media). Pubblicazione immediata; 1 review / utente / target.
-*   **Pipeline**: `ReviewModal` → `InteractionContext.submitReview` / `ItineraryReviews` → `saveUnifiedReview` (INSERT|UPDATE) → trigger sync `pois.rating` + alert soglia.
+*   **Pipeline**: `ReviewModal` → `InteractionContext.submitReview` / `ItineraryReviews` → `saveUnifiedReview` (INSERT|UPDATE) → trigger sync `pois.rating` + alert soglia. Conferma UI POI: `reviewSuccess` (INSERT +XP; UPDATE senza XP).
 *   **Tabelle**: `reviews`, `review_rating_alerts`.
 *   **SSOT**: `AI_CONTEXT/27_USER_REVIEW_SYSTEM.md` v2.0 · Audit `AUDIT_REVIEWS_AND_RATINGS.md` §18.
 *   **Qualità**: media POI sotto soglia CC → coda Segnalazioni in Itinerari & Recensioni.
@@ -82,7 +82,7 @@ Questo modulo gestisce l'esperienza utente (UX) dal primo accesso (Onboarding) a
 ---
 
 ## PIPELINE RUNTIME (Gamification & XP)
-1.  **Azione**: L'utente pubblica un diario in Community oppure pubblica una recensione (pubblicazione diretta, senza coda di approvazione).
+1.  **Azione**: L'utente pubblica un diario in Community oppure pubblica la **prima** recensione su un target (pubblicazione diretta, senza coda di approvazione). La modifica di una recensione già esistente non riaccredita XP.
 2.  **Award XP**: RPC/`add_user_xp` o trigger DB aggiornano `profiles.xp` (i punti non vengono mai cancellati dal freeze premi).
 3.  **Level Up**: Se l'utente supera la soglia, `LevelUpModal.tsx` celebra il nuovo livello.
 4.  **Premi**: sblocco/riscatto solo se `areRewardsEnabled()` (flag `feature.gamification.rewards` ON); altrimenti UI freeze + messaggio positivo su XP.

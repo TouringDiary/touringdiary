@@ -1,8 +1,8 @@
-import React from 'react';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { ExternalLink, Pencil, Unlink } from 'lucide-react';
+import type React from 'react';
 import { applyDiaryNotesLink, openDiaryNotesLink } from './diaryNotesLinkUtils';
 
 interface DiaryNotesLinkBubbleMenuProps {
@@ -18,9 +18,7 @@ export const DiaryNotesLinkBubbleMenu: React.FC<DiaryNotesLinkBubbleMenuProps> =
   const { href } = useEditorState({
     editor,
     selector: ({ editor: ed }) => ({
-      href: ed.isActive('link')
-        ? (ed.getAttributes('link').href as string | undefined)
-        : undefined,
+      href: ed.isActive('link') ? (ed.getAttributes('link').href as string | undefined) : undefined,
     }),
   });
 

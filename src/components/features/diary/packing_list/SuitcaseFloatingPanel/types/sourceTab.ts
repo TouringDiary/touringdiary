@@ -27,7 +27,7 @@ export function getSuitcaseTabLabel(tab: SuitcaseSourceTab): string {
  */
 export function resolveInitialSuitcaseTab(
   tripSuitcaseCount: number,
-  savedSuitcaseCount: number
+  savedSuitcaseCount: number,
 ): SuitcaseSourceTab {
   if (tripSuitcaseCount > 0) return 'trip';
   if (savedSuitcaseCount > 0) return 'saved';
@@ -37,14 +37,14 @@ export function resolveInitialSuitcaseTab(
 /** True se l'utente non ha ancora valigie operative (viaggio o salvate). */
 export function isSuitcaseDashboardEmpty(
   tripSuitcaseCount: number,
-  savedSuitcaseCount: number
+  savedSuitcaseCount: number,
 ): boolean {
   return tripSuitcaseCount === 0 && savedSuitcaseCount === 0;
 }
 
 export function resolveDefaultSuitcaseTab(
   tripSuitcaseCount: number,
-  savedSuitcaseCount: number
+  savedSuitcaseCount: number,
 ): SuitcaseSourceTab {
   if (isSuitcaseDashboardEmpty(tripSuitcaseCount, savedSuitcaseCount)) {
     return 'start';

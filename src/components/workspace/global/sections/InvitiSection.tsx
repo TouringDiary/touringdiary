@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Loader2, X } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useUser } from '@/context/UserContext';
+import type { WorkspaceInvite } from '@/domain/collaboration';
 import {
   acceptWorkspaceInvite,
   fetchCollaborationUserProfiles,
@@ -8,7 +10,6 @@ import {
   listPendingWorkspaceInvitesForUser,
   rejectWorkspaceInvite,
 } from '@/services/collaboration';
-import type { WorkspaceInvite } from '@/domain/collaboration';
 import { useWorkspacePanelState } from '../WorkspacePanelContext';
 
 /** Layout condiviso per stati placeholder della sezione Inviti. */
@@ -54,7 +55,7 @@ export const InvitiSection: React.FC = () => {
           workspaceIds.map(async (workspaceId) => {
             const workspace = await getWorkspace(workspaceId);
             return [workspaceId, workspace?.name ?? 'Workspace'] as const;
-          })
+          }),
         ),
       ]);
       if (!isMountedRef.current || seq !== loadSeqRef.current) return;
@@ -102,9 +103,7 @@ export const InvitiSection: React.FC = () => {
 
   if (!user) {
     return (
-      <div className={PLACEHOLDER_TEXT_CLASS}>
-        Accedi per visualizzare gli inviti ricevuti.
-      </div>
+      <div className={PLACEHOLDER_TEXT_CLASS}>Accedi per visualizzare gli inviti ricevuti.</div>
     );
   }
 
@@ -118,11 +117,7 @@ export const InvitiSection: React.FC = () => {
   }
 
   if (invites.length === 0) {
-    return (
-      <div className={PLACEHOLDER_TEXT_CLASS}>
-        Nessun invito a workspace in attesa.
-      </div>
-    );
+    return <div className={PLACEHOLDER_TEXT_CLASS}>Nessun invito a workspace in attesa.</div>;
   }
 
   return (
@@ -153,7 +148,11 @@ export const InvitiSection: React.FC = () => {
                   onClick={() => void handleAccept(invite.id)}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-50"
                 >
-                  {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  {isProcessing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Check className="w-3 h-3" />
+                  )}
                   Accetta
                 </button>
                 <button
@@ -162,7 +161,11 @@ export const InvitiSection: React.FC = () => {
                   onClick={() => void handleReject(invite.id)}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50"
                 >
-                  {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                  {isProcessing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <X className="w-3 h-3" />
+                  )}
                   Rifiuta
                 </button>
               </div>

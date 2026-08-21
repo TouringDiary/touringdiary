@@ -1,5 +1,5 @@
 import { normalizeCategoryName } from '@/domain/packing/packingCategories';
-import { Suitcase, SuitcaseItem, SuitcaseUiState } from '@/types/suitcase';
+import type { Suitcase, SuitcaseItem, SuitcaseUiState } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 import type { DisplayCategory } from './categorySetup';
 
@@ -33,7 +33,7 @@ function stableLegacyCompare(a: SuitcaseItem, b: SuitcaseItem): number {
 export function sortItemsByDisplayOrder(
   items: SuitcaseItem[],
   categoryId: string,
-  orderMap: ItemDisplayOrderMap
+  orderMap: ItemDisplayOrderMap,
 ): SuitcaseItem[] {
   const savedOrder = orderMap[categoryId];
   if (!savedOrder || savedOrder.length === 0) {
@@ -69,10 +69,10 @@ export function sortItemsByDisplayOrder(
 export function pruneItemDisplayOrder(
   order: ItemDisplayOrderMap,
   items: SuitcaseItem[],
-  categories: DisplayCategory[]
+  categories: DisplayCategory[],
 ): ItemDisplayOrderMap {
   const categoryIdByName = new Map(
-    categories.map((cat) => [normalizeCategoryName(cat.name), cat.id])
+    categories.map((cat) => [normalizeCategoryName(cat.name), cat.id]),
   );
 
   const validNamesByCategoryId = new Map<string, Set<string>>();
@@ -88,10 +88,7 @@ export function pruneItemDisplayOrder(
   }
 
   const pruned: ItemDisplayOrderMap = {};
-  const categoryIds = new Set([
-    ...Object.keys(order),
-    ...validNamesByCategoryId.keys(),
-  ]);
+  const categoryIds = new Set([...Object.keys(order), ...validNamesByCategoryId.keys()]);
 
   for (const categoryId of categoryIds) {
     const validNames = validNamesByCategoryId.get(categoryId);
@@ -123,7 +120,7 @@ export function pruneItemDisplayOrder(
 export function appendItemToDisplayOrder(
   order: ItemDisplayOrderMap,
   categoryId: string,
-  itemName: string
+  itemName: string,
 ): ItemDisplayOrderMap {
   const key = normalizeItemName(itemName);
   const next = cloneItemDisplayOrder(order);
@@ -136,7 +133,7 @@ export function appendItemToDisplayOrder(
 export function removeItemFromDisplayOrder(
   order: ItemDisplayOrderMap,
   categoryId: string,
-  itemName: string
+  itemName: string,
 ): ItemDisplayOrderMap {
   const key = normalizeItemName(itemName);
   const next = cloneItemDisplayOrder(order);
@@ -153,7 +150,7 @@ export function removeItemFromDisplayOrder(
 
 export function removeCategoryFromDisplayOrder(
   order: ItemDisplayOrderMap,
-  categoryId: string
+  categoryId: string,
 ): ItemDisplayOrderMap {
   const next = cloneItemDisplayOrder(order);
   delete next[categoryId];
@@ -164,7 +161,7 @@ export function moveItemBetweenCategoriesInOrder(
   order: ItemDisplayOrderMap,
   sourceCategoryId: string,
   destCategoryId: string,
-  itemName: string
+  itemName: string,
 ): ItemDisplayOrderMap {
   const key = normalizeItemName(itemName);
   let next = removeItemFromDisplayOrder(order, sourceCategoryId, itemName);
@@ -175,7 +172,7 @@ export function moveItemBetweenCategoriesInOrder(
 function buildCategoryNameList(
   order: ItemDisplayOrderMap,
   categoryId: string,
-  visibleNamesInOrder: string[]
+  visibleNamesInOrder: string[],
 ): string[] {
   const visibleKeys = visibleNamesInOrder.map((name) => normalizeItemName(name));
   const visibleSet = new Set(visibleKeys);
@@ -206,7 +203,7 @@ export function swapItemsInCategoryOrder(
   categoryId: string,
   draggedName: string,
   targetName: string,
-  visibleNamesInOrder: string[]
+  visibleNamesInOrder: string[],
 ): ItemDisplayOrderMap {
   const draggedKey = normalizeItemName(draggedName);
   const targetKey = normalizeItemName(targetName);
@@ -225,7 +222,7 @@ export function swapItemsInCategoryOrder(
 
 export function isSameItemDisplayOrder(
   left: ItemDisplayOrderMap,
-  right: ItemDisplayOrderMap
+  right: ItemDisplayOrderMap,
 ): boolean {
   const leftKeys = Object.keys(left).sort();
   const rightKeys = Object.keys(right).sort();
@@ -244,20 +241,15 @@ export function isSameItemDisplayOrder(
 
 export function buildGroupedItemsByCategory(
   suitcase: Suitcase,
-  categories: DisplayCategory[]
+  categories: DisplayCategory[],
 ): Record<string, SuitcaseItem[]> {
   const items = suitcase.suitcase_items ?? [];
-  const prunedOrder = pruneItemDisplayOrder(
-    getItemDisplayOrder(suitcase),
-    items,
-    categories
-  );
+  const prunedOrder = pruneItemDisplayOrder(getItemDisplayOrder(suitcase), items, categories);
 
   const acc: Record<string, SuitcaseItem[]> = {};
   for (const cat of categories) {
     const filtered = items.filter(
-      (item) =>
-        normalizeCategoryName(item.category) === cat.name || item.category === cat.name
+      (item) => normalizeCategoryName(item.category) === cat.name || item.category === cat.name,
     );
     acc[cat.name] = sortItemsByDisplayOrder(filtered, cat.id, prunedOrder);
   }

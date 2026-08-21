@@ -15,7 +15,7 @@ const ACCESS_RANK: Record<AccessLevel, number> = {
 
 function accessLevelFromResourceRole(
   isOwner: boolean,
-  memberRole: CollaborativeMemberRole | null
+  memberRole: CollaborativeMemberRole | null,
 ): AccessLevel {
   if (isOwner) return 'owner';
   if (memberRole === 'collaborator') return 'collaborator';
@@ -44,7 +44,7 @@ function rankToAccessLevel(rank: number, isOwner: boolean): AccessLevel {
 export function resolveEffectiveAccessLevel(
   isOwner: boolean,
   resourceMemberRole: CollaborativeMemberRole | null,
-  workspaceAccess: WorkspaceResourceAccess = 'none'
+  workspaceAccess: WorkspaceResourceAccess = 'none',
 ): AccessLevel {
   const resourceLevel = accessLevelFromResourceRole(isOwner, resourceMemberRole);
   const workspaceLevel = accessLevelFromWorkspace(workspaceAccess);

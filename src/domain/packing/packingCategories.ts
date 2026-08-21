@@ -127,7 +127,7 @@ export function normalizeCategoryName(raw: string): string {
 
 export function getCategoryId(
   categoryName: string,
-  customCategories?: { id: string; name: string }[]
+  customCategories?: { id: string; name: string }[],
 ): string {
   const normalized = normalizeCategoryName(categoryName);
   if (normalized in CATEGORY_ID_MAP) {

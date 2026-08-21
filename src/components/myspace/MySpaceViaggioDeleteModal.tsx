@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 
 interface Props {
   viaggioTitle: string;
@@ -40,15 +41,12 @@ export const MySpaceViaggioDeleteModal: React.FC<Props> = ({
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" aria-hidden />
           <div>
-            <h3
-              id="myspace-delete-viaggio-title"
-              className="text-lg font-bold text-white"
-            >
+            <h3 id="myspace-delete-viaggio-title" className="text-lg font-bold text-white">
               Eliminare «{viaggioTitle || 'Viaggio'}»?
             </h3>
             <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-              Conferma esplicita richiesta. L’operazione riguarda il patrimonio
-              MySpace; le copie Workspace non vengono eliminate.
+              Conferma esplicita richiesta. L’operazione riguarda il patrimonio MySpace; le copie
+              Workspace non vengono eliminate.
             </p>
           </div>
         </div>
@@ -62,8 +60,8 @@ export const MySpaceViaggioDeleteModal: React.FC<Props> = ({
             data-testid="myspace-delete-viaggio-aware"
           />
           <span className="text-xs text-slate-300 leading-relaxed">
-            Sono consapevole che verranno eliminati: viaggio, diario, ricordi,
-            foto, video, allegati, documenti e tutti i dati collegati al viaggio.
+            Sono consapevole che verranno eliminati: viaggio, diario, ricordi, foto, video,
+            allegati, documenti e tutti i dati collegati al viaggio.
           </span>
         </label>
 

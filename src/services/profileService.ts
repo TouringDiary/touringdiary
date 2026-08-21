@@ -1,5 +1,5 @@
-import { supabase } from './supabaseClient';
 import { normalizeUsernameToSlug, validateUsernameFormat } from '@/domain/profile/username';
+import { supabase } from './supabaseClient';
 
 const PROFILE_AVATAR_BUCKET = 'public-media';
 const PROFILE_AVATAR_FOLDER = 'profiles';
@@ -33,7 +33,7 @@ function classifyAvailabilityError(error: { message?: string }): 'database' | 'n
 
 export async function checkUsernameAvailability(
   rawUsername: string,
-  excludeUserId?: string
+  excludeUserId?: string,
 ): Promise<UsernameAvailabilityResult> {
   const slug = normalizeUsernameToSlug(rawUsername);
 
@@ -55,7 +55,7 @@ export async function checkUsernameAvailability(
 
 export async function validateUsernameForSubmit(
   username: string,
-  excludeUserId?: string
+  excludeUserId?: string,
 ): Promise<string | null> {
   const formatError = validateUsernameFormat(username);
   if (formatError) return formatError;
@@ -67,9 +67,7 @@ export async function validateUsernameForSubmit(
   return USERNAME_CHECK_TECHNICAL_MESSAGE;
 }
 
-export function resolveProfileSlug(
-  rawUsername: string
-): { slug: string } | { error: string } {
+export function resolveProfileSlug(rawUsername: string): { slug: string } | { error: string } {
   const formatError = validateUsernameFormat(rawUsername);
   if (formatError) return { error: formatError };
   return { slug: normalizeUsernameToSlug(rawUsername) };
@@ -114,7 +112,7 @@ export async function uploadProfileAvatar(userId: string, file: File): Promise<s
 
 export async function updateProfileSlug(
   userId: string,
-  rawUsername: string
+  rawUsername: string,
 ): Promise<{ success: boolean; slug?: string; error?: string }> {
   const resolved = resolveProfileSlug(rawUsername);
   if ('error' in resolved) {
@@ -145,7 +143,7 @@ export async function updateProfileSlug(
 
 export async function updateProfileAvatarUrl(
   userId: string,
-  avatarUrl: string
+  avatarUrl: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { data, error } = await supabase
     .from('profiles')

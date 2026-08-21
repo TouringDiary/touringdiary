@@ -1,116 +1,166 @@
-import React, { useRef, useState, useEffect } from 'react';
 import { Camera, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
-import { CityDetails, PhotoSubmission } from '@/types';
-import { ImageWithFallback } from '../../common/ImageWithFallback';
-import { DraggableSlider, DraggableSliderHandle } from '../../common/DraggableSlider';
-import { normalizeImageUrl } from '@/utils/imageOptimizer';
-import { getOrCreatePhotoSubmissionForUrl, listPhotographs } from '@/services/photoService';
+import { useEffect, useRef, useState } from 'react';
 import { getCityPhotographicGalleryAssets } from '@/services/city/cityMediaService';
+import { getOrCreatePhotoSubmissionForUrl, listPhotographs } from '@/services/photoService';
+import type { CityDetails, PhotoSubmission } from '@/types';
+import { normalizeImageUrl } from '@/utils/imageOptimizer';
+import { DraggableSlider, type DraggableSliderHandle } from '../../common/DraggableSlider';
+import { ImageWithFallback } from '../../common/ImageWithFallback';
 
 interface PreviewGalleryProps {
-    city: CityDetails; 
-    onOpenLightbox: (data: PhotoSubmission) => void;
-    activeCategoryColor: string;
-    className?: string;
+  city: CityDetails;
+  onOpenLightbox: (data: PhotoSubmission) => void;
+  activeCategoryColor: string;
+  className?: string;
 }
 
-export const PreviewGallery = ({ city, onOpenLightbox, activeCategoryColor, className }: PreviewGalleryProps) => {
-    const galleryRef = useRef<DraggableSliderHandle>(null);
-    const [resolvedItems, setResolvedItems] = useState<PhotoSubmission[]>([]);
-    const [isResolving, setIsResolving] = useState(false);
+export const PreviewGallery = ({
+  city,
+  onOpenLightbox,
+  activeCategoryColor,
+  className,
+}: PreviewGalleryProps) => {
+  const galleryRef = useRef<DraggableSliderHandle>(null);
+  const [resolvedItems, setResolvedItems] = useState<PhotoSubmission[]>([]);
+  const [isResolving, setIsResolving] = useState(false);
 
-    useEffect(() => {
-        if (!city) return;
-        
-        const resolveGallery = async () => {
-            setIsResolving(true);
-            try {
-                const cityName = city.name;
-                const cityId = city.id;
+  useEffect(() => {
+    if (!city) return;
 
-                // 1. Solo Galleria Fotografica città (mai Hero / Card / POI presentation)
-                const photographicGalleryAssets = getCityPhotographicGalleryAssets(city);
+    let cancelled = false;
 
-                const allUrls = Array.from(new Set(photographicGalleryAssets.map(a => a.url))).slice(0, 15);
+    const resolveGallery = async () => {
+      setIsResolving(true);
+      try {
+        const cityName = city.name;
+        const cityId = city.id;
 
-                // 2. Registrazione/Recupero UUID reali (No Virtual IDs)
-                const promises = allUrls.map(url => 
-                    getOrCreatePhotoSubmissionForUrl(url, cityId, cityName, 'Official city gallery image')
-                );
+        // 1. Solo Galleria Fotografica città (mai Hero / Card / POI presentation)
+        const photographicGalleryAssets = getCityPhotographicGalleryAssets(city);
 
-                const results = await Promise.all(promises);
-                const cityPhotographicItems = results.filter((p): p is PhotoSubmission => p !== null);
+        const allUrls = Array.from(new Set(photographicGalleryAssets.map((a) => a.url))).slice(
+          0,
+          15,
+        );
 
-                // 3. TOP fotografie approvate (unica porta dominio Photo)
-                const communityItems = await listPhotographs({
-                    cityId,
-                    status: 'approved',
-                    limit: 10,
-                });
+        // 2. Registrazione/Recupero UUID reali (No Virtual IDs)
+        const promises = allUrls.map((url) =>
+          getOrCreatePhotoSubmissionForUrl(url, cityId, cityName, 'Official city gallery image'),
+        );
 
-                // 4. MERGE & DEDUPLICAZIONE (Priorità Community)
-                const combined = [...communityItems];
-                cityPhotographicItems.forEach(galleryPhoto => {
-                    if (!combined.some(c => normalizeImageUrl(c.url) === normalizeImageUrl(galleryPhoto.url))) {
-                        combined.push(galleryPhoto);
-                    }
-                });
+        const results = await Promise.all(promises);
+        if (cancelled) return;
 
-                setResolvedItems(combined.slice(0, 10));
-            } catch (error) {
-                console.error("[PreviewGallery] Errore risoluzione gallery:", error);
-            } finally {
-                setIsResolving(false);
-            }
-        };
+        const cityPhotographicItems = results.filter((p): p is PhotoSubmission => p !== null);
 
-        resolveGallery();
-    }, [city]);
+        // 3. TOP fotografie approvate (unica porta dominio Photo)
+        const communityItems = await listPhotographs({
+          cityId,
+          status: 'approved',
+          limit: 10,
+        });
+        if (cancelled) return;
 
-    const galleryItems = resolvedItems;
+        // 4. MERGE & DEDUPLICAZIONE (Priorità Community)
+        const combined = [...communityItems];
+        cityPhotographicItems.forEach((galleryPhoto) => {
+          if (
+            !combined.some((c) => normalizeImageUrl(c.url) === normalizeImageUrl(galleryPhoto.url))
+          ) {
+            combined.push(galleryPhoto);
+          }
+        });
 
-    const markerColorClass = activeCategoryColor ? activeCategoryColor.replace('text-', 'bg-') : 'bg-amber-500';
+        setResolvedItems(combined.slice(0, 10));
+      } catch (error) {
+        if (!cancelled) {
+          console.error('[PreviewGallery] Errore risoluzione gallery:', error);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsResolving(false);
+        }
+      }
+    };
 
-    return (
-        <div className={`flex flex-col justify-end ${className}`}>
-            <div className="flex items-center justify-between mb-2 px-6 pt-2">
-                <div className="flex items-center gap-2">
-                    <div className={`w-1 h-4 rounded-full ${markerColorClass}`}></div>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                        <Camera className="w-4 h-4 text-slate-400"/> TOP 10 | COMMUNITY
-                    </h3>
-                </div>
-                {galleryItems.length > 0 && (
-                    <div className="flex gap-1">
-                        <button onClick={() => galleryRef.current?.scroll('left')} className="p-1.5 bg-slate-900 border border-slate-700 rounded-lg hover:border-amber-500 text-slate-400 hover:text-white transition-colors"><ChevronLeft className="w-3.5 h-3.5"/></button>
-                        <button onClick={() => galleryRef.current?.scroll('right')} className="p-1.5 bg-slate-900 border border-slate-700 rounded-lg hover:border-amber-500 text-slate-400 hover:text-white transition-colors"><ChevronRight className="w-3.5 h-3.5"/></button>
-                    </div>
-                )}
-            </div>
-            
-            <div className="flex-1 min-h-0 pb-3 px-6">
-                {isResolving ? (
-                    <div className="h-full w-full flex items-center justify-center gap-2 text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse bg-slate-900/20 rounded-xl border border-slate-800/50">
-                        <Camera className="w-4 h-4 animate-bounce" /> Analisi Gallery...
-                    </div>
-                ) : galleryItems.length > 0 ? (
-                    <DraggableSlider ref={galleryRef} className="h-full">
-                        {galleryItems.map((item, idx) => (
-                            <div key={idx} onClick={() => onOpenLightbox(item)} className="snap-start flex-shrink-0 w-64 h-full rounded-lg overflow-hidden relative group cursor-zoom-in border border-slate-800 hover:border-amber-500/50 transition-all shadow-lg">
-                                <ImageWithFallback src={item.url} alt={`${item.description}`} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                    <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg"/>
-                                </div>
-                                <div className="absolute bottom-2 right-2 bg-black/70 px-1.5 py-0.5 rounded text-[10px] font-bold text-white pointer-events-none border border-white/20">#{idx + 1}</div>
-                            </div>
-                        ))}
-                    </DraggableSlider>
-                ) : (
-                    <div className="h-full w-full flex items-center justify-center gap-2 text-slate-600 text-xs italic font-medium bg-slate-900/10 rounded-xl border border-slate-800/30 border-dashed">
-                        Nessuna foto disponibile per questa anteprima.
-                    </div>
-                )}
-            </div>
+    void resolveGallery();
+    return () => {
+      cancelled = true;
+    };
+  }, [city]);
+
+  const galleryItems = resolvedItems;
+
+  const markerColorClass = activeCategoryColor
+    ? activeCategoryColor.replace('text-', 'bg-')
+    : 'bg-amber-500';
+
+  return (
+    <div className={`flex flex-col justify-end ${className}`}>
+      <div className="flex items-center justify-between mb-2 px-6 pt-2">
+        <div className="flex items-center gap-2">
+          <div className={`w-1 h-4 rounded-full ${markerColorClass}`}></div>
+          <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+            <Camera className="w-4 h-4 text-slate-400" /> TOP 10 | COMMUNITY
+          </h3>
         </div>
-    );
+        {galleryItems.length > 0 && (
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => galleryRef.current?.scroll('left')}
+              aria-label="Scorri gallery a sinistra"
+              className="inline-flex items-center justify-center min-h-11 min-w-11 p-0 bg-slate-900 border border-slate-700 rounded-lg hover:border-amber-500 text-slate-400 hover:text-white transition-colors touch-manipulation"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => galleryRef.current?.scroll('right')}
+              aria-label="Scorri gallery a destra"
+              className="inline-flex items-center justify-center min-h-11 min-w-11 p-0 bg-slate-900 border border-slate-700 rounded-lg hover:border-amber-500 text-slate-400 hover:text-white transition-colors touch-manipulation"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 min-h-0 pb-3 px-6">
+        {isResolving ? (
+          <div className="h-full w-full flex items-center justify-center gap-2 text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse bg-slate-900/20 rounded-xl border border-slate-800/50">
+            <Camera className="w-4 h-4 animate-bounce" /> Analisi Gallery...
+          </div>
+        ) : galleryItems.length > 0 ? (
+          <DraggableSlider ref={galleryRef} className="h-full">
+            {galleryItems.map((item, idx) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={`Apri foto ${item.description || idx + 1}`}
+                onClick={() => onOpenLightbox(item)}
+                className="snap-start flex-shrink-0 w-64 h-full rounded-lg overflow-hidden relative group cursor-zoom-in border border-slate-800 hover:border-amber-500/50 transition-all shadow-lg bg-transparent p-0 text-left"
+              >
+                <ImageWithFallback
+                  src={item.url}
+                  alt={`${item.description}`}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
+                  <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                </div>
+                <div className="absolute bottom-2 right-2 bg-black/70 px-1.5 py-0.5 rounded text-[10px] font-bold text-white pointer-events-none border border-white/20">
+                  #{idx + 1}
+                </div>
+              </button>
+            ))}
+          </DraggableSlider>
+        ) : (
+          <div className="h-full w-full flex items-center justify-center gap-2 text-slate-600 text-xs italic font-medium bg-slate-900/10 rounded-xl border border-slate-800/30 border-dashed">
+            Nessuna foto disponibile per questa anteprima.
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };

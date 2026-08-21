@@ -35,11 +35,7 @@ import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import { CultureCornerModal } from '../../modals/CultureCornerModal';
 import { AiFieldHelper } from '../AiFieldHelper';
 
-const DEFAULT_MASTER_PATRON =
-  'https://upload.wikimedia.org/wikipedia/commons/7/79/Croce_del_campo1.jpg';
-
-const DEFAULT_PERSON_IMAGE =
-  'https://images.unsplash.com/photo-1555626040-3b731de3a81c?q=80&w=400';
+const DEFAULT_PERSON_IMAGE = 'https://images.unsplash.com/photo-1555626040-3b731de3a81c?q=80&w=400';
 
 /** Attesa post-rigenerazione AI prima di ricaricare contesto e lista personaggi. */
 const POST_REGENERATE_RELOAD_DELAY_MS = 1000;
@@ -151,9 +147,7 @@ export const EditorCulture = () => {
     try {
       // 1. DELETE EXISTING PEOPLE FROM DB
       const existingPeople = await getCityPeople(city.id, 'admin');
-      await Promise.all(
-        existingPeople.flatMap((p) => (p.id ? [deleteCityPerson(p.id)] : [])),
-      );
+      await Promise.all(existingPeople.flatMap((p) => (p.id ? [deleteCityPerson(p.id)] : [])));
 
       // 2. REGENERATE CONTENT
       const [historyData, patronData, peopleSuggestions] = await Promise.all([
@@ -171,7 +165,6 @@ export const EditorCulture = () => {
         updatedDetails.patronDetails = mergePatronDetailsFromAi(
           updatedDetails.patronDetails,
           patronData.patron,
-          DEFAULT_MASTER_PATRON,
         );
         updatedDetails.patron = patronData.patron.name;
       }
@@ -219,7 +212,6 @@ export const EditorCulture = () => {
           const newPatronDetails = mergePatronDetailsFromAi(
             city.details.patronDetails,
             data.patron,
-            city.details.patronDetails?.imageUrl || DEFAULT_MASTER_PATRON,
           );
           updateDetailField('patronDetails', newPatronDetails);
           updateDetailField('patron', data.patron.name);
@@ -383,7 +375,7 @@ export const EditorCulture = () => {
 
   const handleReorderPerson = async (id: string, newRankStr: string) => {
     const newRank = Number.parseInt(newRankStr, 10);
-    if (isNaN(newRank) || newRank < 1) return;
+    if (Number.isNaN(newRank) || newRank < 1) return;
     const index = newRank - 1;
 
     const previousList = [...peopleList];
@@ -868,10 +860,14 @@ export const EditorCulture = () => {
           <div className="space-y-4 mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">
+                <label
+                  htmlFor="fld-admin-cityeditor-editorculture-tsx-l868"
+                  className="text-xs font-bold text-slate-500 uppercase block mb-1"
+                >
                   Nome Santo
                 </label>
                 <input
+                  id="fld-admin-cityeditor-editorculture-tsx-l868"
                   value={city.details.patronDetails?.name || city.details.patron || ''}
                   onChange={(e) => {
                     updateDetailField('patron', e.target.value);
@@ -888,10 +884,14 @@ export const EditorCulture = () => {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">
+                <label
+                  htmlFor="fld-admin-cityeditor-editorculture-tsx-l888"
+                  className="text-xs font-bold text-slate-500 uppercase block mb-1"
+                >
                   Data Celebrazione
                 </label>
                 <input
+                  id="fld-admin-cityeditor-editorculture-tsx-l888"
                   value={city.details.patronDetails?.date || ''}
                   onChange={(e) => {
                     const currentDetails = city.details.patronDetails || {
@@ -909,10 +909,14 @@ export const EditorCulture = () => {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">
+              <label
+                htmlFor="fld-admin-cityeditor-editorculture-tsx-l909"
+                className="text-xs font-bold text-slate-500 uppercase block mb-1"
+              >
                 Storia / Culto
               </label>
               <textarea
+                id="fld-admin-cityeditor-editorculture-tsx-l909"
                 rows={6}
                 value={city.details.patronDetails?.history || ''}
                 onChange={(e) => {

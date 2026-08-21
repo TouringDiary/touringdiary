@@ -1,11 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  Copy,
-  Edit2,
-  MoreVertical,
-  MoveHorizontal,
-  Trash2,
-} from 'lucide-react';
+import { Copy, Edit2, MoreVertical, MoveHorizontal, Trash2 } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
 import type { DiaryNoteTab } from '@/types/models/DiaryNotes';
 
@@ -86,11 +81,25 @@ export const DiaryNoteTabMenu: React.FC<DiaryNoteTabMenuProps> = ({
       >
         {!moveOpen ? (
           <>
-            <button type="button" className={ITEM_CLASS} onClick={() => { closeAll(); onRename(); }}>
+            <button
+              type="button"
+              className={ITEM_CLASS}
+              onClick={() => {
+                closeAll();
+                onRename();
+              }}
+            >
               <Edit2 className="w-3.5 h-3.5 text-stone-500" aria-hidden />
               Rinomina
             </button>
-            <button type="button" className={ITEM_CLASS} onClick={() => { closeAll(); onDuplicate(); }}>
+            <button
+              type="button"
+              className={ITEM_CLASS}
+              onClick={() => {
+                closeAll();
+                onDuplicate();
+              }}
+            >
               <Copy className="w-3.5 h-3.5 text-stone-500" aria-hidden />
               Duplica
             </button>
@@ -108,7 +117,10 @@ export const DiaryNoteTabMenu: React.FC<DiaryNoteTabMenuProps> = ({
               type="button"
               className={`${ITEM_CLASS} text-red-600 hover:bg-red-50`}
               disabled={!canDelete}
-              onClick={() => { closeAll(); onDelete(); }}
+              onClick={() => {
+                closeAll();
+                onDelete();
+              }}
             >
               <Trash2 className="w-3.5 h-3.5" aria-hidden />
               Elimina

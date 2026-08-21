@@ -1,13 +1,13 @@
-import {
-  Suitcase,
-  SuitcaseItem,
+import { getDefaultUiStateForNewEntity } from '@/services/suitcase/packingSeedService';
+import type {
   DraftLocalRejection,
-  SuitcaseRejection,
   DraftWorkspaceKind,
+  Suitcase,
   SuitcaseCategory,
+  SuitcaseItem,
+  SuitcaseRejection,
   SuitcaseUiState,
 } from '../types/suitcase';
-import { getDefaultUiStateForNewEntity } from '@/services/suitcase/packingSeedService';
 import { normalizeItemName } from './tagDerivation';
 
 const GUEST_STORAGE_KEY = 'GUEST_LOCAL_SUITCASE';
@@ -39,7 +39,7 @@ export type DraftWorkspaceSeedItem = Omit<SuitcaseItem, 'id' | 'suitcase_id'> & 
 /** Rimuove ID persistiti dagli item sorgente prima di popolare una draft workspace. */
 export const toDraftWorkspaceSeedItems = (
   items: SuitcaseItem[],
-  overrides: Partial<Pick<SuitcaseItem, 'is_checked' | 'is_ai_suggestion'>> = {}
+  overrides: Partial<Pick<SuitcaseItem, 'is_checked' | 'is_ai_suggestion'>> = {},
 ): DraftWorkspaceSeedItem[] =>
   items.map((item) => {
     const { id: _id, suitcase_id: _suitcaseId, ...fields } = item;
@@ -52,10 +52,7 @@ export const toDraftWorkspaceSeedItems = (
  */
 export const isDraftWorkspaceId = (id: string | null | undefined): boolean => {
   if (!id) return false;
-  return (
-    id.startsWith(DRAFT_SUITCASE_ID_PREFIX) ||
-    id.startsWith(LEGACY_GUEST_SUITCASE_ID_PREFIX)
-  );
+  return id.startsWith(DRAFT_SUITCASE_ID_PREFIX) || id.startsWith(LEGACY_GUEST_SUITCASE_ID_PREFIX);
 };
 
 /**
@@ -64,10 +61,7 @@ export const isDraftWorkspaceId = (id: string | null | undefined): boolean => {
  */
 export const isDraftItemId = (id: string | null | undefined): boolean => {
   if (!id) return false;
-  return (
-    id.startsWith(DRAFT_ITEM_ID_PREFIX) ||
-    id.startsWith(LEGACY_GUEST_ITEM_ID_PREFIX)
-  );
+  return id.startsWith(DRAFT_ITEM_ID_PREFIX) || id.startsWith(LEGACY_GUEST_ITEM_ID_PREFIX);
 };
 
 /**
@@ -94,7 +88,7 @@ export const getGuestSuitcase = (): Suitcase | null => {
   try {
     return JSON.parse(localData) as Suitcase;
   } catch (e) {
-    console.error("[guestSuitcaseHelper] Errore parsing localStorage per guest suitcase:", e);
+    console.error('[guestSuitcaseHelper] Errore parsing localStorage per guest suitcase:', e);
     return null;
   }
 };
@@ -148,7 +142,7 @@ export const preserveDraftLocalStorageFields = (draft: Suitcase): Suitcase => {
 
 export const mapDraftLocalRejectionsToRuntime = (
   rejections: DraftLocalRejection[],
-  suitcaseId: string
+  suitcaseId: string,
 ): SuitcaseRejection[] =>
   rejections.map((r) => ({
     id: r.id,
@@ -161,7 +155,7 @@ export const mapDraftLocalRejectionsToRuntime = (
 
 export const appendDraftLocalRejection = (
   suitcaseId: string,
-  item: { name: string; category: string; ai_suggestion_context?: string | null }
+  item: { name: string; category: string; ai_suggestion_context?: string | null },
 ): void => {
   const draft = getGuestSuitcase();
   if (!draft || draft.id !== suitcaseId || !isDraftWorkspaceId(suitcaseId)) return;
@@ -201,7 +195,7 @@ export const removeDraftLocalRejectionByName = (suitcaseId: string, name: string
 
   const normalized = normalizeItemName(name);
   const next = (draft.local_rejections ?? []).filter(
-    (r) => normalizeItemName(r.name) !== normalized
+    (r) => normalizeItemName(r.name) !== normalized,
   );
 
   saveGuestSuitcase({ ...draft, local_rejections: next });
@@ -213,7 +207,7 @@ export const removeDraftLocalRejectionByName = (suitcaseId: string, name: string
 export const insertDraftAiSuggestions = (
   suitcaseId: string,
   candidates: { name: string; category: string }[],
-  suggestionContext?: string
+  suggestionContext?: string,
 ): SuitcaseItem[] => {
   const draft = getGuestSuitcase();
   if (!draft || draft.id !== suitcaseId || !isDraftWorkspaceId(suitcaseId)) return [];
@@ -270,7 +264,7 @@ export const createDraftWorkspaceObject = (
   icon: string,
   items: DraftWorkspaceSeedItem[] = [],
   workspaceKind: DraftWorkspaceKind = 'suitcase',
-  options: CreateWorkspaceObjectOptions = {}
+  options: CreateWorkspaceObjectOptions = {},
 ): Suitcase => {
   const draftId = `${DRAFT_SUITCASE_ID_PREFIX}${Date.now()}`;
   const now = new Date().toISOString();
@@ -305,7 +299,7 @@ export const createGuestSuitcaseObject = (
   title: string,
   icon: string,
   items: SuitcaseItem[] = [],
-  options: CreateWorkspaceObjectOptions = {}
+  options: CreateWorkspaceObjectOptions = {},
 ): Suitcase => {
   const workspaceKind = options.workspace_kind ?? 'suitcase';
   return {

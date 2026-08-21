@@ -2,24 +2,25 @@
  * QA Macrofase C — verifica composizione e exclusion logic in memoria.
  * Eseguire: npm run packing:qa
  */
+
+import { resolveCategorySetup } from '../src/domain/packing/categorySetup';
+import { CATEGORY_ORDER } from '../src/domain/packing/packingCategories';
 import {
+  CITY_TYPE_TO_TEMPLATE,
   expandStandardCatalog,
   PACKING_AI_CATALOG,
   PACKING_TEMPLATE_CATALOG,
-  TEMPLATE_KEYS,
   TEMPLATE_DB_TITLES,
-  CITY_TYPE_TO_TEMPLATE,
+  TEMPLATE_KEYS,
   validatePackingDomainCatalog,
 } from '../src/domain/packing/packingDomainCatalog';
-import { CATEGORY_ORDER } from '../src/domain/packing/packingCategories';
-import { resolveCategorySetup } from '../src/domain/packing/categorySetup';
-import { composeTdTemplateItemsFromCatalog } from '../src/domain/packing/packingTemplateComposition';
 import {
   createFamigliaTdTemplateFixture,
   createTdTemplateSuitcaseFixture,
 } from '../src/domain/packing/packingQaFixtures';
-import { normalizeItemName } from '../src/utils/tagDerivation';
+import { composeTdTemplateItemsFromCatalog } from '../src/domain/packing/packingTemplateComposition';
 import type { PackingStandardItem, PackingTemplateItem } from '../src/types/packingCatalog';
+import { normalizeItemName } from '../src/utils/tagDerivation';
 
 const validation = validatePackingDomainCatalog();
 const issues: string[] = [];
@@ -32,7 +33,7 @@ const standardRows: PackingStandardItem[] = expandStandardCatalog().map((r, i) =
 
 function buildTemplateSpecificRows(
   templateId: string,
-  templateKey: (typeof TEMPLATE_KEYS)[number]
+  templateKey: (typeof TEMPLATE_KEYS)[number],
 ): PackingTemplateItem[] {
   const tplData = PACKING_TEMPLATE_CATALOG[templateKey];
   const rows: PackingTemplateItem[] = [];
@@ -84,7 +85,9 @@ for (const key of TEMPLATE_KEYS) {
   const expectedCats = key === 'famiglia' ? 9 : 7;
   const activeCats = Object.keys(byCat).length;
   if (activeCats < expectedCats) {
-    issues.push(`Composizione ${key}: solo ${activeCats} categorie attive (attese ${expectedCats})`);
+    issues.push(
+      `Composizione ${key}: solo ${activeCats} categorie attive (attese ${expectedCats})`,
+    );
   }
 
   if (!composed.some((i) => normalizeItemName(i.name) === normalizeItemName('Intimo'))) {
@@ -101,7 +104,7 @@ for (const key of TEMPLATE_KEYS) {
   console.log(
     `${TEMPLATE_DB_TITLES[key]}: ${composed.length} item totali, categorie: ${Object.entries(byCat)
       .map(([k, v]) => `${k}=${v}`)
-      .join(', ')}`
+      .join(', ')}`,
   );
 }
 
@@ -118,9 +121,7 @@ const mareDefault = composeTdTemplateItemsFromCatalog({
   standardRows,
   specificRows: [],
 });
-if (
-  mareDefault.some((i) => normalizeItemName(i.name) === normalizeItemName('Pannolini'))
-) {
+if (mareDefault.some((i) => normalizeItemName(i.name) === normalizeItemName('Pannolini'))) {
   issues.push('Mare default: Pannolini non dovrebbe comparire (Bambini non seeded)');
 } else {
   console.log('✓ Template Mare: Bambini esclusi correttamente');
@@ -152,11 +153,11 @@ if (piumino && excluded.has(normalizeItemName(piumino.name))) {
 }
 
 const overlapCount = PACKING_AI_CATALOG.filter((a) =>
-  excluded.has(normalizeItemName(a.name))
+  excluded.has(normalizeItemName(a.name)),
 ).length;
 if (overlapCount > 0) {
   console.log(
-    `ℹ ${overlapCount} item AI presenti anche in standard/template Mare (esclusi a runtime — OK)`
+    `ℹ ${overlapCount} item AI presenti anche in standard/template Mare (esclusi a runtime — OK)`,
   );
 }
 
@@ -194,5 +195,5 @@ if (issues.length) {
 
 console.log('✓ QA Macrofase C superato — nessuna anomalia bloccante.');
 console.log(
-  `\nCatalogo: ${validation.standardTotal} standard, ${validation.templateTotal} template, ${validation.aiTotal} AI`
+  `\nCatalogo: ${validation.standardTotal} standard, ${validation.templateTotal} template, ${validation.aiTotal} AI`,
 );

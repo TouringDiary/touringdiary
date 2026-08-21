@@ -1,6 +1,5 @@
-
-import { usePartnerIntegrations } from './usePartnerIntegrations';
 import { buildAffiliateLink, getPartnerById } from '../services/partnerIntegrationService';
+import { usePartnerIntegrations } from './usePartnerIntegrations';
 
 /**
  * Hook per la gestione della logica di affiliazione.
@@ -22,7 +21,7 @@ export const useAffiliate = () => {
       query?: string;
       checkin?: string;
       checkout?: string;
-    }
+    },
   ): string => {
     if (loading || !integrations) return '';
 

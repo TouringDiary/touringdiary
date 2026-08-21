@@ -1,6 +1,6 @@
-import { supabase } from '@/services/supabaseClient';
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { isSharingMode } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
 
 const COLLABORATIVE_SUITCASE_KINDS: SharedResourceKind[] = ['suitcase', 'user_template'];
 
@@ -14,13 +14,14 @@ function isCollaborativeSuitcaseKind(kind: string): kind is SharedResourceKind {
 export async function fetchCollaborativeSuitcaseIdsForMember(userId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('shared_resource_members')
-    .select(
-      'shared_resources!inner(resource_id, kind, sharing_mode, owner_id)'
-    )
+    .select('shared_resources!inner(resource_id, kind, sharing_mode, owner_id)')
     .eq('user_id', userId);
 
   if (error) {
-    console.error('[suitcaseCollaborationService] fetchCollaborativeSuitcaseIdsForMember:', error.message);
+    console.error(
+      '[suitcaseCollaborationService] fetchCollaborativeSuitcaseIdsForMember:',
+      error.message,
+    );
     return [];
   }
 

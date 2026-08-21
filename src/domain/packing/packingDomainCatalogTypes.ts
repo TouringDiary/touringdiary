@@ -3,8 +3,8 @@
  * Allineati a packingCategories.ts — unica fonte nomi categoria.
  */
 
-import type { SystemCategoryName } from './packingCategories';
 import type { PackingStandardItemTier } from '@/types/packingCatalog';
+import type { SystemCategoryName } from './packingCategories';
 
 export const PACKING_DOMAIN_VERSION = '1.0.0-freeze' as const;
 

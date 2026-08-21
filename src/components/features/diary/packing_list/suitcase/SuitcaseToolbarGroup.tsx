@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { SUITCASE_TOOLBAR_GROUP_DIVIDER_CLASS } from './SuitcaseUtils';
 
 interface SuitcaseToolbarGroupProps {
@@ -32,13 +32,9 @@ export const SuitcaseToolbarGroup: React.FC<SuitcaseToolbarGroupProps> = ({
       role="group"
       aria-label={label}
     >
-      {showDividerBefore && (
-        <div className={SUITCASE_TOOLBAR_GROUP_DIVIDER_CLASS} aria-hidden />
-      )}
+      {showDividerBefore && <div className={SUITCASE_TOOLBAR_GROUP_DIVIDER_CLASS} aria-hidden />}
       <div className="flex items-center gap-1 min-w-0">{children}</div>
-      {showDividerAfter && (
-        <div className={SUITCASE_TOOLBAR_GROUP_DIVIDER_CLASS} aria-hidden />
-      )}
+      {showDividerAfter && <div className={SUITCASE_TOOLBAR_GROUP_DIVIDER_CLASS} aria-hidden />}
     </div>
   );
 };

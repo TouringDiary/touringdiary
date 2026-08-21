@@ -1,7 +1,7 @@
-import React from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { useMyWorldStyles } from '@/hooks/useMyWorldStyles';
+import type React from 'react';
 import { MYWORLD_STYLE_KEYS } from '@/data/system/myWorldSettingsCatalog';
+import { useMyWorldStyles } from '@/hooks/useMyWorldStyles';
 
 export interface MySpaceSectionHeaderProps {
   icon: LucideIcon;

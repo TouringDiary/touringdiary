@@ -3,10 +3,10 @@
  * Il motore runtime AI usa `packing_ai_catalog` (vedi `aiSuggestions.ts`).
  */
 
-export * from './packingCategories';
 export * from './categorySetup';
 export * from './packingAiSeedSource';
-export * from './packingDomainCatalogValidation';
+export * from './packingCategories';
 export * from './packingDomainCatalog';
-export * from './packingTemplateComposition';
+export * from './packingDomainCatalogValidation';
 export * from './packingQaFixtures';
+export * from './packingTemplateComposition';

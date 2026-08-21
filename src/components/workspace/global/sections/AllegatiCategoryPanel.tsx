@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, FileUp, Loader2, Trash2 } from 'lucide-react';
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
-import type { User } from '@/types/users';
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import type {
   WorkspaceAttachmentCategory,
   WorkspaceAttachmentWithUploader,
@@ -13,6 +13,7 @@ import {
   listWorkspaceAttachments,
   uploadWorkspaceAttachment,
 } from '@/services/collaboration/workspaceAttachmentService';
+import type { User } from '@/types/users';
 import { workspaceAttachmentAcceptAttribute } from '@/utils/fileValidation';
 import { WORKSPACE_ATTACHMENT_CATEGORY_LABELS } from '../globalWorkspacePresentation';
 
@@ -83,7 +84,7 @@ export const AllegatiCategoryPanel: React.FC<Props> = ({
     try {
       const result = await deleteWorkspaceAttachment(workspaceId, user.id, deleteTarget.id);
       if (!result.success) {
-        setError(result.error ?? 'Impossibile eliminare l\'allegato.');
+        setError(result.error ?? "Impossibile eliminare l'allegato.");
         return;
       }
       setDeleteTarget(null);
@@ -101,7 +102,9 @@ export const AllegatiCategoryPanel: React.FC<Props> = ({
     }
     const opened = window.open(url, '_blank', 'noopener,noreferrer');
     if (!opened) {
-      setError('Il browser ha bloccato l\'apertura del file. Consenti i popup per questo sito e riprova.');
+      setError(
+        "Il browser ha bloccato l'apertura del file. Consenti i popup per questo sito e riprova.",
+      );
     }
   };
 
@@ -137,7 +140,11 @@ export const AllegatiCategoryPanel: React.FC<Props> = ({
           onClick={() => inputRef.current?.click()}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 disabled:opacity-50"
         >
-          {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
+          {isUploading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <FileUp className="w-3.5 h-3.5" />
+          )}
           Carica
         </button>
         <input

@@ -1,15 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Briefcase } from 'lucide-react';
-import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
-import type { Viaggio } from '@/types/models/Viaggio';
-import type { ViaggioAssociationChoice, CreateSuitcaseInput } from '@/types/resourceAssociation';
-import { ViaggioAssociationFields } from './ViaggioAssociationFields';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { listViaggiByUser } from '@/services/viaggio/viaggioService';
+import type { Viaggio } from '@/types/models/Viaggio';
+import type { CreateSuitcaseInput, ViaggioAssociationChoice } from '@/types/resourceAssociation';
+import { ViaggioAssociationFields } from './ViaggioAssociationFields';
 
 export type CreateSuitcaseModalContext = 'viaggio-detail' | 'tools';
 
@@ -125,14 +126,22 @@ export const CreateSuitcaseModal: React.FC<Props> = ({
 
   return createPortal(
     <div
-      className={`td-modal-overlay ${overlayShell} !items-center`}
-      onClick={busy ? undefined : onClose}
+      className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
+      role="presentation"
     >
+      {!busy ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+          onClick={onClose}
+        />
+      ) : null}
       <div
         className={`${containerShell} max-w-md outline-none`}
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-suitcase-title"
@@ -161,7 +170,10 @@ export const CreateSuitcaseModal: React.FC<Props> = ({
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="create-suitcase-name" className="text-xs font-bold uppercase text-slate-500">
+              <label
+                htmlFor="create-suitcase-name"
+                className="text-xs font-bold uppercase text-slate-500"
+              >
                 Nome Valigia
               </label>
               <input

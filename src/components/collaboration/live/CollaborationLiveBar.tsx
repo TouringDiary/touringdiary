@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import type { CollaborationPresencePeer } from '@/domain/collaboration/collaborationLive';
 
 export interface CollaborationLiveBarProps {
@@ -13,6 +13,7 @@ function PresenceAvatar({ peer }: { peer: CollaborationPresencePeer }) {
 
   return (
     <span
+      role="img"
       className="relative inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-[11px] font-semibold text-indigo-100 shrink-0"
       title={peer.displayName}
       aria-label={isEditing ? `${peer.displayName}, in modifica` : peer.displayName}
@@ -50,9 +51,7 @@ export const CollaborationLiveBar: React.FC<CollaborationLiveBarProps> = ({
               <PresenceAvatar key={peer.userId} peer={peer} />
             ))}
           </div>
-          {peers.length > 5 && (
-            <span className="text-slate-400">+{peers.length - 5}</span>
-          )}
+          {peers.length > 5 && <span className="text-slate-400">+{peers.length - 5}</span>}
         </div>
       )}
       {editingStatusMessage && (

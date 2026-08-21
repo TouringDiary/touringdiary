@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { type RefObject, useEffect, useState } from 'react';
 
 /** Movimento minimo (px) per considerare un cambio di direzione: filtra micro-oscillazioni. */
 const SCROLL_DELTA_THRESHOLD = 6;
@@ -19,7 +19,7 @@ const TOP_REVEAL_ZONE = 8;
  */
 export function useHideOnScrollDown(
   containerRef: RefObject<HTMLElement | null>,
-  enabled: boolean
+  enabled: boolean,
 ): boolean {
   const [hidden, setHidden] = useState(false);
 

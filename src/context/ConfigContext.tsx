@@ -1,23 +1,50 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type React from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { designRulesMapsEqual, rulesArrayToMap } from '@/domain/designSystem/designSnapshot';
 import {
   getCachedSetting,
-  SETTINGS_KEYS,
-  saveSetting,
+  getDesignSystemRules,
   loadGlobalCache,
   resolveDesignRulesForFirstPaint,
-  getDesignSystemRules,
+  SETTINGS_KEYS,
+  saveSetting,
 } from '../services/settingsService';
-import {
-  designRulesMapsEqual,
-  rulesArrayToMap,
-} from '@/domain/designSystem/designSnapshot';
 import type { StyleRule } from '../types/designSystem';
+import type { PartnerIntegration } from '../types/partners';
 
-/** Runtime config bag: settings keys + typed design-system maps. */
+/**
+ * Runtime config bag: settings keys + typed design-system maps.
+ * Chiavi note tipizzate in modo stretto; il resto resta `unknown` (no `any`).
+ */
 export type AppConfigs = {
   design_system_rules?: Record<string, StyleRule>;
   design_system?: { components: Record<string, StyleRule> };
-  [key: string]: any;
+  /** Mappa partner (SoT settings); non il wrapper `{ partners }`. */
+  partner_integrations?: Record<string, PartnerIntegration> | null;
+  hero_image?: string | null;
+  /** Alias legacy letto da alcuni path Admin. */
+  HERO_IMAGE?: string | null;
+  default_patron_image?: string | null;
+  auth_background_image?: string | null;
+  /** Alias legacy (AuthModal). */
+  AUTH_BACKGROUND_IMAGE?: string | null;
+  social_canvas_bg?: string | null;
+  ai_consultant_bg?: string | null;
+  favicon_image?: string | null;
+  category_placeholders?: Record<string, string> | null;
+  suitcase_placeholders?: Record<string, string> | null;
+  collaboration_live_config?: unknown;
+  workspace_engine_config?: unknown;
+  design_system_snapshot?: unknown;
+  [key: string]: unknown;
 };
 
 /**
@@ -33,8 +60,8 @@ type ConfigContextType = {
   isShellReady: boolean;
   isConfigFullyLoaded: boolean;
   refreshConfig: () => Promise<void>;
-  updateSetting: (key: string, value: any) => Promise<void>;
-  updateMultipleSettings: (settings: { key: string; value: any }[]) => Promise<void>;
+  updateSetting: (key: string, value: unknown) => Promise<void>;
+  updateMultipleSettings: (settings: { key: string; value: unknown }[]) => Promise<void>;
 };
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
@@ -60,9 +87,7 @@ function applyDesignBag(configs: AppConfigs, rulesMap: Record<string, StyleRule>
  * Not “all bootstrap keys”: only those applied before the specialist merge,
  * so Phase B can skip them without double-write.
  */
-const PHASE_A_SETTINGS_KEYS = new Set<string>([
-  SETTINGS_KEYS.DESIGN_SYSTEM_SNAPSHOT,
-]);
+const PHASE_A_SETTINGS_KEYS = new Set<string>([SETTINGS_KEYS.DESIGN_SYSTEM_SNAPSHOT]);
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [configs, setConfigs] = useState<AppConfigs>({});
@@ -91,8 +116,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const snapshotVal = getCachedSetting(snapshotKey);
         const firstPaintRules = resolveDesignRulesForFirstPaint();
         const phaseA: AppConfigs = {
-          [snapshotKey]:
-            snapshotVal !== null && snapshotVal !== undefined ? snapshotVal : null,
+          [snapshotKey]: snapshotVal !== null && snapshotVal !== undefined ? snapshotVal : null,
           design_system_rules: firstPaintRules,
           design_system: { components: firstPaintRules },
         };
@@ -161,20 +185,26 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await loadConfig();
   }, [loadConfig]);
 
-  const updateSetting = useCallback(async (key: string, value: any) => {
-    if (!key) {
-      console.error('[ConfigContext] updateSetting called with invalid key:', key);
-      return;
-    }
-    await saveSetting(key, value);
-    await refreshConfig();
-  }, [refreshConfig]);
+  const updateSetting = useCallback(
+    async (key: string, value: unknown) => {
+      if (!key) {
+        console.error('[ConfigContext] updateSetting called with invalid key:', key);
+        return;
+      }
+      await saveSetting(key, value);
+      await refreshConfig();
+    },
+    [refreshConfig],
+  );
 
-  const updateMultipleSettings = useCallback(async (settings: { key: string; value: any }[]) => {
-    const validSettings = settings.filter((s) => s.key);
-    await Promise.all(validSettings.map((s) => saveSetting(s.key, s.value)));
-    await refreshConfig();
-  }, [refreshConfig]);
+  const updateMultipleSettings = useCallback(
+    async (settings: { key: string; value: unknown }[]) => {
+      const validSettings = settings.filter((s) => s.key);
+      await Promise.all(validSettings.map((s) => saveSetting(s.key, s.value)));
+      await refreshConfig();
+    },
+    [refreshConfig],
+  );
 
   const value = useMemo<ConfigContextType>(
     () => ({

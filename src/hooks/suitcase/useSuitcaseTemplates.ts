@@ -1,14 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
-import { 
-  fetchGlobalTemplatesAsync, 
-  fetchCityTypeTemplatesAsync,
+import { useCallback, useEffect, useState } from 'react';
+import {
   fetchCityTypesTemplatesAsync,
-  fetchUserTemplatePreferencesAsync, 
-  upsertUserTemplatePreferenceAsync 
+  fetchCityTypeTemplatesAsync,
+  fetchGlobalTemplatesAsync,
+  fetchUserTemplatePreferencesAsync,
+  upsertUserTemplatePreferenceAsync,
 } from '@/services/suitcaseService';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
-import { normalizeItemName } from '@/utils/tagDerivation';
+import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
 import { randomUUID } from '@/utils/runtimeId';
+import { normalizeItemName } from '@/utils/tagDerivation';
 
 /**
  * Merges multiple templates by flattening items, deduplicating by normalized name,
@@ -16,14 +16,14 @@ import { randomUUID } from '@/utils/runtimeId';
  */
 export const mergeTemplateItems = (templates: Suitcase[]): SuitcaseItem[] => {
   const allItems: SuitcaseItem[] = [];
-  templates.forEach(tpl => {
+  templates.forEach((tpl) => {
     if (tpl.suitcase_items) allItems.push(...tpl.suitcase_items);
   });
 
   const seen = new Set<string>();
   const merged: SuitcaseItem[] = [];
 
-  allItems.forEach(item => {
+  allItems.forEach((item) => {
     const key = normalizeItemName(item.name);
     if (!seen.has(key)) {
       seen.add(key);
@@ -31,7 +31,7 @@ export const mergeTemplateItems = (templates: Suitcase[]): SuitcaseItem[] => {
         ...item,
         id: randomUUID(), // Temp ID for UI usage
         is_checked: false,
-        is_ai_suggestion: false
+        is_ai_suggestion: false,
       });
     }
   });
@@ -123,7 +123,9 @@ export const useCityTypesTemplates = (cityTypes: string[]) => {
 };
 
 export const useUserTemplatePreferences = (userId: string | undefined) => {
-  const [preferences, setPreferences] = useState<Record<string, { enabled: boolean; priority: number }>>({});
+  const [preferences, setPreferences] = useState<
+    Record<string, { enabled: boolean; priority: number }>
+  >({});
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchPreferences = useCallback(async () => {
@@ -132,7 +134,7 @@ export const useUserTemplatePreferences = (userId: string | undefined) => {
     try {
       const data = await fetchUserTemplatePreferencesAsync(userId);
       const prefs: Record<string, { enabled: boolean; priority: number }> = {};
-      data?.forEach(p => {
+      data?.forEach((p) => {
         prefs[p.template_id] = { enabled: p.enabled, priority: p.priority };
       });
       setPreferences(prefs);

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, useCallback, useRef, type RefObject } from 'react';
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkspaceId } from '@/focus/focusModeRegistry';
-import { endWorkspaceSession } from '@/focus/workspaceSessionRegistry';
 import { useWorkspaceCloseRegistration } from '@/focus/useWorkspaceCloseRegistration';
+import { endWorkspaceSession } from '@/focus/workspaceSessionRegistry';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { usePanelEnterAnimation } from './usePanelEnterAnimation';
 import { useSuitcasePanelClose } from './useSuitcasePanelClose';
@@ -84,6 +84,6 @@ export function useFloatingPanelShellLifecycle({
       panelRef,
       requestClose,
     }),
-    [isPortalReady, isPanelRaised, isClosing, panelRef, requestClose]
+    [isPortalReady, isPanelRaised, isClosing, panelRef, requestClose],
   );
 }

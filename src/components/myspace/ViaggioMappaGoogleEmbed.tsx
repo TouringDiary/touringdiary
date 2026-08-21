@@ -1,13 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { type Marker as ClustererMarker, MarkerClusterer } from '@googlemaps/markerclusterer';
 import {
   APIProvider,
+  ColorScheme,
   Map,
   Marker,
-  useMap,
-  ColorScheme,
   useApiIsLoaded,
+  useMap,
 } from '@vis.gl/react-google-maps';
-import { MarkerClusterer, type Marker as ClustererMarker } from '@googlemaps/markerclusterer';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ViaggioMapPin } from '@/types/models/ViaggioMappa';
 
 export function getGoogleMapsApiKey(): string {
@@ -134,8 +135,9 @@ export const ViaggioMappaGoogleEmbed: React.FC<Props> = ({ pins, selectedId, onS
       >
         <p className="text-sm text-slate-300 font-semibold">Mappa embedded non disponibile</p>
         <p className="text-xs text-slate-500 mt-2">
-          Configura <code className="text-amber-300/90">VITE_GOOGLE_MAPS_API_KEY</code> (Maps JavaScript
-          API) per visualizzare Google Maps con clustering. L’elenco pin resta utilizzabile.
+          Configura <code className="text-amber-300/90">VITE_GOOGLE_MAPS_API_KEY</code> (Maps
+          JavaScript API) per visualizzare Google Maps con clustering. L’elenco pin resta
+          utilizzabile.
         </p>
       </div>
     );

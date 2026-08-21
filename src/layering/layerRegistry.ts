@@ -279,10 +279,14 @@ export const LAYER_REGISTRY: Record<LayerTier, LayerSpec> = {
     z: 9200,
     class: 'global',
     token: 'z-global-chrome / Z_GLOBAL_CHROME',
-    owner: 'AppShell.tsx (news ticker + header + mobile nav)',
-    purpose: 'Persistent app chrome. Always reachable above workspaces; tier for portaled header menus.',
-    examples: 'Header, NewsTicker, MobileNavBar.',
-    forbidden: 'Feature/page components. App shell chrome only.',
+    owner:
+      'AppShell.tsx (news ticker + header + mobile nav); AdminDashboard chrome (AdminSidebar).',
+    purpose:
+      'Persistent app chrome. Always reachable above workspaces; tier for portaled header menus. ' +
+      'Admin is a separate view-mode (no MainLayout isolate): its persistent sidebar is chrome, not a popover.',
+    examples: 'Header, NewsTicker, MobileNavBar, AdminSidebar.',
+    forbidden:
+      'Feature/page components. Transient menus (use popover). In-card badges/action bars (use localOverlay).',
     portal: 'chrome',
     bypassesOverlay: true,
     escHandling: 'none',
@@ -407,7 +411,8 @@ export const LAYER_REGISTRY: Record<LayerTier, LayerSpec> = {
     examples:
       'Header hamburger menu, SaveMenuPopover, DiaryHeader load/share menus, NearbyCitiesRow filter menu (portaled).',
     forbidden:
-      'Inline menus that fit within their parent — keep those local (localFlyout). Modal nested confirmations (modalNested).',
+      'Inline menus that fit within their parent — keep those local (localFlyout). Modal nested confirmations (modalNested). ' +
+      'Persistent chrome (admin sidebar, sticky headers) and in-card badges — those paint above modal dimming if given this tier; use globalChrome / localSticky / localOverlay.',
     portal: 'required',
     bypassesOverlay: true,
     escHandling: 'stack',

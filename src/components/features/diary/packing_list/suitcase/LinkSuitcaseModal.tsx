@@ -1,13 +1,14 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-import React, { useEffect, useState } from 'react';
+import { Briefcase, Link, Loader2 } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Briefcase, Link, Loader2 } from 'lucide-react';
-import { LinkModalVariant } from '@/utils/suitcaseAssociation';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import type { LinkModalVariant } from '@/utils/suitcaseAssociation';
 
 interface LinkSuitcaseModalProps {
   isOpen: boolean;
@@ -19,24 +20,18 @@ interface LinkSuitcaseModalProps {
   onCancel: () => void;
 }
 
-const COPY: Record<
-  LinkModalVariant,
-  { title: string; message: string }
-> = {
+const COPY: Record<LinkModalVariant, { title: string; message: string }> = {
   'diary-only': {
     title: 'Salva il diario',
-    message:
-      'Per associare la valigia al diario di viaggio devi prima salvarlo con un nome.',
+    message: 'Per associare la valigia al diario di viaggio devi prima salvarlo con un nome.',
   },
   'suitcase-only': {
     title: 'Salva la valigia',
-    message:
-      'Per associarla al diario di viaggio devi prima salvarla con un nome.',
+    message: 'Per associarla al diario di viaggio devi prima salvarla con un nome.',
   },
   both: {
     title: 'Salva diario e valigia',
-    message:
-      'Per associare una valigia a un diario devi prima salvarli entrambi.',
+    message: 'Per associare una valigia a un diario devi prima salvarli entrambi.',
   },
 };
 
@@ -91,12 +86,18 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
     <div
       className={`td-modal-overlay ${overlayShell} !items-center`}
       style={{ zIndex: Z_MODAL_NESTED }}
-      onClick={onCancel}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onCancel}
+      />
       <div
         className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL_NESTED }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="link-suitcase-title"
@@ -118,7 +119,10 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
             <h3 id="link-suitcase-title" className={`${modalTitleShell} mb-3`}>
               {copy.title}
             </h3>
-            <p id="link-suitcase-desc" className={`${modalSubtitleShell} leading-relaxed max-w-[300px] mx-auto`}>
+            <p
+              id="link-suitcase-desc"
+              className={`${modalSubtitleShell} leading-relaxed max-w-[300px] mx-auto`}
+            >
               {copy.message}
             </p>
           </div>
@@ -126,10 +130,14 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
           <div className="flex flex-col gap-4 w-full mt-2 text-left">
             {showDiary && (
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                <label
+                  htmlFor="fld-iary-packing-list-suitcase-linksuitcasemodal-tsx-l127"
+                  className="text-[10px] font-black uppercase tracking-widest text-slate-500"
+                >
                   Nome diario
                 </label>
                 <input
+                  id="fld-iary-packing-list-suitcase-linksuitcasemodal-tsx-l127"
                   autoFocus
                   type="text"
                   value={diaryName}
@@ -145,10 +153,14 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
 
             {showSuitcase && (
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                <label
+                  htmlFor="fld-iary-packing-list-suitcase-linksuitcasemodal-tsx-l146"
+                  className="text-[10px] font-black uppercase tracking-widest text-slate-500"
+                >
                   Nome valigia
                 </label>
                 <input
+                  id="fld-iary-packing-list-suitcase-linksuitcasemodal-tsx-l146"
                   autoFocus={variant === 'suitcase-only'}
                   type="text"
                   value={suitcaseName}
@@ -192,6 +204,6 @@ export const LinkSuitcaseModal: React.FC<LinkSuitcaseModalProps> = ({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

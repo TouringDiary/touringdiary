@@ -1,10 +1,12 @@
-
 import type { Database } from '../supabase';
 
 // --- GENERIC HELPERS (NATIVE) ---
-export type Row<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
-export type Insert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert'];
-export type Update<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update'];
+export type Row<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Row'];
+export type Insert<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Insert'];
+export type Update<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Update'];
 export type Enums<T extends keyof Database['public']['Enums']> = Database['public']['Enums'][T];
 
 // --- SMART UTILITIES ---
@@ -23,18 +25,18 @@ export type DbProfile = Row<'profiles'>;
 export type DbUser = DbProfile; // Alias semantico
 
 // Geography & Places
-/** 
+/**
  * DbCity: Rappresenta la riga reale del database per una città.
  */
 export type DbCity = Row<'cities'>;
 
-/** 
+/**
  * DbPoi: Rappresenta la riga reale del database per un punto di interesse.
  */
 export type DbPoi = Row<'pois'>;
 
-export type DbPoiStaging = Row<'pois_staging'>; 
-export type DbTouristZone = Row<'tourist_zones'>; 
+export type DbPoiStaging = Row<'pois_staging'>;
+export type DbTouristZone = Row<'tourist_zones'>;
 
 // Operazioni di Scrittura (DTOs)
 export type DbCityInsert = Insert<'cities'>;
@@ -83,7 +85,7 @@ export type DbCommunicationLog = Row<'communication_logs'>;
 export type DbAiConfig = Row<'ai_configs'>;
 export type DbGlobalSetting = Row<'global_settings'>;
 export type DbDesignRule = Row<'design_system_rules'>;
-export type DbTaxonomyMapping = Row<'taxonomy_mappings'>; 
+export type DbTaxonomyMapping = Row<'taxonomy_mappings'>;
 export type DbContinent = Row<'continents'>;
 export type DbNation = Row<'nations'>;
 export type DbRegion = Row<'regions'>;
@@ -96,4 +98,3 @@ export type DbPackingStandardItemInsert = Insert<'packing_standard_items'>;
 export type DbPackingTemplateItemInsert = Insert<'packing_template_items'>;
 export type DbPackingAiCatalogItemInsert = Insert<'packing_ai_catalog'>;
 export type DbItinerarySuitcase = Row<'itinerary_suitcases'>;
-

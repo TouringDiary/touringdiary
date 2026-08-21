@@ -1,7 +1,8 @@
-import React, { createContext, useContext } from 'react';
+import type React from 'react';
+import { createContext, useContext } from 'react';
 import type { CollaborationLiveSessionState } from '@/domain/collaboration/collaborationLive';
-import { useCollaborationLiveSession } from '@/hooks/collaboration/useCollaborationLiveSession';
 import type { UseCollaborationLiveSessionOptions } from '@/hooks/collaboration/useCollaborationLiveSession';
+import { useCollaborationLiveSession } from '@/hooks/collaboration/useCollaborationLiveSession';
 
 interface CollaborationLiveContextValue extends CollaborationLiveSessionState {
   notifyLocalActivity: () => void;
@@ -20,7 +21,9 @@ export const CollaborationLiveProvider: React.FC<CollaborationLiveProviderProps>
 }) => {
   const session = useCollaborationLiveSession(sessionOptions);
   return (
-    <CollaborationLiveContext.Provider value={session}>{children}</CollaborationLiveContext.Provider>
+    <CollaborationLiveContext.Provider value={session}>
+      {children}
+    </CollaborationLiveContext.Provider>
   );
 };
 

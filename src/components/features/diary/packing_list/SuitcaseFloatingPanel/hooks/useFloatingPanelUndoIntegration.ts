@@ -1,19 +1,30 @@
-import { UndoAction } from '@/hooks/useUndoStack';
-import { Suitcase, SuitcaseItem } from '@/types/suitcase';
+import type { UndoAction } from '@/hooks/useUndoStack';
 import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
+import type { SuitcaseItem } from '@/types/suitcase';
 
-import { ToastVariant } from '@/types/toast';
+import type { ToastVariant } from '@/types/toast';
 
 interface UndoIntegrationProps {
   updateItem: (id: string, updates: UpdateSuitcaseItemDto) => Promise<void>;
-  addItem: (suitcaseId: string, name: string, category: string, metadata?: Partial<SuitcaseItem>) => Promise<any>;
+  addItem: (
+    suitcaseId: string,
+    name: string,
+    category: string,
+    metadata?: Partial<SuitcaseItem>,
+  ) => Promise<SuitcaseItem | undefined>;
   deleteItem: (id: string) => Promise<void>;
   fetchUserSuitcases: () => Promise<void> | void;
   setHighlightItemId: (id: string | null) => void;
   activeTabId: string | null;
   showToast: (message: string, description?: string, variant?: ToastVariant) => void;
   handleStateSync: (action: UndoAction, inverse: boolean, suitcaseId: string | null) => void;
-  checkDuplicateItem: (id: string, name: string, category: string, suitcaseId: string | null, isUndo?: boolean) => boolean;
+  checkDuplicateItem: (
+    id: string,
+    name: string,
+    category: string,
+    suitcaseId: string | null,
+    isUndo?: boolean,
+  ) => boolean;
   stack: {
     pushAction: (action: UndoAction) => void;
     undo: () => UndoAction | null;
@@ -33,7 +44,7 @@ export const useFloatingPanelUndoIntegration = ({
   showToast,
   handleStateSync,
   checkDuplicateItem,
-  stack
+  stack,
 }: UndoIntegrationProps) => {
   return stack;
 };

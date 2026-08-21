@@ -1,14 +1,14 @@
-import { supabase } from '@/services/supabaseClient';
-import type { Database } from '@/types/supabase';
 import type { WorkspaceInvite, WorkspaceResourcePermissionEntry } from '@/domain/collaboration';
 import { isWorkspaceResourceAccess } from '@/domain/collaboration';
-import { areUsersBlocked } from './userBlockService';
-import { mapWorkspaceInviteRow } from './workspaceMappers';
-import { getWorkspace, isWorkspaceOwner } from './workspaceService';
-import { setWorkspaceResourcePermission } from './workspaceResourceService';
-import { getWorkspaceResourceByKindAndId } from './workspaceResourceLinkLookup';
+import { supabase } from '@/services/supabaseClient';
+import type { Database } from '@/types/supabase';
 import type { InviteTarget } from './resourceInviteService';
-import { resolveInviteeId, validateInvitee } from './workspaceInviteValidation';
+import { areUsersBlocked } from './userBlockService';
+import {
+  notifyWorkspaceInviteAcceptedForInvitee,
+  notifyWorkspaceInviteReceivedForSentInvite,
+  notifyWorkspaceInviteRejectedForInvitee,
+} from './workspaceInviteNotifications';
 import {
   fetchInvitePermissions,
   fetchInvitePermissionsByInviteIds,
@@ -16,12 +16,12 @@ import {
   restoreWorkspaceInvitePermissions,
   rollbackWorkspaceMembership,
 } from './workspaceInvitePersistence';
-import {
-  notifyWorkspaceInviteAcceptedForInvitee,
-  notifyWorkspaceInviteReceivedForSentInvite,
-  notifyWorkspaceInviteRejectedForInvitee,
-} from './workspaceInviteNotifications';
+import { resolveInviteeId, validateInvitee } from './workspaceInviteValidation';
+import { mapWorkspaceInviteRow } from './workspaceMappers';
 import { syncSharedResourceAccessFromWorkspacePermission } from './workspaceMemberAclSync';
+import { getWorkspaceResourceByKindAndId } from './workspaceResourceLinkLookup';
+import { setWorkspaceResourcePermission } from './workspaceResourceService';
+import { getWorkspace, isWorkspaceOwner } from './workspaceService';
 
 export type WorkspaceInviteResult =
   | { success: true; invite: WorkspaceInvite }
@@ -32,7 +32,7 @@ type WorkspaceInviteRow = Database['public']['Tables']['workspace_invites']['Row
 /** Null = permessi validi (incluso array vuoto per inviti membership-only). */
 async function validateWorkspaceInvitePermissions(
   workspaceId: string,
-  permissions: WorkspaceResourcePermissionEntry[]
+  permissions: WorkspaceResourcePermissionEntry[],
 ): Promise<string | null> {
   if (!permissions.length) {
     return null;
@@ -42,11 +42,7 @@ async function validateWorkspaceInvitePermissions(
     if (!isWorkspaceResourceAccess(entry.accessLevel)) {
       return 'Livello di accesso non valido.';
     }
-    const linked = await getWorkspaceResourceByKindAndId(
-      workspaceId,
-      entry.kind,
-      entry.resourceId
-    );
+    const linked = await getWorkspaceResourceByKindAndId(workspaceId, entry.kind, entry.resourceId);
     if (!linked) {
       return 'Risorsa non presente nel workspace.';
     }
@@ -74,7 +70,7 @@ export async function getWorkspaceInvite(inviteId: string): Promise<WorkspaceInv
 
 export async function listWorkspaceInvites(
   workspaceId: string,
-  requesterId: string
+  requesterId: string,
 ): Promise<WorkspaceInvite[]> {
   if (!(await isWorkspaceOwner(workspaceId, requesterId))) {
     return [];
@@ -95,7 +91,7 @@ export async function listWorkspaceInvites(
 }
 
 export async function listPendingWorkspaceInvitesForUser(
-  userId: string
+  userId: string,
 ): Promise<WorkspaceInvite[]> {
   const { data, error } = await supabase
     .from('workspace_invites')
@@ -114,7 +110,7 @@ export async function listPendingWorkspaceInvitesForUser(
 
 /** Inviti workspace in cui l'utente è destinatario (tutti gli stati). */
 export async function listIncomingWorkspaceInvitesForUser(
-  userId: string
+  userId: string,
 ): Promise<WorkspaceInvite[]> {
   const { data, error } = await supabase
     .from('workspace_invites')
@@ -132,7 +128,7 @@ export async function listIncomingWorkspaceInvitesForUser(
 
 /** Inviti workspace inviati dall'utente (tutti gli stati). */
 export async function listOutgoingWorkspaceInvitesForUser(
-  userId: string
+  userId: string,
 ): Promise<WorkspaceInvite[]> {
   const { data, error } = await supabase
     .from('workspace_invites')
@@ -152,7 +148,7 @@ export async function sendWorkspaceInvite(
   ownerId: string,
   workspaceId: string,
   target: InviteTarget,
-  permissions: WorkspaceResourcePermissionEntry[]
+  permissions: WorkspaceResourcePermissionEntry[],
 ): Promise<WorkspaceInviteResult> {
   if (!(await isWorkspaceOwner(workspaceId, ownerId))) {
     return { success: false, error: 'Solo il proprietario del workspace può invitare.' };
@@ -226,7 +222,10 @@ export async function sendWorkspaceInvite(
         .delete()
         .eq('invite_id', inviteRow.id);
       if (clearPermError) {
-        console.error('[workspaceInviteService] sendWorkspaceInvite clear permissions:', clearPermError.message);
+        console.error(
+          '[workspaceInviteService] sendWorkspaceInvite clear permissions:',
+          clearPermError.message,
+        );
       }
     }
   } else {
@@ -244,7 +243,7 @@ export async function sendWorkspaceInvite(
 
   if (inviteError || !inviteRow) {
     console.error('[workspaceInviteService] sendWorkspaceInvite:', inviteError?.message);
-    return { success: false, error: 'Impossibile inviare l\'invito.' };
+    return { success: false, error: "Impossibile inviare l'invito." };
   }
 
   const permissionRows = permissions.map((entry) => ({
@@ -260,7 +259,10 @@ export async function sendWorkspaceInvite(
       .insert(permissionRows);
 
     if (permissionsError) {
-      console.error('[workspaceInviteService] sendWorkspaceInvite permissions:', permissionsError.message);
+      console.error(
+        '[workspaceInviteService] sendWorkspaceInvite permissions:',
+        permissionsError.message,
+      );
       if (previousInviteStatus) {
         // Rollback logico: ripristina stato e permessi dell'invito precedente.
         await supabase
@@ -284,10 +286,13 @@ export async function sendWorkspaceInvite(
           .delete()
           .eq('id', inviteRow.id);
         if (rollbackDeleteError) {
-          console.error('[workspaceInviteService] sendWorkspaceInvite rollback delete:', rollbackDeleteError.message);
+          console.error(
+            '[workspaceInviteService] sendWorkspaceInvite rollback delete:',
+            rollbackDeleteError.message,
+          );
         }
       }
-      return { success: false, error: 'Impossibile salvare i permessi dell\'invito.' };
+      return { success: false, error: "Impossibile salvare i permessi dell'invito." };
     }
   }
 
@@ -299,7 +304,7 @@ export async function sendWorkspaceInvite(
   void notifyWorkspaceInviteReceivedForSentInvite(ownerId, inviteeId, workspaceId, invite.id).catch(
     (notificationError) => {
       console.error('[workspaceInviteService] notifyWorkspaceInviteReceived:', notificationError);
-    }
+    },
   );
 
   return { success: true, invite };
@@ -309,14 +314,10 @@ async function applyInvitePermissionsToMember(
   workspaceId: string,
   ownerId: string,
   userId: string,
-  permissions: WorkspaceResourcePermissionEntry[]
+  permissions: WorkspaceResourcePermissionEntry[],
 ): Promise<string | null> {
   for (const entry of permissions) {
-    const linked = await getWorkspaceResourceByKindAndId(
-      workspaceId,
-      entry.kind,
-      entry.resourceId
-    );
+    const linked = await getWorkspaceResourceByKindAndId(workspaceId, entry.kind, entry.resourceId);
     if (!linked) continue;
 
     const result = await setWorkspaceResourcePermission(
@@ -324,7 +325,7 @@ async function applyInvitePermissionsToMember(
       ownerId,
       linked.id,
       userId,
-      entry.accessLevel
+      entry.accessLevel,
     );
     if (!result.success) {
       return result.error ?? 'Impossibile applicare i permessi.';
@@ -334,7 +335,7 @@ async function applyInvitePermissionsToMember(
       entry.kind,
       entry.resourceId,
       userId,
-      entry.accessLevel
+      entry.accessLevel,
     );
   }
   return null;
@@ -342,7 +343,7 @@ async function applyInvitePermissionsToMember(
 
 export async function acceptWorkspaceInvite(
   inviteeId: string,
-  inviteId: string
+  inviteId: string,
 ): Promise<WorkspaceInviteResult> {
   const invite = await loadWorkspaceInvite(inviteId);
   if (!invite) {
@@ -378,7 +379,7 @@ export async function acceptWorkspaceInvite(
     invite.workspaceId,
     workspace.ownerId,
     inviteeId,
-    invite.permissions
+    invite.permissions,
   );
   if (permError) {
     await rollbackWorkspaceMembership(invite.workspaceId, inviteeId);
@@ -400,7 +401,7 @@ export async function acceptWorkspaceInvite(
   if (error) {
     console.error('[workspaceInviteService] acceptWorkspaceInvite:', error.message);
     await rollbackWorkspaceMembership(invite.workspaceId, inviteeId);
-    return { success: false, error: 'Impossibile accettare l\'invito.' };
+    return { success: false, error: "Impossibile accettare l'invito." };
   }
 
   const permissions = await fetchInvitePermissions(inviteId);
@@ -414,7 +415,7 @@ export async function acceptWorkspaceInvite(
     inviteeId,
     workspace.name,
     inviteId,
-    workspace.id
+    workspace.id,
   ).catch((notificationError) => {
     console.error('[workspaceInviteService] notifyWorkspaceInviteAccepted:', notificationError);
   });
@@ -424,7 +425,7 @@ export async function acceptWorkspaceInvite(
 
 export async function rejectWorkspaceInvite(
   inviteeId: string,
-  inviteId: string
+  inviteId: string,
 ): Promise<WorkspaceInviteResult> {
   const invite = await loadWorkspaceInvite(inviteId);
   if (!invite) {
@@ -453,7 +454,7 @@ export async function rejectWorkspaceInvite(
 
   if (error) {
     console.error('[workspaceInviteService] rejectWorkspaceInvite:', error.message);
-    return { success: false, error: 'Impossibile rifiutare l\'invito.' };
+    return { success: false, error: "Impossibile rifiutare l'invito." };
   }
 
   const permissions = await fetchInvitePermissions(inviteId);
@@ -465,7 +466,7 @@ export async function rejectWorkspaceInvite(
   void notifyWorkspaceInviteRejectedForInvitee(workspace, inviteeId, inviteId).catch(
     (notificationError) => {
       console.error('[workspaceInviteService] notifyWorkspaceInviteRejected:', notificationError);
-    }
+    },
   );
 
   return { success: true, invite: rejected };
@@ -473,14 +474,14 @@ export async function rejectWorkspaceInvite(
 
 export async function revokeWorkspaceInvite(
   ownerId: string,
-  inviteId: string
+  inviteId: string,
 ): Promise<WorkspaceInviteResult> {
   const invite = await loadWorkspaceInvite(inviteId);
   if (!invite) {
     return { success: false, error: 'Invito non trovato.' };
   }
   if (!(await isWorkspaceOwner(invite.workspaceId, ownerId))) {
-    return { success: false, error: 'Solo il proprietario può revocare l\'invito.' };
+    return { success: false, error: "Solo il proprietario può revocare l'invito." };
   }
   if (invite.status !== 'pending') {
     return { success: false, error: 'Solo gli inviti in attesa possono essere revocati.' };
@@ -495,7 +496,7 @@ export async function revokeWorkspaceInvite(
 
   if (error) {
     console.error('[workspaceInviteService] revokeWorkspaceInvite:', error.message);
-    return { success: false, error: 'Impossibile revocare l\'invito.' };
+    return { success: false, error: "Impossibile revocare l'invito." };
   }
 
   const permissions = await fetchInvitePermissions(inviteId);
@@ -510,31 +511,34 @@ export async function revokeWorkspaceInvite(
 export async function resendWorkspaceInvite(
   ownerId: string,
   inviteId: string,
-  permissions?: WorkspaceResourcePermissionEntry[]
+  permissions?: WorkspaceResourcePermissionEntry[],
 ): Promise<WorkspaceInviteResult> {
   const invite = await loadWorkspaceInvite(inviteId);
   if (!invite) {
     return { success: false, error: 'Invito non trovato.' };
   }
   if (!(await isWorkspaceOwner(invite.workspaceId, ownerId))) {
-    return { success: false, error: 'Solo il proprietario può reinviare l\'invito.' };
+    return { success: false, error: "Solo il proprietario può reinviare l'invito." };
   }
   if (invite.status !== 'rejected' && invite.status !== 'revoked') {
-    return { success: false, error: 'Solo gli inviti rifiutati o revocati possono essere reinviati.' };
+    return {
+      success: false,
+      error: 'Solo gli inviti rifiutati o revocati possono essere reinviati.',
+    };
   }
 
   return sendWorkspaceInvite(
     ownerId,
     invite.workspaceId,
     { userId: invite.inviteeId },
-    permissions ?? invite.permissions
+    permissions ?? invite.permissions,
   );
 }
 
 export async function removeWorkspaceMember(
   workspaceId: string,
   ownerId: string,
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!(await isWorkspaceOwner(workspaceId, ownerId))) {
     return { success: false, error: 'Solo il proprietario può rimuovere membri.' };
@@ -554,7 +558,10 @@ export async function removeWorkspaceMember(
     .eq('user_id', userId);
 
   if (aclSnapshotError) {
-    console.error('[workspaceInviteService] removeWorkspaceMember ACL snapshot:', aclSnapshotError.message);
+    console.error(
+      '[workspaceInviteService] removeWorkspaceMember ACL snapshot:',
+      aclSnapshotError.message,
+    );
     return { success: false, error: 'Impossibile leggere i permessi del membro.' };
   }
 
@@ -583,8 +590,11 @@ export async function removeWorkspaceMember(
       .eq('id', existingInvite.id);
 
     if (revokeError) {
-      console.error('[workspaceInviteService] removeWorkspaceMember revoke invite:', revokeError.message);
-      return { success: false, error: 'Impossibile registrare l\'utente bloccato.' };
+      console.error(
+        '[workspaceInviteService] removeWorkspaceMember revoke invite:',
+        revokeError.message,
+      );
+      return { success: false, error: "Impossibile registrare l'utente bloccato." };
     }
   } else {
     const { error: insertError } = await supabase.from('workspace_invites').insert({
@@ -595,8 +605,11 @@ export async function removeWorkspaceMember(
     });
 
     if (insertError) {
-      console.error('[workspaceInviteService] removeWorkspaceMember blocked invite:', insertError.message);
-      return { success: false, error: 'Impossibile registrare l\'utente bloccato.' };
+      console.error(
+        '[workspaceInviteService] removeWorkspaceMember blocked invite:',
+        insertError.message,
+      );
+      return { success: false, error: "Impossibile registrare l'utente bloccato." };
     }
   }
 
@@ -634,14 +647,14 @@ export async function removeWorkspaceMember(
 export async function updateWorkspaceInvitePermissions(
   ownerId: string,
   inviteId: string,
-  permissions: WorkspaceResourcePermissionEntry[]
+  permissions: WorkspaceResourcePermissionEntry[],
 ): Promise<WorkspaceInviteResult> {
   const invite = await loadWorkspaceInvite(inviteId);
   if (!invite) {
     return { success: false, error: 'Invito non trovato.' };
   }
   if (!(await isWorkspaceOwner(invite.workspaceId, ownerId))) {
-    return { success: false, error: 'Solo il proprietario può modificare l\'invito.' };
+    return { success: false, error: "Solo il proprietario può modificare l'invito." };
   }
   if (invite.status !== 'pending') {
     return { success: false, error: 'Solo gli inviti in attesa possono essere modificati.' };
@@ -649,7 +662,7 @@ export async function updateWorkspaceInvitePermissions(
 
   const permissionsError = await validateWorkspaceInvitePermissions(
     invite.workspaceId,
-    permissions
+    permissions,
   );
   if (permissionsError) {
     return { success: false, error: permissionsError };
@@ -662,8 +675,11 @@ export async function updateWorkspaceInvitePermissions(
     .delete()
     .eq('invite_id', inviteId);
   if (clearPermError) {
-    console.error('[workspaceInviteService] updateWorkspaceInvitePermissions clear:', clearPermError.message);
-    return { success: false, error: 'Impossibile aggiornare i permessi dell\'invito.' };
+    console.error(
+      '[workspaceInviteService] updateWorkspaceInvitePermissions clear:',
+      clearPermError.message,
+    );
+    return { success: false, error: "Impossibile aggiornare i permessi dell'invito." };
   }
 
   const permissionRows = permissions.map((entry) => ({
@@ -678,7 +694,7 @@ export async function updateWorkspaceInvitePermissions(
     if (error) {
       console.error('[workspaceInviteService] updateWorkspaceInvitePermissions:', error.message);
       await restoreWorkspaceInvitePermissions(inviteId, previousPermissions);
-      return { success: false, error: 'Impossibile aggiornare i permessi dell\'invito.' };
+      return { success: false, error: "Impossibile aggiornare i permessi dell'invito." };
     }
   }
 

@@ -1,6 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { affiliateAdminService, AffiliateClickRecord } from '../../services/affiliateAdminService';
-import { subDays, startOfDay, endOfDay, format, eachDayOfInterval } from 'date-fns';
+import { eachDayOfInterval, endOfDay, format, startOfDay, subDays } from 'date-fns';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  type AffiliateClickRecord,
+  affiliateAdminService,
+} from '../../services/affiliateAdminService';
 
 export type AffiliateFilterRange = '7d' | '30d' | '90d' | 'year' | 'custom';
 
@@ -66,12 +69,15 @@ export const useAffiliateAnalytics = () => {
         setIsRefreshing(false);
         return;
       }
-      
+
       if (data.length === 0) setLoading(true);
       else setIsRefreshing(true);
 
-      const { data: res, error } = await affiliateAdminService.getAnalyticsData(dateRange.start, dateRange.end);
-      
+      const { data: res, error } = await affiliateAdminService.getAnalyticsData(
+        dateRange.start,
+        dateRange.end,
+      );
+
       if (error) {
         console.error('[useAffiliateAnalytics] Error fetching analytics data:', error.message);
       }
@@ -91,21 +97,23 @@ export const useAffiliateAnalytics = () => {
   const stats = useMemo((): AffiliateAnalyticsStats => {
     const totalClicks = data.length;
     const prevTotalClicks = prevData.length;
-    const trendPercent = prevTotalClicks > 0 ? ((totalClicks - prevTotalClicks) / prevTotalClicks) * 100 : 0;
+    const trendPercent =
+      prevTotalClicks > 0 ? ((totalClicks - prevTotalClicks) / prevTotalClicks) * 100 : 0;
 
     const partnersMap: Record<string, number> = {};
     const productsMap: Record<string, number> = {};
     const categoriesMap: Record<string, number> = {};
     const sourcesMap: Record<string, number> = { suitcase: 0, poi: 0, ai: 0, cta: 0 };
 
-    data.forEach(click => {
+    data.forEach((click) => {
       partnersMap[click.partner_id] = (partnersMap[click.partner_id] || 0) + 1;
-      if (click.product_id) productsMap[click.product_id] = (productsMap[click.product_id] || 0) + 1;
+      if (click.product_id)
+        productsMap[click.product_id] = (productsMap[click.product_id] || 0) + 1;
       if (click.category) categoriesMap[click.category] = (categoriesMap[click.category] || 0) + 1;
-      if (Object.prototype.hasOwnProperty.call(sourcesMap, click.source_type)) {
+      if (Object.hasOwn(sourcesMap, click.source_type)) {
         sourcesMap[click.source_type]++;
       } else {
-        sourcesMap['cta']++;
+        sourcesMap.cta++;
       }
     });
 
@@ -126,7 +134,7 @@ export const useAffiliateAnalytics = () => {
 
     // Trend giornaliero ottimizzato (O(N + M))
     const clicksPerDay: Record<string, number> = {};
-    data.forEach(click => {
+    data.forEach((click) => {
       const dayKey = format(new Date(click.created_at), 'yyyy-MM-dd');
       clicksPerDay[dayKey] = (clicksPerDay[dayKey] || 0) + 1;
     });
@@ -134,12 +142,12 @@ export const useAffiliateAnalytics = () => {
     const days = fetchedDateRange
       ? eachDayOfInterval({ start: fetchedDateRange.start, end: fetchedDateRange.end })
       : [];
-    const dailyTrend = days.map(day => {
+    const dailyTrend = days.map((day) => {
       const dayKey = format(day, 'yyyy-MM-dd');
       return {
         date: format(day, 'dd/MM'),
         fullDate: day,
-        count: clicksPerDay[dayKey] || 0
+        count: clicksPerDay[dayKey] || 0,
       };
     });
 
@@ -158,7 +166,7 @@ export const useAffiliateAnalytics = () => {
       topProducts,
       topCategories,
       sourcesBreakdown: sourcesMap,
-      dailyTrend
+      dailyTrend,
     };
   }, [data, prevData, fetchedDateRange]);
 
@@ -170,6 +178,6 @@ export const useAffiliateAnalytics = () => {
     stats,
     loading,
     isRefreshing,
-    effectiveDates: dateRange
+    effectiveDates: dateRange,
   };
 };

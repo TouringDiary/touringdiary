@@ -2,10 +2,11 @@
  * Smoke — fondazione dominio Viaggio (MP-01 STEP-1 / WF-05).
  * Pure logic + invarianti anti-alias. Eseguire: npx tsx scripts/smoke-viaggio-domain.ts
  */
-import { createEmptyItinerary } from '../src/types/models/Itinerary';
-import { createEmptyViaggioDraft, type Viaggio } from '../src/types/models/Viaggio';
+
 import { mapDbViaggioToRuntime } from '../src/services/viaggio/viaggioMappers';
 import type { DbViaggio } from '../src/types/domain';
+import { createEmptyItinerary } from '../src/types/models/Itinerary';
+import { createEmptyViaggioDraft, type Viaggio } from '../src/types/models/Viaggio';
 
 const issues: string[] = [];
 
@@ -63,11 +64,7 @@ function assert(condition: boolean, message: string): void {
 // 5) Cutover order invariant (documentato come funzione pura)
 {
   type Step = 'insert_viaggio_null_active' | 'link_diary_viaggio_id' | 'set_active_diary';
-  const order: Step[] = [
-    'insert_viaggio_null_active',
-    'link_diary_viaggio_id',
-    'set_active_diary',
-  ];
+  const order: Step[] = ['insert_viaggio_null_active', 'link_diary_viaggio_id', 'set_active_diary'];
   assert(order[0] === 'insert_viaggio_null_active', 'cutover step 1');
   assert(order[2] === 'set_active_diary', 'cutover step 3 last');
 }
@@ -86,11 +83,15 @@ if (issues.length > 0) {
   process.exit(1);
 }
 
-console.log('smoke-viaggio-domain OK (' + [
-  'empty diary',
-  'empty viaggio',
-  'mapDbViaggio',
-  'anti-alias',
-  'cutover order',
-  'no auto-promote',
-].join(', ') + ')');
+console.log(
+  'smoke-viaggio-domain OK (' +
+    [
+      'empty diary',
+      'empty viaggio',
+      'mapDbViaggio',
+      'anti-alias',
+      'cutover order',
+      'no auto-promote',
+    ].join(', ') +
+    ')',
+);

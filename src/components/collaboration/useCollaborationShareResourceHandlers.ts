@@ -3,14 +3,12 @@
  */
 import type { Dispatch, SetStateAction } from 'react';
 import type {
+  CollaborationUserSearchResult,
   CollaborativeMemberRole,
-  ResourceInvite,
   SharedResource,
   SharedResourceKind,
-  SharedResourceMemberWithProfile,
   SharingMode,
 } from '@/domain/collaboration';
-import type { CollaborationUserSearchResult } from '@/domain/collaboration';
 import {
   ensureShareableResource,
   resendResourceInvite,
@@ -89,7 +87,7 @@ export function useCollaborationShareResourceHandlers(input: {
         shareKind,
         targetResourceId,
         userId,
-        sharingMode
+        sharingMode,
       );
       if (registerResult.success !== true) {
         setActionError(registerResult.error);
@@ -100,7 +98,7 @@ export function useCollaborationShareResourceHandlers(input: {
         const modeResult = await updateShareableResourceMode(
           registerResult.resource.id,
           userId,
-          sharingMode
+          sharingMode,
         );
         if (!modeResult.success) {
           setActionError(modeResult.error ?? 'Impossibile aggiornare la modalità.');
@@ -114,7 +112,7 @@ export function useCollaborationShareResourceHandlers(input: {
           shareKind,
           targetResourceId,
           { userId: pending.userId },
-          pending.role
+          pending.role,
         );
         if (result.success !== true) {
           setActionError(result.error);
@@ -129,12 +127,7 @@ export function useCollaborationShareResourceHandlers(input: {
   const handleRoleChange = async (memberUserId: string, role: CollaborativeMemberRole) => {
     if (!sharedResource) return;
     await runSubmittingAction(async () => {
-      const result = await setSharedResourceMember(
-        sharedResource.id,
-        userId,
-        memberUserId,
-        role
-      );
+      const result = await setSharedResourceMember(sharedResource.id, userId, memberUserId, role);
       if (result.success !== true) {
         setActionError(result.error);
         return;
@@ -174,7 +167,7 @@ export function useCollaborationShareResourceHandlers(input: {
         shareKind,
         shareResourceId,
         { userId: target.id },
-        selectedRole
+        selectedRole,
       );
       if (result.success !== true) {
         setActionError(result.error);

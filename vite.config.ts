@@ -1,13 +1,12 @@
-import path from 'path'
-import { defineConfig, loadEnv } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import path from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig, loadEnv } from 'vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '')
-  const tunnelHmr =
-    (env.DEV_HMR_TUNNEL || process.env.DEV_HMR_TUNNEL || '') === '1'
+  const env = loadEnv(mode, '.', '');
+  const tunnelHmr = (env.DEV_HMR_TUNNEL || process.env.DEV_HMR_TUNNEL || '') === '1';
 
   return {
     server: {
@@ -88,5 +87,5 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-  }
-})
+  };
+});

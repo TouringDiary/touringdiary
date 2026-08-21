@@ -1,11 +1,11 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-import React from 'react';
+import { ArrowRight, Briefcase, Link, Loader2, Sparkles } from 'lucide-react';
+import type React from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Briefcase, Link, ArrowRight, Loader2, Sparkles } from 'lucide-react';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 
 interface AssociationConfirmationModalProps {
   isOpen: boolean;
@@ -59,12 +59,18 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
     <div
       className={`td-modal-overlay ${overlayShell} !items-center`}
       style={{ zIndex: Z_MODAL_NESTED }}
-      onClick={handleDismiss}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={handleDismiss}
+      />
       <div
         className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL_NESTED }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="association-confirmation-title"
@@ -86,8 +92,13 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
           </div>
 
           <div>
-            <h3 id="association-confirmation-title" className={`${modalTitleShell} mb-3`}>{title}</h3>
-            <p id="association-confirmation-desc" className={`${modalSubtitleShell} leading-relaxed max-w-[280px] mx-auto`}>
+            <h3 id="association-confirmation-title" className={`${modalTitleShell} mb-3`}>
+              {title}
+            </h3>
+            <p
+              id="association-confirmation-desc"
+              className={`${modalSubtitleShell} leading-relaxed max-w-[280px] mx-auto`}
+            >
               {message}
             </p>
           </div>
@@ -117,14 +128,18 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
                   type="button"
                   onClick={onConfirm}
                   disabled={isLinking || !isDiaryAssociable}
-                  className={`w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest group ${(!isDiaryAssociable && !isLinking) ? 'opacity-50 cursor-not-allowed grayscale-[0.5]' : ''}`}
+                  className={`w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest group ${!isDiaryAssociable && !isLinking ? 'opacity-50 cursor-not-allowed grayscale-[0.5]' : ''}`}
                 >
                   {isLinking ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Link className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                   )}
-                  {isLinking ? 'Associazione in corso...' : !isDiaryAssociable ? 'Diario non associabile' : 'Salva e associa al diario'}
+                  {isLinking
+                    ? 'Associazione in corso...'
+                    : !isDiaryAssociable
+                      ? 'Diario non associabile'
+                      : 'Salva e associa al diario'}
                 </button>
 
                 <button
@@ -151,7 +166,11 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[10px] uppercase tracking-widest"
                 >
                   <ArrowRight className="w-4 h-4" aria-hidden />
-                  {isLinking ? 'Salvataggio...' : isTemplateDraft ? 'Salva template' : 'Salva Valigia'}
+                  {isLinking
+                    ? 'Salvataggio...'
+                    : isTemplateDraft
+                      ? 'Salva template'
+                      : 'Salva Valigia'}
                 </button>
 
                 <button
@@ -167,6 +186,6 @@ export const AssociationConfirmationModal: React.FC<AssociationConfirmationModal
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

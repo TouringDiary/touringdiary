@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
-import type { DiaryNoteTab } from '@/types/models/DiaryNotes';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HorizontalScrollStrip } from '@/components/common/HorizontalScrollStrip';
+import type { DiaryNoteTab } from '@/types/models/DiaryNotes';
 import { DiaryNoteTabMenu } from './DiaryNoteTabMenu';
 
 interface DiaryNotesTabsProps {
@@ -38,11 +39,14 @@ export const DiaryNotesTabs: React.FC<DiaryNotesTabsProps> = ({
 
   const tabOrderKey = tabs.map((tab) => tab.id).join('|');
 
-  const startEditing = useCallback((tab: DiaryNoteTab) => {
-    if (readOnly) return;
-    setEditingTabId(tab.id);
-    setDraftTitle(tab.title);
-  }, [readOnly]);
+  const startEditing = useCallback(
+    (tab: DiaryNoteTab) => {
+      if (readOnly) return;
+      setEditingTabId(tab.id);
+      setDraftTitle(tab.title);
+    },
+    [readOnly],
+  );
 
   const commitRename = useCallback(() => {
     if (!editingTabId) return;
@@ -169,9 +173,11 @@ export const DiaryNotesTabs: React.FC<DiaryNotesTabsProps> = ({
             }}
             className={`
               diary-notes-tab shrink-0 rounded border transition-colors max-w-[10rem] sm:max-w-[12rem]
-              ${isActive
-                ? 'border-amber-400/90 bg-amber-50 text-amber-900 font-semibold'
-                : 'border-stone-300/70 bg-white/70 text-stone-600 hover:bg-stone-50 hover:text-stone-800'}
+              ${
+                isActive
+                  ? 'border-amber-400/90 bg-amber-50 text-amber-900 font-semibold'
+                  : 'border-stone-300/70 bg-white/70 text-stone-600 hover:bg-stone-50 hover:text-stone-800'
+              }
             `}
             title={`${tab.title} — doppio clic per rinominare`}
           >

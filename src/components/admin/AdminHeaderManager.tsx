@@ -1,855 +1,234 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Monitor, Upload, ShieldCheck, Crop, Loader2, RefreshCw, Save, Image as ImageIcon, Plus, CheckCircle, AlertTriangle, X, Award, MessageSquare, Type, Lock, Share2, Bot, Trash2 } from 'lucide-react';
-import { ImageWithFallback } from '../common/ImageWithFallback';
-import { SETTINGS_KEYS, retirePlatformPlaceholderUrls } from '../../services/settingsService';
-import { useConfig } from '@/context/ConfigContext';
-import { uploadPublicMedia, deleteAdminAssetByUrl } from '../../services/mediaService';
-import { AdminPhotoInspector } from './AdminPhotoInspector';
-import { compressImage, dataURLtoFile } from '../../utils/common';
-import { AdminPageHeader } from './common/AdminPageHeader';
+import { MessageSquare, Monitor, RefreshCw, Trash2 } from 'lucide-react';
+import { useAdminHeaderManager } from '@/hooks/admin/useAdminHeaderManager';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-import { SafeArtPanel } from './design/SafeArtPanel';
-import { PlaceholderGrid } from './design/PlaceholderGrid';
-import { ADMIN_CATEGORY_OPTIONS } from '@/domain/packing/packingCategories';
-
-const GLOBAL_ASSET_DEFAULTS = {
-    hero: 'https://images.unsplash.com/photo-1554797589-72413632cb75?w=1280&h=720&fit=crop',
-    patron: 'https://images.unsplash.com/photo-1580834835824-839735a26622?w=150&h=150&fit=crop',
-    auth_bg: 'https://images.unsplash.com/photo-1560440317-ac278253a693?w=1920&h=1080&fit=crop',
-    social_bg: 'https://images.unsplash.com/photo-1554189097-90d3b64ea373?w=1080&h=1920&fit=crop',
-    ai_box: ''
-};
-
-const SUITCASE_PLACEHOLDER_CATS = [
-    { id: 'global', label: 'Default Globale (Backup)' },
-    ...ADMIN_CATEGORY_OPTIONS.map((name) => ({ id: name, label: name })),
-];
-
-const AdminToast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-    <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white`}>
-        {type === 'success' ? <CheckCircle className="w-6 h-6 shrink-0"/> : <AlertTriangle className="w-6 h-6 shrink-0"/>}
-        <div className="font-bold text-sm">{message}</div>
-        <button onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full"><X className="w-4 h-4"/></button>
-    </div>
-);
+import { AdminPhotoInspector } from './AdminPhotoInspector';
+import { AdminToast } from './adminHeaderManager/AdminToast';
+import { FaviconSection } from './adminHeaderManager/FaviconSection';
+import { FunctionalAssetsSection } from './adminHeaderManager/FunctionalAssetsSection';
+import { HeroSection } from './adminHeaderManager/HeroSection';
+import { PatronSection } from './adminHeaderManager/PatronSection';
+import { PlaceholderSection } from './adminHeaderManager/PlaceholderSection';
+import { AdminPageHeader } from './common/AdminPageHeader';
 
 export const AdminHeaderManager = () => {
-    const { configs, isLoading, updateSetting } = useConfig();
+  const {
+    previewImage,
+    mode,
+    setMode,
+    isSavingHero,
+    patronImage,
+    isSavingPatron,
+    placeholders,
+    suitcasePlaceholders,
+    authBg,
+    socialBg,
+    aiBg,
+    faviconImage,
+    isSavingExtra,
+    isSavingFavicon,
+    toast,
+    setToast,
+    inspectorOpen,
+    setInspectorOpen,
+    imageToEdit,
+    editTarget,
+    editPlaceholderCat,
+    heroNote,
+    showDeleteHeroConfirm,
+    setShowDeleteHeroConfirm,
+    showResetConfirm,
+    setShowResetConfirm,
+    deleteAssetTarget,
+    setDeleteAssetTarget,
+    deletePlaceholderTarget,
+    setDeletePlaceholderTarget,
+    fileInputRef,
+    patronInputRef,
+    placeholderInputRef,
+    suitcasePlaceholderInputRef,
+    authInputRef,
+    socialInputRef,
+    aiBgInputRef,
+    faviconInputRef,
+    showToast,
+    handleFileUpload,
+    handleSaveHero,
+    handleRemoveHeroRequest,
+    confirmRemoveHero,
+    handleRemoveAssetRequest,
+    confirmRemoveAsset,
+    handleSaveFavicon,
+    handleSavePatron,
+    handleSaveExtraAssets,
+    handleReset,
+    executeReset,
+    handleResetPatronGlobal,
+    requestDeletePlaceholder,
+    confirmDeletePlaceholder,
+    openEditor,
+    handleEditorSave,
+    triggerPlaceholderUpload,
+    triggerSuitcasePlaceholderUpload,
+    handleSafeArtSuccess,
+  } = useAdminHeaderManager();
 
-    // STATE
-    const [currentImage, setCurrentImage] = useState(GLOBAL_ASSET_DEFAULTS.hero);
-    const [patronImage, setPatronImage] = useState(GLOBAL_ASSET_DEFAULTS.patron);
-    const [placeholders, setPlaceholders] = useState<Record<string, string>>({});
-    const [suitcasePlaceholders, setSuitcasePlaceholders] = useState<Record<string, string>>({});
-    const [authBg, setAuthBg] = useState(GLOBAL_ASSET_DEFAULTS.auth_bg);
-    const [socialBg, setSocialBg] = useState(GLOBAL_ASSET_DEFAULTS.social_bg);
-    const [aiBg, setAiBg] = useState(GLOBAL_ASSET_DEFAULTS.ai_box);
-    const [faviconImage, setFaviconImage] = useState('');
-    
-    // UI State
-    const [previewImage, setPreviewImage] = useState<string | null>(null);
-    const [mode, setMode] = useState<'upload' | 'generate'>('upload');
-    const [isSavingHero, setIsSavingHero] = useState(false);
-    const [isSavingPatron, setIsSavingPatron] = useState(false);
-    const [isSavingExtra, setIsSavingExtra] = useState(false);
-    const [isSavingFavicon, setIsSavingFavicon] = useState(false);
-    const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
-    const [inspectorOpen, setInspectorOpen] = useState(false);
-    const [imageToEdit, setImageToEdit] = useState('');
-    const [editTarget, setEditTarget] = useState<'hero' | 'patron' | 'placeholder' | 'suitcase_placeholder' | 'auth' | 'social' | 'ai_bg' | 'favicon'>('hero');
-    const [editPlaceholderCat, setEditPlaceholderCat] = useState<string>('');
-    const [heroNote, setHeroNote] = useState('');
+  return (
+    <div className="space-y-8 animate-in fade-in relative min-h-screen overflow-hidden pb-20">
+      {toast && (
+        <AdminToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
 
-    // DELETE CONFIRMATION STATE
-    const [showDeleteHeroConfirm, setShowDeleteHeroConfirm] = useState(false);
-    const [showResetConfirm, setShowResetConfirm] = useState(false);
-    const [deleteAssetTarget, setDeleteAssetTarget] = useState<'auth' | 'social' | 'ai_bg' | 'favicon' | null>(null);
-    const [deletePlaceholderTarget, setDeletePlaceholderTarget] = useState<
-        { kind: 'category' | 'suitcase'; catId: string; url: string } | null
-    >(null);
+      <DeleteConfirmationModal
+        isOpen={showDeleteHeroConfirm}
+        onClose={() => setShowDeleteHeroConfirm(false)}
+        onConfirm={confirmRemoveHero}
+        title="Rimuovere Hero Image?"
+        message="L'immagine verrà rimossa da Asset Globali (settings + storage se caricata in admin_assets). Il sito userà il default."
+        confirmLabel="Elimina"
+        variant="danger"
+        icon={<Trash2 className="w-8 h-8 text-red-500 animate-pulse" />}
+      />
 
-    // REFS
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const patronInputRef = useRef<HTMLInputElement>(null);
-    const placeholderInputRef = useRef<HTMLInputElement>(null);
-    const suitcasePlaceholderInputRef = useRef<HTMLInputElement>(null);
-    const authInputRef = useRef<HTMLInputElement>(null);
-    const socialInputRef = useRef<HTMLInputElement>(null);
-    const aiBgInputRef = useRef<HTMLInputElement>(null);
-    const faviconInputRef = useRef<HTMLInputElement>(null);
-    
-    // Initial Load from ConfigContext
-    useEffect(() => {
-        if (!isLoading && configs) {
-            const heroImage = configs[SETTINGS_KEYS.HERO_IMAGE];
-            const patron = configs[SETTINGS_KEYS.DEFAULT_PATRON_IMAGE];
-            const auth = configs[SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE];
-            const social = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG];
-            const ai = configs[SETTINGS_KEYS.AI_CONSULTANT_BG];
-            const favicon = configs[SETTINGS_KEYS.FAVICON_IMAGE];
-            const ph = configs[SETTINGS_KEYS.CATEGORY_PLACEHOLDERS];
-            const sph = configs[SETTINGS_KEYS.SUITCASE_PLACEHOLDERS];
+      <DeleteConfirmationModal
+        isOpen={!!deleteAssetTarget}
+        onClose={() => setDeleteAssetTarget(null)}
+        onConfirm={confirmRemoveAsset}
+        title="Eliminare Asset Globale?"
+        message="L'asset verrà rimosso dalle impostazioni e dal storage (se presente in admin_assets). Nessun impatto sul dominio Photo."
+        confirmLabel="Elimina"
+        variant="danger"
+        icon={<Trash2 className="w-8 h-8 text-red-500" />}
+      />
 
-            setCurrentImage(heroImage || GLOBAL_ASSET_DEFAULTS.hero);
-            setPreviewImage(heroImage || GLOBAL_ASSET_DEFAULTS.hero);
-            setPatronImage(patron || GLOBAL_ASSET_DEFAULTS.patron);
-            setAuthBg(auth || GLOBAL_ASSET_DEFAULTS.auth_bg);
-            setSocialBg(social || GLOBAL_ASSET_DEFAULTS.social_bg);
-            setAiBg(ai !== undefined ? ai : GLOBAL_ASSET_DEFAULTS.ai_box);
-            setFaviconImage(typeof favicon === 'string' ? favicon : '');
-            setPlaceholders(ph || {});
-            setSuitcasePlaceholders(sph || {});
-        }
-    }, [configs, isLoading]);
+      <DeleteConfirmationModal
+        isOpen={!!deletePlaceholderTarget}
+        onClose={() => setDeletePlaceholderTarget(null)}
+        onConfirm={confirmDeletePlaceholder}
+        title="Eliminare Placeholder?"
+        message={`Il placeholder "${deletePlaceholderTarget?.catId ?? ''}" verrà rimosso da Asset Globali. Il registry runtime si aggiorna subito.`}
+        confirmLabel="Elimina"
+        variant="danger"
+        icon={<Trash2 className="w-8 h-8 text-red-500" />}
+      />
 
-    const showToast = (message: string, type: 'success' | 'error') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), type === 'error' ? 8000 : 4000);
-    };
+      <DeleteConfirmationModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={executeReset}
+        title="Ripristina Default"
+        message="Ripristinare l'immagine di default?"
+        confirmLabel="Ripristina"
+        variant="info"
+      />
 
-    /**
-     * Storage cleanup is best-effort after settings SoT update.
-     * Failure must not roll back settings; returns whether cleanup failed.
-     */
-    const cleanupAdminAssetStorage = async (
-        url: string | null | undefined,
-    ): Promise<'skipped' | 'ok' | 'failed'> => {
-        if (!url?.trim()) return 'skipped';
-        // Only files we own under admin_assets; external/default URLs are skipped.
-        if (!url.includes('/admin_assets/')) return 'skipped';
+      <AdminPageHeader
+        icon={Monitor}
+        title="Design & Asset Globali"
+        subtitle="Personalizza l'aspetto e i fallback"
+        accent="indigo"
+        className="!mb-6"
+      />
 
-        try {
-            const removed = await deleteAdminAssetByUrl(url);
-            if (removed) return 'ok';
-            console.warn(
-                '[AssetGlobali] Settings aggiornate; cleanup Storage non riuscito:',
-                url,
-            );
-            return 'failed';
-        } catch (err) {
-            console.warn(
-                '[AssetGlobali] Settings aggiornate; errore cleanup Storage:',
-                url,
-                err,
-            );
-            return 'failed';
-        }
-    };
-
-    const toastSettingsUpdated = (
-        successMessage: string,
-        cleanup: 'skipped' | 'ok' | 'failed',
-    ) => {
-        if (cleanup === 'failed') {
-            showToast(
-                `${successMessage} Cleanup Storage non completato (file eventualmente ancora in admin_assets).`,
-                'error',
-            );
-            return;
-        }
-        showToast(successMessage, 'success');
-    };
-
-    /**
-     * Shared Asset Globali persist path.
-     * ConfigContext.updateSetting already refreshes SoT — no extra refreshConfig.
-     */
-    const commitAssetSettingChange = async (params: {
-        settingKey: string;
-        value: unknown;
-        retireUrls?: ReadonlyArray<string | null | undefined>;
-        cleanupUrl?: string | null | undefined;
-        successMessage: string;
-    }): Promise<void> => {
-        if (params.retireUrls?.length) {
-            await retirePlatformPlaceholderUrls(params.retireUrls);
-        }
-        await updateSetting(params.settingKey, params.value);
-        const cleanup = await cleanupAdminAssetStorage(params.cleanupUrl);
-        toastSettingsUpdated(params.successMessage, cleanup);
-    };
-
-    type AssetUploadTarget = 'hero' | 'patron' | 'placeholder' | 'suitcase_placeholder' | 'auth' | 'social' | 'ai_bg' | 'favicon';
-
-    /** Updates local state (or persists placeholders). Returns whether a save toast already fired. */
-    const applyUploadedImage = async (
-        target: AssetUploadTarget,
-        publicUrl: string,
-        phCat?: string,
-    ): Promise<'local' | 'persisted'> => {
-        if (target === 'hero') {
-            setPreviewImage(publicUrl);
-            return 'local';
-        }
-        if (target === 'patron') {
-            setPatronImage(publicUrl);
-            return 'local';
-        }
-        if (target === 'auth') {
-            setAuthBg(publicUrl);
-            return 'local';
-        }
-        if (target === 'social') {
-            setSocialBg(publicUrl);
-            return 'local';
-        }
-        if (target === 'ai_bg') {
-            setAiBg(publicUrl);
-            return 'local';
-        }
-        if (target === 'favicon') {
-            setFaviconImage(publicUrl);
-            return 'local';
-        }
-        if (target === 'placeholder' && phCat) {
-            await handleSavePlaceholder(phCat, publicUrl);
-            return 'persisted';
-        }
-        if (target === 'suitcase_placeholder' && phCat) {
-            await handleSaveSuitcasePlaceholder(phCat, publicUrl);
-            return 'persisted';
-        }
-        return 'local';
-    };
-
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: AssetUploadTarget, phCat?: string) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        try {
-            const compressedBase64 = await compressImage(file);
-            const compressedFile = dataURLtoFile(compressedBase64, file.name);
-            const publicUrl = await uploadPublicMedia(compressedFile, 'admin_assets');
-
-            if (publicUrl) {
-                const applyMode = await applyUploadedImage(target, publicUrl, phCat);
-                // Placeholder save already toasts — avoid duplicate "Immagine caricata"
-                if (applyMode === 'local') {
-                    showToast("Immagine caricata con successo!", 'success');
-                }
-            } else {
-                showToast("Errore upload cloud.", 'error');
-            }
-        } catch (err) {
-            console.error(err);
-            showToast("Errore elaborazione file.", 'error');
-        } finally {
-             if (fileInputRef.current) fileInputRef.current.value = '';
-             if (patronInputRef.current) patronInputRef.current.value = '';
-             if (placeholderInputRef.current) placeholderInputRef.current.value = '';
-             if (suitcasePlaceholderInputRef.current) suitcasePlaceholderInputRef.current.value = '';
-             if (authInputRef.current) authInputRef.current.value = '';
-             if (socialInputRef.current) socialInputRef.current.value = '';
-             if (aiBgInputRef.current) aiBgInputRef.current.value = '';
-             if (faviconInputRef.current) faviconInputRef.current.value = '';
-        }
-    };
-
-    const handleSaveHero = async () => {
-        setIsSavingHero(true);
-        const valToSave = previewImage === GLOBAL_ASSET_DEFAULTS.hero ? '' : previewImage;
-        const previousStored = configs[SETTINGS_KEYS.HERO_IMAGE] as string | null | undefined;
-        await commitAssetSettingChange({
-            settingKey: SETTINGS_KEYS.HERO_IMAGE,
-            value: valToSave,
-            retireUrls: previousStored && previousStored !== valToSave ? [previousStored] : undefined,
-            successMessage: 'Header salvato!',
-        });
-        setCurrentImage(previewImage || GLOBAL_ASSET_DEFAULTS.hero);
-        setHeroNote('');
-        setIsSavingHero(false);
-    };
-    
-    const handleRemoveHeroRequest = () => setShowDeleteHeroConfirm(true);
-
-    const confirmRemoveHero = async () => {
-        const previousUrl =
-            previewImage && previewImage !== GLOBAL_ASSET_DEFAULTS.hero ? previewImage : null;
-        setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
-        setCurrentImage(GLOBAL_ASSET_DEFAULTS.hero);
-        await commitAssetSettingChange({
-            settingKey: SETTINGS_KEYS.HERO_IMAGE,
-            value: '',
-            retireUrls: [previousUrl],
-            cleanupUrl: previousUrl,
-            successMessage: 'Hero eliminato da Asset Globali.',
-        });
-        setShowDeleteHeroConfirm(false);
-    };
-
-    const handleRemoveAssetRequest = (target: 'auth' | 'social' | 'ai_bg' | 'favicon') => setDeleteAssetTarget(target);
-
-    const confirmRemoveAsset = async () => {
-        if (!deleteAssetTarget) return;
-
-        let previousUrl: string | null = null;
-        let settingKey = SETTINGS_KEYS.AI_CONSULTANT_BG;
-        if (deleteAssetTarget === 'auth') {
-            previousUrl = authBg !== GLOBAL_ASSET_DEFAULTS.auth_bg ? authBg : null;
-            setAuthBg(GLOBAL_ASSET_DEFAULTS.auth_bg);
-            settingKey = SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE;
-        } else if (deleteAssetTarget === 'social') {
-            previousUrl = socialBg !== GLOBAL_ASSET_DEFAULTS.social_bg ? socialBg : null;
-            setSocialBg(GLOBAL_ASSET_DEFAULTS.social_bg);
-            settingKey = SETTINGS_KEYS.SOCIAL_CANVAS_BG;
-        } else if (deleteAssetTarget === 'favicon') {
-            previousUrl = faviconImage || null;
-            setFaviconImage('');
-            settingKey = SETTINGS_KEYS.FAVICON_IMAGE;
-        } else {
-            previousUrl = aiBg || null;
-            setAiBg('');
-            settingKey = SETTINGS_KEYS.AI_CONSULTANT_BG;
-        }
-
-        await commitAssetSettingChange({
-            settingKey,
-            value: '',
-            retireUrls: [previousUrl],
-            cleanupUrl: previousUrl,
-            successMessage: 'Asset eliminato da Asset Globali.',
-        });
-        setDeleteAssetTarget(null);
-    };
-
-    const handleSaveFavicon = async () => {
-        setIsSavingFavicon(true);
-        try {
-            const valToSave = faviconImage || '';
-            const previousStored = configs[SETTINGS_KEYS.FAVICON_IMAGE] as string | null | undefined;
-            const replaced = Boolean(previousStored && previousStored !== valToSave);
-            await commitAssetSettingChange({
-                settingKey: SETTINGS_KEYS.FAVICON_IMAGE,
-                value: valToSave,
-                retireUrls: replaced ? [previousStored] : undefined,
-                cleanupUrl: replaced ? previousStored : undefined,
-                successMessage: 'Favicon salvato. Esposto su /favicon.ico.',
-            });
-        } catch (err) {
-            console.error(err);
-            showToast('Errore salvataggio favicon.', 'error');
-        } finally {
-            setIsSavingFavicon(false);
-        }
-    };
-
-    const handleSavePatron = async () => {
-        setIsSavingPatron(true);
-        const valToSave = patronImage === GLOBAL_ASSET_DEFAULTS.patron ? '' : patronImage;
-        const previousStored = configs[SETTINGS_KEYS.DEFAULT_PATRON_IMAGE] as string | null | undefined;
-        await commitAssetSettingChange({
-            settingKey: SETTINGS_KEYS.DEFAULT_PATRON_IMAGE,
-            value: valToSave,
-            retireUrls: previousStored && previousStored !== valToSave ? [previousStored] : undefined,
-            successMessage: 'Patrono master aggiornato!',
-        });
-        setIsSavingPatron(false);
-    };
-    
-    const handleSaveExtraAssets = async () => {
-        setIsSavingExtra(true);
-        try {
-            const newAssetData = {
-                'auth_background_image': authBg === GLOBAL_ASSET_DEFAULTS.auth_bg ? '' : authBg,
-                'social_canvas_bg': socialBg === GLOBAL_ASSET_DEFAULTS.social_bg ? '' : socialBg,
-                'ai_consultant_bg': aiBg,
-            };
-
-            const prevAuth = configs[SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE] as string | null | undefined;
-            const prevSocial = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG] as string | null | undefined;
-            const prevAi = configs[SETTINGS_KEYS.AI_CONSULTANT_BG] as string | null | undefined;
-            const replacedAuth = prevAuth && prevAuth !== newAssetData.auth_background_image ? prevAuth : null;
-            const replacedSocial = prevSocial && prevSocial !== newAssetData.social_canvas_bg ? prevSocial : null;
-            const replacedAi = prevAi && prevAi !== newAssetData.ai_consultant_bg ? prevAi : null;
-
-            await retirePlatformPlaceholderUrls([replacedAuth, replacedSocial, replacedAi]);
-
-            // updateSetting already refreshes ConfigContext SoT per call
-            await Promise.all([
-                updateSetting(SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE, newAssetData.auth_background_image),
-                updateSetting(SETTINGS_KEYS.SOCIAL_CANVAS_BG, newAssetData.social_canvas_bg),
-                updateSetting(SETTINGS_KEYS.AI_CONSULTANT_BG, newAssetData.ai_consultant_bg),
-            ]);
-
-            // Best-effort storage cleanup for replaced assets (no rollback, same as commitAssetSettingChange)
-            await Promise.all([
-                cleanupAdminAssetStorage(replacedAuth),
-                cleanupAdminAssetStorage(replacedSocial),
-                cleanupAdminAssetStorage(replacedAi),
-            ]);
-
-            showToast("Asset funzionali salvati in 'design_system'!", 'success');
-        } catch (err) {
-            console.error("Errore durante il salvataggio degli asset:", err);
-            showToast("Errore imprevisto durante il salvataggio.", 'error');
-        } finally {
-            setIsSavingExtra(false);
-        }
-    };
-    
-    const handleReset = () => setShowResetConfirm(true);
-
-    const executeReset = async () => {
-        const previousUrl =
-            currentImage && currentImage !== GLOBAL_ASSET_DEFAULTS.hero ? currentImage : null;
-        setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
-        setCurrentImage(GLOBAL_ASSET_DEFAULTS.hero);
-        await commitAssetSettingChange({
-            settingKey: SETTINGS_KEYS.HERO_IMAGE,
-            value: '',
-            retireUrls: [previousUrl],
-            cleanupUrl: previousUrl,
-            successMessage: 'Reset completato.',
-        });
-        setShowResetConfirm(false);
-    };
-
-    const handleResetPatronGlobal = async () => {
-        const previousUrl =
-            patronImage !== GLOBAL_ASSET_DEFAULTS.patron ? patronImage : null;
-        setPatronImage(GLOBAL_ASSET_DEFAULTS.patron);
-        await commitAssetSettingChange({
-            settingKey: SETTINGS_KEYS.DEFAULT_PATRON_IMAGE,
-            value: '',
-            retireUrls: [previousUrl],
-            cleanupUrl: previousUrl,
-            successMessage: 'Patrono eliminato da Asset Globali.',
-        });
-    };
-
-    const handleSavePlaceholder = async (cat: string, url: string) => {
-        const previousUrl = placeholders[cat];
-        const updated = { ...placeholders, [cat]: url };
-        setPlaceholders(updated);
-        await commitAssetSettingChange({
-            settingKey: SETTINGS_KEYS.CATEGORY_PLACEHOLDERS,
-            value: updated,
-            retireUrls: previousUrl && previousUrl !== url ? [previousUrl] : undefined,
-            cleanupUrl: previousUrl && previousUrl !== url ? previousUrl : undefined,
-            successMessage: `Placeholder per ${cat} aggiornato!`,
-        });
-    };
-
-    const handleSaveSuitcasePlaceholder = async (cat: string, url: string) => {
-        const previousUrl = suitcasePlaceholders[cat];
-        const updated = { ...suitcasePlaceholders, [cat]: url };
-        setSuitcasePlaceholders(updated);
-        await commitAssetSettingChange({
-            settingKey: SETTINGS_KEYS.SUITCASE_PLACEHOLDERS,
-            value: updated,
-            retireUrls: previousUrl && previousUrl !== url ? [previousUrl] : undefined,
-            cleanupUrl: previousUrl && previousUrl !== url ? previousUrl : null,
-            successMessage: `Placeholder valigia per ${cat} aggiornato!`,
-        });
-    };
-
-    const requestDeletePlaceholder = (kind: 'category' | 'suitcase', catId: string) => {
-        const url =
-            kind === 'category' ? placeholders[catId] : suitcasePlaceholders[catId];
-        if (!url) return;
-        setDeletePlaceholderTarget({ kind, catId, url });
-    };
-
-    const confirmDeletePlaceholder = async () => {
-        if (!deletePlaceholderTarget) return;
-        const { kind, catId, url } = deletePlaceholderTarget;
-
-        if (kind === 'category') {
-            const updated = { ...placeholders };
-            delete updated[catId];
-            setPlaceholders(updated);
-            await commitAssetSettingChange({
-                settingKey: SETTINGS_KEYS.CATEGORY_PLACEHOLDERS,
-                value: updated,
-                retireUrls: [url],
-                cleanupUrl: url,
-                successMessage: `Placeholder "${catId}" eliminato.`,
-            });
-        } else {
-            const updated = { ...suitcasePlaceholders };
-            delete updated[catId];
-            setSuitcasePlaceholders(updated);
-            await commitAssetSettingChange({
-                settingKey: SETTINGS_KEYS.SUITCASE_PLACEHOLDERS,
-                value: updated,
-                retireUrls: [url],
-                cleanupUrl: url,
-                successMessage: `Placeholder "${catId}" eliminato.`,
-            });
-        }
-
-        setDeletePlaceholderTarget(null);
-    };
-
-    const openEditor = (url: string, target: 'hero' | 'patron' | 'placeholder' | 'suitcase_placeholder' | 'auth' | 'social' | 'ai_bg' | 'favicon', cat?: string) => {
-        if (!url) return;
-        setImageToEdit(url);
-        setEditTarget(target);
-        if (cat) setEditPlaceholderCat(cat);
-        setInspectorOpen(true);
-    };
-
-    const handleEditorSave = async (data: { image: string }) => {
-        const newImageUrl = data.image;
-        if (editTarget === 'hero') {
-            setPreviewImage(newImageUrl);
-            setHeroNote("Immagine modificata pronta per il salvataggio.");
-        } else if (editTarget === 'patron') {
-            setPatronImage(newImageUrl);
-        } else if (editTarget === 'auth') {
-            setAuthBg(newImageUrl);
-        } else if (editTarget === 'social') {
-            setSocialBg(newImageUrl);
-        } else if (editTarget === 'ai_bg') {
-            setAiBg(newImageUrl);
-        } else if (editTarget === 'favicon') {
-            setFaviconImage(newImageUrl);
-        } else if (editTarget === 'placeholder' && editPlaceholderCat) {
-            await handleSavePlaceholder(editPlaceholderCat, newImageUrl);
-        } else if (editTarget === 'suitcase_placeholder' && editPlaceholderCat) {
-            await handleSaveSuitcasePlaceholder(editPlaceholderCat, newImageUrl);
-        }
-        setInspectorOpen(false);
-    };
-    
-    const triggerPlaceholderUpload = (cat: string) => {
-        setEditPlaceholderCat(cat);
-        if (placeholderInputRef.current) placeholderInputRef.current.value = '';
-        placeholderInputRef.current?.click();
-    };
-
-    const triggerSuitcasePlaceholderUpload = (cat: string) => {
-        setEditPlaceholderCat(cat);
-        if (suitcasePlaceholderInputRef.current) suitcasePlaceholderInputRef.current.value = '';
-        suitcasePlaceholderInputRef.current?.click();
-    };
-    
-    const handleSafeArtSuccess = (url: string) => {
-        setPreviewImage(url);
-        setMode('upload');
-        showToast("Safe-Art Generata con successo!", 'success');
-    };
-
-    return (
-        <div className="space-y-8 animate-in fade-in relative min-h-screen overflow-hidden pb-20">
-            
-            {toast && <AdminToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
-            <DeleteConfirmationModal
-                isOpen={showDeleteHeroConfirm}
-                onClose={() => setShowDeleteHeroConfirm(false)}
-                onConfirm={confirmRemoveHero}
-                title="Rimuovere Hero Image?"
-                message="L'immagine verrà rimossa da Asset Globali (settings + storage se caricata in admin_assets). Il sito userà il default."
-                confirmLabel="Elimina"
-                variant="danger"
-                icon={<Trash2 className="w-8 h-8 text-red-500 animate-pulse"/>}
-            />
-
-            <DeleteConfirmationModal
-                isOpen={!!deleteAssetTarget}
-                onClose={() => setDeleteAssetTarget(null)}
-                onConfirm={confirmRemoveAsset}
-                title="Eliminare Asset Globale?"
-                message="L'asset verrà rimosso dalle impostazioni e dal storage (se presente in admin_assets). Nessun impatto sul dominio Photo."
-                confirmLabel="Elimina"
-                variant="danger"
-                icon={<Trash2 className="w-8 h-8 text-red-500"/>}
-            />
-
-            <DeleteConfirmationModal
-                isOpen={!!deletePlaceholderTarget}
-                onClose={() => setDeletePlaceholderTarget(null)}
-                onConfirm={confirmDeletePlaceholder}
-                title="Eliminare Placeholder?"
-                message={`Il placeholder "${deletePlaceholderTarget?.catId ?? ''}" verrà rimosso da Asset Globali. Il registry runtime si aggiorna subito.`}
-                confirmLabel="Elimina"
-                variant="danger"
-                icon={<Trash2 className="w-8 h-8 text-red-500"/>}
-            />
-
-            <DeleteConfirmationModal
-                isOpen={showResetConfirm}
-                onClose={() => setShowResetConfirm(false)}
-                onConfirm={executeReset}
-                title="Ripristina Default"
-                message="Ripristinare l'immagine di default?"
-                confirmLabel="Ripristina"
-                variant="info"
-            />
-            
-            <AdminPageHeader
-                icon={Monitor}
-                title="Design & Asset Globali"
-                subtitle="Personalizza l'aspetto e i fallback"
-                accent="indigo"
-                className="!mb-6"
-            />
-
-            <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-lg overflow-hidden relative z-floating-panel">
-                 <div className="flex justify-end items-center p-4 border-b border-slate-800 bg-slate-950/50">
-                    <button onClick={handleReset} className="bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-colors">
-                        <RefreshCw className="w-4 h-4"/> Ripristina Default
-                    </button>
-                </div>
-
-                <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="flex flex-col gap-6">
-                        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                            <button onClick={() => setMode('upload')} className={`flex-1 py-2 text-xs font-bold uppercase rounded-md flex items-center justify-center gap-2 transition-all ${mode === 'upload' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}>
-                                <Upload className="w-4 h-4"/> Carica / URL
-                            </button>
-                            <button onClick={() => setMode('generate')} className={`flex-1 py-2 text-xs font-bold uppercase rounded-md flex items-center justify-center gap-2 transition-all ${mode === 'generate' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}>
-                                <ImageIcon className="w-4 h-4"/> Safe-Art Gen
-                            </button>
-                        </div>
-
-                        <div className="relative aspect-video rounded-xl overflow-hidden border-2 border-slate-700 bg-black group shadow-lg">
-                            <ImageWithFallback 
-                                src={previewImage || GLOBAL_ASSET_DEFAULTS.hero} 
-                                alt="Hero" 
-                                className="w-full h-full object-cover opacity-60 grayscale-[30%] group-hover:grayscale-[10%] transition-all duration-1000"
-                                priority={true} 
-                            />
-                             <div className="absolute top-2 right-2 flex gap-2">
-                                <button onClick={() => openEditor(previewImage || GLOBAL_ASSET_DEFAULTS.hero, 'hero')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg shadow-lg border border-white/20 transition-colors flex items-center gap-2 text-[10px] font-bold uppercase" title="Modifica e Ritaglia">
-                                    <Crop className="w-4 h-4"/> <span className="hidden lg:inline">Ritaglia / Effetti</span>
-                                </button>
-                                <button onClick={handleRemoveHeroRequest} className="bg-red-600 hover:bg-red-500 text-white p-2 rounded-lg shadow-lg border border-white/20 transition-colors" title="Rimuovi Immagine">
-                                    <Trash2 className="w-4 h-4"/>
-                                </button>
-                             </div>
-                        </div>
-                        
-                        {mode === 'upload' ? (
-                            <div className="flex gap-3">
-                                <button onClick={() => fileInputRef.current?.click()} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl font-bold text-sm border border-slate-700 transition-colors flex items-center justify-center gap-2">
-                                    <Upload className="w-4 h-4"/> Carica File
-                                </button>
-                                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'hero')} />
-                            </div>
-                        ) : (
-                            <SafeArtPanel 
-                                onImageGenerated={handleSafeArtSuccess} 
-                                onError={(msg) => showToast(msg, 'error')} 
-                            />
-                        )}
-
-                        <button onClick={handleSaveHero} disabled={isSavingHero} className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-4 rounded-xl font-bold text-base shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 mt-4">
-                            {isSavingHero ? <Loader2 className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5"/>} 
-                            Applica Header (DB)
-                        </button>
-                    </div>
-
-                    <div className="flex flex-col gap-6">
-                        <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 flex flex-col gap-4">
-                            <div className="flex items-center gap-3 mb-2 justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-amber-900/20 rounded-lg text-amber-500"><Award className="w-6 h-6"/></div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Patrono Master</h3>
-                                        <p className="text-xs text-slate-400">Default per nuovi Santi</p>
-                                    </div>
-                                </div>
-                                <button onClick={handleResetPatronGlobal} className="text-[10px] text-slate-500 hover:text-red-400 underline">Reset</button>
-                            </div>
-
-                            <div className="flex items-center gap-6">
-                                <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-slate-700 shadow-xl group shrink-0">
-                                    <ImageWithFallback src={patronImage || GLOBAL_ASSET_DEFAULTS.patron} alt="Patrono Master" className="w-full h-full object-cover" onClick={() => openEditor(patronImage || GLOBAL_ASSET_DEFAULTS.patron, 'patron')}/>
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => openEditor(patronImage || GLOBAL_ASSET_DEFAULTS.patron, 'patron')}>
-                                        <Crop className="w-6 h-6 text-white"/>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-2 w-full">
-                                    <button onClick={() => patronInputRef.current?.click()} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold uppercase rounded-lg border border-slate-600 transition-colors">
-                                        Carica File
-                                    </button>
-                                    <input ref={patronInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'patron')} />
-                                    <button onClick={handleSavePatron} disabled={isSavingPatron} className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold uppercase rounded-lg shadow-lg transition-colors flex items-center justify-center gap-2">
-                                        {isSavingPatron ? <Loader2 className="w-3 h-3 animate-spin"/> : <Save className="w-3 h-3"/>} Salva
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <PlaceholderGrid 
-                            placeholders={placeholders} 
-                            onUploadClick={triggerPlaceholderUpload} 
-                            onEditClick={(url, catId) => openEditor(url, 'placeholder', catId)}
-                            onDeleteClick={(catId) => requestDeletePlaceholder('category', catId)}
-                        />
-                        <input ref={placeholderInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'placeholder', editPlaceholderCat)} />
-
-                        <PlaceholderGrid 
-                            title="Suitcase Suggestion Placeholders"
-                            description="Usati se manca l'immagine prodotto nei suggerimenti valigia"
-                            categories={SUITCASE_PLACEHOLDER_CATS}
-                            placeholders={suitcasePlaceholders} 
-                            onUploadClick={triggerSuitcasePlaceholderUpload} 
-                            onEditClick={(url, catId) => openEditor(url, 'suitcase_placeholder', catId)}
-                            onDeleteClick={(catId) => requestDeletePlaceholder('suitcase', catId)}
-                        />
-                        <input ref={suitcasePlaceholderInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'suitcase_placeholder', editPlaceholderCat)} />
-
-                    </div>
-                </div>
-            </div>
-            
-            <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-lg mt-8">
-                 <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
-                     <div>
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Monitor className="w-5 h-5 text-indigo-500"/> Asset Funzionali
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1">Immagini di sistema per login, condivisione e AI.</p>
-                     </div>
-                     <button onClick={handleSaveExtraAssets} disabled={isSavingExtra} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold uppercase text-xs flex items-center gap-2 shadow-lg transition-all active:scale-95">
-                         {isSavingExtra ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} Salva Asset
-                     </button>
-                 </div>
-
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                     <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col gap-4">
-                         <div className="flex items-center justify-between mb-1">
-                             <div className="flex items-center gap-2">
-                                 <div className="p-2 bg-indigo-900/20 rounded-lg text-indigo-400"><Lock className="w-4 h-4"/></div>
-                                 <div>
-                                     <h4 className="font-bold text-white text-sm">Background Login</h4>
-                                     <p className="text-[10px] text-slate-500 uppercase">Schermata Auth</p>
-                                 </div>
-                             </div>
-                             <button onClick={() => handleRemoveAssetRequest('auth')} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 rounded transition-colors"><Trash2 className="w-4 h-4"/></button>
-                         </div>
-                         <div className="aspect-video bg-black rounded-lg overflow-hidden relative group border border-slate-700">
-                             <img src={authBg || GLOBAL_ASSET_DEFAULTS.auth_bg} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt="Auth BG"/>
-                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-opacity gap-2">
-                                 <button onClick={() => authInputRef.current?.click()} className="p-2 bg-white text-slate-900 rounded-full shadow-lg hover:scale-110 transition-transform"><Upload className="w-4 h-4"/></button>
-                                 <button onClick={() => openEditor(authBg || GLOBAL_ASSET_DEFAULTS.auth_bg, 'auth')} className="p-2 bg-indigo-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform"><Crop className="w-4 h-4"/></button>
-                             </div>
-                             <input ref={authInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'auth')} />
-                         </div>
-                     </div>
-
-                     <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col gap-4">
-                         <div className="flex items-center justify-between mb-1">
-                             <div className="flex items-center gap-2">
-                                 <div className="p-2 bg-pink-900/20 rounded-lg text-pink-400"><Share2 className="w-4 h-4"/></div>
-                                 <div>
-                                     <h4 className="font-bold text-white text-sm">Social Canvas Default</h4>
-                                     <p className="text-[10px] text-slate-500 uppercase">Viral Kit</p>
-                                 </div>
-                             </div>
-                             <button onClick={() => handleRemoveAssetRequest('social')} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 rounded transition-colors"><Trash2 className="w-4 h-4"/></button>
-                         </div>
-                         <div className="aspect-[3/4] bg-black rounded-lg overflow-hidden relative group border border-slate-700 max-w-[150px] mx-auto">
-                             <img src={socialBg || GLOBAL_ASSET_DEFAULTS.social_bg} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt="Social BG"/>
-                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-opacity gap-2">
-                                 <button onClick={() => socialInputRef.current?.click()} className="p-2 bg-white text-slate-900 rounded-full shadow-lg hover:scale-110 transition-transform"><Upload className="w-4 h-4"/></button>
-                                 <button onClick={() => openEditor(socialBg || GLOBAL_ASSET_DEFAULTS.social_bg, 'social')} className="p-2 bg-pink-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform"><Crop className="w-4 h-4"/></button>
-                             </div>
-                             <input ref={socialInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'social')} />
-                         </div>
-                     </div>
-                     
-                     <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col gap-4">
-                         <div className="flex items-center justify-between mb-1">
-                             <div className="flex items-center gap-2">
-                                 <div className="p-2 bg-purple-900/20 rounded-lg text-purple-400"><Bot className="w-4 h-4"/></div>
-                                 <div>
-                                     <h4 className="font-bold text-white text-sm">Box AI Consultant</h4>
-                                     <p className="text-[10px] text-slate-500 uppercase">Home Page</p>
-                                 </div>
-                             </div>
-                             <button onClick={() => handleRemoveAssetRequest('ai_bg')} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 rounded transition-colors"><Trash2 className="w-4 h-4"/></button>
-                         </div>
-                         
-                         <div className="aspect-video bg-black rounded-lg overflow-hidden relative group border border-slate-700">
-                             {aiBg ? (
-                                <img src={aiBg} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt="AI BG"/>
-                             ) : (
-                                <div className="absolute inset-0 flex items-center justify-center bg-slate-800 text-slate-500 text-xs font-bold uppercase tracking-widest border-2 border-dashed border-slate-700">
-                                    Nessuna Foto (Stile Sito)
-                                </div>
-                             )}
-                             
-                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-opacity gap-2">
-                                 <button onClick={() => aiBgInputRef.current?.click()} className="p-2 bg-white text-slate-900 rounded-full shadow-lg hover:scale-110 transition-transform"><Upload className="w-4 h-4"/></button>
-                                 {aiBg && <button onClick={() => openEditor(aiBg, 'ai_bg')} className="p-2 bg-purple-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform"><Crop className="w-4 h-4"/></button>}
-                             </div>
-                             <input ref={aiBgInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'ai_bg')} />
-                         </div>
-                     </div>
-                 </div>
-            </div>
-
-            <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-lg mt-8">
-                <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
-                    <div>
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <ImageIcon className="w-5 h-5 text-amber-500"/> Favicon
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1">Icona browser esposta su <span className="text-slate-300 font-mono">/favicon.ico</span> (sempre HTTP 200).</p>
-                    </div>
-                    <button onClick={handleSaveFavicon} disabled={isSavingFavicon} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold uppercase text-xs flex items-center gap-2 shadow-lg transition-all active:scale-95">
-                        {isSavingFavicon ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} Salva Favicon
-                    </button>
-                </div>
-
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 items-start max-w-xl w-full">
-                    <div className="flex items-center justify-between w-full md:w-auto mb-1 md:hidden">
-                        <span className="font-bold text-white text-sm">Anteprima</span>
-                        <button onClick={() => handleRemoveAssetRequest('favicon')} disabled={!faviconImage} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 rounded transition-colors disabled:opacity-40 disabled:pointer-events-none" aria-label="Elimina favicon"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                    <div className="w-24 h-24 bg-black rounded-lg overflow-hidden relative group border border-slate-700 shrink-0">
-                        {faviconImage ? (
-                            <img src={faviconImage} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt="Favicon attuale"/>
-                        ) : (
-                            <div className="absolute inset-0 flex items-center justify-center bg-slate-800 text-slate-500 text-[10px] font-bold uppercase tracking-wider text-center px-2 border-2 border-dashed border-slate-700">
-                                Default server
-                            </div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-opacity gap-2">
-                            <button type="button" onClick={() => faviconInputRef.current?.click()} className="p-2 bg-white text-slate-900 rounded-full shadow-lg hover:scale-110 transition-transform" aria-label="Carica favicon"><Upload className="w-4 h-4"/></button>
-                            {faviconImage && <button type="button" onClick={() => openEditor(faviconImage, 'favicon')} className="p-2 bg-amber-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform" aria-label="Modifica favicon"><Crop className="w-4 h-4"/></button>}
-                        </div>
-                        <input ref={faviconInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'favicon')} />
-                    </div>
-                    <div className="flex flex-col gap-3 flex-1 min-w-0">
-                        <div className="hidden md:flex items-center justify-between">
-                            <div>
-                                <h4 className="font-bold text-white text-sm">Favicon piattaforma</h4>
-                                <p className="text-[10px] text-slate-500 uppercase">PNG / JPG / WebP consigliati</p>
-                            </div>
-                            <button type="button" onClick={() => handleRemoveAssetRequest('favicon')} disabled={!faviconImage} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 rounded transition-colors disabled:opacity-40 disabled:pointer-events-none" aria-label="Elimina favicon"><Trash2 className="w-4 h-4"/></button>
-                        </div>
-                        <p className="text-xs text-slate-400 leading-relaxed">Upload o ritaglio con lo stesso editor Admin degli altri Asset Globali. Dopo il salvataggio il browser riceve l&apos;icona da <span className="font-mono text-slate-300">/favicon.ico</span>.</p>
-                        <button type="button" onClick={() => faviconInputRef.current?.click()} className="py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold uppercase rounded-lg border border-slate-600 transition-colors">
-                            Carica / Sostituisci
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {heroNote && (
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 animate-in fade-in">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
-                         <MessageSquare className="w-4 h-4 text-purple-500"/> Nota
-                    </h4>
-                    <p className="text-sm text-slate-300 italic">"{heroNote}"</p>
-                </div>
-            )}
-            
-            {inspectorOpen && (
-                <AdminPhotoInspector 
-                    isOpen={true}
-                    imageUrl={imageToEdit}
-                    mode={editTarget === 'patron' || editTarget === 'favicon' ? 'card' : 'hero'}
-                    initialData={{ locationName: 'Design Asset', user: 'Admin', description: `Ottimizzazione ${editTarget}` }}
-                    onClose={() => setInspectorOpen(false)}
-                    onSave={handleEditorSave}
-                />
-            )}
+      <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-lg overflow-hidden relative z-floating-panel">
+        <div className="flex justify-end items-center p-4 border-b border-slate-800 bg-slate-950/50">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" /> Ripristina Default
+          </button>
         </div>
-    );
+
+        <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <HeroSection
+            mode={mode}
+            setMode={setMode}
+            previewImage={previewImage}
+            isSavingHero={isSavingHero}
+            fileInputRef={fileInputRef}
+            openEditor={openEditor}
+            handleRemoveHeroRequest={handleRemoveHeroRequest}
+            handleFileUpload={handleFileUpload}
+            handleSafeArtSuccess={handleSafeArtSuccess}
+            showToast={showToast}
+            handleSaveHero={handleSaveHero}
+          />
+
+          <div className="flex flex-col gap-6">
+            <PatronSection
+              patronImage={patronImage}
+              isSavingPatron={isSavingPatron}
+              patronInputRef={patronInputRef}
+              openEditor={openEditor}
+              handleResetPatronGlobal={handleResetPatronGlobal}
+              handleFileUpload={handleFileUpload}
+              handleSavePatron={handleSavePatron}
+            />
+
+            <PlaceholderSection
+              placeholders={placeholders}
+              suitcasePlaceholders={suitcasePlaceholders}
+              editPlaceholderCat={editPlaceholderCat}
+              placeholderInputRef={placeholderInputRef}
+              suitcasePlaceholderInputRef={suitcasePlaceholderInputRef}
+              triggerPlaceholderUpload={triggerPlaceholderUpload}
+              triggerSuitcasePlaceholderUpload={triggerSuitcasePlaceholderUpload}
+              openEditor={openEditor}
+              requestDeletePlaceholder={requestDeletePlaceholder}
+              handleFileUpload={handleFileUpload}
+            />
+          </div>
+        </div>
+      </div>
+
+      <FunctionalAssetsSection
+        authBg={authBg}
+        socialBg={socialBg}
+        aiBg={aiBg}
+        isSavingExtra={isSavingExtra}
+        authInputRef={authInputRef}
+        socialInputRef={socialInputRef}
+        aiBgInputRef={aiBgInputRef}
+        handleRemoveAssetRequest={handleRemoveAssetRequest}
+        handleFileUpload={handleFileUpload}
+        openEditor={openEditor}
+        handleSaveExtraAssets={handleSaveExtraAssets}
+      />
+
+      <FaviconSection
+        faviconImage={faviconImage}
+        isSavingFavicon={isSavingFavicon}
+        faviconInputRef={faviconInputRef}
+        handleSaveFavicon={handleSaveFavicon}
+        handleRemoveAssetRequest={handleRemoveAssetRequest}
+        handleFileUpload={handleFileUpload}
+        openEditor={openEditor}
+      />
+
+      {heroNote && (
+        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 animate-in fade-in">
+          <h4 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-purple-500" /> Nota
+          </h4>
+          <p className="text-sm text-slate-300 italic">"{heroNote}"</p>
+        </div>
+      )}
+
+      {inspectorOpen && (
+        <AdminPhotoInspector
+          isOpen={true}
+          imageUrl={imageToEdit}
+          mode={editTarget === 'patron' || editTarget === 'favicon' ? 'card' : 'hero'}
+          initialData={{
+            locationName: 'Design Asset',
+            user: 'Admin',
+            description: `Ottimizzazione ${editTarget}`,
+          }}
+          onClose={() => setInspectorOpen(false)}
+          onSave={handleEditorSave}
+        />
+      )}
+    </div>
+  );
 };

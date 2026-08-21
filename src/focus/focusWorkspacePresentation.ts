@@ -14,5 +14,4 @@ export const FOCUS_ACTIVE_OWNERS = {
   mySpace: 'MySpaceMinimalShell',
 } as const;
 
-export type FocusActiveOwner =
-  (typeof FOCUS_ACTIVE_OWNERS)[keyof typeof FOCUS_ACTIVE_OWNERS];
+export type FocusActiveOwner = (typeof FOCUS_ACTIVE_OWNERS)[keyof typeof FOCUS_ACTIVE_OWNERS];

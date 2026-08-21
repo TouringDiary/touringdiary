@@ -1,8 +1,8 @@
-import React from 'react';
 import { Check } from 'lucide-react';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import type React from 'react';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 
 export interface OptionCardProps {
   selected: boolean;
@@ -24,19 +24,34 @@ export const OptionCard: React.FC<OptionCardProps> = ({
   const isMobile = useMobileDetect();
   const selectableCardBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardBase);
   const selectableCardSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardSelected);
-  const selectableCardUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardUnselected);
-  const selectableCardHeaderRow = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardHeaderRow);
+  const selectableCardUnselected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableCardUnselected,
+  );
+  const selectableCardHeaderRow = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableCardHeaderRow,
+  );
   const selectableBadgeBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeBase);
-  const selectableBadgeSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeSelected);
-  const selectableBadgeUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableBadgeUnselected);
+  const selectableBadgeSelected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableBadgeSelected,
+  );
+  const selectableBadgeUnselected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableBadgeUnselected,
+  );
   const selectableCheckIcon = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCheckIcon);
   const selectableIconBoxBase = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxBase);
-  const selectableIconBoxSelected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxSelected);
-  const selectableIconBoxUnselected = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableIconBoxUnselected);
-  const selectableCardTitle = useFoundationStyles(FOUNDATION_STYLE_KEYS.selectableCardTitle, isMobile);
+  const selectableIconBoxSelected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableIconBoxSelected,
+  );
+  const selectableIconBoxUnselected = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableIconBoxUnselected,
+  );
+  const selectableCardTitle = useFoundationStyles(
+    FOUNDATION_STYLE_KEYS.selectableCardTitle,
+    isMobile,
+  );
   const selectableCardDescription = useFoundationStyles(
     FOUNDATION_STYLE_KEYS.selectableCardDescription,
-    isMobile
+    isMobile,
   );
 
   return (
@@ -66,7 +81,9 @@ export const OptionCard: React.FC<OptionCardProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`${selectableCardTitle} ${selected ? 'text-white' : 'text-slate-300'}`}>
+              <span
+                className={`${selectableCardTitle} ${selected ? 'text-white' : 'text-slate-300'}`}
+              >
                 {title}
               </span>
               {recommended && (

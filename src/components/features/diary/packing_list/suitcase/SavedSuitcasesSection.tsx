@@ -1,7 +1,8 @@
-import React from 'react';
-import { SuitcaseCard } from './SuitcaseCard';
-import { Suitcase } from '@/types/suitcase';
+import type { User } from '@supabase/supabase-js';
+import type React from 'react';
 import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
+import type { Suitcase } from '@/types/suitcase';
+import { SuitcaseCard } from './SuitcaseCard';
 
 import { TemplatePreview } from './TemplatePreview';
 
@@ -61,7 +62,7 @@ interface SavedSuitcasesSectionProps {
   onDuplicateSuitcase?: (id: string) => void;
   isCloning?: boolean;
   isDiaryAssociable?: boolean;
-  currentUser?: any;
+  currentUser?: User | null;
   hoveredItemId: string | null;
   onHover: (id: string | null) => void;
   onAddCategory: (id: string) => void;
@@ -80,13 +81,13 @@ export const SavedSuitcasesSection: React.FC<SavedSuitcasesSectionProps> = ({
   currentUser,
   hoveredItemId,
   onHover,
-  onAddCategory
+  onAddCategory,
 }) => {
-  const hoveredSuitcase = savedSuitcases.find(s => s.id === hoveredItemId) || savedSuitcases[0] || null;
+  const hoveredSuitcase =
+    savedSuitcases.find((s) => s.id === hoveredItemId) || savedSuitcases[0] || null;
 
   return (
     <div>
-      
       {isLoading && (
         <div className="text-center py-8">
           <p className="text-xs text-slate-500">Caricamento...</p>
@@ -121,8 +122,16 @@ export const SavedSuitcasesSection: React.FC<SavedSuitcasesSectionProps> = ({
         </div>
 
         {/* Preview dinamica */}
-        <div aria-live="polite" aria-atomic="true" className="block animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <TemplatePreview template={hoveredSuitcase} sourceTab="saved" onAddCategory={onAddCategory} />
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="block animate-in fade-in slide-in-from-bottom-4 duration-500"
+        >
+          <TemplatePreview
+            template={hoveredSuitcase}
+            sourceTab="saved"
+            onAddCategory={onAddCategory}
+          />
         </div>
       </div>
     </div>

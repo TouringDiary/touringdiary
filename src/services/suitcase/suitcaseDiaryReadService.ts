@@ -1,6 +1,6 @@
+import type { Itinerary } from '../../types/index';
 import { supabase } from '../supabaseClient';
 import { mapDiaryRowFromDb } from '../viaggio/viaggioDiaryService';
-import type { Itinerary } from '../../types/index';
 
 /**
  * Diari collegati a una valigia tramite pivot `itinerary_suitcases`.

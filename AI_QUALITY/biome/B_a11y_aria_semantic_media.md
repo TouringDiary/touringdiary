@@ -2,15 +2,18 @@
 
 > Dettaglio baseline Biome full-project. Dashboard: [`AI_BIOME_AUDIT.md`](../../AI_BIOME_AUDIT.md)
 
+> **Snapshot live 2026-08-08** (SoT B2b ARIA): `useAriaPropsSupportedByRole` **6** · `useSemanticElements` **6** · `noNoninteractiveElementToInteractiveRole` **7** · `useFocusableInteractive` **1** · `useValidAnchor` **1**.  
+> Le tabelle di dettaglio file restano la **baseline storica 2026-08-03** (non riscritte).
+
 | Campo | Valore |
 |----|----|
 | **Documento** | `AI_QUALITY/biome/B_a11y_aria_semantic_media.md` |
 | **Categorie** | `lint/a11y/useAriaPropsSupportedByRole`, `lint/a11y/useSemanticElements`, `lint/a11y/noSvgWithoutTitle`, `lint/a11y/noNoninteractiveElementToInteractiveRole`, `lint/a11y/useAltText`, `lint/a11y/useFocusableInteractive`, `lint/a11y/useValidAnchor` |
-| **Occorrenze (somma gruppo)** | **44** |
-| **File unici nel gruppo** | **37** |
-| **Livello** | **B** |
-| **Ultimo aggiornamento** | 2026-08-03 |
-| **Stato** | Baseline ufficiale — nessuna correzione applicata in questa attivita |
+| **Occorrenze (somma gruppo)** | Baseline **44** · Live B2b ARIA pertinenti **19** (+ L4 minori) |
+| **File unici nel gruppo** | Baseline **37** |
+| **Livello** | **B** / B2b + L4 |
+| **Ultimo aggiornamento** | 2026-08-08 (live) / baseline 2026-08-03 |
+| **Stato** | B2b IN CORSO (ARIA residue) — baseline storica preservata sotto |
 
 ## `lint/a11y/useAriaPropsSupportedByRole`
 
@@ -23,13 +26,13 @@ Proprieta ARIA devono essere supportate dal ruolo.
 | Campo | Valore |
 |----|----|
 | **Categoria Biome** | `lint/a11y/useAriaPropsSupportedByRole` |
-| **Occorrenze totali** | **13** |
-| **Error** | 13 |
+| **Occorrenze totali** | Baseline **13** · Live **6** |
+| **Error** | Live **6** |
 | **Warning** | 0 |
 | **Info** | 0 |
-| **File coinvolti** | **11** |
+| **File coinvolti** | Baseline **11** |
 | **Livello di rischio** | **B** |
-| **Stato bonifica** | Aperto (baseline) |
+| **Stato bonifica** | B2b IN CORSO |
 | **Decisione finale baseline** | da correggere |
 
 ### Motivazione della classificazione

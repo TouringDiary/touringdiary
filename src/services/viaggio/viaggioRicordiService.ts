@@ -1,10 +1,10 @@
-import { supabase } from '../supabaseClient';
-import type { Database } from '@/types/supabase';
 import type {
   ViaggioRicordoDayNote,
   ViaggioRicordoMedia,
   ViaggioRicordoMediaKind,
 } from '@/types/models/ViaggioRicordi';
+import type { Database } from '@/types/supabase';
+import { supabase } from '../supabaseClient';
 
 const RICORDI_BUCKET = 'viaggio-ricordi';
 
@@ -25,11 +25,7 @@ function parseMediaKind(kind: string): ViaggioRicordoMediaKind {
 
 function mapMediaRow(row: RicordiMediaRow, dayKeys: string[]): ViaggioRicordoMedia {
   const keys =
-    dayKeys.length > 0
-      ? dayKeys
-      : row.day_key === DAY_KEY_UNASSIGNED
-        ? []
-        : [row.day_key];
+    dayKeys.length > 0 ? dayKeys : row.day_key === DAY_KEY_UNASSIGNED ? [] : [row.day_key];
   return {
     id: row.id,
     viaggioId: row.viaggio_id,
@@ -142,7 +138,9 @@ export async function listRicordiMediaByViaggio(viaggioId: string): Promise<Viag
   return rows.map((row) => mapMediaRow(row, links.get(row.id) ?? []));
 }
 
-export async function listRicordiDayNotesByViaggio(viaggioId: string): Promise<ViaggioRicordoDayNote[]> {
+export async function listRicordiDayNotesByViaggio(
+  viaggioId: string,
+): Promise<ViaggioRicordoDayNote[]> {
   const { data, error } = await supabase
     .from('viaggio_ricordi_day_notes')
     .select('*')
@@ -198,7 +196,7 @@ export async function uploadRicordoMedia(params: {
   }
 
   const folderKey = params.dayKey?.trim() || '_viaggio';
-  const safeName = params.file.name.replace(/[^\w.\-]+/g, '_');
+  const safeName = params.file.name.replace(/[^\w.-]+/g, '_');
   const storagePath = `${params.userId}/${params.viaggioId}/${folderKey}/${crypto.randomUUID()}_${safeName}`;
 
   const { error: uploadError } = await supabase.storage
@@ -237,9 +235,9 @@ export async function uploadRicordoMedia(params: {
 
   const dayKeys = params.dayKey?.trim() ? [params.dayKey.trim()] : [];
   if (dayKeys.length > 0) {
-    const { error: linkError } = await supabase.from('viaggio_ricordi_media_day_links').insert(
-      dayKeys.map((day_key) => ({ media_id: data.id, day_key })),
-    );
+    const { error: linkError } = await supabase
+      .from('viaggio_ricordi_media_day_links')
+      .insert(dayKeys.map((day_key) => ({ media_id: data.id, day_key })));
     if (linkError) {
       // Rollback completo: riga media + file storage (link non creati)
       await supabase.from('viaggio_ricordi_media').delete().eq('id', data.id);

@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Check, MinusCircle, Sparkles, X, Minus, Plus, GripVertical } from 'lucide-react';
-import { SuitcaseItem, RuntimeAffiliateProduct } from '@/types/suitcase';
-import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
-import { affiliateTrackingService } from '@/services/affiliateTrackingService';
+import { Check, GripVertical, Minus, MinusCircle, Plus, Sparkles, X } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
+import { affiliateTrackingService } from '@/services/affiliateTrackingService';
+import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
+import type { RuntimeAffiliateProduct, SuitcaseItem } from '@/types/suitcase';
 import { MoveItemCategoryPopover } from './MoveItemCategoryPopover';
 
 interface SuitcaseItemRowProps {
@@ -111,11 +112,10 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
   return (
     <div
       ref={rowRef}
-      onClick={onSelect}
       onDragOver={reorderEnabled ? onDragOver : undefined}
       onDragLeave={reorderEnabled ? onDragLeave : undefined}
       onDrop={reorderEnabled ? onDrop : undefined}
-      className={`flex overflow-hidden rounded-xl border transition-all duration-500 group relative cursor-pointer ${
+      className={`flex ${readOnly ? 'overflow-visible' : 'overflow-hidden'} rounded-xl border transition-all duration-500 group relative cursor-pointer ${
         isDragTarget
           ? 'border-sky-400/60 bg-sky-500/10 ring-1 ring-sky-400/30'
           : showModifiedHighlight
@@ -129,6 +129,13 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
                   : 'bg-slate-800/40 border-white/5 hover:border-white/10 hover:bg-slate-800/60'
       } ${isPressingGrip ? 'ring-2 ring-indigo-400/50 bg-slate-800/70 shadow-lg shadow-indigo-500/10' : ''} ${isDragging ? 'opacity-50' : ''}`}
     >
+      <button
+        type="button"
+        aria-label={isSelected ? 'Deseleziona oggetto' : 'Seleziona oggetto'}
+        onClick={onSelect}
+        className="absolute inset-0 z-0 cursor-pointer border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70 focus-visible:ring-inset"
+      />
+
       {!readOnly && reorderEnabled && (
         <button
           type="button"
@@ -144,7 +151,11 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
             // al punto in cui si è iniziato a trascinare.
             if (rowRef.current) {
               const rect = rowRef.current.getBoundingClientRect();
-              e.dataTransfer.setDragImage(rowRef.current, e.clientX - rect.left, e.clientY - rect.top);
+              e.dataTransfer.setDragImage(
+                rowRef.current,
+                e.clientX - rect.left,
+                e.clientY - rect.top,
+              );
             }
             setIsDragging(true);
             onDragStart?.(e);
@@ -156,7 +167,7 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
             onDragEnd?.();
           }}
           onClick={(e) => e.stopPropagation()}
-          className="shrink-0 self-stretch flex items-center justify-center w-8 bg-slate-950/60 border-r border-white/[0.06] text-slate-600 hover:text-slate-400 hover:bg-slate-950/80 cursor-grab active:cursor-grabbing touch-manipulation transition-colors"
+          className="relative z-[1] pointer-events-auto shrink-0 self-stretch flex items-center justify-center w-8 bg-slate-950/60 border-r border-white/[0.06] text-slate-600 hover:text-slate-400 hover:bg-slate-950/80 cursor-grab active:cursor-grabbing touch-manipulation transition-colors"
           aria-label="Riordina oggetto"
           title="Trascina per riordinare"
         >
@@ -164,212 +175,221 @@ export const SuitcaseItemRow: React.FC<SuitcaseItemRowProps> = ({
         </button>
       )}
 
-      <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1.5 lg:py-2.5 flex-1 min-w-0 min-h-[4rem] lg:min-h-0">
-
-      {readOnly ? (
-        <span
-          className="relative group/checkbox shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 md:min-w-[32px] md:min-h-[32px] md:w-8 md:h-8 rounded-lg touch-manipulation cursor-not-allowed"
-        >
+      <div className="relative z-[1] pointer-events-none flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1.5 lg:py-2.5 flex-1 min-w-0 min-h-[4rem] lg:min-h-0">
+        {readOnly ? (
+          <span className="pointer-events-auto relative group/checkbox shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 md:min-w-[32px] md:min-h-[32px] md:w-8 md:h-8 rounded-lg touch-manipulation cursor-not-allowed">
+            <button
+              type="button"
+              role="checkbox"
+              onClick={(e) => e.stopPropagation()}
+              disabled
+              aria-checked={!!item.is_checked}
+              aria-label={`${item.is_checked ? 'Deseleziona oggetto' : 'Seleziona oggetto'} — Non disponibile in sola lettura`}
+              className="flex items-center justify-center w-full h-full rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span
+                className={`flex items-center justify-center w-5 h-5 rounded-md border transition-all shadow-sm ${
+                  item.is_checked
+                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    : 'bg-slate-900 border-slate-700'
+                }`}
+              >
+                {item.is_checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              </span>
+            </button>
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute top-[calc(100%+4px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover/checkbox:opacity-100 group-focus-within/checkbox:opacity-100 transition-opacity duration-100 z-local-overlay shadow-lg"
+            >
+              Non disponibile in sola lettura
+            </span>
+          </span>
+        ) : (
           <button
             type="button"
-            onClick={(e) => e.stopPropagation()}
-            disabled
+            role="checkbox"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdate(item.id, { is_checked: !item.is_checked });
+            }}
             aria-checked={!!item.is_checked}
-            aria-label={`${item.is_checked ? 'Deseleziona oggetto' : 'Seleziona oggetto'} — Non disponibile in sola lettura`}
-            className="flex items-center justify-center w-full h-full rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={item.is_checked ? 'Deseleziona oggetto' : 'Seleziona oggetto'}
+            className="pointer-events-auto shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 md:min-w-[32px] md:min-h-[32px] md:w-8 md:h-8 rounded-lg touch-manipulation"
           >
             <span
-              className={`flex items-center justify-center w-5 h-5 rounded-md border transition-all shadow-sm ${
+              className={`flex items-center justify-center w-5 h-5 rounded-md border transition-all shadow-sm group-hover:scale-105 active:scale-95 ${
                 item.is_checked
                   ? 'bg-emerald-500 border-emerald-500 text-white'
-                  : 'bg-slate-900 border-slate-700'
+                  : 'bg-slate-900 border-slate-700 group-hover:border-indigo-500'
               }`}
             >
               {item.is_checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
             </span>
           </button>
+        )}
+
+        {/* NOME + QUANTITÀ: su mobile/tablet la quantità va SOTTO il nome (riga compatta);
+          su desktop (lg+) restano in linea come prima. */}
+        <div className="flex-1 min-w-0 flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
           <span
-            role="tooltip"
-            className="pointer-events-none absolute top-[calc(100%+4px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-950 border border-white/10 text-[10px] font-medium text-slate-200 whitespace-nowrap opacity-0 group-hover/checkbox:opacity-100 group-focus-within/checkbox:opacity-100 transition-opacity duration-100 z-local-overlay shadow-lg"
-          >
-            Non disponibile in sola lettura
-          </span>
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onUpdate(item.id, { is_checked: !item.is_checked });
-          }}
-          aria-checked={!!item.is_checked}
-          aria-label={item.is_checked ? 'Deseleziona oggetto' : 'Seleziona oggetto'}
-          className="shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 md:min-w-[32px] md:min-h-[32px] md:w-8 md:h-8 rounded-lg touch-manipulation"
-        >
-          <span
-            className={`flex items-center justify-center w-5 h-5 rounded-md border transition-all shadow-sm group-hover:scale-105 active:scale-95 ${
-              item.is_checked
-                ? 'bg-emerald-500 border-emerald-500 text-white'
-                : 'bg-slate-900 border-slate-700 group-hover:border-indigo-500'
+            className={`min-w-0 lg:flex-1 text-base font-medium transition-colors flex items-center gap-2 ${
+              item.is_checked ? 'text-slate-400' : 'text-slate-200'
             }`}
           >
-            {item.is_checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+            <span className="truncate">{item.name}</span>
           </span>
-        </button>
-      )}
 
-      {/* NOME + QUANTITÀ: su mobile/tablet la quantità va SOTTO il nome (riga compatta);
-          su desktop (lg+) restano in linea come prima. */}
-      <div className="flex-1 min-w-0 flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
-      <span
-        className={`min-w-0 lg:flex-1 text-base font-medium transition-colors flex items-center gap-2 ${
-          item.is_checked ? 'text-slate-400' : 'text-slate-200'
-        }`}
-      >
-        <span className="truncate">{item.name}</span>
-      </span>
-
-      {!item.is_ai_suggestion && !readOnly && (
-        <div
-          className="flex flex-row items-center self-start lg:self-auto shrink-0 rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-          role="group"
-          aria-label="Quantità"
-        >
-          <button
-            type="button"
-            onClick={() => adjustQuantity(-1)}
-            disabled={effectiveQuantity <= 1}
-            className="flex items-center justify-center w-9 h-6 md:w-8 lg:w-7 lg:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
-            aria-label="Diminuisci quantità"
-          >
-            <Minus className="w-3.5 h-3.5" />
-          </button>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={quantityInput ?? String(quantity)}
-            onChange={(e) => setQuantityInput(sanitizeQuantityDigits(e.target.value))}
-            onBlur={() => commitQuantity(quantityInput ?? String(quantity))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.currentTarget.blur();
-              }
-            }}
-            className="w-10 md:w-9 lg:w-7 h-6 lg:h-7 bg-transparent border-x border-y-0 border-white/10 text-center text-sm font-semibold text-slate-200 focus:outline-none focus:bg-white/5"
-            aria-label="Quantità oggetto"
-          />
-          <button
-            type="button"
-            onClick={() => adjustQuantity(1)}
-            className="flex items-center justify-center w-9 h-6 md:w-8 lg:w-7 lg:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all touch-manipulation"
-            aria-label="Aumenta quantità"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-      </div>
-
-      {override && (
-        <a
-          href={(() => {
-            const pid = override.product_id || '';
-            if (pid.startsWith('search:')) {
-              const keyword = pid.replace('search:', '');
-              return onLinkBuildSearch?.(keyword) || '#';
-            }
-            return onLinkBuildSearch?.(pid) || '#';
-          })()}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 transition-all hover:-translate-y-0.5 px-3 py-1.5 bg-white rounded-xl border border-slate-200 shadow-md shadow-black/10 flex items-center justify-center hover:shadow-lg active:scale-95"
-          onClick={(e) => {
-            e.stopPropagation();
-            affiliateTrackingService.trackClickOut({
-              partnerId: 'amazon',
-              sourceType: 'suitcase',
-              category: item.category || 'gear',
-              productId: override.product_id || undefined,
-              searchQuery: override.product_id?.startsWith('search:')
-                ? override.product_id.replace('search:', '')
-                : undefined,
-            });
-          }}
-        >
-          <img src="/assets/logos/amazon_logo.svg" alt="Amazon" className="h-3.5 object-contain" />
-        </a>
-      )}
-
-      {!readOnly && item.is_ai_suggestion && moveTargets && moveTargets.length > 0 && onMoveToCategory && (
-        <MoveItemCategoryPopover
-          targets={moveTargets}
-          onSelect={onMoveToCategory}
-        />
-      )}
-
-      {item.is_ai_suggestion ? (
-        <div className="flex items-center gap-1.5 px-1">
-          <div
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 shadow-sm shrink-0"
-            title="Suggerimento AI"
-          >
-            <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
-            <span className="text-[9px] font-black uppercase text-amber-600/80 tracking-widest">AI</span>
-          </div>
-
-          {!readOnly && (
-            <>
+          {!item.is_ai_suggestion && !readOnly && (
+            <div
+              className="pointer-events-auto flex flex-row items-center self-start lg:self-auto shrink-0 rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden"
+              role="group"
+              aria-label="Quantità"
+            >
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdate(item.id, { is_ai_suggestion: false, accepted_from_ai: true });
-                }}
-                className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm border border-emerald-500/20"
-                title="Accetta Suggerimento"
+                type="button"
+                onClick={() => adjustQuantity(-1)}
+                disabled={effectiveQuantity <= 1}
+                className="flex items-center justify-center w-11 h-11 md:w-10 md:h-10 lg:w-7 lg:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
+                aria-label="Diminuisci quantità"
               >
-                <Check className="w-4 h-4 stroke-[3]" />
+                <Minus className="w-3.5 h-3.5" />
               </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={quantityInput ?? String(quantity)}
+                onChange={(e) => setQuantityInput(sanitizeQuantityDigits(e.target.value))}
+                onBlur={() => commitQuantity(quantityInput ?? String(quantity))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="w-11 md:w-10 lg:w-7 h-11 md:h-10 lg:h-7 bg-transparent border-x border-y-0 border-white/10 text-center text-sm font-semibold text-slate-200 focus:outline-none focus:bg-white/5"
+                aria-label="Quantità oggetto"
+              />
               <button
+                type="button"
+                onClick={() => adjustQuantity(1)}
+                className="flex items-center justify-center w-11 h-11 md:w-10 md:h-10 lg:w-7 lg:h-7 text-slate-400 hover:text-white hover:bg-white/10 transition-all touch-manipulation"
+                aria-label="Aumenta quantità"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {override && (
+          <a
+            href={(() => {
+              const pid = override.product_id || '';
+              if (pid.startsWith('search:')) {
+                const keyword = pid.replace('search:', '');
+                return onLinkBuildSearch?.(keyword) || '#';
+              }
+              return onLinkBuildSearch?.(pid) || '#';
+            })()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pointer-events-auto shrink-0 transition-all hover:-translate-y-0.5 px-3 py-1.5 bg-white rounded-xl border border-slate-200 shadow-md shadow-black/10 flex items-center justify-center hover:shadow-lg active:scale-95"
+            onClick={(e) => {
+              e.stopPropagation();
+              affiliateTrackingService.trackClickOut({
+                partnerId: 'amazon',
+                sourceType: 'suitcase',
+                category: item.category || 'gear',
+                productId: override.product_id || undefined,
+                searchQuery: override.product_id?.startsWith('search:')
+                  ? override.product_id.replace('search:', '')
+                  : undefined,
+              });
+            }}
+          >
+            <img
+              src="/assets/logos/amazon_logo.svg"
+              alt="Amazon"
+              className="h-3.5 object-contain"
+            />
+          </a>
+        )}
+
+        {!readOnly &&
+          item.is_ai_suggestion &&
+          moveTargets &&
+          moveTargets.length > 0 &&
+          onMoveToCategory && (
+            <div className="pointer-events-auto">
+              <MoveItemCategoryPopover targets={moveTargets} onSelect={onMoveToCategory} />
+            </div>
+          )}
+
+        {item.is_ai_suggestion ? (
+          <div className="flex items-center gap-1.5 px-1">
+            <div
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 shadow-sm shrink-0"
+              title="Suggerimento AI"
+            >
+              <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
+              <span className="text-[9px] font-black uppercase text-amber-600/80 tracking-widest">
+                AI
+              </span>
+            </div>
+
+            {!readOnly && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdate(item.id, { is_ai_suggestion: false, accepted_from_ai: true });
+                  }}
+                  className="pointer-events-auto inline-flex items-center justify-center min-h-11 min-w-11 p-0 md:min-h-0 md:min-w-0 md:p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm border border-emerald-500/20 touch-manipulation"
+                  title="Accetta Suggerimento"
+                  aria-label="Accetta suggerimento AI"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(item.id);
+                  }}
+                  className="pointer-events-auto inline-flex items-center justify-center min-h-11 min-w-11 p-0 md:min-h-0 md:min-w-0 md:p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-500/20 touch-manipulation"
+                  title="Rifiuta Suggerimento"
+                  aria-label="Rifiuta suggerimento AI"
+                >
+                  <X className="w-4 h-4 stroke-[3]" />
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          !readOnly && (
+            <div className="flex flex-col md:flex-row items-center gap-1 shrink-0 empty:hidden mr-1.5 lg:mr-0">
+              {moveTargets && moveTargets.length > 0 && onMoveToCategory && (
+                <div className="pointer-events-auto">
+                  <MoveItemCategoryPopover targets={moveTargets} onSelect={onMoveToCategory} />
+                </div>
+              )}
+              {/* Cestino solo desktop (>= lg): su mobile/tablet si elimina con lo swipe della riga */}
+              <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(item.id);
                 }}
-                className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-500/20"
-                title="Rifiuta Suggerimento"
+                className="pointer-events-auto shrink-0 hidden lg:flex items-center justify-center min-w-[36px] min-h-[36px] w-9 h-9 md:w-8 md:h-8 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all touch-manipulation"
+                title="Rimuovi"
+                aria-label="Rimuovi oggetto"
               >
-                <X className="w-4 h-4 stroke-[3]" />
+                <MinusCircle className="w-4 h-4" />
               </button>
-            </>
-          )}
-        </div>
-      ) : (
-        !readOnly && (
-          <div className="flex flex-col md:flex-row items-center gap-1 shrink-0 empty:hidden mr-1.5 lg:mr-0">
-            {moveTargets && moveTargets.length > 0 && onMoveToCategory && (
-              <MoveItemCategoryPopover
-                targets={moveTargets}
-                onSelect={onMoveToCategory}
-              />
-            )}
-            {/* Cestino solo desktop (>= lg): su mobile/tablet si elimina con lo swipe della riga */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(item.id);
-              }}
-              className="shrink-0 hidden lg:flex items-center justify-center min-w-[36px] min-h-[36px] w-9 h-9 md:w-8 md:h-8 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all touch-manipulation"
-              title="Rimuovi"
-              aria-label="Rimuovi oggetto"
-            >
-              <MinusCircle className="w-4 h-4" />
-            </button>
-          </div>
-        )
-      )}
-
+            </div>
+          )
+        )}
       </div>
     </div>
   );

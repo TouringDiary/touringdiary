@@ -1,9 +1,6 @@
 import React, { Component, type ReactNode } from 'react';
-import {
-  workspaceUsesCompanionPortal,
-  type FocusSurface,
-} from './focusModeRegistry';
 import { useFocusMode } from './FocusModeContext';
+import { type FocusSurface, workspaceUsesCompanionPortal } from './focusModeRegistry';
 
 interface FocusIdleBoundaryProps {
   /** Semantic surface from Focus Mode Registry (SoT). */
@@ -56,12 +53,9 @@ export function FocusIdleBoundary({
   const policy = getPolicy(surface);
 
   const companionMustStayLive =
-    surface === 'baseContent' &&
-    isWorkspace &&
-    workspaceUsesCompanionPortal(workspaceId);
+    surface === 'baseContent' && isWorkspace && workspaceUsesCompanionPortal(workspaceId);
 
-  const idle =
-    isWorkspace && !policy.interactive && !companionMustStayLive;
+  const idle = isWorkspace && !policy.interactive && !companionMustStayLive;
 
   return (
     <div

@@ -1,333 +1,372 @@
-
-import React from 'react';
-import { Store, CheckCircle, Bell, AlertTriangle, X, Info } from 'lucide-react';
-import { SponsorDashboardOverview } from './SponsorDashboardOverview';
-import { useSponsorLogic, type SponsorTab } from '../../hooks/useSponsorLogic';
+import { AlertTriangle, CheckCircle, Info, Store } from 'lucide-react';
+import { CountBadge } from '@/components/ui/CountBadge';
 import { useSponsorExport } from '../../hooks/useSponsorExport';
-import { useSponsorOperations } from '../../hooks/useSponsorOperations'; 
-import { SponsorFilters } from './SponsorFilters';
-import { SponsorToolbar } from './sponsor/SponsorToolbar';
-import { SponsorBulkActions } from './sponsor/SponsorBulkActions';
-import { SponsorTable } from './sponsor/SponsorTable';
-import { SponsorModals } from './sponsor/SponsorModals';
-import { User } from '../../types/users';
+import { type SponsorTab, useSponsorLogic } from '../../hooks/useSponsorLogic';
+import { useSponsorOperations } from '../../hooks/useSponsorOperations';
+import type { User } from '../../types/users';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { AdminPageHeader } from './common/AdminPageHeader';
-import { CountBadge } from '@/components/ui/CountBadge';
+import { SponsorDashboardOverview } from './SponsorDashboardOverview';
+import { SponsorFilters } from './SponsorFilters';
+import { SponsorBulkActions } from './sponsor/SponsorBulkActions';
+import { SponsorModals } from './sponsor/SponsorModals';
+import { SponsorTable } from './sponsor/SponsorTable';
+import { SponsorToolbar } from './sponsor/SponsorToolbar';
 
 interface SponsorManagerProps {
-    currentUser?: User;
+  currentUser?: User;
 }
 
 const TAB_COLOR_CLASSES = {
-    indigo: 'bg-indigo-600',
-    amber: 'bg-amber-600',
-    blue: 'bg-blue-600',
-    emerald: 'bg-emerald-600',
-    orange: 'bg-orange-600',
-    rose: 'bg-rose-600',
-    slate: 'bg-slate-600',
+  indigo: 'bg-indigo-600',
+  amber: 'bg-amber-600',
+  blue: 'bg-blue-600',
+  emerald: 'bg-emerald-600',
+  orange: 'bg-orange-600',
+  rose: 'bg-rose-600',
+  slate: 'bg-slate-600',
 } as const;
 
 type SponsorTabColor = keyof typeof TAB_COLOR_CLASSES;
 
 interface SponsorNavTab {
-    id: SponsorTab;
-    label: string;
-    count: number | null;
-    color: SponsorTabColor;
+  id: SponsorTab;
+  label: string;
+  count: number | null;
+  color: SponsorTabColor;
 }
 
 const SPONSOR_NAV_TABS: SponsorNavTab[] = [
-    { id: 'dashboard', label: 'Dashboard', count: null, color: 'indigo' },
-    { id: 'pending', label: 'NUOVE RICHIESTE', count: null, color: 'amber' },
-    { id: 'waiting', label: 'ATTESA PAGAMENTI', count: null, color: 'blue' },
-    { id: 'approved', label: 'SPONSOR ATTIVI', count: null, color: 'emerald' },
-    { id: 'disconnected', label: 'SPONSOR SCOLLEGATI', count: null, color: 'orange' },
-    { id: 'expired', label: 'SPONSOR SCADUTI', count: null, color: 'rose' },
-    { id: 'rejected', label: 'SPONSOR RIFIUTATI', count: null, color: 'slate' },
-    { id: 'cancelled', label: 'SPONSOR ANNULLATI', count: null, color: 'slate' },
+  { id: 'dashboard', label: 'Dashboard', count: null, color: 'indigo' },
+  { id: 'pending', label: 'NUOVE RICHIESTE', count: null, color: 'amber' },
+  { id: 'waiting', label: 'ATTESA PAGAMENTI', count: null, color: 'blue' },
+  { id: 'approved', label: 'SPONSOR ATTIVI', count: null, color: 'emerald' },
+  { id: 'disconnected', label: 'SPONSOR SCOLLEGATI', count: null, color: 'orange' },
+  { id: 'expired', label: 'SPONSOR SCADUTI', count: null, color: 'rose' },
+  { id: 'rejected', label: 'SPONSOR RIFIUTATI', count: null, color: 'slate' },
+  { id: 'cancelled', label: 'SPONSOR ANNULLATI', count: null, color: 'slate' },
 ];
 
 export const SponsorManager = ({ currentUser }: SponsorManagerProps) => {
-    
-    // --- 1. DATA HOOK (READ ONLY) ---
-    const {
-        requests,           
-        manifest,           
-        stats,              
-        activeTab,          
-        setActiveTab,       
-        isLoading,          
-        
-        // Filtri & Paginazione
-        filters,            
-        sortConfig,         
-        page, pageSize, totalItems,
-        searchTerm,         
-        options,            
-        
-        // Setters
-        setSortConfig, 
-        setSearchTerm, 
-        setOnlyUnread,
-        setOnlyBelowRatingThreshold,
-        handleContinentChange, handleNationChange, handleAdminRegionChange, 
-        handleZoneChange, handleCityChange, handleTierChange, 
-        setPageSize, handlePageChange,
-        
-        // Refresh Action
-        refreshData,
-        ratingThreshold,
-    } = useSponsorLogic();
-    
-    // --- 2. OPERATIONS HOOK (WRITE ONLY) ---
-    const {
-        toast,                  
-        deleteTarget,           
-        isDeleting,             
-        selectedIds,            
-        isBulkDeleting,         
-        showBulkDeleteModal,    
-        modalState,             
-        
-        setDeleteTarget,        
-        setShowBulkDeleteModal, 
-        
-        toggleSelection,        
-        toggleAllPage,          
-        resetSelection,         
-        
-        // CRUD Handlers
-        handleInitialApproval,
-        confirmActivation,
-        confirmRejection,
-        confirmCancellation,
-        confirmExtension,
-        handleDeleteRequest,
-        confirmDelete,
-        handleBulkDeleteClick,
-        confirmBulkDelete,
-        
-        modalActions            
-    } = useSponsorOperations({ refreshData });
+  // --- 1. DATA HOOK (READ ONLY) ---
+  const {
+    requests,
+    manifest,
+    stats,
+    activeTab,
+    setActiveTab,
+    isLoading,
 
-    // --- 3. EXPORT HOOK ---
-    const { exportToCSV } = useSponsorExport();
-    
-    const handleSectionNavigation = (cityId: string, statusTab: 'pending' | 'waiting' | 'approved' | 'rejected', filterUnread: boolean) => {
-        setActiveTab(statusTab);
-        handleCityChange(cityId);
-        setOnlyUnread(filterUnread);
-    };
+    // Filtri & Paginazione
+    filters,
+    sortConfig,
+    page,
+    pageSize,
+    totalItems,
+    searchTerm,
+    options,
 
-    const isSuperAdmin = currentUser?.role === 'admin_all';
+    // Setters
+    setSortConfig,
+    setSearchTerm,
+    setOnlyUnread,
+    setOnlyBelowRatingThreshold,
+    handleContinentChange,
+    handleNationChange,
+    handleAdminRegionChange,
+    handleZoneChange,
+    handleCityChange,
+    handleTierChange,
+    setPageSize,
+    handlePageChange,
 
-    return (
-        <div className="space-y-6 flex flex-col h-full relative animate-in fade-in">
-            
-            {/* --- FEEDBACK TOAST --- */}
-            {toast && (
-                <div className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${toast.type === 'success' ? 'bg-emerald-600 border-emerald-400' : toast.type === 'error' ? 'bg-red-600 border-red-400' : 'bg-blue-600 border-blue-400'} text-white`}>
-                    {toast.type === 'success' ? <CheckCircle className="w-6 h-6"/> : toast.type === 'error' ? <AlertTriangle className="w-6 h-6"/> : <Info className="w-6 h-6"/>}
-                    <div className="font-bold text-sm">{toast.message}</div>
-                </div>
-            )}
+    // Refresh Action
+    refreshData,
+    ratingThreshold,
+  } = useSponsorLogic();
 
-            {/* --- SINGLE DELETE MODAL --- */}
-            <DeleteConfirmationModal
-                isOpen={!!deleteTarget}
-                onClose={() => setDeleteTarget(null)}
-                onConfirm={confirmDelete}
-                title="Eliminare Sponsor?"
-                message={`Stai per cancellare definitivamente "${deleteTarget?.name}".\n\nTutti i dati storici e CRM andranno persi.`}
-                isDeleting={isDeleting}
-            />
+  // --- 2. OPERATIONS HOOK (WRITE ONLY) ---
+  const {
+    toast,
+    deleteTarget,
+    isDeleting,
+    selectedIds,
+    isBulkDeleting,
+    showBulkDeleteModal,
+    modalState,
 
-            {/* --- BULK DELETE MODAL --- */}
-            <DeleteConfirmationModal
-                isOpen={showBulkDeleteModal}
-                onClose={() => setShowBulkDeleteModal(false)}
-                onConfirm={confirmBulkDelete}
-                title="Eliminazione Multipla"
-                message={`Stai per cancellare definitivamente ${selectedIds.size} sponsor.\n\nQuesta operazione è IRREVERSIBILE.`}
-                isDeleting={isBulkDeleting}
-            />
-            
-            {/* --- FLOATING BULK ACTIONS --- */}
-            <SponsorBulkActions 
-                isVisible={selectedIds.size > 0}
-                selectedCount={selectedIds.size}
-                onBulkDelete={handleBulkDeleteClick}
-                isBulkDeleting={isBulkDeleting}
-                onResetSelection={resetSelection}
-            />
+    setDeleteTarget,
+    setShowBulkDeleteModal,
 
-            <AdminPageHeader
-                icon={Store}
-                title="Attività & Sponsor"
-                subtitle="Gestione Contratti e Pagamenti"
-                accent="emerald"
-                className="!mb-6"
-                badge={
-                    (stats?.pending ?? 0) > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 bg-rose-600 text-white text-xs px-2 py-1 rounded-full shadow-lg animate-pulse font-normal uppercase tracking-wide">
-                            <CountBadge count={stats?.pending ?? 0} size="sm" variant="white" className="bg-white/20 text-white border-0 min-w-[18px]" />
-                            DA GESTIRE
-                        </span>
-                    ) : undefined
-                }
-            />
+    toggleSelection,
+    toggleAllPage,
+    resetSelection,
 
-            {/* --- TOOLBAR (COMPONENTE ATOMICO) --- */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
-                <SponsorToolbar 
-                    isVisible={activeTab !== 'dashboard'}
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    onExport={() => exportToCSV(requests)}
-                    onMassExtension={() => {
-                        modalActions.openMassExtension();
-                    }}
-                    showMassExtension={activeTab === 'approved'}
-                    massExtensionDisabled={selectedIds.size === 0}
-                    allowMassSelection={activeTab === 'approved'}
-                    isSuperAdmin={isSuperAdmin}
-                    selectedCount={selectedIds.size}
-                    totalOnPage={requests.length}
-                    areAllSelected={requests.length > 0 && requests.every(r => selectedIds.has(r.id))}
-                    onToggleAll={() => toggleAllPage(requests)}
-                    onBulkDeleteClick={handleBulkDeleteClick}
-                    isBulkDeleting={isBulkDeleting}
-                    pageSize={pageSize}
-                    onPageSizeChange={(size) => { setPageSize(size); handlePageChange(1); }}
-                    onlyUnread={filters.onlyUnread ?? false}
-                    onToggleUnread={() => setOnlyUnread(!filters.onlyUnread)}
-                    onlyBelowRatingThreshold={filters.onlyBelowRatingThreshold ?? false}
-                    onToggleBelowRatingThreshold={() => setOnlyBelowRatingThreshold(!filters.onlyBelowRatingThreshold)}
-                    showBelowRatingFilter={activeTab === 'approved'}
-                    sortConfig={sortConfig}
-                    onSortChange={setSortConfig}
-                />
-            </div>
+    // CRUD Handlers
+    handleInitialApproval,
+    confirmActivation,
+    confirmRejection,
+    confirmCancellation,
+    confirmExtension,
+    handleDeleteRequest,
+    confirmDelete,
+    handleBulkDeleteClick,
+    confirmBulkDelete,
 
-            {/* --- FILTRI DROPDOWN --- */}
-            <div className="shrink-0 overflow-x-auto">
-                <SponsorFilters 
-                    filters={{ 
-                        continent: filters.continent ?? '', 
-                        nation: filters.nation ?? '', 
-                        adminRegion: filters.adminRegion ?? '', 
-                        zone: filters.zone ?? '', 
-                        cityId: filters.cityId ?? '', 
-                        tier: filters.tier ?? '',
-                    }} 
-                    options={options} 
-                    handlers={{ 
-                        onContinentChange: handleContinentChange, 
-                        onNationChange: handleNationChange, 
-                        onAdminRegionChange: handleAdminRegionChange, 
-                        onZoneChange: handleZoneChange, 
-                        onCityChange: handleCityChange, 
-                        onTierChange: handleTierChange 
-                    }} 
-                />
-            </div>
+    modalActions,
+  } = useSponsorOperations({ refreshData });
 
-            {/* --- TAB NAVIGATOR --- */}
-            <div className="flex justify-between items-center bg-slate-900 p-1 rounded-xl border border-slate-800 shrink-0 overflow-x-auto">
-                <div className="flex gap-1 w-full min-w-max">
-                    {SPONSOR_NAV_TABS.map(tab => {
-                        const count =
-                            tab.id === 'pending' ? stats?.pending ?? null
-                            : tab.id === 'waiting' ? stats?.waiting ?? null
-                            : tab.id === 'approved' ? stats?.approved ?? null
-                            : tab.id === 'disconnected' ? stats?.disconnected ?? null
-                            : tab.id === 'expired' ? stats?.expired ?? null
-                            : tab.id === 'rejected' ? stats?.rejected ?? null
-                            : tab.id === 'cancelled' ? stats?.cancelled ?? null
+  // --- 3. EXPORT HOOK ---
+  const { exportToCSV } = useSponsorExport();
+
+  const handleSectionNavigation = (
+    cityId: string,
+    statusTab: 'pending' | 'waiting' | 'approved' | 'rejected' | 'cancelled',
+    filterUnread: boolean,
+  ) => {
+    setActiveTab(statusTab);
+    handleCityChange(cityId);
+    setOnlyUnread(filterUnread);
+  };
+
+  const isSuperAdmin = currentUser?.role === 'admin_all';
+
+  return (
+    <div className="space-y-6 flex flex-col h-full relative animate-in fade-in">
+      {/* --- FEEDBACK TOAST --- */}
+      {toast && (
+        <div
+          className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${toast.type === 'success' ? 'bg-emerald-600 border-emerald-400' : toast.type === 'error' ? 'bg-red-600 border-red-400' : 'bg-blue-600 border-blue-400'} text-white`}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle className="w-6 h-6" />
+          ) : toast.type === 'error' ? (
+            <AlertTriangle className="w-6 h-6" />
+          ) : (
+            <Info className="w-6 h-6" />
+          )}
+          <div className="font-bold text-sm">{toast.message}</div>
+        </div>
+      )}
+
+      {/* --- SINGLE DELETE MODAL --- */}
+      <DeleteConfirmationModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Eliminare Sponsor?"
+        message={`Stai per cancellare definitivamente "${deleteTarget?.name}".\n\nTutti i dati storici e CRM andranno persi.`}
+        isDeleting={isDeleting}
+      />
+
+      {/* --- BULK DELETE MODAL --- */}
+      <DeleteConfirmationModal
+        isOpen={showBulkDeleteModal}
+        onClose={() => setShowBulkDeleteModal(false)}
+        onConfirm={confirmBulkDelete}
+        title="Eliminazione Multipla"
+        message={`Stai per cancellare definitivamente ${selectedIds.size} sponsor.\n\nQuesta operazione è IRREVERSIBILE.`}
+        isDeleting={isBulkDeleting}
+      />
+
+      {/* --- FLOATING BULK ACTIONS --- */}
+      <SponsorBulkActions
+        isVisible={selectedIds.size > 0}
+        selectedCount={selectedIds.size}
+        onBulkDelete={handleBulkDeleteClick}
+        isBulkDeleting={isBulkDeleting}
+        onResetSelection={resetSelection}
+      />
+
+      <AdminPageHeader
+        icon={Store}
+        title="Attività & Sponsor"
+        subtitle="Gestione Contratti e Pagamenti"
+        accent="emerald"
+        className="!mb-6"
+        badge={
+          (stats?.pending ?? 0) > 0 ? (
+            <span className="inline-flex items-center gap-1.5 bg-rose-600 text-white text-xs px-2 py-1 rounded-full shadow-lg animate-pulse font-normal uppercase tracking-wide">
+              <CountBadge
+                count={stats?.pending ?? 0}
+                size="sm"
+                variant="white"
+                className="bg-white/20 text-white border-0 min-w-[18px]"
+              />
+              DA GESTIRE
+            </span>
+          ) : undefined
+        }
+      />
+
+      {/* --- TOOLBAR (COMPONENTE ATOMICO) --- */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
+        <SponsorToolbar
+          isVisible={activeTab !== 'dashboard'}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          onExport={() => exportToCSV(requests)}
+          onMassExtension={() => {
+            modalActions.openMassExtension();
+          }}
+          showMassExtension={activeTab === 'approved'}
+          massExtensionDisabled={selectedIds.size === 0}
+          allowMassSelection={activeTab === 'approved'}
+          isSuperAdmin={isSuperAdmin}
+          selectedCount={selectedIds.size}
+          totalOnPage={requests.length}
+          areAllSelected={requests.length > 0 && requests.every((r) => selectedIds.has(r.id))}
+          onToggleAll={() => toggleAllPage(requests)}
+          onBulkDeleteClick={handleBulkDeleteClick}
+          isBulkDeleting={isBulkDeleting}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            handlePageChange(1);
+          }}
+          onlyUnread={filters.onlyUnread ?? false}
+          onToggleUnread={() => setOnlyUnread(!filters.onlyUnread)}
+          onlyBelowRatingThreshold={filters.onlyBelowRatingThreshold ?? false}
+          onToggleBelowRatingThreshold={() =>
+            setOnlyBelowRatingThreshold(!filters.onlyBelowRatingThreshold)
+          }
+          showBelowRatingFilter={activeTab === 'approved'}
+          sortConfig={sortConfig}
+          onSortChange={setSortConfig}
+        />
+      </div>
+
+      {/* --- FILTRI DROPDOWN --- */}
+      <div className="shrink-0 overflow-x-auto">
+        <SponsorFilters
+          filters={{
+            continent: filters.continent ?? '',
+            nation: filters.nation ?? '',
+            adminRegion: filters.adminRegion ?? '',
+            zone: filters.zone ?? '',
+            cityId: filters.cityId ?? '',
+            tier: filters.tier ?? '',
+          }}
+          options={options}
+          handlers={{
+            onContinentChange: handleContinentChange,
+            onNationChange: handleNationChange,
+            onAdminRegionChange: handleAdminRegionChange,
+            onZoneChange: handleZoneChange,
+            onCityChange: handleCityChange,
+            onTierChange: handleTierChange,
+          }}
+        />
+      </div>
+
+      {/* --- TAB NAVIGATOR --- */}
+      <div className="flex justify-between items-center bg-slate-900 p-1 rounded-xl border border-slate-800 shrink-0 overflow-x-auto">
+        <div className="flex gap-1 w-full min-w-max">
+          {SPONSOR_NAV_TABS.map((tab) => {
+            const count =
+              tab.id === 'pending'
+                ? (stats?.pending ?? null)
+                : tab.id === 'waiting'
+                  ? (stats?.waiting ?? null)
+                  : tab.id === 'approved'
+                    ? (stats?.approved ?? null)
+                    : tab.id === 'disconnected'
+                      ? (stats?.disconnected ?? null)
+                      : tab.id === 'expired'
+                        ? (stats?.expired ?? null)
+                        : tab.id === 'rejected'
+                          ? (stats?.rejected ?? null)
+                          : tab.id === 'cancelled'
+                            ? (stats?.cancelled ?? null)
                             : null;
 
-                        return (
-                        <button 
-                            key={tab.id} 
-                            onClick={() => setActiveTab(tab.id)} 
-                            className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? `${TAB_COLOR_CLASSES[tab.color]} text-white shadow-lg` : 'text-slate-500 hover:text-white'}`}
-                        >
-                            {tab.label}
-                            {count !== null && count > 0 && <CountBadge count={count} size="xs" variant="white-black" shape="pill" />}
-                        </button>
-                        );
-                    })}
-                </div>
-            </div>
-            
-            {/* --- CONTENT AREA --- */}
-            <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-                {activeTab === 'dashboard' ? (
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        <SponsorDashboardOverview requests={requests} onNavigate={handleSectionNavigation} />
-                    </div>
-                ) : (
-                    <SponsorTable 
-                        requests={requests} 
-                        allRequests={requests} 
-                        manifest={manifest} 
-                        onInitialApproval={handleInitialApproval} 
-                        onReject={modalActions.openReject} 
-                        onActivate={(id, pricingVersionId) => {
-                            if (!pricingVersionId) return;
-                            modalActions.openActivation(id, pricingVersionId);
-                        }} 
-                        onOpenCrm={modalActions.openCrm} 
-                        onPreview={modalActions.openPreview} 
-                        onExtend={(id) => { const req = requests.find(r => r.id === id); if (req?.endDate) modalActions.openSingleExtension(id, req.endDate); }} 
-                        onCancel={modalActions.openCancel}
-                        onDelete={handleDeleteRequest}
-                        isSuperAdmin={isSuperAdmin}
-                        allowRowSelection={activeTab === 'approved'}
-                        currentPage={page}
-                        maxPage={Math.ceil(totalItems / pageSize)}
-                        onNext={() => handlePageChange(page + 1)}
-                        onPrev={() => handlePageChange(page - 1)}
-                        totalItems={totalItems}
-                        selectedIds={selectedIds}
-                        onToggleSelection={toggleSelection}
-                        ratingThreshold={ratingThreshold}
-                    />
+            return (
+              <button
+                type="button"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? `${TAB_COLOR_CLASSES[tab.color]} text-white shadow-lg` : 'text-slate-500 hover:text-white'}`}
+              >
+                {tab.label}
+                {count !== null && count > 0 && (
+                  <CountBadge count={count} size="xs" variant="white-black" shape="pill" />
                 )}
-            </div>
-
-            {/* --- INFORMATIVE NOTES --- */}
-            {activeTab === 'disconnected' && (
-                <div className="mt-4 p-4 bg-orange-900/10 border border-orange-500/20 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
-                    <Info className="w-5 h-5 text-orange-400" />
-                    <p className="text-xs font-bold text-orange-300 uppercase tracking-widest">
-                        Contratti attivi in stato «Da ricollegare»: città eliminata o non più valida. Ultima città associata mostrata in elenco.
-                    </p>
-                </div>
-            )}
-
-            {activeTab === 'expired' && (
-                <div className="mt-4 p-4 bg-rose-900/10 border border-rose-500/20 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
-                    <Info className="w-5 h-5 text-rose-400" />
-                    <p className="text-xs font-bold text-rose-300 uppercase tracking-widest">
-                        Nota: In questa sezione sono mostrati solo sponsor senza contratto attivo corrente.
-                    </p>
-                </div>
-            )}
-
-            {/* --- CENTRALIZED MODAL MANAGER (ATOMICO) --- */}
-            <SponsorModals 
-                state={modalState} 
-                actions={modalActions} 
-                requests={requests}
-                onConfirmActivation={confirmActivation} 
-                onConfirmReject={confirmRejection} 
-                onConfirmCancel={confirmCancellation} 
-                onConfirmExtension={confirmExtension} 
-                currentUser={currentUser}
-            />
+              </button>
+            );
+          })}
         </div>
-    );
+      </div>
+
+      {/* --- CONTENT AREA --- */}
+      <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+        {activeTab === 'dashboard' ? (
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <SponsorDashboardOverview requests={requests} onNavigate={handleSectionNavigation} />
+          </div>
+        ) : (
+          <SponsorTable
+            requests={requests}
+            allRequests={requests}
+            manifest={manifest}
+            onInitialApproval={handleInitialApproval}
+            onReject={modalActions.openReject}
+            onActivate={(id, pricingVersionId) => {
+              if (!pricingVersionId) return;
+              modalActions.openActivation(id, pricingVersionId);
+            }}
+            onOpenCrm={modalActions.openCrm}
+            onPreview={modalActions.openPreview}
+            onExtend={(id) => {
+              const req = requests.find((r) => r.id === id);
+              if (req?.endDate) modalActions.openSingleExtension(id, req.endDate);
+            }}
+            onCancel={modalActions.openCancel}
+            onDelete={handleDeleteRequest}
+            isSuperAdmin={isSuperAdmin}
+            allowRowSelection={activeTab === 'approved'}
+            currentPage={page}
+            maxPage={Math.ceil(totalItems / pageSize)}
+            onNext={() => handlePageChange(page + 1)}
+            onPrev={() => handlePageChange(page - 1)}
+            totalItems={totalItems}
+            selectedIds={selectedIds}
+            onToggleSelection={toggleSelection}
+            ratingThreshold={ratingThreshold}
+          />
+        )}
+      </div>
+
+      {/* --- INFORMATIVE NOTES --- */}
+      {activeTab === 'disconnected' && (
+        <div className="mt-4 p-4 bg-orange-900/10 border border-orange-500/20 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+          <Info className="w-5 h-5 text-orange-400" />
+          <p className="text-xs font-bold text-orange-300 uppercase tracking-widest">
+            Contratti attivi in stato «Da ricollegare»: città eliminata o non più valida. Ultima
+            città associata mostrata in elenco.
+          </p>
+        </div>
+      )}
+
+      {activeTab === 'expired' && (
+        <div className="mt-4 p-4 bg-rose-900/10 border border-rose-500/20 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+          <Info className="w-5 h-5 text-rose-400" />
+          <p className="text-xs font-bold text-rose-300 uppercase tracking-widest">
+            Nota: In questa sezione sono mostrati solo sponsor senza contratto attivo corrente.
+          </p>
+        </div>
+      )}
+
+      {/* --- CENTRALIZED MODAL MANAGER (ATOMICO) --- */}
+      <SponsorModals
+        state={modalState}
+        actions={modalActions}
+        requests={requests}
+        onConfirmActivation={confirmActivation}
+        onConfirmReject={confirmRejection}
+        onConfirmCancel={confirmCancellation}
+        onConfirmExtension={confirmExtension}
+        currentUser={currentUser}
+      />
+    </div>
+  );
 };

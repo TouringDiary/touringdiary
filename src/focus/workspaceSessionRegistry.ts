@@ -10,7 +10,7 @@ const sessionEndHandlers = new Map<WorkspaceId, WorkspaceSessionEndHandler>();
 
 export function registerWorkspaceSessionEnd(
   workspaceId: WorkspaceId,
-  endSession: WorkspaceSessionEndHandler
+  endSession: WorkspaceSessionEndHandler,
 ): void {
   sessionEndHandlers.set(workspaceId, endSession);
 }

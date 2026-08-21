@@ -1,15 +1,16 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Briefcase, Sparkles } from 'lucide-react';
+import type React from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, Briefcase } from 'lucide-react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Z_OVERLAY, Z_MODAL } from '@/constants/zIndex';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { Suitcase } from '@/types/suitcase';
-import { TemplateCategoryIcon } from './SuitcaseUtils';
-import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import type { Suitcase } from '@/types/suitcase';
+import { isTdTemplate, isUserTemplate } from '@/utils/suitcaseDomain';
+import { TemplateCategoryIcon } from './SuitcaseUtils';
 
 type ModalTab = 'templates' | 'suitcases';
 
@@ -95,7 +96,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
 
   const allTemplates = useMemo(
     () => [...globalTemplates, ...userOwnedTemplates],
-    [globalTemplates, userOwnedTemplates]
+    [globalTemplates, userOwnedTemplates],
   );
 
   const suggestedTemplates = useMemo(
@@ -103,27 +104,27 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
       suggestedTemplateIds
         .map((id) => allTemplates.find((t) => t.id === id))
         .filter((t): t is Suitcase => !!t),
-    [allTemplates, suggestedTemplateIds]
+    [allTemplates, suggestedTemplateIds],
   );
 
   const otherTdTemplates = useMemo(
     () => globalTemplates.filter((t) => !suggestedTemplateIds.includes(t.id)),
-    [globalTemplates, suggestedTemplateIds]
+    [globalTemplates, suggestedTemplateIds],
   );
 
   const otherUserTemplates = useMemo(
     () => userOwnedTemplates.filter((t) => !suggestedTemplateIds.includes(t.id)),
-    [userOwnedTemplates, suggestedTemplateIds]
+    [userOwnedTemplates, suggestedTemplateIds],
   );
 
   const selectedTemplateCount = useMemo(
     () => allTemplates.filter((t) => selectedIds.has(t.id)).length,
-    [allTemplates, selectedIds]
+    [allTemplates, selectedIds],
   );
 
   const selectedSuitcaseCount = useMemo(
     () => savedSuitcases.filter((s) => selectedIds.has(s.id)).length,
-    [savedSuitcases, selectedIds]
+    [savedSuitcases, selectedIds],
   );
 
   useLayoutEffect(() => {
@@ -213,7 +214,9 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
         />
         <SourceIconSlot source={template} />
         <div className="min-w-0 self-center">
-          <div className="text-sm font-bold text-white truncate leading-tight">{template.title}</div>
+          <div className="text-sm font-bold text-white truncate leading-tight">
+            {template.title}
+          </div>
           <div className="text-[10px] text-slate-500 mt-0.5 leading-none">
             {template.suitcase_items?.length ?? 0} oggetti
           </div>
@@ -239,7 +242,9 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
         />
         <SourceIconSlot source={suitcase} />
         <div className="min-w-0 self-center">
-          <div className="text-sm font-bold text-white truncate leading-tight">{suitcase.title}</div>
+          <div className="text-sm font-bold text-white truncate leading-tight">
+            {suitcase.title}
+          </div>
           <div className="text-[10px] text-slate-500 mt-0.5 leading-none">
             {suitcase.suitcase_items?.length ?? 0} oggetti
           </div>
@@ -253,15 +258,20 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
     <div
       className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
-      onClick={onClose}
       role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
         ref={dialogPanelRef}
         tabIndex={-1}
         className={`${containerShell} max-w-lg outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="personalized-suitcase-title"
@@ -326,17 +336,12 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
           </div>
         </div>
 
-        <div
-          ref={scrollContainerRef}
-          className={`${bodyShell} space-y-6 min-h-0`}
-        >
+        <div ref={scrollContainerRef} className={`${bodyShell} space-y-6 min-h-0`}>
           {activeTab === 'templates' && (
             <>
               {suggestedTemplates.length > 0 && (
                 <section>
-                  <h4 className={`${sectionTitleShell} mb-3`}>
-                    Suggeriti per il tuo viaggio
-                  </h4>
+                  <h4 className={`${sectionTitleShell} mb-3`}>Suggeriti per il tuo viaggio</h4>
                   <div className="space-y-2">
                     {suggestedTemplates.map((t) => renderTemplateRow(t, true))}
                   </div>
@@ -345,9 +350,7 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
 
               {(otherTdTemplates.length > 0 || otherUserTemplates.length > 0) && (
                 <section>
-                  <h4 className={`${sectionTitleShell} mb-3`}>
-                    Altri template disponibili
-                  </h4>
+                  <h4 className={`${sectionTitleShell} mb-3`}>Altri template disponibili</h4>
                   <div className="space-y-2">
                     {otherTdTemplates.map((t) => renderTemplateRow(t, false))}
                     {otherUserTemplates.map((t) => renderTemplateRow(t, false))}
@@ -363,33 +366,22 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
             </>
           )}
 
-          {activeTab === 'suitcases' && (
-            <>
-              {savedSuitcases.length > 0 ? (
-                <section>
-                  <h4 className={`${sectionTitleShell} mb-3`}>
-                    Le tue valigie
-                  </h4>
-                  <div className="space-y-2">
-                    {savedSuitcases.map((s) => renderSuitcaseRow(s))}
-                  </div>
-                </section>
-              ) : (
-                <p className="text-center text-sm text-slate-500 py-8">
-                  Nessuna valigia salvata disponibile.
-                </p>
-              )}
-            </>
-          )}
+          {activeTab === 'suitcases' &&
+            (savedSuitcases.length > 0 ? (
+              <section>
+                <h4 className={`${sectionTitleShell} mb-3`}>Le tue valigie</h4>
+                <div className="space-y-2">{savedSuitcases.map((s) => renderSuitcaseRow(s))}</div>
+              </section>
+            ) : (
+              <p className="text-center text-sm text-slate-500 py-8">
+                Nessuna valigia salvata disponibile.
+              </p>
+            ))}
         </div>
 
         <footer className={footerShell}>
           <div className={footerActionsShell}>
-            <button
-              type="button"
-              onClick={onClose}
-              className={btnCancelShell}
-            >
+            <button type="button" onClick={onClose} className={btnCancelShell}>
               Annulla
             </button>
             <button
@@ -405,6 +397,6 @@ export const RecommendedSuitcaseModal: React.FC<RecommendedSuitcaseModalProps> =
         </footer>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

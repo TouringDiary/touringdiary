@@ -17,13 +17,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "scripts/**/*",
-    "src/domain/packing/**/*",
-    "src/types/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "supabase/functions"
-  ]
+  "include": ["scripts/**/*", "src/domain/packing/**/*", "src/types/**/*"],
+  "exclude": ["node_modules", "supabase/functions"]
 }

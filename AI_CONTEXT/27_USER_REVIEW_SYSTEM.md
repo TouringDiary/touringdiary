@@ -30,7 +30,8 @@ Architettura ibrida: tabella centralizzata (`reviews`) per POI e Itinerari; camp
 2. `FeatureModals` carica eventuale review esistente (`getUserReviewForPoi`).
 3. `ReviewModal` → `submitReview` → `saveUnifiedReview` (INSERT o UPDATE).
 4. Status `approved` immediato; trigger aggiorna `pois.rating` e crea/risolve alert.
-5. UI listing/sort leggono `poi.rating` (SoT).
+5. Dopo salvataggio riuscito (`onSubmitSuccess`): INSERT apre `reviewSuccess` (con XP); UPDATE apre la stessa modale con `intent: 'update'` (conferma modifica, senza XP). Errore/annulla non aprono la conferma.
+6. UI listing/sort leggono `poi.rating` (SoT).
 
 ---
 
@@ -39,7 +40,7 @@ Architettura ibrida: tabella centralizzata (`reviews`) per POI e Itinerari; camp
 * **Services:** `src/services/community/reviewService.ts` (`saveUnifiedReview`, `getReviewsForPoi`, `deleteOwnReview`, `deleteReviewAsAdmin`).
 * **Context:** `InteractionContext.submitReview`.
 * **UI:** `ReviewModal`, `FeatureModals`, `PoiImageSection`, `ItineraryReviews`, `ItineraryManager` (Segnalazioni + Storico).
-* **Admin UX (`ItineraryManager`):** enrichment client unico (`getPoisByIds` + `getFullManifestAsync` → Map) per nome POI / geo; filtri area via `GeoCascadingFilters` con SoT **CitySummary** (stesso modello di confronto su Segnalazioni/Storico/Itinerari); tab `ITINERARI | RECENSIONI` → sotto-tab `SEGNALAZIONI | STORICO`; apertura POI via `PoiDetailModal` locale. Nessun cambio a `reviewService`/DB.
+* **Admin UX (`ItineraryManager`):** orchestratore UI (`ItineraryManager.tsx`); load/refresh/enrichment/manifest + race protection in `itineraryManager/useItineraryManagerData.ts`; geo SoT/filter in `itineraryManagerGeo.ts`; UI Segnalazioni/Storico in `ItineraryManagerReviews.tsx`. Enrichment client unico (`getPoisByIds` + `getFullManifestAsync` → Map); filtri area via `GeoCascadingFilters` con SoT **CitySummary**; con filtro geo attivo e manifesto fallito → filtro non applicato + avviso (no falsi “nessun risultato”). Tab `ITINERARI | RECENSIONI` → sotto-tab `SEGNALAZIONI | STORICO`; apertura POI via `PoiDetailModal` locale. Nessun cambio a `reviewService`/DB.
 * **Flag:** `feature.moderation.reviews` (invariato).
 
 ## CLASSIFICAZIONE PER ENTITÀ
@@ -52,3 +53,4 @@ Architettura ibrida: tabella centralizzata (`reviews`) per POI e Itinerari; camp
 * Migration P0: `supabase/migrations/20260723160000_reviews_p0_publish_rating_alerts.sql`.
 * Audit: `AI_CONTEXT/AUDIT_REVIEWS_AND_RATINGS.md` §18.
 * Unique: `(author_id, poi_id)` e `(author_id, itinerary_id)` (indici parziali).
+* XP recensione: accreditati solo alla **prima pubblicazione** sul target (`saveUnifiedReview` INSERT). L’UPDATE di una recensione già esistente aggiorna voto/testo e `updated_at`; non ristampa `status` / `approved_at` e non riaccredita XP.

@@ -4,7 +4,7 @@ import { supabase } from '@/services/supabaseClient';
 /** Proprietario (`user_id`) dell'entità sottostante (Diario, Valigia, Template utente). */
 export async function resolveResourceOwnerId(
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<string | null> {
   if (kind === 'diary') {
     const { data } = await supabase

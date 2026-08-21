@@ -1,24 +1,27 @@
-import React from 'react';
+import type React from 'react';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
-import { ItemDeleteConfirmationModal } from '../../suitcase/ItemDeleteConfirmationModal';
+import type { SuitcaseRejection } from '@/types/suitcase';
+import type { LinkModalVariant } from '@/utils/suitcaseAssociation';
 import { AssociationConfirmationModal } from '../../suitcase/AssociationConfirmationModal';
-import { LinkSuitcaseModal } from '../../suitcase/LinkSuitcaseModal';
-import { LinkModalVariant } from '@/utils/suitcaseAssociation';
 import { BlacklistModal } from '../../suitcase/BlacklistModal';
-import { SuitcaseItem } from '@/types/suitcase';
+import { ItemDeleteConfirmationModal } from '../../suitcase/ItemDeleteConfirmationModal';
+import { LinkSuitcaseModal } from '../../suitcase/LinkSuitcaseModal';
+import type { useFloatingPanelModals } from '../hooks/useFloatingPanelModals';
+import type { useSuitcaseActions } from '../hooks/useSuitcaseActions';
+import type { useSuitcaseItemActions } from '../hooks/useSuitcaseItemActions';
 
 interface ModalsProps {
-  modalState: any;
+  modalState: ReturnType<typeof useFloatingPanelModals>;
   itineraryId: string | null;
-  actions: any;
-  itemActions: any;
+  actions: ReturnType<typeof useSuitcaseActions>;
+  itemActions: ReturnType<typeof useSuitcaseItemActions>;
   handleConfirmAssociation: () => Promise<void>;
   handleSaveOnly: () => Promise<void>;
   handleCancelAssociation: () => void;
   isGuest?: boolean;
   isDiaryAssociable?: boolean;
   onLogin?: () => void;
-  blacklistItems?: any[];
+  blacklistItems?: SuitcaseRejection[];
   isFetchingBlacklist?: boolean;
   linkModalOpen?: boolean;
   linkModalVariant?: LinkModalVariant;
@@ -56,8 +59,7 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
   pausedDraftKind,
   onConfirmAssociateSaved,
 }) => {
-  const storedDraftIsTemplate =
-    isTemplateDraftSession || pausedDraftKind === 'user_template';
+  const storedDraftIsTemplate = isTemplateDraftSession || pausedDraftKind === 'user_template';
 
   return (
     <>
@@ -100,14 +102,19 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
 
       <DeleteConfirmationModal
         isOpen={modalState.suitcaseToDelete !== null || modalState.suitcaseToUnlink !== null}
-        title={modalState.suitcaseToUnlink ? "Scollega dal diario?" : "Elimina Definitivamente"}
-        message={modalState.suitcaseToUnlink
-          ? "Sei sicuro di voler scollegare questa valigia dal diario di viaggio? Rimarrà comunque tra le tue valigie salvate."
-          : "Sei sicuro di voler eliminare questa valigia? Verrà rimossa dal tuo profilo e non potrai più recuperarla."
+        title={modalState.suitcaseToUnlink ? 'Scollega dal diario?' : 'Elimina Definitivamente'}
+        message={
+          modalState.suitcaseToUnlink
+            ? 'Sei sicuro di voler scollegare questa valigia dal diario di viaggio? Rimarrà comunque tra le tue valigie salvate.'
+            : 'Sei sicuro di voler eliminare questa valigia? Verrà rimossa dal tuo profilo e non potrai più recuperarla.'
         }
-        confirmLabel={modalState.suitcaseToUnlink ? "Scollega" : "Elimina"}
-        variant={modalState.suitcaseToUnlink ? "warning" : "danger"}
-        onConfirm={modalState.suitcaseToUnlink ? actions.confirmUnlinkSuitcase : actions.confirmDeleteSuitcase}
+        confirmLabel={modalState.suitcaseToUnlink ? 'Scollega' : 'Elimina'}
+        variant={modalState.suitcaseToUnlink ? 'warning' : 'danger'}
+        onConfirm={
+          modalState.suitcaseToUnlink
+            ? actions.confirmUnlinkSuitcase
+            : actions.confirmDeleteSuitcase
+        }
         onClose={() => {
           modalState.setSuitcaseToDelete(null);
           modalState.setSuitcaseToUnlink(null);
@@ -119,7 +126,7 @@ export const SuitcaseModals: React.FC<ModalsProps> = ({
         isOpen={modalState.itemToDelete !== null}
         itemName={modalState.itemToDelete?.name || ''}
         category={modalState.itemToDelete?.category || ''}
-        isAiSuggestion={modalState.itemToDelete?.is_ai_suggestion}
+        isAiSuggestion={modalState.itemToDelete?.is_ai_suggestion ?? undefined}
         onClose={() => modalState.setItemToDelete(null)}
         onConfirm={async () => {
           if (modalState.itemToDelete) {

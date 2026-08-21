@@ -58,11 +58,11 @@ function extensionOf(fileName: string): string {
 }
 
 export async function validateWorkspaceAttachmentFile(
-  file: File
+  file: File,
 ): Promise<{ ok: true; mimeType: string } | { ok: false; error: string }> {
   const ext = extensionOf(file.name);
   const candidates = WORKSPACE_ATTACHMENT_ALLOWED_TYPES.filter((type) =>
-    type.extensions.includes(ext)
+    type.extensions.includes(ext),
   );
 
   if (candidates.length === 0) {

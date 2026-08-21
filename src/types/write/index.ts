@@ -17,22 +17,21 @@
  * - Ogni campo presente in questo payload è esplicitamente intenzionale.
  */
 
-import type { Json } from '../supabase';
-import type { MediaStatus } from '../models/Media';
-import type { 
-    CitySummary, 
-    PointOfInterest, 
-    BadgeType, 
-    PoiCategory, 
-    PoiSubCategory,
-    SponsorTier,
-    Sponsor,
-    SponsorLifecycleStatus,
-    SponsorRequest,
-    ShopCategory,
-    ShopPartner,
-    ShopProduct
+import type {
+  BadgeType,
+  CitySummary,
+  PoiCategory,
+  PointOfInterest,
+  PoiSubCategory,
+  ShopCategory,
+  ShopPartner,
+  ShopProduct,
+  Sponsor,
+  SponsorLifecycleStatus,
+  SponsorTier,
 } from '../index';
+import type { MediaStatus } from '../models/Media';
+import type { Json } from '../supabase';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CITY WRITE PAYLOAD
@@ -52,52 +51,52 @@ import type {
  * NOTA: MediaStatus rimane la source of truth ufficiale nel dominio applicativo.
  */
 export interface CityUpsertPayload {
-    // Identità (obbligatori per upsert)
-    id: string;
-    name: string;
+  // Identità (obbligatori per upsert)
+  id: string;
+  name: string;
 
-    // Geo
-    continent: string | null;
-    nation: string | null;
-    admin_region: string | null;
-    zone: string | null;
-    coords_lat: number | null;
-    coords_lng: number | null;
+  // Geo
+  continent: string | null;
+  nation: string | null;
+  admin_region: string | null;
+  zone: string | null;
+  coords_lat: number | null;
+  coords_lng: number | null;
 
-    // Descrittivo
-    description: string | null;
-    slug: string | null;
-    status: CitySummary['status'] | null;
+  // Descrittivo
+  description: string | null;
+  slug: string | null;
+  status: CitySummary['status'] | null;
 
-    // Media — Source of Truth
-    image_url: string | null;
-    image_status: MediaStatus;
-    image_credit: string | null;
-    image_license: string | null;
-    hero_image: string | null;
-    hero_status: MediaStatus;
+  // Media — Source of Truth
+  image_url: string | null;
+  image_status: MediaStatus;
+  image_credit: string | null;
+  image_license: string | null;
+  hero_image: string | null;
+  hero_status: MediaStatus;
 
-    // Metriche
-    rating: number | null;
-    visitors: number | null;
-    is_featured: boolean | null;
-    special_badge: BadgeType | null;
-    home_order: number | null;
+  // Metriche
+  rating: number | null;
+  visitors: number | null;
+  is_featured: boolean | null;
+  special_badge: BadgeType | null;
+  home_order: number | null;
 
-    // Editoriale
-    subtitle: string | null;
-    history_snippet: string | null;
-    history_full: string | null;
-    official_website: string | null;
+  // Editoriale
+  subtitle: string | null;
+  history_snippet: string | null;
+  history_full: string | null;
+  official_website: string | null;
 
-    // JSON (tipi opachi, tipizzati come Json per Supabase)
-    patron_details: Json | null;
-    ratings: Json | null;
-    gallery: Json | null;
-    generation_logs: Json | null;
+  // JSON (tipi opachi, tipizzati come Json per Supabase)
+  patron_details: Json | null;
+  ratings: Json | null;
+  gallery: Json | null;
+  generation_logs: Json | null;
 
-    // Timestamps
-    updated_at: string;
+  // Timestamps
+  updated_at: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -114,55 +113,55 @@ export interface CityUpsertPayload {
  * - image_status: stato semantico dell'immagine ('real', 'placeholder', 'missing')
  */
 export interface PoiUpsertPayload {
-    // Identità (obbligatori per upsert)
-    id: string;
-    name: string;
-    city_id: string;
-    category: PoiCategory;
-    sub_category: PoiSubCategory | null;
-    description: string;
-    address: string | null;
+  // Identità (obbligatori per upsert)
+  id: string;
+  name: string;
+  city_id: string;
+  category: PoiCategory;
+  sub_category: PoiSubCategory | null;
+  description: string;
+  address: string | null;
 
-    // Media — Source of Truth
-    image_url: string;
-    image_status: MediaStatus;
-    image_credit: string | null;
-    image_license: string | null;
+  // Media — Source of Truth
+  image_url: string;
+  image_status: MediaStatus;
+  image_credit: string | null;
+  image_license: string | null;
 
-    // Coordinate
-    coords_lat: number;
-    coords_lng: number;
+  // Coordinate
+  coords_lat: number;
+  coords_lng: number;
 
-    // Metriche
-    rating: number;
-    votes: number;
-    status: PointOfInterest['status'];
+  // Metriche
+  rating: number;
+  votes: number;
+  status: PointOfInterest['status'];
 
-    // Visita
-    visit_duration: string | null;
-    price_level: number | null;
+  // Visita
+  visit_duration: string | null;
+  price_level: number | null;
 
-    // Monetizzazione
-    is_sponsored: boolean;
-    tier: SponsorTier | null;
-    showcase_expiry: string | null;
+  // Monetizzazione
+  is_sponsored: boolean;
+  tier: SponsorTier | null;
+  showcase_expiry: string | null;
 
-    // AI & Qualità
-    ai_reliability: PointOfInterest['aiReliability'] | null;
-    tourism_interest: PointOfInterest['tourismInterest'] | null;
-    last_verified: string | null;
+  // AI & Qualità
+  ai_reliability: PointOfInterest['aiReliability'] | null;
+  tourism_interest: PointOfInterest['tourismInterest'] | null;
+  last_verified: string | null;
 
-    // JSON (tipi opachi)
-    opening_hours: Json | null;
-    affiliate: Json | null;
-    link_metadata: Json | null;
+  // JSON (tipi opachi)
+  opening_hours: Json | null;
+  affiliate: Json | null;
+  link_metadata: Json | null;
 
-    // Timestamps & Audit
-    date_added: string;
-    created_at: string;
-    created_by: string;
-    updated_at: string;
-    updated_by: string;
+  // Timestamps & Audit
+  date_added: string;
+  created_at: string;
+  created_by: string;
+  updated_at: string;
+  updated_by: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,7 +170,7 @@ export interface PoiUpsertPayload {
 
 /**
  * SponsorUpsertPayload: contratto per supabase.from('sponsors').upsert().
- * 
+ *
  * ARCHITECTURAL NOTE: Sponsor Taxonomy
  * Il campo 'type' utilizza attualmente la governance del dominio frontend (Sponsor['type']).
  * Questa scelta rappresenta il consolidamento attuale del dominio applicativo.
@@ -182,29 +181,29 @@ export interface PoiUpsertPayload {
  * Fino a tale audit, Sponsor['type'] rimane la source-of-truth per i write payloads.
  */
 export interface SponsorUpsertPayload {
-    id?: string;
-    city_id: string;
-    contact_name: string;
-    company_name: string;
-    vat_number: string | null;
-    email: string;
-    phone: string;
-    address: string | null;
-    status: SponsorLifecycleStatus;
-    tier: SponsorTier;
-    type: Sponsor['type'];
-    start_date: string;
-    end_date: string;
-    amount: number;
-    owner_id?: string;
-    profile_id?: string;
-    poi_id?: string;
-    shop_id?: string;
-    guide_id?: string;
-    operator_id?: string;
-    request_id?: string;
-    admin_notes?: string;
-    updated_at: string;
+  id?: string;
+  city_id: string;
+  contact_name: string;
+  company_name: string;
+  vat_number: string | null;
+  email: string;
+  phone: string;
+  address: string | null;
+  status: SponsorLifecycleStatus;
+  tier: SponsorTier;
+  type: Sponsor['type'];
+  start_date: string;
+  end_date: string;
+  amount: number;
+  owner_id?: string;
+  profile_id?: string;
+  poi_id?: string;
+  shop_id?: string;
+  guide_id?: string;
+  operator_id?: string;
+  request_id?: string;
+  admin_notes?: string;
+  updated_at: string;
 }
 
 /**
@@ -223,37 +222,37 @@ export interface SponsorUpsertPayload {
  * frontend attuale in attesa di consolidamento CRM definitivo.
  */
 export interface SponsorRequestUpsertPayload {
-    id?: string;
-    city_id: string;
-    requester_name: string;
-    company_name: string;
-    vat_number: string | null;
-    requester_email: string;
-    requester_phone: string;
-    address: string | null;
-    status: SponsorLifecycleStatus;
-    type: Sponsor['type'];
-    tier: SponsorTier;
-    amount: number;
-    pricing_version_id: string;
-    profile_id?: string;
-    owner_id?: string;
-    message?: string | null;
-    image_url?: string | null;
-    image_status?: MediaStatus;
-    coords_lat?: number | null;
-    coords_lng?: number | null;
-    description?: string | null;
-    languages?: string[] | null;
-    specialties?: string[] | null;
-    license_number?: string | null;
-    start_date?: string | null;
-    end_date?: string | null;
-    /**
-     * Campo di dominio gestito dalle RPC di cambio status.
-     * Presente solo per allineamento schema / lettura tipi — non impostarlo da client.
-     */
-    status_changed_at?: string | null;
+  id?: string;
+  city_id: string;
+  requester_name: string;
+  company_name: string;
+  vat_number: string | null;
+  requester_email: string;
+  requester_phone: string;
+  address: string | null;
+  status: SponsorLifecycleStatus;
+  type: Sponsor['type'];
+  tier: SponsorTier;
+  amount: number;
+  pricing_version_id: string;
+  profile_id?: string;
+  owner_id?: string;
+  message?: string | null;
+  image_url?: string | null;
+  image_status?: MediaStatus;
+  coords_lat?: number | null;
+  coords_lng?: number | null;
+  description?: string | null;
+  languages?: string[] | null;
+  specialties?: string[] | null;
+  license_number?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  /**
+   * Campo di dominio gestito dalle RPC di cambio status.
+   * Presente solo per allineamento schema / lettura tipi — non impostarlo da client.
+   */
+  status_changed_at?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,47 +263,47 @@ export interface SponsorRequestUpsertPayload {
  * ShopUpsertPayload: contratto per supabase.from('shops').upsert().
  */
 export interface ShopUpsertPayload {
-    id: string;
-    city_id: string;
-    name: string;
-    category: ShopCategory;
-    level: ShopPartner['level'];
-    badge: ShopPartner['badge'];
-    image_url: string;
-    gallery: string[];
-    founded_year: number | null;
-    short_bio: string | null;
-    description: string | null;
-    vat_number: string;
-    address: string;
-    coords_lat: number;
-    coords_lng: number;
-    phone: string;
-    email: string;
-    website?: string | null;
-    shipping_info?: string | null;
-    payment_info?: string | null;
-    ai_credits: number;
-    is_tipico: boolean;
-    likes: number;
-    rating: number;
-    reviews_count: number;
-    reviews: Json;
-    owner_id?: string | null;
-    slug: string | null;
-    updated_at: string;
+  id: string;
+  city_id: string;
+  name: string;
+  category: ShopCategory;
+  level: ShopPartner['level'];
+  badge: ShopPartner['badge'];
+  image_url: string;
+  gallery: string[];
+  founded_year: number | null;
+  short_bio: string | null;
+  description: string | null;
+  vat_number: string;
+  address: string;
+  coords_lat: number;
+  coords_lng: number;
+  phone: string;
+  email: string;
+  website?: string | null;
+  shipping_info?: string | null;
+  payment_info?: string | null;
+  ai_credits: number;
+  is_tipico: boolean;
+  likes: number;
+  rating: number;
+  reviews_count: number;
+  reviews: Json;
+  owner_id?: string | null;
+  slug: string | null;
+  updated_at: string;
 }
 
 /**
  * ShopProductUpsertPayload: contratto per supabase.from('shop_products').upsert().
  */
 export interface ShopProductUpsertPayload {
-    id: string;
-    shop_id: string;
-    name: string;
-    description: string;
-    image_url: string;
-    price: number;
-    status: ShopProduct['status'];
-    shipping_mode: ShopProduct['shippingMode'];
+  id: string;
+  shop_id: string;
+  name: string;
+  description: string;
+  image_url: string;
+  price: number;
+  status: ShopProduct['status'];
+  shipping_mode: ShopProduct['shippingMode'];
 }

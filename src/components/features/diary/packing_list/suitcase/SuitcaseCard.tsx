@@ -1,14 +1,15 @@
-import React, { useMemo } from 'react';
-import { TemplateCategoryIcon, getSuitcaseItemProgress } from './SuitcaseUtils';
-import { Trash2, Wrench, CheckSquare, Copy, Eye, Users } from 'lucide-react';
-import { User } from '@supabase/supabase-js';
-import { Suitcase } from '@/types/suitcase';
-import { formatItalianDateTime } from '@/utils/dateFormatters';
+import type { User } from '@supabase/supabase-js';
+import { CheckSquare, Copy, Eye, Trash2, Users, Wrench } from 'lucide-react';
+import type React from 'react';
+import { useMemo } from 'react';
+import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
 import { SharedResourceIndicator } from '@/components/collaboration/SharedResourceIndicator';
 import { useOpenCollaborationShare } from '@/hooks/useOpenCollaborationShare';
 import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
-import { resolveSuitcaseSharedResourceKind } from '@/collaboration/suitcaseResourceKind';
+import type { Suitcase } from '@/types/suitcase';
+import { formatItalianDateTime } from '@/utils/dateFormatters';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
+import { getSuitcaseItemProgress, TemplateCategoryIcon } from './SuitcaseUtils';
 
 export type SuitcaseCardVariant = 'trip' | 'saved';
 export type SuitcaseCardRemoveAction = 'delete' | 'unlink';
@@ -69,12 +70,11 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
     currentUser?.id === suitcase.user_id ||
     (!currentUser && (suitcase.user_id === 'guest' || suitcase.id.startsWith('guest-')));
 
-  const canShare =
-    showShareAction && isOwner && !!resourceKind && !isTdTemplate(suitcase);
+  const canShare = showShareAction && isOwner && !!resourceKind && !isTdTemplate(suitcase);
 
   const progress = useMemo(
     () => getSuitcaseItemProgress(suitcase.suitcase_items),
-    [suitcase.suitcase_items]
+    [suitcase.suitcase_items],
   );
 
   const showAssociateCta =
@@ -167,10 +167,7 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
         )}
 
         {showAvailableBadge && (
-          <div
-            className={`${topBadgeClass} bg-amber-500 text-white cursor-default select-none`}
-            aria-label="Valigia disponibile"
-          >
+          <div className={`${topBadgeClass} bg-amber-500 text-white cursor-default select-none`}>
             DISPONIBILE
           </div>
         )}
@@ -295,8 +292,8 @@ export const SuitcaseCard: React.FC<SuitcaseCardProps> = ({
               }`}
             />
             <span className="text-[9px] xl:text-[11px] text-indigo-400 font-black uppercase tracking-wider tabular-nums">
-              {progress.checked}/{progress.total}{' '}
-              <span className="opacity-40 mx-0.5">•</span> {progress.percentage}%
+              {progress.checked}/{progress.total} <span className="opacity-40 mx-0.5">•</span>{' '}
+              {progress.percentage}%
             </span>
           </div>
         </div>

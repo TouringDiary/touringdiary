@@ -1,4 +1,4 @@
-import { Suitcase, DraftWorkspaceKind } from '@/types/suitcase';
+import type { DraftWorkspaceKind, Suitcase } from '@/types/suitcase';
 import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 
 export type { DraftWorkspaceKind };
@@ -8,13 +8,13 @@ export const isTdTemplate = (suitcase: Pick<Suitcase, 'user_id' | 'is_user_templ
   suitcase.user_id === null;
 
 /** Template personale dell'utente. */
-export const isUserTemplate = (
-  suitcase: Pick<Suitcase, 'user_id' | 'is_user_template'>
-): boolean =>
+export const isUserTemplate = (suitcase: Pick<Suitcase, 'user_id' | 'is_user_template'>): boolean =>
   suitcase.user_id !== null && suitcase.is_user_template === true;
 
 /** Valigia operativa associabile al diario. */
-export const isValigia = (suitcase: Pick<Suitcase, 'user_id' | 'is_user_template' | 'id'>): boolean =>
+export const isValigia = (
+  suitcase: Pick<Suitcase, 'user_id' | 'is_user_template' | 'id'>,
+): boolean =>
   suitcase.user_id !== null &&
   suitcase.is_user_template !== true &&
   !isDraftWorkspaceId(suitcase.id);
@@ -35,7 +35,7 @@ export const isAssociableSuitcase = (suitcase: Suitcase): boolean => {
 };
 
 export const resolveRuntimeIsTemplate = (
-  suitcase: Pick<Suitcase, 'user_id' | 'is_user_template'>
+  suitcase: Pick<Suitcase, 'user_id' | 'is_user_template'>,
 ): boolean => isTdTemplate(suitcase) || isUserTemplate(suitcase);
 
 export const getDraftWorkspaceKind = (suitcase: Suitcase): DraftWorkspaceKind =>
@@ -44,7 +44,7 @@ export const getDraftWorkspaceKind = (suitcase: Suitcase): DraftWorkspaceKind =>
 /** Template TD: mai modificabili. Viewer: sola consultazione. */
 export const isSessionReadOnly = (
   suitcase: Pick<Suitcase, 'user_id' | 'is_user_template'> | null | undefined,
-  viewMode: 'selector' | 'viewer' | 'editor'
+  viewMode: 'selector' | 'viewer' | 'editor',
 ): boolean => {
   if (!suitcase) return false;
   if (isTdTemplate(suitcase)) return true;

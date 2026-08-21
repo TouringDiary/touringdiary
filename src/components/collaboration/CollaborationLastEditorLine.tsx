@@ -1,5 +1,5 @@
-import React from 'react';
 import { UserRound } from 'lucide-react';
+import type React from 'react';
 
 interface Props {
   editorName?: string | null;

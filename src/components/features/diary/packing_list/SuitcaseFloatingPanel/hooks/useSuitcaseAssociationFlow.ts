@@ -1,23 +1,21 @@
+import type { User } from '@supabase/supabase-js';
 import { useCallback, useRef, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { Itinerary } from '@/types';
-import { Suitcase } from '@/types/suitcase';
-import { ToastVariant } from '@/types/toast';
-import {
-  prepareForAssociation,
-} from '@/services/suitcase/prepareForAssociation';
 import { getDocumentSaveController } from '@/domain/save/documentSaveRegistry';
+import { prepareForAssociation } from '@/services/suitcase/prepareForAssociation';
 import { linkSuitcaseToTripAsync } from '@/services/suitcase/suitcaseLinkingService';
+import type { Itinerary } from '@/types';
+import type { Suitcase } from '@/types/suitcase';
+import type { ToastVariant } from '@/types/toast';
 import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
-import { isAssociableSuitcase } from '@/utils/suitcaseDomain';
 import {
+  type AssociationCase,
   associationCaseToModalVariant,
-  AssociationCase,
   isDiaryPersisted,
   isSuitcasePersisted,
-  LinkModalVariant,
+  type LinkModalVariant,
   resolveAssociationCase,
 } from '@/utils/suitcaseAssociation';
+import { isAssociableSuitcase } from '@/utils/suitcaseDomain';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 
 type SuitcaseSaveController = NonNullable<ReturnType<typeof getDocumentSaveController>>;
@@ -49,27 +47,25 @@ function resolveSuitcaseSaveControllerForAssociation(
   };
 }
 
-const ASSOCIATION_SUCCESS_TOAST: Record<
-  AssociationCase,
-  { message: string; description: string }
-> = {
-  A: {
-    message: 'Valigia collegata al diario',
-    description: 'La valigia è ora sincronizzata con il diario di viaggio.',
-  },
-  B: {
-    message: 'Diario salvato ed associato',
-    description: 'Il diario di viaggio è stato salvato e collegato alla valigia.',
-  },
-  C: {
-    message: 'Valigia salvata ed associata',
-    description: 'La valigia è stata salvata e collegata al diario di viaggio.',
-  },
-  D: {
-    message: 'Salvato ed associato',
-    description: 'Il diario di viaggio e la valigia sono stati salvati ed associati.',
-  },
-};
+const ASSOCIATION_SUCCESS_TOAST: Record<AssociationCase, { message: string; description: string }> =
+  {
+    A: {
+      message: 'Valigia collegata al diario',
+      description: 'La valigia è ora sincronizzata con il diario di viaggio.',
+    },
+    B: {
+      message: 'Diario salvato ed associato',
+      description: 'Il diario di viaggio è stato salvato e collegato alla valigia.',
+    },
+    C: {
+      message: 'Valigia salvata ed associata',
+      description: 'La valigia è stata salvata e collegata al diario di viaggio.',
+    },
+    D: {
+      message: 'Salvato ed associato',
+      description: 'Il diario di viaggio e la valigia sono stati salvati ed associati.',
+    },
+  };
 
 export type AssociationSuccessNavigation = 'editor' | 'selector';
 
@@ -130,14 +126,14 @@ export const useSuitcaseAssociationFlow = ({
       userSuitcases.find((suitcase) => suitcase.id === suitcaseId)?.title ||
       (guestSuitcase?.id === suitcaseId ? guestSuitcase.title : '') ||
       '',
-    [guestSuitcase, userSuitcases]
+    [guestSuitcase, userSuitcases],
   );
 
   const applyAssociationSuccess = useCallback(
     async (
       result: { itineraryId: string; suitcaseId: string },
       navigation: AssociationSuccessNavigation,
-      associationCase: AssociationCase
+      associationCase: AssociationCase,
     ) => {
       await fetchLinkedIds(result.itineraryId);
       void fetchUserSuitcases();
@@ -168,19 +164,16 @@ export const useSuitcaseAssociationFlow = ({
       setShowAssociationModal,
       setViewMode,
       showToast,
-    ]
+    ],
   );
 
   const runAssociation = useCallback(
-    async (
-      suitcaseId: string,
-      names?: { diaryName?: string; suitcaseName?: string }
-    ) => {
+    async (suitcaseId: string, names?: { diaryName?: string; suitcaseName?: string }) => {
       if (!currentUser?.id) {
         showToast(
           'Accesso richiesto',
           'Effettua il login per associare una valigia al diario.',
-          'destructive'
+          'destructive',
         );
         onLoginRequired();
         return;
@@ -191,12 +184,20 @@ export const useSuitcaseAssociationFlow = ({
         resolveSuitcaseSaveControllerForAssociation(suitcaseId, activeEditorSuitcaseId);
 
       if (!diaryController) {
-        showToast('Associazione non riuscita', 'Sistema di salvataggio non pronto. Riprova.', 'destructive');
+        showToast(
+          'Associazione non riuscita',
+          'Sistema di salvataggio non pronto. Riprova.',
+          'destructive',
+        );
         return;
       }
 
       if (needsSuitcaseController && !suitcaseController) {
-        showToast('Associazione non riuscita', 'Sistema di salvataggio non pronto. Riprova.', 'destructive');
+        showToast(
+          'Associazione non riuscita',
+          'Sistema di salvataggio non pronto. Riprova.',
+          'destructive',
+        );
         return;
       }
 
@@ -204,7 +205,7 @@ export const useSuitcaseAssociationFlow = ({
 
       const associationCase = resolveAssociationCase(
         isDiaryPersisted(itinerary, savedProjects),
-        suitcasePersisted
+        suitcasePersisted,
       );
 
       setIsAssociating(true);
@@ -233,23 +234,23 @@ export const useSuitcaseAssociationFlow = ({
             } else {
               showToast(
                 'Associazione non riuscita',
-                'Nome mancante per completare l\'associazione.',
-                'destructive'
+                "Nome mancante per completare l'associazione.",
+                'destructive',
               );
             }
             return;
           }
           if (readiness.reason === 'error') {
-            showToast('Associazione non riuscita', 'Risolvi gli errori di salvataggio prima di collegare.', 'destructive');
+            showToast(
+              'Associazione non riuscita',
+              'Risolvi gli errori di salvataggio prima di collegare.',
+              'destructive',
+            );
           }
           return;
         }
 
-        await linkSuitcaseToTripAsync(
-          readiness.itineraryId,
-          readiness.suitcaseId,
-          currentUser.id
-        );
+        await linkSuitcaseToTripAsync(readiness.itineraryId, readiness.suitcaseId, currentUser.id);
 
         setLinkModalOpen(false);
         setPendingSuitcaseId(null);
@@ -257,13 +258,11 @@ export const useSuitcaseAssociationFlow = ({
         await applyAssociationSuccess(
           { itineraryId: readiness.itineraryId, suitcaseId: readiness.suitcaseId },
           successNavigation,
-          associationCase
+          associationCase,
         );
       } catch (error) {
         const message =
-          error instanceof Error
-            ? error.message
-            : 'Associazione non riuscita. Riprova.';
+          error instanceof Error ? error.message : 'Associazione non riuscita. Riprova.';
         showToast('Associazione non riuscita', message, 'destructive');
         console.error('[useSuitcaseAssociationFlow] Association failed:', error);
       } finally {
@@ -280,7 +279,7 @@ export const useSuitcaseAssociationFlow = ({
       onLoginRequired,
       savedProjects,
       showToast,
-    ]
+    ],
   );
 
   const requestAssociation = useCallback(
@@ -289,7 +288,7 @@ export const useSuitcaseAssociationFlow = ({
         showToast(
           'Accesso richiesto',
           'Effettua il login per associare una valigia al diario.',
-          'destructive'
+          'destructive',
         );
         onLoginRequired();
         return;
@@ -326,7 +325,7 @@ export const useSuitcaseAssociationFlow = ({
       savedProjects,
       setShowAssociationModal,
       showToast,
-    ]
+    ],
   );
 
   const handleLinkExisting = useCallback(
@@ -336,7 +335,7 @@ export const useSuitcaseAssociationFlow = ({
         showToast(
           'Associazione non disponibile',
           'I template non possono essere associati al diario. Usa «Usa template» per creare una valigia.',
-          'destructive'
+          'destructive',
         );
         return;
       }
@@ -345,14 +344,14 @@ export const useSuitcaseAssociationFlow = ({
         showToast(
           'Diario non associabile',
           'Imposta le date del viaggio e aggiungi almeno una tappa per associare una valigia.',
-          'destructive'
+          'destructive',
         );
         return;
       }
 
       await requestAssociation(suitcaseId, { successNavigation: 'editor' });
     },
-    [isDiaryAssociable, requestAssociation, showToast, userSuitcases]
+    [isDiaryAssociable, requestAssociation, showToast, userSuitcases],
   );
 
   const handleLinkModalConfirm = useCallback(
@@ -360,7 +359,7 @@ export const useSuitcaseAssociationFlow = ({
       if (!pendingSuitcaseId) return;
       await runAssociation(pendingSuitcaseId, values);
     },
-    [pendingSuitcaseId, runAssociation]
+    [pendingSuitcaseId, runAssociation],
   );
 
   const handleLinkModalCancel = useCallback(() => {

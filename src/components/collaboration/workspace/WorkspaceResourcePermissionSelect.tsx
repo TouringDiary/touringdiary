@@ -1,6 +1,9 @@
-import React from 'react';
+import type React from 'react';
 import type { WorkspaceResourceAccess } from '@/domain/collaboration';
-import { isWorkspaceResourceAccess, WORKSPACE_RESOURCE_ACCESS_LEVELS } from '@/domain/collaboration';
+import {
+  isWorkspaceResourceAccess,
+  WORKSPACE_RESOURCE_ACCESS_LEVELS,
+} from '@/domain/collaboration';
 import { WORKSPACE_ACCESS_LABELS } from './workspacePresentation';
 
 interface Props {

@@ -3,8 +3,8 @@ import { useModal } from '@/context/ModalContext';
 import { useUser } from '@/context/UserContext';
 import {
   isMyWorldFamilyModal,
-  saveLastMyWorldSurface,
   type MyWorldFamilyModalKey,
+  saveLastMyWorldSurface,
 } from '@/myworld/myWorldSession';
 import { resolveWorkspaceId } from './focusModeRegistry';
 import { useWorkspaceSessionEnd } from './useWorkspaceSessionEnd';
@@ -12,25 +12,25 @@ import { useWorkspaceSessionEnd } from './useWorkspaceSessionEnd';
 const SuitcaseFloatingPanel = React.lazy(() =>
   import('@/components/features/diary/packing_list/SuitcaseFloatingPanel').then((module) => ({
     default: module.SuitcaseFloatingPanel,
-  }))
+  })),
 );
 
 const GlobalWorkspacePanelRoot = React.lazy(() =>
   import('@/components/workspace/global/GlobalWorkspacePanelRoot').then((module) => ({
     default: module.GlobalWorkspacePanelRoot,
-  }))
+  })),
 );
 
 const MyWorldChooserPanel = React.lazy(() =>
   import('@/components/myworld/MyWorldChooserPanel').then((module) => ({
     default: module.MyWorldChooserPanel,
-  }))
+  })),
 );
 
 const MySpaceMinimalShell = React.lazy(() =>
   import('@/components/myspace/MySpaceMinimalShell').then((module) => ({
     default: module.MySpaceMinimalShell,
-  }))
+  })),
 );
 
 /**

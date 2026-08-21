@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { useUser } from '@/context/UserContext';
 import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
 import { userNeedsUsername } from '@/domain/profile/username';
 
 /**

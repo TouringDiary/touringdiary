@@ -1,4 +1,3 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ChevronRight,
@@ -8,13 +7,15 @@ import {
   RefreshCw,
   Smartphone,
 } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useConfig } from '@/context/ConfigContext';
-import type { StyleRule } from '@/types/designSystem';
-import { updateDesignSystemRule, rebuildDesignSystemCache } from '@/services/settingsService';
 import { FOUNDATION_SETTINGS_GROUPS } from '@/data/system/foundationSettingsCatalog';
-import { getFoundationPreviewMeta } from '../design/foundation/foundationPreviewMeta';
-import { FoundationModalLivePreview } from '../design/foundation/FoundationPreviewComponents';
+import { rebuildDesignSystemCache, updateDesignSystemRule } from '@/services/settingsService';
+import type { StyleRule } from '@/types/designSystem';
 import ComponentPreviewHost from '../design/ComponentPreviewHost';
+import { FoundationModalLivePreview } from '../design/foundation/FoundationPreviewComponents';
+import { getFoundationPreviewMeta } from '../design/foundation/foundationPreviewMeta';
 import { SideEditorPanel } from '../design/SideEditorPanel';
 
 const isFoundationRule = (rule: StyleRule): boolean =>
@@ -28,7 +29,7 @@ const FoundationSettingsPanel: React.FC = () => {
   const [selectedBaseKey, setSelectedBaseKey] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(FOUNDATION_SETTINGS_GROUPS.map((g) => [g.id, true]))
+    Object.fromEntries(FOUNDATION_SETTINGS_GROUPS.map((g) => [g.id, true])),
   );
 
   const [isSaving, setIsSaving] = useState(false);
@@ -47,7 +48,7 @@ const FoundationSettingsPanel: React.FC = () => {
         }
         return acc;
       },
-      {}
+      {},
     );
 
     setOriginalRules(structuredClone(foundationOnly));
@@ -129,7 +130,8 @@ const FoundationSettingsPanel: React.FC = () => {
             <h3 className="text-xl font-bold">Foundation non inizializzata</h3>
           </div>
           <p className="mt-2 text-slate-300">
-            Nessuna regola Foundation trovata in <code className="text-indigo-300">design_system_rules</code>.
+            Nessuna regola Foundation trovata in{' '}
+            <code className="text-indigo-300">design_system_rules</code>.
           </p>
           <p className="mt-1 text-sm text-slate-400">
             Esegui la migration seed Foundation o premi Rigenera Cache dopo il deploy.
@@ -146,7 +148,11 @@ const FoundationSettingsPanel: React.FC = () => {
               disabled={isRebuilding}
               className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-50 mx-auto"
             >
-              {isRebuilding ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+              {isRebuilding ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-5 h-5" />
+              )}
               {isRebuilding ? 'Rigenerazione in corso...' : 'Rigenera Cache'}
             </button>
           </div>
@@ -165,8 +171,9 @@ const FoundationSettingsPanel: React.FC = () => {
           </div>
           <h3 className="text-lg font-bold text-white">Foundation modali</h3>
           <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-            Standard grafico ufficiale per modali e componenti condivisi. Le modali future leggeranno
-            questi token tramite <code className="text-slate-300">useFoundationStyles</code>.
+            Standard grafico ufficiale per modali e componenti condivisi. Le modali future
+            leggeranno questi token tramite{' '}
+            <code className="text-slate-300">useFoundationStyles</code>.
           </p>
         </div>
         <button
@@ -175,7 +182,11 @@ const FoundationSettingsPanel: React.FC = () => {
           disabled={isRebuilding}
           className="self-start lg:self-center bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 border border-slate-700 disabled:opacity-50"
         >
-          {isRebuilding ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {isRebuilding ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4" />
+          )}
           Rigenera cache
         </button>
       </div>
@@ -185,7 +196,8 @@ const FoundationSettingsPanel: React.FC = () => {
           <div>
             <h4 className="text-sm font-bold text-white">Anteprima live modale</h4>
             <p className="text-xs text-slate-500 mt-0.5">
-              Composizione dai token Foundation correnti (non salvati finché non confermi nel editor).
+              Composizione dai token Foundation correnti (non salvati finché non confermi nel
+              editor).
             </p>
           </div>
           <div className="flex items-center gap-2 p-1 bg-slate-800 rounded-lg self-start">

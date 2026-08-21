@@ -11,7 +11,7 @@ export const fetchLinkedSuitcaseIdsAsync = async (itineraryId: string): Promise<
     .eq('itinerary_id', itineraryId);
 
   if (error) throw error;
-  return (data?.map(d => d.suitcase_id) || []) as string[];
+  return (data?.map((d) => d.suitcase_id) || []) as string[];
 };
 
 /**
@@ -21,15 +21,16 @@ export const fetchLinkedSuitcaseIdsAsync = async (itineraryId: string): Promise<
 export const linkSuitcaseToTripAsync = async (
   itineraryId: string,
   suitcaseId: string,
-  userId?: string | null
+  userId?: string | null,
 ): Promise<void> => {
-  const { error } = await supabase
-    .from('itinerary_suitcases')
-    .upsert({ 
-      itinerary_id: itineraryId, 
+  const { error } = await supabase.from('itinerary_suitcases').upsert(
+    {
+      itinerary_id: itineraryId,
       suitcase_id: suitcaseId,
-      user_id: userId || null
-    }, { onConflict: 'itinerary_id,suitcase_id' });
+      user_id: userId || null,
+    },
+    { onConflict: 'itinerary_id,suitcase_id' },
+  );
 
   if (error) throw error;
 
@@ -58,7 +59,10 @@ export const linkSuitcaseToTripAsync = async (
 /**
  * Scollega una valigia da un itinerario.
  */
-export const unlinkSuitcaseAsync = async (itineraryId: string, suitcaseId: string): Promise<void> => {
+export const unlinkSuitcaseAsync = async (
+  itineraryId: string,
+  suitcaseId: string,
+): Promise<void> => {
   const { error } = await supabase
     .from('itinerary_suitcases')
     .delete()

@@ -46,7 +46,9 @@ Registrazione architetturale 2026-07-16 — SSOT: `AI_CONTEXT/33_ID_MODEL_DUAL_F
 *   **`notifications`**: Messaggi di sistema e notifiche utente persistenti.
 *   **`xp_actions`**: Catalogo azioni che assegnano XP.
 *   **`rewards_catalog`**: Premi riscattabili tramite XP.
-*   **`community_posts`**: Post social e domande della community.
+*   **`community_posts`**: Post social e domande della community (`replies` jsonb = legacy; non scritto dal nuovo path Q&A).
+*   **`community_replies`**: SoT delle risposte Q&A Local (nesting via `parent_reply_id`; insert solo via RPC `add_community_reply`).
+*   Follow discussione Q&A: `user_interactions` con `target_type='community_post'` + `interaction_type='follow'` (auto-follow owner su INSERT post; fan-out notifiche server-side).
 
 ### Collaboration & Workspace (v1 — Fase 10)
 *   **`shared_resources` / `shared_resource_members` / `resource_invites`**: ACL condivisione risorsa singola (Diario, Valigia, Template).
@@ -66,9 +68,9 @@ Registrazione architetturale 2026-07-16 — SSOT: `AI_CONTEXT/33_ID_MODEL_DUAL_F
 
 ## RELAZIONI CHIAVE
 *   **`cities` ↔ `pois`**: Relazione 1:N basata su `city_id`.
-*   **`pois` ↔ `sponsors`**: Relazione 1:1 o 1:N per la gestione della visibilità premium.
-*   **`profiles` ↔ `subscriptions`**: Relazione 1:N (uno solo attivo) per la determinazione dei limiti.
-*   **`pricing_versions` ↔ `subscriptions`**: Foreign key per garantire immutabilità dei prezzi passati.
+*   **`pois` ↔ `sponsors`**: Foreign key `sponsors.poi_id` → `pois.id` (collega uno sponsor a un POI).
+*   **`profiles` ↔ `subscriptions`**: Foreign key `subscriptions.user_id` → `profiles.id` (relazione parent/child per abbonamenti e limiti).
+*   **`pricing_versions` ↔ `subscriptions`**: Foreign key `subscriptions.pricing_version_id` → `pricing_versions.id` (collega la subscription alla pricing version associata).
 
 ## RPC (Remote Procedure Calls)
 *   **`consume_ai_credits`**: Logica atomica per scalare crediti e verificare limiti.
@@ -77,6 +79,7 @@ Registrazione architetturale 2026-07-16 — SSOT: `AI_CONTEXT/33_ID_MODEL_DUAL_F
 *   **`get_active_pricing_version_v2`**: Risoluzione della versione di pricing corrente.
 *   **`get_ranked_cities`**: Aggregazione dati per classifiche territoriali.
 *   **`mutate_platform_feature_flag`**: Mutazione Feature Flag Centro di Controllo + audit obbligatorio (`admin_all`).
+*   **`add_community_reply`**: Inserisce risposta Q&A Local (identità da `profiles`; owner bloccato su root reply; nesting sullo stesso post).
 *   **`delete_platform_control_audit_event` / `clear_platform_control_audit`**: Gestione Storico Audit (`admin_all`); nessun DELETE client diretto su `platform_control_audit`.
 
 ## JSON STRUCTURED FIELDS (Esempi)

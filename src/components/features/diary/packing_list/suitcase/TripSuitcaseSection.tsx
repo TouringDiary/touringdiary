@@ -1,3 +1,4 @@
+import type { User } from '@supabase/supabase-js';
 import { Briefcase, ChevronLeft, ChevronRight, Link2, Sparkles } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Suitcase, SuitcaseItem } from '@/types/suitcase';
@@ -15,7 +16,7 @@ interface TripSuitcaseSectionProps {
   onDeleteSuitcase: (id: string) => void;
   onUseSuggested?: () => void;
   onDismissSuggested?: () => void;
-  currentUser?: any;
+  currentUser?: User | null;
   compact?: boolean;
 }
 

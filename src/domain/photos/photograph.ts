@@ -17,8 +17,8 @@ import type { MediaStatus } from '@/types/models/Media';
 export const PHOTOGRAPH_MEDIA_STATUS: MediaStatus = 'real';
 
 export type PhotographMediaFields = {
-    mediaStatus?: MediaStatus | null;
-    url?: string | null;
+  mediaStatus?: MediaStatus | null;
+  url?: string | null;
 };
 
 /**
@@ -26,16 +26,16 @@ export type PhotographMediaFields = {
  * Status-driven (not URL heuristics). Empty URL is not a Photograph.
  */
 export function isPhotograph(
-    fields: PhotographMediaFields | MediaStatus | null | undefined,
+  fields: PhotographMediaFields | MediaStatus | null | undefined,
 ): boolean {
-    if (fields == null) return false;
+  if (fields == null) return false;
 
-    if (typeof fields === 'string') {
-        return fields === PHOTOGRAPH_MEDIA_STATUS;
-    }
+  if (typeof fields === 'string') {
+    return fields === PHOTOGRAPH_MEDIA_STATUS;
+  }
 
-    if (!fields.url?.trim()) return false;
-    return fields.mediaStatus === PHOTOGRAPH_MEDIA_STATUS;
+  if (!fields.url?.trim()) return false;
+  return fields.mediaStatus === PHOTOGRAPH_MEDIA_STATUS;
 }
 
 /**
@@ -43,5 +43,5 @@ export function isPhotograph(
  * assets from the City Photographic Gallery only (not Presentation Media).
  */
 export function isPhotographMediaAsset(fields: PhotographMediaFields): boolean {
-    return isPhotograph(fields);
+  return isPhotograph(fields);
 }

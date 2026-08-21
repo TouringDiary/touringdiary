@@ -1,13 +1,13 @@
+import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import {
   DIARY_NOTES_STATE_VERSION,
-  EMPTY_DIARY_NOTES_DOCUMENT,
-  type DiaryNoteTab,
   type DiaryNotesDocument,
   type DiaryNotesState,
+  type DiaryNoteTab,
+  EMPTY_DIARY_NOTES_DOCUMENT,
   isDiaryNotesDocument,
   normalizeDiaryNotes,
 } from '@/types/models/DiaryNotes';
-import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import { randomUUID } from '@/utils/runtimeId';
 
 export function defaultTabTitle(index: number): string {
@@ -22,7 +22,7 @@ import {
 export function createDiaryNoteTab(
   title: string,
   document?: DiaryNotesDocument,
-  createdBy?: string
+  createdBy?: string,
 ): DiaryNoteTab {
   const tab: DiaryNoteTab = {
     id: randomUUID(),
@@ -258,8 +258,7 @@ export function getDiaryNotesUndoGrouping(
     previous.tabs.every((tab, index) => tab.id === next.tabs[index]?.id);
 
   const sameTitles =
-    sameTabOrder &&
-    previous.tabs.every((tab, index) => tab.title === next.tabs[index]?.title);
+    sameTabOrder && previous.tabs.every((tab, index) => tab.title === next.tabs[index]?.title);
 
   const sameActiveTab = previous.activeTabId === next.activeTabId;
 

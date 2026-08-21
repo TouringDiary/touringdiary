@@ -13,13 +13,13 @@ export function mergeCompositionDraftWithBlueprint(
   const base = current ?? createDefaultCompositionDraft(nextBlueprint);
   const nextSuitcaseIds = new Set(
     [...base.selectedSuitcaseIds].filter((id) =>
-      nextBlueprint.suitcases.candidates.some((candidate) => candidate.resourceId === id)
-    )
+      nextBlueprint.suitcases.candidates.some((candidate) => candidate.resourceId === id),
+    ),
   );
   const nextTemplateIds = new Set(
     [...base.selectedUserTemplateIds].filter((id) =>
-      nextBlueprint.userTemplates.candidates.some((candidate) => candidate.resourceId === id)
-    )
+      nextBlueprint.userTemplates.candidates.some((candidate) => candidate.resourceId === id),
+    ),
   );
 
   if (nextBlueprint.seed.kind === 'suitcase') {

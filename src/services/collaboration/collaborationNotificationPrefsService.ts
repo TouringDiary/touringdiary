@@ -17,7 +17,7 @@ function parsePrefs(raw: unknown): CollaborationNotificationCategoryPrefs {
 }
 
 export async function getCollaborationNotificationPrefs(
-  userId: string
+  userId: string,
 ): Promise<CollaborationNotificationCategoryPrefs> {
   const { data, error } = await supabase
     .from('profiles')
@@ -34,7 +34,7 @@ export async function getCollaborationNotificationPrefs(
 
 export async function updateCollaborationNotificationPrefs(
   userId: string,
-  prefs: CollaborationNotificationCategoryPrefs
+  prefs: CollaborationNotificationCategoryPrefs,
 ): Promise<{ success: boolean; error?: string }> {
   const { error } = await supabase
     .from('profiles')
@@ -51,7 +51,7 @@ export async function updateCollaborationNotificationPrefs(
 
 export async function shouldDeliverCollaborationNotification(
   userId: string,
-  category: keyof CollaborationNotificationCategoryPrefs
+  category: keyof CollaborationNotificationCategoryPrefs,
 ): Promise<boolean> {
   const prefs = await getCollaborationNotificationPrefs(userId);
   return prefs[category] !== false;

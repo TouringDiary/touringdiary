@@ -35,6 +35,7 @@ interface Props {
 // Icona WhatsApp SVG Ufficiale
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg
+    aria-hidden="true"
     viewBox="0 0 24 24"
     fill="currentColor"
     className={className}
@@ -166,13 +167,14 @@ export const UserReferralTab = ({ user, onUpdateUser, onSwitchToOverview }: Prop
 
     let link = '';
     switch (platform) {
-      case 'whatsapp':
+      case 'whatsapp': {
         // FIX: Use Web WhatsApp on Desktop to prevent download page issue
         const waBase = isDesktop
           ? 'https://web.whatsapp.com/send'
           : 'https://api.whatsapp.com/send';
         link = `${waBase}?text=${text}`;
         break;
+      }
       case 'facebook':
         link = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
         break;

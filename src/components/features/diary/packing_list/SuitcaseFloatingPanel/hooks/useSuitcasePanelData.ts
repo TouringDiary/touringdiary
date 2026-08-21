@@ -1,30 +1,21 @@
-import { useState, useRef, useCallback, useEffect, useMemo, type MutableRefObject } from 'react';
-import {
-  useUserSuitcases,
-  useSuitcaseItemsMutations,
-  useGlobalTemplates,
-  useCloneSuitcase,
-  useCityTypesTemplates,
-  useUserTemplatePreferences
-} from '@/hooks/useSuitcaseSystem';
-import { useUI } from '@/context/UIContext';
-import { useItinerary } from '@/context/ItineraryContext';
-import { useUser } from '@/context/UserContext';
-import { deriveItineraryCityTypes } from '@/utils/deriveItineraryCityTypes';
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig } from '@/context/ConfigContext';
-import { SETTINGS_KEYS } from '@/services/settingsService';
-import { ToastVariant } from '@/types/toast';
-import { useSuitcaseLifecycle } from './useSuitcaseLifecycle';
-import { useFloatingPanelStateSync } from './useFloatingPanelOptimisticUpdates';
-import { useSuitcaseSelectors } from '../selectors/suitcaseSelectors';
-import { useSuitcaseAffiliate } from './useSuitcaseAffiliate';
-import { useSuitcaseSuggestions } from './useSuitcaseSuggestions';
-import { useFloatingPanelState } from './useFloatingPanelState';
-import { useFloatingPanelModals } from './useFloatingPanelModals';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useUI } from '@/context/UIContext';
+import { useUser } from '@/context/UserContext';
+import {
+  useCityTypesTemplates,
+  useCloneSuitcase,
+  useGlobalTemplates,
+  useSuitcaseItemsMutations,
+  useUserSuitcases,
+  useUserTemplatePreferences,
+} from '@/hooks/useSuitcaseSystem';
 import { getRejectionsBySuitcaseAsync } from '@/services/suitcase/suitcaseRejectionsService';
-import { Suitcase, SuitcaseRejection } from '@/types/suitcase';
-import { CategorySetupMap } from '@/types/packingCatalog';
-import { isDiaryAssociable as checkDiaryAssociable } from '@/utils/itineraryAssociability';
+import type { CategorySetupMap } from '@/types/packingCatalog';
+import type { Suitcase, SuitcaseRejection } from '@/types/suitcase';
+import type { ToastVariant } from '@/types/toast';
+import { deriveItineraryCityTypes } from '@/utils/deriveItineraryCityTypes';
 import {
   getDraftLocalRejections,
   getGuestSuitcase,
@@ -33,20 +24,28 @@ import {
   preserveDraftLocalStorageFields,
   saveGuestSuitcase,
 } from '@/utils/guestSuitcaseHelper';
+import { isDiaryAssociable as checkDiaryAssociable } from '@/utils/itineraryAssociability';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
-import { resolveDefaultSuitcaseTab } from '../types/sourceTab';
+import { useSuitcaseSelectors } from '../selectors/suitcaseSelectors';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
+import { resolveDefaultSuitcaseTab } from '../types/sourceTab';
+import { useFloatingPanelModals } from './useFloatingPanelModals';
+import { useFloatingPanelStateSync } from './useFloatingPanelOptimisticUpdates';
+import { useFloatingPanelState } from './useFloatingPanelState';
+import { useSuitcaseAffiliate } from './useSuitcaseAffiliate';
+import { useSuitcaseLifecycle } from './useSuitcaseLifecycle';
+import { useSuitcaseSuggestions } from './useSuitcaseSuggestions';
 
-export {
-  resolveInitialSuitcaseTab,
-  resolveDefaultSuitcaseTab,
-  isSuitcaseDashboardEmpty,
-} from '../types/sourceTab';
 export type { SuitcaseSourceTab } from '../types/sourceTab';
+export {
+  isSuitcaseDashboardEmpty,
+  resolveDefaultSuitcaseTab,
+  resolveInitialSuitcaseTab,
+} from '../types/sourceTab';
 
 export type SeedItemsLocallyFn = (
   candidates: { name: string; category: string }[],
-  context?: string
+  context?: string,
 ) => Promise<number>;
 
 export interface SuitcasePanelDataOptions {
@@ -57,7 +56,7 @@ export const useSuitcasePanelData = (
   propItineraryId: string | null,
   _cityType?: string,
   initialSuitcaseId?: string | null,
-  panelOptions?: SuitcasePanelDataOptions
+  panelOptions?: SuitcasePanelDataOptions,
 ) => {
   const { itinerary, savedProjects, saveProject } = useItinerary();
   const { cityManifest } = useUser();
@@ -77,18 +76,18 @@ export const useSuitcasePanelData = (
 
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [tempTitle, setTempTitle] = useState("");
+  const [tempTitle, setTempTitle] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const [toast, setToast] = useState<{ 
-    message: string; 
-    description?: string; 
+  const [toast, setToast] = useState<{
+    message: string;
+    description?: string;
     variant: ToastVariant;
-    visible: boolean; 
+    visible: boolean;
   }>({
-    message: "",
+    message: '',
     variant: 'success',
-    visible: false
+    visible: false,
   });
 
   const [templatePreviewOverlays, setTemplatePreviewOverlays] = useState<
@@ -96,34 +95,38 @@ export const useSuitcasePanelData = (
   >({});
 
   const updateTemplatePreviewOverlay = useCallback(
-    (
-      templateId: string,
-      updater: (prev: CategorySetupMap) => CategorySetupMap
-    ) => {
+    (templateId: string, updater: (prev: CategorySetupMap) => CategorySetupMap) => {
       setTemplatePreviewOverlays((prev) => ({
         ...prev,
         [templateId]: updater(prev[templateId] ?? {}),
       }));
     },
-    []
+    [],
   );
 
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const showToast = useCallback((message: string, description?: string, variant: ToastVariant = 'success') => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+  const showToast = useCallback(
+    (message: string, description?: string, variant: ToastVariant = 'success') => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
 
-    setToast({ message, description, variant, visible: true });
+      setToast({ message, description, variant, visible: true });
 
-    toastTimeoutRef.current = setTimeout(() => {
-      setToast(prev => ({ ...prev, visible: false }));
-    }, 3000);
-  }, []);
+      toastTimeoutRef.current = setTimeout(() => {
+        setToast((prev) => ({ ...prev, visible: false }));
+      }, 3000);
+    },
+    [],
+  );
 
   /**
    * 2. Template globali
    */
-  const { globalTemplates, isLoading: isLoadingGlobalTemplates, fetchError: globalTemplatesFetchError } = useGlobalTemplates();
+  const {
+    globalTemplates,
+    isLoading: isLoadingGlobalTemplates,
+    fetchError: globalTemplatesFetchError,
+  } = useGlobalTemplates();
 
   /**
    * 3. Lifecycle
@@ -132,11 +135,7 @@ export const useSuitcasePanelData = (
    * - utente corrente
    * - id valigie collegate al diario
    */
-  const {
-    currentUser,
-    linkedSuitcaseIds,
-    fetchLinkedIds
-  } = useSuitcaseLifecycle({
+  const { currentUser, linkedSuitcaseIds, fetchLinkedIds } = useSuitcaseLifecycle({
     itineraryId: itineraryId || null,
     activeTabId: panelState.activeTabId,
     setActiveTabId: panelState.setActiveTabId,
@@ -144,7 +143,7 @@ export const useSuitcasePanelData = (
     setViewMode: panelState.setViewMode,
     sourceTab: panelState.sourceTab,
     setSourceTab: panelState.setSourceTab,
-    setSelectedItemName: panelState.setSelectedItemName
+    setSelectedItemName: panelState.setSelectedItemName,
   });
 
   /**
@@ -154,7 +153,7 @@ export const useSuitcasePanelData = (
     suitcases: userSuitcases,
     setSuitcases: setUserSuitcases,
     isLoading: isLoadingUser,
-    fetchSuitcases: fetchUserSuitcases
+    fetchSuitcases: fetchUserSuitcases,
   } = useUserSuitcases(currentUser?.id);
 
   const userSuitcasesRef = useRef(userSuitcases);
@@ -166,22 +165,18 @@ export const useSuitcasePanelData = (
   /**
    * 5. Selectors derivati
    */
-  const {
-    tripSuitcases,
-    savedSuitcases,
-    userOwnedTemplates,
-    activeSuitcase
-  } = useSuitcaseSelectors(
-    userSuitcases,
-    globalTemplates,
-    linkedSuitcaseIds,
-    panelState.activeTabId,
-    currentUser?.id
-  );
+  const { tripSuitcases, savedSuitcases, userOwnedTemplates, activeSuitcase } =
+    useSuitcaseSelectors(
+      userSuitcases,
+      globalTemplates,
+      linkedSuitcaseIds,
+      panelState.activeTabId,
+      currentUser?.id,
+    );
 
   const guestSuitcase = useMemo(
     () => userSuitcases.find((s) => isDraftWorkspaceId(s.id)) ?? null,
-    [userSuitcases]
+    [userSuitcases],
   );
 
   /**
@@ -212,38 +207,40 @@ export const useSuitcasePanelData = (
     blacklistFlashTimeoutRef.current = setTimeout(() => setIsBlacklistFlashing(false), 2000);
   }, []);
 
-  const fetchBlacklist = useCallback(async (options?: { force?: boolean }) => {
-    const suitcaseId = activeSuitcase?.id;
-    if (!suitcaseId) {
-      setBlacklistItems([]);
-      blacklistLoadedForIdRef.current = null;
-      return;
-    }
+  const fetchBlacklist = useCallback(
+    async (options?: { force?: boolean }) => {
+      const suitcaseId = activeSuitcase?.id;
+      if (!suitcaseId) {
+        setBlacklistItems([]);
+        blacklistLoadedForIdRef.current = null;
+        return;
+      }
 
-    if (!options?.force && blacklistLoadedForIdRef.current === suitcaseId) {
-      return;
-    }
+      if (!options?.force && blacklistLoadedForIdRef.current === suitcaseId) {
+        return;
+      }
 
-    if (isDraftWorkspaceId(suitcaseId)) {
-      const draft = getGuestSuitcase();
-      const locals =
-        draft?.id === suitcaseId ? getDraftLocalRejections(draft) : [];
-      setBlacklistItems(mapDraftLocalRejectionsToRuntime(locals, suitcaseId));
-      blacklistLoadedForIdRef.current = suitcaseId;
-      return;
-    }
+      if (isDraftWorkspaceId(suitcaseId)) {
+        const draft = getGuestSuitcase();
+        const locals = draft?.id === suitcaseId ? getDraftLocalRejections(draft) : [];
+        setBlacklistItems(mapDraftLocalRejectionsToRuntime(locals, suitcaseId));
+        blacklistLoadedForIdRef.current = suitcaseId;
+        return;
+      }
 
-    setIsFetchingBlacklist(true);
-    try {
-      const rejections = await getRejectionsBySuitcaseAsync(suitcaseId);
-      setBlacklistItems(rejections);
-      blacklistLoadedForIdRef.current = suitcaseId;
-    } catch (e) {
-      console.error("[useSuitcasePanelData] Error fetching blacklist:", e);
-    } finally {
-      setIsFetchingBlacklist(false);
-    }
-  }, [activeSuitcase?.id]);
+      setIsFetchingBlacklist(true);
+      try {
+        const rejections = await getRejectionsBySuitcaseAsync(suitcaseId);
+        setBlacklistItems(rejections);
+        blacklistLoadedForIdRef.current = suitcaseId;
+      } catch (e) {
+        console.error('[useSuitcasePanelData] Error fetching blacklist:', e);
+      } finally {
+        setIsFetchingBlacklist(false);
+      }
+    },
+    [activeSuitcase?.id],
+  );
 
   // Carica blacklist al cambio valigia attiva — badge toolbar corretto senza aprire Rifiutati.
   useEffect(() => {
@@ -292,9 +289,7 @@ export const useSuitcasePanelData = (
   /** Intent di apertura da modalProps — consumato una sola volta; la navigazione interna usa activeTabId. */
   const appliedInitialSuitcaseIdRef = useRef<string | null>(null);
 
-  const dataReady =
-    !isLoadingUser &&
-    linkedSuitcaseIds !== null;
+  const dataReady = !isLoadingUser && linkedSuitcaseIds !== null;
 
   const { setSourceTab } = panelState;
   const tripCount = tripSuitcases.length;
@@ -325,14 +320,7 @@ export const useSuitcasePanelData = (
     hasInitializedTab.current = true;
     previousTripCount.current = tripCount;
     previousSavedCount.current = savedCount;
-  }, [
-    dataReady,
-    currentUser,
-    tripCount,
-    savedCount,
-    setSourceTab,
-    initialSuitcaseId,
-  ]);
+  }, [dataReady, currentUser, tripCount, savedCount, setSourceTab, initialSuitcaseId]);
 
   useEffect(() => {
     if (!dataReady || !hasInitializedTab.current) return;
@@ -384,35 +372,21 @@ export const useSuitcasePanelData = (
 
   const itineraryCityTypes = useMemo(
     () => deriveItineraryCityTypes(itinerary, cityManifest),
-    [itinerary, cityManifest]
+    [itinerary, cityManifest],
   );
 
   const { suggestedTemplateIds } = useCityTypesTemplates(itineraryCityTypes);
 
-  const {
-    preferences,
-    togglePreference
-  } = useUserTemplatePreferences(currentUser?.id);
+  const { preferences, togglePreference } = useUserTemplatePreferences(currentUser?.id);
 
-  const {
-    affiliateMaps
-  } = useSuitcaseAffiliate(activeSuitcase || tripSuitcases[0]);
+  const { affiliateMaps } = useSuitcaseAffiliate(activeSuitcase || tripSuitcases[0]);
 
-  const {
-    handleStateSync
-  } = useFloatingPanelStateSync(
-    setUserSuitcases,
-    panelState.activeTabId
-  );
+  const { handleStateSync } = useFloatingPanelStateSync(setUserSuitcases, panelState.activeTabId);
 
-  const handleUpdateSuitcaseLocal =
-    useCallback((id: string, updates: Partial<Suitcase>) => {
-      setUserSuitcases(prev => {
-        const next = prev.map(s =>
-          s.id === id
-            ? { ...s, ...updates }
-            : s
-        );
+  const handleUpdateSuitcaseLocal = useCallback(
+    (id: string, updates: Partial<Suitcase>) => {
+      setUserSuitcases((prev) => {
+        const next = prev.map((s) => (s.id === id ? { ...s, ...updates } : s));
 
         if (!isDraftWorkspaceId(id)) return next;
 
@@ -423,34 +397,31 @@ export const useSuitcasePanelData = (
         saveGuestSuitcase(preserved);
         return next.map((s) => (s.id === id ? preserved : s));
       });
-
-    }, [setUserSuitcases, currentUser]);
+    },
+    [setUserSuitcases, currentUser],
+  );
 
   /**
    * 10. Mutations
    */
   const mutations = useSuitcaseItemsMutations();
-  const {
-    cloneSuitcase,
-    isCloning
-  } = useCloneSuitcase();
+  const { cloneSuitcase, isCloning } = useCloneSuitcase();
 
   /**
    * 11. Suggestions engine
    */
 
-  const suggestions =
-    useSuitcaseSuggestions({
-      linkedSuitcaseIds,
-      suggestedTemplateIds,
-      globalTemplates,
-      activeSuitcase,
-      itinerary,
-      fetchUserSuitcases,
-      setSaveStatus,
-      showToast,
-      seedItemsLocallyRef: panelOptions?.seedItemsLocallyRef,
-    });
+  const suggestions = useSuitcaseSuggestions({
+    linkedSuitcaseIds,
+    suggestedTemplateIds,
+    globalTemplates,
+    activeSuitcase,
+    itinerary,
+    fetchUserSuitcases,
+    setSaveStatus,
+    showToast,
+    seedItemsLocallyRef: panelOptions?.seedItemsLocallyRef,
+  });
 
   /**
    * RETURN
@@ -503,7 +474,7 @@ export const useSuitcasePanelData = (
     saveProject,
     isDiaryAssociable,
     hasSuitcaseLinkedToDiary: tripSuitcases.length > 0,
-    adminSuitcasePlaceholders: configs?.[SETTINGS_KEYS.SUITCASE_PLACEHOLDERS] || {},
+    adminSuitcasePlaceholders: configs.suitcase_placeholders ?? {},
     blacklistItems,
     blacklistCount: blacklistItems.length,
     isFetchingBlacklist,
@@ -512,6 +483,6 @@ export const useSuitcasePanelData = (
     fetchBlacklist,
     templatePreviewOverlays,
     updateTemplatePreviewOverlay,
-    ...suggestions
+    ...suggestions,
   };
 };

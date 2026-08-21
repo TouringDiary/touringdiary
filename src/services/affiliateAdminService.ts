@@ -1,6 +1,6 @@
+import type { PostgrestError } from '@supabase/supabase-js';
+import type { Json } from '../types/supabase';
 import { supabase } from './supabaseClient';
-import { PostgrestError } from '@supabase/supabase-js';
-import { Json } from '../types/supabase';
 
 export interface AffiliateClickRecord {
   id: string;
@@ -23,10 +23,13 @@ export interface AffiliateAnalyticsData {
 
 export const affiliateAdminService = {
   /**
-   * Recupera i click per un intervallo di date specifico, 
+   * Recupera i click per un intervallo di date specifico,
    * includendo anche il periodo precedente per il calcolo dei trend.
    */
-  getAnalyticsData: async (startDate: Date, endDate: Date): Promise<{ data: AffiliateAnalyticsData | null; error: PostgrestError | null }> => {
+  getAnalyticsData: async (
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{ data: AffiliateAnalyticsData | null; error: PostgrestError | null }> => {
     try {
       const durationMs = endDate.getTime() - startDate.getTime();
       const previousStartDate = new Date(startDate.getTime() - durationMs);
@@ -54,16 +57,16 @@ export const affiliateAdminService = {
       return {
         data: {
           clicks: currentData || [],
-          previousPeriodClicks: previousData || []
+          previousPeriodClicks: previousData || [],
         },
-        error: null
+        error: null,
       };
     } catch (err: unknown) {
       console.error('[AffiliateAdminService] Unexpected error:', err);
-      return { 
-        data: null, 
-        error: null
+      return {
+        data: null,
+        error: null,
       };
     }
-  }
+  },
 };

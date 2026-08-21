@@ -17,7 +17,7 @@ TouringDiary usa questo sistema per parlare con gli utenti (tramite la mascotte 
 2. **Hook**: Un hook di messaggistica chiama `getSystemMessagesAsync`.
 3. **Service**: `communicationService.ts` recupera i template da `system_messages` (con fallback API locale).
 4. **Logic**: Il servizio seleziona il messaggio corretto in base alla `key` e al `deviceTarget` (desktop/mobile).
-5. **UI Rendering**: La mascotte e il fumetto vengono posizionati secondo la `UiConfig` (coordinate X/Y, direzione freccia).
+5. **UI Rendering**: La mascotte e il fumetto vengono posizionati secondo la `UiConfig` (coordinate X/Y, direzione freccia; opzionale `bgImage` su `UiConfig` / `PositionConfig`).
 6. **Logging**: Ogni comunicazione inviata viene registrata in `communication_logs` tramite `logCommunicationAsync`.
 7. **Risposta UI**: L'utente visualizza il messaggio contestuale con animazione della mascotte.
 

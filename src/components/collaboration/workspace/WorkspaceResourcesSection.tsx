@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
 import { BookOpen, Briefcase, Copy, ExternalLink, FileStack, Trash2 } from 'lucide-react';
-import type { SharedResourceKind } from '@/domain/collaboration';
+import type React from 'react';
+import { useMemo } from 'react';
+import type { SharedResourceKind, WorkspaceResource } from '@/domain/collaboration';
 import { getSharedResourceKindLabel, workspaceResourceKey } from '@/domain/collaboration';
-import type { WorkspaceResource } from '@/domain/collaboration';
 import type { WorkspaceResourceLabel } from '@/services/collaboration';
 import { buildWorkspaceResourceLabelMap } from '@/services/collaboration';
 
@@ -44,7 +44,7 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
 }) => {
   const labelByKey = useMemo(
     () => buildWorkspaceResourceLabelMap(resourceLabels),
-    [resourceLabels]
+    [resourceLabels],
   );
 
   const isHub = layout === 'hub';
@@ -65,7 +65,7 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
           <ul className={listClass}>
             {resources.map((resource) => {
               const label = labelByKey.get(
-                workspaceResourceKey(resource.kind, resource.resourceId)
+                workspaceResourceKey(resource.kind, resource.resourceId),
               );
               return (
                 <li
@@ -75,7 +75,9 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
                   }`}
                 >
                   <div className={`flex items-start gap-3 ${isHub ? 'flex-1' : 'min-w-0 flex-1'}`}>
-                    <span className="text-indigo-400 shrink-0 mt-0.5">{KIND_ICONS[resource.kind]}</span>
+                    <span className="text-indigo-400 shrink-0 mt-0.5">
+                      {KIND_ICONS[resource.kind]}
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-white truncate">
                         {label?.title ?? getSharedResourceKindLabel(resource.kind)}
@@ -85,7 +87,9 @@ export const WorkspaceResourcesSection: React.FC<Props> = ({
                       </p>
                     </div>
                   </div>
-                  <div className={`flex items-center gap-2 ${isHub ? 'mt-auto flex-wrap' : 'shrink-0'}`}>
+                  <div
+                    className={`flex items-center gap-2 ${isHub ? 'mt-auto flex-wrap' : 'shrink-0'}`}
+                  >
                     <button
                       type="button"
                       onClick={() => onOpenResource(resource.kind, resource.resourceId)}

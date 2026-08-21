@@ -1,6 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Search, UserMinus, UserPlus, Users } from 'lucide-react';
-import type { User } from '@/types/users';
+import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { CollaborationUserSearchResult } from '@/domain/collaboration';
+import type {
+  FriendRequestWithProfile,
+  FriendWithProfile,
+} from '@/domain/collaboration/friendship';
 import {
   acceptFriendRequest,
   listFriends,
@@ -11,10 +16,13 @@ import {
   searchUsersForFriendRequest,
   sendFriendRequest,
 } from '@/services/collaboration/friendService';
-import type { FriendRequestWithProfile, FriendWithProfile } from '@/domain/collaboration/friendship';
-import type { CollaborationUserSearchResult } from '@/domain/collaboration';
-import { listBlockedUserIds, unblockUser, blockUser } from '@/services/collaboration/userBlockService';
+import {
+  blockUser,
+  listBlockedUserIds,
+  unblockUser,
+} from '@/services/collaboration/userBlockService';
 import { supabase } from '@/services/supabaseClient';
+import type { User } from '@/types/users';
 
 interface BlockedUserRow {
   id: string;
@@ -66,7 +74,7 @@ export const UserFriendsTab: React.FC<Props> = ({ user }) => {
               name: profile?.name?.trim() || 'Utente',
               slug: profile?.slug ?? undefined,
             };
-          })
+          }),
         );
       }
     } finally {
@@ -88,7 +96,11 @@ export const UserFriendsTab: React.FC<Props> = ({ user }) => {
       setIsSearching(true);
       try {
         const results = await searchUsersForFriendRequest(user.id, trimmed);
-        const excluded = new Set([user.id, ...friends.map((f) => f.friendId), ...blockedUsers.map((b) => b.id)]);
+        const excluded = new Set([
+          user.id,
+          ...friends.map((f) => f.friendId),
+          ...blockedUsers.map((b) => b.id),
+        ]);
         setSearchResults(results.filter((r) => !excluded.has(r.id)));
       } finally {
         setIsSearching(false);
@@ -122,10 +134,16 @@ export const UserFriendsTab: React.FC<Props> = ({ user }) => {
       </header>
 
       <section className="space-y-2">
-        <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Cerca utente</label>
+        <label
+          htmlFor="fld-user-dashboard-userfriendstab-tsx-l137"
+          className="text-xs font-bold uppercase tracking-wider text-slate-400"
+        >
+          Cerca utente
+        </label>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
+            id="fld-user-dashboard-userfriendstab-tsx-l137"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -169,7 +187,9 @@ export const UserFriendsTab: React.FC<Props> = ({ user }) => {
       ) : (
         <>
           <section className="space-y-2">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Richieste ricevute</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Richieste ricevute
+            </h3>
             {incoming.length === 0 ? (
               <p className="text-sm text-slate-500">Nessuna richiesta in attesa.</p>
             ) : (
@@ -201,7 +221,9 @@ export const UserFriendsTab: React.FC<Props> = ({ user }) => {
           </section>
 
           <section className="space-y-2">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Richieste inviate</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Richieste inviate
+            </h3>
             {outgoing.length === 0 ? (
               <p className="text-sm text-slate-500">Nessuna richiesta in attesa di risposta.</p>
             ) : (
@@ -225,7 +247,9 @@ export const UserFriendsTab: React.FC<Props> = ({ user }) => {
           </section>
 
           <section className="space-y-2">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">I tuoi amici</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+              I tuoi amici
+            </h3>
             {friends.length === 0 ? (
               <p className="text-sm text-slate-500">Nessun amico ancora.</p>
             ) : (
@@ -264,7 +288,9 @@ export const UserFriendsTab: React.FC<Props> = ({ user }) => {
 
           {blockedUsers.length > 0 && (
             <section className="space-y-2">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Utenti bloccati</h3>
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                Utenti bloccati
+              </h3>
               {blockedUsers.map((blocked) => (
                 <div
                   key={blocked.id}

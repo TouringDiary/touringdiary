@@ -1,12 +1,12 @@
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
-import React, { useEffect } from 'react';
+import { AlertTriangle, Trash2, XCircle } from 'lucide-react';
+import type React from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Trash2, AlertTriangle, XCircle } from 'lucide-react';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 
 interface ItemDeleteConfirmationModalProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ export const ItemDeleteConfirmationModal: React.FC<ItemDeleteConfirmationModalPr
   onConfirm,
   itemName,
   category,
-  isAiSuggestion = false
+  isAiSuggestion = false,
 }) => {
   const isMobile = useMobileDetect();
   const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
@@ -35,36 +35,41 @@ export const ItemDeleteConfirmationModal: React.FC<ItemDeleteConfirmationModalPr
 
   useGlobalModalEscape(isOpen, onClose);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') onConfirm();
-    };
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, onConfirm]);
-
   if (!isOpen) return null;
 
-  const title = isAiSuggestion ? "Rifiuta Suggerimento?" : "Elimina Oggetto?";
-  const description = isAiSuggestion 
-    ? <>Vuoi davvero escludere <span className="text-white font-bold">{itemName}</span> dai suggerimenti? Verrà inserito nella blacklist per questa valigia.</>
-    : <>Vuoi davvero eliminare <span className="text-white font-bold">{itemName}</span> dalla categoria <span className="text-indigo-400 font-bold">{category}</span>?</>;
-  const confirmLabel = isAiSuggestion ? "Rifiuta Suggerimento" : "Elimina Oggetto";
+  const title = isAiSuggestion ? 'Rifiuta Suggerimento?' : 'Elimina Oggetto?';
+  const description = isAiSuggestion ? (
+    <>
+      Vuoi davvero escludere <span className="text-white font-bold">{itemName}</span> dai
+      suggerimenti? Verrà inserito nella blacklist per questa valigia.
+    </>
+  ) : (
+    <>
+      Vuoi davvero eliminare <span className="text-white font-bold">{itemName}</span> dalla
+      categoria <span className="text-indigo-400 font-bold">{category}</span>?
+    </>
+  );
+  const confirmLabel = isAiSuggestion ? 'Rifiuta Suggerimento' : 'Elimina Oggetto';
   const Icon = isAiSuggestion ? XCircle : Trash2;
 
   const variantBorderClass = isAiSuggestion ? 'border-amber-500/30' : 'border-rose-500/30';
 
   return createPortal(
     <div
-      className={`td-modal-overlay ${overlayShell} !items-center`}
+      className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_MODAL_NESTED }}
-      onClick={onClose}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
         className={`${containerShell} max-w-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${variantBorderClass}`}
         style={{ zIndex: Z_MODAL_NESTED }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="item-delete-confirmation-title"
@@ -78,16 +83,26 @@ export const ItemDeleteConfirmationModal: React.FC<ItemDeleteConfirmationModalPr
         />
 
         <div className={`${bodyShell} flex flex-col items-center text-center gap-4 min-h-0`}>
-          <div className={`w-20 h-20 rounded-full ${isAiSuggestion ? 'bg-amber-500/10 border-amber-500/30' : 'bg-rose-500/10 border-rose-500/30'} flex items-center justify-center border relative`}>
+          <div
+            className={`w-20 h-20 rounded-full ${isAiSuggestion ? 'bg-amber-500/10 border-amber-500/30' : 'bg-rose-500/10 border-rose-500/30'} flex items-center justify-center border relative`}
+          >
             <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center border-2 border-slate-900 shadow-lg">
               <AlertTriangle className="w-3 h-3 text-white" aria-hidden />
             </div>
-            <Icon className={`w-10 h-10 ${isAiSuggestion ? 'text-amber-500' : 'text-rose-500'} animate-pulse`} aria-hidden />
+            <Icon
+              className={`w-10 h-10 ${isAiSuggestion ? 'text-amber-500' : 'text-rose-500'} animate-pulse`}
+              aria-hidden
+            />
           </div>
 
           <div>
-            <h3 id="item-delete-confirmation-title" className={`${modalTitleShell} mb-3`}>{title}</h3>
-            <p id="item-delete-confirmation-desc" className={`${modalSubtitleShell} leading-relaxed max-w-[280px] mx-auto`}>
+            <h3 id="item-delete-confirmation-title" className={`${modalTitleShell} mb-3`}>
+              {title}
+            </h3>
+            <p
+              id="item-delete-confirmation-desc"
+              className={`${modalSubtitleShell} leading-relaxed max-w-[280px] mx-auto`}
+            >
               {description}
             </p>
           </div>
@@ -113,6 +128,6 @@ export const ItemDeleteConfirmationModal: React.FC<ItemDeleteConfirmationModalPr
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

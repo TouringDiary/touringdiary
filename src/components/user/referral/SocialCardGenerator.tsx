@@ -1,5 +1,5 @@
 import { Download, Loader2, Monitor, Share2, Smartphone } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LAYOUT } from '@/constants/layout';
 import { showGlobalAlert } from '@/services/ui/toastService';
 import type { SocialTemplate, User } from '../../../types/index';
@@ -191,6 +191,7 @@ export const SocialCardGenerator = ({ template, user }: Props) => {
         <div className="absolute inset-0 bg-black/40 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 backdrop-blur-[2px]">
           {/* TASTO PRINCIPALE (Share su mobile, Download su Desktop) */}
           <button
+            type="button"
             onClick={() => handleAction()}
             disabled={!imageLoaded || isSharing}
             className={`
@@ -211,6 +212,7 @@ export const SocialCardGenerator = ({ template, user }: Props) => {
           {/* TASTO SECONDARIO (Forza download su mobile se share fallisce o utente preferisce) */}
           {isMobile && canNativeShare && (
             <button
+              type="button"
               onClick={() => handleAction('download')}
               className="bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 border border-white/20"
             >

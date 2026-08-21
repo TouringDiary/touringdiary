@@ -4,13 +4,13 @@
  * Eseguire: npx tsx scripts/smoke-wf13-resource-association.ts
  */
 import {
-  ResourceAssociationError,
-  SuitcaseLinkConflictError,
-  type SuitcaseLinkConflict,
-  type ViaggioAssociationChoice,
   type CreateDiaryInput,
   type CreateSuitcaseInput,
+  ResourceAssociationError,
   type SaveAsViaggioOptions,
+  type SuitcaseLinkConflict,
+  SuitcaseLinkConflictError,
+  type ViaggioAssociationChoice,
 } from '../src/types/resourceAssociation';
 
 const issues: string[] = [];

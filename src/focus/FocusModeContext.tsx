@@ -1,16 +1,17 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+import type React from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import { useModal } from '@/context/ModalContext';
 import { useNavigation } from '@/context/useNavigation';
 import {
+  type DerivedFocusState,
   deriveFocusState,
+  type FocusSurface,
   getOverlayKind,
   getSurfacePolicy,
-  resolveWorkspaceId,
-  shouldDismissWorkspaceOnViewModeChange,
-  type DerivedFocusState,
-  type FocusSurface,
   type OverlayKind,
+  resolveWorkspaceId,
   type SurfacePolicy,
+  shouldDismissWorkspaceOnViewModeChange,
   type UIMode,
   type WorkspaceId,
 } from './focusModeRegistry';
@@ -44,7 +45,7 @@ export const FocusModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         activeModal,
         activePreviewOpen: activePreview?.isOpen === true,
       }),
-    [viewMode, activeModal, activePreview?.isOpen]
+    [viewMode, activeModal, activePreview?.isOpen],
   );
 
   const closeFocus = useCallback(() => {
@@ -78,7 +79,7 @@ export const FocusModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isWorkspace: derived.mode === 'workspace',
       closeFocus,
     }),
-    [derived, closeFocus]
+    [derived, closeFocus],
   );
 
   return <FocusModeContext.Provider value={value}>{children}</FocusModeContext.Provider>;
@@ -97,4 +98,4 @@ export function useFocusModeOptional(): FocusModeContextValue | null {
   return useContext(FocusModeContext) ?? null;
 }
 
-export type { UIMode, WorkspaceId, FocusSurface, OverlayKind, SurfacePolicy };
+export type { FocusSurface, OverlayKind, SurfacePolicy, UIMode, WorkspaceId };

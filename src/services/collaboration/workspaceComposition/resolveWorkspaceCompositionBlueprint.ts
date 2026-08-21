@@ -1,10 +1,10 @@
+import type { SharedResourceKind } from '@/domain/collaboration';
 import type {
   WorkspaceCompositionBlueprint,
   WorkspaceCompositionCandidate,
   WorkspaceCompositionEdge,
   WorkspaceCompositionSeed,
 } from '@/domain/collaboration/workspaceComposition';
-import type { SharedResourceKind } from '@/domain/collaboration';
 import {
   classifySuitcaseRow,
   fetchDiaryIdsForSuitcase,
@@ -33,7 +33,7 @@ function suitcaseTitle(row: SuitcaseGraphRow, kind: SharedResourceKind): string 
 async function buildSuitcaseAndTemplateSections(
   suitcaseRows: SuitcaseGraphRow[],
   seed: WorkspaceCompositionSeed,
-  diaryId: string
+  diaryId: string,
 ): Promise<{
   suitcases: WorkspaceCompositionCandidate[];
   userTemplates: WorkspaceCompositionCandidate[];
@@ -92,14 +92,14 @@ async function buildSuitcaseAndTemplateSections(
 
 async function expandFromDiary(
   diaryId: string,
-  seed: WorkspaceCompositionSeed
+  seed: WorkspaceCompositionSeed,
 ): Promise<Pick<WorkspaceCompositionBlueprint, 'suitcases' | 'userTemplates' | 'edges'>> {
   const linkedIds = await fetchLinkedSuitcaseIdsForDiary(diaryId);
   const suitcaseRows = await fetchSuitcaseRowsByIds(linkedIds);
   const { suitcases, userTemplates, edges } = await buildSuitcaseAndTemplateSections(
     suitcaseRows,
     seed,
-    diaryId
+    diaryId,
   );
 
   return {
@@ -111,7 +111,7 @@ async function expandFromDiary(
 
 async function buildDiaryCandidate(
   diaryId: string,
-  seed: WorkspaceCompositionSeed
+  seed: WorkspaceCompositionSeed,
 ): Promise<WorkspaceCompositionCandidate | null> {
   const row = await fetchDiaryRow(diaryId);
   if (!row) return null;
@@ -128,7 +128,7 @@ async function buildDiaryCandidate(
  * Resolver unico (SSOT) per il blueprint della composizione Workspace.
  */
 export async function resolveWorkspaceCompositionBlueprint(
-  input: ResolveWorkspaceCompositionBlueprintInput
+  input: ResolveWorkspaceCompositionBlueprintInput,
 ): Promise<WorkspaceCompositionBlueprint> {
   const { seed, selectedDiaryId = null } = input;
 
@@ -196,11 +196,8 @@ export async function resolveWorkspaceCompositionBlueprint(
       seed,
       diary: {
         mode: 'single_optional',
-        candidates: diaryCandidates.length > 0
-          ? diaryCandidates
-          : diaryCandidate
-            ? [diaryCandidate]
-            : [],
+        candidates:
+          diaryCandidates.length > 0 ? diaryCandidates : diaryCandidate ? [diaryCandidate] : [],
       },
       suitcases: { candidates: [...suitcaseMap.values()] },
       userTemplates: expanded.userTemplates,
@@ -260,7 +257,7 @@ export async function resolveWorkspaceCompositionBlueprint(
 
 /** Etichette UI da candidati del blueprint (senza query aggiuntive se i titoli sono già nel blueprint). */
 export function blueprintCandidatesToLabels(
-  blueprint: WorkspaceCompositionBlueprint
+  blueprint: WorkspaceCompositionBlueprint,
 ): Array<{ kind: SharedResourceKind; resourceId: string; title: string }> {
   const all = [
     ...blueprint.diary.candidates,

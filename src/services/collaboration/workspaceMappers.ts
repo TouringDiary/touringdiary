@@ -49,7 +49,7 @@ export function mapWorkspaceMemberRow(row: WorkspaceMemberRow): WorkspaceMember 
 }
 
 export function mapWorkspaceMemberWithProfile(
-  row: MemberWithProfileRow
+  row: MemberWithProfileRow,
 ): WorkspaceMemberWithProfile | null {
   const member = mapWorkspaceMemberRow(row);
   if (!row.profiles?.name) return null;
@@ -77,7 +77,7 @@ export function mapWorkspaceResourceRow(row: WorkspaceResourceRow): WorkspaceRes
 }
 
 export function mapWorkspaceResourcePermissionRow(
-  row: WorkspaceResourcePermissionRow
+  row: WorkspaceResourcePermissionRow,
 ): WorkspaceResourcePermission | null {
   if (!isWorkspaceResourceAccess(row.access_level)) {
     console.error('[workspaceMappers] access_level non valido:', row.access_level);
@@ -95,7 +95,7 @@ export function mapWorkspaceResourcePermissionRow(
 }
 
 export function mapWorkspaceInvitePermissionRow(
-  row: WorkspaceInvitePermissionRow
+  row: WorkspaceInvitePermissionRow,
 ): WorkspaceResourcePermissionEntry | null {
   if (!isSharedResourceKind(row.kind)) {
     console.error('[workspaceMappers] invite permission kind non valido:', row.kind);
@@ -114,7 +114,7 @@ export function mapWorkspaceInvitePermissionRow(
 
 export function mapWorkspaceInviteRow(
   row: WorkspaceInviteRow,
-  permissions: WorkspaceResourcePermissionEntry[]
+  permissions: WorkspaceResourcePermissionEntry[],
 ): WorkspaceInvite | null {
   if (!isResourceInviteStatus(row.status)) {
     console.error('[workspaceMappers] invite status non valido:', row.status);

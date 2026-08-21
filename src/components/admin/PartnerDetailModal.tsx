@@ -1,358 +1,533 @@
-import type { User } from '@/types/users';
-import { Z_OVERLAY, Z_ADMIN_MODAL, Z_MODAL_NESTED } from '@/constants/zIndex';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  AlertCircle,
+  Clock,
+  Info,
+  Loader2,
+  MessageSquare,
+  Save,
+  Send,
+  ShoppingBag,
+  StickyNote,
+} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { MessageSquare, Clock, Eye, EyeOff, Send, Info, StickyNote, Save, AlertCircle, ShoppingBag, CheckCircle, Loader2 } from 'lucide-react';
-import { SponsorRequest, PartnerLog, ShopPartner } from '../../types/index';
-import { getPartnerHistoryAsync, addPartnerLogAsync, markPartnerLogsAsRead, updateSponsorInternalNotes } from '../../services/sponsorService';
-import { getShopByOwner } from '../../services/shopService';
-import { BusinessShopManager } from '../user/BusinessShopManager';
-import { useSystemMessage } from '../../hooks/useSystemMessage';
+import {
+  PLATFORM_FEATURE_FLAG_KEYS,
+  PLATFORM_MESSAGE_TEMPLATE_KEYS,
+} from '@/constants/platformFeatureFlags';
+import { Z_ADMIN_MODAL, Z_MODAL_NESTED, Z_OVERLAY } from '@/constants/zIndex';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
-import { addNotification } from '../../services/notificationService';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { PLAN_TYPES } from '../../constants/planTypes';
+import { useSystemMessage } from '../../hooks/useSystemMessage';
+import { addNotification } from '../../services/notificationService';
+import { getShopByOwner } from '../../services/shopService';
 import {
-    PLATFORM_FEATURE_FLAG_KEYS,
-    PLATFORM_MESSAGE_TEMPLATE_KEYS,
-} from '@/constants/platformFeatureFlags';
+  addPartnerLogAsync,
+  getPartnerHistoryAsync,
+  markPartnerLogsAsRead,
+  updateSponsorInternalNotes,
+} from '../../services/sponsorService';
+import type { PartnerLog, ShopPartner, SponsorRequest } from '../../types/index';
+import { BusinessShopManager } from '../user/BusinessShopManager';
 
 interface PartnerDetailModalProps {
-    profileId: string;
-    requestId?: string;
-    vatNumber?: string;
-    isOpen?: boolean;
-    onClose: () => void;
-    onUpdate?: () => void;
+  profileId: string;
+  requestId?: string;
+  vatNumber?: string;
+  isOpen?: boolean;
+  onClose: () => void;
+  onUpdate?: () => void;
 }
 
-export const PartnerDetailModal = ({ profileId, requestId, vatNumber, isOpen = true, onClose, onUpdate }: PartnerDetailModalProps) => {
-    const [history, setHistory] = useState<SponsorRequest[]>([]);
-    const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-    const [newMessage, setNewMessage] = useState('');
-    const [isSending, setIsSending] = useState(false);
-    
-    const [internalNote, setInternalNote] = useState('');
-    const [originalNote, setOriginalNote] = useState('');
-    const [isSavingNote, setIsSavingNote] = useState(false);
-    const [isDirty, setIsDirty] = useState(false);
-    const [showUnsavedModal, setShowUnsavedModal] = useState(false);
-    const [activeView, setActiveView] = useState<'crm' | 'shop'>('crm'); 
-    const [currentShop, setCurrentShop] = useState<ShopPartner | null>(null);
-    
-    const [localAlert, setLocalAlert] = useState<{ title: string, message: string, type: 'info' | 'warning' } | null>(null);
+export const PartnerDetailModal = ({
+  profileId,
+  requestId,
+  vatNumber,
+  isOpen = true,
+  onClose,
+  onUpdate,
+}: PartnerDetailModalProps) => {
+  const [history, setHistory] = useState<SponsorRequest[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [newMessage, setNewMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
-    const { getText: getShopMissingMsg } = useSystemMessage('admin_shop_not_found');
-    const adminPartnerFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER);
-    const adminPartnerEnabled = adminPartnerFlag?.enabled ?? true;
-    const { getText: getChatDisabledMsg } = useSystemMessage(
-        PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_PARTNER_CHAT_DISABLED
-    );
+  const [internalNote, setInternalNote] = useState('');
+  const [originalNote, setOriginalNote] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [activeView, setActiveView] = useState<'crm' | 'shop'>('crm');
+  const [currentShop, setCurrentShop] = useState<ShopPartner | null>(null);
 
-    const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [localAlert, setLocalAlert] = useState<{
+    title: string;
+    message: string;
+    type: 'info' | 'warning';
+  } | null>(null);
 
-    // CARICAMENTO UUID-NATIVE
-    const loadData = useCallback(async () => {
-        if (!profileId) return;
-        setIsLoadingHistory(true);
-        try {
-            const h = await getPartnerHistoryAsync({ profileId });
-            setHistory(h);
-            if (h.length > 0) {
-                if (!isDirty) {
-                    const note = h[0].adminNotes || '';
-                    setInternalNote(note);
-                    setOriginalNote(note);
-                }
-            }
-        } catch (e) {
-            console.error("Failed to load partner history", e);
-        } finally {
-            setIsLoadingHistory(false);
+  const { getText: getShopMissingMsg } = useSystemMessage('admin_shop_not_found');
+  const adminPartnerFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_ADMIN_PARTNER);
+  const adminPartnerEnabled = adminPartnerFlag?.enabled ?? true;
+  const { getText: getChatDisabledMsg } = useSystemMessage(
+    PLATFORM_MESSAGE_TEMPLATE_KEYS.COMMS_PARTNER_CHAT_DISABLED,
+  );
+
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // CARICAMENTO UUID-NATIVE
+  const loadData = useCallback(async () => {
+    if (!profileId) return;
+    setIsLoadingHistory(true);
+    try {
+      const h = await getPartnerHistoryAsync({ profileId });
+      setHistory(h);
+      if (h.length > 0) {
+        if (!isDirty) {
+          const note = h[0].adminNotes || '';
+          setInternalNote(note);
+          setOriginalNote(note);
         }
-    }, [profileId, isDirty]);
+      }
+    } catch (e) {
+      console.error('Failed to load partner history', e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [profileId, isDirty]);
 
-    useEffect(() => {
-        loadData();
-        if (requestId) {
-            markPartnerLogsAsRead(requestId);
-        }
-        if (onUpdate) onUpdate();
-    }, [profileId, requestId, loadData, onUpdate]);
+  useEffect(() => {
+    loadData();
+    if (requestId) {
+      markPartnerLogsAsRead(requestId);
+    }
+    if (onUpdate) onUpdate();
+  }, [profileId, requestId, loadData, onUpdate]);
 
-    useEffect(() => { setIsDirty(internalNote !== originalNote); }, [internalNote, originalNote]);
+  useEffect(() => {
+    setIsDirty(internalNote !== originalNote);
+  }, [internalNote, originalNote]);
 
-    useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-    }, [history]);
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [history]);
 
-    const handleCloseAttempt = useCallback(() => {
-        if (isDirty) setShowUnsavedModal(true);
-        else onClose();
-    }, [isDirty, onClose]);
+  const handleCloseAttempt = useCallback(() => {
+    if (isDirty) setShowUnsavedModal(true);
+    else onClose();
+  }, [isDirty, onClose]);
 
-    useGlobalModalEscape(isOpen, handleCloseAttempt);
+  useGlobalModalEscape(isOpen, handleCloseAttempt);
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Enter') {
-                if (newMessage.trim()) handleSendMessage();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [newMessage]);
-
-    const activeRequest = history.find(r => r.id === requestId) || history[0]; 
-    const logs = activeRequest?.partnerLogs || [];
-    const totalSpent = history.reduce((sum, r) => sum + (r.amount || 0), 0);
-    const rejectedCount = history.filter(r => r.status === 'rejected').length;
-    const activeCount = history.filter(r => r.status === 'approved' || r.status === 'expired').length;
-    
-    let reputationColor = 'text-emerald-500';
-    let reputationLabel = 'Affidabile';
-    if (rejectedCount > 0 && rejectedCount > activeCount) { reputationColor = 'text-red-500'; reputationLabel = 'A Rischio'; }
-    else if (rejectedCount > 0) { reputationColor = 'text-amber-500'; reputationLabel = 'Attenzione'; }
-
-    const handleSendMessage = async () => {
-        if (!adminPartnerEnabled || !newMessage.trim() || !activeRequest) return;
-        setIsSending(true);
-        try {
-            const log: PartnerLog = {
-                id: Date.now().toString(),
-                date: new Date().toISOString(),
-                type: 'message',
-                direction: 'outbound',
-                message: newMessage
-            };
-            
-            await addPartnerLogAsync(activeRequest.id, log);
-
-            if (activeRequest.profileId) {
-                await addNotification(
-                    activeRequest.profileId,
-                    'info',
-                    'Nuovo Messaggio Staff',
-                    `Hai ricevuto una comunicazione relativa a "${activeRequest.companyName}".\n${newMessage.substring(0, 50)}${newMessage.length > 50 ? '...' : ''}`,
-                    { section: 'profile', tab: 'messages' } 
-                );
-            }
-            
-            setNewMessage('');
-            await loadData(); 
-            if (onUpdate) onUpdate();
-        } catch (e) {
-            alert("Errore invio messaggio");
-            console.error(e);
-        } finally {
-            setIsSending(false);
-        }
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        if (newMessage.trim()) handleSendMessage();
+      }
     };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [newMessage]);
 
-    const handleSaveInternalNote = () => {
-        if (!activeRequest) return;
-        setIsSavingNote(true);
-        updateSponsorInternalNotes(activeRequest.id, internalNote);
-        
-        setTimeout(() => {
-            setIsSavingNote(false);
-            setOriginalNote(internalNote);
-            setIsDirty(false);
-        }, 500);
-    };
+  const activeRequest = history.find((r) => r.id === requestId) || history[0];
+  const logs = activeRequest?.partnerLogs || [];
+  const totalSpent = history.reduce((sum, r) => sum + (r.amount || 0), 0);
+  const rejectedCount = history.filter((r) => r.status === 'rejected').length;
+  const activeCount = history.filter(
+    (r) => r.status === 'approved' || r.status === 'expired',
+  ).length;
 
-    const handleOpenShopManager = async () => {
-        if (!profileId) return;
-        // L'admin accede allo shop tramite l'ownerId
-        let shop = await getShopByOwner(profileId);
-        
-        if (shop) {
-            setCurrentShop(shop);
-            setActiveView('shop');
-        } else {
-            const isShopContract = activeRequest?.type === PLAN_TYPES.DIGITAL_SHOWCASE || activeRequest?.poiCategory === 'shop';
-            
-            if (isShopContract) {
-                setLocalAlert({
-                    type: 'warning',
-                    title: 'Bottega Non Configurata',
-                    message: "Questo partner ha un contratto 'Bottega' attivo, ma non ha ancora configurato la sua vetrina.\n\nIl cliente deve accedere alla sua area riservata > 'La mia Bottega' e inserire i prodotti per la prima volta."
-                });
-            } else {
-                const msg = getShopMissingMsg();
-                setLocalAlert({
-                    type: 'info',
-                    title: msg.title || 'Nessuna Bottega Attiva',
-                    message: msg.body || "Funzionalità non attiva per questo tipo di contratto."
-                });
-            }
-        }
-    };
+  let reputationColor = 'text-emerald-500';
+  let reputationLabel = 'Affidabile';
+  if (rejectedCount > 0 && rejectedCount > activeCount) {
+    reputationColor = 'text-red-500';
+    reputationLabel = 'A Rischio';
+  } else if (rejectedCount > 0) {
+    reputationColor = 'text-amber-500';
+    reputationLabel = 'Attenzione';
+  }
 
-    return createPortal(
-        <div 
-            className="td-modal-overlay p-4 bg-black/90 backdrop-blur-sm"
-            style={{ zIndex: Z_OVERLAY }}
+  const handleSendMessage = async () => {
+    if (!adminPartnerEnabled || !newMessage.trim() || !activeRequest) return;
+    setIsSending(true);
+    try {
+      const log: PartnerLog = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        type: 'message',
+        direction: 'outbound',
+        message: newMessage,
+      };
+
+      await addPartnerLogAsync(activeRequest.id, log);
+
+      if (activeRequest.profileId) {
+        await addNotification(
+          activeRequest.profileId,
+          'info',
+          'Nuovo Messaggio Staff',
+          `Hai ricevuto una comunicazione relativa a "${activeRequest.companyName}".\n${newMessage.substring(0, 50)}${newMessage.length > 50 ? '...' : ''}`,
+          { section: 'profile', tab: 'messages' },
+        );
+      }
+
+      setNewMessage('');
+      await loadData();
+      if (onUpdate) onUpdate();
+    } catch (e) {
+      alert('Errore invio messaggio');
+      console.error(e);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSaveInternalNote = () => {
+    if (!activeRequest) return;
+    setIsSavingNote(true);
+    updateSponsorInternalNotes(activeRequest.id, internalNote);
+
+    setTimeout(() => {
+      setIsSavingNote(false);
+      setOriginalNote(internalNote);
+      setIsDirty(false);
+    }, 500);
+  };
+
+  const handleOpenShopManager = async () => {
+    if (!profileId) return;
+    // L'admin accede allo shop tramite l'ownerId
+    const shop = await getShopByOwner(profileId);
+
+    if (shop) {
+      setCurrentShop(shop);
+      setActiveView('shop');
+    } else {
+      const isShopContract =
+        activeRequest?.type === PLAN_TYPES.DIGITAL_SHOWCASE ||
+        activeRequest?.poiCategory === 'shop';
+
+      if (isShopContract) {
+        setLocalAlert({
+          type: 'warning',
+          title: 'Bottega Non Configurata',
+          message:
+            "Questo partner ha un contratto 'Bottega' attivo, ma non ha ancora configurato la sua vetrina.\n\nIl cliente deve accedere alla sua area riservata > 'La mia Bottega' e inserire i prodotti per la prima volta.",
+        });
+      } else {
+        const msg = getShopMissingMsg();
+        setLocalAlert({
+          type: 'info',
+          title: msg.title || 'Nessuna Bottega Attiva',
+          message: msg.body || 'Funzionalità non attiva per questo tipo di contratto.',
+        });
+      }
+    }
+  };
+
+  return createPortal(
+    <div
+      className="td-modal-overlay p-4 bg-black/90 backdrop-blur-sm"
+      style={{ zIndex: Z_OVERLAY }}
+    >
+      {activeView === 'shop' && currentShop ? (
+        <div
+          className="bg-slate-900 w-full max-w-6xl h-[95vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden relative"
+          style={{ zIndex: Z_ADMIN_MODAL }}
         >
-            {activeView === 'shop' && currentShop ? (
-                <div className="bg-slate-900 w-full max-w-6xl h-[95vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden relative" style={{ zIndex: Z_ADMIN_MODAL }}>
-                    <BusinessShopManager 
-                        shop={currentShop} 
-                        onUpdate={() => {}} 
-                        onBack={() => setActiveView('crm')}
-                    />
+          <BusinessShopManager
+            shop={currentShop}
+            onUpdate={() => {}}
+            onBack={() => setActiveView('crm')}
+          />
+        </div>
+      ) : (
+        <div
+          className="bg-slate-900 w-full max-w-6xl h-[90vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden relative"
+          style={{ zIndex: Z_ADMIN_MODAL }}
+        >
+          {localAlert && (
+            <div
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+              style={{ zIndex: Z_MODAL_NESTED }}
+            >
+              <div className="bg-slate-900 border border-slate-700 p-8 rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in-95 flex flex-col items-center text-center">
+                <div
+                  className={`p-4 rounded-full mb-4 ${localAlert.type === 'warning' ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'}`}
+                >
+                  {localAlert.type === 'warning' ? (
+                    <AlertCircle className="w-8 h-8" />
+                  ) : (
+                    <Info className="w-8 h-8" />
+                  )}
                 </div>
-            ) : (
-                <div className="bg-slate-900 w-full max-w-6xl h-[90vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95 overflow-hidden relative" style={{ zIndex: Z_ADMIN_MODAL }}>
-                    
-                    {localAlert && (
-                         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" style={{ zIndex: Z_MODAL_NESTED }}>
-                            <div className="bg-slate-900 border border-slate-700 p-8 rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in-95 flex flex-col items-center text-center">
-                                <div className={`p-4 rounded-full mb-4 ${localAlert.type === 'warning' ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'}`}>
-                                    {localAlert.type === 'warning' ? <AlertCircle className="w-8 h-8"/> : <Info className="w-8 h-8"/>}
-                                </div>
-                                <h3 className="text-xl font-bold text-white mb-2">{localAlert.title}</h3>
-                                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line mb-6">{localAlert.message}</p>
-                                <button onClick={() => setLocalAlert(null)} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold uppercase transition-colors border border-slate-700">
-                                    Ho Capito
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                <h3 className="text-xl font-bold text-white mb-2">{localAlert.title}</h3>
+                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line mb-6">
+                  {localAlert.message}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLocalAlert(null)}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold uppercase transition-colors border border-slate-700"
+                >
+                  Ho Capito
+                </button>
+              </div>
+            </div>
+          )}
 
-                    {showUnsavedModal && (
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: Z_MODAL_NESTED }}>
-                            <div className="bg-slate-900 border border-red-500/50 p-6 rounded-xl shadow-2xl max-w-sm w-full animate-in zoom-in-95">
-                                <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2"><AlertCircle className="w-6 h-6 text-red-500"/> Modifiche non salvate</h3>
-                                <p className="text-slate-300 text-sm mb-6">Hai modificato le note interne senza salvare. Se esci ora, le modifiche andranno perse.</p>
-                                <div className="flex gap-3">
-                                    <button onClick={onClose} className="flex-1 bg-red-900/20 hover:bg-red-900/40 text-red-400 font-bold py-2 rounded-lg transition-colors border border-red-900/30">Abbandona</button>
-                                    <button onClick={() => { handleSaveInternalNote(); setShowUnsavedModal(false); }} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg transition-colors">Salva e Resta</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex justify-between items-start p-6 border-b border-slate-800 bg-slate-950">
-                        <div>
-                            <div className="flex items-center gap-4 mb-2">
-                                <h2 className="text-3xl font-bold text-white">{activeRequest?.companyName || 'Partner'}</h2>
-                                <span className={`text-xs uppercase font-bold px-3 py-1 rounded border ${reputationColor === 'text-red-500' ? 'bg-red-900/20 border-red-500/50' : reputationColor === 'text-amber-500' ? 'bg-amber-900/20 border-amber-500/50' : 'bg-emerald-900/20 border-emerald-500/50'} ${reputationColor}`}>{reputationLabel}</span>
-                            </div>
-                            <div className="text-sm text-slate-400 font-mono flex items-center gap-6"><span>P.IVA: {vatNumber || activeRequest?.vatNumber || 'N/D'}</span><span>Email: {activeRequest?.email}</span></div>
-                        </div>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={handleOpenShopManager}
-                                className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg transition-all border border-indigo-400"
-                            >
-                                <ShoppingBag className="w-4 h-4"/> SHOPPING - NEGOZIO
-                            </button>
-                            <CloseButton onClose={handleCloseAttempt} variant="primary" />
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-                        <div className="w-full md:w-1/3 border-r border-slate-800 flex flex-col overflow-hidden bg-slate-900">
-                            <div className="p-5 border-b border-slate-800 bg-amber-900/5">
-                                <div className="flex justify-between items-center mb-2">
-                                    <h3 className="font-bold text-amber-500 text-sm uppercase flex items-center gap-2"><StickyNote className="w-4 h-4"/> Note Amministrative (Private)</h3>
-                                    <button onClick={handleSaveInternalNote} className={`text-xs px-4 py-1.5 rounded flex items-center gap-1 border transition-all font-bold ${isDirty ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-lg scale-105' : 'bg-slate-800 text-slate-400 border-slate-700'}`} disabled={isSavingNote}>
-                                        <Save className="w-3 h-3"/> {isSavingNote ? 'Salvataggio...' : (isDirty ? 'SALVA ORA' : 'Salva')}
-                                    </button>
-                                </div>
-                                <textarea value={internalNote} onChange={(e) => setInternalNote(e.target.value)} className={`w-full bg-slate-800/50 border rounded-lg p-3 text-sm text-slate-300 focus:outline-none resize-none h-32 mb-1 leading-relaxed transition-all ${isDirty ? 'border-emerald-500/50 ring-1 ring-emerald-500/20' : 'border-slate-700 focus:border-amber-500'}`} placeholder="Note interne visibili solo agli admin..."/>
-                                {activeRequest?.adminNotesLastUpdated && <div className="text-[10px] text-slate-500 text-right font-mono italic select-none">— [Aggiornato: {activeRequest.adminNotesLastUpdated}]</div>}
-                            </div>
-                            <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
-                                <h3 className="font-bold text-white flex items-center gap-2 text-sm"><Clock className="w-4 h-4 text-blue-500"/> Storico Contratti</h3>
-                                <div className="text-sm font-mono text-emerald-400 font-bold">Tot. Speso: €{totalSpent}</div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-                                {isLoadingHistory ? (
-                                     <div className="flex flex-col items-center py-10 text-slate-500 gap-2">
-                                         <Loader2 className="w-6 h-6 animate-spin text-indigo-500"/>
-                                         <span className="text-xs uppercase font-bold">Caricamento Storico...</span>
-                                     </div>
-                                ) : history.map(req => (
-                                    <div key={req.id} className={`bg-slate-950 p-4 rounded-lg border hover:border-slate-600 transition-colors cursor-pointer group ${req.id === requestId ? 'border-indigo-500 ring-1 ring-indigo-500/30' : 'border-slate-800'}`}>
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`w-2.5 h-2.5 rounded-full ${req.status === 'approved' ? 'bg-emerald-500' : req.status === 'rejected' ? 'bg-red-500' : req.status === 'cancelled' ? 'bg-slate-500' : 'bg-amber-500'}`}></span>
-                                                <span className="text-sm font-bold text-white uppercase group-hover:text-blue-400 transition-colors">{req.status.replace('_', ' ')}</span>
-                                            </div>
-                                            <span className="text-xs text-slate-500 font-mono">{new Date(req.date).toLocaleDateString()}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm text-slate-400 mt-2">
-                                            <span className="font-medium text-slate-300">{req.cityId} • {req.tier}</span>
-                                            {req.amount && <span className="text-white font-bold">€{req.amount}</span>}
-                                        </div>
-                                        {(req.status === 'approved' || req.status === 'expired') && req.startDate && (
-                                            <div className="mt-2 text-[10px] font-medium text-indigo-200 bg-indigo-900/20 px-2 py-1.5 rounded border border-indigo-500/20 flex flex-col gap-0.5">
-                                                <div className="flex justify-between"><span>DAL:</span> <span className="text-white font-mono">{new Date(req.startDate).toLocaleDateString('it-IT')}</span></div>
-                                                <div className="flex justify-between"><span>AL:</span> <span className="text-white font-mono">{req.endDate ? new Date(req.endDate).toLocaleDateString('it-IT') : 'Indefinito'}</span></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="w-full md:w-2/3 flex flex-col bg-slate-950">
-                            <div className="p-5 border-b border-slate-800 bg-slate-900/50">
-                                <h3 className="font-bold text-white flex items-center gap-2 text-lg"><MessageSquare className="w-5 h-5 text-amber-500"/> Messaggi & Log</h3>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar bg-[#0b1120]" ref={chatContainerRef}>
-                                {logs.length === 0 && <div className="text-center text-slate-600 text-sm italic mt-8">Nessuna conversazione registrata.</div>}
-                                {[...logs].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((log, i) => (
-                                    <div key={i} className={`flex w-full ${log.direction === 'outbound' ? 'justify-start' : 'justify-end'}`}>
-                                        <div className={`max-w-[85%] rounded-2xl p-5 shadow-sm text-base relative group 
-                                            ${log.direction === 'outbound' && log.type !== 'alert' 
-                                                ? 'bg-emerald-600 text-white rounded-bl-none' 
-                                                : log.type === 'system' 
-                                                    ? 'bg-slate-800 text-slate-400 text-sm border border-slate-700 italic text-center mx-auto px-6 py-2 rounded-full' 
-                                                    : 'bg-blue-600 text-white rounded-br-none border border-blue-500' 
-                                            }`
-                                        }>
-                                            <p className="whitespace-pre-line leading-relaxed">{log.message}</p>
-                                            <div className={`flex justify-between items-center mt-2 pt-2 ${log.direction === 'inbound' ? 'border-t border-blue-500/50' : 'border-t border-emerald-500/50'}`}>
-                                                <span className={`text-[10px] text-white/70`}>{new Date(log.date).toLocaleString()}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="p-5 border-t border-slate-800 bg-slate-900">
-                                {!adminPartnerEnabled ? (
-                                    <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-1">
-                                        <p className="text-sm font-bold text-amber-200">
-                                            {getChatDisabledMsg({}).title || 'Chat non disponibile'}
-                                        </p>
-                                        <p className="text-xs text-slate-300 leading-relaxed">
-                                            {getChatDisabledMsg({}).body ||
-                                                'La messaggistica Admin↔Partner è temporaneamente disabilitata.'}
-                                        </p>
-                                    </div>
-                                ) : (
-                                <>
-                                <div className="flex gap-3">
-                                    <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Scrivi una risposta al partner..." className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-5 py-4 text-base text-white focus:border-blue-500 focus:outline-none" onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}/>
-                                    <button type="button" onClick={handleSendMessage} disabled={isSending} className="px-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg flex items-center justify-center min-w-[60px]">
-                                        {isSending ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}
-                                    </button>
-                                </div>
-                                <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5"><Info className="w-3.5 h-3.5"/> I messaggi inviati qui generano una notifica all'utente.</p>
-                                </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+          {showUnsavedModal && (
+            <div
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+              style={{ zIndex: Z_MODAL_NESTED }}
+            >
+              <div className="bg-slate-900 border border-red-500/50 p-6 rounded-xl shadow-2xl max-w-sm w-full animate-in zoom-in-95">
+                <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                  <AlertCircle className="w-6 h-6 text-red-500" /> Modifiche non salvate
+                </h3>
+                <p className="text-slate-300 text-sm mb-6">
+                  Hai modificato le note interne senza salvare. Se esci ora, le modifiche andranno
+                  perse.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="flex-1 bg-red-900/20 hover:bg-red-900/40 text-red-400 font-bold py-2 rounded-lg transition-colors border border-red-900/30"
+                  >
+                    Abbandona
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSaveInternalNote();
+                      setShowUnsavedModal(false);
+                    }}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg transition-colors"
+                  >
+                    Salva e Resta
+                  </button>
                 </div>
-            )}
-        </div>,
-        document.body
-    );
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between items-start p-6 border-b border-slate-800 bg-slate-950">
+            <div>
+              <div className="flex items-center gap-4 mb-2">
+                <h2 className="text-3xl font-bold text-white">
+                  {activeRequest?.companyName || 'Partner'}
+                </h2>
+                <span
+                  className={`text-xs uppercase font-bold px-3 py-1 rounded border ${reputationColor === 'text-red-500' ? 'bg-red-900/20 border-red-500/50' : reputationColor === 'text-amber-500' ? 'bg-amber-900/20 border-amber-500/50' : 'bg-emerald-900/20 border-emerald-500/50'} ${reputationColor}`}
+                >
+                  {reputationLabel}
+                </span>
+              </div>
+              <div className="text-sm text-slate-400 font-mono flex items-center gap-6">
+                <span>P.IVA: {vatNumber || activeRequest?.vatNumber || 'N/D'}</span>
+                <span>Email: {activeRequest?.email}</span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleOpenShopManager}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-bold text-xs uppercase flex items-center gap-2 shadow-lg transition-all border border-indigo-400"
+              >
+                <ShoppingBag className="w-4 h-4" /> SHOPPING - NEGOZIO
+              </button>
+              <CloseButton onClose={handleCloseAttempt} variant="primary" />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+            <div className="w-full md:w-1/3 border-r border-slate-800 flex flex-col overflow-hidden bg-slate-900">
+              <div className="p-5 border-b border-slate-800 bg-amber-900/5">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-bold text-amber-500 text-sm uppercase flex items-center gap-2">
+                    <StickyNote className="w-4 h-4" /> Note Amministrative (Private)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleSaveInternalNote}
+                    className={`text-xs px-4 py-1.5 rounded flex items-center gap-1 border transition-all font-bold ${isDirty ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-lg scale-105' : 'bg-slate-800 text-slate-400 border-slate-700'}`}
+                    disabled={isSavingNote}
+                  >
+                    <Save className="w-3 h-3" />{' '}
+                    {isSavingNote ? 'Salvataggio...' : isDirty ? 'SALVA ORA' : 'Salva'}
+                  </button>
+                </div>
+                <textarea
+                  value={internalNote}
+                  onChange={(e) => setInternalNote(e.target.value)}
+                  className={`w-full bg-slate-800/50 border rounded-lg p-3 text-sm text-slate-300 focus:outline-none resize-none h-32 mb-1 leading-relaxed transition-all ${isDirty ? 'border-emerald-500/50 ring-1 ring-emerald-500/20' : 'border-slate-700 focus:border-amber-500'}`}
+                  placeholder="Note interne visibili solo agli admin..."
+                />
+                {activeRequest?.adminNotesLastUpdated && (
+                  <div className="text-[10px] text-slate-500 text-right font-mono italic select-none">
+                    — [Aggiornato: {activeRequest.adminNotesLastUpdated}]
+                  </div>
+                )}
+              </div>
+              <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                <h3 className="font-bold text-white flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-blue-500" /> Storico Contratti
+                </h3>
+                <div className="text-sm font-mono text-emerald-400 font-bold">
+                  Tot. Speso: €{totalSpent}
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
+                {isLoadingHistory ? (
+                  <div className="flex flex-col items-center py-10 text-slate-500 gap-2">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                    <span className="text-xs uppercase font-bold">Caricamento Storico...</span>
+                  </div>
+                ) : (
+                  history.map((req) => (
+                    <div
+                      key={req.id}
+                      className={`bg-slate-950 p-4 rounded-lg border hover:border-slate-600 transition-colors cursor-pointer group ${req.id === requestId ? 'border-indigo-500 ring-1 ring-indigo-500/30' : 'border-slate-800'}`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full ${req.status === 'approved' ? 'bg-emerald-500' : req.status === 'rejected' ? 'bg-red-500' : req.status === 'cancelled' ? 'bg-slate-500' : 'bg-amber-500'}`}
+                          ></span>
+                          <span className="text-sm font-bold text-white uppercase group-hover:text-blue-400 transition-colors">
+                            {req.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-500 font-mono">
+                          {new Date(req.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm text-slate-400 mt-2">
+                        <span className="font-medium text-slate-300">
+                          {req.cityId} • {req.tier}
+                        </span>
+                        {req.amount && <span className="text-white font-bold">€{req.amount}</span>}
+                      </div>
+                      {(req.status === 'approved' || req.status === 'expired') && req.startDate && (
+                        <div className="mt-2 text-[10px] font-medium text-indigo-200 bg-indigo-900/20 px-2 py-1.5 rounded border border-indigo-500/20 flex flex-col gap-0.5">
+                          <div className="flex justify-between">
+                            <span>DAL:</span>{' '}
+                            <span className="text-white font-mono">
+                              {new Date(req.startDate).toLocaleDateString('it-IT')}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>AL:</span>{' '}
+                            <span className="text-white font-mono">
+                              {req.endDate
+                                ? new Date(req.endDate).toLocaleDateString('it-IT')
+                                : 'Indefinito'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="w-full md:w-2/3 flex flex-col bg-slate-950">
+              <div className="p-5 border-b border-slate-800 bg-slate-900/50">
+                <h3 className="font-bold text-white flex items-center gap-2 text-lg">
+                  <MessageSquare className="w-5 h-5 text-amber-500" /> Messaggi & Log
+                </h3>
+              </div>
+              <div
+                className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar bg-[#0b1120]"
+                ref={chatContainerRef}
+              >
+                {logs.length === 0 && (
+                  <div className="text-center text-slate-600 text-sm italic mt-8">
+                    Nessuna conversazione registrata.
+                  </div>
+                )}
+                {[...logs]
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .map((log, i) => (
+                    <div
+                      key={i}
+                      className={`flex w-full ${log.direction === 'outbound' ? 'justify-start' : 'justify-end'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl p-5 shadow-sm text-base relative group 
+                                            ${
+                                              log.direction === 'outbound' && log.type !== 'alert'
+                                                ? 'bg-emerald-600 text-white rounded-bl-none'
+                                                : log.type === 'system'
+                                                  ? 'bg-slate-800 text-slate-400 text-sm border border-slate-700 italic text-center mx-auto px-6 py-2 rounded-full'
+                                                  : 'bg-blue-600 text-white rounded-br-none border border-blue-500'
+                                            }`}
+                      >
+                        <p className="whitespace-pre-line leading-relaxed">{log.message}</p>
+                        <div
+                          className={`flex justify-between items-center mt-2 pt-2 ${log.direction === 'inbound' ? 'border-t border-blue-500/50' : 'border-t border-emerald-500/50'}`}
+                        >
+                          <span className={`text-[10px] text-white/70`}>
+                            {new Date(log.date).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+              <div className="p-5 border-t border-slate-800 bg-slate-900">
+                {!adminPartnerEnabled ? (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-1">
+                    <p className="text-sm font-bold text-amber-200">
+                      {getChatDisabledMsg({}).title || 'Chat non disponibile'}
+                    </p>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {getChatDisabledMsg({}).body ||
+                        'La messaggistica Admin↔Partner è temporaneamente disabilitata.'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Scrivi una risposta al partner..."
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-5 py-4 text-base text-white focus:border-blue-500 focus:outline-none"
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendMessage}
+                        disabled={isSending}
+                        className="px-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg flex items-center justify-center min-w-[60px]"
+                      >
+                        {isSending ? (
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        ) : (
+                          <Send className="w-6 h-6" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
+                      <Info className="w-3.5 h-3.5" /> I messaggi inviati qui generano una notifica
+                      all'utente.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>,
+    document.body,
+  );
 };

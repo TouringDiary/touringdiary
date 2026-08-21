@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Itinerary } from '@/types';
-import type { PointOfInterest } from '@/types/models/City';
-import { getPoisByIds } from '@/services/cityService';
-import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 import {
   buildPoiCatalogUpdateSignature,
   getCatalogPoiIds,
   hasPoiCatalogUpdates,
   mergePoiCatalogUpdates,
 } from '@/domain/diary/poiCatalogSync';
+import { getPoisByIds } from '@/services/cityService';
+import type { Itinerary } from '@/types';
+import type { PointOfInterest } from '@/types/models/City';
+import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 
 interface UseDiaryPoiCatalogUpdatePromptOptions {
   itinerary: Itinerary;
@@ -37,10 +37,7 @@ export function useDiaryPoiCatalogUpdatePrompt({
   const dismissPrompt = useCallback(() => {
     const current = itineraryRef.current;
     const diaryId = current.id;
-    const signature = buildPoiCatalogUpdateSignature(
-      current.items,
-      pendingFreshPoisRef.current,
-    );
+    const signature = buildPoiCatalogUpdateSignature(current.items, pendingFreshPoisRef.current);
     if (diaryId && signature) {
       skippedSignaturesRef.current.set(diaryId, signature);
     }

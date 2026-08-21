@@ -1,25 +1,36 @@
-
-import React, { useState, useEffect } from 'react';
-import { ChevronRight, Phone, Mail, Check, Plus, MessageSquare, PenTool, Bot, ShieldCheck, Flag } from 'lucide-react';
-import { CityDetails, User as UserType, PointOfInterest, CityGuide, Review } from '@/types';
+import {
+  Bot,
+  Check,
+  ChevronRight,
+  Flag,
+  Mail,
+  MessageSquare,
+  PenTool,
+  Phone,
+  Plus,
+  ShieldCheck,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import type { SaveUnifiedReviewResult } from '@/services/community/reviewService';
+import type { CityDetails, CityGuide, PointOfInterest, Review, User as UserType } from '@/types';
 import { getActiveGuideSponsors } from '../../../services/sponsorService';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { StarRating } from '../../common/StarRating';
 import { ReviewModal } from '../ReviewModal';
-import { useItinerary } from '@/context/ItineraryContext';
-import { useDynamicStyles } from '@/hooks/useDynamicStyles';
-import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
-import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 
 interface Props {
-    city: CityDetails;
-    onAddToItinerary: (poi: PointOfInterest) => void;
-    user?: UserType;
-    onOpenAuth?: () => void;
-    isMobile: boolean;
-    setMobileView: (view: 'menu' | 'content') => void;
-    mobileView?: 'menu' | 'content'; 
-    onSuggestEdit?: (name: string) => void; 
+  city: CityDetails;
+  onAddToItinerary: (poi: PointOfInterest) => void;
+  user?: UserType;
+  onOpenAuth?: () => void;
+  isMobile: boolean;
+  setMobileView: (view: 'menu' | 'content') => void;
+  mobileView?: 'menu' | 'content';
+  onSuggestEdit?: (name: string) => void;
 }
 
 /** Sponsor row may arrive as POI-shaped; editorial guides are CityGuide. */
@@ -28,327 +39,415 @@ type GuideListItem = CityGuide | PointOfInterest;
 type PoiResourceType = NonNullable<PointOfInterest['resourceType']>;
 
 function isOfficialAiGuide(guide: Pick<GuideListItem, 'id' | 'name'>): boolean {
-    return guide.id === 'guide-official-ai' || guide.name === 'Assistente Digitale Ufficiale';
+  return guide.id === 'guide-official-ai' || guide.name === 'Assistente Digitale Ufficiale';
 }
 
 function guidePhone(guide: GuideListItem): string | undefined {
-    if ('phone' in guide && guide.phone) return guide.phone ?? undefined;
-    if ('contactInfo' in guide) return guide.contactInfo?.phone ?? undefined;
-    return undefined;
+  if ('phone' in guide && guide.phone) return guide.phone ?? undefined;
+  if ('contactInfo' in guide) return guide.contactInfo?.phone ?? undefined;
+  return undefined;
 }
 
 function guideEmail(guide: GuideListItem): string | undefined {
-    if ('email' in guide && guide.email) return guide.email ?? undefined;
-    if ('contactInfo' in guide) return guide.contactInfo?.email ?? undefined;
-    return undefined;
+  if ('email' in guide && guide.email) return guide.email ?? undefined;
+  if ('contactInfo' in guide) return guide.contactInfo?.email ?? undefined;
+  return undefined;
 }
 
 function guideWebsite(guide: GuideListItem): string | undefined {
-    if ('website' in guide && guide.website) return guide.website ?? undefined;
-    if ('contactInfo' in guide) return guide.contactInfo?.website ?? undefined;
-    return undefined;
+  if ('website' in guide && guide.website) return guide.website ?? undefined;
+  if ('contactInfo' in guide) return guide.contactInfo?.website ?? undefined;
+  return undefined;
 }
 
 function guideLanguages(guide: GuideListItem): string[] {
-    return 'languages' in guide && Array.isArray(guide.languages) ? guide.languages : [];
+  return 'languages' in guide && Array.isArray(guide.languages) ? guide.languages : [];
 }
 
 function guideSpecialties(guide: GuideListItem): string[] {
-    return 'specialties' in guide && Array.isArray(guide.specialties) ? guide.specialties : [];
+  return 'specialties' in guide && Array.isArray(guide.specialties) ? guide.specialties : [];
 }
 
 function guideIsOfficial(guide: GuideListItem): boolean {
-    return 'isOfficial' in guide ? Boolean(guide.isOfficial) : false;
+  return 'isOfficial' in guide ? Boolean(guide.isOfficial) : false;
 }
 
 function guideIsSponsored(guide: GuideListItem): boolean {
-    return Boolean(guide.isSponsored);
+  return Boolean(guide.isSponsored);
 }
 
-export const CityGuidesTab = ({ city, onAddToItinerary, user, onOpenAuth, isMobile, setMobileView, mobileView, onSuggestEdit }: Props) => {
-    const { itinerary } = useItinerary();
-    const [selectedGuide, setSelectedGuide] = useState<GuideListItem | null>(null);
-    const [showReviewModal, setShowReviewModal] = useState(false);
-    const [localReviews, setLocalReviews] = useState<Review[]>([]);
-    const [guidesList, setGuidesList] = useState<GuideListItem[]>([]);
-    // MD compact band: desktop auto-select when not compact (≡ innerWidth >= MD).
-    const isMobileCompact = useMobileCompact();
+export const CityGuidesTab = ({
+  city,
+  onAddToItinerary,
+  user,
+  onOpenAuth,
+  isMobile,
+  setMobileView,
+  mobileView,
+  onSuggestEdit,
+}: Props) => {
+  const { itinerary } = useItinerary();
+  const [selectedGuide, setSelectedGuide] = useState<GuideListItem | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [guidesList, setGuidesList] = useState<GuideListItem[]>([]);
+  // MD compact band: desktop auto-select when not compact (≡ innerWidth >= MD).
+  const isMobileCompact = useMobileCompact();
 
-    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
-    const filterSectionLabelStyle = useDynamicStyles('filter_section_title');
+  const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
+  const filterSectionLabelStyle = useDynamicStyles('filter_section_title');
 
-    useEffect(() => {
-        let isMounted = true;
+  useEffect(() => {
+    let isMounted = true;
 
-        const loadGuides = async () => {
-            const sponsors = await getActiveGuideSponsors(city.id);
-            const staticGuides = city.details.guides || [];
-    
-            if (isMounted) {
-                // Sponsors first; skip static duplicates with the same id.
-                // Separate passes keep GuideListItem typing without casts.
-                const seen = new Set<string>();
-                const merged: GuideListItem[] = [];
-                for (const sponsor of sponsors) {
-                    if (!sponsor.id || seen.has(sponsor.id)) continue;
-                    seen.add(sponsor.id);
-                    merged.push(sponsor);
-                }
-                for (const guide of staticGuides) {
-                    if (!guide.id || seen.has(guide.id)) continue;
-                    seen.add(guide.id);
-                    merged.push(guide);
-                }
-                setGuidesList(merged);
-            }
-        };
-    
-        loadGuides();
+    const loadGuides = async () => {
+      const sponsors = await getActiveGuideSponsors(city.id);
+      const staticGuides = city.details.guides || [];
 
-        return () => {
-            isMounted = false;
-        };
-    }, [city.id]);
-
-    // Auto-select first guide ONLY on desktop (MD+)
-    useEffect(() => {
-        if (!isMobileCompact && guidesList.length > 0 && !selectedGuide) {
-            setSelectedGuide(guidesList[0]);
+      if (isMounted) {
+        // Sponsors first; skip static duplicates with the same id.
+        // Separate passes keep GuideListItem typing without casts.
+        const seen = new Set<string>();
+        const merged: GuideListItem[] = [];
+        for (const sponsor of sponsors) {
+          if (!sponsor.id || seen.has(sponsor.id)) continue;
+          seen.add(sponsor.id);
+          merged.push(sponsor);
         }
-    }, [guidesList, selectedGuide, isMobileCompact]);
-
-    const isItemInItinerary = (id: string) => itinerary.items.some(i => i.poi.id === id);
-
-    const handleWriteReview = () => {
-        if (!user || user.role === 'guest') {
-            if (onOpenAuth) onOpenAuth();
-            return;
+        for (const guide of staticGuides) {
+          if (!guide.id || seen.has(guide.id)) continue;
+          seen.add(guide.id);
+          merged.push(guide);
         }
-        setShowReviewModal(true);
+        setGuidesList(merged);
+      }
     };
 
-    const handleSubmitReview = async (
-        rating: number,
-        _criteria: Record<string, number>,
-        text: string
-    ) => {
-        if (!user) {
-            throw new Error('Devi accedere per pubblicare una recensione.');
-        }
-        const newReview: Review = {
-            id: `new_${Date.now()}`,
-            author: user.name,
-            rating,
-            text,
-            date: new Date().toISOString(),
-        };
-        setLocalReviews((prev) => [newReview, ...prev]);
+    loadGuides();
+
+    return () => {
+      isMounted = false;
     };
+  }, [city.id]);
 
-    const renderGuideDetail = (guide: GuideListItem | null) => {
-        if (!guide) return <div className="h-full flex items-center justify-center text-slate-600 italic">Seleziona una guida</div>;
-        
-        const phone = guidePhone(guide);
-        const email = guideEmail(guide);
-        const website = guideWebsite(guide);
-        const languages = guideLanguages(guide);
-        const specialties = guideSpecialties(guide);
-        const isOfficial = guideIsOfficial(guide);
-        const isSponsored = guideIsSponsored(guide);
+  // Auto-select first guide ONLY on desktop (MD+)
+  useEffect(() => {
+    if (!isMobileCompact && guidesList.length > 0 && !selectedGuide) {
+      setSelectedGuide(guidesList[0]);
+    }
+  }, [guidesList, selectedGuide, isMobileCompact]);
 
-        const isAi = isOfficialAiGuide(guide);
-        const reviews = [...localReviews, ...(guide.reviews || [])];
-        const isAdded = isItemInItinerary(guide.id);
+  const isItemInItinerary = (id: string) => itinerary.items.some((i) => i.poi.id === id);
 
-        const handleAddGuide = () => {
-            const resourceType: PoiResourceType = 'guide';
-            const poi: PointOfInterest = {
-                id: guide.id,
-                name: guide.name,
-                category: 'discovery',
-                description: `Guida Turistica Ufficiale. ${phone ? 'Tel: ' + phone : ''}. Lingue: ${languages.join(', ') || 'IT'}.`,
-                imageUrl: guide.imageUrl || '', // Lasciare vuoto per attivare placeholder
-                // Placeholder only: guide is a Resource (diary footer), not a geo POI on the map.
-                coords: { lat: 0, lng: 0 },
-                rating: guide.rating || 5,
-                votes: reviews.length,
-                address: email || website || 'Contatto Diretto',
-                
-                // IMPORTANT: Identifica come risorsa
-                resourceType,
-                contactInfo: {
-                    phone,
-                    email,
-                    website
-                }
-            };
-            onAddToItinerary(poi);
-        };
+  const handleWriteReview = () => {
+    if (!user || user.role === 'guest') {
+      if (onOpenAuth) onOpenAuth();
+      return;
+    }
+    setShowReviewModal(true);
+  };
 
-        return (
-            <div className="h-full overflow-y-auto custom-scrollbar p-6 md:p-10 animate-in fade-in bg-[#020617] flex flex-col">
-                <div className="flex flex-col md:flex-row gap-8 mb-10">
-                    <div className="w-32 h-32 md:w-56 md:h-56 rounded-full overflow-hidden border-4 border-slate-800 shadow-2xl shrink-0 mx-auto md:mx-0 bg-slate-900">
-                        {isAi ? (
-                            <div className="w-full h-full bg-indigo-600 flex items-center justify-center"><Bot className="w-24 h-24 text-white animate-pulse"/></div>
-                        ) : (
-                            <ImageWithFallback 
-                                src={guide.imageUrl || `/assets/guides/${guide.id}.jpg`}
-                                className="w-full h-full object-cover" 
-                                alt={guide.name} 
-                                category="guide" 
-                            />
-                        )}
-                    </div>
-                    <div className="flex-1 text-center md:text-left">
-                        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-3 justify-center md:justify-start">
-                            <h2 className="text-3xl md:text-4xl font-display font-bold text-white">{guide.name}</h2>
-                            {isOfficial && <span className="bg-indigo-900/50 text-indigo-300 border border-indigo-500/30 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest w-fit mx-auto md:mx-0">Ufficiale</span>}
-                        </div>
-                        <div className="flex items-center justify-center md:justify-start gap-2 mb-8">
-                            <StarRating value={guide.rating || 5} size="w-5 h-5"/>
-                            <span className="text-base font-bold text-slate-400">({reviews.length} recensioni)</span>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                            <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
-                                <h4 className={`${filterSectionLabel10Style} mb-2`}>Lingue Parlate</h4>
-                                <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                                    {languages.map((l) => <span key={l} className="bg-slate-950 text-slate-300 px-3 py-1.5 rounded-lg text-sm font-mono border border-slate-800">{l}</span>)}
-                                </div>
-                            </div>
-                             <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
-                                <h4 className={`${filterSectionLabel10Style} mb-2`}>Specialità</h4>
-                                <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                                    {specialties.map((s) => <span key={s} className="bg-indigo-900/30 text-indigo-300 px-3 py-1.5 rounded-lg text-sm border border-indigo-500/20">{s}</span>)}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap gap-4 mt-6 justify-center md:justify-start">
-                            {phone && <a href={`tel:${phone}`} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold uppercase text-sm tracking-wide shadow-lg transition-all active:scale-95">
-                                <Phone className="w-5 h-5"/> Chiama
-                            </a>}
-                            {email && <a href={`mailto:${email}`} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold uppercase text-sm tracking-wide border border-slate-700 transition-all active:scale-95">
-                                <Mail className="w-5 h-5"/> Email
-                            </a>}
-                            <button 
-                                onClick={handleAddGuide}
-                                className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold uppercase text-sm tracking-wide border transition-all active:scale-95 shadow-lg ${isAdded ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white'}`}
-                            >
-                                {isAdded ? <Check className="w-5 h-5"/> : <Plus className="w-5 h-5"/>} {isAdded ? 'AGGIUNTO' : 'AGGIUNGI'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="border-t border-slate-800 pt-10 mb-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <h3 className="text-2xl font-bold text-white flex items-center gap-3"><MessageSquare className="w-6 h-6 text-amber-500"/> Dicono di {guide.name}</h3>
-                        <button onClick={handleWriteReview} className="flex items-center gap-2 text-xs font-bold uppercase text-indigo-400 hover:text-white transition-colors bg-slate-900 px-6 py-3 rounded-xl border border-slate-800 hover:border-indigo-500 shadow-md">
-                            <PenTool className="w-4 h-4"/> Scrivi Recensione
-                        </button>
-                    </div>
-                    <div className="space-y-4">
-                        {reviews.length > 0 ? reviews.map((rev, idx) => (
-                            <div key={rev.id || idx} className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors">
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sm text-slate-400">{rev.author.charAt(0)}</div>
-                                        <span className="font-bold text-slate-200 text-base">{rev.author}</span>
-                                    </div>
-                                    <StarRating value={rev.rating} size="w-3.5 h-3.5"/>
-                                </div>
-                                <p className="text-slate-400 text-sm italic leading-relaxed">"{rev.text}"</p>
-                            </div>
-                        )) : <div className="text-center py-16 text-slate-500 italic bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed">Nessuna recensione ancora. Sii il primo!</div>}
-                    </div>
-                </div>
+  const handleSubmitReview = async (
+    _rating: number,
+    _criteria: Record<string, number>,
+    _text: string,
+  ): Promise<SaveUnifiedReviewResult> => {
+    if (!user) {
+      throw new Error('Devi accedere per pubblicare una recensione.');
+    }
+    throw new Error('La pubblicazione delle recensioni per le guide non è ancora disponibile.');
+  };
 
-                {/* LEGAL DISCLAIMER FOOTER */}
-                <div className="mt-auto pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-500">
-                    <div className="text-[10px] max-w-sm flex items-start gap-2 leading-snug">
-                        <ShieldCheck className="w-4 h-4 shrink-0 opacity-50"/>
-                        <p>
-                            Scheda professionale creata tramite dati pubblici e contributi della community. 
-                            Touring Diary non è affiliato con questa guida se non indicato come Partner Ufficiale.
-                        </p>
-                    </div>
-                    
-                    {!isSponsored && onSuggestEdit && (
-                        <button 
-                            onClick={() => onSuggestEdit(guide.name)}
-                            className="flex items-center gap-2 text-[10px] font-bold uppercase text-indigo-400 hover:text-white transition-colors border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-900/20">
-                            <Flag className="w-3 h-3"/> Sei tu? Rivendica Profilo
-                        </button>
-                    )}
-                </div>
-            </div>
-        );
+  const renderGuideDetail = (guide: GuideListItem | null) => {
+    if (!guide)
+      return (
+        <div className="h-full flex items-center justify-center text-slate-600 italic">
+          Seleziona una guida
+        </div>
+      );
+
+    const phone = guidePhone(guide);
+    const email = guideEmail(guide);
+    const website = guideWebsite(guide);
+    const languages = guideLanguages(guide);
+    const specialties = guideSpecialties(guide);
+    const isOfficial = guideIsOfficial(guide);
+    const isSponsored = guideIsSponsored(guide);
+
+    const isAi = isOfficialAiGuide(guide);
+    const reviews: Review[] = Array.isArray(guide.reviews) ? guide.reviews : [];
+    const isAdded = isItemInItinerary(guide.id);
+
+    const handleAddGuide = () => {
+      const resourceType: PoiResourceType = 'guide';
+      const poi: PointOfInterest = {
+        id: guide.id,
+        name: guide.name,
+        category: 'discovery',
+        description: `Guida Turistica Ufficiale. ${phone ? `Tel: ${phone}` : ''}. Lingue: ${languages.join(', ') || 'IT'}.`,
+        imageUrl: guide.imageUrl || '', // Lasciare vuoto per attivare placeholder
+        // Placeholder only: guide is a Resource (diary footer), not a geo POI on the map.
+        coords: { lat: 0, lng: 0 },
+        rating: guide.rating || 5,
+        votes: reviews.length,
+        address: email || website || 'Contatto Diretto',
+
+        // IMPORTANT: Identifica come risorsa
+        resourceType,
+        contactInfo: {
+          phone,
+          email,
+          website,
+        },
+      };
+      onAddToItinerary(poi);
     };
 
     return (
-        <>
-            <div className={`md:w-80 border-r border-slate-800 bg-[#0b0f1a] flex flex-col shrink-0 absolute md:relative inset-0 z-dropdown md:z-0 transition-transform duration-300 ${isMobile && mobileView === 'content' ? '-translate-x-full' : 'translate-x-0'}`}>
-                <div className="h-full flex flex-col">
-                     <div className={`p-6 border-b border-slate-800 ${filterSectionLabelStyle}`}>Guide Disponibili</div>
-                     <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
-                        {guidesList.map(guide => (
-                            <div
-                                key={guide.id}
-                                className={`w-full p-4 rounded-2xl flex items-center gap-3 transition-all ${selectedGuide?.id === guide.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}
-                            >
-                                <button
-                                    type="button"
-                                    onClick={() => { setSelectedGuide(guide); setMobileView('content'); }}
-                                    className="flex-1 min-w-0 text-left flex items-center gap-4"
-                                >
-                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 shrink-0 bg-slate-900 flex items-center justify-center">
-                                        {isOfficialAiGuide(guide) ? <Bot className="w-6 h-6 text-indigo-400"/> : (
-                                            <ImageWithFallback 
-                                                src={guide.imageUrl || `/assets/guides/${guide.id}.jpg`}
-                                                className="w-full h-full object-cover" 
-                                                alt={guide.name} 
-                                                category="guide" 
-                                            />
-                                        )}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="font-bold text-sm truncate">{guide.name}</div>
-                                        <div className={`text-[10px] uppercase font-bold truncate ${selectedGuide?.id === guide.id ? 'text-indigo-200' : 'text-slate-600'}`}>
-                                            {guideIsOfficial(guide) ? 'Certificata' : 'Locale'}
-                                        </div>
-                                    </div>
-                                    <ChevronRight className={`w-5 h-5 ml-auto opacity-50 shrink-0 ${selectedGuide?.id === guide.id ? 'text-white' : ''}`}/>
-                                </button>
-                                {guide.id ? (
-                                    <FavoriteBookmarkButton
-                                        userId={user?.role === 'guest' ? null : user?.id}
-                                        entityKind="guide"
-                                        entityId={guide.id}
-                                        onRequireAuth={onOpenAuth}
-                                        size="sm"
-                                        className={selectedGuide?.id === guide.id ? '!border-white/30 !bg-white/10 !text-white' : ''}
-                                    />
-                                ) : null}
-                            </div>
-                        ))}
-                    </div>
-                 </div>
-            </div>
-
-            <div className={`flex-1 bg-[#020617] flex flex-col min-w-0 absolute md:relative inset-0 z-floating-panel md:z-0 transition-transform duration-300 ${isMobile && mobileView !== 'content' ? 'translate-x-full' : 'translate-x-0'}`}>
-                <div className="flex-1 overflow-hidden relative">
-                    {renderGuideDetail(selectedGuide)}
-                </div>
-            </div>
-
-            {showReviewModal && selectedGuide && (
-                <ReviewModal 
-                    isOpen={true} 
-                    onClose={() => setShowReviewModal(false)} 
-                    poi={{ id: selectedGuide.id, name: selectedGuide.name, category: 'monument', description: '', imageUrl: '', rating: selectedGuide.rating || 0, votes: 0, coords: {lat:0, lng:0}, address: '' }} 
-                    onSubmit={handleSubmitReview} 
-                />
+      <div className="h-full overflow-y-auto custom-scrollbar p-6 md:p-10 animate-in fade-in bg-[#020617] flex flex-col">
+        <div className="flex flex-col md:flex-row gap-8 mb-10">
+          <div className="w-32 h-32 md:w-56 md:h-56 rounded-full overflow-hidden border-4 border-slate-800 shadow-2xl shrink-0 mx-auto md:mx-0 bg-slate-900">
+            {isAi ? (
+              <div className="w-full h-full bg-indigo-600 flex items-center justify-center">
+                <Bot className="w-24 h-24 text-white animate-pulse" />
+              </div>
+            ) : (
+              <ImageWithFallback
+                src={guide.imageUrl || `/assets/guides/${guide.id}.jpg`}
+                className="w-full h-full object-cover"
+                alt={guide.name}
+                category="guide"
+              />
             )}
-        </>
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <div className="flex flex-col md:flex-row md:items-center gap-3 mb-3 justify-center md:justify-start">
+              <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
+                {guide.name}
+              </h2>
+              {isOfficial && (
+                <span className="bg-indigo-900/50 text-indigo-300 border border-indigo-500/30 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest w-fit mx-auto md:mx-0">
+                  Ufficiale
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-center md:justify-start gap-2 mb-8">
+              <StarRating value={guide.rating || 5} size="w-5 h-5" />
+              <span className="text-base font-bold text-slate-400">
+                ({reviews.length} recensioni)
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                <h4 className={`${filterSectionLabel10Style} mb-2`}>Lingue Parlate</h4>
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                  {languages.map((l) => (
+                    <span
+                      key={l}
+                      className="bg-slate-950 text-slate-300 px-3 py-1.5 rounded-lg text-sm font-mono border border-slate-800"
+                    >
+                      {l}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                <h4 className={`${filterSectionLabel10Style} mb-2`}>Specialità</h4>
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                  {specialties.map((s) => (
+                    <span
+                      key={s}
+                      className="bg-indigo-900/30 text-indigo-300 px-3 py-1.5 rounded-lg text-sm border border-indigo-500/20"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-4 mt-6 justify-center md:justify-start">
+              {phone && (
+                <a
+                  href={`tel:${phone}`}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold uppercase text-sm tracking-wide shadow-lg transition-all active:scale-95"
+                >
+                  <Phone className="w-5 h-5" /> Chiama
+                </a>
+              )}
+              {email && (
+                <a
+                  href={`mailto:${email}`}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold uppercase text-sm tracking-wide border border-slate-700 transition-all active:scale-95"
+                >
+                  <Mail className="w-5 h-5" /> Email
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={handleAddGuide}
+                className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold uppercase text-sm tracking-wide border transition-all active:scale-95 shadow-lg ${isAdded ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white'}`}
+              >
+                {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}{' '}
+                {isAdded ? 'AGGIUNTO' : 'AGGIUNGI'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-800 pt-10 mb-8">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+              <MessageSquare className="w-6 h-6 text-amber-500" /> Dicono di {guide.name}
+            </h3>
+            <button
+              type="button"
+              onClick={handleWriteReview}
+              className="flex items-center gap-2 text-xs font-bold uppercase text-indigo-400 hover:text-white transition-colors bg-slate-900 px-6 py-3 rounded-xl border border-slate-800 hover:border-indigo-500 shadow-md"
+            >
+              <PenTool className="w-4 h-4" /> Scrivi Recensione
+            </button>
+          </div>
+          <div className="space-y-4">
+            {reviews.length > 0 ? (
+              reviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sm text-slate-400">
+                        {rev.author.charAt(0)}
+                      </div>
+                      <span className="font-bold text-slate-200 text-base">{rev.author}</span>
+                    </div>
+                    <StarRating value={rev.rating} size="w-3.5 h-3.5" />
+                  </div>
+                  <p className="text-slate-400 text-sm italic leading-relaxed">"{rev.text}"</p>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-16 text-slate-500 italic bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed">
+                Nessuna recensione ancora. Sii il primo!
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* LEGAL DISCLAIMER FOOTER */}
+        <div className="mt-auto pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-500">
+          <div className="text-[10px] max-w-sm flex items-start gap-2 leading-snug">
+            <ShieldCheck className="w-4 h-4 shrink-0 opacity-50" />
+            <p>
+              Scheda professionale creata tramite dati pubblici e contributi della community.
+              Touring Diary non è affiliato con questa guida se non indicato come Partner Ufficiale.
+            </p>
+          </div>
+
+          {!isSponsored && onSuggestEdit && (
+            <button
+              type="button"
+              onClick={() => onSuggestEdit(guide.name)}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase text-indigo-400 hover:text-white transition-colors border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-900/20"
+            >
+              <Flag className="w-3 h-3" /> Sei tu? Rivendica Profilo
+            </button>
+          )}
+        </div>
+      </div>
     );
+  };
+
+  return (
+    <>
+      <div
+        className={`md:w-80 border-r border-slate-800 bg-[#0b0f1a] flex flex-col shrink-0 absolute md:relative inset-0 z-dropdown md:z-0 transition-transform duration-300 ${isMobile && mobileView === 'content' ? '-translate-x-full' : 'translate-x-0'}`}
+      >
+        <div className="h-full flex flex-col">
+          <div className={`p-6 border-b border-slate-800 ${filterSectionLabelStyle}`}>
+            Guide Disponibili
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+            {guidesList.map((guide) => (
+              <div
+                key={guide.id}
+                className={`w-full p-4 rounded-2xl flex items-center gap-3 transition-all ${selectedGuide?.id === guide.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedGuide(guide);
+                    setMobileView('content');
+                  }}
+                  className="flex-1 min-w-0 text-left flex items-center gap-4"
+                >
+                  <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 shrink-0 bg-slate-900 flex items-center justify-center">
+                    {isOfficialAiGuide(guide) ? (
+                      <Bot className="w-6 h-6 text-indigo-400" />
+                    ) : (
+                      <ImageWithFallback
+                        src={guide.imageUrl || `/assets/guides/${guide.id}.jpg`}
+                        className="w-full h-full object-cover"
+                        alt={guide.name}
+                        category="guide"
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm truncate">{guide.name}</div>
+                    <div
+                      className={`text-[10px] uppercase font-bold truncate ${selectedGuide?.id === guide.id ? 'text-indigo-200' : 'text-slate-600'}`}
+                    >
+                      {guideIsOfficial(guide) ? 'Certificata' : 'Locale'}
+                    </div>
+                  </div>
+                  <ChevronRight
+                    className={`w-5 h-5 ml-auto opacity-50 shrink-0 ${selectedGuide?.id === guide.id ? 'text-white' : ''}`}
+                  />
+                </button>
+                {guide.id ? (
+                  <FavoriteBookmarkButton
+                    userId={user?.role === 'guest' ? null : user?.id}
+                    entityKind="guide"
+                    entityId={guide.id}
+                    onRequireAuth={onOpenAuth}
+                    size="sm"
+                    className={
+                      selectedGuide?.id === guide.id
+                        ? '!border-white/30 !bg-white/10 !text-white'
+                        : ''
+                    }
+                  />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={`flex-1 bg-[#020617] flex flex-col min-w-0 absolute md:relative inset-0 z-floating-panel md:z-0 transition-transform duration-300 ${isMobile && mobileView !== 'content' ? 'translate-x-full' : 'translate-x-0'}`}
+      >
+        <div className="flex-1 overflow-hidden relative">{renderGuideDetail(selectedGuide)}</div>
+      </div>
+
+      {showReviewModal && selectedGuide && (
+        <ReviewModal
+          isOpen={true}
+          onClose={() => setShowReviewModal(false)}
+          poi={{
+            id: selectedGuide.id,
+            name: selectedGuide.name,
+            category: 'monument',
+            description: '',
+            imageUrl: '',
+            rating: selectedGuide.rating || 0,
+            votes: 0,
+            coords: { lat: 0, lng: 0 },
+            address: '',
+          }}
+          onSubmit={handleSubmitReview}
+        />
+      )}
+    </>
+  );
 };

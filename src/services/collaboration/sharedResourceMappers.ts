@@ -43,7 +43,7 @@ export function mapSharedResourceRow(row: SharedResourceRow): SharedResource | n
 }
 
 export function mapSharedResourceMemberRow(
-  row: SharedResourceMemberRow
+  row: SharedResourceMemberRow,
 ): SharedResourceMember | null {
   if (!isCollaborativeMemberRole(row.role)) {
     console.error('[sharedResourceMappers] role non valido:', row.role);
@@ -60,7 +60,9 @@ export function mapSharedResourceMemberRow(
   };
 }
 
-export function mapMemberWithProfile(row: MemberWithProfileRow): SharedResourceMemberWithProfile | null {
+export function mapMemberWithProfile(
+  row: MemberWithProfileRow,
+): SharedResourceMemberWithProfile | null {
   const base = mapSharedResourceMemberRow(row);
   if (!base) return null;
 

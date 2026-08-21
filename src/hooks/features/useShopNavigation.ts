@@ -1,117 +1,156 @@
-
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ShopPartner, ShopCategory, ShopProduct, PointOfInterest } from '../../types/index';
-import { getShopsByFilter, getShopsByCityIds } from '../../services/shopService';
-import { fetchSponsorsByCityAsync, fetchSponsorsByCityIdsAsync } from '../../services/sponsorService';
+import { useEffect, useMemo, useState } from 'react';
+import { getShopsByCityIds, getShopsByFilter } from '../../services/shopService';
+import {
+  fetchSponsorsByCityAsync,
+  fetchSponsorsByCityIdsAsync,
+} from '../../services/sponsorService';
+import type { PointOfInterest, ShopCategory, ShopPartner, ShopProduct } from '../../types/index';
 
 interface UseShopNavigationProps {
-    cityId: string;
-    /** Multi-city (Around Me). When set, shops/sponsors load via batch by these ids. */
-    cityIds?: string[];
-    initialShopVat?: string | null;
+  cityId: string;
+  /** Multi-city (Around Me). When set, shops/sponsors load via batch by these ids. */
+  cityIds?: string[];
+  initialShopVat?: string | null;
 }
 
 export const useShopNavigation = ({ cityId, cityIds, initialShopVat }: UseShopNavigationProps) => {
-    // --- DATA STATE ---
-    const [shopsList, setShopsList] = useState<ShopPartner[]>([]);
-    const [citySponsors, setCitySponsors] = useState<PointOfInterest[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+  // --- DATA STATE ---
+  const [shopsList, setShopsList] = useState<ShopPartner[]>([]);
+  const [citySponsors, setCitySponsors] = useState<PointOfInterest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-    // --- NAVIGATION STATE ---
-    const [selectedCategory, setSelectedCategory] = useState<ShopCategory | null>(null);
-    const [selectedShop, setSelectedShop] = useState<ShopPartner | null>(null);
-    const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null); 
-    
-    // --- UI STATE ---
-    const [showPlanner, setShowPlanner] = useState(false);
-    const [pendingPoi, setPendingPoi] = useState<PointOfInterest | null>(null);
-    const [showFullBio, setShowFullBio] = useState(false);
-    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  // --- NAVIGATION STATE ---
+  const [selectedCategory, setSelectedCategory] = useState<ShopCategory | null>(null);
+  const [selectedShop, setSelectedShop] = useState<ShopPartner | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
 
-    const territoryKey = cityIds && cityIds.length > 0 ? cityIds.join(',') : '';
-    const territoryIds = useMemo(
-        () => (territoryKey ? territoryKey.split(',') : null),
-        [territoryKey],
-    );
+  // --- UI STATE ---
+  const [showPlanner, setShowPlanner] = useState(false);
+  const [pendingPoi, setPendingPoi] = useState<PointOfInterest | null>(null);
+  const [showFullBio, setShowFullBio] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
-    // 1. DATA LOADING
-    useEffect(() => {
-        const load = async () => {
-            setIsLoading(true);
-            try {
-                const [shops, sponsors] = await Promise.all([
-                    territoryIds
-                        ? getShopsByCityIds(territoryIds, selectedCategory || undefined)
-                        : getShopsByFilter(cityId, selectedCategory || undefined),
-                    territoryIds
-                        ? fetchSponsorsByCityIdsAsync(territoryIds)
-                        : fetchSponsorsByCityAsync(cityId),
-                ]);
-                setShopsList(shops);
-                setCitySponsors(sponsors);
-            } catch (e) {
-                console.error("Shop Load Error", e);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        load();
-    }, [cityId, selectedCategory, territoryIds]);
+  const territoryKey = cityIds && cityIds.length > 0 ? cityIds.join(',') : '';
+  const territoryIds = useMemo(
+    () => (territoryKey ? territoryKey.split(',') : null),
+    [territoryKey],
+  );
 
-    // 2. DEEP LINKING (VAT NUMBER)
-    useEffect(() => {
-        if (initialShopVat && shopsList.length > 0) {
-            const target = shopsList.find(s => s.vatNumber === initialShopVat);
-            if (target) setSelectedShop(target);
-        }
-    }, [shopsList, initialShopVat]);
-
-    // 3. COMPUTED LISTS
-    const premiumShops = useMemo(() => shopsList.filter(s => s.level === 'premium'), [shopsList]);
-
-    const contextualSponsors = useMemo(() => {
-        if (!selectedCategory) return citySponsors;
-        // Mapping category to POI category
-        const map: Record<string, string> = { 'gusto': 'food', 'cantina': 'food', 'artigianato': 'shop', 'moda': 'shop' };
-        const target = map[selectedCategory];
-        return citySponsors.filter(s => s.category === target || s.tier === 'gold');
-    }, [citySponsors, selectedCategory]);
-    
-    const goldSponsors = useMemo(() => contextualSponsors.filter(s => s.tier === 'gold'), [contextualSponsors]);
-    const silverSponsors = useMemo(() => contextualSponsors.filter(s => s.tier === 'silver'), [contextualSponsors]);
-
-    // 4. ACTIONS
-    const handleRequestAdd = (poi: PointOfInterest, existsInItinerary: boolean) => {
-        if (existsInItinerary) setShowPlanner(true);
-        else setPendingPoi(poi);
+  // 1. DATA LOADING
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const [shops, sponsors] = await Promise.all([
+          territoryIds
+            ? getShopsByCityIds(territoryIds, selectedCategory || undefined)
+            : getShopsByFilter(cityId, selectedCategory || undefined),
+          territoryIds
+            ? fetchSponsorsByCityIdsAsync(territoryIds)
+            : fetchSponsorsByCityAsync(cityId),
+        ]);
+        setShopsList(shops);
+        setCitySponsors(sponsors);
+      } catch (e) {
+        console.error('Shop Load Error', e);
+      } finally {
+        setIsLoading(false);
+      }
     };
+    load();
+  }, [cityId, selectedCategory, territoryIds]);
 
-    const handleConfirmAdd = () => {
-        setPendingPoi(null);
-        setShowPlanner(true);
+  // 2. DEEP LINKING (VAT NUMBER)
+  useEffect(() => {
+    if (initialShopVat && shopsList.length > 0) {
+      const target = shopsList.find((s) => s.vatNumber === initialShopVat);
+      if (target) setSelectedShop(target);
+    }
+  }, [shopsList, initialShopVat]);
+
+  // 3. COMPUTED LISTS
+  const premiumShops = useMemo(() => shopsList.filter((s) => s.level === 'premium'), [shopsList]);
+
+  const contextualSponsors = useMemo(() => {
+    if (!selectedCategory) return citySponsors;
+    // Mapping category to POI category
+    const map: Record<string, string> = {
+      gusto: 'food',
+      cantina: 'food',
+      artigianato: 'shop',
+      moda: 'shop',
     };
+    const target = map[selectedCategory];
+    return citySponsors.filter((s) => s.category === target || s.tier === 'gold');
+  }, [citySponsors, selectedCategory]);
 
-    const handleBack = (onGlobalBack: () => void) => {
-        if (selectedProduct) { setSelectedProduct(null); return; }
-        if (showFullBio) { setShowFullBio(false); return; }
-        if (selectedShop) { setSelectedShop(null); return; }
-        if (selectedCategory) { setSelectedCategory(null); return; }
-        onGlobalBack();
-    };
+  const goldSponsors = useMemo(
+    () => contextualSponsors.filter((s) => s.tier === 'gold'),
+    [contextualSponsors],
+  );
+  const silverSponsors = useMemo(
+    () => contextualSponsors.filter((s) => s.tier === 'silver'),
+    [contextualSponsors],
+  );
 
-    return {
-        // State
-        shopsList, premiumShops, goldSponsors, silverSponsors, isLoading,
-        selectedCategory, selectedShop, selectedProduct,
-        showPlanner, pendingPoi, showFullBio, lightboxImage,
+  // 4. ACTIONS
+  const handleRequestAdd = (poi: PointOfInterest, existsInItinerary: boolean) => {
+    if (existsInItinerary) setShowPlanner(true);
+    else setPendingPoi(poi);
+  };
 
-        // Setters
-        setSelectedCategory, setSelectedShop, setSelectedProduct,
-        setShowPlanner, setPendingPoi, setShowFullBio, setLightboxImage,
+  const handleConfirmAdd = () => {
+    setPendingPoi(null);
+    setShowPlanner(true);
+  };
 
-        // Actions
-        handleRequestAdd,
-        handleConfirmAdd,
-        handleBack
-    };
+  const handleBack = (onGlobalBack: () => void) => {
+    if (selectedProduct) {
+      setSelectedProduct(null);
+      return;
+    }
+    if (showFullBio) {
+      setShowFullBio(false);
+      return;
+    }
+    if (selectedShop) {
+      setSelectedShop(null);
+      return;
+    }
+    if (selectedCategory) {
+      setSelectedCategory(null);
+      return;
+    }
+    onGlobalBack();
+  };
+
+  return {
+    // State
+    shopsList,
+    premiumShops,
+    goldSponsors,
+    silverSponsors,
+    isLoading,
+    selectedCategory,
+    selectedShop,
+    selectedProduct,
+    showPlanner,
+    pendingPoi,
+    showFullBio,
+    lightboxImage,
+
+    // Setters
+    setSelectedCategory,
+    setSelectedShop,
+    setSelectedProduct,
+    setShowPlanner,
+    setPendingPoi,
+    setShowFullBio,
+    setLightboxImage,
+
+    // Actions
+    handleRequestAdd,
+    handleConfirmAdd,
+    handleBack,
+  };
 };

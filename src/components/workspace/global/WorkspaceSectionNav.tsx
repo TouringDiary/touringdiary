@@ -1,7 +1,7 @@
-import React from 'react';
+import type React from 'react';
 import {
-  WORKSPACE_PANEL_SECTIONS,
   WORKSPACE_PANEL_SECTION_LABELS,
+  WORKSPACE_PANEL_SECTIONS,
   type WorkspacePanelSection,
 } from './globalWorkspacePresentation';
 
@@ -37,9 +37,11 @@ export const WorkspaceSectionNav: React.FC<Props> = ({ activeSection, onNavigate
           className={`
             relative px-3 lg:px-2 xl:px-4 py-2.5 text-[10px] xl:text-xs font-bold uppercase tracking-wider whitespace-nowrap
             transition-colors shrink-0 border-b-2 text-center
-            ${isActive
-              ? 'border-indigo-500 text-white bg-slate-900/60'
-              : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-900/30'}
+            ${
+              isActive
+                ? 'border-indigo-500 text-white bg-slate-900/60'
+                : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-900/30'
+            }
           `}
         >
           {WORKSPACE_PANEL_SECTION_LABELS[section]}

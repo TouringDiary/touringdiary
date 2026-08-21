@@ -1,11 +1,11 @@
 import type { SharedResourceKind } from '@/domain/collaboration';
 import { isSharedResourceKind } from '@/domain/collaboration';
-import { supabase } from '@/services/supabaseClient';
 import { duplicateSuitcaseEntityAsync } from '@/services/suitcaseService';
+import { supabase } from '@/services/supabaseClient';
 import { randomUUID } from '@/utils/runtimeId';
+import { resolveResourceOwnerId } from './shareableResourceOwnerLookup';
 import { getWorkspaceResourceAccessForUser } from './workspaceAccessLookup';
 import { isWorkspaceMember } from './workspaceService';
-import { resolveResourceOwnerId } from './shareableResourceOwnerLookup';
 
 /** Esito di una copia personale (invito personale o duplicazione pre-condivisione). */
 export type PersonalResourceDuplicateResult =
@@ -28,7 +28,7 @@ function isSuitcaseTableEntityKind(kind: SharedResourceKind): kind is SuitcaseTa
 
 function rowMatchesSuitcaseTableKind(
   row: { is_user_template: boolean | null },
-  kind: SuitcaseTableEntityKind
+  kind: SuitcaseTableEntityKind,
 ): boolean {
   const isUserTemplateRow = row.is_user_template === true;
   return kind === 'user_template' ? isUserTemplateRow : !isUserTemplateRow;
@@ -53,13 +53,11 @@ async function duplicateDiaryCopy(
   resourceId: string,
   ownerId: string,
   targetUserId: string,
-  title?: string
+  title?: string,
 ): Promise<PersonalResourceDuplicateResult> {
   const { data: source, error } = await supabase
     .from('itineraries')
-    .select(
-      'id, user_id, title, description, duration_days, type, status, items_json, main_city'
-    )
+    .select('id, user_id, title, description, duration_days, type, status, items_json, main_city')
     .eq('id', resourceId)
     .eq('user_id', ownerId)
     .eq('type', 'personal')
@@ -112,7 +110,7 @@ async function duplicateSuitcaseTableEntityCopy(
   resourceId: string,
   ownerId: string,
   targetUserId: string,
-  title: string
+  title: string,
 ): Promise<PersonalResourceDuplicateResult> {
   const { data: source, error } = await supabase
     .from('suitcases')
@@ -147,7 +145,7 @@ export async function duplicateSharedResourceForInvitee(
   kind: SharedResourceKind,
   resourceId: string,
   ownerId: string,
-  inviteeId: string
+  inviteeId: string,
 ): Promise<PersonalResourceDuplicateResult> {
   if (!isSharedResourceKind(kind)) {
     return { success: false, error: 'Tipo di risorsa non valido.' };
@@ -172,7 +170,7 @@ export async function duplicateSharedResourceForInvitee(
       resourceId,
       ownerId,
       inviteeId,
-      source?.title?.trim() || fallback
+      source?.title?.trim() || fallback,
     );
   }
 
@@ -187,7 +185,7 @@ export async function savePersonalCopyFromWorkspace(
   userId: string,
   workspaceId: string,
   kind: SharedResourceKind,
-  resourceId: string
+  resourceId: string,
 ): Promise<PersonalResourceDuplicateResult> {
   if (!isSharedResourceKind(kind)) {
     return { success: false, error: 'Tipo di risorsa non valido.' };
@@ -197,12 +195,7 @@ export async function savePersonalCopyFromWorkspace(
     return { success: false, error: 'Non sei membro di questo workspace.' };
   }
 
-  const access = await getWorkspaceResourceAccessForUser(
-    userId,
-    workspaceId,
-    kind,
-    resourceId
-  );
+  const access = await getWorkspaceResourceAccessForUser(userId, workspaceId, kind, resourceId);
   if (access === 'none') {
     return { success: false, error: 'Non hai accesso sufficiente a questo elemento.' };
   }
@@ -222,7 +215,7 @@ export async function savePersonalCopyFromWorkspace(
 export async function duplicateSharedResourceForOwner(
   kind: SharedResourceKind,
   resourceId: string,
-  ownerId: string
+  ownerId: string,
 ): Promise<PersonalResourceDuplicateResult> {
   if (!isSharedResourceKind(kind)) {
     return { success: false, error: 'Tipo di risorsa non valido.' };
@@ -257,13 +250,7 @@ export async function duplicateSharedResourceForOwner(
     }
 
     const baseTitle = source.title?.trim() || defaultTitleForKind(kind);
-    return duplicateSuitcaseTableEntityCopy(
-      kind,
-      resourceId,
-      ownerId,
-      ownerId,
-      baseTitle
-    );
+    return duplicateSuitcaseTableEntityCopy(kind, resourceId, ownerId, ownerId, baseTitle);
   }
 
   return { success: false, error: 'Tipo di risorsa non supportato.' };

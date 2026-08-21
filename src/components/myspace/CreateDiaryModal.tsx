@@ -1,15 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { BookOpen } from 'lucide-react';
-import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
-import type { Viaggio } from '@/types/models/Viaggio';
-import type { ViaggioAssociationChoice, CreateDiaryInput } from '@/types/resourceAssociation';
-import { ViaggioAssociationFields } from './ViaggioAssociationFields';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { listViaggiByUser } from '@/services/viaggio/viaggioService';
+import type { Viaggio } from '@/types/models/Viaggio';
+import type { CreateDiaryInput, ViaggioAssociationChoice } from '@/types/resourceAssociation';
+import { ViaggioAssociationFields } from './ViaggioAssociationFields';
 
 export type CreateDiaryModalContext = 'viaggio-detail' | 'tools';
 
@@ -31,7 +32,13 @@ interface Props {
   busy?: boolean;
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Local calendar date YYYY-MM-DD (not UTC) for `<input type="date">` defaults. */
+const todayIso = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+};
 
 export const CreateDiaryModal: React.FC<Props> = ({
   isOpen,
@@ -93,12 +100,19 @@ export const CreateDiaryModal: React.FC<Props> = ({
     };
   }, [isOpen, context, userId]);
 
-  const handleSubmit = useCallback(async () => {
-    const trimmed = name.trim();
-    if (!trimmed || !startDate || !endDate) return;
-    if (endDate < startDate) return;
-    if (viaggioChoice === 'existing' && !existingViaggioId && context === 'tools') return;
+  const isViaggioValid =
+    context === 'viaggio-detail' || viaggioChoice !== 'existing' || Boolean(existingViaggioId);
+  const isFormValid =
+    Boolean(name.trim()) &&
+    Boolean(startDate) &&
+    Boolean(endDate) &&
+    endDate >= startDate &&
+    isViaggioValid;
 
+  const handleSubmit = useCallback(async () => {
+    if (!isFormValid || busy) return;
+
+    const trimmed = name.trim();
     const input: CreateDiaryInput = {
       userId,
       name: trimmed,
@@ -110,6 +124,8 @@ export const CreateDiaryModal: React.FC<Props> = ({
     };
     await onConfirm({ input });
   }, [
+    isFormValid,
+    busy,
     name,
     startDate,
     endDate,
@@ -130,14 +146,23 @@ export const CreateDiaryModal: React.FC<Props> = ({
 
   return createPortal(
     <div
-      className={`td-modal-overlay ${overlayShell} !items-center`}
-      onClick={busy ? undefined : onClose}
+      className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_OVERLAY }}
+      role="presentation"
     >
+      {/* Backdrop dismiss: sibling control (never onClick on td-modal-overlay). Hidden while busy. */}
+      {!busy ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Chiudi"
+          className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+          onClick={onClose}
+        />
+      ) : null}
       <div
-        className={`${containerShell} max-w-md outline-none`}
+        className={`relative ${containerShell} max-w-md outline-none`}
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-diary-title"
@@ -147,6 +172,7 @@ export const CreateDiaryModal: React.FC<Props> = ({
           onClose={onClose}
           variant="primary"
           position="absolute"
+          withEscape={false}
           className={`${closeOffsetShell} z-local-overlay`}
         />
         <div className={`${bodyShell} min-h-0`}>
@@ -164,15 +190,25 @@ export const CreateDiaryModal: React.FC<Props> = ({
             </div>
           </div>
 
-          <div className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSubmit();
+            }}
+          >
             <div className="space-y-2">
-              <label htmlFor="create-diary-name" className="text-xs font-bold uppercase text-slate-500">
+              <label
+                htmlFor="create-diary-name"
+                className="text-xs font-bold uppercase text-slate-500"
+              >
                 Nome Diario
               </label>
               <input
                 id="create-diary-name"
                 autoFocus
                 type="text"
+                autoComplete="off"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={busy}
@@ -180,9 +216,12 @@ export const CreateDiaryModal: React.FC<Props> = ({
                 placeholder="Es. Tour Napoli"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <label htmlFor="create-diary-start" className="text-xs font-bold uppercase text-slate-500">
+                <label
+                  htmlFor="create-diary-start"
+                  className="text-xs font-bold uppercase text-slate-500"
+                >
                   Data dal
                 </label>
                 <input
@@ -195,7 +234,10 @@ export const CreateDiaryModal: React.FC<Props> = ({
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="create-diary-end" className="text-xs font-bold uppercase text-slate-500">
+                <label
+                  htmlFor="create-diary-end"
+                  className="text-xs font-bold uppercase text-slate-500"
+                >
                   Data al
                 </label>
                 <input
@@ -222,14 +264,13 @@ export const CreateDiaryModal: React.FC<Props> = ({
             />
 
             <button
-              type="button"
-              disabled={busy || !name.trim() || endDate < startDate}
-              onClick={() => void handleSubmit()}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg disabled:opacity-50"
+              type="submit"
+              disabled={busy || !isFormValid}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? 'Creazione…' : 'Crea e apri Diario'}
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>,

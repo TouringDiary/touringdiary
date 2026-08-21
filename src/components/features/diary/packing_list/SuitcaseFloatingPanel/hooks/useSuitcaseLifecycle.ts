@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { User } from '@supabase/supabase-js';
-import { fetchLinkedSuitcaseIdsAsync } from '@/services/suitcaseService';
+import type { User } from '@supabase/supabase-js';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUser } from '@/context/UserContext';
+import { fetchLinkedSuitcaseIdsAsync } from '@/services/suitcaseService';
 import type { SuitcasePanelViewMode } from '../types/panelViewMode';
 import type { SuitcaseSourceTab } from '../types/sourceTab';
 
@@ -24,7 +24,7 @@ export const useSuitcaseLifecycle = ({
   setViewMode,
   sourceTab,
   setSourceTab,
-  setSelectedItemName
+  setSelectedItemName,
 }: LifecycleProps) => {
   const { user: appUser } = useUser();
   const currentUser = useMemo<User | null>(() => {
@@ -34,21 +34,24 @@ export const useSuitcaseLifecycle = ({
 
   const [linkedSuitcaseIds, setLinkedSuitcaseIds] = useState<string[] | null>(null);
 
-  const fetchLinkedIds = useCallback(async (overrideItineraryId?: string) => {
-    const id = overrideItineraryId ?? itineraryId;
-    if (!id) {
-      setLinkedSuitcaseIds([]);
-      return;
-    }
+  const fetchLinkedIds = useCallback(
+    async (overrideItineraryId?: string) => {
+      const id = overrideItineraryId ?? itineraryId;
+      if (!id) {
+        setLinkedSuitcaseIds([]);
+        return;
+      }
 
-    try {
-      const ids = await fetchLinkedSuitcaseIdsAsync(id);
-      setLinkedSuitcaseIds(ids);
-    } catch (e) {
-      console.error("Error fetching linked ids:", e);
-      setLinkedSuitcaseIds([]);
-    }
-  }, [itineraryId]);
+      try {
+        const ids = await fetchLinkedSuitcaseIdsAsync(id);
+        setLinkedSuitcaseIds(ids);
+      } catch (e) {
+        console.error('Error fetching linked ids:', e);
+        setLinkedSuitcaseIds([]);
+      }
+    },
+    [itineraryId],
+  );
 
   // Linked ids: caricamento iniziale e refresh su cambio itineraryId (via fetchLinkedIds).
   useEffect(() => {

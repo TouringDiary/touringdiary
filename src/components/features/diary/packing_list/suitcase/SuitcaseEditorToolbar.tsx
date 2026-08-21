@@ -1,8 +1,11 @@
-import React from 'react';
-import { Sparkles, Ban, Wrench, Search } from 'lucide-react';
+import { Ban, Search, Sparkles, Wrench } from 'lucide-react';
+import type React from 'react';
+import { CountBadge } from '@/components/ui/CountBadge';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
+import { CategoryToolbarNav } from './CategoryToolbarNav';
+import { SuitcaseToolbarGroup } from './SuitcaseToolbarGroup';
 import {
-  CategoryStatusFilter,
+  type CategoryStatusFilter,
   SUITCASE_TOOLBAR_ICON_BTN_CLASS,
   SUITCASE_TOOLBAR_ICON_SIZE_CLASS,
   SUITCASE_VIEW_MODE_BTN_EDITOR_ACTIVE_CLASS,
@@ -10,9 +13,6 @@ import {
   SUITCASE_VIEW_MODE_BTN_VIEWER_ACTIVE_CLASS,
   SUITCASE_VIEW_MODE_BTN_VIEWER_IDLE_CLASS,
 } from './SuitcaseUtils';
-import { CategoryToolbarNav } from './CategoryToolbarNav';
-import { CountBadge } from '@/components/ui/CountBadge';
-import { SuitcaseToolbarGroup } from './SuitcaseToolbarGroup';
 
 interface SuitcaseEditorToolbarProps {
   readOnly: boolean;
@@ -102,7 +102,10 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
         title={blacklistTitle}
         aria-label={blacklistTitle}
       >
-        <Ban className={`${GROUP_ICON_CLASS} group-hover:scale-110 transition-transform`} aria-hidden />
+        <Ban
+          className={`${GROUP_ICON_CLASS} group-hover:scale-110 transition-transform`}
+          aria-hidden
+        />
         {blacklistCount > 0 && (
           <CountBadge
             count={blacklistCount}
@@ -111,7 +114,9 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
             variant="indigo"
             position="overlay-tr"
             className={
-              isBlacklistFlashing ? 'bg-white text-amber-600 border-amber-400 shadow-amber-950/50' : ''
+              isBlacklistFlashing
+                ? 'bg-white text-amber-600 border-amber-400 shadow-amber-950/50'
+                : ''
             }
             aria-hidden
           />
@@ -209,7 +214,9 @@ export const SuitcaseEditorToolbar: React.FC<SuitcaseEditorToolbarProps> = ({
       {/* MOBILE + TABLET (<1024px): solo la riga categorie (freccia destra + filtro sola-icona).
           Avanzamento e toggle Visualizza/Modifica vivono ora nell'header (più spazio verticale).
           I Suggerimenti vivono nel menu "Azione" dell'header. */}
-      <div className="flex items-center gap-1 w-full min-w-0 lg:hidden">{renderCategoryNav('inline-end')}</div>
+      <div className="flex items-center gap-1 w-full min-w-0 lg:hidden">
+        {renderCategoryNav('inline-end')}
+      </div>
     </div>
   );
 };

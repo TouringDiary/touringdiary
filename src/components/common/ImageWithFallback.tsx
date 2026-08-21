@@ -1,9 +1,9 @@
-
-import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Image as ImageIcon, Loader2 } from 'lucide-react';
-import { getOptimizedImageUrl, ImageSize } from '../../utils/imageOptimizer';
-import { getCategoryPlaceholders } from '../../services/settingsService';
+import type React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveCategoryPlaceholderUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
+import { getCategoryPlaceholders } from '../../services/settingsService';
+import { getOptimizedImageUrl, type ImageSize } from '../../utils/imageOptimizer';
 
 interface Props {
   src?: string;
@@ -11,6 +11,12 @@ interface Props {
   className?: string;
   draggable?: boolean;
   size?: ImageSize;
+  /**
+   * Fit dell'`<img>` interno. Default `cover` (tile/thumbnail).
+   * Usare `contain` nei lightbox (GalleryLightbox / Community Hub): il wrapper
+   * riempie l’area padre e centra l’immagine senza tagliarla.
+   */
+  objectFit?: 'cover' | 'contain';
   /** Eager load when true (LCP / above-the-fold). */
   priority?: boolean;
   /** HTML `sizes` hint for responsive src selection. */
@@ -18,11 +24,12 @@ interface Props {
   /** Browser fetch priority (LCP heroes → high). */
   fetchPriority?: 'high' | 'low' | 'auto';
   category?: string;
-  onClick?: () => void;
 }
 
 const ErrorBox = ({ className }: { className?: string }) => (
-  <div className={`bg-slate-900 border border-slate-800 flex flex-col items-center justify-center text-slate-600 ${className} overflow-hidden select-none`}>
+  <div
+    className={`bg-slate-900 border border-slate-800 flex flex-col items-center justify-center text-slate-600 ${className} overflow-hidden select-none`}
+  >
     <div className="flex flex-col items-center gap-1 opacity-50 scale-75">
       <ImageIcon className="w-6 h-6" />
       <span className="text-[9px] font-bold uppercase tracking-wider">No Image</span>
@@ -42,11 +49,11 @@ export const ImageWithFallback = ({
   className,
   draggable,
   size = 'medium',
+  objectFit = 'cover',
   priority = false,
   sizes,
   fetchPriority,
   category = 'discovery',
-  onClick,
 }: Props) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -66,18 +73,20 @@ export const ImageWithFallback = ({
   const sourceToUse = hasError ? fallbackSrc : primarySrc;
 
   // Atomic reset to initial state when the intended image changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset intenzionale su cambio primarySrc
   useEffect(() => {
     setHasError(false);
     setIsLoaded(false);
   }, [primarySrc]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sync complete/error su cambio sourceToUse
   useEffect(() => {
     if (imgRef.current?.complete) {
-        if (imgRef.current.naturalWidth > 0) {
-            setIsLoaded(true);
-        } else if (imgRef.current.naturalWidth === 0 && imgRef.current.src) {
-            setHasError(true);
-        }
+      if (imgRef.current.naturalWidth > 0) {
+        setIsLoaded(true);
+      } else if (imgRef.current.naturalWidth === 0 && imgRef.current.src) {
+        setHasError(true);
+      }
     }
   }, [sourceToUse]);
 
@@ -102,8 +111,39 @@ export const ImageWithFallback = ({
     ? 'opacity-100'
     : `transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`;
 
+  const isContain = objectFit === 'contain';
+
+  /**
+   * Contain (GalleryLightbox / Community Hub SoT):
+   * Il wrapper DEVE occupare l’area padre (`h-full w-full`) e centrare l’img.
+   * Se il wrapper ha solo `max-h-full` e altezza auto, il % max-height sull’img
+   * non vincola → foto verticali overflow e vengono tagliate in basso (overflow del lightbox).
+   */
+  if (isContain) {
+    return (
+      <div
+        className={`relative flex h-full w-full min-h-0 min-w-0 items-center justify-center overflow-hidden ${className ?? ''}`}
+      >
+        {!isLoaded && <Spinner />}
+        <img
+          ref={imgRef}
+          src={sourceToUse}
+          alt={alt}
+          className={`max-h-full max-w-full h-auto w-auto object-contain ${imageVisibilityClass}`}
+          onLoad={() => setIsLoaded(true)}
+          onError={() => setHasError(true)}
+          draggable={draggable}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding={priority ? undefined : 'async'}
+          sizes={sizes}
+          {...(fetchPriorityDomAttr ?? {})}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className={`relative overflow-hidden bg-slate-950 ${className}`} onClick={onClick}>
+    <div className={`relative bg-slate-950 overflow-hidden ${className ?? ''}`}>
       {!isLoaded && <Spinner />}
       <img
         ref={imgRef}
@@ -114,8 +154,6 @@ export const ImageWithFallback = ({
         onError={() => setHasError(true)}
         draggable={draggable}
         loading={priority ? 'eager' : 'lazy'}
-        // Priority/LCP: omit attr → browser `auto`. Forced sync is not justified
-        // (MDN: hard to perceive on static <img>; can delay other paints).
         decoding={priority ? undefined : 'async'}
         sizes={sizes}
         {...(fetchPriorityDomAttr ?? {})}

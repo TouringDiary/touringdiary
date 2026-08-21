@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
 import { FolderKanban, Loader2 } from 'lucide-react';
-import type { Workspace } from '@/domain/collaboration';
-import { listWorkspacesForUser } from '@/services/collaboration';
-import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '@/context/UserContext';
+import type { Workspace } from '@/domain/collaboration';
+import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorkspace';
+import { listWorkspacesForUser } from '@/services/collaboration';
 
 interface Props {
   title?: string;

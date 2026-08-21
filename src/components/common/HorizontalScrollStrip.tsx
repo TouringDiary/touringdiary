@@ -1,5 +1,6 @@
-import React, { useCallback, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useRef } from 'react';
 
 const SCROLL_STEP_PX = 120;
 
@@ -36,14 +37,17 @@ export const HorizontalScrollStrip: React.FC<HorizontalScrollStripProps> = ({
   const internalScrollRef = useRef<HTMLDivElement>(null);
   const scrollRef = externalScrollRef ?? internalScrollRef;
 
-  const scrollBy = useCallback((direction: 'left' | 'right') => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollBy({
-      left: direction === 'left' ? -SCROLL_STEP_PX : SCROLL_STEP_PX,
-      behavior: 'smooth',
-    });
-  }, [scrollRef]);
+  const scrollBy = useCallback(
+    (direction: 'left' | 'right') => {
+      const el = scrollRef.current;
+      if (!el) return;
+      el.scrollBy({
+        left: direction === 'left' ? -SCROLL_STEP_PX : SCROLL_STEP_PX,
+        behavior: 'smooth',
+      });
+    },
+    [scrollRef],
+  );
 
   return (
     <div className={`flex items-center gap-1 min-w-0 ${className}`}>

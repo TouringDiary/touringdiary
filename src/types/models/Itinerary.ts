@@ -1,26 +1,25 @@
-
-import { PointOfInterest } from './City';
-import { Review } from '../shared';
+import type { Review } from '../shared';
+import type { PointOfInterest } from './City';
 import type { DiaryNotesState } from './DiaryNotes';
 
 // Interface for Roadbook Data persistence
 export interface RoadbookSegment {
-    from: string;
-    fromAddress?: string; 
-    to: string;
-    toAddress?: string;   
-    transportMode: 'walk' | 'transit' | 'car';
-    duration: string;
-    instructions: string;
-    tips?: string;
-    transportCost?: string; // Costo del mezzo
-    ticketCost?: string;    // Costo biglietto (Musei, etc.)
-    foodCost?: string;      // Costo consumazione (Ristoranti, etc.)
+  from: string;
+  fromAddress?: string;
+  to: string;
+  toAddress?: string;
+  transportMode: 'walk' | 'transit' | 'car';
+  duration: string;
+  instructions: string;
+  tips?: string;
+  transportCost?: string; // Costo del mezzo
+  ticketCost?: string; // Costo biglietto (Musei, etc.)
+  foodCost?: string; // Costo consumazione (Ristoranti, etc.)
 }
 
 export interface RoadbookDay {
-    dayIndex: number;
-    segments: RoadbookSegment[];
+  dayIndex: number;
+  segments: RoadbookSegment[];
 }
 
 export interface ItineraryItem {
@@ -43,11 +42,11 @@ export interface ItineraryItem {
 
   // --- DIARY 2.0 FIELDS ---
   // Se true, l'item non appare nella timeline verticale ma nella sezione "Risorse & Contatti" (Footer)
-  isResource?: boolean; 
-  
+  isResource?: boolean;
+
   // Tipo di item nel diario: 'standard' (tappa), 'memo' (promemoria volante)
   type?: 'standard' | 'memo';
-  
+
   // Se è un memo collegato a una risorsa (es. "Chiama Mario"), questo ID punta alla risorsa nel footer
   linkedResourceId?: string;
 
@@ -73,7 +72,7 @@ export interface Itinerary {
   updatedAt?: number;
   /** Ultimo modificatore persistito su DB (§21). */
   lastModifiedBy?: string;
-  dayStyles?: Record<number, string>; 
+  dayStyles?: Record<number, string>;
   roadbook?: RoadbookDay[];
   /** Area NOTE del diario — collezione di tab con documenti Tiptap/ProseMirror. */
   diaryNotes?: DiaryNotesState | null;
@@ -96,40 +95,40 @@ export function createEmptyItinerary(): Itinerary {
 }
 
 export interface PremadeItinerary {
-    id: string;
-    title: string;
-    description: string;
-    durationDays: number;
-    coverImage: string;
-    imageCredit?: string; 
-    imageLicense?: 'own' | 'cc' | 'public' | 'copyright';
-    
-    status: 'published' | 'draft'; 
+  id: string;
+  title: string;
+  description: string;
+  durationDays: number;
+  coverImage: string;
+  imageCredit?: string;
+  imageLicense?: 'own' | 'cc' | 'public' | 'copyright';
 
-    tags: string[]; 
-    difficulty: 'Relax' | 'Moderato' | 'Intenso';
-    
-    type: 'official' | 'community' | 'ai'; 
-    author?: string; 
-    
-    rating: number;
-    votes: number;
-    reviews?: Review[]; 
-    
-    continent: string;
-    nation: string;
-    region: string;
-    zone: string;
-    mainCity: string;
-    
-    date?: string;
+  status: 'published' | 'draft';
 
-    items: {
-        dayIndex: number;
-        timeSlotStr: string;
-        poiId: string; 
-        cityId: string; 
-        fallbackName?: string; 
-        note?: string;
-    }[];
+  tags: string[];
+  difficulty: 'Relax' | 'Moderato' | 'Intenso';
+
+  type: 'official' | 'community' | 'ai';
+  author?: string;
+
+  rating: number;
+  votes: number;
+  reviews?: Review[];
+
+  continent: string;
+  nation: string;
+  region: string;
+  zone: string;
+  mainCity: string;
+
+  date?: string;
+
+  items: {
+    dayIndex: number;
+    timeSlotStr: string;
+    poiId: string;
+    cityId: string;
+    fallbackName?: string;
+    note?: string;
+  }[];
 }

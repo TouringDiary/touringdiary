@@ -1,5 +1,6 @@
-import React, { useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import { useBelowLg } from '@/hooks/ui/useBelowLg';
 
 interface SwipeToDeleteProps {
@@ -118,8 +119,7 @@ export const SwipeToDelete: React.FC<SwipeToDeleteProps> = ({
   };
 
   const handlePointerUp = () => {
-    const shouldTrigger =
-      horizontal.current && Math.abs(offset) >= REVEAL_WIDTH * TRIGGER_RATIO;
+    const shouldTrigger = horizontal.current && Math.abs(offset) >= REVEAL_WIDTH * TRIGGER_RATIO;
     reset();
     if (shouldTrigger) onDelete();
   };
@@ -138,7 +138,7 @@ export const SwipeToDelete: React.FC<SwipeToDeleteProps> = ({
   // neutro tenue (stone) verso il rosso "danger", diventando pienamente rosso solo in
   // prossimità della soglia di eliminazione; l'icona/etichetta sfumano in ingresso.
   const swipeProgress = Math.min(1, Math.abs(offset) / REVEAL_WIDTH);
-  const dangerT = (Math.min(1, swipeProgress / TRIGGER_RATIO)) ** 2; // ease-in: resta neutro più a lungo
+  const dangerT = Math.min(1, swipeProgress / TRIGGER_RATIO) ** 2; // ease-in: resta neutro più a lungo
   const mixChannel = (from: number, to: number) => Math.round(from + (to - from) * dangerT);
   // stone-400 (#a8a29e) → rose-600 (#e11d48): transizione calda, niente toni "fangosi".
   const revealBg = `rgb(${mixChannel(168, 225)} ${mixChannel(162, 29)} ${mixChannel(158, 72)})`;
@@ -150,12 +150,15 @@ export const SwipeToDelete: React.FC<SwipeToDeleteProps> = ({
     // elementi della timeline che sporgono di proposito sopra la riga (es. l'icona del mezzo,
     // posizionata nel varco fra due tappe) non vengono tagliati su mobile/tablet. Lo scroll
     // orizzontale a riposo è comunque contenuto dal contenitore padre (giorno / lista valigia).
-    <div className={`relative ${dragging ? 'overflow-hidden' : ''} ${className}`} style={{ touchAction: 'pan-y' }}>
+    <div
+      className={`relative ${dragging ? 'overflow-hidden' : ''} ${className}`}
+      style={{ touchAction: 'pan-y' }}
+    >
       {/*
-        * Action strip ancorato a destra, largo quanto la distanza di swipe: occupa esattamente
-        * il varco lasciato dalla riga traslata. Il colore evolve da neutro a rosso col drag, così
-        * a riposo non resta alcuna fascia rossa permanente. Icona + label scorrono in vista.
-        */}
+       * Action strip ancorato a destra, largo quanto la distanza di swipe: occupa esattamente
+       * il varco lasciato dalla riga traslata. Il colore evolve da neutro a rosso col drag, così
+       * a riposo non resta alcuna fascia rossa permanente. Icona + label scorrono in vista.
+       */}
       <div
         aria-hidden
         className={`absolute right-0 flex items-center justify-end pr-3 text-white overflow-hidden ${revealClassName}`}
@@ -171,7 +174,9 @@ export const SwipeToDelete: React.FC<SwipeToDeleteProps> = ({
           style={{ opacity: contentOpacity, transform: `scale(${armed ? 1.06 : 1})` }}
         >
           <Trash2 className="w-3.5 h-3.5 shrink-0" />
-          <span className="text-[10px] font-black uppercase tracking-tight leading-none whitespace-nowrap">{label}</span>
+          <span className="text-[10px] font-black uppercase tracking-tight leading-none whitespace-nowrap">
+            {label}
+          </span>
         </div>
       </div>
 

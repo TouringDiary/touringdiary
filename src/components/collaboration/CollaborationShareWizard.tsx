@@ -1,38 +1,43 @@
-import React from 'react';
-import { Copy, FolderPlus, Layers, Share2, UserPlus, Users } from 'lucide-react';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Copy, FolderPlus, Layers, UserPlus, Users } from 'lucide-react';
+import type React from 'react';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
-import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
-import type { CollaborativeMemberRole, SharingMode, Workspace } from '@/domain/collaboration';
+import type {
+  CollaborationUserSearchResult,
+  CollaborativeMemberRole,
+  SharedResourceKind,
+  SharingMode,
+  Workspace,
+  WorkspaceResourceAccess,
+} from '@/domain/collaboration';
 import { COLLABORATIVE_MEMBER_ROLES } from '@/domain/collaboration';
-import type { CollaborationUserSearchResult } from '@/domain/collaboration';
-import type { SharedResourceKind, WorkspaceResourceAccess } from '@/domain/collaboration';
 import type {
   WorkspaceCompositionBlueprint,
   WorkspaceCompositionDraft,
 } from '@/domain/collaboration/workspaceComposition';
-import { OptionCard } from './OptionCard';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
 import {
-  MODE_LABELS,
-  ROLE_LABELS,
   getWizardStepTitle,
+  MODE_LABELS,
   type PendingInvite,
+  ROLE_LABELS,
   type ShareIntent,
   type SharePath,
   type WizardEntryMode,
   type WizardStep,
   type WorkspacePendingInvite,
 } from './collaborationSharePresentation';
+import { OptionCard } from './OptionCard';
 import {
   WorkspaceCompositionStep,
   WorkspaceInviteSearch,
   WorkspaceInviteStep,
   WorkspacePickElementStep,
+  type WorkspacePickedElement,
   WorkspaceSelectStep,
   WorkspaceSetupStep,
-  type WorkspacePickedElement,
 } from './WorkspaceShareWizardSteps';
-import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
 
 export interface CollaborationShareWizardProps {
   wizardStep: WizardStep;
@@ -77,7 +82,7 @@ export interface CollaborationShareWizardProps {
     userId: string,
     kind: SharedResourceKind,
     resourceId: string,
-    accessLevel: WorkspaceResourceAccess
+    accessLevel: WorkspaceResourceAccess,
   ) => void;
 }
 
@@ -131,223 +136,230 @@ export const CollaborationShareWizard: React.FC<CollaborationShareWizardProps> =
     entryMode === 'create_workspace' && wizardStep === 'workspace_composition';
 
   return (
-  <>
-    {wizardStep === 'path' && (
-      <div className="space-y-3">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <OptionCard
-          selected={sharePath === 'simple'}
-          onSelect={() => onSharePathChange('simple')}
-          title="Condivisione Semplice"
-          description="Condividi senza associarla a un Workspace."
-          icon={<Users className="w-5 h-5" />}
-        />
-        <OptionCard
-          selected={sharePath === 'create_workspace'}
-          onSelect={() => onSharePathChange('create_workspace')}
-          title="Crea Workspace e Condividi"
-          description="Crea un nuovo Workspace e condividi."
-          icon={<FolderPlus className="w-5 h-5" />}
-        />
-        <OptionCard
-          selected={sharePath === 'add_workspace'}
-          onSelect={() => onSharePathChange('add_workspace')}
-          title="Aggiungi ad un Workspace esistente"
-          description="Condividi in un Workspace già creato."
-          icon={<Layers className="w-5 h-5" />}
-        />
-      </div>
-    )}
-
-    {wizardStep === 'share_intent' && (
-      <div className="space-y-3">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <p className={bodyTextShell}>
-          Verrà sempre creata una <strong>copia dedicata</strong> con nuovo ID.
-          L&apos;originale nel tuo spazio personale non viene condiviso.
-        </p>
-        <OptionCard
-          selected
-          onSelect={() => onShareIntentChange('duplicate_and_share')}
-          title="Condividi Duplicato"
-          description={
-            <>
-              L&apos;elemento <strong>duplicato</strong> diventerà quello condiviso.
-            </>
-          }
-          icon={<Copy className="w-5 h-5" />}
-          recommended
-        />
-      </div>
-    )}
-
-    {wizardStep === 'mode' && (
-      <div className="space-y-3">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <OptionCard
-          selected={sharingMode === 'collaborative'}
-          onSelect={() => onSharingModeChange('collaborative')}
-          title="Modalità Condivisa"
-          description="Lavoro condiviso* tra utenti."
-          icon={<Users className="w-5 h-5" />}
-        />
-        <OptionCard
-          selected={sharingMode === 'personal'}
-          onSelect={() => onSharingModeChange('personal')}
-          title="Modalità Personale"
-          description="Ogni invitato riceve una copia personale."
-          icon={<UserPlus className="w-5 h-5" />}
-        />
-        <p className={bodyTextShell}>
-          * Le modifiche diventano visibili agli altri utenti dopo ogni salvataggio.
-        </p>
-      </div>
-    )}
-
-    {wizardStep === 'invite' && (
-      <div className="space-y-4">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
-          <div className={bodyTextShell}>
-            Modalità <span className="text-indigo-300 font-semibold">{MODE_LABELS[sharingMode]}</span>
-            {sharingMode === 'personal' && (
-              <span className="block mt-1">
-                I destinatari riceveranno una copia personale al momento dell&apos;accettazione.
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Ruolo predefinito
-          </label>
-          <select
-            value={selectedRole}
-            onChange={(e) => onSelectedRoleChange(e.target.value as CollaborativeMemberRole)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-          >
-            {COLLABORATIVE_MEMBER_ROLES.map((role) => (
-              <option key={role} value={role}>
-                {ROLE_LABELS[role]}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Cerca utente
-          </label>
-          <CollaborationUserInviteSearch
-            searchQuery={searchQuery}
-            onSearchQueryChange={onSearchQueryChange}
-            searchResults={searchResults}
-            isSearching={isSearching}
-            isSubmitting={isSubmitting}
-            onSelectUser={onAddPendingInvite}
+    <>
+      {wizardStep === 'path' && (
+        <div className="space-y-3">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <OptionCard
+            selected={sharePath === 'simple'}
+            onSelect={() => onSharePathChange('simple')}
+            title="Condivisione Semplice"
+            description="Condividi senza associarla a un Workspace."
+            icon={<Users className="w-5 h-5" />}
+          />
+          <OptionCard
+            selected={sharePath === 'create_workspace'}
+            onSelect={() => onSharePathChange('create_workspace')}
+            title="Crea Workspace e Condividi"
+            description="Crea un nuovo Workspace e condividi."
+            icon={<FolderPlus className="w-5 h-5" />}
+          />
+          <OptionCard
+            selected={sharePath === 'add_workspace'}
+            onSelect={() => onSharePathChange('add_workspace')}
+            title="Aggiungi ad un Workspace esistente"
+            description="Condividi in un Workspace già creato."
+            icon={<Layers className="w-5 h-5" />}
           />
         </div>
+      )}
 
-        {pendingInvites.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Da invitare</p>
-            <div className="space-y-2">
-              {pendingInvites.map((pending) => (
-                <div
-                  key={pending.userId}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm text-white truncate">{pending.name}</div>
-                    <div className={cardLabelShell}>
-                      {ROLE_LABELS[pending.role]}
-                      {pending.slug ? ` · @${pending.slug}` : ''}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onRemovePendingInvite(pending.userId)}
-                    className="text-xs text-slate-400 hover:text-red-400 shrink-0"
-                  >
-                    Rimuovi
-                  </button>
-                </div>
-              ))}
+      {wizardStep === 'share_intent' && (
+        <div className="space-y-3">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <p className={bodyTextShell}>
+            Verrà sempre creata una <strong>copia dedicata</strong> con nuovo ID. L&apos;originale
+            nel tuo spazio personale non viene condiviso.
+          </p>
+          <OptionCard
+            selected
+            onSelect={() => onShareIntentChange('duplicate_and_share')}
+            title="Condividi Duplicato"
+            description={
+              <>
+                L&apos;elemento <strong>duplicato</strong> diventerà quello condiviso.
+              </>
+            }
+            icon={<Copy className="w-5 h-5" />}
+            recommended
+          />
+        </div>
+      )}
+
+      {wizardStep === 'mode' && (
+        <div className="space-y-3">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <OptionCard
+            selected={sharingMode === 'collaborative'}
+            onSelect={() => onSharingModeChange('collaborative')}
+            title="Modalità Condivisa"
+            description="Lavoro condiviso* tra utenti."
+            icon={<Users className="w-5 h-5" />}
+          />
+          <OptionCard
+            selected={sharingMode === 'personal'}
+            onSelect={() => onSharingModeChange('personal')}
+            title="Modalità Personale"
+            description="Ogni invitato riceve una copia personale."
+            icon={<UserPlus className="w-5 h-5" />}
+          />
+          <p className={bodyTextShell}>
+            * Le modifiche diventano visibili agli altri utenti dopo ogni salvataggio.
+          </p>
+        </div>
+      )}
+
+      {wizardStep === 'invite' && (
+        <div className="space-y-4">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+            <div className={bodyTextShell}>
+              Modalità{' '}
+              <span className="text-indigo-300 font-semibold">{MODE_LABELS[sharingMode]}</span>
+              {sharingMode === 'personal' && (
+                <span className="block mt-1">
+                  I destinatari riceveranno una copia personale al momento dell&apos;accettazione.
+                </span>
+              )}
             </div>
           </div>
-        )}
-      </div>
-    )}
 
-    {wizardStep === 'workspace_setup' && (
-      <div className="space-y-3">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <WorkspaceSetupStep
-        workspaceName={workspaceName}
-        workspaceDescription={workspaceDescription}
-        onNameChange={onWorkspaceNameChange}
-        onDescriptionChange={onWorkspaceDescriptionChange}
-      />
-      </div>
-    )}
+          <div className="space-y-2">
+            <label
+              htmlFor="fld-collaboration-collaborationsharewizard-tsx-l228"
+              className="text-xs font-bold uppercase tracking-wider text-slate-400"
+            >
+              Ruolo predefinito
+            </label>
+            <select
+              id="fld-collaboration-collaborationsharewizard-tsx-l228"
+              value={selectedRole}
+              onChange={(e) => onSelectedRoleChange(e.target.value as CollaborativeMemberRole)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+            >
+              {COLLABORATIVE_MEMBER_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {ROLE_LABELS[role]}
+                </option>
+              ))}
+            </select>
+          </div>
 
-    {wizardStep === 'workspace_composition' && compositionBlueprint && compositionDraft && (
-      <div className="space-y-3">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <WorkspaceCompositionStep
-          blueprint={compositionBlueprint}
-          draft={compositionDraft}
-          isExpandingDiary={isExpandingCompositionDiary}
-          catalogMode={isCreateCatalogComposition}
-          onSelectDiary={onSelectCompositionDiary}
-          onToggleSuitcase={onToggleCompositionSuitcase}
-          onToggleUserTemplate={onToggleCompositionUserTemplate}
-        />
-      </div>
-    )}
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Cerca utente
+            </label>
+            <CollaborationUserInviteSearch
+              searchQuery={searchQuery}
+              onSearchQueryChange={onSearchQueryChange}
+              searchResults={searchResults}
+              isSearching={isSearching}
+              isSubmitting={isSubmitting}
+              onSelectUser={onAddPendingInvite}
+            />
+          </div>
 
-    {wizardStep === 'pick_element' && compositionBlueprint && (
-      <div className="space-y-3">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <WorkspacePickElementStep
-          blueprint={compositionBlueprint}
-          selected={pickedElement}
-          onSelect={onPickElement}
-        />
-      </div>
-    )}
+          {pendingInvites.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Da invitare
+              </p>
+              <div className="space-y-2">
+                {pendingInvites.map((pending) => (
+                  <div
+                    key={pending.userId}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm text-white truncate">{pending.name}</div>
+                      <div className={cardLabelShell}>
+                        {ROLE_LABELS[pending.role]}
+                        {pending.slug ? ` · @${pending.slug}` : ''}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onRemovePendingInvite(pending.userId)}
+                      className="text-xs text-slate-400 hover:text-red-400 shrink-0"
+                    >
+                      Rimuovi
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
-    {wizardStep === 'workspace_select' && (
-      <div className="space-y-3">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <WorkspaceSelectStep
-        workspaces={userWorkspaces}
-        selectedWorkspaceId={selectedWorkspaceId}
-        onSelect={onSelectWorkspace}
-      />
-      </div>
-    )}
+      {wizardStep === 'workspace_setup' && (
+        <div className="space-y-3">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <WorkspaceSetupStep
+            workspaceName={workspaceName}
+            workspaceDescription={workspaceDescription}
+            onNameChange={onWorkspaceNameChange}
+            onDescriptionChange={onWorkspaceDescriptionChange}
+          />
+        </div>
+      )}
 
-    {wizardStep === 'workspace_invite' && (
-      <div className="space-y-4">
-        <h3 className={sectionTitleShell}>{stepTitle}</h3>
-        <WorkspaceInviteStep
-          pendingInvites={workspacePendingInvites}
-          compositionElements={compositionInviteElements}
-          introClassName={inviteIntroClassName}
-          onRemoveInvite={onRemoveWorkspacePendingInvite}
-          onUpdateInvitePermission={onUpdateWorkspacePendingInvitePermission}
-        />
-        <WorkspaceInviteSearch
-          searchQuery={searchQuery}
-          searchResults={searchResults}
-          isSearching={isSearching}
-          onSearchQueryChange={onSearchQueryChange}
-          onAddInvite={onAddWorkspacePendingInvite}
-        />
-      </div>
-    )}
-  </>
+      {wizardStep === 'workspace_composition' && compositionBlueprint && compositionDraft && (
+        <div className="space-y-3">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <WorkspaceCompositionStep
+            blueprint={compositionBlueprint}
+            draft={compositionDraft}
+            isExpandingDiary={isExpandingCompositionDiary}
+            catalogMode={isCreateCatalogComposition}
+            onSelectDiary={onSelectCompositionDiary}
+            onToggleSuitcase={onToggleCompositionSuitcase}
+            onToggleUserTemplate={onToggleCompositionUserTemplate}
+          />
+        </div>
+      )}
+
+      {wizardStep === 'pick_element' && compositionBlueprint && (
+        <div className="space-y-3">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <WorkspacePickElementStep
+            blueprint={compositionBlueprint}
+            selected={pickedElement}
+            onSelect={onPickElement}
+          />
+        </div>
+      )}
+
+      {wizardStep === 'workspace_select' && (
+        <div className="space-y-3">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <WorkspaceSelectStep
+            workspaces={userWorkspaces}
+            selectedWorkspaceId={selectedWorkspaceId}
+            onSelect={onSelectWorkspace}
+          />
+        </div>
+      )}
+
+      {wizardStep === 'workspace_invite' && (
+        <div className="space-y-4">
+          <h3 className={sectionTitleShell}>{stepTitle}</h3>
+          <WorkspaceInviteStep
+            pendingInvites={workspacePendingInvites}
+            compositionElements={compositionInviteElements}
+            introClassName={inviteIntroClassName}
+            onRemoveInvite={onRemoveWorkspacePendingInvite}
+            onUpdateInvitePermission={onUpdateWorkspacePendingInvitePermission}
+          />
+          <WorkspaceInviteSearch
+            searchQuery={searchQuery}
+            searchResults={searchResults}
+            isSearching={isSearching}
+            onSearchQueryChange={onSearchQueryChange}
+            onAddInvite={onAddWorkspacePendingInvite}
+          />
+        </div>
+      )}
+    </>
   );
 };

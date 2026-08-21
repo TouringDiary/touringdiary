@@ -1,21 +1,22 @@
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { SwipeToDelete } from '@/components/common/SwipeToDelete';
-import { useVirtualWindow } from '@/hooks/useVirtualWindow';
-import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
-import type { SuitcaseItem, RuntimeAffiliateProduct } from '@/types/suitcase';
+import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
+import { useVirtualWindow } from '@/hooks/useVirtualWindow';
 import type { UpdateSuitcaseItemDto } from '@/services/suitcase/suitcaseItemsService';
+import type { RuntimeAffiliateProduct, SuitcaseItem } from '@/types/suitcase';
 import { normalizeItemName } from '@/utils/tagDerivation';
 import { SuitcaseItemRow } from './SuitcaseItemRow';
 import {
-  SUITCASE_ITEMS_VIRTUALIZE_AT,
-  SUITCASE_ITEM_ROW_HEIGHT_PX,
   CATEGORY_INLINE_EDITOR_VIRTUAL_RESERVE_PX,
-  SUITCASE_VIRTUAL_LIST_MAX_HEIGHT_VH,
-  SUITCASE_VIRTUAL_LIST_MAX_HEIGHT_PX,
+  SUITCASE_CATEGORY_GRID_CLASSNAME,
   SUITCASE_CATEGORY_GRID_COLS_COMPACT,
   SUITCASE_CATEGORY_GRID_COLS_WIDE,
-  SUITCASE_CATEGORY_GRID_CLASSNAME,
+  SUITCASE_ITEM_ROW_HEIGHT_PX,
+  SUITCASE_ITEMS_VIRTUALIZE_AT,
+  SUITCASE_VIRTUAL_LIST_MAX_HEIGHT_PX,
+  SUITCASE_VIRTUAL_LIST_MAX_HEIGHT_VH,
 } from './suitcaseLayoutConstants';
 
 export type CategoryItemsGridProps = {
@@ -45,7 +46,11 @@ export type CategoryItemsGridProps = {
     handleItemDragStart: (categoryId: string, itemId: string) => (e: React.DragEvent) => void;
     handleItemDragOver: (categoryId: string, index: number) => (e: React.DragEvent) => void;
     handleItemDragLeave: (categoryId: string, index: number) => (e: React.DragEvent) => void;
-    handleItemDrop: (categoryId: string, categoryName: string, index: number) => (e: React.DragEvent) => void;
+    handleItemDrop: (
+      categoryId: string,
+      categoryName: string,
+      index: number,
+    ) => (e: React.DragEvent) => void;
     resetItemDragState: () => void;
   };
   /**
@@ -110,9 +115,7 @@ export const CategoryItemsGrid: React.FC<CategoryItemsGridProps> = ({
           onLinkBuildSearch={itemActions.onLinkBuildSearch}
           isSelected={selection.selectedItemName === item.name}
           onSelect={() =>
-            selection.onSelectItem(
-              item.name === selection.selectedItemName ? null : item.name,
-            )
+            selection.onSelectItem(item.name === selection.selectedItemName ? null : item.name)
           }
           moveTargets={itemActions.moveTargets}
           onMoveToCategory={(targetName) =>
@@ -120,8 +123,7 @@ export const CategoryItemsGrid: React.FC<CategoryItemsGridProps> = ({
           }
           reorderEnabled={!readOnly && !!drag.onSwapItemsInCategory}
           isDragTarget={
-            drag.dropTarget?.categoryId === category.id &&
-            drag.dropTarget.index === itemIndex
+            drag.dropTarget?.categoryId === category.id && drag.dropTarget.index === itemIndex
           }
           onDragStart={drag.handleItemDragStart(category.id, item.id)}
           onDragOver={drag.handleItemDragOver(category.id, itemIndex)}
@@ -150,7 +152,11 @@ export const CategoryItemsGrid: React.FC<CategoryItemsGridProps> = ({
         maxHeight: `min(${SUITCASE_VIRTUAL_LIST_MAX_HEIGHT_VH}vh, ${SUITCASE_VIRTUAL_LIST_MAX_HEIGHT_PX}px)`,
       }}
     >
-      <div style={{ height: totalListHeight + (children ? CATEGORY_INLINE_EDITOR_VIRTUAL_RESERVE_PX : 0) }}>
+      <div
+        style={{
+          height: totalListHeight + (children ? CATEGORY_INLINE_EDITOR_VIRTUAL_RESERVE_PX : 0),
+        }}
+      >
         <div style={{ paddingTop, paddingBottom }}>
           <div className={SUITCASE_CATEGORY_GRID_CLASSNAME}>
             {visibleItems.map((item, i) => renderItem(item, visibleStart + i))}

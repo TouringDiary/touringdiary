@@ -1,6 +1,6 @@
+import type { Workspace } from '@/domain/collaboration';
 import { supabase } from '@/services/supabaseClient';
 import type { Json } from '@/types/supabase';
-import type { Workspace } from '@/domain/collaboration';
 import { mapWorkspaceRow } from './workspaceMappers';
 
 export type CreateWorkspaceResult =
@@ -42,10 +42,7 @@ export async function getWorkspaceNamesByIds(
   const unique = [...new Set(workspaceIds.map((id) => id.trim()).filter(Boolean))];
   if (unique.length === 0) return {};
 
-  const { data, error } = await supabase
-    .from('workspaces')
-    .select('id, name')
-    .in('id', unique);
+  const { data, error } = await supabase.from('workspaces').select('id, name').in('id', unique);
 
   if (error) {
     console.error('[workspaceService] getWorkspaceNamesByIds:', error.message);
@@ -64,10 +61,7 @@ export async function listWorkspacesForUser(userId: string): Promise<Workspace[]
     supabase.from('workspaces').select('*').eq('owner_id', userId).order('updated_at', {
       ascending: false,
     }),
-    supabase
-      .from('workspace_members')
-      .select('workspace_id, workspaces(*)')
-      .eq('user_id', userId),
+    supabase.from('workspace_members').select('workspace_id, workspaces(*)').eq('user_id', userId),
   ]);
 
   if (ownedResult.error) {
@@ -91,7 +85,7 @@ export async function listWorkspacesForUser(userId: string): Promise<Workspace[]
   }
 
   return [...byId.values()].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 }
 
@@ -109,9 +103,7 @@ async function countOwnedWorkspaces(ownerId: string): Promise<number | null> {
   return count ?? 0;
 }
 
-export async function createWorkspace(
-  input: CreateWorkspaceInput
-): Promise<CreateWorkspaceResult> {
+export async function createWorkspace(input: CreateWorkspaceInput): Promise<CreateWorkspaceResult> {
   const trimmedName = input.name.trim();
   if (!trimmedName) {
     return { success: false, error: 'Il nome del workspace è obbligatorio.' };
@@ -147,7 +139,7 @@ export async function createWorkspace(
 export async function updateWorkspace(
   workspaceId: string,
   ownerId: string,
-  updates: { name?: string; description?: string; settings?: Record<string, unknown> }
+  updates: { name?: string; description?: string; settings?: Record<string, unknown> },
 ): Promise<CreateWorkspaceResult> {
   const workspace = await getWorkspace(workspaceId);
   if (!workspace || workspace.ownerId !== ownerId) {
@@ -222,7 +214,7 @@ export async function isWorkspaceMember(workspaceId: string, userId: string): Pr
 /** Elimina un workspace. Solo il proprietario indicato può completare l'operazione. */
 export async function deleteWorkspace(
   workspaceId: string,
-  ownerId: string
+  ownerId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { data, error } = await supabase
     .from('workspaces')
@@ -244,7 +236,7 @@ export async function deleteWorkspace(
 
 /** Conteggio membri tabella `workspace_members` per workspace (owner non incluso). */
 export async function getWorkspaceMemberCounts(
-  workspaceIds: string[]
+  workspaceIds: string[],
 ): Promise<Record<string, number>> {
   if (workspaceIds.length === 0) return {};
 
@@ -258,9 +250,7 @@ export async function getWorkspaceMemberCounts(
     return {};
   }
 
-  const counts: Record<string, number> = Object.fromEntries(
-    workspaceIds.map((id) => [id, 0])
-  );
+  const counts: Record<string, number> = Object.fromEntries(workspaceIds.map((id) => [id, 0]));
 
   for (const row of data ?? []) {
     counts[row.workspace_id] += 1;

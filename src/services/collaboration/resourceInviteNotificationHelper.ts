@@ -1,5 +1,5 @@
-import { supabase } from '@/services/supabaseClient';
 import type { SharedResourceKind } from '@/domain/collaboration';
+import { supabase } from '@/services/supabaseClient';
 import {
   notifyPersonalTemplateReceived,
   notifyResourceInviteAccepted,
@@ -24,7 +24,7 @@ export async function notifyResourceInviteSent(
   inviteeId: string,
   ownerId: string,
   kind: SharedResourceKind,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   const inviter = await getProfileSummary(ownerId);
   await notifyResourceInviteReceived(inviteeId, inviter.name, kind, inviteId);
@@ -34,7 +34,7 @@ export async function notifyResourceInviteAcceptedByInvitee(
   ownerId: string,
   inviteeId: string,
   kind: SharedResourceKind,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   const invitee = await getProfileSummary(inviteeId);
   await notifyResourceInviteAccepted(ownerId, invitee.name, kind, inviteId);
@@ -44,7 +44,7 @@ export async function notifyResourceInviteRejectedByInvitee(
   ownerId: string,
   inviteeId: string,
   kind: SharedResourceKind,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   const invitee = await getProfileSummary(inviteeId);
   await notifyResourceInviteRejected(ownerId, invitee.name, kind, inviteId);
@@ -54,7 +54,7 @@ export async function notifyPersonalTemplateReceivedAfterInvite(
   inviteeId: string,
   ownerId: string,
   sourceResourceId: string,
-  copiedResourceId: string
+  copiedResourceId: string,
 ): Promise<void> {
   const inviter = await getProfileSummary(ownerId);
   const { data: templateRow } = await supabase
@@ -63,10 +63,5 @@ export async function notifyPersonalTemplateReceivedAfterInvite(
     .eq('id', sourceResourceId)
     .maybeSingle();
   const templateTitle = templateRow?.title?.trim() || 'Template';
-  await notifyPersonalTemplateReceived(
-    inviteeId,
-    inviter.name,
-    templateTitle,
-    copiedResourceId
-  );
+  await notifyPersonalTemplateReceived(inviteeId, inviter.name, templateTitle, copiedResourceId);
 }

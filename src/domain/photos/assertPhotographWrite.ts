@@ -1,23 +1,23 @@
-import type { MediaStatus } from '@/types/models/Media';
 import {
-    isPlatformPlaceholderUrl,
-    type PlatformPlaceholderRegistry,
+  isPlatformPlaceholderUrl,
+  type PlatformPlaceholderRegistry,
 } from '@/domain/placeholders/platformPlaceholderRegistry';
+import type { MediaStatus } from '@/types/models/Media';
 import { isPhotograph, PHOTOGRAPH_MEDIA_STATUS } from './photograph';
 
 export type PhotographWriteCandidate = {
-    url: string | null | undefined;
-    mediaStatus?: MediaStatus | null;
+  url: string | null | undefined;
+  mediaStatus?: MediaStatus | null;
 };
 
 export type PhotographWriteDenialReason =
-    | 'empty_url'
-    | 'not_photograph_status'
-    | 'platform_placeholder_origin';
+  | 'empty_url'
+  | 'not_photograph_status'
+  | 'platform_placeholder_origin';
 
 export type PhotographWriteDecision =
-    | { allowed: true }
-    | { allowed: false; reason: PhotographWriteDenialReason };
+  | { allowed: true }
+  | { allowed: false; reason: PhotographWriteDenialReason };
 
 /**
  * Write-boundary guard for `photo_submissions`.
@@ -34,35 +34,35 @@ export type PhotographWriteDecision =
  * SoT della decisione: questa funzione. `assertPhotographWrite` solo la materializza in Error.
  */
 export function evaluatePhotographWrite(
-    candidate: PhotographWriteCandidate,
-    placeholderRegistry: PlatformPlaceholderRegistry,
+  candidate: PhotographWriteCandidate,
+  placeholderRegistry: PlatformPlaceholderRegistry,
 ): PhotographWriteDecision {
-    const url = candidate.url?.trim() ?? '';
-    if (!url) {
-        return { allowed: false, reason: 'empty_url' };
-    }
+  const url = candidate.url?.trim() ?? '';
+  if (!url) {
+    return { allowed: false, reason: 'empty_url' };
+  }
 
-    // Omission = `real`: same default as photoService upload/getOrCreate and createMediaAssetFromUrl.
-    // A write into photo_submissions without an explicit status is treated as Photograph content.
-    const mediaStatus = candidate.mediaStatus ?? PHOTOGRAPH_MEDIA_STATUS;
+  // Omission = `real`: same default as photoService upload/getOrCreate and createMediaAssetFromUrl.
+  // A write into photo_submissions without an explicit status is treated as Photograph content.
+  const mediaStatus = candidate.mediaStatus ?? PHOTOGRAPH_MEDIA_STATUS;
 
-    if (!isPhotograph({ url, mediaStatus })) {
-        return { allowed: false, reason: 'not_photograph_status' };
-    }
+  if (!isPhotograph({ url, mediaStatus })) {
+    return { allowed: false, reason: 'not_photograph_status' };
+  }
 
-    if (isPlatformPlaceholderUrl(url, placeholderRegistry)) {
-        return { allowed: false, reason: 'platform_placeholder_origin' };
-    }
+  if (isPlatformPlaceholderUrl(url, placeholderRegistry)) {
+    return { allowed: false, reason: 'platform_placeholder_origin' };
+  }
 
-    return { allowed: true };
+  return { allowed: true };
 }
 
 /** Convenience boolean for call sites that only need allow/deny. */
 export function canRegisterAsPhotograph(
-    candidate: PhotographWriteCandidate,
-    placeholderRegistry: PlatformPlaceholderRegistry,
+  candidate: PhotographWriteCandidate,
+  placeholderRegistry: PlatformPlaceholderRegistry,
 ): boolean {
-    return evaluatePhotographWrite(candidate, placeholderRegistry).allowed;
+  return evaluatePhotographWrite(candidate, placeholderRegistry).allowed;
 }
 
 /**
@@ -70,13 +70,11 @@ export function canRegisterAsPhotograph(
  * Does not re-decide: only turns `evaluatePhotographWrite` into an Error.
  */
 export function assertPhotographWrite(
-    candidate: PhotographWriteCandidate,
-    placeholderRegistry: PlatformPlaceholderRegistry,
+  candidate: PhotographWriteCandidate,
+  placeholderRegistry: PlatformPlaceholderRegistry,
 ): void {
-    const decision = evaluatePhotographWrite(candidate, placeholderRegistry);
-    if (!decision.allowed) {
-        throw new Error(
-            `[PhotoDomain] Cannot register as Photograph (${decision.reason}).`,
-        );
-    }
+  const decision = evaluatePhotographWrite(candidate, placeholderRegistry);
+  if (!decision.allowed) {
+    throw new Error(`[PhotoDomain] Cannot register as Photograph (${decision.reason}).`);
+  }
 }

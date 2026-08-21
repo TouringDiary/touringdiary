@@ -1,13 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Paperclip, Plus } from 'lucide-react';
-import type { ViaggioAttachment, ViaggioAttachmentCategory } from '@/types/models/ViaggioAttachment';
-import { VIAGGIO_ATTACHMENT_CATEGORIES } from '@/types/models/ViaggioAttachment';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createSignedViaggioAttachmentUrl,
   deleteViaggioAttachment,
   listViaggioAttachments,
   uploadViaggioAttachment,
 } from '@/services/viaggio/viaggioAttachmentService';
+import type {
+  ViaggioAttachment,
+  ViaggioAttachmentCategory,
+} from '@/types/models/ViaggioAttachment';
+import { VIAGGIO_ATTACHMENT_CATEGORIES } from '@/types/models/ViaggioAttachment';
 
 interface Props {
   viaggioId: string;

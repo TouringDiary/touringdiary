@@ -1,9 +1,8 @@
 import type { SharedResourceKind, WorkspaceResourceAccess } from '@/domain/collaboration';
 import { isSharedResourceKind } from '@/domain/collaboration';
-import { ensureShareableResource } from './sharedResourceService';
-import { setSharedResourceMember, removeSharedResourceMember } from './sharedResourceAclService';
-import { getShareableResource } from './sharedResourceService';
 import { resolveResourceOwnerId } from './shareableResourceOwnerLookup';
+import { removeSharedResourceMember, setSharedResourceMember } from './sharedResourceAclService';
+import { ensureShareableResource, getShareableResource } from './sharedResourceService';
 
 /**
  * Allinea shared_resource_members all'ACL workspace (Fase 10).
@@ -13,7 +12,7 @@ export async function syncSharedResourceAccessFromWorkspacePermission(
   kind: SharedResourceKind,
   resourceId: string,
   userId: string,
-  accessLevel: WorkspaceResourceAccess
+  accessLevel: WorkspaceResourceAccess,
 ): Promise<void> {
   if (!isSharedResourceKind(kind)) return;
 

@@ -1,14 +1,15 @@
-import React from 'react';
+import { Ghost, Plus, Sparkles } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Plus, Sparkles, Ghost } from 'lucide-react';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { SuitcaseRejection } from '@/types/suitcase';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
-import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import type { SuitcaseRejection } from '@/types/suitcase';
 
 interface BlacklistModalProps {
   isOpen: boolean;
@@ -19,13 +20,18 @@ interface BlacklistModalProps {
   isFetching?: boolean;
 }
 
+type PendingItemAction = {
+  id: string;
+  kind: 'restore' | 'remove';
+};
+
 export const BlacklistModal: React.FC<BlacklistModalProps> = ({
   isOpen,
   onClose,
   items,
   onRestore,
   onRemove,
-  isFetching = false
+  isFetching = false,
 }) => {
   const isMobile = useMobileDetect();
   const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
@@ -42,6 +48,52 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
   const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
   const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
 
+  // Single in-flight action for the whole modal: prevents concurrent overwrite races.
+  const [pendingAction, setPendingAction] = useState<PendingItemAction | null>(null);
+  const pendingActionRef = useRef<PendingItemAction | null>(null);
+
+  const beginPendingAction = useCallback((action: PendingItemAction): boolean => {
+    if (pendingActionRef.current) return false;
+    pendingActionRef.current = action;
+    setPendingAction(action);
+    return true;
+  }, []);
+
+  const endPendingAction = useCallback((action: PendingItemAction) => {
+    const current = pendingActionRef.current;
+    if (!current || current.id !== action.id || current.kind !== action.kind) return;
+    pendingActionRef.current = null;
+    setPendingAction(null);
+  }, []);
+
+  const isBusy = pendingAction !== null;
+
+  const handleRestore = useCallback(
+    async (item: SuitcaseRejection) => {
+      const action: PendingItemAction = { id: item.id, kind: 'restore' };
+      if (!beginPendingAction(action)) return;
+      try {
+        await onRestore(item);
+      } finally {
+        endPendingAction(action);
+      }
+    },
+    [beginPendingAction, endPendingAction, onRestore],
+  );
+
+  const handleRemove = useCallback(
+    async (item: SuitcaseRejection) => {
+      const action: PendingItemAction = { id: item.id, kind: 'remove' };
+      if (!beginPendingAction(action)) return;
+      try {
+        await onRemove(item.id, item.name);
+      } finally {
+        endPendingAction(action);
+      }
+    },
+    [beginPendingAction, endPendingAction, onRemove],
+  );
+
   useGlobalModalEscape(isOpen, onClose);
 
   if (!isOpen) return null;
@@ -50,12 +102,18 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
     <div
       className={`td-modal-overlay ${overlayShell}`}
       style={{ zIndex: Z_MODAL_NESTED }}
-      onClick={onClose}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
         className={`${containerShell} max-w-2xl outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900`}
         style={{ zIndex: Z_MODAL_NESTED }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="blacklist-modal-title"
@@ -78,7 +136,9 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
               <h3 id="blacklist-modal-title" className={`${modalTitleShell} truncate`}>
                 Oggetti rifiutati
               </h3>
-              <p id="blacklist-modal-desc" className={modalSubtitleShell}>Blacklist Suggerimenti AI</p>
+              <p id="blacklist-modal-desc" className={modalSubtitleShell}>
+                Blacklist Suggerimenti AI
+              </p>
             </div>
           </div>
         </header>
@@ -128,28 +188,40 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
                     <span className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">
                       {item.name}
                     </span>
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{item.category}</span>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                      {item.category}
+                    </span>
                   </div>
 
                   <div className="flex w-full sm:w-auto items-center gap-3 sm:gap-4">
                     <button
                       type="button"
-                      onClick={() => onRestore(item)}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 whitespace-nowrap shadow-lg shadow-indigo-500/5"
+                      disabled={isBusy}
+                      onClick={() => void handleRestore(item)}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 whitespace-nowrap shadow-lg shadow-indigo-500/5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-indigo-500/10 disabled:hover:text-indigo-400"
                       title="Aggiungi alla valigia"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Aggiungi</span>
+                      <span>
+                        {pendingAction?.id === item.id && pendingAction.kind === 'restore'
+                          ? 'Aggiunta…'
+                          : 'Aggiungi'}
+                      </span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => onRemove(item.id, item.name)}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-all text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 hover:border-emerald-500/40 whitespace-nowrap"
+                      disabled={isBusy}
+                      onClick={() => void handleRemove(item)}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-all text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 hover:border-emerald-500/40 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-500/10 disabled:hover:text-emerald-400"
                       title="Consenti nuovi suggerimenti"
                     >
                       <Sparkles className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
-                      <span>Consenti</span>
+                      <span>
+                        {pendingAction?.id === item.id && pendingAction.kind === 'remove'
+                          ? 'Consenso…'
+                          : 'Consenti'}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -167,6 +239,6 @@ export const BlacklistModal: React.FC<BlacklistModalProps> = ({
         </footer>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

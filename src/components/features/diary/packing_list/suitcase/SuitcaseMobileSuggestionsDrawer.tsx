@@ -1,11 +1,11 @@
-import React from 'react';
 import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
-import { useControlledSlidePanel } from '@/hooks/ui/useControlledSlidePanel';
+import type React from 'react';
 import {
   SLIDE_PANEL_TRANSITION_CLASS,
   slidePanelEaseClass,
   slidePanelTransformClass,
 } from '@/constants/slidePanelMotion';
+import { useControlledSlidePanel } from '@/hooks/ui/useControlledSlidePanel';
 
 interface SuitcaseMobileSuggestionsDrawerProps {
   children: React.ReactNode;

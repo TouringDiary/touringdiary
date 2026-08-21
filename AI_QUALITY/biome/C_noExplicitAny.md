@@ -1,6 +1,8 @@
 # noExplicitAny
 
-> Dettaglio baseline Biome full-project. Dashboard: [`AI_BIOME_AUDIT.md`](../../AI_BIOME_AUDIT.md)
+> Dettaglio baseline Biome full-project. Dashboard: [`AI_BIOME_AUDIT.md`](../../AI_BIOME_AUDIT.md)  
+> **Audit B2a (classificazione A/B/C/D, inventario completo):** [`B2a_noExplicitAny_AUDIT.md`](./B2a_noExplicitAny_AUDIT.md) — snapshot corrente **446** / **173** file (questa baseline legacy puo restare indietro).  
+> **Riconciliazione 473 → 446:** [`B2a_noExplicitAny_DELTA_RECONCILE.md`](./B2a_noExplicitAny_DELTA_RECONCILE.md) (delta −27 interamente giustificato; non B1a/B1b/B1c).
 
 | Campo | Valore |
 |----|----|

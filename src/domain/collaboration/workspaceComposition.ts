@@ -50,10 +50,7 @@ export interface WorkspaceCompositionDraft {
   selectedUserTemplateIds: Set<string>;
 }
 
-export function compositionCandidateKey(
-  kind: SharedResourceKind,
-  resourceId: string
-): string {
+export function compositionCandidateKey(kind: SharedResourceKind, resourceId: string): string {
   return workspaceResourceKey(kind, resourceId);
 }
 
@@ -81,7 +78,7 @@ export function validateWorkspaceCompositionDraft(
 
   if (draft.selectedDiaryId) {
     const diaryAllowed = blueprint.diary.candidates.some(
-      (candidate) => candidate.resourceId === draft.selectedDiaryId
+      (candidate) => candidate.resourceId === draft.selectedDiaryId,
     );
     if (!diaryAllowed) {
       return 'Il Diario selezionato non è valido per questa composizione.';
@@ -96,9 +93,7 @@ export function validateWorkspaceCompositionDraft(
 
   for (const templateId of draft.selectedUserTemplateIds) {
     if (
-      !blueprint.userTemplates.candidates.some(
-        (candidate) => candidate.resourceId === templateId
-      )
+      !blueprint.userTemplates.candidates.some((candidate) => candidate.resourceId === templateId)
     ) {
       return 'Un Template selezionato non è valido per questa composizione.';
     }
@@ -108,7 +103,7 @@ export function validateWorkspaceCompositionDraft(
 }
 
 export function draftToCompositionResources(
-  draft: WorkspaceCompositionDraft
+  draft: WorkspaceCompositionDraft,
 ): Array<{ kind: SharedResourceKind; resourceId: string }> {
   const resources: Array<{ kind: SharedResourceKind; resourceId: string }> = [];
 
@@ -128,7 +123,7 @@ export function draftToCompositionResources(
 }
 
 export function createDefaultCompositionDraft(
-  blueprint: WorkspaceCompositionBlueprint
+  blueprint: WorkspaceCompositionBlueprint,
 ): WorkspaceCompositionDraft {
   const draft: WorkspaceCompositionDraft = {
     seed: blueprint.seed,
@@ -143,7 +138,7 @@ export function createDefaultCompositionDraft(
 
   if (blueprint.seed.kind === 'diary') {
     const isCandidate = blueprint.diary.candidates.some(
-      (candidate) => candidate.resourceId === blueprint.seed.resourceId
+      (candidate) => candidate.resourceId === blueprint.seed.resourceId,
     );
     if (isCandidate) {
       draft.selectedDiaryId = blueprint.seed.resourceId;
@@ -154,7 +149,7 @@ export function createDefaultCompositionDraft(
   if (blueprint.seed.kind === 'suitcase') {
     if (
       blueprint.suitcases.candidates.some(
-        (candidate) => candidate.resourceId === blueprint.seed.resourceId
+        (candidate) => candidate.resourceId === blueprint.seed.resourceId,
       )
     ) {
       draft.selectedSuitcaseIds.add(blueprint.seed.resourceId);
@@ -164,7 +159,7 @@ export function createDefaultCompositionDraft(
 
   if (
     blueprint.userTemplates.candidates.some(
-      (candidate) => candidate.resourceId === blueprint.seed.resourceId
+      (candidate) => candidate.resourceId === blueprint.seed.resourceId,
     )
   ) {
     draft.selectedUserTemplateIds.add(blueprint.seed.resourceId);

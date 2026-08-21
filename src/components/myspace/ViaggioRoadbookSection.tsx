@@ -1,13 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Plus } from 'lucide-react';
-import type { ViaggioRoadbookArtifact } from '@/types/models/ViaggioRoadbookArtifact';
-import type { Itinerary } from '@/types/index';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { listDiariesByViaggio } from '@/services/viaggio/viaggioDiaryService';
 import {
   createRoadbookArtifactFromDiary,
   listRoadbookArtifactsByViaggio,
 } from '@/services/viaggio/viaggioRoadbookService';
-import { listDiariesByViaggio } from '@/services/viaggio/viaggioDiaryService';
 import { getViaggio } from '@/services/viaggio/viaggioService';
+import type { Itinerary } from '@/types/index';
+import type { ViaggioRoadbookArtifact } from '@/types/models/ViaggioRoadbookArtifact';
 
 interface Props {
   viaggioId: string;
@@ -149,7 +150,8 @@ export const ViaggioRoadbookSection: React.FC<Props> = ({ viaggioId, userId }) =
         <div className="flex flex-col items-center text-center py-12 px-4">
           <FileText className="w-10 h-10 text-slate-700 mb-3 opacity-60" aria-hidden />
           <p className="text-sm text-slate-400 max-w-sm">
-            Qui troverai i roadbook di questo viaggio. Ogni generazione crea uno snapshot immutabile.
+            Qui troverai i roadbook di questo viaggio. Ogni generazione crea uno snapshot
+            immutabile.
           </p>
         </div>
       )}
@@ -192,7 +194,9 @@ export const ViaggioRoadbookSection: React.FC<Props> = ({ viaggioId, userId }) =
             Snapshot immutabile — le modifiche al Diario non alterano questo artifact.
           </p>
           {preview.snapshot.length === 0 ? (
-            <p className="text-sm text-slate-400">Nessun segmento (diario vuoto o snapshot vuoto).</p>
+            <p className="text-sm text-slate-400">
+              Nessun segmento (diario vuoto o snapshot vuoto).
+            </p>
           ) : (
             <ul className="space-y-2 text-xs text-slate-300">
               {preview.snapshot.map((day) => (

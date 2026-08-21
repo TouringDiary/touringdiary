@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
 import { ArrowRightLeft } from 'lucide-react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import { AnchoredPopover } from '@/components/common/AnchoredPopover';
-import { ItemCategoryIcon } from './SuitcaseUtils';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
+import { ItemCategoryIcon } from './SuitcaseUtils';
 
 interface MoveItemCategoryPopoverProps {
   targets: DisplayCategory[];

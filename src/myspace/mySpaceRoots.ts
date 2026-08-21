@@ -4,13 +4,7 @@
  * Nota: l’id tecnico `tools` resta stabile (nav memory / test); label prodotto = «Valigia».
  */
 
-export const MY_SPACE_ROOT_IDS = [
-  'trips',
-  'tools',
-  'explorer',
-  'favorites',
-  'invites',
-] as const;
+export const MY_SPACE_ROOT_IDS = ['trips', 'tools', 'explorer', 'favorites', 'invites'] as const;
 
 export type MySpaceRootId = (typeof MY_SPACE_ROOT_IDS)[number];
 

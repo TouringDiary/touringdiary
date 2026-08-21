@@ -1,14 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, FolderOpen, Image as ImageIcon, Plus, Video } from 'lucide-react';
-import type { Itinerary } from '@/types/index';
-import type { Viaggio } from '@/types/models/Viaggio';
-import type {
-  ViaggioRicordoDayNote,
-  ViaggioRicordoMedia,
-  ViaggioRicordiStructureMode,
-} from '@/types/models/ViaggioRicordi';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
-import { getViaggio } from '@/services/viaggio/viaggioService';
+import { showGlobalAlert } from '@/services/ui/toastService';
 import { listDiariesByViaggio } from '@/services/viaggio/viaggioDiaryService';
 import { buildRicordiDaySlots } from '@/services/viaggio/viaggioRicordiDayStructure';
 import {
@@ -22,7 +16,14 @@ import {
   uploadRicordoMedia,
   upsertRicordiDayNote,
 } from '@/services/viaggio/viaggioRicordiService';
-import { showGlobalAlert } from '@/services/ui/toastService';
+import { getViaggio } from '@/services/viaggio/viaggioService';
+import type { Itinerary } from '@/types/index';
+import type { Viaggio } from '@/types/models/Viaggio';
+import type {
+  ViaggioRicordiStructureMode,
+  ViaggioRicordoDayNote,
+  ViaggioRicordoMedia,
+} from '@/types/models/ViaggioRicordi';
 
 interface Props {
   viaggioId: string;
@@ -54,11 +55,7 @@ const MediaThumb: React.FC<{ media: ViaggioRicordoMedia }> = ({ media }) => {
       })
       .catch((err) => {
         if (!cancelled) {
-          console.error(
-            '[ViaggioRicordiSection] signed URL failed',
-            media.storagePath,
-            err,
-          );
+          console.error('[ViaggioRicordiSection] signed URL failed', media.storagePath, err);
         }
       });
     return () => {
@@ -335,10 +332,14 @@ export const ViaggioRicordiSection: React.FC<Props> = ({ viaggioId, userId }) =>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          <label
+            htmlFor="fld-myspace-viaggioricordisection-tsx-l335"
+            className="text-[10px] font-bold uppercase tracking-wider text-slate-500"
+          >
             Struttura giorni
           </label>
           <select
+            id="fld-myspace-viaggioricordisection-tsx-l335"
             value={mode}
             onChange={(e) => setMode(e.target.value as ViaggioRicordiStructureMode)}
             className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-1.5"
@@ -493,40 +494,57 @@ export const ViaggioRicordiSection: React.FC<Props> = ({ viaggioId, userId }) =>
                     Viaggio.
                   </p>
                 )}
-                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="ricordi-media-grid">
-                {folderMedia.map((m) => (
-                  <li
-                    key={m.id}
-                    className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 space-y-2"
-                  >
-                    <MediaThumb media={m} />
-                    <p className="text-xs text-slate-200 truncate">{m.title || m.kind}</p>
-                    <p className="text-[10px] text-slate-500">
-                      {primaryDayLabelForMedia(m, dayLabelByKey)}
-                      {m.coordsLat != null ? ' · GPS' : ''}
-                    </p>
-                    {daySlots.length > 0 && (
-                      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
-                        <select
-                          value={moveTarget[m.id] ?? ''}
-                          onChange={(e) =>
-                            setMoveTarget((prev) => ({ ...prev, [m.id]: e.target.value }))
-                          }
-                          className="w-full sm:w-auto sm:min-w-0 sm:flex-1 sm:basis-[8rem] bg-slate-950 border border-slate-700 text-[10px] text-slate-300 rounded px-2 py-1.5"
-                          aria-label="Giorno destinazione"
-                        >
-                          <option value="">Giorno…</option>
-                          {daySlots.map((s) => (
-                            <option key={s.dayKey} value={s.dayKey}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
-                        {!selectedDayKey ? (
-                          <span
-                            title="Aggiunge il giorno selezionato senza rimuovere il media dal Viaggio"
-                            className="shrink-0 inline-flex self-start sm:self-auto"
+                <ul
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+                  data-testid="ricordi-media-grid"
+                >
+                  {folderMedia.map((m) => (
+                    <li
+                      key={m.id}
+                      className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 space-y-2"
+                    >
+                      <MediaThumb media={m} />
+                      <p className="text-xs text-slate-200 truncate">{m.title || m.kind}</p>
+                      <p className="text-[10px] text-slate-500">
+                        {primaryDayLabelForMedia(m, dayLabelByKey)}
+                        {m.coordsLat != null ? ' · GPS' : ''}
+                      </p>
+                      {daySlots.length > 0 && (
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+                          <select
+                            value={moveTarget[m.id] ?? ''}
+                            onChange={(e) =>
+                              setMoveTarget((prev) => ({ ...prev, [m.id]: e.target.value }))
+                            }
+                            className="w-full sm:w-auto sm:min-w-0 sm:flex-1 sm:basis-[8rem] bg-slate-950 border border-slate-700 text-[10px] text-slate-300 rounded px-2 py-1.5"
+                            aria-label="Giorno destinazione"
                           >
+                            <option value="">Giorno…</option>
+                            {daySlots.map((s) => (
+                              <option key={s.dayKey} value={s.dayKey}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                          {!selectedDayKey ? (
+                            <span
+                              title="Aggiunge il giorno selezionato senza rimuovere il media dal Viaggio"
+                              className="shrink-0 inline-flex self-start sm:self-auto"
+                            >
+                              <button
+                                type="button"
+                                disabled={
+                                  busy ||
+                                  !moveTarget[m.id] ||
+                                  m.dayKeys.includes(moveTarget[m.id] ?? '')
+                                }
+                                onClick={() => void handleMove(m)}
+                                className="text-[10px] font-bold uppercase text-amber-300 disabled:opacity-40 px-1 py-1"
+                              >
+                                Collega
+                              </button>
+                            </span>
+                          ) : (
                             <button
                               type="button"
                               disabled={
@@ -535,47 +553,37 @@ export const ViaggioRicordiSection: React.FC<Props> = ({ viaggioId, userId }) =>
                                 m.dayKeys.includes(moveTarget[m.id] ?? '')
                               }
                               onClick={() => void handleMove(m)}
-                              className="text-[10px] font-bold uppercase text-amber-300 disabled:opacity-40 px-1 py-1"
+                              className="shrink-0 self-start sm:self-auto text-[10px] font-bold uppercase text-amber-300 disabled:opacity-40 px-1 py-1"
                             >
-                              Collega
+                              Sposta
                             </button>
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={
-                              busy ||
-                              !moveTarget[m.id] ||
-                              m.dayKeys.includes(moveTarget[m.id] ?? '')
-                            }
-                            onClick={() => void handleMove(m)}
-                            className="shrink-0 self-start sm:self-auto text-[10px] font-bold uppercase text-amber-300 disabled:opacity-40 px-1 py-1"
-                          >
-                            Sposta
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => handleDeleteMedia(m)}
-                      className="block w-full text-left text-[10px] font-bold uppercase text-rose-300 hover:text-rose-200 disabled:opacity-50"
-                    >
-                      Elimina da TouringDiary
-                    </button>
-                  </li>
-                ))}
+                          )}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleDeleteMedia(m)}
+                        className="block w-full text-left text-[10px] font-bold uppercase text-rose-300 hover:text-rose-200 disabled:opacity-50"
+                      >
+                        Elimina da TouringDiary
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               </>
             )}
 
             {selectedDayKey && (
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <label
+                  htmlFor="fld-myspace-viaggioricordisection-tsx-l575"
+                  className="text-[10px] font-bold uppercase tracking-wider text-slate-500"
+                >
                   Nota del giorno (Ricordi)
                 </label>
                 <textarea
+                  id="fld-myspace-viaggioricordisection-tsx-l575"
                   value={noteDraft}
                   onChange={(e) => setNoteDraft(e.target.value)}
                   rows={4}

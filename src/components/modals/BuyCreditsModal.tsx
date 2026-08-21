@@ -137,14 +137,18 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClos
     <div
       className="td-modal-overlay pointer-events-auto flex items-center justify-center p-0 md:p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300"
       style={{ zIndex: Z_OVERLAY }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
         className="relative bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300"
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button Standard */}
         <CloseButton

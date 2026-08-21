@@ -3,7 +3,7 @@
 > Documento **storico** dell'audit Biome parziale su **35 file** (pre-baseline full-project).  
 > **Non** è la Source of Truth ufficiale del debito Biome del progetto.
 
-**Baseline ufficiale (unica SoT numerica):** [AI_BIOME_AUDIT.md](./AI_BIOME_AUDIT.md) — **6232** diagnostiche (Parte 1).
+**Baseline ufficiale (unica SoT numerica operativa):** [AI_BIOME_AUDIT.md](./AI_BIOME_AUDIT.md) — **6232** diagnostiche (Parte 1). Archivio storico: [AI_BIOME_HISTORY.md](./AI_BIOME_HISTORY.md) · Legacy: [AI_BIOME_HISTORY_LEGACY.md](./AI_BIOME_HISTORY_LEGACY.md).
 
 ---
 ## Storico audit set 35 file (pre-baseline full-project)
@@ -404,7 +404,7 @@ Verifica aritmetica: `4 + 9 + 63 + 49 + 7 = 132`.
 ## Roadmap derivante dall'audit storico (set 35 file)
 
 > Piano batch sul residuo **132** del set 35 file (sezione Storico sopra).
-> **Non** confondere con i batch P0–P9 della roadmap globale in [AI_BIOME_AUDIT.md](./AI_BIOME_AUDIT.md).
+> **Non** confondere con i batch B2a–B4 della roadmap globale in [AI_BIOME_AUDIT.md](./AI_BIOME_AUDIT.md) (storico in [AI_BIOME_HISTORY.md](./AI_BIOME_HISTORY.md) / [AI_BIOME_HISTORY_LEGACY.md](./AI_BIOME_HISTORY_LEGACY.md)).
 
 ## Roadmap proposta (storico — set 35 file)
 
@@ -420,7 +420,7 @@ Verifica aritmetica: `4 + 9 + 63 + 49 + 7 = 132`.
 ## Roadmap storica dei batch pianificati (set 35 file)
 
 > Pianificazione definita durante l’audit storico del set 35 file.  
-> **Non** sostituisce la roadmap ufficiale P0–P9 in [`AI_BIOME_AUDIT.md`](./AI_BIOME_AUDIT.md).  
+> **Non** sostituisce la roadmap ufficiale in [`AI_BIOME_AUDIT.md`](./AI_BIOME_AUDIT.md) / archivio [`AI_BIOME_HISTORY.md`](./AI_BIOME_HISTORY.md) (+ Legacy).  
 > Mantenuta esclusivamente per preservare il contesto storico dell’attività.
 
 Ordine pensato (all’epoca) per **massima sicurezza** e per impedire nuovo debito, non per azzerare i warning.
@@ -449,7 +449,9 @@ Ordine pensato (all’epoca) per **massima sicurezza** e per impedire nuovo debi
 
 | Documento | Ruolo |
 |-----------|--------|
-| [`AI_BIOME_AUDIT.md`](./AI_BIOME_AUDIT.md) | **SoT ufficiale** baseline globale **6232** + roadmap P0–P9 |
+| [`AI_BIOME_AUDIT.md`](./AI_BIOME_AUDIT.md) | **SoT operativa** baseline globale + roadmap aperta |
+| [`AI_BIOME_HISTORY.md`](./AI_BIOME_HISTORY.md) | Archivio storico principale |
+| [`AI_BIOME_HISTORY_LEGACY.md`](./AI_BIOME_HISTORY_LEGACY.md) | Legacy — dettaglio congelato / appendici |
 | [`AI_BIOME_AUDIT_35_FILES_HISTORY.md`](./AI_BIOME_AUDIT_35_FILES_HISTORY.md) (questo file) | Storico audit parziale 35 file |
 | [`AI_QUALITY/README.md`](./AI_QUALITY/README.md) | Indice dettaglio per categoria Biome |
 

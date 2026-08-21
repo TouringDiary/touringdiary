@@ -1,403 +1,549 @@
-import { Z_OVERLAY, Z_MODAL_NESTED, Z_MODAL } from '@/constants/zIndex';
+import {
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  Loader2,
+  MapPin,
+  Navigation,
+  Search,
+} from 'lucide-react';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { MapPin, Navigation, ArrowRight, Layers, Search, Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Z_MODAL, Z_MODAL_NESTED, Z_OVERLAY } from '@/constants/zIndex';
 import { useGps } from '@/context/GpsContext';
-import { CitySummary } from '../../types/index';
-import { calculateDistance } from '../../services/geo';
-import { ImageWithFallback } from '../common/ImageWithFallback';
-import { DraggableSlider, DraggableSliderHandle } from '../common/DraggableSlider';
 import { useDynamicStyles } from '@/hooks/useDynamicStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { calculateDistance } from '../../services/geo';
+import type { CitySummary } from '../../types/index';
+import { DraggableSlider, type DraggableSliderHandle } from '../common/DraggableSlider';
+import { ImageWithFallback } from '../common/ImageWithFallback';
 
 interface Props {
-    isOpen?: boolean;
-    onClose: () => void;
-    cityManifest: CitySummary[];
-    onConfirm: (config: { type: 'gps' | 'manual', cityId?: string, radius: number }) => void;
+  isOpen?: boolean;
+  onClose: () => void;
+  cityManifest: CitySummary[];
+  onConfirm: (config: { type: 'gps' | 'manual'; cityId?: string; radius: number }) => void;
 }
 
 export const AroundMeWizard = ({ isOpen = true, onClose, cityManifest, onConfirm }: Props) => {
-    const { userLocation, isLocating, requestPosition } = useGps();
+  const { userLocation, isLocating, requestPosition } = useGps();
 
-    const [mode, setMode] = useState<'gps' | 'manual' | null>(null);
-    const [selectedCityId, setSelectedCityId] = useState<string>('');
-    const [radius, setRadius] = useState<number>(25); // Default 25km
-    
-    // Search State
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
-    
-    // GPS Warning Overlay State
-    const [showGpsWarning, setShowGpsWarning] = useState(false);
-    /** Esito errore dell'ultima requestPosition di questo overlay (non GpsContext.error: evita stale da Header). */
-    const [gpsRequestError, setGpsRequestError] = useState<string | null>(null);
-    
-    const searchRef = useRef<HTMLDivElement>(null);
-    const sliderRef = useRef<DraggableSliderHandle>(null);
-    
-    // Drag detection ref
-    const dragStartRef = useRef({ x: 0, y: 0 });
+  const [mode, setMode] = useState<'gps' | 'manual' | null>(null);
+  const [selectedCityId, setSelectedCityId] = useState<string>('');
+  const [radius, setRadius] = useState<number>(25); // Default 25km
 
-    useGlobalModalEscape(isOpen, onClose);
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
-    // Se l'utente spegne il GPS dall'Header mentre è in modalità gps, torna allo stato neutro.
-    useEffect(() => {
-        if (mode === 'gps' && !userLocation && !isLocating) {
-            setMode(null);
-        }
-    }, [mode, userLocation, isLocating]);
+  // GPS Warning Overlay State
+  const [showGpsWarning, setShowGpsWarning] = useState(false);
+  /** Esito errore dell'ultima requestPosition di questo overlay (non GpsContext.error: evita stale da Header). */
+  const [gpsRequestError, setGpsRequestError] = useState<string | null>(null);
 
+  const searchRef = useRef<HTMLDivElement>(null);
+  const sliderRef = useRef<DraggableSliderHandle>(null);
 
+  /** Pointer interaction for nearby-city cards: distinguishes tap from slider drag (mouse + touch). */
+  const cardPointerRef = useRef({ x: 0, y: 0, dragged: false });
+  const cardPointerCleanupRef = useRef<(() => void) | null>(null);
 
+  useGlobalModalEscape(isOpen, onClose);
 
-    // Click outside to close search dropdown
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-                setIsSearching(false);
-            }
-        };
-        window.addEventListener('mousedown', handleClickOutside);
-        return () => window.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const filteredCities = useMemo(() => {
-        if (!searchQuery) return cityManifest;
-        return cityManifest.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
-    }, [cityManifest, searchQuery]);
-
-    const selectedCity = useMemo(() => cityManifest.find(c => c.id === selectedCityId), [selectedCityId, cityManifest]);
-
-    // Calcolo Anteprima Città nel Raggio
-    const previewCities = useMemo(() => {
-        if (mode === 'manual' && !selectedCity) return [];
-        if (mode === 'gps') return []; 
-        
-        const center = selectedCity?.coords;
-        if (!center) return [];
-
-        return cityManifest
-            .filter(c => c.id !== selectedCityId) // Escludi centro
-            .map(c => ({
-                ...c,
-                dist: calculateDistance(center.lat, center.lng, c.coords.lat, c.coords.lng)
-            }))
-            .filter(c => c.dist <= radius)
-            .sort((a,b) => a.dist - b.dist);
-    }, [mode, selectedCity, radius, cityManifest]);
-
-    const canConfirmGps = mode === 'gps' && !!userLocation;
-    const canConfirmManual = mode === 'manual' && !!selectedCityId;
-    const canConfirm = canConfirmGps || canConfirmManual;
-
-    const handleConfirm = () => {
-        if (!canConfirm || !mode) return;
-        if (mode === 'gps' && !userLocation) return;
-        if (mode === 'manual' && !selectedCityId) {
-            alert("Seleziona una città di partenza.");
-            return;
-        }
-
-        onConfirm({
-            type: mode,
-            cityId: selectedCityId || undefined,
-            radius
-        });
-        onClose();
+  useEffect(() => {
+    return () => {
+      cardPointerCleanupRef.current?.();
+      cardPointerCleanupRef.current = null;
     };
+  }, []);
 
-    // Navigazione diretta cliccando sulla card
-    const handleCardClick = (targetCityId: string) => {
-        onConfirm({
-            type: 'manual',
-            cityId: targetCityId,
-            radius
-        });
-        onClose();
-    };
+  // Se l'utente spegne il GPS dall'Header mentre è in modalità gps, torna allo stato neutro.
+  useEffect(() => {
+    if (mode === 'gps' && !userLocation && !isLocating) {
+      setMode(null);
+    }
+  }, [mode, userLocation, isLocating]);
 
-    const handleSelectCity = (city: CitySummary) => {
-        setSelectedCityId(city.id);
-        setSearchQuery(city.name);
+  // Click outside to close search dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsSearching(false);
+      }
     };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-    const activateGpsMode = () => {
-        setGpsRequestError(null);
-        setShowGpsWarning(false);
-        setMode('gps');
+  const filteredCities = useMemo(() => {
+    if (!searchQuery) return cityManifest;
+    return cityManifest.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [cityManifest, searchQuery]);
+
+  const selectedCity = useMemo(
+    () => cityManifest.find((c) => c.id === selectedCityId),
+    [selectedCityId, cityManifest],
+  );
+
+  // Calcolo Anteprima Città nel Raggio
+  const previewCities = useMemo(() => {
+    if (mode === 'manual' && !selectedCity) return [];
+    if (mode === 'gps') return [];
+
+    const center = selectedCity?.coords;
+    if (!center) return [];
+
+    return cityManifest
+      .filter((c) => c.id !== selectedCityId) // Escludi centro
+      .map((c) => ({
+        ...c,
+        dist: calculateDistance(center.lat, center.lng, c.coords.lat, c.coords.lng),
+      }))
+      .filter((c) => c.dist <= radius)
+      .sort((a, b) => a.dist - b.dist);
+  }, [mode, selectedCity, selectedCityId, radius, cityManifest]);
+
+  const canConfirmGps = mode === 'gps' && !!userLocation;
+  const canConfirmManual = mode === 'manual' && !!selectedCityId;
+  const canConfirm = canConfirmGps || canConfirmManual;
+
+  const handleConfirm = () => {
+    if (!canConfirm || !mode) return;
+    if (mode === 'gps') {
+      if (!userLocation) return;
+      onConfirm({ type: 'gps', radius });
+      onClose();
+      return;
+    }
+    if (!selectedCityId) return;
+    onConfirm({ type: 'manual', cityId: selectedCityId, radius });
+    onClose();
+  };
+
+  // Navigazione diretta cliccando sulla card
+  const handleCardClick = (targetCityId: string) => {
+    onConfirm({
+      type: 'manual',
+      cityId: targetCityId,
+      radius,
+    });
+    onClose();
+  };
+
+  /**
+   * Track pointer on window so drag past the card edge still marks `dragged`.
+   * Avoid setPointerCapture: DraggableSlider uses mouse/touch on the parent and must keep receiving them.
+   */
+  const beginCardPointerTracking = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    cardPointerCleanupRef.current?.();
+    cardPointerRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      dragged: false,
     };
-
-    const handleGpsClick = () => {
-        // Posizione già acquisita via Header / GpsContext → stessa SoT, nessuna seconda richiesta.
-        if (userLocation) {
-            activateGpsMode();
-            return;
-        }
-        setGpsRequestError(null);
-        setShowGpsWarning(true);
+    const pointerId = e.pointerId;
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      if (cardPointerRef.current.dragged) return;
+      const dx = Math.abs(ev.clientX - cardPointerRef.current.x);
+      const dy = Math.abs(ev.clientY - cardPointerRef.current.y);
+      if (dx > 10 || dy > 10) cardPointerRef.current.dragged = true;
     };
-
-    const confirmGps = async () => {
-        setGpsRequestError(null);
-        const result = await requestPosition();
-        if (result.success) {
-            activateGpsMode();
-            return;
-        }
-        // SoT errore di questa richiesta = result.error (scritto anche in GpsContext dallo stesso call).
-        setGpsRequestError(result.error ?? 'Impossibile recuperare la posizione.');
+    const onEnd = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onEnd);
+      window.removeEventListener('pointercancel', onEnd);
+      cardPointerCleanupRef.current = null;
     };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onEnd);
+    window.addEventListener('pointercancel', onEnd);
+    cardPointerCleanupRef.current = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onEnd);
+      window.removeEventListener('pointercancel', onEnd);
+    };
+  };
 
-    const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
-    const filterHeaderTitleStyle = useDynamicStyles('filter_header_title');
+  const handleSelectCity = (city: CitySummary) => {
+    setSelectedCityId(city.id);
+    setSearchQuery(city.name);
+    setIsSearching(false);
+  };
 
-    if (!isOpen) return null;
+  const activateGpsMode = () => {
+    setGpsRequestError(null);
+    setShowGpsWarning(false);
+    setMode('gps');
+  };
 
-    return createPortal(
-        <div className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in" style={{ zIndex: Z_OVERLAY }}>
-            <div 
-                className="relative bg-[#020617] w-full max-w-3xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 max-h-[90vh] pointer-events-auto"
-                style={{ zIndex: Z_MODAL }}
-                onClick={(e) => e.stopPropagation()}
-            >
-                
-                {/* GPS WARNING OVERLAY */}
-                {showGpsWarning && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in" style={{ zIndex: Z_MODAL_NESTED }}>
-                        <div className="max-w-sm text-center" style={{ zIndex: Z_MODAL_NESTED }}>
-                            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-                                {isLocating
-                                    ? <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                                    : <MapPin className="w-8 h-8 text-blue-500 animate-pulse"/>}
-                            </div>
-                            <h3 className="text-xl font-bold text-white mb-2">
-                                {isLocating ? 'Ricerca posizione…' : 'Attiva il GPS'}
-                            </h3>
-                            <p className="text-sm text-slate-300 mb-4">
-                                Per individuare la tua posizione e le attrazioni vicine, il browser richiederà l&apos;accesso alla geolocalizzazione.
-                            </p>
-                            {gpsRequestError && (
-                                <p className="text-xs text-rose-300 bg-rose-950/40 border border-rose-500/30 rounded-lg p-3 mb-4 text-left">
-                                    {gpsRequestError}
-                                </p>
-                            )}
-                            <div className="flex gap-3">
-                                <button
-                                    type="button"
-                                    disabled={isLocating}
-                                    onClick={() => { setShowGpsWarning(false); setGpsRequestError(null); }}
-                                    className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold hover:bg-slate-700 transition-colors disabled:opacity-50"
-                                >
-                                    Annulla
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={isLocating}
-                                    onClick={() => { void confirmGps(); }}
-                                    className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition-colors shadow-lg disabled:opacity-50"
-                                >
-                                    {isLocating ? 'Attendere…' : gpsRequestError ? 'Riprova' : 'Consenti Accesso GPS'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+  const handleGpsClick = () => {
+    // Posizione già acquisita via Header / GpsContext → stessa SoT, nessuna seconda richiesta.
+    if (userLocation) {
+      activateGpsMode();
+      return;
+    }
+    setGpsRequestError(null);
+    setShowGpsWarning(true);
+  };
+
+  const confirmGps = async () => {
+    setGpsRequestError(null);
+    const result = await requestPosition();
+    if (result.success) {
+      activateGpsMode();
+      return;
+    }
+    // SoT errore di questa richiesta = result.error (scritto anche in GpsContext dallo stesso call).
+    setGpsRequestError(result.error ?? 'Impossibile recuperare la posizione.');
+  };
+
+  const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
+  const filterHeaderTitleStyle = useDynamicStyles('filter_header_title');
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in"
+      style={{ zIndex: Z_OVERLAY }}
+      role="presentation"
+    >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
+      <div
+        className="relative bg-[#020617] w-full max-w-3xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 max-h-[90vh] pointer-events-auto"
+        style={{ zIndex: Z_MODAL }}
+      >
+        {/* GPS WARNING OVERLAY */}
+        {showGpsWarning && (
+          <div
+            className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in"
+            style={{ zIndex: Z_MODAL_NESTED }}
+          >
+            <div className="max-w-sm text-center" style={{ zIndex: Z_MODAL_NESTED }}>
+              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+                {isLocating ? (
+                  <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                ) : (
+                  <MapPin className="w-8 h-8 text-blue-500 animate-pulse" />
                 )}
-
-                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-[#0f172a] shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-900/30 text-white">
-                            <Layers className="w-6 h-6"/>
-                        </div>
-                        <div>
-                            {/* CHANGED: Text size reduced */}
-                            <h3 className={filterHeaderTitleStyle}>Around Me</h3>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Esplorazione Territoriale</p>
-                        </div>
-                    </div>
-                    <CloseButton onClose={onClose} variant="primary" />
-
-
-                </div>
-
-                <div className={`p-6 md:p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar relative z-floating-panel transition-all ${isSearching ? 'pb-72' : ''}`}>
-                    
-                    {/* SCELTA MODALITÀ - COMPACTED & SWAPPED ICONS */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <button 
-                            onClick={handleGpsClick}
-                            // CHANGED: Padding reduced to p-3
-                            className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group relative overflow-hidden ${mode === 'gps' ? 'bg-blue-900/20 border-blue-500 shadow-xl' : 'bg-slate-900 border-slate-700 hover:border-slate-500'}`}
-                        >
-                            {/* CHANGED: Icon swapped to MapPin */}
-                            <div className={`p-3 rounded-full ${mode === 'gps' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'}`}>
-                                <MapPin className="w-6 h-6"/>
-                            </div>
-                            <span className={`text-xs font-black uppercase tracking-widest ${mode === 'gps' ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>Usa GPS</span>
-                        </button>
-
-                        <button 
-                            onClick={() => setMode('manual')}
-                            // CHANGED: Padding reduced to p-3
-                            className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group relative overflow-hidden ${mode === 'manual' ? 'bg-indigo-900/20 border-indigo-500 shadow-xl' : 'bg-slate-900 border-slate-700 hover:border-slate-500'}`}
-                        >
-                            {/* CHANGED: Icon swapped to Search for clarity */}
-                            <div className={`p-3 rounded-full ${mode === 'manual' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'}`}>
-                                <Search className="w-6 h-6"/>
-                            </div>
-                            <span className={`text-xs font-black uppercase tracking-widest ${mode === 'manual' ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>Scegli Città</span>
-                        </button>
-                    </div>
-
-                    {/* OPZIONI */}
-                    {mode && (
-                        <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
-                            {mode === 'manual' && (
-                                <div className="space-y-2 relative" ref={searchRef}>
-                                    <label className={`${filterSectionLabel10Style} ml-1`}>Punto di Partenza</label>
-                                    
-                                    <div className="relative group">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-500 transition-colors"/>
-                                        {/* CHANGED: Reduced vertical padding (p-3) */}
-                                        <input 
-                                            type="text"
-                                            value={searchQuery}
-                                            onChange={(e) => { setSearchQuery(e.target.value); setIsSearching(true); }}
-                                            onFocus={() => setIsSearching(true)}
-                                            placeholder="Cerca città (es. Napoli, Salerno...)"
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pl-12 text-white font-bold outline-none focus:border-indigo-500 transition-colors"
-                                        />
-                                        {selectedCityId && (
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500 animate-in zoom-in">
-                                                <Check className="w-5 h-5"/>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {isSearching && (
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2" style={{ zIndex: Z_MODAL_NESTED }}>
-                                            {filteredCities.length > 0 ? filteredCities.map(c => (
-                                                <button 
-                                                    key={c.id} 
-                                                    onClick={() => handleSelectCity(c)}
-                                                    className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-between border-b border-slate-800/50 last:border-0"
-                                                >
-                                                    <span className="font-bold text-sm">{c.name}</span>
-                                                    <span className="text-[10px] text-slate-500 uppercase font-bold">{c.zone}</span>
-                                                </button>
-                                            )) : (
-                                                <div className="p-4 text-center text-slate-500 text-xs italic">Nessuna città trovata.</div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* COMPACT RADIUS SLIDER */}
-                            <div className="space-y-2 pt-1">
-                                <div className="flex justify-between items-end px-1">
-                                    <label className={filterSectionLabel10Style}>Raggio di Ricerca</label>
-                                    <span className="text-xl font-mono font-black text-white bg-slate-800 px-3 py-0.5 rounded-lg border border-slate-700 shadow-lg">{radius} <span className="text-sm text-slate-400">km</span></span>
-                                </div>
-                                <div className="relative h-6 flex items-center">
-                                    <input 
-                                        type="range" 
-                                        min="2" 
-                                        max="50" 
-                                        step="1" 
-                                        value={radius} 
-                                        onChange={(e) => setRadius(parseInt(e.target.value))}
-                                        className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 z-floating-panel relative"
-                                    />
-                                    {/* Grid Lines */}
-                                    <div className="absolute inset-0 flex justify-between pointer-events-none px-1">
-                                        {[...Array(11)].map((_, i) => <div key={i} className="w-px h-full bg-slate-700/50"></div>)}
-                                    </div>
-                                </div>
-                                <div className="flex justify-between text-[9px] font-bold text-slate-600 uppercase px-1">
-                                    <span>2 km</span>
-                                    <span>50 km</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {/* ANTEPRIMA CITTÀ VICINE (CLICCABILI) - UPDATED WITH DRAGGABLE SLIDER & ARROWS */}
-                    {mode === 'manual' && selectedCityId && (
-                         <div className="pt-2 border-t border-slate-800/50">
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className={`${filterSectionLabel10Style} flex items-center gap-2`}>
-                                    CITTÀ VICINE ({previewCities.length})
-                                </h4>
-                                <div className="flex gap-2">
-                                     <button onClick={() => sliderRef.current?.scroll('left')} className="p-1.5 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><ChevronLeft className="w-4 h-4"/></button>
-                                     <button onClick={() => sliderRef.current?.scroll('right')} className="p-1.5 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><ChevronRight className="w-4 h-4"/></button>
-                                </div>
-                            </div>
-                            {previewCities.length > 0 ? (
-                                <DraggableSlider ref={sliderRef} className="pb-4 gap-4">
-                                    {previewCities.map(city => (
-                                        <div 
-                                            key={city.id} 
-                                            // 1. Cattura inizio click
-                                            onMouseDown={(e) => dragStartRef.current = { x: e.clientX, y: e.clientY }}
-                                            // 2. Verifica spostamento (se > 10px è uno scroll, non un click)
-                                            onClick={(e) => {
-                                                const dx = Math.abs(e.clientX - dragStartRef.current.x);
-                                                const dy = Math.abs(e.clientY - dragStartRef.current.y);
-                                                if (dx < 10 && dy < 10) {
-                                                    handleCardClick(city.id);
-                                                }
-                                            }}
-                                            className="snap-start w-56 flex-shrink-0 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg group hover:border-blue-500/50 transition-all cursor-pointer hover:scale-[1.02] active:scale-95"
-                                            title="Clicca per esplorare da qui"
-                                        >
-                                            <div className="h-40 relative pointer-events-none">
-                                                <ImageWithFallback src={city.imageUrl} alt={city.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-500"/>
-                                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
-                                                <div className="absolute bottom-2 left-2 right-2">
-                                                    <div className="font-bold text-white text-base truncate leading-none mb-0.5">{city.name}</div>
-                                                    <div className="text-[10px] text-slate-300 truncate">{city.zone}</div>
-                                                </div>
-                                            </div>
-                                            <div className="p-3 text-center bg-slate-950/50 flex justify-between items-center px-4 pointer-events-none">
-                                                <div className="text-xs text-blue-400 font-mono font-bold flex items-center gap-1">
-                                                    <Navigation className="w-3.5 h-3.5 rotate-45"/> {city.dist.toFixed(1)} km
-                                                </div>
-                                                <span className="text-[9px] font-black uppercase text-slate-500 group-hover:text-white transition-colors">VAI &rarr;</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </DraggableSlider>
-                            ) : (
-                                <div className="text-center py-6 text-slate-600 italic text-xs border border-dashed border-slate-800 rounded-xl bg-slate-900/30">
-                                    Nessuna città nel raggio selezionato. Aumenta i km.
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                </div>
-
-                {/* COMPACTED FOOTER BUTTON */}
-                <div className="p-4 border-t border-slate-800 bg-[#0f172a] shrink-0">
-                    <button 
-                        type="button"
-                        onClick={handleConfirm}
-                        disabled={!canConfirm}
-                        className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase text-xs tracking-widest py-3 rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-3"
-                    >
-                        Esplora Area <ArrowRight className="w-4 h-4"/>
-                    </button>
-                </div>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">
+                {isLocating ? 'Ricerca posizione…' : 'Attiva il GPS'}
+              </h3>
+              <p className="text-sm text-slate-300 mb-4">
+                Per individuare la tua posizione e le attrazioni vicine, il browser richiederà
+                l&apos;accesso alla geolocalizzazione.
+              </p>
+              {gpsRequestError && (
+                <p className="text-xs text-rose-300 bg-rose-950/40 border border-rose-500/30 rounded-lg p-3 mb-4 text-left">
+                  {gpsRequestError}
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  disabled={isLocating}
+                  onClick={() => {
+                    setShowGpsWarning(false);
+                    setGpsRequestError(null);
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold hover:bg-slate-700 transition-colors disabled:opacity-50"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  disabled={isLocating}
+                  onClick={() => {
+                    void confirmGps();
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition-colors shadow-lg disabled:opacity-50"
+                >
+                  {isLocating ? 'Attendere…' : gpsRequestError ? 'Riprova' : 'Consenti Accesso GPS'}
+                </button>
+              </div>
             </div>
-        </div>,
-        document.body
-    );
+          </div>
+        )}
+
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-[#0f172a] shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-900/30 text-white">
+              <Layers className="w-6 h-6" />
+            </div>
+            <div>
+              {/* CHANGED: Text size reduced */}
+              <h3 className={filterHeaderTitleStyle}>Around Me</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Esplorazione Territoriale
+              </p>
+            </div>
+          </div>
+          <CloseButton onClose={onClose} variant="primary" />
+        </div>
+
+        <div
+          className={`p-6 md:p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar relative z-floating-panel transition-all ${isSearching ? 'pb-72' : ''}`}
+        >
+          {/* SCELTA MODALITÀ - COMPACTED & SWAPPED ICONS */}
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={handleGpsClick}
+              // CHANGED: Padding reduced to p-3
+              className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group relative overflow-hidden ${mode === 'gps' ? 'bg-blue-900/20 border-blue-500 shadow-xl' : 'bg-slate-900 border-slate-700 hover:border-slate-500'}`}
+            >
+              {/* CHANGED: Icon swapped to MapPin */}
+              <div
+                className={`p-3 rounded-full ${mode === 'gps' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'}`}
+              >
+                <MapPin className="w-6 h-6" />
+              </div>
+              <span
+                className={`text-xs font-black uppercase tracking-widest ${mode === 'gps' ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}
+              >
+                Usa GPS
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMode('manual')}
+              // CHANGED: Padding reduced to p-3
+              className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group relative overflow-hidden ${mode === 'manual' ? 'bg-indigo-900/20 border-indigo-500 shadow-xl' : 'bg-slate-900 border-slate-700 hover:border-slate-500'}`}
+            >
+              {/* CHANGED: Icon swapped to Search for clarity */}
+              <div
+                className={`p-3 rounded-full ${mode === 'manual' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'}`}
+              >
+                <Search className="w-6 h-6" />
+              </div>
+              <span
+                className={`text-xs font-black uppercase tracking-widest ${mode === 'manual' ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}
+              >
+                Scegli Città
+              </span>
+            </button>
+          </div>
+
+          {/* OPZIONI */}
+          {mode && (
+            <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
+              {mode === 'manual' && (
+                <div className="space-y-2 relative" ref={searchRef}>
+                  <label
+                    htmlFor="fld-modals-aroundmewizard-tsx-l298"
+                    className={`${filterSectionLabel10Style} ml-1`}
+                  >
+                    Punto di Partenza
+                  </label>
+
+                  <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-500 transition-colors" />
+                    {/* CHANGED: Reduced vertical padding (p-3) */}
+                    <input
+                      id="fld-modals-aroundmewizard-tsx-l298"
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setSearchQuery(next);
+                        setIsSearching(true);
+                        if (!selectedCityId) return;
+                        const selected = cityManifest.find((c) => c.id === selectedCityId);
+                        if (!selected || selected.name !== next) {
+                          setSelectedCityId('');
+                        }
+                      }}
+                      onFocus={() => setIsSearching(true)}
+                      placeholder="Cerca città (es. Napoli, Salerno...)"
+                      className="w-full min-h-[44px] bg-slate-900 border border-slate-700 rounded-xl p-3 pl-12 text-white font-bold outline-none focus:border-indigo-500 transition-colors"
+                    />
+                    {selectedCityId && selectedCity?.name === searchQuery ? (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500 animate-in zoom-in">
+                        <Check className="w-5 h-5" aria-hidden />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {isSearching && (
+                    <div
+                      className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2"
+                      style={{ zIndex: Z_MODAL_NESTED }}
+                    >
+                      {filteredCities.length > 0 ? (
+                        filteredCities.map((c) => (
+                          <button
+                            type="button"
+                            key={c.id}
+                            onClick={() => handleSelectCity(c)}
+                            className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-between border-b border-slate-800/50 last:border-0"
+                          >
+                            <span className="font-bold text-sm">{c.name}</span>
+                            <span className="text-[10px] text-slate-500 uppercase font-bold">
+                              {c.zone}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-slate-500 text-xs italic">
+                          Nessuna città trovata.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* COMPACT RADIUS SLIDER */}
+              <div className="space-y-2 pt-1">
+                <div className="flex justify-between items-end px-1">
+                  <label
+                    htmlFor="fld-modals-aroundmewizard-tsx-l353"
+                    className={filterSectionLabel10Style}
+                  >
+                    Raggio di Ricerca
+                  </label>
+                  <span className="text-xl font-mono font-black text-white bg-slate-800 px-3 py-0.5 rounded-lg border border-slate-700 shadow-lg">
+                    {radius} <span className="text-sm text-slate-400">km</span>
+                  </span>
+                </div>
+                <div className="relative h-6 flex items-center">
+                  <input
+                    id="fld-modals-aroundmewizard-tsx-l353"
+                    type="range"
+                    min="2"
+                    max="50"
+                    step="1"
+                    value={radius}
+                    onChange={(e) => setRadius(parseInt(e.target.value, 10))}
+                    className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 z-floating-panel relative"
+                  />
+                  {/* Grid Lines */}
+                  <div className="absolute inset-0 flex justify-between pointer-events-none px-1">
+                    {Array.from({ length: 11 }, (_slot, tick) => ({ tick })).map((item) => (
+                      <div
+                        key={`radius-tick-${item.tick}`}
+                        className="w-px h-full bg-slate-700/50"
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex justify-between text-[9px] font-bold text-slate-600 uppercase px-1">
+                  <span>2 km</span>
+                  <span>50 km</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ANTEPRIMA CITTÀ VICINE (CLICCABILI) - UPDATED WITH DRAGGABLE SLIDER & ARROWS */}
+          {mode === 'manual' && selectedCityId && (
+            <div className="pt-2 border-t border-slate-800/50">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className={`${filterSectionLabel10Style} flex items-center gap-2`}>
+                  CITTÀ VICINE ({previewCities.length})
+                </h4>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => sliderRef.current?.scroll('left')}
+                    className="p-2 min-h-[44px] min-w-[44px] bg-slate-800 rounded-lg text-slate-400 hover:text-white inline-flex items-center justify-center"
+                    aria-label="Scorri città vicine a sinistra"
+                  >
+                    <ChevronLeft className="w-4 h-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sliderRef.current?.scroll('right')}
+                    className="p-2 min-h-[44px] min-w-[44px] bg-slate-800 rounded-lg text-slate-400 hover:text-white inline-flex items-center justify-center"
+                    aria-label="Scorri città vicine a destra"
+                  >
+                    <ChevronRight className="w-4 h-4" aria-hidden />
+                  </button>
+                </div>
+              </div>
+              {previewCities.length > 0 ? (
+                <DraggableSlider ref={sliderRef} className="pb-4 gap-4">
+                  {previewCities.map((city) => (
+                    <button
+                      type="button"
+                      key={city.id}
+                      onPointerDown={beginCardPointerTracking}
+                      onClick={() => {
+                        if (cardPointerRef.current.dragged) return;
+                        handleCardClick(city.id);
+                      }}
+                      className="snap-start w-56 flex-shrink-0 text-left bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg group hover:border-blue-500/50 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                      title="Esplora da qui"
+                      aria-label={`Esplora da ${city.name}`}
+                    >
+                      <div className="h-40 relative pointer-events-none">
+                        <ImageWithFallback
+                          src={city.imageUrl}
+                          alt=""
+                          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
+                        <div className="absolute bottom-2 left-2 right-2">
+                          <div className="font-bold text-white text-base truncate leading-none mb-0.5">
+                            {city.name}
+                          </div>
+                          <div className="text-[10px] text-slate-300 truncate">{city.zone}</div>
+                        </div>
+                      </div>
+                      <div className="p-3 text-center bg-slate-950/50 flex justify-between items-center px-4 pointer-events-none min-h-[44px]">
+                        <div className="text-xs text-blue-400 font-mono font-bold flex items-center gap-1">
+                          <Navigation className="w-3.5 h-3.5 rotate-45" aria-hidden />{' '}
+                          {city.dist.toFixed(1)} km
+                        </div>
+                        <span className="text-[9px] font-black uppercase text-slate-500 group-hover:text-white transition-colors">
+                          VAI &rarr;
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </DraggableSlider>
+              ) : (
+                <div className="text-center py-6 text-slate-600 italic text-xs border border-dashed border-slate-800 rounded-xl bg-slate-900/30">
+                  Nessuna città nel raggio selezionato. Aumenta i km.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* COMPACTED FOOTER BUTTON */}
+        <div className="p-4 border-t border-slate-800 bg-[#0f172a] shrink-0">
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+            className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase text-xs tracking-widest py-3 rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-3"
+          >
+            Esplora Area <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 };
-
-
-

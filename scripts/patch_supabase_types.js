@@ -1,39 +1,39 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const typesPath = path.resolve(__dirname, '../src/types/supabase.ts');
 let content = fs.readFileSync(typesPath, 'utf8');
 
 // 1. Add columns to cities
 if (!content.includes('slug?: string | null')) {
-    content = content.replace(
-        /(cities:\s*\{\s*Row:\s*\{)/g,
-        '$1\n          slug: string | null\n          region_id: string | null\n          tourist_zone_id: string | null'
-    );
-    content = content.replace(
-        /(cities:\s*\{\s*Row:\s*\{[\s\S]*?Insert:\s*\{)/g,
-        '$1\n          slug?: string | null\n          region_id?: string | null\n          tourist_zone_id?: string | null'
-    );
-    content = content.replace(
-        /(cities:\s*\{\s*Row:\s*\{[\s\S]*?Update:\s*\{)/g,
-        '$1\n          slug?: string | null\n          region_id?: string | null\n          tourist_zone_id?: string | null'
-    );
+  content = content.replace(
+    /(cities:\s*\{\s*Row:\s*\{)/g,
+    '$1\n          slug: string | null\n          region_id: string | null\n          tourist_zone_id: string | null',
+  );
+  content = content.replace(
+    /(cities:\s*\{\s*Row:\s*\{[\s\S]*?Insert:\s*\{)/g,
+    '$1\n          slug?: string | null\n          region_id?: string | null\n          tourist_zone_id?: string | null',
+  );
+  content = content.replace(
+    /(cities:\s*\{\s*Row:\s*\{[\s\S]*?Update:\s*\{)/g,
+    '$1\n          slug?: string | null\n          region_id?: string | null\n          tourist_zone_id?: string | null',
+  );
 }
 
 // 2. Add columns to tourist_zones
 if (!content.includes('slug: string | null') && content.includes('tourist_zones: {')) {
-    content = content.replace(
-        /(tourist_zones:\s*\{\s*Row:\s*\{)/g,
-        '$1\n          slug: string | null\n          region_id: string | null'
-    );
-    content = content.replace(
-        /(tourist_zones:\s*\{\s*Row:\s*\{[\s\S]*?Insert:\s*\{)/g,
-        '$1\n          slug?: string | null\n          region_id?: string | null'
-    );
-    content = content.replace(
-        /(tourist_zones:\s*\{\s*Row:\s*\{[\s\S]*?Update:\s*\{)/g,
-        '$1\n          slug?: string | null\n          region_id?: string | null'
-    );
+  content = content.replace(
+    /(tourist_zones:\s*\{\s*Row:\s*\{)/g,
+    '$1\n          slug: string | null\n          region_id: string | null',
+  );
+  content = content.replace(
+    /(tourist_zones:\s*\{\s*Row:\s*\{[\s\S]*?Insert:\s*\{)/g,
+    '$1\n          slug?: string | null\n          region_id?: string | null',
+  );
+  content = content.replace(
+    /(tourist_zones:\s*\{\s*Row:\s*\{[\s\S]*?Update:\s*\{)/g,
+    '$1\n          slug?: string | null\n          region_id?: string | null',
+  );
 }
 
 // 3. Add tables continents, nations, regions
@@ -118,10 +118,7 @@ const newTables = `
 `;
 
 if (!content.includes('continents: {')) {
-    content = content.replace(
-        /(Tables:\s*\{)/g,
-        `$1${newTables}`
-    );
+  content = content.replace(/(Tables:\s*\{)/g, `$1${newTables}`);
 }
 
 fs.writeFileSync(typesPath, content, 'utf8');

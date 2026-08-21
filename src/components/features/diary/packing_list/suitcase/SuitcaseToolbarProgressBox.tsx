@@ -1,5 +1,8 @@
-import React from 'react';
-import { SuitcaseAscentProgressIndicator, getAscentProgressColor } from './SuitcaseAscentProgressIndicator';
+import type React from 'react';
+import {
+  getAscentProgressColor,
+  SuitcaseAscentProgressIndicator,
+} from './SuitcaseAscentProgressIndicator';
 
 interface SuitcaseToolbarProgressBoxProps {
   checkedCount: number;
@@ -32,7 +35,9 @@ export const SuitcaseToolbarProgressBox: React.FC<SuitcaseToolbarProgressBoxProp
       : 'bg-slate-950/40 border-white/10 px-4 py-2 sm:py-4 min-h-[3.25rem] sm:min-h-[5.5rem] justify-center';
 
   const countText = (textClass: string) => (
-    <div className={`flex items-center justify-center gap-1.5 tabular-nums whitespace-nowrap leading-none ${textClass}`}>
+    <div
+      className={`flex items-center justify-center gap-1.5 tabular-nums whitespace-nowrap leading-none ${textClass}`}
+    >
       <span
         className={`font-black transition-colors duration-500 ${
           isHeader || isPanels ? 'text-xs md:text-sm' : 'text-sm md:text-base'
@@ -44,9 +49,13 @@ export const SuitcaseToolbarProgressBox: React.FC<SuitcaseToolbarProgressBoxProp
       <span className="text-[10px] text-slate-500 font-bold" aria-hidden>
         •
       </span>
-      <span className={`font-black text-white ${isHeader || isPanels ? 'text-xs md:text-sm' : 'text-sm md:text-base'}`}>
+      <span
+        className={`font-black text-white ${isHeader || isPanels ? 'text-xs md:text-sm' : 'text-sm md:text-base'}`}
+      >
         {checkedCount}
-        <span className="text-slate-400 font-bold mx-0.5" aria-hidden>/</span>
+        <span className="text-slate-400 font-bold mx-0.5" aria-hidden>
+          /
+        </span>
         {totalCount}
       </span>
     </div>
@@ -79,7 +88,9 @@ export const SuitcaseToolbarProgressBox: React.FC<SuitcaseToolbarProgressBoxProp
             </div>
             <span className="font-black text-white text-xs shrink-0">
               {checkedCount}
-              <span className="text-slate-400 font-bold mx-0.5" aria-hidden>/</span>
+              <span className="text-slate-400 font-bold mx-0.5" aria-hidden>
+                /
+              </span>
               {totalCount}
             </span>
           </div>

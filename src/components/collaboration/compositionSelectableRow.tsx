@@ -1,5 +1,5 @@
-import React from 'react';
 import { Check } from 'lucide-react';
+import type React from 'react';
 import type { WorkspaceCompositionCandidate } from '@/domain/collaboration/workspaceComposition';
 
 function formatCompositionCatalogDate(iso?: string | null): string | null {
@@ -20,7 +20,7 @@ function formatCompositionCatalogDate(iso?: string | null): string | null {
 export function buildCompositionCandidateMetadata(
   kindLabel: string,
   candidate: WorkspaceCompositionCandidate,
-  showDates: boolean
+  showDates: boolean,
 ): string {
   if (!showDates) return kindLabel;
 

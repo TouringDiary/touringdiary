@@ -1,25 +1,18 @@
-import { supabase } from '@/services/supabaseClient';
 import type {
   CollaborativeMemberRole,
   ResourceInvite,
   SharedResourceKind,
 } from '@/domain/collaboration';
-import { isCollaborativeMemberRole, isSharedResourceKind, isSharingMode } from '@/domain/collaboration';
+import {
+  isCollaborativeMemberRole,
+  isSharedResourceKind,
+  isSharingMode,
+} from '@/domain/collaboration';
 import { userNeedsUsername } from '@/domain/profile/username';
-import {
-  ensureShareableResource,
-  getShareableResource,
-} from './sharedResourceService';
-import {
-  getSharedResourceMember,
-  setSharedResourceMember,
-} from './sharedResourceAclService';
+import { supabase } from '@/services/supabaseClient';
+import { resolveUserIdByEmail, resolveUserIdByUsername } from './collaborationUserSearchService';
 import { canUserManageCollaboration } from './permissionService';
-import { areUsersBlocked } from './userBlockService';
-import {
-  resolveUserIdByEmail,
-  resolveUserIdByUsername,
-} from './collaborationUserSearchService';
+import { duplicateSharedResourceForInvitee } from './personalShareService';
 import { mapResourceInviteRow } from './resourceInviteMappers';
 import {
   notifyPersonalTemplateReceivedAfterInvite,
@@ -27,12 +20,11 @@ import {
   notifyResourceInviteRejectedByInvitee,
   notifyResourceInviteSent,
 } from './resourceInviteNotificationHelper';
-import { duplicateSharedResourceForInvitee } from './personalShareService';
+import { getSharedResourceMember, setSharedResourceMember } from './sharedResourceAclService';
+import { ensureShareableResource, getShareableResource } from './sharedResourceService';
+import { areUsersBlocked } from './userBlockService';
 
-export type InviteTarget =
-  | { userId: string }
-  | { email: string }
-  | { username: string };
+export type InviteTarget = { userId: string } | { email: string } | { username: string };
 
 export type ResourceInviteResult =
   | { success: true; invite: ResourceInvite }
@@ -48,10 +40,7 @@ async function resolveInviteeId(target: InviteTarget): Promise<string | null> {
   return resolveUserIdByUsername(target.username);
 }
 
-async function validateInvitee(
-  ownerId: string,
-  inviteeId: string
-): Promise<string | null> {
+async function validateInvitee(ownerId: string, inviteeId: string): Promise<string | null> {
   if (inviteeId === ownerId) {
     return 'Non puoi invitare te stesso.';
   }
@@ -70,7 +59,7 @@ async function validateInvitee(
     return 'Utente non trovato.';
   }
   if (userNeedsUsername(profile.slug)) {
-    return 'L\'utente non ha ancora un Nome utente e non può collaborare.';
+    return "L'utente non ha ancora un Nome utente e non può collaborare.";
   }
 
   return null;
@@ -78,7 +67,7 @@ async function validateInvitee(
 
 async function resolveAndValidateInvitee(
   ownerId: string,
-  target: InviteTarget
+  target: InviteTarget,
 ): Promise<ResolveInviteeResult> {
   const inviteeId = await resolveInviteeId(target);
   if (!inviteeId) {
@@ -111,7 +100,7 @@ export async function getResourceInvite(inviteId: string): Promise<ResourceInvit
 export async function listResourceInvites(
   kind: SharedResourceKind,
   resourceId: string,
-  requesterId: string
+  requesterId: string,
 ): Promise<ResourceInvite[]> {
   const resource = await getShareableResource(kind, resourceId);
   if (!resource || resource.ownerId !== requesterId) {
@@ -160,7 +149,7 @@ export async function sendResourceInvite(
   kind: SharedResourceKind,
   resourceId: string,
   target: InviteTarget,
-  role: CollaborativeMemberRole
+  role: CollaborativeMemberRole,
 ): Promise<ResourceInviteResult> {
   if (!isCollaborativeMemberRole(role)) {
     return { success: false, error: 'Ruolo collaborativo non valido.' };
@@ -237,7 +226,7 @@ export async function sendResourceInvite(
 
   if (error) {
     console.error('[resourceInviteService] sendResourceInvite:', error.message);
-    return { success: false, error: 'Impossibile inviare l\'invito.' };
+    return { success: false, error: "Impossibile inviare l'invito." };
   }
 
   if (!data) {
@@ -260,7 +249,7 @@ export async function sendResourceInvite(
 
 export async function acceptResourceInvite(
   inviteeId: string,
-  inviteId: string
+  inviteId: string,
 ): Promise<ResourceInviteResult> {
   const invite = await getResourceInvite(inviteId);
   if (!invite) {
@@ -301,7 +290,7 @@ export async function acceptResourceInvite(
       resource.kind,
       resource.resource_id,
       resource.owner_id,
-      inviteeId
+      inviteeId,
     );
     if (copyResult.success !== true) {
       return { success: false, error: copyResult.error };
@@ -312,7 +301,7 @@ export async function acceptResourceInvite(
       invite.sharedResourceId,
       resource.owner_id,
       inviteeId,
-      invite.role
+      invite.role,
     );
     if (memberResult.success !== true) {
       return { success: false, error: memberResult.error };
@@ -335,7 +324,7 @@ export async function acceptResourceInvite(
 
   if (error) {
     console.error('[resourceInviteService] acceptResourceInvite:', error.message);
-    return { success: false, error: 'Impossibile accettare l\'invito.' };
+    return { success: false, error: "Impossibile accettare l'invito." };
   }
 
   const accepted = mapResourceInviteRow(data);
@@ -348,10 +337,13 @@ export async function acceptResourceInvite(
       resource.owner_id,
       inviteeId,
       resource.kind,
-      inviteId
+      inviteId,
     );
   } catch (notificationError) {
-    console.error('[resourceInviteService] notifyResourceInviteAcceptedByInvitee:', notificationError);
+    console.error(
+      '[resourceInviteService] notifyResourceInviteAcceptedByInvitee:',
+      notificationError,
+    );
   }
 
   if (isPersonalShare && resource.kind === 'user_template' && copiedResourceId) {
@@ -360,10 +352,13 @@ export async function acceptResourceInvite(
         inviteeId,
         resource.owner_id,
         resource.resource_id,
-        copiedResourceId
+        copiedResourceId,
       );
     } catch (notificationError) {
-      console.error('[resourceInviteService] notifyPersonalTemplateReceivedAfterInvite:', notificationError);
+      console.error(
+        '[resourceInviteService] notifyPersonalTemplateReceivedAfterInvite:',
+        notificationError,
+      );
     }
   }
 
@@ -372,7 +367,7 @@ export async function acceptResourceInvite(
 
 export async function rejectResourceInvite(
   inviteeId: string,
-  inviteId: string
+  inviteId: string,
 ): Promise<ResourceInviteResult> {
   const invite = await getResourceInvite(inviteId);
   if (!invite) {
@@ -405,7 +400,7 @@ export async function rejectResourceInvite(
 
   if (error) {
     console.error('[resourceInviteService] rejectResourceInvite:', error.message);
-    return { success: false, error: 'Impossibile rifiutare l\'invito.' };
+    return { success: false, error: "Impossibile rifiutare l'invito." };
   }
 
   const rejected = mapResourceInviteRow(data);
@@ -419,10 +414,13 @@ export async function rejectResourceInvite(
         resource.owner_id,
         inviteeId,
         resource.kind,
-        inviteId
+        inviteId,
       );
     } catch (notificationError) {
-      console.error('[resourceInviteService] notifyResourceInviteRejectedByInvitee:', notificationError);
+      console.error(
+        '[resourceInviteService] notifyResourceInviteRejectedByInvitee:',
+        notificationError,
+      );
     }
   }
 
@@ -431,7 +429,7 @@ export async function rejectResourceInvite(
 
 export async function revokeResourceInvite(
   ownerId: string,
-  inviteId: string
+  inviteId: string,
 ): Promise<ResourceInviteResult> {
   const invite = await getResourceInvite(inviteId);
   if (!invite) {
@@ -445,7 +443,7 @@ export async function revokeResourceInvite(
     .maybeSingle();
 
   if (!resource || resource.owner_id !== ownerId) {
-    return { success: false, error: 'Solo il proprietario può revocare l\'invito.' };
+    return { success: false, error: "Solo il proprietario può revocare l'invito." };
   }
   if (invite.status !== 'pending') {
     return { success: false, error: 'Solo gli inviti in attesa possono essere revocati.' };
@@ -460,7 +458,7 @@ export async function revokeResourceInvite(
 
   if (error) {
     console.error('[resourceInviteService] revokeResourceInvite:', error.message);
-    return { success: false, error: 'Impossibile revocare l\'invito.' };
+    return { success: false, error: "Impossibile revocare l'invito." };
   }
 
   const revoked = mapResourceInviteRow(data);
@@ -475,7 +473,7 @@ export async function revokeResourceInvite(
 export async function resendResourceInvite(
   ownerId: string,
   inviteId: string,
-  role?: CollaborativeMemberRole
+  role?: CollaborativeMemberRole,
 ): Promise<ResourceInviteResult> {
   const invite = await getResourceInvite(inviteId);
   if (!invite) {
@@ -489,10 +487,13 @@ export async function resendResourceInvite(
     .maybeSingle();
 
   if (!resource || resource.owner_id !== ownerId) {
-    return { success: false, error: 'Solo il proprietario può reinviare l\'invito.' };
+    return { success: false, error: "Solo il proprietario può reinviare l'invito." };
   }
   if (invite.status !== 'rejected' && invite.status !== 'revoked') {
-    return { success: false, error: 'Solo gli inviti rifiutati o revocati possono essere reinviati.' };
+    return {
+      success: false,
+      error: 'Solo gli inviti rifiutati o revocati possono essere reinviati.',
+    };
   }
 
   if (!isSharedResourceKind(resource.kind)) {
@@ -505,6 +506,6 @@ export async function resendResourceInvite(
     resource.kind,
     resource.resource_id,
     { userId: invite.inviteeId },
-    nextRole
+    nextRole,
   );
 }

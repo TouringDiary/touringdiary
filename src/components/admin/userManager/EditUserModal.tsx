@@ -113,10 +113,14 @@ export const EditUserModal = ({
 
         <form onSubmit={handleUpdateUser} className="space-y-4">
           <div>
-            <label className="text-[10px] font-bold uppercase text-slate-500 mb-1 block">
+            <label
+              htmlFor="fld-admin-usermanager-editusermodal-tsx-l116"
+              className="text-[10px] font-bold uppercase text-slate-500 mb-1 block"
+            >
               Nome Completo
             </label>
             <input
+              id="fld-admin-usermanager-editusermodal-tsx-l116"
               value={editingUser.name}
               onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white font-bold focus:border-indigo-500 outline-none"
@@ -124,10 +128,14 @@ export const EditUserModal = ({
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase text-slate-500 mb-1 block">
+            <label
+              htmlFor="fld-admin-usermanager-editusermodal-tsx-l127"
+              className="text-[10px] font-bold uppercase text-slate-500 mb-1 block"
+            >
               Email (Login)
             </label>
             <input
+              id="fld-admin-usermanager-editusermodal-tsx-l127"
               value={editingUser.email}
               onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white font-mono text-sm focus:border-indigo-500 outline-none"
@@ -136,10 +144,14 @@ export const EditUserModal = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-bold uppercase text-slate-500 mb-1 block">
+              <label
+                htmlFor="fld-admin-usermanager-editusermodal-tsx-l139"
+                className="text-[10px] font-bold uppercase text-slate-500 mb-1 block"
+              >
                 Ruolo
               </label>
               <select
+                id="fld-admin-usermanager-editusermodal-tsx-l139"
                 value={editingUser.role}
                 onChange={(e) =>
                   setEditingUser({ ...editingUser, role: e.target.value as UserRole })
@@ -154,10 +166,14 @@ export const EditUserModal = ({
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold uppercase text-slate-500 mb-1 block">
+              <label
+                htmlFor="fld-admin-usermanager-editusermodal-tsx-l157"
+                className="text-[10px] font-bold uppercase text-slate-500 mb-1 block"
+              >
                 Status
               </label>
               <select
+                id="fld-admin-usermanager-editusermodal-tsx-l157"
                 value={editingUser.status}
                 onChange={(e) =>
                   setEditingUser({ ...editingUser, status: e.target.value as UserStatus })
@@ -233,20 +249,28 @@ export const EditUserModal = ({
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">
+                <label
+                  htmlFor="fld-admin-usermanager-editusermodal-tsx-l236"
+                  className="text-[10px] text-slate-500 uppercase font-bold block mb-1"
+                >
                   Ragione Sociale
                 </label>
                 <input
+                  id="fld-admin-usermanager-editusermodal-tsx-l236"
                   value={editingUser.companyName || ''}
                   onChange={(e) => setEditingUser({ ...editingUser, companyName: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-indigo-500 outline-none"
                 />
               </div>
               <div>
-                <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">
+                <label
+                  htmlFor="fld-admin-usermanager-editusermodal-tsx-l246"
+                  className="text-[10px] text-slate-500 uppercase font-bold block mb-1"
+                >
                   P.IVA
                 </label>
                 <input
+                  id="fld-admin-usermanager-editusermodal-tsx-l246"
                   value={editingUser.vatNumber || ''}
                   onChange={(e) => setEditingUser({ ...editingUser, vatNumber: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-indigo-500 outline-none font-mono"

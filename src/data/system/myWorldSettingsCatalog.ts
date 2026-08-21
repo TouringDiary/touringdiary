@@ -20,7 +20,8 @@ export const MYWORLD_SETTINGS_GROUPS: MyWorldSettingsGroup[] = [
   {
     id: 'section_header',
     label: 'Header sezione',
-    description: 'Intestazione condivisa delle root MySpace / superfici MyWorld (riferimento Valigia).',
+    description:
+      'Intestazione condivisa delle root MySpace / superfici MyWorld (riferimento Valigia).',
     items: [
       { baseKey: 'myworld_section_header_bar' },
       { baseKey: 'myworld_section_title' },
@@ -57,5 +58,4 @@ export const MYWORLD_STYLE_KEYS = {
   chromeBtn: 'myworld_chrome_btn',
 } as const;
 
-export type MyWorldStyleKey =
-  (typeof MYWORLD_STYLE_KEYS)[keyof typeof MYWORLD_STYLE_KEYS];
+export type MyWorldStyleKey = (typeof MYWORLD_STYLE_KEYS)[keyof typeof MYWORLD_STYLE_KEYS];

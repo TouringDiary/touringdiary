@@ -1,193 +1,213 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { User, ShopPartner, Reward, UserReward, AppNotification, SponsorRequest, SuggestionRequest } from '../types/index';
-import { getShopByOwner, getShopById } from '../services/shopService';
-import { getBusinessStats, getUserSuggestionsAsync } from '../services/communityService';
-import { getRewardsAsync, getClaimedRewards, claimReward, markRewardAsUsed } from '../services/gamificationService';
-import { fetchNotificationsAsync } from '../services/notificationService'; 
-import { getSponsorRequestsByProfile } from '../services/sponsors/sponsorRequestsService';
-import { getSponsorsByOwner } from '../services/sponsors/sponsorContractsService';
-import { safeArray } from '../utils/safeTypes';
-import { useFeatureFlag } from '../context/PlatformControlContext';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '../constants/platformFeatureFlags';
-
 import { useBusinessContext } from '../context/BusinessContext';
+import { useFeatureFlag } from '../context/PlatformControlContext';
+import { getBusinessStats, getUserSuggestionsAsync } from '../services/communityService';
+import {
+  claimReward,
+  getClaimedRewards,
+  getRewardsAsync,
+  markRewardAsUsed,
+} from '../services/gamificationService';
+import { fetchNotificationsAsync } from '../services/notificationService';
+import { getShopById, getShopByOwner } from '../services/shopService';
+import { getSponsorsByOwner } from '../services/sponsors/sponsorContractsService';
+import { getSponsorRequestsByProfile } from '../services/sponsors/sponsorRequestsService';
+import type {
+  AppNotification,
+  Reward,
+  ShopPartner,
+  SponsorRequest,
+  SuggestionRequest,
+  User,
+  UserReward,
+} from '../types/index';
+import { safeArray } from '../utils/safeTypes';
 
 export const useUserDashboardData = (user: User) => {
-    const isBusiness = user.role === 'business';
-    const { activeBusinessId, activeBusiness, isLoading: isContextLoading } = useBusinessContext();
-    const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
-    const notificationsEnabled = notificationsFlag?.enabled ?? true;
-    const notificationsEnabledRef = useRef(notificationsEnabled);
-    notificationsEnabledRef.current = notificationsEnabled;
-    
-    // Ref to track the LATEST activeBusinessId regardless of closures
-    const activeIdRef = useRef(activeBusinessId);
-    activeIdRef.current = activeBusinessId;
-    
-    // Data States
-    const [myShop, setMyShop] = useState<ShopPartner | null>(null);
-    const [bizStats, setBizStats] = useState<any>(null);
-    const [suggestions, setSuggestions] = useState<SuggestionRequest[]>([]);
-    const [catalogRewards, setCatalogRewards] = useState<Reward[]>([]);
-    const [myRewards, setMyRewards] = useState<UserReward[]>([]);
-    const [notifications, setNotifications] = useState<AppNotification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const [sponsorRequests, setSponsorRequests] = useState<SponsorRequest[]>([]);
-    
-    // UI States
-    const [isLoading, setIsLoading] = useState(false);
+  const isBusiness = user.role === 'business';
+  const { activeBusinessId, activeBusiness, isLoading: isContextLoading } = useBusinessContext();
+  const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
+  const notificationsEnabled = notificationsFlag?.enabled ?? true;
+  const notificationsEnabledRef = useRef(notificationsEnabled);
+  notificationsEnabledRef.current = notificationsEnabled;
 
-    // --- WIPEOUT LOGIC ---
-    // Previene il cross-business leakage azzerando i dati durante lo switch
-    useEffect(() => {
-        if (activeBusinessId) {
-            setMyShop(null);
-            setBizStats(null);
-        }
-    }, [activeBusinessId]);
+  // Ref to track the LATEST activeBusinessId regardless of closures
+  const activeIdRef = useRef(activeBusinessId);
+  activeIdRef.current = activeBusinessId;
 
-    const refreshData = useCallback(async () => {
-        // SECURITY FIX: Skip fetch if user is null or guest
-        if (!user || user.role === 'guest') return;
-        
-        const requestId = Math.random().toString(36).substring(7);
-        const closureBizId = activeBusinessId;
-        const closureShopId = activeBusiness?.shopId;
+  // Data States
+  const [myShop, setMyShop] = useState<ShopPartner | null>(null);
+  const [bizStats, setBizStats] = useState<Awaited<ReturnType<typeof getBusinessStats>> | null>(
+    null,
+  );
+  const [suggestions, setSuggestions] = useState<SuggestionRequest[]>([]);
+  const [catalogRewards, setCatalogRewards] = useState<Reward[]>([]);
+  const [myRewards, setMyRewards] = useState<UserReward[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [sponsorRequests, setSponsorRequests] = useState<SponsorRequest[]>([]);
 
-        console.log(`[Req:${requestId}] Syncing dashboard data...`);
+  // UI States
+  const [isLoading, setIsLoading] = useState(false);
 
-        setIsLoading(true);
+  // --- WIPEOUT LOGIC ---
+  // Previene il cross-business leakage azzerando i dati durante lo switch
+  useEffect(() => {
+    if (activeBusinessId) {
+      setMyShop(null);
+      setBizStats(null);
+    }
+  }, [activeBusinessId]);
+
+  const refreshData = useCallback(async () => {
+    // SECURITY FIX: Skip fetch if user is null or guest
+    if (!user || user.role === 'guest') return;
+
+    const requestId = Math.random().toString(36).substring(7);
+    const closureBizId = activeBusinessId;
+    const closureShopId = activeBusiness?.shopId;
+
+    console.log(`[Req:${requestId}] Syncing dashboard data...`);
+
+    setIsLoading(true);
+    try {
+      // 1. Business Data (URL-AWARE)
+      if (isBusiness) {
         try {
-            // 1. Business Data (URL-AWARE)
-            if (isBusiness) {
-                try {
-                    // Se abbiamo un business attivo dal contesto/URL, usiamo quello
-                    if (closureBizId && activeBusiness) {
-                        const shopId = closureShopId;
-                        console.log(`[TRACE_REFRESH] [Req:${requestId}] Loading shop & stats for shopId:`, shopId);
-                        
-                        if (shopId) {
-                             // CARICAMENTO ATOMICO MULTI-BUSINESS (UUID-SAFE)
-                             const shop = await getShopById(shopId);
-                             
-                             const currentIdNow = activeIdRef.current;
-                             if (currentIdNow !== closureBizId) return;
-                             
-                             setMyShop(shop || null);
-                             
-                             // STATS REALI (ASINCRONE)
-                             const stats = await getBusinessStats(shopId);
-                             
-                             const currentIdAfterStats = activeIdRef.current;
-                             if (currentIdAfterStats !== closureBizId) return;
+          // Se abbiamo un business attivo dal contesto/URL, usiamo quello
+          if (closureBizId && activeBusiness) {
+            const shopId = closureShopId;
+            console.log(
+              `[TRACE_REFRESH] [Req:${requestId}] Loading shop & stats for shopId:`,
+              shopId,
+            );
 
-                             console.log(`[TRACE_REFRESH] [Req:${requestId}] Applying setBizStats for biz:`, closureBizId);
-                             setBizStats(stats);
-                        } else {
-                             console.warn(`[TRACE_REFRESH] [Req:${requestId}] No shopId found in activeBusiness!`);
-                             setMyShop(null);
-                             setBizStats(null);
-                        }
-                    } else if (!closureBizId) {
-                        console.log(`[TRACE_REFRESH] [Req:${requestId}] Falling back to Legacy getShopByOwner...`);
-                        const shop = await getShopByOwner(user.id);
-                        setMyShop(shop || null);
-                        if (shop?.id) {
-                            const stats = await getBusinessStats(shop.id);
-                            setBizStats(stats);
-                        }
-                    }
-                } catch (e) {
-                    console.error(`[TRACE_REFRESH] [Req:${requestId}] Shop load error`, e);
-                }
-            }
-            
-            // 1.5. Sponsor Requests & Active Sponsors (URL-FILTERED)
-            const [requests, activeSponsors] = await Promise.all([
-                getSponsorRequestsByProfile(user.id),
-                getSponsorsByOwner(user.id)
-            ]);
-            
-            if (activeIdRef.current === closureBizId) {
-                setSponsorRequests(safeArray<SponsorRequest>(requests));
+            if (shopId) {
+              // CARICAMENTO ATOMICO MULTI-BUSINESS (UUID-SAFE)
+              const shop = await getShopById(shopId);
+
+              const currentIdNow = activeIdRef.current;
+              if (currentIdNow !== closureBizId) return;
+
+              setMyShop(shop || null);
+
+              // STATS REALI (ASINCRONE)
+              const stats = await getBusinessStats(shopId);
+
+              const currentIdAfterStats = activeIdRef.current;
+              if (currentIdAfterStats !== closureBizId) return;
+
+              console.log(
+                `[TRACE_REFRESH] [Req:${requestId}] Applying setBizStats for biz:`,
+                closureBizId,
+              );
+              setBizStats(stats);
             } else {
-                console.warn(`[TRACE_REFRESH] [Req:${requestId}] Skipping sponsor requests update - STALE`);
+              console.warn(`[TRACE_REFRESH] [Req:${requestId}] No shopId found in activeBusiness!`);
+              setMyShop(null);
+              setBizStats(null);
             }
-
-            // 2. Community & Gamification
-            const [sugs, rewardsCatalog] = await Promise.all([
-                getUserSuggestionsAsync(user.id),
-                getRewardsAsync()
-            ]);
-            
-            if (activeIdRef.current === closureBizId) {
-                setSuggestions(safeArray<SuggestionRequest>(sugs));
-                setCatalogRewards(safeArray<Reward>(rewardsCatalog));
-                setMyRewards(getClaimedRewards(user.id));
+          } else if (!closureBizId) {
+            console.log(
+              `[TRACE_REFRESH] [Req:${requestId}] Falling back to Legacy getShopByOwner...`,
+            );
+            const shop = await getShopByOwner(user.id);
+            setMyShop(shop || null);
+            if (shop?.id) {
+              const stats = await getBusinessStats(shop.id);
+              setBizStats(stats);
             }
-
-            // 3. Notifications (FIX: ASYNC FETCH) — skip when feature.comms.notifications is OFF
-            if (!notificationsEnabled) {
-                if (activeIdRef.current === closureBizId) {
-                    setNotifications([]);
-                    setUnreadCount(0);
-                }
-            } else {
-                const notifs = await fetchNotificationsAsync(user.id);
-                const safeNotifs = safeArray<AppNotification>(notifs);
-
-                // Ignora risultati se il flag è passato a OFF (o business stale) durante l'await
-                if (
-                    activeIdRef.current === closureBizId &&
-                    notificationsEnabledRef.current
-                ) {
-                    setNotifications(safeNotifs);
-                    setUnreadCount(safeNotifs.filter(n => !n.isRead).length);
-                }
-            }
-
-        } finally {
-            setIsLoading(false);
+          }
+        } catch (e) {
+          console.error(`[TRACE_REFRESH] [Req:${requestId}] Shop load error`, e);
         }
-    }, [user, isBusiness, activeBusinessId, activeBusiness, notificationsEnabled]);
+      }
 
-    // Initial Load & Reactive Switch
-    useEffect(() => {
-        refreshData();
-    }, [refreshData, activeBusinessId, isBusiness]);
+      // 1.5. Sponsor Requests & Active Sponsors (URL-FILTERED)
+      const [requests, activeSponsors] = await Promise.all([
+        getSponsorRequestsByProfile(user.id),
+        getSponsorsByOwner(user.id),
+      ]);
 
-    // Actions
-    const handleClaimReward = (reward: Reward, isUnlocked: boolean) => {
-        if (!isUnlocked) return false;
-        const existingActive = myRewards.find(r => r.rewardId === reward.id && r.status === 'active');
-        if (existingActive) return true; // Already active
+      if (activeIdRef.current === closureBizId) {
+        setSponsorRequests(safeArray<SponsorRequest>(requests));
+      } else {
+        console.warn(`[TRACE_REFRESH] [Req:${requestId}] Skipping sponsor requests update - STALE`);
+      }
 
-        const newCoupon = claimReward(user.id, reward);
-        // `gamification_frozen`: flag feature.gamification.rewards OFF — non è un errore di salvataggio.
-        if (!newCoupon.success) return false;
-        setMyRewards(prev => [newCoupon.reward, ...prev]);
-        return true;
-    };
+      // 2. Community & Gamification
+      const [sugs, rewardsCatalog] = await Promise.all([
+        getUserSuggestionsAsync(user.id),
+        getRewardsAsync(),
+      ]);
 
-    const handleMarkUsed = (instanceId: string) => {
-        markRewardAsUsed(instanceId);
-        setMyRewards(prev => prev.map(r => r.instanceId === instanceId ? { ...r, status: 'used' } : r));
-    };
+      if (activeIdRef.current === closureBizId) {
+        setSuggestions(safeArray<SuggestionRequest>(sugs));
+        setCatalogRewards(safeArray<Reward>(rewardsCatalog));
+        setMyRewards(getClaimedRewards(user.id));
+      }
 
-    return {
-        myShop,
-        bizStats,
-        suggestions,
-        catalogRewards,
-        myRewards,
-        notifications,
-        unreadCount,
-        sponsorRequests, // EXPORTED
-        isLoading,
-        refreshData,
-        handleClaimReward,
-        handleMarkUsed,
-        setNotifications,
-        setUnreadCount
-    };
+      // 3. Notifications (FIX: ASYNC FETCH) — skip when feature.comms.notifications is OFF
+      if (!notificationsEnabled) {
+        if (activeIdRef.current === closureBizId) {
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      } else {
+        const notifs = await fetchNotificationsAsync(user.id);
+        const safeNotifs = safeArray<AppNotification>(notifs);
+
+        // Ignora risultati se il flag è passato a OFF (o business stale) durante l'await
+        if (activeIdRef.current === closureBizId && notificationsEnabledRef.current) {
+          setNotifications(safeNotifs);
+          setUnreadCount(safeNotifs.filter((n) => !n.isRead).length);
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, isBusiness, activeBusinessId, activeBusiness, notificationsEnabled]);
+
+  // Initial Load & Reactive Switch
+  useEffect(() => {
+    refreshData();
+  }, [refreshData, activeBusinessId, isBusiness]);
+
+  // Actions
+  const handleClaimReward = (reward: Reward, isUnlocked: boolean) => {
+    if (!isUnlocked) return false;
+    const existingActive = myRewards.find((r) => r.rewardId === reward.id && r.status === 'active');
+    if (existingActive) return true; // Already active
+
+    const newCoupon = claimReward(user.id, reward);
+    // `gamification_frozen`: flag feature.gamification.rewards OFF — non è un errore di salvataggio.
+    if (!newCoupon.success) return false;
+    setMyRewards((prev) => [newCoupon.reward, ...prev]);
+    return true;
+  };
+
+  const handleMarkUsed = (instanceId: string) => {
+    markRewardAsUsed(instanceId);
+    setMyRewards((prev) =>
+      prev.map((r) => (r.instanceId === instanceId ? { ...r, status: 'used' } : r)),
+    );
+  };
+
+  return {
+    myShop,
+    bizStats,
+    suggestions,
+    catalogRewards,
+    myRewards,
+    notifications,
+    unreadCount,
+    sponsorRequests, // EXPORTED
+    isLoading,
+    refreshData,
+    handleClaimReward,
+    handleMarkUsed,
+    setNotifications,
+    setUnreadCount,
+  };
 };

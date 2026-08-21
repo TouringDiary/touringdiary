@@ -1,11 +1,8 @@
-import { supabase } from '@/services/supabaseClient';
 import { userNeedsUsername } from '@/domain/profile/username';
-import { areUsersBlocked } from './userBlockService';
-import {
-  resolveUserIdByEmail,
-  resolveUserIdByUsername,
-} from './collaborationUserSearchService';
+import { supabase } from '@/services/supabaseClient';
+import { resolveUserIdByEmail, resolveUserIdByUsername } from './collaborationUserSearchService';
 import type { InviteTarget } from './resourceInviteService';
+import { areUsersBlocked } from './userBlockService';
 
 export async function resolveInviteeId(target: InviteTarget): Promise<string | null> {
   if ('userId' in target) return target.userId;
@@ -13,10 +10,7 @@ export async function resolveInviteeId(target: InviteTarget): Promise<string | n
   return resolveUserIdByUsername(target.username);
 }
 
-export async function validateInvitee(
-  ownerId: string,
-  inviteeId: string
-): Promise<string | null> {
+export async function validateInvitee(ownerId: string, inviteeId: string): Promise<string | null> {
   if (inviteeId === ownerId) {
     return 'Non puoi invitare te stesso.';
   }
@@ -34,7 +28,7 @@ export async function validateInvitee(
     return 'Utente non trovato.';
   }
   if (userNeedsUsername(profile.slug)) {
-    return 'L\'utente non ha ancora un Nome utente e non può collaborare.';
+    return "L'utente non ha ancora un Nome utente e non può collaborare.";
   }
 
   return null;

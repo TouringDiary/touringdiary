@@ -2,15 +2,18 @@
 
 > Dettaglio baseline Biome full-project. Dashboard: [`AI_BIOME_AUDIT.md`](../../AI_BIOME_AUDIT.md)
 
+> **Snapshot live 2026-08-08** (SoT): `noLabelWithoutControl` **48** (31 file) · `noAutofocus` **17** (L4).  
+> Le tabelle di dettaglio file restano la **baseline storica 2026-08-03** (non riscritte).
+
 | Campo | Valore |
 |----|----|
 | **Documento** | `AI_QUALITY/biome/B_a11y_labels_and_forms.md` |
 | **Categorie** | `lint/a11y/noLabelWithoutControl`, `lint/a11y/noAutofocus` |
-| **Occorrenze (somma gruppo)** | **257** |
-| **File unici nel gruppo** | **88** |
-| **Livello** | **B** |
-| **Ultimo aggiornamento** | 2026-08-03 |
-| **Stato** | Baseline ufficiale — nessuna correzione applicata in questa attivita |
+| **Occorrenze (somma gruppo)** | Baseline **257** · Live labels **48** + autofocus **17** |
+| **File unici nel gruppo** | Baseline **88** · Live labels **31** |
+| **Livello** | **B** (labels → B2b) / autofocus **L4** |
+| **Ultimo aggiornamento** | 2026-08-08 (live) / baseline 2026-08-03 |
+| **Stato** | B2b IN CORSO (labels residue) — baseline storica preservata sotto |
 
 ## `lint/a11y/noLabelWithoutControl`
 
@@ -23,13 +26,13 @@ label deve essere associata a un controllo.
 | Campo | Valore |
 |----|----|
 | **Categoria Biome** | `lint/a11y/noLabelWithoutControl` |
-| **Occorrenze totali** | **240** |
-| **Error** | 240 |
+| **Occorrenze totali** | Baseline **240** · Live **48** |
+| **Error** | Live **48** |
 | **Warning** | 0 |
 | **Info** | 0 |
-| **File coinvolti** | **80** |
+| **File coinvolti** | Baseline **80** · Live **31** |
 | **Livello di rischio** | **B** |
-| **Stato bonifica** | Aperto (baseline) |
+| **Stato bonifica** | B2b IN CORSO (residuo post-BASSO) |
 | **Decisione finale baseline** | da correggere |
 
 ### Motivazione della classificazione

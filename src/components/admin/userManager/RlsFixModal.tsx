@@ -1,18 +1,17 @@
-import { Z_OVERLAY, Z_ADMIN_MODAL } from '@/constants/zIndex';
-import React, { useState } from 'react';
+import { CheckCircle, Copy, ExternalLink, Terminal } from 'lucide-react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { CountBadge } from '@/components/ui/CountBadge';
-import { Terminal, Copy, CheckCircle, ExternalLink } from 'lucide-react';
-
+import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { Z_ADMIN_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 
 interface Props {
-    onClose: () => void;
+  onClose: () => void;
 }
 
 export const RlsFixModal = ({ onClose }: Props) => {
-    const [copied, setCopied] = useState(false);
-    const sqlCode = `-- FIX DEFINITIVO PERMESSI CANCELLAZIONE (v8.0 - DELETE ENABLED)
+  const [copied, setCopied] = useState(false);
+  const sqlCode = `-- FIX DEFINITIVO PERMESSI CANCELLAZIONE (v8.0 - DELETE ENABLED)
 -- Esegui questo script in Supabase > SQL Editor per sbloccare la cancellazione.
 
 -- 1. Disabilita temporaneamente RLS per pulizia (Safety)
@@ -56,77 +55,106 @@ GRANT ALL ON public.itineraries TO service_role;
 SELECT 'Permessi DELETE aggiornati con successo.' as status;
 `;
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(sqlCode);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(sqlCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-    return createPortal(
-        // admin-super-layer modal | intentionally rendered above global modal stack
-        <div 
-            className="td-modal-overlay p-4 bg-black/90 backdrop-blur-md animate-in fade-in"
-            style={{ zIndex: Z_OVERLAY }}
-        >
-            <div 
-                className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-indigo-500 shadow-2xl p-6 relative flex flex-col max-h-[90vh]"
-                style={{ zIndex: Z_ADMIN_MODAL }}
-            >
-                <CloseButton onClose={onClose} variant="primary" position="absolute" className="top-4 right-4" />
-                
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-900/40">
-                        <Terminal className="w-6 h-6 text-white"/>
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-bold text-white">Fix Permessi Cancellazione (Ultimate)</h3>
-                        <p className="text-sm text-slate-400">Questo script resetta completamente le regole di sicurezza per garantire che tu possa cancellare i tuoi diari.</p>
-                    </div>
-                </div>
+  return createPortal(
+    // admin-super-layer modal | intentionally rendered above global modal stack
+    <div
+      className="td-modal-overlay p-4 bg-black/90 backdrop-blur-md animate-in fade-in"
+      style={{ zIndex: Z_OVERLAY }}
+    >
+      <div
+        className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-indigo-500 shadow-2xl p-6 relative flex flex-col max-h-[90vh]"
+        style={{ zIndex: Z_ADMIN_MODAL }}
+      >
+        <CloseButton
+          onClose={onClose}
+          variant="primary"
+          position="absolute"
+          className="top-4 right-4"
+        />
 
-                <div className="bg-black rounded-xl border border-slate-700 p-4 overflow-x-auto relative group flex-1 custom-scrollbar">
-                    <pre className="text-emerald-400 font-mono text-xs leading-relaxed whitespace-pre-wrap">
-                        {sqlCode}
-                    </pre>
-                    <button 
-                        onClick={copyToClipboard}
-                        className="absolute top-2 right-2 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-600 transition-all shadow-lg"
-                    >
-                        {copied ? <CheckCircle className="w-3 h-3 text-emerald-500"/> : <Copy className="w-3 h-3"/>}
-                        {copied ? 'Copiato!' : 'Copia SQL'}
-                    </button>
-                </div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-900/40">
+            <Terminal className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white">Fix Permessi Cancellazione (Ultimate)</h3>
+            <p className="text-sm text-slate-400">
+              Questo script resetta completamente le regole di sicurezza per garantire che tu possa
+              cancellare i tuoi diari.
+            </p>
+          </div>
+        </div>
 
-                <div className="mt-6 space-y-3 shrink-0">
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <CountBadge display="1" size="md" variant="neutral" className="w-6 h-6 min-w-[24px] shrink-0" />
-                        <p>Clicca <strong>Copia SQL</strong> qui sopra.</p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <CountBadge display="2" size="md" variant="neutral" className="w-6 h-6 min-w-[24px] shrink-0" />
-                        <p>Vai su <strong>Supabase Dashboard</strong> {'>'} <strong>SQL Editor</strong>.</p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <CountBadge display="3" size="md" variant="neutral" className="w-6 h-6 min-w-[24px] shrink-0" />
-                        <p>Incolla ed esegui (Run). Poi riprova a cancellare.</p>
-                    </div>
-                </div>
+        <div className="bg-black rounded-xl border border-slate-700 p-4 overflow-x-auto relative group flex-1 custom-scrollbar">
+          <pre className="text-emerald-400 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+            {sqlCode}
+          </pre>
+          <button
+            type="button"
+            onClick={copyToClipboard}
+            className="absolute top-2 right-2 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-600 transition-all shadow-lg"
+          >
+            {copied ? (
+              <CheckCircle className="w-3 h-3 text-emerald-500" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+            {copied ? 'Copiato!' : 'Copia SQL'}
+          </button>
+        </div>
 
-                <div className="mt-6 pt-4 border-t border-slate-800 flex justify-end shrink-0">
-                    <a 
-                        href="https://supabase.com/dashboard/project/_/sql" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-transform active:scale-95"
-                    >
-                        Vai a Supabase <ExternalLink className="w-4 h-4"/>
-                    </a>
-                </div>
-            </div>
-        </div>,
-        document.body
-    );
+        <div className="mt-6 space-y-3 shrink-0">
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <CountBadge
+              display="1"
+              size="md"
+              variant="neutral"
+              className="w-6 h-6 min-w-[24px] shrink-0"
+            />
+            <p>
+              Clicca <strong>Copia SQL</strong> qui sopra.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <CountBadge
+              display="2"
+              size="md"
+              variant="neutral"
+              className="w-6 h-6 min-w-[24px] shrink-0"
+            />
+            <p>
+              Vai su <strong>Supabase Dashboard</strong> {'>'} <strong>SQL Editor</strong>.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <CountBadge
+              display="3"
+              size="md"
+              variant="neutral"
+              className="w-6 h-6 min-w-[24px] shrink-0"
+            />
+            <p>Incolla ed esegui (Run). Poi riprova a cancellare.</p>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-slate-800 flex justify-end shrink-0">
+          <a
+            href="https://supabase.com/dashboard/project/_/sql"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-transform active:scale-95"
+          >
+            Vai a Supabase <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 };
-
-
-

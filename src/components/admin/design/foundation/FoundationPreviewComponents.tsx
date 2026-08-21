@@ -1,7 +1,7 @@
-import React from 'react';
 import { Check, Layers, Sparkles } from 'lucide-react';
-import type { StyleRule } from '@/types/designSystem';
+import type React from 'react';
 import { constructClassName } from '@/hooks/useDynamicStyles';
+import type { StyleRule } from '@/types/designSystem';
 import type { StyleRuleEditorMeta } from '../editorTypes';
 
 interface PreviewProps {
@@ -38,12 +38,13 @@ export const FoundationModalShellPreview: React.FC<PreviewProps> = ({ styleClass
   </div>
 );
 
-export const FoundationSelectableCardPreview: React.FC<PreviewProps> = ({ styleClass, componentKey }) => {
+export const FoundationSelectableCardPreview: React.FC<PreviewProps> = ({
+  styleClass,
+  componentKey,
+}) => {
   const isSelected = componentKey.includes('selected') && !componentKey.includes('unselected');
   return (
-    <div
-      className={`${styleClass} w-full max-w-[220px] min-h-[100px] p-4 relative text-left`}
-    >
+    <div className={`${styleClass} w-full max-w-[220px] min-h-[100px] p-4 relative text-left`}>
       <div
         className={`absolute top-3 right-3 w-4 h-4 rounded-full border flex items-center justify-center ${
           isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-white/10 bg-black/20'
@@ -52,7 +53,9 @@ export const FoundationSelectableCardPreview: React.FC<PreviewProps> = ({ styleC
         {isSelected && <Check className="w-2.5 h-2.5 text-white stroke-[4]" />}
       </div>
       <div className="flex items-center gap-2 pr-6">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? 'bg-indigo-500' : 'bg-slate-800'}`}>
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? 'bg-indigo-500' : 'bg-slate-800'}`}
+        >
           <Layers className="w-4 h-4 text-white" />
         </div>
         <span className="text-xs font-bold text-white">Opzione</span>
@@ -101,7 +104,10 @@ export const FoundationModalLivePreview: React.FC<FoundationModalLivePreviewProp
   return (
     <div className={`${overlay} p-4 rounded-xl`}>
       <div className={`${container} max-w-lg mx-auto pointer-events-none`}>
-        <div className={`absolute ${closeOffset} w-6 h-6 rounded-full bg-red-600 shrink-0`} aria-hidden />
+        <div
+          className={`absolute ${closeOffset} w-6 h-6 rounded-full bg-red-600 shrink-0`}
+          aria-hidden
+        />
         <header className={header}>
           <div className="flex items-center gap-3 pr-10 min-w-0">
             <div className={headerIconBox}>

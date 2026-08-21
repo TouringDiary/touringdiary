@@ -1,11 +1,11 @@
-import React from 'react';
-import { createPortal } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
-import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import type React from 'react';
+import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 
 export type ResourceConflictKind = 'diary' | 'suitcase';
 
@@ -44,28 +44,41 @@ export const ResourceConflictCopyModal: React.FC<Props> = ({
   return createPortal(
     <div
       className={`td-modal-overlay ${overlayShell} !items-center`}
-      onClick={busy ? undefined : onClose}
       style={{ zIndex: Z_OVERLAY }}
+      role="presentation"
     >
+      {!busy ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+          onClick={onClose}
+        />
+      ) : null}
       <div
-        className={`${containerShell} max-w-md outline-none`}
+        className={`relative ${containerShell} max-w-md outline-none`}
         style={{ zIndex: Z_MODAL }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="resource-conflict-copy-title"
       >
         <CloseButton
           onClose={onClose}
           variant="primary"
           position="absolute"
           className={`${closeOffsetShell} z-local-overlay`}
+          withEscape={false}
+          disabled={!!busy}
         />
         <div className={`${bodyShell} min-h-0`}>
           <div className="flex items-center gap-3 mb-4 pr-10">
             <div className="p-2 bg-amber-600/20 rounded-lg shrink-0">
               <AlertTriangle className="w-6 h-6 text-amber-400" aria-hidden />
             </div>
-            <h3 className={modalTitleShell}>Crea una copia</h3>
+            <h3 id="resource-conflict-copy-title" className={modalTitleShell}>
+              Crea una copia
+            </h3>
           </div>
           <p className="text-sm text-slate-300 leading-relaxed mb-6">{MESSAGES[kind]}</p>
           <div className="flex gap-3">

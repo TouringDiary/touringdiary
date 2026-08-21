@@ -1,7 +1,7 @@
 import {
-  tryAcquireSharedResourceEditLock,
-  releaseSharedResourceEditLock,
   getSharedResourceEditLockHolder,
+  releaseSharedResourceEditLock,
+  tryAcquireSharedResourceEditLock,
 } from './sharedResourceLockService';
 
 /**

@@ -31,9 +31,7 @@ export function formatItalianDate(value: string | number | Date): string {
 
 /** Data e ora in formato italiano compatto, es. 24/06/2026 09:38 */
 export function formatItalianDateTime(value: string | number | Date): string {
-  return new Date(value)
-    .toLocaleString('it-IT', ITALIAN_DATE_TIME_OPTIONS)
-    .replace(',', '');
+  return new Date(value).toLocaleString('it-IT', ITALIAN_DATE_TIME_OPTIONS).replace(',', '');
 }
 
 /** Data e ora in formato italiano con secondi, es. 24/06/2026 - 09:38:12 */

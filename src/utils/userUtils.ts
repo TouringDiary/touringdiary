@@ -5,15 +5,15 @@ import type { User } from '../types/users';
  * È una funzione pura, senza dipendenze esterne, sicura da usare durante l'inizializzazione.
  */
 export const getGuestUser = (): User => ({
-    id: 'guest',
-    name: 'Visitatore',
-    email: '',
-    role: 'guest',
-    status: 'active',
-    isTestAccount: false,
-    nation: '',
-    city: '',
-    registrationDate: new Date().toISOString(),
-    lastAccess: new Date().toISOString(),
-    xp: 0
+  id: 'guest',
+  name: 'Visitatore',
+  email: '',
+  role: 'guest',
+  status: 'active',
+  isTestAccount: false,
+  nation: '',
+  city: '',
+  registrationDate: new Date().toISOString(),
+  lastAccess: new Date().toISOString(),
+  xp: 0,
 });

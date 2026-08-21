@@ -74,9 +74,7 @@ export function isDesignSystemSnapshot(value: unknown): value is DesignSystemSna
   if (!value || typeof value !== 'object') return false;
   const v = value as DesignSystemSnapshot;
   return (
-    typeof v.version === 'string' &&
-    typeof v.generatedAt === 'string' &&
-    Array.isArray(v.rules)
+    typeof v.version === 'string' && typeof v.generatedAt === 'string' && Array.isArray(v.rules)
   );
 }
 

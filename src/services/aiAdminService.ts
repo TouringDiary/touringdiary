@@ -511,7 +511,7 @@ export const getEconomicsDashboardData = async (): Promise<AiEconomicsDashboardD
     stats.trends.monthly[month] = (stats.trends.monthly[month] || 0) + cost;
 
     // 6. Seasonality (Aggregata per costo)
-    const m = parseInt(date.split('-')[1]);
+    const m = parseInt(date.split('-')[1], 10);
     if ([12, 1, 2].includes(m)) stats.trends.seasonal.winter += cost;
     else if ([3, 4, 5].includes(m)) stats.trends.seasonal.spring += cost;
     else if ([6, 7, 8].includes(m)) stats.trends.seasonal.summer += cost;
@@ -541,13 +541,155 @@ export const getControlTowerData = async () => {
 
   return data;
 };
+
+/** Contratto UI Control Tower → Analytics (RPC `get_ai_economics_stats_v4`). */
+export interface AiEconomicsFeatureStatV4 {
+  feature_name: string;
+  request_count: number;
+  avg_tokens: number;
+  total_cost: number;
+}
+
+export interface AiEconomicsUserTypeStatV4 {
+  user_role: string;
+  total_cost: number;
+}
+
+export interface AiEconomicsDailyTrendV4 {
+  date: string;
+  cost: number;
+  request_count?: number;
+}
+
+export interface AiEconomicsStatsV4 {
+  revenue_30d: number;
+  costs_30d: number;
+  margin_30d: number;
+  feature_stats: AiEconomicsFeatureStatV4[];
+  user_type_stats: AiEconomicsUserTypeStatV4[];
+  daily_trends: AiEconomicsDailyTrendV4[];
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readFiniteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
 /**
- * Recupera i dati economici avanzati v4 per la dashboard admin
+ * `json_agg` in Postgres restituisce NULL se non ci sono righe — non un array vuoto.
+ * Il contratto UI richiede array: normalizziamo null → [] senza inventare KPI.
  */
-export const getAiEconomicsStatsV4 = async () => {
+function readJsonAggArray(value: unknown): unknown[] | null {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value;
+  return null;
+}
+
+function parseFeatureStat(value: unknown): AiEconomicsFeatureStatV4 | null {
+  if (!isPlainRecord(value)) return null;
+  const feature_name = readString(value.feature_name);
+  const request_count = readFiniteNumber(value.request_count);
+  const avg_tokens = readFiniteNumber(value.avg_tokens);
+  const total_cost = readFiniteNumber(value.total_cost);
+  if (
+    feature_name === undefined ||
+    request_count === undefined ||
+    avg_tokens === undefined ||
+    total_cost === undefined
+  ) {
+    return null;
+  }
+  return { feature_name, request_count, avg_tokens, total_cost };
+}
+
+function parseUserTypeStat(value: unknown): AiEconomicsUserTypeStatV4 | null {
+  if (!isPlainRecord(value)) return null;
+  const user_role = readString(value.user_role);
+  const total_cost = readFiniteNumber(value.total_cost);
+  if (user_role === undefined || total_cost === undefined) return null;
+  return { user_role, total_cost };
+}
+
+function parseDailyTrend(value: unknown): AiEconomicsDailyTrendV4 | null {
+  if (!isPlainRecord(value)) return null;
+  const date = readString(value.date);
+  const cost = readFiniteNumber(value.cost);
+  if (date === undefined || cost === undefined) return null;
+  // RPC espone `requests`; la UI usa `request_count` opzionale.
+  const request_count =
+    readFiniteNumber(value.request_count) ?? readFiniteNumber(value.requests) ?? undefined;
+  return request_count === undefined ? { date, cost } : { date, cost, request_count };
+}
+
+/**
+ * Normalizza e valida il payload RPC per la Control Tower Analytics.
+ * Restituisce null se il payload non è utilizzabile (non inventa ricavi/costi).
+ */
+export function parseAiEconomicsStatsV4(value: unknown): AiEconomicsStatsV4 | null {
+  if (!isPlainRecord(value)) return null;
+
+  const revenue_30d = readFiniteNumber(value.revenue_30d);
+  const costs_30d = readFiniteNumber(value.costs_30d);
+  const margin_30d = readFiniteNumber(value.margin_30d);
+  if (revenue_30d === undefined || costs_30d === undefined || margin_30d === undefined) {
+    return null;
+  }
+
+  const featureRaw = readJsonAggArray(value.feature_stats);
+  const userRaw = readJsonAggArray(value.user_type_stats);
+  const dailyRaw = readJsonAggArray(value.daily_trends);
+  if (featureRaw === null || userRaw === null || dailyRaw === null) return null;
+
+  const feature_stats: AiEconomicsFeatureStatV4[] = [];
+  for (const row of featureRaw) {
+    const parsed = parseFeatureStat(row);
+    if (!parsed) return null;
+    feature_stats.push(parsed);
+  }
+
+  const user_type_stats: AiEconomicsUserTypeStatV4[] = [];
+  for (const row of userRaw) {
+    const parsed = parseUserTypeStat(row);
+    if (!parsed) return null;
+    user_type_stats.push(parsed);
+  }
+
+  const daily_trends: AiEconomicsDailyTrendV4[] = [];
+  for (const row of dailyRaw) {
+    const parsed = parseDailyTrend(row);
+    if (!parsed) return null;
+    daily_trends.push(parsed);
+  }
+
+  return {
+    revenue_30d,
+    costs_30d,
+    margin_30d,
+    feature_stats,
+    user_type_stats,
+    daily_trends,
+  };
+}
+
+/**
+ * Recupera i dati economici avanzati v4 per la dashboard admin.
+ * Normalizza gli aggregati NULL di `json_agg` in array vuoti (contratto UI).
+ */
+export const getAiEconomicsStatsV4 = async (): Promise<AiEconomicsStatsV4> => {
   const { data, error } = await supabase.rpc('get_ai_economics_stats_v4');
   if (error) throw error;
-  return data;
+  const parsed = parseAiEconomicsStatsV4(data);
+  if (!parsed) {
+    throw new Error('Invalid AI economics stats payload');
+  }
+  return parsed;
 };
 
 /**

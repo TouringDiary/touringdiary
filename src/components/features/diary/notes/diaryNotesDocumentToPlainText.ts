@@ -1,6 +1,10 @@
-import type { DiaryNotesDocument, DiaryNotesNode, DiaryNotesState } from '@/types/models/DiaryNotes';
-import { isDiaryNotesState, normalizeDiaryNotes } from '@/types/models/DiaryNotes';
 import { normalizeDiaryNotesState } from '@/domain/diary/diaryNotesState';
+import type {
+  DiaryNotesDocument,
+  DiaryNotesNode,
+  DiaryNotesState,
+} from '@/types/models/DiaryNotes';
+import { isDiaryNotesState, normalizeDiaryNotes } from '@/types/models/DiaryNotes';
 
 function extractNodeText(node: DiaryNotesNode): string {
   if (node.text) return node.text;
@@ -69,9 +73,7 @@ export function diaryNotesDocumentToPlainText(
 }
 
 /** Converte lo stato NOTE (tutti i tab) in testo piano per export (txt/docx). */
-export function diaryNotesStateToPlainText(
-  state: DiaryNotesState | null | undefined,
-): string {
+export function diaryNotesStateToPlainText(state: DiaryNotesState | null | undefined): string {
   if (!state?.tabs.length) return '';
 
   const sections = state.tabs

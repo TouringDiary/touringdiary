@@ -1,25 +1,19 @@
-import React from 'react';
-import {
-  WORKSPACE_OPERATIONAL_SECTIONS,
-} from './globalWorkspacePresentation';
+import type React from 'react';
 import { WORKSPACE_HUB_TABPANEL_CLASS } from '@/constants/workspacePanelLayout';
+import { WORKSPACE_OPERATIONAL_SECTIONS } from './globalWorkspacePresentation';
+import { AllegatiSection } from './sections/AllegatiSection';
+import { AttivitaSection } from './sections/AttivitaSection';
+import { CondivisioneSection } from './sections/CondivisioneSection';
+import { InvitiSection } from './sections/InvitiSection';
+import { UtentiSection } from './sections/UtentiSection';
+import { WorkspaceSection } from './sections/WorkspaceSection';
+import { WorkspaceActiveContextBar } from './WorkspaceActiveContextBar';
 import { useWorkspacePanelState } from './WorkspacePanelContext';
 import { WorkspaceSectionNav } from './WorkspaceSectionNav';
-import { WorkspaceActiveContextBar } from './WorkspaceActiveContextBar';
-import { WorkspaceSection } from './sections/WorkspaceSection';
-import { CondivisioneSection } from './sections/CondivisioneSection';
-import { AttivitaSection } from './sections/AttivitaSection';
-import { UtentiSection } from './sections/UtentiSection';
-import { InvitiSection } from './sections/InvitiSection';
-import { AllegatiSection } from './sections/AllegatiSection';
 
 export const GlobalWorkspacePanelBody: React.FC = () => {
-  const {
-    activeSection,
-    activeWorkspace,
-    activeWorkspaceRole,
-    navigateToSection,
-  } = useWorkspacePanelState();
+  const { activeSection, activeWorkspace, activeWorkspaceRole, navigateToSection } =
+    useWorkspacePanelState();
 
   const showContextBar =
     activeWorkspace &&
@@ -32,37 +26,67 @@ export const GlobalWorkspacePanelBody: React.FC = () => {
     switch (activeSection) {
       case 'workspace':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={`workspace-hub-tab-${activeSection}`}
+            className={WORKSPACE_HUB_TABPANEL_CLASS}
+          >
             <WorkspaceSection />
           </div>
         );
       case 'condivisione':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={`workspace-hub-tab-${activeSection}`}
+            className={WORKSPACE_HUB_TABPANEL_CLASS}
+          >
             <CondivisioneSection />
           </div>
         );
       case 'attivita':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={`workspace-hub-tab-${activeSection}`}
+            className={WORKSPACE_HUB_TABPANEL_CLASS}
+          >
             <AttivitaSection />
           </div>
         );
       case 'allegati':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={`workspace-hub-tab-${activeSection}`}
+            className={WORKSPACE_HUB_TABPANEL_CLASS}
+          >
             <AllegatiSection />
           </div>
         );
       case 'utenti':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={`workspace-hub-tab-${activeSection}`}
+            className={WORKSPACE_HUB_TABPANEL_CLASS}
+          >
             <UtentiSection />
           </div>
         );
       case 'inviti':
         return (
-          <div id={panelId} role="tabpanel" aria-labelledby={`workspace-hub-tab-${activeSection}`} className={WORKSPACE_HUB_TABPANEL_CLASS}>
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={`workspace-hub-tab-${activeSection}`}
+            className={WORKSPACE_HUB_TABPANEL_CLASS}
+          >
             <InvitiSection />
           </div>
         );

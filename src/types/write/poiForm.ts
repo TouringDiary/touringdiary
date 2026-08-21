@@ -1,306 +1,336 @@
 import {
-    PointOfInterest,
-    PoiCategory,
-    PoiSubCategory,
-    OpeningHours,
-    AffiliateLinks,
-    MediaStatus
-} from '../index';
-import { SponsorTier, SPONSOR_TIER_VALUES } from '../../constants/planTypes';
-import { EMPTY_AFFILIATE_LINKS, EMPTY_OPENING_HOURS } from '../shared/primitives';
-import {
-    POI_SUBCATEGORY_VALUES,
-    TOURISM_INTEREST_VALUES,
-    AI_RELIABILITY_VALUES,
-    IMAGE_LICENSE_VALUES
+  AI_RELIABILITY_VALUES,
+  IMAGE_LICENSE_VALUES,
+  POI_SUBCATEGORY_VALUES,
+  TOURISM_INTEREST_VALUES,
 } from '../../constants/governance';
+import { SPONSOR_TIER_VALUES, type SponsorTier } from '../../constants/planTypes';
 import { sanitizeMediaStatus } from '../../utils/media';
+import type {
+  AffiliateLinks,
+  MediaStatus,
+  OpeningHours,
+  PoiCategory,
+  PointOfInterest,
+  PoiSubCategory,
+} from '../index';
+import { EMPTY_AFFILIATE_LINKS } from '../shared/primitives';
 
 /**
  * PoiFormData: Stato intermedio per il form di editing POI.
- * 
+ *
  * ARCHITETTURA:
  * Questo tipo separa lo stato transitorio della UI (permissivo) dal domain model
  * PointOfInterest (STRICT).
  */
 export interface PoiFormData {
-    // --- Identità & Core ---
-    id: string;
-    name: string;
-    description: string;
-    imageUrl: string;
-    image_status: MediaStatus;
-    category: PoiCategory;
-    subCategory: string;
-    coords: { lat: number; lng: number };
-    address: string;
-    priceLevel: number;
-    status: PointOfInterest['status'];
-    visitDuration: string;
-    website: string;
+  // --- Identità & Core ---
+  id: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  image_status: MediaStatus;
+  category: PoiCategory;
+  subCategory: string;
+  /** Assente = nessuna posizione nota (allineato a PointOfInterest.coords?). Partial = editing in corso. */
+  coords?: { lat?: number; lng?: number };
+  address: string;
+  priceLevel: number;
+  status: PointOfInterest['status'];
+  visitDuration: string;
+  website: string;
 
-    // --- Media Metadata (Editable) ---
-    imageCredit: string;
-    imageLicense: PointOfInterest['imageLicense'] | '';
+  // --- Media Metadata (Editable) ---
+  imageCredit: string;
+  imageLicense: NonNullable<PointOfInterest['imageLicense']> | '';
 
-    // --- AI & Quality (Editable) ---
-    tourismInterest: NonNullable<PointOfInterest['tourismInterest']> | '';
-    aiReliability: NonNullable<PointOfInterest['aiReliability']> | '';
+  // --- AI & Quality (Editable) ---
+  tourismInterest: NonNullable<PointOfInterest['tourismInterest']> | '';
+  aiReliability: NonNullable<PointOfInterest['aiReliability']> | '';
 
-    // --- Marketing & Sponsorship (Editable) ---
-    isSponsored: boolean;
-    tier: SponsorTier | '';
-    showcaseExpiry: string;
+  // --- Marketing & Sponsorship (Editable) ---
+  isSponsored: boolean;
+  tier: SponsorTier | '';
+  showcaseExpiry: string;
 
-    // --- Affiliate (Editable Partial) ---
-    affiliate: Partial<Record<keyof AffiliateLinks, string>>;
+  // --- Affiliate (Editable Partial) ---
+  affiliate: Partial<Record<keyof AffiliateLinks, string>>;
 
-    // --- Opening Hours (Flat Form State) ---
-    openingHours: {
-        days: string[];
-        morning: string;
-        afternoon: string;
-        evening: string;
-        isEstimated: boolean;
-    };
+  // --- Opening Hours (Flat Form State) ---
+  openingHours: {
+    days: string[];
+    morning: string;
+    afternoon: string;
+    evening: string;
+    isEstimated: boolean;
+  };
 
-    // --- Readonly/System Metadata (Per Visualizzazione e Preservazione) ---
-    readonly createdAt?: string;
-    readonly createdBy?: string;
-    readonly updatedAt?: string;
-    readonly updatedBy?: string;
+  // --- Readonly/System Metadata (Per Visualizzazione e Preservazione) ---
+  readonly createdAt?: string;
+  readonly createdBy?: string;
+  readonly updatedAt?: string;
+  readonly updatedBy?: string;
 
-    // Dati storici da non resettare durante l'editing
-    readonly votes?: number;
-    readonly rating?: number;
-    readonly reviews?: PointOfInterest['reviews'];
-    readonly linkMetadata?: PointOfInterest['linkMetadata'];
-    readonly cityId?: string;
+  // Dati storici da non resettare durante l'editing
+  readonly votes?: number;
+  readonly rating?: number;
+  readonly reviews?: PointOfInterest['reviews'];
+  readonly linkMetadata?: PointOfInterest['linkMetadata'];
+  readonly cityId?: string;
 }
+
+const isPoiSubCategory = (value: string): value is PoiSubCategory => {
+  for (const v of POI_SUBCATEGORY_VALUES) {
+    if (v === value) return true;
+  }
+  return false;
+};
+
+const isTourismInterest = (
+  value: string,
+): value is NonNullable<PointOfInterest['tourismInterest']> => {
+  for (const v of TOURISM_INTEREST_VALUES) {
+    if (v === value) return true;
+  }
+  return false;
+};
+
+const isAiReliability = (value: string): value is NonNullable<PointOfInterest['aiReliability']> => {
+  for (const v of AI_RELIABILITY_VALUES) {
+    if (v === value) return true;
+  }
+  return false;
+};
+
+const isImageLicense = (value: string): value is NonNullable<PointOfInterest['imageLicense']> => {
+  for (const v of IMAGE_LICENSE_VALUES) {
+    if (v === value) return true;
+  }
+  return false;
+};
+
+const isSponsorTier = (value: string): value is SponsorTier => {
+  for (const v of SPONSOR_TIER_VALUES) {
+    if (v === value) return true;
+  }
+  return false;
+};
+
+const isPriceLevel = (value: number): value is 1 | 2 | 3 | 4 =>
+  value === 1 || value === 2 || value === 3 || value === 4;
+
+/**
+ * Opening hours di dominio: giorni obbligatori + almeno una fascia oraria.
+ * Non inventa default (es. Lun-Dom).
+ */
+export const hasRequiredOpeningHours = (oh: PoiFormData['openingHours']): boolean => {
+  if (!oh.days || oh.days.length === 0) return false;
+  const morning = oh.morning?.trim() ?? '';
+  const afternoon = oh.afternoon?.trim() ?? '';
+  const evening = oh.evening?.trim() ?? '';
+  return morning.length > 0 || afternoon.length > 0 || evening.length > 0;
+};
 
 /**
  * normalizePoiFormData: Transizione da Form State a Domain Entity (STRICT).
+ * Opening hours incomplete → Error (non inventa placeholder).
  */
 export const normalizePoiFormData = (formData: PoiFormData): PointOfInterest => {
+  // 1. Normalizzazione Affiliate Links
+  const affiliate: AffiliateLinks = { ...EMPTY_AFFILIATE_LINKS };
+  (Object.keys(EMPTY_AFFILIATE_LINKS) as Array<keyof AffiliateLinks>).forEach((key) => {
+    const val = formData.affiliate[key];
+    affiliate[key] = val && val.trim() !== '' ? val.trim() : null;
+  });
 
-    // 1. Normalizzazione Affiliate Links
-    const affiliate: AffiliateLinks = { ...EMPTY_AFFILIATE_LINKS };
-    Object.keys(EMPTY_AFFILIATE_LINKS).forEach((key) => {
-        const val = formData.affiliate[key as keyof AffiliateLinks];
-        affiliate[key as keyof AffiliateLinks] = val && val.trim() !== '' ? val.trim() : null;
-    });
+  // 2. Opening Hours — obbligatorie per dominio (no fallback inventato)
+  if (!hasRequiredOpeningHours(formData.openingHours)) {
+    throw new Error(
+      'Opening hours incomplete: days and at least one time slot (morning/afternoon/evening) are required.',
+    );
+  }
+  const openingHours: OpeningHours = {
+    days: formData.openingHours.days,
+    morning: formData.openingHours.morning.trim() || null,
+    afternoon: formData.openingHours.afternoon.trim() || null,
+    evening: formData.openingHours.evening.trim() || null,
+    isEstimated: formData.openingHours.isEstimated ?? false,
+  };
 
-    // 2. Normalizzazione Opening Hours
-    const openingHours: OpeningHours = {
-        days: formData.openingHours.days.length > 0 ? formData.openingHours.days : ['Lun-Dom'],
-        morning: formData.openingHours.morning?.trim() || null,
-        afternoon: formData.openingHours.afternoon?.trim() || null,
-        evening: formData.openingHours.evening?.trim() || null,
-        isEstimated: formData.openingHours.isEstimated ?? false
-    };
+  // 3. Price Level — opzionale sul domain; 1..4 solo se valore form valido (form UX default = 1)
+  const floorLevel = Math.floor(formData.priceLevel);
+  const priceLevel = isPriceLevel(floorLevel) ? floorLevel : undefined;
 
-    // 3. Validazione Price Level (Strict Range 1-4)
-    const priceLevel = Math.min(Math.max(Math.floor(formData.priceLevel || 1), 1), 4) as 1 | 2 | 3 | 4;
+  // 4. Validazione runtime type-safe (type guard locali)
+  const subCatInput = formData.subCategory.trim();
+  const subCategory = isPoiSubCategory(subCatInput) ? subCatInput : undefined;
 
-    // 4. Validazione Type-Safe (senza cast cosmetici)
+  const tourismInterest = isTourismInterest(formData.tourismInterest)
+    ? formData.tourismInterest
+    : undefined;
 
-    // SubCategory validation
-    const subCatInput = formData.subCategory.trim();
-    const isValidSubCat = (POI_SUBCATEGORY_VALUES as readonly string[]).includes(subCatInput);
-    const subCategory = isValidSubCat ? (subCatInput as PoiSubCategory) : undefined;
+  const aiReliability = isAiReliability(formData.aiReliability)
+    ? formData.aiReliability
+    : undefined;
 
-    // Tourism Interest validation
-    const isValidTourismInterest = (
-        value: string
-    ): value is NonNullable<PointOfInterest['tourismInterest']> => {
-        return TOURISM_INTEREST_VALUES.includes(
-            value as typeof TOURISM_INTEREST_VALUES[number]
-        );
-    };
+  const imageLicense = isImageLicense(formData.imageLicense) ? formData.imageLicense : undefined;
 
-    const tourismInterest = isValidTourismInterest(formData.tourismInterest)
-        ? formData.tourismInterest
-        : 'medium';
+  const tier = isSponsorTier(formData.tier) ? formData.tier : undefined;
 
-    // AI Reliability validation
-    const isValidAiReliability = (
-        value: string
-    ): value is NonNullable<PointOfInterest['aiReliability']> => {
-        return AI_RELIABILITY_VALUES.includes(
-            value as typeof AI_RELIABILITY_VALUES[number]
-        );
-    };
+  const lat = formData.coords?.lat;
+  const lng = formData.coords?.lng;
+  const hasUsableCoords =
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    !(lat === 0 && lng === 0);
 
-    const aiReliability = isValidAiReliability(formData.aiReliability)
-        ? formData.aiReliability
-        : 'medium';
+  // 5. Costruzione PointOfInterest STRICT
+  const poi: PointOfInterest = {
+    id: formData.id,
+    name: formData.name.trim() || 'Senza Nome',
+    description: formData.description.trim(),
+    imageUrl: formData.imageUrl.trim(),
+    image_status: formData.image_status,
+    category: formData.category,
+    subCategory,
+    ...(hasUsableCoords ? { coords: { lat, lng } } : {}),
+    address: formData.address.trim() || undefined,
+    priceLevel,
+    status: formData.status || 'published',
+    visitDuration: formData.visitDuration.trim() || '1 h',
 
-    // Image License validation
-    const isValidImageLicense = (
-        value: string | undefined
-    ): value is NonNullable<PointOfInterest['imageLicense']> => {
-        return typeof value === 'string' && IMAGE_LICENSE_VALUES.includes(
-            value as typeof IMAGE_LICENSE_VALUES[number]
-        );
-    };
+    imageCredit: formData.imageCredit.trim() || undefined,
+    imageLicense,
 
-    const imageLicense = isValidImageLicense(formData.imageLicense)
-        ? formData.imageLicense
-        : undefined;
+    tourismInterest,
+    aiReliability,
 
-    // Sponsor Tier validation (Runtime Tier mapping)
-    const isValidSponsorTier = (value: string): value is SponsorTier => {
-        return (SPONSOR_TIER_VALUES as readonly string[]).includes(value);
-    };
+    isSponsored: formData.isSponsored,
+    tier,
+    showcaseExpiry: formData.showcaseExpiry || undefined,
 
-    const tier = isValidSponsorTier(formData.tier) ? formData.tier : undefined;
+    affiliate,
+    openingHours,
 
-    // 5. Costruzione PointOfInterest STRICT
-    const poi: PointOfInterest = {
-        id: formData.id,
-        name: formData.name.trim() || 'Senza Nome',
-        description: formData.description.trim(),
-        imageUrl: formData.imageUrl.trim(),
-        image_status: formData.image_status,
-        category: formData.category,
-        subCategory,
-        coords: formData.coords,
-        address: formData.address.trim() || undefined,
-        priceLevel,
-        status: formData.status || 'published',
-        visitDuration: formData.visitDuration.trim() || '1 h',
+    contactInfo: {
+      website: formData.website.trim() || null,
+      phone: null,
+      whatsapp: null,
+      email: null,
+    },
 
-        imageCredit: formData.imageCredit.trim() || undefined,
-        imageLicense,
+    // Preservazione dati storici (assenza = undefined/null, mai valori inventati)
+    votes: formData.votes,
+    rating: formData.rating,
+    reviews: formData.reviews ?? null,
+    linkMetadata: formData.linkMetadata ?? null,
 
-        tourismInterest,
-        aiReliability,
+    createdAt: formData.createdAt,
+    createdBy: formData.createdBy,
+    updatedAt: formData.updatedAt,
+    updatedBy: formData.updatedBy,
+    cityId: formData.cityId,
+  };
 
-        isSponsored: formData.isSponsored,
-        tier,
-        showcaseExpiry: formData.showcaseExpiry || undefined,
-
-        affiliate,
-        openingHours,
-
-        contactInfo: {
-            website: formData.website.trim() || null,
-            phone: null,
-            whatsapp: null,
-            email: null
-        },
-
-        // Preservazione dati storici (IMPORTANTE: Evita reset involontari)
-        votes: formData.votes ?? 0,
-        rating: formData.rating ?? 4.5,
-        reviews: formData.reviews ?? null,
-        linkMetadata: formData.linkMetadata ?? null,
-
-        createdAt: formData.createdAt,
-        createdBy: formData.createdBy,
-        updatedAt: formData.updatedAt,
-        updatedBy: formData.updatedBy,
-        cityId: formData.cityId
-    };
-
-    return poi;
+  return poi;
 };
 
 /**
  * mapPoiToFormData: Inizializzazione del form da una Entity esistente.
  */
 export const mapPoiToFormData = (poi: PointOfInterest | null): PoiFormData => {
-    if (!poi) {
-        return {
-            id: '',
-            name: '',
-            description: '',
-            imageUrl: '',
-            image_status: 'placeholder',
-            category: 'monument',
-            subCategory: '',
-            coords: { lat: 0, lng: 0 },
-            address: '',
-            priceLevel: 1,
-            status: 'published',
-            visitDuration: '1 h',
-            website: '',
-            imageCredit: '',
-            imageLicense: '',
-            tourismInterest: 'medium',
-            aiReliability: 'medium',
-            isSponsored: false,
-            tier: 'standard',
-            showcaseExpiry: '',
-            affiliate: {},
-            openingHours: {
-                days: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
-                morning: '',
-                afternoon: '',
-                evening: '',
-                isEstimated: false
-            },
-            votes: 0,
-            rating: 4.5,
-            reviews: null,
-            linkMetadata: null,
-            cityId: undefined
-        };
-    }
-
-    // Mapping esplicito delle affiliazioni per evitare 'as any'
-    const affiliateMap: Partial<Record<keyof AffiliateLinks, string>> = {};
-    if (poi.affiliate) {
-        const links = poi.affiliate;
-        (Object.keys(EMPTY_AFFILIATE_LINKS) as Array<keyof AffiliateLinks>).forEach(key => {
-            affiliateMap[key] = links[key] || '';
-        });
-    }
-
+  if (!poi) {
+    // Default UX di creazione (non sono sentinel di dominio): giorni completi;
+    // fasce orarie vuote → validate()/normalize richiedono almeno una fascia.
     return {
-        id: poi.id,
-        name: poi.name,
-        description: poi.description,
-        imageUrl: poi.imageUrl,
-        image_status: sanitizeMediaStatus(poi.image_status),
-        category: poi.category,
-        subCategory: poi.subCategory || '',
-        coords: poi.coords,
-        address: poi.address || '',
-        priceLevel: poi.priceLevel || 1,
-        status: poi.status || 'published',
-        visitDuration: poi.visitDuration || '',
-        website: poi.contactInfo?.website || '',
-
-        imageCredit: poi.imageCredit || '',
-        imageLicense: poi.imageLicense || '',
-        tourismInterest: poi.tourismInterest || 'medium',
-        aiReliability: poi.aiReliability || 'medium',
-
-        isSponsored: poi.isSponsored || false,
-        tier: poi.tier || 'standard',
-        showcaseExpiry: poi.showcaseExpiry || '',
-
-        affiliate: affiliateMap,
-
-        openingHours: {
-            days: poi.openingHours?.days || [],
-            morning: poi.openingHours?.morning || '',
-            afternoon: poi.openingHours?.afternoon || '',
-            evening: poi.openingHours?.evening || '',
-            isEstimated: poi.openingHours?.isEstimated || false
-        },
-
-        createdAt: poi.createdAt,
-        createdBy: poi.createdBy,
-        updatedAt: poi.updatedAt,
-        updatedBy: poi.updatedBy,
-
-        // Preservazione dati storici per il form state
-        votes: poi.votes,
-        rating: poi.rating,
-        reviews: poi.reviews,
-        linkMetadata: poi.linkMetadata,
-        cityId: poi.cityId
+      id: '',
+      name: '',
+      description: '',
+      imageUrl: '',
+      image_status: 'placeholder',
+      category: 'monument',
+      subCategory: '',
+      address: '',
+      priceLevel: 1,
+      status: 'published',
+      visitDuration: '1 h',
+      website: '',
+      imageCredit: '',
+      imageLicense: '',
+      tourismInterest: 'medium',
+      aiReliability: 'medium',
+      isSponsored: false,
+      tier: 'standard',
+      showcaseExpiry: '',
+      affiliate: {},
+      openingHours: {
+        days: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
+        morning: '',
+        afternoon: '',
+        evening: '',
+        isEstimated: false,
+      },
+      reviews: null,
+      linkMetadata: null,
+      cityId: undefined,
     };
+  }
+
+  // Mapping esplicito delle affiliazioni per evitare 'as any'
+  const affiliateMap: Partial<Record<keyof AffiliateLinks, string>> = {};
+  if (poi.affiliate) {
+    const links = poi.affiliate;
+    (Object.keys(EMPTY_AFFILIATE_LINKS) as Array<keyof AffiliateLinks>).forEach((key) => {
+      affiliateMap[key] = links[key] ?? '';
+    });
+  }
+
+  return {
+    id: poi.id,
+    name: poi.name,
+    description: poi.description,
+    imageUrl: poi.imageUrl ?? '',
+    image_status: sanitizeMediaStatus(poi.image_status),
+    category: poi.category,
+    subCategory: poi.subCategory ?? '',
+    coords: poi.coords ? { lat: poi.coords.lat, lng: poi.coords.lng } : undefined,
+    address: poi.address ?? '',
+    priceLevel: poi.priceLevel ?? 1,
+    status: poi.status ?? 'published',
+    visitDuration: poi.visitDuration ?? '',
+    website: poi.contactInfo?.website ?? '',
+
+    imageCredit: poi.imageCredit ?? '',
+    imageLicense: poi.imageLicense ?? '',
+    tourismInterest: poi.tourismInterest ?? 'medium',
+    aiReliability: poi.aiReliability ?? 'medium',
+
+    isSponsored: poi.isSponsored ?? false,
+    tier: poi.tier ?? 'standard',
+    showcaseExpiry: poi.showcaseExpiry ?? '',
+
+    affiliate: affiliateMap,
+
+    openingHours: {
+      days: poi.openingHours?.days ?? [],
+      morning: poi.openingHours?.morning ?? '',
+      afternoon: poi.openingHours?.afternoon ?? '',
+      evening: poi.openingHours?.evening ?? '',
+      isEstimated: poi.openingHours?.isEstimated ?? false,
+    },
+
+    createdAt: poi.createdAt,
+    createdBy: poi.createdBy,
+    updatedAt: poi.updatedAt,
+    updatedBy: poi.updatedBy,
+
+    // Preservazione dati storici per il form state
+    votes: poi.votes,
+    rating: poi.rating,
+    reviews: poi.reviews,
+    linkMetadata: poi.linkMetadata,
+    cityId: poi.cityId,
+  };
 };

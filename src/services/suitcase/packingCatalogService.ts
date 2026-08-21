@@ -1,13 +1,5 @@
-import { supabase } from '../supabaseClient';
-import {
-  DbPackingAiCatalogItem,
-  DbPackingAiCatalogItemInsert,
-  DbPackingStandardItem,
-  DbPackingStandardItemInsert,
-  DbPackingTemplateItem,
-  DbPackingTemplateItemInsert,
-} from '../../types/domain/index';
-import {
+import { normalizeCategoryName } from '@/domain/packing/packingCategories';
+import type {
   PackingAiCatalogItem,
   PackingStandardItem,
   PackingStandardItemTier,
@@ -16,7 +8,15 @@ import {
   UpsertPackingStandardItemDto,
   UpsertPackingTemplateItemDto,
 } from '@/types/packingCatalog';
-import { normalizeCategoryName } from '@/domain/packing/packingCategories';
+import type {
+  DbPackingAiCatalogItem,
+  DbPackingAiCatalogItemInsert,
+  DbPackingStandardItem,
+  DbPackingStandardItemInsert,
+  DbPackingTemplateItem,
+  DbPackingTemplateItemInsert,
+} from '../../types/domain/index';
+import { supabase } from '../supabaseClient';
 
 function parseStandardItemTier(value: string): PackingStandardItemTier {
   if (value === 'core' || value === 'additional' || value === 'additional_ai_only') {
@@ -109,7 +109,7 @@ export const fetchAllStandardItemsAsync = async (): Promise<PackingStandardItem[
 };
 
 export const upsertStandardItemAsync = async (
-  dto: UpsertPackingStandardItemDto
+  dto: UpsertPackingStandardItemDto,
 ): Promise<PackingStandardItem> => {
   const { data, error } = await supabase
     .from('packing_standard_items')
@@ -129,7 +129,7 @@ export const deleteStandardItemAsync = async (id: string): Promise<void> => {
 // ─── Template specific items ──────────────────────────────────────────────────
 
 export const fetchTemplateSpecificItemsAsync = async (
-  templateId: string
+  templateId: string,
 ): Promise<PackingTemplateItem[]> => {
   const { data, error } = await supabase
     .from('packing_template_items')
@@ -143,7 +143,7 @@ export const fetchTemplateSpecificItemsAsync = async (
 };
 
 export const fetchAllTemplateSpecificItemsAsync = async (
-  templateId: string
+  templateId: string,
 ): Promise<PackingTemplateItem[]> => {
   const { data, error } = await supabase
     .from('packing_template_items')
@@ -157,7 +157,7 @@ export const fetchAllTemplateSpecificItemsAsync = async (
 
 /** Batch fetch per evitare N+1 nella composizione di più template TD. */
 export const fetchTemplateSpecificItemsForTemplatesAsync = async (
-  templateIds: string[]
+  templateIds: string[],
 ): Promise<Map<string, PackingTemplateItem[]>> => {
   const result = new Map<string, PackingTemplateItem[]>();
   if (templateIds.length === 0) return result;
@@ -182,7 +182,7 @@ export const fetchTemplateSpecificItemsForTemplatesAsync = async (
 };
 
 export const upsertTemplateSpecificItemAsync = async (
-  dto: UpsertPackingTemplateItemDto
+  dto: UpsertPackingTemplateItemDto,
 ): Promise<PackingTemplateItem> => {
   const { data, error } = await supabase
     .from('packing_template_items')
@@ -201,7 +201,7 @@ export const deleteTemplateSpecificItemAsync = async (id: string): Promise<void>
 
 export const cloneTemplateSpecificItemsAsync = async (
   sourceTemplateId: string,
-  targetTemplateId: string
+  targetTemplateId: string,
 ): Promise<void> => {
   const sourceItems = await fetchAllTemplateSpecificItemsAsync(sourceTemplateId);
   if (sourceItems.length === 0) return;
@@ -232,17 +232,14 @@ export const fetchActiveAiCatalogAsync = async (): Promise<PackingAiCatalogItem[
 };
 
 export const fetchAllAiCatalogAsync = async (): Promise<PackingAiCatalogItem[]> => {
-  const { data, error } = await supabase
-    .from('packing_ai_catalog')
-    .select('*')
-    .order('sort_order');
+  const { data, error } = await supabase.from('packing_ai_catalog').select('*').order('sort_order');
 
   if (error) throw error;
   return (data ?? []).map(mapAiRow);
 };
 
 export const upsertAiCatalogItemAsync = async (
-  dto: UpsertPackingAiCatalogItemDto
+  dto: UpsertPackingAiCatalogItemDto,
 ): Promise<PackingAiCatalogItem> => {
   const { data, error } = await supabase
     .from('packing_ai_catalog')

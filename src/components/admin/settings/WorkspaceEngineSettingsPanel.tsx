@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
 import { Loader2, Save } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useConfig } from '@/context/ConfigContext';
-import { SETTINGS_KEYS } from '@/services/settingsService';
+import { getSharedResourceKindLabel, SHARED_RESOURCE_KINDS } from '@/domain/collaboration';
 import type { WorkspaceAdminConfigBundle } from '@/domain/collaboration/workspaceEngineConfig';
 import {
   resolveWorkspaceAdminConfigBundle,
@@ -9,8 +10,7 @@ import {
   serializeStorageLimits,
   serializeWorkspaceEngineConfig,
 } from '@/services/collaboration/workspaceEngineConfigService';
-import { SHARED_RESOURCE_KINDS } from '@/domain/collaboration';
-import { getSharedResourceKindLabel } from '@/domain/collaboration';
+import { SETTINGS_KEYS } from '@/services/settingsService';
 
 interface Props {
   onSaveSuccess: () => void;
@@ -75,7 +75,9 @@ export const WorkspaceEngineSettingsPanel: React.FC<Props> = ({ onSaveSuccess })
         <label className="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-800">
           <div>
             <p className="text-sm font-semibold text-white">Collaborazione attiva</p>
-            <p className="text-xs text-slate-500">Disabilita globalmente wizard, inviti e workspace.</p>
+            <p className="text-xs text-slate-500">
+              Disabilita globalmente wizard, inviti e workspace.
+            </p>
           </div>
           <input
             type="checkbox"
@@ -91,7 +93,9 @@ export const WorkspaceEngineSettingsPanel: React.FC<Props> = ({ onSaveSuccess })
         <label className="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-800">
           <div>
             <p className="text-sm font-semibold text-white">Presenza live</p>
-            <p className="text-xs text-slate-500">Indicatori presenza e stato modifica in tempo reale.</p>
+            <p className="text-xs text-slate-500">
+              Indicatori presenza e stato modifica in tempo reale.
+            </p>
           </div>
           <input
             type="checkbox"
@@ -107,7 +111,9 @@ export const WorkspaceEngineSettingsPanel: React.FC<Props> = ({ onSaveSuccess })
       </section>
 
       <section className="space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Lock collaborativo</h4>
+        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">
+          Lock collaborativo
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="space-y-1">
             <span className="text-xs text-slate-400">Timeout lock (minuti)</span>
@@ -143,7 +149,9 @@ export const WorkspaceEngineSettingsPanel: React.FC<Props> = ({ onSaveSuccess })
       </section>
 
       <section className="space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Shared Resource Kind abilitati</h4>
+        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">
+          Shared Resource Kind abilitati
+        </h4>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {SHARED_RESOURCE_KINDS.map((kind) => {
             const enabled = form.engine.enabledSharedResourceKinds.includes(kind);
@@ -173,7 +181,9 @@ export const WorkspaceEngineSettingsPanel: React.FC<Props> = ({ onSaveSuccess })
       </section>
 
       <section className="space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Categorie notifiche (default globali)</h4>
+        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">
+          Categorie notifiche (default globali)
+        </h4>
         {(
           [
             ['invites', 'Inviti'],
@@ -208,7 +218,9 @@ export const WorkspaceEngineSettingsPanel: React.FC<Props> = ({ onSaveSuccess })
       </section>
 
       <section className="space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Limiti storage allegati</h4>
+        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">
+          Limiti storage allegati
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <label className="space-y-1">
             <span className="text-xs text-slate-400">Max file (byte)</span>

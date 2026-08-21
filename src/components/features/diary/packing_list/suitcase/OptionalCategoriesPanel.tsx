@@ -1,5 +1,5 @@
-import React from 'react';
 import { ListRestart } from 'lucide-react';
+import type React from 'react';
 import type { DisplayCategory } from '@/domain/packing/categorySetup';
 
 interface OptionalCategoriesPanelProps {
@@ -33,7 +33,9 @@ export const OptionalCategoriesPanel: React.FC<OptionalCategoriesPanelProps> = (
             title={readOnly ? cat.name : `Attiva ${cat.name}`}
           >
             <ListRestart className="w-3.5 h-3.5 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
-            <span className="text-[9px] font-bold text-emerald-300 group-hover:text-white uppercase tracking-wider">{cat.name}</span>
+            <span className="text-[9px] font-bold text-emerald-300 group-hover:text-white uppercase tracking-wider">
+              {cat.name}
+            </span>
           </button>
         ))}
       </div>

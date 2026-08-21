@@ -1,9 +1,14 @@
 /**
  * Risoluzione metadati entità Preferiti (guide, tour operator, shop, sponsor).
  */
+
+import {
+  convertSponsorToPoi,
+  mapResolvedSponsor,
+  normalizeJoinedSponsorRow,
+  SPONSOR_PUBLIC_VITRINE_SELECT,
+} from '@/services/sponsors/sponsorResolvers';
 import { supabase } from '@/services/supabaseClient';
-import { convertSponsorToPoi } from '@/services/sponsors/sponsorResolvers';
-import { mapResolvedSponsor, SPONSOR_PUBLIC_VITRINE_SELECT, normalizeJoinedSponsorRow } from '@/services/sponsors/sponsorResolvers';
 import type { PointOfInterest } from '@/types/index';
 
 export interface FavoriteEntityMeta {
@@ -21,7 +26,9 @@ export function extractSponsorId(poiId: string): string {
   return poiId.startsWith(SPONSOR_ID_PREFIX) ? poiId.slice(SPONSOR_ID_PREFIX.length) : poiId;
 }
 
-export async function getGuidesMetaByIds(ids: string[]): Promise<Record<string, FavoriteEntityMeta>> {
+export async function getGuidesMetaByIds(
+  ids: string[],
+): Promise<Record<string, FavoriteEntityMeta>> {
   const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
   if (unique.length === 0) return {};
 
@@ -42,7 +49,9 @@ export async function getGuidesMetaByIds(ids: string[]): Promise<Record<string, 
   return out;
 }
 
-export async function getTourOperatorsMetaByIds(ids: string[]): Promise<Record<string, FavoriteEntityMeta>> {
+export async function getTourOperatorsMetaByIds(
+  ids: string[],
+): Promise<Record<string, FavoriteEntityMeta>> {
   const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
   if (unique.length === 0) return {};
 
@@ -63,14 +72,13 @@ export async function getTourOperatorsMetaByIds(ids: string[]): Promise<Record<s
   return out;
 }
 
-export async function getShopsMetaByIds(ids: string[]): Promise<Record<string, FavoriteEntityMeta>> {
+export async function getShopsMetaByIds(
+  ids: string[],
+): Promise<Record<string, FavoriteEntityMeta>> {
   const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
   if (unique.length === 0) return {};
 
-  const { data, error } = await supabase
-    .from('shops')
-    .select('id, name, city_id')
-    .in('id', unique);
+  const { data, error } = await supabase.from('shops').select('id, name, city_id').in('id', unique);
 
   if (error) {
     console.error('[favoritesEntityRead] getShopsMetaByIds:', error.message);
@@ -86,10 +94,7 @@ export async function getShopsMetaByIds(ids: string[]): Promise<Record<string, F
 
 /** Risolve POI sponsor sintetici (`sponsor-{uuid}`) non presenti in tabella `pois`. */
 export async function getSponsorPoisByIds(ids: string[]): Promise<PointOfInterest[]> {
-  const sponsorIds = ids
-    .filter(isSponsorPoiId)
-    .map(extractSponsorId)
-    .filter(Boolean);
+  const sponsorIds = ids.filter(isSponsorPoiId).map(extractSponsorId).filter(Boolean);
   if (sponsorIds.length === 0) return [];
 
   const { data, error } = await supabase
@@ -102,5 +107,7 @@ export async function getSponsorPoisByIds(ids: string[]): Promise<PointOfInteres
     return [];
   }
 
-  return (data ?? []).map((row) => convertSponsorToPoi(mapResolvedSponsor(normalizeJoinedSponsorRow(row))));
+  return (data ?? []).map((row) =>
+    convertSponsorToPoi(mapResolvedSponsor(normalizeJoinedSponsorRow(row))),
+  );
 }

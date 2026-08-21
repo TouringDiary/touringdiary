@@ -1,7 +1,7 @@
-import { useUI } from '@/context/UIContext';
-import { useUser } from '@/context/UserContext';
-import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
-import { resolveGlobalWorkspacePanelGeometry } from '@/layering/resolveGlobalWorkspacePanelGeometry';
+import type React from 'react';
+import { createPortal } from 'react-dom';
+import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
+import { CloseButton } from '@/components/ui/controls/CloseButton';
 import {
   binderPanelMaxHeightClass,
   binderPanelMinHeightClass,
@@ -9,11 +9,14 @@ import {
   slidePanelEaseClass,
   slidePanelTransformClassFromTop,
 } from '@/constants/slidePanelMotion';
-import { resolveWorkspacePanelZIndex, resolveCompanionSurfaceTier } from '@/layering/resolveWorkspacePanelZIndex';
-import React from 'react';
-import { createPortal } from 'react-dom';
-import { useFloatingPanelShellLifecycle } from '@/components/features/diary/packing_list/SuitcaseFloatingPanel/hooks/useFloatingPanelShellLifecycle';
-import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { useUI } from '@/context/UIContext';
+import { useUser } from '@/context/UserContext';
+import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
+import { resolveGlobalWorkspacePanelGeometry } from '@/layering/resolveGlobalWorkspacePanelGeometry';
+import {
+  resolveCompanionSurfaceTier,
+  resolveWorkspacePanelZIndex,
+} from '@/layering/resolveWorkspacePanelZIndex';
 import { GlobalWorkspacePanelBody } from './GlobalWorkspacePanelBody';
 
 /**
@@ -24,7 +27,7 @@ export const GlobalWorkspacePanel: React.FC = () => {
   const { isMobile, mobileDiaryFullScreen } = useUI();
 
   const panelZIndex = resolveWorkspacePanelZIndex(
-    resolveCompanionSurfaceTier({ mobileDiaryFullScreen })
+    resolveCompanionSurfaceTier({ mobileDiaryFullScreen }),
   );
 
   const reserveBottomNav = !mobileDiaryFullScreen;
@@ -73,6 +76,6 @@ export const GlobalWorkspacePanel: React.FC = () => {
         <GlobalWorkspacePanelBody />
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };

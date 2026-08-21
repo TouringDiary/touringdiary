@@ -1,5 +1,5 @@
-import type { ResourceCapabilities, ResolvedResourcePermission } from './sharedResource';
 import { deriveResourceCapabilities } from './permissions';
+import type { ResolvedResourcePermission, ResourceCapabilities } from './sharedResource';
 
 /**
  * Regole Valigia/Risorsa Personale nel Workspace (§12.5, §15).
@@ -8,7 +8,7 @@ import { deriveResourceCapabilities } from './permissions';
  */
 export function applyPersonalModeWorkspaceContentRules(
   permission: ResolvedResourcePermission,
-  isResourceOwner: boolean
+  isResourceOwner: boolean,
 ): ResolvedResourcePermission {
   if (permission.sharingMode !== 'personal' || isResourceOwner) {
     return permission;

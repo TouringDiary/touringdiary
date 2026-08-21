@@ -1,126 +1,122 @@
 import { aiGateway } from '@/services/ai/aiGateway';
 import { extractInlineDataFromRaw } from '@/services/ai/aiLegacyPayload';
-
-import { supabase } from './supabaseClient';
-import { SocialTemplate, SocialLayoutConfig } from '../types/index';
-import { DatabaseSocialTemplate, DatabaseSocialTemplateInsert, Json } from '../types/database';
-
+import type { DatabaseSocialTemplate, DatabaseSocialTemplateInsert, Json } from '../types/database';
+import type { SocialLayoutConfig, SocialTemplate } from '../types/index';
 import { withRetry } from './ai/aiUtils';
+import { supabase } from './supabaseClient';
 
 const mapDbSocialTemplate = (t: DatabaseSocialTemplate): SocialTemplate => ({
-    id: t.id,
-    name: t.name,
-    bgUrl: t.bg_url,
-    layoutConfig: t.layout_config as unknown as SocialLayoutConfig,
-    theme: t.theme ?? '',
-    isActive: t.is_active ?? false,
-    createdAt: t.created_at ?? undefined,
+  id: t.id,
+  name: t.name,
+  bgUrl: t.bg_url,
+  layoutConfig: t.layout_config as unknown as SocialLayoutConfig,
+  theme: t.theme ?? '',
+  isActive: t.is_active ?? false,
+  createdAt: t.created_at ?? undefined,
 });
 
 // --- CRUD OPERATIONS ---
 
 export const getSocialTemplates = async (): Promise<SocialTemplate[]> => {
-    try {
-        const { data, error } = await supabase
-            .from('social_templates')
-            .select('*')
-            .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('social_templates')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-        if (error) throw error;
+    if (error) throw error;
 
-        return (data as DatabaseSocialTemplate[]).map(mapDbSocialTemplate);
-    } catch (e) {
-        console.error("Error fetching social templates:", e);
-        return [];
-    }
+    return (data as DatabaseSocialTemplate[]).map(mapDbSocialTemplate);
+  } catch (e) {
+    console.error('Error fetching social templates:', e);
+    return [];
+  }
 };
 
 export const getActiveSocialTemplates = async (): Promise<SocialTemplate[]> => {
-    try {
-        const { data, error } = await supabase
-            .from('social_templates')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('social_templates')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
 
-        if (error) throw error;
+    if (error) throw error;
 
-        return (data as DatabaseSocialTemplate[]).map(mapDbSocialTemplate);
-    } catch (e) {
-        console.error("Error fetching active social templates:", e);
-        return [];
-    }
+    return (data as DatabaseSocialTemplate[]).map(mapDbSocialTemplate);
+  } catch (e) {
+    console.error('Error fetching active social templates:', e);
+    return [];
+  }
 };
 
-export const saveSocialTemplate = async (template: SocialTemplate): Promise<{ success: boolean; data?: SocialTemplate; error?: string }> => {
-    try {
-        const payload: DatabaseSocialTemplateInsert = {
-            id: template.id,
-            name: template.name,
-            bg_url: template.bgUrl,
-            layout_config: template.layoutConfig as unknown as Json,
-            theme: template.theme,
-            is_active: template.isActive,
-            updated_at: new Date().toISOString()
-        };
+export const saveSocialTemplate = async (
+  template: SocialTemplate,
+): Promise<{ success: boolean; data?: SocialTemplate; error?: string }> => {
+  try {
+    const payload: DatabaseSocialTemplateInsert = {
+      id: template.id,
+      name: template.name,
+      bg_url: template.bgUrl,
+      layout_config: template.layoutConfig as unknown as Json,
+      theme: template.theme,
+      is_active: template.isActive,
+      updated_at: new Date().toISOString(),
+    };
 
-        const { data, error } = await supabase
-            .from('social_templates')
-            .upsert(payload)
-            .select()
-            .single();
+    const { data, error } = await supabase
+      .from('social_templates')
+      .upsert(payload)
+      .select()
+      .single();
 
-        if (error) throw error;
+    if (error) throw error;
 
-        const saved = data as DatabaseSocialTemplate;
-        return {
-            success: true,
-            data: mapDbSocialTemplate(saved),
-        };
-    } catch (e: any) {
-        console.error("Error saving social template:", e);
-        return { success: false, error: e.message };
-    }
+    const saved = data as DatabaseSocialTemplate;
+    return {
+      success: true,
+      data: mapDbSocialTemplate(saved),
+    };
+  } catch (e: unknown) {
+    console.error('Error saving social template:', e);
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
 };
 
 export const deleteSocialTemplate = async (id: string): Promise<boolean> => {
-    try {
-        const { error } = await supabase
-            .from('social_templates')
-            .delete()
-            .eq('id', id);
+  try {
+    const { error } = await supabase.from('social_templates').delete().eq('id', id);
 
-        if (error) throw error;
-        return true;
-    } catch (e) {
-        console.error("Error deleting social template:", e);
-        return false;
-    }
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Error deleting social template:', e);
+    return false;
+  }
 };
 
 // --- AI GENERATION ---
 
 export const generateSocialBackground = async (prompt: string): Promise<string | null> => {
-    return withRetry(async () => {
-        const fullPrompt = `Genera un'immagine di sfondo artistica per una cartolina turistica social.
+  return withRetry(async () => {
+    const fullPrompt = `Genera un'immagine di sfondo artistica per una cartolina turistica social.
         Soggetto: ${prompt}.
         Stile: Evocativo, luminoso, spazio libero al centro o in basso per testo sovrapposto.
         Formato: Verticale o Quadrato.
         Nessun testo nell'immagine generata.`;
 
-        
-        const response = await aiGateway.generateLegacy({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: [{ text: fullPrompt }] },
-            config: {
-                imageConfig: {
-                    aspectRatio: "3:4"
-                }
-            }
-        });
-
-        const dataUrl = extractInlineDataFromRaw(response.raw);
-        if (dataUrl) return dataUrl;
-        return null;
+    const response = await aiGateway.generateLegacy({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts: [{ text: fullPrompt }] },
+      config: {
+        imageConfig: {
+          aspectRatio: '3:4',
+        },
+      },
     });
+
+    const dataUrl = extractInlineDataFromRaw(response.raw);
+    if (dataUrl) return dataUrl;
+    return null;
+  });
 };

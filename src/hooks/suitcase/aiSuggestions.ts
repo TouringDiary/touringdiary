@@ -1,26 +1,26 @@
+import { resolveCategorySetup } from '@/domain/packing/categorySetup';
+import {
+  CATEGORY_ORDER,
+  getCategoryId,
+  normalizeCategoryName,
+  type SystemCategoryName,
+} from '@/domain/packing/packingCategories';
+import {
+  fetchActiveAiCatalogAsync,
+  fetchActiveStandardItemsAsync,
+  fetchTemplateSpecificItemsAsync,
+} from '@/services/suitcase/packingCatalogService';
 import { addAiSuggestedItemsAsync } from '@/services/suitcase/suitcaseItemsService';
 import { getRejectionsBySuitcaseAsync } from '@/services/suitcase/suitcaseRejectionsService';
-import { normalizeItemName } from '@/utils/tagDerivation';
+import type { Suitcase } from '@/types/suitcase';
 import {
   getDraftLocalRejections,
   getGuestSuitcase,
   insertDraftAiSuggestions,
   isDraftWorkspaceId,
 } from '@/utils/guestSuitcaseHelper';
-import {
-  CATEGORY_ORDER,
-  getCategoryId,
-  normalizeCategoryName,
-  SystemCategoryName,
-} from '@/domain/packing/packingCategories';
-import { resolveCategorySetup } from '@/domain/packing/categorySetup';
-import { Suitcase } from '@/types/suitcase';
 import { isTdTemplate } from '@/utils/suitcaseDomain';
-import {
-  fetchActiveAiCatalogAsync,
-  fetchActiveStandardItemsAsync,
-  fetchTemplateSpecificItemsAsync,
-} from '@/services/suitcase/packingCatalogService';
+import { normalizeItemName } from '@/utils/tagDerivation';
 
 export interface AiCandidate {
   name: string;
@@ -43,7 +43,7 @@ function isSystemCategoryName(name: string): name is SystemCategoryName {
 
 export function buildUniformLimitMap(
   categories: string[],
-  limit: number
+  limit: number,
 ): Partial<Record<SystemCategoryName, number>> {
   const clamped = clampCategoryLimit(limit);
   const map: Partial<Record<SystemCategoryName, number>> = {};
@@ -57,7 +57,7 @@ export function buildUniformLimitMap(
 }
 
 export function normalizeLimitPerCategory(
-  map: Partial<Record<SystemCategoryName, number>>
+  map: Partial<Record<SystemCategoryName, number>>,
 ): Partial<Record<SystemCategoryName, number>> {
   const out: Partial<Record<SystemCategoryName, number>> = {};
   for (const [cat, limit] of Object.entries(map)) {
@@ -77,18 +77,11 @@ export const seedAiSuggestions = async (
   selectedCategories?: string[],
   suitcase?: Suitcase,
   options?: GetAiCandidatesOptions,
-  precomputedCandidates?: AiCandidate[]
+  precomputedCandidates?: AiCandidate[],
 ): Promise<number> => {
   const toInsert =
     precomputedCandidates ??
-    (await getAiCandidates(
-      suitcaseId,
-      tags,
-      existingItems,
-      selectedCategories,
-      suitcase,
-      options
-    ));
+    (await getAiCandidates(suitcaseId, tags, existingItems, selectedCategories, suitcase, options));
 
   if (toInsert.length === 0) return 0;
 
@@ -160,16 +153,14 @@ function resolveSortOrder(sortOrder: number | null | undefined): number {
 
 function applyLimitPerCategory(
   items: AiCandidate[],
-  limitPerCategory?: Partial<Record<SystemCategoryName, number>>
+  limitPerCategory?: Partial<Record<SystemCategoryName, number>>,
 ): AiCandidate[] {
   if (!limitPerCategory) return items;
 
   const counts = new Map<string, number>();
   return items.filter((item) => {
     const normalized = normalizeCategoryName(item.category);
-    const limit = isSystemCategoryName(normalized)
-      ? limitPerCategory[normalized]
-      : undefined;
+    const limit = isSystemCategoryName(normalized) ? limitPerCategory[normalized] : undefined;
     if (limit === undefined) return true;
     const current = counts.get(normalized) ?? 0;
     if (current >= limit) return false;
@@ -184,7 +175,7 @@ export const getAiCandidates = async (
   existingItems: { name: string; is_ai_suggestion: boolean }[],
   selectedCategories?: string[],
   suitcase?: Suitcase,
-  options?: GetAiCandidatesOptions
+  options?: GetAiCandidatesOptions,
 ): Promise<AiCandidate[]> => {
   let rejections: string[] = [];
   if (isDraftWorkspaceId(suitcaseId)) {

@@ -18,7 +18,7 @@ const closeStack: WorkspaceCloseRegistration[] = [];
 
 export function registerWorkspaceClose(entry: WorkspaceCloseRegistration): void {
   const existingIndex = closeStack.findIndex(
-    (item) => item.workspaceId === entry.workspaceId && item.ownerId === entry.ownerId
+    (item) => item.workspaceId === entry.workspaceId && item.ownerId === entry.ownerId,
   );
 
   if (existingIndex >= 0) {
@@ -31,7 +31,7 @@ export function registerWorkspaceClose(entry: WorkspaceCloseRegistration): void 
 
 export function unregisterWorkspaceClose(workspaceId: WorkspaceId, ownerId: symbol): void {
   const index = closeStack.findIndex(
-    (item) => item.workspaceId === workspaceId && item.ownerId === ownerId
+    (item) => item.workspaceId === workspaceId && item.ownerId === ownerId,
   );
   if (index >= 0) {
     closeStack.splice(index, 1);

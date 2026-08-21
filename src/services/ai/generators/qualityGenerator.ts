@@ -1,48 +1,48 @@
 import { aiGateway } from '@/services/ai/aiGateway';
-
-
-import { withRetry, cleanJsonOutput } from '../aiUtils';
-import { Type, Schema } from '../../../types/ai';
+import { type Schema, Type } from '../../../types/ai';
+import { cleanJsonOutput, withRetry } from '../aiUtils';
 
 const RATING_SCHEMA: Schema = {
-    type: Type.ARRAY,
-    items: {
-        type: Type.OBJECT,
-        properties: {
-            id: { type: Type.STRING, description: "L'ID univoco del POI fornito in input" },
-            rating: { type: Type.STRING, enum: ["high", "medium", "low", "service", "discard"] },
-            reason: { type: Type.STRING, description: "Brevissima motivazione" }
-        },
-        required: ["id", "rating"]
-    }
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      id: { type: Type.STRING, description: "L'ID univoco del POI fornito in input" },
+      rating: { type: Type.STRING, enum: ['high', 'medium', 'low', 'service', 'discard'] },
+      reason: { type: Type.STRING, description: 'Brevissima motivazione' },
+    },
+    required: ['id', 'rating'],
+  },
 };
 
 export interface StagingPoiInput {
-    id: string;
-    name: string;
-    rawCategory: string | null;
-    address?: string | null;
+  id: string;
+  name: string;
+  rawCategory: string | null;
+  address?: string | null;
 }
 
 export interface RatedPoiResult {
-    id: string;
-    rating: 'high' | 'medium' | 'low' | 'service' | 'discard';
-    reason?: string;
+  id: string;
+  rating: 'high' | 'medium' | 'low' | 'service' | 'discard';
+  reason?: string;
 }
 
 export const ratePoiBatch = async (
-    cityName: string,
-    pois: StagingPoiInput[]
+  cityName: string,
+  pois: StagingPoiInput[],
 ): Promise<RatedPoiResult[]> => {
-    
-    if (!pois || pois.length === 0) return [];
+  if (!pois || pois.length === 0) return [];
 
-    return withRetry(async () => {
-        const inputList = pois.map(p => 
-            `ID: "${p.id}" | NOME: "${p.name}" | CAT: "${p.rawCategory || 'N/D'}" | ADDR: "${p.address || ''}"`
-        ).join('\n');
+  return withRetry(async () => {
+    const inputList = pois
+      .map(
+        (p) =>
+          `ID: "${p.id}" | NOME: "${p.name}" | CAT: "${p.rawCategory || 'N/D'}" | ADDR: "${p.address || ''}"`,
+      )
+      .join('\n');
 
-        const prompt = `
+    const prompt = `
         Sei un Curatore di Guide Turistiche esperto per ${cityName}.
         Analizza questa lista e decidi se sono rilevanti.
         
@@ -52,32 +52,42 @@ export const ratePoiBatch = async (
         Rispondi ESCLUSIVAMENTE con un array JSON.
         `;
 
-        
-        const response = await aiGateway.generateLegacy({
-            model: 'gemini-2.0-flash', 
-            contents: prompt,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: RATING_SCHEMA,
-                temperature: 0.2 
-            }
-        });
-
-        const text = response.text?.trim() || "[]";
-        
-        try {
-            const rawResults = JSON.parse(cleanJsonOutput(text));
-            if (!Array.isArray(rawResults)) return [];
-            
-            return rawResults.map((r: any) => ({
-                id: r.id,
-                rating: ['high', 'medium', 'low', 'service', 'discard'].includes(r.rating) ? r.rating : 'low',
-                reason: r.reason
-            }));
-
-        } catch (e) {
-            console.error("[QualityGenerator] JSON Parse Error", e);
-            return [];
-        }
+    const response = await aiGateway.generateLegacy({
+      model: 'gemini-2.0-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: RATING_SCHEMA,
+        temperature: 0.2,
+      },
     });
+
+    const text = response.text?.trim() || '[]';
+
+    try {
+      const rawResults = JSON.parse(cleanJsonOutput(text));
+      if (!Array.isArray(rawResults)) return [];
+
+      return rawResults.map((r: unknown): RatedPoiResult => {
+        const row = r as {
+          id?: unknown;
+          rating?: unknown;
+          reason?: unknown;
+        };
+        const ratingValues = ['high', 'medium', 'low', 'service', 'discard'] as const;
+        const rating =
+          typeof row.rating === 'string' && (ratingValues as readonly string[]).includes(row.rating)
+            ? (row.rating as RatedPoiResult['rating'])
+            : 'low';
+        return {
+          id: typeof row.id === 'string' ? row.id : String(row.id ?? ''),
+          rating,
+          reason: typeof row.reason === 'string' ? row.reason : undefined,
+        };
+      });
+    } catch (e) {
+      console.error('[QualityGenerator] JSON Parse Error', e);
+      return [];
+    }
+  });
 };

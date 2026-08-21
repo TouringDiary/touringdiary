@@ -3,10 +3,10 @@ import type {
   WorkspaceCompositionCandidate,
   WorkspaceCompositionEdge,
 } from '@/domain/collaboration/workspaceComposition';
-import type { Itinerary } from '@/types/index';
-import type { Suitcase } from '@/types/suitcase';
 import { listDiariesByViaggio } from '@/services/viaggio/viaggioDiaryService';
 import { listSuitcasesByViaggio } from '@/services/viaggio/viaggioSuitcaseService';
+import type { Itinerary } from '@/types/index';
+import type { Suitcase } from '@/types/suitcase';
 import {
   classifySuitcaseRow,
   fetchDiarySuitcasePairsForDiaryIds,

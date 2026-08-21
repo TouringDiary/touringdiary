@@ -1,4 +1,4 @@
-import { Row } from './domain/index';
+import type { Row } from './domain/index';
 
 // =============================================================================
 // SECTION 1 — DB DTOs

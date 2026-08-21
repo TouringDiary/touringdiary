@@ -1,5 +1,5 @@
-import React from 'react';
 import { FolderKanban } from 'lucide-react';
+import type React from 'react';
 
 interface Props {
   isOpen: boolean;
@@ -12,11 +12,7 @@ interface Props {
  * Maniglia fisica MyWorld (desktop) — apre il chooser MySpace | Workspace.
  * Non è navigazione: è il segnapagina del raccoglitore nello stesso slot storico.
  */
-export const WorkspaceBinderTab: React.FC<Props> = ({
-  isOpen,
-  onToggle,
-  variant = 'sidebar',
-}) => {
+export const WorkspaceBinderTab: React.FC<Props> = ({ isOpen, onToggle, variant = 'sidebar' }) => {
   if (variant === 'sidebar') {
     return (
       <button

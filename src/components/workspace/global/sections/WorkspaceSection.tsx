@@ -1,22 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FolderKanban, Loader2, Plus } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { isGuestUser } from '@/collaboration/guestGate';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
+import { useItinerary } from '@/context/ItineraryContext';
+import { useModal } from '@/context/ModalContext';
+import { useUser } from '@/context/UserContext';
 import type { Workspace } from '@/domain/collaboration';
+import { useOpenCreateWorkspace } from '@/hooks/useOpenCreateWorkspace';
 import {
-  listWorkspacesForUser,
+  deleteWorkspace,
   getWorkspaceMemberCounts,
   leaveWorkspace,
-  deleteWorkspace,
+  listWorkspacesForUser,
   MAX_OWNED_WORKSPACES_PER_USER,
   OWNED_WORKSPACE_LIMIT_MESSAGE,
 } from '@/services/collaboration';
-import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
-import { useUser } from '@/context/UserContext';
-import { useItinerary } from '@/context/ItineraryContext';
-import { useOpenCreateWorkspace } from '@/hooks/useOpenCreateWorkspace';
-import { isGuestUser } from '@/collaboration/guestGate';
-import { useModal } from '@/context/ModalContext';
-import { useWorkspacePanelState } from '../WorkspacePanelContext';
 import type { WorkspaceActiveRole } from '../globalWorkspacePresentation';
+import { useWorkspacePanelState } from '../WorkspacePanelContext';
 import { WorkspaceCard } from './WorkspaceCard';
 
 export const WorkspaceSection: React.FC = () => {
@@ -31,10 +32,10 @@ export const WorkspaceSection: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<
-    | { type: 'leave' | 'delete'; workspace: Workspace }
-    | null
-  >(null);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'leave' | 'delete';
+    workspace: Workspace;
+  } | null>(null);
 
   useEffect(() => {
     if (!user || isGuestUser(user)) return;
@@ -141,9 +142,7 @@ export const WorkspaceSection: React.FC = () => {
         <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-400/90">
           {title}
         </h3>
-        <p className="text-[10px] text-slate-500 mt-0.5">
-          {list.length} workspace
-        </p>
+        <p className="text-[10px] text-slate-500 mt-0.5">{list.length} workspace</p>
       </header>
       <div className="flex-1 overflow-y-auto custom-scrollbar p-2 min-h-[6rem] max-h-[11rem] lg:max-h-none">
         {list.length === 0 ? (

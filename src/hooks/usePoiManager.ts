@@ -190,7 +190,7 @@ export const usePoiManager = (cityId: string, cityName: string) => {
 
   const handleAiInputChange = useCallback((cat: string, val: string) => {
     const num = parseInt(val, 10);
-    setAiRequests((prev) => ({ ...prev, [cat]: isNaN(num) || num < 0 ? 0 : num }));
+    setAiRequests((prev) => ({ ...prev, [cat]: Number.isNaN(num) || num < 0 ? 0 : num }));
   }, []);
 
   // Wrapper per Bulk Status che trova i POI completi

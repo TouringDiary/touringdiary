@@ -1,7 +1,7 @@
-import type { Json } from '../../types/supabase';
 import type { DbViaggio } from '../../types/domain';
 import type { Viaggio } from '../../types/models/Viaggio';
 import { RICORDAMI_DEFAULT_INTERVAL_MONTHS } from '../../types/models/Viaggio';
+import type { Json } from '../../types/supabase';
 
 function parseMetadata(raw: Json | null | undefined): Record<string, unknown> {
   if (raw === null || raw === undefined) return {};
@@ -26,8 +26,7 @@ export function mapDbViaggioToRuntime(row: ViaggioRow): Viaggio {
     coverImage: row.cover_image,
     activeDiaryId: row.active_diary_id,
     ricordamiEnabled: row.ricordami_enabled ?? true,
-    ricordamiIntervalMonths:
-      row.ricordami_interval_months ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS,
+    ricordamiIntervalMonths: row.ricordami_interval_months ?? RICORDAMI_DEFAULT_INTERVAL_MONTHS,
     ricordamiNextAt: row.ricordami_next_at ?? null,
     metadata: parseMetadata(row.metadata),
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),

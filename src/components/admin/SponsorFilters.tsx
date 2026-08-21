@@ -1,149 +1,187 @@
-import React from 'react';
-import { Filter, X, Award } from 'lucide-react';
+import { Award, Filter, X } from 'lucide-react';
+import type React from 'react';
 
 export interface SponsorFiltersState {
-    continent: string;
-    nation: string;
-    adminRegion: string;
-    zone: string;
-    cityId: string;
-    tier: string;
+  continent: string;
+  nation: string;
+  adminRegion: string;
+  zone: string;
+  cityId: string;
+  tier: string;
 }
 
 export interface SponsorFilterOption {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
 }
 
 export interface SponsorFiltersOptions {
-    continents: SponsorFilterOption[];
-    nations: SponsorFilterOption[];
-    adminRegions: SponsorFilterOption[];
-    zones: SponsorFilterOption[];
-    cities: SponsorFilterOption[];
-    tiers: string[];
+  continents: SponsorFilterOption[];
+  nations: SponsorFilterOption[];
+  adminRegions: SponsorFilterOption[];
+  zones: SponsorFilterOption[];
+  cities: SponsorFilterOption[];
+  tiers: string[];
 }
 
 export interface SponsorFiltersHandlers {
-    onContinentChange: (val: string) => void;
-    onNationChange: (val: string) => void;
-    onAdminRegionChange: (val: string) => void;
-    onZoneChange: (val: string) => void;
-    onCityChange: (val: string) => void;
-    onTierChange?: (val: string) => void;
+  onContinentChange: (val: string) => void;
+  onNationChange: (val: string) => void;
+  onAdminRegionChange: (val: string) => void;
+  onZoneChange: (val: string) => void;
+  onCityChange: (val: string) => void;
+  onTierChange?: (val: string) => void;
 }
 
 interface SponsorFiltersProps {
-    filters: SponsorFiltersState;
-    options: SponsorFiltersOptions;
-    handlers: SponsorFiltersHandlers;
+  filters: SponsorFiltersState;
+  options: SponsorFiltersOptions;
+  handlers: SponsorFiltersHandlers;
 }
 
-const FilterWrapper = ({ children, onClear, isActive }: { children?: React.ReactNode, onClear: () => void, isActive: boolean }) => (
-    <div className="relative group/filter flex items-center">
-        {children}
-        {isActive && (
-            <button 
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClear(); }} 
-                className="absolute right-7 top-1/2 -translate-y-1/2 bg-slate-800 text-red-400 hover:text-white hover:bg-red-500 rounded-full p-0.5 shadow-md border border-slate-700 transition-all z-floating-panel"
-                title="Resetta filtro"
-            >
-                <X className="w-2.5 h-2.5"/>
-            </button>
-        )}
-    </div>
+const FilterWrapper = ({
+  children,
+  onClear,
+  isActive,
+}: {
+  children?: React.ReactNode;
+  onClear: () => void;
+  isActive: boolean;
+}) => (
+  <div className="relative group/filter flex items-center">
+    {children}
+    {isActive && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClear();
+        }}
+        className="absolute right-7 top-1/2 -translate-y-1/2 bg-slate-800 text-red-400 hover:text-white hover:bg-red-500 rounded-full p-0.5 shadow-md border border-slate-700 transition-all z-floating-panel"
+        title="Resetta filtro"
+      >
+        <X className="w-2.5 h-2.5" />
+      </button>
+    )}
+  </div>
 );
 
 export const SponsorFilters = ({ filters, options, handlers }: SponsorFiltersProps) => {
-    return (
-        <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-wrap gap-3 items-center shadow-lg">
-            <div className="flex items-center gap-2 px-2 border-r border-slate-800 mr-2 text-slate-500">
-                <Filter className="w-4 h-4"/>
-                <span className="text-xs font-bold uppercase hidden sm:inline">Area</span>
-            </div>
+  return (
+    <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-wrap gap-3 items-center shadow-lg">
+      <div className="flex items-center gap-2 px-2 border-r border-slate-800 mr-2 text-slate-500">
+        <Filter className="w-4 h-4" />
+        <span className="text-xs font-bold uppercase hidden sm:inline">Area</span>
+      </div>
 
-            <FilterWrapper isActive={!!filters.continent} onClear={() => handlers.onContinentChange('')}>
-                <select 
-                    value={filters.continent} 
-                    onChange={e => handlers.onContinentChange(e.target.value)} 
-                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[100px]"
-                >
-                    <option value="">Continente</option>
-                    {options.continents.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-            </FilterWrapper>
+      <FilterWrapper isActive={!!filters.continent} onClear={() => handlers.onContinentChange('')}>
+        <select
+          value={filters.continent}
+          onChange={(e) => handlers.onContinentChange(e.target.value)}
+          className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[100px]"
+        >
+          <option value="">Continente</option>
+          {options.continents.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </FilterWrapper>
 
-            <FilterWrapper isActive={!!filters.nation} onClear={() => handlers.onNationChange('')}>
-                <select 
-                    value={filters.nation} 
-                    onChange={e => handlers.onNationChange(e.target.value)} 
-                    disabled={!filters.continent && options.nations.length > 1} 
-                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[100px]"
-                >
-                    <option value="">Nazione</option>
-                    {options.nations.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-                </select>
-            </FilterWrapper>
+      <FilterWrapper isActive={!!filters.nation} onClear={() => handlers.onNationChange('')}>
+        <select
+          value={filters.nation}
+          onChange={(e) => handlers.onNationChange(e.target.value)}
+          disabled={!filters.continent && options.nations.length > 1}
+          className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[100px]"
+        >
+          <option value="">Nazione</option>
+          {options.nations.map((n) => (
+            <option key={n.id} value={n.id}>
+              {n.name}
+            </option>
+          ))}
+        </select>
+      </FilterWrapper>
 
-            <FilterWrapper isActive={!!filters.adminRegion} onClear={() => handlers.onAdminRegionChange('')}>
-                <select 
-                    value={filters.adminRegion} 
-                    onChange={e => handlers.onAdminRegionChange(e.target.value)} 
-                    disabled={!filters.nation} 
-                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[100px]"
-                >
-                    <option value="">Regione</option>
-                    {options.adminRegions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-            </FilterWrapper>
+      <FilterWrapper
+        isActive={!!filters.adminRegion}
+        onClear={() => handlers.onAdminRegionChange('')}
+      >
+        <select
+          value={filters.adminRegion}
+          onChange={(e) => handlers.onAdminRegionChange(e.target.value)}
+          disabled={!filters.nation}
+          className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[100px]"
+        >
+          <option value="">Regione</option>
+          {options.adminRegions.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </FilterWrapper>
 
-            <FilterWrapper isActive={!!filters.zone} onClear={() => handlers.onZoneChange('')}>
-                <select 
-                    value={filters.zone} 
-                    onChange={e => handlers.onZoneChange(e.target.value)} 
-                    disabled={!filters.adminRegion} 
-                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[120px]"
-                >
-                    <option value="">Zona (Tutte)</option>
-                    {options.zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
-                </select>
-            </FilterWrapper>
+      <FilterWrapper isActive={!!filters.zone} onClear={() => handlers.onZoneChange('')}>
+        <select
+          value={filters.zone}
+          onChange={(e) => handlers.onZoneChange(e.target.value)}
+          disabled={!filters.adminRegion}
+          className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[120px]"
+        >
+          <option value="">Zona (Tutte)</option>
+          {options.zones.map((z) => (
+            <option key={z.id} value={z.id}>
+              {z.name}
+            </option>
+          ))}
+        </select>
+      </FilterWrapper>
 
-            <FilterWrapper isActive={!!filters.cityId} onClear={() => handlers.onCityChange('')}>
-                <select 
-                    value={filters.cityId} 
-                    onChange={e => handlers.onCityChange(e.target.value)} 
-                    disabled={!filters.zone && !filters.adminRegion} 
-                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[150px]"
-                >
-                    <option value="">Città (Tutte)</option>
-                    {options.cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-            </FilterWrapper>
+      <FilterWrapper isActive={!!filters.cityId} onClear={() => handlers.onCityChange('')}>
+        <select
+          value={filters.cityId}
+          onChange={(e) => handlers.onCityChange(e.target.value)}
+          disabled={!filters.zone && !filters.adminRegion}
+          className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 min-w-[150px]"
+        >
+          <option value="">Città (Tutte)</option>
+          {options.cities.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </FilterWrapper>
 
-            {handlers.onTierChange && (
-                <>
-                    <div className="w-px h-6 bg-slate-800 mx-1"></div>
+      {handlers.onTierChange && (
+        <>
+          <div className="w-px h-6 bg-slate-800 mx-1"></div>
 
-                    <div className="flex items-center gap-2 px-2 border-r border-slate-800 mr-2 text-slate-500">
-                        <Award className="w-4 h-4"/>
-                        <span className="text-xs font-bold uppercase hidden sm:inline">Livello</span>
-                    </div>
+          <div className="flex items-center gap-2 px-2 border-r border-slate-800 mr-2 text-slate-500">
+            <Award className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase hidden sm:inline">Livello</span>
+          </div>
 
-                    <FilterWrapper isActive={!!filters.tier} onClear={() => handlers.onTierChange!('')}>
-                        <select 
-                            value={filters.tier} 
-                            onChange={e => handlers.onTierChange!(e.target.value)} 
-                            className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[120px]"
-                        >
-                            <option value="">Tutti</option>
-                            {options.tiers.map(t => (
-                                <option key={t} value={t} className="capitalize">{t}</option>
-                            ))}
-                        </select>
-                    </FilterWrapper>
-                </>
-            )}
-        </div>
-    );
+          <FilterWrapper isActive={!!filters.tier} onClear={() => handlers.onTierChange!('')}>
+            <select
+              value={filters.tier}
+              onChange={(e) => handlers.onTierChange!(e.target.value)}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[120px]"
+            >
+              <option value="">Tutti</option>
+              {options.tiers.map((t) => (
+                <option key={t} value={t} className="capitalize">
+                  {t}
+                </option>
+              ))}
+            </select>
+          </FilterWrapper>
+        </>
+      )}
+    </div>
+  );
 };

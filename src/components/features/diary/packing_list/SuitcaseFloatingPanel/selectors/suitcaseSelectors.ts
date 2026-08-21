@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Suitcase } from '@/types/suitcase';
+import type { Suitcase } from '@/types/suitcase';
 import { isDraftWorkspaceId } from '@/utils/guestSuitcaseHelper';
 import { isUserTemplate, isValigia } from '@/utils/suitcaseDomain';
 
@@ -8,9 +8,8 @@ export const useSuitcaseSelectors = (
   globalTemplates: Suitcase[],
   linkedSuitcaseIds: string[] | null,
   activeTabId: string | null,
-  userId: string | null | undefined
+  userId: string | null | undefined,
 ) => {
-
   /**
    * Valigie associate al diario
    *
@@ -20,9 +19,7 @@ export const useSuitcaseSelectors = (
 
   const tripSuitcases = useMemo(() => {
     if (linkedSuitcaseIds === null) return [];
-    return userSuitcases.filter(
-      s => linkedSuitcaseIds.includes(s.id) && isValigia(s)
-    );
+    return userSuitcases.filter((s) => linkedSuitcaseIds.includes(s.id) && isValigia(s));
   }, [userSuitcases, linkedSuitcaseIds]);
 
   /**
@@ -39,12 +36,12 @@ export const useSuitcaseSelectors = (
   const savedSuitcases = useMemo(() => {
     if (linkedSuitcaseIds === null || !userId) return [];
     return userSuitcases.filter(
-      s =>
+      (s) =>
         !linkedSuitcaseIds.includes(s.id) &&
         s.user_id !== null &&
         s.user_id !== 'guest' &&
         !isDraftWorkspaceId(s.id) &&
-        !isUserTemplate(s)
+        !isUserTemplate(s),
     );
   }, [userSuitcases, linkedSuitcaseIds, userId]);
 
@@ -53,11 +50,9 @@ export const useSuitcaseSelectors = (
     return userSuitcases
       .filter((s) => isUserTemplate(s) && !isDraftWorkspaceId(s.id))
       .sort(
-        (a, b) =>
-          new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime()
+        (a, b) => new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime(),
       );
   }, [userSuitcases, userId]);
-
 
   /**
    * Valigia attualmente aperta
@@ -75,7 +70,6 @@ export const useSuitcaseSelectors = (
     tripSuitcases,
     savedSuitcases,
     userOwnedTemplates,
-    activeSuitcase
+    activeSuitcase,
   };
-
 };

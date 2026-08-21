@@ -1,5 +1,5 @@
-import { supabase } from '../supabaseClient';
 import type { Itinerary } from '../../types/index';
+import { supabase } from '../supabaseClient';
 import { setActiveDiary } from './viaggioService';
 
 export type PersistedItinerary = Itinerary & { id: string };
@@ -104,9 +104,6 @@ export async function getDiaryOfViaggio(
   return data ? mapDiaryRow(data) : null;
 }
 
-export async function setViaggioActiveDiary(
-  viaggioId: string,
-  diaryId: string,
-): Promise<void> {
+export async function setViaggioActiveDiary(viaggioId: string, diaryId: string): Promise<void> {
   await setActiveDiary(viaggioId, diaryId);
 }

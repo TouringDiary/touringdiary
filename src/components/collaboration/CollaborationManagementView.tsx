@@ -1,13 +1,18 @@
-import React from 'react';
-import { useFoundationStyles } from '@/hooks/useFoundationStyles';
+import type React from 'react';
 import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import type {
+  CollaborationUserSearchResult,
+  CollaborativeMemberRole,
+  ResourceInvite,
+  SharedResource,
+  SharedResourceMemberWithProfile,
+  SharingMode,
+} from '@/domain/collaboration';
+import { COLLABORATIVE_MEMBER_ROLES, SHARING_MODES } from '@/domain/collaboration';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
-import type { CollaborativeMemberRole, ResourceInvite, SharedResource, SharedResourceMemberWithProfile, SharingMode } from '@/domain/collaboration';
-import { SHARING_MODES } from '@/domain/collaboration';
-import { COLLABORATIVE_MEMBER_ROLES } from '@/domain/collaboration';
-import type { CollaborationUserSearchResult } from '@/domain/collaboration';
-import { INVITE_STATUS_LABELS, MODE_LABELS, ROLE_LABELS } from './collaborationSharePresentation';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { CollaborationUserInviteSearch } from './CollaborationUserInviteSearch';
+import { INVITE_STATUS_LABELS, MODE_LABELS, ROLE_LABELS } from './collaborationSharePresentation';
 
 export interface CollaborationManagementViewProps {
   sharedResource: SharedResource | null;
@@ -52,165 +57,167 @@ export const CollaborationManagementView: React.FC<CollaborationManagementViewPr
   const sectionTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.sectionTitle, isMobile);
 
   return (
-  <div className="space-y-5">
-    <h3 className={sectionTitleShell}>Gestione collaborazione</h3>
-    {sharedResource && (
-      <section className="space-y-2">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Modalità</h3>
-        {canChangeSharingMode && onSharingModeChange ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {SHARING_MODES.map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => onSharingModeChange(mode)}
-                className={`rounded-lg border px-3 py-2 text-left text-sm transition-all disabled:opacity-50 ${
-                  sharedResource.sharingMode === mode
-                    ? 'border-indigo-500/60 bg-indigo-500/10 text-white'
-                    : 'border-slate-800 bg-slate-900/40 text-slate-300 hover:border-slate-700'
-                }`}
-              >
-                <span className="font-semibold">{MODE_LABELS[mode]}</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-slate-400">
-            Modalità{' '}
-            <span className="text-indigo-300 font-semibold">
-              {MODE_LABELS[sharedResource.sharingMode]}
-            </span>
-          </div>
-        )}
-        {sharedResource.sharingMode === 'personal' && (
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            In modalità Personale ogni destinatario riceve una copia indipendente. L&apos;istanza
-            originale resta accessibile solo a te.
-          </p>
-        )}
-      </section>
-    )}
-
-    <section className="space-y-2">
-      <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Proprietario</h3>
-      <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-white">
-        Tu
-      </div>
-    </section>
-
-    {members.length > 0 && (
-      <section className="space-y-2">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-          Collaboratori e visualizzatori
-        </h3>
-        <div className="space-y-2">
-          {members.map((member) => (
-            <div
-              key={member.id}
-              className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-white truncate">{member.userName}</div>
-                {member.userSlug && (
-                  <div className="text-xs text-slate-400 truncate">@{member.userSlug}</div>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <select
-                  value={member.role}
-                  disabled={isSubmitting}
-                  onChange={(e) => onRoleChange(member.userId, e.target.value as CollaborativeMemberRole)}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white"
-                >
-                  {COLLABORATIVE_MEMBER_ROLES.map((role) => (
-                    <option key={role} value={role}>
-                      {ROLE_LABELS[role]}
-                    </option>
-                  ))}
-                </select>
+    <div className="space-y-5">
+      <h3 className={sectionTitleShell}>Gestione collaborazione</h3>
+      {sharedResource && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Modalità</h3>
+          {canChangeSharingMode && onSharingModeChange ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SHARING_MODES.map((mode) => (
                 <button
+                  key={mode}
                   type="button"
                   disabled={isSubmitting}
-                  onClick={() => onRevokeMember(member.userId)}
-                  className="text-xs text-red-400 hover:text-red-300 px-2 py-1.5"
+                  onClick={() => onSharingModeChange(mode)}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition-all disabled:opacity-50 ${
+                    sharedResource.sharingMode === mode
+                      ? 'border-indigo-500/60 bg-indigo-500/10 text-white'
+                      : 'border-slate-800 bg-slate-900/40 text-slate-300 hover:border-slate-700'
+                  }`}
                 >
-                  Revoca
+                  <span className="font-semibold">{MODE_LABELS[mode]}</span>
                 </button>
-              </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-slate-400">
+              Modalità{' '}
+              <span className="text-indigo-300 font-semibold">
+                {MODE_LABELS[sharedResource.sharingMode]}
+              </span>
+            </div>
+          )}
+          {sharedResource.sharingMode === 'personal' && (
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              In modalità Personale ogni destinatario riceve una copia indipendente. L&apos;istanza
+              originale resta accessibile solo a te.
+            </p>
+          )}
+        </section>
+      )}
+
+      <section className="space-y-2">
+        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Proprietario</h3>
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-white">
+          Tu
         </div>
       </section>
-    )}
 
-    {invites.length > 0 && (
-      <section className="space-y-2">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Inviti</h3>
-        <div className="space-y-2">
-          {invites.map((invite) => (
-            <div
-              key={invite.id}
-              className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-white">
-                  {ROLE_LABELS[invite.role]} · {INVITE_STATUS_LABELS[invite.status]}
+      {members.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+            Collaboratori e visualizzatori
+          </h3>
+          <div className="space-y-2">
+            {members.map((member) => (
+              <div
+                key={member.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-white truncate">{member.userName}</div>
+                  {member.userSlug && (
+                    <div className="text-xs text-slate-400 truncate">@{member.userSlug}</div>
+                  )}
                 </div>
-                <div className="text-xs text-slate-500 truncate">ID: {invite.inviteeId}</div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {invite.status === 'pending' && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={member.role}
+                    disabled={isSubmitting}
+                    onChange={(e) =>
+                      onRoleChange(member.userId, e.target.value as CollaborativeMemberRole)
+                    }
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white"
+                  >
+                    {COLLABORATIVE_MEMBER_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {ROLE_LABELS[role]}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     type="button"
                     disabled={isSubmitting}
-                    onClick={() => onRevokeInvite(invite.id)}
+                    onClick={() => onRevokeMember(member.userId)}
                     className="text-xs text-red-400 hover:text-red-300 px-2 py-1.5"
                   >
                     Revoca
                   </button>
-                )}
-                {(invite.status === 'rejected' || invite.status === 'revoked') && (
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => onResendInvite(invite.id)}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1.5"
-                  >
-                    Reinvia
-                  </button>
-                )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
-    )}
+            ))}
+          </div>
+        </section>
+      )}
 
-    <section className="space-y-2 pt-2 border-t border-slate-800">
-      <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-        Invita altri utenti
-      </h3>
-      <select
-        value={selectedRole}
-        onChange={(e) => onSelectedRoleChange(e.target.value as CollaborativeMemberRole)}
-        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-      >
-        {COLLABORATIVE_MEMBER_ROLES.map((role) => (
-          <option key={role} value={role}>
-            {ROLE_LABELS[role]}
-          </option>
-        ))}
-      </select>
-      <CollaborationUserInviteSearch
-        searchQuery={searchQuery}
-        onSearchQueryChange={onSearchQueryChange}
-        searchResults={searchResults}
-        isSearching={isSearching}
-        isSubmitting={isSubmitting}
-        onSelectUser={onManagementInvite}
-      />
-    </section>
-  </div>
+      {invites.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Inviti</h3>
+          <div className="space-y-2">
+            {invites.map((invite) => (
+              <div
+                key={invite.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-white">
+                    {ROLE_LABELS[invite.role]} · {INVITE_STATUS_LABELS[invite.status]}
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">ID: {invite.inviteeId}</div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {invite.status === 'pending' && (
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => onRevokeInvite(invite.id)}
+                      className="text-xs text-red-400 hover:text-red-300 px-2 py-1.5"
+                    >
+                      Revoca
+                    </button>
+                  )}
+                  {(invite.status === 'rejected' || invite.status === 'revoked') && (
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => onResendInvite(invite.id)}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1.5"
+                    >
+                      Reinvia
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="space-y-2 pt-2 border-t border-slate-800">
+        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+          Invita altri utenti
+        </h3>
+        <select
+          value={selectedRole}
+          onChange={(e) => onSelectedRoleChange(e.target.value as CollaborativeMemberRole)}
+          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+        >
+          {COLLABORATIVE_MEMBER_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {ROLE_LABELS[role]}
+            </option>
+          ))}
+        </select>
+        <CollaborationUserInviteSearch
+          searchQuery={searchQuery}
+          onSearchQueryChange={onSearchQueryChange}
+          searchResults={searchResults}
+          isSearching={isSearching}
+          isSubmitting={isSubmitting}
+          onSelectUser={onManagementInvite}
+        />
+      </section>
+    </div>
   );
 };

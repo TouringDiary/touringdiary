@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { type RefObject, useEffect } from 'react';
 
 function getHeaderHeightPx(): number {
   const raw = getComputedStyle(document.documentElement).getPropertyValue('--header-height');
@@ -26,7 +26,10 @@ function applyOverlayGeometry(panel: HTMLElement): void {
   const innerHeight = window.innerHeight;
   const keyboardLikelyOpen = visualHeight < innerHeight * 0.85;
 
-  if (keyboardLikelyOpen && layoutViewportTracksVisualViewport(innerHeight, offsetTop, visualHeight)) {
+  if (
+    keyboardLikelyOpen &&
+    layoutViewportTracksVisualViewport(innerHeight, offsetTop, visualHeight)
+  ) {
     panel.style.height = '';
     panel.style.maxHeight = '';
     panel.style.bottom = '0';

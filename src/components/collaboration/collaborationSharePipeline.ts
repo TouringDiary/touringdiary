@@ -77,7 +77,7 @@ export async function sendPendingWorkspaceInvites(input: {
   workspaceId: string;
   invites: WorkspacePendingInvite[];
   mapPermissions?: (
-    permissions: WorkspaceResourcePermissionEntry[]
+    permissions: WorkspaceResourcePermissionEntry[],
   ) => WorkspaceResourcePermissionEntry[];
 }): Promise<StepResult<void>> {
   for (const pending of input.invites) {
@@ -89,7 +89,7 @@ export async function sendPendingWorkspaceInvites(input: {
       input.ownerId,
       input.workspaceId,
       { userId: pending.userId },
-      permissions
+      permissions,
     );
     if (inviteResult.success !== true) {
       return { success: false, error: inviteResult.error };
@@ -141,7 +141,7 @@ export async function finalizeCreateWorkspacePipeline(input: {
         mapWorkspaceInvitePermissionsToMaterialized(
           permissions,
           input.compositionOriginals,
-          materializedResources
+          materializedResources,
         )
     : undefined;
 

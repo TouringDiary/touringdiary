@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useConfig } from '@/context/ConfigContext';
 import { fetchAffiliateGearAsync } from '@/services/suitcase/suitcaseAffiliateService';
-import { SuitcaseItem, ResolvedAffiliateProduct } from '@/types/suitcase';
-import { PartnerIntegration } from '@/types/partners';
+import type { PartnerIntegration } from '@/types/partners';
+import type { ResolvedAffiliateProduct, SuitcaseItem } from '@/types/suitcase';
 
 export const useAffiliateGear = (itineraryTags: string[], currentItems: SuitcaseItem[]) => {
   const { configs } = useConfig();
@@ -41,12 +41,12 @@ export const useAffiliateGear = (itineraryTags: string[], currentItems: Suitcase
           itineraryTags,
           missingItems,
           enabledPartnerIds,
-          suitcaseItemNames
+          suitcaseItemNames,
         );
 
         if (isMounted) setData(products);
       } catch (err) {
-        console.error("Error fetching affiliate gear:", err);
+        console.error('Error fetching affiliate gear:', err);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -57,7 +57,11 @@ export const useAffiliateGear = (itineraryTags: string[], currentItems: Suitcase
     return () => {
       isMounted = false;
     };
-  }, [JSON.stringify(itineraryTags), JSON.stringify(currentItems.map(i => i.is_checked)), enabledPartnersKey]);
+  }, [
+    JSON.stringify(itineraryTags),
+    JSON.stringify(currentItems.map((i) => i.is_checked)),
+    enabledPartnersKey,
+  ]);
 
   return { data, isLoading };
 };

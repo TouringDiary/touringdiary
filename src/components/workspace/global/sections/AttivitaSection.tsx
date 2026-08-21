@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { CollaborationActivityFeed } from '@/components/collaboration/live/CollaborationActivityFeed';
 import { useWorkspacePanelState } from '../WorkspacePanelContext';
 
@@ -9,11 +9,7 @@ export const AttivitaSection: React.FC = () => {
 
   return (
     <div className="p-3 lg:p-4 h-full min-h-0 overflow-y-auto custom-scrollbar">
-      <CollaborationActivityFeed
-        workspaceId={activeWorkspaceId}
-        layout="hub"
-        className="h-full"
-      />
+      <CollaborationActivityFeed workspaceId={activeWorkspaceId} layout="hub" className="h-full" />
     </div>
   );
 };

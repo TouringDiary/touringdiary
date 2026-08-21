@@ -23,7 +23,10 @@
   border-style: solid;
   border-radius: 0.25rem;
   overflow: hidden;
-  transition: color 150ms, background-color 150ms, border-color 150ms;
+  transition:
+    color 150ms,
+    background-color 150ms,
+    border-color 150ms;
 }
 
 .diary-header-tab--all {

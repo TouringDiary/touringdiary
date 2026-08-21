@@ -13,7 +13,7 @@ Questo documento fornisce un indice della copertura documentale rispetto al codi
 | **Pricing & Plans** | [x] | [ ] | [ ] | Gestito in `pricing_versions` |
 | **Sponsor Lifecycle** | [x] | [ ] | [ ] | Dominio documentato (`01`, `03`, `10`, `18`, `23`, `05`…); audit sicurezza e modello target in corso → `29_SPONSOR_SECURITY_MASTERPLAN.md` |
 | **Gamification** | [ ] | [x] | [ ] | XP e badge documentati solo in logica |
-| **Community & Social** | [x] | [ ] | [ ] | Allineato in `16_CITY_MEDIA_MANAGEMENT.md` |
+| **Community & Social** | [x] | [ ] | [ ] | Media in `16_CITY_MEDIA_MANAGEMENT.md`; Q&A Local (domande/`community_posts`, SoT reply `community_replies` + RPC `add_community_reply`, follow `user_interactions`, auto-follow/notifiche) in `01_PROJECT_MAP.md` · `03_PROJECT_LOGIC_MAP.md` · MASTER `03_DATABASE_SCHEMA.md`; deep-link notifiche community/qa in `12_NOTIFICATION_SYSTEM.md` (pattern `link_data`); guest write → AuthModal standard prodotto |
 | **Staging & Import** | [x] | [ ] | [ ] | `stagingService` e `importService` allineati |
 | **Geo Hierarchy** | [x] | [ ] | [ ] | Logica gerarchica in `geo.ts` allineata |
 | **Suitcase System** | [x] | [ ] | [ ] | Allineato in `31_PACKING_SUITCASE_SYSTEM.md` |
@@ -35,7 +35,7 @@ Questo documento fornisce un indice della copertura documentale rispetto al codi
 | **Around Me Explorer** | [x] | [ ] | [ ] | Allineato in `24_AROUND_ME_EXPLORER_SYSTEM.md` |
 | **User Onboarding**   | [x] | [ ] | [ ] | Allineato in `25_USER_ONBOARDING_SYSTEM.md` |
 | **Affiliate System**   | [ ] | [x] | [ ] | Allineato in `26_AFFILIATE_TRACKING_SYSTEM.md` |
-| **Review System**      | [x] | [x] | [x] | P0 2026-07-23: publish immediato, 1/utente, edit/delete, SoT `pois.rating`, alert coda — `27_USER_REVIEW_SYSTEM.md` v2.0 · `AUDIT_REVIEWS_AND_RATINGS.md` §18 |
+| **Review System**      | [x] | [ ] | [ ] | SSOT `27_USER_REVIEW_SYSTEM.md` v2.0; audit correlato `AUDIT_REVIEWS_AND_RATINGS.md` §18 (P0: publish immediato, 1/utente, edit/delete, SoT `pois.rating`, alert coda) |
 | **Collaboration & Workspace** | [x] | [ ] | [ ] | Allineato in `28_COLLABORATION_WORKSPACE_SYSTEM.md` v2.0 (hub UI + wizard) |
 | **Platform Settings / Centro di Controllo** | [x] | [ ] | [ ] | SSOT in `30_PLATFORM_SETTINGS_MASTERPLAN.md` (v0.2); Feature Flag Engine; codice parziale |
 | **Development Workflow (layer operativo)** | [x] | [ ] | [ ] | Framework in `AI_DEV_WORKFLOW/`; WF-01 migrazione documentale completato |
@@ -66,8 +66,8 @@ I seguenti file/moduli sono presenti nel codice ma non hanno ancora una sezione 
 
 ## STATO ALLINEAMENTO SCHEMA DB
 
-*   **Tabelle Documentate**: `profiles`, `cities`, `pois`, `itineraries`, `sponsors`, `sponsor_requests`, `subscriptions`, `pricing_versions`, `user_ai_credits`, `credit_transactions`, `ai_global_usage`, `xp_actions`, `rewards_catalog`, `badges`, `community_posts`, `live_snaps`, `pois_staging`, `notifications`, `communication_logs`, `system_messages`, `obs_poi_anomalies`, `shared_resources`, `workspaces`, `workspace_attachments`, `collaboration_domain_events`, `user_friends`, `user_friend_requests`, `user_blocks`.
-*   **Tabelle NON Documentate**: `communication_logs` (partecipazione), `obs_city_quality_metrics`, dettaglio RLS per-tabella collaborazione (vedi DOC 28).
+*   **Tabelle Documentate**: `profiles`, `cities`, `pois`, `itineraries`, `sponsors`, `sponsor_requests`, `subscriptions`, `pricing_versions`, `user_ai_credits`, `credit_transactions`, `ai_global_usage`, `xp_actions`, `rewards_catalog`, `badges`, `community_posts`, `community_replies`, `live_snaps`, `pois_staging`, `notifications`, `communication_logs` (logging CRM in DOC 15), `system_messages`, `obs_poi_anomalies`, `shared_resources`, `workspaces`, `workspace_attachments`, `collaboration_domain_events`, `user_friends`, `user_friend_requests`, `user_blocks`.
+*   **Tabelle NON Documentate**: `obs_city_quality_metrics`, dettaglio RLS per-tabella collaborazione (vedi DOC 28).
 
 ---
 
