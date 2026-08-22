@@ -15,6 +15,7 @@ import type { Itinerary, ItineraryItem } from '../../../types/index';
 import { AddToItineraryModal } from '../../modals/AddToItineraryModal';
 import { ConfirmClearModal } from '../../modals/ConfirmClearModal';
 import { DateChangeWarningModal } from '../../modals/DateChangeWarningModal';
+import { DateShiftConfirmModal } from '../../modals/DateShiftConfirmModal';
 import { MobileMoveModal } from '../../modals/MobileMoveModal';
 import { type SaveAsConfirmPayload, SaveAsModal } from '../../modals/SaveAsModal';
 
@@ -29,6 +30,13 @@ interface DiaryModalsProps {
       value: string;
       lostCount: number;
     } | null;
+    shiftModal: {
+      isOpen: boolean;
+      oldStartDate: string;
+      oldEndDate: string;
+      newStartDate: string;
+      newEndDate: string;
+    } | null;
     memoTargetItem: ItineraryItem | null;
     toastMessage: { title: string; xp: number } | null;
   };
@@ -37,6 +45,7 @@ interface DiaryModalsProps {
     setSaveAsModalOpen: (v: boolean) => void;
     setClearModalOpen: (v: boolean) => void;
     setWarningModal: (val: DiaryModalsProps['state']['warningModal']) => void;
+    setShiftModal: (val: DiaryModalsProps['state']['shiftModal']) => void;
     setItinerary: React.Dispatch<React.SetStateAction<Itinerary>>;
     setToastMessage: (msg: { title: string; xp: number } | null) => void;
     setMemoTargetItem: (item: ItineraryItem | null) => void;
@@ -49,6 +58,7 @@ interface DiaryModalsProps {
     ) => Promise<string | null>;
     clearItinerary: () => void;
     confirmDateChange: () => void;
+    confirmDateShift: () => void;
     handleConfirmAddMemo: (day: number, time: string) => void;
     /** Rimozione guida/TO/servizio dal Diario (passa da undo stack). */
     removeItem: (id: string) => void;
@@ -141,6 +151,18 @@ export const DiaryModals: React.FC<DiaryModalsProps> = ({
           onClose={() => setters.setWarningModal(null)}
           onConfirm={actions.confirmDateChange}
           lostDaysCount={state.warningModal.lostCount}
+        />
+      )}
+
+      {state.shiftModal && (
+        <DateShiftConfirmModal
+          isOpen={state.shiftModal.isOpen}
+          onClose={() => setters.setShiftModal(null)}
+          onConfirm={actions.confirmDateShift}
+          oldStartDate={state.shiftModal.oldStartDate}
+          oldEndDate={state.shiftModal.oldEndDate}
+          newStartDate={state.shiftModal.newStartDate}
+          newEndDate={state.shiftModal.newEndDate}
         />
       )}
 

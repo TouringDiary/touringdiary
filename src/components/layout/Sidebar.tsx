@@ -42,7 +42,7 @@ import { useFocusMode, workspaceUsesCompanionPortal } from '@/focus';
 import { FOCUS_SURFACE_ATTR } from '@/focus/focusModeRegistry';
 import { fetchActiveSponsorsResolvedAsync } from '@/services/sponsors/sponsorContractsService';
 import { convertSponsorToPoi } from '@/services/sponsors/sponsorResolvers';
-import type { PointOfInterest, ResolvedSponsor } from '@/types';
+import type { ResolvedSponsor } from '@/types';
 import { formatVisitors } from '@/utils/common';
 
 // --- LAZY IMPORT DEL DIARIO ---
@@ -73,16 +73,13 @@ const DiarySkeleton = () => (
 
 export interface SidebarProps {
   // Props residue solo se necessarie
-  onViewPoiDetail: (poi: PointOfInterest) => void;
   onDayDrop: (dayIndex: number, data: string, targetTime?: string) => void;
   onOpenFullRankings: () => void;
   onOpenSponsor: () => void;
   onOpenGlobal: (section: 'workspace' | 'community' | 'sponsors' | 'around_me') => void;
-  onPrint: () => void;
   onCityClick: (id: string) => void;
   externalZoneFilter?: string;
   activeCityId?: string | null;
-  onAddToItinerary?: (poi: PointOfInterest) => void;
   onOpenAiPlanner?: () => void;
   onOpenRoadbook?: () => void;
   /**
@@ -96,16 +93,13 @@ export interface SidebarProps {
 }
 
 export const Sidebar = ({
-  onViewPoiDetail,
   onDayDrop,
   onOpenFullRankings,
   onOpenSponsor,
   onOpenGlobal,
-  onPrint,
   onCityClick,
   externalZoneFilter,
   activeCityId,
-  onAddToItinerary,
   onOpenAiPlanner,
   onOpenRoadbook,
   keepDiaryMountedDuringTransition = false,
@@ -351,7 +345,6 @@ export const Sidebar = ({
               user={user}
               onViewDetail={(poi) => openModal('poiDetail', { poi })}
               onDayDrop={onDayDrop}
-              onPrint={onPrint}
               userLocation={userLocation}
               onCityClick={onCityClick}
               onOpenAiPlanner={onOpenAiPlanner}
@@ -667,7 +660,6 @@ export const Sidebar = ({
                         user={user}
                         onViewDetail={(poi) => openModal('poiDetail', { poi })}
                         onDayDrop={onDayDrop}
-                        onPrint={onPrint}
                         userLocation={userLocation}
                         onCityClick={onCityClick}
                         onOpenAiPlanner={onOpenAiPlanner}
@@ -777,7 +769,6 @@ export const Sidebar = ({
                 user={user}
                 onViewDetail={(poi) => openModal('poiDetail', { poi })}
                 onDayDrop={onDayDrop}
-                onPrint={onPrint}
                 userLocation={userLocation}
                 onCityClick={onCityClick}
                 onOpenAiPlanner={onOpenAiPlanner}

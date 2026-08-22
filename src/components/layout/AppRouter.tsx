@@ -194,7 +194,6 @@ const MainContent: React.FC = () => {
           cityName={isAroundMeShop ? 'Around Me' : city?.name || 'Campania'}
           cityIds={territoryIds}
           onBack={handleSmartBack}
-          onAddToItinerary={(poi) => openModal('add', { poi })}
           onOpenPoiDetail={handleSmartPoiClick}
           onOpenSponsor={(type) =>
             openModal('sponsor', isPlanType(type) ? { sponsorType: type } : {})

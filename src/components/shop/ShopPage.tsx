@@ -37,7 +37,6 @@ interface ShopPageProps {
   /** Multi-city territory (Around Me). */
   cityIds?: string[];
   onBack: () => void;
-  onAddToItinerary: (poi: PointOfInterest) => void;
   onOpenPoiDetail: (poi: PointOfInterest) => void;
   onOpenSponsor: (type?: string) => void;
   isSidebarOpen?: boolean;
@@ -88,7 +87,6 @@ export const ShopPage = ({
   cityName,
   cityIds,
   onBack,
-  onAddToItinerary,
   onOpenPoiDetail,
   onOpenSponsor,
   isSidebarOpen,
@@ -135,22 +133,8 @@ export const ShopPage = ({
       : `Shopping a ${cityName}`;
   useDocumentTitle(pageTitle);
 
-  const currentShopPoi = selectedShop
-    ? ({
-        id: `shop-${selectedShop.id}`,
-        name: selectedShop.name,
-        category: 'shop',
-        description: selectedShop.shortBio || 'Bottega',
-        imageUrl: selectedShop.imageUrl,
-        rating: selectedShop.rating || 0,
-        votes: selectedShop.likes || 0,
-        coords: selectedShop.coords,
-        address: selectedShop.address,
-      } as PointOfInterest)
-    : null;
-
-  const isInItinerary = currentShopPoi
-    ? itinerary.items.some((i) => i.poi.id === currentShopPoi.id)
+  const isInItinerary = selectedShop
+    ? itinerary.items.some((i) => i.poi.id === `shop-${selectedShop.id}`)
     : false;
 
   useEffect(() => {
@@ -301,7 +285,6 @@ export const ShopPage = ({
                 user={user}
                 onViewDetail={onOpenPoiDetail}
                 onDayDrop={handleSmartDrop} // FIXED: Passed real handler
-                onPrint={() => {}}
                 userLocation={userLocation || null}
                 onCityClick={() => {}}
               />

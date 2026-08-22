@@ -19,6 +19,7 @@ import { useOpenCollaborationWorkspace } from '@/hooks/useOpenCollaborationWorks
 import { useResourceWorkspaces } from '@/hooks/useResourceWorkspaces';
 import { useSharedResourceIndicator } from '@/hooks/useSharedResourceIndicator';
 import type { Itinerary, User } from '@/types';
+import { formatLocalIsoDateDisplay, parseLocalCalendarDate } from '@/utils/common';
 import { formatItalianTime, formatItalianTimeWithSeconds } from '@/utils/dateFormatters';
 import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 import { useSystemMessage } from '../../../hooks/useSystemMessage';
@@ -50,7 +51,6 @@ interface DiaryHeaderProps {
   canUseAutosave: boolean;
   onAutosaveToggle: (enabled: boolean) => void;
   isDocumentDirty: boolean;
-  onPrint: () => void;
   onClear: () => void;
   onPublishRequest: () => void;
   onConfirmPublish: () => void;
@@ -72,12 +72,7 @@ interface DiaryHeaderProps {
 
 const formatDateForDisplay = (dateString: string | null): string => {
   if (!dateString) return '';
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return '';
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
+  return formatLocalIsoDateDisplay(dateString);
 };
 
 function getSaveBadgeLabel(
@@ -232,7 +227,6 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
   canUseAutosave,
   onAutosaveToggle,
   isDocumentDirty,
-  onPrint,
   onClear,
   onPublishRequest,
   onConfirmPublish,
@@ -315,8 +309,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     ) {
       const [day, month, year] = parts;
       const newDateStr = `${year}-${month}-${day}`;
-      const newDate = new Date(newDateStr);
-      if (!Number.isNaN(newDate.getTime()) && newDate.getDate() === parseInt(day, 10)) {
+      if (parseLocalCalendarDate(newDateStr)) {
         handleLocalDateChange(type, newDateStr);
         return;
       }
@@ -330,8 +323,15 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
   };
 
   const handleLocalDateChange = (type: 'startDate' | 'endDate', val: string) => {
-    // VALIDAZIONE BLOCCANTE: startDate > endDate
-    if (type === 'startDate' && val && itinerary.endDate && val > itinerary.endDate) {
+    // Incomplete range only: block start after end. With both dates set, DAL shift
+    // recalculates AL (see useDiaryLogic.handleDateChange) — do not treat as invalid.
+    if (
+      type === 'startDate' &&
+      val &&
+      itinerary.endDate &&
+      !itinerary.startDate &&
+      val > itinerary.endDate
+    ) {
       setIsInvalidRangeModalOpen(true);
       setDisplayStartDate(formatDateForDisplay(itinerary.startDate));
       return;
@@ -339,10 +339,15 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 
     onDateChange(type, val);
 
+    // If a confirm modal opened, itinerary is unchanged — restore committed display.
+    // If the change applied, the startDate/endDate effects refresh display on re-render.
     if (type === 'startDate') {
+      setDisplayStartDate(formatDateForDisplay(itinerary.startDate));
       if (!val) {
         onDateChange('endDate', '');
       }
+    } else {
+      setDisplayEndDate(formatDateForDisplay(itinerary.endDate));
     }
   };
 
@@ -378,15 +383,37 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
 
   // Menu click-outside: handled by AnchoredPopover in DiaryHeaderProjectInput (portaled).
 
+  const syncBadgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (syncBadgeTimeoutRef.current) {
+        clearTimeout(syncBadgeTimeoutRef.current);
+        syncBadgeTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const handleLoadMenuOpen = () => {
     const newState = !loadMenuOpen;
     setLoadMenuOpen(newState);
 
     if (newState && user && user.role !== 'guest') {
       setIsSyncing(true);
-      syncCloudDrafts().then(() => {
-        setTimeout(() => setIsSyncing(false), 500);
-      });
+      if (syncBadgeTimeoutRef.current) {
+        clearTimeout(syncBadgeTimeoutRef.current);
+        syncBadgeTimeoutRef.current = null;
+      }
+      void syncCloudDrafts()
+        .then(() => {
+          syncBadgeTimeoutRef.current = setTimeout(() => {
+            setIsSyncing(false);
+            syncBadgeTimeoutRef.current = null;
+          }, 500);
+        })
+        .catch(() => {
+          setIsSyncing(false);
+        });
     }
   };
 
@@ -401,7 +428,7 @@ export const DiaryHeader: React.FC<DiaryHeaderProps> = ({
     try {
       await onDeleteProject(deleteTargetId);
       setDeleteTargetId(null);
-    } catch (e) {
+    } catch {
       alert('Errore durante la cancellazione');
     } finally {
       setIsDeleting(false);

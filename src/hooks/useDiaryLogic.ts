@@ -9,6 +9,7 @@ import { getDiaryNotesUndoGrouping } from '@/domain/diary/diaryNotesState';
 import { GUEST_SAVE_MESSAGE } from '@/domain/save/documentSaveTypes';
 import { snapshotsEqual } from '@/domain/save/documentSnapshot';
 import type { SaveUserDraftViaggioOptions } from '@/types/resourceAssociation';
+import { addLocalCalendarDays, countInclusiveLocalDays } from '@/utils/common';
 import { randomUUID } from '@/utils/runtimeId';
 import { isDiaryPersisted } from '@/utils/suitcaseAssociation';
 import { isDiaryPublishedToCommunity, publishUserItinerary } from '../services/dataService';
@@ -31,7 +32,6 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     setItinerary,
     removeItem,
     highlightDates,
-    setHighlightDates,
     highlightedItemId,
     setHighlightedItemId,
     updateDayStyle,
@@ -76,6 +76,15 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     lostCount: number;
   } | null>(null);
 
+  /** Pending temporal shift of the whole trip (DAL change, duration preserved). */
+  const [shiftModal, setShiftModal] = useState<{
+    isOpen: boolean;
+    oldStartDate: string;
+    oldEndDate: string;
+    newStartDate: string;
+    newEndDate: string;
+  } | null>(null);
+
   // MEMO STATE
   const [memoTargetItem, setMemoTargetItem] = useState<ItineraryItem | null>(null);
 
@@ -89,8 +98,8 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     message: '',
     visible: false,
   });
-  const diaryToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const xpToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const diaryToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const xpToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showDiaryToast = useCallback((message: string) => {
     if (diaryToastTimeoutRef.current) clearTimeout(diaryToastTimeoutRef.current);
@@ -180,10 +189,14 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     };
   }, []);
 
-  // Reset tab when dates change
+  // Reset tab when the diary's local calendar range changes (including clear → null).
+  const diaryStartDate = itinerary.startDate;
+  const diaryEndDate = itinerary.endDate;
   useEffect(() => {
-    setActiveTab('all');
-  }, [itinerary.startDate, itinerary.endDate]);
+    if (diaryStartDate !== undefined || diaryEndDate !== undefined) {
+      setActiveTab('all');
+    }
+  }, [diaryStartDate, diaryEndDate]);
 
   // Capture Move Action Result
   useEffect(() => {
@@ -244,15 +257,38 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         return;
       }
 
-      const newStart = type === 'startDate' ? newValue : currentStart;
-      const newEnd = type === 'endDate' ? newValue : currentEnd;
-      const dStart = new Date(newStart);
-      const dEnd = new Date(newEnd);
+      // DAL change on an existing range: shift the whole trip, keep duration & dayIndex content.
+      if (type === 'startDate') {
+        if (!newValue) {
+          setItinerary((prev) => ({ ...prev, startDate: newValue }));
+          return;
+        }
+        if (newValue === currentStart) return;
 
-      if (dStart > dEnd) return;
+        const durationDays = countInclusiveLocalDays(currentStart, currentEnd);
+        if (durationDays < 1) return;
 
-      const msPerDay = 1000 * 60 * 60 * 24;
-      const newDayCount = Math.ceil((dEnd.getTime() - dStart.getTime()) / msPerDay) + 1;
+        const newEndDate = addLocalCalendarDays(newValue, durationDays - 1);
+        if (!newEndDate) return;
+
+        setShiftModal({
+          isOpen: true,
+          oldStartDate: currentStart,
+          oldEndDate: currentEnd,
+          newStartDate: newValue,
+          newEndDate,
+        });
+        return;
+      }
+
+      // AL change: existing duration expand/reduce logic (unchanged semantically).
+      if (!newValue) {
+        setItinerary((prev) => ({ ...prev, endDate: newValue }));
+        return;
+      }
+
+      const newDayCount = countInclusiveLocalDays(currentStart, newValue);
+      if (newDayCount < 1) return;
 
       const lostItems = itinerary.items.filter((i) => i.dayIndex >= newDayCount);
 
@@ -284,10 +320,8 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
 
       if (!currentStart || !currentEnd) return { ...prev, [type]: value };
 
-      const dStart = new Date(currentStart);
-      const dEnd = new Date(currentEnd);
-      const msPerDay = 1000 * 60 * 60 * 24;
-      const newDayCount = Math.ceil((dEnd.getTime() - dStart.getTime()) / msPerDay) + 1;
+      const newDayCount = countInclusiveLocalDays(currentStart, currentEnd);
+      if (newDayCount < 1) return { ...prev, [type]: value };
 
       const cleanItems = prev.items.filter((i) => i.dayIndex < newDayCount);
 
@@ -301,10 +335,23 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
     setWarningModal(null);
   }, [warningModal, setItinerary, guardCollaborativeWrite]);
 
+  const confirmDateShift = useCallback(() => {
+    if (guardCollaborativeWrite()) return;
+    if (!shiftModal) return;
+
+    const { newStartDate, newEndDate } = shiftModal;
+    setItinerary((prev) => ({
+      ...prev,
+      startDate: newStartDate,
+      endDate: newEndDate,
+    }));
+    setShiftModal(null);
+  }, [shiftModal, setItinerary, guardCollaborativeWrite]);
+
   const handleAddNote = useCallback(
     (dayIndex: number, skipUndo = false) => {
       if (guardCollaborativeWrite()) return;
-      const id = `note-${Date.now()}`;
+      const id = `note-${randomUUID()}`;
       const newItem: ItineraryItem = {
         id,
         cityId: 'custom',
@@ -313,15 +360,10 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
         isCustom: true,
         customIcon: 'note',
         poi: {
-          id: `custom-${Date.now()}`,
+          id: `custom-${randomUUID()}`,
           name: 'Nuova Nota',
           category: 'discovery',
           description: '',
-          imageUrl: '',
-          rating: 0,
-          votes: 0,
-          coords: { lat: 0, lng: 0 },
-          address: '',
         },
       };
 
@@ -358,7 +400,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
   );
 
   const handleTimeChange = useCallback(
-    (id: string, time: string, dayIdx: number) => {
+    (id: string, time: string) => {
       if (guardCollaborativeWrite()) return;
       const item = itinerary.items.find((i) => i.id === id);
       if (item && item.timeSlotStr !== time) {
@@ -693,24 +735,30 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
       let dataStr = e.dataTransfer.getData('application/json');
       if (!dataStr) dataStr = e.dataTransfer.getData('text/plain');
 
-      // Se è un movimento interno, registriamo per undo
+      // MOVE_ITEM payloads are JSON; external drops may be plain text — not an error.
+      let parsedPayload: unknown = null;
       try {
-        const data = JSON.parse(dataStr);
-        if (data.type === 'MOVE_ITEM' && data.id) {
-          pendingMoveActionRef.current = {
-            id: data.id,
-            previousItems: [...itinerary.items],
-          };
-        }
-      } catch {}
+        parsedPayload = JSON.parse(dataStr);
+      } catch {
+        parsedPayload = null;
+      }
+      if (
+        typeof parsedPayload === 'object' &&
+        parsedPayload !== null &&
+        'type' in parsedPayload &&
+        'id' in parsedPayload &&
+        parsedPayload.type === 'MOVE_ITEM' &&
+        typeof parsedPayload.id === 'string'
+      ) {
+        pendingMoveActionRef.current = {
+          id: parsedPayload.id,
+          previousItems: [...itinerary.items],
+        };
+      }
 
       onDayDropProp(idx, dataStr, time);
       setIsDraggingOver(false);
       dragCounter.current = 0;
-
-      // Aggiorniamo l'azione di move con il nuovo stato dopo il drop
-      // Nota: onDayDropProp è asincrono o causa re-render.
-      // È meglio catturare lo stato in useDiaryUndo confrontando gli array.
     },
     [onDayDropProp, itinerary.items, guardCollaborativeWrite],
   );
@@ -733,6 +781,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
       saveAsModalOpen,
       clearModalOpen,
       warningModal,
+      shiftModal,
       toastMessage,
       diaryToast,
       isDraggingOver,
@@ -758,6 +807,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
       setSaveAsModalOpen,
       setClearModalOpen,
       setWarningModal,
+      setShiftModal,
       setHighlightedItemId,
       setToastMessage,
       setMemoTargetItem,
@@ -776,6 +826,7 @@ export const useDiaryLogic = ({ user, onUserUpdate, onDayDropProp }: UseDiaryLog
       clearItinerary: handleClearItinerary,
       handleDateChange,
       confirmDateChange,
+      confirmDateShift,
       handleAddNote,
       handlePublish,
       handleRequestPublish,

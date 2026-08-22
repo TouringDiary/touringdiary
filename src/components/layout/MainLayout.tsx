@@ -172,18 +172,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
           ) : (
             <div id="tour-sidebar" className="h-full">
               <Sidebar
-                onViewPoiDetail={(poi) => openModal('poiDetail', { poi })}
                 onDayDrop={handleSmartDrop}
                 onOpenFullRankings={() => openModal('fullRankings')}
                 onOpenSponsor={() => openModal('sponsor', { sponsorTier: 'gold' })}
                 onOpenGlobal={(section) => handleNavigateGlobal(section)}
-                onPrint={() => window.print()}
                 onCityClick={(id) => {
                   closeModal();
                   navigateToCity(id);
                 }}
                 activeCityId={activeCityId}
-                onAddToItinerary={(poi) => openModal('add', { poi })}
                 onOpenAiPlanner={() => openModal('aiPlanner')}
                 onOpenRoadbook={() => openModal('roadbook')}
                 isWorkspacePanelOpen={isMyWorldFamilyOpen}
@@ -244,18 +241,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
                     `}
         >
           <Sidebar
-            onViewPoiDetail={(poi) => openModal('poiDetail', { poi })}
             onDayDrop={handleSmartDrop}
             onOpenFullRankings={() => openModal('fullRankings')}
             onOpenSponsor={() => openModal('sponsor', { sponsorTier: 'gold' })}
             onOpenGlobal={(section) => openModal('global', { section })}
-            onPrint={() => window.print()}
             onCityClick={(id) => {
               closeModal();
               navigateToCity(id);
             }}
             activeCityId={activeCityId}
-            onAddToItinerary={(poi) => openModal('add', { poi })}
             onOpenAiPlanner={() => openModal('aiPlanner')}
             onOpenRoadbook={() => openModal('roadbook')}
             keepDiaryMountedDuringTransition={diaryShell.shouldRender}
@@ -269,18 +263,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ helpFlash, onCompleteOnb
           className="fixed top-[var(--header-height)] left-0 right-0 bottom-0 z-focus-companion bg-slate-950"
         >
           <Sidebar
-            onViewPoiDetail={(poi) => openModal('poiDetail', { poi })}
             onDayDrop={handleSmartDrop}
             onOpenFullRankings={() => openModal('fullRankings')}
             onOpenSponsor={() => openModal('sponsor', { sponsorTier: 'gold' })}
             onOpenGlobal={(section) => openModal('global', { section })}
-            onPrint={() => window.print()}
             onCityClick={(id) => {
               closeModal();
               navigateToCity(id);
             }}
             activeCityId={activeCityId}
-            onAddToItinerary={(poi) => openModal('add', { poi })}
             onOpenAiPlanner={() => openModal('aiPlanner')}
             onOpenRoadbook={() => openModal('roadbook')}
           />

@@ -36,11 +36,11 @@ export const formatVisitors = (num: number | undefined | null) => {
  * Parse YYYY-MM-DD as a local calendar date (midnight local).
  * Never use `new Date('YYYY-MM-DD')` — ES parses that as UTC and shifts the day in non-UTC TZ.
  */
-const parseLocalCalendarDate = (dateStr: string): Date | null => {
-  const [yearStr, monthStr, dayStr] = dateStr.split('-');
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
+export const parseLocalCalendarDate = (dateStr: string): Date | null => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const year = Number(dateStr.slice(0, 4));
+  const month = Number(dateStr.slice(5, 7));
+  const day = Number(dateStr.slice(8, 10));
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
   const date = new Date(year, month - 1, day);
@@ -49,6 +49,14 @@ const parseLocalCalendarDate = (dateStr: string): Date | null => {
     return null;
   }
   return date;
+};
+
+/** Format a local Date as YYYY-MM-DD. */
+const formatLocalCalendarDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 /** Consecutive local calendar days from start..end inclusive (YYYY-MM-DD strings). */
@@ -67,6 +75,31 @@ export const getDaysArray = (start: string, end: string): Date[] => {
     days.push(new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()));
   }
   return days;
+};
+
+/** Inclusive day count for a local YYYY-MM-DD range (0 if invalid). */
+export const countInclusiveLocalDays = (start: string, end: string): number =>
+  getDaysArray(start, end).length;
+
+/**
+ * Add (or subtract) calendar days to a YYYY-MM-DD string in local time.
+ * Returns null if the input is not a valid local calendar date.
+ */
+export const addLocalCalendarDays = (dateStr: string, deltaDays: number): string | null => {
+  const date = parseLocalCalendarDate(dateStr);
+  if (!date) return null;
+  date.setDate(date.getDate() + deltaDays);
+  return formatLocalCalendarDate(date);
+};
+
+/** Display YYYY-MM-DD as DD/MM/YYYY without UTC shift. Empty string if invalid. */
+export const formatLocalIsoDateDisplay = (dateStr: string): string => {
+  const date = parseLocalCalendarDate(dateStr);
+  if (!date) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 };
 
 // --- PATCH APPLICATA ---
@@ -360,27 +393,23 @@ export const isPoiNew = (poi: PointOfInterest): boolean => {
   return false;
 };
 
-// FIX: Robust DataURL conversion to prevent "atob" errors
+// Robust DataURL → File. Invalid input throws (no empty/placeholder File).
 export const dataURLtoFile = (dataurl: string, filename: string): File => {
-  try {
-    const arr = dataurl.split(',');
-    if (arr.length < 2) throw new Error('Invalid data URL format');
-
-    const mimeMatch = arr[0].match(/:(.*?);/);
-    const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
-
-    const bstr = atob(arr[1].trim()); // Trim whitespace
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new File([u8arr], filename, { type: mime });
-  } catch (e) {
-    console.error('Error converting DataURL to File:', e);
-    // Fallback: create empty file to prevent crash, but log error
-    return new File([''], 'error.jpg', { type: 'image/jpeg' });
+  const arr = dataurl.split(',');
+  if (arr.length < 2) {
+    throw new Error('Invalid data URL format');
   }
+
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+
+  const bstr = atob(arr[1].trim());
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
 };
 
 const compressImageGeneric = (file: File, maxWidth: number, quality: number): Promise<string> => {
@@ -466,12 +495,13 @@ export const getSafeServiceType = (rawType: string): string => {
     t.includes('navetta')
   )
     return 'bus';
+  // Parking before taxi: "parcheggio" must not match the taxi fuzzy branch.
+  if (t.includes('parcheg') || t.includes('parking')) return 'parking';
   if (
     t.includes('taxi') ||
     t.includes('ncc') ||
     t.includes('noleggio') ||
     t.includes('auto') ||
-    t.includes('parcheggio') ||
     t.includes('car')
   )
     return 'taxi';

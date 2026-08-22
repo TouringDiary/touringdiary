@@ -110,7 +110,7 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({
   const dayNames = ['LU', 'MA', 'ME', 'GI', 'VE', 'SA', 'DO'];
 
   const todayStr = getTodayLocalDateString();
-  const today = parseDateString(todayStr)!;
+  const today = parseDateString(todayStr);
 
   const selectedDateObj = parseDateString(value);
   const minDateObj = parseDateString(minDateStr || null);
@@ -132,7 +132,7 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({
   const isRangeEnd = (dateStr: string) => rangeStart && rangeEnd && dateStr === rangeEnd;
   const isBetween = (dateStr: string) =>
     rangeStart && rangeEnd && dateStr > rangeStart && dateStr < rangeEnd;
-  const isFullRange = rangeStart && rangeEnd;
+  const isFullRange = Boolean(rangeStart && rangeEnd);
 
   return (
     <AnchoredPopover
@@ -198,14 +198,15 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({
         {days.map((day) => {
           const currentLoopDate = new Date(year, month, day);
           const dateStr = formatDateString(currentLoopDate);
-          const isToday = currentLoopDate.getTime() === today.getTime();
+          const isToday = today !== null && currentLoopDate.getTime() === today.getTime();
           const isSelected =
-            selectedDateObj && currentLoopDate.getTime() === selectedDateObj.getTime();
+            selectedDateObj !== null && currentLoopDate.getTime() === selectedDateObj.getTime();
 
-          const isStart = isRangeStart(dateStr);
-          const isEnd = isRangeEnd(dateStr);
-          const isMid = isBetween(dateStr);
+          const isStart = Boolean(isRangeStart(dateStr));
+          const isEnd = Boolean(isRangeEnd(dateStr));
+          const isMid = Boolean(isBetween(dateStr));
           const isSame = isStart && isEnd;
+          const inRange = isStart || isEnd || isMid;
 
           let isDisabled = false;
           if (minDateObj && currentLoopDate < minDateObj) {
@@ -216,6 +217,14 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({
 
           const hideSeparator = isFullRange && (isStart || isMid) && !isSame;
 
+          let radiusClass = 'rounded-full';
+          if (inRange) {
+            if (isSame) radiusClass = 'rounded-full';
+            else if (isStart) radiusClass = 'rounded-l-full rounded-r-none';
+            else if (isEnd) radiusClass = 'rounded-r-full rounded-l-none';
+            else radiusClass = 'rounded-none';
+          }
+
           return (
             <div
               key={day}
@@ -225,15 +234,30 @@ export const CustomCalendar: React.FC<CustomCalendarProps> = ({
                 type="button"
                 disabled={isDisabled}
                 onClick={() => handleDayClick(day)}
-                className={`
-                                    w-8 h-8 flex items-center justify-center text-xs font-medium transition-colors border
-                                    ${isDisabled ? 'text-slate-600 cursor-not-allowed border-slate-600/40 rounded-full' : 'cursor-pointer hover:bg-slate-700 text-slate-200 border-slate-600/40'}
-                                    ${isToday && !isSelected && !isMid ? 'border-orange-400 text-orange-400 bg-orange-400/10 rounded-full' : ''}
-                                    ${isMid ? 'bg-amber-500/20 text-amber-200 border-transparent rounded-none hover:bg-amber-500/30' : ''}
-                                    ${isStart || isEnd ? 'bg-amber-500 text-white font-bold hover:bg-amber-600 border-amber-500 z-floating-panel' : ''}
-                                    ${isSame ? 'rounded-full' : isStart ? 'rounded-l-full' : isEnd ? 'rounded-r-full' : isMid ? '' : 'rounded-full'}
-                                    ${isSelected && !isStart && !isEnd && !isMid ? 'bg-amber-600 text-white font-bold border-amber-600 rounded-full' : ''}
-                                `}
+                className={[
+                  'w-8 h-8 flex items-center justify-center text-xs font-medium transition-colors border',
+                  radiusClass,
+                  isDisabled
+                    ? 'text-slate-600 cursor-not-allowed border-slate-600/40'
+                    : 'cursor-pointer',
+                  !isDisabled && !inRange
+                    ? 'hover:bg-slate-700 text-slate-200 border-slate-600/40'
+                    : '',
+                  isToday && !isSelected && !inRange
+                    ? 'border-orange-400 text-orange-400 bg-orange-400/10'
+                    : '',
+                  isMid
+                    ? 'bg-amber-500/20 text-amber-200 border-transparent hover:bg-amber-500/30'
+                    : '',
+                  isStart || isEnd
+                    ? 'bg-amber-500 text-white font-bold hover:bg-amber-600 border-transparent z-floating-panel'
+                    : '',
+                  isSelected && !inRange
+                    ? 'bg-amber-600 text-white font-bold border-amber-600'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
               >
                 {day}
               </button>

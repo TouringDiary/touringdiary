@@ -35,7 +35,6 @@ interface TravelDiaryProps {
   user: User;
   onViewDetail: (poi: PointOfInterest) => void;
   onDayDrop: (dayIndex: number, data: string, targetTime?: string) => void;
-  onPrint: () => void;
   userLocation: { lat: number; lng: number } | null;
   onCityClick: (id: string) => void;
   onOpenAiPlanner?: () => void;
@@ -109,7 +108,6 @@ const TravelDiaryContent = ({
   user,
   onViewDetail,
   onDayDrop,
-  onPrint,
   onCityClick,
   userLocation,
   onOpenAiPlanner,
@@ -371,7 +369,6 @@ const TravelDiaryContent = ({
         canUseAutosave={state.documentSave.canUseAutosave}
         onAutosaveToggle={state.documentSave.setAutosaveEnabled}
         isDocumentDirty={state.documentSave.isDirty}
-        onPrint={onPrint}
         onClear={() => setters.setClearModalOpen(true)}
         onPublishRequest={actions.handleRequestPublish}
         onConfirmPublish={() => void actions.handlePublish()}
