@@ -4,6 +4,8 @@ export type AiEdgeErrorCode =
   | 'RATE_LIMIT'
   | 'EMERGENCY_STOP'
   | 'AI_DISABLED'
+  | 'FORBIDDEN'
+  | 'AUTH_REQUIRED'
   | 'AI_BACKEND_ERROR'
   | 'AI_ERROR'
   | 'TIMEOUT'
@@ -36,8 +38,13 @@ export interface EdgeInvokeResult {
 const DEFAULT_EDGE_MESSAGES: Record<string, string> = {
   EMERGENCY_STOP: 'I servizi AI sono temporaneamente sospesi per manutenzione di emergenza.',
   AI_DISABLED: 'I servizi AI sono temporaneamente disattivati per manutenzione.',
+  CREDITS_EXHAUSTED:
+    'Hai esaurito i crediti AI disponibili. Aggiorna il profilo o usa un codice Referral per crediti extra.',
   RATE_LIMIT_EXCEEDED:
     'Hai esaurito i crediti AI disponibili. Aggiorna il profilo o usa un codice Referral per crediti extra.',
+  FORBIDDEN: 'Sessione non valida per questa operazione AI. Effettua di nuovo l’accesso.',
+  GUEST_ID_REQUIRED: 'Identità ospite mancante. Ricarica la pagina e riprova.',
+  INVALID_GUEST_ID: 'Identità ospite non valida. Ricarica la pagina e riprova.',
   AI_BACKEND_ERROR: 'Errore temporaneo del sistema AI.',
 };
 
@@ -50,8 +57,17 @@ function throwFromEdgeCode(code: string, message?: string): never {
   if (code === 'AI_DISABLED') {
     throw new AiEdgeError('AI_DISABLED', msg || DEFAULT_EDGE_MESSAGES.AI_DISABLED);
   }
-  if (code === 'RATE_LIMIT_EXCEEDED' || code === 'RATE_LIMIT') {
-    throw new AiEdgeError('RATE_LIMIT', msg || DEFAULT_EDGE_MESSAGES.RATE_LIMIT_EXCEEDED);
+  if (code === 'CREDITS_EXHAUSTED' || code === 'RATE_LIMIT_EXCEEDED' || code === 'RATE_LIMIT') {
+    throw new AiEdgeError('RATE_LIMIT', msg || DEFAULT_EDGE_MESSAGES.CREDITS_EXHAUSTED);
+  }
+  if (code === 'FORBIDDEN') {
+    throw new AiEdgeError('FORBIDDEN', msg || DEFAULT_EDGE_MESSAGES.FORBIDDEN);
+  }
+  if (code === 'GUEST_ID_REQUIRED' || code === 'AUTH_REQUIRED') {
+    throw new AiEdgeError('AUTH_REQUIRED', msg || DEFAULT_EDGE_MESSAGES.GUEST_ID_REQUIRED);
+  }
+  if (code === 'INVALID_GUEST_ID') {
+    throw new AiEdgeError('AUTH_REQUIRED', msg || DEFAULT_EDGE_MESSAGES.INVALID_GUEST_ID);
   }
   if (code === 'PROVIDER_UNAVAILABLE') {
     throw new AiEdgeError('AI_ERROR', msg || 'Configurazione provider AI non disponibile.');
@@ -121,6 +137,9 @@ export function aiErrorModalTitle(err: unknown): string {
       return 'Manutenzione AI';
     case 'RATE_LIMIT':
       return 'Crediti esauriti';
+    case 'FORBIDDEN':
+    case 'AUTH_REQUIRED':
+      return 'Accesso richiesto';
     case 'TIMEOUT':
       return 'Timeout richiesta';
     case 'NETWORK':

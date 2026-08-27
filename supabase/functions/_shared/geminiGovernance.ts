@@ -10,7 +10,12 @@ export const CORS_HEADERS = {
 const DEFAULT_MESSAGES: Record<string, string> = {
   EMERGENCY_STOP: 'I servizi AI sono temporaneamente sospesi per emergenza.',
   AI_DISABLED: 'I servizi AI sono temporaneamente disattivati per manutenzione.',
+  CREDITS_EXHAUSTED: 'Hai esaurito i crediti AI disponibili.',
+  /** @deprecated alias kept for older clients */
   RATE_LIMIT_EXCEEDED: 'Hai esaurito i crediti AI disponibili.',
+  FORBIDDEN: 'Sessione non valida per questa operazione AI. Effettua di nuovo l’accesso.',
+  GUEST_ID_REQUIRED: 'Identità ospite mancante. Ricarica la pagina e riprova.',
+  INVALID_GUEST_ID: 'Identità ospite non valida. Ricarica la pagina e riprova.',
   PROVIDER_UNAVAILABLE: 'Configurazione provider AI non disponibile.',
   AI_BACKEND_ERROR: 'Errore temporaneo del sistema AI.',
 };
@@ -23,10 +28,29 @@ export function assertGeminiApiKey(): string {
   return apiKey;
 }
 
+/**
+ * Maps RPC deny reasons to stable edge error codes.
+ * Must NOT collapse auth/governance denials into CREDITS_EXHAUSTED.
+ */
 export function mapConsumeDenial(reason: string | undefined): string {
-  if (reason === 'EMERGENCY_STOP') return 'EMERGENCY_STOP';
-  if (reason === 'AI_DISABLED') return 'AI_DISABLED';
-  return 'RATE_LIMIT_EXCEEDED';
+  switch (reason) {
+    case 'EMERGENCY_STOP':
+      return 'EMERGENCY_STOP';
+    case 'AI_DISABLED':
+      return 'AI_DISABLED';
+    case 'CREDITS_EXHAUSTED':
+      return 'CREDITS_EXHAUSTED';
+    case 'FORBIDDEN':
+      return 'FORBIDDEN';
+    case 'GUEST_ID_REQUIRED':
+      return 'GUEST_ID_REQUIRED';
+    case 'INVALID_GUEST_ID':
+      return 'INVALID_GUEST_ID';
+    case 'RATE_LIMIT_EXCEEDED':
+      return 'CREDITS_EXHAUSTED';
+    default:
+      return reason && reason.trim() ? reason.trim() : 'CREDITS_EXHAUSTED';
+  }
 }
 
 export function edgeErrorResponse(
@@ -41,18 +65,28 @@ export function edgeErrorResponse(
   });
 }
 
+const GOVERNANCE_CODES = new Set([
+  'EMERGENCY_STOP',
+  'AI_DISABLED',
+  'CREDITS_EXHAUSTED',
+  'RATE_LIMIT_EXCEEDED',
+  'FORBIDDEN',
+  'GUEST_ID_REQUIRED',
+  'INVALID_GUEST_ID',
+  'PROVIDER_UNAVAILABLE',
+  'AI_BACKEND_ERROR',
+]);
+
 export function handleEdgeCatch(
   error: unknown,
   corsHeaders: Record<string, string> = CORS_HEADERS,
 ): Response {
   const msg = String((error as Error)?.message ?? error);
 
-  if (msg === 'EMERGENCY_STOP' || msg === 'AI_DISABLED' || msg === 'RATE_LIMIT_EXCEEDED' || msg === 'PROVIDER_UNAVAILABLE') {
-    return edgeErrorResponse(msg);
-  }
-
-  if (msg === 'AI_BACKEND_ERROR') {
-    return edgeErrorResponse(msg);
+  if (GOVERNANCE_CODES.has(msg)) {
+    // Normalize legacy alias
+    const code = msg === 'RATE_LIMIT_EXCEEDED' ? 'CREDITS_EXHAUSTED' : msg;
+    return edgeErrorResponse(code);
   }
 
   if (msg.includes('caratteri') || msg.includes('prompt') || msg.includes('JSON') || msg.includes('limiti operativi')) {
@@ -69,8 +103,32 @@ type ConsumeRpcResult = {
   source?: string;
 };
 
+function normalizeConsumeRpcResult(data: unknown): ConsumeRpcResult | null {
+  if (data == null) return null;
+  if (typeof data === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(data);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as ConsumeRpcResult;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    return data as ConsumeRpcResult;
+  }
+  return null;
+}
+
 export async function consumeCreditsOrThrow(
-  supabase: { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: ConsumeRpcResult | null; error: { message: string } | null }> },
+  supabase: {
+    rpc: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  },
   params: {
     p_user_id: string | null;
     p_model_type: string;
@@ -79,7 +137,7 @@ export async function consumeCreditsOrThrow(
   },
   ctx: { fn: string; feature: string; userId: string | null },
 ): Promise<ConsumeRpcResult> {
-  const { data: rpcData, error: rpcError } = await supabase.rpc('consume_ai_credits', params);
+  const { data, error: rpcError } = await supabase.rpc('consume_ai_credits', params);
 
   if (rpcError) {
     logAiRuntime({
@@ -94,14 +152,18 @@ export async function consumeCreditsOrThrow(
     throw new Error('AI_BACKEND_ERROR');
   }
 
+  const rpcData = normalizeConsumeRpcResult(data);
+
   if (!rpcData?.allowed) {
+    const reason = rpcData?.reason || 'denied';
     logAiRuntime({
       function: ctx.fn,
       feature: ctx.feature,
       phase: 'consume_fail' as AiRuntimePhase,
       userId: ctx.userId,
       guest: !ctx.userId,
-      errorCategory: rpcData?.reason || 'denied',
+      errorCategory: reason,
+      message: `consume denied reason=${reason} p_user_id=${params.p_user_id ?? 'null'}`,
     });
     throw new Error(mapConsumeDenial(rpcData?.reason));
   }

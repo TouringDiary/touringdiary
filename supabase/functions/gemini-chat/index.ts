@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { GoogleGenAI } from "npm:@google/genai";
+import { createAuthedEdgeClient } from "../_shared/geminiAuth.ts";
 import {
   generateContentWithRetry,
   resolveGuestIdForRpc,
@@ -24,15 +24,8 @@ serve(async (req) => {
   try {
     const apiKey = assertGeminiApiKey();
 
-    const authHeader = req.headers.get('Authorization') || '';
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_ANON_KEY') || '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user } } = await supabase.auth.getUser();
-    userId = user?.id || null;
+    const { supabase, userId: resolvedUserId } = await createAuthedEdgeClient(req);
+    userId = resolvedUserId;
 
     const clientIps = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown-ip';
     const clientIp = clientIps.split(',')[0].trim();
