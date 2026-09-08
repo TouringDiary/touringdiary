@@ -22,8 +22,9 @@ interface AffiliateSuggestionBoxProps {
   globalMap: ResolvedAffiliateProduct[];
   placeholders: Record<string, ResolvedAffiliateProduct[]>;
   onLinkBuild: (provider: string, url: string) => string;
-  onLinkBuildSearch: (query: string) => string;
   adminSuitcasePlaceholders?: Record<string, string>;
+  /** True while suitcase affiliate triggers are still loading. */
+  isLoadingAffiliateTriggers?: boolean;
 }
 
 export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
@@ -34,12 +35,12 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
   globalMap,
   placeholders,
   onLinkBuild,
-  onLinkBuildSearch,
   adminSuitcasePlaceholders = {},
+  isLoadingAffiliateTriggers = false,
 }) => {
   const [rotationIndex, setRotationIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
-  const { integrations, loading } = usePartnerIntegrations();
+  const { integrations, loading: partnersLoading } = usePartnerIntegrations();
 
   // 1. Partner Logic (Centralized and moved up for provider-agnostic default resolving)
   const allPartners = useMemo(() => {
@@ -70,8 +71,23 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
     return primary?.id || allPartners[0]?.id || null;
   }, [allPartners]);
 
-  // Global + Placeholders merged for rotation length calc
-  const rotatablePlaceholdersCount = (placeholders.global?.length || 0) + (globalMap.length || 0);
+  // Rotazione: global + placeholders globali + categorie + placeholders di categoria
+  const rotatablePlaceholdersCount = useMemo(() => {
+    const categoryLists = Object.values(categoryMap).reduce(
+      (n, list) => n + (list?.length || 0),
+      0,
+    );
+    const categoryPlaceholders = Object.entries(placeholders).reduce((n, [key, list]) => {
+      if (key === 'global') return n;
+      return n + (list?.length || 0);
+    }, 0);
+    return (
+      (placeholders.global?.length || 0) +
+      (globalMap.length || 0) +
+      categoryLists +
+      categoryPlaceholders
+    );
+  }, [placeholders, globalMap, categoryMap]);
 
   useEffect(() => {
     if (rotatablePlaceholdersCount === 0) return;
@@ -108,31 +124,45 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
     | (ResolvedAffiliateProduct & { product?: never })
     | { product: ResolvedAffiliateProduct };
 
-  const isWrappedAffiliateProduct = (
-    value: RawAffiliateProduct,
-  ): value is { product: ResolvedAffiliateProduct } => {
-    return value !== null && typeof value === 'object' && 'product' in value;
-  };
-
   const suggestion: ResolvedAffiliateProduct | null =
     useMemo<ResolvedAffiliateProduct | null>(() => {
-      const mapToProduct = (raw: RawAffiliateProduct): ResolvedAffiliateProduct => {
-        // Estrazione deterministica ed esplicita con narrowing totale e zero cast!
+      const isWrappedAffiliateProduct = (
+        value: RawAffiliateProduct,
+      ): value is { product: ResolvedAffiliateProduct } => {
+        return value !== null && typeof value === 'object' && 'product' in value;
+      };
+
+      const mapToProduct = (raw: RawAffiliateProduct): ResolvedAffiliateProduct | null => {
         const prod: ResolvedAffiliateProduct = isWrappedAffiliateProduct(raw) ? raw.product : raw;
 
+        const id = typeof prod.id === 'string' && prod.id.trim() ? prod.id.trim() : undefined;
+        const name =
+          (typeof prod.name === 'string' && prod.name.trim() ? prod.name.trim() : undefined) ||
+          (typeof prod.title === 'string' && prod.title.trim() ? prod.title.trim() : undefined);
+
+        // Senza id/nome reali non è un prodotto presentabile (né trackabile).
+        if (!id || !name) return null;
+
         const productObj: ResolvedAffiliateProduct = {
-          // Fallback deterministico stabile per evitare rerendering instabili della reconciliation React
-          id: prod.id ?? (prod.name ? `fallback-${prod.name}` : 'fallback-suggestion'),
-          name: prod.name || prod.title || 'Suggerimento',
-          description: prod.description || 'Accessorio consigliato per il tuo viaggio',
-          price: prod.price || 'Partner',
-          category: prod.category || undefined,
-          provider: prod.provider ?? defaultPartnerId ?? undefined,
-          url: prod.url || undefined,
+          id,
+          name,
+          ...(prod.description != null && prod.description !== ''
+            ? { description: prod.description }
+            : {}),
+          ...(prod.price != null && prod.price !== '' ? { price: prod.price } : {}),
+          ...(prod.category != null ? { category: prod.category } : {}),
+          ...(prod.provider != null
+            ? { provider: prod.provider }
+            : defaultPartnerId
+              ? { provider: defaultPartnerId }
+              : {}),
+          ...(prod.url ? { url: prod.url } : {}),
           preferred_partners: prod.preferred_partners || [],
           target_categories: prod.target_categories || [],
           product_links: prod.product_links || [],
-          imageUrl: prod.image_url || prod.imageUrl || undefined,
+          ...(prod.image_url || prod.imageUrl
+            ? { imageUrl: prod.image_url || prod.imageUrl || undefined }
+            : {}),
         };
 
         return productObj;
@@ -145,43 +175,54 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
       );
 
       // 1. CONTESTUALE (Overrides -> Item Match)
-      // Overrides
       for (const item of items) {
         const match = findOverrideMatch(item.name || '', overrides);
-        if (match) return mapToProduct(match);
+        if (match) {
+          const mapped = mapToProduct(match);
+          if (mapped) return mapped;
+        }
       }
-      // Item names
       for (const item of items) {
         const name = (item.name || '').toLowerCase();
         const triggerItems =
           itemMap[name] || Object.entries(itemMap).find(([k]) => name.includes(k))?.[1];
-        if (triggerItems && triggerItems.length > 0) return mapToProduct(triggerItems[0]);
+        if (triggerItems && triggerItems.length > 0) {
+          const mapped = mapToProduct(triggerItems[0]);
+          if (mapped) return mapped;
+        }
       }
 
       // 2. PARTNER CATEGORIA (Rotati)
       for (const cat of categories) {
         const list = categoryMap[cat];
-        if (list && list.length > 0) return mapToProduct(list[rotationIndex % list.length]);
+        if (list && list.length > 0) {
+          const mapped = mapToProduct(list[rotationIndex % list.length]);
+          if (mapped) return mapped;
+        }
       }
 
       // 3. PARTNER GLOBAL (Rotati)
       if (globalMap && globalMap.length > 0) {
-        return mapToProduct(globalMap[rotationIndex % globalMap.length]);
+        const mapped = mapToProduct(globalMap[rotationIndex % globalMap.length]);
+        if (mapped) return mapped;
       }
 
-      // 4. PLACEHOLDER CATEGORIA (Rotati)
+      // 4. PLACEHOLDER CATEGORIA (config affiliate reale, non inventata)
       for (const cat of categories) {
         const list = placeholders[cat];
-        if (list && list.length > 0) return mapToProduct(list[rotationIndex % list.length]);
+        if (list && list.length > 0) {
+          const mapped = mapToProduct(list[rotationIndex % list.length]);
+          if (mapped) return mapped;
+        }
       }
 
-      // 5. PLACEHOLDER GLOBAL (Rotati)
+      // 5. PLACEHOLDER GLOBAL
       const globalPlaceholders = placeholders.global || [];
       if (globalPlaceholders.length > 0) {
-        return mapToProduct(globalPlaceholders[rotationIndex % globalPlaceholders.length]);
+        const mapped = mapToProduct(globalPlaceholders[rotationIndex % globalPlaceholders.length]);
+        if (mapped) return mapped;
       }
 
-      // 6. FALLBACK STATICO NULL (Will be caught by finalSuggestion)
       return null;
     }, [
       activeSuitcase,
@@ -191,26 +232,15 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
       overrides,
       placeholders,
       globalMap,
-      onLinkBuild,
       defaultPartnerId,
       findOverrideMatch,
     ]);
 
-  const staticInlineFallback: ResolvedAffiliateProduct = {
-    id: 'static-travel-essentials',
-    name: 'Travel Essentials',
-    description: 'Organizer, adattatori e accessori indispensabili per viaggiare',
-    price: 'Partner',
-    category: 'Must Have',
-  };
-
-  const finalSuggestion = suggestion || staticInlineFallback;
-
   const compatiblePartners = useMemo(() => {
-    if (!allPartners.length) return [];
+    if (!suggestion || !allPartners.length) return [];
 
     // Estrarre ID partner che hanno un link esplicito nei product_links
-    const explicitLinkPartnerIds = (finalSuggestion.product_links || []).map(
+    const explicitLinkPartnerIds = (suggestion.product_links || []).map(
       (l: ResolvedAffiliateProductLink) => l.partner_id,
     );
 
@@ -220,10 +250,8 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
     const explicitPartners = allPartners.filter((p) => explicitLinkPartnerIds.includes(p.id));
 
     // 2. Se preferred_partners è valorizzato → aggiungi quelli
-    if (finalSuggestion.preferred_partners && finalSuggestion.preferred_partners.length > 0) {
-      const preferred = allPartners.filter((p) =>
-        finalSuggestion.preferred_partners?.includes(p.id),
-      );
+    if (suggestion.preferred_partners && suggestion.preferred_partners.length > 0) {
+      const preferred = allPartners.filter((p) => suggestion.preferred_partners?.includes(p.id));
       filtered = Array.from(new Set([...explicitPartners, ...preferred]));
     } else {
       filtered = explicitPartners;
@@ -232,11 +260,11 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
     // 3. Altrimenti match tra target_categories e partner.capabilities (se ancora vuoto)
     if (
       filtered.length === 0 &&
-      finalSuggestion.target_categories &&
-      finalSuggestion.target_categories.length > 0
+      suggestion.target_categories &&
+      suggestion.target_categories.length > 0
     ) {
       filtered = allPartners.filter((p) =>
-        p.capabilities.some((cap) => finalSuggestion.target_categories?.includes(cap)),
+        p.capabilities.some((cap) => suggestion.target_categories?.includes(cap)),
       );
     }
 
@@ -251,7 +279,7 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
     }
 
     return filtered;
-  }, [allPartners, finalSuggestion]);
+  }, [allPartners, suggestion]);
 
   const primaryPartner = useMemo(
     () => compatiblePartners.find((p) => p.is_primary) || compatiblePartners[0],
@@ -264,11 +292,68 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
   );
 
   const partnerDisplay = useMemo(
-    () => resolveAffiliatePartnerDisplay(finalSuggestion, integrations?.partners),
-    [finalSuggestion, integrations?.partners],
+    () => (suggestion ? resolveAffiliatePartnerDisplay(suggestion, integrations?.partners) : null),
+    [suggestion, integrations?.partners],
   );
 
-  const getAffiliateLink = (partner: PartnerIntegration) => {
+  const displayImage = useMemo(() => {
+    if (!suggestion) return null;
+    return resolveAffiliateProductImage({
+      product: suggestion,
+      partnerId: primaryPartner?.id,
+      adminSuitcasePlaceholders: adminSuitcasePlaceholders,
+      failedImages: failedImages,
+    });
+  }, [suggestion, primaryPartner, adminSuitcasePlaceholders, failedImages]);
+
+  if (partnersLoading || isLoadingAffiliateTriggers) {
+    return (
+      <div className="bg-[#0b0f19]/80 backdrop-blur-md rounded-[20px] border border-white/5 p-4 h-full min-h-0 flex flex-col gap-4 relative group">
+        <div className="shrink-0 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+            <ShoppingBag className="w-3.5 h-3.5 text-indigo-400" />
+          </div>
+          <h4 className="text-[10px] xl:text-[12px] font-black text-indigo-400/80 uppercase tracking-widest">
+            Consigli utili
+          </h4>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-center px-4">
+          <p className="text-xs text-slate-500 font-medium leading-relaxed">
+            Caricamento suggerimenti affiliate…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!suggestion) {
+    return (
+      <div className="bg-[#0b0f19]/80 backdrop-blur-md rounded-[20px] border border-white/5 p-4 h-full min-h-0 flex flex-col gap-4 relative group">
+        <div className="shrink-0 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+            <ShoppingBag className="w-3.5 h-3.5 text-indigo-400" />
+          </div>
+          <h4 className="text-[10px] xl:text-[12px] font-black text-indigo-400/80 uppercase tracking-widest">
+            Consigli utili
+          </h4>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-center px-4">
+          <p className="text-xs text-slate-500 font-medium leading-relaxed">
+            Nessun suggerimento affiliate disponibile al momento.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const finalSuggestion = suggestion;
+  const displayLabels = partnerDisplay ?? {
+    badgeLabel: 'Suggerimento',
+    ctaLabel: 'Scopri il prodotto',
+    scopriCtaLabel: 'Scopri il prodotto',
+  };
+
+  const getAffiliateLink = (partner: PartnerIntegration): string => {
     // 1. Check for specific partner link override
     const partnerLink = (finalSuggestion.product_links || []).find(
       (l: ResolvedAffiliateProductLink) => l.partner_id === partner.id,
@@ -276,8 +361,9 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
 
     if (partnerLink) {
       if (partnerLink.url_override) return partnerLink.url_override;
+      // Search tracked sul partner (contratto buildAffiliateLink); '' se affiliate non configurato
       return buildAffiliateLink(partner, {
-        query: partnerLink.query || finalSuggestion.name || '',
+        query: partnerLink.query || finalSuggestion.name,
       });
     }
 
@@ -286,19 +372,34 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
       return onLinkBuild(partner.id, finalSuggestion.url);
     }
 
-    // 3. Generic search fallback
-    return buildAffiliateLink(partner, { query: finalSuggestion.name || '' });
+    // 3. Generic partner-search (dominio previsto: stesso contratto di AffiliateCTA)
+    return buildAffiliateLink(partner, { query: finalSuggestion.name });
   };
 
-  const displayImage = useMemo(() => {
-    return resolveAffiliateProductImage({
-      product: finalSuggestion,
-      partnerId: primaryPartner?.id,
-      adminSuitcasePlaceholders: adminSuitcasePlaceholders,
-      failedImages: failedImages,
-    });
-  }, [finalSuggestion, primaryPartner, adminSuitcasePlaceholders, failedImages]);
+  const primaryAffiliateLink = primaryPartner ? getAffiliateLink(primaryPartner) : '';
+  const secondaryPartnersWithLinks = secondaryPartners.filter((p) => Boolean(getAffiliateLink(p)));
 
+  /**
+   * trackClickOut è async, restituisce Promise<boolean> e non propaga reject
+   * (errori già loggati nel servizio). Non await: window.open deve restare
+   * nel gesto utente (mobile/tablet popup / gesture stack).
+   * Pattern allineato a AffiliateCTA / SuitcaseItemRow (fire-and-forget + open immediato).
+   */
+  const trackAndOpen = (partner: PartnerIntegration): void => {
+    const link = getAffiliateLink(partner);
+    if (!link) return;
+
+    const productId = finalSuggestion.id;
+    if (!productId) return;
+
+    affiliateTrackingService.trackClickOut({
+      partnerId: partner.id,
+      sourceType: 'suitcase',
+      category: finalSuggestion.category || 'gear',
+      productId,
+    });
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
   return (
     <div className="bg-[#0b0f19]/80 backdrop-blur-md rounded-[20px] border border-white/5 p-4 h-full min-h-0 flex flex-col gap-4 relative group">
       {/* HEADER */}
@@ -344,23 +445,9 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
 
       {/* META INFO */}
       <div className="shrink-0 flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <div className="px-1.5 py-0.5 select-none rounded bg-indigo-600/20 border border-indigo-500/20 text-[8px] xl:text-[10px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-1.5 line-clamp-1 border-dotted">
-            {partnerDisplay.badgeLabel}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <div className="flex items-center gap-0.5 text-amber-500">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <svg
-                  key={i}
-                  aria-hidden="true"
-                  className="w-2.5 h-2.5 fill-current"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27Z" />
-                </svg>
-              ))}
-            </div>
+            {displayLabels.badgeLabel}
           </div>
         </div>
 
@@ -373,32 +460,25 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
 
       {/* FOOTER CTA — shrink-0, mai compresso dal flex layout */}
       <div className="shrink-0 flex flex-col gap-2.5 mt-auto">
-        {primaryPartner && (
+        {primaryPartner && primaryAffiliateLink ? (
           <button
             type="button"
-            onClick={() => {
-              const link = getAffiliateLink(primaryPartner);
-              if (link) {
-                affiliateTrackingService.trackClickOut({
-                  partnerId: primaryPartner.id,
-                  sourceType: 'suitcase',
-                  category: finalSuggestion.category || 'gear',
-                  productId: finalSuggestion.id,
-                });
-                window.open(link, '_blank', 'noopener,noreferrer');
-              }
-            }}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-[0_0_20px_rgba(79,70,229,0.2)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)] transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
+            onClick={() => trackAndOpen(primaryPartner)}
+            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-[0_0_20px_rgba(79,70,229,0.2)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)] transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden min-h-11"
           >
             <span className="text-xs font-black text-white uppercase tracking-widest relative z-local-raised truncate">
-              {partnerDisplay.scopriCtaLabel}
+              {displayLabels.scopriCtaLabel}
             </span>
             <ExternalLink className="w-3.5 h-3.5 text-indigo-100 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform relative z-local-raised shrink-0" />
           </button>
-        )}
+        ) : secondaryPartnersWithLinks.length === 0 ? (
+          <p className="text-center text-[11px] text-slate-500 font-medium leading-relaxed px-2 py-2">
+            Suggerimento disponibile, ma nessun partner affiliate utilizzabile al momento.
+          </p>
+        ) : null}
 
-        {/* SECONDARY PARTNERS BAR */}
-        {secondaryPartners.length > 0 && (
+        {/* SECONDARY PARTNERS BAR — solo partner con link affiliate/search utilizzabile */}
+        {secondaryPartnersWithLinks.length > 0 && (
           <div className="mt-2 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-[9px] xl:text-[11px] font-black text-slate-300 uppercase tracking-widest whitespace-nowrap">
@@ -407,22 +487,11 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
               <div className="h-px flex-1 bg-white/5" />
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              {secondaryPartners.map((partner) => (
+              {secondaryPartnersWithLinks.map((partner) => (
                 <button
                   type="button"
                   key={partner.id}
-                  onClick={() => {
-                    const link = getAffiliateLink(partner);
-                    if (link) {
-                      affiliateTrackingService.trackClickOut({
-                        partnerId: partner.id,
-                        sourceType: 'suitcase',
-                        category: finalSuggestion.category || 'gear',
-                        productId: finalSuggestion.id,
-                      });
-                      window.open(link, '_blank', 'noopener,noreferrer');
-                    }
-                  }}
+                  onClick={() => trackAndOpen(partner)}
                   className="h-8 group/logo relative flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
                   title={partner.label}
                 >
@@ -444,9 +513,11 @@ export const AffiliateSuggestionBox: React.FC<AffiliateSuggestionBoxProps> = ({
         )}
 
         {/* FOOTER */}
-        <p className="text-[9px] xl:text-[11px] font-medium text-slate-300/80 text-center mx-2 leading-relaxed pt-1">
-          Acquistando tramite TouringDiary supporti il nostro progetto.
-        </p>
+        {primaryPartner ? (
+          <p className="text-[9px] xl:text-[11px] font-medium text-slate-300/80 text-center mx-2 leading-relaxed pt-1">
+            Acquistando tramite TouringDiary supporti il nostro progetto.
+          </p>
+        ) : null}
       </div>
     </div>
   );

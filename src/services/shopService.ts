@@ -6,7 +6,6 @@ import type {
   Json,
 } from '@/types/database';
 import type { Review, ShopCategory, ShopPartner, ShopProduct } from '../types';
-import type { PointOfInterest } from '../types/models/City';
 import { supabase } from './supabaseClient';
 
 // --- READ OPERATIONS ---
@@ -51,7 +50,8 @@ export const getShopById = async (id: string): Promise<ShopPartner | undefined> 
 };
 
 export const getShopByOwner = async (ownerId: string): Promise<ShopPartner | undefined> => {
-  // SECURITY HARDENING: Rimosso maybeSingle() per evitare crash PGRST116 (Multi-business support)
+  // Contratto singolo: i consumer (`useUserDashboardData`, `PartnerDetailModal`) usano un solo shop.
+  // Evitiamo maybeSingle() (PGRST116 se esistono più row); .limit(1) restituisce al più un record.
   const { data, error } = await supabase
     .from('shops')
     .select(`*, shop_products (*)`)
@@ -155,8 +155,8 @@ export const saveShop = async (shop: ShopPartner): Promise<void> => {
     description: shop.description,
     vat_number: shop.vatNumber,
     address: shop.address,
-    coords_lat: shop.coords.lat,
-    coords_lng: shop.coords.lng,
+    coords_lat: shop.coords?.lat ?? null,
+    coords_lng: shop.coords?.lng ?? null,
     phone: shop.phone,
     email: shop.email,
     website: shop.website,
@@ -251,47 +251,31 @@ export const deleteShopProduct = async (productId: string): Promise<void> => {
 
 // --- DOMAIN NORMALIZATION MAPPERS (Type-Safe Enums) ---
 
-const normalizePoiCategory = (cat: string | null): PointOfInterest['category'] => {
-  const valid: PointOfInterest['category'][] = [
-    'monument',
-    'food',
-    'hotel',
-    'nature',
-    'discovery',
-    'leisure',
-    'shop',
-    'all',
-  ];
-  return valid.find((v) => v === cat) ?? 'discovery';
-};
-
-const normalizeShopCategory = (cat: string | null): ShopPartner['category'] => {
-  const valid: ShopPartner['category'][] = ['gusto', 'cantina', 'artigianato', 'moda'];
+const normalizeShopCategory = (cat: string | null): ShopCategory | null => {
+  const valid: ShopCategory[] = ['gusto', 'cantina', 'artigianato', 'moda'];
+  if (!cat) return null;
   const matched = valid.find((v) => v === cat);
   if (matched) return matched;
-  // Mapping silente per categorie legacy o sub-categorie comuni
-  if (cat?.toLowerCase() === 'pasticceria') return 'gusto';
-
-  if (cat)
-    console.warn(`[ShopService] Invalid category detected: ${cat}. Falling back to 'gusto'.`);
-  return 'gusto';
+  // Mapping legacy documentato
+  if (cat.toLowerCase() === 'pasticceria') return 'gusto';
+  return null;
 };
 
-const normalizeShopLevel = (level: string | null): ShopPartner['level'] => {
-  return level === 'base' || level === 'premium' ? level : 'base';
+const normalizeShopLevel = (level: string | null): ShopPartner['level'] | null => {
+  return level === 'base' || level === 'premium' ? level : null;
 };
 
-const normalizeShopBadge = (badge: string | null): ShopPartner['badge'] => {
-  return badge === 'registered' || badge === 'gold' ? badge : 'registered';
+const normalizeShopBadge = (badge: string | null): ShopPartner['badge'] | null => {
+  return badge === 'registered' || badge === 'gold' ? badge : null;
 };
 
-const normalizeProductStatus = (status: string | null): ShopProduct['status'] => {
-  return status === 'active' || status === 'inactive' ? status : 'inactive';
+const normalizeProductStatus = (status: string | null): ShopProduct['status'] | null => {
+  return status === 'active' || status === 'inactive' ? status : null;
 };
 
-const normalizeShippingMode = (mode: string | null): ShopProduct['shippingMode'] => {
+const normalizeShippingMode = (mode: string | null): ShopProduct['shippingMode'] | null => {
   const valid: ShopProduct['shippingMode'][] = ['pickup', 'ship', 'both'];
-  return valid.find((v) => v === mode) ?? 'pickup';
+  return valid.find((v) => v === mode) ?? null;
 };
 
 /**
@@ -315,24 +299,34 @@ const assertShopProductInvariants = (product: ShopProduct): void => {
   }
 };
 
-const mapDatabaseProductToApp = (p: DatabaseShopProduct): ShopProduct | null => {
+const mapDatabaseProductToApp = (
+  p: DatabaseShopProduct,
+): { product: ShopProduct } | { skip: 'incomplete' | 'invalid_enums' } => {
   const name = typeof p.name === 'string' ? p.name.trim() : '';
   const description = typeof p.description === 'string' ? p.description.trim() : '';
   const imageUrl = typeof p.image_url === 'string' ? p.image_url.trim() : '';
   const price = p.price == null ? NaN : Number(p.price);
 
   if (!name || !description || !imageUrl || !(price > 0)) {
-    return null;
+    return { skip: 'incomplete' };
+  }
+
+  const status = normalizeProductStatus(p.status);
+  const shippingMode = normalizeShippingMode(p.shipping_mode);
+  if (!status || !shippingMode) {
+    return { skip: 'invalid_enums' };
   }
 
   return {
-    id: p.id,
-    name,
-    description,
-    imageUrl,
-    price,
-    status: normalizeProductStatus(p.status),
-    shippingMode: normalizeShippingMode(p.shipping_mode),
+    product: {
+      id: p.id,
+      name,
+      description,
+      imageUrl,
+      price,
+      status,
+      shippingMode,
+    },
   };
 };
 
@@ -345,56 +339,128 @@ const normalizeReviews = (data: Json): Review[] => {
     if (
       typeof row.id !== 'string' ||
       typeof row.author !== 'string' ||
-      typeof row.rating !== 'number'
+      typeof row.rating !== 'number' ||
+      typeof row.date !== 'string' ||
+      typeof row.text !== 'string'
     ) {
       continue;
     }
-    reviews.push(row as unknown as Review);
+    const review: Review = {
+      id: row.id,
+      author: row.author,
+      rating: row.rating,
+      date: row.date,
+      text: row.text,
+    };
+    if (typeof row.authorId === 'string') review.authorId = row.authorId;
+    if (typeof row.updatedAt === 'string') review.updatedAt = row.updatedAt;
+    if (typeof row.approvedAt === 'string') review.approvedAt = row.approvedAt;
+    if (typeof row.itineraryId === 'string') review.itineraryId = row.itineraryId;
+    if (typeof row.poiName === 'string') review.poiName = row.poiName;
+    if (typeof row.poiId === 'string') review.poiId = row.poiId;
+    if (typeof row.cityId === 'string') review.cityId = row.cityId;
+    if (typeof row.cityName === 'string') review.cityName = row.cityName;
+    if (row.status === 'pending' || row.status === 'approved' || row.status === 'rejected') {
+      review.status = row.status;
+    }
+    reviews.push(review);
   }
   return reviews;
+};
+
+const mapCoordsFromDb = (
+  lat: number | null,
+  lng: number | null,
+): { lat: number; lng: number } | undefined => {
+  if (lat == null || lng == null) return undefined;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  return { lat, lng };
 };
 
 const mapDatabaseShopsToApp = (
   dbShops: (DatabaseShop & { shop_products: DatabaseShopProduct[] })[],
 ): ShopPartner[] => {
-  const result: ShopPartner[] = dbShops.map((db) => ({
-    id: db.id,
-    name: db.name || 'Senza Nome',
-    cityId: db.city_id,
-    category: normalizeShopCategory(db.category),
-    level: normalizeShopLevel(db.level),
-    badge: normalizeShopBadge(db.badge),
-    imageUrl: db.image_url || '',
-    gallery: db.gallery || [],
-    foundedYear: db.founded_year ?? undefined,
-    shortBio: db.short_bio || '',
-    description: db.description || '',
-    products: (db.shop_products || [])
-      .map(mapDatabaseProductToApp)
-      .filter((p): p is ShopProduct => p !== null),
-    likes: Number(db.likes) || 0,
-    rating: Number(db.rating) || 0,
-    reviewsCount: Number(db.reviews_count) || 0,
-    reviews: normalizeReviews(db.reviews),
-    vatNumber: db.vat_number ?? '',
-    address: db.address || '',
-    coords: { lat: db.coords_lat || 0, lng: db.coords_lng || 0 },
-    phone: db.phone || '',
-    email: db.email || '',
-    website: db.website ?? undefined,
-    shippingInfo: db.shipping_info ?? undefined,
-    paymentInfo: db.payment_info ?? undefined,
-    aiCredits: Number(db.ai_credits) || 0,
-    isTipico: db.is_tipico ?? undefined,
-    ownerId: db.owner_id ?? undefined,
-    slug: db.slug || undefined,
-  }));
-  const rawProductCount = dbShops.reduce((n, db) => n + (db.shop_products || []).length, 0);
-  const mappedProductCount = result.reduce((n, shop) => n + shop.products.length, 0);
-  const skippedIncompleteProducts = rawProductCount - mappedProductCount;
-  if (skippedIncompleteProducts > 0 && import.meta.env.DEV) {
+  const result: ShopPartner[] = [];
+  let skippedInvalidCategory = 0;
+  let skippedInvalidShopEnums = 0;
+  let skippedIncompleteProducts = 0;
+  let skippedInvalidProductEnums = 0;
+  for (const db of dbShops) {
+    const category = normalizeShopCategory(db.category);
+    if (!category) {
+      skippedInvalidCategory += 1;
+      continue;
+    }
+
+    const level = normalizeShopLevel(db.level);
+    const badge = normalizeShopBadge(db.badge);
+    if (!level || !badge) {
+      skippedInvalidShopEnums += 1;
+      continue;
+    }
+
+    const coords = mapCoordsFromDb(db.coords_lat, db.coords_lng);
+    const products: ShopProduct[] = [];
+    for (const rawProduct of db.shop_products || []) {
+      const mapped = mapDatabaseProductToApp(rawProduct);
+      if ('product' in mapped) {
+        products.push(mapped.product);
+      } else if (mapped.skip === 'incomplete') {
+        skippedIncompleteProducts += 1;
+      } else {
+        skippedInvalidProductEnums += 1;
+      }
+    }
+
+    result.push({
+      id: db.id,
+      name: db.name || 'Senza Nome',
+      cityId: db.city_id,
+      category,
+      level,
+      badge,
+      imageUrl: db.image_url || '',
+      gallery: db.gallery || [],
+      foundedYear: db.founded_year ?? undefined,
+      shortBio: db.short_bio || '',
+      description: db.description || '',
+      products,
+      likes: Number(db.likes) || 0,
+      rating: Number(db.rating) || 0,
+      reviewsCount: Number(db.reviews_count) || 0,
+      reviews: normalizeReviews(db.reviews),
+      vatNumber: db.vat_number ?? '',
+      address: db.address || '',
+      ...(coords ? { coords } : {}),
+      phone: db.phone || '',
+      email: db.email || '',
+      website: db.website ?? undefined,
+      shippingInfo: db.shipping_info ?? undefined,
+      paymentInfo: db.payment_info ?? undefined,
+      aiCredits: Number(db.ai_credits) || 0,
+      isTipico: db.is_tipico ?? undefined,
+      ownerId: db.owner_id ?? undefined,
+      slug: db.slug || undefined,
+    });
+  }
+  if (skippedInvalidCategory > 0) {
+    console.warn(
+      `[ShopService] Skipped ${skippedInvalidCategory} shop row(s) with unrecognized category (not mapped to ShopCategory).`,
+    );
+  }
+  if (skippedInvalidShopEnums > 0) {
+    console.warn(
+      `[ShopService] Skipped ${skippedInvalidShopEnums} shop row(s) with unrecognized level/badge.`,
+    );
+  }
+  if (skippedIncompleteProducts > 0) {
     console.warn(
       `[ShopService] Skipped ${skippedIncompleteProducts} incomplete shop_product row(s) (missing name/description/image/price).`,
+    );
+  }
+  if (skippedInvalidProductEnums > 0) {
+    console.warn(
+      `[ShopService] Skipped ${skippedInvalidProductEnums} shop_product row(s) with unrecognized status/shippingMode.`,
     );
   }
   return result;

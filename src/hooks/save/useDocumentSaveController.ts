@@ -6,6 +6,18 @@ import { getStorageItem, setStorageItem } from '@/services/storageService';
 const DEFAULT_DEBOUNCE_MS = 2500;
 const DEFAULT_SAFETY_MS = 60_000;
 
+type SaveRequestOptions = {
+  name?: string;
+  asCopy?: boolean;
+  force?: boolean;
+};
+
+type SaveJob = {
+  options: SaveRequestOptions;
+  shouldEnableAutosaveAfter: boolean;
+  waiters: Array<(id: string | null) => void>;
+};
+
 export interface UseDocumentSaveControllerOptions<TSnapshot> {
   /** Unique key for autosave preference in storage */
   autosavePreferenceKey: string;
@@ -57,8 +69,8 @@ export function useDocumentSaveController<TSnapshot>({
 
   const baselineRef = useRef<TSnapshot | null>(null);
   const phaseRef = useRef<DocumentSavePhase>('never_saved');
-  const saveGenerationRef = useRef(0);
-  const inFlightRef = useRef<Promise<string | null> | null>(null);
+  const queueRef = useRef<SaveJob[]>([]);
+  const pumpPromiseRef = useRef<Promise<void> | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtySinceRef = useRef<number | null>(null);
 
@@ -67,6 +79,7 @@ export function useDocumentSaveController<TSnapshot>({
   const canPersistRef = useRef(canPersist);
   const persistRef = useRef(persist);
   const onPersistedRef = useRef(onPersisted);
+  const getDocumentIdRef = useRef(getDocumentId);
 
   useEffect(() => {
     getSnapshotRef.current = getSnapshot;
@@ -83,6 +96,9 @@ export function useDocumentSaveController<TSnapshot>({
   useEffect(() => {
     onPersistedRef.current = onPersisted;
   }, [onPersisted]);
+  useEffect(() => {
+    getDocumentIdRef.current = getDocumentId;
+  }, [getDocumentId]);
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
@@ -160,6 +176,134 @@ export function useDocumentSaveController<TSnapshot>({
     setBaseline(getSnapshotRef.current());
   }, [setBaseline]);
 
+  const resolveWaiters = useCallback((job: SaveJob, id: string | null) => {
+    for (const waiter of job.waiters) {
+      waiter(id);
+    }
+  }, []);
+
+  const executeJob = useCallback(
+    async (job: SaveJob) => {
+      try {
+        // Snapshot preso all'avvio della write (dopo eventuale attesa in coda): latest-wins.
+        const snapshot = getSnapshotRef.current();
+
+        if (!job.options.force && !job.options.asCopy) {
+          if (isNeverSavedRef.current() || (canPersistRef.current && !canPersistRef.current())) {
+            // runSave aveva già messo `saving`; ripristina la fase dallo snapshot corrente.
+            setPhase(computePhaseFromSnapshot());
+            resolveWaiters(job, null);
+            return;
+          }
+          if (baselineRef.current !== null && snapshotsEqual(snapshot, baselineRef.current)) {
+            setPhase(isNeverSavedRef.current() ? 'never_saved' : 'synced');
+            resolveWaiters(job, getDocumentIdRef.current());
+            return;
+          }
+        }
+
+        setPhase('saving');
+        setLastError(null);
+
+        const result = await persistRef.current(snapshot, {
+          name: job.options.name,
+          asCopy: job.options.asCopy,
+          documentId: getDocumentIdRef.current(),
+        });
+
+        baselineRef.current = snapshot;
+        setLastSavedAt(Date.now());
+
+        if (job.shouldEnableAutosaveAfter) {
+          setAutosaveEnabledState(true);
+          setStorageItem(autosavePreferenceKey, true);
+        }
+
+        const currentAfterSave = getSnapshotRef.current();
+        if (!snapshotsEqual(currentAfterSave, snapshot)) {
+          dirtySinceRef.current = Date.now();
+          setPhase('dirty');
+        } else {
+          dirtySinceRef.current = null;
+          setPhase(isNeverSavedRef.current() ? 'never_saved' : 'synced');
+        }
+        resolveWaiters(job, result.id);
+
+        if (onPersistedRef.current) {
+          try {
+            onPersistedRef.current(result, snapshot);
+          } catch (onPersistedError) {
+            console.error(
+              '[useDocumentSaveController] Error inside onPersisted callback:',
+              onPersistedError,
+            );
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Salvataggio non riuscito';
+        setLastError(message);
+        setPhase('error');
+        resolveWaiters(job, null);
+      }
+    },
+    [autosavePreferenceKey, computePhaseFromSnapshot, resolveWaiters],
+  );
+
+  const pumpQueue = useCallback(() => {
+    if (pumpPromiseRef.current) return;
+
+    const pump = (async () => {
+      while (queueRef.current.length > 0) {
+        const job = queueRef.current.shift();
+        if (!job) break;
+        try {
+          await executeJob(job);
+        } catch (pumpErr) {
+          console.error('[useDocumentSaveController] executeJob threw unhandled exception:', pumpErr);
+        }
+      }
+    })();
+
+    pumpPromiseRef.current = pump;
+    void pump.finally(() => {
+      if (pumpPromiseRef.current === pump) {
+        pumpPromiseRef.current = null;
+      }
+      // Nuovi job possono essere arrivati tra l'uscita del while e il clear del pump.
+      if (queueRef.current.length > 0) {
+        pumpQueue();
+      }
+    });
+  }, [executeJob]);
+
+  const enqueueJob = useCallback(
+    (job: Omit<SaveJob, 'waiters'>): Promise<string | null> => {
+      return new Promise<string | null>((resolve) => {
+        const queue = queueRef.current;
+        const last = queue[queue.length - 1];
+        // Coalesce solo save "normali" (non saveAs): l'ultimo snapshot vince quando la write parte.
+        if (last && !last.options.asCopy && !job.options.asCopy) {
+          last.options = {
+            force: !!(last.options.force || job.options.force),
+            name: job.options.name ?? last.options.name,
+            asCopy: false,
+          };
+          last.shouldEnableAutosaveAfter =
+            last.shouldEnableAutosaveAfter || job.shouldEnableAutosaveAfter;
+          last.waiters.push(resolve);
+        } else {
+          queue.push({
+            options: job.options,
+            shouldEnableAutosaveAfter: job.shouldEnableAutosaveAfter,
+            waiters: [resolve],
+          });
+        }
+        pumpQueue();
+      });
+    },
+    [pumpQueue],
+  );
+
   const runSave = useCallback(
     async (options?: {
       name?: string;
@@ -184,10 +328,8 @@ export function useDocumentSaveController<TSnapshot>({
         !options?.asCopy
       ) {
         setPhase(isNeverSavedRef.current() ? 'never_saved' : 'synced');
-        return getDocumentId();
+        return getDocumentIdRef.current();
       }
-
-      const generation = ++saveGenerationRef.current;
 
       clearDebounce();
       setPhase('saving');
@@ -197,53 +339,16 @@ export function useDocumentSaveController<TSnapshot>({
       const shouldEnableAutosaveAfter =
         !!options?.force && !options?.asCopy && isNeverSavedRef.current();
 
-      const savePromise = (async () => {
-        try {
-          const result = await persistRef.current(snapshot, {
-            name: options?.name,
-            asCopy: options?.asCopy,
-            documentId: getDocumentId(),
-          });
-
-          if (generation !== saveGenerationRef.current) {
-            return null;
-          }
-
-          onPersistedRef.current?.(result, snapshot);
-          baselineRef.current = snapshot;
-          setLastSavedAt(Date.now());
-
-          if (shouldEnableAutosaveAfter) {
-            setAutosaveEnabledState(true);
-            setStorageItem(autosavePreferenceKey, true);
-          }
-
-          const currentAfterSave = getSnapshotRef.current();
-          if (!snapshotsEqual(currentAfterSave, snapshot)) {
-            dirtySinceRef.current = Date.now();
-            setPhase('dirty');
-          } else {
-            dirtySinceRef.current = null;
-            setPhase(isNeverSavedRef.current() ? 'never_saved' : 'synced');
-          }
-          return result.id;
-        } catch (error) {
-          if (generation !== saveGenerationRef.current) return null;
-          const message = error instanceof Error ? error.message : 'Salvataggio non riuscito';
-          setLastError(message);
-          setPhase('error');
-          return null;
-        } finally {
-          if (inFlightRef.current === savePromise) {
-            inFlightRef.current = null;
-          }
-        }
-      })();
-
-      inFlightRef.current = savePromise;
-      return savePromise;
+      return enqueueJob({
+        options: {
+          name: options?.name,
+          asCopy: options?.asCopy,
+          force: options?.force,
+        },
+        shouldEnableAutosaveAfter,
+      });
     },
-    [autosavePreferenceKey, clearDebounce, getDocumentId, isGuest],
+    [clearDebounce, enqueueJob, isGuest],
   );
 
   const flush = useCallback(() => runSave({ force: true }), [runSave]);
@@ -259,12 +364,23 @@ export function useDocumentSaveController<TSnapshot>({
   );
 
   const awaitInFlight = useCallback(async () => {
-    if (inFlightRef.current) {
-      await inFlightRef.current;
+    // Attende il drain completo: write in corso + eventuali job coalesced ancora in coda.
+    while (pumpPromiseRef.current || queueRef.current.length > 0) {
+      if (pumpPromiseRef.current) {
+        await pumpPromiseRef.current;
+      } else if (queueRef.current.length > 0) {
+        pumpQueue();
+        if (pumpPromiseRef.current) {
+          await pumpPromiseRef.current;
+        }
+      }
     }
-  }, []);
+  }, [pumpQueue]);
 
-  const isSaving = useCallback(() => inFlightRef.current !== null, []);
+  const isSaving = useCallback(
+    () => pumpPromiseRef.current !== null || queueRef.current.length > 0,
+    [],
+  );
 
   const setAutosaveEnabled = useCallback(
     (value: boolean) => {
@@ -333,13 +449,6 @@ export function useDocumentSaveController<TSnapshot>({
     }
   }, [autosavePreferenceKey, isGuest, isNeverSaved, phase, setAutosaveEnabled]);
 
-  const setBaselineForController = useCallback(
-    (snapshot: TSnapshot) => {
-      setBaseline(snapshot);
-    },
-    [setBaseline],
-  );
-
   const controller = useMemo(
     () => ({
       phase,
@@ -354,7 +463,7 @@ export function useDocumentSaveController<TSnapshot>({
       flush,
       setAutosaveEnabled,
       resetBaseline,
-      setBaseline: setBaselineForController,
+      setBaseline,
       seedLastSavedAt,
       restoreLastSavedAt,
       awaitInFlight,
@@ -375,7 +484,7 @@ export function useDocumentSaveController<TSnapshot>({
       flush,
       setAutosaveEnabled,
       resetBaseline,
-      setBaselineForController,
+      setBaseline,
       seedLastSavedAt,
       restoreLastSavedAt,
       awaitInFlight,

@@ -55,13 +55,17 @@ export const uploadPublicMediaDetailed = async (
   }
 };
 
-/** Rimuove un file da `public-media` per path Patrono gallery / segnalazioni. */
+/** Rimuove un file da `public-media` per path Patrono gallery / segnalazioni / Famous Person suggestions. */
 export const deletePublicMediaByStoragePath = async (
   storagePath: string | null | undefined,
 ): Promise<boolean> => {
   if (!storagePath?.trim()) return false;
   const path = storagePath.trim();
-  if (!path.startsWith('city_patron_gallery/') && !path.startsWith('patron_photo_suggestions/')) {
+  if (
+    !path.startsWith('city_patron_gallery/') &&
+    !path.startsWith('patron_photo_suggestions/') &&
+    !path.startsWith('famous_person_photo_suggestions/')
+  ) {
     return false;
   }
   try {

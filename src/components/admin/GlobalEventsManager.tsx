@@ -13,7 +13,7 @@ import {
   Star,
   TrendingUp,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   analyzeEventWithAi,
   type FlatGlobalEvent,
@@ -54,8 +54,10 @@ export const GlobalEventsManager = () => {
   const [bulkProgress, setBulkProgress] = useState('');
   const [togglingBadgeId, setTogglingBadgeId] = useState<string | null>(null);
   const [showConfirmBulk, setShowConfirmBulk] = useState(false);
+  const loadRequestIdRef = useRef(0);
 
   const loadEvents = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     setLoading(true);
     try {
       const res = await getGlobalEventsPaginated({
@@ -69,13 +71,15 @@ export const GlobalEventsManager = () => {
         sortBy: sortKey,
         sortDir: sortDir,
       });
+      if (requestId !== loadRequestIdRef.current) return;
       setEvents(res.data);
       setPagination((prev) => ({ ...prev, total: res.count }));
       setSelectedIds(new Set());
-    } catch (e) {
-      console.error(e);
+    } catch {
+      if (requestId !== loadRequestIdRef.current) return;
+      console.error('Errore caricamento eventi globali');
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) setLoading(false);
     }
   }, [
     pagination.page,
@@ -90,7 +94,10 @@ export const GlobalEventsManager = () => {
   ]);
 
   useEffect(() => {
-    loadEvents();
+    void loadEvents();
+    return () => {
+      loadRequestIdRef.current += 1;
+    };
   }, [loadEvents]);
 
   const handleSort = (key: 'date' | 'name' | 'city' | 'rating' | 'category') => {
@@ -129,7 +136,7 @@ export const GlobalEventsManager = () => {
         await updateEventMetadata(event.id, aiData);
         setEvents((prev) => prev.map((e) => (e.id === event.id ? { ...e, metadata: aiData } : e)));
       }
-    } catch (e) {
+    } catch {
       alert('Errore analisi AI');
     } finally {
       setAnalyzingId(null);
@@ -176,7 +183,7 @@ export const GlobalEventsManager = () => {
       setEvents((prev) =>
         prev.map((e) => (e.city_id === cityId ? { ...e, city_badge: newBadge } : e)),
       );
-    } catch (e) {
+    } catch {
       alert('Errore');
     } finally {
       setTogglingBadgeId(null);
@@ -211,18 +218,18 @@ export const GlobalEventsManager = () => {
   const SortHeader = ({ label, colKey }: { label: string; colKey: typeof sortKey }) => (
     <button
       type="button"
-      className="flex items-center gap-1 cursor-pointer hover:text-white bg-transparent border-0 p-0 text-inherit font-inherit"
+      className="flex items-center gap-1 cursor-pointer hover:text-white bg-transparent border-0 p-1 text-inherit font-inherit"
       onClick={() => handleSort(colKey)}
     >
       {label}
       {sortKey === colKey ? (
         sortDir === 'asc' ? (
-          <ChevronUp className="w-3 h-3 text-amber-500" />
+          <ChevronUp className="w-3.5 h-3.5 text-amber-500" />
         ) : (
-          <ChevronDown className="w-3 h-3 text-amber-500" />
+          <ChevronDown className="w-3.5 h-3.5 text-amber-500" />
         )
       ) : (
-        <ArrowUpDown className="w-3 h-3 opacity-30" />
+        <ArrowUpDown className="w-3.5 h-3.5 opacity-30" />
       )}
     </button>
   );
@@ -269,7 +276,7 @@ export const GlobalEventsManager = () => {
             <button
               type="button"
               onClick={loadEvents}
-              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors border border-slate-700"
+              className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors border border-slate-700"
             >
               <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -296,14 +303,15 @@ export const GlobalEventsManager = () => {
             className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:border-rose-500 outline-none"
           />
         </div>
-        <div className="flex gap-2 w-full md:w-auto overflow-x-auto">
+        <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1">
           <select
             value={categoryFilter}
             onChange={(e) => {
               setCategoryFilter(e.target.value);
               setPagination((p) => ({ ...p, page: 1 }));
             }}
-            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:border-rose-500 outline-none cursor-pointer font-bold"
+            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 min-h-11 text-[10px] text-white focus:border-rose-500 outline-none cursor-pointer font-bold shrink-0"
+            aria-label="Filtra per categoria"
           >
             <option value="">Tutte le Categorie</option>
             {EVENT_CANONICAL_LIST.map((c) => (
@@ -313,12 +321,29 @@ export const GlobalEventsManager = () => {
             ))}
           </select>
           <select
+            value={periodFilter}
+            onChange={(e) => {
+              setPeriodFilter(e.target.value);
+              setPagination((p) => ({ ...p, page: 1 }));
+            }}
+            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 min-h-11 text-[10px] text-white focus:border-rose-500 outline-none cursor-pointer font-bold shrink-0"
+            aria-label="Filtra per mese"
+          >
+            <option value="">Tutti i Mesi</option>
+            {MONTHS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <select
             value={holidayFilter}
             onChange={(e) => {
               setHolidayFilter(e.target.value);
               setPagination((p) => ({ ...p, page: 1 }));
             }}
-            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:border-rose-500 outline-none cursor-pointer font-bold"
+            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 min-h-11 text-[10px] text-white focus:border-rose-500 outline-none cursor-pointer font-bold shrink-0"
+            aria-label="Filtra per festività"
           >
             <option value="">Tutte le Festività</option>
             {HOLIDAYS.map((h) => (
@@ -333,7 +358,8 @@ export const GlobalEventsManager = () => {
               setSeasonFilter(e.target.value);
               setPagination((p) => ({ ...p, page: 1 }));
             }}
-            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:border-rose-500 outline-none cursor-pointer"
+            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 min-h-11 text-[10px] text-white focus:border-rose-500 outline-none cursor-pointer shrink-0"
+            aria-label="Filtra per stagione"
           >
             <option value="">Tutte le Stagioni</option>
             {SEASONS.map((s) => (
@@ -354,12 +380,12 @@ export const GlobalEventsManager = () => {
                   <button
                     type="button"
                     onClick={toggleAllPage}
-                    className="opacity-70 hover:opacity-100"
+                    className="p-1.5 opacity-70 hover:opacity-100"
                   >
                     {allSelected ? (
-                      <CheckSquare className="w-3.5 h-3.5 text-indigo-500" />
+                      <CheckSquare className="w-4 h-4 text-indigo-500" />
                     ) : (
-                      <Square className="w-3.5 h-3.5" />
+                      <Square className="w-4 h-4" />
                     )}
                   </button>
                 </th>
@@ -399,12 +425,12 @@ export const GlobalEventsManager = () => {
                       <button
                         type="button"
                         onClick={() => toggleSelection(ev.id)}
-                        className="opacity-50 hover:opacity-100"
+                        className="p-1.5 opacity-50 hover:opacity-100"
                       >
                         {isSelected ? (
-                          <CheckSquare className="w-3.5 h-3.5 text-indigo-500" />
+                          <CheckSquare className="w-4 h-4 text-indigo-500" />
                         ) : (
-                          <Square className="w-3.5 h-3.5" />
+                          <Square className="w-4 h-4" />
                         )}
                       </button>
                     </td>
@@ -444,12 +470,12 @@ export const GlobalEventsManager = () => {
                           type="button"
                           onClick={() => handleAnalyze(ev)}
                           disabled={analyzingId === ev.id || isBulkAnalyzing}
-                          className="p-1.5 bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white rounded transition-colors"
+                          className="p-2 bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white rounded transition-colors"
                         >
                           {analyzingId === ev.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            <Bot className="w-3 h-3" />
+                            <Bot className="w-3.5 h-3.5" />
                           )}
                         </button>
                       )}
@@ -471,14 +497,14 @@ export const GlobalEventsManager = () => {
                             handleBadgeToggle(ev.city_id, ev.city_badge ?? null);
                           }}
                           disabled={isUpdatingBadge || !ev.city_id}
-                          className={`flex items-center gap-1.5 px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all shadow-sm whitespace-nowrap ${isBadgeActive ? 'bg-rose-600 text-white hover:bg-rose-500' : 'bg-slate-950 text-slate-500 border border-slate-800 hover:border-slate-600 hover:text-white'}`}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[9px] font-black uppercase tracking-widest transition-all shadow-sm whitespace-nowrap ${isBadgeActive ? 'bg-rose-600 text-white hover:bg-rose-500' : 'bg-slate-950 text-slate-500 border border-slate-800 hover:border-slate-600 hover:text-white'}`}
                         >
                           {isUpdatingBadge ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : isBadgeActive ? (
-                            <TrendingUp className="w-3 h-3" />
+                            <TrendingUp className="w-3.5 h-3.5" />
                           ) : (
-                            <Eye className="w-3 h-3" />
+                            <Eye className="w-3.5 h-3.5" />
                           )}{' '}
                           {isBadgeActive ? 'Evidenza' : 'Metti Home'}
                         </button>

@@ -23,7 +23,7 @@ export interface PersistResult {
   id: string;
 }
 
-export interface DocumentSaveController {
+export interface DocumentSaveController<TSnapshot = unknown> {
   phase: DocumentSavePhase;
   lastSavedAt: number | null;
   lastError: string | null;
@@ -36,7 +36,7 @@ export interface DocumentSaveController {
   flush: () => Promise<string | null>;
   setAutosaveEnabled: (enabled: boolean) => void;
   resetBaseline: () => void;
-  setBaseline: (snapshot: unknown) => void;
+  setBaseline: (snapshot: TSnapshot) => void;
   /** Imposta lastSavedAt solo se ancora assente (es. diario già persistito caricato in sessione). */
   seedLastSavedAt: (at: number) => void;
   /** Imposta lastSavedAt al caricamento/cambio documento (sovrascrive il valore precedente). */
@@ -46,6 +46,9 @@ export interface DocumentSaveController {
   cancelPendingAutosave: () => void;
   getPhase: () => DocumentSavePhase;
 }
+
+/** Handle registrato globalmente: senza setBaseline (tipo snapshot solo del hook creatore). */
+export type RegisteredDocumentSaveController = Omit<DocumentSaveController, 'setBaseline'>;
 
 export const AUTOSAVE_PREF_KEYS = {
   diary: 'prefs.autosave.diary',

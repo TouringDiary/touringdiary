@@ -1,13 +1,10 @@
-import type { DocumentSaveController } from '@/domain/save/documentSaveTypes';
+import type { RegisteredDocumentSaveController } from '@/domain/save/documentSaveTypes';
 
-const controllers = new Map<
-  string,
-  DocumentSaveController & { getPhase?: () => DocumentSaveController['phase'] }
->();
+const controllers = new Map<string, RegisteredDocumentSaveController>();
 
 export function registerDocumentSaveController(
   id: string,
-  controller: DocumentSaveController,
+  controller: RegisteredDocumentSaveController,
 ): () => void {
   controllers.set(id, controller);
   return () => controllers.delete(id);

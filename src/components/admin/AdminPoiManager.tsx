@@ -6,6 +6,7 @@ import { usePoiManager } from '../../hooks/usePoiManager';
 import type { PointOfInterest, User } from '../../types/index';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { SmartFilterDrawer } from '../common/SmartFilterDrawer';
+import { PoiDetailModal } from '../modals/PoiDetailModal';
 import { AdminPoiModal } from './AdminPoiModal';
 import { AdminTaxonomyManager } from './AdminTaxonomyManager';
 import { ProcessLogModal } from './cities/ProcessLogModal';
@@ -24,7 +25,7 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
   currentUser,
 }) => {
   // 1. USE AGGREGATOR HOOK
-  const { state, actions, counts } = usePoiManager(cityId, cityName);
+  const { state, actions, counts } = usePoiManager(cityId);
 
   // 2. AI GENERATOR HOOK (Per bonifica e discovery)
   const generator = useCityGenerator(() => {
@@ -93,7 +94,7 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
   const handleAiGen = async (count?: number, categories?: { id: string; label: string }[]) => {
     if (count && categories && categories.length > 0) {
       // Modalità "Search New POI" (Flash Discovery)
-      await generator.generateDraftsOnly(cityId, cityName, count, categories, currentUser);
+      await generator.generateDraftsOnly(cityId, cityName, count, categories);
     } else {
       console.warn('Chiamata AI Gen senza parametri');
     }
@@ -130,6 +131,16 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
         poi={editingPoi}
         cityName={cityName}
       />
+
+      {previewPoi && currentUser ? (
+        <PoiDetailModal
+          poi={previewPoi}
+          onClose={() => setPreviewPoi(null)}
+          isInItinerary={false}
+          userLocation={null}
+          user={currentUser}
+        />
+      ) : null}
 
       <DeleteConfirmationModal
         isOpen={!!deleteTarget}

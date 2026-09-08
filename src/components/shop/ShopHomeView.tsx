@@ -85,13 +85,23 @@ export const ShopHomeView: React.FC<ShopHomeViewProps> = ({
                     <h4 className="text-lg md:text-5xl font-display font-bold text-white mb-1 md:mb-4 leading-none tracking-tighter drop-shadow-2xl truncate">
                       {shop.name}
                     </h4>
-                    <button
-                      type="button"
-                      onClick={() => openMap(shop.coords.lat, shop.coords.lng)}
-                      className="text-slate-300 text-[10px] md:text-2xl font-medium opacity-90 flex items-center gap-1 md:gap-3 hover:text-white transition-colors underline decoration-slate-600 underline-offset-4"
-                    >
-                      <MapPin className="w-3 h-3 md:w-6 md:h-6 text-indigo-400" /> {shop.address}
-                    </button>
+                    {shop.coords ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const coords = shop.coords;
+                          if (!coords) return;
+                          openMap(coords.lat, coords.lng);
+                        }}
+                        className="text-slate-300 text-[10px] md:text-2xl font-medium opacity-90 flex items-center gap-1 md:gap-3 hover:text-white transition-colors underline decoration-slate-600 underline-offset-4"
+                      >
+                        <MapPin className="w-3 h-3 md:w-6 md:h-6 text-indigo-400" /> {shop.address}
+                      </button>
+                    ) : (
+                      <span className="text-slate-300 text-[10px] md:text-2xl font-medium opacity-90 flex items-center gap-1 md:gap-3">
+                        <MapPin className="w-3 h-3 md:w-6 md:h-6 text-indigo-400" /> {shop.address}
+                      </span>
+                    )}
                   </div>
                   <button
                     type="button"

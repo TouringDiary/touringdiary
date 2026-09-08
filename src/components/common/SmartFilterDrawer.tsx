@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Bed,
+  Bookmark,
   Box,
   Check,
   CheckSquare,
@@ -24,6 +25,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  SLIDE_PANEL_TRANSITION_CLASS,
+  slidePanelEaseClass,
+  slidePanelTransformClassByAxis,
+} from '@/constants/slidePanelMotion';
+import { useControlledSlidePanel } from '@/hooks/ui/useControlledSlidePanel';
 import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
@@ -51,6 +58,8 @@ interface SmartFilterDrawerProps {
     interest?: string;
     priceLevel?: number[];
     rawCategories?: string[];
+    /** Solo POI nei preferiti (MySpace bookmark) — pipeline City. */
+    favoritesOnly?: boolean;
   };
   onApply: (filters: Partial<SmartFilterDrawerProps['filters']>) => void;
   resultCount?: number;
@@ -58,6 +67,11 @@ interface SmartFilterDrawerProps {
   hideStatus?: boolean;
   hideCategory?: boolean;
   rawCategoryOptions?: string[];
+  /** Mostra il toggle Preferiti (pagina Città). */
+  enableFavoritesFilter?: boolean;
+  /** Utente autenticato: può attivare Solo preferiti. */
+  canUseFavorites?: boolean;
+  onRequireAuthForFavorites?: () => void;
 }
 
 interface PoiCategoryOption {
@@ -92,10 +106,14 @@ export const SmartFilterDrawer = ({
   hideCategory = false,
   mode = 'live',
   rawCategoryOptions = [],
+  enableFavoritesFilter = false,
+  canUseFavorites = false,
+  onRequireAuthForFavorites,
 }: SmartFilterDrawerProps) => {
   const [localFilters, setLocalFilters] = useState(filters);
-  const [shouldRender, setShouldRender] = useState(isOpen);
   const [rawCatSearch, setRawCatSearch] = useState('');
+  // Stesso lifecycle slide di Diario/Valigia: mount off-screen → raise (ease-out), close (ease-in).
+  const { panelRef, shouldRender, isPanelRaised, isClosing } = useControlledSlidePanel(isOpen);
 
   // --- DYNAMIC DATA ---
   const CATEGORIES =
@@ -111,21 +129,13 @@ export const SmartFilterDrawer = ({
   const sectionTitleStyle = useDynamicStyles('filter_section_title', isMobile);
 
   const btnBaseClass =
-    'rounded-lg text-xs font-bold uppercase transition-all flex items-center justify-center gap-1.5 py-2';
+    'rounded-lg text-xs font-bold uppercase transition-all flex items-center justify-center gap-1.5 py-2 min-h-11 md:min-h-0';
   const btnDefaultClass =
     'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500';
   const btnSelectedClass = 'bg-indigo-600 text-white shadow-md border border-indigo-500';
   const btnActionStyle = useDynamicStyles('filter_btn_action', isMobile);
-
-  useEffect(() => {
-    if (isOpen) {
-      setShouldRender(true);
-    }
-    const timer = setTimeout(() => {
-      if (!isOpen) setShouldRender(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [isOpen]);
+  /** Target touch adeguato su smartphone; densità desktop invariata. */
+  const touchChipClass = 'min-h-11 md:min-h-9';
 
   useEffect(() => {
     if (isOpen) setLocalFilters(filters);
@@ -202,6 +212,7 @@ export const SmartFilterDrawer = ({
       minRating: 0,
       priceLevel: [],
       rawCategories: [],
+      favoritesOnly: enableFavoritesFilter ? false : prev.favoritesOnly,
     }));
     setRawCatSearch('');
   };
@@ -246,7 +257,7 @@ export const SmartFilterDrawer = ({
     });
   };
 
-  if (!shouldRender && !isOpen) return null;
+  if (!shouldRender) return null;
 
   const activeCatForSubs = localFilters.category !== 'all' ? localFilters.category : null;
 
@@ -269,12 +280,16 @@ export const SmartFilterDrawer = ({
         type="button"
         aria-label="Chiudi filtri"
         tabIndex={-1}
-        className={`absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-500 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
       />
 
       <div
-        className={`absolute inset-y-0 right-0 w-80 md:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-modal transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        ref={panelRef}
+        className={`absolute inset-y-0 right-0 w-80 md:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-modal flex flex-col ${SLIDE_PANEL_TRANSITION_CLASS} ${slidePanelTransformClassByAxis('x', isPanelRaised)} ${slidePanelEaseClass(isClosing)}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={mode === 'staging' ? 'Filtri Staging' : 'Filtri Avanzati'}
       >
         {/* HEADER */}
         <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#0f172a] shrink-0">
@@ -300,9 +315,10 @@ export const SmartFilterDrawer = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"
+            aria-label="Chiudi filtri"
+            className="p-2 min-h-11 min-w-11 flex items-center justify-center bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden />
           </button>
         </div>
 
@@ -335,7 +351,7 @@ export const SmartFilterDrawer = ({
                       key={r.id}
                       type="button"
                       onClick={() => setLocalFilters((prev) => ({ ...prev, interest: r.id }))}
-                      className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${localFilters.interest === r.id ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                      className={`flex-1 px-3 py-1.5 ${touchChipClass} rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${localFilters.interest === r.id ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
                     >
                       {r.label}
                     </button>
@@ -355,12 +371,13 @@ export const SmartFilterDrawer = ({
                 </h4>
 
                 <div className="relative mb-2">
-                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
                   <input
                     value={rawCatSearch}
                     onChange={(e) => setRawCatSearch(e.target.value)}
                     placeholder="Cerca categoria..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none"
+                    aria-label="Cerca categoria originale"
+                    className="w-full min-h-11 md:min-h-9 bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none"
                   />
                 </div>
 
@@ -375,9 +392,10 @@ export const SmartFilterDrawer = ({
                           type="button"
                           key={cat}
                           onClick={() => toggleRawCat(cat)}
-                          className="bg-indigo-600 text-white px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-red-500 transition-colors"
+                          className={`bg-indigo-600 text-white px-2.5 py-1 ${touchChipClass} rounded text-[10px] font-bold flex items-center gap-1 hover:bg-red-500 transition-colors`}
+                          aria-label={`Rimuovi categoria ${cat}`}
                         >
-                          {cat} <X className="w-3 h-3" />
+                          {cat} <X className="w-3 h-3" aria-hidden />
                         </button>
                       ))}
                     </div>
@@ -390,10 +408,11 @@ export const SmartFilterDrawer = ({
                         type="button"
                         key={cat}
                         onClick={() => toggleRawCat(cat)}
-                        className={`w-full text-left px-3 py-2 text-xs font-medium flex items-center gap-2 hover:bg-slate-800 rounded-lg transition-colors ${isSelected ? 'text-indigo-400 font-bold bg-slate-900' : 'text-slate-300'}`}
+                        className={`w-full text-left px-3 py-2 ${touchChipClass} text-xs font-medium flex items-center gap-2 hover:bg-slate-800 rounded-lg transition-colors ${isSelected ? 'text-indigo-400 font-bold bg-slate-900' : 'text-slate-300'}`}
+                        aria-pressed={Boolean(isSelected)}
                       >
                         <div
-                          className={`w-3.5 h-3.5 border rounded flex items-center justify-center ${isSelected ? 'bg-indigo-600 border-indigo-500' : 'border-slate-600'}`}
+                          className={`w-3.5 h-3.5 border rounded flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 border-indigo-500' : 'border-slate-600'}`}
                         >
                           {isSelected && <Check className="w-3 h-3 text-white" />}
                         </div>
@@ -414,6 +433,47 @@ export const SmartFilterDrawer = ({
 
           {mode === 'live' && (
             <>
+              {enableFavoritesFilter && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Bookmark className="w-4 h-4 text-amber-500" aria-hidden />
+                    <h4
+                      className={
+                        sectionTitleStyle ||
+                        'text-xs font-black text-slate-500 uppercase tracking-widest'
+                      }
+                    >
+                      Preferiti
+                    </h4>
+                  </div>
+                  <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setLocalFilters((prev) => ({ ...prev, favoritesOnly: false }))}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 ${touchChipClass} rounded-lg text-[10px] font-bold uppercase transition-all ${!localFilters.favoritesOnly ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                      aria-pressed={!localFilters.favoritesOnly}
+                    >
+                      Tutti
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canUseFavorites) {
+                          onRequireAuthForFavorites?.();
+                          return;
+                        }
+                        setLocalFilters((prev) => ({ ...prev, favoritesOnly: true }));
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 ${touchChipClass} rounded-lg text-[10px] font-bold uppercase transition-all ${localFilters.favoritesOnly ? 'bg-amber-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                      aria-pressed={Boolean(localFilters.favoritesOnly)}
+                    >
+                      <Bookmark className="w-3.5 h-3.5" aria-hidden />
+                      Solo preferiti
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {!hideStatus && (
                 <div>
                   <h4
@@ -437,7 +497,8 @@ export const SmartFilterDrawer = ({
                         key={s.id}
                         type="button"
                         onClick={() => setLocalFilters((prev) => ({ ...prev, status: s.id }))}
-                        className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${localFilters.status === s.id ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                        className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 ${touchChipClass} rounded-lg text-[9px] font-bold uppercase transition-all ${localFilters.status === s.id ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                        aria-pressed={localFilters.status === s.id}
                       >
                         <s.icon className="w-3.5 h-3.5" /> {s.label}
                       </button>
@@ -531,7 +592,8 @@ export const SmartFilterDrawer = ({
                                 key={subKey}
                                 type="button"
                                 onClick={() => toggleSubCat(subKey)}
-                                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white shadow-md' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'}`}
+                                className={`flex items-center gap-1.5 px-2.5 py-1.5 ${touchChipClass} rounded-lg text-[10px] font-bold uppercase transition-all border ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white shadow-md' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'}`}
+                                aria-pressed={isSelected}
                               >
                                 {isSelected ? (
                                   <CheckSquare className="w-3 h-3" />
@@ -574,7 +636,7 @@ export const SmartFilterDrawer = ({
                       key={r.id}
                       type="button"
                       onClick={() => setLocalFilters((prev) => ({ ...prev, interest: r.id }))}
-                      className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${localFilters.interest === r.id ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                      className={`flex-1 px-3 py-1.5 ${touchChipClass} rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${localFilters.interest === r.id ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
                     >
                       {r.label}
                     </button>
@@ -636,7 +698,8 @@ export const SmartFilterDrawer = ({
                       key={r}
                       type="button"
                       onClick={() => setLocalFilters((prev) => ({ ...prev, minRating: r }))}
-                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold transition-all ${localFilters.minRating === r ? 'bg-yellow-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 ${touchChipClass} rounded-lg text-xs font-bold transition-all ${localFilters.minRating === r ? 'bg-yellow-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                      aria-pressed={localFilters.minRating === r}
                     >
                       {r === 0 ? (
                         'Tutti'
@@ -659,7 +722,7 @@ export const SmartFilterDrawer = ({
           <button
             type="button"
             onClick={handleApplyClick}
-            className={`flex-1 flex items-center justify-center gap-2 ${btnActionStyle || 'bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest shadow-lg py-3 rounded-xl transition-all active:scale-95'}`}
+            className={`flex-1 flex items-center justify-center gap-2 min-h-11 ${btnActionStyle || 'bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest shadow-lg py-3 rounded-xl transition-all active:scale-95'}`}
           >
             <Check className="w-4 h-4" />{' '}
             {isDirty
@@ -669,9 +732,10 @@ export const SmartFilterDrawer = ({
           <button
             type="button"
             onClick={handleReset}
-            className={`flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-black uppercase text-xs tracking-widest border border-slate-700 rounded-xl`}
+            aria-label="Azzera filtri"
+            className="flex items-center justify-center gap-2 min-h-11 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-black uppercase text-xs tracking-widest border border-slate-700 rounded-xl"
           >
-            <RotateCcw className="w-3.5 h-3.5" /> RESET
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden /> RESET
           </button>
         </div>
       </div>

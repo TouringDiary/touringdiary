@@ -37,33 +37,7 @@ interface SuitcaseFloatingPanelBodyContentProps extends Props {
 }
 
 export const SuitcaseFloatingPanelBody: React.FC<Props> = ({ composition }) => {
-  const {
-    data,
-    actions,
-    itemActions,
-    editorLogic,
-    hiddenCategories,
-    showLoadingShell,
-    handleConfirmAssociation,
-    handleSaveOnly,
-    handleLogin,
-    associationFlow,
-    handleLinkBuild,
-    handleLinkBuildSearch,
-    performUndo,
-    performRedo,
-    canUndo,
-    canRedo,
-    handleBackToSelector,
-    handleDiscardAndExit,
-    handleCancelUnsavedChanges,
-    forceClose,
-    handleConfirmAssociateSaved,
-    handleActivateOptionalCategory,
-    handleAcceptAiSuggestion,
-    handleRejectAiSuggestion,
-    suitcaseDocumentSave,
-  } = composition;
+  const { data, showLoadingShell, suitcaseDocumentSave } = composition;
 
   const { user: appUser } = useUser();
   const isGuest = appUser.role === 'guest';
@@ -542,10 +516,10 @@ const SuitcaseFloatingPanelBodyContent: React.FC<SuitcaseFloatingPanelBodyConten
               globalMap={data.affiliateMaps.global}
               placeholders={data.affiliateMaps.placeholders}
               overrides={data.affiliateMaps.overrides}
+              isLoadingAffiliateTriggers={data.isLoadingAffiliateTriggers}
               hasActiveDiary={!!data.itineraryId}
               isDiaryAssociable={data.isDiaryAssociable}
               onLinkBuild={handleLinkBuild}
-              onLinkBuildSearch={handleLinkBuildSearch}
               toast={data.toast}
               guestSuitcase={data.guestSuitcase}
               onContinueGuestSuitcase={actions.handleContinueGuestWorkspace}

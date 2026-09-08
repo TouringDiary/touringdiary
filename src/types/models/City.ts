@@ -38,6 +38,7 @@ export interface CityIdentity {
 export interface PointOfInterest {
   id: string;
   name: string;
+  /** Assente o stringa vuota = nessuna descrizione (es. draft AI non ancora arricchito). */
   description: string;
   fullDescription?: string;
   /** Assente o stringa vuota = nessuna immagine propria (es. RelatedPlace → itinerario). */
@@ -177,17 +178,35 @@ export interface PatronDetails {
   imageAsset: MediaAsset;
 }
 
+export interface FamousPersonCategoryRef {
+  specificId: string;
+  specificSlug: string;
+  specificLabel: string;
+  masterId: string;
+  masterSlug: string;
+  masterLabel: string;
+  specificOrderIndex: number;
+  masterOrderIndex: number;
+  isActive: boolean;
+}
+
 export interface FamousPerson {
   id: string;
+  cityId: string;
   name: string;
-  role: string;
   bio: string;
-  imageUrl: string;
+  imageUrl?: string | null;
   image_status?: MediaStatus;
   imageAsset?: MediaAsset;
   fullBio?: string;
   quote?: string;
-  lifespan?: string;
+  lifespanDisplay?: string;
+  birthYear?: number | null;
+  birthDate?: string | null;
+  isLiving?: boolean;
+  deathYear?: number | null;
+  deathDate?: string | null;
+  categories?: FamousPersonCategoryRef[];
   famousWorks?: string[];
   awards?: string[];
   privateLife?: string;
@@ -225,27 +244,29 @@ export interface CityEvent {
   orderIndex?: number;
 }
 
+export type CityServiceType =
+  | 'airport'
+  | 'train'
+  | 'bus'
+  | 'taxi'
+  | 'maritime'
+  | 'emergency'
+  | 'pharmacy'
+  | 'other'
+  | 'transport'
+  | 'info'
+  | 'hospital'
+  | 'police'
+  | 'fire'
+  | 'atm'
+  | 'post'
+  | 'luggage'
+  | 'water'
+  | 'consulate';
+
 export interface CityService {
   id: string;
-  type:
-    | 'airport'
-    | 'train'
-    | 'bus'
-    | 'taxi'
-    | 'maritime'
-    | 'emergency'
-    | 'pharmacy'
-    | 'other'
-    | 'transport'
-    | 'info'
-    | 'hospital'
-    | 'police'
-    | 'fire'
-    | 'atm'
-    | 'post'
-    | 'luggage'
-    | 'water'
-    | 'consulate';
+  type: CityServiceType;
   name: string;
   contact: string;
   category?: string;

@@ -21,7 +21,7 @@ import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 interface Props {
   user: User;
   onClose: () => void;
-  onSuccess: (name: string) => void;
+  onSuccess: (updatedUser: User) => void;
   onShowFixModal: () => void;
   availableRoles: UserRole[];
 }
@@ -46,7 +46,7 @@ export const EditUserModal = ({
     setIsSavingEdit(true);
     try {
       await updateUser(editingUser);
-      onSuccess(editingUser.name);
+      onSuccess(editingUser);
     } catch (error: unknown) {
       console.error(error);
       const msg = error instanceof Error ? error.message : 'Errore durante il salvataggio.';

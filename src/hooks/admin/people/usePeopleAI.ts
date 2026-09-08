@@ -1,13 +1,34 @@
 import type React from 'react';
 import { useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
+import {
+  canPublishFamousPerson,
+  type FamousPersonPublishAttemptResult,
+  type FamousPersonRequiredField,
+  getMissingFamousPersonFields,
+  isFamousPersonPublishBlockedError,
+} from '@/domain/city/famousPersonCompleteness';
+import { buildLifespanDisplay } from '@/domain/city/famousPersonDates';
 import { enrichPersonData, suggestCityPeople } from '../../../services/ai';
 import { generateHistoricalPortrait } from '../../../services/ai/aiVision';
+import { validateAiSpecificSlugs } from '../../../services/ai/generators/peopleCategoryValidation';
+import {
+  ensureFamousPersonCompletenessWithAi,
+  generateFamousPersonRequiredField,
+  recoverPersonDatesFromAi,
+  resolvePortraitCategoryLabel,
+  toCompleteFamousPersonRequiredFields,
+  toDraftFamousPersonSaveFields,
+} from '../../../services/ai/generators/peopleCompletenessPipeline';
 import type { PersonDiscoveryResult } from '../../../services/ai/generators/peopleGenerator';
 import type { SaveCityPersonInput } from '../../../services/city/entitiesService';
+import { loadFamousPersonTaxonomy } from '../../../services/city/famousPersonCategoryService';
 import { saveCityPerson } from '../../../services/cityService';
 import { findExistingPortrait } from '../../../services/mediaService';
 import type { FamousPerson } from '../../../types/index';
+
+/** Delay tra Magic Fix in batch: evita rate limit Gemini (stesso pattern Magic/Complete city). */
+const BULK_FIX_THROTTLE_MS = 5000;
 
 interface UsePeopleAIProps {
   cityId: string;
@@ -17,6 +38,25 @@ interface UsePeopleAIProps {
   reloadList: () => Promise<void>;
   selectedIds: Set<string>;
   resetSelection: () => void;
+}
+
+export type { FamousPersonPublishAttemptResult };
+
+async function loadActiveSpecifics(): Promise<{ slug: string; id: string; label: string }[]> {
+  const taxonomy = await loadFamousPersonTaxonomy({ activeOnly: true });
+  return taxonomy.specifics.map((s) => ({ slug: s.slug, id: s.id, label: s.label }));
+}
+
+function categoryLabelFromSlugs(
+  slugs: string[] | undefined,
+  activeSpecifics: { slug: string; id: string; label: string }[],
+): string {
+  if (!slugs || slugs.length === 0) return 'personaggio storico';
+  for (const slug of slugs) {
+    const match = activeSpecifics.find((s) => s.slug === slug);
+    if (match?.label) return match.label;
+  }
+  return 'personaggio storico';
 }
 
 export const usePeopleAI = ({
@@ -30,22 +70,28 @@ export const usePeopleAI = ({
 }: UsePeopleAIProps) => {
   const { reloadCurrentCity } = useCityEditor();
 
-  // --- AI STATE ---
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [discoveryResults, setDiscoveryResults] = useState<PersonDiscoveryResult[]>([]);
+  const [fieldGenerating, setFieldGenerating] = useState<{
+    personId: string;
+    field: FamousPersonRequiredField | 'dates';
+  } | null>(null);
 
-  // 1. DISCOVERY
   const runDiscovery = async (query: string, count: number) => {
     setIsDiscovering(true);
     try {
-      // Track: 1 chiamata per il suggerimento lista
       const existingNames = peopleList.map((p) => p.name);
       const results = await suggestCityPeople(cityName, existingNames, query, count);
       setDiscoveryResults(results);
     } catch (e) {
-      console.error(e);
+      console.error('[usePeopleAI] runDiscovery failed', e);
+      const technical = e instanceof Error ? e.message : String(e);
+      // Stesso pattern di feedback già usato in CulturePeople (alert); toast AdminCityEditor non è cablato qui.
+      alert(
+        `Discovery AI non riuscita.\n\n${technical || 'Errore sconosciuto.'}\n\nRiprova tra poco o verifica la connessione AI.`,
+      );
     } finally {
       setIsDiscovering(false);
     }
@@ -56,38 +102,81 @@ export const usePeopleAI = ({
       prev.map((p) => (p.name === person.name ? { ...p, isImporting: true } : p)),
     );
     try {
-      let finalImageUrl = await findExistingPortrait(person.name);
-      if (!finalImageUrl) {
-        // Generazione immagine consuma 1 API call
-        finalImageUrl = await generateHistoricalPortrait(person.name, person.role || '', cityName);
+      const activeSpecifics = await loadActiveSpecifics();
+      const slugValidation = validateAiSpecificSlugs(
+        person.specificCategorySlugs ?? [],
+        activeSpecifics,
+      );
+      if (!slugValidation.ok) {
+        const invalidList = slugValidation.invalid.join(', ') || 'nessuna categoria';
+        throw new Error(`Categorie AI non valide per «${person.name}»: ${invalidList}`);
       }
+
+      let seedImage: string | undefined = (await findExistingPortrait(person.name)) ?? undefined;
+      if (!seedImage) {
+        const categoryLabel = categoryLabelFromSlugs(person.specificCategorySlugs, activeSpecifics);
+        seedImage =
+          (await generateHistoricalPortrait(person.name, categoryLabel, cityName)) ?? undefined;
+      }
+
+      const recovered = await ensureFamousPersonCompletenessWithAi(
+        {
+          ...person,
+          specificCategoryIds: slugValidation.ids,
+          imageUrl: seedImage ?? person.imageUrl,
+        },
+        cityName,
+      );
+
+      const present = toDraftFamousPersonSaveFields(recovered.person);
+      if (!present.name) {
+        throw new Error('Import fallito: nome personaggio assente dopo recovery.');
+      }
+
       const newPerson: SaveCityPersonInput = {
-        ...person,
-        name: person.name,
-        role: person.role || '',
-        bio: person.bio || person.fullBio || '',
-        imageUrl:
-          finalImageUrl || 'https://images.unsplash.com/photo-1555626040-3b731de3a81c?q=80&w=400',
+        name: present.name,
+        bio: present.bio ?? null,
+        imageUrl: present.imageUrl ?? null,
+        specificCategoryIds: present.specificCategoryIds ?? slugValidation.ids,
+        birthYear: present.birthYear ?? person.birthYear ?? null,
+        birthDate: present.birthDate ?? person.birthDate ?? null,
+        isLiving: present.isLiving ?? person.isLiving ?? true,
+        deathYear: present.deathYear ?? person.deathYear ?? null,
+        deathDate: present.deathDate ?? person.deathDate ?? null,
         status: 'draft',
         orderIndex: peopleList.length + 1,
-        lifespan: person.lifespan || '',
-        quote: person.quote || '',
-        famousWorks: person.famousWorks || [],
-        relatedPlaces: person.relatedPlaces || [],
-        fullBio: person.fullBio || person.bio || '',
-        privateLife: person.privateLife || '',
-        collaborations: person.collaborations || [],
-        awards: person.awards || [],
-        careerStats: person.careerStats || [],
+        quote: person.quote,
+        famousWorks: person.famousWorks,
+        relatedPlaces: person.relatedPlaces,
+        fullBio: recovered.person.fullBio ?? person.fullBio,
+        privateLife: person.privateLife,
+        collaborations: person.collaborations,
+        awards: person.awards,
+        careerStats: person.careerStats,
       };
       const saved = await saveCityPerson(cityId, newPerson);
       setPeopleList((prev) => [...prev, saved]);
       setDiscoveryResults((prev) => prev.filter((p) => p.name !== person.name));
-      reloadCurrentCity();
+      await reloadCurrentCity();
     } catch (e) {
+      console.error('[usePeopleAI] importDiscoveryPerson failed', e);
       setDiscoveryResults((prev) =>
         prev.map((p) => (p.name === person.name ? { ...p, isImporting: false } : p)),
       );
+      const technical = e instanceof Error ? e.message : String(e);
+      if (technical.includes('Categorie AI non valide')) {
+        const detail = technical.replace(/^Categorie AI non valide per «[^»]*»:\s*/, '').trim();
+        alert(
+          `Importazione non riuscita per «${person.name}».\n\n` +
+            `Le categorie proposte dall'AI non corrispondono allo standard attivo del progetto` +
+            (detail ? ` (${detail})` : '') +
+            `.\n\nRipeti la discovery oppure importa dopo un nuovo tentativo con categorie valide.`,
+        );
+      } else {
+        alert(
+          `Importazione non riuscita per «${person.name}».\n\n${technical || 'Errore sconosciuto.'}`,
+        );
+      }
     }
   };
 
@@ -95,48 +184,81 @@ export const usePeopleAI = ({
     setDiscoveryResults((prev) => prev.filter((p) => p.name !== name));
   };
 
-  // 2. MAGIC FIX (Wipe & Rewrite Single)
   const wipeAndRewritePerson = async (person: FamousPerson) => {
     if (!person.id) return;
     if (!isBulkProcessing) setProcessingId(person.id);
 
     try {
       const enrichedData = await enrichPersonData(person.name, cityName);
-
-      if (enrichedData) {
-        let finalImageUrl = person.imageUrl;
-        const recoveredUrl = await findExistingPortrait(person.name);
-
-        if (recoveredUrl) {
-          finalImageUrl = recoveredUrl;
-        } else {
-          const isMissing = !finalImageUrl || finalImageUrl.trim() === '';
-          const isPlaceholder =
-            finalImageUrl.includes('unsplash.com') || finalImageUrl.includes('ui-avatars');
-          if (isMissing || isPlaceholder) {
-            const roleForImg = enrichedData.role || person.role || 'Personaggio Storico';
-            const newImage = await generateHistoricalPortrait(person.name, roleForImg, cityName);
-            if (newImage) {
-              finalImageUrl = newImage;
-            }
-          }
-        }
-
-        const updatedPerson: FamousPerson = {
-          ...person,
-          ...enrichedData,
-          imageUrl: finalImageUrl,
-          role: enrichedData.role || person.role || 'Personaggio Storico',
-          bio: enrichedData.bio || person.bio,
-          status: 'draft',
-        };
-        await saveCityPerson(cityId, updatedPerson);
-        setPeopleList((prev) => prev.map((p) => (p.id === person.id ? updatedPerson : p)));
-
-        return { success: true };
-      } else {
+      if (!enrichedData) {
         throw new Error("L'AI non ha restituito dati validi.");
       }
+
+      const activeSpecifics = await loadActiveSpecifics();
+
+      let specificCategoryIds = person.categories?.map((c) => c.specificId).filter(Boolean) ?? [];
+      if (enrichedData.specificCategorySlugs?.length) {
+        const slugValidation = validateAiSpecificSlugs(
+          enrichedData.specificCategorySlugs,
+          activeSpecifics,
+        );
+        if (slugValidation.ok) {
+          specificCategoryIds = slugValidation.ids;
+        } else {
+          console.warn(
+            `[usePeopleAI] Slug categorie AI invalidi per ${person.name}:`,
+            slugValidation.invalid,
+          );
+        }
+      }
+
+      const recovered = await ensureFamousPersonCompletenessWithAi(
+        {
+          ...person,
+          ...enrichedData,
+          name: person.name,
+          bio: enrichedData.bio || person.bio,
+          imageUrl: person.imageUrl,
+          specificCategoryIds,
+          categories: person.categories,
+          birthYear: enrichedData.birthYear ?? person.birthYear,
+          birthDate: enrichedData.birthDate ?? person.birthDate,
+          isLiving: enrichedData.isLiving ?? person.isLiving,
+          deathYear: enrichedData.deathYear ?? person.deathYear,
+          deathDate: enrichedData.deathDate ?? person.deathDate,
+          fullBio: enrichedData.fullBio ?? person.fullBio,
+        },
+        cityName,
+      );
+
+      const present = toDraftFamousPersonSaveFields(recovered.person);
+      if (!present.name) {
+        throw new Error('Bonifica fallita: nome assente.');
+      }
+
+      // Persistenza: assenti → null (SaveCityPersonInput). Stato locale = risultato parse del save.
+      const saved = await saveCityPerson(cityId, {
+        ...person,
+        ...enrichedData,
+        name: present.name,
+        bio: present.bio ?? null,
+        imageUrl: present.imageUrl ?? null,
+        specificCategoryIds: present.specificCategoryIds ?? specificCategoryIds,
+        birthYear: present.birthYear ?? null,
+        birthDate: present.birthDate ?? null,
+        isLiving: present.isLiving ?? true,
+        deathYear: present.deathYear ?? null,
+        deathDate: present.deathDate ?? null,
+        fullBio: recovered.person.fullBio ?? enrichedData.fullBio ?? person.fullBio,
+        status: 'draft',
+      });
+      setPeopleList((prev) => prev.map((p) => (p.id === person.id ? saved : p)));
+
+      return {
+        success: true,
+        complete: recovered.complete,
+        missingFields: recovered.missingFields,
+      };
     } catch (e: unknown) {
       console.error(`Errore Wipe & Rewrite per ${person.name}:`, e);
       return { success: false, error: e instanceof Error ? e.message : String(e) };
@@ -145,12 +267,13 @@ export const usePeopleAI = ({
     }
   };
 
-  // 3. IMAGE GENERATION (Standalone)
   const regeneratePortrait = async (person: FamousPerson) => {
-    if (!person.id) return;
+    if (!person.id) return false;
+    if (processingId === person.id) return false;
+    const categoryLabel = resolvePortraitCategoryLabel(person);
     setProcessingId(person.id);
     try {
-      const newImageUrl = await generateHistoricalPortrait(person.name, person.role, cityName);
+      const newImageUrl = await generateHistoricalPortrait(person.name, categoryLabel, cityName);
       if (newImageUrl) {
         const updated = { ...person, imageUrl: newImageUrl };
         await saveCityPerson(cityId, updated);
@@ -165,30 +288,98 @@ export const usePeopleAI = ({
     return false;
   };
 
-  // 4. BATCH PROCESSING (Bulk Fix) - THROTTLED
+  const completeMissingFieldWithAi = async (
+    person: FamousPerson,
+    field: FamousPersonRequiredField,
+  ): Promise<FamousPerson | null> => {
+    if (!person.id) return null;
+    setFieldGenerating({ personId: person.id, field });
+    try {
+      const value = await generateFamousPersonRequiredField(person, cityName, field);
+      if (!value) return null;
+      const updated: FamousPerson = { ...person, [field]: value };
+      await saveCityPerson(cityId, updated);
+      setPeopleList((prev) => prev.map((p) => (p.id === person.id ? updated : p)));
+      await reloadCurrentCity();
+      return updated;
+    } catch (e) {
+      console.error(`[usePeopleAI] completeMissingFieldWithAi(${field}) failed`, e);
+      return null;
+    } finally {
+      setFieldGenerating(null);
+    }
+  };
+
+  /** Recupero esplicito date strutturate via AI (non auto-silente). */
+  const recoverPersonDatesWithAi = async (person: FamousPerson): Promise<FamousPerson | null> => {
+    if (!person.id) return null;
+    setFieldGenerating({ personId: person.id, field: 'dates' });
+    try {
+      const datePatch = await recoverPersonDatesFromAi(person.name, cityName, person);
+      if (Object.keys(datePatch).length === 0) return null;
+
+      const nextIsLiving = datePatch.isLiving ?? person.isLiving ?? true;
+      const merged: FamousPerson = {
+        ...person,
+        birthYear: datePatch.birthYear !== undefined ? datePatch.birthYear : person.birthYear,
+        birthDate: datePatch.birthDate !== undefined ? datePatch.birthDate : person.birthDate,
+        isLiving: nextIsLiving,
+        deathYear: nextIsLiving
+          ? null
+          : datePatch.deathYear !== undefined
+            ? datePatch.deathYear
+            : person.deathYear,
+        deathDate: nextIsLiving
+          ? null
+          : datePatch.deathDate !== undefined
+            ? datePatch.deathDate
+            : person.deathDate,
+      };
+      merged.lifespanDisplay = buildLifespanDisplay({
+        birthYear: merged.birthYear,
+        birthDate: merged.birthDate,
+        isLiving: merged.isLiving === true,
+        deathYear: merged.deathYear,
+        deathDate: merged.deathDate,
+      });
+
+      const saved = await saveCityPerson(cityId, merged);
+      setPeopleList((prev) => prev.map((p) => (p.id === person.id ? saved : p)));
+      await reloadCurrentCity();
+      return saved;
+    } catch (e) {
+      console.error('[usePeopleAI] recoverPersonDatesWithAi failed', e);
+      return null;
+    } finally {
+      setFieldGenerating(null);
+    }
+  };
+
   const fixPeopleBatch = async () => {
     const targets =
       selectedIds.size > 0 ? peopleList.filter((p) => p.id && selectedIds.has(p.id)) : peopleList;
-    if (targets.length === 0) return;
+    if (targets.length === 0) return { success: false, count: 0, failed: 0 };
 
     setIsBulkProcessing(true);
+    let okCount = 0;
+    let failedCount = 0;
 
     for (const person of targets) {
       if (person.id) {
-        // Scroll per feedback visivo
         const el = document.getElementById(`person-card-${person.id}`);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         setProcessingId(person.id);
         try {
-          await wipeAndRewritePerson(person);
+          const result = await wipeAndRewritePerson(person);
+          if (result?.success) okCount += 1;
+          else failedCount += 1;
         } catch (e) {
           console.error(`Errore durante fix massivo su ${person.name}`, e);
+          failedCount += 1;
         }
 
-        // --- CRITICO: THROTTLING 5 SECONDI ---
-        // Evita Rate Limit 429 di Google Gemini
-        await new Promise((r) => setTimeout(r, 5000));
+        await new Promise((r) => setTimeout(r, BULK_FIX_THROTTLE_MS));
       }
     }
 
@@ -196,28 +387,65 @@ export const usePeopleAI = ({
     setIsBulkProcessing(false);
     if (selectedIds.size > 0) resetSelection();
 
+    await reloadList();
     await reloadCurrentCity();
-    return { success: true, count: targets.length };
+    return { success: failedCount === 0, count: okCount, failed: failedCount };
   };
 
-  const bulkUpdateStatus = async (status: 'published' | 'draft') => {
-    if (selectedIds.size === 0) return;
+  const bulkUpdateStatus = async (
+    status: 'published' | 'draft',
+  ): Promise<FamousPersonPublishAttemptResult[]> => {
+    if (selectedIds.size === 0) return [];
     setIsBulkProcessing(true);
+    const results: FamousPersonPublishAttemptResult[] = [];
     try {
-      setPeopleList((prev) => prev.map((p) => (selectedIds.has(p.id!) ? { ...p, status } : p)));
-      const promises = Array.from(selectedIds).map((id) => {
+      for (const id of selectedIds) {
         const person = peopleList.find((p) => p.id === id);
-        if (person) return saveCityPerson(cityId, { ...person, status });
-        return Promise.resolve();
-      });
-      await Promise.all(promises);
+        if (!person) continue;
+
+        if (status === 'published' && !canPublishFamousPerson(person)) {
+          results.push({
+            ok: false,
+            cause: 'incomplete',
+            missingFields: getMissingFamousPersonFields(person),
+            person,
+          });
+          continue;
+        }
+
+        try {
+          const updated = { ...person, status };
+          await saveCityPerson(cityId, updated);
+          setPeopleList((prev) => prev.map((p) => (p.id === id ? updated : p)));
+          results.push({ ok: true });
+        } catch (e) {
+          if (isFamousPersonPublishBlockedError(e)) {
+            results.push({
+              ok: false,
+              cause: 'incomplete',
+              missingFields: e.missingFields,
+              person,
+            });
+          } else {
+            console.error('[usePeopleAI] bulkUpdateStatus item failed', e);
+            results.push({
+              ok: false,
+              cause: 'runtime',
+              person,
+              message: e instanceof Error ? e.message : String(e),
+            });
+          }
+        }
+      }
       await reloadCurrentCity();
       resetSelection();
     } catch (e) {
-      reloadList();
+      console.error('[usePeopleAI] bulkUpdateStatus failed', e);
+      await reloadList();
     } finally {
       setIsBulkProcessing(false);
     }
+    return results;
   };
 
   return {
@@ -225,12 +453,36 @@ export const usePeopleAI = ({
     isDiscovering,
     isBulkProcessing,
     discoveryResults,
+    fieldGenerating,
     runDiscovery,
     importDiscoveryPerson,
     removeDiscoveryResult,
     wipeAndRewritePerson,
     regeneratePortrait,
+    completeMissingFieldWithAi,
+    recoverPersonDatesWithAi,
     fixPeopleBatch,
     bulkUpdateStatus,
   };
 };
+
+/** Helper: salva solo se recovery ha prodotto i required completi. */
+export function buildCompleteSaveCityPersonInput(
+  recoveredPerson: Parameters<typeof toCompleteFamousPersonRequiredFields>[0],
+  extras: Omit<
+    SaveCityPersonInput,
+    | 'name'
+    | 'bio'
+    | 'imageUrl'
+    | 'specificCategoryIds'
+    | 'birthYear'
+    | 'birthDate'
+    | 'isLiving'
+    | 'deathYear'
+    | 'deathDate'
+  >,
+): SaveCityPersonInput | null {
+  const required = toCompleteFamousPersonRequiredFields(recoveredPerson);
+  if (!required) return null;
+  return { ...extras, ...required };
+}

@@ -30,7 +30,6 @@ export const getCorrectCategory = (
   poiName: string = '',
 ): PoiCategory => {
   const nameLower = poiName.toLowerCase().trim();
-  const subLower = subCategory.toLowerCase().trim();
 
   // LOGICA EURISTICA: Nomi comuni che forzano la categoria
   // Questi pattern sono troppo specifici per il DB, rimangono hardcoded per velocità

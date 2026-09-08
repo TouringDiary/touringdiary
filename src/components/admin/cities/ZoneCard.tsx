@@ -41,7 +41,6 @@ interface ZoneCardProps {
   onRename: (name: string) => void;
   onDelete: (name: string) => void;
   onAuditCity: (city: CitySummary) => void;
-  onImportMissing: (suggestion: AiCitySuggestion) => void;
   onAnalyzeZone: (zoneName: string) => void;
   onDeleteSuggestion: (item: { name: string; zoneName: string }) => void;
 }
@@ -55,7 +54,6 @@ export const ZoneCard: React.FC<ZoneCardProps> = ({
   onRename,
   onDelete,
   onAuditCity,
-  onImportMissing,
   onAnalyzeZone,
   onDeleteSuggestion,
   adminRegion,

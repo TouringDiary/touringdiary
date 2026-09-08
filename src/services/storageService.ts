@@ -24,16 +24,6 @@ interface CacheItem<T> {
 // --- LOCAL STORAGE HELPERS (Persistent) ---
 
 export const getStorageItem = <T>(key: string, defaultValue: T): T => {
-  const readFromStorage = (
-    storage: Storage | Record<string, string>,
-    storageKey: string,
-  ): string | null => {
-    if (storage instanceof Storage) {
-      return storage.getItem(storageKey);
-    }
-    return storage[storageKey] || null;
-  };
-
   const parseAndValidate = (itemStr: string | null): T => {
     if (!itemStr) return defaultValue;
 

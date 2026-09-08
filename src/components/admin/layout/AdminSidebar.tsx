@@ -45,6 +45,7 @@ interface AdminSidebarProps {
     reviews: number;
     photos: number;
     patronSaint: number;
+    famousPeople: number;
   };
   editingCityId: string | null;
 }
@@ -193,6 +194,13 @@ export const AdminSidebar = ({
               icon={Award}
               active={activeView === 'patron_saint' && !editingCityId}
               badgeCount={counts.patronSaint}
+            />
+            <NavItem
+              id="famous_people"
+              label="Personaggi Famosi"
+              icon={Users}
+              active={activeView === 'famous_people' && !editingCityId}
+              badgeCount={counts.famousPeople}
             />
             <NavItem
               id="itineraries"

@@ -3,35 +3,31 @@ import type React from 'react';
 import { useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
-import { generateCitySection, suggestCityPeople } from '../../../../services/ai';
-import { generateHistoricalPortrait } from '../../../../services/ai/aiVision'; // IMPORT
 import { mergePatronDetailsFromAi } from '../../../../services/city/parsers/content/mergePatronDetailsFromAi';
 import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
-import {
-  deleteCityPerson,
-  getCityPeople,
-  saveCityDetails,
-  saveCityPerson,
-} from '../../../../services/cityService';
+import { deleteCityPerson, saveCityDetails } from '../../../../services/cityService';
 import type { User } from '../../../../types/users';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
-// Sub-Components Atomici
 import { CultureHistory } from '../culture/CultureHistory';
 import { CulturePatron } from '../culture/CulturePatron';
 import { CulturePeople } from '../culture/CulturePeople';
+import {
+  fetchCultureRegenerationData,
+  insertNewCityPeopleKeepingExisting,
+  isPeopleReplacePartialCleanupError,
+  prepareCompletePeople,
+  removeCityPeopleByIds,
+} from '../culture/editorCultureRegeneration';
 
 export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
   const { city, updateDetailField, setCityDirectly, reloadCurrentCity, triggerPreview } =
     useCityEditor();
   const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
 
-  // UI STATES
   const [generating, setGenerating] = useState<string | null>(null);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
 
   if (!city) return null;
-
-  // --- AI ACTIONS (RIGENERAZIONE COMPLETA TAB) ---
 
   const handleRegenerateClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -55,25 +51,20 @@ export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
     setGenerating('full_page');
 
     try {
-      // 1. Cancellazione Personaggi Esistenti (DB)
-      const existingPeople = await getCityPeople(city.id);
-      await Promise.all(existingPeople.map((p) => deleteCityPerson(p.id!)));
+      const { historyData, patronData, peopleSuggestions } = await fetchCultureRegenerationData(
+        city.name,
+        4,
+      );
 
-      // 2. Chiamate AI Parallele (Flash per velocità come richiesto)
-      const [historyData, patronData, peopleData] = await Promise.all([
-        generateCitySection(city.name, 'history'), // Storia e Snippet
-        generateCitySection(city.name, 'patron'), // Santo Patrono
-        suggestCityPeople(city.name, [], '', 4), // 4 Personaggi (Flash)
-      ]);
+      const { prepared, incompleteCount } = await prepareCompletePeople(
+        peopleSuggestions ?? [],
+        city.name,
+      );
 
-      // 3. Aggiornamento Oggetto City Details (Locale)
       const updatedDetails = { ...city.details };
-
-      // Storia
       updatedDetails.historySnippet = historyData.historySnippet || '';
       updatedDetails.historyFull = historyData.historyFull || '';
 
-      // Patrono
       if (patronData.patron) {
         updatedDetails.patronDetails = mergePatronDetailsFromAi(
           updatedDetails.patronDetails,
@@ -82,47 +73,95 @@ export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
         updatedDetails.patron = patronData.patron.name;
       }
 
-      // 4. Salvataggio City Details nel DB
-      const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Storia & Cultura (in 0s)`;
+      const newLog = `[${new Date().toISOString()}] ✅ Fine: Rigenerazione Pagina Storia & Cultura`;
       updatedDetails.generationLogs = appendGenerationLogs(updatedDetails.generationLogs, [newLog]);
 
       const updatedCity = { ...city, details: updatedDetails };
-      await saveCityDetails(updatedCity);
 
-      // 5. Salvataggio Personaggi nel DB (CON GENERAZIONE FOTO)
-      if (peopleData && peopleData.length > 0) {
-        let orderIdx = 1;
-        for (const p of peopleData) {
-          let imageUrl = p.imageUrl;
-          // Se non ha immagine valida, generala subito
-          if (!imageUrl || imageUrl.includes('unsplash') || imageUrl.includes('ui-avatars')) {
-            try {
-              // Generazione sincrona per evitare race conditions o blocchi eccessivi
-              const generated = await generateHistoricalPortrait(p.name, p.role, city.name);
-              if (generated) imageUrl = generated;
-            } catch (err) {
-              console.error(`[TabCulture] Fallita img per ${p.name} in regen:`, err);
-            }
+      if (prepared.length > 0) {
+        let createdIds: string[] = [];
+        let existingIds: string[] = [];
+        try {
+          const inserted = await insertNewCityPeopleKeepingExisting(city.id, prepared);
+          createdIds = inserted.createdIds;
+          existingIds = inserted.existingIds;
+        } catch (peopleError: unknown) {
+          console.error('Errore inserimento personaggi Cultura:', peopleError);
+          await reloadCurrentCity();
+          const detail = peopleError instanceof Error ? peopleError.message : String(peopleError);
+          alert(
+            `Inserimento personaggi non riuscito.\nStoria e Patrono NON sono stati aggiornati.\nI personaggi precedenti risultano preservati (eventuali insert parziali sono stati annullati).\n${detail}`,
+          );
+          return;
+        }
+
+        try {
+          await saveCityDetails(updatedCity);
+        } catch (detailsError: unknown) {
+          console.error(
+            'Errore salvataggio Storia/Patrono — rollback nuovi personaggi:',
+            detailsError,
+          );
+          await Promise.allSettled(createdIds.map((id) => deleteCityPerson(id)));
+          await reloadCurrentCity();
+          const detail =
+            detailsError instanceof Error ? detailsError.message : String(detailsError);
+          alert(
+            `Salvataggio Storia/Patrono fallito.\nI nuovi personaggi inseriti sono stati annullati; i personaggi precedenti risultano preservati.\n${detail}`,
+          );
+          return;
+        }
+
+        try {
+          await removeCityPeopleByIds(existingIds);
+        } catch (cleanupError: unknown) {
+          console.error('Cleanup personaggi precedenti fallito:', cleanupError);
+          await reloadCurrentCity();
+          if (isPeopleReplacePartialCleanupError(cleanupError)) {
+            alert(
+              `Storia, Patrono e nuovi personaggi sono stati salvati, ma il cleanup dei precedenti è parziale.\n${cleanupError.message}\nRicarica e verifica eventuali duplicati.`,
+            );
+          } else {
+            const detail =
+              cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+            alert(
+              `Storia, Patrono e nuovi personaggi sono stati salvati, ma la rimozione dei precedenti non è riuscita.\n${detail}\nRicarica e verifica eventuali duplicati.`,
+            );
           }
-
-          await saveCityPerson(city.id, {
-            ...p,
-            imageUrl: imageUrl || '',
-            status: 'draft', // Bozza, pronti per la bonifica Pro
-            orderIndex: orderIdx++,
-          });
+          return;
+        }
+      } else {
+        try {
+          await saveCityDetails(updatedCity);
+        } catch (detailsError: unknown) {
+          console.error('Errore salvataggio Storia/Patrono:', detailsError);
+          await reloadCurrentCity();
+          const detail =
+            detailsError instanceof Error ? detailsError.message : String(detailsError);
+          alert(`Salvataggio Storia/Patrono fallito.\n${detail}`);
+          return;
         }
       }
 
-      // 6. Aggiornamento UI Finale
       setCityDirectly(updatedCity);
       await reloadCurrentCity();
 
-      alert(
-        `Rigenerazione completata!\n- Storia aggiornata\n- Patrono aggiornato\n- Trovati ${peopleData.length} nuovi personaggi (con foto).`,
-      );
+      if (prepared.length === 0) {
+        alert(
+          `Storia e Patrono aggiornati.\nNessun personaggio completo da salvare (${incompleteCount} incompleti scartati).\nI personaggi esistenti sono stati preservati.`,
+        );
+      } else {
+        alert(
+          `Rigenerazione completata!\n- Storia e Patrono aggiornati\n- Personaggi salvati: ${prepared.length} (draft)\n- Scartati incompleti: ${incompleteCount}`,
+        );
+      }
     } catch (e: unknown) {
       console.error('Errore Rigenerazione Cultura:', e);
+      try {
+        await reloadCurrentCity();
+      } catch {
+        /* ignore reload failure after primary error */
+      }
       alert(`Errore durante la rigenerazione: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setGenerating(null);
@@ -137,27 +176,27 @@ export const TabCulture = ({ currentUser }: { currentUser?: User }) => {
           onClose={() => setShowRegenConfirm(false)}
           onConfirm={executeRegeneration}
           title="Rigenerare Cultura?"
-          message={`ATTENZIONE: Questa operazione CANCELLERÀ e RIGENERERÀ da zero:\n1. La storia completa\n2. Il Santo Patrono\n3. TUTTI i personaggi famosi esistenti.\n\nL'AI cercherà nuovi dati e genererà nuove immagini.`}
-          confirmLabel="Sì, Rigenera Tutto"
+          message={`Questa operazione aggiorna Storia e Patrono.\nI personaggi esistenti saranno sostituiti SOLO se l'AI produce almeno un personaggio completo e la sostituzione riesce interamente.\nI vecchi personaggi restano finché Storia/Patrono non sono salvati; in caso di errore sui dettagli i nuovi insert vengono annullati (nessuna transazione DB).`}
+          confirmLabel="Sì, Rigenera"
           cancelLabel="Annulla"
           variant="danger"
           icon={<RefreshCw className="w-8 h-8 text-rose-500 animate-spin-slow" />}
         />
       )}
 
-      <div className="col-span-1 lg:col-span-2 flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-amber-900/20 rounded-lg text-amber-500">
+      <div className="col-span-1 lg:col-span-2 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-slate-900 p-4 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2 bg-amber-900/20 rounded-lg text-amber-500 shrink-0">
             <BookOpen className="w-5 h-5" />
           </div>
-          <h2 className="text-lg md:text-xl font-bold text-white">Storia & Cultura</h2>
+          <h2 className="text-lg md:text-xl font-bold text-white truncate">Storia & Cultura</h2>
         </div>
         <button
           type="button"
           onClick={handleRegenerateClick}
           disabled={generating === 'full_page' || aiBlocked}
           title={aiBlocked ? blockMessage : undefined}
-          className="bg-rose-600 hover:bg-rose-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed uppercase text-xs tracking-widest border border-rose-500"
+          className="w-full sm:w-auto justify-center bg-rose-600 hover:bg-rose-500 text-white px-4 sm:px-6 py-3 min-h-11 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed uppercase text-xs tracking-widest border border-rose-500"
         >
           {generating === 'full_page' ? (
             <Loader2 className="w-4 h-4 animate-spin" />

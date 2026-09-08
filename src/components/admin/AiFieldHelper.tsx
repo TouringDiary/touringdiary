@@ -19,6 +19,48 @@ interface AiFieldHelperProps {
   isStrategyConfig?: boolean;
 }
 
+const MAX_CONTEXT_CHARS = 1200;
+
+/** Rappresentazione leggibile del contesto campo per il prompt AI (no "[object Object]", no falso "Nessuno"). */
+const formatCurrentValueForPrompt = (value: unknown): string => {
+  if (value == null) return 'Nessuno';
+  if (typeof value === 'string') return value.trim() ? value : 'Nessuno';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'bigint') return value.toString();
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return 'Nessuno';
+    const parts = value.map((item) => {
+      if (item == null) return '';
+      if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+        return String(item);
+      }
+      try {
+        return JSON.stringify(item);
+      } catch {
+        return '[valore non serializzabile]';
+      }
+    });
+    const joined = parts.filter((p) => p.length > 0).join('; ');
+    if (!joined) return 'Nessuno';
+    return joined.length > MAX_CONTEXT_CHARS ? `${joined.slice(0, MAX_CONTEXT_CHARS)}…` : joined;
+  }
+
+  if (typeof value === 'object') {
+    const keys = Object.keys(value as object);
+    if (keys.length === 0) return 'Nessuno';
+    try {
+      const json = JSON.stringify(value);
+      if (!json || json === '{}') return 'Nessuno';
+      return json.length > MAX_CONTEXT_CHARS ? `${json.slice(0, MAX_CONTEXT_CHARS)}…` : json;
+    } catch {
+      return `[oggetto con ${keys.length} campi]`;
+    }
+  }
+
+  return String(value);
+};
+
 export const AiFieldHelper = ({
   contextLabel,
   onApply,
@@ -40,14 +82,24 @@ export const AiFieldHelper = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Callers spesso passano `defaultPrompts={[...]}` inline: chiave stabile per evitare reload inutili di getAiConfig.
+  const defaultPromptsKey = JSON.stringify(defaultPrompts ?? []);
+
   useEffect(() => {
+    let cancelled = false;
+
     const loadConfig = async () => {
       const config = await getAiConfig(dbKey);
+      if (cancelled) return;
+
       let codeDefaults: string[] = [];
       if (defaultPrompts && defaultPrompts.length > 0) codeDefaults = [...defaultPrompts];
       else if (initialPrompt) codeDefaults = [initialPrompt];
       else if (mode === 'number')
-        codeDefaults = [`Stima un valore numerico`, `Valuta da ${min || 0} a ${max || 100}`];
+        codeDefaults = [
+          `Stima un valore numerico`,
+          `Valuta da ${min ?? 0} a ${max ?? 100}`,
+        ];
       else codeDefaults = [`Sii preciso`, `Usa tono emozionale`, `Includi curiosità`];
 
       // Selection drives generation UI; full prompt catalog is not rendered here.
@@ -63,7 +115,11 @@ export const AiFieldHelper = ({
       }
     };
     void loadConfig();
-  }, [dbKey, defaultPrompts, initialPrompt, max, min, mode]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dbKey, defaultPromptsKey, initialPrompt, max, min, mode]);
 
   // When CC disables AI: close panel and wipe ephemeral generation session state.
   useEffect(() => {
@@ -99,7 +155,7 @@ export const AiFieldHelper = ({
 
       const finalPrompt = `
                 TASK: Scrivere contenuto per "${contextLabel}".
-                CONTESTO ATTUALE: "${currentValue || 'Nessuno'}"
+                CONTESTO ATTUALE: "${formatCurrentValueForPrompt(currentValue)}"
                 
                 REGOLE OBBLIGATORIE DA SEGUIRE:
                 - ${combinedPrompt}
@@ -112,14 +168,34 @@ export const AiFieldHelper = ({
         contents: `${systemInstruction}\n\n${finalPrompt}`,
       });
 
-      if (response.text) {
-        let cleanText = response.text.trim();
-        if (mode === 'number') {
-          const match = cleanText.match(/\d+(\.\d+)?/);
-          cleanText = match ? match[0] : '0';
-        }
-        setResult(cleanText);
+      if (!response.text) {
+        setError("L'AI non ha restituito un risultato utilizzabile.");
+        return;
       }
+
+      let cleanText = response.text.trim();
+      if (mode === 'number') {
+        const match = cleanText.match(/-?\d+(\.\d+)?/);
+        if (!match) {
+          setError("L'AI non ha restituito un numero interpretabile.");
+          return;
+        }
+        const numeric = Number(match[0]);
+        if (!Number.isFinite(numeric)) {
+          setError("L'AI non ha restituito un numero interpretabile.");
+          return;
+        }
+        if (min != null && numeric < min) {
+          setError(`Il valore AI (${numeric}) è inferiore al minimo consentito (${min}).`);
+          return;
+        }
+        if (max != null && numeric > max) {
+          setError(`Il valore AI (${numeric}) è superiore al massimo consentito (${max}).`);
+          return;
+        }
+        cleanText = match[0];
+      }
+      setResult(cleanText);
     } catch (e: unknown) {
       setError((e instanceof Error ? e.message : String(e)) || 'Errore AI.');
     } finally {
@@ -131,7 +207,7 @@ export const AiFieldHelper = ({
     <div className={`w-full ${compact ? 'mt-1' : 'mt-2'} ${aiBlocked ? 'opacity-60' : ''}`}>
       <button
         type="button"
-        className={`w-full flex justify-between items-center text-left ${compact ? 'p-2' : 'p-3'} bg-slate-900/50 border-b border-slate-800 ${aiBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+        className={`w-full flex justify-between items-center text-left ${compact ? 'p-2' : 'p-3'} bg-slate-900/50 border-b border-slate-800 ${aiBlocked ? 'cursor-not-allowed' : 'cursor-pointer'} min-h-11`}
         onClick={handleHeaderClick}
         aria-disabled={aiBlocked}
         aria-expanded={isOpen && !aiBlocked}
@@ -172,7 +248,7 @@ export const AiFieldHelper = ({
                 type="button"
                 onClick={() => onApply(selectedPrompts.join('\n- '))}
                 disabled={selectedPrompts.length === 0}
-                className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider flex items-center justify-center gap-2"
+                className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold py-2.5 min-h-11 rounded-lg text-[10px] uppercase tracking-wider flex items-center justify-center gap-2"
               >
                 <Check className="w-3.5 h-3.5" /> Applica strategia
               </button>
@@ -183,7 +259,7 @@ export const AiFieldHelper = ({
                 type="button"
                 onClick={handleGenerate}
                 disabled={loading || selectedPrompts.length === 0 || aiBlocked}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 min-h-11 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -192,16 +268,16 @@ export const AiFieldHelper = ({
                 )}
                 Genera Contenuto (Pro)
               </button>
-              {error && <div className="text-xs text-red-400 font-bold">{error}</div>}
+              {error && <div className="text-xs text-red-400 font-bold break-words">{error}</div>}
               {result && (
                 <div className="space-y-2">
-                  <div className="p-3 bg-slate-950 border border-indigo-500/30 rounded text-sm text-indigo-100">
+                  <div className="p-3 bg-slate-950 border border-indigo-500/30 rounded text-sm text-indigo-100 break-words">
                     {result}
                   </div>
                   <button
                     type="button"
                     onClick={() => onApply(result)}
-                    className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider flex items-center justify-center gap-2"
+                    className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2.5 min-h-11 rounded-lg text-[10px] uppercase tracking-wider flex items-center justify-center gap-2"
                   >
                     <Check className="w-3.5 h-3.5" /> Applica
                   </button>

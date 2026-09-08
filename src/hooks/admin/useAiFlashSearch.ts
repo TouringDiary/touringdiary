@@ -1,11 +1,20 @@
+import { POI_SUBCATEGORY_VALUES } from '../../constants/governance';
 import { suggestNewPois } from '../../services/ai';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { saveSinglePoi } from '../../services/cityService';
-import type { PointOfInterest, User } from '../../types/index';
+import type { PointOfInterest, PoiSubCategory } from '../../types/index';
 import type { StepReport, useAiTaskRunner } from './useAiTaskRunner';
 
 // Helper delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const toPoiSubCategory = (value: string | undefined): PoiSubCategory | undefined => {
+  if (!value) return undefined;
+  for (const v of POI_SUBCATEGORY_VALUES) {
+    if (v === value) return v;
+  }
+  return undefined;
+};
 
 export const useAiFlashSearch = (runner: ReturnType<typeof useAiTaskRunner>) => {
   const { performStep, addLog, resetRunner, stopRunner } = runner;
@@ -15,7 +24,6 @@ export const useAiFlashSearch = (runner: ReturnType<typeof useAiTaskRunner>) => 
     cityName: string,
     poiCount: number,
     categories: { id: string; label: string }[],
-    user?: User,
   ) => {
     const initialSteps: StepReport[] = categories.map((cat) => ({
       step: `Ricerca Flash: ${cat.label}`,
@@ -53,19 +61,15 @@ export const useAiFlashSearch = (runner: ReturnType<typeof useAiTaskRunner>) => 
                   id: `draft_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
                   name: pData.name,
                   category: correctCategory,
-                  subCategory: pData.subCategory,
-                  description: pData.description || 'Bozza da validare',
+                  subCategory: toPoiSubCategory(pData.subCategory),
+                  description: pData.description ?? '',
                   imageUrl: '',
-                  coords: { lat: 0, lng: 0 }, // 0,0 indica che necessita validazione Pro
-                  rating: 0,
-                  votes: 0,
-                  address: pData.address || `${cityName}, Italia`,
                   cityId: cityId,
                   status: 'draft',
                   dateAdded: new Date().toISOString(),
                   aiReliability: 'low', // Segnala che è grezzo
-                  tourismInterest: pData.tourismInterest || 'medium', // FIX: Mappatura Interesse
-                  lastVerified: new Date().toISOString(), // SET DATA CREAZIONE COME PRIMA VERIFICA
+                  ...(pData.address ? { address: pData.address } : {}),
+                  ...(pData.tourismInterest ? { tourismInterest: pData.tourismInterest } : {}),
                 };
                 await saveSinglePoi(newPoi, cityId);
                 savedCount++;

@@ -57,7 +57,9 @@ export const UserManagementView = ({ currentUser, onUserUpdate }: UserManagement
       </div>
 
       <div className="flex-1 min-h-0 bg-slate-900/50 rounded-2xl border border-slate-800/50 p-1 overflow-hidden">
-        {activeTab === 'list' && <AdminUserManager currentUser={currentUser} />}
+        {activeTab === 'list' && (
+          <AdminUserManager currentUser={currentUser} onUserUpdate={onUserUpdate} />
+        )}
         {activeTab === 'roles' && <AdminRoleManager currentUser={currentUser} />}
         {activeTab === 'subscriptions' && <UserSubscriptionsTab />}
         {activeTab === 'limits' && <AiLimitsTab />}

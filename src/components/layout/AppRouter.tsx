@@ -1,12 +1,10 @@
 import { Loader2 } from 'lucide-react';
 import React, { Suspense, useMemo } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
-import { useGps } from '@/context/GpsContext';
 import { useModal } from '@/context/ModalContext';
 import { useUI } from '@/context/UIContext';
 // CONTEXT CONSUMER
 import { useUser } from '@/context/UserContext';
-import { useDiaryInteractionsContext } from '@/context/useDiaryInteractionsContext';
 import { useNavigation } from '@/context/useNavigation';
 import { buildHomeShelf } from '@/domain/city/homeShelf';
 import { useAppRouter } from '@/hooks/useAppRouter';
@@ -24,9 +22,6 @@ const CityDetailContent = React.lazy(() =>
 );
 const ShopPage = React.lazy(() =>
   import('../shop/ShopPage').then((module) => ({ default: module.ShopPage })),
-);
-const TravelDiary = React.lazy(() =>
-  import('../features/diary/TravelDiary').then((module) => ({ default: module.TravelDiary })),
 );
 const UserDashboard = React.lazy(() =>
   import('../user/UserDashboard').then((module) => ({ default: module.UserDashboard })),
@@ -49,8 +44,7 @@ const PageLoader = () => (
 const MainContent: React.FC = () => {
   // Context Consumption
   const { user, cityManifest, isLoadingManifest, handleLogout } = useUser();
-  const { userLocation } = useGps();
-  const { isSidebarOpen, handleMainScroll, isUiVisible } = useUI();
+  const { isSidebarOpen, isUiVisible } = useUI();
   const {
     activeCityId,
     activeShopId,
@@ -66,7 +60,6 @@ const MainContent: React.FC = () => {
     navigateToCity,
     goBack,
     goHome,
-    handleAroundMeTrigger,
     handleMergeCities,
     openShopFromPoi,
     handleNavigateGlobal,
@@ -77,8 +70,6 @@ const MainContent: React.FC = () => {
   const { openModal } = useModal();
   const location = useLocation();
 
-  // RECUPERO LOGICA DIARIO
-  const { handleSmartDrop } = useDiaryInteractionsContext();
   const router = useAppRouter();
 
   // CatalogRest (manifest completo) — sorgente dati, NON gate del first paint (DOC-38 §S.4).

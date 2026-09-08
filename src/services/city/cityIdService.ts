@@ -13,6 +13,11 @@ export const flattenString = (str: string): string => {
     .replace(/[^a-z0-9]/g, '') // Rimuove tutto ciò che non è alfanumerico
     .trim();
 };
+
+/** Escapes SQL LIKE wildcards (\, % and _) so they can be matched literally in ILIKE queries */
+function escapeLikePattern(str: string): string {
+  return str.replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&');
+}
 /**
  * Risolve l'ID canonico di una città interrogando cities_registry.
  * Segue una strategia di matching a 3 livelli per gestire caratteri speciali e separatori.
@@ -24,22 +29,27 @@ export async function resolveCanonicalCityId(name: string, adminRegion?: string)
   if (!cleanName) throw new Error('CITY_NAME_EMPTY');
 
   // STAGE 1: Match Esatto (Case-Insensitive)
-  let query = supabase.from('cities_registry').select('id, name, region').ilike('name', cleanName);
+  // We escape SQL LIKE wildcards so that % and _ match literally
+  const escapedExactName = escapeLikePattern(cleanName);
+  let query = supabase.from('cities_registry').select('id, name, region').ilike('name', escapedExactName);
 
   if (adminRegion) {
     query = query.eq('region', adminRegion); // Usiamo 'region' come confermato dal resto del codice
   }
 
-  const { data: exactMatches } = await query;
+  const { data: exactMatches, error: err1 } = await query;
+  if (err1) {
+    throw new Error(`REGISTRY_DATABASE_ERROR: ${err1.message}`);
+  }
 
   if (exactMatches && exactMatches.length === 1) {
     return exactMatches[0].id;
   }
 
   // STAGE 2: Match con Wildcard (Separatori flessibili)
-  // Escapiamo i caratteri Jolly di SQL (% e _) e sostituiamo separatori con %
-  const escaped = cleanName.replace(/[%_]/g, '\\$&');
-  const flexiblePattern = escaped.replace(/['\-\s]+/g, '%');
+  // Split the name by separators, escape SQL wildcards in the parts, and join with '%'
+  const parts = cleanName.split(/['\-\s]+/);
+  const flexiblePattern = parts.map(escapeLikePattern).join('%');
 
   let flexQuery = supabase
     .from('cities_registry')
@@ -50,7 +60,10 @@ export async function resolveCanonicalCityId(name: string, adminRegion?: string)
     flexQuery = flexQuery.eq('region', adminRegion);
   }
 
-  const { data: candidates } = await flexQuery;
+  const { data: candidates, error: err2 } = await flexQuery;
+  if (err2) {
+    throw new Error(`REGISTRY_DATABASE_ERROR: ${err2.message}`);
+  }
 
   if (candidates && candidates.length > 0) {
     // STAGE 3: Validazione Client-side con Flattening

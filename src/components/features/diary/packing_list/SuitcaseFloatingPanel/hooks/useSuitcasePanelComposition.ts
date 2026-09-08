@@ -32,7 +32,6 @@ import { useSuitcaseHiddenCategories } from './useSuitcaseHiddenCategories';
 import { useSuitcaseItemActions } from './useSuitcaseItemActions';
 import { type SeedItemsLocallyFn, useSuitcasePanelData } from './useSuitcasePanelData';
 import { useSuitcaseUndo } from './useSuitcaseUndo';
-import { useSuitcaseUndoHandlers } from './useSuitcaseUndoHandlers';
 
 interface UseSuitcasePanelCompositionOptions {
   itineraryId: string | null;
@@ -119,26 +118,6 @@ export function useSuitcasePanelComposition({
         suitcaseDocumentSave.notifyLocalMutation();
       }
     },
-  });
-
-  useSuitcaseUndoHandlers({
-    ...data.mutations,
-    fetchUserSuitcases: data.fetchUserSuitcases,
-    setHighlightItemId: data.panelState.setHighlightItemId,
-    activeTabId: data.panelState.activeTabId,
-    showToast: data.showToast,
-    handleStateSync: data.handleStateSync,
-    checkDuplicateItem: (id, name, cat, scId, isUndo) =>
-      checkDuplicateItem(
-        id,
-        name,
-        cat,
-        scId,
-        data.panelState.activeTabId,
-        data.userSuitcasesRef.current,
-        isUndo,
-      ),
-    stack: { pushAction, undo, redo, canUndo, canRedo },
   });
 
   const { performUndo, performRedo } = useSuitcaseUndo({

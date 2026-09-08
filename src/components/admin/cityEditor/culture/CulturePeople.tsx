@@ -1,36 +1,23 @@
-import {
-  Calendar,
-  Check,
-  CheckCircle,
-  CheckSquare,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  Eye,
-  Image as ImageIcon,
-  Info,
-  Layers,
-  Loader2,
-  MapPin,
-  Plus,
-  Save,
-  Sparkles,
-  Square,
-  Trash2,
-  Users,
-  Wand2,
-  X,
-} from 'lucide-react';
+import { CheckSquare, Eye, Info, Loader2, Plus, Square, Users, Wand2 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
+import {
+  type FamousPersonPublishGap,
+  getMissingFamousPersonFields,
+} from '@/domain/city/famousPersonCompleteness';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
+import {
+  type FamousPersonMasterDto,
+  type FamousPersonSpecificDto,
+  loadFamousPersonTaxonomy,
+} from '@/services/city/famousPersonCategoryService';
 import { usePeopleManager } from '../../../../hooks/admin/usePeopleManager';
 import type { FamousPerson, User } from '../../../../types/index';
-import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
-import { ImageWithFallback } from '../../../common/ImageWithFallback';
 import { CultureCornerModal } from '../../../modals/CultureCornerModal';
-import { AiFieldHelper } from '../../AiFieldHelper';
+import { CulturePeopleDiscovery } from './CulturePeopleDiscovery';
+import { CulturePeopleModals } from './CulturePeopleModals';
+import { CulturePersonCard } from './CulturePersonCard';
 
 interface CulturePeopleProps {
   cityId: string;
@@ -38,11 +25,15 @@ interface CulturePeopleProps {
   currentUser?: User;
 }
 
-export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, currentUser }) => {
+function getPersistedPersonId(person: FamousPerson): string | null {
+  const { id } = person;
+  return typeof id === 'string' && id.trim().length > 0 ? id : null;
+}
+
+export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }) => {
   const { city, setCityDirectly } = useCityEditor();
   const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
 
-  // --- USE HOOK ---
   const {
     peopleList,
     isLoading,
@@ -57,6 +48,9 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
     bulkUpdateStatus,
     wipeAndRewritePerson,
     regeneratePortrait,
+    completeMissingFieldWithAi,
+    recoverPersonDatesWithAi,
+    fieldGenerating,
     fixPeopleBatch,
     addManualPerson,
     deletePerson,
@@ -72,12 +66,18 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
   const [aiContextQuery, setAiContextQuery] = useState('');
   const [discoveryCount, setDiscoveryCount] = useState<number>(3);
+  /** Draft ordine: commit su blur / Enter (non a ogni onChange). */
+  const [orderDrafts, setOrderDrafts] = useState<Record<string, string>>({});
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [refineTarget, setRefineTarget] = useState<FamousPerson | null>(null);
   const [showBulkFixConfirm, setShowBulkFixConfirm] = useState(false);
+  const [publishBlock, setPublishBlock] = useState<{
+    person: FamousPerson;
+    missingFields: FamousPersonPublishGap[];
+    otherIncompleteCount?: number;
+  } | null>(null);
 
-  // STATE MODALE SUCCESSO
   const [successModal, setSuccessModal] = useState<{ isOpen: boolean; message: string }>({
     isOpen: false,
     message: '',
@@ -86,13 +86,49 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewInitialId, setPreviewInitialId] = useState<string | undefined>(undefined);
 
+  const [masters, setMasters] = useState<FamousPersonMasterDto[]>([]);
+  const [specifics, setSpecifics] = useState<FamousPersonSpecificDto[]>([]);
+
+  // Logical correction: reset outdated UI state when cityId changes
+  useEffect(() => {
+    if (!cityId) return;
+    setExpandedPersonId(null);
+    setAiContextQuery('');
+    setOrderDrafts({});
+    setDeleteTarget(null);
+    setRefineTarget(null);
+    setShowBulkFixConfirm(false);
+    setPublishBlock(null);
+    setSuccessModal({ isOpen: false, message: '' });
+    setPreviewModalOpen(false);
+    setPreviewInitialId(undefined);
+  }, [cityId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const taxonomy = await loadFamousPersonTaxonomy({ activeOnly: false });
+        if (cancelled) return;
+        setMasters(taxonomy.masters);
+        setSpecifics(taxonomy.specifics);
+      } catch (e) {
+        console.error('[CulturePeople] taxonomy load failed', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleAddManual = async () => {
     const newId = await addManualPerson();
     if (newId) setExpandedPersonId(newId);
   };
 
   const handleDeleteRequest = (person: FamousPerson) => {
-    setDeleteTarget({ id: person.id!, name: person.name });
+    if (!person.id) return;
+    setDeleteTarget({ id: person.id, name: person.name });
   };
 
   const confirmDelete = async () => {
@@ -132,88 +168,164 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
     if (result?.success) {
       setSuccessModal({
         isOpen: true,
-        message: `Bonifica completata! Processati ${result.count} personaggi.`,
+        message: `Bonifica completata! Processati ${result.count} personaggi${result.failed ? ` (${result.failed} falliti)` : ''}.`,
       });
+    } else if (result) {
+      alert(
+        `Bonifica parziale: ${result.count} ok, ${result.failed ?? 0} falliti. Controlla i personaggi e riprova.`,
+      );
     }
   };
 
   const handleOpenPreview = (personId?: string) => {
-    if (city) {
-      const tempDetails = { ...city.details, famousPeople: peopleList };
-      setCityDirectly({ ...city, details: tempDetails });
-    }
     setPreviewInitialId(personId);
     setPreviewModalOpen(true);
   };
 
-  const allSelected = peopleList.length > 0 && selectedIds.size === peopleList.length;
-  const selectedCount = selectedIds.size;
+  const handleToggleStatus = async (person: FamousPerson) => {
+    const result = await toggleStatus(person);
+    if (!result.ok) {
+      if (result.cause === 'incomplete') {
+        setPublishBlock({ person: result.person, missingFields: result.missingFields });
+        const id = getPersistedPersonId(result.person);
+        if (id) setExpandedPersonId(id);
+      } else {
+        alert(`Errore cambio stato: ${result.message}`);
+      }
+    }
+  };
+
+  const handleBulkPublish = async () => {
+    const results = await bulkUpdateStatus('published');
+    const incomplete = results.filter(
+      (r): r is Extract<typeof r, { ok: false; cause: 'incomplete' }> =>
+        !r.ok && r.cause === 'incomplete',
+    );
+    const runtime = results.find((r) => !r.ok && r.cause === 'runtime');
+    if (runtime && !runtime.ok) {
+      alert(`Errore pubblicazione: ${runtime.message}`);
+      return;
+    }
+    if (incomplete.length > 0) {
+      const first = incomplete[0];
+      setPublishBlock({
+        person: first.person,
+        missingFields: first.missingFields,
+        otherIncompleteCount: incomplete.length > 1 ? incomplete.length - 1 : undefined,
+      });
+      const id = getPersistedPersonId(first.person);
+      if (id) setExpandedPersonId(id);
+    }
+  };
+
+  const handleBulkDraft = async () => {
+    const results = await bulkUpdateStatus('draft');
+    for (const result of results) {
+      if (result.ok) continue;
+      if (result.cause === 'runtime') {
+        alert(`Errore impostazione bozza: ${result.message}`);
+        return;
+      }
+    }
+  };
+
+  const handleGenerateMissingField = async (field: FamousPersonPublishGap) => {
+    if (!publishBlock) return;
+
+    if (field === 'categories') {
+      const id = getPersistedPersonId(publishBlock.person);
+      if (id) setExpandedPersonId(id);
+      setPublishBlock(null);
+      return;
+    }
+
+    if (!guardAiAction()) return;
+
+    if (field === 'dates') {
+      const updated = await recoverPersonDatesWithAi(publishBlock.person);
+      if (!updated) {
+        alert("Impossibile recuperare le date con l'AI. Riprova o compila manualmente.");
+        return;
+      }
+      const stillMissing = getMissingFamousPersonFields(updated);
+      if (stillMissing.length === 0) {
+        setPublishBlock(null);
+        setSuccessModal({
+          isOpen: true,
+          message: `${updated.name} è completo. Puoi pubblicarlo.`,
+        });
+      } else {
+        setPublishBlock({ person: updated, missingFields: stillMissing });
+      }
+      return;
+    }
+
+    const updated = await completeMissingFieldWithAi(publishBlock.person, field);
+    if (!updated) {
+      alert(
+        `Impossibile generare «${getFamousPersonFieldLabel(field)}» con l'AI. Riprova o compila manualmente.`,
+      );
+      return;
+    }
+    const stillMissing = getMissingFamousPersonFields(updated);
+    if (stillMissing.length === 0) {
+      setPublishBlock(null);
+      setSuccessModal({
+        isOpen: true,
+        message: `${updated.name} è completo. Puoi pubblicarlo.`,
+      });
+    } else {
+      setPublishBlock({ person: updated, missingFields: stillMissing });
+    }
+  };
+
+  const selectableIds = peopleList
+    .map((p) => p.id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+  const selectedCount = selectableIds.filter((id) => selectedIds.has(id)).length;
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
   const isSelectionActive = selectedCount > 0;
+
+  const commitOrderDraft = (personId: string) => {
+    const draft = orderDrafts[personId];
+    if (draft === undefined) return;
+    const raw = draft.trim();
+    setOrderDrafts((prev) => {
+      const next = { ...prev };
+      delete next[personId];
+      return next;
+    });
+    if (raw === '') return;
+    const nextRank = Number(raw);
+    if (!Number.isFinite(nextRank) || !Number.isInteger(nextRank) || nextRank < 1) return;
+    void reorderPerson(personId, nextRank);
+  };
 
   return (
     <div className="bg-slate-900 p-4 md:p-8 rounded-2xl md:rounded-3xl border border-slate-800 shadow-2xl relative">
-      {/* SUCCESS MODAL */}
-      {successModal.isOpen && (
-        <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 max-w-sm w-full text-center">
-            <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
-              <CheckCircle className="w-10 h-10 text-emerald-500" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">Ottimo Lavoro!</h3>
-              <p className="text-slate-400 text-sm">{successModal.message}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSuccessModal({ isOpen: false, message: '' })}
-              className="mt-4 w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold uppercase text-xs transition-colors border border-slate-700 hover:border-slate-600"
-            >
-              Chiudi
-            </button>
-          </div>
-        </div>
-      )}
-
-      {deleteTarget && (
-        <DeleteConfirmationModal
-          isOpen={true}
-          onClose={() => setDeleteTarget(null)}
-          onConfirm={confirmDelete}
-          title="Eliminare Personaggio?"
-          message={`Stai per eliminare definitivamente "${deleteTarget.name}". L'azione è irreversibile.`}
-          isDeleting={isDeleting}
-          icon={<Trash2 className="w-8 h-8" />}
-        />
-      )}
-
-      <DeleteConfirmationModal
-        isOpen={!!refineTarget}
-        onClose={() => setRefineTarget(null)}
-        onConfirm={confirmRefine}
-        title="Bonifica Dati & Luoghi?"
-        message={`Vuoi riscrivere i dati di "${refineTarget?.name}" tramite AI Pro?\n\nInclude la ricerca di nuovi luoghi correlati e la ricerca dell'immagine.`}
-        confirmLabel="Sì, Bonifica Tutto"
-        cancelLabel="Annulla"
-        variant="info"
-        icon={<Sparkles className="w-8 h-8 text-indigo-400 animate-pulse" />}
-      />
-
-      <DeleteConfirmationModal
-        isOpen={showBulkFixConfirm}
-        onClose={() => setShowBulkFixConfirm(false)}
-        onConfirm={confirmBulkFix}
-        title={
-          isSelectionActive ? `Bonifica ${selectedCount} Selezionati?` : 'Bonifica Intera Lista?'
-        }
-        message={
-          isSelectionActive
-            ? `Stai per avviare la bonifica per ${selectedCount} personaggi selezionati.\n\nL'operazione rigenererà dati e immagini mancanti.`
-            : `Stai per avviare la bonifica automatica per TUTTI i ${peopleList.length} personaggi.\n\nL'operazione:\n1. Riscriverà bio e date\n2. Cercherà luoghi correlati\n3. CERCHERÀ LE FOTO NELLO STORAGE O LE GENERERÀ (richiede tempo e quota AI).`
-        }
-        confirmLabel={isSelectionActive ? 'Sì, Bonifica Selezione' : 'Sì, Procedi su Tutti'}
-        cancelLabel="Annulla"
-        variant="info"
-        icon={<Wand2 className="w-8 h-8 text-purple-400 animate-pulse" />}
+      <CulturePeopleModals
+        successModal={successModal}
+        setSuccessModal={setSuccessModal}
+        deleteTarget={deleteTarget}
+        setDeleteTarget={setDeleteTarget}
+        confirmDelete={confirmDelete}
+        isDeleting={isDeleting}
+        refineTarget={refineTarget}
+        setRefineTarget={setRefineTarget}
+        confirmRefine={confirmRefine}
+        publishBlock={publishBlock}
+        setPublishBlock={setPublishBlock}
+        setExpandedPersonId={setExpandedPersonId}
+        fieldGenerating={fieldGenerating}
+        aiBlocked={aiBlocked}
+        blockMessage={blockMessage}
+        handleGenerateMissingField={handleGenerateMissingField}
+        showBulkFixConfirm={showBulkFixConfirm}
+        setShowBulkFixConfirm={setShowBulkFixConfirm}
+        confirmBulkFix={confirmBulkFix}
+        isSelectionActive={isSelectionActive}
+        selectedCount={selectedCount}
+        peopleListCount={peopleList.length}
       />
 
       {previewModalOpen && city && (
@@ -242,7 +354,7 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
               type="button"
               onClick={() => setShowBulkFixConfirm(true)}
               disabled={isBulkProcessing || isLoading}
-              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-[10px] md:text-sm font-bold flex items-center gap-1 shadow-lg shadow-purple-900/20 border border-purple-500"
+              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-3 py-1.5 min-h-11 rounded-lg text-[10px] md:text-sm font-bold flex items-center gap-1 shadow-lg shadow-purple-900/20 border border-purple-500"
               title={isSelectionActive ? 'Riscrivi selezionati' : 'Riscrivi e correggi TUTTI'}
             >
               {isBulkProcessing ? (
@@ -263,22 +375,22 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
           <button
             type="button"
             onClick={() => handleOpenPreview()}
-            className="bg-slate-800 p-2 rounded-lg text-white hover:bg-slate-700 transition-colors"
+            className="inline-flex items-center justify-center min-h-11 min-w-11 bg-slate-800 p-2 rounded-lg text-white hover:bg-slate-700 transition-colors"
             title="Anteprima Lista"
+            aria-label="Anteprima lista"
           >
             <Eye className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={handleAddManual}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[10px] md:text-sm font-bold flex items-center gap-1"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 min-h-11 rounded-lg text-[10px] md:text-sm font-bold flex items-center gap-1"
           >
             <Plus className="w-4 h-4" /> <span className="hidden md:inline">Nuovo</span>
           </button>
         </div>
       </div>
 
-      {/* LEGAL DISCLAIMER */}
       <div className="mb-4 flex items-start gap-3 bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl">
         <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
         <p className="text-xs text-blue-200 leading-relaxed">
@@ -293,7 +405,11 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
           <button
             type="button"
             onClick={toggleAll}
-            className="p-1.5 rounded hover:bg-slate-800 transition-colors"
+            className="inline-flex items-center justify-center min-h-11 min-w-11 p-1.5 rounded hover:bg-slate-800 transition-colors"
+            aria-label={
+              allSelected ? 'Deseleziona tutti i personaggi' : 'Seleziona tutti i personaggi'
+            }
+            aria-pressed={allSelected}
           >
             {allSelected ? (
               <CheckSquare className="w-5 h-5 text-indigo-500" />
@@ -302,406 +418,94 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName, 
             )}
           </button>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            {selectedIds.size} SELEZIONATI
+            {selectedCount} SELEZIONATI
           </span>
         </div>
 
-        {selectedIds.size > 0 && (
+        {selectedCount > 0 && (
           <div className="flex items-center gap-2 animate-in slide-in-from-top-2">
             <button
               type="button"
-              onClick={() => bulkUpdateStatus('published')}
+              onClick={() => handleBulkPublish()}
               disabled={isBulkProcessing}
-              className="flex items-center gap-1.5 bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors border border-emerald-500/30"
+              className="flex items-center gap-1.5 bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400 px-3 py-1.5 min-h-11 rounded-lg text-[10px] font-bold uppercase transition-colors border border-emerald-500/30"
             >
               <Eye className="w-3.5 h-3.5" /> Pubblica
             </button>
             <button
               type="button"
-              onClick={() => bulkUpdateStatus('draft')}
+              onClick={() => handleBulkDraft()}
               disabled={isBulkProcessing}
-              className="flex items-center gap-1.5 bg-amber-900/30 hover:bg-amber-900/50 text-amber-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors border border-amber-500/30"
+              className="flex items-center gap-1.5 bg-amber-900/30 hover:bg-amber-900/50 text-amber-400 px-3 py-1.5 min-h-11 rounded-lg text-[10px] font-bold uppercase transition-colors border border-amber-500/30"
             >
-              <Layers className="w-3.5 h-3.5" /> Bozza
+              <Eye className="w-3.5 h-3.5" /> Bozza
             </button>
           </div>
         )}
       </div>
 
-      <div className="mb-6 p-4 bg-indigo-950/20 rounded-2xl border border-indigo-500/20">
-        <div className="flex flex-col gap-3">
-          <div className="flex justify-between items-center">
-            <h4 className="text-indigo-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-              <Sparkles className="w-4 h-4" /> Deep Discovery (Gemini Pro)
-            </h4>
+      <CulturePeopleDiscovery
+        aiContextQuery={aiContextQuery}
+        setAiContextQuery={setAiContextQuery}
+        discoveryCount={discoveryCount}
+        setDiscoveryCount={setDiscoveryCount}
+        isDiscovering={isDiscovering}
+        discoveryResults={discoveryResults}
+        runDiscovery={runDiscovery}
+        importDiscoveryPerson={importDiscoveryPerson}
+        removeDiscoveryResult={removeDiscoveryResult}
+        aiBlocked={aiBlocked}
+        blockMessage={blockMessage}
+        guardAiAction={guardAiAction}
+      />
 
-            <div className="flex items-center gap-2">
-              <select
-                value={discoveryCount}
-                onChange={(e) => setDiscoveryCount(parseInt(e.target.value, 10))}
-                className="w-16 bg-slate-950 border border-indigo-500/50 text-white text-[10px] font-bold rounded px-2 py-1 outline-none"
-              >
-                <option value={1}>1</option>
-                <option value={3}>3</option>
-                <option value={5}>5</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!guardAiAction()) return;
-                  runDiscovery(aiContextQuery, discoveryCount);
-                }}
-                disabled={isDiscovering || aiBlocked}
-                title={aiBlocked ? blockMessage : undefined}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide flex items-center gap-1 disabled:opacity-50 transition-all"
-              >
-                {isDiscovering ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Wand2 className="w-3 h-3" />
-                )}{' '}
-                {aiBlocked ? 'AI off' : 'Suggerisci'}
-              </button>
-            </div>
-          </div>
-          <input
-            value={aiContextQuery}
-            onChange={(e) => setAiContextQuery(e.target.value)}
-            placeholder="Cosa cerchi? (es. Pittori del 700...)"
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none"
-          />
-        </div>
-        {discoveryResults.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 mt-3">
-            {discoveryResults.map((p, i) => (
-              <div
-                key={i}
-                className="bg-slate-900 p-3 rounded-xl border border-slate-700 flex flex-col gap-2 relative group hover:border-indigo-500 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-white text-xs truncate">{p.name}</div>
-                    <div className="text-[9px] text-slate-400 truncate mb-1">{p.role}</div>
-                    <p className="text-[9px] text-slate-500 line-clamp-3 leading-snug italic border-l border-slate-700 pl-2">
-                      "{p.bio || 'Nessuna bio'}"
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => importDiscoveryPerson(p)}
-                  disabled={p.isImporting}
-                  className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 mt-auto"
-                >
-                  {p.isImporting ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Check className="w-3 h-3" />
-                  )}
-                  {p.isImporting ? 'Creazione Asset...' : 'Importa + Foto'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeDiscoveryResult(p.name)}
-                  className="absolute top-1 right-1 text-slate-600 hover:text-white"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
+      <div className="space-y-4 md:max-h-[min(600px,70vh)] md:overflow-y-auto custom-scrollbar md:pr-1">
         {isLoading ? (
           <div className="text-center py-4">
             <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-500" />
           </div>
         ) : (
           peopleList.map((p, idx) => {
-            const isExpanded = expandedPersonId === p.id;
-            const isPublished = p.status === 'published';
-            const isProcessingThis = processingId === p.id;
-            const isSelected = selectedIds.has(p.id!);
-
-            const hasFullBio = p.fullBio && p.fullBio.length > 50;
-            const hasDates = p.lifespan && p.lifespan.length > 5;
-            const dataQuality = hasFullBio && hasDates ? 'high' : 'low';
-            const personPanelId = p.id ? `person-card-${p.id}` : undefined;
-            const fullBioFieldId = p.id
-              ? `fld-admin-cityeditor-culture-fullbio-${p.id}`
-              : undefined;
-            const togglePersonExpanded = () => {
-              if (isProcessingThis || !p.id) return;
-              setExpandedPersonId(isExpanded ? null : p.id);
-            };
+            if (!p.id) return null;
+            const personId = p.id;
+            const isExpanded = expandedPersonId === personId;
+            const isProcessingThis = processingId === personId;
+            const isSelected = selectedIds.has(personId);
 
             return (
-              <div
-                key={p.id || idx}
-                className={`bg-slate-900 rounded-xl border transition-all ${isProcessingThis ? 'border-yellow-400 ring-2 ring-yellow-400/50 scale-[1.01] z-floating-panel' : isSelected ? 'border-indigo-500 ring-1 ring-indigo-500/50 bg-indigo-900/10' : 'border-slate-800 hover:border-slate-700'}`}
-              >
-                <div className="p-3 md:p-4 flex gap-3 items-center group">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSelection(p.id!);
-                    }}
-                    className={`p-1.5 rounded hover:bg-slate-800 transition-colors ${isSelected ? 'text-indigo-500' : 'text-slate-600'}`}
-                  >
-                    {isSelected ? (
-                      <CheckSquare className="w-5 h-5" />
-                    ) : (
-                      <Square className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  <div className="w-12 shrink-0">
-                    <input
-                      type="number"
-                      min="1"
-                      value={p.orderIndex || idx + 1}
-                      onChange={(e) => reorderPerson(p.id!, parseInt(e.target.value, 10))}
-                      className="w-full bg-slate-950 border-2 border-slate-700 rounded-lg text-center text-white text-base font-black py-1 focus:border-indigo-500 outline-none shadow-inner"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    className="flex gap-3 items-center flex-1 min-w-0 text-left cursor-pointer bg-transparent border-0 p-0"
-                    aria-expanded={isExpanded}
-                    aria-controls={personPanelId}
-                    onClick={togglePersonExpanded}
-                  >
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border border-slate-700 shrink-0">
-                      <ImageWithFallback
-                        src={p.imageUrl}
-                        alt={p.name}
-                        className={`w-full h-full object-cover ${!isPublished ? 'grayscale opacity-60' : ''}`}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-white text-sm truncate">{p.name}</h4>
-                        {isPublished ? (
-                          <span className="text-[9px] bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold uppercase">
-                            Online
-                          </span>
-                        ) : (
-                          <span className="text-[9px] bg-amber-900/30 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold uppercase">
-                            Bozza
-                          </span>
-                        )}
-                        {isProcessingThis && (
-                          <span className="text-[9px] bg-yellow-500 text-black px-2 py-0.5 rounded-full font-black uppercase flex items-center gap-1 animate-pulse border border-yellow-300">
-                            <Loader2 className="w-3 h-3 animate-spin" /> LAVORAZIONE...
-                          </span>
-                        )}
-                        {!isProcessingThis && dataQuality === 'low' && (
-                          <span className="text-[9px] text-red-400 font-bold uppercase">
-                            Dati Incompleti
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] md:text-xs text-slate-400 truncate">{p.role}</p>
-                    </div>
-                  </button>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenPreview(p.id!);
-                      }}
-                      className="p-1.5 md:p-2 text-indigo-400 hover:text-white hover:bg-indigo-600 rounded transition-colors"
-                      title="Anteprima Utente"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteRequest(p);
-                      }}
-                      className="p-1.5 md:p-2 text-slate-600 hover:text-red-500 hover:bg-slate-900 rounded"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center min-h-11 min-w-11 p-2 shrink-0 rounded"
-                      aria-expanded={isExpanded}
-                      aria-controls={personPanelId}
-                      aria-label={isExpanded ? 'Comprimi persona' : 'Espandi persona'}
-                      onClick={togglePersonExpanded}
-                    >
-                      {isExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-indigo-400" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-slate-500" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {isExpanded && !isProcessingThis && (
-                  <div
-                    id={personPanelId}
-                    className="px-3 md:px-4 pb-4 border-t border-slate-800/50 pt-4 space-y-4 bg-slate-900/50 rounded-b-xl animate-in slide-in-from-top-2"
-                  >
-                    <div className="flex justify-between items-center mb-2 bg-slate-950 p-2 rounded-lg border border-slate-800">
-                      <button
-                        type="button"
-                        onClick={() => handleRefineRequest(p)}
-                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-[10px] font-bold uppercase flex items-center gap-1 shadow-md transition-all active:scale-95"
-                        title="Riscrivi Dati (Bio e Date)"
-                      >
-                        <Wand2 className="w-3 h-3" /> Magic Fix (Dati)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleStatus(p)}
-                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${isPublished ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-amber-600 text-white hover:bg-amber-500'}`}
-                      >
-                        {isPublished ? 'PUBBLICATO' : 'BOZZA (NASCOSTO)'}
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input
-                        value={p.name}
-                        onChange={(e) => updatePersonLocal(p.id!, 'name', e.target.value)}
-                        className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm w-full"
-                        placeholder="Nome Completo"
-                      />
-                      <input
-                        value={p.role}
-                        onChange={(e) => updatePersonLocal(p.id!, 'role', e.target.value)}
-                        className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-300 text-sm w-full"
-                        placeholder="Ruolo"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
-                        <input
-                          value={p.lifespan || ''}
-                          onChange={(e) => updatePersonLocal(p.id!, 'lifespan', e.target.value)}
-                          className={`bg-slate-900 border rounded px-3 py-2 pl-9 text-xs w-full ${!hasDates ? 'border-red-500 text-red-200' : 'border-slate-700 text-slate-300'}`}
-                          placeholder="Periodo (es. 1898-1967)"
-                        />
-                      </div>
-
-                      {/* IMAGE ROW WITH MAGIC GENERATOR */}
-                      <div className="flex gap-1">
-                        <input
-                          value={p.imageUrl}
-                          onChange={(e) => updatePersonLocal(p.id!, 'imageUrl', e.target.value)}
-                          className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-300 text-xs w-full"
-                          placeholder="URL Immagine"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!guardAiAction()) return;
-                            regeneratePortrait(p);
-                          }}
-                          disabled={aiBlocked}
-                          className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded border border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={aiBlocked ? blockMessage : 'Genera Ritratto AI'}
-                        >
-                          <ImageIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <textarea
-                      rows={2}
-                      value={p.bio}
-                      onChange={(e) => updatePersonLocal(p.id!, 'bio', e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded p-3 text-slate-300 text-xs resize-none"
-                      placeholder="Bio breve..."
-                    />
-
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <label
-                          htmlFor={fullBioFieldId}
-                          className="text-[10px] font-bold text-slate-500 uppercase"
-                        >
-                          Biografia Completa (Estesa)
-                        </label>
-                        <span className="text-[9px] text-amber-500 bg-amber-900/10 px-2 rounded border border-amber-500/20">
-                          Usa "TITOLO: Nome" per i paragrafi
-                        </span>
-                      </div>
-                      <textarea
-                        id={fullBioFieldId}
-                        rows={6}
-                        value={p.fullBio || ''}
-                        onChange={(e) => updatePersonLocal(p.id!, 'fullBio', e.target.value)}
-                        className={`w-full bg-slate-900 border rounded p-3 text-white text-xs resize-none font-serif ${!hasFullBio ? 'border-red-500/50' : 'border-slate-700'}`}
-                        placeholder="Biografia estesa (obbligatoria)..."
-                      />
-                      <AiFieldHelper
-                        contextLabel={`biografia estesa di ${p.name}`}
-                        onApply={(val) => updatePersonLocal(p.id!, 'fullBio', val)}
-                        currentValue={p.fullBio}
-                        compact={true}
-                        fieldId={`bio_extended_${p.id}`}
-                      />
-                    </div>
-
-                    <div className="mt-4 border-t border-slate-800 pt-4">
-                      <h5 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5" /> Luoghi Correlati (Auto-Generati)
-                      </h5>
-                      {!p.relatedPlaces || p.relatedPlaces.length === 0 ? (
-                        <p className="text-xs text-slate-600 italic">
-                          Nessun luogo collegato. Usa Magic Fix.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {p.relatedPlaces.map((place, placeIdx) => (
-                            <div
-                              key={placeIdx}
-                              className="bg-slate-950 p-2 rounded border border-slate-800 flex justify-between items-center group/place hover:border-slate-700"
-                            >
-                              <div>
-                                <div className="font-bold text-white text-xs">{place.name}</div>
-                                <div className="text-[10px] text-slate-500">{place.address}</div>
-                              </div>
-                              <div className="text-right flex flex-col items-end gap-1">
-                                <div className="text-[10px] font-bold text-amber-500 bg-amber-900/10 px-1.5 rounded border border-amber-500/20">
-                                  {[...Array(place.priceLevel || 1)].map((_, i) => '€').join('')}
-                                </div>
-                                <div className="text-[9px] text-slate-400 flex items-center gap-1">
-                                  <Clock className="w-2.5 h-2.5" /> {place.visitDuration}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="button"
-                        onClick={() => savePersonChanges(p)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-1 shadow-lg"
-                      >
-                        <Save className="w-3 h-3" /> Salva Modifiche
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <CulturePersonCard
+                key={`${cityId}-${personId}`}
+                person={p}
+                idx={idx}
+                isExpanded={isExpanded}
+                toggleExpanded={() => {
+                  if (isProcessingThis) return;
+                  setExpandedPersonId(isExpanded ? null : personId);
+                }}
+                isSelected={isSelected}
+                toggleSelection={toggleSelection}
+                isProcessingThis={isProcessingThis}
+                orderDraftValue={orderDrafts[personId]}
+                setOrderDraftValue={(value) =>
+                  setOrderDrafts((prev) => ({ ...prev, [personId]: value }))
+                }
+                commitOrderDraft={() => commitOrderDraft(personId)}
+                handleOpenPreview={handleOpenPreview}
+                handleDeleteRequest={handleDeleteRequest}
+                handleRefineRequest={handleRefineRequest}
+                handleToggleStatus={handleToggleStatus}
+                updatePersonLocal={updatePersonLocal}
+                savePersonChanges={savePersonChanges}
+                regeneratePortrait={regeneratePortrait}
+                completeMissingFieldWithAi={completeMissingFieldWithAi}
+                recoverPersonDatesWithAi={recoverPersonDatesWithAi}
+                fieldGenerating={fieldGenerating}
+                aiBlocked={aiBlocked}
+                blockMessage={blockMessage}
+                guardAiAction={guardAiAction}
+                masters={masters}
+                specifics={specifics}
+              />
             );
           })
         )}

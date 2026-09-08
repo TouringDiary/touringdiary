@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { POI_SUBCATEGORY_VALUES } from '../../../constants/governance';
 import {
   generateRegionalAnalysis,
   generateZoneAnalysis,
@@ -36,7 +37,7 @@ import { getCorrectCategory } from '../../../services/ai/utils/taxonomyUtils';
 import { importRegionalData } from '../../../services/city/cityLifecycleService';
 import { getFullManifestAsync } from '../../../services/city/cityReadService';
 import { saveSinglePoi } from '../../../services/city/poi/poiWrite';
-import type { AiZoneSuggestion, PointOfInterest, User } from '../../../types/index';
+import type { AiZoneSuggestion, PointOfInterest, PoiSubCategory, RegionalAnalysisResult } from '../../../types/index';
 import { formatVisitors } from '../../../utils/common';
 
 interface Props {
@@ -44,17 +45,30 @@ interface Props {
   onClose: () => void;
   regionName: string;
   existingZones: string[];
-  existingCityNames: string[];
   onSuccess: () => void;
-  onMagicGenerate?: (
-    name: string,
-    poiCount: number,
-    user?: User,
-    existingId?: string,
-    region?: string,
-  ) => void;
   targetZone?: string;
 }
+
+const toPoiSubCategory = (value: string | undefined): PoiSubCategory | undefined => {
+  if (!value) return undefined;
+  for (const v of POI_SUBCATEGORY_VALUES) {
+    if (v === value) return v;
+  }
+  return undefined;
+};
+
+/** Allineata a openMap/open3DView: finite, in range geografico; (0,0) non utilizzabile. */
+const hasUsablePoiCoords = (coords: { lat: number; lng: number }): boolean =>
+  Number.isFinite(coords.lat) &&
+  Number.isFinite(coords.lng) &&
+  coords.lat >= -90 &&
+  coords.lat <= 90 &&
+  coords.lng >= -180 &&
+  coords.lng <= 180 &&
+  !(coords.lat === 0 && coords.lng === 0);
+
+const isValidPriceLevel = (value: unknown): value is 1 | 2 | 3 | 4 =>
+  value === 1 || value === 2 || value === 3 || value === 4;
 
 const CATEGORY_CONFIGS = [
   { id: 'monument', label: 'Destinazioni', icon: MapPin, color: 'text-violet-400', default: 5 },
@@ -70,9 +84,7 @@ export const RegionalAnalysisModal = ({
   onClose,
   regionName,
   existingZones,
-  existingCityNames,
   onSuccess,
-  onMagicGenerate,
   targetZone,
 }: Props) => {
   const [step, setStep] = useState<
@@ -99,6 +111,7 @@ export const RegionalAnalysisModal = ({
   const [selectedCities, setSelectedCities] = useState<Set<string>>(new Set());
   const [importedStats, setImportedStats] = useState({ zones: 0, cities: 0, pois: 0 });
   const [importLogs, setImportLogs] = useState<string[]>([]);
+  const [autoUpdateCount, setAutoUpdateCount] = useState(0);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
 
   // ERROR STATE
@@ -115,61 +128,93 @@ export const RegionalAnalysisModal = ({
   const [dbCitiesMap, setDbCitiesMap] = useState<Map<string, { id: string; visitors: number }>>(
     new Map(),
   );
+  const [isManifestReady, setIsManifestReady] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setStep('config');
-      setErrorMsg(null);
-      setIsQuotaExceeded(false);
-      // Reset counts to default 0
-      setGlobalCount(0);
-      setPoiCounts({
-        monument: 0,
-        food: 0,
-        nature: 0,
-        hotel: 0,
-        shop: 0,
-        leisure: 0,
-      });
+    if (!isOpen) return;
 
-      // INTELLIGENT DEFAULT THRESHOLD
-      if (targetZone) {
-        setMinVisitors(5000); // 5k per Micro
-      } else {
-        setMinVisitors(50000); // 50k per Macro Regionale
-      }
+    setStep('config');
+    setErrorMsg(null);
+    setIsQuotaExceeded(false);
+    setIsManifestReady(false);
+    setImportLogs([]);
+    setAutoUpdateCount(0);
+    // Reset counts to default 0
+    setGlobalCount(0);
+    setPoiCounts({
+      monument: 0,
+      food: 0,
+      nature: 0,
+      hotel: 0,
+      shop: 0,
+      leisure: 0,
+    });
 
-      getFullManifestAsync().then((cities) => {
+    // INTELLIGENT DEFAULT THRESHOLD
+    if (targetZone) {
+      setMinVisitors(5000); // 5k per Micro
+    } else {
+      setMinVisitors(50000); // 50k per Macro Regionale
+    }
+
+    let cancelled = false;
+    getFullManifestAsync()
+      .then((cities) => {
+        if (cancelled) return;
         const map = new Map<string, { id: string; visitors: number }>();
         cities.forEach((c) => {
-          if (c && c.name) {
+          if (c?.name) {
             map.set(c.name.toLowerCase().trim(), { id: c.id, visitors: c.visitors || 0 });
           }
         });
         setDbCitiesMap(map);
+        setIsManifestReady(true);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        console.error('Errore caricamento manifesto città:', e);
+        setErrorMsg(
+          `Impossibile caricare il manifesto città: ${e instanceof Error ? e.message : String(e)}`,
+        );
+        setIsManifestReady(false);
       });
-    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, targetZone]);
 
   const handlePoiCountChange = (catId: string, val: number) => {
-    setPoiCounts((prev) => ({ ...prev, [catId]: val }));
+    const safe = Number.isFinite(val) ? Math.min(20, Math.max(0, Math.trunc(val))) : 0;
+    setPoiCounts((prev) => ({ ...prev, [catId]: safe }));
   };
 
   const handleGlobalCountChange = (val: number) => {
-    setGlobalCount(val);
+    const safe = Number.isFinite(val) ? Math.min(20, Math.max(0, Math.trunc(val))) : 0;
+    setGlobalCount(safe);
     const newCounts: Record<string, number> = {};
     CATEGORY_CONFIGS.forEach((cat) => {
-      newCounts[cat.id] = val;
+      newCounts[cat.id] = safe;
     });
     setPoiCounts(newCounts);
   };
 
+  const parseNonNegativeInt = (raw: string, max: number): number => {
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.min(max, n);
+  };
+
   const runAnalysis = async () => {
+    if (!isManifestReady) {
+      setErrorMsg('Manifesto città ancora in caricamento. Attendi e riprova.');
+      return;
+    }
     setStep('analyzing');
     setErrorMsg(null);
     const mapToUse = dbCitiesMap;
     try {
-      let result;
+      let result: RegionalAnalysisResult | null;
       if (targetZone) {
         // Micro Analisi (Zona specifica)
         result = await generateZoneAnalysis(targetZone, regionName, [], minVisitors);
@@ -178,27 +223,28 @@ export const RegionalAnalysisModal = ({
         result = await generateRegionalAnalysis(regionName, existingZones, minVisitors);
       }
 
-      if (result && result.zones && result.zones.length > 0) {
+      if (result?.zones && result.zones.length > 0) {
         setAnalysisResult(result.zones);
         const initialSelected = new Set<string>();
-        let autoUpdateCount = 0;
+        let updates = 0;
 
         result.zones.forEach((z) => {
           if (!z.mainCities) return;
 
           z.mainCities.forEach((c) => {
-            if (!c || !c.name) return;
+            if (!c?.name) return;
 
             const dbEntry = mapToUse.get(c.name.toLowerCase().trim());
             if (!dbEntry) {
               initialSelected.add(c.name);
             } else if (dbEntry.visitors === 0 && c.visitors > 0) {
               initialSelected.add(c.name);
-              autoUpdateCount++;
+              updates += 1;
             }
           });
         });
 
+        setAutoUpdateCount(updates);
         setSelectedCities(initialSelected);
         setStep('review');
       } else {
@@ -215,6 +261,25 @@ export const RegionalAnalysisModal = ({
     }
   };
 
+  const selectableCityNames = useMemo(() => {
+    const names = new Set<string>();
+    analysisResult.forEach((z) => {
+      z.mainCities?.forEach((c) => {
+        if (c?.name) names.add(c.name);
+      });
+    });
+    return names;
+  }, [analysisResult]);
+
+  const areAllSelected = useMemo(() => {
+    if (selectableCityNames.size === 0) return false;
+    if (selectedCities.size !== selectableCityNames.size) return false;
+    for (const name of selectableCityNames) {
+      if (!selectedCities.has(name)) return false;
+    }
+    return true;
+  }, [selectableCityNames, selectedCities]);
+
   const toggleCitySelection = (cityName: string) => {
     const newSet = new Set(selectedCities);
     if (newSet.has(cityName)) newSet.delete(cityName);
@@ -223,27 +288,12 @@ export const RegionalAnalysisModal = ({
   };
 
   const toggleSelectAll = () => {
-    const allCitiesInResult = new Set<string>();
-    analysisResult.forEach((z) => {
-      z.mainCities.forEach((c) => {
-        if (c && c.name) allCitiesInResult.add(c.name);
-      });
-    });
-
-    if (selectedCities.size === allCitiesInResult.size) {
+    if (areAllSelected) {
       setSelectedCities(new Set());
     } else {
-      setSelectedCities(allCitiesInResult);
+      setSelectedCities(new Set(selectableCityNames));
     }
   };
-
-  const areAllSelected = useMemo(() => {
-    let total = 0;
-    analysisResult.forEach((z) => {
-      total += z.mainCities?.length || 0;
-    });
-    return total > 0 && selectedCities.size === total;
-  }, [analysisResult, selectedCities]);
 
   const handleImport = async () => {
     if (selectedCities.size === 0) {
@@ -253,13 +303,13 @@ export const RegionalAnalysisModal = ({
 
     setStep('importing');
     setIsQuotaExceeded(false);
+    setImportLogs([]);
 
     try {
       const selectedList = Array.from<string>(selectedCities);
 
       // FASE 1: CREAZIONE STRUTTURA
       const stats = await importRegionalData(analysisResult, selectedList, regionName);
-
       setImportLogs((prev) => [...prev, ...stats.logs]);
 
       // FASE 2: ARR-ICCHIMENTO POI (LOGICA HUNTER TOP-TIER)
@@ -316,16 +366,15 @@ export const RegionalAnalysisModal = ({
 
               while (highQualitySaved < countNeeded && attempt < maxAttempts) {
                 attempt++;
-                await new Promise((r) => setTimeout(r, 2000));
-
-                const searchBatchSize = Math.max(4, countNeeded - highQualitySaved + 2);
-
                 if (attempt > 1) {
                   setImportLogs((prev) => [
                     ...prev,
                     `[${cityItem.name}] ${cat.label}: Trovati solo ${highQualitySaved}/${countNeeded} Top. Avvio tentativo ${attempt}...`,
                   ]);
                 }
+                await new Promise((r) => setTimeout(r, 2000));
+
+                const searchBatchSize = Math.max(4, countNeeded - highQualitySaved + 2);
 
                 try {
                   const rawPois = await suggestNewPois(
@@ -340,68 +389,84 @@ export const RegionalAnalysisModal = ({
 
                   sessionExclusions = [...sessionExclusions, ...rawPois.map((p) => p.name)];
 
+                  // lat/lng 0: contratto verifyPoisBatch — disabilita geo-invalidation (vedi applyGeoInvalidation)
                   const verifiedPois = await verifyPoisBatch(rawPois, cityItem.name, {
                     lat: 0,
                     lng: 0,
                   });
 
                   let batchSavedCount = 0;
-                  let discardedCount = 0;
 
                   for (const verified of verifiedPois) {
                     if (verified.status === 'invalid' || verified.status === 'duplicate') {
-                      discardedCount++;
                       continue;
                     }
 
                     if (verified.tourismInterest !== 'high') {
-                      discardedCount++;
                       continue;
                     }
 
-                    const hasCoords = verified.coords && verified.coords.lat !== 0;
-                    if (!hasCoords) {
-                      discardedCount++;
+                    const verifiedName =
+                      typeof verified.name === 'string' ? verified.name.trim() : '';
+                    if (!verifiedName) {
+                      setImportLogs((prev) => [
+                        ...prev,
+                        `[${cityItem.name}] POI scartato: nome mancante dopo verify.`,
+                      ]);
                       continue;
                     }
+
+                    const hasCoords = !!verified.coords && hasUsablePoiCoords(verified.coords);
+                    if (!hasCoords) {
+                      setImportLogs((prev) => [
+                        ...prev,
+                        `[${cityItem.name}] POI scartato (${verifiedName}): coordinate mancanti o non valide.`,
+                      ]);
+                      continue;
+                    }
+
+                    const coords = verified.coords;
 
                     const correctCategory = getCorrectCategory(
                       verified.subCategory || 'generic',
                       verified.category || cat.id,
-                      verified.name,
+                      verifiedName,
                     );
+
+                    const subCategory = toPoiSubCategory(verified.subCategory);
 
                     const newPoi: PointOfInterest = {
                       id: `top_tier_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-                      name: verified.name,
+                      name: verifiedName,
                       category: correctCategory,
-                      subCategory: verified.subCategory,
-                      description: verified.description || `Eccellenza verificata per ${cat.label}`,
+                      ...(subCategory ? { subCategory } : {}),
+                      description: verified.description?.trim() ? verified.description : '',
                       imageUrl: '',
-                      coords: verified.coords,
-                      rating: 0,
-                      votes: 0,
-                      address: verified.address || `${cityItem.name}, Italia`,
+                      coords,
                       cityId: cityItem.id,
                       status: 'draft',
                       dateAdded: new Date().toISOString(),
                       aiReliability: 'high',
                       tourismInterest: 'high',
-                      priceLevel: verified.priceLevel || 2,
-                      openingHours: {
-                        days: verified.openingDays || [
-                          'Lun',
-                          'Mar',
-                          'Mer',
-                          'Gio',
-                          'Ven',
-                          'Sab',
-                          'Dom',
-                        ],
-                        morning: verified.openingHours || '09:00 - 20:00',
-                        afternoon: '',
-                        isEstimated: verified.isEstimated,
-                      },
+                      ...(verified.address ? { address: verified.address } : {}),
+                      ...(isValidPriceLevel(verified.priceLevel)
+                        ? { priceLevel: verified.priceLevel }
+                        : {}),
+                      ...(verified.openingHours ||
+                      verified.openingDays ||
+                      verified.isEstimated != null
+                        ? {
+                            openingHours: {
+                              days: verified.openingDays ?? [],
+                              morning: verified.openingHours ?? null,
+                              afternoon: null,
+                              isEstimated:
+                                typeof verified.isEstimated === 'boolean'
+                                  ? verified.isEstimated
+                                  : null,
+                            },
+                          }
+                        : {}),
                       lastVerified: new Date().toISOString(),
                     };
 
@@ -428,7 +493,7 @@ export const RegionalAnalysisModal = ({
                     console.warn('QUOTA EXCEEDED DURING LOOP');
                     setImportLogs((prev) => [
                       ...prev,
-                      `⚠️ Quota API Esaurita. Salvataggio parziale e stop.`,
+                      '⚠️ Quota API Esaurita. Salvataggio parziale e stop.',
                     ]);
                     setIsQuotaExceeded(true);
                     quotaHit = true;
@@ -548,7 +613,7 @@ export const RegionalAnalysisModal = ({
                         max="500000"
                         step="1000"
                         value={minVisitors}
-                        onChange={(e) => setMinVisitors(parseInt(e.target.value, 10))}
+                        onChange={(e) => setMinVisitors(parseNonNegativeInt(e.target.value, 500000))}
                         className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                       />
                       <div className="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-white font-mono font-bold w-28 text-center text-sm">
@@ -589,7 +654,9 @@ export const RegionalAnalysisModal = ({
                         min="0"
                         max="20"
                         value={globalCount}
-                        onChange={(e) => handleGlobalCountChange(parseInt(e.target.value, 10))}
+                        onChange={(e) =>
+                          handleGlobalCountChange(parseNonNegativeInt(e.target.value, 20))
+                        }
                         className="w-12 bg-slate-950 border border-indigo-500 rounded text-center text-white text-xs font-bold py-1 focus:border-indigo-400 outline-none"
                       />
                     </div>
@@ -616,7 +683,7 @@ export const RegionalAnalysisModal = ({
                             max="20"
                             value={poiCounts[cat.id]}
                             onChange={(e) =>
-                              handlePoiCountChange(cat.id, parseInt(e.target.value, 10))
+                              handlePoiCountChange(cat.id, parseNonNegativeInt(e.target.value, 20))
                             }
                             className="w-12 bg-slate-950 border border-slate-700 rounded text-center text-white text-xs font-bold py-1 focus:border-indigo-500 outline-none"
                           />
@@ -631,9 +698,11 @@ export const RegionalAnalysisModal = ({
                 <button
                   type="button"
                   onClick={runAnalysis}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-12 py-4 rounded-xl font-black uppercase text-sm tracking-widest shadow-xl flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95"
+                  disabled={!isManifestReady}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-white px-12 py-4 rounded-xl font-black uppercase text-sm tracking-widest shadow-xl flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95"
                 >
-                  <Brain className="w-5 h-5" /> Avvia Scansione AI
+                  <Brain className="w-5 h-5" />
+                  {isManifestReady ? 'Avvia Scansione AI' : 'Caricamento manifesto…'}
                 </button>
               </div>
             </div>
@@ -710,16 +779,15 @@ export const RegionalAnalysisModal = ({
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {zone.mainCities.map((city, cIdx) => {
-                        const normalizedName =
-                          city && city.name ? city.name.toLowerCase().trim() : '';
+                        if (!city.name) return null;
+
+                        const normalizedName = city.name.toLowerCase().trim();
                         const dbEntry = normalizedName
                           ? dbCitiesMap.get(normalizedName)
                           : undefined;
                         const exists = !!dbEntry;
                         const isSelected = selectedCities.has(city.name);
                         const needsUpdate = exists && dbEntry.visitors === 0 && city.visitors > 0;
-
-                        if (!city.name) return null;
 
                         return (
                           <div
@@ -775,10 +843,15 @@ export const RegionalAnalysisModal = ({
                 ))}
               </div>
 
-              <div className="p-6 border-t border-slate-800 bg-slate-950 flex justify-between items-center shrink-0">
-                <div className="text-xs text-slate-400">
+              <div className="p-6 border-t border-slate-800 bg-slate-950 flex justify-between items-center shrink-0 gap-3 flex-wrap">
+                <div className="text-xs text-slate-400 min-w-0">
                   Selezionati: <strong className="text-white">{selectedCities.size}</strong>{' '}
                   elementi
+                  {autoUpdateCount > 0 ? (
+                    <span className="block sm:inline sm:ml-2 text-amber-400/90 mt-1 sm:mt-0">
+                      · {autoUpdateCount} con stats visitatori da aggiornare
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex gap-3">
                   <button
@@ -802,16 +875,28 @@ export const RegionalAnalysisModal = ({
           )}
 
           {step === 'importing' && (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-4">
-              <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+            <div className="h-full flex flex-col items-center justify-center text-center p-4 sm:p-8 gap-4 min-h-0">
+              <Loader2 className="w-12 h-12 text-emerald-500 animate-spin shrink-0" />
               <h3 className="text-xl font-bold text-white">Creazione Città...</h3>
               <p className="text-slate-400 text-sm">Sto creando gli scheletri nel database.</p>
+              {importLogs.length > 0 ? (
+                <div
+                  className="w-full max-w-lg max-h-40 overflow-y-auto text-left bg-slate-950 border border-slate-800 rounded-xl p-3 custom-scrollbar"
+                  aria-live="polite"
+                >
+                  {importLogs.map((line, idx) => (
+                    <p key={`${idx}-${line.slice(0, 24)}`} className="text-[10px] font-mono text-slate-400 break-words">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
 
           {step === 'enriching' && (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-6 animate-in fade-in">
-              <div className="relative">
+            <div className="h-full flex flex-col items-center justify-center text-center p-4 sm:p-8 gap-6 animate-in fade-in min-h-0 overflow-y-auto">
+              <div className="relative shrink-0">
                 <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full"></div>
                 <ScanSearch className="w-20 h-20 text-amber-500 animate-pulse relative z-floating-panel" />
               </div>
@@ -849,6 +934,21 @@ export const RegionalAnalysisModal = ({
                     )}
                   </div>
                 </div>
+                {importLogs.length > 0 ? (
+                  <div
+                    className="mt-4 w-full max-h-36 overflow-y-auto text-left bg-slate-950 border border-slate-800 rounded-xl p-3 custom-scrollbar"
+                    aria-live="polite"
+                  >
+                    {importLogs.slice(-40).map((line, idx) => (
+                      <p
+                        key={`${idx}-${line.slice(0, 24)}`}
+                        className="text-[10px] font-mono text-slate-400 break-words"
+                      >
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
           )}

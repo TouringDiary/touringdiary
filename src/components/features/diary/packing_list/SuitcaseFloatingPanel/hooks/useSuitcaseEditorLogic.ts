@@ -28,7 +28,7 @@ interface EditorLogicProps {
     visibleNamesInOrder: string[],
   ) => Promise<void>;
   handleRestoreFromBlacklist: (rejection: SuitcaseRejection) => Promise<void>;
-  handleRemoveFromBlacklist: (rejectionId: string, name: string) => Promise<void>;
+  handleRemoveFromBlacklist: (rejectionId: string) => Promise<void>;
   fetchBlacklist?: (options?: { force?: boolean }) => Promise<void>;
   modalState: ReturnType<typeof useFloatingPanelModals>;
   panelState: ReturnType<typeof useFloatingPanelState>;
@@ -39,7 +39,6 @@ interface EditorLogicProps {
 export const useSuitcaseEditorLogic = ({
   activeSuitcase,
   handleUpdateItemConfirmed,
-  handleDeleteItemConfirmed,
   handleAddItemConfirmed,
   handleSwapItemsInCategory,
   handleRestoreFromBlacklist,

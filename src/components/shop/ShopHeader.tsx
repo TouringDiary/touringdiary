@@ -24,9 +24,7 @@ interface ShopHeaderProps {
   onBack: () => void;
   onInternalBack: () => void;
   onAddToItinerary: (poi: PointOfInterest) => void;
-  onTogglePlanner: () => void;
   onOpenSponsor: (type?: string) => void;
-  isPlannerOpen: boolean;
   isInItinerary: boolean;
   categories: { id: ShopCategory; label: string; icon?: LucideIcon }[];
 }
@@ -121,23 +119,38 @@ export const ShopHeader: React.FC<ShopHeaderProps> = ({
                 {shop.category}
               </span>
               <div className="w-1 h-1 bg-slate-700 rounded-full"></div>
-              <button
-                type="button"
-                onClick={() => openMap(shop.coords.lat, shop.coords.lng, shop.name, shop.address)}
-                className="text-[10px] md:text-xs text-slate-400 hover:text-white transition-colors underline decoration-slate-700 underline-offset-4 flex items-center gap-1 truncate max-w-[200px] md:max-w-none"
-              >
-                <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 text-amber-500 shrink-0" />{' '}
-                {shop.address}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  open3DView(shop.coords.lat, shop.coords.lng, shop.name, shop.address)
-                }
-                className="hidden md:flex text-[10px] font-black text-indigo-400 hover:text-white uppercase tracking-tighter items-center gap-1 bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-500/20"
-              >
-                <Box className="w-3 h-3" /> Vista 3D
-              </button>
+              {shop.coords ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const coords = shop.coords;
+                    if (!coords) return;
+                    openMap(coords.lat, coords.lng, shop.name, shop.address);
+                  }}
+                  className="text-[10px] md:text-xs text-slate-400 hover:text-white transition-colors underline decoration-slate-700 underline-offset-4 flex items-center gap-1 truncate max-w-[200px] md:max-w-none"
+                >
+                  <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 text-amber-500 shrink-0" />{' '}
+                  {shop.address}
+                </button>
+              ) : (
+                <span className="text-[10px] md:text-xs text-slate-400 flex items-center gap-1 truncate max-w-[200px] md:max-w-none">
+                  <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 text-amber-500 shrink-0" />{' '}
+                  {shop.address}
+                </span>
+              )}
+              {shop.coords ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const coords = shop.coords;
+                    if (!coords) return;
+                    open3DView(coords.lat, coords.lng, shop.name, shop.address);
+                  }}
+                  className="hidden md:flex text-[10px] font-black text-indigo-400 hover:text-white uppercase tracking-tighter items-center gap-1 bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-500/20"
+                >
+                  <Box className="w-3 h-3" /> Vista 3D
+                </button>
+              ) : null}
             </div>
           ) : (
             <p className="text-slate-500 text-[10px] md:text-base uppercase tracking-[0.4em] font-black mt-2 truncate">

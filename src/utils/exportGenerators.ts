@@ -50,7 +50,7 @@ const base64ToUint8Array = (base64: string): Uint8Array | null => {
       bytes[i] = binaryString.charCodeAt(i);
     }
     return bytes;
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -88,7 +88,6 @@ export const generateWordDocument = async (
     WidthType,
     BorderStyle,
     AlignmentType,
-    Header,
     Footer,
     ImageRun,
     VerticalAlign,

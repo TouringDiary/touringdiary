@@ -145,7 +145,7 @@ export const AnomalyInspector = ({
       }
 
       // 3. FILTRO GEOGRAFICO
-      const cityData = cityById.get(poi.cityId);
+      const cityData = poi.cityId ? cityById.get(poi.cityId) : undefined;
 
       if (geoFilter.city && poi.cityId !== geoFilter.city) return false;
 
@@ -214,7 +214,7 @@ export const AnomalyInspector = ({
   };
 
   const getCityNameForPoi = (poi: Pick<PointOfInterest, 'cityId'>) => {
-    const city = cityById.get(poi.cityId);
+    const city = poi.cityId ? cityById.get(poi.cityId) : undefined;
     return city?.name || 'Sconosciuta';
   };
 

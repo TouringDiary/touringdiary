@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   activateSponsorFromRequestAsync,
   cancelSponsor,
@@ -15,7 +15,8 @@ import { validateActivationData } from '../utils/sponsorValidation';
 import { useSponsorModals } from './useSponsorModals';
 
 interface UseSponsorOperationsProps {
-  refreshData: () => void; // Funzione di callback per ricaricare la UI dopo una mutazione
+  /** Ricarica lista + stats dopo mutazione; attende il completamento dei fetch. */
+  refreshData: () => void | Promise<void>;
 }
 
 /**
@@ -41,43 +42,55 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
   // Modal Manager Hook (Delegato)
   const { state: modalState, actions: modalActions } = useSponsorModals();
 
-  // Helper Toast
+  // Helper Toast — un timer precedente non deve cancellare un toast successivo
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   const showToast = useCallback(
     (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+      if (toastTimerRef.current !== null) {
+        clearTimeout(toastTimerRef.current);
+      }
       setToast({ message, type });
-      // Auto-dismiss
-      setTimeout(() => setToast(null), 4000);
+      toastTimerRef.current = setTimeout(() => {
+        setToast(null);
+        toastTimerRef.current = null;
+      }, 4000);
     },
     [],
   );
 
   // --- SELECTION LOGIC ---
-  const toggleSelection = useCallback(
-    (id: string) => {
-      const newSet = new Set(selectedIds);
-      if (newSet.has(id)) newSet.delete(id);
-      else newSet.add(id);
-      setSelectedIds(newSet);
-    },
-    [selectedIds],
-  );
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
-  const toggleAllPage = useCallback(
-    (requestsOnPage: SponsorRequest[]) => {
-      const allOnPageIds = requestsOnPage.map((r) => r.id);
+  const toggleAllPage = useCallback((requestsOnPage: SponsorRequest[]) => {
+    const allOnPageIds = requestsOnPage.map((r) => r.id);
+    setSelectedIds((prev) => {
       const allSelected =
-        allOnPageIds.length > 0 && allOnPageIds.every((id) => selectedIds.has(id));
-
-      const newSet = new Set(selectedIds);
+        allOnPageIds.length > 0 && allOnPageIds.every((id) => prev.has(id));
+      const next = new Set(prev);
       if (allSelected) {
-        allOnPageIds.forEach((id) => newSet.delete(id));
+        for (const id of allOnPageIds) next.delete(id);
       } else {
-        allOnPageIds.forEach((id) => newSet.add(id));
+        for (const id of allOnPageIds) next.add(id);
       }
-      setSelectedIds(newSet);
-    },
-    [selectedIds],
-  );
+      return next;
+    });
+  }, []);
 
   const resetSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -88,9 +101,9 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
   // 1. Approvazione Iniziale (Pending -> Waiting Payment)
   const handleInitialApproval = async (id: string) => {
     try {
-      await updateSponsorStatus(id, 'waiting_payment');
+      await updateSponsorStatus(id);
       showToast('Richiesta approvata. In attesa di pagamento.', 'success');
-      setTimeout(() => refreshData(), 300); // Small delay to allow DB propagation
+      await refreshData();
     } catch (e: unknown) {
       console.error(e);
       showToast("Errore durante l'approvazione.", 'error');
@@ -142,7 +155,7 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
       // Successo: mostra feedback e aggiorna l'interfaccia
       showToast(`Sponsor "${requestData.companyName}" attivato con successo!`, 'success');
       modalActions.closeActivation();
-      setTimeout(() => refreshData(), 300);
+      await refreshData();
     } catch (e: unknown) {
       console.error('Errore nel processo di attivazione sponsor:', e);
       showToast(`Errore di attivazione: ${e instanceof Error ? e.message : String(e)}`, 'error');
@@ -157,7 +170,7 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
         await rejectSponsor(id, reason, notes || '');
         modalActions.closeReject();
         showToast('Richiesta rifiutata correttamente.', 'info');
-        setTimeout(() => refreshData(), 300);
+        await refreshData();
       } catch (e: unknown) {
         console.error(e);
         showToast('Errore durante il rifiuto.', 'error');
@@ -173,7 +186,7 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
         await cancelSponsor(id, reason);
         modalActions.closeCancel();
         showToast('Contratto terminato.', 'info');
-        setTimeout(() => refreshData(), 300);
+        await refreshData();
       } catch (e: unknown) {
         console.error(e);
         showToast('Errore cancellazione contratto.', 'error');
@@ -220,7 +233,7 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
         resetSelection();
       }
       modalActions.closeExtension();
-      setTimeout(() => refreshData(), 500);
+      await refreshData();
     } catch (e: unknown) {
       console.error(e);
       const message = e instanceof Error ? e.message : "Errore durante l'estensione.";
@@ -229,6 +242,7 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
   };
 
   // --- DELETE LOGIC (HARD DELETE) ---
+  // RPC `delete_sponsor_request` → DELETE FROM sponsor_requests (non soft-delete).
 
   const handleDeleteRequest = (id: string, name: string) => {
     setDeleteTarget({ id, name });
@@ -243,13 +257,14 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
       showToast('Sponsor eliminato definitivamente dal database.', 'success');
 
       // Check if deleted item was selected
-      if (selectedIds.has(deleteTarget.id)) {
-        const newSet = new Set(selectedIds);
-        newSet.delete(deleteTarget.id);
-        setSelectedIds(newSet);
-      }
+      setSelectedIds((prev) => {
+        if (!prev.has(deleteTarget.id)) return prev;
+        const next = new Set(prev);
+        next.delete(deleteTarget.id);
+        return next;
+      });
 
-      setTimeout(() => refreshData(), 300);
+      await refreshData();
     } catch (e: unknown) {
       console.error('Delete Error:', e);
       showToast("Errore durante l'eliminazione.", 'error');
@@ -271,7 +286,7 @@ export const useSponsorOperations = ({ refreshData }: UseSponsorOperationsProps)
       showToast(`Eliminati ${selectedIds.size} record.`, 'success');
       setSelectedIds(new Set());
       setShowBulkDeleteModal(false);
-      setTimeout(() => refreshData(), 500);
+      await refreshData();
     } catch (e: unknown) {
       console.error('Bulk Delete Error:', e);
       showToast('Errore eliminazione multipla.', 'error');

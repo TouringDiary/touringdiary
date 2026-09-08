@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useStrategicMap } from '../../../hooks/admin/useStrategicMap';
 import { clearCacheKey } from '../../../services/city/cityCache';
 import { removeZoneSuggestion } from '../../../services/zoneService';
-import type { AiCitySuggestion, CitySummary, User } from '../../../types/index';
+import type { CitySummary, User } from '../../../types/index';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import { CityAuditModal } from './CityAuditModal';
 import { GeoCascadingFilters } from './GeoCascadingFilters';
@@ -161,7 +161,6 @@ export const StrategicMapTab = ({
     deleteZone,
     renameZone,
     zoneNames,
-    allCityNames,
   } = useStrategicMap(allCities);
 
   // 2. UI STATE
@@ -233,12 +232,6 @@ export const StrategicMapTab = ({
       }
       setRenamingZoneName(null);
       setIsRenaming(false);
-    }
-  };
-
-  const handleImportMissing = (suggestion: AiCitySuggestion) => {
-    if (onMagicGenerate) {
-      onMagicGenerate(suggestion.name, 10, undefined, undefined, geoFilter.region);
     }
   };
 
@@ -316,9 +309,7 @@ export const StrategicMapTab = ({
           onClose={handleCloseAnalysis}
           regionName={geoFilter.region}
           existingZones={zoneNames}
-          existingCityNames={allCityNames}
           onSuccess={handleCloseAnalysis} // Chiamato quando si clicca "Chiudi Report & Aggiorna"
-          onMagicGenerate={onMagicGenerate}
           targetZone={targetZoneAnalysis || undefined} // Passa la zona target se definita
         />
       )}
@@ -357,7 +348,6 @@ export const StrategicMapTab = ({
                 onRename={(name) => setRenamingZoneName(name)}
                 onDelete={(name) => setDeleteZoneTarget(name)}
                 onAuditCity={setAuditCity}
-                onImportMissing={handleImportMissing}
                 onAnalyzeZone={handleAnalyzeZone}
                 onDeleteSuggestion={handleDeleteSuggestionRequest}
               />

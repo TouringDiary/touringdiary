@@ -27,7 +27,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: { image: string }) => void;
-  mode?: 'hero' | 'card' | 'moderation' | 'social';
+  mode?: 'hero' | 'card' | 'gallery' | 'moderation' | 'social';
   /**
    * Guida viewport fissa (opt-in): rettangoli centrati = stesso crop di
    * `object-cover` + `object-position: center` in UI pubblica.
@@ -870,6 +870,7 @@ export const AdminPhotoInspector = ({
                 : null}
               {!viewportGuide && mode === 'hero' && 'Ottimizzato per Header 16:9'}
               {!viewportGuide && mode === 'card' && 'Ottimizzato per Card 4:5 o 1:1'}
+              {!viewportGuide && mode === 'gallery' && 'Ottimizzato per Galleria 1:1'}
               {!viewportGuide && mode === 'social' && 'Ottimizzato per Story 9:16'}
               {!viewportGuide && mode === 'moderation' && 'Moderazione community'}
             </p>

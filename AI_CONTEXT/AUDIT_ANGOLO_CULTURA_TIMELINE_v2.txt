@@ -1,0 +1,183 @@
+# AUDIT / GUIDA TECNICA — Angolo Cultura Timeline (v2)
+
+> **SoT vigente per FASE 6 Community + Admin + UI R1–R3.**  
+> Continuità con `AUDIT_ANGOLO_CULTURA_TIMELINE.md` (Fasi 1–5 + audit F6 iniziale).  
+> **Data aggiornamento implementazione:** 2026-08-27  
+> **Scope:** Community + Admin hub Famous Person (D1/D2/D3) **e** UI Angolo Cultura R1–R3 (periodo viewport, frecce full-height, card/CTA, community in basso).
+
+---
+
+## Decisioni PO definitive F6 (congelate)
+
+| ID | Decisione |
+|----|-----------|
+| **D1** | Una sola foto ufficiale per personaggio (`city_people.image_url` + `image_storage_path`). Nessuna gallery Famous Person. «Suggerisci foto» → se accettata sostituisce l’ufficiale. |
+| **D2** | «Consiglia personaggio» = coda community **separata** da `city_people`. Nota **obbligatoria** (UI + domain + DB). Accept → crea personaggio ufficiale in **DRAFT** (non auto-publish). Stati suggestion ≠ stati editoriali. |
+| **D3** | Abuse solo su foto ufficiale **già pubblicata** (`status=published` + `image_url` non vuoto). `person_id` **obbligatorio**; RLS INSERT: `cp.city_id = famous_person_photo_reports.city_id`, `trim(person_image_url)=trim(city_people.image_url)`, `person_image_storage_path IS NOT DISTINCT FROM city_people.image_storage_path`, snapshot `city_name`/`person_name`/`reporter_user_name` allineati a `cities`/`city_people`/`profiles`. Snapshot URL/path conservati in report. Non sulle suggestion in review. |
+
+### Stati
+
+**Suggestion (personaggio / foto):** `pending` | `in_review` | `accepted` | `rejected`  
+(UI: Da gestire / In revisione / Accettata / Rifiutata / Tutte)
+
+**Abuse:** `pending` | `in_review` | `photo_blocked` | `rejected`  
+(UI: Da gestire / In revisione / Foto bloccata / Segnalazione rifiutata / Tutte)
+
+**Personaggio ufficiale:** `draft` | `published` (distinto dalla suggestion)
+
+### Admin
+
+- Sidebar Territorio: voce unica **Personaggi Famosi** (`famous_people`) — **rimossa** `people_categories` autonoma.
+- Accesso: `admin_all` + `admin_limited` (non sotto Impostazioni).
+- 4 tab: Categorie Personaggi | Suggerimento Personaggio | Suggerimento Foto | Segnalazione Abuso.
+- Categorie: logica invariata (soft-delete, Master→Specific, warning ≥6, no hard delete).
+
+### Pattern Patron
+
+Riuso: upload `public-media`, modal Foundation/ESC/focus, stati moderazione, RLS `is_td_admin`, guest gate.  
+**Non** riuso tabelle/RPC Patron come SoT Famous Person.
+
+---
+
+## Verifica DB (read-only, 2026-08-27)
+
+| Oggetto | Risultato live |
+|---------|----------------|
+| `famous_person_suggestions` | **ASSENTE** (404) — creato in migration F6 |
+| `famous_person_photo_suggestions` | **ASSENTE** |
+| `famous_person_photo_reports` | **ASSENTE** |
+| `famous_person_master_categories` | **ASSENTE** sul live (F5 non ancora applicata) |
+| `city_people` | **ESISTE** (16 record); colonne date F5 **non** ancora presenti sul live |
+| `patron_photo_suggestions` / `reports` | **ESISTONO** (pattern di riferimento) |
+
+**Dipendenza:** applicare prima `20260827120000_famous_person_categories_and_dates.sql`, poi `20260827140000_famous_person_community_moderation.sql`.
+
+---
+
+## Implementazione F6 Community + Admin — STATO
+
+### Migration
+
+`supabase/migrations/20260827140000_famous_person_community_moderation.sql`
+
+| Elemento | Dettaglio |
+|----------|-----------|
+| Colonna | `city_people.image_storage_path` |
+| Tabelle | `famous_person_suggestions`, `famous_person_photo_suggestions`, `famous_person_photo_reports` |
+| RPC | `submit_famous_person_suggestion`, `submit_famous_person_photo_suggestion` |
+| RLS tabella | admin SELECT/UPDATE/DELETE; report INSERT authenticated (vincoli D3); suggestion INSERT solo via RPC |
+| Storage `public-media` | INSERT utente solo `famous_person_photo_suggestions/{auth.uid()}/…`; DELETE admin solo `famous_person_photo_suggestions/%` |
+| RPC foto | `p_storage_path` obbligatorio sotto `famous_person_photo_suggestions/{v_uid}/%` |
+| FK report | `person_id NOT NULL ON DELETE RESTRICT` |
+| CHECK note | `trim(notes) <> ''` su person suggestion |
+| App cleanup | `mediaService.deletePublicMediaByStoragePath` whitelist + `famous_person_photo_suggestions/` |
+
+### Review architetturale flusso foto (2026-08-27)
+
+#### Gap trovati (pre-fix)
+
+| # | Gap | Impatto |
+|---|-----|---------|
+| G1 | Assente Storage RLS INSERT per `famous_person_photo_suggestions/{uid}/` | Upload UI falliva (RLS deny su `public-media`) |
+| G2 | RPC accettava `storage_path` arbitrario (Patron, altri utenti, altre cartelle) | Spoofing path via chiamata diretta RPC |
+| G3 | Assente Storage RLS DELETE admin sull’area Famous Person | Cleanup amministrativo impossibile lato Storage |
+| G4 | `deletePublicMediaByStoragePath` non riconosceva prefisso Famous Person | accept replace / photo_blocked non eliminavano file |
+
+#### Correzioni effettuate
+
+| Gap | Fix |
+|-----|-----|
+| G1 | Policy `public_media_famous_person_suggestions_user_insert` in migration F6 §9 |
+| G2 | Check RPC `v_storage_path NOT LIKE ('famous_person_photo_suggestions/' \|\| v_uid \|\| '/%')` → EXCEPTION |
+| G3 | Policy `public_media_famous_person_suggestions_admin_delete` in migration F6 §9 |
+| G4 | Whitelist `famous_person_photo_suggestions/` in `src/services/mediaService.ts` |
+
+#### Nuova review end-to-end (post-fix)
+
+| Step | Esito |
+|------|--------|
+| UI upload → `famous_person_photo_suggestions/{userId}/{ts}_{file}` | Autorizzato da Storage INSERT policy (segmento `[2]` = `auth.uid()`) |
+| Path servizio ↔ policy | Allineati (`famousPersonPhotoSuggestionService.ts` folder = policy prefix + uid) |
+| RPC diretta con path altrui / Patron / gallery | **Rifiutata** (check prefix uid) |
+| INSERT tabella suggestion | Solo RPC SECURITY DEFINER; tabella senza INSERT policy utente |
+| Admin accept → `city_people.image_url` + `image_storage_path` | Una sola foto; UPDATE sostitutivo |
+| Replace foto ufficiale precedente | `deletePublicMediaByStoragePath` se path sotto prefissi ammessi |
+| Abuse → photo_blocked | Clear DB + delete Storage se path Famous Person noto |
+| Abuso RLS | URL + storage path + snapshot names vs sorgenti reali (invariato) |
+
+**Limitazione nota (non bloccante, parità Patron):** la RPC non verifica che `image_url` derivi deterministicamente da `storage_path`; il vincolo operativo è prefix path + upload controllato. Reject suggestion non cancella file Storage (orphan possibile; stesso comportamento Patron).
+
+#### Verdetto migration F6
+
+**GO — migration pronta per essere accettata/applicata** (dopo F5), per quanto riguarda il contratto F6 foto community + abuso.
+
+### Servizi
+
+| File | Ruolo |
+|------|-------|
+| `src/services/famousPerson/famousPersonSuggestionService.ts` | create / list / in_review / accept→draft / reject / set draft\|published |
+| `src/services/famousPerson/famousPersonPhotoSuggestionService.ts` | create (1 foto) / list / moderate / accept→replace ufficiale |
+| `src/services/famousPerson/famousPersonPhotoReportService.ts` | create (solo published) / list / block→clear image / reject |
+| `src/services/famousPerson/famousPersonAdminCountsService.ts` | badge pending hub |
+| `src/domain/city/famousPersonCommunityValidation.ts` | nota obbligatoria trim |
+
+### UI pubblica
+
+| File | Ruolo |
+|------|-------|
+| `CultureCornerModal.tsx` | 3 azioni community + guest gate + user/onOpenAuth |
+| `SuggestFamousPersonModal.tsx` | consiglia personaggio (nota obbligatoria) |
+| `SuggestFamousPersonPhotoModal.tsx` | suggerisci foto (1 file, rights) |
+| `ReportFamousPersonPhotoAbuseModal.tsx` | abuse su foto ufficiale |
+
+### Admin
+
+| File | Ruolo |
+|------|-------|
+| `AdminFamousPeopleManager.tsx` | hub 4 tab |
+| `AdminFamousPeopleCategoriesManager.tsx` | prop `embedded` |
+| `AdminDashboard.tsx` / `AdminSidebar.tsx` | view `famous_people`, badge counts |
+
+### Tipi
+
+`src/types/models/famousPersonCommunity.ts` + tabelle/RPC in `src/types/supabase.ts`
+
+### Quality
+
+- `npm run typecheck` — **OK** (post Community/Admin e post R1–R3)
+- Biome sui file toccati — OK dopo fix a11y anni viewport
+
+### R1–R3 UI estetici (IMPLEMENTATI)
+
+| Voce | Implementazione |
+|------|-----------------|
+| **R1 Periodo dinamico** | Misura geometrica area (≥ 50% superficie nel viewport timeline); min/max da `birthYear` o, se assente, primo anno di `lifespanDisplay`; anni sotto frecce L/R; asse orizzontale dietro i box; divisore timeline→card |
+| **Timeline box** | Nome single-line + ellipsis (`w-[9.5rem]` + `truncate`); sotto il nome solo **Master** in indaco (ordine primaria = getPrimarySpecific); frecce timeline **sempre visibili**, `disabled` se non scrollabile |
+| **R2 Frecce rail** | Frecce card grandi alte quanto la card (`h-[420px]` → `md:h-[460px]`), larghezza stretta (`w-9`/`w-11`) |
+| **R3 Card + CTA** | Layout colonna: foto (`flex-1`) → CTA «Scopri la storia» subito sotto → nome/periodo; altezza aumentata |
+| **Community in basso** | `mt-auto` + `pt-12 md:pt-16`; separatore sopra il blocco; disclaimer diritti (2 paragrafi) + azioni (`space-y-1.5`) |
+
+File: `CultureCornerModal.tsx`, `DraggableSlider.getRootElement()`.
+
+---
+
+## Gate sviluppo
+
+| Voce | Stato |
+|------|--------|
+| D1/D2/D3 | **CHIUSE + IMPLEMENTATE** |
+| Stack dedicato Famous Person | **IMPLEMENTATO** (migration da applicare) |
+| Admin 4 tab | **IMPLEMENTATO** |
+| Public 3 azioni | **IMPLEMENTATO** |
+| R1–R3 | **IMPLEMENTATO** |
+| Migration live | **PRONTA PER APPLY** (F5 prerequisito, poi F6) — review arch. foto **GO** |
+
+### Verdetto
+
+# **FASE 6 Community + Admin + UI R1–R3 — IMPLEMENTATA IN CODICE**
+
+Migration F6 **GO** per apply (contratto Storage + RPC + abuso). Runtime completo dopo apply F5+F6 su Supabase.
+
+---
+
+*Fine AUDIT v2 — SoT F6 Community/Admin + UI R1–R3.*

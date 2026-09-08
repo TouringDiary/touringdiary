@@ -20,7 +20,6 @@ import {
   Zap,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
-import { useAdminExport } from '../../../hooks/useAdminExport';
 import { useCityGenerator } from '../../../hooks/useCityGenerator';
 import type { useCityList } from '../../../hooks/useCityList';
 import { updateCityBadge, updateCityHomeOrder } from '../../../services/city/cityUpdateService';
@@ -117,7 +116,6 @@ const AdminLegend = () => (
 export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps) => {
   // GENERATOR HOOK
   const generator = useCityGenerator(list.forceReload);
-  const { isExporting, exportTaxonomyCsv, exportGlobalPoisCsv } = useAdminExport();
 
   // UI STATE
   const [showAiModal, setShowAiModal] = useState(false);
@@ -147,22 +145,24 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
 
   // --- FILTERING LOGIC ---
   const filteredData = useMemo(() => {
-    let data = list.effectiveCities as CitySummary[];
+    let data = [...list.effectiveCities];
 
     // 1. Text Search (Nome o Zona) - Prioritario
     if (list.searchTerm) {
       const lower = list.searchTerm.toLowerCase();
       data = data.filter(
-        (c) => c.name.toLowerCase().includes(lower) || c.zone.toLowerCase().includes(lower),
+        (c) =>
+          c.name.toLowerCase().includes(lower) ||
+          (c.zone ? c.zone.toLowerCase().includes(lower) : false),
       );
     }
 
-    // 2. Geo Filters
-    if (geoFilter.continent)
-      data = data.filter((c) => (c.continent || 'Europa') === geoFilter.continent);
-    if (geoFilter.nation) data = data.filter((c) => (c.nation || 'Italia') === geoFilter.nation);
-    if (geoFilter.region)
-      data = data.filter((c) => (c.adminRegion || 'Campania') === geoFilter.region);
+    // 2. Geo Filters — equality on real fields only (missing/empty never matches a set filter)
+    if (geoFilter.continent) data = data.filter((c) => c.continent === geoFilter.continent);
+    if (geoFilter.nation) data = data.filter((c) => c.nation === geoFilter.nation);
+    if (geoFilter.region) data = data.filter((c) => c.adminRegion === geoFilter.region);
+    if (geoFilter.zone) data = data.filter((c) => c.zone === geoFilter.zone);
+    if (geoFilter.city) data = data.filter((c) => c.name === geoFilter.city);
 
     // 3. Tab Status Filters
     if (listTab === 'published') {
@@ -196,6 +196,8 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
     return data;
   }, [list.effectiveCities, list.searchTerm, list.sortKey, list.sortDir, listTab, geoFilter]);
 
+  const maxLocalPage = Math.max(1, Math.ceil(filteredData.length / LOCAL_PAGE_SIZE));
+
   // Internal Pagination Slice
   const paginatedData = useMemo(() => {
     const start = (localPage - 1) * LOCAL_PAGE_SIZE;
@@ -205,6 +207,10 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
   React.useEffect(() => {
     setLocalPage(1);
   }, [listTab, geoFilter, list.searchTerm]);
+
+  React.useEffect(() => {
+    setLocalPage((p) => Math.min(p, maxLocalPage));
+  }, [maxLocalPage]);
 
   // --- HANDLERS ---
 
@@ -436,7 +442,7 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
             <button
               type="button"
               onClick={list.forceReload}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-2 rounded-lg border border-slate-700 transition-all"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-2.5 rounded-lg border border-slate-700 transition-all"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -448,7 +454,7 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
           <GeoCascadingFilters
             cities={list.effectiveCities}
             value={geoFilter}
-            onChange={(v: GeoSelection) => setGeoFilter({ ...geoFilter, ...v })}
+            onChange={(v: GeoSelection) => setGeoFilter(v)}
           />
         </div>
       </div>
@@ -492,12 +498,12 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
             <thead>
               <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase tracking-widest font-black sticky top-0 z-dropdown border-b border-slate-800">
                 <th className="p-3 text-center border-r border-slate-800/50 w-[40px]">
-                  <button type="button" onClick={list.toggleAllPage}>
+                  <button type="button" onClick={list.toggleAllPage} className="p-1.5">
                     {paginatedData.length > 0 &&
                     paginatedData.every((c: CitySummary) => list.selectedIds.has(c.id)) ? (
-                      <CheckSquare className="w-3.5 h-3.5 text-indigo-500" />
+                      <CheckSquare className="w-4 h-4 text-indigo-500" />
                     ) : (
-                      <Square className="w-3.5 h-3.5 opacity-30" />
+                      <Square className="w-4 h-4 opacity-30" />
                     )}
                   </button>
                 </th>
@@ -531,11 +537,15 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
                     className={`transition-colors group text-slate-300 ${isSelected ? 'bg-indigo-900/10' : 'hover:bg-slate-800/30'}`}
                   >
                     <td className="p-3 text-center border-r border-slate-800/30">
-                      <button type="button" onClick={() => list.toggleSelection(city.id)}>
+                      <button
+                        type="button"
+                        onClick={() => list.toggleSelection(city.id)}
+                        className="p-1.5"
+                      >
                         {isSelected ? (
-                          <CheckSquare className="w-3.5 h-3.5 text-indigo-500" />
+                          <CheckSquare className="w-4 h-4 text-indigo-500" />
                         ) : (
-                          <Square className="w-3.5 h-3.5 opacity-20" />
+                          <Square className="w-4 h-4 opacity-20" />
                         )}
                       </button>
                     </td>
@@ -639,8 +649,8 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
 
       <PaginationControls
         currentPage={localPage}
-        maxPage={Math.ceil(filteredData.length / LOCAL_PAGE_SIZE)}
-        onNext={() => setLocalPage((p) => p + 1)}
+        maxPage={maxLocalPage}
+        onNext={() => setLocalPage((p) => Math.min(maxLocalPage, p + 1))}
         onPrev={() => setLocalPage((p) => Math.max(1, p - 1))}
         totalItems={filteredData.length}
       />

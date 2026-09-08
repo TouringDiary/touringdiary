@@ -11,11 +11,20 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { GEO_CONFIG } from '@/constants/geoConfig';
 import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import { FOUNDATION_STYLE_KEYS } from '@/data/system/foundationSettingsCatalog';
+import { useFoundationStyles } from '@/hooks/useFoundationStyles';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { calculateDistance } from '../../services/geo';
 import type { CityDetails, CitySummary } from '../../types/index';
 import { ImageWithFallback } from '../common/ImageWithFallback';
+
+/** Scala raggio d'azione (km) — min/step UI; max = SoT dominio GEO_CONFIG.SEARCH_RADIUS_MAX. */
+const DISTANCE_MIN_KM = 5;
+const DISTANCE_MAX_KM = GEO_CONFIG.SEARCH_RADIUS_MAX;
+const DISTANCE_STEP_KM = 5;
+const DISTANCE_TICK_COUNT = (DISTANCE_MAX_KM - DISTANCE_MIN_KM) / DISTANCE_STEP_KM + 1;
 
 interface Props {
   isOpen: boolean;
@@ -48,19 +57,23 @@ export const ProvinceModal = ({
   const cardPointerCleanupRef = useRef<(() => void) | null>(null);
   const [isGrabbing, setIsGrabbing] = useState(false);
 
-  const [maxDistance, setMaxDistance] = useState(25); // Default 25km
+  const [maxDistance, setMaxDistance] = useState(GEO_CONFIG.SEARCH_RADIUS_DEFAULT);
   const [mergeEnabled, setMergeEnabled] = useState(isMergeActive);
   // Selezione città per la fusione: di default TUTTE selezionate. Tracciamo le sole
   // città DESELEZIONATE, così le nuove città che entrano nel raggio restano incluse.
-  const [deselectedIds, setDeselectedIds] = useState<Set<string>>(new Set());
+  const [deselectedIds, setDeselectedIds] = useState<Set<string>>(() => new Set());
 
-  // Apertura / cambio città / cambio raggio: riallinea selezione (tutte incluse).
-  useEffect(() => {
-    if (!isOpen || !currentCity?.id) return;
-    // Intentional: maxDistance triggers reset even though not read in the body.
-    void maxDistance;
-    setDeselectedIds((prev) => (prev.size === 0 ? prev : new Set()));
-  }, [isOpen, currentCity?.id, maxDistance]);
+  // Dim locale SoT (Foundation): ProvinceModal è fuori ModalManager → FocusOverlay non applica modalDim.
+  const overlayShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalOverlay);
+
+  // Apertura / cambio città / cambio raggio → selezione riallineata (tutte incluse).
+  // Pattern React: adjust state during render when epoch changes (no void / no deps fittizie).
+  const mergeSelectionEpoch = `${isOpen ? '1' : '0'}|${currentCity?.id ?? ''}|${maxDistance}`;
+  const [appliedMergeSelectionEpoch, setAppliedMergeSelectionEpoch] = useState(mergeSelectionEpoch);
+  if (mergeSelectionEpoch !== appliedMergeSelectionEpoch) {
+    setAppliedMergeSelectionEpoch(mergeSelectionEpoch);
+    setDeselectedIds(new Set());
+  }
 
   // isMergeActive può arrivare da isVirtual (CityDetailContent): riallinea all'apertura/cambio prop.
   useEffect(() => {
@@ -221,7 +234,7 @@ export const ProvinceModal = ({
 
   return createPortal(
     <div
-      className="td-modal-overlay animate-in slide-in-from-bottom-5 !p-0 md:!p-4 pointer-events-auto"
+      className={`td-modal-overlay ${overlayShell} !p-0 md:!p-4 pointer-events-auto`}
       style={{ zIndex: Z_OVERLAY }}
       role="presentation"
     >
@@ -233,27 +246,56 @@ export const ProvinceModal = ({
         onClick={onClose}
       />
       <style>{`
-                .slider-distance { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #1e293b; outline: none; }
-                /* Compass Icon SVG (Bussola) - Smaller Size (20px) */
-                .slider-distance::-webkit-slider-thumb { 
-                    -webkit-appearance: none; 
-                    appearance: none; 
-                    width: 24px; 
-                    height: 24px; 
-                    background-color: #0f172a; 
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolygon points='16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76' fill='%23f59e0b'/%3E%3C/svg%3E"); 
-                    background-repeat: no-repeat; 
-                    background-position: center; 
-                    background-size: cover; 
-                    cursor: grab; 
-                    /* MODIFICATO: margin-top portato a -4px per abbassare l'icona rispetto alla riga */
-                    margin-top: -4px; 
+                .slider-distance {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 100%;
+                    height: 4px;
+                    border-radius: 2px;
+                    background: #1e293b;
+                    outline: none;
+                }
+                /* Compass Icon SVG (Bussola) - Smaller Size (20px) — WebKit/Blink */
+                .slider-distance::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 24px;
+                    height: 24px;
+                    background-color: #0f172a;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolygon points='16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76' fill='%23f59e0b'/%3E%3C/svg%3E");
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    background-size: cover;
+                    cursor: grab;
+                    margin-top: -4px;
                     border-radius: 50%;
                     box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
-                    transition: transform 0.1s; 
+                    transition: transform 0.1s;
                     border: 2px solid #1e293b;
                 }
                 .slider-distance::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.2); }
+                /* Firefox — stesso thumb compass */
+                .slider-distance::-moz-range-track {
+                    height: 4px;
+                    border-radius: 2px;
+                    background: #1e293b;
+                    border: none;
+                }
+                .slider-distance::-moz-range-thumb {
+                    width: 24px;
+                    height: 24px;
+                    background-color: #0f172a;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolygon points='16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76' fill='%23f59e0b'/%3E%3C/svg%3E");
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    background-size: cover;
+                    cursor: grab;
+                    border-radius: 50%;
+                    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+                    transition: transform 0.1s;
+                    border: 2px solid #1e293b;
+                }
+                .slider-distance::-moz-range-thumb:active { cursor: grabbing; transform: scale(1.2); }
             `}</style>
 
       <div
@@ -308,25 +350,30 @@ export const ProvinceModal = ({
 
                 {/* MODIFICATO: Aggiunto pt-1 per spostare leggermente in basso la riga con i KM */}
                 <div className="flex items-center gap-3 mt-3 pt-1">
-                  <span className="text-[10px] font-bold text-slate-500 min-w-[30px]">5KM</span>
+                  <span className="text-[10px] font-bold text-slate-500 min-w-[30px]">
+                    {DISTANCE_MIN_KM}KM
+                  </span>
                   <div className="relative flex-1">
                     <input
                       type="range"
-                      min="5"
-                      max="100"
-                      step="5"
+                      min={DISTANCE_MIN_KM}
+                      max={DISTANCE_MAX_KM}
+                      step={DISTANCE_STEP_KM}
                       value={maxDistance}
                       onChange={(e) => setMaxDistance(parseInt(e.target.value, 10))}
+                      aria-label={`Raggio d'azione: ${maxDistance} chilometri`}
                       className="slider-distance w-full cursor-pointer relative z-floating-panel"
                     />
                     <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 flex justify-between pointer-events-none opacity-30 px-1">
-                      {Array.from({ length: 10 }, (_slot, tick) => ({ tick })).map((item) => (
-                        <div key={`dist-tick-${item.tick}`} className="w-px h-1.5 bg-slate-400" />
-                      ))}
+                      {Array.from({ length: DISTANCE_TICK_COUNT }, (_slot, tick) => ({ tick })).map(
+                        (item) => (
+                          <div key={`dist-tick-${item.tick}`} className="w-px h-1.5 bg-slate-400" />
+                        ),
+                      )}
                     </div>
                   </div>
                   <span className="text-[10px] font-bold text-slate-500 min-w-[35px] text-right">
-                    100KM
+                    {DISTANCE_MAX_KM}KM
                   </span>
                 </div>
               </div>

@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPoisByCityId, getPoisPaginated } from '../services/cityService';
 import type { PointOfInterest, User } from '../types/index';
 import { usePoiActions } from './admin/usePoiActions';
 import { usePoiFilters } from './admin/usePoiFilters';
 
-export const usePoiManager = (cityId: string, cityName: string) => {
+export const usePoiManager = (cityId: string) => {
   // 1. FILTER & STATE MANAGEMENT (Internal Hook)
   const filters = usePoiFilters();
 
@@ -23,19 +23,25 @@ export const usePoiManager = (cityId: string, cityName: string) => {
   // --- DATA LOADING ---
 
   // Load full stats (per contatori e date)
+  const loadStatsRequestIdRef = useRef(0);
   const loadStats = useCallback(async () => {
     if (!cityId) return;
+    const requestId = ++loadStatsRequestIdRef.current;
     try {
       const all = await getPoisByCityId(cityId);
+      if (requestId !== loadStatsRequestIdRef.current) return;
       setAllCityPois(all);
     } catch (e) {
+      if (requestId !== loadStatsRequestIdRef.current) return;
       console.error('Error loading stats POIs', e);
     }
   }, [cityId]);
 
   // Load paginated table data
+  const loadPoisRequestIdRef = useRef(0);
   const loadPois = useCallback(async () => {
     if (!cityId) return;
+    const requestId = ++loadPoisRequestIdRef.current;
     setIsLoading(true);
     try {
       const result = await getPoisPaginated({
@@ -60,12 +66,16 @@ export const usePoiManager = (cityId: string, cityName: string) => {
         sortBy: filters.sortBy,
         sortDir: filters.sortDir,
       });
+      if (requestId !== loadPoisRequestIdRef.current) return;
       setPois(result.data);
       setTotalItems(result.count);
     } catch (e: unknown) {
+      if (requestId !== loadPoisRequestIdRef.current) return;
       console.error('Errore caricamento POI:', e instanceof Error ? e.message : e);
     } finally {
-      setIsLoading(false);
+      if (requestId === loadPoisRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [
     cityId,
@@ -90,11 +100,14 @@ export const usePoiManager = (cityId: string, cityName: string) => {
     await Promise.all([loadStats(), loadPois()]);
   }, [loadStats, loadPois]);
 
-  // Initial Load & Effect on Filter Change
+  // Stats solo al cambio cityId; tabella sulle dipendenze di loadPois
   useEffect(() => {
     loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
     loadPois();
-  }, [loadStats, loadPois]);
+  }, [loadPois]);
 
   // 5. ACTIONS HOOK (Needs refreshData & selectedIds)
   // Questo hook contiene TUTTE le logiche di scrittura (save, delete, deep scan)

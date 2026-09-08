@@ -141,7 +141,6 @@ export interface StagingPoi {
 export interface CityDeleteOptions {
   keepUserPhotos: boolean; // Mantieni foto caricate dagli utenti
   keepShops: boolean; // Mantieni negozi/partner
-  keepPeople: boolean; // Mantieni personaggi famosi
   keepPOIs: boolean; // Mantieni i Punti di Interesse (Sconsigliato ma possibile)
 }
 

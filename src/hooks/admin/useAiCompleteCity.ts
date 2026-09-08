@@ -5,14 +5,18 @@ import {
   suggestCityItems,
   suggestCityPeople,
 } from '../../services/ai';
-import { generateHistoricalPortrait } from '../../services/ai/aiVision';
+import {
+  ensureFamousPersonCompletenessWithAi,
+  toCompleteFamousPersonRequiredFields,
+} from '../../services/ai/generators/peopleCompletenessPipeline';
+import { validateAiSpecificSlugs } from '../../services/ai/generators/peopleCategoryValidation';
 import { reclaimOrphanedItems } from '../../services/city/cityLifecycleService';
 import type {
   SaveCityEventInput,
   SaveCityGuideInput,
-  SaveCityPersonInput,
   SaveCityServiceInput,
 } from '../../services/city/entitiesService';
+import { loadFamousPersonTaxonomy } from '../../services/city/famousPersonCategoryService';
 import { mergePatronDetailsFromAi } from '../../services/city/parsers/content/mergePatronDetailsFromAi';
 import { appendGenerationLogs } from '../../services/city/parsers/content/parseLogs';
 import {
@@ -27,8 +31,8 @@ import {
   saveCityService,
   saveCityTourOperator,
 } from '../../services/cityService';
-import { findExistingPortrait } from '../../services/mediaService'; // NUOVO IMPORT
-import type { CityDetails, User } from '../../types/index';
+import { findExistingPortrait } from '../../services/mediaService';
+import type { CityDetails, FamousPerson, User } from '../../types/index';
 import { getSafeEventCategory, getSafeServiceType } from '../../utils/common';
 import type { StepReport, useAiTaskRunner } from './useAiTaskRunner';
 import type { VerifyDraftsBatchFn } from './useAiValidation';
@@ -191,56 +195,105 @@ export const useAiCompleteCity = (
         return 1;
       });
 
-      // 4. PERSONAGGI (CON RECUPERO STORAGE)
+      // 4. PERSONAGGI — genera e valida PRIMA di cancellare quelli esistenti
       await performStep(
         `Generazione Personaggi (${config.peopleCount})`,
         async () => {
-          const existingPeople = await getCityPeople(cityId);
-          await Promise.all(existingPeople.map((p) => deleteCityPerson(p.id!)));
-
           const suggestions = await suggestCityPeople(cityName, [], '', config.peopleCount);
+          const taxonomy = await loadFamousPersonTaxonomy({ activeOnly: true });
+          const activeSpecifics = taxonomy.specifics.map((s) => ({
+            slug: s.slug,
+            id: s.id,
+          }));
 
-          let savedCount = 0;
+          const prepared: Array<{
+            name: string;
+            bio: string;
+            imageUrl: string;
+            specificCategoryIds: string[];
+            birthYear: number;
+            birthDate?: string | null;
+            isLiving: boolean;
+            deathYear?: number | null;
+            deathDate?: string | null;
+            quote?: string;
+            famousWorks?: string[];
+            relatedPlaces?: FamousPerson['relatedPlaces'];
+            fullBio?: string;
+            privateLife?: string;
+            awards?: string[];
+            careerStats?: FamousPerson['careerStats'];
+            status: 'draft';
+            orderIndex: number;
+          }> = [];
+          let incompleteCount = 0;
           let orderIdx = 1;
 
           for (const p of suggestions) {
-            // THROTTLING: Pausa tra le generazioni immagini per evitare 429
             await new Promise((r) => setTimeout(r, 2000));
 
-            let imageUrl = p.imageUrl;
-
-            // 1. Controlla se abbiamo un URL valido
-            if (!imageUrl || imageUrl.includes('unsplash') || imageUrl.includes('ui-avatars')) {
-              // 2. PRIMA CONTROLLA LO STORAGE (Recupero Fantasmi)
-              const existingUrl = await findExistingPortrait(p.name);
-
-              if (existingUrl) {
-                imageUrl = existingUrl;
-                // addLog(`📸 Foto recuperata per: ${p.name}`); // (Opzionale: verbose)
-              } else {
-                // 3. SE NON ESISTE, GENERA (Con Fallback Flash)
-                try {
-                  const generated = await generateHistoricalPortrait(
-                    p.name,
-                    p.role || '',
-                    cityName,
-                  );
-                  if (generated) imageUrl = generated;
-                } catch (err) {
-                  console.warn(`Img failed for ${p.name}`);
-                }
-              }
+            const slugValidation = validateAiSpecificSlugs(
+              p.specificCategorySlugs ?? [],
+              activeSpecifics,
+            );
+            if (!slugValidation.ok) {
+              incompleteCount += 1;
+              console.warn(
+                `[useAiCompleteCity] Personaggio scartato (categorie AI invalidi): ${p.name}`,
+                slugValidation.invalid,
+              );
+              continue;
             }
 
-            await saveCityPerson(cityId, {
-              ...p,
-              imageUrl: imageUrl || '',
+            const existingUrl = await findExistingPortrait(p.name);
+            const recovered = await ensureFamousPersonCompletenessWithAi(
+              {
+                ...p,
+                specificCategoryIds: slugValidation.ids,
+                imageUrl: existingUrl ?? p.imageUrl,
+              },
+              cityName,
+            );
+            const required = toCompleteFamousPersonRequiredFields(recovered.person);
+            if (!required) {
+              incompleteCount += 1;
+              console.warn(
+                `[useAiCompleteCity] Personaggio scartato (incompleto): ${p.name}`,
+                recovered.missingFields,
+              );
+              continue;
+            }
+
+            prepared.push({
+              ...required,
+              quote: recovered.person.quote ?? p.quote,
+              famousWorks: recovered.person.famousWorks ?? p.famousWorks,
+              relatedPlaces: recovered.person.relatedPlaces ?? p.relatedPlaces,
+              fullBio: recovered.person.fullBio ?? p.fullBio,
+              privateLife: recovered.person.privateLife ?? p.privateLife,
+              awards: recovered.person.awards ?? p.awards,
+              careerStats: recovered.person.careerStats ?? p.careerStats,
               status: 'draft',
               orderIndex: orderIdx++,
-            } as SaveCityPersonInput);
-            savedCount++;
+            });
           }
-          return savedCount;
+
+          if (prepared.length === 0) {
+            console.warn(
+              `[useAiCompleteCity] Nessun personaggio completo (scartati: ${incompleteCount}). Dataset esistente preservato.`,
+            );
+            return 0;
+          }
+
+          const existingPeople = await getCityPeople(cityId);
+          await Promise.all(
+            existingPeople.filter((p) => p.id).map((p) => deleteCityPerson(p.id)),
+          );
+
+          for (const person of prepared) {
+            await saveCityPerson(cityId, person);
+          }
+          return prepared.length;
         },
         (c) => c,
       );
@@ -303,14 +356,17 @@ export const useAiCompleteCity = (
         (c) => c,
       );
 
-      // 6. MEDIA
-      await performStep('Reset Media (Hero)', async () => {
-        const newHero = `https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1200&sig=${Date.now()}`;
-        const newDetails = { ...currentCity!.details, heroImage: newHero };
-        const updated = { ...currentCity!, imageUrl: newHero, details: newDetails };
-        currentCity = updated;
-        await saveCityDetails(updated, { skipReclaim: true });
-        return 1;
+      // 6. MEDIA — nessun URL fittizio: senza sorgente reale non si sovrascrive la Hero.
+      await performStep('Verifica Media (Hero)', async () => {
+        if (!currentCity) return 0;
+        const existingHero = currentCity.details.heroImage?.trim();
+        if (existingHero) {
+          return 1;
+        }
+        console.warn(
+          '[useAiCompleteCity] Hero assente: nessun generatore Hero automatico disponibile. Completare via Tab Media.',
+        );
+        return 0;
       });
 
       // 7. POI DEEP SCAN

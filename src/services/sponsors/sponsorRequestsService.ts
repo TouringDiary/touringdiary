@@ -171,7 +171,7 @@ export const getSponsorById = async (id: string): Promise<SponsorRequest | null>
 /**
  * Approvazione iniziale admin: pending → waiting_payment (RPC gateway).
  */
-export const updateSponsorStatus = async (id: string, status: 'waiting_payment') => {
+export const updateSponsorStatus = async (id: string) => {
   const { data, error } = await supabase.rpc('approve_sponsor_request', {
     p_request_id: id,
   });

@@ -292,8 +292,6 @@ const ModalManagerClassic = () => {
           user={user}
           activeCityId={activeCityId}
           activeCitySummary={activeCitySummary}
-          onUserUpdate={setUser}
-          onNavigate={handleNavigateGlobal}
         />
       )}
 

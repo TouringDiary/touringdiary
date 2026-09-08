@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { getPoisByCityId } from '../../services/cityService';
 import { calculateDistance } from '../../services/geo';
 import { mergePoisInDb } from '../../services/observatoryService';
-import type { CitySummary, PointOfInterest } from '../../types/index';
+import type { PointOfInterest } from '../../types/index';
 import { getSimilarity } from '../../utils/stringUtils';
 
 export interface DuplicatePair {
@@ -13,7 +13,7 @@ export interface DuplicatePair {
   reasons: string[];
 }
 
-export const useDuplicateFinder = (cityList: CitySummary[]) => {
+export const useDuplicateFinder = () => {
   // State
   const [selectedCityId, setSelectedCityId] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
@@ -140,15 +140,6 @@ export const useDuplicateFinder = (cityList: CitySummary[]) => {
   const handleIgnore = (pairId: string) => {
     setIgnoredPairs((prev) => new Set(prev).add(pairId));
     setDuplicates((prev) => prev.filter((p) => p.id !== pairId));
-  };
-
-  // Per eliminare manualmente uno dei due (se è proprio spazzatura)
-  const handleDelete = async (victim: PointOfInterest, pairId: string) => {
-    // Riutilizziamo la logica di merge ma senza copiare dati? No, meglio avere una delete esplicita nel service.
-    // Per ora nel tool di deduplica, "Delete A" è semanticamente simile a "Merge B into A" ma ignorando i dati di B?
-    // In realtà "Merge" è più sicuro. Se l'utente vuole solo cancellare, può usare "Merge" verso il buono.
-    // Se entrambi sono spazzatura, dovrebbe usare il PoiManager.
-    // Quindi qui NON offriamo delete puro, ma solo Merge.
   };
 
   return {

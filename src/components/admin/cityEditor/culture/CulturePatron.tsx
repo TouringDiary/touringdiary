@@ -1,6 +1,7 @@
 import { Award, Eye, Loader2, Sparkles } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import type { CityEditorContextType } from '@/context/CityEditorContext';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 import { generateCitySection } from '../../../../services/ai';
 import { mergePatronDetailsFromAi } from '../../../../services/city/parsers/content/mergePatronDetailsFromAi';
@@ -11,7 +12,7 @@ import { CulturePatronMainPhotoSection } from './CulturePatronMainPhotoSection';
 
 interface CulturePatronProps {
   city: CityDetails;
-  updateDetailField: (field: keyof CityDetails['details'], value: unknown) => void;
+  updateDetailField: CityEditorContextType['updateDetailField'];
   triggerPreview: (type: 'patron', title: string) => void;
 }
 
@@ -73,11 +74,12 @@ export const CulturePatron: React.FC<CulturePatronProps> = ({
 
   return (
     <div className="bg-slate-900 p-4 md:p-8 rounded-2xl md:rounded-3xl border border-slate-800 shadow-2xl">
-      <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
-        <h3 className="text-lg md:text-2xl font-bold text-white flex items-center gap-2">
-          <Award className="w-5 h-5 md:w-6 md:h-6 text-amber-500" /> Santo Patrono
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 border-b border-slate-800 pb-4">
+        <h3 className="text-lg md:text-2xl font-bold text-white flex items-center gap-2 min-w-0">
+          <Award className="w-5 h-5 md:w-6 md:h-6 text-amber-500 shrink-0" />
+          <span className="truncate">Santo Patrono</span>
         </h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => handleRegeneratePatron(patronStrategy)}

@@ -24,23 +24,32 @@ interface PoiInfoSectionProps {
 }
 
 // Badge Prezzo Compatto - Updated Border to Gold/Amber
-const PriceHeaderBadge = ({ level }: { level: number }) => {
-  const labels = ['Economico', 'Medio', 'Caro', 'Lusso'];
+type PoiPriceLevel = NonNullable<PointOfInterest['priceLevel']>;
+
+const isPoiPriceLevel = (value: PointOfInterest['priceLevel']): value is PoiPriceLevel =>
+  value === 1 || value === 2 || value === 3 || value === 4;
+
+const PRICE_LEVEL_SLOTS = [1, 2, 3, 4] as const satisfies readonly PoiPriceLevel[];
+const PRICE_LEVEL_LABELS: Record<PoiPriceLevel, string> = {
+  1: 'Economico',
+  2: 'Medio',
+  3: 'Caro',
+  4: 'Lusso',
+};
+
+const PriceHeaderBadge = ({ level }: { level: PoiPriceLevel }) => {
   return (
     <div className="flex items-center gap-1.5 bg-slate-900 border border-amber-500/40 rounded-lg px-2 py-0.5 shadow-sm">
       <span className="text-amber-500 font-mono font-bold tracking-widest text-[10px]">
-        {[...Array(level)].map((_, i) => (
-          <span key={i}>€</span>
+        {PRICE_LEVEL_SLOTS.map((slot) => (
+          <span key={slot} className={slot <= level ? 'text-amber-500' : 'text-slate-700'}>
+            €
+          </span>
         ))}
-        <span className="text-slate-700">
-          {[...Array(4 - level)].map((_, i) => (
-            <span key={i}>€</span>
-          ))}
-        </span>
       </span>
       <div className="w-px h-2.5 bg-slate-700"></div>
       <span className="text-[8px] font-black text-slate-400 uppercase tracking-tight">
-        {labels[level - 1]}
+        {PRICE_LEVEL_LABELS[level]}
       </span>
     </div>
   );
@@ -49,6 +58,16 @@ const PriceHeaderBadge = ({ level }: { level: number }) => {
 export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
   const filterSectionLabel10Style = useDynamicStyles('filter_section_title', true);
   const { share } = useShare();
+  const affiliateBtnClass =
+    'flex min-h-11 w-full items-center justify-between rounded-lg border p-2 text-[10px] font-bold uppercase tracking-wide transition-all lg:min-h-0';
+
+  const hasBookableLinks = Boolean(
+    poi.affiliate?.booking ||
+      poi.affiliate?.tripadvisor ||
+      poi.affiliate?.thefork ||
+      poi.affiliate?.getyourguide ||
+      poi.contactInfo?.website,
+  );
 
   const handleAffiliateClick = (e: React.MouseEvent, partner: PartnerType, rawUrl: string) => {
     e.stopPropagation();
@@ -88,14 +107,14 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
       );
 
     const { days = [], morning, afternoon, isEstimated } = poi.openingHours;
-    const timeStr = morning + (afternoon ? ` / ${afternoon}` : '');
+    const timeParts = [morning, afternoon].filter((part): part is string => Boolean(part));
+    const timeStr = timeParts.join(' / ');
 
     // CHECK "CHIUSO PERMANENTEMENTE"
     // Se il testo contiene "chiuso permanentemente", ignoriamo l'array dei giorni e marchiamo tutto chiuso.
     const isPermanentlyClosed =
-      (morning && morning.toLowerCase().includes('chiuso permanentemente')) ||
-      (afternoon && afternoon.toLowerCase().includes('chiuso permanentemente')) ||
-      timeStr.toLowerCase().includes('chiuso permanentemente');
+      morning?.toLowerCase().includes('chiuso permanentemente') ||
+      afternoon?.toLowerCase().includes('chiuso permanentemente');
 
     const weekDaysList = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven'];
     const weekendDaysList = ['Sab', 'Dom'];
@@ -106,6 +125,16 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
     const isWeekdayOpen = !isPermanentlyClosed && weekDaysList.some((d) => activeDays.includes(d));
     const isWeekendOpen =
       !isPermanentlyClosed && weekendDaysList.some((d) => activeDays.includes(d));
+
+    const hasNoActiveDays = !isPermanentlyClosed && !isWeekdayOpen && !isWeekendOpen;
+
+    const getHourBoxTimeLabel = () => {
+      if (isPermanentlyClosed) return 'CHIUSO PERMANENTEMENTE';
+      if (hasNoActiveDays) return 'Non verificato';
+      return timeStr || 'Chiuso';
+    };
+
+    const hourBoxTimeLabel = getHourBoxTimeLabel();
 
     // Helper per classi colori PILLOLE GIORNI
     // Verde = Aperto, Rosso Tenue = Chiuso (Meno aggressivo)
@@ -143,9 +172,15 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
         {/* Orario */}
         <div className="text-center">
           <span
-            className={`font-mono text-[10px] font-bold ${isPermanentlyClosed ? 'text-red-500' : 'text-slate-300'}`}
+            className={`font-bold text-[10px] leading-tight ${
+              isPermanentlyClosed
+                ? 'font-mono text-red-500'
+                : hasNoActiveDays
+                  ? 'text-slate-400 uppercase tracking-wide'
+                  : 'font-mono text-slate-300'
+            }`}
           >
-            {isPermanentlyClosed ? 'CHIUSO PERMANENTEMENTE' : timeStr || 'Chiuso'}
+            {hourBoxTimeLabel}
           </span>
         </div>
       </div>
@@ -158,7 +193,13 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
 
     let verificationBadge = null;
 
-    if (poi.lastVerified) {
+    if (hasNoActiveDays) {
+      verificationBadge = (
+        <span className="flex items-center gap-1 text-[9px] font-black text-slate-400 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-600/40 uppercase tracking-wide">
+          <AlertTriangle className="w-3 h-3" /> Non verificato
+        </span>
+      );
+    } else if (poi.lastVerified) {
       // Caso ideale: Abbiamo la data precisa di verifica
       verificationBadge = (
         <span className="flex items-center gap-1 text-[9px] font-black text-emerald-500 bg-emerald-900/10 px-2 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wide">
@@ -212,20 +253,20 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
   };
 
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar px-5 pb-5 pt-10 md:px-6 md:pb-6 md:pt-12 bg-slate-900 flex flex-col">
+    <div className="flex h-full flex-col overflow-y-auto custom-scrollbar bg-slate-900 px-5 pb-5 pt-10 md:px-6 md:pb-6 md:pt-12 lg:h-auto lg:overflow-visible lg:pb-4 lg:pt-4">
       {/* GRID STRUCTURE */}
-      <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 flex-1">
-        {/* LEFT: DESCRIPTION & TIPS - USING FLEX-1 TO PUSH FOOTER DOWN */}
-        <div className="lg:col-span-2 flex flex-col h-full justify-between">
-          <div className="space-y-4 flex-1">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-1 mb-2">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start lg:gap-4">
+        {/* LEFT: DESCRIPTION & TIPS */}
+        <div className="flex flex-col lg:col-span-2">
+          <div className="space-y-4 lg:space-y-3">
+            <div className="mb-2 flex items-center justify-between border-b border-slate-800 pb-1 lg:mb-1">
               <h4 className={filterSectionLabel10Style}>Descrizione</h4>
               <button
                 type="button"
                 onClick={handleShare}
-                className="text-[10px] font-bold uppercase text-indigo-400 hover:text-white flex items-center gap-1 transition-colors"
+                className="flex min-h-11 items-center gap-1 rounded-lg px-2 text-[10px] font-bold uppercase text-indigo-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 lg:min-h-0 lg:px-0"
               >
-                <Share2 className="w-3 h-3" /> Condividi
+                <Share2 className="w-3 h-3" aria-hidden /> Condividi
               </button>
             </div>
 
@@ -242,32 +283,10 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
               </div>
             )}
           </div>
-
-          {/* LEGAL DISCLAIMER & BUTTON - Pushed to bottom via justify-between/mt-auto */}
-          <div className="mt-auto pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-slate-500">
-            <div className="text-[9px] max-w-sm flex items-start gap-2 leading-snug">
-              <ShieldCheck className="w-4 h-4 shrink-0 opacity-50" />
-              <p>
-                Scheda informativa creata tramite IA e contributi community. I dati potrebbero non
-                essere aggiornati. Touring Diary non è affiliato con questa struttura se non
-                indicato come Sponsor.
-              </p>
-            </div>
-
-            {!poi.isSponsored && onSuggestEdit && (
-              <button
-                type="button"
-                onClick={() => onSuggestEdit(poi.name)}
-                className="flex items-center gap-2 text-[10px] font-bold uppercase text-indigo-400 hover:text-white transition-colors border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-900/20 whitespace-nowrap"
-              >
-                <Flag className="w-3 h-3" /> Segnala o Rivendica
-              </button>
-            )}
-          </div>
         </div>
 
         {/* RIGHT: INFO BOX & AFFILIATES (Compact) */}
-        <div className="space-y-3 flex flex-col h-full">
+        <div className="flex h-full flex-col space-y-3 lg:h-auto lg:space-y-2">
           {/* INFO BOX - VIA DI MEZZO: p-3 */}
           <div className="bg-slate-950/30 rounded-xl border border-slate-800 p-3 shadow-inner">
             {/* HEADER BOX - VIA DI MEZZO: mb-2.5 pb-2 */}
@@ -275,7 +294,7 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
               <h4 className="text-white font-bold text-[11px] uppercase tracking-widest flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-amber-500" /> Info Rapide
               </h4>
-              {poi.priceLevel ? (
+              {isPoiPriceLevel(poi.priceLevel) ? (
                 <PriceHeaderBadge level={poi.priceLevel} />
               ) : (
                 <span className="text-[9px] text-slate-600 font-bold uppercase">Prezzo N/D</span>
@@ -285,7 +304,27 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
             {renderOpeningHoursBoxes()}
           </div>
 
-          {Object.keys(poi.affiliate || {}).length > 0 && (
+          <div className="space-y-2 border-t border-slate-800/50 pt-3 text-slate-500 lg:hidden">
+            <div className="flex items-start gap-2 text-[9px] leading-snug">
+              <ShieldCheck className="h-4 w-4 shrink-0 opacity-50" />
+              <p className="min-w-0 flex-1">
+                Scheda informativa creata tramite IA e contributi community. I dati potrebbero non
+                essere aggiornati. Touring Diary non è affiliato con questa struttura se non
+                indicato come Sponsor.
+              </p>
+            </div>
+            {!poi.isSponsored && onSuggestEdit && (
+              <button
+                type="button"
+                onClick={() => onSuggestEdit(poi.name)}
+                className="flex min-h-11 w-fit items-center gap-2 rounded-lg border border-indigo-500/30 px-3 py-1.5 text-[10px] font-bold uppercase text-indigo-400 transition-colors hover:bg-indigo-900/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+              >
+                <Flag className="h-3 w-3" aria-hidden /> Segnala / Rivendica
+              </button>
+            )}
+          </div>
+
+          {hasBookableLinks && (
             <div className="space-y-1.5 mt-auto pt-2">
               <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1">
                 Prenota Ora
@@ -294,7 +333,7 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
                 <button
                   type="button"
                   onClick={(e) => handleAffiliateClick(e, 'booking', poi.affiliate!.booking!)}
-                  className="w-full bg-[#003580] hover:bg-[#0048a8] text-white p-2 rounded-lg font-bold text-[10px] uppercase tracking-wide flex items-center justify-between transition-all shadow-md border border-white/10"
+                  className={`${affiliateBtnClass} bg-[#003580] text-white shadow-md border-white/10 hover:bg-[#0048a8]`}
                 >
                   <span>Booking.com</span>
                   <Ticket className="w-3.5 h-3.5" />
@@ -306,7 +345,7 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
                   onClick={(e) =>
                     handleAffiliateClick(e, 'tripadvisor', poi.affiliate!.tripadvisor!)
                   }
-                  className="w-full bg-[#00AA6C] hover:bg-[#00c980] text-white p-2 rounded-lg font-bold text-[10px] uppercase tracking-wide flex items-center justify-between transition-all shadow-md border border-white/10"
+                  className={`${affiliateBtnClass} bg-[#00AA6C] text-white shadow-md border-white/10 hover:bg-[#00c980]`}
                 >
                   <span>TripAdvisor</span>
                   <Globe className="w-3.5 h-3.5" />
@@ -316,7 +355,7 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
                 <button
                   type="button"
                   onClick={(e) => handleAffiliateClick(e, 'thefork', poi.affiliate!.thefork!)}
-                  className="w-full bg-[#58902d] hover:bg-[#6fb338] text-white p-2 rounded-lg font-bold text-[10px] uppercase tracking-wide flex items-center justify-between transition-all shadow-md border border-white/10"
+                  className={`${affiliateBtnClass} bg-[#58902d] text-white shadow-md border-white/10 hover:bg-[#6fb338]`}
                 >
                   <span>TheFork</span>
                   <Utensils className="w-3.5 h-3.5" />
@@ -328,7 +367,7 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
                   onClick={(e) =>
                     handleAffiliateClick(e, 'getyourguide', poi.affiliate!.getyourguide!)
                   }
-                  className="w-full bg-[#FF5533] hover:bg-[#ff7755] text-white p-2 rounded-lg font-bold text-[10px] uppercase tracking-wide flex items-center justify-between transition-all shadow-md border border-white/10"
+                  className={`${affiliateBtnClass} bg-[#FF5533] text-white shadow-md border-white/10 hover:bg-[#ff7755]`}
                 >
                   <span>GetYourGuide</span>
                   <Ticket className="w-3.5 h-3.5" />
@@ -338,13 +377,35 @@ export const PoiInfoSection = ({ poi, onSuggestEdit }: PoiInfoSectionProps) => {
                 <button
                   type="button"
                   onClick={(e) => handleAffiliateClick(e, 'website', poi.contactInfo!.website!)}
-                  className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg font-bold text-[10px] uppercase tracking-wide flex items-center justify-between transition-all border border-slate-700 shadow-md"
+                  className={`${affiliateBtnClass} border-slate-700 bg-slate-800 text-slate-300 shadow-md hover:bg-slate-700`}
                 >
                   <span>Sito Ufficiale</span>
                   <RotateCw className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
+          )}
+        </div>
+
+        {/* Desktop: scheda informativa full-width sotto entrambe le colonne */}
+        <div className="hidden min-w-0 flex-col gap-4 border-t border-slate-800 pt-6 text-slate-500 lg:col-span-3 lg:flex lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:pt-3">
+          <div className="flex min-w-0 flex-1 items-start gap-2 text-[9px] leading-snug">
+            <ShieldCheck className="h-4 w-4 shrink-0 opacity-50" />
+            <p>
+              Scheda informativa creata tramite IA e contributi community. I dati potrebbero non
+              essere aggiornati. Touring Diary non è affiliato con questa struttura se non indicato
+              come Sponsor.
+            </p>
+          </div>
+
+          {!poi.isSponsored && onSuggestEdit && (
+            <button
+              type="button"
+              onClick={() => onSuggestEdit(poi.name)}
+              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-indigo-500/30 px-3 py-1.5 text-[10px] font-bold uppercase text-indigo-400 transition-colors hover:bg-indigo-900/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+            >
+              <Flag className="h-3 w-3" aria-hidden /> Segnala / Rivendica
+            </button>
           )}
         </div>
       </div>

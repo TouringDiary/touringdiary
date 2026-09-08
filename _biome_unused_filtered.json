@@ -1,0 +1,890 @@
+[
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "scripts\\_gen_biome_project_sot.cjs",
+    "msg": "This parameter rule is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "scripts\\seed_geo.js",
+    "msg": "This variable cont is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "server\\routes\\auth.routes.ts",
+    "msg": "This parameter req is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "server\\routes\\bootstrap.routes.ts",
+    "msg": "This parameter req is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "server\\routes\\bootstrap.routes.ts",
+    "msg": "This parameter req is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "server\\routes\\bootstrap.routes.ts",
+    "msg": "This parameter req is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "server\\routes\\content.routes.ts",
+    "msg": "This parameter req is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "server\\routes\\health.routes.ts",
+    "msg": "This parameter req is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\AdminCommunications.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\AdminTaxonomyManager.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\NewsTickerManager.tsx",
+    "msg": "This variable isLoading is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\SponsorManager.tsx",
+    "msg": "This variable isLoading is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\affiliations\\AffiliateAnalyticsTab.tsx",
+    "msg": "This parameter customDates is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\affiliations\\AffiliateAnalyticsTab.tsx",
+    "msg": "This parameter i is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\affiliations\\AffiliateAnalyticsTab.tsx",
+    "msg": "This parameter i is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\affiliations\\AffiliateOverviewCard.tsx",
+    "msg": "This parameter customDates is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\cityEditor\\EditorCulture.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\cityEditor\\EditorCulture.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\cityEditor\\EditorGeneral.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\cityEditor\\EditorMedia.tsx",
+    "msg": "This variable isHeroImageValid is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\cityEditor\\culture\\CulturePeople.tsx",
+    "msg": "This parameter i is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\cityEditor\\culture\\CulturePeople.tsx",
+    "msg": "This parameter currentUser is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\cityEditor\\tabs\\TabGeneral.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\design\\SafeArtPanel.tsx",
+    "msg": "This variable setCurrentInstruction is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\design\\SafeArtPanel.tsx",
+    "msg": "This variable setGenPrompt is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\design\\SafeArtPanel.tsx",
+    "msg": "This variable styleMode is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\design\\SafeArtPanel.tsx",
+    "msg": "This variable setStyleMode is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\import\\ImportOsmModal.tsx",
+    "msg": "This parameter type is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\import\\components\\ImportActionToolbar.tsx",
+    "msg": "This parameter analysisProgress is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\import\\components\\ImportActionToolbar.tsx",
+    "msg": "This parameter publishProgress is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\observatory\\ObservatoryFilterDrawer.tsx",
+    "msg": "This variable activeCount is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\observatory\\ObservatoryLayout.tsx",
+    "msg": "This parameter e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\observatory\\ObservatoryLayout.tsx",
+    "msg": "This parameter e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\photos\\PhotoRow.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\poiManager\\BulkFixProgressModal.tsx",
+    "msg": "This variable isCatWorking is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\settings\\PartnerIntegrationsPanel.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\social\\AiBackgroundPanel.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\social\\SocialPreviewConfig.tsx",
+    "msg": "This variable fileInputRef is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\social\\SocialPreviewConfig.tsx",
+    "msg": "This variable showSuccessModal is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\userManager\\EditUserModal.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\admin\\userManager\\UserTable.tsx",
+    "msg": "This parameter currentUserId is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\admin\\userManager\\UserTable.tsx",
+    "msg": "This variable getLegend is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\CityDetailContent.tsx",
+    "msg": "This parameter onBack is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\CityDetailContent.tsx",
+    "msg": "This parameter onRemoveFromItinerary is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\CityHeader.tsx",
+    "msg": "This parameter onOpenSurroundings is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\CityHeader.tsx",
+    "msg": "This parameter onToggleLocation is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\CityHeader.tsx",
+    "msg": "This parameter isLocationActive is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\CityHeader.tsx",
+    "msg": "This parameter idx is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\WeatherWidget.tsx",
+    "msg": "This parameter endDate is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\tabs\\CityCategoryTab.tsx",
+    "msg": "This parameter onToggleLocation is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\tabs\\CityShowcaseTab.tsx",
+    "msg": "This parameter city is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\city\\tabs\\CityShowcaseTab.tsx",
+    "msg": "This parameter onOpenSuggestion is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\features\\diary\\DiaryDay.tsx",
+    "msg": "This parameter day is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\features\\diary\\DiaryDay.tsx",
+    "msg": "This parameter onAddNote is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\features\\diary\\DiaryMemoCard.tsx",
+    "msg": "This parameter isMobile is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\features\\diary\\header\\DiaryHeaderDateRange.tsx",
+    "msg": "This parameter endMinDateStr is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\features\\diary\\notes\\DiaryNotesPanel.tsx",
+    "msg": "This variable deleteTargetTitle is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\features\\diary\\packing_list\\SuitcaseFloatingPanel\\hooks\\useSuitcaseSuggestions.ts",
+    "msg": "This variable setIsLoadingAi is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\features\\diary\\packing_list\\suitcase\\CategorySuggestionPanel.tsx",
+    "msg": "This parameter categoryMap is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\features\\diary\\packing_list\\suitcase\\CategorySuggestionPanel.tsx",
+    "msg": "This parameter placeholders is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\features\\diary\\packing_list\\suitcase\\tabs\\OverrideTab.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\layout\\AppShell.tsx",
+    "msg": "This parameter isUiVisible is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\layout\\MobileNavBar.tsx",
+    "msg": "This parameter onOpenRankings is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\modals\\AiItineraryModal.tsx",
+    "msg": "This variable setLoading is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\modals\\PoiClaimModal.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\modals\\SponsorModal.tsx",
+    "msg": "This variable selectedPlan is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\modals\\UserUpgradeModal.tsx",
+    "msg": "This variable selectedVersionId is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\modals\\sponsor\\SponsorForm.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\myspace\\ViaggioRicordamiControl.tsx",
+    "msg": "This variable yearlyValue is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\shop\\ShopDetailView.tsx",
+    "msg": "This parameter onBack is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\shop\\ShopDetailView.tsx",
+    "msg": "This parameter onAddToItinerary is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\user\\BusinessShopManager.tsx",
+    "msg": "This parameter onBack is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\user\\BusinessShopManager.tsx",
+    "msg": "This variable productsSliderRef is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\user\\dashboard\\UserMessagesTab.tsx",
+    "msg": "This parameter user is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\user\\dashboard\\UserMessagesTab.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\components\\user\\dashboard\\UserReferralTab.tsx",
+    "msg": "This parameter onUpdateUser is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\user\\dashboard\\UserReferralTab.tsx",
+    "msg": "This variable setIsRedeeming is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\components\\user\\dashboard\\UserSettingsTab.tsx",
+    "msg": "This variable setSettingsConfig is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\config\\env.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\context\\BusinessContext.tsx",
+    "msg": "This variable currentOwner is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\context\\BusinessContext.tsx",
+    "msg": "This variable urlIsLegacy is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\context\\ItineraryContext.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\context\\ItineraryContext.tsx",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\data\\ai\\prompts.ts",
+    "msg": "This parameter existingCities is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\data\\ai\\prompts.ts",
+    "msg": "This parameter retryInstruction is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\data\\ai\\prompts.ts",
+    "msg": "This parameter allowedSubcategories is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\data\\ai\\prompts.ts",
+    "msg": "This parameter allowedSubcategories is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\focus\\exitGate\\evaluateExitGate.ts",
+    "msg": "This parameter intent is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\import\\useImportActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\import\\useImportActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\import\\useImportActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\import\\useImportActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\import\\useImportActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\import\\useImportActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\people\\usePeopleAI.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\people\\usePeopleAI.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\people\\usePeopleData.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\people\\usePeopleData.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\useAiCompleteCity.ts",
+    "msg": "This variable err is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\useAiMagicCity.ts",
+    "msg": "This variable cityCenterCoords is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\useAiMagicCity.ts",
+    "msg": "This variable err is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\usePoiActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\usePoiActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\usePoiActions.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\admin\\useSocialTemplates.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\core\\useAppInitialization.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\hooks\\useCityGallery.ts",
+    "msg": "This parameter shareToLive is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\useCityList.ts",
+    "msg": "This variable refreshingIds is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\useCityList.ts",
+    "msg": "This variable setRefreshingIds is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\useDocumentTitle.ts",
+    "msg": "This variable prevTitle is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\hooks\\useSystemMessage.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\ai\\aiVision.ts",
+    "msg": "This variable configError is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\ai\\aiVision.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\ai\\aiVision.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\ai\\aiVision.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\services\\ai\\generators\\cityContentGenerator.ts",
+    "msg": "This parameter existingCities is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\services\\city\\cityCache.ts",
+    "msg": "This parameter ttl is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\city\\cityLifecycleService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\city\\cityLifecycleService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\city\\cityLifecycleService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\city\\cityLifecycleService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\city\\cityLifecycleService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\city\\cityLifecycleService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\city\\cityLifecycleService.ts",
+    "msg": "This variable err is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedFunctionParameters",
+    "path": "src\\services\\city\\poi\\poiMapper.ts",
+    "msg": "This parameter cat is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\community\\itineraryService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\contentService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\contentService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\gamificationService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\importService.ts",
+    "msg": "This variable parseError is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\importService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\importService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\mediaService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\mediaService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\partnerIntegrationService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\photoService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\photoService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\rankingService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\storageService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\storageService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\storageService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\storageService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\storageService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\storageService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\storageService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\storageService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\services\\userService.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  },
+  {
+    "cat": "lint/correctness/noUnusedVariables",
+    "path": "src\\utils\\affiliateNetwork.ts",
+    "msg": "This variable e is unused.",
+    "severity": "warning"
+  }
+]

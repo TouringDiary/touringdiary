@@ -23,7 +23,9 @@ Registrazione architetturale 2026-07-16 — SSOT: `AI_CONTEXT/33_ID_MODEL_DUAL_F
 ### Core Territorial
 *   **`cities`**: Dati anagrafici, coordinate, rating e campi JSON `patron_details` e `ratings`.
 *   **`pois`**: Punti di interesse con metadati AI, campi JSON `opening_hours` e `affiliate`.
-*   **`city_people`**: Personaggi storici/famosi legati alle città.
+*   **`city_people`**: Personaggi famosi (date strutturate, `lifespan_display`; **no** `role`).
+*   **`famous_person_master_categories` / `famous_person_specific_categories`**: SoT tassonomia globale Master→Specific (soft-delete `is_active`+`deleted_at`).
+*   **`city_person_category_links`**: N:M personaggio ↔ Specific.
 *   **`city_events`**: Calendario eventi con campo JSON `metadata`.
 *   **`city_services`**: Servizi di pubblica utilità e servizi essenziali.
 *   **`city_guides`**: Guide turistiche professionali con campo JSON `reviews`.

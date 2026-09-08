@@ -18,6 +18,7 @@ import { useCityEditor } from '@/context/CityEditorContext';
 import { generateCitySection, generateSingleField } from '../../../services/ai';
 import { saveCityDetails } from '../../../services/cityService';
 import type { BadgeType } from '../../../types/index';
+import { CITY_BADGE_VALUES } from '../../../constants/governance';
 import { openMap, toTitleCase } from '../../../utils/common';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import { AiFieldHelper } from '../AiFieldHelper';
@@ -29,6 +30,13 @@ const BADGE_OPTIONS: { value: BadgeType; label: string }[] = [
   { value: 'editor', label: '💎 Scelta Editoriale' },
   { value: 'destination', label: '🏆 Destinazione Top' },
 ];
+
+function isBadgeType(value: string): value is BadgeType {
+  for (const badge of CITY_BADGE_VALUES) {
+    if (badge === value) return true;
+  }
+  return false;
+}
 
 export const EditorGeneral = () => {
   const {
@@ -275,7 +283,7 @@ export const EditorGeneral = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label
               htmlFor="fld-admin-cityeditor-editorgeneral-tsx-l280"
@@ -338,7 +346,16 @@ export const EditorGeneral = () => {
               <select
                 id="fld-admin-cityeditor-editorgeneral-tsx-l319"
                 value={city.specialBadge || ''}
-                onChange={(e) => updateField('specialBadge', e.target.value || null)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    updateField('specialBadge', undefined);
+                    return;
+                  }
+                  if (isBadgeType(raw)) {
+                    updateField('specialBadge', raw);
+                  }
+                }}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white appearance-none cursor-pointer focus:border-amber-500 outline-none font-bold"
               >
                 <option value="">Nessun Badge</option>

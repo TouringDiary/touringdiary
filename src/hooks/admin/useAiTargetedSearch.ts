@@ -1,11 +1,20 @@
+import { POI_SUBCATEGORY_VALUES } from '../../constants/governance';
 import { suggestNewPois } from '../../services/ai';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { saveSinglePoi } from '../../services/cityService';
-import type { PointOfInterest, User } from '../../types/index';
+import type { PointOfInterest, PoiSubCategory } from '../../types/index';
 import type { StepReport, useAiTaskRunner } from './useAiTaskRunner';
 
 // Helper delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const toPoiSubCategory = (value: string | undefined): PoiSubCategory | undefined => {
+  if (!value) return undefined;
+  for (const v of POI_SUBCATEGORY_VALUES) {
+    if (v === value) return v;
+  }
+  return undefined;
+};
 
 export const useAiTargetedSearch = (runner: ReturnType<typeof useAiTaskRunner>) => {
   const { performStep, addLog, resetRunner, stopRunner } = runner;
@@ -14,7 +23,6 @@ export const useAiTargetedSearch = (runner: ReturnType<typeof useAiTaskRunner>) 
     cityId: string,
     cityName: string,
     categoriesToSearch: Record<string, number>,
-    user?: User,
   ) => {
     const steps: StepReport[] = Object.entries(categoriesToSearch).map(([catId, count]) => ({
       step: `Ricerca Mirata: ${catId} (${count} item)`,
@@ -59,25 +67,15 @@ export const useAiTargetedSearch = (runner: ReturnType<typeof useAiTaskRunner>) 
                   id: `draft_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
                   name: pData.name,
                   category: correctCategory,
-                  subCategory: pData.subCategory,
-                  description: pData.description || 'Bozza da validare',
+                  subCategory: toPoiSubCategory(pData.subCategory),
+                  description: pData.description ?? '',
                   imageUrl: '',
-                  coords: { lat: 0, lng: 0 },
-                  rating: 0,
-                  votes: 0,
-                  address: pData.address || `${cityName}, Italia`,
                   cityId: cityId,
                   status: 'draft',
                   dateAdded: new Date().toISOString(),
                   aiReliability: 'low',
-                  tourismInterest: pData.tourismInterest || 'medium', // FIX: Added mapping
-                  lastVerified: new Date().toISOString(), // TIMESTAMP CREAZIONE
-                  openingHours: {
-                    days: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
-                    morning: '09:00 - 20:00',
-                    afternoon: '',
-                    isEstimated: true,
-                  },
+                  ...(pData.address ? { address: pData.address } : {}),
+                  ...(pData.tourismInterest ? { tourismInterest: pData.tourismInterest } : {}),
                 };
                 await saveSinglePoi(newPoi, cityId);
                 savedForCat++;

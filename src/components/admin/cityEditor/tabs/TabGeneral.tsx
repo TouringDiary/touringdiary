@@ -15,6 +15,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
+import { CITY_BADGE_VALUES } from '../../../../constants/governance';
 import { generateCitySection, generateSingleField } from '../../../../services/ai';
 import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
 import { saveCityDetails } from '../../../../services/cityService';
@@ -30,6 +31,13 @@ const BADGE_OPTIONS: { value: BadgeType; label: string }[] = [
   { value: 'editor', label: '💎 SCELTA EDITORIALE' },
   { value: 'destination', label: '🏆 DESTINAZIONE TOP' },
 ];
+
+function isBadgeType(value: string): value is BadgeType {
+  for (const badge of CITY_BADGE_VALUES) {
+    if (badge === value) return true;
+  }
+  return false;
+}
 
 export const TabGeneral = () => {
   const {
@@ -333,7 +341,16 @@ export const TabGeneral = () => {
               <select
                 id="fld-admin-cityeditor-tabs-tabgeneral-tsx-l310"
                 value={city.specialBadge || ''}
-                onChange={(e) => updateField('specialBadge', e.target.value || null)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    updateField('specialBadge', undefined);
+                    return;
+                  }
+                  if (isBadgeType(raw)) {
+                    updateField('specialBadge', raw);
+                  }
+                }}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white appearance-none cursor-pointer focus:border-amber-500 outline-none font-bold uppercase"
               >
                 <option value="">NESSUN BADGE</option>

@@ -718,7 +718,7 @@ export const useSuitcaseItemActions = ({
   );
 
   const handleRemoveFromBlacklist = useCallback(
-    async (rejectionId: string, name: string) => {
+    async (rejectionId: string) => {
       try {
         if (activeTabId && isDraftWorkspaceId(activeTabId)) {
           removeDraftLocalRejectionById(rejectionId);

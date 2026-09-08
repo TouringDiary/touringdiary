@@ -18,7 +18,9 @@ export const GEO_CONFIG = {
   DEFAULT_ZONE: 'Napoli & Area Vesuviana',
   DEFAULT_CITY_NAME: 'Napoli',
 
-  // Configurazione Mappa / Ricerca
-  SEARCH_RADIUS_DEFAULT: 25, // km
+  // Configurazione Mappa / Ricerca geografica
+  // Nearby Cities / Scopri Dintorni / ProvinceModal: max 100 km (decisione PO —
+  // dominio/UX + contenimento carico ricerche e dati correlati). SoT per il massimo.
+  SEARCH_RADIUS_DEFAULT: 25, // km — valore iniziale UI (inferiore al massimo)
   SEARCH_RADIUS_MAX: 100, // km
 };

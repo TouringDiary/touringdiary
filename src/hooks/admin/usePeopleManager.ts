@@ -2,42 +2,36 @@ import { usePeopleAI } from './people/usePeopleAI';
 import { usePeopleData } from './people/usePeopleData';
 
 export const usePeopleManager = (cityId: string, cityName: string) => {
-  // 1. DATA MANAGEMENT (CRUD)
   const dataLogic = usePeopleData(cityId);
 
-  // 2. INTELLIGENCE (AI)
-  // Passiamo lo stato e le funzioni di aggiornamento dal Data Hook all'AI Hook
   const aiLogic = usePeopleAI({
     cityId,
     cityName,
     peopleList: dataLogic.peopleList,
     setPeopleList: dataLogic.setPeopleList,
-    reloadList: dataLogic.reloadList,
+    reloadList: async () => {
+      await dataLogic.reloadList();
+    },
     selectedIds: dataLogic.selectedIds,
     resetSelection: dataLogic.resetSelection,
   });
 
-  // 3. EXPOSE UNIFIED API
-  // Restituiamo un oggetto che combina entrambi gli hook, mantenendo l'interfaccia usata da CulturePeople.tsx
   return {
-    // Data & State
     peopleList: dataLogic.peopleList,
     isLoading: dataLogic.isLoading,
     selectedIds: dataLogic.selectedIds,
     isDeleting: dataLogic.isDeleting,
 
-    // AI State
     processingId: aiLogic.processingId,
     isDiscovering: aiLogic.isDiscovering,
     isBulkProcessing: aiLogic.isBulkProcessing,
     discoveryResults: aiLogic.discoveryResults,
+    fieldGenerating: aiLogic.fieldGenerating,
 
-    // Selection Actions
     toggleSelection: dataLogic.toggleSelection,
     toggleAll: dataLogic.toggleAll,
     resetSelection: dataLogic.resetSelection,
 
-    // CRUD Actions
     addManualPerson: dataLogic.addManualPerson,
     deletePerson: dataLogic.deletePerson,
     updatePersonLocal: dataLogic.updatePersonLocal,
@@ -45,10 +39,11 @@ export const usePeopleManager = (cityId: string, cityName: string) => {
     toggleStatus: dataLogic.toggleStatus,
     reorderPerson: dataLogic.reorderPerson,
 
-    // AI Actions
     bulkUpdateStatus: aiLogic.bulkUpdateStatus,
     wipeAndRewritePerson: aiLogic.wipeAndRewritePerson,
     regeneratePortrait: aiLogic.regeneratePortrait,
+    completeMissingFieldWithAi: aiLogic.completeMissingFieldWithAi,
+    recoverPersonDatesWithAi: aiLogic.recoverPersonDatesWithAi,
     fixPeopleBatch: aiLogic.fixPeopleBatch,
     runDiscovery: aiLogic.runDiscovery,
     importDiscoveryPerson: aiLogic.importDiscoveryPerson,

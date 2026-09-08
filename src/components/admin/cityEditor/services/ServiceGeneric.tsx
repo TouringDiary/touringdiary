@@ -1,143 +1,314 @@
 import { Eye, Loader2, MinusCircle, Plus, Save } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
-import type { CityService } from '@/types';
-import {
-  getBoxIdForType,
-  getServicesConfig,
-  SERVICE_TYPE_MAPPING,
-} from '../../../../constants/services';
-import { suggestCityItems } from '../../../../services/ai';
+import { type SuggestedCityItem, suggestCityItems } from '../../../../services/ai';
 import type { SaveCityServiceInput } from '../../../../services/city/entitiesService';
 import {
   deleteCityService,
   getCityServices,
   saveCityService,
 } from '../../../../services/cityService';
+import type { CityService, CityServiceType } from '../../../../types/index';
+import {
+  SERVICE_TYPE_MAPPING,
+  getBoxIdForType,
+  getServicesConfig,
+} from '../../../../constants/services';
 import { getSafeServiceType } from '../../../../utils/common';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
-import { ServiceAiHunter } from '../../../modals/cityInfo/ServiceAiHunter';
+import { ServiceAiHunter, type ServiceAiResult } from '../../../modals/cityInfo/ServiceAiHunter';
 
-/** Risultato AI Hunter servizi (shape minima usata da import/UI). */
-type ServiceAiResult = {
-  name: string;
-  type?: string;
-  contact?: string;
-  category?: string;
-  description?: string;
-  url?: string;
-  address?: string;
+const CITY_SERVICE_TYPES: string[] = [
+  'airport',
+  'train',
+  'bus',
+  'taxi',
+  'maritime',
+  'emergency',
+  'pharmacy',
+  'other',
+  'transport',
+  'info',
+  'hospital',
+  'police',
+  'fire',
+  'atm',
+  'post',
+  'luggage',
+  'water',
+  'consulate',
+];
+
+type EditableServiceField =
+  | 'name'
+  | 'contact'
+  | 'category'
+  | 'description'
+  | 'url'
+  | 'address'
+  | 'type';
+
+const isCityServiceType = (value: string): value is CityServiceType =>
+  CITY_SERVICE_TYPES.includes(value as CityServiceType);
+
+const toCityServiceType = (raw: string): CityServiceType => {
+  const safe = getSafeServiceType(raw);
+  return isCityServiceType(safe) ? safe : 'other';
 };
 
-type EditableServiceField = 'type' | 'name' | 'contact' | 'description' | 'url' | 'address';
+const readOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+
+const mapSuggestedToServiceAiResult = (item: SuggestedCityItem): ServiceAiResult | null => {
+  const name = typeof item.name === 'string' ? item.name.trim() : '';
+  if (!name) return null;
+  return {
+    name,
+    type: readOptionalString(item.type),
+    contact: readOptionalString(item.contact),
+    category: readOptionalString(item.category),
+    description: readOptionalString(item.description),
+    url: readOptionalString(item.url),
+    address: readOptionalString(item.address),
+  };
+};
+
+const nextOrderIndexForBox = (boxServices: CityService[]): number => {
+  const maxOrder = boxServices.reduce((max, s) => {
+    const val = s.orderIndex;
+    return typeof val === 'number' && Number.isFinite(val) ? Math.max(max, val) : max;
+  }, 0);
+  return maxOrder + 1;
+};
 
 export const ServiceGeneric = () => {
   const { city, triggerPreview, reloadCurrentCity } = useCityEditor();
 
-  // Recupera config dinamica
   const SERVICE_BOXES = getServicesConfig();
 
-  // Data State
   const [servicesList, setServicesList] = useState<CityService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // AI Hunter State (Renamed to match standard)
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [serviceResults, setServiceResults] = useState<ServiceAiResult[]>([]);
   const [serviceQuery, setServiceQuery] = useState('');
   const [discoveryCount, setDiscoveryCount] = useState(3);
   const [serviceTarget, setServiceTarget] = useState('generic');
 
-  // Delete State
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
-    if (city?.id) loadData();
-  }, [city?.id, city?.updatedAt]);
+  // Draft degli indici di ordinamento in fase di editing
+  const [orderDrafts, setOrderDrafts] = useState<Record<string, string>>({});
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!city?.id) return;
     setIsLoading(true);
     try {
       const data = await getCityServices(city.id);
-      setServicesList(data.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)));
+      const dbServices = [...data].sort((a, b) => {
+        const orderA = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : Number.MAX_SAFE_INTEGER;
+        const orderB = typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex) ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      });
+
+      // Preserva i servizi locali temporanei non ancora salvati per la città corrente
+      setServicesList((prev) => {
+        const localDrafts = prev.filter((s) => s.id.startsWith('new-') && s.cityId === city.id);
+        return [...dbServices, ...localDrafts];
+      });
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
     }
+  }, [city?.id]);
+
+  useEffect(() => {
+    if (!city?.id) return;
+    void loadData();
+    // Pulisce lo stato locale dei servizi quando cambia città per sicurezza
+    return () => {
+      setServicesList([]);
+      setOrderDrafts({});
+    };
+  }, [city?.id, loadData]);
+
+  const getServicesForBox = (boxId: string) => {
+    return servicesList
+      .filter((s) => getBoxIdForType(s.type) === boxId)
+      .sort((a, b) => {
+        const orderA = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : Number.MAX_SAFE_INTEGER;
+        const orderB = typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex) ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      });
   };
 
-  // CRUD Operations
-  const handleAddService = async (boxId: string) => {
-    // SERVICE_TYPE_MAPPING espone `val: string`; il dominio richiede CityService['type'].
-    const defaultType = (SERVICE_TYPE_MAPPING[boxId]?.types[0]?.val ||
-      'other') as CityService['type'];
-    const temp = {
-      name: 'Nuovo Servizio',
+  const handleAddService = (boxId: string) => {
+    if (!city?.id || isSaving) return;
+    const firstVal = SERVICE_TYPE_MAPPING[boxId]?.types[0]?.val;
+    const defaultType = firstVal ? toCityServiceType(firstVal) : 'other';
+    const boxServices = getServicesForBox(boxId);
+
+    // Genera un ID fittizio per l'editing locale temporaneo usando slice()
+    const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const temp: CityService & { cityId?: string } = {
+      id: tempId,
+      cityId: city.id,
+      name: '', // Nome vuoto, l'utente lo deve compilare prima di salvare
       type: defaultType,
       contact: '',
       category: 'Utilità',
       description: '',
       url: '',
       address: '',
-      orderIndex: servicesList.length + 1,
+      orderIndex: nextOrderIndexForBox(boxServices),
     };
-    await saveCityService(city!.id, temp);
-    loadData();
-    reloadCurrentCity();
+
+    setServicesList((prev) => [...prev, temp]);
   };
 
-  const handleSave = async (item: SaveCityServiceInput) => {
-    await saveCityService(city!.id, item);
-    loadData();
+  const handleSave = async (id: string, item: CityService) => {
+    if (!city?.id || isSaving) return;
+    if (!item.name?.trim()) {
+      alert('Il nome del servizio è obbligatorio.');
+      return;
+    }
+
+    setIsSaving(true);
+    const payload: SaveCityServiceInput = {
+      id: id.startsWith('new-') ? undefined : id,
+      name: item.name.trim(),
+      type: item.type,
+      contact: item.contact ?? '',
+      category: item.category ?? 'Utilità',
+      description: item.description ?? '',
+      url: item.url ?? '',
+      address: item.address ?? '',
+      orderIndex: item.orderIndex,
+    };
+
+    try {
+      await saveCityService(city.id, payload);
+      // Rimuove l'id temporaneo prima di ricaricare dal DB
+      setServicesList((prev) => prev.filter((p) => p.id !== id));
+      await loadData();
+      await reloadCurrentCity();
+    } catch (e) {
+      console.error(e);
+      alert('Errore durante il salvataggio del servizio.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleUpdate = (id: string, field: EditableServiceField, val: string) => {
     setServicesList((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
-        if (field === 'type') return { ...p, type: val as CityService['type'] };
+        if (field === 'type') return { ...p, type: toCityServiceType(val) };
         return { ...p, [field]: val };
       }),
     );
   };
 
+  const handleDeleteClick = (id: string, name: string) => {
+    if (id.startsWith('new-')) {
+      setServicesList((prev) => prev.filter((p) => p.id !== id));
+    } else {
+      setDeleteTarget({ id, name });
+    }
+  };
+
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    await deleteCityService(deleteTarget.id);
-    setDeleteTarget(null);
-    loadData();
-    reloadCurrentCity();
+    if (!deleteTarget || isSaving) return;
+    setIsSaving(true);
+    try {
+      await deleteCityService(deleteTarget.id);
+      setDeleteTarget(null);
+      await loadData();
+      await reloadCurrentCity();
+    } catch (e) {
+      console.error(e);
+      alert('Errore durante eliminazione.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleReorder = async (id: string, newRankStr: string) => {
-    const newRank = parseInt(newRankStr, 10);
-    if (Number.isNaN(newRank) || newRank < 1) return;
+  const handleReorder = async (id: string, newRank: number) => {
+    if (!city?.id || isSaving) return;
+    setIsSaving(true);
 
-    const list = [...servicesList];
-    const itemIndex = list.findIndex((i) => i.id === id);
-    if (itemIndex === -1) return;
+    const target = servicesList.find((i) => i.id === id);
+    if (!target) {
+      setIsSaving(false);
+      return;
+    }
 
-    const [item] = list.splice(itemIndex, 1);
-    const insertIndex = Math.min(Math.max(0, newRank - 1), list.length);
-    list.splice(insertIndex, 0, item);
+    const boxId = getBoxIdForType(target.type);
+    const boxList = getServicesForBox(boxId);
+    const itemIndex = boxList.findIndex((i) => i.id === id);
+    if (itemIndex === -1) {
+      setIsSaving(false);
+      return;
+    }
 
-    const updated = list.map((p, idx) => ({ ...p, orderIndex: idx + 1 }));
-    setServicesList(updated);
+    const backupList = [...servicesList];
 
-    for (const p of updated) await saveCityService(city!.id, p);
+    const reordered = [...boxList];
+    const [item] = reordered.splice(itemIndex, 1);
+    const insertIndex = Math.min(Math.max(0, newRank - 1), reordered.length);
+    reordered.splice(insertIndex, 0, item);
+
+    const updatedBox = reordered.map((p, idx) => ({ ...p, orderIndex: idx + 1 }));
+    setServicesList((prev) => prev.map((s) => updatedBox.find((u) => u.id === s.id) ?? s));
+
+    try {
+      for (const p of updatedBox) {
+        // Se un elemento è temporaneo, lo saltiamo nel riordino DB
+        if (!p.id.startsWith('new-')) {
+          await saveCityService(city.id, p);
+        }
+      }
+      await loadData();
+      await reloadCurrentCity();
+    } catch (e) {
+      console.error(e);
+      alert('Errore durante il riordino. Ricarico lo stato attuale.');
+      setServicesList(backupList);
+      await loadData();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const getServicesForBox = (boxId: string) => {
-    return servicesList
-      .filter((s) => getBoxIdForType(s.type) === boxId)
-      .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+  const handleOrderChange = (id: string, value: string) => {
+    setOrderDrafts((prev) => ({ ...prev, [id]: value }));
   };
 
-  // AI Hunter Logic
+  const handleOrderCommit = async (id: string) => {
+    const draft = orderDrafts[id];
+    if (draft === undefined) return;
+
+    setOrderDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+
+    const newRank = parseInt(draft, 10);
+    if (Number.isNaN(newRank) || newRank < 1) {
+      await loadData();
+      return;
+    }
+
+    await handleReorder(id, newRank);
+  };
+
   const handleDiscovery = async () => {
-    setIsDiscovering(true); // FIXED: Using standardized setter
+    if (!city?.name || isSaving) return;
+    setIsDiscovering(true);
     let finalContext = '';
     if (serviceTarget !== 'generic') {
       const targetLabel = SERVICE_BOXES.find((b) => b.id === serviceTarget)?.label;
@@ -147,24 +318,31 @@ export const ServiceGeneric = () => {
     try {
       const existingNames = servicesList.map((i) => i.name);
       const results = await suggestCityItems(
-        city!.name,
+        city.name,
         'services',
         existingNames,
         finalContext + serviceQuery,
         discoveryCount,
       );
-      setServiceResults(results);
+      setServiceResults(
+        results
+          .map(mapSuggestedToServiceAiResult)
+          .filter((mapped): mapped is ServiceAiResult => mapped !== null),
+      );
     } catch (e) {
       console.error(e);
+      alert('Errore durante la ricerca AI.');
     } finally {
       setIsDiscovering(false);
-    } // FIXED
+    }
   };
 
   const handleImport = async (item: ServiceAiResult) => {
-    const normalizedType = (
-      item.type ? getSafeServiceType(String(item.type)) : 'other'
-    ) as CityService['type'];
+    if (!city?.id || isSaving) return;
+    setIsSaving(true);
+    const normalizedType = item.type ? toCityServiceType(item.type) : 'other';
+    const boxId = getBoxIdForType(normalizedType);
+    const boxServices = getServicesForBox(boxId);
     const payload: SaveCityServiceInput = {
       name: item.name,
       type: normalizedType,
@@ -173,12 +351,19 @@ export const ServiceGeneric = () => {
       description: item.description,
       url: item.url,
       address: item.address,
-      orderIndex: servicesList.length + 1,
+      orderIndex: nextOrderIndexForBox(boxServices),
     };
-    await saveCityService(city!.id, payload);
-    setServiceResults((prev) => prev.filter((x) => x.name !== item.name));
-    loadData();
-    reloadCurrentCity();
+    try {
+      await saveCityService(city.id, payload);
+      setServiceResults((prev) => prev.filter((x) => x.name !== item.name));
+      await loadData();
+      await reloadCurrentCity();
+    } catch (e) {
+      console.error(e);
+      alert("Errore durante l'importazione.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading)
@@ -198,14 +383,12 @@ export const ServiceGeneric = () => {
         message={`Eliminare "${deleteTarget?.name}"?`}
       />
 
-      {/* Header con Anteprima */}
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-bold text-white text-lg">Servizi Essenziali</h3>
         <button
           type="button"
-          // UPDATED: Passa 'services' e la lista corrente
           onClick={() => triggerPreview('services', 'Servizi Pubblici', servicesList)}
-          className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center gap-2 text-xs font-bold uppercase"
+          className="min-h-11 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center gap-2 text-xs font-bold uppercase"
         >
           <Eye className="w-4 h-4" /> Anteprima
         </button>
@@ -218,7 +401,7 @@ export const ServiceGeneric = () => {
         onDiscoveryCountChange={setDiscoveryCount}
         serviceQuery={serviceQuery}
         onServiceQueryChange={setServiceQuery}
-        discoveringServices={isDiscovering} // FIXED: Passing state correctly
+        discoveringServices={isDiscovering}
         onDiscovery={handleDiscovery}
         serviceResults={serviceResults}
         onImport={handleImport}
@@ -231,7 +414,7 @@ export const ServiceGeneric = () => {
             key={box.id}
             className="bg-slate-950 rounded-2xl border border-slate-800 flex flex-col h-[350px] overflow-hidden"
           >
-            <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex flex-col gap-2 sticky top-0 z-floating-panel">
+            <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <box.icon className={`w-4 h-4 ${box.color}`} />
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wide truncate max-w-[120px]">
@@ -242,7 +425,8 @@ export const ServiceGeneric = () => {
                 <button
                   type="button"
                   onClick={() => handleAddService(box.id)}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded-full text-white shadow-md text-[10px] font-bold uppercase flex items-center gap-1"
+                  disabled={isSaving}
+                  className="min-h-11 px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded-full text-white shadow-md text-[10px] font-bold uppercase flex items-center gap-1 disabled:opacity-50"
                 >
                   <Plus className="w-3 h-3" /> Nuovo
                 </button>
@@ -250,50 +434,63 @@ export const ServiceGeneric = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
-              {getServicesForBox(box.id).map((svc, idx) => (
-                // FIX: Use robust key (id or unique string)
-                <div
-                  key={svc.id || `svc-item-${box.id}-${idx}`}
-                  className="bg-slate-900 p-3 rounded-lg border border-slate-800 group relative hover:border-slate-700 transition-colors flex gap-2 items-start"
-                >
-                  <div className="w-8 shrink-0">
-                    <input
-                      type="number"
-                      min="1"
-                      value={svc.orderIndex || idx + 1}
-                      onChange={(e) => handleReorder(svc.id!, e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded text-center text-white text-xs font-bold py-1"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-end gap-2 mb-2 border-b border-slate-800 pb-1">
-                      <button
-                        type="button"
-                        onClick={() => handleSave(svc)}
-                        className="text-emerald-500 hover:text-white p-1 hover:bg-slate-800 rounded"
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget({ id: svc.id!, name: svc.name })}
-                        className="text-slate-600 hover:text-red-500 p-1 hover:bg-slate-800 rounded"
-                      >
-                        <MinusCircle className="w-3.5 h-3.5" />
-                      </button>
+              {getServicesForBox(box.id).map((svc, idx) => {
+                const currentOrder = typeof svc.orderIndex === 'number' && Number.isFinite(svc.orderIndex) ? svc.orderIndex : idx + 1;
+                const draftVal =
+                  orderDrafts[svc.id] !== undefined
+                    ? orderDrafts[svc.id]
+                    : String(currentOrder);
+
+                return (
+                  <div
+                    key={svc.id}
+                    className="bg-slate-900 p-3 rounded-lg border border-slate-800 group relative hover:border-slate-700 transition-colors flex gap-2 items-start"
+                  >
+                    <div className="w-8 shrink-0">
+                      <input
+                        type="number"
+                        min="1"
+                        value={draftVal}
+                        onChange={(e) => handleOrderChange(svc.id, e.target.value)}
+                        onBlur={() => handleOrderCommit(svc.id)}
+                        disabled={isSaving}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded text-center text-white text-xs font-bold py-1 min-h-11 disabled:opacity-50"
+                      />
                     </div>
-                    <div className="mb-2">
-                      <select
-                        value={svc.type}
-                        onChange={(e) => handleUpdate(svc.id!, 'type', e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[10px] text-slate-300 focus:outline-none focus:border-blue-500 uppercase font-bold text-left"
-                      >
-                        {Object.entries(SERVICE_TYPE_MAPPING).map(([key, rawGroup]) => {
-                          const group = rawGroup as {
-                            label: string;
-                            types: { val: string; label: string }[];
-                          };
-                          return (
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-end gap-2 mb-2 border-b border-slate-800 pb-1">
+                        <button
+                          type="button"
+                          aria-label={`Salva ${svc.name || 'Nuovo'}`}
+                          onClick={() => handleSave(svc.id, svc)}
+                          disabled={isSaving}
+                          className="text-emerald-500 hover:text-white min-h-11 min-w-11 inline-flex items-center justify-center p-1 hover:bg-slate-800 rounded disabled:opacity-50"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Elimina ${svc.name || 'Nuovo'}`}
+                          onClick={() => handleDeleteClick(svc.id, svc.name)}
+                          disabled={isSaving}
+                          className="text-slate-600 hover:text-red-500 min-h-11 min-w-11 inline-flex items-center justify-center p-1 hover:bg-slate-800 rounded disabled:opacity-50"
+                        >
+                          <MinusCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="mb-2">
+                        <select
+                          value={svc.type}
+                          onChange={(e) => handleUpdate(svc.id, 'type', e.target.value)}
+                          disabled={isSaving}
+                          className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[10px] text-slate-300 focus:outline-none focus:border-blue-500 uppercase font-bold text-left min-h-11 disabled:opacity-50"
+                        >
+                          {Object.entries(SERVICE_TYPE_MAPPING).map(([key, group]) => (
                             <optgroup key={key} label={group.label}>
                               {group.types.map((t) => (
                                 <option key={t.val} value={t.val}>
@@ -301,19 +498,20 @@ export const ServiceGeneric = () => {
                                 </option>
                               ))}
                             </optgroup>
-                          );
-                        })}
-                      </select>
+                          ))}
+                        </select>
+                      </div>
+                      <input
+                        value={svc.name}
+                        onChange={(e) => handleUpdate(svc.id, 'name', e.target.value)}
+                        disabled={isSaving}
+                        className="bg-transparent font-bold text-white w-full outline-none text-xs border-b border-transparent focus:border-blue-500 pb-0.5 mb-1 text-left disabled:opacity-50"
+                        placeholder="Nome..."
+                      />
                     </div>
-                    <input
-                      value={svc.name}
-                      onChange={(e) => handleUpdate(svc.id!, 'name', e.target.value)}
-                      className="bg-transparent font-bold text-white w-full outline-none text-xs border-b border-transparent focus:border-blue-500 pb-0.5 mb-1 text-left"
-                      placeholder="Nome..."
-                    />
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}

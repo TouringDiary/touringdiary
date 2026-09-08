@@ -1,67 +1,53 @@
 import type { DatabaseCityInsert, Json } from '../../types/database';
 import type { AiZoneSuggestion, CityDeleteOptions } from '../../types/index';
-import type { Database } from '../../types/supabase';
 import { orphanCityStaging, reclaimStagingByCityName } from '../stagingService';
 import { supabase } from '../supabaseClient';
 import { ensureZoneExists } from '../zoneService';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
 import { resolveCanonicalCityId } from './cityIdService';
 
-/** Generated Update types omit null for nullable FK columns; cast when clearing FK at runtime. */
-const nullCityFkUpdate = <
-  T extends 'shops' | 'city_people' | 'pois' | 'pois_staging',
->(): Database['public']['Tables'][T]['Update'] =>
-  ({ city_id: null }) as unknown as Database['public']['Tables'][T]['Update'];
+
+const throwOnError = (
+  error: { message: string } | null | undefined,
+  context: string,
+): void => {
+  if (error) {
+    throw new Error(`[CityLifecycle] ${context}: ${error.message}`);
+  }
+};
 
 export const reclaimOrphanedItems = async (cityId: string, cityName: string) => {
   // 0. RECLAIM STAGING OSM
   await reclaimStagingByCityName(cityName, cityId);
 
-  // 1. RECLAIM FOTO (FIX: Aggiorna anche location_name per consistenza filtri)
-  //
-  // ARCHITETTURA — reclaim euristico:
-  // `photo_submissions` orfane hanno `city_id = null`; l'unica colonna di collocazione
-  // disponibile è `location_name` (testo libero). Non esiste un identificatore più
-  // affidabile (slug città, FK tipizzata, ecc.) utilizzabile in questo stato.
-  // Il match `ilike('%{cityName}%')` resta quindi intenzionalmente euristico e può
-  // produrre false positive (es. "Via Roma", "Roma Nord"). Non stringere qui senza
-  // un contratto dati più forte sul lato submissions.
-  await supabase
+  // 1. RECLAIM FOTO (Preserve status/moderation state, do not overwrite location_name, conservative exact match)
+  const { error: photoError } = await supabase
     .from('photo_submissions')
     .update({
       city_id: cityId,
-      location_name: cityName, // Allinea il nome location al nuovo nome città
-      status: 'approved',
       updated_at: new Date().toISOString(),
     })
     .is('city_id', null)
-    .ilike('location_name', `%${cityName}%`)
+    .ilike('location_name', cityName)
     .select('id');
+  throwOnError(photoError, 'reclaim photo_submissions failed');
 
-  // 3. RECLAIM SHOPS
-  await supabase
-    .from('shops')
-    .update({ city_id: cityId })
-    .is('city_id', null)
-    .ilike('address', `%${cityName}%`);
+  // 3. RECLAIM SHOPS: removed as shops.city_id is NOT NULL (no orphans exist)
 
   // 4. RECLAIM SPONSORS (RPC gateway — DL-022)
   const { error: relinkError } = await supabase.rpc('relink_orphaned_sponsors_to_city', {
     p_city_id: cityId,
     p_city_name: cityName,
   });
-  if (relinkError) {
-    console.warn('[CityLifecycle] relink_orphaned_sponsors_to_city failed:', relinkError.message);
-  }
+  throwOnError(relinkError, 'relink_orphaned_sponsors_to_city failed');
 
-  // 5. RECLAIM POI
-  await supabase
+  // 5. RECLAIM POI (Conservative match requiring a comma separator before city name to avoid false positives)
+  const { error: poisError } = await supabase
     .from('pois')
     .update({ city_id: cityId })
     .is('city_id', null)
-    .ilike('address', `%${cityName}%`);
-
-  // 6. PEOPLE - skipped as per original logic
+    .ilike('address', `%, ${cityName}%`);
+  throwOnError(poisError, 'reclaim pois failed');
 };
 
 export const deleteCity = async (
@@ -69,94 +55,142 @@ export const deleteCity = async (
   options: CityDeleteOptions,
   cityName: string,
 ): Promise<void> => {
-  // PRE-CLEANUP (Staging Orphans con Tagging Sicuro)
-  try {
-    await orphanCityStaging(cityId, cityName);
-  } catch (e) {
-    console.warn('Orphaning staging failed', e);
-  }
+  // Non-atomic client cascade: no DB RPC for full city delete exists.
+  // Steps run sequentially; a mid-flight failure leaves prior deletions applied.
+  // Callers must treat thrown errors as partial-delete and retry/reconcile.
+
+  // PRE-CLEANUP (Staging Orphans con Tagging Sicuro) — mandatory pre-condition to avoid FK violations
+  await orphanCityStaging(cityId, cityName);
 
   // 1. MEDIA
-  try {
-    if (options.keepUserPhotos) {
-      await supabase
-        .from('photo_submissions')
-        .update({ city_id: null, status: 'city_deleted', updated_at: new Date().toISOString() })
-        .eq('city_id', cityId);
-    } else {
-      await supabase.from('photo_submissions').delete().eq('city_id', cityId);
-    }
-  } catch (e) {}
+  if (options.keepUserPhotos) {
+    const { error } = await supabase
+      .from('photo_submissions')
+      .update({ city_id: null, status: 'city_deleted', updated_at: new Date().toISOString() })
+      .eq('city_id', cityId);
+    throwOnError(error, 'orphan photo_submissions failed');
+  } else {
+    const { error } = await supabase.from('photo_submissions').delete().eq('city_id', cityId);
+    throwOnError(error, 'delete photo_submissions failed');
+  }
 
-  // 2. BUSINESS — sponsor: transizione Da ricollegare (DL-022), mai DELETE
-  try {
-    const { error: sponsorDetachError } = await supabase.rpc('handle_city_deleted_for_sponsors', {
-      p_city_id: cityId,
-    });
-    if (sponsorDetachError) {
-      console.warn(
-        '[CityLifecycle] handle_city_deleted_for_sponsors failed:',
-        sponsorDetachError.message,
-      );
-    }
+  // 2. BUSINESS — SPONSORS & NO ACTION FK NULLING
+  // Nullify FKs on sponsors linked to this city's guides, operators, POIs, or shops
+  // to avoid ON DELETE NO ACTION violations on sponsors.guide_id, sponsors.operator_id, etc.
+  const { error: sponsorsNullError } = await supabase
+    .from('sponsors')
+    .update({
+      guide_id: null,
+      operator_id: null,
+      poi_id: null,
+      shop_id: null,
+    })
+    .eq('city_id', cityId);
+  throwOnError(sponsorsNullError, 'nulling sponsors FKs failed');
 
-    if (options.keepShops) {
-      await supabase.from('shops').update(nullCityFkUpdate<'shops'>()).eq('city_id', cityId);
-    } else {
-      const { data: shops } = await supabase.from('shops').select('id').eq('city_id', cityId);
-      if (shops && shops.length > 0) {
-        const shopIds = shops.map((s) => s.id);
-        await supabase.from('shop_products').delete().in('shop_id', shopIds);
-        await supabase.from('shops').delete().eq('city_id', cityId);
-      }
-    }
-  } catch (e) {}
+  // Detach sponsors from the city via the SECURITY DEFINER RPC (DL-022)
+  // This transitions active sponsors of this city to 'Da ricollegare' by setting city_id = null and last_city_id = city_id.
+  const { error: sponsorDetachError } = await supabase.rpc('handle_city_deleted_for_sponsors', {
+    p_city_id: cityId,
+  });
+  throwOnError(sponsorDetachError, 'handle_city_deleted_for_sponsors failed');
 
-  // 3. PEOPLE
-  try {
-    if (options.keepPeople) {
-      await supabase
-        .from('city_people')
-        .update(nullCityFkUpdate<'city_people'>())
-        .eq('city_id', cityId);
-    } else {
-      await supabase.from('city_people').delete().eq('city_id', cityId);
-    }
-  } catch (e) {}
+  // Always delete shops because shops.city_id is NOT NULL (cannot be orphaned).
+  // Associated shop_products are automatically deleted via DB ON DELETE CASCADE.
+  const { error: shopsDeleteError } = await supabase
+    .from('shops')
+    .delete()
+    .eq('city_id', cityId);
+  throwOnError(shopsDeleteError, 'delete shops failed');
+
+  // 3. PEOPLE — city_id NOT NULL: always DELETE (no keepPeople / no orphan).
+  // Delete photo reports, photo suggestions, and person suggestions first to prevent ON DELETE RESTRICT violations on person_id.
+  const { error: photoReportsDeleteError } = await supabase
+    .from('famous_person_photo_reports')
+    .delete()
+    .eq('city_id', cityId);
+  throwOnError(photoReportsDeleteError, 'delete famous_person_photo_reports failed');
+
+  const { error: photoSuggestionsDeleteError } = await supabase
+    .from('famous_person_photo_suggestions')
+    .delete()
+    .eq('city_id', cityId);
+  throwOnError(photoSuggestionsDeleteError, 'delete famous_person_photo_suggestions failed');
+
+  const { error: personSuggestionsDeleteError } = await supabase
+    .from('famous_person_suggestions')
+    .delete()
+    .eq('city_id', cityId);
+  throwOnError(personSuggestionsDeleteError, 'delete famous_person_suggestions failed');
+
+  const { error: peopleError } = await supabase
+    .from('city_people')
+    .delete()
+    .eq('city_id', cityId);
+  if (peopleError) {
+    throw new Error(
+      `[CityLifecycle] Impossibile eliminare i personaggi della città (${cityId}): ${peopleError.message}.`,
+    );
+  }
 
   // 4. POI
-  try {
-    const { data: pois } = await supabase.from('pois').select('id').eq('city_id', cityId);
-    if (pois && pois.length > 0) {
-      const poiIds = pois.map((p) => p.id);
+  const { data: pois, error: poisSelectError } = await supabase
+    .from('pois')
+    .select('id')
+    .eq('city_id', cityId);
+  throwOnError(poisSelectError, 'select pois failed');
 
-      if (options.keepPOIs) {
-        await supabase.from('pois').update(nullCityFkUpdate<'pois'>()).eq('city_id', cityId);
-      } else {
-        await supabase.from('reviews').delete().in('poi_id', poiIds);
-        await supabase.from('suggestions').delete().in('poi_id', poiIds);
-        await supabase.from('pois').delete().eq('city_id', cityId);
-      }
+  if (pois && pois.length > 0) {
+    const poiIds = pois.map((p) => p.id);
+
+    if (options.keepPOIs) {
+      const { error } = await supabase
+        .from('pois')
+        .update({ city_id: null })
+        .eq('city_id', cityId);
+      throwOnError(error, 'orphan pois failed');
+    } else {
+      const { error: reviewsError } = await supabase.from('reviews').delete().in('poi_id', poiIds);
+      throwOnError(reviewsError, 'delete reviews failed');
+
+      const { error: suggestionsError } = await supabase
+        .from('suggestions')
+        .delete()
+        .in('poi_id', poiIds);
+      throwOnError(suggestionsError, 'delete suggestions failed');
+
+      const { error: poisDeleteError } = await supabase.from('pois').delete().eq('city_id', cityId);
+      throwOnError(poisDeleteError, 'delete pois failed');
     }
-  } catch (e) {}
+  }
 
   // 5. DIPENDENZE SEMPLICI
-  try {
-    await supabase.from('city_events').delete().eq('city_id', cityId);
-    await supabase.from('city_services').delete().eq('city_id', cityId);
-    await supabase.from('city_guides').delete().eq('city_id', cityId);
-    await supabase.from('city_tour_operators').delete().eq('city_id', cityId);
-  } catch (e) {}
+  const { error: eventsError } = await supabase.from('city_events').delete().eq('city_id', cityId);
+  throwOnError(eventsError, 'delete city_events failed');
 
-  // 6. CANCELLAZIONE CITTÀ
-  clearCacheKey('manifest');
-  invalidateCityCache(cityId);
+  const { error: servicesError } = await supabase
+    .from('city_services')
+    .delete()
+    .eq('city_id', cityId);
+  throwOnError(servicesError, 'delete city_services failed');
 
+  const { error: guidesError } = await supabase.from('city_guides').delete().eq('city_id', cityId);
+  throwOnError(guidesError, 'delete city_guides failed');
+
+  const { error: operatorsError } = await supabase
+    .from('city_tour_operators')
+    .delete()
+    .eq('city_id', cityId);
+  throwOnError(operatorsError, 'delete city_tour_operators failed');
+
+  // 6. CANCELLAZIONE CITTÀ (cache solo dopo successo)
   const { error } = await supabase.from('cities').delete().eq('id', cityId);
-
   if (error) {
     throw error;
   }
+
+  clearCacheKey('manifest');
+  invalidateCityCache(cityId);
 };
 
 export const importRegionalData = async (
@@ -183,18 +217,23 @@ export const importRegionalData = async (
         zoneCount++;
         logs.push(result.log);
       }
-    } catch (e) {
+    } catch {
       logs.push(`[Error] Fallita creazione zona ${zone.name}`);
     }
   }
 
-  const { data: existingDbCities } = await supabase.from('cities').select('id, name, visitors');
+  const { data: existingDbCities, error: existingCitiesError } = await supabase
+    .from('cities')
+    .select('id, name, visitors, admin_region');
+  throwOnError(existingCitiesError, 'select existing cities failed');
 
   const existingMap = new Map<string, { id: string; visitors: number }>();
   if (existingDbCities) {
-    existingDbCities.forEach((c) =>
-      existingMap.set(c.name.toLowerCase().trim(), { id: c.id, visitors: c.visitors || 0 }),
-    );
+    for (const c of existingDbCities) {
+      const reg = c.admin_region || '';
+      const key = `${c.name.toLowerCase().trim()}::${reg.toLowerCase().trim()}`;
+      existingMap.set(key, { id: c.id, visitors: c.visitors || 0 });
+    }
   }
 
   for (const zone of zones) {
@@ -203,14 +242,15 @@ export const importRegionalData = async (
       const isSelected = selectedSet.has(normalizedName);
 
       if (isSelected) {
-        const existing = existingMap.get(normalizedName);
+        const key = `${normalizedName}::${adminRegion.toLowerCase().trim()}`;
+        const existing = existingMap.get(key);
 
         try {
           if (existing) {
             const shouldUpdateVisitors =
               city.visitors > existing.visitors || existing.visitors === 0;
             if (shouldUpdateVisitors) {
-              await supabase
+              const { error: updateError } = await supabase
                 .from('cities')
                 .update({
                   visitors: city.visitors,
@@ -218,8 +258,7 @@ export const importRegionalData = async (
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', existing.id);
-
-              cityCount++;
+              throwOnError(updateError, `update city ${city.name} failed`);
             }
 
             await reclaimOrphanedItems(existing.id, city.name);
@@ -230,10 +269,14 @@ export const importRegionalData = async (
             try {
               newId = await resolveCanonicalCityId(city.name, adminRegion);
             } catch (err: unknown) {
-              logs.push(
-                `[Skip] La città ${city.name} è stata saltata: non presente in cities_registry.`,
-              );
-              continue; // Salta questa città se non è nel registro
+              const errMsg = err instanceof Error ? err.message : String(err);
+              if (errMsg.includes('CITY_NOT_IN_REGISTRY') || errMsg.includes('CITY_NAME_EMPTY')) {
+                logs.push(
+                  `[Skip] La città ${city.name} è stata saltata: non presente in cities_registry.`,
+                );
+                continue; // Salta questa città se non è nel registro
+              }
+              throw new Error(`[CityLifecycle] Errore tecnico nella risoluzione ID per ${city.name}: ${errMsg}`);
             }
 
             const payload: DatabaseCityInsert = {
@@ -244,16 +287,18 @@ export const importRegionalData = async (
               status: 'draft',
               image_url: 'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1200',
               visitors: city.visitors,
-              coords_lat: 0,
-              coords_lng: 0,
+              coords_lat: null,
+              coords_lng: null,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               generation_logs: [] as Json,
             };
 
-            await supabase.from('cities').insert(payload);
+            const { error: insertError } = await supabase.from('cities').insert(payload);
+            throwOnError(insertError, `insert city ${city.name} failed`);
+
             cityCount++;
-            existingMap.set(normalizedName, { id: newId, visitors: city.visitors });
+            existingMap.set(`${normalizedName}::${adminRegion.toLowerCase().trim()}`, { id: newId, visitors: city.visitors });
 
             await reclaimOrphanedItems(newId, city.name);
             createdItems.push({ id: newId, name: city.name });
@@ -269,8 +314,4 @@ export const importRegionalData = async (
 
   clearCacheKey('manifest');
   return { createdZones: zoneCount, createdCities: cityCount, logs, createdItems };
-};
-
-export const seedNapoliData = async () => {
-  return true;
 };

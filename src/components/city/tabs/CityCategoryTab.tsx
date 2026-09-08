@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { useItinerary } from '@/context/ItineraryContext';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { listUserFavorites } from '@/services/myspace/userFavoritesService';
 import { useInteraction } from '../../../context/InteractionContext';
 import { useDynamicStyles } from '../../../hooks/useDynamicStyles';
 import { calculateDistance } from '../../../services/geo';
@@ -41,6 +42,11 @@ const CATEGORY_TO_TAB_MAP: Record<string, string> = {
   shop: 'shopping',
   discovery: 'novita',
 };
+
+/** Chip toolbar City — tipografia, altezza e allineamento condivisi (Contribuisci / Ordina / Filtri idle). */
+const CITY_TOOLBAR_CHIP =
+  'h-11 shrink-0 px-4 rounded-xl border border-slate-700 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider leading-none flex items-center justify-center gap-2 shadow-sm transition-all hover:bg-slate-800 hover:border-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50';
+const CITY_TOOLBAR_CHIP_ICON = 'w-3.5 h-3.5 shrink-0 block';
 
 /** Coordinate usabili per distance sort: finite; solo (0,0) è placeholder. */
 function hasUsableCoords(
@@ -112,6 +118,19 @@ interface CityCategoryTabProps {
 type SortOption = 'votes' | 'rating' | 'name' | 'interest' | 'price';
 type SortDirection = 'asc' | 'desc';
 
+function getInterestScore(interest?: string): number {
+  switch (interest) {
+    case 'high':
+      return 3;
+    case 'medium':
+      return 2;
+    case 'low':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 export const CityCategoryTab = ({
   sourceList,
   activeSponsors,
@@ -158,6 +177,7 @@ export const CityCategoryTab = ({
     minRating: number;
     interest: string;
     priceLevel: number[];
+    favoritesOnly: boolean;
   }>({
     status: 'all',
     category: currentCategory,
@@ -165,7 +185,11 @@ export const CityCategoryTab = ({
     minRating: 0,
     interest: 'all',
     priceLevel: [],
+    favoritesOnly: false,
   });
+
+  /** ID POI nei preferiti dell'utente — stessa pipeline di Ordina/Filtri. */
+  const [favoritePoiIds, setFavoritePoiIds] = useState<Set<string>>(() => new Set());
 
   // Filtriamo gli sponsor per Tier
   const goldSponsors = useMemo(
@@ -186,9 +210,29 @@ export const CityCategoryTab = ({
       minRating: 0,
       interest: 'all',
       priceLevel: [],
+      // favoritesOnly resta attivo tra tab: stesso scope Preferiti sulla categoria corrente
     }));
     setSearchTerm('');
   }, [currentCategory]);
+
+  // Carica ID preferiti POI (MySpace bookmark) per l'utente autenticato
+  useEffect(() => {
+    const userId = user?.role === 'guest' ? null : user?.id;
+    if (!userId) {
+      setFavoritePoiIds(new Set());
+      setAdvancedFilters((prev) => (prev.favoritesOnly ? { ...prev, favoritesOnly: false } : prev));
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const list = await listUserFavorites(userId);
+      if (cancelled) return;
+      setFavoritePoiIds(new Set(list.filter((f) => f.entityKind === 'poi').map((f) => f.entityId)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.role]);
 
   // Dropdown States
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -228,6 +272,15 @@ export const CityCategoryTab = ({
       return;
     }
     toggleLike(poi.id);
+  };
+
+  const handleFavoriteChange = (poiId: string, isFavorite: boolean) => {
+    setFavoritePoiIds((prev) => {
+      const next = new Set(prev);
+      if (isFavorite) next.add(poiId);
+      else next.delete(poiId);
+      return next;
+    });
   };
 
   // Slot sponsor mobile: mostra la card se lo sponsor esiste, altrimenti il
@@ -283,7 +336,8 @@ export const CityCategoryTab = ({
     advancedFilters.subCategory.length +
     (advancedFilters.minRating > 0 ? 1 : 0) +
     (advancedFilters.interest !== 'all' ? 1 : 0) +
-    (advancedFilters.priceLevel.length > 0 ? 1 : 0);
+    (advancedFilters.priceLevel.length > 0 ? 1 : 0) +
+    (advancedFilters.favoritesOnly ? 1 : 0);
 
   // Placeholder contestuale alla tab corrente (es. "Cerca Destinazioni...").
   const searchPlaceholder =
@@ -300,20 +354,8 @@ export const CityCategoryTab = ({
       minRating: 0,
       interest: 'all',
       priceLevel: [],
+      favoritesOnly: false,
     }));
-  };
-
-  const getInterestScore = (interest?: string) => {
-    switch (interest) {
-      case 'high':
-        return 3;
-      case 'medium':
-        return 2;
-      case 'low':
-        return 1;
-      default:
-        return 0;
-    }
   };
 
   const handleSortChange = (key: SortOption) => {
@@ -326,8 +368,11 @@ export const CityCategoryTab = ({
   };
 
   // --- FILTER & SORT LOGIC ---
+  // Preferiti = pre-filtro sullo stesso sourceList; Ordina/Filtri agiscono sul risultato.
   const filteredList = useMemo(() => {
     const result = sourceList.filter((poi) => {
+      if (advancedFilters.favoritesOnly && !favoritePoiIds.has(poi.id)) return false;
+
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         const matchName = (poi.name || '').toLowerCase().includes(term);
@@ -395,24 +440,7 @@ export const CityCategoryTab = ({
           return 0;
       }
     });
-  }, [sourceList, searchTerm, sortBy, sortDir, advancedFilters, referencePoint]);
-
-  const getSortLabel = () => {
-    switch (sortBy) {
-      case 'votes':
-        return 'Popolarità';
-      case 'rating':
-        return 'Valutazione'; // RENAMED
-      case 'name':
-        return 'A-Z';
-      case 'interest':
-        return 'Top Interest';
-      case 'price':
-        return 'Prezzo';
-      default:
-        return 'Ordina';
-    }
-  };
+  }, [sourceList, searchTerm, sortBy, sortDir, advancedFilters, referencePoint, favoritePoiIds]);
 
   const SortItem = ({
     id,
@@ -459,6 +487,12 @@ export const CityCategoryTab = ({
         availableItems={sourceList}
         hideStatus={true}
         hideCategory={true}
+        enableFavoritesFilter={true}
+        canUseFavorites={Boolean(user && user.role !== 'guest')}
+        onRequireAuthForFavorites={() => {
+          setIsFilterDrawerOpen(false);
+          onOpenAuth();
+        }}
       />
 
       {/* HEADER CONTROLLI (2 RIGHE) - RELATIVE SU MOBILE PER SCROLLARE VIA */}
@@ -478,10 +512,10 @@ export const CityCategoryTab = ({
                 type="button"
                 ref={contribBtnRef}
                 onClick={() => setShowContribMenu(!showContribMenu)}
-                className="h-11 shrink-0 max-md:w-11 max-md:px-0 w-auto whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-500 border border-slate-700 hover:border-amber-500/50 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 shadow-sm px-4 md:w-auto"
+                className={`${CITY_TOOLBAR_CHIP} max-md:w-11 max-md:px-0 w-auto whitespace-nowrap md:w-auto`}
                 aria-label="Contribuisci"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className={CITY_TOOLBAR_CHIP_ICON} aria-hidden />
                 <span className="hidden md:inline">Contribuisci</span>
               </button>
               <AnchoredPopover
@@ -531,10 +565,10 @@ export const CityCategoryTab = ({
                 <button
                   type="button"
                   onClick={() => setShowSortMenu(!showSortMenu)}
-                  className="h-11 shrink-0 w-auto px-4 rounded-xl border flex items-center justify-center gap-2 transition-all bg-slate-900 border-slate-700 text-slate-300 hover:text-white"
+                  className={`${CITY_TOOLBAR_CHIP} w-auto`}
                 >
-                  <ArrowDownAZ className="w-4 h-4" />
-                  <span className="hidden md:inline text-[10px] font-bold uppercase">Ordina</span>
+                  <ArrowDownAZ className={CITY_TOOLBAR_CHIP_ICON} aria-hidden />
+                  <span className="hidden md:inline">Ordina</span>
                 </button>
                 {showSortMenu && (
                   <div className="absolute top-full right-0 mt-2 w-48 z-local-flyout bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1 animate-in zoom-in-95 origin-top-right">
@@ -552,30 +586,37 @@ export const CityCategoryTab = ({
                 )}
               </div>
 
-              {/* FILTERS — open drawer + optional reset as sibling controls (no nested button) */}
-              <div
-                className={`shrink-0 h-11 flex items-stretch rounded-xl border overflow-hidden transition-all text-[10px] font-bold uppercase tracking-wider md:flex-none ${activeFilterCount > 0 ? 'bg-indigo-600 border-indigo-500 text-white shadow-md' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsFilterDrawerOpen(true)}
-                  className={`h-full min-h-[44px] px-4 flex items-center justify-center gap-2 transition-all ${activeFilterCount > 0 ? 'hover:bg-indigo-500/80' : 'hover:text-white'}`}
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden />
-                  <span className="hidden md:inline">Filtri</span>
-                  {activeFilterCount > 0 && `(${activeFilterCount})`}
-                </button>
-                {activeFilterCount > 0 && (
+              {/* FILTERS — stesso chip di Ordina/Contribuisci; reset come sibling se attivi */}
+              {activeFilterCount > 0 ? (
+                <div className="shrink-0 h-11 flex items-center rounded-xl border border-indigo-500 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider leading-none overflow-hidden shadow-md">
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterDrawerOpen(true)}
+                    className="h-full px-4 flex items-center justify-center gap-2 transition-all hover:bg-indigo-500/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-inset"
+                  >
+                    <SlidersHorizontal className={CITY_TOOLBAR_CHIP_ICON} aria-hidden />
+                    <span className="hidden md:inline">Filtri</span>
+                    <span aria-hidden>({activeFilterCount})</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleResetFilters}
                     aria-label="Azzera filtri"
-                    className="h-full min-h-[44px] min-w-[44px] px-2 flex items-center justify-center border-l border-white/20 hover:bg-white/20 transition-colors"
+                    className="h-full min-w-[44px] px-2 flex items-center justify-center border-l border-white/20 hover:bg-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-inset"
                   >
                     <X className="w-3 h-3" aria-hidden />
                   </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  className={`${CITY_TOOLBAR_CHIP} w-auto`}
+                >
+                  <SlidersHorizontal className={CITY_TOOLBAR_CHIP_ICON} aria-hidden />
+                  <span className="hidden md:inline">Filtri</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -676,6 +717,7 @@ export const CityCategoryTab = ({
               onOpenAuth={onOpenAuth}
               onOpenReview={onOpenReview}
               onAdminEdit={onAdminEdit}
+              onFavoriteChange={handleFavoriteChange}
             />
 
             {/* MOBILE SPONSOR BLOCK (Only visible on small screens) */}

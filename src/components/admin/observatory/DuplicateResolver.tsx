@@ -118,8 +118,7 @@ export const DuplicateResolver = ({
     scanCity,
     handleMerge,
     handleIgnore,
-  } = useDuplicateFinder(filteredManifest); // Passiamo la lista filtrata, anche se l'hook non la usa direttamente per logica, ma potrebbe
-
+  } = useDuplicateFinder();
   // Mostra solo la prima coppia per volta (Queue Mode)
   const currentPair = duplicates[0];
   const isLoadingManifest = !cityManifest || cityManifest.length === 0;

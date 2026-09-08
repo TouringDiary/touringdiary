@@ -80,14 +80,7 @@ const DEFAULT_RATINGS = {
 };
 
 export const EditorRatings = () => {
-  const {
-    city,
-    setCityDirectly,
-    triggerPreview,
-    updateField,
-    updateDetailField,
-    reloadCurrentCity,
-  } = useCityEditor();
+  const { city, triggerPreview, updateDetailField, reloadCurrentCity } = useCityEditor();
   const [generating, setGenerating] = useState(false);
   const [ratingInstructions, setRatingInstructions] = useState('');
   const [showConfirmRegen, setShowConfirmRegen] = useState(false);
@@ -218,12 +211,9 @@ export const EditorRatings = () => {
       </div>
 
       <div className="mb-8 p-4 bg-slate-950/50 border border-purple-500/20 rounded-xl">
-        <label
-          htmlFor="fld-admin-cityeditor-editorratings-tsx-l221"
-          className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 block"
-        >
+        <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 block">
           Strategia AI
-        </label>
+        </div>
         <AiFieldHelper
           contextLabel="strategia di valutazione"
           onApply={(val) => setRatingInstructions(val)}
@@ -247,25 +237,31 @@ export const EditorRatings = () => {
               {cat.title}
             </h4>
             <div className="space-y-4">
-              {cat.keys.map((key) => (
-                <div key={key}>
-                  <div className="flex justify-between text-xs font-bold text-slate-400 mb-1">
-                    <span className="uppercase truncate max-w-[70%]">
-                      {RATING_LABELS[key] || key.replace('_', ' ')}
-                    </span>
-                    <span className="text-white">{city.details.ratings[key] || 0}</span>
+              {cat.keys.map((key) => {
+                const inputId = `fld-admin-cityeditor-editorratings-${key}`;
+                return (
+                  <div key={key}>
+                    <div className="flex justify-between text-xs font-bold text-slate-400 mb-1">
+                      <label
+                        htmlFor={inputId}
+                        className="uppercase truncate max-w-[70%] cursor-pointer"
+                      >
+                        {RATING_LABELS[key] || key.replace('_', ' ')}
+                      </label>
+                      <span className="text-white">{city.details.ratings[key] || 0}</span>
+                    </div>
+                    <input
+                      id={inputId}
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={city.details.ratings[key] || 0}
+                      onChange={(e) => updateRatingValue(key, parseInt(e.target.value, 10))}
+                      className="w-full accent-emerald-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    />
                   </div>
-                  <input
-                    id="fld-admin-cityeditor-editorratings-tsx-l221"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={city.details.ratings[key] || 0}
-                    onChange={(e) => updateRatingValue(key, parseInt(e.target.value, 10))}
-                    className="w-full accent-emerald-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}

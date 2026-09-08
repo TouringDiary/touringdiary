@@ -8,6 +8,7 @@ import {
 } from '@/components/admin/adminCityEditNav';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { getPendingReviewCount, getPendingSuggestionCount } from '../../services/communityService';
+import { getPendingFamousPeopleAdminCount } from '../../services/famousPerson/famousPersonAdminCountsService';
 import { getPendingPatronSaintAdminCount } from '../../services/patron/patronAdminCountsService';
 import { getPendingPhotoCount } from '../../services/photoService';
 import { getSponsorStats } from '../../services/sponsorService';
@@ -78,6 +79,9 @@ const AdminAssetLibrary = React.lazy(() =>
 const AdminPatronSaintManager = React.lazy(() =>
   import('./AdminPatronSaintManager').then((m) => ({ default: m.AdminPatronSaintManager })),
 );
+const AdminFamousPeopleManager = React.lazy(() =>
+  import('./AdminFamousPeopleManager').then((m) => ({ default: m.AdminFamousPeopleManager })),
+);
 const AiLimitsControlCenter = React.lazy(() =>
   import('./AiLimitsControlCenter').then((m) => ({ default: m.AiLimitsControlCenter })),
 );
@@ -114,6 +118,7 @@ const ADMIN_SECTIONS = [
   'osm_import',
   'events_global',
   'patron_saint',
+  'famous_people',
   'users',
   'sponsors',
   'photos',
@@ -174,19 +179,27 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     reviews: 0,
     photos: 0,
     patronSaint: 0,
+    famousPeople: 0,
   });
   const refreshGenerationRef = useRef(0);
 
   const refreshCounts = useCallback(async () => {
     const generation = ++refreshGenerationRef.current;
-    const [sponsorResult, suggestionsResult, reviewsResult, photosResult, patronSaintResult] =
-      await Promise.allSettled([
-        getSponsorStats(),
-        getPendingSuggestionCount(),
-        getPendingReviewCount(),
-        getPendingPhotoCount(),
-        getPendingPatronSaintAdminCount(),
-      ]);
+    const [
+      sponsorResult,
+      suggestionsResult,
+      reviewsResult,
+      photosResult,
+      patronSaintResult,
+      famousPeopleResult,
+    ] = await Promise.allSettled([
+      getSponsorStats(),
+      getPendingSuggestionCount(),
+      getPendingReviewCount(),
+      getPendingPhotoCount(),
+      getPendingPatronSaintAdminCount(),
+      getPendingFamousPeopleAdminCount(),
+    ]);
     if (generation !== refreshGenerationRef.current) return;
 
     setCounts((prev) => {
@@ -221,6 +234,12 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
         next.patronSaint = patronSaintResult.value;
       } else {
         console.error('Error refreshing patron saint counts', patronSaintResult.reason);
+      }
+
+      if (famousPeopleResult.status === 'fulfilled') {
+        next.famousPeople = famousPeopleResult.value;
+      } else {
+        console.error('Error refreshing famous people counts', famousPeopleResult.reason);
       }
 
       return next;
@@ -264,6 +283,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     osm_import: 'Import OSM',
     events_global: 'Eventi Globali',
     patron_saint: 'Santo Patrono',
+    famous_people: 'Personaggi Famosi',
     users: 'Utenti',
     sponsors: 'Sponsor',
     photos: 'Foto',
@@ -320,7 +340,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
       case 'comms':
         return <AdminCommunications />;
       case 'suggestions':
-        return <SuggestionManager onUserUpdate={onUserUpdate} />;
+        return <SuggestionManager />;
       case 'cities':
         return <CitiesManager onEdit={setEditingCityId} currentUser={currentUser} />;
       case 'osm_import':
@@ -329,6 +349,8 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
         return <GlobalEventsManager />;
       case 'patron_saint':
         return <AdminPatronSaintManager />;
+      case 'famous_people':
+        return <AdminFamousPeopleManager />;
       case 'itineraries':
         return <ItineraryManager />;
       case 'gamification':

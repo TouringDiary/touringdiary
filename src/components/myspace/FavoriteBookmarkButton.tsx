@@ -22,6 +22,8 @@ interface Props {
    * Passarlo solo per wording specifico di superficie (es. «Città preferita» su card/header città).
    */
   titleWhenFavorite?: string;
+  /** Notifica il parent dopo un toggle riuscito (es. filtro Preferiti sulla lista City). */
+  onFavoriteChange?: (isFavorite: boolean) => void;
 }
 
 /**
@@ -35,6 +37,7 @@ export const FavoriteBookmarkButton: React.FC<Props> = ({
   className = '',
   size = 'md',
   titleWhenFavorite,
+  onFavoriteChange,
 }) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(Boolean(userId));
@@ -89,6 +92,7 @@ export const FavoriteBookmarkButton: React.FC<Props> = ({
       }
       if (requestUserId === userId && requestKind === entityKind && requestEntityId === entityId) {
         setIsFavorite(result.isFavorite);
+        onFavoriteChange?.(result.isFavorite);
       }
     } finally {
       if (requestUserId === userId && requestKind === entityKind && requestEntityId === entityId) {

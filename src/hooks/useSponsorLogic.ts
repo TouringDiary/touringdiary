@@ -73,7 +73,7 @@ export const useSponsorLogic = () => {
 
   // Filtri & Paginazione
   const [filters, setFilters] = useState<GeoFilters>({});
-  const [sortConfig, setSortConfig] = useState<SortConfig<SponsorRequest>>({
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'date',
     direction: 'desc',
   });
@@ -223,11 +223,13 @@ export const useSponsorLogic = () => {
       // ogni pagina mostra solo i match. Coerente senza query aggiuntive.
       if (queryStatus === 'approved') {
         rows = await enrichSponsorsWithRatings(rows);
+        if (isStale()) return;
         if (onlyBelowRatingThreshold) {
           rows = rows.filter((r) => isBelowRatingThreshold(r.rating, ratingThresholdRef.current));
         }
       }
 
+      if (isStale()) return;
       setRequests(rows);
       setTotalItems(count || 0);
     } catch (error) {
@@ -245,10 +247,15 @@ export const useSponsorLogic = () => {
     setStats(statsData);
   }, []);
 
-  const refreshData = useCallback(() => {
-    fetchData();
-    fetchStats();
-  }, [fetchData, fetchStats]);
+  // Identità stabile: le effect di trigger non devono rieseguire solo perché fetchData cambia.
+  const fetchDataRef = useRef(fetchData);
+  fetchDataRef.current = fetchData;
+  const fetchStatsRef = useRef(fetchStats);
+  fetchStatsRef.current = fetchStats;
+
+  const refreshData = useCallback(async () => {
+    await Promise.all([fetchDataRef.current(), fetchStatsRef.current()]);
+  }, []);
 
   useEffect(() => {
     fetchGeoOptions();
@@ -259,18 +266,30 @@ export const useSponsorLogic = () => {
   }, []);
 
   // --- STABILIZZAZIONE FETCH ---
-  // Effect A: paginazione / ordinamento → sempre refresh
-  // Effect B: tab / filtri / ricerca → reset page (se > 1) oppure refresh (se già page 1)
-  // Mount: solo Effect A esegue refresh; Effect B salta il primo ciclo (evita fetch doppio).
-  // ratingThreshold: ref in fetchData (no churn identity); Effect C rifetch solo se filtro sotto-soglia attivo.
+  // Effect A: paginazione / pageSize / ordinamento
+  // Effect B: tab / filtri / ricerca (reset page → Effect A; se già page 1 → refresh qui)
+  // Effect C: solo cambio ratingThreshold (gate via ref: evita doppio fetch con Effect B)
   const skipStructuralRefreshOnceRef = useRef(true);
+  const pageResetFromStructuralRef = useRef(false);
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const onlyBelowRatingThresholdRef = useRef(onlyBelowRatingThreshold);
+  onlyBelowRatingThresholdRef.current = onlyBelowRatingThreshold;
 
   useEffect(() => {
-    refreshData();
+    // Trigger espliciti: refreshData è identity-stable; senza questi deps il reload non partirebbe.
+    void page;
+    void pageSize;
+    void sortConfig;
+    void refreshData();
   }, [page, pageSize, sortConfig, refreshData]);
 
   useEffect(() => {
+    void activeTab;
+    void appliedFilters;
+    void searchTerm;
     if (page !== 1) {
+      pageResetFromStructuralRef.current = true;
       setPage(1);
       return;
     }
@@ -278,15 +297,18 @@ export const useSponsorLogic = () => {
       skipStructuralRefreshOnceRef.current = false;
       return;
     }
-    refreshData();
+    // Reset page da Effect B: Effect A ha già (o sta per) caricare la nuova pagina 1.
+    if (pageResetFromStructuralRef.current) {
+      pageResetFromStructuralRef.current = false;
+      return;
+    }
+    void refreshData();
   }, [activeTab, appliedFilters, searchTerm, page, refreshData]);
 
-  // Solo al cambio soglia Configuration Source: tab/filtro letti dallo scope corrente
-  // per evitare doppio fetch con Effect B (appliedFilters già include onlyBelowRatingThreshold).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intenzionale — solo ratingThreshold (+ refreshData)
   useEffect(() => {
-    if (activeTab !== 'approved' || !onlyBelowRatingThreshold) return;
-    refreshData();
+    void ratingThreshold;
+    if (activeTabRef.current !== 'approved' || !onlyBelowRatingThresholdRef.current) return;
+    void refreshData();
   }, [ratingThreshold, refreshData]);
   // --- FINE STABILIZZAZIONE FETCH ---
 

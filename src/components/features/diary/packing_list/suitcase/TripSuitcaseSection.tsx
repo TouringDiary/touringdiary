@@ -28,7 +28,6 @@ export const TripSuitcaseSection: React.FC<TripSuitcaseSectionProps> = ({
   onOpenSuitcase,
   onViewSuitcase,
   onUnlinkSuitcase,
-  onDeleteSuitcase,
   onUseSuggested,
   onDismissSuggested,
   currentUser,

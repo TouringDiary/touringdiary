@@ -34,20 +34,30 @@ export const UserToolbar = ({
   onRefresh,
   isLoading,
 }: Props) => {
+  const filteredCountLabel = filteredCount === 1 ? '1 utente' : `${filteredCount} utenti`;
+
   return (
-    <div className="flex flex-col md:flex-row gap-3 w-full animate-in fade-in">
-      <div className="relative group flex-1 md:min-w-[250px]">
-        <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5 group-focus-within:text-indigo-500 transition-colors" />
-        <input
-          type="text"
-          placeholder="Cerca nome o email..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none placeholder:text-slate-600"
-        />
+    <div className="flex flex-col md:flex-row gap-3 w-full animate-in fade-in items-stretch md:items-center">
+      <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="relative group flex-1 md:min-w-[200px] min-w-0">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5 group-focus-within:text-indigo-500 transition-colors" />
+          <input
+            type="text"
+            placeholder="Cerca nome o email..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none placeholder:text-slate-600"
+          />
+        </div>
+        <p
+          className="shrink-0 px-1 sm:px-0 text-xs font-bold text-slate-400 tabular-nums whitespace-nowrap"
+          aria-live="polite"
+        >
+          {filteredCountLabel}
+        </p>
       </div>
 
-      <div className="flex gap-2 flex-wrap md:flex-nowrap justify-end">
+      <div className="flex gap-2 flex-wrap md:flex-nowrap justify-start md:justify-end">
         <div className="relative">
           <FlaskConical className="w-4 h-4 text-slate-500 absolute left-3 top-2.5 pointer-events-none" />
           <select

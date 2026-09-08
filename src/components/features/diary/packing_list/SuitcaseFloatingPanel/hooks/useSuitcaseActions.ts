@@ -52,12 +52,7 @@ interface ActionsProps {
   fetchLinkedIds: () => Promise<void>;
   fetchUserSuitcases: () => void | Promise<void>;
   setUserSuitcases: Dispatch<SetStateAction<Suitcase[]>>;
-  cloneSuitcase: (
-    tempId: string,
-    itId: string | null,
-    userId: string,
-    title?: string,
-  ) => Promise<string>;
+  cloneSuitcase: (suitcaseId: string, userId: string, title?: string) => Promise<string>;
   unlinkSuitcase: (itId: string, scId: string) => Promise<void>;
   deleteSuitcase: (scId: string) => Promise<void>;
   updateSuitcase: (scId: string, updates: Partial<Suitcase>) => Promise<void>;
@@ -204,7 +199,7 @@ export const useSuitcaseActions = ({
       if (newTitle?.startsWith('Template ')) {
         newTitle = newTitle.replace('Template ', 'Valigia ');
       }
-      await cloneSuitcase(templateId, null, userId, newTitle);
+      await cloneSuitcase(templateId, userId, newTitle);
       const draftSc = getGuestSuitcase();
       if (draftSc && resolvedTemplate !== template) {
         saveGuestSuitcase({

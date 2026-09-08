@@ -131,7 +131,6 @@ export const SuitcaseEditorView: React.FC<SuitcaseEditorViewProps> = ({
   onDeleteItem,
   onAddItem,
   onUpdateSuitcase,
-  onUpdateSuitcaseLocal,
   onSeedAi,
   onOpenBlacklist,
   autoOpenNewCategory,

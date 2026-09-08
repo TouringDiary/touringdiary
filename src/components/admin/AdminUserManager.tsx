@@ -13,11 +13,12 @@ import { UserToolbar } from './userManager/UserToolbar';
 
 interface AdminUserManagerProps {
   currentUser: User;
+  onUserUpdate?: (user: User) => void;
 }
 
 type SortKey = keyof User;
 
-export const AdminUserManager = ({ currentUser }: AdminUserManagerProps) => {
+export const AdminUserManager = ({ currentUser, onUserUpdate }: AdminUserManagerProps) => {
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -94,9 +95,12 @@ export const AdminUserManager = ({ currentUser }: AdminUserManagerProps) => {
     setShowCreateModal(false);
   };
 
-  const handleEditSuccess = async (name: string) => {
+  const handleEditSuccess = async (updatedUser: User) => {
     await handleRefreshList();
-    showToast(`Utente ${name} aggiornato correttamente.`, 'success');
+    if (onUserUpdate && updatedUser.id === currentUser.id) {
+      onUserUpdate(updatedUser);
+    }
+    showToast(`Utente ${updatedUser.name} aggiornato correttamente.`, 'success');
     setEditingUser(null);
   };
 
@@ -107,12 +111,17 @@ export const AdminUserManager = ({ currentUser }: AdminUserManagerProps) => {
     }
 
     const newStatus: UserStatus = user.status === 'active' ? 'suspended' : 'active';
+    const updatedUser: User = { ...user, status: newStatus };
 
     setIsLoading(true);
 
-    await updateUser({ ...user, status: newStatus });
+    await updateUser(updatedUser);
 
     await handleRefreshList();
+
+    if (onUserUpdate && updatedUser.id === currentUser.id) {
+      onUserUpdate(updatedUser);
+    }
 
     showToast(
       `Utente ${user.name} ${newStatus === 'active' ? 'riattivato' : 'sospeso'}`,

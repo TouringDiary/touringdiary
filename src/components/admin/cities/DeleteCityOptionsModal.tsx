@@ -1,6 +1,7 @@
 import { AlertTriangle, Image, Info, MapPin, ShoppingCart, Trash2, Users, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useId } from 'react';
 import type { CityDeleteOptions } from '../../../types/index';
+import { useGlobalModalEscape } from '../../../hooks/useGlobalModalEscape';
 
 interface Props {
   isOpen: boolean;
@@ -11,14 +12,16 @@ interface Props {
 
 const DEFAULT_OPTIONS: CityDeleteOptions = {
   keepUserPhotos: true,
-  keepShops: true,
-  keepPeople: true,
+  keepShops: false,
   keepPOIs: false,
 };
 
 export const DeleteCityOptionsModal = ({ isOpen, onClose, onConfirm, cityName }: Props) => {
   const [options, setOptions] = useState<CityDeleteOptions>(DEFAULT_OPTIONS);
   const [isConfirming, setIsConfirming] = useState(false);
+  const titleId = useId();
+
+  useGlobalModalEscape(isOpen, onClose);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -33,7 +36,12 @@ export const DeleteCityOptionsModal = ({ isOpen, onClose, onConfirm, cityName }:
   };
 
   return (
-    <div className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="fixed inset-0 z-admin-modal flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in"
+    >
       <div className="bg-slate-900 w-full max-w-lg max-h-[calc(100dvh-2rem)] rounded-2xl border border-red-500/30 shadow-2xl flex flex-col overflow-hidden relative">
         {/* HEADER */}
         <div className="p-6 border-b border-slate-800 bg-red-950/10 flex justify-between items-start shrink-0">
@@ -42,7 +50,10 @@ export const DeleteCityOptionsModal = ({ isOpen, onClose, onConfirm, cityName }:
               <Trash2 className="w-8 h-8" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-xl font-bold text-white font-display uppercase tracking-wide">
+              <h3
+                id={titleId}
+                className="text-xl font-bold text-white font-display uppercase tracking-wide"
+              >
                 Elimina {cityName}
               </h3>
               <p className="text-xs text-red-300 font-medium mt-1">
@@ -107,63 +118,49 @@ export const DeleteCityOptionsModal = ({ isOpen, onClose, onConfirm, cityName }:
               </div>
             </button>
 
-            {/* OPTION: SHOPS */}
-            <button
-              type="button"
-              onClick={() => toggleOption('keepShops')}
-              aria-pressed={options.keepShops}
-              className={`w-full text-left p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 group ${options.keepShops ? 'bg-emerald-900/10 border-emerald-500/50' : 'bg-slate-950 border-slate-800 hover:border-red-500/30'}`}
+            {/* OPTION: SHOPS — always deleted (city_id NOT NULL, ON DELETE NO ACTION) */}
+            <div
+              className="w-full text-left p-4 rounded-xl border bg-slate-950 border-slate-800 flex items-center justify-between gap-3 opacity-90"
+              role="note"
+              aria-label="Negozi e prodotti sempre eliminati con la città"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className={`p-2 rounded-lg shrink-0 ${options.keepShops ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-900 text-slate-500'}`}
-                >
+                <div className="p-2 rounded-lg shrink-0 bg-slate-900 text-slate-500">
                   <ShoppingCart className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div
-                    className={`text-sm font-bold ${options.keepShops ? 'text-white' : 'text-slate-400'}`}
-                  >
-                    Negozi & Partner
+                  <div className="text-sm font-bold text-slate-400">Negozi & Prodotti</div>
+                  <div className="text-[10px] text-slate-500">
+                    Botteghe e prodotti fisici (non scollegabili, sempre eliminati se la città viene rimossa).
                   </div>
-                  <div className="text-[10px] text-slate-500">Botteghe, Prodotti, Sponsor</div>
                 </div>
               </div>
-              <div
-                className={`text-[10px] font-black uppercase px-2 py-1 rounded shrink-0 ${options.keepShops ? 'bg-emerald-500 text-black' : 'bg-slate-800 text-slate-500'}`}
-              >
-                {options.keepShops ? 'MANTIENI' : 'CANCELLA'}
+              <div className="text-[10px] font-black uppercase px-2 py-1 rounded shrink-0 bg-slate-800 text-slate-500">
+                SEMPRE CANCELLA
               </div>
-            </button>
+            </div>
 
-            {/* OPTION: PEOPLE */}
-            <button
-              type="button"
-              onClick={() => toggleOption('keepPeople')}
-              aria-pressed={options.keepPeople}
-              className={`w-full text-left p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 group ${options.keepPeople ? 'bg-emerald-900/10 border-emerald-500/50' : 'bg-slate-950 border-slate-800 hover:border-red-500/30'}`}
+            {/* OPTION: PEOPLE — always deleted (cityId obbligatorio, no orphan) */}
+            <div
+              className="w-full text-left p-4 rounded-xl border bg-slate-950 border-slate-800 flex items-center justify-between gap-3 opacity-90"
+              role="note"
+              aria-label="Personaggi famosi sempre eliminati con la città"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className={`p-2 rounded-lg shrink-0 ${options.keepPeople ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-900 text-slate-500'}`}
-                >
+                <div className="p-2 rounded-lg shrink-0 bg-slate-900 text-slate-500">
                   <Users className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div
-                    className={`text-sm font-bold ${options.keepPeople ? 'text-white' : 'text-slate-400'}`}
-                  >
-                    Personaggi Famosi
+                  <div className="text-sm font-bold text-slate-400">Personaggi Famosi</div>
+                  <div className="text-[10px] text-slate-500">
+                    I personaggi famosi vengono sempre eliminati con la città (cityId obbligatorio).
                   </div>
-                  <div className="text-[10px] text-slate-500">Biografie, Ritratti AI</div>
                 </div>
               </div>
-              <div
-                className={`text-[10px] font-black uppercase px-2 py-1 rounded shrink-0 ${options.keepPeople ? 'bg-emerald-500 text-black' : 'bg-slate-800 text-slate-500'}`}
-              >
-                {options.keepPeople ? 'MANTIENI' : 'CANCELLA'}
+              <div className="text-[10px] font-black uppercase px-2 py-1 rounded shrink-0 bg-slate-800 text-slate-500">
+                SEMPRE CANCELLA
               </div>
-            </button>
+            </div>
 
             {/* OPTION: POI (DANGEROUS) */}
             <button

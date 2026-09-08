@@ -199,7 +199,8 @@ export interface ShopPartner {
 
   vatNumber: string;
   address: string;
-  coords: { lat: number; lng: number };
+  /** Assente = posizione non nota (non usare `{ lat: 0, lng: 0 }` come placeholder). */
+  coords?: { lat: number; lng: number };
   phone: string;
   email: string;
   website?: string;
@@ -271,4 +272,4 @@ export interface GeoOptions {
 /**
  * Alias per compatibilità con i vecchi import da types/core
  */
-export type SortConfig<T> = SponsorSortConfig;
+export type SortConfig = SponsorSortConfig;

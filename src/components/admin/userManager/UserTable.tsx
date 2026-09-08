@@ -51,7 +51,6 @@ export const UserTable = ({
   onStatusToggle,
   onDelete,
   canManage,
-  onExport,
 }: Props) => {
   const tableHeadClass = useDynamicStyles('admin_table_head');
   const tableCellClass = useDynamicStyles('admin_table_cell');

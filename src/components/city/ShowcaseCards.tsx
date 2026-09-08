@@ -1,5 +1,13 @@
 import { Award, Check, GripHorizontal, MapPin, Navigation, Plus, ThumbsUp } from 'lucide-react';
 import type React from 'react';
+import {
+  isSponsorGold,
+  isSponsorSilver,
+  SPONSOR_GOLD_BADGE_CLASS,
+  SPONSOR_SILVER_BADGE_CLASS,
+  SPONSOR_TIER_BORDER,
+  sponsorTierBorderClass,
+} from '@/components/common/sponsorCardVisuals';
 import { useItinerary } from '@/context/ItineraryContext';
 import { resolvePoiDisplayImageUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
@@ -119,6 +127,10 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
   const { itinerary } = useItinerary();
   const inItinerary = itinerary.items.some((i) => i.poi.id === poi.id);
   const ui = getPoiColorStyle(poi.category);
+  const isGold = isSponsorGold(poi);
+  const isSilver = isSponsorSilver(poi);
+  const showGoldChrome = Boolean(poi.isSponsored && isGold);
+  const tierBorder = poi.isSponsored ? sponsorTierBorderClass(poi) : SPONSOR_TIER_BORDER.default;
 
   // Typography responsive (tipografia); drag handle = solo Tailwind `hidden lg:flex`
   const isMobile = useMobileDetect();
@@ -143,11 +155,27 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
     categoryPlaceholders: getCategoryPlaceholders(),
   });
 
+  const sponsorBadge = poi.isSponsored ? (
+    isGold ? (
+      <span className={SPONSOR_GOLD_BADGE_CLASS}>
+        <Award className="w-2 h-2" aria-hidden /> SPONSOR
+      </span>
+    ) : isSilver ? (
+      <span className={SPONSOR_SILVER_BADGE_CLASS}>
+        <Award className="w-2 h-2" aria-hidden /> SPONSOR
+      </span>
+    ) : (
+      <span className="bg-white text-slate-900 text-[7px] font-black px-1.5 py-0.5 rounded border border-slate-200 uppercase tracking-normal inline-flex items-center gap-0.5">
+        <Award className="w-2 h-2" aria-hidden /> SPONSOR
+      </span>
+    )
+  ) : null;
+
   // --- LAYOUT: HORIZONTAL (Top 5 Lists) ---
   if (variant === 'horizontal') {
     return (
       <div
-        className={`group relative h-36 md:h-44 w-full rounded-xl overflow-hidden border transition-all bg-slate-900 shadow-md hover:shadow-xl ${poi.tier === 'gold' ? 'border-amber-500' : poi.tier === 'silver' ? 'border-slate-300' : 'border-slate-800'}`}
+        className={`group relative h-36 md:h-44 w-full rounded-xl overflow-hidden border transition-all bg-slate-900 shadow-md hover:shadow-xl ${tierBorder}`}
       >
         <button
           type="button"
@@ -161,19 +189,13 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
             alt=""
             category={poi.category}
             size="medium"
-            className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
+            className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/90"></div>
         </div>
 
-        {poi.isSponsored && (
-          <div className="absolute top-2 right-2 z-[1] pointer-events-none">
-            <span
-              className={`text-[7px] font-black px-1.5 py-0.5 rounded border shadow-lg ${poi.tier === 'gold' ? 'bg-amber-500 text-black border-amber-200' : 'bg-white text-slate-900 border-slate-200'}`}
-            >
-              <Award className="w-2 h-2" /> SPONSOR
-            </span>
-          </div>
+        {sponsorBadge && (
+          <div className="absolute top-2 right-2 z-[1] pointer-events-none">{sponsorBadge}</div>
         )}
 
         {showDistance && (
@@ -189,7 +211,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
         <div className="absolute top-3 left-3 z-[1] flex flex-col items-start pr-12 w-full pointer-events-none">
           <StarRating value={poi.rating} size="w-3 h-3" />
           <h4
-            className={`text-white font-bold leading-none group-hover:text-amber-400 transition-colors mt-1 truncate w-full pr-12 ${titleStyle || 'text-sm md:text-xl'}`}
+            className={`${showGoldChrome ? 'text-amber-50' : 'text-white'} font-bold leading-none group-hover:text-amber-400 transition-colors mt-1 truncate w-full pr-12 ${titleStyle || 'text-sm md:text-xl'}`}
           >
             {poi.name}
           </h4>
@@ -230,7 +252,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
 
   return (
     <div
-      className={`group relative ${containerClasses} rounded-xl overflow-hidden transition-all bg-slate-900 shadow-md border flex flex-col ${poi.tier === 'gold' ? 'border-amber-500' : poi.tier === 'silver' ? 'border-slate-300' : 'border-slate-800'}`}
+      className={`group relative ${containerClasses} rounded-xl overflow-hidden transition-all bg-slate-900 shadow-md hover:shadow-lg border flex flex-col ${tierBorder}`}
     >
       <button
         type="button"
@@ -248,25 +270,19 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
           alt=""
           category={poi.category}
           size="small"
-          className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-700"
+          className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
 
         {/* Badge Overlay */}
         <div className="absolute top-2 right-2 flex justify-end mb-1 z-local-overlay">
-          {poi.isSponsored ? (
-            <span
-              className={`text-[7px] font-black px-1.5 py-0.5 rounded border ${poi.tier === 'gold' ? 'bg-amber-500 text-black border-amber-300' : 'bg-white text-slate-900 border-slate-200'}`}
-            >
-              <Award className="w-2 h-2 inline mr-0.5" /> SPONSOR
-            </span>
-          ) : (
-            isPoiNew(poi) && (
-              <span className="bg-purple-600 text-white text-[7px] font-black px-2 py-0.5 rounded uppercase border border-purple-400">
-                Novità
-              </span>
-            )
-          )}
+          {sponsorBadge
+            ? sponsorBadge
+            : isPoiNew(poi) && (
+                <span className="bg-purple-600 text-white text-[7px] font-black px-2 py-0.5 rounded uppercase border border-purple-400">
+                  Novità
+                </span>
+              )}
         </div>
 
         {/* Distance Badge */}
@@ -286,7 +302,7 @@ export const UniversalCard: React.FC<UniversalCardProps> = ({
         <div className="w-full min-h-0 flex-1">
           <StarRating value={poi.rating} size="w-2.5 h-2.5" />
           <h4
-            className={`text-white font-bold leading-tight mt-0.5 line-clamp-2 pr-2 ${titleStyle || 'text-sm md:text-lg'}`}
+            className={`${showGoldChrome ? 'text-amber-50' : 'text-white'} font-bold leading-tight mt-0.5 line-clamp-2 pr-2 ${titleStyle || 'text-sm md:text-lg'}`}
           >
             {poi.name}
           </h4>

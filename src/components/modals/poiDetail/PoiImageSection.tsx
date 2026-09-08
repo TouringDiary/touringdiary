@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 import { resolvePoiDisplayImageUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 import { showGlobalAlert } from '@/services/ui/toastService';
 import type { PointOfInterest, Review, User } from '@/types';
@@ -124,10 +125,19 @@ export const PoiImageSection = ({
   };
 
   const ratingLabel = displayRating.toFixed(1);
-  const writeLabel = myReview ? 'Modifica Recensione' : 'Scrivi Recensione';
   const deleteAsAuthor = Boolean(deleteTarget && !isGuest && deleteTarget.authorId === user.id);
-  // Guest senza onOpenAuth: CTA inutilizzabile → nascosta. Auth + onOpenReview → ok.
-  const canWriteReview = Boolean(onOpenReview && (!isGuest || onOpenAuth));
+  const canOpenReviewFlow = Boolean(onOpenReview && (!isGuest || onOpenAuth));
+
+  const handleOpenReview = () => {
+    if (isGuest) {
+      onOpenAuth?.();
+      return;
+    }
+    onOpenReview?.();
+  };
+
+  const reviewActionBtnClass =
+    'inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50';
 
   if (images.length === 0) {
     return (
@@ -194,53 +204,79 @@ export const PoiImageSection = ({
         className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}
       >
         <div className="absolute inset-0 backface-hidden">
-          <ImageWithFallback
-            src={images[currentImageIndex]}
-            alt={poi.name}
-            category={poi.category}
-            className="w-full h-full object-cover opacity-90"
-            priority={true}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent opacity-80"></div>
+          <div className="peer/photo absolute inset-0">
+            <ImageWithFallback
+              src={images[currentImageIndex]}
+              alt={poi.name}
+              category={poi.category}
+              className="h-full w-full object-cover opacity-90"
+              priority={true}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent opacity-80"></div>
+          </div>
 
           {onToggleItinerary && (
             <div className="absolute top-4 right-4 z-dropdown">
               <button
                 type="button"
                 onClick={() => onToggleItinerary(poi)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest shadow-2xl transition-all transform hover:scale-105 active:scale-95 border ${isInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 border-amber-500 text-white'}`}
+                className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest shadow-2xl transition-all active:scale-95 lg:gap-2 lg:px-5 lg:py-2.5 lg:text-xs lg:hover:scale-105 ${isInItinerary ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-amber-600 border-amber-500 text-white'}`}
               >
-                {isInItinerary ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {isInItinerary ? 'Aggiunto' : 'Aggiungi'}
+                {isInItinerary ? (
+                  <Check className="h-3 w-3 lg:h-4 lg:w-4" />
+                ) : (
+                  <Plus className="h-3 w-3 lg:h-4 lg:w-4" />
+                )}
+                {isInItinerary ? 'Aggiunto' : 'ADD'}
               </button>
             </div>
           )}
 
-          <div className="absolute bottom-6 left-6 flex items-end gap-4 text-white z-dropdown">
-            <div className="bg-black/60 backdrop-blur-md p-3 rounded-2xl border border-white/10 flex flex-col items-center min-w-[70px] shadow-2xl">
-              <span className="text-2xl font-black leading-none">{ratingLabel}</span>
-              <StarRating value={displayRating} size="w-3 h-3" showValue={false} />
-            </div>
+          <div className="absolute bottom-4 right-4 z-dropdown pointer-events-auto lg:bottom-6 lg:right-6">
+            <FavoriteBookmarkButton
+              userId={user?.role === 'guest' ? null : user?.id}
+              entityKind="poi"
+              entityId={poi.id}
+              onRequireAuth={onOpenAuth}
+              size="sm"
+              className="!grid !h-10 !w-10 !min-h-10 !min-w-10 !p-0 !place-items-center [&_svg]:block [&_svg]:!size-3.5"
+            />
+          </div>
+
+          <div className="absolute bottom-4 left-4 z-dropdown text-white lg:bottom-6 lg:left-6">
             <button
               type="button"
               onClick={() => setIsFlipped(true)}
-              className="bg-indigo-600/90 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold uppercase text-[10px] tracking-widest shadow-lg transition-all flex items-center gap-2 border border-indigo-400 backdrop-blur-md mb-1"
+              className="group relative flex min-w-[70px] flex-col items-center rounded-2xl border border-amber-500/35 bg-black/60 p-3 shadow-2xl backdrop-blur-md transition-all hover:border-amber-400/60 hover:bg-black/75 hover:shadow-[0_0_14px_rgba(245,158,11,0.12)] peer-hover/photo:border-amber-400/55 peer-hover/photo:bg-black/75 peer-hover/photo:shadow-[0_0_14px_rgba(245,158,11,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 active:scale-[0.98]"
+              aria-label={`Valutazione media ${ratingLabel}, apri recensioni`}
+              title="Apri recensioni"
             >
-              <MessageSquare className="w-3.5 h-3.5" /> RECENSIONI
+              <span
+                className="pointer-events-none absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-md border border-amber-500/45 bg-black/85 p-0.5 shadow-md backdrop-blur-sm transition-all group-hover:border-amber-400/65 group-hover:bg-slate-950/95 group-focus-visible:border-amber-400/70 group-focus-visible:ring-1 group-focus-visible:ring-amber-500/40 group-active:scale-95 peer-hover/photo:border-amber-400/65 peer-hover/photo:bg-slate-950/95"
+                aria-hidden
+              >
+                <span className="relative flex h-4 w-4 items-center justify-center text-indigo-300 transition-colors group-hover:text-indigo-200 group-focus-visible:text-indigo-200 peer-hover/photo:text-indigo-200">
+                  <MessageSquare className="h-3.5 w-3.5 fill-current" />
+                  <Pencil className="absolute -right-0.5 -top-0.5 h-2 w-2 text-amber-200 transition-colors group-hover:text-amber-100 group-focus-visible:text-amber-100 peer-hover/photo:text-amber-100" />
+                </span>
+              </span>
+              <span className="text-2xl font-black leading-none">{ratingLabel}</span>
+              <StarRating value={displayRating} size="w-3 h-3" showValue={false} />
             </button>
           </div>
 
           {images.length > 1 && (
-            <div className="absolute inset-x-4 top-1/2 -translate-x-1/2 flex justify-between pointer-events-none z-dropdown">
+            <div className="pointer-events-none absolute inset-x-4 top-1/2 z-dropdown flex -translate-y-1/2 justify-between">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setCurrentImageIndex((p) => (p - 1 + images.length) % images.length);
                 }}
-                className="p-2 bg-black/40 hover:bg-black/80 text-white rounded-full backdrop-blur border border-white/10 pointer-events-auto transition-all"
+                className="pointer-events-auto grid min-h-11 min-w-11 place-items-center rounded-full border border-white/10 bg-black/40 p-2 text-white backdrop-blur transition-all hover:bg-black/80"
+                aria-label="Immagine precedente"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="h-6 w-6" aria-hidden />
               </button>
               <button
                 type="button"
@@ -248,9 +284,10 @@ export const PoiImageSection = ({
                   e.stopPropagation();
                   setCurrentImageIndex((p) => (p + 1) % images.length);
                 }}
-                className="p-2 bg-black/40 hover:bg-black/80 text-white rounded-full backdrop-blur border border-white/10 pointer-events-auto transition-all"
+                className="pointer-events-auto grid min-h-11 min-w-11 place-items-center rounded-full border border-white/10 bg-black/40 p-2 text-white backdrop-blur transition-all hover:bg-black/80"
+                aria-label="Immagine successiva"
               >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="h-6 w-6" aria-hidden />
               </button>
             </div>
           )}
@@ -274,6 +311,7 @@ export const PoiImageSection = ({
               allReviews.map((rev) => {
                 const isMine = !isGuest && rev.authorId === user.id;
                 const canDelete = isMine || isAdmin;
+                const canEditReview = isMine && canOpenReviewFlow;
                 return (
                   <div
                     key={rev.id}
@@ -294,27 +332,42 @@ export const PoiImageSection = ({
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-start gap-1 shrink-0">
-                        <div className="text-right">
-                          <span className="text-[10px] text-slate-600 font-mono block">
+                      <div className="flex shrink-0 items-start gap-1.5">
+                        <div className="min-w-0 text-right">
+                          <span className="block whitespace-nowrap text-[10px] font-mono text-slate-600">
                             {formatReviewDate(rev.date)}
                           </span>
                           {rev.updatedAt && (
-                            <span className="text-[9px] text-amber-500/90 font-medium block mt-0.5">
+                            <span className="mt-0.5 block max-w-[9rem] truncate text-[9px] font-medium text-amber-500/90 sm:max-w-none sm:whitespace-nowrap">
                               Modificata il {formatReviewDate(rev.updatedAt)}
                             </span>
                           )}
                         </div>
-                        {canDelete && (
-                          <button
-                            type="button"
-                            title={isMine ? 'Elimina recensione' : 'Rimuovi recensione'}
-                            aria-label={isMine ? 'Elimina recensione' : 'Rimuovi recensione'}
-                            onClick={() => setDeleteTarget(rev)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        {(canEditReview || canDelete) && (
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            {canEditReview && (
+                              <button
+                                type="button"
+                                title="Modifica recensione"
+                                aria-label="Modifica recensione"
+                                onClick={handleOpenReview}
+                                className={`${reviewActionBtnClass} text-slate-500 hover:bg-amber-900/20 hover:text-amber-400`}
+                              >
+                                <Pencil className="h-3.5 w-3.5" aria-hidden />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                type="button"
+                                title={isMine ? 'Elimina recensione' : 'Rimuovi recensione'}
+                                aria-label={isMine ? 'Elimina recensione' : 'Rimuovi recensione'}
+                                onClick={() => setDeleteTarget(rev)}
+                                className={`${reviewActionBtnClass} text-slate-500 hover:bg-red-900/20 hover:text-red-400`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -331,20 +384,14 @@ export const PoiImageSection = ({
               </div>
             )}
           </div>
-          {canWriteReview && (
-            <div className="p-4 border-t border-slate-800 bg-slate-900">
+          {canOpenReviewFlow && !myReview && (
+            <div className="shrink-0 border-t border-slate-800 bg-slate-900 p-4">
               <button
                 type="button"
-                onClick={() => {
-                  if (isGuest) {
-                    onOpenAuth?.();
-                    return;
-                  }
-                  onOpenReview?.();
-                }}
-                className="w-full min-h-[44px] bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold uppercase text-xs shadow-lg flex items-center justify-center gap-2 border border-emerald-500 transition-all"
+                onClick={handleOpenReview}
+                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-500 bg-emerald-600 py-3 text-xs font-bold uppercase text-white shadow-lg transition-all hover:bg-emerald-500"
               >
-                <Pencil className="w-4 h-4" aria-hidden /> {writeLabel}
+                <Pencil className="h-4 w-4" aria-hidden /> Scrivi Recensione
               </button>
             </div>
           )}

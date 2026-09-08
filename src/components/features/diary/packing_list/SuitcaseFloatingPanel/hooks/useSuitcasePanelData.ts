@@ -379,7 +379,9 @@ export const useSuitcasePanelData = (
 
   const { preferences, togglePreference } = useUserTemplatePreferences(currentUser?.id);
 
-  const { affiliateMaps } = useSuitcaseAffiliate(activeSuitcase || tripSuitcases[0]);
+  const { affiliateMaps, isLoadingTriggers } = useSuitcaseAffiliate(
+    activeSuitcase || tripSuitcases[0],
+  );
 
   const { handleStateSync } = useFloatingPanelStateSync(setUserSuitcases, panelState.activeTabId);
 
@@ -463,6 +465,7 @@ export const useSuitcasePanelData = (
     activeSuitcase,
     itineraryCityTypes,
     affiliateMaps,
+    isLoadingAffiliateTriggers: isLoadingTriggers,
     handleStateSync,
     handleUpdateSuitcaseLocal,
     mutations,

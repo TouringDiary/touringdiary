@@ -67,8 +67,7 @@ export const useCityGenerator = (onComplete?: () => void) => {
       cityId: string,
       cityName: string,
       cats: Record<string, number>,
-      user?: User,
-    ) => handleCompletionWrapper(() => generateTargetedPois(cityId, cityName, cats, user)),
+    ) => handleCompletionWrapper(() => generateTargetedPois(cityId, cityName, cats)),
 
     verifyDraftsBatch: (
       cityId: string,
@@ -86,8 +85,7 @@ export const useCityGenerator = (onComplete?: () => void) => {
       cityName: string,
       count: number,
       cats: FlashCategoryRef[],
-      user?: User,
-    ) => handleCompletionWrapper(() => generateDraftsOnly(cityId, cityName, count, cats, user)),
+    ) => handleCompletionWrapper(() => generateDraftsOnly(cityId, cityName, count, cats)),
 
     clearSession, // NEW
 

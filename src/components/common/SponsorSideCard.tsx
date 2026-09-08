@@ -2,7 +2,14 @@ import { Award, Check, GripHorizontal, Plus } from 'lucide-react';
 import type React from 'react';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import { StarRating } from '@/components/common/StarRating';
-import { PLAN_TYPES } from '@/constants/planTypes';
+import {
+  isSponsorGold,
+  isSponsorSilver,
+  SPONSOR_GOLD_BADGE_CLASS,
+  SPONSOR_SILVER_BADGE_CLASS,
+  SPONSOR_TIER_BORDER,
+  sponsorTierBorderClass,
+} from '@/components/common/sponsorCardVisuals';
 import { useItinerary } from '@/context/ItineraryContext';
 import type { PointOfInterest } from '@/types';
 
@@ -31,15 +38,11 @@ export const SponsorSideCard: React.FC<SponsorSideCardProps> = ({
 }) => {
   const { itinerary } = useItinerary();
   const inItinerary = itinerary.items.some((i) => i.poi.id === poi.id);
-  // Gold/Silver: planType SoT + tier runtime (stesso contratto visuale se type colonna diverge dal pricing).
-  const isGold = poi.planType === PLAN_TYPES.REGIONAL_ACTIVITY || poi.tier === 'gold';
-  const isSilver = poi.planType === PLAN_TYPES.LOCAL_ACTIVITY || poi.tier === 'silver';
-
-  let borderColor = 'border border-slate-800 hover:border-slate-600';
-  if (isGold)
-    borderColor = 'border border-amber-500 hover:border-amber-400 ring-1 ring-amber-500/20';
-  else if (isSilver)
-    borderColor = 'border border-slate-200 hover:border-white ring-1 ring-white/10';
+  // Gold/Silver: runtime `tier` (SoT visuale — sponsorCardVisuals).
+  const isGold = isSponsorGold(poi);
+  const isSilver = isSponsorSilver(poi);
+  // Chrome Gold/Silver solo se realmente sponsorizzato (stesso contratto di ShowcaseCards).
+  const tierBorder = poi.isSponsored ? sponsorTierBorderClass(poi) : SPONSOR_TIER_BORDER.default;
 
   let badge: React.ReactNode = (
     <span className="bg-slate-700 text-slate-300 text-[7px] font-bold px-1.5 py-0.5 rounded border border-slate-600 uppercase tracking-normal w-fit">
@@ -48,20 +51,20 @@ export const SponsorSideCard: React.FC<SponsorSideCardProps> = ({
   );
   if (isGold)
     badge = (
-      <span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 text-black text-[7px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(251,191,36,0.5)] uppercase tracking-normal flex items-center gap-0.5 border border-yellow-100">
+      <span className={SPONSOR_GOLD_BADGE_CLASS}>
         <Award className="w-2 h-2" /> SPONSOR
       </span>
     );
   else if (isSilver)
     badge = (
-      <span className="bg-gradient-to-r from-slate-200 via-white to-slate-400 text-slate-900 text-[7px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(255,255,255,0.2)] uppercase tracking-normal flex items-center gap-0.5 border border-white/50">
+      <span className={SPONSOR_SILVER_BADGE_CLASS}>
         <Award className="w-2 h-2" /> SPONSOR
       </span>
     );
 
   return (
     <div
-      className={`group relative w-full h-full rounded-xl border overflow-hidden cursor-default transition-all bg-slate-900 shadow-lg shrink-0 ${borderColor} ${className}`}
+      className={`group relative w-full h-full rounded-xl border overflow-hidden cursor-default transition-all bg-slate-900 shadow-lg shrink-0 ${tierBorder} ${className}`}
     >
       {/* Superficie principale: button fratello (non contenitore) dei controlli. */}
       <button

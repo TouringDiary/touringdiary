@@ -32,13 +32,9 @@ export const HeroSection = (props: HeroSectionProps) => {
   // --- BUSINESS LOGIC (HOOK) ---
   const {
     continent,
-    setContinent,
     nation,
-    setNation,
     region,
-    setRegion,
     selectedCity,
-    setSelectedCity,
     isFiltersExpanded,
     setIsFiltersExpanded,
     manualCitySearch,
@@ -78,7 +74,6 @@ export const HeroSection = (props: HeroSectionProps) => {
     handleAiSubmit,
     aiRuntimeStatus,
     selectedSeason,
-    setSelectedSeason,
   } = useHeroLogic(props);
 
   React.useEffect(() => {

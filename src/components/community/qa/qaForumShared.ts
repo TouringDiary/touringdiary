@@ -1,4 +1,4 @@
-import type { CitySummary } from '../../types/index';
+import type { CitySummary } from '../../../types/index';
 
 export const QA_GENERAL_CITY_LABEL = 'Generale / Campania';
 

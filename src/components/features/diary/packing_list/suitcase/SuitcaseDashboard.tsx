@@ -94,8 +94,9 @@ interface SuitcaseDashboardProps {
   globalMap: ResolvedAffiliateProduct[];
   placeholders: Record<string, ResolvedAffiliateProduct[]>;
   onLinkBuild: (provider: string, url: string) => string;
-  onLinkBuildSearch: (query: string) => string;
   adminSuitcasePlaceholders?: Record<string, string>;
+  /** True while suitcase affiliate triggers are still loading. */
+  isLoadingAffiliateTriggers?: boolean;
   toast?: { visible: boolean; message: string; description?: string; variant?: ToastVariant };
   hasActiveDiary?: boolean;
   isDiaryAssociable?: boolean;
@@ -297,30 +298,25 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
   onRequestAssociate,
   onAddCategory,
   onDeleteCategory,
-  onSaveTitle,
   onUpdateSuitcaseLocal,
   isCreatingSuitcase = false,
   onCreateSuitcase,
   onCreateTemplate,
   onOpenRecommendedSuitcase,
   showRecommendedSuitcase = false,
-  onSaveAsTemplate,
   itemMap,
   categoryMap,
   overrides,
   globalMap,
   placeholders,
   onLinkBuild,
-  onLinkBuildSearch,
   adminSuitcasePlaceholders = {},
+  isLoadingAffiliateTriggers = false,
   toast = { visible: false, message: '' },
   hasActiveDiary = false,
   isDiaryAssociable = true,
-  hasSavedSuitcases = false,
-  hasSuitcaseLinkedToDiary = false,
   savedSuitcases = [],
   linkedSuitcaseIds = [],
-  onLinkSuitcase,
   guestSuitcase = null,
   onContinueGuestSuitcase,
   isLoadingGlobalTemplates = false,
@@ -795,7 +791,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
           placeholders={placeholders}
           adminSuitcasePlaceholders={adminSuitcasePlaceholders}
           onLinkBuild={onLinkBuild}
-          onLinkBuildSearch={onLinkBuildSearch}
+          isLoadingAffiliateTriggers={isLoadingAffiliateTriggers}
         />
       </SuitcaseSidePanel>
 
@@ -814,7 +810,7 @@ export const SuitcaseDashboard: React.FC<SuitcaseDashboardProps> = ({
             placeholders={placeholders}
             adminSuitcasePlaceholders={adminSuitcasePlaceholders}
             onLinkBuild={onLinkBuild}
-            onLinkBuildSearch={onLinkBuildSearch}
+            isLoadingAffiliateTriggers={isLoadingAffiliateTriggers}
           />
         </SuitcaseMobileSuggestionsDrawer>
       )}

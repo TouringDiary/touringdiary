@@ -40,7 +40,18 @@ router.get('/:cityId/details', async (req, res) => {
           .order('name', { ascending: true }),
         supabaseAdmin
           .from('city_people')
-          .select('*')
+          .select(
+            `
+            *,
+            city_person_category_links (
+              specific_category_id,
+              famous_person_specific_categories (
+                id, slug, label, order_index, is_active,
+                famous_person_master_categories ( id, slug, label, order_index )
+              )
+            )
+          `,
+          )
           .eq('city_id', cityId)
           .order('order_index', { ascending: true }),
       ]);

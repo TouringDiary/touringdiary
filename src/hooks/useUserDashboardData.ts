@@ -11,7 +11,6 @@ import {
 } from '../services/gamificationService';
 import { fetchNotificationsAsync } from '../services/notificationService';
 import { getShopById, getShopByOwner } from '../services/shopService';
-import { getSponsorsByOwner } from '../services/sponsors/sponsorContractsService';
 import { getSponsorRequestsByProfile } from '../services/sponsors/sponsorRequestsService';
 import type {
   AppNotification,
@@ -26,7 +25,7 @@ import { safeArray } from '../utils/safeTypes';
 
 export const useUserDashboardData = (user: User) => {
   const isBusiness = user.role === 'business';
-  const { activeBusinessId, activeBusiness, isLoading: isContextLoading } = useBusinessContext();
+  const { activeBusinessId, activeBusiness } = useBusinessContext();
   const notificationsFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.COMMS_NOTIFICATIONS);
   const notificationsEnabled = notificationsFlag?.enabled ?? true;
   const notificationsEnabledRef = useRef(notificationsEnabled);
@@ -124,11 +123,8 @@ export const useUserDashboardData = (user: User) => {
         }
       }
 
-      // 1.5. Sponsor Requests & Active Sponsors (URL-FILTERED)
-      const [requests, activeSponsors] = await Promise.all([
-        getSponsorRequestsByProfile(user.id),
-        getSponsorsByOwner(user.id),
-      ]);
+      // 1.5. Sponsor Requests (URL-FILTERED)
+      const requests = await getSponsorRequestsByProfile(user.id);
 
       if (activeIdRef.current === closureBizId) {
         setSponsorRequests(safeArray<SponsorRequest>(requests));

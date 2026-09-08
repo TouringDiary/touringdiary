@@ -567,6 +567,8 @@ export const CityDetailContent: React.FC<CityDetailContentProps> = ({
         onClose={() => setActiveModal('none')}
         city={city}
         onAddToItinerary={onAddToItinerary}
+        user={user}
+        onOpenAuth={onOpenAuth}
       />
       <PatronSaintModal
         isOpen={activeModal === 'patron'}

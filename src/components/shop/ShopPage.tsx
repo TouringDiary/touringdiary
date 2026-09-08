@@ -317,9 +317,7 @@ export const ShopPage = ({
               itinerary.items.some((i) => i.poi.id === poi.id),
             )
           }
-          onTogglePlanner={() => setShowPlanner(!showPlanner)}
           onOpenSponsor={onOpenSponsor}
-          isPlannerOpen={showPlanner}
           isInItinerary={isInItinerary}
         />
 

@@ -1,11 +1,12 @@
 import { Eye, FileText, ScrollText } from 'lucide-react';
 import type React from 'react';
+import type { CityEditorContextType } from '@/context/CityEditorContext';
 import type { CityDetails } from '../../../../types/index';
 import { AiFieldHelper } from '../../AiFieldHelper';
 
 interface CultureHistoryProps {
   city: CityDetails;
-  updateDetailField: (field: keyof CityDetails['details'], value: unknown) => void;
+  updateDetailField: CityEditorContextType['updateDetailField'];
   triggerPreview: (type: 'snippet' | 'history', title: string) => void;
 }
 

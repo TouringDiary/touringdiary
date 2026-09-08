@@ -1,3 +1,4 @@
+import { assertFamousPersonPublishable } from '@/domain/city/famousPersonCompleteness';
 import type {
   Database,
   DatabaseCityEventInsert,
@@ -10,12 +11,16 @@ import type { CityEvent, CityGuide, CityService, FamousPerson } from '../../type
 import { supabase } from '../supabaseClient';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
 import {
+  computeLifespanDisplayForSave,
+  replacePersonCategoryLinks,
+} from './famousPersonCategoryService';
+import {
   type CityPeopleAudience,
   filterFamousPeopleByAudience,
 } from './parsers/entities/famousPersonAudience';
 import { parseEvent } from './parsers/entities/parseEvent';
 import { parseGuide } from './parsers/entities/parseGuide';
-import { parsePerson } from './parsers/entities/parsePerson';
+import { CITY_PEOPLE_SELECT_WITH_CATEGORIES, parsePerson } from './parsers/entities/parsePerson';
 import { parseService } from './parsers/entities/parseService';
 
 // --- ROW TYPES (GOVERNANCE) ---
@@ -27,7 +32,18 @@ type DatabaseCityPersonRow = Database['public']['Tables']['city_people']['Row'];
 export type SaveCityEventInput = Omit<CityEvent, 'id'> & { id?: string };
 export type SaveCityServiceInput = Omit<CityService, 'id'> & { id?: string };
 export type SaveCityGuideInput = Omit<CityGuide, 'id'> & { id?: string };
-export type SaveCityPersonInput = Omit<FamousPerson, 'id'> & { id?: string };
+/**
+ * Persistenza personaggi: `name` è obbligatorio a DB.
+ * `bio` / `imageUrl` possono essere assenti/null in bozza incompleta.
+ * `specificCategoryIds` aggiorna la junction N:M (replace).
+ * La pubblicazione (`status: 'published'`) passa dal gate di dominio.
+ */
+export type SaveCityPersonInput = Omit<FamousPerson, 'id' | 'bio' | 'imageUrl' | 'cityId'> & {
+  id?: string;
+  bio?: string | null;
+  imageUrl?: string | null;
+  specificCategoryIds?: string[];
+};
 
 // --- ENTITIES FETCHERS ---
 
@@ -105,7 +121,7 @@ export const getCityPeople = async (
 ): Promise<FamousPerson[]> => {
   let query = supabase
     .from('city_people')
-    .select('*')
+    .select(CITY_PEOPLE_SELECT_WITH_CATEGORIES)
     .eq('city_id', cityId)
     .order('order_index', { ascending: true });
 
@@ -128,7 +144,7 @@ export const getCityPeopleByCityIds = async (
   if (cityIds.length === 0) return [];
   let query = supabase
     .from('city_people')
-    .select('*')
+    .select(CITY_PEOPLE_SELECT_WITH_CATEGORIES)
     .in('city_id', cityIds)
     .order('order_index', { ascending: true });
 
@@ -251,17 +267,45 @@ export const saveCityPerson = async (
   cityId: string,
   person: SaveCityPersonInput,
 ): Promise<FamousPerson> => {
-  invalidateCityCache(cityId);
-  const isNew = !person.id || !person.id.match(/^[0-9a-f]{8}-/);
+  const specificCategoryIds =
+    person.specificCategoryIds ?? person.categories?.map((c) => c.specificId) ?? [];
+
+  if (person.status === 'published') {
+    assertFamousPersonPublishable({
+      ...person,
+      specificCategoryIds,
+    });
+  }
+
+  const isNew = !person.id?.match(/^[0-9a-f]{8}-/);
+  const presentOrNull = (value: string | null | undefined): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const isLiving = person.isLiving !== false;
+  const lifespanDisplay = computeLifespanDisplayForSave({
+    birthYear: person.birthYear,
+    birthDate: person.birthDate,
+    isLiving,
+    deathYear: person.deathYear,
+    deathDate: person.deathDate,
+  });
+
   const payload: DatabaseCityPersonInsert = {
     city_id: cityId,
-    name: person.name,
-    role: person.role,
-    bio: person.bio,
+    name: person.name.trim(),
+    bio: presentOrNull(person.bio),
     full_bio: person.fullBio,
-    image_url: person.imageUrl,
+    image_url: presentOrNull(person.imageUrl),
     quote: person.quote,
-    lifespan: person.lifespan,
+    birth_year: person.birthYear ?? null,
+    birth_date: person.birthDate ?? null,
+    is_living: isLiving,
+    death_year: isLiving ? null : (person.deathYear ?? null),
+    death_date: isLiving ? null : (person.deathDate ?? null),
+    lifespan_display: lifespanDisplay || null,
     famous_works: person.famousWorks,
     awards: person.awards,
     private_life: person.privateLife,
@@ -277,7 +321,18 @@ export const saveCityPerson = async (
   const { data, error } = await supabase.from('city_people').upsert(payload).select().single();
 
   if (error) throw error;
-  return parsePerson(data as DatabaseCityPersonRow);
+  const saved = data as DatabaseCityPersonRow;
+  await replacePersonCategoryLinks(saved.id, specificCategoryIds);
+
+  const { data: full, error: reloadError } = await supabase
+    .from('city_people')
+    .select(CITY_PEOPLE_SELECT_WITH_CATEGORIES)
+    .eq('id', saved.id)
+    .single();
+  if (reloadError) throw reloadError;
+
+  invalidateCityCache(cityId);
+  return parsePerson(full);
 };
 
 export const deleteCityPerson = async (id: string) => {

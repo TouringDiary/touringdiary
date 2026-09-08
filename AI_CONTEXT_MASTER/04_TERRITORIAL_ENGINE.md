@@ -9,12 +9,13 @@ Il Territorial Engine è il cuore della scoperta geografica di TouringDiary. Ges
 
 ### 1. Culture System (Angolo Cultura)
 *   **Contenuto**: Personaggi illustri nati o legati alla città.
-*   **Tabella**: `city_people`.
-*   **UI**: `CityCultureTab.tsx`.
+*   **Tabelle**: `city_people`, `famous_person_master_categories`, `famous_person_specific_categories`, `city_person_category_links`.
+*   **UI**: `CultureCornerModal.tsx` (timeline + rail + filtri); Admin: `CulturePeople.tsx`, `AdminFamousPeopleCategoriesManager.tsx`.
+*   **SoT**: `AI_CONTEXT/AUDIT_ANGOLO_CULTURA_TIMELINE.md`.
 
 ### 2. History System (Storia e Origini)
 *   **Contenuto**: Narrazione testuale della storia locale.
-*   **Tabella**: `cities` (campo `history`).
+*   **Tabella**: `cities` (campi `history_snippet`, `history_full`).
 *   **UI**: `CityHistoryTab.tsx`.
 
 ### 3. Patron Saint System (Santo Patrono)
@@ -41,6 +42,12 @@ Il Territorial Engine è il cuore della scoperta geografica di TouringDiary. Ges
 *   **Contenuto**: Esplorazione basata su raggio (km) e posizione.
 *   **Logica**: `cityReadService.ts` -> `buildVirtualCity`.
 *   **UI**: `AroundMeWizard.tsx`.
+
+### 7b. Nearby Cities / Scopri Dintorni (Province)
+*   **Contenuto**: città vicine alla destinazione corrente (riga Nearby + modal Province / fusione raggio).
+*   **Raggio massimo**: **100 km** — decisione PO motivata sia da una scelta di dominio/UX sia dalla necessità di contenere il carico delle ricerche geografiche e delle elaborazioni sui dati correlati.
+*   **SoT numerica**: `GEO_CONFIG.SEARCH_RADIUS_MAX` (`src/constants/geoConfig.ts`); default UI `GEO_CONFIG.SEARCH_RADIUS_DEFAULT` (25 km).
+*   **UI**: `NearbyCitiesRow.tsx`, `ProvinceModal.tsx`, `CompassExploreButton.tsx`.
 
 ### 8. City Media Management
 *   **Contenuto**: Gallerie fotografiche (City e POI) e video territoriali.

@@ -6,5 +6,7 @@ export { generateChatReply } from './aiChat';
 
 export * from './generators/cityContentGenerator';
 export * from './generators/listGenerator';
+export * from './generators/peopleCategoryValidation';
+export * from './generators/peopleCompletenessPipeline';
 export * from './generators/peopleGenerator';
 export * from './generators/poiGenerator';

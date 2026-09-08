@@ -38,7 +38,7 @@ export const UserSidebar = ({
   hasActiveRequests,
   unreadMessagesCount = 0,
 }: Props) => {
-  const { activeBusinessId, userBusinesses, switchBusiness } = useBusinessContext();
+  const { userBusinesses } = useBusinessContext();
   /** ID tab tipizzati sul dominio condiviso `USER_DASHBOARD_TABS` / `BIZ_DASHBOARD_TABS` (useAppRouter). */
   const openUserTab = (tab: UserDashboardTab) => onTabChange(tab);
   const openBizTab = (tab: BizDashboardTab) => onTabChange(tab);

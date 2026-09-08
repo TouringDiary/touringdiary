@@ -71,66 +71,122 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
 
   // Animation States
   const [isExiting, setIsExiting] = useState(false);
-  const [exitScale, setExitScale] = useState(1); // Per rimpicciolire all'uscita
 
   // Refs
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // MainLayout keeps this mounted across isMobile changes; reset so device steps reload.
   const alreadyLoadedRef = useRef(false);
+  const prevIsMobileRef = useRef(isMobile);
+  const onSkipRef = useRef(onSkip);
+  onSkipRef.current = onSkip;
 
   // Dynamic Styles
   const titleStyle = useDynamicStyles('onboarding_title', isMobile);
   const textStyle = useDynamicStyles('onboarding_text', isMobile);
 
+  useEffect(() => {
+    return () => {
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    };
+  }, []);
+
   // --- 1. CARICAMENTO DATI DINAMICO (DB DRIVEN) ---
   useEffect(() => {
+    const deviceChanged = prevIsMobileRef.current !== isMobile;
+    if (deviceChanged) {
+      alreadyLoadedRef.current = false;
+      prevIsMobileRef.current = isMobile;
+      // Invalida subito gli step del device precedente (niente highlight/scroll sul vecchio set)
+      setSteps([]);
+      setCurrentStepIndex(0);
+      setIsStepReady(false);
+      setTargetRect(null);
+      setIsLoading(true);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+
+    let cancelled = false;
+    const loadForMobile = isMobile;
+
     const loadSteps = async () => {
+      // Evita doppio fetch sullo stesso device; dopo device-change alreadyLoaded è false.
+      // Impostiamo alreadyLoaded solo DOPO l'apply riuscito, così uno Strict Mode cleanup
+      // non lascia il flag a true senza dati applicati.
       if (alreadyLoadedRef.current) return;
-      alreadyLoadedRef.current = true;
 
       setIsLoading(true);
       try {
-        // Fetch di TUTTI i messaggi (aggira la cache del singolo hook)
         const allMessages = await getSystemMessagesAsync();
+        if (cancelled || prevIsMobileRef.current !== loadForMobile) return;
 
-        // Filtra solo quelli di tipo 'onboarding'
         let onboardingSteps = allMessages.filter((m) => m.type === 'onboarding');
 
-        // SEPARAZIONE NETTA:
-        // Se Mobile: prendi SOLO quelli marcati mobile
-        // Se Desktop: prendi SOLO quelli marcati desktop
-        if (isMobile) {
+        if (loadForMobile) {
           onboardingSteps = onboardingSteps.filter((step) => step.deviceTarget === 'mobile');
         } else {
           onboardingSteps = onboardingSteps.filter((step) => step.deviceTarget === 'desktop');
         }
 
-        // Ordina per chiave (step_0, step_1, etc.) per garantire la sequenza
         onboardingSteps.sort((a, b) => {
-          // Estrae i numeri dalle chiavi (es. "onboarding_step_2" -> 2)
           const numA = parseInt(a.key.replace(/\D/g, '') || '0', 10);
           const numB = parseInt(b.key.replace(/\D/g, '') || '0', 10);
           return numA - numB;
         });
 
         setSteps(onboardingSteps);
+        setCurrentStepIndex(0);
+        alreadyLoadedRef.current = true;
       } catch (e) {
+        if (cancelled || prevIsMobileRef.current !== loadForMobile) return;
         console.error('Errore caricamento guida:', e);
-        onSkip(); // Fallback in caso di errore critico
+        onSkipRef.current();
       } finally {
-        setIsLoading(false);
+        if (!cancelled && prevIsMobileRef.current === loadForMobile) {
+          setIsLoading(false);
+        }
       }
     };
-    loadSteps();
-  }, [isMobile]); // Ricarica se cambia device
+    void loadSteps();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isMobile]);
 
   const currentStep = steps[currentStepIndex];
 
   // --- 2. GESTIONE SEQUENZA E POSIZIONAMENTO ---
   useEffect(() => {
-    if (!currentStep || isExiting) return;
+    // Durante il cambio device steps=[] e isLoading=true: non applicare step del device precedente
+    if (isLoading || !currentStep || isExiting) return;
+
+    let cancelled = false;
+    let activeRafId: number | null = null;
+    let scrollEndHandler: ((event: Event) => void) | null = null;
+
+    const clearScrollEndListener = () => {
+      if (scrollEndHandler) {
+        document.removeEventListener('scrollend', scrollEndHandler, true);
+        scrollEndHandler = null;
+      }
+    };
+
+    const cancelActiveRaf = () => {
+      if (activeRafId != null) {
+        cancelAnimationFrame(activeRafId);
+        activeRafId = null;
+      }
+    };
 
     // Reset immediato per transizione pulita
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     setIsStepReady(false);
     setTargetRect(null);
 
@@ -144,7 +200,8 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
 
     // Funzione per applicare le coordinate visuali (Mascotte & Bubble)
     const applyVisuals = () => {
-      if (config && config.mascot && config.bubble) {
+      if (cancelled) return;
+      if (config?.mascot && config.bubble) {
         // USA STRETTAMENTE I DATI DB
         setMascotPos(config.mascot);
         setBubblePos(config.bubble);
@@ -158,6 +215,17 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
       setIsStepReady(true);
     };
 
+    /** Due rAF: lascia completare layout/paint dopo eventi diary open/close. */
+    const afterNextPaint = (cb: () => void) => {
+      cancelActiveRaf();
+      activeRafId = requestAnimationFrame(() => {
+        activeRafId = requestAnimationFrame(() => {
+          activeRafId = null;
+          if (!cancelled) cb();
+        });
+      });
+    };
+
     // Logica di Esecuzione Step
     const executeStep = () => {
       // Se c'è un target ID, cerchiamo di scrollarci e evidenziarlo
@@ -165,34 +233,98 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
         // Eventi speciali per aprire UI nascoste (es. Diario Mobile)
         if (targetId.includes('mobile-diary')) {
           window.dispatchEvent(new Event('onboarding-force-open-diary'));
-        } else {
-          if (isMobile) window.dispatchEvent(new Event('onboarding-force-close-diary'));
+        } else if (isMobile) {
+          window.dispatchEvent(new Event('onboarding-force-close-diary'));
         }
 
-        // Piccolo delay per permettere al DOM di aggiornarsi (es. apertura modale)
-        timerRef.current = setTimeout(() => {
+        afterNextPaint(() => {
+          if (cancelled) return;
           const el = document.getElementById(targetId);
-          if (el) {
-            // FIX: Scroll allineato in alto (start) per evitare overlapping con mascotte
-            // Usa 'start' per portare l'elemento in cima alla view
-            el.scrollIntoView({
-              behavior: 'smooth',
-              block: isMobile ? 'start' : 'center',
-              inline: 'center',
-            });
+          if (!el) {
+            console.warn(`[Tour] Elemento target #${targetId} non trovato nel DOM.`);
+            applyVisuals();
+            return;
+          }
 
-            // Calcola rettangolo per il box lampeggiante
+          let settled = false;
+          let sawMotion = false;
+          let stableFrames = 0;
+          let frames = 0;
+          const maxFrames = 180;
+          const graceFrames = 10;
+          let lastTop = el.getBoundingClientRect().top;
+
+          const finish = () => {
+            if (settled || cancelled) return;
+            settled = true;
+            clearScrollEndListener();
+            cancelActiveRaf();
             const rect = el.getBoundingClientRect();
-
-            // Se l'admin ha disabilitato il box esplicitamente, non mostrarlo
             if (config?.targetBox?.active !== false) {
               setTargetRect(rect);
             }
-          } else {
-            console.warn(`[Tour] Elemento target #${targetId} non trovato nel DOM.`);
+            applyVisuals();
+          };
+
+          scrollEndHandler = () => {
+            cancelActiveRaf();
+            activeRafId = requestAnimationFrame(() => {
+              activeRafId = null;
+              finish();
+            });
+          };
+
+          if (typeof window !== 'undefined' && 'onscrollend' in window) {
+            document.addEventListener('scrollend', scrollEndHandler, true);
           }
-          applyVisuals();
-        }, 800); // Delay aumentato a 800ms per permettere scroll completo
+
+          el.scrollIntoView({
+            behavior: 'smooth',
+            block: isMobile ? 'start' : 'center',
+            inline: 'center',
+          });
+
+          const tick = () => {
+            if (settled || cancelled) return;
+            frames += 1;
+            const top = el.getBoundingClientRect().top;
+            const delta = Math.abs(top - lastTop);
+            if (delta >= 0.5) {
+              sawMotion = true;
+              stableFrames = 0;
+              lastTop = top;
+            } else {
+              stableFrames += 1;
+            }
+
+            // Grace: evita di dichiarare "stabile" prima che lo smooth scroll possa partire
+            if (frames < graceFrames) {
+              activeRafId = requestAnimationFrame(tick);
+              return;
+            }
+
+            // Dopo movimento reale: 5 frame stabili = fine scroll
+            if (sawMotion && stableFrames >= 5) {
+              finish();
+              return;
+            }
+
+            // Nessun movimento dopo grace: già in vista (scroll non necessario)
+            if (!sawMotion && stableFrames >= 8) {
+              finish();
+              return;
+            }
+
+            if (frames >= maxFrames) {
+              finish();
+              return;
+            }
+
+            activeRafId = requestAnimationFrame(tick);
+          };
+
+          activeRafId = requestAnimationFrame(tick);
+        });
       } else {
         // Step puramente narrativo (nessun target)
         if (isMobile) window.dispatchEvent(new Event('onboarding-force-close-diary'));
@@ -203,21 +335,18 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
     executeStep();
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      cancelled = true;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      cancelActiveRaf();
+      clearScrollEndListener();
     };
-  }, [currentStepIndex, currentStep, isMobile, isExiting]);
-
-  const handleNext = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (currentStepIndex < steps.length - 1) {
-      setCurrentStepIndex((prev) => prev + 1);
-    } else {
-      triggerExitSequence();
-    }
-  };
+  }, [currentStepIndex, currentStep, isMobile, isExiting, isLoading]);
 
   // TRIGGER EXIT ANIMATION (Verso tasto hamburger in alto a destra)
-  const triggerExitSequence = () => {
+  const triggerExitSequence = (mode: 'complete' | 'skip') => {
     // Coordinate approssimative del tasto menu hamburger (Top Right)
     // x: ~95%, y: ~5%
     const exitX = 92;
@@ -227,17 +356,25 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
     setMascotPos({ x: exitX, y: exitY });
     setBubblePos({ x: exitX - 5, y: exitY + 5 }); // Leggero offset per il fumetto
 
-    // 2. Rimpicciolisci
-    setExitScale(0);
-
-    // 3. Fade out e chiusura effettiva
+    // 2. Fade out e chiusura effettiva
     if (isMobile) window.dispatchEvent(new Event('onboarding-force-close-diary'));
     setIsExiting(true);
 
-    setTimeout(() => {
-      if (isGuideOn) onComplete();
-      else onSkip();
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    exitTimerRef.current = setTimeout(() => {
+      exitTimerRef.current = null;
+      if (mode === 'skip') onSkip();
+      else onComplete();
     }, 700); // Attendi animazione CSS
+  };
+
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex((prev) => prev + 1);
+    } else {
+      triggerExitSequence('complete');
+    }
   };
 
   // Gestione Switch ON/OFF
@@ -247,8 +384,8 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
     setIsGuideOn(newState);
 
     if (!newState) {
-      // Se spento, avvia uscita verso hamburger
-      triggerExitSequence();
+      // Se spento, avvia uscita verso hamburger — always skip (explicit intent)
+      triggerExitSequence('skip');
     }
   };
 
@@ -263,7 +400,7 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
       className={`fixed inset-0 overflow-hidden font-sans transition-opacity duration-700 ${isExiting ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
       style={{ zIndex: Z_OVERLAY }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isExiting) triggerExitSequence();
+        if (e.target === e.currentTarget && !isExiting) triggerExitSequence('complete');
       }}
     >
       {/* BACKDROP - Sparisce subito all'uscita */}
@@ -350,7 +487,7 @@ export const OnboardingWizard = ({ onComplete, onSkip, isMobile }: Props) => {
                 >
                   {parsedTitle}
                 </h3>
-                <CloseButton onClose={triggerExitSequence} variant="primary" />
+                <CloseButton onClose={() => triggerExitSequence('complete')} variant="primary" />
               </div>
 
               <p

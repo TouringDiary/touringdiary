@@ -1,14 +1,11 @@
 import {
-  AlertTriangle,
   Book,
-  CheckCircle,
   Globe,
   LayoutList,
   Map as MapIcon,
   Microscope,
   Trash2,
   Wand2,
-  X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCityGenerator } from '../../hooks/useCityGenerator';
@@ -23,30 +20,6 @@ import { StrategicMapTab } from './cities/StrategicMapTab';
 import { AdminGuideModal } from './common/AdminGuideModal'; // FIX: Correct relative path
 import { AdminPageHeader } from './common/AdminPageHeader';
 import { ObservatoryLayout } from './observatory/ObservatoryLayout';
-
-const AdminToast = ({
-  message,
-  type,
-  onClose,
-}: {
-  message: string;
-  type: 'success' | 'error';
-  onClose: () => void;
-}) => (
-  <div
-    className={`fixed top-6 right-6 z-toast px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 border ${type === 'success' ? 'bg-emerald-600 border-emerald-400' : 'bg-red-600 border-red-400'} text-white max-w-md`}
-  >
-    {type === 'success' ? (
-      <CheckCircle className="w-6 h-6 shrink-0" />
-    ) : (
-      <AlertTriangle className="w-6 h-6 shrink-0" />
-    )}
-    <div className="font-bold text-sm">{message}</div>
-    <button type="button" onClick={onClose} className="ml-4 hover:bg-white/20 p-1 rounded-full">
-      <X className="w-4 h-4" />
-    </button>
-  </div>
-);
 
 interface CitiesManagerProps {
   onEdit: (id: string) => void;
@@ -68,7 +41,6 @@ export const CitiesManager = ({ onEdit, currentUser }: CitiesManagerProps) => {
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [processingCityName, setProcessingCityName] = useState('');
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [conflictData, setConflictData] = useState<{
     existingCity: CitySummary;
     newName: string;
@@ -106,11 +78,6 @@ export const CitiesManager = ({ onEdit, currentUser }: CitiesManagerProps) => {
     }
     setShowProcessModal(false);
     list.forceReload();
-  };
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
   };
 
   const handleMagicAddRequest = async (name: string, poiCount: number) => {
@@ -196,10 +163,6 @@ export const CitiesManager = ({ onEdit, currentUser }: CitiesManagerProps) => {
 
   return (
     <div className="space-y-6 animate-in fade-in flex flex-col h-full max-w-full overflow-hidden relative">
-      {toast && (
-        <AdminToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
-
       <DeleteConfirmationModal
         isOpen={!!conflictData}
         onClose={() => setConflictData(null)}

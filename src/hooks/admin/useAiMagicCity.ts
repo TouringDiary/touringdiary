@@ -1,4 +1,5 @@
 import { useConfig } from '@/context/ConfigContext';
+import { canPublishFamousPerson } from '@/domain/city/famousPersonCompleteness';
 import { GEO_CONFIG } from '../../constants/geoConfig';
 import { POI_SUBCATEGORY_VALUES } from '../../constants/governance';
 import {
@@ -12,15 +13,20 @@ import {
   suggestCityPeople,
   suggestNewPois,
 } from '../../services/ai';
-import { generateHistoricalPortrait } from '../../services/ai/aiVision';
+import {
+  ensureFamousPersonCompletenessWithAi,
+  toCompleteFamousPersonRequiredFields,
+  toDraftFamousPersonSaveFields,
+} from '../../services/ai/generators/peopleCompletenessPipeline';
+import { validateAiSpecificSlugs } from '../../services/ai/generators/peopleCategoryValidation';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { getRegistryCitySlugById, resolveCanonicalCityId } from '../../services/city/cityIdService';
 import type {
   SaveCityEventInput,
   SaveCityGuideInput,
-  SaveCityPersonInput,
   SaveCityServiceInput,
 } from '../../services/city/entitiesService';
+import { loadFamousPersonTaxonomy } from '../../services/city/famousPersonCategoryService';
 import { mergePatronDetailsFromAi } from '../../services/city/parsers/content/mergePatronDetailsFromAi';
 import { appendGenerationLogs } from '../../services/city/parsers/content/parseLogs';
 import {
@@ -36,6 +42,7 @@ import {
   saveCityTourOperator,
   saveSinglePoi,
 } from '../../services/cityService';
+import { findExistingPortrait } from '../../services/mediaService';
 import { ensureZoneExists, getTouristZones } from '../../services/zoneService';
 import type {
   CityGeneralAiResult,
@@ -44,13 +51,7 @@ import type {
   CityRatingsAiResult,
   CityStatsAiResult,
 } from '../../types/ai/cityGeneration';
-import type {
-  CityDetails,
-  FamousPerson,
-  PointOfInterest,
-  PoiSubCategory,
-  User,
-} from '../../types/index';
+import type { CityDetails, PointOfInterest, PoiSubCategory, User } from '../../types/index';
 import { getSafeEventCategory, getSafeServiceType, toTitleCase } from '../../utils/common';
 import type { StepReport, useAiTaskRunner } from './useAiTaskRunner';
 import type { VerifyDraftsBatchFn } from './useAiValidation';
@@ -310,29 +311,53 @@ export const useAiMagicCity = (
 
           if (Array.isArray(people)) {
             let orderIdx = 1;
+            const taxonomy = await loadFamousPersonTaxonomy({ activeOnly: true });
+            const activeSpecifics = taxonomy.specifics.map((s) => ({
+              slug: s.slug,
+              id: s.id,
+            }));
             for (const p of people) {
               if (p && p.name) {
-                let imageUrl = p.imageUrl || '';
-                if (!imageUrl || imageUrl.includes('unsplash') || imageUrl.includes('ui-avatars')) {
-                  try {
-                    const generated = await generateHistoricalPortrait(
-                      p.name,
-                      p.role || '',
-                      cityName,
-                    );
-                    if (generated) {
-                      imageUrl = generated;
-                    }
-                  } catch (err) {
-                    console.warn(`[useAiMagicCity] Ritratto non generato per ${p.name}:`, err);
-                  }
+                const slugValidation = validateAiSpecificSlugs(
+                  p.specificCategorySlugs ?? [],
+                  activeSpecifics,
+                );
+                if (!slugValidation.ok) {
+                  console.warn(
+                    `[useAiMagicCity] Personaggio scartato (categorie AI invalidi): ${p.name}`,
+                    slugValidation.invalid,
+                  );
+                  continue;
+                }
+                const existingUrl = await findExistingPortrait(p.name);
+                const recovered = await ensureFamousPersonCompletenessWithAi(
+                  {
+                    ...p,
+                    specificCategoryIds: slugValidation.ids,
+                    imageUrl: existingUrl ?? p.imageUrl,
+                  },
+                  cityName,
+                );
+                const required = toCompleteFamousPersonRequiredFields(recovered.person);
+                if (!required) {
+                  console.warn(
+                    `[useAiMagicCity] Personaggio scartato (incompleto): ${p.name}`,
+                    recovered.missingFields,
+                  );
+                  continue;
                 }
                 await saveCityPerson(cityId, {
-                  ...p,
-                  imageUrl: imageUrl,
+                  ...required,
+                  quote: recovered.person.quote ?? p.quote,
+                  famousWorks: recovered.person.famousWorks ?? p.famousWorks,
+                  relatedPlaces: recovered.person.relatedPlaces ?? p.relatedPlaces,
+                  fullBio: recovered.person.fullBio ?? p.fullBio,
+                  privateLife: recovered.person.privateLife ?? p.privateLife,
+                  awards: recovered.person.awards ?? p.awards,
+                  careerStats: recovered.person.careerStats ?? p.careerStats,
                   status: 'draft',
                   orderIndex: orderIdx++,
-                } as SaveCityPersonInput);
+                });
               }
             }
           }
@@ -465,6 +490,11 @@ export const useAiMagicCity = (
 
           const currentPeople = await getCityPeople(cityId);
           const draftPeople = currentPeople.filter((p) => p.status === 'draft');
+          const taxonomy = await loadFamousPersonTaxonomy({ activeOnly: true });
+          const activeSpecifics = taxonomy.specifics.map((s) => ({
+            slug: s.slug,
+            id: s.id,
+          }));
 
           let enrichedPeopleCount = 0;
           for (const person of draftPeople) {
@@ -473,26 +503,62 @@ export const useAiMagicCity = (
 
               const enrichedData = await enrichPersonData(person.name, cityName);
               if (enrichedData) {
-                let finalImage = person.imageUrl;
-                if (!finalImage || finalImage.includes('ui-avatars')) {
-                  const newImg = await generateHistoricalPortrait(
-                    person.name,
-                    enrichedData.role || person.role,
-                    cityName,
+                let specificCategoryIds =
+                  person.categories?.map((c) => c.specificId).filter(Boolean) ?? [];
+                if (enrichedData.specificCategorySlugs?.length) {
+                  const slugValidation = validateAiSpecificSlugs(
+                    enrichedData.specificCategorySlugs,
+                    activeSpecifics,
                   );
-                  if (newImg) {
-                    finalImage = newImg;
+                  if (slugValidation.ok) {
+                    specificCategoryIds = slugValidation.ids;
+                  } else {
+                    console.warn(
+                      `[useAiMagicCity] Slug categorie AI invalidi per ${person.name}:`,
+                      slugValidation.invalid,
+                    );
                   }
                 }
-                const updatedPerson: FamousPerson = {
+
+                const recovered = await ensureFamousPersonCompletenessWithAi(
+                  {
+                    ...person,
+                    ...enrichedData,
+                    name: person.name,
+                    bio: enrichedData.bio || person.bio,
+                    imageUrl: person.imageUrl,
+                    specificCategoryIds,
+                    categories: person.categories,
+                    birthYear: enrichedData.birthYear ?? person.birthYear,
+                    birthDate: enrichedData.birthDate ?? person.birthDate,
+                    isLiving: enrichedData.isLiving ?? person.isLiving,
+                    deathYear: enrichedData.deathYear ?? person.deathYear,
+                    deathDate: enrichedData.deathDate ?? person.deathDate,
+                    fullBio: enrichedData.fullBio ?? person.fullBio,
+                  },
+                  cityName,
+                );
+                const required = toCompleteFamousPersonRequiredFields(recovered.person);
+                const present = toDraftFamousPersonSaveFields(recovered.person);
+                if (!present.name) {
+                  console.warn(`[useAiMagicCity] Enrichment senza nome per ${person.name}`);
+                  continue;
+                }
+                await saveCityPerson(cityId, {
                   ...person,
                   ...enrichedData,
-                  imageUrl: finalImage,
-                  role: enrichedData.role || person.role,
-                  bio: enrichedData.bio || person.bio,
-                  status: 'published',
-                };
-                await saveCityPerson(cityId, updatedPerson);
+                  name: present.name,
+                  bio: present.bio ?? null,
+                  imageUrl: present.imageUrl ?? null,
+                  specificCategoryIds: present.specificCategoryIds ?? specificCategoryIds,
+                  birthYear: present.birthYear ?? null,
+                  birthDate: present.birthDate ?? null,
+                  isLiving: present.isLiving ?? true,
+                  deathYear: present.deathYear ?? null,
+                  deathDate: present.deathDate ?? null,
+                  fullBio: recovered.person.fullBio ?? enrichedData.fullBio ?? person.fullBio,
+                  status: required && canPublishFamousPerson(required) ? 'published' : 'draft',
+                });
                 enrichedPeopleCount++;
               }
             } catch (err) {

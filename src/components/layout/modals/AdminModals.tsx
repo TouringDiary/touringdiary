@@ -7,9 +7,6 @@ import type { CitySummary, PointOfInterest, User } from '../../../types/index';
 import type { ModalPropsBag } from '../../../types/modalProps';
 
 // Lazy Imports per Admin
-const AdminDashboard = React.lazy(() =>
-  import('../../admin/AdminDashboard').then((module) => ({ default: module.AdminDashboard })),
-);
 const AdminPoiModal = React.lazy(() =>
   import('../../admin/AdminPoiModal').then((module) => ({ default: module.AdminPoiModal })),
 );
@@ -25,8 +22,6 @@ interface AdminModalsProps {
   user: User;
   activeCityId: string | null;
   activeCitySummary?: CitySummary | null;
-  onUserUpdate: (u: User) => void;
-  onNavigate: (section: string) => void; // Per tornare alla app dall'admin
 }
 
 export const AdminModals = ({
@@ -37,8 +32,6 @@ export const AdminModals = ({
   user,
   activeCityId,
   activeCitySummary,
-  onUserUpdate,
-  onNavigate,
 }: AdminModalsProps) => {
   const handleAdminSave = async (updatedPoi: PointOfInterest) => {
     if (!user || (user.role !== 'admin_all' && user.role !== 'admin_limited')) return;

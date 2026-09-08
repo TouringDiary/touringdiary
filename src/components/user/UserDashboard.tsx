@@ -5,7 +5,6 @@ import {
   Loader2,
   ShoppingBag,
   Star,
-  Store,
   TrendingUp,
   User,
   Zap,
@@ -15,17 +14,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { PLAN_TYPES } from '@/constants/planTypes';
 import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { BusinessProvider, useBusinessContext } from '@/context/BusinessContext';
 import { useModal } from '@/context/ModalContext';
 import { useMobileCompact } from '@/hooks/ui/useMobileCompact';
 import { type DashboardTab, URL_TO_INTERNAL_TAB, useAppRouter } from '@/hooks/useAppRouter';
-import type { Suitcase } from '@/types/suitcase';
 import { useUserDashboardData } from '../../hooks/useUserDashboardData';
 import { getCurrentLevel, getNextLevelProgress } from '../../services/gamificationService';
 import type { CitySummary, Reward, User as UserType } from '../../types/index';
 import { BusinessShopManager } from './BusinessShopManager';
+import { BusinessActivitySwitcher } from './dashboard/BusinessActivitySwitcher';
 import { UserFriendsTab } from './dashboard/UserFriendsTab';
 import { UserMessagesTab } from './dashboard/UserMessagesTab'; // NEW IMPORT
 import { UserNotificationsTab } from './dashboard/UserNotificationsTab';
@@ -52,7 +50,6 @@ interface Props {
   initialTab?: DashboardTab;
   onLogout?: () => void;
   cityManifest?: CitySummary[];
-  userSuitcases?: Suitcase[];
 }
 
 /** Scope BusinessProvider: solo Dashboard (non bootstrap globale Home/shell). */
@@ -72,7 +69,6 @@ const UserDashboardContent = ({
   onNavigate,
   initialTab,
   onLogout,
-  userSuitcases,
 }: Props) => {
   const isBusiness = user.role === 'business';
   const location = useLocation();
@@ -243,97 +239,18 @@ const UserDashboardContent = ({
           <div
             className={`flex-1 bg-[#020617] overflow-y-auto custom-scrollbar absolute md:relative inset-0 z-floating-panel transition-transform duration-300 ${isMobile && mobileView !== 'content' ? 'translate-x-full' : 'translate-x-0'}`}
           >
-            {/* PADDING RIMOSSO PER MESSAGES TAB PER AVERE FULL HEIGHT */}
-            {/* PADDING RIMOSSO PER MESSAGES TAB PER AVERE FULL HEIGHT */}
-            <div className={`h-full ${activeTab === 'messages' ? 'p-0' : 'p-6 md:p-10'}`}>
+            <div className="h-full p-6 md:p-10 flex flex-col min-h-0">
               {/* PREMIUM BUSINESS SWITCHER (VISIBLE IN BIZ TABS) */}
               {isBusiness &&
                 (activeTab === 'overview_biz' ||
                   activeTab === 'bottega' ||
                   activeTab === 'messages') &&
-                userBusinesses.length > 1 && (
-                  <div className="mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
-                    <div className="flex items-center justify-between mb-4 px-2">
-                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-                        Seleziona Attività
-                      </h4>
-                      <div className="h-px flex-1 bg-slate-800/50 mx-4"></div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {userBusinesses.map((biz) => (
-                        <button
-                          type="button"
-                          key={biz.id}
-                          onClick={() => {
-                            const targetId = biz.slug || biz.id;
-                            switchBusiness(targetId);
-                          }}
-                          className={`
-                                                    group relative flex items-center gap-4 p-4 rounded-3xl transition-all duration-500 border overflow-hidden
-                                                    ${
-                                                      activeBusinessId === biz.id
-                                                        ? 'bg-indigo-600/10 border-indigo-500/50 shadow-2xl shadow-indigo-500/10'
-                                                        : 'bg-slate-900/40 border-slate-800/50 hover:border-slate-600/50 hover:bg-slate-800/40'
-                                                    }
-                                                `}
-                        >
-                          {/* Status Indicator Bar */}
-                          <div
-                            className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-500 ${activeBusinessId === biz.id ? 'bg-indigo-500 h-full' : 'bg-transparent h-0'}`}
-                          ></div>
-
-                          <div
-                            className={`
-                                                    relative flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500
-                                                    ${
-                                                      activeBusinessId === biz.id
-                                                        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 rotate-0'
-                                                        : 'bg-slate-800 text-slate-500 group-hover:text-indigo-400 group-hover:rotate-3'
-                                                    }
-                                                `}
-                          >
-                            {biz.type === PLAN_TYPES.REGIONAL_ACTIVITY ? (
-                              <Briefcase className="w-6 h-6" />
-                            ) : (
-                              <Store className="w-6 h-6" />
-                            )}
-                          </div>
-
-                          <div className="flex flex-col text-left overflow-hidden">
-                            <span
-                              className={`text-sm font-black truncate transition-colors duration-300 ${activeBusinessId === biz.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}
-                            >
-                              {biz.companyName || biz.resolvedData?.name || 'Attività'}
-                            </span>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span
-                                className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${biz.type === PLAN_TYPES.REGIONAL_ACTIVITY ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}
-                              >
-                                {biz.type === PLAN_TYPES.REGIONAL_ACTIVITY
-                                  ? 'GOLD'
-                                  : biz.type === PLAN_TYPES.LOCAL_ACTIVITY
-                                    ? 'SILVER'
-                                    : 'STANDARD'}
-                              </span>
-                              <span className="text-[9px] font-bold text-slate-600 uppercase italic truncate">
-                                {biz.city || 'Campania'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Active Checkmark */}
-                          {activeBusinessId === biz.id && (
-                            <div className="ml-auto animate-in zoom-in duration-300">
-                              <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-                                <Zap className="w-3 h-3 text-indigo-400 fill-current" />
-                              </div>
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                userBusinesses.length > 0 && (
+                  <BusinessActivitySwitcher
+                    businesses={userBusinesses}
+                    activeBusiness={activeBusiness}
+                    onSwitch={(targetId) => switchBusiness(targetId)}
+                  />
                 )}
               {activeTab === 'overview_biz' && isBusiness && (
                 <div className="space-y-8 animate-in fade-in duration-500">
@@ -480,7 +397,9 @@ const UserDashboardContent = ({
               )}
 
               {activeTab === 'messages' && (
-                <UserMessagesTab user={user} requests={sponsorRequests} onRefresh={refreshData} />
+                <div className="flex-1 min-h-0 flex flex-col">
+                  <UserMessagesTab user={user} requests={sponsorRequests} onRefresh={refreshData} />
+                </div>
               )}
 
               {activeTab === 'notifications' && (

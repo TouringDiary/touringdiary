@@ -22,11 +22,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { LAYOUT } from '@/constants/layout';
 import { resolveResourceType } from '@/constants/planTypes';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { useInteraction } from '../../context/InteractionContext';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
@@ -363,14 +363,7 @@ const StandardView = ({
   const { hasUserVoted, toggleVote } = useInteraction();
   const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
   const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < LAYOUT.BREAKPOINTS.LG : false,
-  );
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < LAYOUT.BREAKPOINTS.LG);
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+  const isMobile = useMobileDetect();
   const distanceBadgeStyle = useDynamicStyles('poi_distance_badge', isMobile);
   const [isFlipped, setIsFlipped] = useState(initialView === 'reviews');
   const [isVoting, setIsVoting] = useState(false);
@@ -420,6 +413,86 @@ const StandardView = ({
     interestLabel = 'LOW LEVEL';
   }
 
+  const poiDetailCategoryBadgeClass = `min-w-0 max-w-full shrink truncate rounded-lg border px-3 py-1 text-[10px] font-black uppercase leading-none tracking-widest shadow-lg ${uiStyle.bg} ${uiStyle.text} ${uiStyle.border}`;
+  const subCategoryLabel = getSubCategoryLabel(poi.subCategory || '');
+
+  const poiDetailHeaderActionBtnClass =
+    'flex shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-1 text-[10px] font-bold uppercase leading-none transition-all min-h-9 lg:min-h-0';
+  const poiDetailCompactHeaderActionBtnClass =
+    'flex min-h-9 shrink-0 items-center justify-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold uppercase leading-none transition-all';
+  const poiDetailHeaderActionBtnNeutralClass = `${poiDetailHeaderActionBtnClass} bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500`;
+  const poiDetailCompactHeaderActionBtnNeutralClass = `${poiDetailCompactHeaderActionBtnClass} bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500`;
+
+  const renderHeaderUtilityActions = (includeShop: boolean, compact = false) => {
+    const actionBtnClass = compact
+      ? poiDetailCompactHeaderActionBtnClass
+      : poiDetailHeaderActionBtnClass;
+    const neutralBtnClass = compact
+      ? poiDetailCompactHeaderActionBtnNeutralClass
+      : poiDetailHeaderActionBtnNeutralClass;
+
+    return (
+      <>
+        {includeShop && poi.vatNumber && onOpenShop && shopPublicEnabled && (
+          <button
+            type="button"
+            onClick={() => {
+              onOpenShop(poi);
+              onClose();
+            }}
+            className={`${neutralBtnClass} bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg active:scale-95 border-indigo-400`}
+            title="Vai alla Bottega"
+            aria-label="Vai alla Bottega"
+          >
+            <ShoppingCart className="w-4 h-4" aria-hidden />
+          </button>
+        )}
+        {usableCoords ? (
+          <>
+            <button
+              type="button"
+              onClick={() => openMap(usableCoords.lat, usableCoords.lng, poi.name, poi.address)}
+              className={neutralBtnClass}
+              title="Apri mappa"
+              aria-label="Apri mappa"
+            >
+              <MapPin className={compact ? 'h-3 w-3' : 'w-3.5 h-3.5'} aria-hidden /> Maps
+            </button>
+            <button
+              type="button"
+              onClick={() => open3DView(usableCoords.lat, usableCoords.lng, poi.name, poi.address)}
+              className={neutralBtnClass}
+              title="Vista 3D"
+              aria-label="Vista 3D"
+            >
+              <Box className={compact ? 'h-3 w-3' : 'w-3.5 h-3.5'} aria-hidden /> 3D
+            </button>
+          </>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleThumbClick}
+          className={`${actionBtnClass} ${isVoted ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'}`}
+          title="Vota"
+          aria-label="Vota"
+        >
+          {isVoting ? (
+            <Loader2
+              className={compact ? 'h-3 w-3 animate-spin' : 'w-3.5 h-3.5 animate-spin'}
+              aria-hidden
+            />
+          ) : (
+            <ThumbsUp
+              className={`${compact ? 'h-3 w-3' : 'w-3.5 h-3.5'} ${isVoted ? 'fill-current' : ''}`}
+              aria-hidden
+            />
+          )}{' '}
+          {localVotes}
+        </button>
+      </>
+    );
+  };
+
   return (
     <div
       className="td-modal-overlay bg-black/90 backdrop-blur-sm animate-in fade-in"
@@ -440,112 +513,68 @@ const StandardView = ({
         aria-modal="true"
         aria-labelledby="poi-detail-title"
       >
-        <div className="p-5 md:p-6 border-b border-slate-800 bg-[#0f172a] relative shrink-0">
+        <div className="relative shrink-0 border-b border-slate-800 bg-[#0f172a] p-4 md:p-6">
           <CloseButton onClose={onClose} position="absolute" variant="primary" />
-          <div className="flex flex-col md:flex-row justify-between items-end gap-4 mt-6">
-            <div className="flex-1 min-w-0 flex flex-col justify-end gap-1">
-              <h2
-                id="poi-detail-title"
-                className="text-xl md:text-3xl font-display font-bold text-white leading-tight truncate drop-shadow-md"
-              >
-                {poi.name}
-              </h2>
+          <div className="mt-4 flex flex-col gap-3 max-lg:gap-2 md:mt-6">
+            <div className="flex w-full min-w-0 flex-col justify-end gap-1">
+              <div className="flex min-w-0 w-full items-start gap-3 max-lg:pr-11 lg:items-center lg:pr-0">
+                <h2
+                  id="poi-detail-title"
+                  className="min-w-0 flex-1 truncate text-xl font-display font-bold leading-tight text-white drop-shadow-md md:text-3xl"
+                >
+                  {poi.name}
+                </h2>
+                <div
+                  role="img"
+                  className={`flex shrink-0 items-center justify-center rounded-xl border px-2.5 py-1 lg:px-3 ${interestColor}`}
+                  aria-label={`Interesse turistico: ${interestLabel}`}
+                >
+                  <div className="flex items-center gap-1 text-[10px] font-black leading-none lg:gap-1.5 lg:text-xs">
+                    <TrendingUp className="h-3 w-3" aria-hidden />
+                    {interestLabel}
+                  </div>
+                </div>
+              </div>
               {poi.address ? (
-                <div className="flex items-center gap-2 mb-1">
-                  <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span className="text-slate-400 text-xs md:text-sm truncate">{poi.address}</span>
+                <div className="mb-1 flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                  <span className="truncate text-xs text-slate-400 md:text-sm">{poi.address}</span>
                 </div>
               ) : (
                 <div className="mb-1 h-5" aria-hidden="true" />
               )}
-              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/50">
+              {distance != null && (
                 <span
-                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border shadow-lg ${uiStyle.bg} ${uiStyle.text} ${uiStyle.border}`}
+                  className={`mb-1 inline-flex w-fit items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-900/30 px-2 py-1 whitespace-nowrap lg:hidden ${distanceBadgeStyle || 'text-[10px] font-black text-emerald-400'}`}
                 >
-                  {getSubCategoryLabel(poi.subCategory || '')}
+                  <Navigation className="h-3 w-3 rotate-45 fill-current" /> {distance}km
                 </span>
-                {distance != null && (
+              )}
+              <div className="flex min-w-0 w-full items-center gap-2 overflow-hidden border-t border-slate-800/50 pt-1 max-lg:justify-between max-lg:gap-4 lg:justify-between lg:gap-4">
+                <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
                   <span
-                    className={`flex items-center gap-1 bg-emerald-900/30 px-2 py-1 rounded-lg border border-emerald-500/30 whitespace-nowrap ${distanceBadgeStyle || 'text-[10px] font-black text-emerald-400'}`}
+                    className={`${poiDetailCategoryBadgeClass} flex min-h-9 items-center lg:min-h-0`}
+                    title={subCategoryLabel}
                   >
-                    <Navigation className="w-3 h-3 rotate-45 fill-current" /> {distance}km
+                    {subCategoryLabel}
                   </span>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 shrink-0 items-end">
-              <div
-                className={`hidden md:flex flex-col items-center justify-center px-3 py-1 rounded-xl border ${interestColor} mb-1 self-end`}
-              >
-                <div className="flex items-center gap-1.5 font-black text-xs leading-none">
-                  <TrendingUp className="w-3 h-3" /> {interestLabel}
+                  {distance != null && (
+                    <span
+                      className={`hidden shrink-0 items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-900/30 px-2 py-1 whitespace-nowrap lg:inline-flex ${distanceBadgeStyle || 'text-[10px] font-black text-emerald-400'}`}
+                    >
+                      <Navigation className="h-3 w-3 rotate-45 fill-current" /> {distance}km
+                    </span>
+                  )}
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
-                <FavoriteBookmarkButton
-                  userId={user?.role === 'guest' ? null : user?.id}
-                  entityKind="poi"
-                  entityId={poi.id}
-                  onRequireAuth={onOpenAuth}
-                  size="sm"
-                />
-                {poi.vatNumber && onOpenShop && shopPublicEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenShop(poi);
-                      onClose();
-                    }}
-                    className="p-2 min-h-[44px] min-w-[44px] bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white shadow-lg transition-transform active:scale-95 border border-indigo-400 flex items-center justify-center"
-                    title="Vai alla Bottega"
-                    aria-label="Vai alla Bottega"
-                  >
-                    <ShoppingCart className="w-4 h-4" aria-hidden />
-                  </button>
-                )}
-                {usableCoords ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openMap(usableCoords.lat, usableCoords.lng, poi.name, poi.address)
-                      }
-                      className="flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg text-[10px] font-bold uppercase transition-all border bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"
-                    >
-                      <MapPin className="w-3.5 h-3.5" aria-hidden /> Maps
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        open3DView(usableCoords.lat, usableCoords.lng, poi.name, poi.address)
-                      }
-                      className="flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg text-[10px] font-bold uppercase transition-all border bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"
-                    >
-                      <Box className="w-3.5 h-3.5" aria-hidden /> 3D
-                    </button>
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={handleThumbClick}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg text-[10px] font-bold uppercase transition-all border ${isVoted ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'}`}
-                >
-                  {isVoting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
-                  ) : (
-                    <ThumbsUp
-                      className={`w-3.5 h-3.5 ${isVoted ? 'fill-current' : ''}`}
-                      aria-hidden
-                    />
-                  )}{' '}
-                  {localVotes}
-                </button>
+                <div className="flex shrink-0 items-center gap-1.5 lg:gap-2">
+                  {renderHeaderUtilityActions(true, isMobile)}
+                </div>
               </div>
             </div>
           </div>
         </div>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          <div className="relative w-full bg-black shrink-0 h-[35vh] md:flex-[1.2] md:h-auto border-b border-slate-800 overflow-hidden">
+          <div className="relative min-h-0 w-full shrink-0 overflow-hidden border-b border-slate-800 bg-black h-[35vh] md:h-auto md:min-h-0 md:flex-1 md:flex-[1.2] lg:flex-[1.2]">
             <GallerySection
               poi={poi}
               isFlipped={isFlipped}
@@ -557,7 +586,7 @@ const StandardView = ({
               onOpenReview={onOpenReview}
             />
           </div>
-          <div className="flex-1 md:flex-1 min-h-0 bg-slate-900 overflow-hidden relative">
+          <div className="relative min-h-0 flex-1 overflow-hidden bg-slate-900 lg:flex-none lg:shrink-0 lg:overflow-visible">
             <TextSection poi={poi} onSuggestEdit={onSuggestEdit} />
           </div>
         </div>

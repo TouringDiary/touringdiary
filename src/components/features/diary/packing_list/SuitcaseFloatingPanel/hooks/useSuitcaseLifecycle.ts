@@ -16,16 +16,7 @@ interface LifecycleProps {
   setSelectedItemName: (n: string | null) => void;
 }
 
-export const useSuitcaseLifecycle = ({
-  itineraryId,
-  activeTabId,
-  setActiveTabId,
-  viewMode,
-  setViewMode,
-  sourceTab,
-  setSourceTab,
-  setSelectedItemName,
-}: LifecycleProps) => {
+export const useSuitcaseLifecycle = ({ itineraryId }: LifecycleProps) => {
   const { user: appUser } = useUser();
   const currentUser = useMemo<User | null>(() => {
     if (appUser.role === 'guest') return null;

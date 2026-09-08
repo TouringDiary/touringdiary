@@ -132,7 +132,6 @@ export const useCloneSuitcase = () => {
 
   const cloneSuitcase = async (
     suitcaseId: string,
-    itineraryId: string | null,
     userId: string,
     title?: string,
   ) => {

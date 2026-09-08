@@ -61,8 +61,8 @@ const DNA_ICONS: Record<string, string> = {
 
 const CityDnaIcons = ({ types }: { types: string[] }) => (
   <div className="flex items-center gap-0.5 shrink-0" role="img" aria-label="DNA della città">
-    {types.slice(0, 4).map((type, idx) => (
-      <span key={idx} className="text-[10px] md:text-xs leading-none" title={type} aria-hidden>
+    {types.slice(0, 4).map((type) => (
+      <span key={type} className="text-[10px] md:text-xs leading-none" title={type} aria-hidden>
         {DNA_ICONS[type] || '📍'}
       </span>
     ))}
@@ -133,6 +133,13 @@ export const CityCard: React.FC<CityCardProps> = ({
     : null;
   const badge = getBadgeConfig(city.specialBadge, forcedBadge);
 
+  const cityCardPhotoSectionClass =
+    'relative isolate z-[1] min-h-0 shrink-0 basis-[55%] overflow-hidden border-b border-slate-800 pointer-events-none';
+  const cityCardFavoriteTouchCellClass =
+    'pointer-events-auto absolute bottom-1 right-1 z-home-card-overlay grid place-items-center';
+  const cityCardFavoriteButtonClass =
+    '!grid !place-items-center [&_svg]:block max-md:!h-7 max-md:!w-7 max-md:!min-h-0 max-md:!min-w-0 max-md:!p-0 max-md:[&_svg]:!size-2.5 md:!min-h-9 md:!min-w-9 md:!p-1 md:[&_svg]:!size-3.5';
+
   const baseClasses =
     'flex-shrink-0 bg-slate-900 rounded-xl border border-slate-800 overflow-hidden group cursor-pointer hover:border-amber-600/50 hover:shadow-2xl transition-all duration-300 relative flex flex-col';
   const dimensions =
@@ -146,7 +153,7 @@ export const CityCard: React.FC<CityCardProps> = ({
         onClick={() => onClick(city.id)}
         className="absolute inset-0 z-0 cursor-pointer border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/70 focus-visible:ring-inset"
       />
-      <div className="h-[55%] overflow-hidden relative border-b border-slate-800 pointer-events-none z-[1]">
+      <div className={cityCardPhotoSectionClass}>
         <ImageWithFallback
           src={city.imageUrl}
           alt={city.name}
@@ -167,33 +174,31 @@ export const CityCard: React.FC<CityCardProps> = ({
         )}
         {distance != null && (
           <div
-            className={`absolute bottom-1 right-1 bg-black px-1.5 py-0.5 rounded flex items-center gap-1 border border-white/20 shadow-lg ${distanceBadgeStyle || 'text-[8px] md:text-[10px] font-bold text-slate-300'}`}
+            className={`absolute bottom-1 left-1 bg-black px-1.5 py-0.5 rounded flex items-center gap-1 border border-white/20 shadow-lg ${distanceBadgeStyle || 'text-[8px] md:text-[10px] font-bold text-slate-300'}`}
           >
             <MapPin className="w-2.5 h-2.5 md:w-3 text-amber-500" /> {distance} km
           </div>
         )}
+        <div className={cityCardFavoriteTouchCellClass}>
+          <FavoriteBookmarkButton
+            userId={user?.role === 'guest' ? null : user?.id}
+            entityKind="city"
+            entityId={city.id}
+            onRequireAuth={() => openModal('auth')}
+            size="sm"
+            titleWhenFavorite={FAVORITES_UI_LABELS.cityWhenFavorite}
+            className={`!bg-slate-800/90 shadow-md backdrop-blur-sm ${cityCardFavoriteButtonClass}`}
+          />
+        </div>
       </div>
 
       <div className="p-2 flex flex-col flex-1 justify-between bg-slate-900 relative z-[1] pointer-events-none">
         <div className="min-h-0 overflow-hidden flex flex-col justify-center h-full">
-          <div className="flex items-center justify-between gap-1 min-w-0">
-            <h4
-              className={`${cardTitleStyle} group-hover:text-amber-400 transition-colors truncate flex-1 min-w-0`}
-            >
-              {city.name}
-            </h4>
-            <div className="relative z-[1] pointer-events-auto shrink-0">
-              <FavoriteBookmarkButton
-                userId={user?.role === 'guest' ? null : user?.id}
-                entityKind="city"
-                entityId={city.id}
-                onRequireAuth={() => openModal('auth')}
-                size="sm"
-                titleWhenFavorite={FAVORITES_UI_LABELS.cityWhenFavorite}
-                className="!bg-slate-800/80 max-md:!p-1 max-md:[&_svg]:!w-3 max-md:[&_svg]:!h-3"
-              />
-            </div>
-          </div>
+          <h4
+            className={`${cardTitleStyle} group-hover:text-amber-400 transition-colors truncate min-w-0`}
+          >
+            {city.name}
+          </h4>
           <p className={`${cardSubStyle} mb-0.5 truncate mt-0.5`}>{city.zone}</p>
           <p className="text-[9px] md:text-[9px] text-slate-400 font-medium opacity-80 truncate mt-0.5">
             {city.description}

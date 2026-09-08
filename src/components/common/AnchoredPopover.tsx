@@ -23,6 +23,9 @@ export interface AnchoredPopoverProps {
   role?: 'dialog' | 'menu' | 'tooltip' | 'listbox';
   onMouseEnter?: React.MouseEventHandler<HTMLDivElement>;
   onMouseLeave?: React.MouseEventHandler<HTMLDivElement>;
+  'aria-label'?: string;
+  'aria-labelledby'?: string;
+  'aria-describedby'?: string;
 }
 
 /**
@@ -44,6 +47,9 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
   role = 'dialog',
   onMouseEnter,
   onMouseLeave,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledby,
+  'aria-describedby': ariaDescribedby,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
   const { position, ready, remeasure } = useAnchoredPortalPosition(
@@ -89,6 +95,9 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
       ref={popoverRef}
       role={role}
       aria-modal={false}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledby}
+      aria-describedby={ariaDescribedby}
       className={`fixed ${align === 'center' ? '-translate-x-1/2' : ''} ${ready ? 'animate-in fade-in zoom-in-95' : 'opacity-0 pointer-events-none'} ${className}`}
       style={{ zIndex: Z_POPOVER, ...position, ...style }}
       onClick={(e) => e.stopPropagation()}

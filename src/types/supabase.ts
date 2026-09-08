@@ -1014,61 +1014,79 @@ export type Database = {
         Row: {
           awards: string[] | null;
           bio: string | null;
+          birth_date: string | null;
+          birth_year: number | null;
           career_stats: Json | null;
           city_id: string;
           created_at: string;
+          death_date: string | null;
+          death_year: number | null;
           famous_works: string[] | null;
           full_bio: string | null;
           id: string;
           image_is_placeholder: boolean | null;
+          image_storage_path: string | null;
           image_url: string | null;
+          is_living: boolean;
           lifespan: string | null;
+          lifespan_display: string | null;
           name: string;
           order_index: number | null;
           private_life: string | null;
           quote: string | null;
           related_places: Json | null;
-          role: string | null;
           status: string | null;
         };
         Insert: {
           awards?: string[] | null;
           bio?: string | null;
+          birth_date?: string | null;
+          birth_year?: number | null;
           career_stats?: Json | null;
           city_id: string;
           created_at?: string;
+          death_date?: string | null;
+          death_year?: number | null;
           famous_works?: string[] | null;
           full_bio?: string | null;
           id?: string;
           image_is_placeholder?: boolean | null;
+          image_storage_path?: string | null;
           image_url?: string | null;
+          is_living?: boolean;
           lifespan?: string | null;
+          lifespan_display?: string | null;
           name: string;
           order_index?: number | null;
           private_life?: string | null;
           quote?: string | null;
           related_places?: Json | null;
-          role?: string | null;
           status?: string | null;
         };
         Update: {
           awards?: string[] | null;
           bio?: string | null;
+          birth_date?: string | null;
+          birth_year?: number | null;
           career_stats?: Json | null;
           city_id?: string;
           created_at?: string;
+          death_date?: string | null;
+          death_year?: number | null;
           famous_works?: string[] | null;
           full_bio?: string | null;
           id?: string;
           image_is_placeholder?: boolean | null;
+          image_storage_path?: string | null;
           image_url?: string | null;
+          is_living?: boolean;
           lifespan?: string | null;
+          lifespan_display?: string | null;
           name?: string;
           order_index?: number | null;
           private_life?: string | null;
           quote?: string | null;
           related_places?: Json | null;
-          role?: string | null;
           status?: string | null;
         };
         Relationships: [
@@ -1092,6 +1110,113 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'seo_city_routes';
             referencedColumns: ['city_id'];
+          },
+        ];
+      };
+      famous_person_master_categories: {
+        Row: {
+          created_at: string;
+          deleted_at: string | null;
+          id: string;
+          is_active: boolean;
+          label: string;
+          order_index: number;
+          slug: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          label: string;
+          order_index?: number;
+          slug: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          label?: string;
+          order_index?: number;
+          slug?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      famous_person_specific_categories: {
+        Row: {
+          created_at: string;
+          deleted_at: string | null;
+          id: string;
+          is_active: boolean;
+          label: string;
+          master_id: string;
+          order_index: number;
+          slug: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          label: string;
+          master_id: string;
+          order_index?: number;
+          slug: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          label?: string;
+          master_id?: string;
+          order_index?: number;
+          slug?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'famous_person_specific_categories_master_id_fkey';
+            columns: ['master_id'];
+            isOneToOne: false;
+            referencedRelation: 'famous_person_master_categories';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      city_person_category_links: {
+        Row: {
+          person_id: string;
+          specific_category_id: string;
+        };
+        Insert: {
+          person_id: string;
+          specific_category_id: string;
+        };
+        Update: {
+          person_id?: string;
+          specific_category_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'city_person_category_links_person_id_fkey';
+            columns: ['person_id'];
+            isOneToOne: false;
+            referencedRelation: 'city_people';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'city_person_category_links_specific_category_id_fkey';
+            columns: ['specific_category_id'];
+            isOneToOne: false;
+            referencedRelation: 'famous_person_specific_categories';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -2531,6 +2656,204 @@ export type Database = {
             columns: ['suggestion_id'];
             isOneToOne: false;
             referencedRelation: 'patron_photo_suggestions';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      famous_person_suggestions: {
+        Row: {
+          accepted_person_id: string | null;
+          admin_notes: string | null;
+          city_id: string;
+          city_name: string;
+          created_at: string;
+          id: string;
+          notes: string;
+          status: string;
+          suggested_name: string;
+          updated_at: string;
+          user_id: string;
+          user_name: string;
+        };
+        Insert: {
+          accepted_person_id?: string | null;
+          admin_notes?: string | null;
+          city_id: string;
+          city_name: string;
+          created_at?: string;
+          id?: string;
+          notes: string;
+          status?: string;
+          suggested_name: string;
+          updated_at?: string;
+          user_id: string;
+          user_name: string;
+        };
+        Update: {
+          accepted_person_id?: string | null;
+          admin_notes?: string | null;
+          city_id?: string;
+          city_name?: string;
+          created_at?: string;
+          id?: string;
+          notes?: string;
+          status?: string;
+          suggested_name?: string;
+          updated_at?: string;
+          user_id?: string;
+          user_name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'famous_person_suggestions_city_id_fkey';
+            columns: ['city_id'];
+            isOneToOne: false;
+            referencedRelation: 'cities';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'famous_person_suggestions_accepted_person_id_fkey';
+            columns: ['accepted_person_id'];
+            isOneToOne: false;
+            referencedRelation: 'city_people';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      famous_person_photo_suggestions: {
+        Row: {
+          admin_notes: string | null;
+          city_id: string;
+          city_name: string;
+          created_at: string;
+          id: string;
+          image_url: string;
+          notes: string | null;
+          person_id: string;
+          person_name: string;
+          rights_confirmed: boolean;
+          status: string;
+          storage_path: string;
+          updated_at: string;
+          user_id: string;
+          user_name: string;
+        };
+        Insert: {
+          admin_notes?: string | null;
+          city_id: string;
+          city_name: string;
+          created_at?: string;
+          id?: string;
+          image_url: string;
+          notes?: string | null;
+          person_id: string;
+          person_name: string;
+          rights_confirmed?: boolean;
+          status?: string;
+          storage_path: string;
+          updated_at?: string;
+          user_id: string;
+          user_name: string;
+        };
+        Update: {
+          admin_notes?: string | null;
+          city_id?: string;
+          city_name?: string;
+          created_at?: string;
+          id?: string;
+          image_url?: string;
+          notes?: string | null;
+          person_id?: string;
+          person_name?: string;
+          rights_confirmed?: boolean;
+          status?: string;
+          storage_path?: string;
+          updated_at?: string;
+          user_id?: string;
+          user_name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'famous_person_photo_suggestions_city_id_fkey';
+            columns: ['city_id'];
+            isOneToOne: false;
+            referencedRelation: 'cities';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'famous_person_photo_suggestions_person_id_fkey';
+            columns: ['person_id'];
+            isOneToOne: false;
+            referencedRelation: 'city_people';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      famous_person_photo_reports: {
+        Row: {
+          admin_notes: string | null;
+          city_id: string;
+          city_name: string;
+          created_at: string;
+          id: string;
+          notes: string | null;
+          person_id: string;
+          person_image_storage_path: string | null;
+          person_image_url: string;
+          person_name: string;
+          reason: string;
+          reporter_user_id: string | null;
+          reporter_user_name: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          admin_notes?: string | null;
+          city_id: string;
+          city_name: string;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          person_id: string;
+          person_image_storage_path?: string | null;
+          person_image_url: string;
+          person_name: string;
+          reason: string;
+          reporter_user_id?: string | null;
+          reporter_user_name?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          admin_notes?: string | null;
+          city_id?: string;
+          city_name?: string;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          person_id?: string;
+          person_image_storage_path?: string | null;
+          person_image_url?: string;
+          person_name?: string;
+          reason?: string;
+          reporter_user_id?: string | null;
+          reporter_user_name?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'famous_person_photo_reports_city_id_fkey';
+            columns: ['city_id'];
+            isOneToOne: false;
+            referencedRelation: 'cities';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'famous_person_photo_reports_person_id_fkey';
+            columns: ['person_id'];
+            isOneToOne: false;
+            referencedRelation: 'city_people';
             referencedColumns: ['id'];
           },
         ];
@@ -5721,6 +6044,53 @@ export type Database = {
           p_items?: Json;
         };
         Returns: string;
+      };
+      submit_famous_person_suggestion: {
+        Args: {
+          p_city_id: string;
+          p_suggested_name: string;
+          p_notes: string;
+        };
+        Returns: string;
+      };
+      submit_famous_person_photo_suggestion: {
+        Args: {
+          p_person_id: string;
+          p_rights_confirmed: boolean;
+          p_image_url: string;
+          p_storage_path: string;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      block_famous_person_photo_report_and_clear: {
+        Args: {
+          p_report_id: string;
+          p_person_id: string;
+          p_admin_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      accept_famous_person_suggestion: {
+        Args: {
+          p_suggestion_id: string;
+          p_admin_notes?: string | null;
+        };
+        Returns: string;
+      };
+      accept_famous_person_photo_suggestion: {
+        Args: {
+          p_suggestion_id: string;
+          p_admin_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      set_famous_person_editorial_status: {
+        Args: {
+          p_person_id: string;
+          p_status: string;
+        };
+        Returns: undefined;
       };
       can_manage_shop: { Args: { p_shop_id: string }; Returns: boolean };
       can_manage_sponsor: { Args: { p_sponsor_id: string }; Returns: boolean };

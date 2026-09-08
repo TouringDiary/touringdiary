@@ -17,10 +17,9 @@ import { ServiceOperators } from './ServiceOperators';
 
 interface EditorInfoProps {
   currentUser: User;
-  onOpenTaxonomy: () => void;
 }
 
-export const EditorInfo = ({ currentUser, onOpenTaxonomy }: EditorInfoProps) => {
+export const EditorInfo = ({ currentUser }: EditorInfoProps) => {
   const { city } = useCityEditor();
   const { aiBlocked, blockMessage } = useAiRuntimeGate();
 
@@ -97,9 +96,11 @@ export const EditorInfo = ({ currentUser, onOpenTaxonomy }: EditorInfoProps) => 
           onConfirm={executeRegeneration}
           // REQUIRING DB DATA TO DISPLAY TEXT
           title={regenMsg.title}
-          // Replace literal \n\n with actual newlines if present (React handles \n mostly fine in whitespace-pre-line)
+          // Replace literal backslash+n sequences from DB templates with real newlines
           message={
-            regenMsg.body ? regenMsg.body.replace(/\\n/g, '\n') : 'Procedere con la rigenerazione?'
+            regenMsg.body
+              ? regenMsg.body.replaceAll('\\n', '\n')
+              : 'Procedere con la rigenerazione?'
           }
           confirmLabel="Procedi con Merge"
           cancelLabel="Annulla"

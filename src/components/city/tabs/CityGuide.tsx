@@ -41,8 +41,10 @@ function hasUsableCoords(
   coords: { lat: number; lng: number } | null | undefined,
 ): coords is { lat: number; lng: number } {
   if (!coords) return false;
-  if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) return false;
-  if (coords.lat === 0 && coords.lng === 0) return false;
+  const { lat, lng } = coords;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  if (lat === 0 && lng === 0) return false;
   return true;
 }
 
@@ -85,6 +87,7 @@ interface PoiListItemProps {
   onOpenReview: (poi: PointOfInterest) => void;
   user?: User;
   onAdminEdit?: (poi: PointOfInterest) => void;
+  onFavoriteChange?: (poiId: string, isFavorite: boolean) => void;
 }
 
 const PoiListItem = ({
@@ -101,6 +104,7 @@ const PoiListItem = ({
   onOpenReview,
   user,
   onAdminEdit,
+  onFavoriteChange,
 }: PoiListItemProps) => {
   const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
   const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
@@ -115,7 +119,7 @@ const PoiListItem = ({
   const isAdmin = user && (user.role === 'admin_all' || user.role === 'admin_limited');
 
   const isRef =
-    referencePoint && (referencePoint.id === poi.id || referencePoint.name === poi.name);
+    referencePoint != null && (referencePoint.id === poi.id || referencePoint.name === poi.name);
   const isGlobalRefActive = !!referencePoint;
 
   const [isVoting, setIsVoting] = useState(false);
@@ -171,6 +175,16 @@ const PoiListItem = ({
   const sideBtnClass = 'flex flex-1 flex-col items-center justify-center gap-1 transition-colors';
   const sideIconClass = 'h-4 w-4 md:h-5 md:w-5';
   const sideLabelClass = 'text-[7px] font-black uppercase';
+  const sideRatingClass = 'text-[7px] font-black tabular-nums leading-none normal-case';
+  const poiFooterActionCellClass =
+    'grid shrink-0 place-items-center min-h-11 min-w-11 lg:h-7 lg:w-7 lg:min-h-0 lg:min-w-0';
+  // Desktop: riempie la cella 7×7 (override min touch del button). Mobile: lascia size="sm" (min-h-11).
+  const poiFooterFavoriteButtonClass =
+    'lg:!h-full lg:!w-full lg:!min-h-0 lg:!min-w-0 lg:!p-0 grid place-items-center [&_svg]:block';
+  const poiFooterDragButtonClass =
+    'grid h-full w-full place-items-center rounded-lg border border-slate-700 bg-slate-900/80 p-0 text-slate-400 transition-all group-hover:bg-cyan-500/10 group-hover:text-cyan-400 group-hover:ring-1 group-hover:ring-cyan-500/50 cursor-grab active:cursor-grabbing [&_svg]:block';
+  const reviewRatingLabel =
+    poi.rating != null && poi.rating > 0 ? poi.rating.toFixed(1).replace('.', ',') : null;
 
   let interestColor = 'text-slate-500 border-slate-700 bg-slate-800/50';
   let interestLabel = 'N/C';
@@ -196,7 +210,7 @@ const PoiListItem = ({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            if (!poi.coords) return;
+            if (!hasUsableCoords(poi.coords)) return;
             openMap(poi.coords.lat, poi.coords.lng, poi.name, poi.address);
           }}
           className={`${sideBtnClass} border-b border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-amber-400`}
@@ -209,7 +223,7 @@ const PoiListItem = ({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            if (!poi.coords) return;
+            if (!hasUsableCoords(poi.coords)) return;
             open3DView(poi.coords.lat, poi.coords.lng, poi.name, poi.address);
           }}
           className={`${sideBtnClass} border-b border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-indigo-400`}
@@ -284,7 +298,7 @@ const PoiListItem = ({
               className="h-full w-full object-cover"
             />
             {poi.isSponsored && (
-              <div className="absolute top-2 left-2">
+              <div className="absolute top-2 left-2 z-local-overlay pointer-events-none">
                 <span
                   className={`rounded border px-1.5 py-0.5 text-[7px] font-black uppercase shadow-lg ${poi.planType === PLAN_TYPES.REGIONAL_ACTIVITY ? 'border-amber-300 bg-amber-500 text-black' : 'border-slate-200 bg-white text-slate-900'}`}
                 >
@@ -304,9 +318,10 @@ const PoiListItem = ({
               </div>
             )}
 
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-gradient-to-t from-black to-transparent p-1">
-              <Star className="h-3 w-3 fill-current text-amber-500" />
-              <span className="text-[10px] font-bold text-white">{poi.rating}</span>
+            <div className="absolute inset-x-0 bottom-0 z-local-overlay flex items-center justify-center bg-gradient-to-t from-black/80 to-transparent p-1 pointer-events-none">
+              <div className="flex h-5 shrink-0 items-center rounded border border-amber-500/50 bg-slate-950/80 px-1.5 backdrop-blur-sm">
+                <PriceLevelIndicator level={poi.priceLevel} />
+              </div>
             </div>
           </div>
           <div className="flex min-w-0 flex-1 flex-col p-3">
@@ -355,7 +370,7 @@ const PoiListItem = ({
                     <Edit3 className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {poi.vatNumber && onOpenShop && shopPublicEnabled && (
+                {poi.vatNumber && shopPublicEnabled && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -379,27 +394,25 @@ const PoiListItem = ({
             <div className="mt-auto">
               <div className="mb-2 h-px w-full bg-gradient-to-r from-slate-800/0 via-slate-800 to-slate-800/0" />
               <div className="flex items-center justify-between gap-2">
-                <div className="flex h-5 min-w-0 items-center gap-2">
-                  <div className="flex h-full shrink-0 items-center rounded border border-amber-500/50 bg-slate-950/50 px-2">
-                    <PriceLevelIndicator level={poi.priceLevel} />
+                <span
+                  className={`flex h-5 min-w-0 items-center truncate rounded border px-2 text-[8px] font-black tracking-wider uppercase md:text-[9px] ${uiStyle.bg} ${uiStyle.text} ${uiStyle.border}`}
+                >
+                  {getSubCategoryLabel(poi.subCategory || '')}
+                </span>
+
+                <div className="pointer-events-auto flex shrink-0 items-center gap-1">
+                  <div className={poiFooterActionCellClass}>
+                    <FavoriteBookmarkButton
+                      userId={user?.role === 'guest' ? null : user?.id}
+                      entityKind="poi"
+                      entityId={poi.id}
+                      onRequireAuth={onOpenAuth}
+                      size="sm"
+                      className={poiFooterFavoriteButtonClass}
+                      onFavoriteChange={(isFavorite) => onFavoriteChange?.(poi.id, isFavorite)}
+                    />
                   </div>
-
-                  <span
-                    className={`flex h-full items-center truncate rounded border px-2 text-[8px] font-black tracking-wider uppercase md:text-[9px] ${uiStyle.bg} ${uiStyle.text} ${uiStyle.border}`}
-                  >
-                    {getSubCategoryLabel(poi.subCategory || '')}
-                  </span>
-                </div>
-
-                <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
-                  <FavoriteBookmarkButton
-                    userId={user?.role === 'guest' ? null : user?.id}
-                    entityKind="poi"
-                    entityId={poi.id}
-                    onRequireAuth={onOpenAuth}
-                    size="sm"
-                  />
-                  <div className="hidden items-center gap-3 lg:flex">
+                  <div className={`${poiFooterActionCellClass} hidden lg:grid`}>
                     <button
                       type="button"
                       draggable
@@ -410,9 +423,9 @@ const PoiListItem = ({
                         e.dataTransfer.setData('application/json', JSON.stringify(poi));
                         e.dataTransfer.effectAllowed = 'copy';
                       }}
-                      className="rounded p-1 text-slate-700 transition-all group-hover:bg-cyan-500/10 group-hover:text-cyan-400 group-hover:ring-1 group-hover:ring-cyan-500/50 cursor-grab active:cursor-grabbing"
+                      className={poiFooterDragButtonClass}
                     >
-                      <GripHorizontal className="h-5 w-5" />
+                      <GripHorizontal className="h-4 w-4" aria-hidden />
                     </button>
                   </div>
                 </div>
@@ -456,10 +469,18 @@ const PoiListItem = ({
           type="button"
           onClick={handleReviewClick}
           className={`${sideBtnClass} text-slate-500 hover:text-amber-400`}
-          title="Valuta"
+          title={reviewRatingLabel ? `Media recensioni: ${reviewRatingLabel}` : 'Apri recensioni'}
+          aria-label={
+            reviewRatingLabel
+              ? `Media recensioni ${reviewRatingLabel}, apri recensioni`
+              : 'Apri recensioni'
+          }
         >
-          <PencilLine className={sideIconClass} />
-          <span className={sideLabelClass}>VALUTA</span>
+          <PencilLine className={sideIconClass} aria-hidden />
+          <span className={`${sideRatingClass} flex items-center justify-center gap-0.5`}>
+            <Star className="h-2 w-2 shrink-0 fill-current text-amber-500" aria-hidden />
+            {reviewRatingLabel ?? '—'}
+          </span>
         </button>
       </div>
     </div>
@@ -492,6 +513,8 @@ interface CityGuideProps {
   onOpenAuth: () => void;
   onOpenReview: (poi: PointOfInterest) => void;
   onAdminEdit?: (poi: PointOfInterest) => void;
+  /** Aggiorna il set Preferiti nella pipeline Ordina/Filtri del parent. */
+  onFavoriteChange?: (poiId: string, isFavorite: boolean) => void;
 }
 
 export const CityGuide = ({
@@ -507,6 +530,7 @@ export const CityGuide = ({
   onOpenAuth,
   onOpenReview,
   onAdminEdit,
+  onFavoriteChange,
 }: CityGuideProps) => {
   // LG shell band — shared hook (avoids per-list resize listener / full-list rerenders).
   const isMobile = useMobileDetect();
@@ -530,6 +554,7 @@ export const CityGuide = ({
             onOpenReview={onOpenReview}
             user={user}
             onAdminEdit={onAdminEdit}
+            onFavoriteChange={onFavoriteChange}
           />
         ))}
       </div>
