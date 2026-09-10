@@ -1,4 +1,8 @@
 import {
+  isFamousPersonComplete,
+  isFamousPersonRequiredValuePresent,
+} from '../../domain/city/famousPersonCompleteness';
+import {
   generateCitySection,
   refineServiceData,
   type SuggestedCityItem,
@@ -8,12 +12,16 @@ import {
 import { validateAiSpecificSlugs } from '../../services/ai/generators/peopleCategoryValidation';
 import {
   ensureFamousPersonCompletenessWithAi,
+  type FamousPersonRecoveryResult,
   toCompleteFamousPersonRequiredFields,
+  toDraftFamousPersonSaveFields,
 } from '../../services/ai/generators/peopleCompletenessPipeline';
+import type { PersonDiscoveryResult } from '../../services/ai/generators/peopleGenerator';
 import { reclaimOrphanedItems } from '../../services/city/cityLifecycleService';
 import type {
   SaveCityEventInput,
   SaveCityGuideInput,
+  SaveCityPersonInput,
   SaveCityServiceInput,
 } from '../../services/city/entitiesService';
 import { loadFamousPersonTaxonomy } from '../../services/city/famousPersonCategoryService';
@@ -117,6 +125,149 @@ function mapSuggestedToServiceInput(
     address: typeof item.address === 'string' ? item.address : undefined,
     orderIndex,
   };
+}
+
+/**
+ * Matching conservativo per nome nella stessa città.
+ * Limiti: varianti ortografiche diverse restano distinte; non esiste slug/id di dominio per personaggi.
+ */
+function normalizePersonNameForMatch(name: string): string {
+  return name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+function existingCategoryIds(person: FamousPerson): string[] {
+  return (
+    person.categories
+      ?.map((c) => c.specificId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0) ?? []
+  );
+}
+
+function findExistingPersonByNormalizedName(
+  people: FamousPerson[],
+  aiName: string,
+): FamousPerson | null {
+  const normalized = normalizePersonNameForMatch(aiName);
+  if (!normalized) return null;
+
+  const matches = people.filter((p) => normalizePersonNameForMatch(p.name) === normalized);
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) {
+    console.warn(
+      `[useAiCompleteCity] Nome ambiguo "${aiName}": ${matches.length} personaggi corrispondenti nella città; skip match conservativo.`,
+    );
+  }
+  return null;
+}
+
+function preferExistingOptionalString(
+  existing: string | null | undefined,
+  candidate: string | null | undefined,
+): string | null {
+  if (isFamousPersonRequiredValuePresent(existing)) return existing.trim();
+  if (isFamousPersonRequiredValuePresent(candidate)) return candidate.trim();
+  return existing ?? null;
+}
+
+function maxOrderIndex(people: FamousPerson[]): number {
+  return people.reduce((max, person) => {
+    const orderIndex =
+      typeof person.orderIndex === 'number' && Number.isFinite(person.orderIndex)
+        ? person.orderIndex
+        : 0;
+    return Math.max(max, orderIndex);
+  }, 0);
+}
+
+/** Non inventa `true`: usa esistente, poi AI/recovery, altrimenti omette il campo. */
+function resolveIsLivingForUpdate(
+  existing: FamousPerson,
+  present: ReturnType<typeof toDraftFamousPersonSaveFields>,
+): boolean | undefined {
+  if (typeof existing.isLiving === 'boolean') return existing.isLiving;
+  if (typeof present.isLiving === 'boolean') return present.isLiving;
+  return undefined;
+}
+
+function buildIncrementalUpdatePayload(
+  existing: FamousPerson,
+  recovered: FamousPersonRecoveryResult,
+  aiSuggestion: PersonDiscoveryResult,
+  validatedCategoryIds: string[],
+): SaveCityPersonInput | null {
+  if (!existing.id) return null;
+
+  const present = toDraftFamousPersonSaveFields(recovered.person);
+  const mergedCategoryIds =
+    existingCategoryIds(existing).length > 0
+      ? existingCategoryIds(existing)
+      : (present.specificCategoryIds ?? validatedCategoryIds);
+  const resolvedIsLiving = resolveIsLivingForUpdate(existing, present);
+
+  return {
+    id: existing.id,
+    name: existing.name,
+    bio: isFamousPersonRequiredValuePresent(existing.bio) ? existing.bio : (present.bio ?? null),
+    imageUrl: isFamousPersonRequiredValuePresent(existing.imageUrl)
+      ? existing.imageUrl
+      : (present.imageUrl ?? null),
+    specificCategoryIds: mergedCategoryIds,
+    birthYear: existing.birthYear ?? present.birthYear ?? null,
+    birthDate: existing.birthDate ?? present.birthDate ?? null,
+    ...(typeof resolvedIsLiving === 'boolean' ? { isLiving: resolvedIsLiving } : {}),
+    deathYear: existing.deathYear ?? present.deathYear ?? null,
+    deathDate: existing.deathDate ?? present.deathDate ?? null,
+    fullBio:
+      preferExistingOptionalString(
+        existing.fullBio,
+        recovered.person.fullBio ?? aiSuggestion.fullBio,
+      ) ?? undefined,
+    quote:
+      preferExistingOptionalString(existing.quote, recovered.person.quote ?? aiSuggestion.quote) ??
+      undefined,
+    famousWorks:
+      existing.famousWorks && existing.famousWorks.length > 0
+        ? existing.famousWorks
+        : (recovered.person.famousWorks ?? aiSuggestion.famousWorks),
+    relatedPlaces:
+      existing.relatedPlaces && existing.relatedPlaces.length > 0
+        ? existing.relatedPlaces
+        : (recovered.person.relatedPlaces ?? aiSuggestion.relatedPlaces),
+    privateLife:
+      preferExistingOptionalString(
+        existing.privateLife,
+        recovered.person.privateLife ?? aiSuggestion.privateLife,
+      ) ?? undefined,
+    awards:
+      existing.awards && existing.awards.length > 0
+        ? existing.awards
+        : (recovered.person.awards ?? aiSuggestion.awards),
+    careerStats: existing.careerStats ?? recovered.person.careerStats ?? aiSuggestion.careerStats,
+    status: existing.status,
+    orderIndex: existing.orderIndex,
+  };
+}
+
+async function insertNewCityPeopleWithRollback(
+  cityId: string,
+  prepared: SaveCityPersonInput[],
+): Promise<number> {
+  const createdIds: string[] = [];
+  try {
+    for (const person of prepared) {
+      const saved = await saveCityPerson(cityId, { ...person, id: undefined });
+      if (typeof saved.id !== 'string' || saved.id.length === 0) {
+        throw new Error(
+          '[useAiCompleteCity] saveCityPerson non ha restituito un id persistito; rollback insert parziale.',
+        );
+      }
+      createdIds.push(saved.id);
+    }
+  } catch (error) {
+    await Promise.allSettled(createdIds.map((id) => deleteCityPerson(id)));
+    throw error;
+  }
+  return createdIds.length;
 }
 
 export type CompleteCityConfig = { peopleCount: number; runPoiDeepScan: boolean };
@@ -260,42 +411,94 @@ export const useAiCompleteCity = (
         return 1;
       });
 
-      // 4. PERSONAGGI — genera e valida PRIMA di cancellare quelli esistenti
+      // 4. PERSONAGGI — completamento incrementale (mai wipe-and-replace)
       await performStep(
         `Generazione Personaggi (${config.peopleCount})`,
         async () => {
-          const suggestions = await suggestCityPeople(cityName, [], '', config.peopleCount);
+          const existingPeople = await getCityPeople(cityId, 'admin');
+          const existingNames = existingPeople.map((person) => person.name).filter(Boolean);
+          const suggestions = await suggestCityPeople(
+            cityName,
+            existingNames,
+            '',
+            config.peopleCount,
+          );
+
           const taxonomy = await loadFamousPersonTaxonomy({ activeOnly: true });
           const activeSpecifics = taxonomy.specifics.map((s) => ({
             slug: s.slug,
             id: s.id,
           }));
 
-          const prepared: Array<{
-            name: string;
-            bio: string;
-            imageUrl: string | null;
-            specificCategoryIds: string[];
-            birthYear: number;
-            birthDate?: string | null;
-            isLiving: boolean;
-            deathYear?: number | null;
-            deathDate?: string | null;
-            quote?: string;
-            famousWorks?: string[];
-            relatedPlaces?: FamousPerson['relatedPlaces'];
-            fullBio?: string;
-            privateLife?: string;
-            awards?: string[];
-            careerStats?: FamousPerson['careerStats'];
-            status: 'draft';
-            orderIndex: number;
-          }> = [];
+          const updatesToApply: SaveCityPersonInput[] = [];
+          const newInserts: SaveCityPersonInput[] = [];
+          const pendingNewNormalizedNames = new Set<string>();
+          const scheduledUpdateIds = new Set<string>();
           let incompleteCount = 0;
-          let orderIdx = 1;
+          let nextOrderIndex = maxOrderIndex(existingPeople) + 1;
 
           for (const p of suggestions) {
             await new Promise((r) => setTimeout(r, 2000));
+
+            const existingMatch = findExistingPersonByNormalizedName(existingPeople, p.name);
+            if (existingMatch?.id) {
+              if (isFamousPersonComplete(existingMatch)) {
+                continue;
+              }
+              if (scheduledUpdateIds.has(existingMatch.id)) {
+                continue;
+              }
+
+              const slugValidation = validateAiSpecificSlugs(
+                p.specificCategorySlugs ?? [],
+                activeSpecifics,
+              );
+              const validatedCategoryIds = slugValidation.ok ? slugValidation.ids : [];
+              if (!slugValidation.ok) {
+                console.warn(
+                  `[useAiCompleteCity] Categorie AI invalide per personaggio esistente ${p.name}; categorie esistenti preservate, completamento altri campi prosegue.`,
+                  slugValidation.invalid,
+                );
+              }
+
+              const existingCats = existingCategoryIds(existingMatch);
+              const categoryIdsForRecovery =
+                existingCats.length > 0 ? existingCats : validatedCategoryIds;
+
+              const existingUrl = await findExistingPortrait(existingMatch.name);
+              const recovered = await ensureFamousPersonCompletenessWithAi(
+                {
+                  ...existingMatch,
+                  ...p,
+                  name: existingMatch.name,
+                  bio: isFamousPersonRequiredValuePresent(existingMatch.bio)
+                    ? existingMatch.bio
+                    : (p.bio ?? existingMatch.bio),
+                  imageUrl: isFamousPersonRequiredValuePresent(existingMatch.imageUrl)
+                    ? existingMatch.imageUrl
+                    : (existingUrl ?? p.imageUrl ?? existingMatch.imageUrl),
+                  specificCategoryIds: categoryIdsForRecovery,
+                  categories: existingMatch.categories,
+                  birthYear: existingMatch.birthYear ?? p.birthYear,
+                  birthDate: existingMatch.birthDate ?? p.birthDate,
+                  isLiving: existingMatch.isLiving ?? p.isLiving,
+                  deathYear: existingMatch.deathYear ?? p.deathYear,
+                  deathDate: existingMatch.deathDate ?? p.deathDate,
+                },
+                cityName,
+              );
+              const updatePayload = buildIncrementalUpdatePayload(
+                existingMatch,
+                recovered,
+                p,
+                validatedCategoryIds,
+              );
+              if (updatePayload) {
+                updatesToApply.push(updatePayload);
+                scheduledUpdateIds.add(existingMatch.id);
+              }
+              continue;
+            }
 
             const slugValidation = validateAiSpecificSlugs(
               p.specificCategorySlugs ?? [],
@@ -307,6 +510,11 @@ export const useAiCompleteCity = (
                 `[useAiCompleteCity] Personaggio scartato (categorie AI invalidi): ${p.name}`,
                 slugValidation.invalid,
               );
+              continue;
+            }
+
+            const normalizedNewName = normalizePersonNameForMatch(p.name);
+            if (!normalizedNewName || pendingNewNormalizedNames.has(normalizedNewName)) {
               continue;
             }
 
@@ -329,7 +537,8 @@ export const useAiCompleteCity = (
               continue;
             }
 
-            prepared.push({
+            pendingNewNormalizedNames.add(normalizedNewName);
+            newInserts.push({
               ...required,
               imageUrl: required.imageUrl ?? null,
               quote: recovered.person.quote ?? p.quote,
@@ -340,28 +549,30 @@ export const useAiCompleteCity = (
               awards: recovered.person.awards ?? p.awards,
               careerStats: recovered.person.careerStats ?? p.careerStats,
               status: 'draft',
-              orderIndex: orderIdx++,
+              orderIndex: nextOrderIndex++,
             });
           }
 
-          if (prepared.length === 0) {
-            console.warn(
-              `[useAiCompleteCity] Nessun personaggio completo (scartati: ${incompleteCount}). Dataset esistente preservato.`,
-            );
+          if (updatesToApply.length === 0 && newInserts.length === 0) {
+            if (incompleteCount > 0) {
+              console.warn(
+                `[useAiCompleteCity] Nessun personaggio valido da applicare (scartati: ${incompleteCount}). Dataset esistente preservato.`,
+              );
+            }
             return 0;
           }
 
-          const existingPeople = await getCityPeople(cityId, 'admin');
-          for (const existing of existingPeople) {
-            if (existing.id) {
-              await deleteCityPerson(existing.id);
-            }
+          let applied = 0;
+          for (const update of updatesToApply) {
+            await saveCityPerson(cityId, update);
+            applied += 1;
           }
 
-          for (const person of prepared) {
-            await saveCityPerson(cityId, person);
+          if (newInserts.length > 0) {
+            applied += await insertNewCityPeopleWithRollback(cityId, newInserts);
           }
-          return prepared.length;
+
+          return applied;
         },
         (c) => c,
       );

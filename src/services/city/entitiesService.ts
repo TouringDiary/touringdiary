@@ -7,7 +7,7 @@ import type {
   DatabaseCityServiceInsert,
   Json,
 } from '../../types/database';
-import type { CityEvent, CityGuide, CityService, FamousPerson } from '../../types/index';
+import type { CityEvent, CityGuide, CityService, FamousPerson, Review } from '../../types/index';
 import { supabase } from '../supabaseClient';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
 import {
@@ -28,6 +28,42 @@ type DatabaseCityEventRow = Database['public']['Tables']['city_events']['Row'];
 type DatabaseCityServiceRow = Database['public']['Tables']['city_services']['Row'];
 type DatabaseCityGuideRow = Database['public']['Tables']['city_guides']['Row'];
 type DatabaseCityPersonRow = Database['public']['Tables']['city_people']['Row'];
+
+function reviewCriteriaToDbJson(criteria: Record<string, number> | undefined): Json | undefined {
+  if (!criteria) return undefined;
+  const out: { [key: string]: Json | undefined } = {};
+  for (const [key, value] of Object.entries(criteria)) {
+    out[key] = value;
+  }
+  return out;
+}
+
+function reviewToDbJson(review: Review): Json {
+  const out: { [key: string]: Json | undefined } = {
+    id: review.id,
+    author: review.author,
+    rating: review.rating,
+    date: review.date,
+    text: review.text,
+  };
+  if (review.authorId !== undefined) out.authorId = review.authorId;
+  if (review.updatedAt !== undefined) out.updatedAt = review.updatedAt;
+  if (review.approvedAt !== undefined) out.approvedAt = review.approvedAt;
+  const criteria = reviewCriteriaToDbJson(review.criteria);
+  if (criteria !== undefined) out.criteria = criteria;
+  if (review.itineraryId !== undefined) out.itineraryId = review.itineraryId;
+  if (review.poiName !== undefined) out.poiName = review.poiName;
+  if (review.poiId !== undefined) out.poiId = review.poiId;
+  if (review.status !== undefined) out.status = review.status;
+  if (review.cityId !== undefined) out.cityId = review.cityId;
+  if (review.cityName !== undefined) out.cityName = review.cityName;
+  return out;
+}
+
+function cityGuideReviewsToDbJson(reviews: CityGuide['reviews']): Json | null {
+  if (reviews == null) return null;
+  return reviews.map(reviewToDbJson);
+}
 
 export type SaveCityEventInput = Omit<CityEvent, 'id'> & { id?: string };
 export type SaveCityServiceInput = Omit<CityService, 'id'> & { id?: string };
@@ -163,7 +199,7 @@ export const getCityPeopleByCityIds = async (
 
 export const saveCityEvent = async (cityId: string, event: SaveCityEventInput) => {
   invalidateCityCache(cityId);
-  const isNew = !event.id || !event.id.match(/^[0-9a-f]{8}-/);
+  const isNew = !event.id?.match(/^[0-9a-f]{8}-/);
   const payload: DatabaseCityEventInsert = {
     city_id: cityId,
     name: event.name,
@@ -189,7 +225,8 @@ export const saveCityEvent = async (cityId: string, event: SaveCityEventInput) =
 
 export const deleteCityEvent = async (id: string) => {
   clearCacheKey(`city_details_`);
-  await supabase.from('city_events').delete().eq('id', id);
+  const { error } = await supabase.from('city_events').delete().eq('id', id);
+  if (error) throw error;
 };
 
 export const saveCityService = async (cityId: string, service: SaveCityServiceInput) => {
@@ -202,7 +239,7 @@ export const saveCityService = async (cityId: string, service: SaveCityServiceIn
     );
   }
 
-  const isNew = !service.id || !service.id.match(/^[0-9a-f]{8}-/);
+  const isNew = !service.id?.match(/^[0-9a-f]{8}-/);
   const payload: DatabaseCityServiceInsert = {
     city_id: cityId,
     type: service.type,
@@ -227,12 +264,13 @@ export const saveCityService = async (cityId: string, service: SaveCityServiceIn
 
 export const deleteCityService = async (id: string) => {
   clearCacheKey(`city_details_`);
-  await supabase.from('city_services').delete().eq('id', id);
+  const { error } = await supabase.from('city_services').delete().eq('id', id);
+  if (error) throw error;
 };
 
 export const saveCityGuide = async (cityId: string, guide: SaveCityGuideInput) => {
   invalidateCityCache(cityId);
-  const isNew = !guide.id || !guide.id.match(/^[0-9a-f]{8}-/);
+  const isNew = !guide.id?.match(/^[0-9a-f]{8}-/);
   const payload: DatabaseCityGuideInsert = {
     city_id: cityId,
     name: guide.name,
@@ -244,7 +282,7 @@ export const saveCityGuide = async (cityId: string, guide: SaveCityGuideInput) =
     website: guide.website,
     image_url: guide.imageUrl,
     rating: guide.rating,
-    reviews: guide.reviews as unknown as Json,
+    reviews: cityGuideReviewsToDbJson(guide.reviews),
     order_index: guide.orderIndex || 0,
   };
   if (!isNew && guide.id) {
@@ -260,8 +298,42 @@ export const saveCityGuide = async (cityId: string, guide: SaveCityGuideInput) =
 
 export const deleteCityGuide = async (id: string) => {
   clearCacheKey(`city_details_`);
-  await supabase.from('city_guides').delete().eq('id', id);
+  const { error } = await supabase.from('city_guides').delete().eq('id', id);
+  if (error) throw error;
 };
+
+type PersistedPersonLifespanFields = Pick<
+  DatabaseCityPersonRow,
+  'is_living' | 'birth_year' | 'birth_date' | 'death_year' | 'death_date'
+>;
+
+async function loadPersistedPersonLifespanFields(
+  personId: string,
+): Promise<PersistedPersonLifespanFields | null> {
+  const { data, error } = await supabase
+    .from('city_people')
+    .select('is_living, birth_year, birth_date, death_year, death_date')
+    .eq('id', personId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+function resolveOptionalNumberField(
+  payloadValue: number | null | undefined,
+  persistedValue: number | null | undefined,
+): number | null {
+  if (payloadValue !== undefined) return payloadValue ?? null;
+  return persistedValue ?? null;
+}
+
+function resolveOptionalDateField(
+  payloadValue: string | null | undefined,
+  persistedValue: string | null | undefined,
+): string | null {
+  if (payloadValue !== undefined) return payloadValue ?? null;
+  return persistedValue ?? null;
+}
 
 export const saveCityPerson = async (
   cityId: string,
@@ -284,13 +356,39 @@ export const saveCityPerson = async (
     return trimmed.length > 0 ? trimmed : null;
   };
 
-  const isLiving = person.isLiving !== false;
+  const persisted = !isNew && person.id ? await loadPersistedPersonLifespanFields(person.id) : null;
+
+  const isLiving =
+    typeof person.isLiving === 'boolean'
+      ? person.isLiving
+      : persisted
+        ? persisted.is_living
+        : person.isLiving !== false;
+
+  const birthYear = isNew
+    ? (person.birthYear ?? null)
+    : resolveOptionalNumberField(person.birthYear, persisted?.birth_year);
+  const birthDate = isNew
+    ? (person.birthDate ?? null)
+    : resolveOptionalDateField(person.birthDate, persisted?.birth_date);
+
+  const deathYear = isLiving
+    ? null
+    : isNew
+      ? (person.deathYear ?? null)
+      : resolveOptionalNumberField(person.deathYear, persisted?.death_year);
+  const deathDate = isLiving
+    ? null
+    : isNew
+      ? (person.deathDate ?? null)
+      : resolveOptionalDateField(person.deathDate, persisted?.death_date);
+
   const lifespanDisplay = computeLifespanDisplayForSave({
-    birthYear: person.birthYear,
-    birthDate: person.birthDate,
+    birthYear,
+    birthDate,
     isLiving,
-    deathYear: person.deathYear,
-    deathDate: person.deathDate,
+    deathYear,
+    deathDate,
   });
 
   const payload: DatabaseCityPersonInsert = {
@@ -300,11 +398,11 @@ export const saveCityPerson = async (
     full_bio: person.fullBio,
     image_url: presentOrNull(person.imageUrl),
     quote: person.quote,
-    birth_year: person.birthYear ?? null,
-    birth_date: person.birthDate ?? null,
+    birth_year: birthYear,
+    birth_date: birthDate,
     is_living: isLiving,
-    death_year: isLiving ? null : (person.deathYear ?? null),
-    death_date: isLiving ? null : (person.deathDate ?? null),
+    death_year: deathYear,
+    death_date: deathDate,
     lifespan_display: lifespanDisplay || null,
     famous_works: person.famousWorks,
     awards: person.awards,
@@ -337,5 +435,6 @@ export const saveCityPerson = async (
 
 export const deleteCityPerson = async (id: string) => {
   clearCacheKey(`city_details_`);
-  await supabase.from('city_people').delete().eq('id', id);
+  const { error } = await supabase.from('city_people').delete().eq('id', id);
+  if (error) throw error;
 };
