@@ -264,7 +264,8 @@ export const importRegionalData = async (
 
   const { data: existingDbCities, error: existingCitiesError } = await supabase
     .from('cities')
-    .select('id, name, visitors, admin_region');
+    .select('id, name, visitors, admin_region')
+    .ilike('admin_region', escapeLikePattern(adminRegion.trim()));
   throwOnError(existingCitiesError, 'select existing cities failed');
 
   const existingMap = new Map<string, { id: string; visitors: number }>();
