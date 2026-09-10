@@ -6099,6 +6099,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      upsert_city_person_with_category_links: {
+        Args: {
+          p_person: Json;
+          p_specific_category_ids?: string[];
+        };
+        Returns: string;
+      };
       can_manage_shop: { Args: { p_shop_id: string }; Returns: boolean };
       can_manage_sponsor: { Args: { p_sponsor_id: string }; Returns: boolean };
       check_and_expire_subscriptions: { Args: never; Returns: undefined };

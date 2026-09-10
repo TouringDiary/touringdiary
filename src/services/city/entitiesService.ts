@@ -10,10 +10,7 @@ import type {
 import type { CityEvent, CityGuide, CityService, FamousPerson, Review } from '../../types/index';
 import { supabase } from '../supabaseClient';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
-import {
-  computeLifespanDisplayForSave,
-  replacePersonCategoryLinks,
-} from './famousPersonCategoryService';
+import { computeLifespanDisplayForSave } from './famousPersonCategoryService';
 import {
   type CityPeopleAudience,
   filterFamousPeopleByAudience,
@@ -416,16 +413,22 @@ export const saveCityPerson = async (
     payload.id = person.id;
   }
 
-  const { data, error } = await supabase.from('city_people').upsert(payload).select().single();
+  const { data: savedId, error } = await supabase.rpc('upsert_city_person_with_category_links', {
+    p_person: payload,
+    p_specific_category_ids: specificCategoryIds,
+  });
 
   if (error) throw error;
-  const saved = data as DatabaseCityPersonRow;
-  await replacePersonCategoryLinks(saved.id, specificCategoryIds);
+  if (typeof savedId !== 'string' || savedId.length === 0) {
+    throw new Error(
+      'upsert_city_person_with_category_links non ha restituito un id persona valido.',
+    );
+  }
 
   const { data: full, error: reloadError } = await supabase
     .from('city_people')
     .select(CITY_PEOPLE_SELECT_WITH_CATEGORIES)
-    .eq('id', saved.id)
+    .eq('id', savedId)
     .single();
   if (reloadError) throw reloadError;
 
