@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
 import type { RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DraggableSliderHandle } from '@/components/common/DraggableSlider';
-import type { CityDetails, FamousPerson } from '../../types/index';
 import {
   type CultureFilterState,
   emptyCultureFilters,
@@ -9,11 +8,12 @@ import {
 } from '@/domain/city/famousPersonFilter';
 import {
   loadCultureSession,
-  saveCultureSession,
-  resolveSelectionOnOpen,
   resolveSelectionOnFirstFilter,
+  resolveSelectionOnOpen,
   resolveSelectionOnSubsequentFilter,
+  saveCultureSession,
 } from '@/domain/city/famousPersonSelection';
+import type { CityDetails, FamousPerson } from '../../types/index';
 
 export interface CategoryOption {
   slug: string;
@@ -63,16 +63,24 @@ export function useCultureCornerSession({
     latestStateRef.current = { selectedPersonId, filters, hasAppliedFilter };
   }, [selectedPersonId, filters, hasAppliedFilter]);
 
-  const persistSessionForCity = useCallback((cityId: string | null, currentSelectedId: string | null, currentFilters: CultureFilterState, currentHasApplied: boolean) => {
-    if (!cityId) return;
-    saveCultureSession(cityId, {
-      selectedPersonId: currentSelectedId,
-      filters: currentFilters,
-      scrollTimeline: timelineRef.current?.getScrollLeft() ?? 0,
-      scrollRail: railRef.current?.getScrollLeft() ?? 0,
-      hasAppliedFilter: currentHasApplied,
-    });
-  }, [timelineRef, railRef]);
+  const persistSessionForCity = useCallback(
+    (
+      cityId: string | null,
+      currentSelectedId: string | null,
+      currentFilters: CultureFilterState,
+      currentHasApplied: boolean,
+    ) => {
+      if (!cityId) return;
+      saveCultureSession(cityId, {
+        selectedPersonId: currentSelectedId,
+        filters: currentFilters,
+        scrollTimeline: timelineRef.current?.getScrollLeft() ?? 0,
+        scrollRail: railRef.current?.getScrollLeft() ?? 0,
+        hasAppliedFilter: currentHasApplied,
+      });
+    },
+    [timelineRef, railRef],
+  );
 
   const persistSession = useCallback(() => {
     persistSessionForCity(lastCityIdRef.current, selectedPersonId, filters, hasAppliedFilter);
@@ -87,7 +95,7 @@ export function useCultureCornerSession({
           lastCityIdRef.current,
           latestStateRef.current.selectedPersonId,
           latestStateRef.current.filters,
-          latestStateRef.current.hasAppliedFilter
+          latestStateRef.current.hasAppliedFilter,
         );
       }
       hydratedOpenRef.current = 'none';
@@ -105,7 +113,7 @@ export function useCultureCornerSession({
         lastCityIdRef.current,
         latestStateRef.current.selectedPersonId,
         latestStateRef.current.filters,
-        latestStateRef.current.hasAppliedFilter
+        latestStateRef.current.hasAppliedFilter,
       );
       // Reset hydration flag to trigger complete re-hydration for new city
       hydratedOpenRef.current = 'none';
@@ -155,22 +163,29 @@ export function useCultureCornerSession({
   useEffect(() => {
     if (!isOpen || scrollNonce === 0) return;
 
+    let rafId = 0;
+
     const restore = pendingScrollRestoreRef.current;
     if (restore) {
       pendingScrollRestoreRef.current = null;
-      requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => {
         timelineRef.current?.setScrollLeft(restore.timeline);
         railRef.current?.setScrollLeft(restore.rail);
       });
-      return;
+      return () => {
+        if (rafId) cancelAnimationFrame(rafId);
+      };
     }
 
     const syncId = pendingSyncIdRef.current;
     if (syncId) {
       pendingSyncIdRef.current = null;
-      requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => {
         syncScrollToSelection(syncId, 'auto');
       });
+      return () => {
+        if (rafId) cancelAnimationFrame(rafId);
+      };
     }
   }, [isOpen, scrollNonce, syncScrollToSelection, timelineRef, railRef]);
 

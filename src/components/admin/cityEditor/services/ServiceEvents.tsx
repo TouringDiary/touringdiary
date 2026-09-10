@@ -1,5 +1,5 @@
 import { CalendarDays, Eye, Loader2, MinusCircle, Plus, Save, Wand2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { type SuggestedCityItem, suggestCityItems } from '../../../../services/ai';
 import type { SaveCityEventInput } from '../../../../services/city/entitiesService';
@@ -16,34 +16,46 @@ type EditableEventField = 'name' | 'date' | 'category';
 const readOptionalString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
 
+const readOptionalCoords = (item: SuggestedCityItem): { lat: number; lng: number } | undefined => {
+  const lat = typeof item.lat === 'number' && Number.isFinite(item.lat) ? item.lat : undefined;
+  const lng = typeof item.lng === 'number' && Number.isFinite(item.lng) ? item.lng : undefined;
+  if (lat === undefined || lng === undefined) return undefined;
+  return { lat, lng };
+};
+
 /** Maps AI suggestion → SaveCityEventInput using only real present fields. */
-const mapSuggestedToEventInput = (
-  item: SuggestedCityItem,
-  coords: { lat: number; lng: number },
-): SaveCityEventInput | null => {
+const mapSuggestedToEventInput = (item: SuggestedCityItem): SaveCityEventInput | null => {
   const name = typeof item.name === 'string' ? item.name.trim() : '';
   if (!name) return null;
 
+  const date = readOptionalString(item.date);
   const categoryRaw = readOptionalString(item.category);
+  const description = readOptionalString(item.description);
+  const location = readOptionalString(item.location);
+  const coords = readOptionalCoords(item);
+
+  if (!date || !categoryRaw || !description || !location || !coords) return null;
+
   const metadata: Record<string, unknown> = {};
   if (typeof item.rating === 'number' && Number.isFinite(item.rating))
     metadata.rating = item.rating;
   if (typeof item.visitors === 'number' && Number.isFinite(item.visitors))
     metadata.visitors = item.visitors;
-  const description = readOptionalString(item.description);
   if (description) metadata.summary = description;
 
   return {
     name,
-    date: readOptionalString(item.date) ?? '',
-    category: getSafeEventCategory(categoryRaw ?? ''),
-    description: description ?? '',
-    location: readOptionalString(item.location) ?? '',
+    date,
+    category: getSafeEventCategory(categoryRaw),
+    description,
+    location,
     coords,
     imageUrl: readOptionalString(item.imageUrl),
     metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
   };
 };
+
+type DiscoveryEventResult = SaveCityEventInput & { localId: string };
 
 export const ServiceEvents = () => {
   const { city, triggerPreview, reloadCurrentCity } = useCityEditor();
@@ -58,7 +70,9 @@ export const ServiceEvents = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const [isDiscovering, setIsDiscovering] = useState(false);
-  const [discoveryResults, setDiscoveryResults] = useState<SaveCityEventInput[]>([]);
+  const [discoveryResults, setDiscoveryResults] = useState<DiscoveryEventResult[]>([]);
+  const activeDiscoveryRequestIdRef = useRef<number>(0);
+  const activeLoadRequestIdRef = useRef<number>(0);
   const [aiQuery, setAiQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
@@ -67,29 +81,48 @@ export const ServiceEvents = () => {
 
   const loadData = useCallback(async () => {
     if (!city?.id) return;
+    const requestId = ++activeLoadRequestIdRef.current;
+    const requestedCityId = city.id;
     setIsLoading(true);
     try {
-      const data = await getCityEvents(city.id);
+      const data = await getCityEvents(requestedCityId);
+      if (requestId !== activeLoadRequestIdRef.current) return;
       const dbEvents = [...data].sort((a, b) => {
-        const orderA = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : Number.MAX_SAFE_INTEGER;
-        const orderB = typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex) ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+        const orderA =
+          typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex)
+            ? a.orderIndex
+            : Number.MAX_SAFE_INTEGER;
+        const orderB =
+          typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex)
+            ? b.orderIndex
+            : Number.MAX_SAFE_INTEGER;
         return orderA - orderB;
       });
 
       // Preserva gli eventi locali temporanei non ancora salvati per la città corrente
       setEventsList((prev) => {
-        const localDrafts = prev.filter((e) => e.id.startsWith('new-') && e.cityId === city.id);
+        const localDrafts = prev.filter(
+          (e) => e.id.startsWith('new-') && e.cityId === requestedCityId,
+        );
         return [...dbEvents, ...localDrafts];
       });
     } catch (e) {
-      console.error(e);
+      if (requestId === activeLoadRequestIdRef.current) {
+        console.error(e);
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === activeLoadRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [city?.id]);
 
   useEffect(() => {
     if (!city?.id) return;
+    activeDiscoveryRequestIdRef.current++;
+    activeLoadRequestIdRef.current++;
+    setDiscoveryResults([]);
+    setIsDiscovering(false);
     void loadData();
     // Pulisce lo stato locale degli eventi quando cambia città per sicurezza
     return () => {
@@ -100,14 +133,15 @@ export const ServiceEvents = () => {
 
   const handleAddEvent = () => {
     if (!city?.id || isSaving) return;
+    const maxOrder = eventsList.reduce((max, e) => {
+      const val = e.orderIndex;
+      return typeof val === 'number' && Number.isFinite(val) ? Math.max(max, val) : max;
+    }, 0);
     const nextOrderIndex =
-      eventsList.reduce((max, e) => {
-        const val = e.orderIndex;
-        return typeof val === 'number' && Number.isFinite(val) ? Math.max(max, val) : max;
-      }, 0) + 1;
+      maxOrder >= Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : maxOrder + 1;
 
     // Genera un ID fittizio locale temporaneo con slice()
-    const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const tempId = `new-${crypto.randomUUID()}`;
     const temp: CityEvent = {
       id: tempId,
       cityId: city.id,
@@ -130,6 +164,7 @@ export const ServiceEvents = () => {
       return;
     }
 
+    activeDiscoveryRequestIdRef.current++;
     setIsSaving(true);
     const payload: SaveCityEventInput = {
       id: id.startsWith('new-') ? undefined : id,
@@ -172,6 +207,7 @@ export const ServiceEvents = () => {
 
   const confirmDelete = async () => {
     if (!deleteTarget || isSaving) return;
+    activeDiscoveryRequestIdRef.current++;
     setIsSaving(true);
     try {
       await deleteCityEvent(deleteTarget.id);
@@ -188,6 +224,7 @@ export const ServiceEvents = () => {
 
   const handleReorder = async (id: string, newRank: number) => {
     if (!city?.id || isSaving) return;
+    activeDiscoveryRequestIdRef.current++;
     setIsSaving(true);
 
     const list = [...eventsList];
@@ -209,7 +246,19 @@ export const ServiceEvents = () => {
     try {
       for (const p of updated) {
         if (!p.id.startsWith('new-')) {
-          await saveCityEvent(city.id, p);
+          const payload: SaveCityEventInput = {
+            id: p.id,
+            name: p.name,
+            date: p.date,
+            category: getSafeEventCategory(p.category ?? ''),
+            description: p.description,
+            location: p.location,
+            coords: p.coords,
+            imageUrl: p.imageUrl,
+            metadata: p.metadata,
+            orderIndex: p.orderIndex,
+          };
+          await saveCityEvent(city.id, payload);
         }
       }
       await loadData();
@@ -238,8 +287,19 @@ export const ServiceEvents = () => {
       return copy;
     });
 
-    const newRank = parseInt(draft, 10);
-    if (Number.isNaN(newRank) || newRank < 1) {
+    const trimmed = draft.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      await loadData();
+      return;
+    }
+
+    const newRank = Number(trimmed);
+    if (
+      newRank < 1 ||
+      !Number.isInteger(newRank) ||
+      !Number.isFinite(newRank) ||
+      newRank > Number.MAX_SAFE_INTEGER
+    ) {
       await loadData();
       return;
     }
@@ -250,39 +310,52 @@ export const ServiceEvents = () => {
   const handleDiscovery = async () => {
     if (!city?.name || !city.coords || isSaving) return;
     setIsDiscovering(true);
+    const requestId = ++activeDiscoveryRequestIdRef.current;
     try {
       const existingNames = eventsList.map((i) => i.name);
       const results = await suggestCityItems(city.name, 'events', existingNames, aiQuery, 3);
+      if (requestId !== activeDiscoveryRequestIdRef.current) return;
       setDiscoveryResults(
         results
-          .map((item) => mapSuggestedToEventInput(item, city.coords))
-          .filter((mapped): mapped is SaveCityEventInput => mapped !== null),
+          .map((item) => mapSuggestedToEventInput(item))
+          .filter((mapped): mapped is SaveCityEventInput => mapped !== null)
+          .map((item) => ({
+            ...item,
+            localId: crypto.randomUUID(),
+          })),
       );
     } catch (e) {
-      console.error(e);
-      alert('Errore durante la ricerca AI.');
+      if (requestId === activeDiscoveryRequestIdRef.current) {
+        console.error(e);
+        alert('Errore durante la ricerca AI.');
+      }
     } finally {
-      setIsDiscovering(false);
+      if (requestId === activeDiscoveryRequestIdRef.current) {
+        setIsDiscovering(false);
+      }
     }
   };
 
-  const handleImport = async (item: SaveCityEventInput) => {
+  const handleImport = async (item: DiscoveryEventResult) => {
     if (!city?.id || isSaving) return;
+    activeDiscoveryRequestIdRef.current++;
     setIsSaving(true);
+    const maxOrder = eventsList.reduce((max, e) => {
+      const val = e.orderIndex;
+      return typeof val === 'number' && Number.isFinite(val) ? Math.max(max, val) : max;
+    }, 0);
     const nextOrderIndex =
-      eventsList.reduce((max, e) => {
-        const val = e.orderIndex;
-        return typeof val === 'number' && Number.isFinite(val) ? Math.max(max, val) : max;
-      }, 0) + 1;
+      maxOrder >= Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : maxOrder + 1;
 
+    const { localId: _localId, ...eventInput } = item;
     const payload: SaveCityEventInput = {
-      ...item,
+      ...eventInput,
       category: getSafeEventCategory(item.category ?? ''),
       orderIndex: nextOrderIndex,
     };
     try {
       await saveCityEvent(city.id, payload);
-      setDiscoveryResults((prev) => prev.filter((x) => x.name !== item.name));
+      setDiscoveryResults((prev) => prev.filter((x) => x.localId !== item.localId));
       await loadData();
       await reloadCurrentCity();
     } catch (e) {
@@ -305,7 +378,7 @@ export const ServiceEvents = () => {
 
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-bold text-white flex items-center gap-2 text-sm md:text-base">
-          <CalendarDays className="w-5 h-5 text-rose-500" /> Eventi
+          <CalendarDays className="w-5 h-5 text-rose-500" aria-hidden="true" /> Eventi
         </h3>
         <div className="flex gap-2">
           <button
@@ -314,7 +387,7 @@ export const ServiceEvents = () => {
             onClick={() => triggerPreview('events', 'Eventi Locali', eventsList)}
             className="min-h-11 min-w-11 inline-flex items-center justify-center p-1.5 bg-slate-800 hover:bg-rose-900/30 rounded text-slate-400 hover:text-rose-400 border border-slate-700"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -323,7 +396,7 @@ export const ServiceEvents = () => {
             disabled={isSaving}
             className="min-h-11 min-w-11 inline-flex items-center justify-center p-1.5 bg-rose-600 hover:bg-rose-500 rounded text-white shadow-lg disabled:opacity-50"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -345,9 +418,9 @@ export const ServiceEvents = () => {
             className="bg-rose-600 text-white px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-1 min-h-11 disabled:opacity-50"
           >
             {isDiscovering ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
             ) : (
-              <Wand2 className="w-3 h-3" />
+              <Wand2 className="w-3 h-3" aria-hidden="true" />
             )}{' '}
             AI
           </button>
@@ -356,7 +429,7 @@ export const ServiceEvents = () => {
           <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
             {discoveryResults.map((res) => (
               <div
-                key={res.name}
+                key={res.localId}
                 className="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-700"
               >
                 <span className="text-xs text-white truncate max-w-[150px]">{res.name}</span>
@@ -381,11 +454,12 @@ export const ServiceEvents = () => {
           </div>
         ) : (
           eventsList.map((evt, idx) => {
-            const currentOrder = typeof evt.orderIndex === 'number' && Number.isFinite(evt.orderIndex) ? evt.orderIndex : idx + 1;
+            const currentOrder =
+              typeof evt.orderIndex === 'number' && Number.isFinite(evt.orderIndex)
+                ? evt.orderIndex
+                : idx + 1;
             const draftVal =
-              orderDrafts[evt.id] !== undefined
-                ? orderDrafts[evt.id]
-                : String(currentOrder);
+              orderDrafts[evt.id] !== undefined ? orderDrafts[evt.id] : String(currentOrder);
 
             return (
               <div
@@ -418,7 +492,7 @@ export const ServiceEvents = () => {
                       disabled={isSaving}
                       className="text-emerald-500 hover:text-white min-h-11 min-w-11 inline-flex items-center justify-center p-1 disabled:opacity-50"
                     >
-                      <Save className="w-4 h-4" />
+                      <Save className="w-4 h-4" aria-hidden="true" />
                     </button>
                     <button
                       type="button"
@@ -427,7 +501,7 @@ export const ServiceEvents = () => {
                       disabled={isSaving}
                       className="text-slate-600 hover:text-red-500 min-h-11 min-w-11 inline-flex items-center justify-center p-1 disabled:opacity-50"
                     >
-                      <MinusCircle className="w-4 h-4" />
+                      <MinusCircle className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                   <input

@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
 import type { RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DraggableSliderHandle } from '@/components/common/DraggableSlider';
 import type { FamousPerson } from '../../types/index';
 
@@ -86,6 +86,7 @@ export function useCultureCornerTimeline({
     let cancelled = false;
     let rafId = 0;
     let rootEl: HTMLDivElement | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     const birthYearById = new Map<string, number | null>();
     for (const person of filteredPeople) {
@@ -146,6 +147,14 @@ export function useCultureCornerTimeline({
       }
       rootEl.addEventListener('scroll', onScrollOrResize, { passive: true });
       window.addEventListener('resize', onScrollOrResize);
+
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => {
+          onScrollOrResize();
+        });
+        resizeObserver.observe(rootEl);
+      }
+
       updateTimelineState();
     };
 
@@ -159,11 +168,14 @@ export function useCultureCornerTimeline({
         rootEl.removeEventListener('scroll', onScrollOrResize);
       }
       window.removeEventListener('resize', onScrollOrResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
     };
   }, [isOpen, filteredPeople, timelineRef]);
 
   useEffect(() => {
-    if (isOpen && updateTriggerRef.current) {
+    if (isOpen && updateTriggerRef.current && scrollNonce !== undefined) {
       const rafId = requestAnimationFrame(() => {
         updateTriggerRef.current?.();
       });

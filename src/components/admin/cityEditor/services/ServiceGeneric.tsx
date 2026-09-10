@@ -1,5 +1,5 @@
 import { Eye, Loader2, MinusCircle, Plus, Save } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { type SuggestedCityItem, suggestCityItems } from '../../../../services/ai';
 import type { SaveCityServiceInput } from '../../../../services/city/entitiesService';
@@ -9,10 +9,15 @@ import {
   saveCityService,
 } from '../../../../services/cityService';
 import type { CityService, CityServiceType } from '../../../../types/index';
+
+interface LocalCityService extends CityService {
+  cityId?: string;
+}
+
 import {
-  SERVICE_TYPE_MAPPING,
   getBoxIdForType,
   getServicesConfig,
+  SERVICE_TYPE_MAPPING,
 } from '../../../../constants/services';
 import { getSafeServiceType } from '../../../../utils/common';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
@@ -63,6 +68,7 @@ const mapSuggestedToServiceAiResult = (item: SuggestedCityItem): ServiceAiResult
   const name = typeof item.name === 'string' ? item.name.trim() : '';
   if (!name) return null;
   return {
+    id: crypto.randomUUID(),
     name,
     type: readOptionalString(item.type),
     contact: readOptionalString(item.contact),
@@ -78,7 +84,7 @@ const nextOrderIndexForBox = (boxServices: CityService[]): number => {
     const val = s.orderIndex;
     return typeof val === 'number' && Number.isFinite(val) ? Math.max(max, val) : max;
   }, 0);
-  return maxOrder + 1;
+  return maxOrder >= Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : maxOrder + 1;
 };
 
 export const ServiceGeneric = () => {
@@ -86,12 +92,14 @@ export const ServiceGeneric = () => {
 
   const SERVICE_BOXES = getServicesConfig();
 
-  const [servicesList, setServicesList] = useState<CityService[]>([]);
+  const [servicesList, setServicesList] = useState<LocalCityService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [serviceResults, setServiceResults] = useState<ServiceAiResult[]>([]);
+  const activeDiscoveryRequestIdRef = useRef<number>(0);
+  const activeLoadRequestIdRef = useRef<number>(0);
   const [serviceQuery, setServiceQuery] = useState('');
   const [discoveryCount, setDiscoveryCount] = useState(3);
   const [serviceTarget, setServiceTarget] = useState('generic');
@@ -103,30 +111,52 @@ export const ServiceGeneric = () => {
 
   const loadData = useCallback(async () => {
     if (!city?.id) return;
+    const requestId = ++activeLoadRequestIdRef.current;
+    const requestedCityId = city.id;
     setIsLoading(true);
     try {
-      const data = await getCityServices(city.id);
+      const data = await getCityServices(requestedCityId);
+      if (requestId !== activeLoadRequestIdRef.current) return;
       const dbServices = [...data].sort((a, b) => {
-        const orderA = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : Number.MAX_SAFE_INTEGER;
-        const orderB = typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex) ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+        const orderA =
+          typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex)
+            ? a.orderIndex
+            : Number.MAX_SAFE_INTEGER;
+        const orderB =
+          typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex)
+            ? b.orderIndex
+            : Number.MAX_SAFE_INTEGER;
         return orderA - orderB;
       });
 
       // Preserva i servizi locali temporanei non ancora salvati per la città corrente
       setServicesList((prev) => {
-        const localDrafts = prev.filter((s) => s.id.startsWith('new-') && s.cityId === city.id);
+        const localDrafts = prev.filter(
+          (s) => s.id.startsWith('new-') && s.cityId === requestedCityId,
+        );
         return [...dbServices, ...localDrafts];
       });
     } catch (e) {
-      console.error(e);
+      if (requestId === activeLoadRequestIdRef.current) {
+        console.error(e);
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === activeLoadRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [city?.id]);
 
   useEffect(() => {
     if (!city?.id) return;
+
+    activeDiscoveryRequestIdRef.current++;
+    activeLoadRequestIdRef.current++;
+    setServiceResults([]);
+    setIsDiscovering(false);
+
     void loadData();
+
     // Pulisce lo stato locale dei servizi quando cambia città per sicurezza
     return () => {
       setServicesList([]);
@@ -138,8 +168,14 @@ export const ServiceGeneric = () => {
     return servicesList
       .filter((s) => getBoxIdForType(s.type) === boxId)
       .sort((a, b) => {
-        const orderA = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : Number.MAX_SAFE_INTEGER;
-        const orderB = typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex) ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+        const orderA =
+          typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex)
+            ? a.orderIndex
+            : Number.MAX_SAFE_INTEGER;
+        const orderB =
+          typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex)
+            ? b.orderIndex
+            : Number.MAX_SAFE_INTEGER;
         return orderA - orderB;
       });
   };
@@ -151,8 +187,8 @@ export const ServiceGeneric = () => {
     const boxServices = getServicesForBox(boxId);
 
     // Genera un ID fittizio per l'editing locale temporaneo usando slice()
-    const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const temp: CityService & { cityId?: string } = {
+    const tempId = `new-${crypto.randomUUID()}`;
+    const temp: LocalCityService = {
       id: tempId,
       cityId: city.id,
       name: '', // Nome vuoto, l'utente lo deve compilare prima di salvare
@@ -175,6 +211,7 @@ export const ServiceGeneric = () => {
       return;
     }
 
+    activeDiscoveryRequestIdRef.current++;
     setIsSaving(true);
     const payload: SaveCityServiceInput = {
       id: id.startsWith('new-') ? undefined : id,
@@ -222,6 +259,7 @@ export const ServiceGeneric = () => {
 
   const confirmDelete = async () => {
     if (!deleteTarget || isSaving) return;
+    activeDiscoveryRequestIdRef.current++;
     setIsSaving(true);
     try {
       await deleteCityService(deleteTarget.id);
@@ -238,6 +276,7 @@ export const ServiceGeneric = () => {
 
   const handleReorder = async (id: string, newRank: number) => {
     if (!city?.id || isSaving) return;
+    activeDiscoveryRequestIdRef.current++;
     setIsSaving(true);
 
     const target = servicesList.find((i) => i.id === id);
@@ -268,7 +307,18 @@ export const ServiceGeneric = () => {
       for (const p of updatedBox) {
         // Se un elemento è temporaneo, lo saltiamo nel riordino DB
         if (!p.id.startsWith('new-')) {
-          await saveCityService(city.id, p);
+          const payload: SaveCityServiceInput = {
+            id: p.id,
+            name: p.name,
+            type: p.type,
+            contact: p.contact,
+            category: p.category,
+            description: p.description,
+            url: p.url,
+            address: p.address,
+            orderIndex: p.orderIndex,
+          };
+          await saveCityService(city.id, payload);
         }
       }
       await loadData();
@@ -297,8 +347,19 @@ export const ServiceGeneric = () => {
       return copy;
     });
 
-    const newRank = parseInt(draft, 10);
-    if (Number.isNaN(newRank) || newRank < 1) {
+    const trimmed = draft.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      await loadData();
+      return;
+    }
+
+    const newRank = Number(trimmed);
+    if (
+      newRank < 1 ||
+      !Number.isInteger(newRank) ||
+      !Number.isFinite(newRank) ||
+      newRank > Number.MAX_SAFE_INTEGER
+    ) {
       await loadData();
       return;
     }
@@ -309,6 +370,7 @@ export const ServiceGeneric = () => {
   const handleDiscovery = async () => {
     if (!city?.name || isSaving) return;
     setIsDiscovering(true);
+    const requestId = ++activeDiscoveryRequestIdRef.current;
     let finalContext = '';
     if (serviceTarget !== 'generic') {
       const targetLabel = SERVICE_BOXES.find((b) => b.id === serviceTarget)?.label;
@@ -324,21 +386,27 @@ export const ServiceGeneric = () => {
         finalContext + serviceQuery,
         discoveryCount,
       );
+      if (requestId !== activeDiscoveryRequestIdRef.current) return;
       setServiceResults(
         results
           .map(mapSuggestedToServiceAiResult)
           .filter((mapped): mapped is ServiceAiResult => mapped !== null),
       );
     } catch (e) {
-      console.error(e);
-      alert('Errore durante la ricerca AI.');
+      if (requestId === activeDiscoveryRequestIdRef.current) {
+        console.error(e);
+        alert('Errore durante la ricerca AI.');
+      }
     } finally {
-      setIsDiscovering(false);
+      if (requestId === activeDiscoveryRequestIdRef.current) {
+        setIsDiscovering(false);
+      }
     }
   };
 
   const handleImport = async (item: ServiceAiResult) => {
     if (!city?.id || isSaving) return;
+    activeDiscoveryRequestIdRef.current++;
     setIsSaving(true);
     const normalizedType = item.type ? toCityServiceType(item.type) : 'other';
     const boxId = getBoxIdForType(normalizedType);
@@ -355,7 +423,7 @@ export const ServiceGeneric = () => {
     };
     try {
       await saveCityService(city.id, payload);
-      setServiceResults((prev) => prev.filter((x) => x.name !== item.name));
+      setServiceResults((prev) => prev.filter((x) => x.id !== item.id));
       await loadData();
       await reloadCurrentCity();
     } catch (e) {
@@ -390,7 +458,7 @@ export const ServiceGeneric = () => {
           onClick={() => triggerPreview('services', 'Servizi Pubblici', servicesList)}
           className="min-h-11 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center gap-2 text-xs font-bold uppercase"
         >
-          <Eye className="w-4 h-4" /> Anteprima
+          <Eye className="w-4 h-4" aria-hidden="true" /> Anteprima
         </button>
       </div>
 
@@ -405,7 +473,7 @@ export const ServiceGeneric = () => {
         onDiscovery={handleDiscovery}
         serviceResults={serviceResults}
         onImport={handleImport}
-        onRemoveResult={(name) => setServiceResults((prev) => prev.filter((x) => x.name !== name))}
+        onRemoveResult={(id) => setServiceResults((prev) => prev.filter((x) => x.id !== id))}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -416,7 +484,7 @@ export const ServiceGeneric = () => {
           >
             <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <box.icon className={`w-4 h-4 ${box.color}`} />
+                <box.icon className={`w-4 h-4 ${box.color}`} aria-hidden="true" />
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wide truncate max-w-[120px]">
                   {box.label}
                 </span>
@@ -428,18 +496,19 @@ export const ServiceGeneric = () => {
                   disabled={isSaving}
                   className="min-h-11 px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded-full text-white shadow-md text-[10px] font-bold uppercase flex items-center gap-1 disabled:opacity-50"
                 >
-                  <Plus className="w-3 h-3" /> Nuovo
+                  <Plus className="w-3 h-3" aria-hidden="true" /> Nuovo
                 </button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
               {getServicesForBox(box.id).map((svc, idx) => {
-                const currentOrder = typeof svc.orderIndex === 'number' && Number.isFinite(svc.orderIndex) ? svc.orderIndex : idx + 1;
+                const currentOrder =
+                  typeof svc.orderIndex === 'number' && Number.isFinite(svc.orderIndex)
+                    ? svc.orderIndex
+                    : idx + 1;
                 const draftVal =
-                  orderDrafts[svc.id] !== undefined
-                    ? orderDrafts[svc.id]
-                    : String(currentOrder);
+                  orderDrafts[svc.id] !== undefined ? orderDrafts[svc.id] : String(currentOrder);
 
                 return (
                   <div
@@ -450,6 +519,7 @@ export const ServiceGeneric = () => {
                       <input
                         type="number"
                         min="1"
+                        aria-label={`Ordine per ${svc.name || 'Nuovo'}`}
                         value={draftVal}
                         onChange={(e) => handleOrderChange(svc.id, e.target.value)}
                         onBlur={() => handleOrderCommit(svc.id)}
@@ -471,7 +541,7 @@ export const ServiceGeneric = () => {
                           disabled={isSaving}
                           className="text-emerald-500 hover:text-white min-h-11 min-w-11 inline-flex items-center justify-center p-1 hover:bg-slate-800 rounded disabled:opacity-50"
                         >
-                          <Save className="w-3.5 h-3.5" />
+                          <Save className="w-3.5 h-3.5" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
@@ -480,12 +550,13 @@ export const ServiceGeneric = () => {
                           disabled={isSaving}
                           className="text-slate-600 hover:text-red-500 min-h-11 min-w-11 inline-flex items-center justify-center p-1 hover:bg-slate-800 rounded disabled:opacity-50"
                         >
-                          <MinusCircle className="w-3.5 h-3.5" />
+                          <MinusCircle className="w-3.5 h-3.5" aria-hidden="true" />
                         </button>
                       </div>
                       <div className="mb-2">
                         <select
                           value={svc.type}
+                          aria-label={`Tipo di servizio per ${svc.name || 'Nuovo'}`}
                           onChange={(e) => handleUpdate(svc.id, 'type', e.target.value)}
                           disabled={isSaving}
                           className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[10px] text-slate-300 focus:outline-none focus:border-blue-500 uppercase font-bold text-left min-h-11 disabled:opacity-50"
@@ -503,6 +574,7 @@ export const ServiceGeneric = () => {
                       </div>
                       <input
                         value={svc.name}
+                        aria-label={`Nome del servizio`}
                         onChange={(e) => handleUpdate(svc.id, 'name', e.target.value)}
                         disabled={isSaving}
                         className="bg-transparent font-bold text-white w-full outline-none text-xs border-b border-transparent focus:border-blue-500 pb-0.5 mb-1 text-left disabled:opacity-50"

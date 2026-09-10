@@ -24,7 +24,9 @@ export type DatabasePoiUpdate = Domain.DbUpdate<'pois'>;
 
 export type DatabasePoiStaging = Domain.DbPoiStaging;
 export type DatabasePoiStagingInsert = Domain.DbInsert<'pois_staging'>;
-export type DatabasePoiStagingUpdate = Domain.DbUpdate<'pois_staging'>;
+export type DatabasePoiStagingUpdate = Omit<Domain.DbUpdate<'pois_staging'>, 'city_id'> & {
+  city_id?: string | null;
+};
 
 // 2. CITIES
 export type DatabaseCity = Domain.DbCity;

@@ -1,8 +1,8 @@
 import { ArrowUpDown, CheckSquare, ChevronDown, ChevronUp, Loader2, Square } from 'lucide-react';
-import type { DatabasePoiStaging } from '../../../../types/database';
+import type { StagingPoiLightweight } from '../../../../services/stagingService';
 
 interface ImportTableProps {
-  items: DatabasePoiStaging[];
+  items: StagingPoiLightweight[];
   selectedIds: Set<string>;
   isLoading: boolean;
   totalItems: number;
@@ -31,24 +31,51 @@ export const ImportTable = ({
   const isAllSelected = items.length > 0 && selectedIds.size === totalItems;
   const isPartialSelected = selectedIds.size > 0 && selectedIds.size < totalItems;
 
+  const headerSelectLabel = isSelectingAll
+    ? 'Selezione in corso'
+    : isAllSelected
+      ? 'Deseleziona tutti gli elementi'
+      : isPartialSelected
+        ? 'Deseleziona tutti gli elementi'
+        : 'Seleziona tutti gli elementi';
+
   const SortIcon = ({ colKey }: { colKey: string }) => {
     if (sortKey !== colKey)
-      return <ArrowUpDown className="w-2.5 h-2.5 text-slate-600 opacity-20 ml-1 inline" />;
+      return (
+        <ArrowUpDown
+          className="w-2.5 h-2.5 text-slate-600 opacity-20 ml-1 inline"
+          aria-hidden="true"
+        />
+      );
     return sortDir === 'asc' ? (
-      <ChevronUp className="w-2.5 h-2.5 text-amber-500 ml-1 inline" />
+      <ChevronUp className="w-2.5 h-2.5 text-amber-500 ml-1 inline" aria-hidden="true" />
     ) : (
-      <ChevronDown className="w-2.5 h-2.5 text-amber-500 ml-1 inline" />
+      <ChevronDown className="w-2.5 h-2.5 text-amber-500 ml-1 inline" aria-hidden="true" />
     );
   };
 
-  const Th = ({ label, k, w }: { label: string; k: string; w: string }) => (
+  const SortableTh = ({
+    label,
+    k,
+    w,
+    align = 'left',
+  }: {
+    label: string;
+    k: string;
+    w: string;
+    align?: 'left' | 'center';
+  }) => (
     <th
-      className={`p-3 cursor-pointer hover:bg-slate-900 transition-colors group whitespace-nowrap ${w}`}
-      onClick={() => onSort(k)}
+      aria-sort={sortKey === k ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`p-3 hover:bg-slate-900 transition-colors group whitespace-nowrap ${w}`}
     >
-      <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className={`flex items-center gap-1 w-full text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 ${align === 'center' ? 'justify-center' : 'justify-start'}`}
+      >
         {label} <SortIcon colKey={k} />
-      </div>
+      </button>
     </th>
   );
 
@@ -59,27 +86,41 @@ export const ImportTable = ({
           <thead className="bg-[#0f172a] sticky top-0 z-floating-panel shadow-sm border-b border-slate-800">
             <tr className="text-[9px] font-black uppercase tracking-widest text-slate-500">
               <th className="p-3 w-10 text-center">
-                <button type="button" onClick={onSelectAll} disabled={isSelectingAll}>
+                <button
+                  type="button"
+                  onClick={onSelectAll}
+                  disabled={isSelectingAll}
+                  aria-label={headerSelectLabel}
+                  className="inline-flex items-center justify-center"
+                >
                   {isSelectingAll ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                    <Loader2 className="w-4 h-4 animate-spin text-slate-500" aria-hidden="true" />
                   ) : isAllSelected || isPartialSelected ? (
                     isAllSelected ? (
-                      <CheckSquare className="w-4 h-4 text-cyan-500" />
+                      <CheckSquare className="w-4 h-4 text-cyan-500" aria-hidden="true" />
                     ) : (
-                      <div className="w-4 h-4 bg-cyan-900 border border-cyan-500 rounded flex items-center justify-center text-cyan-500 font-bold">
+                      <div
+                        className="w-4 h-4 bg-cyan-900 border border-cyan-500 rounded flex items-center justify-center text-cyan-500 font-bold"
+                        aria-hidden="true"
+                      >
                         -
                       </div>
                     )
                   ) : (
-                    <Square className="w-4 h-4" />
+                    <Square className="w-4 h-4" aria-hidden="true" />
                   )}
                 </button>
               </th>
-              <Th label="Nome (OSM)" k="name" w="w-64" />
-              <Th label="Categoria Raw" k="raw_category" w="w-32" />
-              <Th label="Indirizzo" k="address" w="w-48" />
-              <Th label="Status" k="processing_status" w="w-24 text-center" />
-              <Th label="AI Rating" k="ai_rating" w="w-24 text-center" />
+              <SortableTh label="Nome (OSM)" k="name" w="w-64" />
+              <SortableTh label="Categoria Raw" k="raw_category" w="w-32" />
+              <SortableTh label="Indirizzo" k="address" w="w-48" />
+              <SortableTh
+                label="Status"
+                k="processing_status"
+                w="w-24 text-center"
+                align="center"
+              />
+              <SortableTh label="AI Rating" k="ai_rating" w="w-24 text-center" align="center" />
               <th className="p-3 w-32 text-right">Coordinate</th>
             </tr>
           </thead>
@@ -91,70 +132,85 @@ export const ImportTable = ({
                 </td>
               </tr>
             ) : (
-              items.map((item) => (
-                <tr
-                  key={item.id}
-                  className={`hover:bg-slate-800/30 transition-colors ${selectedIds.has(item.id) ? 'bg-cyan-900/10' : ''}`}
-                >
-                  <td className="p-3 text-center align-middle">
-                    <button type="button" onClick={() => onToggleSelection(item.id)}>
-                      {selectedIds.has(item.id) ? (
-                        <CheckSquare className="w-4 h-4 text-cyan-500" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-600" />
-                      )}
-                    </button>
-                  </td>
-                  <td className="p-3 font-bold text-white truncate max-w-[200px]" title={item.name}>
-                    {item.name}
-                  </td>
-                  <td
-                    className="p-3 text-slate-400 truncate max-w-[150px]"
-                    title={item.raw_category || ''}
+              items.map((item) => {
+                const isSelected = selectedIds.has(item.id);
+                const rowSelectLabel = isSelected
+                  ? `Deseleziona ${item.name}`
+                  : `Seleziona ${item.name}`;
+
+                return (
+                  <tr
+                    key={item.id}
+                    className={`hover:bg-slate-800/30 transition-colors ${isSelected ? 'bg-cyan-900/10' : ''}`}
                   >
-                    {item.raw_category || '-'}
-                  </td>
-                  <td
-                    className="p-3 text-slate-500 truncate max-w-[200px]"
-                    title={item.address || ''}
-                  >
-                    {item.address || '-'}
-                  </td>
-                  <td className="p-3 text-center">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${item.processing_status === 'new' ? 'bg-blue-500/20 text-blue-400' : item.processing_status === 'ready' ? 'bg-emerald-500/20 text-emerald-400' : item.processing_status === 'discarded' ? 'bg-slate-700 text-slate-500' : 'bg-indigo-500/20 text-indigo-400'}`}
+                    <td className="p-3 text-center align-middle">
+                      <button
+                        type="button"
+                        onClick={() => onToggleSelection(item.id)}
+                        aria-label={rowSelectLabel}
+                        className="inline-flex items-center justify-center"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-cyan-500" aria-hidden="true" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                        )}
+                      </button>
+                    </td>
+                    <td
+                      className="p-3 font-bold text-white truncate max-w-[200px]"
+                      title={item.name}
                     >
-                      {item.processing_status}
-                    </span>
-                  </td>
-                  <td className="p-3 text-center">
-                    {item.ai_rating === 'high' && (
-                      <span className="text-emerald-500 font-bold bg-emerald-900/20 px-2 py-0.5 rounded border border-emerald-500/20">
-                        HIGH
+                      {item.name}
+                    </td>
+                    <td
+                      className="p-3 text-slate-400 truncate max-w-[150px]"
+                      title={item.raw_category || ''}
+                    >
+                      {item.raw_category || '-'}
+                    </td>
+                    <td
+                      className="p-3 text-slate-500 truncate max-w-[200px]"
+                      title={item.address || ''}
+                    >
+                      {item.address || '-'}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${item.processing_status === 'new' ? 'bg-blue-500/20 text-blue-400' : item.processing_status === 'ready' ? 'bg-emerald-500/20 text-emerald-400' : item.processing_status === 'discarded' ? 'bg-slate-700 text-slate-500' : 'bg-indigo-500/20 text-indigo-400'}`}
+                      >
+                        {item.processing_status}
                       </span>
-                    )}
-                    {item.ai_rating === 'medium' && (
-                      <span className="text-amber-500 font-bold bg-amber-900/20 px-2 py-0.5 rounded border border-amber-500/20">
-                        MED
-                      </span>
-                    )}
-                    {item.ai_rating === 'service' && (
-                      <span className="text-blue-400 font-bold bg-blue-900/20 px-2 py-0.5 rounded border border-blue-500/20">
-                        SVC
-                      </span>
-                    )}
-                    {item.ai_rating === 'low' && (
-                      <span className="text-red-500 font-bold bg-red-900/20 px-2 py-0.5 rounded border border-red-500/20">
-                        LOW
-                      </span>
-                    )}
-                    {!item.ai_rating && <span className="text-slate-600">-</span>}
-                  </td>
-                  <td className="p-3 text-right text-[10px] text-slate-500">
-                    {item.coords_lat.toFixed(4)}, {item.coords_lng.toFixed(4)}
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="p-3 text-center">
+                      {item.ai_rating === 'high' && (
+                        <span className="text-emerald-500 font-bold bg-emerald-900/20 px-2 py-0.5 rounded border border-emerald-500/20">
+                          HIGH
+                        </span>
+                      )}
+                      {item.ai_rating === 'medium' && (
+                        <span className="text-amber-500 font-bold bg-amber-900/20 px-2 py-0.5 rounded border border-amber-500/20">
+                          MED
+                        </span>
+                      )}
+                      {item.ai_rating === 'service' && (
+                        <span className="text-blue-400 font-bold bg-blue-900/20 px-2 py-0.5 rounded border border-blue-500/20">
+                          SVC
+                        </span>
+                      )}
+                      {item.ai_rating === 'low' && (
+                        <span className="text-red-500 font-bold bg-red-900/20 px-2 py-0.5 rounded border border-red-500/20">
+                          LOW
+                        </span>
+                      )}
+                      {!item.ai_rating && <span className="text-slate-600">-</span>}
+                    </td>
+                    <td className="p-3 text-right text-[10px] text-slate-500">
+                      {item.coords_lat.toFixed(4)}, {item.coords_lng.toFixed(4)}
+                    </td>
+                  </tr>
+                );
+              })
             )}
             {!isLoading && items.length === 0 && (
               <tr>

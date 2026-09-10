@@ -75,35 +75,51 @@ export const CulturePeopleModals: React.FC<CulturePeopleModalsProps> = ({
   const successTitleId = 'success-modal-title';
   const successCloseBtnRef = useRef<HTMLButtonElement>(null);
   const successOpenerRef = useRef<HTMLElement | null>(null);
+  const successModalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!successModal.isOpen) return;
+
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) {
+      successOpenerRef.current = active;
+    } else {
+      successOpenerRef.current = null;
+    }
+
+    const focusRaf = requestAnimationFrame(() => {
+      successCloseBtnRef.current?.focus();
+    });
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSuccessModal({ isOpen: false, message: '' });
+        return;
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        successCloseBtnRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [successModal.isOpen, setSuccessModal]);
 
-  useEffect(() => {
-    if (successModal.isOpen) {
-      successOpenerRef.current = document.activeElement as HTMLElement;
-      const r = requestAnimationFrame(() => {
-        successCloseBtnRef.current?.focus();
-      });
-      return () => {
-        cancelAnimationFrame(r);
-        successOpenerRef.current?.focus();
-      };
-    }
-  }, [successModal.isOpen]);
+    const container = successModalRef.current;
+    container?.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      cancelAnimationFrame(focusRaf);
+      container?.removeEventListener('keydown', handleKeyDown);
+      const opener = successOpenerRef.current;
+      if (opener && typeof opener.focus === 'function' && document.contains(opener)) {
+        opener.focus();
+      }
+    };
+  }, [successModal.isOpen, setSuccessModal]);
 
   return (
     <>
       {successModal.isOpen && (
         <div
+          ref={successModalRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby={successTitleId}
@@ -114,14 +130,16 @@ export const CulturePeopleModals: React.FC<CulturePeopleModalsProps> = ({
               <CheckCircle className="w-10 h-10 text-emerald-500" />
             </div>
             <div>
-              <h3 id={successTitleId} className="text-xl font-bold text-white mb-2">Ottimo Lavoro!</h3>
+              <h3 id={successTitleId} className="text-xl font-bold text-white mb-2">
+                Ottimo Lavoro!
+              </h3>
               <p className="text-slate-400 text-sm">{successModal.message}</p>
             </div>
             <button
               ref={successCloseBtnRef}
               type="button"
               onClick={() => setSuccessModal({ isOpen: false, message: '' })}
-              className="mt-4 w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold uppercase text-xs transition-colors border border-slate-700 hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              className="mt-4 w-full py-3 min-h-[44px] bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold uppercase text-xs transition-colors border border-slate-700 hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             >
               Chiudi
             </button>

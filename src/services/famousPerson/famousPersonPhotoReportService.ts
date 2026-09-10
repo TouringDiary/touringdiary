@@ -50,7 +50,8 @@ const mapReport = (
   adminNotes: row.admin_notes,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
-  currentOfficialImageUrl: currentOfficialImageUrl ?? row.person_image_url,
+  currentOfficialImageUrl:
+    currentOfficialImageUrl === undefined ? row.person_image_url : currentOfficialImageUrl,
 });
 
 export type CreateFamousPersonPhotoReportInput = {

@@ -3,13 +3,13 @@ import {
   getDistinctRawCategories,
   getStagingPois,
   getStagingStats,
+  type StagingPoiLightweight,
 } from '../../../services/stagingService';
-import type { DatabasePoiStaging } from '../../../types/database';
 
 export const useImportData = () => {
   // --- DATA STATE ---
   const [selectedCityId, setSelectedCityId] = useState<string>('');
-  const [items, setItems] = useState<DatabasePoiStaging[]>([]);
+  const [items, setItems] = useState<StagingPoiLightweight[]>([]);
   const [stats, setStats] = useState({ new: 0, ready: 0, imported: 0, discarded: 0 });
   const [availableRawCats, setAvailableRawCats] = useState<string[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -30,6 +30,7 @@ export const useImportData = () => {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const isMounted = useRef(true);
+  const activeRequestIdRef = useRef(0);
   useEffect(() => {
     isMounted.current = true;
     return () => {
@@ -41,6 +42,7 @@ export const useImportData = () => {
   const refreshData = useCallback(async () => {
     if (!selectedCityId) return;
 
+    const requestId = ++activeRequestIdRef.current;
     setIsLoading(true);
     try {
       const [list, statistics, rawCats] = await Promise.all([
@@ -59,7 +61,7 @@ export const useImportData = () => {
         getDistinctRawCategories(selectedCityId),
       ]);
 
-      if (isMounted.current) {
+      if (isMounted.current && requestId === activeRequestIdRef.current) {
         setItems(list.data);
         setTotalItems(list.count);
         setStats(statistics);
@@ -68,7 +70,9 @@ export const useImportData = () => {
     } catch (e) {
       console.error('Error fetching import data', e);
     } finally {
-      if (isMounted.current) setIsLoading(false);
+      if (isMounted.current && requestId === activeRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [
     selectedCityId,

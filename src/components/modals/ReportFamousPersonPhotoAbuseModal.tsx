@@ -64,6 +64,7 @@ export const ReportFamousPersonPhotoAbuseModal = ({
   const statusId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const successCloseRef = useRef<HTMLButtonElement>(null);
   const [reason, setReason] = useState<FamousPersonPhotoReportReason | ''>('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,10 +109,22 @@ export const ReportFamousPersonPhotoAbuseModal = ({
     setError(null);
   }, [isOpen, reportPersonId]);
 
+  // Focus on success state close button (once per success)
+  useEffect(() => {
+    if (!isOpen || !isSuccess) return;
+    const focusRaf = requestAnimationFrame(() => {
+      successCloseRef.current?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(focusRaf);
+    };
+  }, [isOpen, isSuccess]);
+
   // 1. Focus Restore & Body Scroll Lock
   useEffect(() => {
     if (isOpen) {
-      openerRef.current = (document.activeElement as HTMLElement | null) ?? null;
+      const activeEl = document.activeElement;
+      openerRef.current = activeEl instanceof HTMLElement ? activeEl : null;
       const previousOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
@@ -125,9 +138,9 @@ export const ReportFamousPersonPhotoAbuseModal = ({
     }
   }, [isOpen]);
 
-  // 2. Focus Trap
+  // 1.5 Initial Focus (only once on open)
   useEffect(() => {
-    if (!isOpen || !photo) return;
+    if (!isOpen) return;
     const dialog = dialogRef.current;
     const focusRaf = requestAnimationFrame(() => {
       if (dialog) {
@@ -139,8 +152,19 @@ export const ReportFamousPersonPhotoAbuseModal = ({
         }
       }
     });
+    return () => {
+      cancelAnimationFrame(focusRaf);
+    };
+  }, [isOpen]);
+
+  // 2. Focus Trap
+  useEffect(() => {
+    if (!isOpen) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab' || !dialog) return;
+      if (event.key !== 'Tab') return;
       const focusable = getFocusableElements(dialog);
       if (focusable.length === 0) {
         event.preventDefault();
@@ -158,12 +182,21 @@ export const ReportFamousPersonPhotoAbuseModal = ({
         first.focus();
       }
     };
-    dialog?.addEventListener('keydown', handleKeyDown);
-    return () => {
-      cancelAnimationFrame(focusRaf);
-      dialog?.removeEventListener('keydown', handleKeyDown);
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || dialog.contains(target)) return;
+      const focusable = getFocusableElements(dialog);
+      (focusable[0] ?? dialog).focus();
     };
-  }, [isOpen, photo]);
+
+    dialog.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn);
+    return () => {
+      dialog.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [isOpen]);
 
   if (!isOpen || !photo) return null;
 
@@ -347,6 +380,7 @@ export const ReportFamousPersonPhotoAbuseModal = ({
           <div className={footerShell}>
             <div className={footerActionsShell}>
               <button
+                ref={successCloseRef}
                 type="button"
                 className={btnPrimaryShell}
                 onClick={onClose}

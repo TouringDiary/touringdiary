@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import {
   getPrimarySpecific,
   SPECIFIC_WARNING_THRESHOLD,
@@ -138,7 +138,17 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
   masters,
   specifics,
 }) => {
-  const personId = person.id ?? '';
+  const personId = person.id;
+  const fallbackDomId = useId();
+  const domId = personId ?? fallbackDomId;
+
+  const handleUpdateField = useCallback(
+    <K extends keyof FamousPerson>(field: K, value: FamousPerson[K]) => {
+      if (!person.id) return;
+      updatePersonLocal(person.id, field, value);
+    },
+    [person.id, updatePersonLocal],
+  );
 
   const [pickerMasterId, setPickerMasterId] = useState<string>('');
 
@@ -154,8 +164,8 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
   const enrichmentQuality = hasFullBio && hasDates ? 'high' : 'low';
   const isComplete = isFamousPersonComplete(person);
   const missingRequired = getMissingFamousPersonFields(person);
-  const personPanelId = `person-card-${personId}`;
-  const fullBioFieldId = `fld-admin-cityeditor-culture-fullbio-${personId}`;
+  const personPanelId = `person-card-${domId}`;
+  const fullBioFieldId = `fld-admin-cityeditor-culture-fullbio-${domId}`;
   const categories = person.categories ?? [];
   const showCategoryWarning = categories.length >= SPECIFIC_WARNING_THRESHOLD;
 
@@ -210,14 +220,21 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
         deathDate,
       });
 
-      updatePersonLocal(personId, 'birthYear', birthYear ?? null);
-      updatePersonLocal(personId, 'birthDate', birthDate ?? null);
-      updatePersonLocal(personId, 'isLiving', nextIsLiving);
-      updatePersonLocal(personId, 'deathYear', deathYear ?? null);
-      updatePersonLocal(personId, 'deathDate', deathDate ?? null);
-      updatePersonLocal(personId, 'lifespanDisplay', lifespanDisplay);
+      handleUpdateField('birthYear', birthYear ?? null);
+      handleUpdateField('birthDate', birthDate ?? null);
+      handleUpdateField('isLiving', nextIsLiving);
+      handleUpdateField('deathYear', deathYear ?? null);
+      handleUpdateField('deathDate', deathDate ?? null);
+      handleUpdateField('lifespanDisplay', lifespanDisplay);
     },
-    [personId, person, updatePersonLocal],
+    [
+      handleUpdateField,
+      person.isLiving,
+      person.birthYear,
+      person.birthDate,
+      person.deathYear,
+      person.deathDate,
+    ],
   );
 
   const addSpecificCategory = (specificId: string) => {
@@ -228,12 +245,12 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
     const existing = person.categories ?? [];
     if (existing.some((c) => c.specificId === specificId)) return;
     const next = [...existing, categoryRefFromTaxonomy(specific, master)];
-    updatePersonLocal(personId, 'categories', next);
+    handleUpdateField('categories', next);
   };
 
   const removeSpecificCategory = (specificId: string) => {
     const next = (person.categories ?? []).filter((c) => c.specificId !== specificId);
-    updatePersonLocal(personId, 'categories', next);
+    handleUpdateField('categories', next);
   };
 
   const handleRecoverDates = async () => {
@@ -265,12 +282,18 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              toggleSelection(personId);
+              if (personId) {
+                toggleSelection(personId);
+              }
             }}
             className={`inline-flex items-center justify-center min-h-11 min-w-11 p-2 rounded hover:bg-slate-800 transition-colors shrink-0 ${isSelected ? 'text-indigo-500' : 'text-slate-600'}`}
             aria-label={isSelected ? `Deseleziona ${person.name}` : `Seleziona ${person.name}`}
           >
-            {isSelected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+            {isSelected ? (
+              <CheckSquare className="w-5 h-5" aria-hidden="true" />
+            ) : (
+              <Square className="w-5 h-5" aria-hidden="true" />
+            )}
           </button>
 
           <div className="w-12 shrink-0">
@@ -303,7 +326,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
           >
             <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border border-slate-700 shrink-0">
               <ImageWithFallback
-                src={person.imageUrl}
+                src={person.imageUrl ?? undefined}
                 alt={person.name}
                 className={`w-full h-full object-cover ${!isPublished ? 'grayscale opacity-60' : ''}`}
               />
@@ -322,7 +345,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
                 )}
                 {isProcessingThis && (
                   <span className="text-[9px] bg-yellow-500 text-black px-2 py-0.5 rounded-full font-black uppercase flex items-center gap-1 animate-pulse border border-yellow-300 shrink-0">
-                    <Loader2 className="w-3 h-3 animate-spin" /> LAVORAZIONE...
+                    <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" /> LAVORAZIONE...
                   </span>
                 )}
                 {!isProcessingThis && !isComplete && (
@@ -348,13 +371,15 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              handleOpenPreview(personId);
+              if (personId) {
+                handleOpenPreview(personId);
+              }
             }}
             className="inline-flex items-center justify-center min-h-11 min-w-11 p-2 text-indigo-400 hover:text-white hover:bg-indigo-600 rounded transition-colors"
             title="Anteprima Utente"
             aria-label={`Anteprima ${person.name}`}
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -366,7 +391,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
             title="Elimina personaggio"
             aria-label={`Elimina ${person.name}`}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -377,9 +402,9 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
             onClick={toggleExpanded}
           >
             {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-indigo-400" />
+              <ChevronUp className="w-5 h-5 text-indigo-400" aria-hidden="true" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-slate-500" />
+              <ChevronDown className="w-5 h-5 text-slate-500" aria-hidden="true" />
             )}
           </button>
         </div>
@@ -397,7 +422,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
               className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-[10px] font-bold uppercase flex items-center gap-1 shadow-md transition-all active:scale-95"
               title="Riscrivi Dati (Bio e Date)"
             >
-              <Wand2 className="w-3 h-3" /> Magic Fix (Dati)
+              <Wand2 className="w-3 h-3" aria-hidden="true" /> Magic Fix (Dati)
             </button>
             <button
               type="button"
@@ -417,15 +442,15 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
 
           <div>
             <label
-              htmlFor={`fld-person-name-${personId}`}
+              htmlFor={`fld-person-name-${domId}`}
               className="text-[10px] font-bold text-slate-500 uppercase block mb-1"
             >
               Nome
             </label>
             <input
-              id={`fld-person-name-${personId}`}
+              id={`fld-person-name-${domId}`}
               value={person.name}
-              onChange={(e) => updatePersonLocal(personId, 'name', e.target.value)}
+              onChange={(e) => handleUpdateField('name', e.target.value)}
               className={`bg-slate-900 border rounded px-3 py-2 text-white text-sm w-full ${missingRequired.includes('name') ? 'border-amber-500' : 'border-slate-700'}`}
               placeholder="Nome Completo"
               aria-invalid={missingRequired.includes('name')}
@@ -556,13 +581,13 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label
-                  htmlFor={`fld-person-birthyear-${personId}`}
+                  htmlFor={`fld-person-birthyear-${domId}`}
                   className="text-[10px] font-bold text-slate-500 uppercase block mb-1"
                 >
                   Anno nascita *
                 </label>
                 <input
-                  id={`fld-person-birthyear-${personId}`}
+                  id={`fld-person-birthyear-${domId}`}
                   type="number"
                   value={person.birthYear ?? ''}
                   onChange={(e) =>
@@ -577,13 +602,13 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
               </div>
               <div>
                 <label
-                  htmlFor={`fld-person-birthdate-${personId}`}
+                  htmlFor={`fld-person-birthdate-${domId}`}
                   className="text-[10px] font-bold text-slate-500 uppercase block mb-1"
                 >
                   Data nascita (opz.)
                 </label>
                 <input
-                  id={`fld-person-birthdate-${personId}`}
+                  id={`fld-person-birthdate-${domId}`}
                   type="date"
                   value={person.birthDate ?? ''}
                   onChange={(e) =>
@@ -598,13 +623,13 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
 
             <div>
               <label
-                htmlFor={`fld-person-living-${personId}`}
+                htmlFor={`fld-person-living-${domId}`}
                 className="text-[10px] font-bold text-slate-500 uppercase block mb-1"
               >
                 Stato in vita *
               </label>
               <select
-                id={`fld-person-living-${personId}`}
+                id={`fld-person-living-${domId}`}
                 value={person.isLiving === true ? 'true' : person.isLiving === false ? 'false' : ''}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -624,13 +649,13 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label
-                    htmlFor={`fld-person-deathyear-${personId}`}
+                    htmlFor={`fld-person-deathyear-${domId}`}
                     className="text-[10px] font-bold text-slate-500 uppercase block mb-1"
                   >
                     Anno morte *
                   </label>
                   <input
-                    id={`fld-person-deathyear-${personId}`}
+                    id={`fld-person-deathyear-${domId}`}
                     type="number"
                     value={person.deathYear ?? ''}
                     onChange={(e) =>
@@ -644,13 +669,13 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
                 </div>
                 <div>
                   <label
-                    htmlFor={`fld-person-deathdate-${personId}`}
+                    htmlFor={`fld-person-deathdate-${domId}`}
                     className="text-[10px] font-bold text-slate-500 uppercase block mb-1"
                   >
                     Data morte (opz.)
                   </label>
                   <input
-                    id={`fld-person-deathdate-${personId}`}
+                    id={`fld-person-deathdate-${domId}`}
                     type="date"
                     value={person.deathDate ?? ''}
                     onChange={(e) =>
@@ -672,16 +697,16 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
 
           <div>
             <label
-              htmlFor={`fld-person-image-${personId}`}
+              htmlFor={`fld-person-image-${domId}`}
               className="text-[10px] font-bold text-slate-500 uppercase block mb-1"
             >
               URL Immagine
             </label>
             <div className="flex gap-1">
               <input
-                id={`fld-person-image-${personId}`}
+                id={`fld-person-image-${domId}`}
                 value={person.imageUrl ?? ''}
-                onChange={(e) => updatePersonLocal(personId, 'imageUrl', e.target.value)}
+                onChange={(e) => handleUpdateField('imageUrl', e.target.value)}
                 className={`bg-slate-900 border rounded px-3 py-2 text-slate-300 text-xs w-full ${missingRequired.includes('imageUrl') ? 'border-amber-500' : 'border-slate-700'}`}
                 placeholder="URL Immagine"
                 aria-invalid={missingRequired.includes('imageUrl')}
@@ -689,15 +714,15 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (!guardAiAction()) return;
-                  regeneratePortrait(person);
+                  if (!personId || !guardAiAction()) return;
+                  void regeneratePortrait(person);
                 }}
                 disabled={aiBlocked}
                 className="inline-flex items-center justify-center min-h-11 min-w-11 bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded border border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 title={aiBlocked ? blockMessage : 'Genera Ritratto AI'}
                 aria-label={`Genera ritratto AI per ${person.name}`}
               >
-                <ImageIcon className="w-4 h-4" />
+                <ImageIcon className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -705,7 +730,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
               <label
-                htmlFor={`fld-person-bio-${personId}`}
+                htmlFor={`fld-person-bio-${domId}`}
                 className="text-[10px] font-bold text-slate-500 uppercase"
               >
                 Biografia breve
@@ -726,10 +751,10 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
               )}
             </div>
             <textarea
-              id={`fld-person-bio-${personId}`}
+              id={`fld-person-bio-${domId}`}
               rows={2}
               value={person.bio ?? ''}
-              onChange={(e) => updatePersonLocal(personId, 'bio', e.target.value)}
+              onChange={(e) => handleUpdateField('bio', e.target.value)}
               className={`w-full bg-slate-900 border rounded p-3 text-slate-300 text-xs resize-none ${missingRequired.includes('bio') ? 'border-amber-500' : 'border-slate-700'}`}
               placeholder="Bio breve..."
               aria-invalid={missingRequired.includes('bio')}
@@ -752,22 +777,22 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
               id={fullBioFieldId}
               rows={6}
               value={person.fullBio || ''}
-              onChange={(e) => updatePersonLocal(personId, 'fullBio', e.target.value)}
+              onChange={(e) => handleUpdateField('fullBio', e.target.value)}
               className={`w-full bg-slate-900 border rounded p-3 text-white text-xs resize-none font-serif ${!hasFullBio ? 'border-slate-600' : 'border-slate-700'}`}
               placeholder="Biografia estesa (obbligatoria)..."
             />
             <AiFieldHelper
               contextLabel={`biografia estesa di ${person.name}`}
-              onApply={(val) => updatePersonLocal(personId, 'fullBio', val)}
+              onApply={(val) => handleUpdateField('fullBio', val)}
               currentValue={person.fullBio}
               compact={true}
-              fieldId={`bio_extended_${personId}`}
+              fieldId={`bio_extended_${domId}`}
             />
           </div>
 
           <div className="mt-4 border-t border-slate-800 pt-4">
             <h5 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
-              <MapPin className="w-3.5 h-3.5" /> Luoghi Correlati (Auto-Generati)
+              <MapPin className="w-3.5 h-3.5" aria-hidden="true" /> Luoghi Correlati (Auto-Generati)
             </h5>
             {!person.relatedPlaces || person.relatedPlaces.length === 0 ? (
               <p className="text-xs text-slate-600 italic">
@@ -791,7 +816,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
                         </div>
                       ) : null}
                       <div className="text-[9px] text-slate-400 flex items-center gap-1">
-                        <Clock className="w-2.5 h-2.5" /> {place.visitDuration}
+                        <Clock className="w-2.5 h-2.5" aria-hidden="true" /> {place.visitDuration}
                       </div>
                     </div>
                   </div>
@@ -807,7 +832,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
               disabled={isProcessingThis}
               className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 min-h-11 rounded-lg text-xs font-bold uppercase flex items-center gap-1 shadow-lg disabled:opacity-50"
             >
-              <Save className="w-3 h-3" /> Salva Modifiche
+              <Save className="w-3 h-3" aria-hidden="true" /> Salva Modifiche
             </button>
           </div>
         </div>

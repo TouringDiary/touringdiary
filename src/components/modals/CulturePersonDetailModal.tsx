@@ -1,11 +1,11 @@
-import { useEffect, useId, useRef, type MouseEvent } from 'react';
 import { ArrowRight, CheckCircle, Clock, MapPin, Plus, Quote } from 'lucide-react';
+import { type MouseEvent, useEffect, useId, useRef } from 'react';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { getPrimarySpecific } from '@/domain/city/famousPersonCategories';
-import { openMap } from '../../utils/common';
 import type { FamousPerson, PointOfInterest } from '../../types/index';
+import { openMap } from '../../utils/common';
 import { renderCultureContent } from './cultureContentParser';
 import { toSortableCategories } from './cultureCornerUtils';
 
@@ -41,12 +41,18 @@ export const CulturePersonDetailModal = ({
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
-  // Focus trap for detail modal
+  // 1. Capture opener and initial focus once per open
   useEffect(() => {
     if (!isOpen) return;
-    openerRef.current = (document.activeElement as HTMLElement | null) ?? null;
-    const dialog = dialogRef.current;
 
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) {
+      openerRef.current = active;
+    } else {
+      openerRef.current = null;
+    }
+
+    const dialog = dialogRef.current;
     const focusRaf = requestAnimationFrame(() => {
       if (dialog) {
         const focusable = getFocusableElements(dialog);
@@ -58,13 +64,24 @@ export const CulturePersonDetailModal = ({
       }
     });
 
+    return () => {
+      cancelAnimationFrame(focusRaf);
+    };
+  }, [isOpen]);
+
+  // 2. Focus trap (Tab/Shift+Tab + focusin redirection)
+  useEffect(() => {
+    if (!isOpen) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         onClose();
         return;
       }
-      if (event.key !== 'Tab' || !dialog) return;
+      if (event.key !== 'Tab') return;
       const focusable = getFocusableElements(dialog);
       if (focusable.length === 0) {
         event.preventDefault();
@@ -83,17 +100,37 @@ export const CulturePersonDetailModal = ({
       }
     };
 
-    dialog?.addEventListener('keydown', handleKeyDown);
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || dialog.contains(target)) return;
+      const focusable = getFocusableElements(dialog);
+      (focusable[0] ?? dialog).focus();
+    };
+
+    dialog.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn);
 
     return () => {
-      cancelAnimationFrame(focusRaf);
-      dialog?.removeEventListener('keydown', handleKeyDown);
-      const opener = openerRef.current;
-      if (opener && typeof opener.focus === 'function' && document.contains(opener)) {
-        opener.focus();
-      }
+      dialog.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn);
     };
   }, [isOpen, onClose]);
+
+  // 3. Restore focus only when modal truly closes
+  useEffect(() => {
+    if (!isOpen) {
+      const opener = openerRef.current;
+      openerRef.current = null;
+      if (
+        opener instanceof HTMLElement &&
+        document.contains(opener) &&
+        typeof opener.focus === 'function' &&
+        !opener.hasAttribute('disabled')
+      ) {
+        opener.focus();
+      }
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

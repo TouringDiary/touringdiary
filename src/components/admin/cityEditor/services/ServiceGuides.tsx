@@ -1,5 +1,5 @@
 import { Eye, Loader2, MinusCircle, Plus, Save, UserCheck, Wand2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { type SuggestedCityItem, suggestCityItems } from '../../../../services/ai';
 import type { SaveCityGuideInput } from '../../../../services/city/entitiesService';
@@ -13,26 +13,54 @@ const readOptionalString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
 
 const readStringArray = (value: unknown): string[] | undefined => {
-  if (!Array.isArray(value)) return undefined;
-  const strings = value.filter((v): v is string => typeof v === 'string');
-  return strings.length > 0 ? strings : undefined;
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  if (!value.every((v): v is string => typeof v === 'string')) return undefined;
+  return value;
 };
 
+type DiscoveryGuideSaveFields = Pick<SaveCityGuideInput, 'name'> &
+  Partial<Omit<SaveCityGuideInput, 'name'>>;
+type DiscoveryGuideResult = DiscoveryGuideSaveFields & { localId: string };
+
 /** Maps AI suggestion → SaveCityGuideInput using only real present fields. */
-const mapSuggestedToGuideInput = (item: SuggestedCityItem): SaveCityGuideInput | null => {
+const mapSuggestedToGuideInput = (item: SuggestedCityItem): DiscoveryGuideSaveFields | null => {
   const name = typeof item.name === 'string' ? item.name.trim() : '';
   if (!name) return null;
 
+  const languages = readStringArray(item.languages);
+  const specialties = readStringArray(item.specialties);
+
   return {
     name,
-    isOfficial: typeof item.isOfficial === 'boolean' ? item.isOfficial : true,
-    languages: readStringArray(item.languages) ?? ['IT'],
-    specialties: readStringArray(item.specialties) ?? [],
+    ...(typeof item.isOfficial === 'boolean' ? { isOfficial: item.isOfficial } : {}),
+    ...(languages !== undefined ? { languages } : {}),
+    ...(specialties !== undefined ? { specialties } : {}),
     phone: readOptionalString(item.phone),
     email: readOptionalString(item.email),
     website: readOptionalString(item.website),
-    rating: typeof item.rating === 'number' ? item.rating : undefined,
+    rating:
+      typeof item.rating === 'number' && Number.isFinite(item.rating) ? item.rating : undefined,
   };
+};
+
+const mapSuggestedToGuideResult = (item: SuggestedCityItem): DiscoveryGuideResult | null => {
+  const guide = mapSuggestedToGuideInput(item);
+  if (!guide) return null;
+  return {
+    ...guide,
+    localId: crypto.randomUUID(),
+  };
+};
+
+const calculateNextOrderIndex = (list: { orderIndex?: number }[]): number => {
+  const max = list.reduce((maxVal, item) => {
+    const val = item.orderIndex;
+    return typeof val === 'number' && Number.isFinite(val) ? Math.max(maxVal, val) : maxVal;
+  }, 0);
+  if (max >= Number.MAX_SAFE_INTEGER) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return max + 1;
 };
 
 export const ServiceGuides = () => {
@@ -43,7 +71,9 @@ export const ServiceGuides = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const [isDiscovering, setIsDiscovering] = useState(false);
-  const [discoveryResults, setDiscoveryResults] = useState<SaveCityGuideInput[]>([]);
+  const [discoveryResults, setDiscoveryResults] = useState<DiscoveryGuideResult[]>([]);
+  const activeDiscoveryRequestIdRef = useRef(0);
+  const activeLoadRequestIdRef = useRef(0);
   const [aiQuery, setAiQuery] = useState('');
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -53,22 +83,42 @@ export const ServiceGuides = () => {
 
   const loadData = useCallback(async () => {
     if (!city?.id) return;
+    const requestId = ++activeLoadRequestIdRef.current;
+    const requestedCityId = city.id;
     setIsLoading(true);
     try {
-      const data = await getCityGuides(city.id);
-      setGuidesList([...data].sort((a, b) => {
-        const orderA = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : Number.MAX_SAFE_INTEGER;
-        const orderB = typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex) ? b.orderIndex : Number.MAX_SAFE_INTEGER;
-        return orderA - orderB;
-      }));
+      const data = await getCityGuides(requestedCityId);
+      if (requestId !== activeLoadRequestIdRef.current) return;
+      setGuidesList(
+        [...data].sort((a, b) => {
+          const orderA =
+            typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex)
+              ? a.orderIndex
+              : Number.MAX_SAFE_INTEGER;
+          const orderB =
+            typeof b.orderIndex === 'number' && Number.isFinite(b.orderIndex)
+              ? b.orderIndex
+              : Number.MAX_SAFE_INTEGER;
+          return orderA - orderB;
+        }),
+      );
     } catch (e) {
-      console.error(e);
+      if (requestId === activeLoadRequestIdRef.current) {
+        console.error(e);
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === activeLoadRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [city?.id]);
 
   useEffect(() => {
+    activeDiscoveryRequestIdRef.current++;
+    activeLoadRequestIdRef.current++;
+    setDiscoveryResults([]);
+    setIsDiscovering(false);
+
     if (!city?.id) return;
     void loadData();
   }, [city?.id, loadData]);
@@ -76,11 +126,7 @@ export const ServiceGuides = () => {
   const handleAddGuide = async () => {
     if (!city?.id || isSaving) return;
     setIsSaving(true);
-    const nextOrderIndex =
-      guidesList.reduce((max, g) => {
-        const val = g.orderIndex;
-        return typeof val === 'number' && Number.isFinite(val) ? Math.max(max, val) : max;
-      }, 0) + 1;
+    const nextOrderIndex = calculateNextOrderIndex(guidesList);
 
     const temp: SaveCityGuideInput = {
       name: 'Nuova Guida',
@@ -157,7 +203,21 @@ export const ServiceGuides = () => {
 
     try {
       for (const p of updated) {
-        await saveCityGuide(city.id, p);
+        const payload: SaveCityGuideInput = {
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          isOfficial: p.isOfficial,
+          languages: p.languages,
+          specialties: p.specialties,
+          phone: p.phone,
+          email: p.email,
+          website: p.website,
+          imageUrl: p.imageUrl,
+          rating: p.rating,
+          orderIndex: p.orderIndex,
+        };
+        await saveCityGuide(city.id, payload);
       }
       await loadData();
       await reloadCurrentCity();
@@ -185,8 +245,19 @@ export const ServiceGuides = () => {
       return copy;
     });
 
-    const newRank = parseInt(draft, 10);
-    if (Number.isNaN(newRank) || newRank < 1) {
+    const trimmed = draft.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      await loadData();
+      return;
+    }
+
+    const newRank = Number(trimmed);
+    if (
+      newRank < 1 ||
+      !Number.isInteger(newRank) ||
+      !Number.isFinite(newRank) ||
+      newRank > Number.MAX_SAFE_INTEGER
+    ) {
       await loadData();
       return;
     }
@@ -196,35 +267,56 @@ export const ServiceGuides = () => {
 
   const handleDiscovery = async () => {
     if (!city?.name || isSaving) return;
+    const requestId = ++activeDiscoveryRequestIdRef.current;
     setIsDiscovering(true);
     try {
       const existingNames = guidesList.map((i) => i.name);
       const results = await suggestCityItems(city.name, 'guides', existingNames, aiQuery, 3);
+      if (requestId !== activeDiscoveryRequestIdRef.current) return;
       setDiscoveryResults(
         results
-          .map(mapSuggestedToGuideInput)
-          .filter((mapped): mapped is SaveCityGuideInput => mapped !== null),
+          .map(mapSuggestedToGuideResult)
+          .filter((mapped): mapped is DiscoveryGuideResult => mapped !== null),
       );
     } catch (e) {
-      console.error(e);
-      alert('Errore durante la ricerca AI.');
+      if (requestId === activeDiscoveryRequestIdRef.current) {
+        console.error(e);
+        alert('Errore durante la ricerca AI.');
+      }
     } finally {
-      setIsDiscovering(false);
+      if (requestId === activeDiscoveryRequestIdRef.current) {
+        setIsDiscovering(false);
+      }
     }
   };
 
-  const handleImport = async (item: SaveCityGuideInput) => {
+  const handleImport = async (item: DiscoveryGuideResult) => {
     if (!city?.id || isSaving) return;
+    if (
+      typeof item.isOfficial !== 'boolean' ||
+      item.languages === undefined ||
+      item.specialties === undefined
+    ) {
+      alert('Importazione non possibile: la guida AI non include tutti i campi obbligatori.');
+      return;
+    }
     setIsSaving(true);
-    const nextOrderIndex =
-      guidesList.reduce((max, g) => {
-        const val = g.orderIndex;
-        return typeof val === 'number' && Number.isFinite(val) ? Math.max(max, val) : max;
-      }, 0) + 1;
+    const nextOrderIndex = calculateNextOrderIndex(guidesList);
 
     try {
-      await saveCityGuide(city.id, { ...item, orderIndex: nextOrderIndex });
-      setDiscoveryResults((prev) => prev.filter((x) => x.name !== item.name));
+      const payload: SaveCityGuideInput = {
+        name: item.name,
+        isOfficial: item.isOfficial,
+        languages: item.languages,
+        specialties: item.specialties,
+        orderIndex: nextOrderIndex,
+        phone: item.phone,
+        email: item.email,
+        website: item.website,
+        rating: item.rating,
+      };
+      await saveCityGuide(city.id, payload);
+      setDiscoveryResults((prev) => prev.filter((x) => x.localId !== item.localId));
       await loadData();
       await reloadCurrentCity();
     } catch (e) {
@@ -247,7 +339,7 @@ export const ServiceGuides = () => {
 
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-bold text-white flex items-center gap-2 text-sm md:text-base">
-          <UserCheck className="w-5 h-5 text-emerald-500" /> Guide
+          <UserCheck className="w-5 h-5 text-emerald-500" aria-hidden="true" /> Guide
         </h3>
         <div className="flex gap-2">
           <button
@@ -256,7 +348,7 @@ export const ServiceGuides = () => {
             onClick={() => triggerPreview('guides', 'Guide Turistiche', guidesList)}
             className="min-h-11 min-w-11 inline-flex items-center justify-center p-1.5 bg-slate-800 hover:bg-emerald-900/30 rounded text-slate-400 hover:text-emerald-400 border border-slate-700"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -265,7 +357,7 @@ export const ServiceGuides = () => {
             disabled={isSaving}
             className="min-h-11 min-w-11 inline-flex items-center justify-center p-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-white shadow-lg disabled:opacity-50"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -286,9 +378,9 @@ export const ServiceGuides = () => {
             className="bg-emerald-600 text-white px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-1 min-h-11 disabled:opacity-50"
           >
             {isDiscovering ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
             ) : (
-              <Wand2 className="w-3 h-3" />
+              <Wand2 className="w-3 h-3" aria-hidden="true" />
             )}{' '}
             AI
           </button>
@@ -297,7 +389,7 @@ export const ServiceGuides = () => {
           <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
             {discoveryResults.map((res) => (
               <div
-                key={res.name}
+                key={res.localId}
                 className="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-700"
               >
                 <span className="text-xs text-white truncate max-w-[150px]">{res.name}</span>
@@ -322,11 +414,12 @@ export const ServiceGuides = () => {
           </div>
         ) : (
           guidesList.map((guide, idx) => {
-            const currentOrder = typeof guide.orderIndex === 'number' && Number.isFinite(guide.orderIndex) ? guide.orderIndex : idx + 1;
+            const currentOrder =
+              typeof guide.orderIndex === 'number' && Number.isFinite(guide.orderIndex)
+                ? guide.orderIndex
+                : idx + 1;
             const draftVal =
-              orderDrafts[guide.id] !== undefined
-                ? orderDrafts[guide.id]
-                : String(currentOrder);
+              orderDrafts[guide.id] !== undefined ? orderDrafts[guide.id] : String(currentOrder);
 
             return (
               <div
@@ -354,11 +447,27 @@ export const ServiceGuides = () => {
                     <button
                       type="button"
                       aria-label={`Salva ${guide.name}`}
-                      onClick={() => handleSaveGuide(guide)}
+                      onClick={() => {
+                        const payload: SaveCityGuideInput = {
+                          id: guide.id,
+                          name: guide.name,
+                          slug: guide.slug,
+                          isOfficial: guide.isOfficial,
+                          languages: guide.languages,
+                          specialties: guide.specialties,
+                          phone: guide.phone,
+                          email: guide.email,
+                          website: guide.website,
+                          imageUrl: guide.imageUrl,
+                          rating: guide.rating,
+                          orderIndex: guide.orderIndex,
+                        };
+                        void handleSaveGuide(payload);
+                      }}
                       disabled={isSaving}
                       className="text-emerald-500 hover:text-white min-h-11 min-w-11 inline-flex items-center justify-center p-1 disabled:opacity-50"
                     >
-                      <Save className="w-4 h-4" />
+                      <Save className="w-4 h-4" aria-hidden="true" />
                     </button>
                     <button
                       type="button"
@@ -367,7 +476,7 @@ export const ServiceGuides = () => {
                       disabled={isSaving}
                       className="text-slate-600 hover:text-red-500 min-h-11 min-w-11 inline-flex items-center justify-center p-1 disabled:opacity-50"
                     >
-                      <MinusCircle className="w-4 h-4" />
+                      <MinusCircle className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                   <input

@@ -40,7 +40,16 @@ function pickPresentString(value: unknown): string | undefined {
 
 function pickOptionalYear(value: unknown): number | null | undefined {
   if (value === null) return null;
-  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && Number.isInteger(value) ? value : undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^-?\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+  }
   return undefined;
 }
 
@@ -56,7 +65,7 @@ function pickOptionalDate(value: unknown): string | null | undefined {
 export type FamousPersonCompletenessDraft = {
   name?: string;
   bio?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   specificCategoryIds?: string[];
   specificCategorySlugs?: string[];
   categories?: FamousPerson['categories'];
@@ -71,7 +80,7 @@ export type FamousPersonCompletenessDraft = {
 export type FamousPersonPresentRequiredFields = {
   name?: string;
   bio?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   specificCategoryIds?: string[];
   birthYear?: number | null;
   birthDate?: string | null;
@@ -116,12 +125,30 @@ export function resolvePortraitCategoryLabel(person: FamousPersonCompletenessDra
   return 'personaggio storico';
 }
 
-function resolveSpecificCategoryIds(draft: FamousPersonCompletenessDraft): string[] {
-  if (Array.isArray(draft.specificCategoryIds) && draft.specificCategoryIds.length > 0) {
-    return [...new Set(draft.specificCategoryIds.filter(Boolean))];
+function normalizeCategoryId(id: unknown): string | undefined {
+  if (typeof id !== 'string') return undefined;
+  const trimmed = id.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function resolveSpecificCategoryIds(
+  draft: FamousPersonCompletenessDraft | PersonDiscoveryResult,
+): string[] {
+  if (
+    'specificCategoryIds' in draft &&
+    Array.isArray(draft.specificCategoryIds) &&
+    draft.specificCategoryIds.length > 0
+  ) {
+    const ids = draft.specificCategoryIds
+      .map(normalizeCategoryId)
+      .filter((id): id is string => id !== undefined);
+    return [...new Set(ids)];
   }
-  if (Array.isArray(draft.categories) && draft.categories.length > 0) {
-    return [...new Set(draft.categories.map((c) => c.specificId).filter(Boolean))];
+  if ('categories' in draft && Array.isArray(draft.categories) && draft.categories.length > 0) {
+    const ids = draft.categories
+      .map((c) => normalizeCategoryId(c.specificId))
+      .filter((id): id is string => id !== undefined);
+    return [...new Set(ids)];
   }
   return [];
 }
@@ -226,10 +253,13 @@ function toDraftFromInput(
   const birthDate = pickOptionalDate(input.birthDate);
   const deathYear = pickOptionalYear(input.deathYear);
   const deathDate = pickOptionalDate(input.deathDate);
-  return {
-    ...input,
+
+  const draft: FamousPersonCompletenessDraft = {
+    id: 'id' in input ? input.id : undefined,
     name: pickPresentString(input.name),
-    bio: pickPresentString(input.bio) ?? pickPresentString(input.fullBio),
+    bio:
+      pickPresentString(input.bio) ??
+      ('fullBio' in input ? pickPresentString(input.fullBio) : undefined),
     imageUrl: pickPresentString(input.imageUrl),
     specificCategoryIds: specificCategoryIds.length > 0 ? specificCategoryIds : undefined,
     specificCategorySlugs: Array.isArray(input.specificCategorySlugs)
@@ -241,6 +271,39 @@ function toDraftFromInput(
     deathYear: deathYear !== undefined ? deathYear : input.deathYear,
     deathDate: deathDate !== undefined ? deathDate : input.deathDate,
   };
+
+  if ('categories' in input) {
+    draft.categories = input.categories;
+  }
+  if ('status' in input) {
+    draft.status = input.status;
+  }
+  if ('quote' in input) {
+    draft.quote = input.quote;
+  }
+  if ('famousWorks' in input) {
+    draft.famousWorks = input.famousWorks;
+  }
+  if ('relatedPlaces' in input) {
+    draft.relatedPlaces = input.relatedPlaces;
+  }
+  if ('fullBio' in input) {
+    draft.fullBio = input.fullBio;
+  }
+  if ('privateLife' in input) {
+    draft.privateLife = input.privateLife;
+  }
+  if ('collaborations' in input) {
+    draft.collaborations = input.collaborations;
+  }
+  if ('awards' in input) {
+    draft.awards = input.awards;
+  }
+  if ('careerStats' in input) {
+    draft.careerStats = input.careerStats;
+  }
+
+  return draft;
 }
 
 /**

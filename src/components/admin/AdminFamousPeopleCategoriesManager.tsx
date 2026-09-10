@@ -34,9 +34,14 @@ type UsageMap = Record<string, number | 'error'>;
 function parseStrictOrderIndex(raw: string): number {
   const trimmed = raw.trim();
   if (!/^\d+$/.test(trimmed)) return 0;
-  if (trimmed.length > 15) return 0; // Prevent numbers larger than MAX_SAFE_INTEGER
+  if (trimmed.length > 16) return 0; // Prevent numbers larger than MAX_SAFE_INTEGER
   const parsed = Number(trimmed);
-  if (!Number.isInteger(parsed) || !Number.isFinite(parsed) || parsed < 0 || parsed > Number.MAX_SAFE_INTEGER) {
+  if (
+    !Number.isInteger(parsed) ||
+    !Number.isFinite(parsed) ||
+    parsed < 0 ||
+    parsed > Number.MAX_SAFE_INTEGER
+  ) {
     return 0;
   }
   return parsed;
@@ -122,11 +127,13 @@ export const AdminFamousPeopleCategoriesManager = ({
 
   // Reset Specific editing and draft states when selecting a different Master category
   useEffect(() => {
-    setEditingSpecificId(null);
-    setEditSpecificLabel('');
-    setEditSpecificOrder('0');
-    setSpecificDraftLabel('');
-    setSpecificDraftOrder('0');
+    if (selectedMasterId !== undefined) {
+      setEditingSpecificId(null);
+      setEditSpecificLabel('');
+      setEditSpecificOrder('0');
+      setSpecificDraftLabel('');
+      setSpecificDraftOrder('0');
+    }
   }, [selectedMasterId]);
 
   const selectedMaster = useMemo(

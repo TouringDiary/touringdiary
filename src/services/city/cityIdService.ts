@@ -31,7 +31,10 @@ export async function resolveCanonicalCityId(name: string, adminRegion?: string)
   // STAGE 1: Match Esatto (Case-Insensitive)
   // We escape SQL LIKE wildcards so that % and _ match literally
   const escapedExactName = escapeLikePattern(cleanName);
-  let query = supabase.from('cities_registry').select('id, name, region').ilike('name', escapedExactName);
+  let query = supabase
+    .from('cities_registry')
+    .select('id, name, region')
+    .ilike('name', escapedExactName);
 
   if (adminRegion) {
     query = query.eq('region', adminRegion); // Usiamo 'region' come confermato dal resto del codice
@@ -69,19 +72,23 @@ export async function resolveCanonicalCityId(name: string, adminRegion?: string)
     // STAGE 3: Validazione Client-side con Flattening
     const targetFlat = flattenString(cleanName);
 
-    // Cerchiamo un match perfetto tra le stringhe appiattite
-    const match = candidates.find((c) => flattenString(c.name) === targetFlat);
+    // Cerchiamo tutti i candidati il cui flattenString(c.name) === targetFlat
+    const matches = candidates.filter((c) => flattenString(c.name) === targetFlat);
 
-    if (match) {
+    if (matches.length === 1) {
+      const match = matches[0];
       console.log(
         `[CityIdService] Risolto ID canonico per "${cleanName}": ${match.id} (via stage 3)`,
       );
       return match.id;
     }
 
-    // Se abbiamo multipli risultati e non riusciamo a disambiguare,
-    // ma uno ha un match molto forte, potremmo prenderlo.
-    // Per ora siamo rigorosi: se Stage 3 fallisce, error.
+    if (matches.length > 1) {
+      console.warn(
+        `[CityIdService] Risoluzione ambigua per "${cleanName}": trovati ${matches.length} match con lo stesso flattening.`,
+      );
+      // Considera il risultato ambiguo e non restituire un ID (continua verso CITY_NOT_IN_REGISTRY)
+    }
   }
 
   console.error(

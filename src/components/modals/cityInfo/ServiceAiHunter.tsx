@@ -2,6 +2,7 @@ import { Check, Loader2, Sparkles, Wand2, X } from 'lucide-react';
 import { getServicesConfig } from '../../../constants/services';
 
 export interface ServiceAiResult {
+  id: string;
   name: string;
   type?: string;
   contact?: string;
@@ -22,7 +23,7 @@ interface ServiceAiHunterProps {
   onDiscovery: () => void;
   serviceResults: ServiceAiResult[];
   onImport: (item: ServiceAiResult) => void;
-  onRemoveResult: (name: string) => void;
+  onRemoveResult: (id: string) => void;
 }
 
 export const ServiceAiHunter = ({
@@ -45,7 +46,7 @@ export const ServiceAiHunter = ({
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
           <h4 className="text-blue-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-            <Wand2 className="w-4 h-4" /> AI Hunter
+            <Wand2 className="w-4 h-4" aria-hidden="true" /> AI Hunter
           </h4>
           <div className="flex flex-wrap gap-2 items-center">
             <select
@@ -79,9 +80,9 @@ export const ServiceAiHunter = ({
               className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 min-h-11 rounded-lg text-[10px] font-black uppercase tracking-wide flex items-center gap-1 disabled:opacity-50 transition-all"
             >
               {discoveringServices ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
+                <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
               ) : (
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="w-3 h-3" aria-hidden="true" />
               )}{' '}
               Trova
             </button>
@@ -97,8 +98,8 @@ export const ServiceAiHunter = ({
       </div>
       {serviceResults.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-          {serviceResults.map((s, i) => {
-            const resultKey = `${s.name}-${s.type || ''}-${i}`;
+          {serviceResults.map((s) => {
+            const resultKey = s.id;
             return (
               <div
                 key={resultKey}
@@ -115,15 +116,15 @@ export const ServiceAiHunter = ({
                   onClick={() => onImport(s)}
                   className="w-full py-1.5 min-h-11 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1"
                 >
-                  <Check className="w-3 h-3" /> Aggiungi
+                  <Check className="w-3 h-3" aria-hidden="true" /> Aggiungi
                 </button>
                 <button
                   type="button"
-                  onClick={() => onRemoveResult(s.name)}
+                  onClick={() => onRemoveResult(s.id)}
                   className="absolute -top-1 -right-1 inline-flex items-center justify-center min-h-11 min-w-11 text-slate-600 hover:text-white transition-colors"
                   aria-label={`Rimuovi ${s.name} dai risultati`}
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3 h-3" aria-hidden="true" />
                 </button>
               </div>
             );

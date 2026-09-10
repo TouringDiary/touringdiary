@@ -10,20 +10,44 @@ import { uploadPublicMedia } from '../mediaService';
 import { extractInlineDataFromRaw } from './aiLegacyPayload';
 import { cleanJsonOutput, withRetry } from './aiUtils';
 
+function isValidBase64(str: string): boolean {
+  const clean = str.replace(/\s+/g, '');
+  if (!clean) return false;
+  if (clean.length % 4 !== 0) return false;
+
+  const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/;
+  if (!base64Regex.test(clean)) return false;
+
+  const firstEqualIdx = clean.indexOf('=');
+  if (firstEqualIdx !== -1) {
+    if (firstEqualIdx < clean.length - 2) {
+      return false;
+    }
+    if (clean.length - firstEqualIdx === 2 && clean[clean.length - 1] !== '=') {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /** MIME from `data:(mime);base64,…`; raw base64 defaults to JPEG (historical community upload default). */
 function resolveImageMimeType(base64Image: string): string {
   const trimmed = base64Image.trim();
-  const match = /^data:([^;,]+)/i.exec(trimmed);
-  if (match?.[1]) {
+  if (trimmed.toLowerCase().startsWith('data:')) {
+    const match = /^data:([^;,]+);base64,/i.exec(trimmed);
+    if (!match) {
+      throw new Error('Data URL is missing ";base64," or has an invalid structure.');
+    }
     const mime = match[1].toLowerCase();
     if (!mime.startsWith('image/')) {
       throw new Error(`MIME type '${mime}' is not a valid image format.`);
     }
     return mime;
   }
-  
+
   const cleanPayload = extractBase64Payload(trimmed);
-  if (!/^[A-Za-z0-9+/=\s]+$/.test(cleanPayload)) {
+  if (!isValidBase64(cleanPayload)) {
     throw new Error('Invalid Base64 payload structure.');
   }
   return 'image/jpeg';
@@ -34,13 +58,23 @@ function extractBase64Payload(base64Image: string): string {
   if (!trimmed) {
     throw new Error('Empty image input.');
   }
-  const commaIndex = trimmed.indexOf(',');
-  if (commaIndex !== -1 && trimmed.substring(0, commaIndex).includes('base64')) {
-    const payload = trimmed.substring(commaIndex + 1).trim();
+  if (trimmed.toLowerCase().startsWith('data:')) {
+    const match = /^data:([^;,]+);base64,(.*)$/is.exec(trimmed);
+    if (!match) {
+      throw new Error('Data URL is missing ";base64," or has an invalid structure.');
+    }
+    const payload = match[2].trim();
     if (!payload) {
       throw new Error('Empty Base64 payload.');
     }
+    if (!isValidBase64(payload)) {
+      throw new Error('Invalid Base64 payload structure.');
+    }
     return payload;
+  }
+
+  if (!isValidBase64(trimmed)) {
+    throw new Error('Invalid Base64 payload structure.');
   }
   return trimmed;
 }
@@ -117,7 +151,7 @@ export const generateHistoricalPortrait = async (
     // `role` is NOT domain — isolated legacy alias of categoryLabel if DB still has `{role}`.
     dbPrompt = await getAiPrompt(
       'vision_portrait_historical',
-      { personName, categoryLabel, role: categoryLabel, cityName },
+      { personName, categoryLabel, cityName },
       `Genera un ritratto artistico (olio/affresco) di ${personName}, ${categoryLabel} a ${cityName}. VISTA DI SPALLE O SILHOUETTE. VISO NON VISIBILE.`,
     );
   } catch {
@@ -176,10 +210,10 @@ export const analyzeImageSafety = async (
 
       const text =
         typeof response.text === 'string' ? response.text : (response.response?.text?.() ?? '{}');
-      
+
       let isSafe = false;
       let reason = 'Verifica AI non disponibile';
-      
+
       try {
         const parsed: unknown = JSON.parse(cleanJsonOutput(text.trim() || '{}'));
         if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {

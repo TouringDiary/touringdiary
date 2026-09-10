@@ -3195,7 +3195,7 @@ export type Database = {
         Row: {
           address: string | null;
           ai_rating: string | null;
-          city_id: string;
+          city_id: string | null;
           coords_lat: number;
           coords_lng: number;
           created_at: string | null;
@@ -3227,7 +3227,7 @@ export type Database = {
         Update: {
           address?: string | null;
           ai_rating?: string | null;
-          city_id?: string;
+          city_id?: string | null;
           coords_lat?: number;
           coords_lng?: number;
           created_at?: string | null;
@@ -6070,6 +6070,13 @@ export type Database = {
           p_admin_notes?: string | null;
         };
         Returns: Json;
+      };
+      promote_staging_poi_to_live: {
+        Args: {
+          p_staging_id: string;
+          p_poi: Json;
+        };
+        Returns: boolean;
       };
       accept_famous_person_suggestion: {
         Args: {

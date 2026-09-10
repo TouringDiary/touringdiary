@@ -1,7 +1,7 @@
 import { BookOpen, Filter, Quote } from 'lucide-react';
 import {
-  type RefObject,
   type MutableRefObject,
+  type RefObject,
   useCallback,
   useEffect,
   useId,
@@ -14,31 +14,27 @@ import { CarouselPositionIndicator } from '@/components/ui/CarouselPositionIndic
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { useItinerary } from '@/context/ItineraryContext';
-import {
-  filterFamousPeople,
-  hasActiveCultureFilters,
-} from '@/domain/city/famousPersonFilter';
+import { filterFamousPeople, hasActiveCultureFilters } from '@/domain/city/famousPersonFilter';
 import { comparePeopleChronological } from '@/domain/city/famousPersonSelection';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import type { CityDetails, PointOfInterest } from '../../types/index';
 import type { User } from '../../types/users';
+import type { DraggableSliderHandle } from '../common/DraggableSlider';
+import { CultureCornerCommunity } from './CultureCornerCommunity';
+// Component & Hook Imports
+import { CultureCornerFilters } from './CultureCornerFilters';
+import { CultureCornerPeopleRail } from './CultureCornerPeopleRail';
+import { CultureCornerTimeline } from './CultureCornerTimeline';
+import { CulturePersonDetailModal } from './CulturePersonDetailModal';
+import { derivePeopleData } from './cultureCornerUtils';
 import {
   type FamousPersonOfficialPhotoTarget,
   ReportFamousPersonPhotoAbuseModal,
 } from './ReportFamousPersonPhotoAbuseModal';
 import { SuggestFamousPersonModal } from './SuggestFamousPersonModal';
 import { SuggestFamousPersonPhotoModal } from './SuggestFamousPersonPhotoModal';
-
-// Component & Hook Imports
-import { CultureCornerFilters } from './CultureCornerFilters';
-import { CultureCornerTimeline } from './CultureCornerTimeline';
-import { CultureCornerPeopleRail } from './CultureCornerPeopleRail';
-import { CultureCornerCommunity } from './CultureCornerCommunity';
-import { CulturePersonDetailModal } from './CulturePersonDetailModal';
-import { derivePeopleData } from './cultureCornerUtils';
-import { useCultureCornerSession, type CategoryOption } from './useCultureCornerSession';
+import { type CategoryOption, useCultureCornerSession } from './useCultureCornerSession';
 import { useCultureCornerTimeline } from './useCultureCornerTimeline';
-import type { DraggableSliderHandle } from '../common/DraggableSlider';
 
 /** Tab trap locale sul dialog (stesso pattern di AdminFamousPeopleManager / ReportAbuse). */
 function getFocusableElements(root: HTMLElement): HTMLElement[] {
@@ -56,16 +52,24 @@ function useDialogFocusTrap(
   dialogRef: RefObject<HTMLDivElement | null>,
   openerRef: MutableRefObject<HTMLElement | null>,
 ): void {
+  const trapActiveRef = useRef(active);
+  trapActiveRef.current = active;
+
+  // 1. Capture opener and perform initial focus ONCE when modal opens
   useEffect(() => {
     if (!isOpen) return;
-    const dialog = dialogRef.current;
-    if (!openerRef.current) {
-      openerRef.current = (document.activeElement as HTMLElement | null) ?? null;
+
+    // Capture opener safely
+    const activeEl = document.activeElement;
+    if (activeEl instanceof HTMLElement) {
+      openerRef.current = activeEl;
+    } else {
+      openerRef.current = null;
     }
 
-    if (!active) return;
-
+    const dialog = dialogRef.current;
     const focusRaf = requestAnimationFrame(() => {
+      if (!trapActiveRef.current) return;
       if (dialog) {
         const focusable = getFocusableElements(dialog);
         if (focusable.length > 0) {
@@ -76,8 +80,19 @@ function useDialogFocusTrap(
       }
     });
 
+    return () => {
+      cancelAnimationFrame(focusRaf);
+    };
+  }, [isOpen, dialogRef, openerRef]);
+
+  // 2. Active focus trap (Tab/Shift+Tab and focusin redirection) when active
+  useEffect(() => {
+    if (!isOpen || !active) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab' || !dialog) return;
+      if (event.key !== 'Tab') return;
       const focusable = getFocusableElements(dialog);
       if (focusable.length === 0) {
         event.preventDefault();
@@ -96,19 +111,33 @@ function useDialogFocusTrap(
       }
     };
 
-    dialog?.addEventListener('keydown', handleKeyDown);
-    return () => {
-      cancelAnimationFrame(focusRaf);
-      dialog?.removeEventListener('keydown', handleKeyDown);
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || dialog.contains(target)) return;
+      const focusable = getFocusableElements(dialog);
+      (focusable[0] ?? dialog).focus();
     };
-  }, [active, isOpen, dialogRef, openerRef]);
 
-  // Handle final restoration only when modal is fully unmounted/closed
+    dialog.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn);
+
+    return () => {
+      dialog.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [active, isOpen, dialogRef]);
+
+  // 3. Handle final restoration only when modal is fully unmounted/closed
   useEffect(() => {
     if (!isOpen) {
       const opener = openerRef.current;
       openerRef.current = null;
-      if (opener && typeof opener.focus === 'function' && document.contains(opener)) {
+      if (
+        opener instanceof HTMLElement &&
+        document.contains(opener) &&
+        typeof opener.focus === 'function' &&
+        !opener.hasAttribute('disabled')
+      ) {
         opener.focus();
       }
     }
@@ -383,24 +412,19 @@ export const CultureCornerModal = ({
 
   useDialogFocusTrap(mainModalTrapActive, isOpen, mainDialogRef, mainOpenerRef);
 
-  const {
-    viewportYears,
-    timelineCanScrollLeft,
-    timelineCanScrollRight,
-  } = useCultureCornerTimeline({
-    isOpen,
-    filteredPeople,
-    scrollNonce,
-    timelineRef,
-  });
+  const { viewportYears, timelineCanScrollLeft, timelineCanScrollRight } = useCultureCornerTimeline(
+    {
+      isOpen,
+      filteredPeople,
+      scrollNonce,
+      timelineRef,
+    },
+  );
 
   if (!isOpen) return null;
 
   const listInert =
-    isDetailOpen ||
-    showSuggestPersonModal ||
-    showSuggestPhotoModal ||
-    reportPhotoTarget !== null;
+    isDetailOpen || showSuggestPersonModal || showSuggestPhotoModal || reportPhotoTarget !== null;
 
   return createPortal(
     <div
@@ -556,7 +580,7 @@ export const CultureCornerModal = ({
                 hasSelectedPerson={selectedPerson !== null}
                 hasSelectedPersonImage={
                   selectedPerson !== null &&
-                  selectedPerson.person.imageUrl !== undefined &&
+                  typeof selectedPerson.person.imageUrl === 'string' &&
                   selectedPerson.person.imageUrl.trim().length > 0
                 }
                 showExtraActions

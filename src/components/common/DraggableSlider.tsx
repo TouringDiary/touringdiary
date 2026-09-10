@@ -17,7 +17,7 @@ export interface DraggableSliderHandle {
 }
 
 const isHTMLElement = (el: unknown): el is HTMLElement =>
-  typeof el === 'object' && el !== null && 'offsetLeft' in el && 'offsetWidth' in el;
+  typeof window !== 'undefined' && el instanceof HTMLElement;
 
 export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
   ({ children, className = '', onScroll }, ref) => {
@@ -73,7 +73,6 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
     useEffect(() => {
       const handleUp = () => {
         if (stateRef.current.isDown) {
-          setIsDown(false);
           setIsDragging(false);
           stateRef.current.isDown = false;
           stateRef.current.isDragging = false;
@@ -86,7 +85,6 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
 
     const handleMouseDown = (e: React.MouseEvent) => {
       if (!scrollRef.current) return;
-      setIsDown(true);
       stateRef.current = {
         isDown: true,
         isDragging: false,
@@ -99,10 +97,10 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
 
     const handleMouseMove = (e: React.MouseEvent) => {
       if (!stateRef.current.isDown || !scrollRef.current) return;
-      
+
       const x = e.pageX;
       const walk = (x - stateRef.current.startX) * 2;
-      
+
       if (!stateRef.current.isDragging) {
         if (Math.abs(x - stateRef.current.startX) > 4) {
           stateRef.current.isDragging = true;
@@ -117,7 +115,6 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
     };
 
     const handleMouseUp = () => {
-      setIsDown(false);
       setIsDragging(false);
       stateRef.current.isDown = false;
       stateRef.current.isDragging = false;
@@ -126,7 +123,6 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
     const handleTouchStart = (e: React.TouchEvent) => {
       if (!scrollRef.current) return;
       const touch = e.touches[0];
-      setIsDown(true);
       stateRef.current = {
         isDown: true,
         isDragging: false,
@@ -141,6 +137,7 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
       if (!scrollRef.current || !stateRef.current.isDown) return;
 
       const touch = e.touches[0];
+      if (!touch) return;
       const x = touch.pageX;
       const y = touch.pageY;
 
@@ -174,7 +171,6 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
     };
 
     const handleTouchEnd = () => {
-      setIsDown(false);
       setIsDragging(false);
       stateRef.current.isDown = false;
       stateRef.current.isDragging = false;
@@ -196,6 +192,7 @@ export const DraggableSlider = forwardRef<DraggableSliderHandle, Props>(
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           onScroll={onScroll}
           className={`
                     flex min-w-0 w-full max-w-full gap-4 overflow-x-auto hide-scrollbar select-none

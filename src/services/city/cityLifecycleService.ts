@@ -6,19 +6,21 @@ import { ensureZoneExists } from '../zoneService';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
 import { resolveCanonicalCityId } from './cityIdService';
 
-
-const throwOnError = (
-  error: { message: string } | null | undefined,
-  context: string,
-): void => {
+const throwOnError = (error: { message: string } | null | undefined, context: string): void => {
   if (error) {
     throw new Error(`[CityLifecycle] ${context}: ${error.message}`);
   }
 };
 
+function escapeLikePattern(str: string): string {
+  return str.replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&');
+}
+
 export const reclaimOrphanedItems = async (cityId: string, cityName: string) => {
   // 0. RECLAIM STAGING OSM
   await reclaimStagingByCityName(cityName, cityId);
+
+  const escapedCityName = escapeLikePattern(cityName);
 
   // 1. RECLAIM FOTO (Preserve status/moderation state, do not overwrite location_name, conservative exact match)
   const { error: photoError } = await supabase
@@ -28,7 +30,7 @@ export const reclaimOrphanedItems = async (cityId: string, cityName: string) => 
       updated_at: new Date().toISOString(),
     })
     .is('city_id', null)
-    .ilike('location_name', cityName)
+    .ilike('location_name', escapedCityName)
     .select('id');
   throwOnError(photoError, 'reclaim photo_submissions failed');
 
@@ -46,7 +48,7 @@ export const reclaimOrphanedItems = async (cityId: string, cityName: string) => 
     .from('pois')
     .update({ city_id: cityId })
     .is('city_id', null)
-    .ilike('address', `%, ${cityName}%`);
+    .ilike('address', `%, ${escapedCityName}%`);
   throwOnError(poisError, 'reclaim pois failed');
 };
 
@@ -75,6 +77,24 @@ export const deleteCity = async (
   }
 
   // 2. BUSINESS — SPONSORS & NO ACTION FK NULLING
+  // Fetch IDs of guides, operators, POIs, and shops belonging to this city
+  const [guidesRes, operatorsRes, poisRes, shopsRes] = await Promise.all([
+    supabase.from('city_guides').select('id').eq('city_id', cityId),
+    supabase.from('city_tour_operators').select('id').eq('city_id', cityId),
+    supabase.from('pois').select('id').eq('city_id', cityId),
+    supabase.from('shops').select('id').eq('city_id', cityId),
+  ]);
+
+  throwOnError(guidesRes.error, 'select city_guides failed');
+  throwOnError(operatorsRes.error, 'select city_tour_operators failed');
+  throwOnError(poisRes.error, 'select pois failed');
+  throwOnError(shopsRes.error, 'select shops failed');
+
+  const guideIds = (guidesRes.data || []).map((x) => x.id);
+  const operatorIds = (operatorsRes.data || []).map((x) => x.id);
+  const poiIds = (poisRes.data || []).map((x) => x.id);
+  const shopIds = (shopsRes.data || []).map((x) => x.id);
+
   // Nullify FKs on sponsors linked to this city's guides, operators, POIs, or shops
   // to avoid ON DELETE NO ACTION violations on sponsors.guide_id, sponsors.operator_id, etc.
   const { error: sponsorsNullError } = await supabase
@@ -86,7 +106,36 @@ export const deleteCity = async (
       shop_id: null,
     })
     .eq('city_id', cityId);
-  throwOnError(sponsorsNullError, 'nulling sponsors FKs failed');
+  throwOnError(sponsorsNullError, 'nulling sponsors FKs by city_id failed');
+
+  if (guideIds.length > 0) {
+    const { error } = await supabase
+      .from('sponsors')
+      .update({ guide_id: null })
+      .in('guide_id', guideIds);
+    throwOnError(error, 'nulling sponsors guide_id failed');
+  }
+
+  if (operatorIds.length > 0) {
+    const { error } = await supabase
+      .from('sponsors')
+      .update({ operator_id: null })
+      .in('operator_id', operatorIds);
+    throwOnError(error, 'nulling sponsors operator_id failed');
+  }
+
+  if (poiIds.length > 0) {
+    const { error } = await supabase.from('sponsors').update({ poi_id: null }).in('poi_id', poiIds);
+    throwOnError(error, 'nulling sponsors poi_id failed');
+  }
+
+  if (shopIds.length > 0) {
+    const { error } = await supabase
+      .from('sponsors')
+      .update({ shop_id: null })
+      .in('shop_id', shopIds);
+    throwOnError(error, 'nulling sponsors shop_id failed');
+  }
 
   // Detach sponsors from the city via the SECURITY DEFINER RPC (DL-022)
   // This transitions active sponsors of this city to 'Da ricollegare' by setting city_id = null and last_city_id = city_id.
@@ -97,10 +146,7 @@ export const deleteCity = async (
 
   // Always delete shops because shops.city_id is NOT NULL (cannot be orphaned).
   // Associated shop_products are automatically deleted via DB ON DELETE CASCADE.
-  const { error: shopsDeleteError } = await supabase
-    .from('shops')
-    .delete()
-    .eq('city_id', cityId);
+  const { error: shopsDeleteError } = await supabase.from('shops').delete().eq('city_id', cityId);
   throwOnError(shopsDeleteError, 'delete shops failed');
 
   // 3. PEOPLE — city_id NOT NULL: always DELETE (no keepPeople / no orphan).
@@ -123,10 +169,7 @@ export const deleteCity = async (
     .eq('city_id', cityId);
   throwOnError(personSuggestionsDeleteError, 'delete famous_person_suggestions failed');
 
-  const { error: peopleError } = await supabase
-    .from('city_people')
-    .delete()
-    .eq('city_id', cityId);
+  const { error: peopleError } = await supabase.from('city_people').delete().eq('city_id', cityId);
   if (peopleError) {
     throw new Error(
       `[CityLifecycle] Impossibile eliminare i personaggi della città (${cityId}): ${peopleError.message}.`,
@@ -144,10 +187,7 @@ export const deleteCity = async (
     const poiIds = pois.map((p) => p.id);
 
     if (options.keepPOIs) {
-      const { error } = await supabase
-        .from('pois')
-        .update({ city_id: null })
-        .eq('city_id', cityId);
+      const { error } = await supabase.from('pois').update({ city_id: null }).eq('city_id', cityId);
       throwOnError(error, 'orphan pois failed');
     } else {
       const { error: reviewsError } = await supabase.from('reviews').delete().in('poi_id', poiIds);
@@ -276,7 +316,9 @@ export const importRegionalData = async (
                 );
                 continue; // Salta questa città se non è nel registro
               }
-              throw new Error(`[CityLifecycle] Errore tecnico nella risoluzione ID per ${city.name}: ${errMsg}`);
+              throw new Error(
+                `[CityLifecycle] Errore tecnico nella risoluzione ID per ${city.name}: ${errMsg}`,
+              );
             }
 
             const payload: DatabaseCityInsert = {
@@ -298,7 +340,10 @@ export const importRegionalData = async (
             throwOnError(insertError, `insert city ${city.name} failed`);
 
             cityCount++;
-            existingMap.set(`${normalizedName}::${adminRegion.toLowerCase().trim()}`, { id: newId, visitors: city.visitors });
+            existingMap.set(`${normalizedName}::${adminRegion.toLowerCase().trim()}`, {
+              id: newId,
+              visitors: city.visitors,
+            });
 
             await reclaimOrphanedItems(newId, city.name);
             createdItems.push({ id: newId, name: city.name });

@@ -5,11 +5,11 @@ import {
   suggestCityItems,
   suggestCityPeople,
 } from '../../services/ai';
+import { validateAiSpecificSlugs } from '../../services/ai/generators/peopleCategoryValidation';
 import {
   ensureFamousPersonCompletenessWithAi,
   toCompleteFamousPersonRequiredFields,
 } from '../../services/ai/generators/peopleCompletenessPipeline';
-import { validateAiSpecificSlugs } from '../../services/ai/generators/peopleCategoryValidation';
 import { reclaimOrphanedItems } from '../../services/city/cityLifecycleService';
 import type {
   SaveCityEventInput,
@@ -32,7 +32,7 @@ import {
   saveCityTourOperator,
 } from '../../services/cityService';
 import { findExistingPortrait } from '../../services/mediaService';
-import type { CityDetails, FamousPerson, User } from '../../types/index';
+import type { CityDetails, CityServiceType, FamousPerson, User } from '../../types/index';
 import { getSafeEventCategory, getSafeServiceType } from '../../utils/common';
 import type { StepReport, useAiTaskRunner } from './useAiTaskRunner';
 import type { VerifyDraftsBatchFn } from './useAiValidation';
@@ -59,6 +59,65 @@ const DEFAULT_RATINGS = {
   costo: 50,
   sicurezza: 50,
 };
+
+function mapSuggestedToGuideInput(item: SuggestedCityItem, orderIndex: number): SaveCityGuideInput {
+  return {
+    name: String(item.name || '').trim(),
+    slug: typeof item.slug === 'string' ? item.slug : undefined,
+    isOfficial: typeof item.isOfficial === 'boolean' ? item.isOfficial : false,
+    languages: Array.isArray(item.languages) ? item.languages.map(String) : [],
+    specialties: Array.isArray(item.specialties) ? item.specialties.map(String) : [],
+    phone: typeof item.phone === 'string' ? item.phone : undefined,
+    email: typeof item.email === 'string' ? item.email : undefined,
+    website: typeof item.website === 'string' ? item.website : undefined,
+    imageUrl: typeof item.imageUrl === 'string' ? item.imageUrl : undefined,
+    rating:
+      typeof item.rating === 'number' && Number.isFinite(item.rating) ? item.rating : undefined,
+    orderIndex,
+  };
+}
+
+function mapSuggestedToEventInput(
+  item: SuggestedCityItem,
+  orderIndex: number,
+  cityCoords?: { lat: number; lng: number },
+): SaveCityEventInput | null {
+  const name = String(item.name || '').trim();
+  if (!name) return null;
+
+  const lat =
+    typeof item.lat === 'number' && Number.isFinite(item.lat) ? item.lat : cityCoords?.lat;
+  const lng =
+    typeof item.lng === 'number' && Number.isFinite(item.lng) ? item.lng : cityCoords?.lng;
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+
+  return {
+    name,
+    date: typeof item.date === 'string' ? item.date : '',
+    category: getSafeEventCategory(String(item.category ?? '')),
+    description: typeof item.description === 'string' ? item.description : '',
+    location: typeof item.location === 'string' ? item.location : '',
+    coords: { lat, lng },
+    imageUrl: typeof item.imageUrl === 'string' ? item.imageUrl : undefined,
+    orderIndex,
+  };
+}
+
+function mapSuggestedToServiceInput(
+  item: SuggestedCityItem,
+  orderIndex: number,
+): SaveCityServiceInput {
+  return {
+    name: String(item.name || '').trim(),
+    type: getSafeServiceType(String(item.type || item.category || '')) as CityServiceType,
+    contact: typeof item.contact === 'string' ? item.contact : '',
+    category: typeof item.category === 'string' ? item.category : undefined,
+    description: typeof item.description === 'string' ? item.description : undefined,
+    url: typeof item.url === 'string' ? item.url : undefined,
+    address: typeof item.address === 'string' ? item.address : undefined,
+    orderIndex,
+  };
+}
 
 export type CompleteCityConfig = { peopleCount: number; runPoiDeepScan: boolean };
 
@@ -128,28 +187,30 @@ export const useAiCompleteCity = (
 
       // 1. GENERALI & STATS
       await performStep('Generali & Statistiche', async () => {
+        if (!currentCity) throw new Error('Città non trovata.');
+
         const [generalData, statsData] = await Promise.all([
           generateCitySection(cityName, 'general'),
           generateCitySection(cityName, 'stats'),
         ]);
 
-        const newDetails = { ...currentCity!.details };
+        const newDetails = { ...currentCity.details };
         if (generalData.subtitle) newDetails.subtitle = generalData.subtitle;
         if (generalData.officialWebsite) newDetails.officialWebsite = generalData.officialWebsite;
         if (statsData.seasonalVisitors) newDetails.seasonalVisitors = statsData.seasonalVisitors;
 
         const updated: CityDetails = {
-          ...currentCity!,
-          description: generalData.description || currentCity!.description,
-          zone: generalData.zone || currentCity!.zone,
-          adminRegion: generalData.adminRegion || currentCity!.adminRegion,
-          nation: generalData.nation || currentCity!.nation,
-          continent: generalData.continent || currentCity!.continent,
+          ...currentCity,
+          description: generalData.description || currentCity.description,
+          zone: generalData.zone || currentCity.zone,
+          adminRegion: generalData.adminRegion || currentCity.adminRegion,
+          nation: generalData.nation || currentCity.nation,
+          continent: generalData.continent || currentCity.continent,
           coords:
-            generalData.lat && generalData.lng
+            typeof generalData.lat === 'number' && typeof generalData.lng === 'number'
               ? { lat: generalData.lat, lng: generalData.lng }
-              : currentCity!.coords,
-          visitors: statsData.visitorsEstimate || currentCity!.visitors,
+              : currentCity.coords,
+          visitors: statsData.visitorsEstimate || currentCity.visitors,
           details: newDetails,
         };
         currentCity = updated; // Update local reference
@@ -160,11 +221,13 @@ export const useAiCompleteCity = (
 
       // 2. RATINGS
       await performStep('Valutazioni & Ratings', async () => {
+        if (!currentCity) throw new Error('Città non trovata.');
+
         const data = await generateCitySection(cityName, 'ratings');
-        const newDetails = { ...currentCity!.details };
+        const newDetails = { ...currentCity.details };
         newDetails.ratings = { ...DEFAULT_RATINGS, ...data.ratings };
 
-        const updated = { ...currentCity!, details: newDetails };
+        const updated = { ...currentCity, details: newDetails };
         currentCity = updated;
         await saveCityDetails(updated, { skipReclaim: true });
         return 1;
@@ -172,12 +235,14 @@ export const useAiCompleteCity = (
 
       // 3. STORIA & CULTURA
       await performStep('Storia & Cultura', async () => {
+        if (!currentCity) throw new Error('Città non trovata.');
+
         const [historyData, patronData] = await Promise.all([
           generateCitySection(cityName, 'history'),
           generateCitySection(cityName, 'patron'),
         ]);
 
-        const newDetails = { ...currentCity!.details };
+        const newDetails = { ...currentCity.details };
         newDetails.historySnippet = historyData.historySnippet || '';
         newDetails.historyFull = historyData.historyFull || '';
 
@@ -189,7 +254,7 @@ export const useAiCompleteCity = (
           newDetails.patron = patronData.patron.name;
         }
 
-        const updated = { ...currentCity!, details: newDetails };
+        const updated = { ...currentCity, details: newDetails };
         currentCity = updated;
         await saveCityDetails(updated, { skipReclaim: true });
         return 1;
@@ -209,7 +274,7 @@ export const useAiCompleteCity = (
           const prepared: Array<{
             name: string;
             bio: string;
-            imageUrl: string;
+            imageUrl: string | null;
             specificCategoryIds: string[];
             birthYear: number;
             birthDate?: string | null;
@@ -266,6 +331,7 @@ export const useAiCompleteCity = (
 
             prepared.push({
               ...required,
+              imageUrl: required.imageUrl ?? null,
               quote: recovered.person.quote ?? p.quote,
               famousWorks: recovered.person.famousWorks ?? p.famousWorks,
               relatedPlaces: recovered.person.relatedPlaces ?? p.relatedPlaces,
@@ -285,10 +351,12 @@ export const useAiCompleteCity = (
             return 0;
           }
 
-          const existingPeople = await getCityPeople(cityId);
-          await Promise.all(
-            existingPeople.filter((p) => p.id).map((p) => deleteCityPerson(p.id)),
-          );
+          const existingPeople = await getCityPeople(cityId, 'admin');
+          for (const existing of existingPeople) {
+            if (existing.id) {
+              await deleteCityPerson(existing.id);
+            }
+          }
 
           for (const person of prepared) {
             await saveCityPerson(cityId, person);
@@ -321,19 +389,14 @@ export const useAiCompleteCity = (
           const savePromises: Promise<unknown>[] = [];
           if (refinedData.guides)
             refinedData.guides.forEach((g: SuggestedCityItem, i: number) => {
-              savePromises.push(
-                saveCityGuide(cityId, { ...g, orderIndex: i + 1 } as SaveCityGuideInput),
-              );
+              savePromises.push(saveCityGuide(cityId, mapSuggestedToGuideInput(g, i + 1)));
             });
           if (refinedData.events)
             refinedData.events.forEach((e: SuggestedCityItem, i: number) => {
-              savePromises.push(
-                saveCityEvent(cityId, {
-                  ...(e as SaveCityEventInput),
-                  category: getSafeEventCategory(String(e.category ?? '')),
-                  orderIndex: i + 1,
-                }),
-              );
+              const payload = mapSuggestedToEventInput(e, i + 1, currentCity?.coords);
+              if (payload) {
+                savePromises.push(saveCityEvent(cityId, payload));
+              }
             });
           if (refinedData.tour_operators)
             refinedData.tour_operators.forEach((op: SuggestedCityItem) => {
@@ -341,13 +404,7 @@ export const useAiCompleteCity = (
             });
           if (refinedData.services)
             refinedData.services.forEach((s: SuggestedCityItem, i: number) => {
-              savePromises.push(
-                saveCityService(cityId, {
-                  ...s,
-                  type: getSafeServiceType(String(s.type || s.category || '')),
-                  orderIndex: i + 1,
-                } as SaveCityServiceInput),
-              );
+              savePromises.push(saveCityService(cityId, mapSuggestedToServiceInput(s, i + 1)));
             });
 
           await Promise.all(savePromises);

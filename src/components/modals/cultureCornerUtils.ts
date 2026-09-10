@@ -1,5 +1,5 @@
-import type { CityDetails, FamousPerson } from '../../types/index';
 import { getPrimarySpecific } from '@/domain/city/famousPersonCategories';
+import type { CityDetails, FamousPerson } from '../../types/index';
 import { resolveViewportBirthYear } from './useCultureCornerTimeline';
 
 export interface DerivedPersonData {
@@ -70,7 +70,7 @@ export function derivePersonData(person: FamousPerson, city: CityDetails): Deriv
     person,
     id: person.id,
     name: person.name,
-    imageUrl: person.imageUrl,
+    imageUrl: person.imageUrl ?? undefined,
     viewportBirthYear,
     yearLabel,
     primaryMasterLabel: primaryMaster,

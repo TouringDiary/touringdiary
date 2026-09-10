@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import {
   type FamousPersonPublishGap,
+  getFamousPersonFieldLabel,
   getMissingFamousPersonFields,
 } from '@/domain/city/famousPersonCompleteness';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
@@ -31,7 +32,7 @@ function getPersistedPersonId(person: FamousPerson): string | null {
 }
 
 export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }) => {
-  const { city, setCityDirectly } = useCityEditor();
+  const { city } = useCityEditor();
   const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
 
   const {

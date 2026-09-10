@@ -125,7 +125,7 @@ export interface CityQualityStats {
 // --- IMPORT & STAGING TYPES (NEW) ---
 export interface StagingPoi {
   id: string;
-  cityId: string;
+  cityId: string | null;
   osmId: string;
   name: string;
   rawCategory: string | null;
@@ -140,7 +140,6 @@ export interface StagingPoi {
 // --- CITY DELETION OPTIONS ---
 export interface CityDeleteOptions {
   keepUserPhotos: boolean; // Mantieni foto caricate dagli utenti
-  keepShops: boolean; // Mantieni negozi/partner
   keepPOIs: boolean; // Mantieni i Punti di Interesse (Sconsigliato ma possibile)
 }
 

@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import {
   canPublishFamousPerson,
@@ -42,6 +42,38 @@ interface UsePeopleAIProps {
 
 export type { FamousPersonPublishAttemptResult };
 
+type PersonDiscoveryResultWithId = PersonDiscoveryResult & { id: string };
+
+function toSaveCityPersonInput(person: FamousPerson): SaveCityPersonInput {
+  return {
+    id: person.id,
+    name: person.name,
+    bio: person.bio,
+    imageUrl: person.imageUrl,
+    image_status: person.image_status,
+    imageAsset: person.imageAsset,
+    fullBio: person.fullBio,
+    quote: person.quote,
+    lifespanDisplay: person.lifespanDisplay,
+    birthYear: person.birthYear,
+    birthDate: person.birthDate,
+    isLiving: person.isLiving,
+    deathYear: person.deathYear,
+    deathDate: person.deathDate,
+    categories: person.categories,
+    famousWorks: person.famousWorks,
+    awards: person.awards,
+    privateLife: person.privateLife,
+    collaborations: person.collaborations,
+    careerStats: person.careerStats,
+    relatedPlaces: person.relatedPlaces,
+    status: person.status,
+    orderIndex: person.orderIndex,
+    specificCategoryIds:
+      person.categories?.map((c) => c.specificId).filter((id): id is string => Boolean(id)) ?? [],
+  };
+}
+
 async function loadActiveSpecifics(): Promise<{ slug: string; id: string; label: string }[]> {
   const taxonomy = await loadFamousPersonTaxonomy({ activeOnly: true });
   return taxonomy.specifics.map((s) => ({ slug: s.slug, id: s.id, label: s.label }));
@@ -73,33 +105,51 @@ export const usePeopleAI = ({
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-  const [discoveryResults, setDiscoveryResults] = useState<PersonDiscoveryResult[]>([]);
+  const [discoveryResults, setDiscoveryResults] = useState<PersonDiscoveryResultWithId[]>([]);
   const [fieldGenerating, setFieldGenerating] = useState<{
     personId: string;
     field: FamousPersonRequiredField | 'dates';
   } | null>(null);
+  const activeDiscoveryRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    void cityId;
+    activeDiscoveryRequestIdRef.current++;
+    setDiscoveryResults([]);
+    setIsDiscovering(false);
+  }, [cityId]);
 
   const runDiscovery = async (query: string, count: number) => {
+    const requestId = ++activeDiscoveryRequestIdRef.current;
     setIsDiscovering(true);
     try {
       const existingNames = peopleList.map((p) => p.name);
       const results = await suggestCityPeople(cityName, existingNames, query, count);
-      setDiscoveryResults(results);
+      if (requestId !== activeDiscoveryRequestIdRef.current) return;
+      const resultsWithIds: PersonDiscoveryResultWithId[] = results.map((r) => ({
+        ...r,
+        id: r.id ?? crypto.randomUUID(),
+      }));
+      setDiscoveryResults(resultsWithIds);
     } catch (e) {
-      console.error('[usePeopleAI] runDiscovery failed', e);
-      const technical = e instanceof Error ? e.message : String(e);
-      // Stesso pattern di feedback già usato in CulturePeople (alert); toast AdminCityEditor non è cablato qui.
-      alert(
-        `Discovery AI non riuscita.\n\n${technical || 'Errore sconosciuto.'}\n\nRiprova tra poco o verifica la connessione AI.`,
-      );
+      if (requestId === activeDiscoveryRequestIdRef.current) {
+        console.error('[usePeopleAI] runDiscovery failed', e);
+        const technical = e instanceof Error ? e.message : String(e);
+        // Stesso pattern di feedback già usato in CulturePeople (alert); toast AdminCityEditor non è cablato qui.
+        alert(
+          `Discovery AI non riuscita.\n\n${technical || 'Errore sconosciuto.'}\n\nRiprova tra poco o verifica la connessione AI.`,
+        );
+      }
     } finally {
-      setIsDiscovering(false);
+      if (requestId === activeDiscoveryRequestIdRef.current) {
+        setIsDiscovering(false);
+      }
     }
   };
 
-  const importDiscoveryPerson = async (person: PersonDiscoveryResult) => {
+  const importDiscoveryPerson = async (person: PersonDiscoveryResultWithId) => {
     setDiscoveryResults((prev) =>
-      prev.map((p) => (p.name === person.name ? { ...p, isImporting: true } : p)),
+      prev.map((p) => (p.id === person.id ? { ...p, isImporting: true } : p)),
     );
     try {
       const activeSpecifics = await loadActiveSpecifics();
@@ -140,7 +190,9 @@ export const usePeopleAI = ({
         specificCategoryIds: present.specificCategoryIds ?? slugValidation.ids,
         birthYear: present.birthYear ?? person.birthYear ?? null,
         birthDate: present.birthDate ?? person.birthDate ?? null,
-        isLiving: present.isLiving ?? person.isLiving ?? true,
+        ...(typeof (present.isLiving ?? person.isLiving) === 'boolean'
+          ? { isLiving: present.isLiving ?? person.isLiving }
+          : {}),
         deathYear: present.deathYear ?? person.deathYear ?? null,
         deathDate: present.deathDate ?? person.deathDate ?? null,
         status: 'draft',
@@ -156,12 +208,12 @@ export const usePeopleAI = ({
       };
       const saved = await saveCityPerson(cityId, newPerson);
       setPeopleList((prev) => [...prev, saved]);
-      setDiscoveryResults((prev) => prev.filter((p) => p.name !== person.name));
+      setDiscoveryResults((prev) => prev.filter((p) => p.id !== person.id));
       await reloadCurrentCity();
     } catch (e) {
       console.error('[usePeopleAI] importDiscoveryPerson failed', e);
       setDiscoveryResults((prev) =>
-        prev.map((p) => (p.name === person.name ? { ...p, isImporting: false } : p)),
+        prev.map((p) => (p.id === person.id ? { ...p, isImporting: false } : p)),
       );
       const technical = e instanceof Error ? e.message : String(e);
       if (technical.includes('Categorie AI non valide')) {
@@ -180,8 +232,8 @@ export const usePeopleAI = ({
     }
   };
 
-  const removeDiscoveryResult = (name: string) => {
-    setDiscoveryResults((prev) => prev.filter((p) => p.name !== name));
+  const removeDiscoveryResult = (id: string) => {
+    setDiscoveryResults((prev) => prev.filter((p) => p.id !== id));
   };
 
   const wipeAndRewritePerson = async (person: FamousPerson) => {
@@ -236,22 +288,33 @@ export const usePeopleAI = ({
         throw new Error('Bonifica fallita: nome assente.');
       }
 
-      // Persistenza: assenti → null (SaveCityPersonInput). Stato locale = risultato parse del save.
-      const saved = await saveCityPerson(cityId, {
-        ...person,
-        ...enrichedData,
+      const payload: SaveCityPersonInput = {
+        id: person.id,
         name: present.name,
-        bio: present.bio ?? null,
-        imageUrl: present.imageUrl ?? null,
-        specificCategoryIds: present.specificCategoryIds ?? specificCategoryIds,
+        bio: present.bio ?? enrichedData.bio ?? person.bio ?? null,
+        imageUrl: present.imageUrl ?? person.imageUrl ?? null,
+        image_status: person.image_status,
+        imageAsset: person.imageAsset,
+        fullBio: recovered.person.fullBio ?? enrichedData.fullBio ?? person.fullBio,
+        quote: enrichedData.quote ?? person.quote,
+        lifespanDisplay: person.lifespanDisplay,
         birthYear: present.birthYear ?? null,
         birthDate: present.birthDate ?? null,
-        isLiving: present.isLiving ?? true,
+        isLiving: present.isLiving ?? person.isLiving,
         deathYear: present.deathYear ?? null,
         deathDate: present.deathDate ?? null,
-        fullBio: recovered.person.fullBio ?? enrichedData.fullBio ?? person.fullBio,
+        categories: person.categories,
+        famousWorks: enrichedData.famousWorks ?? person.famousWorks,
+        awards: enrichedData.awards ?? person.awards,
+        privateLife: enrichedData.privateLife ?? person.privateLife,
+        collaborations: enrichedData.collaborations ?? person.collaborations,
+        careerStats: enrichedData.careerStats ?? person.careerStats,
+        relatedPlaces: enrichedData.relatedPlaces ?? person.relatedPlaces,
         status: 'draft',
-      });
+        orderIndex: person.orderIndex,
+        specificCategoryIds: present.specificCategoryIds ?? specificCategoryIds,
+      };
+      const saved = await saveCityPerson(cityId, payload);
       setPeopleList((prev) => prev.map((p) => (p.id === person.id ? saved : p)));
 
       return {
@@ -276,7 +339,7 @@ export const usePeopleAI = ({
       const newImageUrl = await generateHistoricalPortrait(person.name, categoryLabel, cityName);
       if (newImageUrl) {
         const updated = { ...person, imageUrl: newImageUrl };
-        await saveCityPerson(cityId, updated);
+        await saveCityPerson(cityId, toSaveCityPersonInput(updated));
         setPeopleList((prev) => prev.map((p) => (p.id === person.id ? updated : p)));
         return true;
       }
@@ -298,7 +361,7 @@ export const usePeopleAI = ({
       const value = await generateFamousPersonRequiredField(person, cityName, field);
       if (!value) return null;
       const updated: FamousPerson = { ...person, [field]: value };
-      await saveCityPerson(cityId, updated);
+      await saveCityPerson(cityId, toSaveCityPersonInput(updated));
       setPeopleList((prev) => prev.map((p) => (p.id === person.id ? updated : p)));
       await reloadCurrentCity();
       return updated;
@@ -318,22 +381,24 @@ export const usePeopleAI = ({
       const datePatch = await recoverPersonDatesFromAi(person.name, cityName, person);
       if (Object.keys(datePatch).length === 0) return null;
 
-      const nextIsLiving = datePatch.isLiving ?? person.isLiving ?? true;
+      const nextIsLiving = datePatch.isLiving !== undefined ? datePatch.isLiving : person.isLiving;
       const merged: FamousPerson = {
         ...person,
         birthYear: datePatch.birthYear !== undefined ? datePatch.birthYear : person.birthYear,
         birthDate: datePatch.birthDate !== undefined ? datePatch.birthDate : person.birthDate,
         isLiving: nextIsLiving,
-        deathYear: nextIsLiving
-          ? null
-          : datePatch.deathYear !== undefined
-            ? datePatch.deathYear
-            : person.deathYear,
-        deathDate: nextIsLiving
-          ? null
-          : datePatch.deathDate !== undefined
-            ? datePatch.deathDate
-            : person.deathDate,
+        deathYear:
+          nextIsLiving === true
+            ? null
+            : datePatch.deathYear !== undefined
+              ? datePatch.deathYear
+              : person.deathYear,
+        deathDate:
+          nextIsLiving === true
+            ? null
+            : datePatch.deathDate !== undefined
+              ? datePatch.deathDate
+              : person.deathDate,
       };
       merged.lifespanDisplay = buildLifespanDisplay({
         birthYear: merged.birthYear,
@@ -343,7 +408,7 @@ export const usePeopleAI = ({
         deathDate: merged.deathDate,
       });
 
-      const saved = await saveCityPerson(cityId, merged);
+      const saved = await saveCityPerson(cityId, toSaveCityPersonInput(merged));
       setPeopleList((prev) => prev.map((p) => (p.id === person.id ? saved : p)));
       await reloadCurrentCity();
       return saved;
@@ -415,8 +480,8 @@ export const usePeopleAI = ({
 
         try {
           const updated = { ...person, status };
-          await saveCityPerson(cityId, updated);
-          setPeopleList((prev) => prev.map((p) => (p.id === id ? updated : p)));
+          const saved = await saveCityPerson(cityId, toSaveCityPersonInput(updated));
+          setPeopleList((prev) => prev.map((p) => (p.id === id ? saved : p)));
           results.push({ ok: true });
         } catch (e) {
           if (isFamousPersonPublishBlockedError(e)) {

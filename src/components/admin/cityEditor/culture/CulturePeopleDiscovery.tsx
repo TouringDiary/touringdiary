@@ -2,16 +2,18 @@ import { Check, Loader2, Sparkles, Wand2, X } from 'lucide-react';
 import type React from 'react';
 import type { PersonDiscoveryResult } from '@/services/ai/generators/peopleGenerator';
 
+type PersonDiscoveryResultWithId = PersonDiscoveryResult & { id: string };
+
 interface CulturePeopleDiscoveryProps {
   aiContextQuery: string;
   setAiContextQuery: (val: string) => void;
   discoveryCount: number;
   setDiscoveryCount: (val: number) => void;
   isDiscovering: boolean;
-  discoveryResults: PersonDiscoveryResult[];
+  discoveryResults: PersonDiscoveryResultWithId[];
   runDiscovery: (query: string, count: number) => void;
-  importDiscoveryPerson: (person: PersonDiscoveryResult) => void;
-  removeDiscoveryResult: (name: string) => void;
+  importDiscoveryPerson: (person: PersonDiscoveryResultWithId) => void;
+  removeDiscoveryResult: (id: string) => void;
   aiBlocked: boolean;
   blockMessage?: string;
   guardAiAction: () => boolean;
@@ -36,7 +38,7 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
           <h4 className="text-indigo-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-            <Sparkles className="w-4 h-4" /> Deep Discovery (Gemini Pro)
+            <Sparkles className="w-4 h-4" aria-hidden="true" /> Deep Discovery (Gemini Pro)
           </h4>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -61,9 +63,9 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
               className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 min-h-11 rounded-lg text-[10px] font-black uppercase tracking-wide flex items-center gap-1 disabled:opacity-50 transition-all"
             >
               {isDiscovering ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
+                <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
               ) : (
-                <Wand2 className="w-3 h-3" />
+                <Wand2 className="w-3 h-3" aria-hidden="true" />
               )}{' '}
               {aiBlocked ? 'AI off' : 'Suggerisci'}
             </button>
@@ -79,8 +81,8 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
       </div>
       {discoveryResults.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-          {discoveryResults.map((p, discoveryIdx) => {
-            const discoveryKey = `${p.name}::${(p.specificCategorySlugs ?? []).join(',') || 'cat'}-${discoveryIdx}`;
+          {discoveryResults.map((p) => {
+            const discoveryKey = p.id;
             const categoryHint =
               (p.specificCategorySlugs ?? []).join(', ') || 'Categorie da assegnare';
             return (
@@ -104,20 +106,20 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
                   className="w-full min-h-11 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 mt-auto"
                 >
                   {p.isImporting ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
                   ) : (
-                    <Check className="w-3 h-3" />
+                    <Check className="w-3 h-3" aria-hidden="true" />
                   )}
                   {p.isImporting ? 'Creazione Asset...' : 'Importa + Foto'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => removeDiscoveryResult(p.name)}
+                  onClick={() => removeDiscoveryResult(p.id)}
                   className="absolute top-1 right-1 inline-flex items-center justify-center min-h-11 min-w-11 text-slate-600 hover:text-white"
                   aria-label={`Rimuovi suggerimento ${p.name}`}
                   title={`Rimuovi suggerimento ${p.name}`}
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3 h-3" aria-hidden="true" />
                 </button>
               </div>
             );
