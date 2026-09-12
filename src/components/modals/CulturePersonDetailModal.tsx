@@ -1,138 +1,32 @@
-import { ArrowRight, CheckCircle, Clock, MapPin, Plus, Quote } from 'lucide-react';
-import { type MouseEvent, useEffect, useId, useRef } from 'react';
+import { ArrowRight, ArrowUpLeft, CheckCircle, Clock, MapPin, Plus, Quote } from 'lucide-react';
+import { type MouseEvent, useId } from 'react';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
-import { CloseButton } from '@/components/ui/controls/CloseButton';
-import { Z_MODAL_NESTED } from '@/constants/zIndex';
 import { getPrimarySpecific } from '@/domain/city/famousPersonCategories';
 import type { FamousPerson, PointOfInterest } from '../../types/index';
 import { openMap } from '../../utils/common';
 import { renderCultureContent } from './cultureContentParser';
 import { toSortableCategories } from './cultureCornerUtils';
 
-interface CulturePersonDetailModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface CulturePersonDetailPanelProps {
   detailPerson: FamousPerson;
+  /** Barra locale con titolo e ritorno; disabilitata quando il parent gestisce il back nell'header. */
+  showToolbar?: boolean;
+  onBack?: () => void;
   isPlaceInItinerary: (placeId: string) => boolean;
   onAddToItinerary: (poi: PointOfInterest) => void;
 }
 
 type RelatedPlace = NonNullable<FamousPerson['relatedPlaces']>[number];
 
-const DETAIL_DIALOG_FOCUS =
-  'outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900';
-
-function getFocusableElements(root: HTMLElement): HTMLElement[] {
-  return Array.from(
-    root.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ),
-  ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
-}
-
-export const CulturePersonDetailModal = ({
-  isOpen,
-  onClose,
+/** Contenuto dettaglio personaggio — pensato per la faccia posteriore del flip 3D (stesso pattern POI recensioni). */
+export const CulturePersonDetailPanel = ({
   detailPerson,
+  showToolbar = false,
+  onBack,
   isPlaceInItinerary,
   onAddToItinerary,
-}: CulturePersonDetailModalProps) => {
+}: CulturePersonDetailPanelProps) => {
   const detailTitleId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
-
-  // 1. Capture opener and initial focus once per open
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const active = document.activeElement;
-    if (active instanceof HTMLElement) {
-      openerRef.current = active;
-    } else {
-      openerRef.current = null;
-    }
-
-    const dialog = dialogRef.current;
-    const focusRaf = requestAnimationFrame(() => {
-      if (dialog) {
-        const focusable = getFocusableElements(dialog);
-        if (focusable.length > 0) {
-          focusable[0].focus();
-        } else {
-          dialog.focus();
-        }
-      }
-    });
-
-    return () => {
-      cancelAnimationFrame(focusRaf);
-    };
-  }, [isOpen]);
-
-  // 2. Focus trap (Tab/Shift+Tab + focusin redirection)
-  useEffect(() => {
-    if (!isOpen) return;
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== 'Tab') return;
-      const focusable = getFocusableElements(dialog);
-      if (focusable.length === 0) {
-        event.preventDefault();
-        dialog.focus();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeEl = document.activeElement;
-      if (event.shiftKey && (activeEl === first || activeEl === dialog)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && activeEl === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    const handleFocusIn = (event: FocusEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node) || dialog.contains(target)) return;
-      const focusable = getFocusableElements(dialog);
-      (focusable[0] ?? dialog).focus();
-    };
-
-    dialog.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('focusin', handleFocusIn);
-
-    return () => {
-      dialog.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('focusin', handleFocusIn);
-    };
-  }, [isOpen, onClose]);
-
-  // 3. Restore focus only when modal truly closes
-  useEffect(() => {
-    if (!isOpen) {
-      const opener = openerRef.current;
-      openerRef.current = null;
-      if (
-        opener instanceof HTMLElement &&
-        document.contains(opener) &&
-        typeof opener.focus === 'function' &&
-        !opener.hasAttribute('disabled')
-      ) {
-        opener.focus();
-      }
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const handleAddPlace = (e: MouseEvent, place: RelatedPlace) => {
     e.stopPropagation();
@@ -154,34 +48,25 @@ export const CulturePersonDetailModal = ({
   const primary = getPrimarySpecific(toSortableCategories(detailPerson));
 
   return (
-    <div
-      className="absolute inset-0 bg-black/95 backdrop-blur-xl animate-in fade-in flex items-center justify-center !p-0 md:!p-4"
-      style={{ zIndex: Z_MODAL_NESTED }}
-      role="presentation"
-    >
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
-        onClick={onClose}
-      />
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className={`relative w-full h-full md:max-w-7xl md:h-[95vh] bg-[#0b0f1a] md:rounded-3xl flex flex-col md:flex-row overflow-hidden shadow-2xl md:border border-slate-800 pointer-events-auto ${DETAIL_DIALOG_FOCUS}`}
-        style={{ zIndex: Z_MODAL_NESTED }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={detailTitleId}
-      >
-        <CloseButton
-          onClose={onClose}
-          position="absolute"
-          variant="primary"
-          className="top-6 right-6"
-        />
+    <div className="w-full h-full flex flex-col bg-[#0b0f1a] overflow-hidden">
+      {showToolbar ? (
+        <div className="shrink-0 p-4 border-b border-slate-800 flex justify-between items-center bg-[#0b0f1a]">
+          <h3 className="font-bold text-white text-sm md:text-lg flex items-center gap-2 min-w-0 truncate">
+            <Quote className="w-5 h-5 text-indigo-400 shrink-0" aria-hidden />
+            <span className="truncate">{detailPerson.name}</span>
+          </h3>
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-2 px-3 py-2 min-h-11 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 shrink-0"
+          >
+            <ArrowUpLeft className="w-3.5 h-3.5 text-amber-500" aria-hidden />
+            Torna alla galleria
+          </button>
+        </div>
+      ) : null}
 
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
         <div className="w-full md:w-[45%] lg:w-[40%] h-[40vh] md:h-full relative shrink-0">
           <ImageWithFallback
             src={detailPerson.imageUrl ?? undefined}
@@ -212,7 +97,7 @@ export const CulturePersonDetailModal = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#0b0f1a] relative">
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar bg-[#0b0f1a] relative">
           <div className="p-8 md:p-16 space-y-10 max-w-4xl mx-auto">
             {detailPerson.quote ? (
               <div className="relative pl-12 py-4 border-l-4 border-indigo-500 bg-indigo-900/10 rounded-r-xl pr-6 mt-6 md:mt-0">

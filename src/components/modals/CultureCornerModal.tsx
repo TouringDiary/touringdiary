@@ -1,7 +1,8 @@
-import { BookOpen, Filter, Quote } from 'lucide-react';
+import { ArrowUpLeft, BookOpen, Filter, Quote } from 'lucide-react';
 import {
   type MutableRefObject,
   type RefObject,
+  type TransitionEvent,
   useCallback,
   useEffect,
   useId,
@@ -25,8 +26,8 @@ import { CultureCornerCommunity } from './CultureCornerCommunity';
 import { CultureCornerFilters } from './CultureCornerFilters';
 import { CultureCornerPeopleRail } from './CultureCornerPeopleRail';
 import { CultureCornerTimeline } from './CultureCornerTimeline';
-import { CulturePersonDetailModal } from './CulturePersonDetailModal';
-import { derivePeopleData } from './cultureCornerUtils';
+import { CulturePersonDetailPanel } from './CulturePersonDetailModal';
+import { type DerivedPersonData, derivePeopleData } from './cultureCornerUtils';
 import {
   type FamousPersonOfficialPhotoTarget,
   ReportFamousPersonPhotoAbuseModal,
@@ -42,7 +43,18 @@ function getFocusableElements(root: HTMLElement): HTMLElement[] {
     root.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
     ),
-  ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+  ).filter(
+    (el) => !el.hasAttribute('disabled') && el.offsetParent !== null && !el.closest('[inert]'),
+  );
+}
+
+function focusIsInsideAllowedRoots(
+  target: Node,
+  dialog: HTMLElement,
+  extraContainers: RefObject<HTMLElement | null>[],
+): boolean {
+  if (dialog.contains(target)) return true;
+  return extraContainers.some((ref) => ref.current?.contains(target));
 }
 
 /** Local focus-trap; ESC handled separately via useGlobalModalEscape. */
@@ -51,6 +63,7 @@ function useDialogFocusTrap(
   isOpen: boolean,
   dialogRef: RefObject<HTMLDivElement | null>,
   openerRef: MutableRefObject<HTMLElement | null>,
+  extraContainers: RefObject<HTMLElement | null>[] = [],
 ): void {
   const trapActiveRef = useRef(active);
   trapActiveRef.current = active;
@@ -113,7 +126,13 @@ function useDialogFocusTrap(
 
     const handleFocusIn = (event: FocusEvent) => {
       const target = event.target;
-      if (!(target instanceof Node) || dialog.contains(target)) return;
+      if (!(target instanceof Node) || focusIsInsideAllowedRoots(target, dialog, extraContainers)) {
+        if (target instanceof HTMLElement && target.closest('[inert]')) {
+          const focusable = getFocusableElements(dialog);
+          (focusable[0] ?? dialog).focus();
+        }
+        return;
+      }
       const focusable = getFocusableElements(dialog);
       (focusable[0] ?? dialog).focus();
     };
@@ -125,7 +144,7 @@ function useDialogFocusTrap(
       dialog.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('focusin', handleFocusIn);
     };
-  }, [active, isOpen, dialogRef]);
+  }, [active, isOpen, dialogRef, extraContainers]);
 
   // 3. Handle final restoration only when modal is fully unmounted/closed
   useEffect(() => {
@@ -169,6 +188,7 @@ export const CultureCornerModal = ({
   const listTitleId = useId();
 
   const [detailPersonId, setDetailPersonId] = useState<string | null>(null);
+  const [isDetailFlipped, setIsDetailFlipped] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showSuggestPersonModal, setShowSuggestPersonModal] = useState(false);
   const [showSuggestPhotoModal, setShowSuggestPhotoModal] = useState(false);
@@ -178,8 +198,14 @@ export const CultureCornerModal = ({
   const timelineRef = useRef<DraggableSliderHandle>(null);
   const railRef = useRef<DraggableSliderHandle>(null);
   const filterAnchorRef = useRef<HTMLButtonElement>(null);
+  const filtersPanelRef = useRef<HTMLDivElement>(null);
   const mainDialogRef = useRef<HTMLDivElement>(null);
   const mainOpenerRef = useRef<HTMLElement | null>(null);
+  const galleryFaceRef = useRef<HTMLDivElement>(null);
+  const detailFaceRef = useRef<HTMLDivElement>(null);
+  const backToGalleryRef = useRef<HTMLButtonElement>(null);
+  const filteredDerivedPeopleRef = useRef<DerivedPersonData[]>([]);
+  const prevDetailPersonIdRef = useRef<string | null>(null);
 
   const people = useMemo(() => {
     const raw = city.details.famousPeople || [];
@@ -236,12 +262,12 @@ export const CultureCornerModal = ({
   const syncScrollToSelection = useCallback(
     (personId: string | null, behavior: ScrollBehavior = 'smooth') => {
       if (!personId) return;
-      const idx = derivedPeople.findIndex((p) => p.id === personId);
+      const idx = filteredDerivedPeopleRef.current.findIndex((p) => p.id === personId);
       if (idx < 0) return;
       timelineRef.current?.scrollToChild(idx, behavior);
       railRef.current?.scrollToChild(idx, behavior);
     },
-    [derivedPeople],
+    [],
   );
 
   const {
@@ -271,6 +297,8 @@ export const CultureCornerModal = ({
     return derivedPeople.filter((dp) => filteredPeople.some((p) => p.id === dp.id));
   }, [derivedPeople, filteredPeople]);
 
+  filteredDerivedPeopleRef.current = filteredDerivedPeople;
+
   const selectedIndex = useMemo(() => {
     if (!selectedPersonId) return -1;
     return filteredDerivedPeople.findIndex((p) => p.id === selectedPersonId);
@@ -286,7 +314,8 @@ export const CultureCornerModal = ({
     return people.find((p) => p.id === detailPersonId) ?? null;
   }, [people, detailPersonId]);
 
-  const isDetailOpen = detailPersonId != null && detailPerson != null;
+  const isDetailFlippedActive = isDetailFlipped;
+  const isDetailLifecycleActive = detailPersonId != null && detailPerson != null;
 
   const visibleSpecificOptions = useMemo(() => {
     if (filters.masterSlugs.length === 0) return allSpecificOptions;
@@ -308,11 +337,20 @@ export const CultureCornerModal = ({
       syncScrollToSelection(personId, options?.syncBehavior ?? 'smooth');
       if (options?.openDetail) {
         setDetailPersonId(personId);
+        setIsDetailFlipped(true);
         setFiltersOpen(false);
       }
     },
     [syncScrollToSelection, setSelectedPersonId],
   );
+
+  useEffect(() => {
+    const prev = prevDetailPersonIdRef.current;
+    prevDetailPersonIdRef.current = detailPersonId;
+    if (detailPersonId != null && prev !== detailPersonId) {
+      setIsDetailFlipped(true);
+    }
+  }, [detailPersonId]);
 
   const toggleMaster = useCallback(
     (slug: string) => {
@@ -337,13 +375,28 @@ export const CultureCornerModal = ({
   const handleCloseModal = useCallback(() => {
     persistSession();
     setDetailPersonId(null);
+    setIsDetailFlipped(false);
     setFiltersOpen(false);
     onClose();
   }, [onClose, persistSession]);
 
   const closeDetail = useCallback(() => {
-    setDetailPersonId(null);
-  }, []);
+    if (!isDetailFlipped) return;
+    setIsDetailFlipped(false);
+  }, [isDetailFlipped]);
+
+  const handleFlipTransitionEnd = useCallback(
+    (event: TransitionEvent<HTMLDivElement>) => {
+      if (event.propertyName !== 'transform' || event.target !== event.currentTarget) return;
+      if (isDetailFlipped) return;
+      setDetailPersonId(null);
+      const galleryRoot = galleryFaceRef.current;
+      if (!galleryRoot) return;
+      const focusable = getFocusableElements(galleryRoot);
+      focusable[0]?.focus();
+    },
+    [isDetailFlipped],
+  );
 
   const openSuggestPerson = useCallback(() => {
     if (!user || user.role === 'guest') {
@@ -375,6 +428,16 @@ export const CultureCornerModal = ({
     });
   }, [user, onOpenAuth, selectedPerson]);
 
+  useEffect(() => {
+    if (!isDetailLifecycleActive) return;
+    setFiltersOpen(false);
+  }, [isDetailLifecycleActive]);
+
+  useEffect(() => {
+    if (!isDetailFlippedActive) return;
+    backToGalleryRef.current?.focus();
+  }, [isDetailFlippedActive]);
+
   // Central body scroll lock manager
   useEffect(() => {
     if (!isOpen) return;
@@ -388,7 +451,7 @@ export const CultureCornerModal = ({
   // Keyboard Navigation: ESC logic
   useGlobalModalEscape(
     isOpen &&
-      !isDetailOpen &&
+      !isDetailFlippedActive &&
       !showSuggestPersonModal &&
       !showSuggestPhotoModal &&
       reportPhotoTarget == null,
@@ -396,7 +459,7 @@ export const CultureCornerModal = ({
   );
   useGlobalModalEscape(
     isOpen &&
-      isDetailOpen &&
+      isDetailFlippedActive &&
       !showSuggestPersonModal &&
       !showSuggestPhotoModal &&
       reportPhotoTarget == null,
@@ -404,13 +467,10 @@ export const CultureCornerModal = ({
   );
 
   const mainModalTrapActive =
-    isOpen &&
-    !isDetailOpen &&
-    !showSuggestPersonModal &&
-    !showSuggestPhotoModal &&
-    reportPhotoTarget === null;
+    isOpen && !showSuggestPersonModal && !showSuggestPhotoModal && reportPhotoTarget === null;
 
-  useDialogFocusTrap(mainModalTrapActive, isOpen, mainDialogRef, mainOpenerRef);
+  const filterFocusRoots = useMemo(() => [filtersPanelRef], []);
+  useDialogFocusTrap(mainModalTrapActive, isOpen, mainDialogRef, mainOpenerRef, filterFocusRoots);
 
   const { viewportYears, timelineCanScrollLeft, timelineCanScrollRight } = useCultureCornerTimeline(
     {
@@ -423,8 +483,8 @@ export const CultureCornerModal = ({
 
   if (!isOpen) return null;
 
-  const listInert =
-    isDetailOpen || showSuggestPersonModal || showSuggestPhotoModal || reportPhotoTarget !== null;
+  const subModalOpen =
+    showSuggestPersonModal || showSuggestPhotoModal || reportPhotoTarget !== null;
 
   return createPortal(
     <div
@@ -447,8 +507,8 @@ export const CultureCornerModal = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={listTitleId}
-        inert={listInert ? true : undefined}
-        aria-hidden={listInert ? true : undefined}
+        inert={subModalOpen ? true : undefined}
+        aria-hidden={subModalOpen ? true : undefined}
       >
         {/* HEADER */}
         <div className="flex justify-between items-center gap-3 px-6 py-5 border-b border-slate-800 bg-[#020617] shrink-0">
@@ -474,15 +534,34 @@ export const CultureCornerModal = ({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 min-w-0">
+            {isDetailFlippedActive ? (
+              <button
+                ref={backToGalleryRef}
+                type="button"
+                onClick={closeDetail}
+                aria-label="Torna alla galleria"
+                className="inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:border-indigo-500/50 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 shrink-0"
+              >
+                <ArrowUpLeft className="w-4 h-4 text-amber-500 shrink-0" aria-hidden />
+                <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+                  Torna alla galleria
+                </span>
+              </button>
+            ) : null}
             <button
               ref={filterAnchorRef}
               type="button"
-              onClick={() => setFiltersOpen((v) => !v)}
-              aria-expanded={filtersOpen}
+              disabled={isDetailLifecycleActive}
+              onClick={() => {
+                if (isDetailLifecycleActive) return;
+                setFiltersOpen((v) => !v);
+              }}
+              aria-expanded={filtersOpen && !isDetailLifecycleActive}
               aria-haspopup="dialog"
               aria-label="Filtri Angolo Cultura"
-              className={`inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-3 rounded-xl border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+              aria-disabled={isDetailLifecycleActive ? true : undefined}
+              className={`inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-3 rounded-xl border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-300 ${
                 filtersActive || filtersOpen
                   ? 'border-amber-500/60 bg-amber-500/10 text-amber-400'
                   : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-indigo-500/50 hover:text-white'
@@ -498,9 +577,10 @@ export const CultureCornerModal = ({
         </div>
 
         <CultureCornerFilters
-          isOpen={filtersOpen}
+          isOpen={filtersOpen && !isDetailLifecycleActive}
           onClose={() => setFiltersOpen(false)}
           anchorRef={filterAnchorRef}
+          panelRef={filtersPanelRef}
           filters={filters}
           filtersActive={filtersActive}
           masterOptions={masterOptions}
@@ -511,99 +591,116 @@ export const CultureCornerModal = ({
           applyFilterChange={applyFilterChange}
         />
 
-        {/* BODY: TIMELINE → RAIL → CPI → COMMUNITY (in basso) */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-8 bg-slate-950 custom-scrollbar flex flex-col">
-          {people.length === 0 ? (
-            <div className="flex-1 min-h-[16rem] flex flex-col items-center justify-center text-slate-600 gap-4 opacity-50">
-              <BookOpen className="w-16 h-16" aria-hidden />
-              <p className="text-sm font-medium italic text-center">
-                Nessun personaggio illustre ancora in archivio per questa città.
-              </p>
+        {/* BODY: flip 3D galleria ↔ dettaglio (stesso pattern POI recensioni) */}
+        <div className="flex-1 min-h-0 relative perspective-1000 overflow-hidden bg-slate-950">
+          <div
+            onTransitionEnd={handleFlipTransitionEnd}
+            className={`absolute inset-0 transition-transform duration-700 transform-style-3d ${isDetailFlippedActive ? 'rotate-y-180' : ''}`}
+          >
+            {/* FRONT — galleria (resta montata per preservare scroll/indice) */}
+            <div
+              ref={galleryFaceRef}
+              inert={isDetailFlippedActive ? true : undefined}
+              className={`absolute inset-0 backface-hidden overflow-y-auto overflow-x-hidden p-4 md:p-8 custom-scrollbar flex flex-col ${isDetailFlippedActive ? 'pointer-events-none' : ''}`}
+              aria-hidden={isDetailFlippedActive ? true : undefined}
+            >
+              {people.length === 0 ? (
+                <div className="flex-1 min-h-[16rem] flex flex-col items-center justify-center text-slate-600 gap-4 opacity-50">
+                  <BookOpen className="w-16 h-16" aria-hidden />
+                  <p className="text-sm font-medium italic text-center">
+                    Nessun personaggio illustre ancora in archivio per questa città.
+                  </p>
+                </div>
+              ) : filteredPeople.length === 0 ? (
+                <div className="flex-1 min-h-[16rem] flex flex-col items-center justify-center text-slate-500 gap-3">
+                  <p className="text-sm font-medium text-center">
+                    Nessun personaggio corrisponde ai filtri selezionati.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="text-xs font-bold uppercase tracking-widest text-amber-500 hover:text-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded min-h-11 px-4"
+                  >
+                    Reimposta filtri
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col flex-1 min-h-0">
+                  <div className="shrink-0 space-y-0">
+                    <CultureCornerTimeline
+                      timelineRef={timelineRef}
+                      derivedPeople={filteredDerivedPeople}
+                      selectedPersonId={selectedPersonId}
+                      selectPerson={selectPerson}
+                      viewportYears={viewportYears}
+                      timelineCanScrollLeft={timelineCanScrollLeft}
+                      timelineCanScrollRight={timelineCanScrollRight}
+                    />
+
+                    <p className="sr-only" aria-live="polite">
+                      Periodo inquadrato nella timeline:
+                      {viewportYears.minYear == null && viewportYears.maxYear == null
+                        ? ' non disponibile'
+                        : ` da ${viewportYears.minYear} a ${viewportYears.maxYear}`}
+                    </p>
+
+                    <div className="border-t border-slate-800/80 mt-5 mb-5" aria-hidden />
+
+                    <CultureCornerPeopleRail
+                      railRef={railRef}
+                      derivedPeople={filteredDerivedPeople}
+                      selectedPersonId={selectedPersonId}
+                      selectPerson={selectPerson}
+                      showRailArrows={showRailArrows}
+                    />
+
+                    <CarouselPositionIndicator
+                      mode="index"
+                      count={filteredPeople.length}
+                      selectedIndex={Math.max(0, selectedIndex)}
+                      className="pt-5 mt-2"
+                    />
+                  </div>
+
+                  <CultureCornerCommunity
+                    onSuggestPerson={openSuggestPerson}
+                    onSuggestPhoto={openSuggestPhoto}
+                    onReportAbuse={openReportAbuse}
+                    hasSelectedPerson={selectedPerson !== null}
+                    hasSelectedPersonImage={
+                      selectedPerson !== null &&
+                      typeof selectedPerson.person.imageUrl === 'string' &&
+                      selectedPerson.person.imageUrl.trim().length > 0
+                    }
+                    showExtraActions
+                  />
+                </div>
+              )}
+
+              {(people.length === 0 || filteredPeople.length === 0) && (
+                <CultureCornerCommunity onSuggestPerson={openSuggestPerson} />
+              )}
             </div>
-          ) : filteredPeople.length === 0 ? (
-            <div className="flex-1 min-h-[16rem] flex flex-col items-center justify-center text-slate-500 gap-3">
-              <p className="text-sm font-medium text-center">
-                Nessun personaggio corrisponde ai filtri selezionati.
-              </p>
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-xs font-bold uppercase tracking-widest text-amber-500 hover:text-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded min-h-11 px-4"
+
+            {/* BACK — dettaglio personaggio */}
+            {detailPerson ? (
+              <div
+                ref={detailFaceRef}
+                inert={!isDetailFlippedActive ? true : undefined}
+                className="absolute inset-0 backface-hidden rotate-y-180 overflow-hidden"
+                aria-hidden={!isDetailFlippedActive ? true : undefined}
               >
-                Reimposta filtri
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col flex-1 min-h-0">
-              <div className="shrink-0 space-y-0">
-                <CultureCornerTimeline
-                  timelineRef={timelineRef}
-                  derivedPeople={filteredDerivedPeople}
-                  selectedPersonId={selectedPersonId}
-                  selectPerson={selectPerson}
-                  viewportYears={viewportYears}
-                  timelineCanScrollLeft={timelineCanScrollLeft}
-                  timelineCanScrollRight={timelineCanScrollRight}
-                />
-
-                <p className="sr-only" aria-live="polite">
-                  Periodo inquadrato nella timeline:
-                  {viewportYears.minYear == null && viewportYears.maxYear == null
-                    ? ' non disponibile'
-                    : ` da ${viewportYears.minYear} a ${viewportYears.maxYear}`}
-                </p>
-
-                {/* Divisore timeline → card */}
-                <div className="border-t border-slate-800/80 mt-5 mb-5" aria-hidden />
-
-                <CultureCornerPeopleRail
-                  railRef={railRef}
-                  derivedPeople={filteredDerivedPeople}
-                  selectedPersonId={selectedPersonId}
-                  selectPerson={selectPerson}
-                  showRailArrows={showRailArrows}
-                />
-
-                <CarouselPositionIndicator
-                  mode="index"
-                  count={filteredPeople.length}
-                  selectedIndex={Math.max(0, selectedIndex)}
-                  className="pt-5 mt-2"
+                <CulturePersonDetailPanel
+                  detailPerson={detailPerson}
+                  showToolbar={false}
+                  isPlaceInItinerary={isPlaceInItinerary}
+                  onAddToItinerary={onAddToItinerary}
                 />
               </div>
-
-              {/* COMMUNITY — blocco basso */}
-              <CultureCornerCommunity
-                onSuggestPerson={openSuggestPerson}
-                onSuggestPhoto={openSuggestPhoto}
-                onReportAbuse={openReportAbuse}
-                hasSelectedPerson={selectedPerson !== null}
-                hasSelectedPersonImage={
-                  selectedPerson !== null &&
-                  typeof selectedPerson.person.imageUrl === 'string' &&
-                  selectedPerson.person.imageUrl.trim().length > 0
-                }
-                showExtraActions
-              />
-            </div>
-          )}
-
-          {(people.length === 0 || filteredPeople.length === 0) && (
-            <CultureCornerCommunity onSuggestPerson={openSuggestPerson} />
-          )}
+            ) : null}
+          </div>
         </div>
       </div>
-
-      {/* DETAIL */}
-      {isDetailOpen && detailPerson ? (
-        <CulturePersonDetailModal
-          isOpen={isDetailOpen}
-          onClose={closeDetail}
-          detailPerson={detailPerson}
-          isPlaceInItinerary={isPlaceInItinerary}
-          onAddToItinerary={onAddToItinerary}
-        />
-      ) : null}
 
       {user ? (
         <SuggestFamousPersonModal

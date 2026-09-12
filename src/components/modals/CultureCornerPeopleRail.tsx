@@ -1,5 +1,5 @@
-import type { RefObject } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { RefObject } from 'react';
 import { DraggableSlider, type DraggableSliderHandle } from '@/components/common/DraggableSlider';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import type { DerivedPersonData } from './cultureCornerUtils';
@@ -83,19 +83,7 @@ export const CultureCornerPeopleRail = ({
                     ) : null}
                   </button>
 
-                  <div className="shrink-0 px-4 pt-3 pb-2 border-t border-slate-800/80 bg-[#020617]">
-                    <button
-                      type="button"
-                      onClick={() => selectPerson(id, { openDetail: true })}
-                      aria-label={`Scopri la storia di ${name}`}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-widest shadow-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-                    >
-                      Scopri la storia
-                      <ChevronRight className="w-3.5 h-3.5" aria-hidden />
-                    </button>
-                  </div>
-
-                  <div className="shrink-0 px-4 pb-4 pt-2 flex flex-col gap-1.5 bg-[#020617]">
+                  <div className="shrink-0 px-4 pb-4 pt-3 border-t border-slate-800/80 flex flex-col gap-1.5 bg-[#020617]">
                     <div className="flex flex-wrap gap-1">
                       {sortableCategories.length > 0 ? (
                         sortableCategories.slice(0, 2).map((c) => (
@@ -124,6 +112,15 @@ export const CultureCornerPeopleRail = ({
                         {lifespan}
                       </p>
                     ) : null}
+                    <button
+                      type="button"
+                      onClick={() => selectPerson(id, { openDetail: true })}
+                      aria-label={`Scopri la storia di ${name}`}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-widest shadow-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 mt-1"
+                    >
+                      Scopri la storia
+                      <ChevronRight className="w-3.5 h-3.5" aria-hidden />
+                    </button>
                   </div>
                 </article>
               );

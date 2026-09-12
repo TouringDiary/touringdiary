@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Z_POPOVER } from '@/constants/zIndex';
 import { type AnchoredAlign, useAnchoredPortalPosition } from '@/hooks/useAnchoredPortalPosition';
@@ -26,6 +26,8 @@ export interface AnchoredPopoverProps {
   'aria-label'?: string;
   'aria-labelledby'?: string;
   'aria-describedby'?: string;
+  /** Optional ref to the portaled panel root (for focus-trap coordination with parent modals). */
+  panelRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -50,8 +52,18 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledby,
   'aria-describedby': ariaDescribedby,
+  panelRef,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const setPopoverRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      popoverRef.current = node;
+      if (panelRef) {
+        panelRef.current = node;
+      }
+    },
+    [panelRef],
+  );
   const { position, ready, remeasure } = useAnchoredPortalPosition(
     anchorRef,
     isOpen,
@@ -87,25 +99,72 @@ export const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({
 
   if (!isOpen || !position || typeof document === 'undefined') return null;
 
+  const panelClassName = `fixed ${align === 'center' ? '-translate-x-1/2' : ''} ${ready ? 'animate-in fade-in zoom-in-95' : 'opacity-0 pointer-events-none'} ${className}`;
+  const panelStyle: React.CSSProperties = { zIndex: Z_POPOVER, ...position, ...style };
+
+  // Ruoli ARIA espliciti per branch: Biome analizza staticamente role/aria-* (non prop dinamiche).
+  let panel: React.ReactNode;
+  switch (role) {
+    case 'menu':
+      panel = (
+        <div
+          ref={setPopoverRef}
+          role="menu"
+          aria-label={ariaLabel}
+          className={panelClassName}
+          style={panelStyle}
+        >
+          {children}
+        </div>
+      );
+      break;
+    case 'listbox':
+      panel = (
+        <div
+          ref={setPopoverRef}
+          role="listbox"
+          aria-label={ariaLabel}
+          className={panelClassName}
+          style={panelStyle}
+        >
+          {children}
+        </div>
+      );
+      break;
+    case 'tooltip':
+      panel = (
+        <div
+          ref={setPopoverRef}
+          role="tooltip"
+          aria-label={ariaLabel}
+          className={panelClassName}
+          style={panelStyle}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+        >
+          {children}
+        </div>
+      );
+      break;
+    default:
+      panel = (
+        <div
+          ref={setPopoverRef}
+          role="dialog"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledby}
+          aria-describedby={ariaDescribedby}
+          className={panelClassName}
+          style={panelStyle}
+        >
+          {children}
+        </div>
+      );
+      break;
+  }
+
   // Finché la posizione non è "finale" (clamp/flip applicati dal posizionatore), il popover resta
   // montato ma invisibile: viene misurato a layout completo (offsetWidth ignora opacity) e rivelato
   // con l'animazione d'ingresso direttamente nella posizione corretta, senza scatti né tagli.
-  return createPortal(
-    <div
-      ref={popoverRef}
-      role={role}
-      aria-modal={false}
-      aria-label={ariaLabel}
-      aria-labelledby={ariaLabelledby}
-      aria-describedby={ariaDescribedby}
-      className={`fixed ${align === 'center' ? '-translate-x-1/2' : ''} ${ready ? 'animate-in fade-in zoom-in-95' : 'opacity-0 pointer-events-none'} ${className}`}
-      style={{ zIndex: Z_POPOVER, ...position, ...style }}
-      onClick={(e) => e.stopPropagation()}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      {children}
-    </div>,
-    document.body,
-  );
+  return createPortal(panel, document.body);
 };
