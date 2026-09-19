@@ -33,8 +33,25 @@ export const POI_CATEGORY_VALUES = [
 export const CITY_BADGE_VALUES = ['event', 'trend', 'season', 'editor', 'destination'] as const;
 
 /**
- * POI STATUS GOVERNANCE
- * Contratto DB: pois.status
+ * EDITORIAL STATUS GOVERNANCE (D39)
+ * Vocabolario canonico UI + mapping DB lowercase.
+ * NEEDS_CHECK applies to POI only.
+ */
+export const EDITORIAL_STATUS_CANONICAL = ['DRAFT', 'PUBLISHED', 'SUSPENDED', 'CANCELED'] as const;
+
+export type EditorialStatusCanonical = (typeof EDITORIAL_STATUS_CANONICAL)[number];
+
+export const EDITORIAL_STATUS_DB_VALUES = ['draft', 'published', 'suspended', 'canceled'] as const;
+
+export type EditorialStatusDb = (typeof EDITORIAL_STATUS_DB_VALUES)[number];
+
+export const POI_STATUS_DB_VALUES = [...EDITORIAL_STATUS_DB_VALUES, 'needs_check'] as const;
+
+export type PoiStatusDb = (typeof POI_STATUS_DB_VALUES)[number];
+
+/**
+ * POI STATUS GOVERNANCE — UI/filtri Admin attuali (MF1).
+ * Contratto DB esteso: vedi POI_STATUS_DB_VALUES (include suspended/canceled).
  */
 export const POI_STATUS_VALUES = ['published', 'draft', 'needs_check'] as const;
 
@@ -42,7 +59,55 @@ export const POI_STATUS_VALUES = ['published', 'draft', 'needs_check'] as const;
  * CITY PEOPLE STATUS GOVERNANCE
  * Contratto DB: city_people.status
  */
-export const PERSON_STATUS_VALUES = ['published', 'draft'] as const;
+export const PERSON_STATUS_VALUES = EDITORIAL_STATUS_DB_VALUES;
+
+export type PersonStatusDb = (typeof PERSON_STATUS_VALUES)[number];
+
+/**
+ * PATRON EDITORIAL STATUS (D72)
+ * Contratto DB: cities.patron_editorial_status — colonna dedicata, NON patron_details JSON.
+ */
+export const PATRON_EDITORIAL_STATUS_DB_VALUES = EDITORIAL_STATUS_DB_VALUES;
+
+export type PatronEditorialStatusDb = EditorialStatusDb;
+
+export type PatronEditorialStatusCanonical = EditorialStatusCanonical;
+
+/** Stati modificabili manualmente in Edit Città → Storia → Santo Patrono (decisione 2026-09-18). */
+export const PATRON_ORDINARY_EDITORIAL_STATUS_VALUES = ['DRAFT', 'PUBLISHED'] as const;
+
+export type PatronOrdinaryEditorialStatus =
+  (typeof PATRON_ORDINARY_EDITORIAL_STATUS_VALUES)[number];
+
+/** Stati gestiti esclusivamente dal workflow Segnalazioni → Santo Patrono. */
+export const PATRON_MODERATION_EDITORIAL_STATUS_VALUES = ['SUSPENDED', 'CANCELED'] as const;
+
+export function toEditorialStatusDb(
+  status: EditorialStatusCanonical | null | undefined,
+): EditorialStatusDb {
+  if (!status) return 'published';
+  return status.toLowerCase() as EditorialStatusDb;
+}
+
+export function fromEditorialStatusDb(
+  db: string | null | undefined,
+): EditorialStatusCanonical | null {
+  if (db == null || db.trim() === '') return 'PUBLISHED';
+  const normalized = db.trim().toLowerCase();
+  if (normalized === 'draft') return 'DRAFT';
+  if (normalized === 'published') return 'PUBLISHED';
+  if (normalized === 'suspended') return 'SUSPENDED';
+  if (normalized === 'canceled') return 'CANCELED';
+  return null;
+}
+
+/** Gate pubblico Patrono (D49): DRAFT/SUSPENDED → contenuto nascosto + SUGGERISCI. */
+export function isPatronPublicContentHidden(
+  status: PatronEditorialStatusCanonical | null | undefined,
+): boolean {
+  if (!status) return false;
+  return status === 'DRAFT' || status === 'SUSPENDED';
+}
 
 /**
  * PHOTO SUBMISSION STATUS GOVERNANCE
@@ -227,6 +292,8 @@ export const VERIFIED_RELIABILITY_MAP = {
  */
 export const TOURISM_INTEREST_VALUES = ['high', 'medium', 'low'] as const;
 
+export type TourismInterest = (typeof TOURISM_INTEREST_VALUES)[number];
+
 /**
  * AI RELIABILITY GOVERNANCE
  * Contratto Domain: PointOfInterest.aiReliability
@@ -242,8 +309,112 @@ export const AI_RELIABILITY_VALUES = [
   'invalidated',
 ] as const;
 
+export type AiReliability = (typeof AI_RELIABILITY_VALUES)[number];
+
 /**
  * IMAGE LICENSE GOVERNANCE
  * Contratto Domain: PointOfInterest.imageLicense
  */
 export const IMAGE_LICENSE_VALUES = ['own', 'cc', 'public', 'copyright'] as const;
+
+export type ImageLicense = (typeof IMAGE_LICENSE_VALUES)[number];
+
+/**
+ * CONTENT REPORT GOVERNANCE (MF2 — §42.4)
+ * Contratto DB: content_reports.status / report_kind / entity_type
+ */
+export const CONTENT_REPORT_STATUS_DB_VALUES = ['nuovo', 'in_verifica', 'ok', 'ko'] as const;
+
+export type ContentReportStatusDb = (typeof CONTENT_REPORT_STATUS_DB_VALUES)[number];
+
+export const CONTENT_REPORT_STATUS_LABELS: Record<ContentReportStatusDb, string> = {
+  nuovo: 'NUOVO',
+  in_verifica: 'IN VERIFICA',
+  ok: 'OK',
+  ko: 'KO',
+};
+
+export const CONTENT_REPORT_KIND_VALUES = [
+  'entity_abuse',
+  'image_abuse',
+  'community_error',
+  'suggestion_photo',
+  'suggestion_person',
+] as const;
+
+export type ContentReportKind = (typeof CONTENT_REPORT_KIND_VALUES)[number];
+
+export const CONTENT_REPORT_ENTITY_TYPE_VALUES = [
+  'city_person',
+  'poi',
+  'patron',
+  'photo_submission',
+] as const;
+
+export type ContentReportEntityType = (typeof CONTENT_REPORT_ENTITY_TYPE_VALUES)[number];
+
+export const CONTENT_REPORT_REASON_VALUES = [
+  'copyright',
+  'other_rights',
+  'unauthorized',
+  'other',
+  'error',
+  'suggestion',
+] as const;
+
+export type ContentReportReason = (typeof CONTENT_REPORT_REASON_VALUES)[number];
+
+export const ASSIGNMENT_STATUS_DB_VALUES = ['active', 'suspended', 'removed', 'replaced'] as const;
+
+export type AssignmentStatusDb = (typeof ASSIGNMENT_STATUS_DB_VALUES)[number];
+
+export function isContentReportStatusDb(value: string): value is ContentReportStatusDb {
+  return (CONTENT_REPORT_STATUS_DB_VALUES as readonly string[]).includes(value);
+}
+
+export function parseContentReportStatusDb(
+  value: string | null | undefined,
+): ContentReportStatusDb {
+  if (value && isContentReportStatusDb(value)) return value;
+  throw new Error(`content_reports.status non valido: ${value ?? '(null)'}`);
+}
+
+export const CONTENT_REPORT_SOURCE_CONTEXT_VALUES = [
+  'official_photo',
+  'community_live',
+  'city_gallery',
+  'patron_gallery',
+  'poi',
+] as const;
+
+export type ContentReportSourceContext = (typeof CONTENT_REPORT_SOURCE_CONTEXT_VALUES)[number];
+
+export function isContentReportSourceContext(value: string): value is ContentReportSourceContext {
+  return (CONTENT_REPORT_SOURCE_CONTEXT_VALUES as readonly string[]).includes(value);
+}
+
+export function parseContentReportSourceContext(value: string): ContentReportSourceContext {
+  if (isContentReportSourceContext(value)) return value;
+  throw new Error(`source_context non valido: ${value ?? '(null)'}`);
+}
+
+export const ASSIGNMENT_ENTITY_TYPE_VALUES = [
+  'city_person',
+  'poi',
+  'patron',
+  'photo_submission',
+] as const;
+
+export type AssignmentEntityType = (typeof ASSIGNMENT_ENTITY_TYPE_VALUES)[number];
+
+export function isAssignmentEntityType(value: string): value is AssignmentEntityType {
+  return (ASSIGNMENT_ENTITY_TYPE_VALUES as readonly string[]).includes(value);
+}
+
+export function isAssignmentStatusDb(value: string): value is AssignmentStatusDb {
+  return (ASSIGNMENT_STATUS_DB_VALUES as readonly string[]).includes(value);
+}
+
+export function isPersonStatusDb(value: string): value is PersonStatusDb {
+  return (PERSON_STATUS_VALUES as readonly string[]).includes(value);
+}

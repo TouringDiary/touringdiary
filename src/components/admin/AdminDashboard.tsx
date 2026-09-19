@@ -11,6 +11,7 @@ import { getPendingReviewCount, getPendingSuggestionCount } from '../../services
 import { getPendingFamousPeopleAdminCount } from '../../services/famousPerson/famousPersonAdminCountsService';
 import { getPendingPatronSaintAdminCount } from '../../services/patron/patronAdminCountsService';
 import { getPendingPhotoCount } from '../../services/photoService';
+import { getPendingContentReportCount } from '../../services/reports/contentReportService';
 import { getSponsorStats } from '../../services/sponsorService';
 import type { User } from '../../types/users';
 import { AdminMobileHeader } from './layout/AdminMobileHeader';
@@ -57,8 +58,8 @@ const AdminHeaderManager = React.lazy(() =>
 const AdminCommunications = React.lazy(() =>
   import('./AdminCommunications').then((m) => ({ default: m.AdminCommunications })),
 );
-const SuggestionManager = React.lazy(() =>
-  import('./SuggestionManager').then((m) => ({ default: m.SuggestionManager })),
+const AdminReportsHub = React.lazy(() =>
+  import('./reports/AdminReportsHub').then((m) => ({ default: m.AdminReportsHub })),
 );
 const AdminGamification = React.lazy(() =>
   import('./AdminGamification').then((m) => ({ default: m.AdminGamification })),
@@ -188,6 +189,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     const [
       sponsorResult,
       suggestionsResult,
+      contentReportsResult,
       reviewsResult,
       photosResult,
       patronSaintResult,
@@ -195,6 +197,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     ] = await Promise.allSettled([
       getSponsorStats(),
       getPendingSuggestionCount(),
+      getPendingContentReportCount(),
       getPendingReviewCount(),
       getPendingPhotoCount(),
       getPendingPatronSaintAdminCount(),
@@ -216,6 +219,12 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
         next.suggestions = suggestionsResult.value;
       } else {
         console.error('Error refreshing suggestion counts', suggestionsResult.reason);
+      }
+
+      if (contentReportsResult.status === 'fulfilled') {
+        next.suggestions += contentReportsResult.value;
+      } else {
+        console.error('Error refreshing content report counts', contentReportsResult.reason);
       }
 
       if (reviewsResult.status === 'fulfilled') {
@@ -340,7 +349,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
       case 'comms':
         return <AdminCommunications />;
       case 'suggestions':
-        return <SuggestionManager />;
+        return <AdminReportsHub />;
       case 'cities':
         return <CitiesManager onEdit={setEditingCityId} currentUser={currentUser} />;
       case 'osm_import':

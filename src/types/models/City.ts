@@ -19,9 +19,14 @@ export type {
 };
 
 import type {
+  AiReliability,
   CITY_BADGE_VALUES,
   CITY_STATUS_VALUES,
+  ImageLicense,
+  PatronEditorialStatusCanonical,
+  PersonStatusDb,
   POI_STATUS_VALUES,
+  TourismInterest,
 } from '../../constants/governance';
 import type { PlanType, SponsorTier } from '../../constants/planTypes';
 import type { MediaAsset, MediaStatus } from './Media';
@@ -48,7 +53,7 @@ export interface PointOfInterest {
 
   // Copyright Metadata
   imageCredit?: string;
-  imageLicense?: 'own' | 'cc' | 'public' | 'copyright';
+  imageLicense?: ImageLicense;
 
   gallery?: MediaAsset[];
   category: PoiCategory;
@@ -91,18 +96,10 @@ export interface PointOfInterest {
   status?: (typeof POI_STATUS_VALUES)[number];
 
   // AI Self-Assessment (UPDATED WITH + VARIANTS)
-  aiReliability?:
-    | 'high'
-    | 'medium'
-    | 'low'
-    | 'high+'
-    | 'medium+'
-    | 'low+'
-    | 'duplicate'
-    | 'invalidated';
+  aiReliability?: AiReliability;
 
   // Livello Interesse Turistico
-  tourismInterest?: 'high' | 'medium' | 'low';
+  tourismInterest?: TourismInterest;
 
   // Monetization & Affiliate
   affiliate?: AffiliateLinks | null;
@@ -141,7 +138,7 @@ export interface CitySummary {
   image_status?: MediaStatus;
   imageAsset?: MediaAsset;
   imageCredit?: string;
-  imageLicense?: 'own' | 'cc' | 'public' | 'copyright';
+  imageLicense?: ImageLicense;
 
   heroImage?: string;
   hero_status?: MediaStatus;
@@ -221,7 +218,7 @@ export interface FamousPerson {
     visitDuration?: string;
     priceLevel?: 1 | 2 | 3 | 4;
   }[];
-  status?: 'published' | 'draft';
+  status?: PersonStatusDb;
   orderIndex?: number;
 }
 
@@ -328,6 +325,8 @@ export interface CityDetails extends CitySummary {
     officialWebsite?: string;
 
     patron: string;
+    /** D72 — colonna cities.patron_editorial_status (canonical UI values). */
+    patronEditorialStatus?: PatronEditorialStatusCanonical | null;
     patronDetails?: PatronDetails;
 
     ratings: {

@@ -34,6 +34,24 @@ type RuntimeGenerateResult = {
   candidates?: unknown[];
 };
 
+function hasInlineImageCandidate(candidates: unknown[] | undefined): boolean {
+  if (!Array.isArray(candidates)) return false;
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const parts = (candidate as { content?: { parts?: unknown[] } }).content?.parts;
+    if (!Array.isArray(parts)) continue;
+    for (const part of parts) {
+      if (!part || typeof part !== 'object' || !('inlineData' in part)) continue;
+      const inlineData = (part as { inlineData?: { mimeType?: string; data?: string } }).inlineData;
+      if (typeof inlineData?.data !== 'string' || inlineData.data.trim().length === 0) continue;
+      const mime = inlineData.mimeType?.trim().toLowerCase() ?? '';
+      if (!mime.startsWith('image/')) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 type EdgeSuccessPayload = {
   reply: string;
   candidates?: unknown[];
@@ -152,7 +170,8 @@ serve(async (req) => {
     }
 
     const replyText = result?.text || '';
-    if (!replyText.trim()) {
+    const hasImagePayload = hasInlineImageCandidate(result?.candidates);
+    if (!replyText.trim() && !hasImagePayload) {
       logAiRuntime({
         function: FN,
         feature,

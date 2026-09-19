@@ -10,6 +10,7 @@ import contentRoutes from './routes/content.routes';
 import faviconRoutes from './routes/favicon.routes';
 // Routes imports
 import healthRoutes from './routes/health.routes';
+import reportsRoutes from './routes/reports.routes';
 import userRoutes from './routes/user.routes';
 
 dotenv.config();
@@ -56,6 +57,9 @@ async function startServer() {
 
   app.use('/api/admin', adminRoutes);
   console.log('[Route] Loaded: /api/admin/create-user');
+
+  app.use('/api/reports', reportsRoutes);
+  console.log('[Route] Loaded: /api/reports/capture-evidence');
 
   app.use('/api', contentRoutes); // content handles /api/partner-integrations and /api/bootstrap/content
   console.log('[Route] Loaded: /api/partner-integrations');

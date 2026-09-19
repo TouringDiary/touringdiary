@@ -1,6 +1,12 @@
 import { Award, Eye, Loader2, Sparkles } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import {
+  PATRON_MODERATION_EDITORIAL_STATUS_VALUES,
+  PATRON_ORDINARY_EDITORIAL_STATUS_VALUES,
+  type PatronEditorialStatusCanonical,
+  type PatronOrdinaryEditorialStatus,
+} from '@/constants/governance';
 import type { CityEditorContextType } from '@/context/CityEditorContext';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 import { generateCitySection } from '../../../../services/ai';
@@ -9,6 +15,10 @@ import type { CityDetails } from '../../../../types/index';
 import { AiFieldHelper } from '../../AiFieldHelper';
 import { CulturePatronFestGallerySection } from './CulturePatronFestGallerySection';
 import { CulturePatronMainPhotoSection } from './CulturePatronMainPhotoSection';
+
+function isPatronOrdinaryEditorialStatus(value: string): value is PatronOrdinaryEditorialStatus {
+  return PATRON_ORDINARY_EDITORIAL_STATUS_VALUES.some((status) => status === value);
+}
 
 interface CulturePatronProps {
   city: CityDetails;
@@ -72,6 +82,18 @@ export const CulturePatron: React.FC<CulturePatronProps> = ({
     updatePatronDetails({ history: newValue });
   };
 
+  const patronEditorialStatus: PatronEditorialStatusCanonical =
+    city.details.patronEditorialStatus ?? 'PUBLISHED';
+  const isModerationLocked = PATRON_MODERATION_EDITORIAL_STATUS_VALUES.some(
+    (status) => status === patronEditorialStatus,
+  );
+  const ordinaryStatus: PatronOrdinaryEditorialStatus =
+    patronEditorialStatus === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+
+  const handleOrdinaryEditorialStatusChange = (next: PatronOrdinaryEditorialStatus) => {
+    updateDetailField('patronEditorialStatus', next);
+  };
+
   return (
     <div className="bg-slate-900 p-4 md:p-8 rounded-2xl md:rounded-3xl border border-slate-800 shadow-2xl">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 border-b border-slate-800 pb-4">
@@ -122,6 +144,51 @@ export const CulturePatron: React.FC<CulturePatronProps> = ({
       </div>
 
       <div className="space-y-4 mt-4">
+        <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            Stato editoriale Santo Patrono
+          </p>
+          {isModerationLocked ? (
+            <div className="space-y-2">
+              <p className="text-sm text-amber-300 font-semibold">{patronEditorialStatus}</p>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Stati di moderazione/segnalazione (
+                {PATRON_MODERATION_EDITORIAL_STATUS_VALUES.join(' / ')}
+                ): gestibili solo da Admin → Segnalazioni → Santo Patrono.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label
+                htmlFor="fld-admin-cityeditor-culture-patron-editorial-status"
+                className="text-xs font-bold text-slate-500 uppercase block"
+              >
+                Stato editoriale ordinario
+              </label>
+              <select
+                id="fld-admin-cityeditor-culture-patron-editorial-status"
+                value={ordinaryStatus}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  if (isPatronOrdinaryEditorialStatus(next)) {
+                    handleOrdinaryEditorialStatusChange(next);
+                  }
+                }}
+                className="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-amber-500 outline-none"
+              >
+                {PATRON_ORDINARY_EDITORIAL_STATUS_VALUES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">
+                DRAFT / PUBLISHED si impostano qui. SUSPENDED / CANCELED solo via Segnalazioni.
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label

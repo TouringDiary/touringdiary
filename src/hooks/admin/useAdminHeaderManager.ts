@@ -7,18 +7,38 @@ import type {
   DeletePlaceholderTarget,
 } from '@/components/admin/adminHeaderManager/types';
 import { useConfig } from '@/context/ConfigContext';
+import { isPlatformPlaceholderUrl } from '@/domain/placeholders/platformPlaceholderRegistry';
 import { deleteAdminAssetByUrl, uploadPublicMedia } from '../../services/mediaService';
-import { retirePlatformPlaceholderUrls, SETTINGS_KEYS } from '../../services/settingsService';
+import {
+  getPlatformPlaceholderRegistryAsync,
+  retirePlatformPlaceholderUrls,
+  SETTINGS_KEYS,
+} from '../../services/settingsService';
 import { compressImage, dataURLtoFile } from '../../utils/common';
 
+/** Legge una stringa URL/valore da configs senza cast. */
+function readConfigString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** URL precedente per retirement/cleanup: stringa non vuota oppure null se assente. */
+function readPreviousConfigUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export const useAdminHeaderManager = () => {
-  const { configs, isLoading, updateSetting } = useConfig();
+  const { configs, isLoading, updateSetting, updateMultipleSettings } = useConfig();
 
   // STATE
-  const [currentImage, setCurrentImage] = useState(GLOBAL_ASSET_DEFAULTS.hero);
   const [patronImage, setPatronImage] = useState('');
   const [placeholders, setPlaceholders] = useState<Record<string, string>>({});
   const [suitcasePlaceholders, setSuitcasePlaceholders] = useState<Record<string, string>>({});
+  const [famousPersonCategoryPlaceholders, setFamousPersonCategoryPlaceholders] = useState<
+    Record<string, string>
+  >({});
+  const [famousPersonGeneralPlaceholder, setFamousPersonGeneralPlaceholder] = useState('');
   const [authBg, setAuthBg] = useState(GLOBAL_ASSET_DEFAULTS.auth_bg);
   const [socialBg, setSocialBg] = useState(GLOBAL_ASSET_DEFAULTS.social_bg);
   const [aiBg, setAiBg] = useState(GLOBAL_ASSET_DEFAULTS.ai_box);
@@ -50,6 +70,8 @@ export const useAdminHeaderManager = () => {
   const patronInputRef = useRef<HTMLInputElement>(null);
   const placeholderInputRef = useRef<HTMLInputElement>(null);
   const suitcasePlaceholderInputRef = useRef<HTMLInputElement>(null);
+  const famousPersonPlaceholderInputRef = useRef<HTMLInputElement>(null);
+  const famousPersonGeneralInputRef = useRef<HTMLInputElement>(null);
   const authInputRef = useRef<HTMLInputElement>(null);
   const socialInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
@@ -84,8 +106,9 @@ export const useAdminHeaderManager = () => {
       const favicon = configs[SETTINGS_KEYS.FAVICON_IMAGE];
       const ph = configs[SETTINGS_KEYS.CATEGORY_PLACEHOLDERS];
       const sph = configs[SETTINGS_KEYS.SUITCASE_PLACEHOLDERS];
+      const fph = configs[SETTINGS_KEYS.FAMOUS_PERSON_CATEGORY_PLACEHOLDERS];
+      const fpg = configs[SETTINGS_KEYS.FAMOUS_PERSON_GENERAL_PLACEHOLDER];
 
-      setCurrentImage(heroImage);
       setPreviewImage(heroImage);
       setPatronImage(patron);
       setAuthBg(auth);
@@ -94,6 +117,8 @@ export const useAdminHeaderManager = () => {
       setFaviconImage(typeof favicon === 'string' ? favicon : '');
       setPlaceholders(asUrlMap(ph));
       setSuitcasePlaceholders(asUrlMap(sph));
+      setFamousPersonCategoryPlaceholders(asUrlMap(fph));
+      setFamousPersonGeneralPlaceholder(typeof fpg === 'string' ? fpg : '');
     }
   }, [configs, isLoading]);
 
@@ -135,6 +160,18 @@ export const useAdminHeaderManager = () => {
     showToast(successMessage, 'success');
   };
 
+  const filterRetirablePlaceholderUrls = async (
+    urls: ReadonlyArray<string | null | undefined>,
+  ): Promise<string[]> => {
+    const registry = await getPlatformPlaceholderRegistryAsync();
+    const out: string[] = [];
+    for (const url of urls) {
+      if (typeof url !== 'string' || !url.trim()) continue;
+      if (isPlatformPlaceholderUrl(url, registry)) out.push(url);
+    }
+    return out;
+  };
+
   /**
    * Shared Asset Globali persist path.
    * ConfigContext.updateSetting already refreshes SoT — no extra refreshConfig.
@@ -146,10 +183,19 @@ export const useAdminHeaderManager = () => {
     cleanupUrl?: string | null | undefined;
     successMessage: string;
   }): Promise<void> => {
-    if (params.retireUrls?.length) {
-      await retirePlatformPlaceholderUrls(params.retireUrls);
-    }
     await updateSetting(params.settingKey, params.value);
+
+    if (params.retireUrls?.length) {
+      try {
+        const toRetire = await filterRetirablePlaceholderUrls(params.retireUrls);
+        if (toRetire.length > 0) {
+          await retirePlatformPlaceholderUrls(toRetire);
+        }
+      } catch (err) {
+        console.warn('[AssetGlobali] Retirement registry failed after SoT update:', err);
+      }
+    }
+
     const cleanup = await cleanupAdminAssetStorage(params.cleanupUrl);
     toastSettingsUpdated(params.successMessage, cleanup);
   };
@@ -192,6 +238,14 @@ export const useAdminHeaderManager = () => {
       await handleSaveSuitcasePlaceholder(phCat, publicUrl);
       return 'persisted';
     }
+    if (target === 'famous_person_placeholder' && phCat) {
+      await handleSaveFamousPersonCategoryPlaceholder(phCat, publicUrl);
+      return 'persisted';
+    }
+    if (target === 'famous_person_general') {
+      await handleSaveFamousPersonGeneralPlaceholder(publicUrl);
+      return 'persisted';
+    }
     return 'local';
   };
 
@@ -225,6 +279,9 @@ export const useAdminHeaderManager = () => {
       if (patronInputRef.current) patronInputRef.current.value = '';
       if (placeholderInputRef.current) placeholderInputRef.current.value = '';
       if (suitcasePlaceholderInputRef.current) suitcasePlaceholderInputRef.current.value = '';
+      if (famousPersonPlaceholderInputRef.current)
+        famousPersonPlaceholderInputRef.current.value = '';
+      if (famousPersonGeneralInputRef.current) famousPersonGeneralInputRef.current.value = '';
       if (authInputRef.current) authInputRef.current.value = '';
       if (socialInputRef.current) socialInputRef.current.value = '';
       if (aiBgInputRef.current) aiBgInputRef.current.value = '';
@@ -234,34 +291,46 @@ export const useAdminHeaderManager = () => {
 
   const handleSaveHero = async () => {
     setIsSavingHero(true);
-    const valToSave = previewImage === GLOBAL_ASSET_DEFAULTS.hero ? '' : previewImage;
-    const previousStored = configs[SETTINGS_KEYS.HERO_IMAGE] as string | null | undefined;
-    await commitAssetSettingChange({
-      settingKey: SETTINGS_KEYS.HERO_IMAGE,
-      value: valToSave,
-      retireUrls: previousStored && previousStored !== valToSave ? [previousStored] : undefined,
-      successMessage: 'Header salvato!',
-    });
-    setCurrentImage(previewImage || GLOBAL_ASSET_DEFAULTS.hero);
-    setHeroNote('');
-    setIsSavingHero(false);
+    try {
+      const valToSave = previewImage === GLOBAL_ASSET_DEFAULTS.hero ? '' : previewImage;
+      const previousStored = readConfigString(configs[SETTINGS_KEYS.HERO_IMAGE]);
+      const replaced = Boolean(previousStored && previousStored !== valToSave);
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.HERO_IMAGE,
+        value: valToSave,
+        retireUrls: replaced ? [previousStored] : undefined,
+        // Asset Globali: sostituzione admin_assets → cleanup best-effort (come favicon/extra).
+        cleanupUrl: replaced ? previousStored : undefined,
+        successMessage: 'Header salvato!',
+      });
+      setHeroNote('');
+    } catch (err) {
+      console.error(err);
+      showToast('Errore salvataggio header.', 'error');
+    } finally {
+      setIsSavingHero(false);
+    }
   };
 
   const handleRemoveHeroRequest = () => setShowDeleteHeroConfirm(true);
 
   const confirmRemoveHero = async () => {
-    const previousUrl =
-      previewImage && previewImage !== GLOBAL_ASSET_DEFAULTS.hero ? previewImage : null;
-    setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
-    setCurrentImage(GLOBAL_ASSET_DEFAULTS.hero);
-    await commitAssetSettingChange({
-      settingKey: SETTINGS_KEYS.HERO_IMAGE,
-      value: '',
-      retireUrls: [previousUrl],
-      cleanupUrl: previousUrl,
-      successMessage: 'Hero eliminato da Asset Globali.',
-    });
-    setShowDeleteHeroConfirm(false);
+    const previousUrl = readPreviousConfigUrl(configs[SETTINGS_KEYS.HERO_IMAGE]);
+    try {
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.HERO_IMAGE,
+        value: '',
+        retireUrls: [previousUrl],
+        cleanupUrl: previousUrl,
+        successMessage: 'Hero eliminato da Asset Globali.',
+      });
+      setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
+    } catch (err) {
+      console.error(err);
+      showToast('Errore eliminazione hero.', 'error');
+    } finally {
+      setShowDeleteHeroConfirm(false);
+    }
   };
 
   const handleRemoveAssetRequest = (target: DeleteAssetTarget) => setDeleteAssetTarget(target);
@@ -269,41 +338,46 @@ export const useAdminHeaderManager = () => {
   const confirmRemoveAsset = async () => {
     if (!deleteAssetTarget) return;
 
-    let previousUrl: string | null = null;
     let settingKey = SETTINGS_KEYS.AI_CONSULTANT_BG;
     if (deleteAssetTarget === 'auth') {
-      previousUrl = authBg !== GLOBAL_ASSET_DEFAULTS.auth_bg ? authBg : null;
-      setAuthBg(GLOBAL_ASSET_DEFAULTS.auth_bg);
       settingKey = SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE;
     } else if (deleteAssetTarget === 'social') {
-      previousUrl = socialBg !== GLOBAL_ASSET_DEFAULTS.social_bg ? socialBg : null;
-      setSocialBg(GLOBAL_ASSET_DEFAULTS.social_bg);
       settingKey = SETTINGS_KEYS.SOCIAL_CANVAS_BG;
     } else if (deleteAssetTarget === 'favicon') {
-      previousUrl = faviconImage || null;
-      setFaviconImage('');
       settingKey = SETTINGS_KEYS.FAVICON_IMAGE;
-    } else {
-      previousUrl = aiBg || null;
-      setAiBg('');
-      settingKey = SETTINGS_KEYS.AI_CONSULTANT_BG;
     }
+    const previousUrl = readPreviousConfigUrl(configs[settingKey]);
 
-    await commitAssetSettingChange({
-      settingKey,
-      value: '',
-      retireUrls: [previousUrl],
-      cleanupUrl: previousUrl,
-      successMessage: 'Asset eliminato da Asset Globali.',
-    });
-    setDeleteAssetTarget(null);
+    try {
+      await commitAssetSettingChange({
+        settingKey,
+        value: '',
+        retireUrls: [previousUrl],
+        cleanupUrl: previousUrl,
+        successMessage: 'Asset eliminato da Asset Globali.',
+      });
+      if (deleteAssetTarget === 'auth') {
+        setAuthBg(GLOBAL_ASSET_DEFAULTS.auth_bg);
+      } else if (deleteAssetTarget === 'social') {
+        setSocialBg(GLOBAL_ASSET_DEFAULTS.social_bg);
+      } else if (deleteAssetTarget === 'favicon') {
+        setFaviconImage('');
+      } else {
+        setAiBg('');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Errore eliminazione asset.', 'error');
+    } finally {
+      setDeleteAssetTarget(null);
+    }
   };
 
   const handleSaveFavicon = async () => {
     setIsSavingFavicon(true);
     try {
       const valToSave = faviconImage || '';
-      const previousStored = configs[SETTINGS_KEYS.FAVICON_IMAGE] as string | null | undefined;
+      const previousStored = readConfigString(configs[SETTINGS_KEYS.FAVICON_IMAGE]);
       const replaced = Boolean(previousStored && previousStored !== valToSave);
       await commitAssetSettingChange({
         settingKey: SETTINGS_KEYS.FAVICON_IMAGE,
@@ -322,15 +396,24 @@ export const useAdminHeaderManager = () => {
 
   const handleSavePatron = async () => {
     setIsSavingPatron(true);
-    const valToSave = patronImage.trim() ? patronImage : '';
-    const previousStored = configs[SETTINGS_KEYS.DEFAULT_PATRON_IMAGE] as string | null | undefined;
-    await commitAssetSettingChange({
-      settingKey: SETTINGS_KEYS.DEFAULT_PATRON_IMAGE,
-      value: valToSave,
-      retireUrls: previousStored && previousStored !== valToSave ? [previousStored] : undefined,
-      successMessage: 'Patrono master aggiornato!',
-    });
-    setIsSavingPatron(false);
+    try {
+      const valToSave = patronImage.trim() ? patronImage : '';
+      const previousStored = readConfigString(configs[SETTINGS_KEYS.DEFAULT_PATRON_IMAGE]);
+      const replaced = Boolean(previousStored && previousStored !== valToSave);
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.DEFAULT_PATRON_IMAGE,
+        value: valToSave,
+        retireUrls: replaced ? [previousStored] : undefined,
+        // Coerente con favicon/hero: sostituzione admin_assets → cleanup Storage best-effort.
+        cleanupUrl: replaced ? previousStored : undefined,
+        successMessage: 'Patrono master aggiornato!',
+      });
+    } catch (err) {
+      console.error(err);
+      showToast('Errore salvataggio patrono master.', 'error');
+    } finally {
+      setIsSavingPatron(false);
+    }
   };
 
   const handleSaveExtraAssets = async () => {
@@ -342,23 +425,33 @@ export const useAdminHeaderManager = () => {
         ai_consultant_bg: aiBg,
       };
 
-      const prevAuth = configs[SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE] as string | null | undefined;
-      const prevSocial = configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG] as string | null | undefined;
-      const prevAi = configs[SETTINGS_KEYS.AI_CONSULTANT_BG] as string | null | undefined;
+      const prevAuth = readPreviousConfigUrl(configs[SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE]);
+      const prevSocial = readPreviousConfigUrl(configs[SETTINGS_KEYS.SOCIAL_CANVAS_BG]);
+      const prevAi = readPreviousConfigUrl(configs[SETTINGS_KEYS.AI_CONSULTANT_BG]);
       const replacedAuth =
         prevAuth && prevAuth !== newAssetData.auth_background_image ? prevAuth : null;
       const replacedSocial =
         prevSocial && prevSocial !== newAssetData.social_canvas_bg ? prevSocial : null;
       const replacedAi = prevAi && prevAi !== newAssetData.ai_consultant_bg ? prevAi : null;
 
-      await retirePlatformPlaceholderUrls([replacedAuth, replacedSocial, replacedAi]);
-
-      // updateSetting already refreshes ConfigContext SoT per call
-      await Promise.all([
-        updateSetting(SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE, newAssetData.auth_background_image),
-        updateSetting(SETTINGS_KEYS.SOCIAL_CANVAS_BG, newAssetData.social_canvas_bg),
-        updateSetting(SETTINGS_KEYS.AI_CONSULTANT_BG, newAssetData.ai_consultant_bg),
+      await updateMultipleSettings([
+        { key: SETTINGS_KEYS.AUTH_BACKGROUND_IMAGE, value: newAssetData.auth_background_image },
+        { key: SETTINGS_KEYS.SOCIAL_CANVAS_BG, value: newAssetData.social_canvas_bg },
+        { key: SETTINGS_KEYS.AI_CONSULTANT_BG, value: newAssetData.ai_consultant_bg },
       ]);
+
+      try {
+        const toRetire = await filterRetirablePlaceholderUrls([
+          replacedAuth,
+          replacedSocial,
+          replacedAi,
+        ]);
+        if (toRetire.length > 0) {
+          await retirePlatformPlaceholderUrls(toRetire);
+        }
+      } catch (err) {
+        console.warn('[AssetGlobali] Retirement registry failed after extra assets save:', err);
+      }
 
       // Best-effort storage cleanup for replaced assets (no rollback, same as commitAssetSettingChange)
       await Promise.all([
@@ -379,56 +472,110 @@ export const useAdminHeaderManager = () => {
   const handleReset = () => setShowResetConfirm(true);
 
   const executeReset = async () => {
-    const previousUrl =
-      currentImage && currentImage !== GLOBAL_ASSET_DEFAULTS.hero ? currentImage : null;
-    setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
-    setCurrentImage(GLOBAL_ASSET_DEFAULTS.hero);
-    await commitAssetSettingChange({
-      settingKey: SETTINGS_KEYS.HERO_IMAGE,
-      value: '',
-      retireUrls: [previousUrl],
-      cleanupUrl: previousUrl,
-      successMessage: 'Reset completato.',
-    });
-    setShowResetConfirm(false);
+    const previousUrl = readPreviousConfigUrl(configs[SETTINGS_KEYS.HERO_IMAGE]);
+    try {
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.HERO_IMAGE,
+        value: '',
+        retireUrls: [previousUrl],
+        cleanupUrl: previousUrl,
+        successMessage: 'Reset completato.',
+      });
+      setPreviewImage(GLOBAL_ASSET_DEFAULTS.hero);
+    } catch (err) {
+      console.error(err);
+      showToast('Errore reset hero.', 'error');
+    } finally {
+      setShowResetConfirm(false);
+    }
   };
 
   const handleResetPatronGlobal = async () => {
-    const previousUrl = patronImage.trim() ? patronImage : null;
-    setPatronImage('');
-    await commitAssetSettingChange({
-      settingKey: SETTINGS_KEYS.DEFAULT_PATRON_IMAGE,
-      value: '',
-      retireUrls: [previousUrl],
-      cleanupUrl: previousUrl,
-      successMessage: 'Patrono eliminato da Asset Globali.',
-    });
+    const previousUrl = readPreviousConfigUrl(configs[SETTINGS_KEYS.DEFAULT_PATRON_IMAGE]);
+    try {
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.DEFAULT_PATRON_IMAGE,
+        value: '',
+        retireUrls: [previousUrl],
+        cleanupUrl: previousUrl,
+        successMessage: 'Patrono eliminato da Asset Globali.',
+      });
+      setPatronImage('');
+    } catch (err) {
+      console.error(err);
+      showToast('Errore eliminazione patrono master.', 'error');
+    }
   };
 
   const handleSavePlaceholder = async (cat: string, url: string) => {
     const previousUrl = placeholders[cat];
     const updated = { ...placeholders, [cat]: url };
-    setPlaceholders(updated);
-    await commitAssetSettingChange({
-      settingKey: SETTINGS_KEYS.CATEGORY_PLACEHOLDERS,
-      value: updated,
-      retireUrls: previousUrl && previousUrl !== url ? [previousUrl] : undefined,
-      cleanupUrl: previousUrl && previousUrl !== url ? previousUrl : undefined,
-      successMessage: `Placeholder per ${cat} aggiornato!`,
-    });
+    try {
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.CATEGORY_PLACEHOLDERS,
+        value: updated,
+        retireUrls: previousUrl && previousUrl !== url ? [previousUrl] : undefined,
+        cleanupUrl: previousUrl && previousUrl !== url ? previousUrl : undefined,
+        successMessage: `Placeholder per ${cat} aggiornato!`,
+      });
+      setPlaceholders(updated);
+    } catch (err) {
+      console.error(err);
+      showToast(`Errore salvataggio placeholder ${cat}.`, 'error');
+    }
   };
 
   const handleSaveSuitcasePlaceholder = async (cat: string, url: string) => {
     const previousUrl = suitcasePlaceholders[cat];
     const updated = { ...suitcasePlaceholders, [cat]: url };
-    setSuitcasePlaceholders(updated);
-    await commitAssetSettingChange({
-      settingKey: SETTINGS_KEYS.SUITCASE_PLACEHOLDERS,
-      value: updated,
-      retireUrls: previousUrl && previousUrl !== url ? [previousUrl] : undefined,
-      cleanupUrl: previousUrl && previousUrl !== url ? previousUrl : null,
-      successMessage: `Placeholder valigia per ${cat} aggiornato!`,
-    });
+    try {
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.SUITCASE_PLACEHOLDERS,
+        value: updated,
+        retireUrls: previousUrl && previousUrl !== url ? [previousUrl] : undefined,
+        cleanupUrl: previousUrl && previousUrl !== url ? previousUrl : null,
+        successMessage: `Placeholder valigia per ${cat} aggiornato!`,
+      });
+      setSuitcasePlaceholders(updated);
+    } catch (err) {
+      console.error(err);
+      showToast(`Errore salvataggio placeholder valigia ${cat}.`, 'error');
+    }
+  };
+
+  const handleSaveFamousPersonCategoryPlaceholder = async (cat: string, url: string) => {
+    const previousUrl = famousPersonCategoryPlaceholders[cat];
+    const updated = { ...famousPersonCategoryPlaceholders, [cat]: url };
+    try {
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.FAMOUS_PERSON_CATEGORY_PLACEHOLDERS,
+        value: updated,
+        retireUrls: previousUrl && previousUrl !== url ? [previousUrl] : undefined,
+        cleanupUrl: previousUrl && previousUrl !== url ? previousUrl : undefined,
+        successMessage: `Placeholder Personaggio (${cat}) aggiornato!`,
+      });
+      setFamousPersonCategoryPlaceholders(updated);
+    } catch (err) {
+      console.error(err);
+      showToast(`Errore salvataggio placeholder Personaggio (${cat}).`, 'error');
+    }
+  };
+
+  const handleSaveFamousPersonGeneralPlaceholder = async (url: string) => {
+    const previousUrl = famousPersonGeneralPlaceholder.trim() || null;
+    try {
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.FAMOUS_PERSON_GENERAL_PLACEHOLDER,
+        value: url,
+        retireUrls: previousUrl && previousUrl !== url ? [previousUrl] : undefined,
+        cleanupUrl: previousUrl && previousUrl !== url ? previousUrl : undefined,
+        successMessage: 'Placeholder generale Personaggi Famosi aggiornato!',
+      });
+      setFamousPersonGeneralPlaceholder(url);
+    } catch (err) {
+      console.error(err);
+      showToast('Errore salvataggio placeholder generale Personaggi.', 'error');
+    }
   };
 
   const requestDeletePlaceholder = (kind: 'category' | 'suitcase', catId: string) => {
@@ -437,35 +584,72 @@ export const useAdminHeaderManager = () => {
     setDeletePlaceholderTarget({ kind, catId, url });
   };
 
+  const requestDeleteFamousPersonPlaceholder = (
+    kind: 'famous_person_category' | 'famous_person_general',
+    catId: string,
+  ) => {
+    const url =
+      kind === 'famous_person_general'
+        ? famousPersonGeneralPlaceholder
+        : famousPersonCategoryPlaceholders[catId];
+    if (!url) return;
+    setDeletePlaceholderTarget({ kind, catId, url });
+  };
+
   const confirmDeletePlaceholder = async () => {
     if (!deletePlaceholderTarget) return;
     const { kind, catId, url } = deletePlaceholderTarget;
 
-    if (kind === 'category') {
-      const updated = { ...placeholders };
-      delete updated[catId];
-      setPlaceholders(updated);
-      await commitAssetSettingChange({
-        settingKey: SETTINGS_KEYS.CATEGORY_PLACEHOLDERS,
-        value: updated,
-        retireUrls: [url],
-        cleanupUrl: url,
-        successMessage: `Placeholder "${catId}" eliminato.`,
-      });
-    } else {
-      const updated = { ...suitcasePlaceholders };
-      delete updated[catId];
-      setSuitcasePlaceholders(updated);
-      await commitAssetSettingChange({
-        settingKey: SETTINGS_KEYS.SUITCASE_PLACEHOLDERS,
-        value: updated,
-        retireUrls: [url],
-        cleanupUrl: url,
-        successMessage: `Placeholder "${catId}" eliminato.`,
-      });
+    try {
+      if (kind === 'category') {
+        const updated = { ...placeholders };
+        delete updated[catId];
+        await commitAssetSettingChange({
+          settingKey: SETTINGS_KEYS.CATEGORY_PLACEHOLDERS,
+          value: updated,
+          retireUrls: [url],
+          cleanupUrl: url,
+          successMessage: `Placeholder "${catId}" eliminato.`,
+        });
+        setPlaceholders(updated);
+      } else if (kind === 'suitcase') {
+        const updated = { ...suitcasePlaceholders };
+        delete updated[catId];
+        await commitAssetSettingChange({
+          settingKey: SETTINGS_KEYS.SUITCASE_PLACEHOLDERS,
+          value: updated,
+          retireUrls: [url],
+          cleanupUrl: url,
+          successMessage: `Placeholder "${catId}" eliminato.`,
+        });
+        setSuitcasePlaceholders(updated);
+      } else if (kind === 'famous_person_category') {
+        const updated = { ...famousPersonCategoryPlaceholders };
+        delete updated[catId];
+        await commitAssetSettingChange({
+          settingKey: SETTINGS_KEYS.FAMOUS_PERSON_CATEGORY_PLACEHOLDERS,
+          value: updated,
+          retireUrls: [url],
+          cleanupUrl: url,
+          successMessage: `Placeholder Personaggio "${catId}" eliminato.`,
+        });
+        setFamousPersonCategoryPlaceholders(updated);
+      } else if (kind === 'famous_person_general') {
+        await commitAssetSettingChange({
+          settingKey: SETTINGS_KEYS.FAMOUS_PERSON_GENERAL_PLACEHOLDER,
+          value: '',
+          retireUrls: [url],
+          cleanupUrl: url,
+          successMessage: 'Placeholder generale Personaggi Famosi eliminato.',
+        });
+        setFamousPersonGeneralPlaceholder('');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Errore eliminazione placeholder.', 'error');
+    } finally {
+      setDeletePlaceholderTarget(null);
     }
-
-    setDeletePlaceholderTarget(null);
   };
 
   const openEditor = (url: string, target: AssetUploadTarget, cat?: string) => {
@@ -495,6 +679,10 @@ export const useAdminHeaderManager = () => {
       await handleSavePlaceholder(editPlaceholderCat, newImageUrl);
     } else if (editTarget === 'suitcase_placeholder' && editPlaceholderCat) {
       await handleSaveSuitcasePlaceholder(editPlaceholderCat, newImageUrl);
+    } else if (editTarget === 'famous_person_placeholder' && editPlaceholderCat) {
+      await handleSaveFamousPersonCategoryPlaceholder(editPlaceholderCat, newImageUrl);
+    } else if (editTarget === 'famous_person_general') {
+      await handleSaveFamousPersonGeneralPlaceholder(newImageUrl);
     }
     setInspectorOpen(false);
   };
@@ -509,6 +697,17 @@ export const useAdminHeaderManager = () => {
     setEditPlaceholderCat(cat);
     if (suitcasePlaceholderInputRef.current) suitcasePlaceholderInputRef.current.value = '';
     suitcasePlaceholderInputRef.current?.click();
+  };
+
+  const triggerFamousPersonPlaceholderUpload = (cat: string) => {
+    setEditPlaceholderCat(cat);
+    if (famousPersonPlaceholderInputRef.current) famousPersonPlaceholderInputRef.current.value = '';
+    famousPersonPlaceholderInputRef.current?.click();
+  };
+
+  const triggerFamousPersonGeneralUpload = () => {
+    if (famousPersonGeneralInputRef.current) famousPersonGeneralInputRef.current.value = '';
+    famousPersonGeneralInputRef.current?.click();
   };
 
   const handleSafeArtSuccess = (url: string) => {
@@ -526,6 +725,8 @@ export const useAdminHeaderManager = () => {
     isSavingPatron,
     placeholders,
     suitcasePlaceholders,
+    famousPersonCategoryPlaceholders,
+    famousPersonGeneralPlaceholder,
     authBg,
     socialBg,
     aiBg,
@@ -552,6 +753,8 @@ export const useAdminHeaderManager = () => {
     patronInputRef,
     placeholderInputRef,
     suitcasePlaceholderInputRef,
+    famousPersonPlaceholderInputRef,
+    famousPersonGeneralInputRef,
     authInputRef,
     socialInputRef,
     aiBgInputRef,
@@ -570,11 +773,14 @@ export const useAdminHeaderManager = () => {
     executeReset,
     handleResetPatronGlobal,
     requestDeletePlaceholder,
+    requestDeleteFamousPersonPlaceholder,
     confirmDeletePlaceholder,
     openEditor,
     handleEditorSave,
     triggerPlaceholderUpload,
     triggerSuitcasePlaceholderUpload,
+    triggerFamousPersonPlaceholderUpload,
+    triggerFamousPersonGeneralUpload,
     handleSafeArtSuccess,
   };
 };

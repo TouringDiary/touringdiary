@@ -18,6 +18,8 @@ import { useItinerary } from '@/context/ItineraryContext';
 import { filterFamousPeople, hasActiveCultureFilters } from '@/domain/city/famousPersonFilter';
 import { comparePeopleChronological } from '@/domain/city/famousPersonSelection';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { getCurrentImageAssignmentId } from '@/services/photoService';
+import { parseStorageLocationFromPublicUrl } from '@/utils/storagePathFromPublicUrl';
 import type { CityDetails, PointOfInterest } from '../../types/index';
 import type { User } from '../../types/users';
 import type { DraggableSliderHandle } from '../common/DraggableSlider';
@@ -415,18 +417,25 @@ export const CultureCornerModal = ({
     setShowSuggestPhotoModal(true);
   }, [user, onOpenAuth, selectedPerson]);
 
-  const openReportAbuse = useCallback(() => {
-    if (!user || user.role === 'guest') {
-      onOpenAuth?.();
-      return;
-    }
+  const openReportAbuse = useCallback(async () => {
     if (!selectedPerson?.id || !selectedPerson.person.imageUrl?.trim()) return;
+
+    const assignmentId = await getCurrentImageAssignmentId(
+      'city_person',
+      selectedPerson.id,
+      city.id,
+      'primary',
+    );
+    const parsedStorage = parseStorageLocationFromPublicUrl(selectedPerson.person.imageUrl);
+
     setReportPhotoTarget({
+      assignmentId,
       personId: selectedPerson.id,
       imageUrl: selectedPerson.person.imageUrl,
       personName: selectedPerson.name,
+      storagePath: parsedStorage?.storagePath ?? null,
     });
-  }, [user, onOpenAuth, selectedPerson]);
+  }, [selectedPerson, city.id]);
 
   useEffect(() => {
     if (!isDetailLifecycleActive) return;

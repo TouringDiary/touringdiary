@@ -2,6 +2,8 @@
 export type CityPatronGalleryPhoto = {
   id: string;
   cityId: string;
+  /** entity_image_assignments.id quando disponibile (dual-write §42.15). */
+  assignmentId?: string | null;
   imageUrl: string;
   storagePath: string | null;
   /** Didascalia opzionale; `created_at` resta il timestamp di creazione/caricamento. */

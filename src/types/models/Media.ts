@@ -1,5 +1,3 @@
-import type { SuggestionType } from '../index';
-
 import type { Database } from '../supabase';
 export type MediaStatus = Database['public']['Enums']['media_status'];
 
@@ -25,6 +23,12 @@ export interface PhotoSubmission {
   /** Like dell'utente corrente (non aggregato). Popolato dai fetch community/ranking. */
   likedByUser?: boolean;
   cityId?: string; // ADDED: ID Città per collegamento robusto
+  /** entity_image_assignments.id quando l'associazione MF2 è già materializzata. */
+  assignmentId?: string | null;
+  /** Bucket Storage sorgente (es. community-photos, public-media) — evidenza D70 / dual-write. */
+  storageBucket?: string | null;
+  /** Path Storage sorgente — evidenza D70 / dual-write. */
+  storagePath?: string | null;
   isOfficial: boolean;
   mediaStatus: MediaStatus;
 }
@@ -110,6 +114,8 @@ export interface AppNotification {
 }
 
 // Suggestion Request (Moved here as it relates to community feedback)
+import type { SuggestionType } from '../shared';
+
 export type { SuggestionType } from '../shared';
 
 export interface SuggestionRequest {

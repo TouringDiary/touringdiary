@@ -17,6 +17,7 @@
  * - Ogni campo presente in questo payload è esplicitamente intenzionale.
  */
 
+import type { ImageLicense, PatronEditorialStatusDb } from '../../constants/governance';
 import type {
   BadgeType,
   CitySummary,
@@ -72,7 +73,7 @@ export interface CityUpsertPayload {
   image_url: string | null;
   image_status: MediaStatus;
   image_credit: string | null;
-  image_license: string | null;
+  image_license: ImageLicense | null;
   hero_image: string | null;
   hero_status: MediaStatus;
 
@@ -91,6 +92,8 @@ export interface CityUpsertPayload {
 
   // JSON (tipi opachi, tipizzati come Json per Supabase)
   patron_details: Json | null;
+  /** D72 — colonna dedicata; lowercase DB values. */
+  patron_editorial_status: PatronEditorialStatusDb | null;
   ratings: Json | null;
   gallery: Json | null;
   generation_logs: Json | null;
@@ -126,7 +129,7 @@ export interface PoiUpsertPayload {
   image_url: string;
   image_status: MediaStatus;
   image_credit: string | null;
-  image_license: string | null;
+  image_license: ImageLicense | null;
 
   // Coordinate
   coords_lat: number;
@@ -230,7 +233,6 @@ export interface SponsorRequestUpsertPayload {
   requester_email: string;
   requester_phone: string;
   address: string | null;
-  status: SponsorLifecycleStatus;
   type: Sponsor['type'];
   tier: SponsorTier;
   amount: number;
@@ -248,11 +250,6 @@ export interface SponsorRequestUpsertPayload {
   license_number?: string | null;
   start_date?: string | null;
   end_date?: string | null;
-  /**
-   * Campo di dominio gestito dalle RPC di cambio status.
-   * Presente solo per allineamento schema / lettura tipi — non impostarlo da client.
-   */
-  status_changed_at?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

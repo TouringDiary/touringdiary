@@ -41,6 +41,8 @@ export type AppConfigs = {
   favicon_image?: string | null;
   category_placeholders?: Record<string, string> | null;
   suitcase_placeholders?: Record<string, string> | null;
+  famous_person_category_placeholders?: Record<string, string> | null;
+  famous_person_general_placeholder?: string | null;
   collaboration_live_config?: unknown;
   workspace_engine_config?: unknown;
   design_system_snapshot?: unknown;
@@ -109,7 +111,13 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // S.2: shell is already ready (isShellReady). This await fills the settings cache;
         // it is NOT the bootstrap gate. Full Config exists only for specialist consumers
         // (Admin, partner, GPS options, taxonomy, …) — never to unlock MainLayout.
-        await loadGlobalCache();
+        const cacheLoaded = await loadGlobalCache();
+        if (!cacheLoaded) {
+          console.error(
+            '[ConfigContext] Global settings cache load failed — config not fully loaded.',
+          );
+          return;
+        }
 
         // Phase A (S.1) — Snapshot + first-paint rules only. Own object; not mutated later.
         const snapshotKey = SETTINGS_KEYS.DESIGN_SYSTEM_SNAPSHOT;
@@ -129,18 +137,20 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           phaseB[key] = setting !== null && setting !== undefined ? setting : null;
         }
 
-        // Two setConfigs are intentional (DOC-38 S.1 Snapshot-first, S.2 progressive Config):
-        // 1) publish Snapshot bag ASAP; 2) publish full bag, then mark Fully Loaded.
-        // Same async continuation → React 18 may batch into one paint; bags stay distinct
-        // objects so we never mutate a published snapshot. Do not collapse into one set
-        // without an explicit product decision to drop intermediate Snapshot publish.
+        // S.1 Snapshot-first (logical): phaseA is assembled as a distinct object before phaseB.
+        // S.2 progressive Config: phaseB spreads phaseA and adds specialist keys without mutating
+        // the snapshot bag. React 18 may batch both setConfigs into a single paint — an intermediate
+        // render with only phaseA is NOT guaranteed. Consumers that need the full specialist bag
+        // must gate on isConfigFullyLoaded, not on observing phaseA in isolation.
         setConfigs(phaseA);
         setConfigs(phaseB);
         setIsConfigFullyLoaded(true);
         console.log('[ConfigContext] Config fully loaded (shell was already ready).');
       } catch (error) {
+        // S.2: shell stays ready (isShellReady); "fully loaded" means cache + Snapshot applied.
+        // On failure the specialist bag was not published — keep isConfigFullyLoaded false so
+        // Admin/consumers can distinguish failed load from success (refreshConfig may retry).
         console.error('[ConfigContext] ERROR during loadConfig. Shell remains ready.', error);
-        setIsConfigFullyLoaded(true);
       }
 
       // Design remoto async — S.1; never gates shell.

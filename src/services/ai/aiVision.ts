@@ -1,3 +1,7 @@
+import {
+  asPortraitQuotaExceededError,
+  isAiProviderQuotaExhaustedError,
+} from '@/services/ai/aiEdgeErrors';
 import { aiGateway } from '@/services/ai/aiGateway';
 import {
   buildImageCaptionPrompt,
@@ -12,20 +16,19 @@ import { cleanJsonOutput, withRetry } from './aiUtils';
 
 function isValidBase64(str: string): boolean {
   const clean = str.replace(/\s+/g, '');
-  if (!clean) return false;
-  if (clean.length % 4 !== 0) return false;
+  if (!clean || clean.length % 4 !== 0) return false;
 
-  const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/;
-  if (!base64Regex.test(clean)) return false;
+  const padStart = clean.indexOf('=');
+  if (padStart === -1) {
+    return /^[A-Za-z0-9+/]+$/.test(clean);
+  }
 
-  const firstEqualIdx = clean.indexOf('=');
-  if (firstEqualIdx !== -1) {
-    if (firstEqualIdx < clean.length - 2) {
-      return false;
-    }
-    if (clean.length - firstEqualIdx === 2 && clean[clean.length - 1] !== '=') {
-      return false;
-    }
+  // '=' ammessi solo in coda (1 o 2 caratteri di padding).
+  if (padStart < clean.length - 2) return false;
+  if (!/^[A-Za-z0-9+/]+={1,2}$/.test(clean)) return false;
+
+  for (let i = padStart; i < clean.length; i++) {
+    if (clean[i] !== '=') return false;
   }
 
   return true;
@@ -77,6 +80,22 @@ function extractBase64Payload(base64Image: string): string {
     throw new Error('Invalid Base64 payload structure.');
   }
   return trimmed;
+}
+
+/** Extension from MIME in Gemini inline Data URL; null = formato immagine non supportato per upload. */
+function portraitFileExtensionFromDataUrl(dataUrl: string): string | null {
+  const mime = resolveImageMimeType(dataUrl);
+  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/webp') return 'webp';
+  return null;
+}
+
+function portraitUploadFileName(personName: string, dataUrl: string): string | null {
+  const ext = portraitFileExtensionFromDataUrl(dataUrl);
+  if (!ext) return null;
+  const safeName = personName.replace(/\s/g, '_').replace(/[^\w.-]/g, '');
+  return `portrait_${safeName}_${Date.now()}.${ext}`;
 }
 
 export const generateImageCaption = async (
@@ -172,16 +191,32 @@ export const generateHistoricalPortrait = async (
       { feature: 'vision' },
     );
 
-    const base64Data = extractInlineDataFromRaw(response.raw);
-    if (base64Data) {
-      const file = dataURLtoFile(
-        base64Data,
-        `portrait_${personName.replace(/\s/g, '_')}_${Date.now()}.png`,
-      );
-      const publicUrl = await uploadPublicMedia(file, 'people_portraits');
-      if (publicUrl) return publicUrl;
+    const dataUrl = extractInlineDataFromRaw(response.raw);
+    if (!dataUrl) {
+      console.warn('[AI Vision] generateHistoricalPortrait: nessun inlineData nella risposta.');
+      return null;
     }
+
+    const uploadName = portraitUploadFileName(personName, dataUrl);
+    if (!uploadName) {
+      console.warn(
+        '[AI Vision] generateHistoricalPortrait: MIME immagine non supportato per upload portrait.',
+      );
+      return null;
+    }
+
+    const file = dataURLtoFile(dataUrl, uploadName);
+    const publicUrl = await uploadPublicMedia(file, 'people_portraits');
+    if (!publicUrl) {
+      console.warn('[AI Vision] generateHistoricalPortrait: upload Storage fallito.');
+      return null;
+    }
+    return publicUrl;
   } catch (e) {
+    if (isAiProviderQuotaExhaustedError(e)) {
+      console.warn('[AI Vision] generateHistoricalPortrait quota exhausted; skipping retries.', e);
+      throw asPortraitQuotaExceededError(e);
+    }
     console.warn('[AI Vision] generateHistoricalPortrait failed.', e);
   }
 

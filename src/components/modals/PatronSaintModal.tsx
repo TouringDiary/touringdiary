@@ -1,6 +1,6 @@
-import { BookOpen, Calendar, Info, Pencil } from 'lucide-react';
+import { BookOpen, Calendar, Info, MessageSquarePlus, Pencil } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -8,11 +8,13 @@ import {
   buildAdminCityEditTarget,
 } from '@/components/admin/adminCityEditNav';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
+import { isPatronPublicContentHidden } from '@/constants/governance';
 import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { resolvePatronDisplayImageUrl } from '@/domain/patron/resolvePatronDisplayImageUrl';
 import { useCityPatronGallery } from '@/hooks/patron/useCityPatronGallery';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { usePatronMasterImageUrl } from '@/hooks/usePatronMasterImageUrl';
+import { resolvePatronPrimaryImageUrl } from '@/services/media/imageAssignmentVisibilityService';
 import type { CityPatronGalleryPhoto } from '@/types/models/patronGallery';
 import type { User } from '@/types/users';
 import type { CityDetails } from '../../types/index';
@@ -113,9 +115,30 @@ const renderPatronContent = (text: string): ReactNode => {
 export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Props) => {
   const navigate = useNavigate();
   const patron = city.details.patronDetails;
+  const patronEditorialStatus = city.details.patronEditorialStatus;
+  const isPatronGateActive = isPatronPublicContentHidden(patronEditorialStatus);
   const masterPatronUrl = usePatronMasterImageUrl();
   const displayImageUrl = resolvePatronDisplayImageUrl(patron, masterPatronUrl);
-  const { photos, isLoading, reload } = useCityPatronGallery(city.id, isOpen);
+  const [visibleHeroImageUrl, setVisibleHeroImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || isPatronGateActive || !displayImageUrl) {
+      setVisibleHeroImageUrl(null);
+      return;
+    }
+    let cancelled = false;
+    void resolvePatronPrimaryImageUrl(city.id, displayImageUrl).then((url) => {
+      if (!cancelled) setVisibleHeroImageUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isPatronGateActive, city.id, displayImageUrl]);
+
+  const { photos, isLoading, reload } = useCityPatronGallery(
+    city.id,
+    isOpen && !isPatronGateActive,
+  );
   const patronDisplayName = stripTags(patron?.name ?? city.details.patron ?? '');
 
   const [showSuggestModal, setShowSuggestModal] = useState(false);
@@ -197,7 +220,23 @@ export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Pr
             </div>
           </div>
 
-          {patron ? (
+          {isPatronGateActive ? (
+            <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 md:py-24 text-center bg-[#020617]">
+              <p className="text-slate-400 text-sm md:text-base max-w-md mb-8 leading-relaxed">
+                Il contenuto del Santo Patrono non è al momento disponibile per{' '}
+                <span className="text-white font-semibold">{city.name}</span>. Puoi suggerire
+                informazioni o materiali alla community.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowSuggestModal(true)}
+                className="inline-flex items-center justify-center gap-2 min-h-12 px-8 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black uppercase tracking-widest text-sm shadow-lg shadow-amber-900/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
+              >
+                <MessageSquarePlus className="w-5 h-5" aria-hidden />
+                Suggerisci
+              </button>
+            </div>
+          ) : patron ? (
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar bg-[#020617]">
               <div className="px-6 md:px-12 py-6 md:py-8 relative">
                 <div className="absolute top-10 right-10 opacity-[0.02] pointer-events-none select-none">
@@ -207,7 +246,7 @@ export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Pr
                 <div className="max-w-3xl mx-auto relative z-floating-panel space-y-8">
                   <div className="relative aspect-[16/9] md:aspect-[21/9] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-black">
                     <ImageWithFallback
-                      src={displayImageUrl || undefined}
+                      src={visibleHeroImageUrl || undefined}
                       alt={patronDisplayName}
                       objectFit="cover"
                       className="absolute inset-0 h-full w-full"

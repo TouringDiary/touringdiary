@@ -1,5 +1,14 @@
+import {
+  CITY_BADGE_VALUES,
+  CITY_STATUS_VALUES,
+  fromEditorialStatusDb,
+  IMAGE_LICENSE_VALUES,
+  type ImageLicense,
+  POI_CATEGORY_VALUES,
+} from '@/constants/governance';
 import { GEO_CONFIG } from '../../constants/geoConfig';
 import type { DatabaseCityRouteView } from '../../types/database';
+import type * as Domain from '../../types/domain/index';
 import type {
   CityDetails,
   CityEvent,
@@ -12,8 +21,13 @@ import type {
   MediaAsset,
   PointOfInterest,
 } from '../../types/index';
+import type { Json } from '../../types/supabase';
 import { sanitizeMediaStatus } from '../../utils/media';
 import { calculateDistance } from '../geo';
+import {
+  maskSuspendedPrimaryImagesForPeople,
+  maskSuspendedPrimaryImagesForPois,
+} from '../media/imageAssignmentVisibilityService';
 import { supabase } from '../supabaseClient';
 import { getFromCache, LONG_CACHE_TTL, setInCache } from './cityCache';
 import {
@@ -65,16 +79,195 @@ const DEFAULT_RATINGS = {
   sicurezza: 50,
 };
 
+const CITY_STATUS_SET = new Set<string>(CITY_STATUS_VALUES);
+const CITY_BADGE_SET = new Set<string>(CITY_BADGE_VALUES);
+const IMAGE_LICENSE_SET = new Set<string>(IMAGE_LICENSE_VALUES);
+
+const POI_CATEGORY_BY_VALUE = Object.fromEntries(
+  POI_CATEGORY_VALUES.map((value) => [value, value]),
+) as Record<(typeof POI_CATEGORY_VALUES)[number], (typeof POI_CATEGORY_VALUES)[number]>;
+
 /**
- * Categorie POI centralizzate per evitare stringhe hardcoded.
+ * Categorie POI centralizzate — valori derivati da POI_CATEGORY_VALUES (governance).
  */
 export const POI_CATEGORIES = {
-  MONUMENT: 'monument',
-  FOOD: 'food',
-  HOTEL: 'hotel',
-  LEISURE: 'leisure',
-  DISCOVERY: 'discovery',
+  MONUMENT: POI_CATEGORY_BY_VALUE.monument,
+  FOOD: POI_CATEGORY_BY_VALUE.food,
+  HOTEL: POI_CATEGORY_BY_VALUE.hotel,
+  LEISURE: POI_CATEGORY_BY_VALUE.leisure,
+  DISCOVERY: POI_CATEGORY_BY_VALUE.discovery,
 } as const;
+
+function parseCityStatusFromDb(raw: string | null | undefined): CitySummary['status'] {
+  if (raw == null || String(raw).trim() === '') return 'published';
+  const normalized = String(raw).trim().toLowerCase();
+  if (CITY_STATUS_SET.has(normalized)) return normalized as CitySummary['status'];
+  console.warn(`[cityReadService] Unknown city status "${raw}" — using needs_check`);
+  return 'needs_check';
+}
+
+function parseImageLicenseFromDb(raw: string | null | undefined): ImageLicense | undefined {
+  if (raw == null || String(raw).trim() === '') return undefined;
+  const normalized = String(raw).trim().toLowerCase();
+  if (IMAGE_LICENSE_SET.has(normalized)) return normalized as ImageLicense;
+  console.warn(`[cityReadService] Unknown image_license "${raw}"`);
+  return undefined;
+}
+
+function parseSpecialBadgeFromDb(
+  raw: string | null | undefined,
+): CitySummary['specialBadge'] | undefined {
+  if (raw == null || String(raw).trim() === '') return undefined;
+  const normalized = String(raw).trim().toLowerCase();
+  if (CITY_BADGE_SET.has(normalized)) return normalized as CitySummary['specialBadge'];
+  console.warn(`[cityReadService] Unknown special_badge "${raw}"`);
+  return undefined;
+}
+
+function parseClassificationExplainability(
+  value: Json | null | undefined,
+): Record<string, number> | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const out: Record<string, number> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'number' && Number.isFinite(entry)) {
+      out[key] = entry;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** Campi `cities` letti da cityRowToRouteView / readCityRowJsonFields (contratto endpoint, non validati runtime). */
+type CityDetailsApiRowFields = Pick<
+  Domain.DbCity,
+  | 'slug'
+  | 'generation_logs'
+  | 'coords_lat'
+  | 'coords_lng'
+  | 'updated_at'
+  | 'status'
+  | 'continent'
+  | 'nation'
+  | 'admin_region'
+  | 'region_id'
+  | 'zone'
+  | 'tourist_zone_id'
+  | 'description'
+  | 'image_url'
+  | 'hero_image'
+  | 'rating'
+  | 'visitors'
+  | 'is_featured'
+  | 'special_badge'
+  | 'home_order'
+  | 'city_types'
+  | 'classification_explainability'
+  | 'created_at'
+  | 'subtitle'
+  | 'history_snippet'
+  | 'history_full'
+  | 'official_website'
+  | 'patron_details'
+  | 'image_status'
+  | 'hero_status'
+  | 'image_credit'
+  | 'image_license'
+  | 'ratings'
+  | 'gallery'
+>;
+
+/**
+ * Boundary dedicato per GET /api/city/:cityId/details (`city` = `select *` su `cities`).
+ * Identità (id, name) obbligatoria; altri campi opzionali a livello di tipo perché il guard
+ * runtime non ne garantisce presenza né forma — si fidano del contratto endpoint/DB.
+ */
+type CityDetailsApiRow = Pick<Domain.DbCity, 'id' | 'name'> &
+  Partial<CityDetailsApiRowFields> & {
+    patron_editorial_status?: string | null;
+  };
+
+/** Identità minima verificata runtime: id + name. Non valida la shape completa della riga. */
+type CityDetailsApiIdentity = Pick<Domain.DbCity, 'id' | 'name'>;
+
+/**
+ * Minimal identity guard per il payload `city` dell'endpoint details.
+ * Accetta la riga solo se id e name sono stringhe; NON valida gli altri campi del boundary.
+ */
+function isCityDetailsApiIdentity(value: unknown): value is CityDetailsApiIdentity {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.id === 'string' && typeof record.name === 'string';
+}
+
+type CityRowJsonFields = {
+  ratings?: Json | null;
+  gallery?: Json | null;
+  patron_editorial_status?: string | null;
+};
+
+function readCityRowJsonFields(row: CityDetailsApiRow): CityRowJsonFields {
+  const record = row as Record<string, unknown>;
+  const patronStatus = record.patron_editorial_status;
+  return {
+    ratings: row.ratings,
+    gallery: row.gallery,
+    patron_editorial_status: typeof patronStatus === 'string' ? patronStatus : null,
+  };
+}
+
+/** Adatta una riga `cities` (API/Supabase) al contratto del mapper canonico. */
+function cityRowToRouteView(row: CityDetailsApiRow): DatabaseCityRouteView {
+  const slug = row.slug ?? row.id;
+  const generationLogs = Array.isArray(row.generation_logs)
+    ? row.generation_logs.filter((entry): entry is string => typeof entry === 'string')
+    : undefined;
+
+  return {
+    city_id: row.id,
+    id: row.id,
+    slug,
+    name: row.name,
+    city_name: row.name,
+    city_slug: slug,
+    // Normalizzazione tecnica: 0 ≠ GPS valido. Assenza DB → 0 non è posizione pubblica reale;
+    // la pubblicazione con coordinate GPS richiede valori presenti e validi (audit/review guard).
+    coords_lat: row.coords_lat ?? 0,
+    coords_lng: row.coords_lng ?? 0,
+    zone_slug: '',
+    region_slug: '',
+    nation_slug: '',
+    continent_slug: '',
+    updated_at: row.updated_at ?? '',
+    status: parseCityStatusFromDb(row.status),
+    generation_logs: generationLogs,
+    continent: row.continent ?? undefined,
+    nation: row.nation ?? undefined,
+    admin_region: row.admin_region ?? undefined,
+    region_id: row.region_id ?? undefined,
+    zone: row.zone ?? undefined,
+    tourist_zone_id: row.tourist_zone_id ?? undefined,
+    description: row.description ?? undefined,
+    image_url: row.image_url ?? undefined,
+    hero_image: row.hero_image ?? undefined,
+    rating: row.rating ?? undefined,
+    visitors: row.visitors ?? undefined,
+    is_featured: row.is_featured ?? undefined,
+    special_badge: parseSpecialBadgeFromDb(row.special_badge),
+    home_order: row.home_order ?? undefined,
+    city_types: row.city_types ?? undefined,
+    classification_explainability: row.classification_explainability ?? undefined,
+    created_at: row.created_at ?? undefined,
+    subtitle: row.subtitle ?? undefined,
+    history_snippet: row.history_snippet ?? undefined,
+    history_full: row.history_full ?? undefined,
+    official_website: row.official_website ?? undefined,
+    patron_details: row.patron_details ?? undefined,
+    image_status: row.image_status,
+    hero_status: row.hero_status,
+    image_credit: row.image_credit ?? undefined,
+    image_license: row.image_license ?? undefined,
+  };
+}
 
 /**
  * Mapper esplicito da DatabaseCityRouteView a CitySummary.
@@ -86,6 +279,7 @@ const mapDbCityToSummary = (
   const id = db.city_id || db.id;
   if (!id) return null;
 
+  // Stesso contratto di cityRowToRouteView: fallback 0 = normalizzazione mapper, non GPS pubblicato.
   const lat = Number(db.coords_lat ?? 0);
   const lng = Number(db.coords_lng ?? 0);
   const hasContent = Array.isArray(db.generation_logs) && db.generation_logs.length > 0;
@@ -117,7 +311,7 @@ const mapDbCityToSummary = (
     imageUrl,
     image_status: sanitizeMediaStatus(db.image_status),
     imageCredit: db.image_credit || undefined,
-    imageLicense: (db.image_license as CitySummary['imageLicense']) || undefined,
+    imageLicense: parseImageLicenseFromDb(db.image_license),
     imageAsset: parseMediaAsset(imageUrl, db.image_status, db.image_credit, db.image_license),
     heroImage,
     hero_status: sanitizeMediaStatus(db.hero_status),
@@ -125,18 +319,18 @@ const mapDbCityToSummary = (
     rating: db.rating || 0,
     visitors: db.visitors || 0,
     isFeatured: db.is_featured || false,
-    specialBadge:
-      db.special_badge != null ? (db.special_badge as CitySummary['specialBadge']) : undefined,
+    specialBadge: parseSpecialBadgeFromDb(db.special_badge),
     homeOrder: db.home_order ?? undefined,
     coords: { lat, lng },
-    status: (db.status as CitySummary['status']) || 'published',
+    status: parseCityStatusFromDb(db.status),
     createdAt: db.created_at || '',
     updatedAt: db.updated_at || '',
     publishedAt: db.published_at || '',
-    tags: (db.city_types as string[]) || [],
-    cityTypes: (db.city_types as string[]) || [],
-    classificationExplainability:
-      (db.classification_explainability as Record<string, number>) || undefined,
+    tags: db.city_types ?? [],
+    cityTypes: db.city_types ?? [],
+    classificationExplainability: parseClassificationExplainability(
+      db.classification_explainability,
+    ),
     hasGeneratedContent: hasContent,
     continent_slug: db.continent_slug || undefined,
     nation_slug: db.nation_slug || undefined,
@@ -159,6 +353,7 @@ const mapDbCityToDetails = (
     famousPeople: FamousPerson[];
   },
   zoneMap?: Map<string, string>,
+  cityRowJson?: CityRowJsonFields,
 ): CityDetails | null => {
   if (!db) return null;
   const summary = mapDbCityToSummary(db, zoneMap);
@@ -192,12 +387,15 @@ const mapDbCityToDetails = (
         db.image_license,
       ),
       patron: parsePatron(db.patron_details)?.name || '',
+      patronEditorialStatus: fromEditorialStatusDb(
+        cityRowJson?.patron_editorial_status ?? db.patron_editorial_status,
+      ),
       patronDetails: parsePatron(db.patron_details) || undefined,
       ratings: {
         ...DEFAULT_RATINGS,
-        ...parseRatings(db.ratings),
+        ...parseRatings(cityRowJson?.ratings ?? db.ratings),
       } as CityDetails['details']['ratings'],
-      gallery: parseGallery(db.gallery),
+      gallery: parseGallery(cityRowJson?.gallery ?? db.gallery),
       events,
       services,
       guides,
@@ -258,7 +456,9 @@ export const getFullManifestAsync = async (
   const { data: zonesData } = await supabase.from('tourist_zones').select('id, name');
   const zoneMap = new Map<string, string>();
   if (zonesData) {
-    zonesData.forEach((z) => zoneMap.set(z.id, z.name));
+    zonesData.forEach((z) => {
+      zoneMap.set(z.id, z.name);
+    });
   }
 
   // Normalizzazione dati tramite mapper canonico
@@ -294,7 +494,9 @@ export const getCityDetails = async (
   const { data: zonesData } = await supabase.from('tourist_zones').select('id, name');
   const zoneMap = new Map<string, string>();
   if (zonesData) {
-    zonesData.forEach((z) => zoneMap.set(z.id, z.name));
+    zonesData.forEach((z) => {
+      zoneMap.set(z.id, z.name);
+    });
   }
 
   // 1. TENTA IL CARICAMENTO TRAMITE API LOCALE (1 chiamata invece di 6)
@@ -304,26 +506,30 @@ export const getCityDetails = async (
     });
     if (response.ok) {
       const apiRes = await response.json();
-      if (apiRes.success && apiRes.city) {
-        const apiCity = apiRes.city;
+      if (apiRes.success && apiRes.city && isCityDetailsApiIdentity(apiRes.city)) {
+        const routeView = cityRowToRouteView(apiRes.city);
         const pois = (apiRes.pois || []).map(mapDbPoiToApp);
         const events = (apiRes.events || []).map(parseEvent);
         const services = (apiRes.services || []).map(parseService);
         const tourOperators = (apiRes.tour_operators || []).map(parseTourOperator);
         const guides = (apiRes.guides || []).map(parseGuide);
-        const people = filterFamousPeopleByAudience(
+        let people = filterFamousPeopleByAudience(
           (apiRes.people || []).map(parsePerson),
           peopleAudience,
         ).sort((a: FamousPerson, b: FamousPerson) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
+        let visiblePois = pois;
+        if (peopleAudience === 'public') {
+          people = await maskSuspendedPrimaryImagesForPeople(people, cityId);
+          visiblePois = await maskSuspendedPrimaryImagesForPois(pois, cityId);
+        }
+
         let result: CityDetails | null = null;
 
-        // API locale restituisce già un oggetto compatibile CityDetails
-        // mentre Supabase usa DatabaseCityRouteView.
         result = mapDbCityToDetails(
-          apiCity as DatabaseCityRouteView,
+          routeView,
           {
-            pois,
+            pois: visiblePois,
             events,
             services,
             guides,
@@ -331,6 +537,7 @@ export const getCityDetails = async (
             famousPeople: people,
           },
           zoneMap,
+          readCityRowJsonFields(apiRes.city),
         );
 
         if (!result) return null;
@@ -358,7 +565,7 @@ export const getCityDetails = async (
     .maybeSingle();
 
   if (cityErr || !cityData) return null;
-  const dbCity = cityData as unknown as DatabaseCityRouteView;
+  const dbCity = cityRowToRouteView(cityData);
 
   const [pois, events, services, guides, tourOperators, people] = await Promise.all([
     getPoisByCityId(cityId),
@@ -368,14 +575,19 @@ export const getCityDetails = async (
     getCityTourOperators(cityId),
     getCityPeople(cityId, peopleAudience),
   ]);
-  const sortedPeople = people.sort(
+  let sortedPeople = people.sort(
     (a: FamousPerson, b: FamousPerson) => (a.orderIndex || 0) - (b.orderIndex || 0),
   );
+  let visiblePois = pois;
+  if (peopleAudience === 'public') {
+    sortedPeople = await maskSuspendedPrimaryImagesForPeople(sortedPeople, cityId);
+    visiblePois = await maskSuspendedPrimaryImagesForPois(pois, cityId);
+  }
 
   const result = mapDbCityToDetails(
     dbCity,
     {
-      pois,
+      pois: visiblePois,
       events,
       services,
       guides,
@@ -383,6 +595,7 @@ export const getCityDetails = async (
       famousPeople: sortedPeople,
     },
     zoneMap,
+    readCityRowJsonFields(cityData),
   );
 
   if (!result) return null;
@@ -578,7 +791,7 @@ export const fetchGlobalCityMediaInfo = async (): Promise<
  * Questa è l'unica funzione autorizzata a eseguire lookup d'identità per il dominio City.
  */
 export const resolveCityIdentity = async (input: string): Promise<CityIdentity | null> => {
-  if (!input || !input.trim()) return null;
+  if (!input?.trim()) return null;
 
   const { data, error } = await supabase
     .from('cities')
@@ -586,7 +799,7 @@ export const resolveCityIdentity = async (input: string): Promise<CityIdentity |
     .ilike('name', input.trim())
     .maybeSingle();
 
-  if (error || !data || !data.slug) return null;
+  if (error || !data?.slug) return null;
 
   return {
     id: data.id,

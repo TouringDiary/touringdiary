@@ -59,6 +59,8 @@ export const SETTINGS_KEYS = {
   FAVICON_IMAGE: 'favicon_image',
   CATEGORY_PLACEHOLDERS: 'category_placeholders',
   SUITCASE_PLACEHOLDERS: 'suitcase_placeholders',
+  FAMOUS_PERSON_CATEGORY_PLACEHOLDERS: 'famous_person_category_placeholders',
+  FAMOUS_PERSON_GENERAL_PLACEHOLDER: 'famous_person_general_placeholder',
   /** Former Asset Globali URLs — Placeholder origin tombstones for Photo write-boundary. */
   RETIRED_PLATFORM_PLACEHOLDER_URLS: 'retired_platform_placeholder_urls',
 
@@ -102,17 +104,21 @@ const settingsCache: Map<string, Json> = new Map();
 let designRulesCache: StyleRule[] | null = null;
 /** Regole Design arrivate con `/api/bootstrap/all` — solo seed first-paint se Snapshot assente. */
 let bootstrapDesignRulesHint: StyleRule[] | null = null;
-let pendingLoadPromise: Promise<void> | null = null;
+let pendingLoadPromise: Promise<boolean> | null = null;
 
 export const getBootstrapDesignRulesHint = (): StyleRule[] | null => bootstrapDesignRulesHint;
 
-export const loadGlobalCache = async (): Promise<void> => {
+/**
+ * Popola la cache globale settings. Ritorna `true` solo se almeno un percorso
+ * (API bootstrap o fallback Supabase) ha completato con successo il caricamento.
+ */
+export const loadGlobalCache = async (): Promise<boolean> => {
   if (pendingLoadPromise) return pendingLoadPromise;
 
   console.log('[Cache] Starting loadGlobalCache...');
   const startTime = Date.now();
 
-  pendingLoadPromise = (async () => {
+  pendingLoadPromise = (async (): Promise<boolean> => {
     try {
       // 1. TENTA IL CARICAMENTO TRAMITE API LOCALE (MOLTO PIÙ VELOCE IN IFRAME)
       try {
@@ -138,7 +144,7 @@ export const loadGlobalCache = async (): Promise<void> => {
               settingsCache.size,
               'settings',
             );
-            return; // Successo via API -> Esci
+            return true;
           }
         }
       } catch (apiError) {
@@ -165,7 +171,7 @@ export const loadGlobalCache = async (): Promise<void> => {
 
       if (error) {
         console.error('[Cache] Failed to fetch global settings from Supabase:', error);
-        return;
+        return false;
       }
 
       if (data) {
@@ -178,10 +184,14 @@ export const loadGlobalCache = async (): Promise<void> => {
           settingsCache.size,
           'keys',
         );
+        return true;
       }
+
+      return false;
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
       console.error('[Cache] Error/Timeout during global cache load:', message);
+      return false;
     } finally {
       pendingLoadPromise = null;
     }
@@ -219,12 +229,10 @@ export const getPlatformPlaceholderRegistryAsync =
     return getPlatformPlaceholderRegistry();
   };
 
-/**
- * Record URLs that leave Asset Globali as retired Placeholder origin.
- * Photo write-boundary (`assertPhotographWrite`) reads them via the registry.
- * Call **before** clearing/replacing the active setting so origin is never lost.
- */
-export const retirePlatformPlaceholderUrls = async (
+/** Serializes retire registry writes within this client instance (read-merge-save is not atomic). */
+let retirePlatformPlaceholderQueue: Promise<void> = Promise.resolve();
+
+const retirePlatformPlaceholderUrlsImpl = async (
   urls: ReadonlyArray<string | null | undefined>,
 ): Promise<string[]> => {
   const existing =
@@ -237,6 +245,24 @@ export const retirePlatformPlaceholderUrls = async (
 
   await saveSetting(SETTINGS_KEYS.RETIRED_PLATFORM_PLACEHOLDER_URLS, merged);
   return merged;
+};
+
+/**
+ * Record URLs that leave Asset Globali as retired Placeholder origin.
+ * Photo write-boundary (`assertPhotographWrite`) reads them via the registry.
+ * Call after the active setting SoT update succeeds so origin is not lost on replacement.
+ */
+export const retirePlatformPlaceholderUrls = async (
+  urls: ReadonlyArray<string | null | undefined>,
+): Promise<string[]> => {
+  const operation = retirePlatformPlaceholderQueue.then(() =>
+    retirePlatformPlaceholderUrlsImpl(urls),
+  );
+  retirePlatformPlaceholderQueue = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return operation;
 };
 
 export const getSettings = async (): Promise<GlobalSetting[]> => {

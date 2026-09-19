@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  CommunityPhotoAbuseModal,
+  type CommunityPhotoAbuseTarget,
+} from '@/components/modals/CommunityPhotoAbuseModal';
 import { CommunityPhotoWorkflow } from '@/components/photos/CommunityPhotoWorkflow';
 import { FeatureFlagPausedBanner } from '@/components/platform/FeatureFlagPausedBanner';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
@@ -38,6 +42,8 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
   const [activeTab, setActiveTab] = useState<'official' | 'community'>('community');
   const [cityManifest, setCityManifest] = useState<CitySummary[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [abuseTarget, setAbuseTarget] = useState<CommunityPhotoAbuseTarget | null>(null);
+  const [isAbuseModalOpen, setIsAbuseModalOpen] = useState(false);
 
   useEffect(() => {
     if (!defaultTab) return;
@@ -112,6 +118,23 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
     if (idx !== -1) setLightboxIndex(idx);
   };
 
+  const openAbuseFromLightbox = () => {
+    if (lightboxIndex === null) return;
+    const photoItem = currentPhotos[lightboxIndex];
+    if (!photoItem) return;
+    setAbuseTarget({
+      photoId: photoItem.id,
+      assignmentId: photoItem.assignmentId ?? null,
+      cityId: city.id,
+      cityName: city.name,
+      imageUrl: photoItem.url,
+      storageBucket: photoItem.storageBucket ?? null,
+      storagePath: photoItem.storagePath ?? null,
+      caption: photoItem.description ?? null,
+    });
+    setIsAbuseModalOpen(true);
+  };
+
   const handleNextPhoto = () => {
     if (lightboxIndex !== null && lightboxIndex < currentPhotos.length - 1) {
       setLightboxIndex(lightboxIndex + 1);
@@ -139,8 +162,20 @@ export const CityGallery = ({ city, user, onOpenAuth }: Props) => {
           allPhotos={currentPhotos}
           currentIndex={lightboxIndex ?? 0}
           onGoToPhoto={(idx) => setLightboxIndex(idx)}
+          onReportAbuse={activeTab === 'community' ? openAbuseFromLightbox : undefined}
         />
       )}
+
+      <CommunityPhotoAbuseModal
+        isOpen={isAbuseModalOpen}
+        onClose={() => {
+          setIsAbuseModalOpen(false);
+          setAbuseTarget(null);
+        }}
+        target={abuseTarget}
+        context="city_gallery"
+        user={user}
+      />
 
       {photo.showSuccessModal && (
         <GallerySuccessModal onClose={() => photo.setShowSuccessModal(false)} />

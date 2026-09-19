@@ -22,6 +22,8 @@ export const PLATFORM_PLACEHOLDER_SETTING_KEYS = [
   'favicon_image',
   'category_placeholders',
   'suitcase_placeholders',
+  'famous_person_category_placeholders',
+  'famous_person_general_placeholder',
   /** Former Asset Globali URLs — still Placeholder by origin for Photo writes. */
   'retired_platform_placeholder_urls',
 ] as const;

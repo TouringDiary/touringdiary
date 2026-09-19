@@ -23,11 +23,147 @@ import {
 } from '../constants/platformFeatureFlags';
 import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFlagCache';
 import { dataURLtoFile } from '../utils/common';
+import { parseStorageLocationFromPublicUrl } from '../utils/storagePathFromPublicUrl';
 import { getCityDetails, getFullManifestAsync, resolveCityIdentity } from './city/cityReadService';
+import { upsertEntityImageAssignmentDualWrite } from './media/imageAssignmentDualWriteService';
 import { mapDbPhotoSubmission } from './photoMapper';
+import { mf2EntityImageAssignmentsTable } from './reports/mf2DbClient';
 import { getPlatformPlaceholderRegistryAsync } from './settingsService';
 
 const BUCKET_NAME = 'community-photos';
+
+function attachStorageMeta(photo: PhotoSubmission): PhotoSubmission {
+  if (photo.storageBucket?.trim() && photo.storagePath?.trim()) return photo;
+  const parsed = parseStorageLocationFromPublicUrl(photo.url);
+  if (!parsed) return photo;
+  return {
+    ...photo,
+    storageBucket: parsed.storageBucket,
+    storagePath: parsed.storagePath,
+  };
+}
+
+async function dualWritePhotoSubmissionAssignment(
+  photo: PhotoSubmission,
+  storagePath: string | null,
+): Promise<PhotoSubmission> {
+  const cityId = photo.cityId?.trim();
+  if (!cityId) return photo;
+
+  const withStorage = attachStorageMeta({
+    ...photo,
+    storageBucket: photo.storageBucket ?? BUCKET_NAME,
+    storagePath: photo.storagePath ?? storagePath,
+  });
+
+  try {
+    const assignmentId = await upsertEntityImageAssignmentDualWrite({
+      entityType: 'photo_submission',
+      entityId: photo.id,
+      cityId,
+      assignmentRole: 'primary',
+      source: {
+        imageUrl: withStorage.url,
+        storageBucket: withStorage.storageBucket ?? BUCKET_NAME,
+        storagePath: withStorage.storagePath ?? null,
+        originType: 'community',
+      },
+    });
+    return { ...withStorage, assignmentId };
+  } catch (err) {
+    console.error('[photoService] dual-write photo_submission assignment failed:', err);
+    throw err instanceof Error ? err : new Error('Dual-write foto Community fallito.');
+  }
+}
+
+async function resolveUploadCallerIsAdmin(): Promise<boolean> {
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !authUser?.id) return false;
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.role) return false;
+
+  return profile.role === 'admin_all' || profile.role === 'admin_limited';
+}
+
+type PhotoSubmissionAssignmentRow = {
+  id: string;
+  entity_id: string;
+  assignment_status: string;
+};
+
+/**
+ * Arricchisce le photo_submission con l'assignment MF2 corrente e filtra quelle non pubblicabili.
+ * - Nessun assignment corrente → legacy dual-write: visibile, assignmentId null.
+ * - Assignment corrente active → visibile, assignmentId reale.
+ * - Assignment corrente suspended/removed/replaced → esclusa dalla lista pubblica.
+ */
+async function attachPhotoSubmissionAssignmentIds(
+  photos: PhotoSubmission[],
+): Promise<PhotoSubmission[]> {
+  if (photos.length === 0) return photos;
+
+  const entityIds = [...new Set(photos.map((p) => p.id))];
+  const { data, error } = await mf2EntityImageAssignmentsTable()
+    .select('id, entity_id, assignment_status')
+    .eq('entity_type', 'photo_submission')
+    .in('entity_id', entityIds)
+    .eq('is_current', true);
+
+  if (error) {
+    throw new Error(`Lettura assignment foto Community fallita: ${error.message}`);
+  }
+
+  const assignmentByEntityId = new Map<string, PhotoSubmissionAssignmentRow>();
+  for (const row of (data ?? []) as unknown as PhotoSubmissionAssignmentRow[]) {
+    assignmentByEntityId.set(row.entity_id, row);
+  }
+
+  const enriched: PhotoSubmission[] = [];
+  for (const photo of photos) {
+    const assignment = assignmentByEntityId.get(photo.id);
+    if (!assignment) {
+      enriched.push({ ...photo, assignmentId: null });
+      continue;
+    }
+    if (assignment.assignment_status !== 'active') {
+      continue;
+    }
+    enriched.push({ ...photo, assignmentId: assignment.id });
+  }
+  return enriched;
+}
+
+/** entity_image_assignments.id corrente e attivo per entità MF2 (dual-write §42.15). */
+export async function getCurrentImageAssignmentId(
+  entityType: 'city_person' | 'poi' | 'patron' | 'photo_submission',
+  entityId: string,
+  cityId: string,
+  assignmentRole: 'primary' | 'gallery' = 'primary',
+): Promise<string | null> {
+  const { data, error } = await mf2EntityImageAssignmentsTable()
+    .select('id')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .eq('city_id', cityId)
+    .eq('assignment_role', assignmentRole)
+    .eq('is_current', true)
+    .eq('assignment_status', 'active')
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Lettura assignment corrente fallita: ${error.message}`);
+  }
+  return (data as { id: string } | null)?.id ?? null;
+}
 const PUBLIC_BUCKET = 'public-media';
 
 // Helper Regex UUID (UNICA DEFINIZIONE VALIDA)
@@ -147,7 +283,7 @@ export const propagatePhotoRemoval = async (
         city.details.patronDetails.imageUrl = '';
         changed = true;
       }
-      if (city.details.gallery && city.details.gallery.some((asset) => asset.url === photoUrl)) {
+      if (city.details.gallery?.some((asset) => asset.url === photoUrl)) {
         city.details.gallery = city.details.gallery.filter((asset) => asset.url !== photoUrl);
 
         changed = true;
@@ -160,7 +296,7 @@ export const propagatePhotoRemoval = async (
       }
     }
     return globalChanged;
-  } catch (e) {
+  } catch {
     return false;
   }
 };
@@ -185,7 +321,7 @@ export const syncPhotoDescriptionToCity = async (
       const { saveCityDetails } = await import('./city/cityWriteService');
       await saveCityDetails(city);
     }
-  } catch (e) {}
+  } catch {}
 };
 
 // --------------------------------------------------
@@ -285,13 +421,10 @@ export const uploadCommunityPhoto = async (
     const placeholderRegistry = await getPlatformPlaceholderRegistryAsync();
     assertPhotographWrite({ url: publicUrl, mediaStatus }, placeholderRegistry);
 
-    const isAdmin =
-      userId.startsWith('admin') ||
-      userId.includes('admin') ||
-      userId === 'u_admin_all' ||
-      userId === 'u_admin_limited';
-
-    const initialStatus = forceStatus || (isAdmin ? 'approved' : 'pending');
+    const isAdmin = await resolveUploadCallerIsAdmin();
+    const initialStatus: 'pending' | 'approved' | 'rejected' = isAdmin
+      ? (forceStatus ?? 'approved')
+      : 'pending';
 
     const newRecord: Insert<'photo_submissions'> = {
       user_id: userId,
@@ -315,7 +448,28 @@ export const uploadCommunityPhoto = async (
 
     if (dbError) throw dbError;
 
-    return mapDbPhotoSubmission(data);
+    const mapped = attachStorageMeta(mapDbPhotoSubmission(data));
+    if (!resolvedCityId) {
+      return mapped;
+    }
+
+    try {
+      return await dualWritePhotoSubmissionAssignment(mapped, filePath);
+    } catch (dualWriteErr) {
+      await supabase.from('photo_submissions').delete().eq('id', mapped.id);
+      const { error: storageCleanupError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .remove([filePath]);
+      if (storageCleanupError) {
+        console.error(
+          '[uploadCommunityPhoto] dual-write fallito e cleanup Storage non riuscito:',
+          filePath,
+          storageCleanupError,
+          dualWriteErr,
+        );
+      }
+      throw dualWriteErr;
+    }
   } catch (e) {
     console.error('[photoService] Error in uploadCommunityPhoto:', e);
     return null;
@@ -358,7 +512,7 @@ export const getOrCreatePhotoSubmissionForUrl = async (
     }
 
     if (existing) {
-      const mapped = mapDbPhotoSubmission(existing);
+      const mapped = attachStorageMeta(mapDbPhotoSubmission(existing));
       // Non riesporre Placeholder / non-fotografie legacy alle gallerie.
       if (
         !canRegisterAsPhotograph(
@@ -397,7 +551,14 @@ export const getOrCreatePhotoSubmissionForUrl = async (
 
     if (error) throw error;
 
-    return mapDbPhotoSubmission(created);
+    const mapped = attachStorageMeta(mapDbPhotoSubmission(created));
+    const parsed = parseStorageLocationFromPublicUrl(mapped.url);
+    try {
+      return await dualWritePhotoSubmissionAssignment(mapped, parsed?.storagePath ?? null);
+    } catch (dualWriteErr) {
+      await supabase.from('photo_submissions').delete().eq('id', mapped.id);
+      throw dualWriteErr;
+    }
   } catch (e) {
     console.error('[photoService] Errore in getOrCreatePhotoSubmissionForUrl:', e);
     return null;
@@ -461,7 +622,7 @@ export const listPhotographs = async (
     const currentUserId = withLikes ? (await supabase.auth.getUser()).data.user?.id : undefined;
 
     const mapped = ((data as unknown as DbPhotoWithLikes[] | null) || []).map((p) => {
-      const base = mapDbPhotoSubmission(p);
+      const base = attachStorageMeta(mapDbPhotoSubmission(p));
       if (!withLikes) return base;
       return {
         ...base,
@@ -471,7 +632,9 @@ export const listPhotographs = async (
       };
     });
 
-    return filterPhotographs(mapped);
+    const filtered = filterPhotographs(mapped);
+    const enriched = await attachPhotoSubmissionAssignmentIds(filtered);
+    return enriched.map(attachStorageMeta);
   } catch (err) {
     console.error('[photoService] listPhotographs failed:', err);
     return [];
@@ -532,9 +695,52 @@ export const updatePhotoStatusInDb = async (
   }
 
   try {
-    await supabase.from('photo_submissions').update(updates).eq('id', id);
+    const { data: existing, error: fetchError } = await supabase
+      .from('photo_submissions')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+
+    const { error: updateError } = await supabase
+      .from('photo_submissions')
+      .update(updates)
+      .eq('id', id);
+    if (updateError) throw updateError;
+
+    if (status === 'approved' && existing) {
+      const updatedRow = {
+        ...existing,
+        status,
+        published_at: updates.published_at ?? existing.published_at ?? null,
+        updated_at: updates.updated_at ?? existing.updated_at ?? null,
+      };
+      const mapped = attachStorageMeta(mapDbPhotoSubmission(updatedRow));
+      const parsed = parseStorageLocationFromPublicUrl(mapped.url);
+      try {
+        await dualWritePhotoSubmissionAssignment(mapped, parsed?.storagePath ?? null);
+      } catch (dualWriteErr) {
+        const { error: rollbackError } = await supabase
+          .from('photo_submissions')
+          .update({
+            status: existing.status,
+            published_at: existing.published_at,
+            updated_at: existing.updated_at,
+          })
+          .eq('id', id);
+        if (rollbackError) {
+          console.error(
+            '[photoService] dual-write approvazione fallito e rollback stato submission non riuscito:',
+            rollbackError,
+            dualWriteErr,
+          );
+        }
+        throw dualWriteErr;
+      }
+    }
   } catch (err) {
     console.error('[photoService] Error updating photo status:', err);
+    throw err instanceof Error ? err : new Error('Aggiornamento stato foto fallito.');
   }
 };
 
@@ -546,6 +752,24 @@ export const updatePhotoData = async (
   id: string,
   data: Partial<PhotoSubmission>,
 ): Promise<void> => {
+  const mayChangeMf2Source = data.url !== undefined || data.cityId !== undefined;
+
+  let existing: DatabasePhotoSubmission | null = null;
+  if (mayChangeMf2Source) {
+    const { data: row, error: fetchError } = await supabase
+      .from('photo_submissions')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchError) {
+      throw new Error(`Lettura photo_submission fallita: ${fetchError.message}`);
+    }
+    if (!row) {
+      throw new Error('photo_submission non trovata.');
+    }
+    existing = row;
+  }
+
   const payload: DatabasePhotoSubmissionUpdate = {
     updated_at: new Date().toISOString(),
   };
@@ -556,25 +780,118 @@ export const updatePhotoData = async (
 
   if (data.description) payload.description = data.description;
 
-  if (data.url) {
+  const nextUrl = data.url !== undefined ? data.url.trim() : undefined;
+  const nextCityId = data.cityId !== undefined ? data.cityId.trim() : undefined;
+
+  if (nextUrl !== undefined && nextUrl.length === 0) {
+    throw new Error('image_url non può essere vuoto.');
+  }
+  if (nextCityId !== undefined && nextCityId.length === 0) {
+    throw new Error('city_id non può essere vuoto.');
+  }
+
+  if (nextUrl !== undefined && nextUrl.length > 0) {
     // Write-boundary: image_url updates must pass Photograph domain (same SoT as insert).
     const placeholderRegistry = await getPlatformPlaceholderRegistryAsync();
-    assertPhotographWrite({ url: data.url, mediaStatus: data.mediaStatus }, placeholderRegistry);
-    payload.image_url = data.url;
+    assertPhotographWrite({ url: nextUrl, mediaStatus: data.mediaStatus }, placeholderRegistry);
+    payload.image_url = nextUrl;
   }
 
   if (data.isOfficial !== undefined) payload.is_official = data.isOfficial;
 
-  if (data.cityId) payload.city_id = data.cityId;
+  if (nextCityId !== undefined && nextCityId.length > 0) {
+    payload.city_id = nextCityId;
+  }
+
+  const urlChanged =
+    existing !== null &&
+    nextUrl !== undefined &&
+    nextUrl.length > 0 &&
+    nextUrl !== existing.image_url.trim();
+  const cityChanged =
+    existing !== null &&
+    nextCityId !== undefined &&
+    nextCityId.length > 0 &&
+    nextCityId !== (existing.city_id?.trim() ?? '');
+  const mf2SyncRequired = existing !== null && (urlChanged || cityChanged);
 
   try {
-    await supabase.from('photo_submissions').update(payload).eq('id', id);
+    const { error } = await supabase.from('photo_submissions').update(payload).eq('id', id);
+    if (error) throw error;
+
+    if (mf2SyncRequired && existing) {
+      const oldCityId = existing.city_id?.trim() ?? '';
+      const newCityId = cityChanged ? (nextCityId ?? '') : oldCityId;
+      let newAssignmentId: string | null = null;
+      try {
+        if (newCityId.length > 0) {
+          const updatedRow = {
+            ...existing,
+            image_url: urlChanged ? nextUrl : existing.image_url,
+            city_id: cityChanged ? nextCityId : existing.city_id,
+            updated_at: payload.updated_at ?? existing.updated_at,
+          };
+          const mapped = attachStorageMeta(mapDbPhotoSubmission(updatedRow));
+          const parsed = parseStorageLocationFromPublicUrl(mapped.url);
+          const dualWritten = await dualWritePhotoSubmissionAssignment(
+            mapped,
+            parsed?.storagePath ?? null,
+          );
+          newAssignmentId = dualWritten.assignmentId ?? null;
+        }
+
+        if (cityChanged && oldCityId.length > 0) {
+          const oldAssignmentId = await getCurrentImageAssignmentId(
+            'photo_submission',
+            id,
+            oldCityId,
+          );
+          if (oldAssignmentId) {
+            try {
+              await revokePhotoSubmissionAssignment(id, oldCityId, oldAssignmentId);
+            } catch (revokeOldErr) {
+              if (newAssignmentId && newCityId.length > 0) {
+                try {
+                  await revokePhotoSubmissionAssignment(id, newCityId, newAssignmentId);
+                } catch (compensateErr) {
+                  console.error(
+                    '[photoService] revoca assignment vecchia fallita e compensazione nuova assignment non riuscita:',
+                    compensateErr,
+                    revokeOldErr,
+                  );
+                }
+              }
+              throw revokeOldErr;
+            }
+          }
+        }
+      } catch (dualWriteErr) {
+        const rollbackPayload: DatabasePhotoSubmissionUpdate = {
+          updated_at: existing.updated_at,
+        };
+        if (urlChanged) rollbackPayload.image_url = existing.image_url;
+        if (cityChanged) rollbackPayload.city_id = existing.city_id;
+        const { error: rollbackError } = await supabase
+          .from('photo_submissions')
+          .update(rollbackPayload)
+          .eq('id', id);
+        if (rollbackError) {
+          console.error(
+            '[photoService] dual-write updatePhotoData fallito e rollback submission non riuscito:',
+            rollbackError,
+            dualWriteErr,
+          );
+        }
+        throw dualWriteErr;
+      }
+    }
 
     if (data.description && data.locationName && data.url) {
       await syncPhotoDescriptionToCity(data.url, data.description, data.locationName);
     }
   } catch (err) {
     console.error('[photoService] Error updating photo data:', err);
+    throw err instanceof Error ? err : new Error('Aggiornamento dati foto fallito.');
   }
 };
 
@@ -582,11 +899,77 @@ export const updatePhotoData = async (
 // DELETE PHOTO SUBMISSION
 // --------------------------------------------------
 
+type Mf2AssignmentConditionalUpdateBuilder = {
+  eq: (column: string, value: string | boolean) => Mf2AssignmentConditionalUpdateBuilder;
+  select: (columns: string) => Promise<{
+    data: unknown;
+    error: { message: string } | null;
+  }>;
+};
+
+async function revokePhotoSubmissionAssignment(
+  submissionId: string,
+  cityId: string,
+  assignmentId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const updateClient = mf2EntityImageAssignmentsTable() as unknown as {
+    update: (values: {
+      assignment_status: 'removed';
+      removed_at: string;
+      updated_at: string;
+    }) => Mf2AssignmentConditionalUpdateBuilder;
+  };
+
+  const { data: updatedRows, error: updateError } = await updateClient
+    .update({
+      assignment_status: 'removed',
+      removed_at: now,
+      updated_at: now,
+    })
+    .eq('id', assignmentId)
+    .eq('entity_type', 'photo_submission')
+    .eq('entity_id', submissionId)
+    .eq('city_id', cityId)
+    .eq('assignment_role', 'primary')
+    .eq('is_current', true)
+    .eq('assignment_status', 'active')
+    .select('id');
+
+  if (updateError) {
+    throw new Error(`Revoca assignment photo_submission fallita: ${updateError.message}`);
+  }
+
+  const rows = updatedRows as unknown as { id: string }[] | null;
+  if (!rows || rows.length === 0) {
+    throw new Error(
+      'Revoca assignment photo_submission fallita: nessuna riga aggiornata (stato cambiato).',
+    );
+  }
+}
+
 export const deletePhotoSubmissionInDb = async (id: string): Promise<void> => {
-  try {
-    await supabase.from('photo_submissions').delete().eq('id', id);
-  } catch (err) {
-    console.error('[photoService] Error deleting photo submission:', err);
+  const { data: existing, error: fetchError } = await supabase
+    .from('photo_submissions')
+    .select('id, city_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (fetchError) {
+    throw new Error(`Lettura photo_submission fallita: ${fetchError.message}`);
+  }
+  if (!existing) return;
+
+  const cityId = existing.city_id?.trim() ?? '';
+  if (cityId.length > 0) {
+    const assignmentId = await getCurrentImageAssignmentId('photo_submission', existing.id, cityId);
+    if (assignmentId) {
+      await revokePhotoSubmissionAssignment(existing.id, cityId, assignmentId);
+    }
+  }
+
+  const { error: deleteError } = await supabase.from('photo_submissions').delete().eq('id', id);
+  if (deleteError) {
+    throw new Error(`Eliminazione photo_submission fallita: ${deleteError.message}`);
   }
 };
 

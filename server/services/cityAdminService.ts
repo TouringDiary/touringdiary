@@ -1,45 +1,20 @@
+import { CITY_BADGE_VALUES, CITY_STATUS_VALUES } from '../../src/constants/governance';
+import type { CityUpsertPayload } from '../../src/types/write';
 import { supabaseAdmin } from '../supabaseAdmin';
 
-const ALLOWED_STATUSES = new Set(['draft', 'published', 'needs_check']);
+type CityStatus = (typeof CITY_STATUS_VALUES)[number];
+type CityBadge = (typeof CITY_BADGE_VALUES)[number];
 
-export interface CityWritePayload {
-  id: string;
-  name: string;
-  slug: string | null;
-  continent: string | null;
-  nation: string | null;
-  admin_region: string | null;
-  zone: string | null;
-  coords_lat: number | null;
-  coords_lng: number | null;
-  description: string | null;
-  status: string | null;
-  image_url: string | null;
-  image_status: string;
-  image_credit: string | null;
-  image_license: string | null;
-  hero_image: string | null;
-  hero_status: string;
-  rating: number | null;
-  visitors: number | null;
-  is_featured: boolean | null;
-  special_badge: string | null;
-  home_order: number | null;
-  subtitle: string | null;
-  history_snippet: string | null;
-  history_full: string | null;
-  official_website: string | null;
-  patron_details: unknown;
-  ratings: unknown;
-  gallery: unknown;
-  generation_logs: unknown;
-  updated_at: string;
-}
+const ALLOWED_STATUSES = new Set<string>(CITY_STATUS_VALUES);
+const ALLOWED_BADGES = new Set<string>(CITY_BADGE_VALUES);
+
+/** Contratto condiviso con cityPayloadMapper / CityUpsertPayload. */
+export type CityWritePayload = CityUpsertPayload;
 
 export interface CityManifestPatch {
   name: string;
   zone: string | null;
-  status: string | null;
+  status: CityStatus | null;
   updated_at: string;
 }
 
@@ -106,7 +81,7 @@ export async function persistCityDetails(cityId: string, payload: CityWritePaylo
   return data;
 }
 
-export async function updateCityStatus(cityId: string, status: string) {
+export async function updateCityStatus(cityId: string, status: CityStatus) {
   if (!ALLOWED_STATUSES.has(status)) {
     throw new Error('Invalid status');
   }
@@ -157,7 +132,11 @@ export async function patchCityManifestFields(cityId: string, patch: CityManifes
   return data;
 }
 
-export async function patchCityBadge(cityId: string, special_badge: string | null) {
+export async function patchCityBadge(cityId: string, special_badge: CityBadge | null) {
+  if (special_badge != null && !ALLOWED_BADGES.has(special_badge)) {
+    throw new Error('Invalid city badge');
+  }
+
   const admin = assertAdminClient();
 
   const { data, error } = await admin

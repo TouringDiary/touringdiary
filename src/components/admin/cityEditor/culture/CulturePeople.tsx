@@ -1,4 +1,4 @@
-import { CheckSquare, Eye, Info, Loader2, Plus, Square, Users, Wand2 } from 'lucide-react';
+import { CheckSquare, Eye, Info, Loader2, Plus, Square, Tags, Users, Wand2, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
@@ -8,6 +8,7 @@ import {
   getMissingFamousPersonFields,
 } from '@/domain/city/famousPersonCompleteness';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
+import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import {
   type FamousPersonMasterDto,
   type FamousPersonSpecificDto,
@@ -16,6 +17,7 @@ import {
 import { usePeopleManager } from '../../../../hooks/admin/usePeopleManager';
 import type { FamousPerson, User } from '../../../../types/index';
 import { CultureCornerModal } from '../../../modals/CultureCornerModal';
+import { AdminFamousPeopleCategoriesManager } from '../../AdminFamousPeopleCategoriesManager';
 import { CulturePeopleDiscovery } from './CulturePeopleDiscovery';
 import { CulturePeopleModals } from './CulturePeopleModals';
 import { CulturePersonCard } from './CulturePersonCard';
@@ -86,6 +88,9 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
 
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewInitialId, setPreviewInitialId] = useState<string | undefined>(undefined);
+  const [isCategoriesOverlayOpen, setIsCategoriesOverlayOpen] = useState(false);
+
+  useGlobalModalEscape(isCategoriesOverlayOpen, () => setIsCategoriesOverlayOpen(false));
 
   const [masters, setMasters] = useState<FamousPersonMasterDto[]>([]);
   const [specifics, setSpecifics] = useState<FamousPersonSpecificDto[]>([]);
@@ -329,6 +334,49 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
         peopleListCount={peopleList.length}
       />
 
+      {isCategoriesOverlayOpen ? (
+        <div
+          className="fixed inset-0 z-admin-modal bg-black/90 backdrop-blur-sm flex flex-col animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="culture-people-categories-title"
+        >
+          <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#0f172a] shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 bg-violet-600 rounded-lg shrink-0">
+                <Tags className="w-5 h-5 text-white" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <h2
+                  id="culture-people-categories-title"
+                  className="text-lg font-bold text-white uppercase tracking-wide truncate"
+                >
+                  Categoria Personaggio
+                </h2>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider truncate">
+                  Tassonomia globale · contesto {cityName}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCategoriesOverlayOpen(false)}
+              className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 shrink-0"
+              aria-label="Chiudi gestione categorie Personaggio"
+            >
+              <X className="w-6 h-6" aria-hidden />
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden p-4">
+            <AdminFamousPeopleCategoriesManager
+              embedded
+              contextCityId={cityId}
+              contextCityName={cityName}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {previewModalOpen && city && (
         <CultureCornerModal
           isOpen={true}
@@ -370,6 +418,15 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
                   : 'Magic Fix (Tutti)'}
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setIsCategoriesOverlayOpen(true)}
+            className="bg-slate-800 hover:bg-violet-600 text-slate-400 hover:text-white px-3 py-2.5 min-h-11 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 border border-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50"
+          >
+            <Tags className="w-3.5 h-3.5" aria-hidden />
+            Categoria Personaggio
+          </button>
 
           <div className="w-px h-6 bg-slate-700 mx-1 hidden md:block"></div>
 

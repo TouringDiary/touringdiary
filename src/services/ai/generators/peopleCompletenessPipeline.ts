@@ -1,5 +1,6 @@
 import { getPrimarySpecific } from '@/domain/city/famousPersonCategories';
 import {
+  type FamousPersonPublishGap,
   type FamousPersonRequiredField,
   type FamousPersonTextRequiredField,
   getMissingFamousPersonFields,
@@ -7,6 +8,7 @@ import {
   isFamousPersonRequiredValuePresent,
 } from '@/domain/city/famousPersonCompleteness';
 import { validateFamousPersonDates } from '@/domain/city/famousPersonDates';
+import { isAiProviderQuotaExhaustedError } from '@/services/ai/aiEdgeErrors';
 import { aiGateway } from '@/services/ai/aiGateway';
 import { generateHistoricalPortrait } from '@/services/ai/aiVision';
 import type { FamousPerson } from '@/types/index';
@@ -104,6 +106,13 @@ export type FamousPersonRecoveryResult = {
   missingFields: ReturnType<typeof getMissingFamousPersonFields>;
   /** Tentativi funzionali di recovery eseguiti (0..MAX_AUTO_RECOVERY_ATTEMPTS). */
   recoveryAttemptsUsed: number;
+  /** Quota portrait rilevata durante questa esecuzione (non se skipImageAiRecovery era già true in ingresso). */
+  portraitQuotaExceeded?: boolean;
+};
+
+export type EnsureFamousPersonCompletenessOptions = {
+  /** Evita recovery portrait AI (es. dopo 429/quota già rilevata). */
+  skipImageAiRecovery?: boolean;
 };
 
 /** Label per portrait: specific primaria, altrimenti prima categoria, altrimenti fallback. */
@@ -134,15 +143,11 @@ function normalizeCategoryId(id: unknown): string | undefined {
 function resolveSpecificCategoryIds(
   draft: FamousPersonCompletenessDraft | PersonDiscoveryResult,
 ): string[] {
-  if (
-    'specificCategoryIds' in draft &&
-    Array.isArray(draft.specificCategoryIds) &&
-    draft.specificCategoryIds.length > 0
-  ) {
+  if ('specificCategoryIds' in draft && Array.isArray(draft.specificCategoryIds)) {
     const ids = draft.specificCategoryIds
       .map(normalizeCategoryId)
       .filter((id): id is string => id !== undefined);
-    return [...new Set(ids)];
+    if (ids.length > 0) return [...new Set(ids)];
   }
   if ('categories' in draft && Array.isArray(draft.categories) && draft.categories.length > 0) {
     const ids = draft.categories
@@ -151,6 +156,25 @@ function resolveSpecificCategoryIds(
     return [...new Set(ids)];
   }
   return [];
+}
+
+/** Campi ancora recuperabili via AI in questa sessione (esclude portrait se bloccato). */
+function getRecoverableMissingFields(
+  draft: FamousPersonCompletenessDraft,
+  skipImageAiRecovery: boolean,
+): FamousPersonPublishGap[] {
+  return getMissingFamousPersonFields(draft).filter((field) => {
+    if (field === 'imageUrl' && skipImageAiRecovery) return false;
+    if (field === 'categories' || field === 'name') return false;
+    return true;
+  });
+}
+
+function hasMeaningfulRecoveryWork(
+  draft: FamousPersonCompletenessDraft,
+  skipImageAiRecovery: boolean,
+): boolean {
+  return getRecoverableMissingFields(draft, skipImageAiRecovery).length > 0;
 }
 
 /**
@@ -425,6 +449,7 @@ export const generateFamousPersonRequiredField = async (
     try {
       return await generateHistoricalPortrait(personName, categoryLabel, cityName);
     } catch (e) {
+      if (isAiProviderQuotaExhaustedError(e)) throw e;
       console.error('[peopleCompleteness] generateHistoricalPortrait failed', e);
       return null;
     }
@@ -447,19 +472,30 @@ export const generateFamousPersonRequiredField = async (
  * Con name presente, il recovery testuale (`completePersonTextFieldsFromAi`) è di fatto bio.
  * Categorie: non inventate (restano array/ID già presenti o gap ‘categories’).
  */
+type RecoveryAttemptState = {
+  draft: FamousPersonCompletenessDraft;
+  skipImageAiRecovery: boolean;
+  portraitQuotaExceeded: boolean;
+};
+
 async function runOneRecoveryAttempt(
   draft: FamousPersonCompletenessDraft,
   cityName: string,
-): Promise<FamousPersonCompletenessDraft> {
+  skipImageAiRecovery: boolean,
+): Promise<RecoveryAttemptState> {
   const missing = getMissingFamousPersonFields(draft);
-  if (missing.length === 0) return draft;
+  if (missing.length === 0) {
+    return { draft, skipImageAiRecovery, portraitQuotaExceeded: false };
+  }
 
   let next = { ...draft };
+  let skipImage = skipImageAiRecovery;
+  let portraitQuotaExceeded = false;
   const personName = pickPresentString(next.name);
 
   // Senza nome affidabile: stop. Nessuna identità inventata.
   if (!personName) {
-    return next;
+    return { draft: next, skipImageAiRecovery: skipImage, portraitQuotaExceeded };
   }
 
   // Name già presente → gap testuale recuperabile = bio (mai name).
@@ -481,14 +517,26 @@ async function runOneRecoveryAttempt(
     }
   }
 
-  if (getMissingFamousPersonFields(next).includes('imageUrl')) {
-    const imageUrl = await generateFamousPersonRequiredField(next, cityName, 'imageUrl');
-    if (imageUrl) {
-      next = mergePersonFields(next, { imageUrl });
+  if (!skipImage && getMissingFamousPersonFields(next).includes('imageUrl')) {
+    try {
+      const imageUrl = await generateFamousPersonRequiredField(next, cityName, 'imageUrl');
+      if (imageUrl) {
+        next = mergePersonFields(next, { imageUrl });
+      }
+    } catch (e) {
+      if (isAiProviderQuotaExhaustedError(e)) {
+        skipImage = true;
+        portraitQuotaExceeded = true;
+        console.warn(
+          '[peopleCompleteness] portrait AI quota exhausted; skipping further image recovery.',
+        );
+      } else {
+        console.error('[peopleCompleteness] recovery imageUrl failed', e);
+      }
     }
   }
 
-  return next;
+  return { draft: next, skipImageAiRecovery: skipImage, portraitQuotaExceeded };
 }
 
 /**
@@ -500,14 +548,24 @@ export const ensureFamousPersonCompletenessWithAi = async (
   input: FamousPersonCompletenessDraft | PersonDiscoveryResult,
   cityName: string,
   maxAttempts: number = MAX_AUTO_RECOVERY_ATTEMPTS,
+  options?: EnsureFamousPersonCompletenessOptions,
 ): Promise<FamousPersonRecoveryResult> => {
   let draft = toDraftFromInput(input);
   const attemptBudget = resolveMaxRecoveryAttempts(maxAttempts);
+  let skipImageAiRecovery = options?.skipImageAiRecovery ?? false;
+  let portraitQuotaExceeded = false;
 
   let attempts = 0;
-  while (!isFamousPersonComplete(draft) && attempts < attemptBudget) {
+  while (
+    !isFamousPersonComplete(draft) &&
+    attempts < attemptBudget &&
+    hasMeaningfulRecoveryWork(draft, skipImageAiRecovery)
+  ) {
     attempts += 1;
-    draft = await runOneRecoveryAttempt(draft, cityName);
+    const result = await runOneRecoveryAttempt(draft, cityName, skipImageAiRecovery);
+    draft = result.draft;
+    skipImageAiRecovery = result.skipImageAiRecovery;
+    if (result.portraitQuotaExceeded) portraitQuotaExceeded = true;
   }
 
   const missingFields = getMissingFamousPersonFields(draft);
@@ -516,6 +574,7 @@ export const ensureFamousPersonCompletenessWithAi = async (
     complete: missingFields.length === 0,
     missingFields,
     recoveryAttemptsUsed: attempts,
+    portraitQuotaExceeded: portraitQuotaExceeded || undefined,
   };
 };
 

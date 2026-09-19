@@ -8,9 +8,14 @@ import type {
   Json,
 } from '../../types/database';
 import type { CityEvent, CityGuide, CityService, FamousPerson, Review } from '../../types/index';
+import { parseStorageLocationFromPublicUrl } from '../../utils/storagePathFromPublicUrl';
+import { upsertEntityImageAssignmentDualWrite } from '../media/imageAssignmentDualWriteService';
 import { supabase } from '../supabaseClient';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
-import { computeLifespanDisplayForSave } from './famousPersonCategoryService';
+import {
+  computeLifespanDisplayForSave,
+  replacePersonCategoryLinks,
+} from './famousPersonCategoryService';
 import {
   type CityPeopleAudience,
   filterFamousPeopleByAudience,
@@ -332,12 +337,47 @@ function resolveOptionalDateField(
   return persistedValue ?? null;
 }
 
+const UPSERT_CITY_PERSON_RPC = 'upsert_city_person_with_category_links';
+const UPSERT_CITY_PERSON_MIGRATION = '20260910180000_upsert_city_person_with_category_links.sql';
+
+function normalizeSpecificCategoryIds(ids: string[]): string[] {
+  const normalized = ids
+    .map((id) => (typeof id === 'string' ? id.trim() : ''))
+    .filter((id) => id.length > 0);
+  return [...new Set(normalized)];
+}
+
+function isUpsertCityPersonRpcMissing(error: { code?: string; message?: string }): boolean {
+  if (error.code !== 'PGRST202') return false;
+  const message = error.message ?? '';
+  return message.includes(UPSERT_CITY_PERSON_RPC);
+}
+
+async function saveCityPersonViaLegacyUpsert(
+  payload: DatabaseCityPersonInsert,
+  specificCategoryIds: string[],
+): Promise<string> {
+  const { data, error } = await supabase.from('city_people').upsert(payload).select('id').single();
+  if (error) throw error;
+  const savedId = (data as { id: string }).id;
+  try {
+    await replacePersonCategoryLinks(savedId, specificCategoryIds);
+  } catch (linksError) {
+    const detail = linksError instanceof Error ? linksError.message : String(linksError);
+    throw new Error(
+      `[saveCityPerson] Fallback non atomico: persona salvata (id=${savedId}) ma aggiornamento categorie fallito. Applicare migration ${UPSERT_CITY_PERSON_MIGRATION}. Dettaglio: ${detail}`,
+    );
+  }
+  return savedId;
+}
+
 export const saveCityPerson = async (
   cityId: string,
   person: SaveCityPersonInput,
 ): Promise<FamousPerson> => {
-  const specificCategoryIds =
-    person.specificCategoryIds ?? person.categories?.map((c) => c.specificId) ?? [];
+  const specificCategoryIds = normalizeSpecificCategoryIds(
+    person.specificCategoryIds ?? person.categories?.map((c) => c.specificId) ?? [],
+  );
 
   if (person.status === 'published') {
     assertFamousPersonPublishable({
@@ -413,16 +453,27 @@ export const saveCityPerson = async (
     payload.id = person.id;
   }
 
-  const { data: savedId, error } = await supabase.rpc('upsert_city_person_with_category_links', {
+  let savedId: string;
+  const { data: rpcSavedId, error } = await supabase.rpc('upsert_city_person_with_category_links', {
     p_person: payload,
     p_specific_category_ids: specificCategoryIds,
   });
 
-  if (error) throw error;
-  if (typeof savedId !== 'string' || savedId.length === 0) {
+  if (error) {
+    if (isUpsertCityPersonRpcMissing(error)) {
+      console.warn(
+        `[saveCityPerson] RPC ${UPSERT_CITY_PERSON_RPC} assente sul database; fallback upsert+links (non atomico). Applicare migration ${UPSERT_CITY_PERSON_MIGRATION}.`,
+      );
+      savedId = await saveCityPersonViaLegacyUpsert(payload, specificCategoryIds);
+    } else {
+      throw error;
+    }
+  } else if (typeof rpcSavedId !== 'string' || rpcSavedId.length === 0) {
     throw new Error(
       'upsert_city_person_with_category_links non ha restituito un id persona valido.',
     );
+  } else {
+    savedId = rpcSavedId;
   }
 
   const { data: full, error: reloadError } = await supabase
@@ -432,8 +483,26 @@ export const saveCityPerson = async (
     .single();
   if (reloadError) throw reloadError;
 
+  const parsedPerson = parsePerson(full);
+  const imageUrl = parsedPerson.imageUrl?.trim() ?? '';
+  if (imageUrl.length > 0) {
+    const parsedStorage = parseStorageLocationFromPublicUrl(imageUrl);
+    await upsertEntityImageAssignmentDualWrite({
+      entityType: 'city_person',
+      entityId: parsedPerson.id,
+      cityId,
+      assignmentRole: 'primary',
+      source: {
+        imageUrl,
+        storageBucket: parsedStorage?.storageBucket ?? 'public-media',
+        storagePath: parsedStorage?.storagePath ?? null,
+        originType: 'admin',
+      },
+    });
+  }
+
   invalidateCityCache(cityId);
-  return parsePerson(full);
+  return parsedPerson;
 };
 
 export const deleteCityPerson = async (id: string) => {

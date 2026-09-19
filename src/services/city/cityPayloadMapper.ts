@@ -1,3 +1,4 @@
+import { toEditorialStatusDb } from '@/constants/governance';
 import type { CityDetails } from '../../types/index';
 import type { CityUpsertPayload } from '../../types/write';
 import {
@@ -51,6 +52,7 @@ export const buildCityWritePayload = (city: CityDetails): CityUpsertPayload => {
     history_full: city.details.historyFull ?? null,
     official_website: city.details.officialWebsite ?? null,
     patron_details: serializePatronDetails(city.details.patronDetails),
+    patron_editorial_status: toEditorialStatusDb(city.details.patronEditorialStatus),
     ratings: serializeRatings(city.details.ratings),
     gallery: serializeGallery(sanitizedGallery),
     generation_logs: serializeStringArray(city.details.generationLogs),

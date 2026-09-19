@@ -80,10 +80,15 @@ function downloadTaxonomyJson(tree: FamousPersonTaxonomyTree): void {
 export type AdminFamousPeopleCategoriesManagerProps = {
   /** When true (hub tab), skip AdminPageHeader — parent owns page chrome. */
   embedded?: boolean;
+  /** Optional city context when opened from Edit città — taxonomy stays global. */
+  contextCityId?: string;
+  contextCityName?: string;
 };
 
 export const AdminFamousPeopleCategoriesManager = ({
   embedded = false,
+  contextCityId,
+  contextCityName,
 }: AdminFamousPeopleCategoriesManagerProps = {}) => {
   const [tree, setTree] = useState<FamousPersonTaxonomyTree>({ masters: [], specifics: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -127,13 +132,12 @@ export const AdminFamousPeopleCategoriesManager = ({
 
   // Reset Specific editing and draft states when selecting a different Master category
   useEffect(() => {
-    if (selectedMasterId !== undefined) {
-      setEditingSpecificId(null);
-      setEditSpecificLabel('');
-      setEditSpecificOrder('0');
-      setSpecificDraftLabel('');
-      setSpecificDraftOrder('0');
-    }
+    void selectedMasterId;
+    setEditingSpecificId(null);
+    setEditSpecificLabel('');
+    setEditSpecificOrder('0');
+    setSpecificDraftLabel('');
+    setSpecificDraftOrder('0');
   }, [selectedMasterId]);
 
   const selectedMaster = useMemo(
@@ -369,9 +373,19 @@ export const AdminFamousPeopleCategoriesManager = ({
     >
       {embedded ? (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Tags className="w-4 h-4 text-indigo-400 shrink-0" aria-hidden />
-            <h3 className="text-sm font-bold text-white truncate">Tassonomia Master → Specific</h3>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <Tags className="w-4 h-4 text-indigo-400 shrink-0" aria-hidden />
+              <h3 className="text-sm font-bold text-white truncate">
+                Tassonomia Master → Specific
+              </h3>
+            </div>
+            {contextCityName ? (
+              <p className="text-[10px] text-slate-500 mt-1 truncate">
+                Tassonomia globale — contesto Edit città: {contextCityName}
+                {contextCityId ? ` · id ${contextCityId}` : ''}
+              </p>
+            ) : null}
           </div>
           {taxonomyActions}
         </div>

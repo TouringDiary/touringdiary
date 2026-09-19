@@ -21,6 +21,10 @@ import {
 import type { PhotoSubmission, User as UserType } from '../../types/index';
 import { GalleryLightbox, type LightboxData } from '../city/gallery/GalleryLightbox';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
+import {
+  CommunityPhotoAbuseModal,
+  type CommunityPhotoAbuseTarget,
+} from '../modals/CommunityPhotoAbuseModal';
 import { LiveFeedCarousel } from './liveFeed/LiveFeedCarousel';
 import { LiveFeedHero } from './liveFeed/LiveFeedHero';
 import { LiveFeedToolbar } from './liveFeed/LiveFeedToolbar';
@@ -44,6 +48,8 @@ export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps
   const [heroIndex, setHeroIndex] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; caption: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [abuseTarget, setAbuseTarget] = useState<CommunityPhotoAbuseTarget | null>(null);
+  const [isAbuseModalOpen, setIsAbuseModalOpen] = useState(false);
 
   const thumbScrollRef = useRef<HTMLDivElement>(null);
   const isAdmin = user.role === 'admin_all' || user.role === 'admin_limited';
@@ -71,7 +77,7 @@ export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps
 
   useEffect(() => {
     void refreshSnaps();
-  }, [user, refreshSnaps]);
+  }, [refreshSnaps]);
 
   const filteredSnaps = useMemo(() => {
     return liveSnaps.filter((s) => {
@@ -129,6 +135,28 @@ export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps
     if (index !== -1) setActiveLightboxIndex(index);
   };
 
+  const openAbuseFromLightbox = () => {
+    if (activeLightboxIndex === null) return;
+    const snap = filteredSnaps[activeLightboxIndex];
+    if (!snap) return;
+    const resolvedCityId = snap.cityId;
+    if (!resolvedCityId) {
+      alert('Impossibile segnalare: città della foto non disponibile.');
+      return;
+    }
+    setAbuseTarget({
+      photoId: snap.id,
+      assignmentId: snap.assignmentId ?? null,
+      cityId: resolvedCityId,
+      cityName: snap.locationName,
+      imageUrl: snap.url,
+      storageBucket: snap.storageBucket ?? null,
+      storagePath: snap.storagePath ?? null,
+      caption: snap.description ?? null,
+    });
+    setIsAbuseModalOpen(true);
+  };
+
   const handleToggleOfficialFromFeed = async (snap: PhotoSubmission) => {
     if (snap.isOfficial) {
       await updatePhotoData(snap.id, { isOfficial: false });
@@ -171,8 +199,21 @@ export const LiveFeedTab = ({ user, onUserUpdate, onOpenAuth }: LiveFeedTabProps
           onPrev={() => setActiveLightboxIndex((i) => (i !== null && i > 0 ? i - 1 : i))}
           hasNext={activeLightboxIndex !== null && activeLightboxIndex < filteredSnaps.length - 1}
           hasPrev={activeLightboxIndex !== null && activeLightboxIndex > 0}
+          onReportAbuse={openAbuseFromLightbox}
         />
       )}
+
+      <CommunityPhotoAbuseModal
+        isOpen={isAbuseModalOpen}
+        onClose={() => {
+          setIsAbuseModalOpen(false);
+          setAbuseTarget(null);
+        }}
+        target={abuseTarget}
+        context="community_live"
+        user={user}
+        onOpenAuth={onOpenAuth}
+      />
 
       <CommunityPhotoWorkflow workflow={photo} />
 

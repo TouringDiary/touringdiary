@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Heart, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flag, Heart, Loader2 } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -33,6 +33,7 @@ interface Props {
   allPhotos?: LightboxThumbnail[];
   currentIndex?: number;
   onGoToPhoto?: (idx: number) => void;
+  onReportAbuse?: () => void;
 }
 
 export const GalleryLightbox = ({
@@ -45,6 +46,7 @@ export const GalleryLightbox = ({
   allPhotos = [],
   currentIndex = 0,
   onGoToPhoto,
+  onReportAbuse,
 }: Props) => {
   const { getPhotoStatus, togglePhotoHeart, isGuest } = useInteraction();
   const thumbnailRef = useRef<HTMLDivElement>(null);
@@ -230,6 +232,24 @@ export const GalleryLightbox = ({
               {data.user}
             </span>
           </div>
+
+          {onReportAbuse ? (
+            <>
+              <div className="w-px h-8 bg-white/10 shrink-0" />
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onReportAbuse();
+                }}
+                className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 hover:bg-white/10 text-slate-200 text-[10px] font-bold uppercase tracking-wider min-h-[44px]"
+                aria-label="Segnala abuso su questa foto"
+              >
+                <Flag className="w-4 h-4" aria-hidden />
+                Segnala abuso
+              </button>
+            </>
+          ) : null}
 
           {hasCommunityLikes && (
             <>

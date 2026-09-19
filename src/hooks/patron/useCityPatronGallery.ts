@@ -22,7 +22,7 @@ export const useCityPatronGallery = (cityId: string | undefined, enabled = true)
     setError(null);
 
     try {
-      const data = await listCityPatronGallery(cityId);
+      const data = await listCityPatronGallery(cityId, { maskSuspendedAssignments: true });
       if (requestId !== requestIdRef.current) return;
       setPhotos(data);
     } catch {

@@ -1,3 +1,4 @@
+import type { PatronEditorialStatusDb } from '../constants/governance';
 import type { CitySummary } from './models/City';
 
 import type { Database, Json } from './supabase';
@@ -343,6 +344,7 @@ export interface DatabaseCityRouteView {
   history_full?: string;
   official_website?: string;
   patron_details?: Json;
+  patron_editorial_status?: PatronEditorialStatusDb | null;
   ratings?: Record<string, number>;
   gallery?: string[];
   image_status?: Database['public']['Enums']['media_status'];

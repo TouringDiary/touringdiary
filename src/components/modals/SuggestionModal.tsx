@@ -37,6 +37,8 @@ import type {
 
 type SuggestionCategory = SuggestionRequest['details']['category'];
 
+const POI_SELECT_PLACEHOLDER = '---';
+
 interface SuggestionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -93,10 +95,16 @@ export const SuggestionModal = ({
 
   const [duplicateWarningActive, setDuplicateWarningActive] = useState(false);
   const [matchedPoiName, setMatchedPoiName] = useState<string | null>(null);
+  const [selectedPoiId, setSelectedPoiId] = useState('');
 
   const labelNew = isServiceContext ? 'Nuovo Servizio' : 'Nuovo Luogo';
   const labelEdit = isServiceContext ? 'Modifica Servizio' : 'Modifica Luogo';
-  const labelName = isServiceContext ? 'Nome del Servizio' : 'Nome del Luogo';
+  const labelName =
+    activeType === 'edit_info'
+      ? 'POI interessato'
+      : isServiceContext
+        ? 'Nome del Servizio'
+        : 'Nome del Luogo';
   const labelPlaceholder = isServiceContext ? 'Es: Bus 151, Taxi Napoli...' : 'Es: Pizzeria Brandi';
 
   const labelDescription =
@@ -109,11 +117,9 @@ export const SuggestionModal = ({
   useEffect(() => {
     if (isOpen) {
       setActiveType(initialType);
+      setSelectedPoiId('');
       setFormData({
-        title:
-          initialType === 'edit_info' && existingPois.length > 0
-            ? prefilledName || existingPois[0].name
-            : prefilledName || '',
+        title: prefilledName || '',
         category: 'monument',
         address: '',
         description: '',
@@ -125,7 +131,7 @@ export const SuggestionModal = ({
       setDuplicateWarningActive(false);
       setMatchedPoiName(null);
     }
-  }, [isOpen, initialType, prefilledName, existingPois]);
+  }, [isOpen, initialType, prefilledName]);
 
   const toggleErrorType = (key: keyof typeof errorTypes) => {
     setErrorTypes((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -159,6 +165,10 @@ export const SuggestionModal = ({
     }
 
     if (activeType === 'edit_info') {
+      if (!selectedPoiId) {
+        setFormError('Seleziona il POI interessato dalla tendina.');
+        return;
+      }
       const hasSelection = Object.values(errorTypes).some((v) => v === true);
       if (!hasSelection) {
         setFormError('Seleziona almeno un dato errato da correggere.');
@@ -183,9 +193,16 @@ export const SuggestionModal = ({
     setIsSubmitting(true);
 
     let poiId: string | undefined;
+    let title = formData.title;
     if (activeType === 'edit_info') {
-      const matchedPoi = existingPois.find((p) => p.name === formData.title);
-      if (matchedPoi) poiId = matchedPoi.id;
+      const matchedPoi = existingPois.find((p) => p.id === selectedPoiId);
+      if (!matchedPoi) {
+        setFormError('POI selezionato non valido.');
+        setIsSubmitting(false);
+        return;
+      }
+      poiId = matchedPoi.id;
+      title = matchedPoi.name;
     }
 
     try {
@@ -197,7 +214,7 @@ export const SuggestionModal = ({
         poiId: poiId,
         type: activeType,
         details: {
-          title: formData.title,
+          title,
           category: formData.category,
           description: formData.description,
           address: formData.address,
@@ -328,9 +345,9 @@ export const SuggestionModal = ({
             )}
 
             <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">
                 Tipologia Contributo *
-              </label>
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -358,15 +375,22 @@ export const SuggestionModal = ({
               >
                 {labelName} *
               </label>
-              {activeType === 'edit_info' && existingPois.length > 0 ? (
+              {activeType === 'edit_info' ? (
                 <select
                   id="fld-modals-suggestionmodal-tsx-l355"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  value={selectedPoiId}
+                  onChange={(e) => {
+                    const poiIdValue = e.target.value;
+                    setSelectedPoiId(poiIdValue);
+                    const poi = existingPois.find((p) => p.id === poiIdValue);
+                    setFormData({ ...formData, title: poi?.name ?? '' });
+                  }}
+                  required
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-indigo-500 outline-none font-bold text-sm"
                 >
+                  <option value="">{POI_SELECT_PLACEHOLDER}</option>
                   {existingPois.map((poi) => (
-                    <option key={poi.id} value={poi.name}>
+                    <option key={poi.id} value={poi.id}>
                       {poi.name}
                     </option>
                   ))}
@@ -386,10 +410,10 @@ export const SuggestionModal = ({
             </div>
 
             {activeType === 'edit_info' && (
-              <div className="space-y-2 py-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">
-                  Cosa c'è di errato? *
-                </label>
+              <fieldset className="space-y-2 py-1 border-0 p-0 m-0 min-w-0">
+                <legend className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">
+                  Cosa c&apos;è di errato? *
+                </legend>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: 'name', label: 'Nome' },
@@ -417,7 +441,7 @@ export const SuggestionModal = ({
                     );
                   })}
                 </div>
-              </div>
+              </fieldset>
             )}
 
             <div className="space-y-1.5">

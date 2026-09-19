@@ -3,6 +3,7 @@ import { useAdminHeaderManager } from '@/hooks/admin/useAdminHeaderManager';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
 import { AdminToast } from './adminHeaderManager/AdminToast';
+import { FamousPersonPlaceholdersSection } from './adminHeaderManager/FamousPersonPlaceholdersSection';
 import { FaviconSection } from './adminHeaderManager/FaviconSection';
 import { FunctionalAssetsSection } from './adminHeaderManager/FunctionalAssetsSection';
 import { HeroSection } from './adminHeaderManager/HeroSection';
@@ -20,6 +21,8 @@ export const AdminHeaderManager = () => {
     isSavingPatron,
     placeholders,
     suitcasePlaceholders,
+    famousPersonCategoryPlaceholders,
+    famousPersonGeneralPlaceholder,
     authBg,
     socialBg,
     aiBg,
@@ -46,6 +49,8 @@ export const AdminHeaderManager = () => {
     patronInputRef,
     placeholderInputRef,
     suitcasePlaceholderInputRef,
+    famousPersonPlaceholderInputRef,
+    famousPersonGeneralInputRef,
     authInputRef,
     socialInputRef,
     aiBgInputRef,
@@ -64,11 +69,14 @@ export const AdminHeaderManager = () => {
     executeReset,
     handleResetPatronGlobal,
     requestDeletePlaceholder,
+    requestDeleteFamousPersonPlaceholder,
     confirmDeletePlaceholder,
     openEditor,
     handleEditorSave,
     triggerPlaceholderUpload,
     triggerSuitcasePlaceholderUpload,
+    triggerFamousPersonPlaceholderUpload,
+    triggerFamousPersonGeneralUpload,
     handleSafeArtSuccess,
   } = useAdminHeaderManager();
 
@@ -176,6 +184,19 @@ export const AdminHeaderManager = () => {
               triggerSuitcasePlaceholderUpload={triggerSuitcasePlaceholderUpload}
               openEditor={openEditor}
               requestDeletePlaceholder={requestDeletePlaceholder}
+              handleFileUpload={handleFileUpload}
+            />
+
+            <FamousPersonPlaceholdersSection
+              categoryPlaceholders={famousPersonCategoryPlaceholders}
+              generalPlaceholder={famousPersonGeneralPlaceholder}
+              editPlaceholderCat={editPlaceholderCat}
+              famousPersonPlaceholderInputRef={famousPersonPlaceholderInputRef}
+              famousPersonGeneralInputRef={famousPersonGeneralInputRef}
+              triggerFamousPersonPlaceholderUpload={triggerFamousPersonPlaceholderUpload}
+              triggerFamousPersonGeneralUpload={triggerFamousPersonGeneralUpload}
+              openEditor={openEditor}
+              requestDeleteFamousPersonPlaceholder={requestDeleteFamousPersonPlaceholder}
               handleFileUpload={handleFileUpload}
             />
           </div>

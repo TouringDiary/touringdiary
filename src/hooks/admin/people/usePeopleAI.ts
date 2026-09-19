@@ -10,6 +10,7 @@ import {
 } from '@/domain/city/famousPersonCompleteness';
 import { buildLifespanDisplay } from '@/domain/city/famousPersonDates';
 import { enrichPersonData, suggestCityPeople } from '../../../services/ai';
+import { isAiProviderQuotaExhaustedError } from '../../../services/ai/aiEdgeErrors';
 import { generateHistoricalPortrait } from '../../../services/ai/aiVision';
 import { validateAiSpecificSlugs } from '../../../services/ai/generators/peopleCategoryValidation';
 import {
@@ -113,7 +114,7 @@ export const usePeopleAI = ({
   const activeDiscoveryRequestIdRef = useRef(0);
 
   useEffect(() => {
-    void cityId;
+    if (!cityId) return;
     activeDiscoveryRequestIdRef.current++;
     setDiscoveryResults([]);
     setIsDiscovering(false);
@@ -162,11 +163,25 @@ export const usePeopleAI = ({
         throw new Error(`Categorie AI non valide per «${person.name}»: ${invalidList}`);
       }
 
+      // Reuse cross-città per nome (ilike): pattern architetturale condiviso con Magic/Complete city.
+      // L'identità FamousPerson in discovery è il nome; non esiste ancora un personId persistito.
       let seedImage: string | undefined = (await findExistingPortrait(person.name)) ?? undefined;
+      let skipImageAiRecovery = false;
       if (!seedImage) {
         const categoryLabel = categoryLabelFromSlugs(person.specificCategorySlugs, activeSpecifics);
-        seedImage =
-          (await generateHistoricalPortrait(person.name, categoryLabel, cityName)) ?? undefined;
+        try {
+          seedImage =
+            (await generateHistoricalPortrait(person.name, categoryLabel, cityName)) ?? undefined;
+        } catch (e) {
+          if (isAiProviderQuotaExhaustedError(e)) {
+            skipImageAiRecovery = true;
+            console.warn(
+              `[usePeopleAI] Portrait AI quota exhausted for «${person.name}»; import continues without AI photo.`,
+            );
+          } else {
+            throw e;
+          }
+        }
       }
 
       const recovered = await ensureFamousPersonCompletenessWithAi(
@@ -176,6 +191,8 @@ export const usePeopleAI = ({
           imageUrl: seedImage ?? person.imageUrl,
         },
         cityName,
+        undefined,
+        skipImageAiRecovery ? { skipImageAiRecovery: true } : undefined,
       );
 
       const present = toDraftFamousPersonSaveFields(recovered.person);

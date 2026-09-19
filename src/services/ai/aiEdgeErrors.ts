@@ -26,8 +26,48 @@ export class AiEdgeError extends Error {
 export const AI_TIMEOUT_REPLAY_WARNING =
   'La richiesta potrebbe essere ancora in elaborazione sul server. Attendi qualche minuto prima di un nuovo tentativo: un replay immediato potrebbe consumare altri crediti.';
 
+export const PORTRAIT_AI_QUOTA_MESSAGE =
+  'Quota Gemini esaurita per la generazione immagini. Il personaggio può essere importato senza ritratto AI.';
+
 export function isAiEdgeError(err: unknown): err is AiEdgeError {
   return err instanceof AiEdgeError;
+}
+
+/** Typed portrait/provider quota — blocks further portrait AI attempts in the same recovery session. */
+export function isAiEdgeQuotaBlockedError(err: unknown): err is AiEdgeError {
+  return err instanceof AiEdgeError && (err.code === 'QUOTA_EXCEEDED' || err.code === 'RATE_LIMIT');
+}
+
+function isProviderQuotaMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('resource_exhausted') ||
+    lower.includes('quota_exceeded') ||
+    lower.includes('quota_exceeded_daily') ||
+    lower.includes('generate_content_free_tier') ||
+    lower.includes('limit: 0')
+  );
+}
+
+/**
+ * Provider/Google quota or internal credits exhausted — retrying portrait immediately will not help.
+ * Uses typed AiEdgeError codes first; message heuristics only for known provider shapes (429/RESOURCE_EXHAUSTED).
+ */
+export function isAiProviderQuotaExhaustedError(err: unknown): boolean {
+  if (isAiEdgeQuotaBlockedError(err)) return true;
+  if (!(err instanceof Error)) {
+    return isProviderQuotaMessage(String(err));
+  }
+  return isProviderQuotaMessage(err.message);
+}
+
+/** Normalize any quota-like failure to a typed QUOTA_EXCEEDED for portrait callers. */
+export function asPortraitQuotaExceededError(err: unknown): AiEdgeError {
+  if (err instanceof AiEdgeError && err.code === 'QUOTA_EXCEEDED') return err;
+  if (err instanceof AiEdgeError && err.code === 'RATE_LIMIT') {
+    return new AiEdgeError('QUOTA_EXCEEDED', err.message || PORTRAIT_AI_QUOTA_MESSAGE);
+  }
+  return new AiEdgeError('QUOTA_EXCEEDED', PORTRAIT_AI_QUOTA_MESSAGE);
 }
 
 export interface EdgeInvokeResult {
@@ -36,8 +76,8 @@ export interface EdgeInvokeResult {
 }
 
 const DEFAULT_EDGE_MESSAGES: Record<string, string> = {
-  EMERGENCY_STOP: 'I servizi AI sono temporaneamente sospesi per manutenzione di emergenza.',
-  AI_DISABLED: 'I servizi AI sono temporaneamente disattivati per manutenzione.',
+  EMERGENCY_STOP: 'I servizi AI sono temporaneamente sospesi per manutenenza di emergenza.',
+  AI_DISABLED: 'I servizi AI sono temporaneamente disattivati per manutenenza.',
   CREDITS_EXHAUSTED:
     'Hai esaurito i crediti AI disponibili. Aggiorna il profilo o usa un codice Referral per crediti extra.',
   RATE_LIMIT_EXCEEDED:
@@ -47,6 +87,27 @@ const DEFAULT_EDGE_MESSAGES: Record<string, string> = {
   INVALID_GUEST_ID: 'Identità ospite non valida. Ricarica la pagina e riprova.',
   AI_BACKEND_ERROR: 'Errore temporaneo del sistema AI.',
 };
+
+function hasInlineImageInEdgePayload(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const candidates = (payload as { candidates?: unknown[] }).candidates;
+  if (!Array.isArray(candidates)) return false;
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const parts = (candidate as { content?: { parts?: unknown[] } }).content?.parts;
+    if (!Array.isArray(parts)) continue;
+    for (const part of parts) {
+      if (!part || typeof part !== 'object' || !('inlineData' in part)) continue;
+      const inlineData = (part as { inlineData?: { mimeType?: string; data?: string } }).inlineData;
+      if (typeof inlineData?.data !== 'string' || inlineData.data.trim().length === 0) continue;
+      const mime = inlineData.mimeType?.trim().toLowerCase() ?? '';
+      if (!mime.startsWith('image/')) continue;
+      return true;
+    }
+  }
+  return false;
+}
 
 function throwFromEdgeCode(code: string, message?: string): never {
   const msg = message || DEFAULT_EDGE_MESSAGES[code];
@@ -99,15 +160,19 @@ export function parseEdgeInvokeResponse(
   const edgeCode = payload.code || payload.error;
 
   if (edgeCode) {
+    if (payload.message && isProviderQuotaMessage(payload.message)) {
+      throw new AiEdgeError(
+        'QUOTA_EXCEEDED',
+        'Quota Gemini esaurita. Riprova più tardi o verifica il piano di fatturazione Google AI.',
+      );
+    }
     throwFromEdgeCode(edgeCode, payload.message);
   }
 
-  if (payload.reply === undefined || payload.reply === null) {
-    throw new AiEdgeError('MALFORMED_RESPONSE', 'Risposta AI vuota dal server.');
-  }
+  const reply = payload.reply === undefined || payload.reply === null ? '' : String(payload.reply);
+  const hasInlineImage = hasInlineImageInEdgePayload(payload);
 
-  const reply = String(payload.reply);
-  if (!reply.trim()) {
+  if (!reply.trim() && !hasInlineImage) {
     throw new AiEdgeError('MALFORMED_RESPONSE', 'Risposta AI vuota.');
   }
 
@@ -135,6 +200,8 @@ export function aiErrorModalTitle(err: unknown): string {
       return 'Servizi AI sospesi';
     case 'AI_DISABLED':
       return 'Manutenzione AI';
+    case 'QUOTA_EXCEEDED':
+      return 'Quota esaurita';
     case 'RATE_LIMIT':
       return 'Crediti esauriti';
     case 'FORBIDDEN':
