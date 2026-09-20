@@ -10,8 +10,12 @@ import { parseStorageLocationFromPublicUrl } from '@/utils/storagePathFromPublic
 import { upsertEntityImageAssignmentDualWrite } from './imageAssignmentDualWriteService';
 import { mf3MediaAssetsTable, mf3Rpc } from './mf3DbClient';
 
+/** Bucket ammesso per portrait AI registrati via registerAiGeneratedPortraitAsset. */
+const AI_PORTRAIT_PUBLIC_BUCKET = 'public-media';
+
 export type MediaAssetProvenancePatch = {
   sourceRef?: string | null;
+  contentHash?: string | null;
   licenseCode?: string | null;
   licenseUrl?: string | null;
   sourceUrl?: string | null;
@@ -19,7 +23,6 @@ export type MediaAssetProvenancePatch = {
   copyrightNotice?: string | null;
   authorName?: string | null;
   rightsHolder?: string | null;
-  licenseVerifiedAt?: string | null;
   retrievedAt?: string | null;
   metadata?: Record<string, unknown>;
 };
@@ -91,6 +94,16 @@ export async function registerAiGeneratedPortraitAsset(
   }
 
   const parsed = parseStorageLocationFromPublicUrl(url);
+  if (!parsed?.storageBucket || !parsed.storagePath) {
+    throw new Error(
+      'registerAiGeneratedPortraitAsset: impossibile ricavare bucket/path public-media dalla URL.',
+    );
+  }
+  if (parsed.storageBucket !== AI_PORTRAIT_PUBLIC_BUCKET) {
+    throw new Error(
+      `registerAiGeneratedPortraitAsset: bucket non ammesso (${parsed.storageBucket}); atteso ${AI_PORTRAIT_PUBLIC_BUCKET}.`,
+    );
+  }
   const assignmentId = await upsertEntityImageAssignmentDualWrite({
     entityType: input.entityType,
     entityId: input.entityId,
@@ -98,8 +111,8 @@ export async function registerAiGeneratedPortraitAsset(
     assignmentRole: 'primary',
     source: {
       imageUrl: url,
-      storageBucket: parsed?.storageBucket ?? 'public-media',
-      storagePath: parsed?.storagePath ?? null,
+      storageBucket: parsed.storageBucket,
+      storagePath: parsed.storagePath,
       originType: 'ai',
     },
   });
@@ -141,6 +154,7 @@ export async function patchMediaAssetProvenance(
 ): Promise<void> {
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.sourceRef !== undefined) payload.source_ref = patch.sourceRef;
+  if (patch.contentHash !== undefined) payload.content_hash = patch.contentHash;
   if (patch.licenseCode !== undefined) payload.license_code = patch.licenseCode;
   if (patch.licenseUrl !== undefined) payload.license_url = patch.licenseUrl;
   if (patch.sourceUrl !== undefined) payload.source_url = patch.sourceUrl;
@@ -148,7 +162,6 @@ export async function patchMediaAssetProvenance(
   if (patch.copyrightNotice !== undefined) payload.copyright_notice = patch.copyrightNotice;
   if (patch.authorName !== undefined) payload.author_name = patch.authorName;
   if (patch.rightsHolder !== undefined) payload.rights_holder = patch.rightsHolder;
-  if (patch.licenseVerifiedAt !== undefined) payload.license_verified_at = patch.licenseVerifiedAt;
   if (patch.retrievedAt !== undefined) payload.retrieved_at = patch.retrievedAt;
   if (patch.metadata !== undefined) {
     payload.metadata = patch.metadata;
@@ -338,13 +351,15 @@ export async function listAiVerifyQueue(input: {
   limit?: number;
   offset?: number;
 }): Promise<AiVerifyQueueRow[]> {
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const offset = Math.max(input.offset ?? 0, 0);
   const { data, error } = await mf3Rpc<AiVerifyQueueRowDb[]>('list_ai_verify_queue', {
     p_entity_type: input.entityType?.trim() || null,
     p_continent: input.continent?.trim() || null,
     p_nation: input.nation?.trim() || null,
     p_city_id: input.cityId?.trim() || null,
-    p_limit: input.limit ?? 50,
-    p_offset: input.offset ?? 0,
+    p_limit: limit,
+    p_offset: offset,
   });
   if (error) {
     throw new Error(`Lista coda verify AI fallita: ${error.message}`);

@@ -32,6 +32,12 @@ import type { SaveCityPersonInput } from '../../../services/city/entitiesService
 import { loadFamousPersonTaxonomy } from '../../../services/city/famousPersonCategoryService';
 import { saveCityPerson } from '../../../services/cityService';
 import { findExistingPortrait } from '../../../services/mediaService';
+import { runCommonsDownloadPipeline } from '../../../services/wikimedia/commonsDownloadPipeline';
+import {
+  lookupWikidataP18Proposal,
+  type WikidataCandidate,
+  type WikidataP18Proposal,
+} from '../../../services/wikimedia/wikidataLookupService';
 import type { FamousPerson } from '../../../types/index';
 
 /** Delay tra Magic Fix in batch: evita rate limit Gemini (stesso pattern Magic/Complete city). */
@@ -50,6 +56,14 @@ interface UsePeopleAIProps {
 export type { FamousPersonPublishAttemptResult };
 
 type PersonDiscoveryResultWithId = PersonDiscoveryResult & { id: string };
+
+export type WikidataImportUiState = {
+  personId: string;
+  personName: string;
+  proposal: WikidataP18Proposal | null;
+  ambiguousCandidates: WikidataCandidate[];
+  errorMessage: string | null;
+};
 
 function toSaveCityPersonInput(person: FamousPerson): SaveCityPersonInput {
   return {
@@ -118,6 +132,8 @@ export const usePeopleAI = ({
     field: FamousPersonRequiredField | 'dates';
   } | null>(null);
   const activeDiscoveryRequestIdRef = useRef(0);
+  const [wikidataImportUi, setWikidataImportUi] = useState<WikidataImportUiState | null>(null);
+  const [wikidataImportProcessing, setWikidataImportProcessing] = useState(false);
   const [aiImageStepChoice, setAiImageStepChoice] = useState<AiImageStepChoice>(
     getDefaultAiImageStepForEntity('city_person'),
   );
@@ -237,6 +253,38 @@ export const usePeopleAI = ({
       };
       const saved = await saveCityPerson(cityId, newPerson);
       setPeopleList((prev) => [...prev, saved]);
+
+      try {
+        const wikidataLookup = await lookupWikidataP18Proposal({
+          label: saved.name,
+          description: saved.bio ?? person.bio ?? null,
+          cityName,
+        });
+
+        if (wikidataLookup.status === 'proposal') {
+          setWikidataImportUi({
+            personId: saved.id,
+            personName: saved.name,
+            proposal: wikidataLookup.proposal,
+            ambiguousCandidates: [],
+            errorMessage: null,
+          });
+        } else if (wikidataLookup.status === 'ambiguous') {
+          setWikidataImportUi({
+            personId: saved.id,
+            personName: saved.name,
+            proposal: null,
+            ambiguousCandidates: wikidataLookup.candidates,
+            errorMessage: wikidataLookup.message,
+          });
+        }
+      } catch (wikidataErr) {
+        console.warn(
+          `[usePeopleAI] Wikidata P18 lookup failed after save for «${saved.name}»; person kept.`,
+          wikidataErr,
+        );
+      }
+
       setDiscoveryResults((prev) => prev.filter((p) => p.id !== person.id));
       await reloadCurrentCity();
     } catch (e) {
@@ -557,6 +605,108 @@ export const usePeopleAI = ({
     return results;
   };
 
+  const closeWikidataImportUi = () => {
+    setWikidataImportUi(null);
+    setWikidataImportProcessing(false);
+  };
+
+  const selectWikidataCandidate = async (candidate: WikidataCandidate) => {
+    if (!wikidataImportUi) return;
+    setWikidataImportProcessing(true);
+    setWikidataImportUi((prev) =>
+      prev ? { ...prev, errorMessage: null, ambiguousCandidates: [] } : prev,
+    );
+    try {
+      const lookup = await lookupWikidataP18Proposal({
+        label: candidate.label,
+        knownQid: candidate.qid,
+      });
+      if (lookup.status === 'proposal') {
+        setWikidataImportUi((prev) =>
+          prev
+            ? {
+                ...prev,
+                proposal: lookup.proposal,
+                ambiguousCandidates: [],
+                errorMessage: null,
+              }
+            : prev,
+        );
+      } else {
+        setWikidataImportUi((prev) =>
+          prev
+            ? {
+                ...prev,
+                proposal: null,
+                errorMessage: lookup.status === 'error' ? lookup.message : lookup.message,
+              }
+            : prev,
+        );
+      }
+    } finally {
+      setWikidataImportProcessing(false);
+    }
+  };
+
+  const confirmWikidataCommonsImport = async (proposal: WikidataP18Proposal) => {
+    if (!wikidataImportUi?.personId) return;
+    setWikidataImportProcessing(true);
+    try {
+      const result = await runCommonsDownloadPipeline({
+        proposal,
+        adminConfirmedQid: true,
+        entity: {
+          entityType: 'city_person',
+          entityId: wikidataImportUi.personId,
+          cityId,
+        },
+      });
+
+      if (!result.ok) {
+        setWikidataImportUi((prev) =>
+          prev ? { ...prev, errorMessage: `${result.stage}: ${result.message}` } : prev,
+        );
+        return;
+      }
+
+      if (result.autoVerified) {
+        const person = peopleList.find((p) => p.id === wikidataImportUi.personId);
+        if (person) {
+          const updated = await saveCityPerson(cityId, {
+            ...toSaveCityPersonInput(person),
+            imageUrl: result.publicUrl,
+            imageOriginType: 'wikimedia',
+          });
+          setPeopleList((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+        }
+        await reloadCurrentCity();
+        closeWikidataImportUi();
+        alert(`Foto reale verificata (CC BY 4.0) importata per «${wikidataImportUi.personName}».`);
+      } else if (result.queuedForAdminVerify) {
+        await reloadCurrentCity();
+        closeWikidataImportUi();
+        alert(
+          `Import Wikimedia per «${wikidataImportUi.personName}» messo in coda verifica Admin. L'immagine corrente della persona non è stata sostituita.`,
+        );
+      } else {
+        setWikidataImportUi((prev) =>
+          prev
+            ? {
+                ...prev,
+                errorMessage:
+                  'Esito pipeline Wikimedia inatteso: nessuna verifica automatica né coda Admin — immagine non promossa.',
+              }
+            : prev,
+        );
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setWikidataImportUi((prev) => (prev ? { ...prev, errorMessage: message } : prev));
+    } finally {
+      setWikidataImportProcessing(false);
+    }
+  };
+
   return {
     processingId,
     isDiscovering,
@@ -566,6 +716,11 @@ export const usePeopleAI = ({
     aiImageStepChoice,
     setAiImageStepChoice,
     aiImageStepModalCopy: AI_IMAGE_STEP_MODAL_COPY,
+    wikidataImportUi,
+    wikidataImportProcessing,
+    closeWikidataImportUi,
+    selectWikidataCandidate,
+    confirmWikidataCommonsImport,
     runDiscovery,
     importDiscoveryPerson,
     removeDiscoveryResult,

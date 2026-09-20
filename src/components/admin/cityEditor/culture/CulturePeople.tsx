@@ -18,6 +18,7 @@ import { usePeopleManager } from '../../../../hooks/admin/usePeopleManager';
 import type { FamousPerson, User } from '../../../../types/index';
 import { CultureCornerModal } from '../../../modals/CultureCornerModal';
 import { AdminFamousPeopleCategoriesManager } from '../../AdminFamousPeopleCategoriesManager';
+import { WikidataConfirmModal } from '../../wikimedia/WikidataConfirmModal';
 import { CulturePeopleDiscovery } from './CulturePeopleDiscovery';
 import { CulturePeopleModals } from './CulturePeopleModals';
 import { CulturePersonCard } from './CulturePersonCard';
@@ -117,6 +118,11 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
     aiImageStepChoice,
     setAiImageStepChoice,
     aiImageStepModalCopy,
+    wikidataImportUi,
+    wikidataImportProcessing,
+    closeWikidataImportUi,
+    selectWikidataCandidate,
+    confirmWikidataCommonsImport,
   } = usePeopleManager(cityId, cityName);
 
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
@@ -374,6 +380,19 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
 
   return (
     <div className="bg-slate-900 p-4 md:p-8 rounded-2xl md:rounded-3xl border border-slate-800 shadow-2xl relative">
+      <WikidataConfirmModal
+        isOpen={Boolean(wikidataImportUi)}
+        subjectLabel={wikidataImportUi?.personName ?? ''}
+        proposal={wikidataImportUi?.proposal ?? null}
+        ambiguousCandidates={wikidataImportUi?.ambiguousCandidates ?? []}
+        errorMessage={wikidataImportUi?.errorMessage ?? null}
+        isProcessing={wikidataImportProcessing}
+        onClose={closeWikidataImportUi}
+        onSkip={closeWikidataImportUi}
+        onSelectCandidate={(candidate) => void selectWikidataCandidate(candidate)}
+        onConfirm={(proposal) => void confirmWikidataCommonsImport(proposal)}
+      />
+
       <CulturePeopleModals
         successModal={successModal}
         setSuccessModal={setSuccessModal}

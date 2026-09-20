@@ -5,6 +5,98 @@ import { supabase } from './supabaseClient';
 
 const PUBLIC_BUCKET = 'public-media';
 
+/** Cartelle legacy ammesse per upload/copy su public-media (esclude namespace MF4 Wikimedia/verified). */
+const LEGACY_PUBLIC_MEDIA_ROOT_FOLDERS = new Set([
+  'admin_assets',
+  'admin_uploads',
+  'ai_generated',
+  'city_patron_gallery',
+  'comms_assets',
+  'edited',
+  'edited_assets',
+  'famous_person_photo_suggestions',
+  'general',
+  'onboarding_assets',
+  'patron_photo_suggestions',
+  'people_portraits',
+  'shop_products',
+  'social_templates',
+  'viaggio_covers',
+]);
+
+/** Namespace object path MF4 — non copiabili/cancellabili via utility legacy. */
+const MF4_PUBLIC_MEDIA_OBJECT_PREFIXES = ['verified/', 'wikimedia/'] as const;
+
+function normalizeLegacyMediaFolder(folder: string): string {
+  return folder.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+}
+
+function hasSafeObjectPathSegments(objectPath: string): boolean {
+  if (!objectPath || objectPath.includes('\\')) return false;
+  const segments = objectPath.split('/');
+  return !segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..');
+}
+
+function isMf4ManagedPublicMediaObjectPath(objectPath: string): boolean {
+  return MF4_PUBLIC_MEDIA_OBJECT_PREFIXES.some((prefix) => objectPath.startsWith(prefix));
+}
+
+function isLegacyPublicMediaObjectPath(objectPath: string): boolean {
+  if (!hasSafeObjectPathSegments(objectPath)) return false;
+  if (isMf4ManagedPublicMediaObjectPath(objectPath)) return false;
+  const root = objectPath.split('/')[0] ?? '';
+  return LEGACY_PUBLIC_MEDIA_ROOT_FOLDERS.has(root);
+}
+
+function isLegacyPublicMediaFolderAllowed(folder: string): boolean {
+  const normalized = normalizeLegacyMediaFolder(folder);
+  if (!normalized || normalized.includes('..')) return false;
+  return isLegacyPublicMediaObjectPath(normalized);
+}
+
+function getConfiguredSupabaseOrigin(): string | null {
+  const raw = import.meta.env.VITE_SUPABASE_URL;
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  try {
+    return new URL(raw.trim()).origin;
+  } catch {
+    return null;
+  }
+}
+
+/** Estrae object path public-media da URL Storage Supabase (fail-closed). */
+function parsePublicMediaStorageObjectPathFromPublicUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (trimmed.includes('[') || trimmed.includes('](')) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+
+  const expectedOrigin = getConfiguredSupabaseOrigin();
+  if (expectedOrigin && parsed.origin !== expectedOrigin) return null;
+
+  const storagePathPrefix = `/storage/v1/object/public/${PUBLIC_BUCKET}/`;
+  let relativePath: string;
+  if (parsed.pathname.startsWith(storagePathPrefix)) {
+    relativePath = parsed.pathname.slice(storagePathPrefix.length);
+  } else {
+    const marker = `/object/public/${PUBLIC_BUCKET}/`;
+    const markerIndex = trimmed.indexOf(marker);
+    if (markerIndex === -1) return null;
+    relativePath = trimmed.slice(markerIndex + marker.length).split('?')[0];
+  }
+
+  const path = decodeURIComponent(relativePath.replace(/^\/+/, ''));
+  if (!path || !hasSafeObjectPathSegments(path)) return null;
+  return path;
+}
+
 // --- (Keep existing upload/delete functions unchanged) ---
 export const getPendingPhotoCount = async (): Promise<number> => {
   try {
@@ -14,7 +106,7 @@ export const getPendingPhotoCount = async (): Promise<number> => {
       .eq('status', 'pending');
     if (error) throw error;
     return count || 0;
-  } catch (e: unknown) {
+  } catch {
     // Silenzia completamente gli errori di rete per i contatori background
     return 0;
   }
@@ -34,14 +126,26 @@ export const publicMediaPathFromUrl = (url: string | null | undefined): string |
   return path || null;
 };
 
+/**
+ * Upload legacy su public-media (path libero sotto `folder/`).
+ * Non esegue verifica licenza, pipeline MF4, assignment né lifecycle media_assets.
+ */
 export const uploadPublicMediaDetailed = async (
   file: File,
   folder: string = 'general',
 ): Promise<PublicMediaUploadResult | null> => {
   try {
+    const normalizedFolder = normalizeLegacyMediaFolder(folder);
+    if (!isLegacyPublicMediaFolderAllowed(normalizedFolder)) {
+      console.error(
+        '[mediaService] uploadPublicMediaDetailed blocked: folder non legacy o namespace MF4:',
+        folder,
+      );
+      return null;
+    }
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const timestamp = Date.now();
-    const filePath = `${folder}/${timestamp}_${safeName}`;
+    const filePath = `${normalizedFolder}/${timestamp}_${safeName}`;
     const { error: uploadError } = await supabase.storage
       .from(PUBLIC_BUCKET)
       .upload(filePath, file, { cacheControl: '3600', upsert: false });
@@ -61,6 +165,7 @@ export const deletePublicMediaByStoragePath = async (
 ): Promise<boolean> => {
   if (!storagePath?.trim()) return false;
   const path = storagePath.trim();
+  if (!hasSafeObjectPathSegments(path)) return false;
   if (
     !path.startsWith('city_patron_gallery/') &&
     !path.startsWith('patron_photo_suggestions/') &&
@@ -81,24 +186,43 @@ export const deletePublicMediaByStoragePath = async (
   }
 };
 
-/** Copia un file dentro `public-media` (es. suggestion → gallery ufficiale). */
+/**
+ * Copia un file dentro `public-media` (es. suggestion → gallery ufficiale).
+ * Utility storage legacy: nessuna verifica MF4, provenance o verified_real.
+ */
 export const copyPublicMediaToFolder = async (
   sourceStoragePath: string,
   destFolder: string,
 ): Promise<PublicMediaUploadResult | null> => {
   try {
-    const fileName = sourceStoragePath.split('/').pop();
+    const sourcePath = sourceStoragePath.trim();
+    if (!isLegacyPublicMediaObjectPath(sourcePath)) {
+      console.error(
+        '[mediaService] copyPublicMediaToFolder blocked: source path non legacy o namespace MF4:',
+        sourceStoragePath,
+      );
+      return null;
+    }
+    const normalizedDestFolder = normalizeLegacyMediaFolder(destFolder);
+    if (!isLegacyPublicMediaFolderAllowed(normalizedDestFolder)) {
+      console.error(
+        '[mediaService] copyPublicMediaToFolder blocked: dest folder non legacy o namespace MF4:',
+        destFolder,
+      );
+      return null;
+    }
+    const fileName = sourcePath.split('/').pop();
     if (!fileName) return null;
-    const destPath = `${destFolder.replace(/\/$/, '')}/${Date.now()}_${fileName.replace(/^\d+_/, '')}`;
+    const destPath = `${normalizedDestFolder}/${Date.now()}_${fileName.replace(/^\d+_/, '')}`;
 
     const { error: copyError } = await supabase.storage
       .from(PUBLIC_BUCKET)
-      .copy(sourceStoragePath, destPath);
+      .copy(sourcePath, destPath);
 
     if (copyError) {
       const { data: blob, error: downloadError } = await supabase.storage
         .from(PUBLIC_BUCKET)
-        .download(sourceStoragePath);
+        .download(sourcePath);
       if (downloadError || !blob) return null;
       const { error: uploadError } = await supabase.storage
         .from(PUBLIC_BUCKET)
@@ -132,7 +256,7 @@ export const uploadBase64PublicMedia = async (
     const fileName = `edited_${Date.now()}.jpg`;
     const file = dataURLtoFile(base64Data, fileName);
     return await uploadPublicMedia(file, folder);
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -146,12 +270,10 @@ export const deleteAdminAssetByUrl = async (url: string | null | undefined): Pro
   if (!url?.trim()) return false;
 
   try {
-    const marker = `/object/public/${PUBLIC_BUCKET}/`;
-    const idx = url.indexOf(marker);
-    if (idx === -1) return false;
-
-    const path = decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
-    if (!path || !path.startsWith('admin_assets/')) return false;
+    const path = parsePublicMediaStorageObjectPathFromPublicUrl(url);
+    if (!path?.startsWith('admin_assets/')) return false;
+    if (!hasSafeObjectPathSegments(path)) return false;
+    if (!isLegacyPublicMediaObjectPath(path)) return false;
 
     const { error } = await supabase.storage.from(PUBLIC_BUCKET).remove([path]);
     if (error) {
@@ -170,7 +292,8 @@ export const deleteAdminAssetByUrl = async (url: string | null | undefined): Pro
 // FUNZIONI DI LIKE RIMOSSE -> SPOSTATE IN photoService.ts ED ESEGUITE VIA RPC
 
 /**
- * Cerca un ritratto esistente per una persona famosa (es. recupero dopo cancellazione)
+ * Cerca un ritratto esistente per una persona famosa (recovery legacy URL).
+ * Il risultato non attesta verifica licenza/provenance MF4.
  */
 export const findExistingPortrait = async (personName: string): Promise<string | null> => {
   try {
@@ -201,6 +324,10 @@ export const findExistingPortrait = async (personName: string): Promise<string |
 /**
  * Costruisce una mappa di utilizzo degli asset (immagini) nel database.
  * Chiave: URL immagine (normalizzato) -> Valore: Array di stringhe che descrivono dove è usata.
+ *
+ * @deprecated Preferire `mediaCatalogService.listMediaCatalogPage` + assignment drill-down (MF4).
+ * Resta per overlay tab Storage legacy e compatibilità URL-only fino a cutover MF5.
+ * Non è una garanzia transazionale di usage/lifecycle MF4 (solo best-effort URL matching).
  */
 export const getAssetUsageMap = async (): Promise<Record<string, string[]>> => {
   const usageMap: Record<string, string[]> = {};
@@ -215,40 +342,48 @@ export const getAssetUsageMap = async (): Promise<Record<string, string[]>> => {
   try {
     // 1. Cities (Hero, Card, Gallery) - BOUNDARY RECOVERY
     const cityMediaInfos = await fetchGlobalCityMediaInfo();
-    cityMediaInfos.forEach((info) => {
+    for (const info of cityMediaInfos) {
       addToMap(info.imageUrl, `City Card: ${info.name}`);
       addToMap(info.heroImage, `City Hero: ${info.name}`);
-      info.gallery.forEach((asset) => addToMap(asset.url, `City Gallery: ${info.name}`));
-    });
+      for (const asset of info.gallery) {
+        addToMap(asset.url, `City Gallery: ${info.name}`);
+      }
+    }
 
     // 2. POIs
     const { data: pois } = await supabase.from('pois').select('name, image_url');
-    pois?.forEach((p) => {
-      addToMap(p.image_url, `POI: ${p.name}`);
-    });
+    for (const poi of pois ?? []) {
+      addToMap(poi.image_url, `POI: ${poi.name}`);
+    }
 
     // 3. People
     const { data: people } = await supabase.from('city_people').select('name, image_url');
-    people?.forEach((p) => {
-      addToMap(p.image_url, `Person: ${p.name}`);
-    });
+    for (const person of people ?? []) {
+      addToMap(person.image_url, `Person: ${person.name}`);
+    }
 
     // 4. Shops
     const { data: shops } = await supabase.from('shops').select('name, image_url');
-    shops?.forEach((s) => {
-      addToMap(s.image_url, `Shop: ${s.name}`);
-    });
+    for (const shop of shops ?? []) {
+      addToMap(shop.image_url, `Shop: ${shop.name}`);
+    }
 
     // 5. Events & Guides
     const { data: events } = await supabase.from('city_events').select('name, image_url');
-    events?.forEach((e) => addToMap(e.image_url, `Event: ${e.name}`));
+    for (const event of events ?? []) {
+      addToMap(event.image_url, `Event: ${event.name}`);
+    }
 
     const { data: guides } = await supabase.from('city_guides').select('name, image_url');
-    guides?.forEach((g) => addToMap(g.image_url, `Guide: ${g.name}`));
+    for (const guide of guides ?? []) {
+      addToMap(guide.image_url, `Guide: ${guide.name}`);
+    }
 
     // 6. Social Templates
     const { data: templates } = await supabase.from('social_templates').select('name, bg_url');
-    templates?.forEach((t) => addToMap(t.bg_url, `Template: ${t.name}`));
+    for (const template of templates ?? []) {
+      addToMap(template.bg_url, `Template: ${template.name}`);
+    }
   } catch (e) {
     console.error('Error building asset usage map:', e);
   }

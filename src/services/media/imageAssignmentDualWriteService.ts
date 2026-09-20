@@ -3,7 +3,7 @@ import { mf2Rpc } from '@/services/reports/mf2DbClient';
 export type DualWriteEntityType = 'city_person' | 'poi' | 'patron' | 'photo_submission';
 export type DualWriteAssignmentRole = 'primary' | 'gallery';
 
-/** Valori canonici media_assets.origin_type (MF2 §42.1 / audit). */
+/** Valori canonici media_assets.origin_type ammessi al caller dual-write (MF2/MF4). */
 export type DualWriteImageOriginType = 'admin' | 'ai' | 'wikimedia' | 'community' | 'placeholder';
 
 export type DualWriteImageSource = {

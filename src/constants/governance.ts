@@ -496,6 +496,12 @@ export function isImageAssetStatusDb(value: string): value is ImageAssetStatusDb
   return (IMAGE_ASSET_STATUS_DB_VALUES as readonly string[]).includes(value);
 }
 
+export function isImageVerificationStepOutcomeDb(
+  value: string,
+): value is ImageVerificationStepOutcomeDb {
+  return (IMAGE_VERIFICATION_STEP_OUTCOME_DB_VALUES as readonly string[]).includes(value);
+}
+
 export function parseImageAssetStatusDb(value: string | null | undefined): ImageAssetStatusDb {
   if (value && isImageAssetStatusDb(value)) return value;
   throw new Error(`media_assets.asset_status non valido: ${value ?? '(null)'}`);

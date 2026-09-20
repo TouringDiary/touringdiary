@@ -40,6 +40,7 @@ import {
   saveCityTourOperator,
 } from '../../services/cityService';
 import { findExistingPortrait } from '../../services/mediaService';
+import { lookupWikidataP18Proposal } from '../../services/wikimedia/wikidataLookupService';
 import type { CityDetails, CityServiceType, FamousPerson, User } from '../../types/index';
 import { getSafeEventCategory, getSafeServiceType } from '../../utils/common';
 import type { StepReport, useAiTaskRunner } from './useAiTaskRunner';
@@ -262,6 +263,22 @@ async function insertNewCityPeopleWithRollback(
         );
       }
       createdIds.push(saved.id);
+      try {
+        const wikidataHint = await lookupWikidataP18Proposal({
+          label: saved.name,
+          description: saved.bio ?? null,
+        });
+        if (wikidataHint.status === 'proposal' || wikidataHint.status === 'ambiguous') {
+          console.info(
+            `[useAiCompleteCity] Wikidata candidato per «${saved.name}» — conferma Admin da Culture Corner (MF4).`,
+          );
+        }
+      } catch (wikidataErr) {
+        console.warn(
+          `[useAiCompleteCity] Lookup Wikidata non bloccante fallito per «${saved.name}»:`,
+          wikidataErr,
+        );
+      }
     }
   } catch (error) {
     await Promise.allSettled(createdIds.map((id) => deleteCityPerson(id)));

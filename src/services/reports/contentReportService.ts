@@ -11,12 +11,13 @@ import {
   parseContentReportSourceContext,
   parseContentReportStatusDb,
 } from '@/constants/governance';
+import { mf3MediaAssetsTable } from '@/services/media/mf3DbClient';
 import type {
   ContentReport,
   CreateReportGroupResult,
   SubmitContentReportInput,
 } from '@/types/models/contentReport';
-import { mf2ContentReportsTable, mf2Rpc } from './mf2DbClient';
+import { mf2ContentReportsTable, mf2EntityImageAssignmentsTable, mf2Rpc } from './mf2DbClient';
 
 type ContentReportRow = {
   id: string;
@@ -89,9 +90,7 @@ export function mapContentReportRow(row: ContentReportRow): ContentReport {
     reporterUserName: row.reporter_user_name,
     reporterEmail: row.reporter_email,
     reporterEmailVerified: row.reporter_email_verified,
-    sourceContext: row.source_context
-      ? parseContentReportSourceContext(row.source_context)
-      : null,
+    sourceContext: row.source_context ? parseContentReportSourceContext(row.source_context) : null,
     snapshotEntityName: row.snapshot_entity_name,
     snapshotImageUrl: row.snapshot_image_url,
     snapshotStorageBucket: row.snapshot_storage_bucket,
@@ -235,4 +234,71 @@ export async function getPendingContentReportCount(
 
 export function isReportStatusFilter(value: string): value is ContentReportStatusDb | 'all' {
   return value === 'all' || isContentReportStatusDb(value);
+}
+
+/**
+ * MF4 — consultazione arricchita: segnalazioni collegate a un media_asset (assignment o snapshot path).
+ * Non duplica il modello evidenza MF2.
+ */
+export async function listContentReportsForMediaAsset(
+  mediaAssetId: string,
+): Promise<ContentReport[]> {
+  const { data: assetRow, error: assetError } = await mf3MediaAssetsTable()
+    .select('storage_bucket, storage_path')
+    .eq('id', mediaAssetId)
+    .maybeSingle();
+
+  if (assetError) throw new Error(assetError.message);
+
+  const assetRecord = assetRow as { storage_bucket?: string; storage_path?: string } | null;
+  const bucket =
+    assetRecord && typeof assetRecord.storage_bucket === 'string'
+      ? assetRecord.storage_bucket
+      : null;
+  const path =
+    assetRecord && typeof assetRecord.storage_path === 'string' ? assetRecord.storage_path : null;
+
+  const { data: assignmentRows, error: assignmentError } = await mf2EntityImageAssignmentsTable()
+    .select('id')
+    .eq('media_asset_id', mediaAssetId);
+
+  if (assignmentError) throw new Error(assignmentError.message);
+
+  const assignmentIds = ((assignmentRows ?? []) as unknown[])
+    .map((row) => {
+      const record = row as { id?: string };
+      return typeof record.id === 'string' ? record.id : '';
+    })
+    .filter((id) => id.length > 0);
+
+  const byId = new Map<string, ContentReport>();
+
+  if (assignmentIds.length > 0) {
+    const { data, error } = await mf2ContentReportsTable()
+      .select('*')
+      .in('assignment_id', assignmentIds)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      const mapped = mapContentReportRow(row as unknown as ContentReportRow);
+      byId.set(mapped.id, mapped);
+    }
+  }
+
+  if (bucket && path) {
+    const { data, error } = await mf2ContentReportsTable()
+      .select('*')
+      .eq('snapshot_storage_bucket', bucket)
+      .eq('snapshot_storage_path', path)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      const mapped = mapContentReportRow(row as unknown as ContentReportRow);
+      byId.set(mapped.id, mapped);
+    }
+  }
+
+  return [...byId.values()].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 }

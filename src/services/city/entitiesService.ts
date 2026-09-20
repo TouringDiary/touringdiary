@@ -79,7 +79,7 @@ export type SaveCityGuideInput = Omit<CityGuide, 'id'> & { id?: string };
  * La pubblicazione (`status: 'published'`) passa dal gate di dominio.
  */
 function toDualWriteImageOriginType(
-  origin: MediaOriginTypeDb | undefined,
+  origin: CityPersonDualWriteImageOrigin | undefined,
 ): DualWriteImageOriginType {
   switch (origin) {
     case 'ai':
@@ -96,13 +96,16 @@ function toDualWriteImageOriginType(
   }
 }
 
+/** Provenance ammessa al dual-write da saveCityPerson (verified_real escluso — esito verifica MF4). */
+type CityPersonDualWriteImageOrigin = Exclude<MediaOriginTypeDb, 'verified_real'>;
+
 export type SaveCityPersonInput = Omit<FamousPerson, 'id' | 'bio' | 'imageUrl' | 'cityId'> & {
   id?: string;
   bio?: string | null;
   imageUrl?: string | null;
   specificCategoryIds?: string[];
-  /** MF3 — origine esplicita per dual-write (default admin). */
-  imageOriginType?: MediaOriginTypeDb;
+  /** MF3 — origine esplicita per dual-write (default admin; verified_real non ammesso). */
+  imageOriginType?: CityPersonDualWriteImageOrigin;
 };
 
 // --- ENTITIES FETCHERS ---
@@ -512,18 +515,33 @@ export const saveCityPerson = async (
   if (imageUrl.length > 0) {
     const parsedStorage = parseStorageLocationFromPublicUrl(imageUrl);
     const originType = toDualWriteImageOriginType(person.imageOriginType);
-    await upsertEntityImageAssignmentDualWrite({
-      entityType: 'city_person',
-      entityId: parsedPerson.id,
-      cityId,
-      assignmentRole: 'primary',
-      source: {
-        imageUrl,
-        storageBucket: parsedStorage?.storageBucket ?? 'public-media',
-        storagePath: parsedStorage?.storagePath ?? null,
-        originType,
-      },
-    });
+    if (parsedStorage?.storagePath) {
+      await upsertEntityImageAssignmentDualWrite({
+        entityType: 'city_person',
+        entityId: parsedPerson.id,
+        cityId,
+        assignmentRole: 'primary',
+        source: {
+          imageUrl,
+          storageBucket: parsedStorage.storageBucket,
+          storagePath: parsedStorage.storagePath,
+          originType,
+        },
+      });
+    } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      await upsertEntityImageAssignmentDualWrite({
+        entityType: 'city_person',
+        entityId: parsedPerson.id,
+        cityId,
+        assignmentRole: 'primary',
+        source: {
+          imageUrl,
+          storageBucket: null,
+          storagePath: null,
+          originType,
+        },
+      });
+    }
   }
 
   invalidateCityCache(cityId);

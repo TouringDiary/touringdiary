@@ -104,7 +104,7 @@ export const ImportActionToolbar = ({
             ) : (
               <Sparkles className="w-3.5 h-3.5" />
             )}
-            {isAnalyzing ? 'Analisi...' : 'AI QUALITY'}
+            {isAnalyzing ? analysisProgress.trim() || 'Analisi...' : 'AI QUALITY'}
           </button>
 
           {/* SEND TO READY */}
@@ -135,7 +135,7 @@ export const ImportActionToolbar = ({
             ) : (
               <Database className="w-3.5 h-3.5" />
             )}
-            {isPublishing ? 'Importing...' : 'SEND TO DB (BOZZE)'}
+            {isPublishing ? publishProgress.trim() || 'Importing...' : 'SEND TO DB (BOZZE)'}
           </button>
 
           {/* Secondary Actions Group */}
@@ -173,6 +173,10 @@ export const ImportActionToolbar = ({
           Seleziona item per azioni.
         </span>
       )}
+      <p className="w-full text-[10px] text-slate-500 leading-relaxed md:ml-auto md:w-auto md:max-w-md">
+        POI pubblicati: fotografie reali Wikidata/Commons solo via pipeline MF4 (conferma Admin +
+        verifica licenza) — distinte da upload community.
+      </p>
     </div>
   );
 };

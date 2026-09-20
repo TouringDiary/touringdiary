@@ -30,6 +30,11 @@ export const usePeopleManager = (cityId: string, cityName: string) => {
     aiImageStepChoice: aiLogic.aiImageStepChoice,
     setAiImageStepChoice: aiLogic.setAiImageStepChoice,
     aiImageStepModalCopy: aiLogic.aiImageStepModalCopy,
+    wikidataImportUi: aiLogic.wikidataImportUi,
+    wikidataImportProcessing: aiLogic.wikidataImportProcessing,
+    closeWikidataImportUi: aiLogic.closeWikidataImportUi,
+    selectWikidataCandidate: aiLogic.selectWikidataCandidate,
+    confirmWikidataCommonsImport: aiLogic.confirmWikidataCommonsImport,
 
     toggleSelection: dataLogic.toggleSelection,
     toggleAll: dataLogic.toggleAll,
