@@ -1,3 +1,4 @@
+import type { MediaOriginTypeDb } from '@/constants/governance';
 import { assertFamousPersonPublishable } from '@/domain/city/famousPersonCompleteness';
 import type {
   Database,
@@ -9,6 +10,7 @@ import type {
 } from '../../types/database';
 import type { CityEvent, CityGuide, CityService, FamousPerson, Review } from '../../types/index';
 import { parseStorageLocationFromPublicUrl } from '../../utils/storagePathFromPublicUrl';
+import type { DualWriteImageOriginType } from '../media/imageAssignmentDualWriteService';
 import { upsertEntityImageAssignmentDualWrite } from '../media/imageAssignmentDualWriteService';
 import { supabase } from '../supabaseClient';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
@@ -76,11 +78,31 @@ export type SaveCityGuideInput = Omit<CityGuide, 'id'> & { id?: string };
  * `specificCategoryIds` aggiorna la junction N:M (replace).
  * La pubblicazione (`status: 'published'`) passa dal gate di dominio.
  */
+function toDualWriteImageOriginType(
+  origin: MediaOriginTypeDb | undefined,
+): DualWriteImageOriginType {
+  switch (origin) {
+    case 'ai':
+    case 'ai_generated':
+      return 'ai';
+    case 'wikimedia':
+      return 'wikimedia';
+    case 'community':
+      return 'community';
+    case 'placeholder':
+      return 'placeholder';
+    default:
+      return 'admin';
+  }
+}
+
 export type SaveCityPersonInput = Omit<FamousPerson, 'id' | 'bio' | 'imageUrl' | 'cityId'> & {
   id?: string;
   bio?: string | null;
   imageUrl?: string | null;
   specificCategoryIds?: string[];
+  /** MF3 — origine esplicita per dual-write (default admin). */
+  imageOriginType?: MediaOriginTypeDb;
 };
 
 // --- ENTITIES FETCHERS ---
@@ -395,12 +417,12 @@ export const saveCityPerson = async (
 
   const persisted = !isNew && person.id ? await loadPersistedPersonLifespanFields(person.id) : null;
 
-  const isLiving =
+  const isLiving: boolean | undefined =
     typeof person.isLiving === 'boolean'
       ? person.isLiving
-      : persisted
+      : typeof persisted?.is_living === 'boolean'
         ? persisted.is_living
-        : person.isLiving !== false;
+        : undefined;
 
   const birthYear = isNew
     ? (person.birthYear ?? null)
@@ -409,16 +431,18 @@ export const saveCityPerson = async (
     ? (person.birthDate ?? null)
     : resolveOptionalDateField(person.birthDate, persisted?.birth_date);
 
-  const deathYear = isLiving
-    ? null
-    : isNew
-      ? (person.deathYear ?? null)
-      : resolveOptionalNumberField(person.deathYear, persisted?.death_year);
-  const deathDate = isLiving
-    ? null
-    : isNew
-      ? (person.deathDate ?? null)
-      : resolveOptionalDateField(person.deathDate, persisted?.death_date);
+  const deathYear =
+    isLiving === true
+      ? null
+      : isNew
+        ? (person.deathYear ?? null)
+        : resolveOptionalNumberField(person.deathYear, persisted?.death_year);
+  const deathDate =
+    isLiving === true
+      ? null
+      : isNew
+        ? (person.deathDate ?? null)
+        : resolveOptionalDateField(person.deathDate, persisted?.death_date);
 
   const lifespanDisplay = computeLifespanDisplayForSave({
     birthYear,
@@ -437,7 +461,7 @@ export const saveCityPerson = async (
     quote: person.quote,
     birth_year: birthYear,
     birth_date: birthDate,
-    is_living: isLiving,
+    ...(typeof isLiving === 'boolean' ? { is_living: isLiving } : {}),
     death_year: deathYear,
     death_date: deathDate,
     lifespan_display: lifespanDisplay || null,
@@ -487,6 +511,7 @@ export const saveCityPerson = async (
   const imageUrl = parsedPerson.imageUrl?.trim() ?? '';
   if (imageUrl.length > 0) {
     const parsedStorage = parseStorageLocationFromPublicUrl(imageUrl);
+    const originType = toDualWriteImageOriginType(person.imageOriginType);
     await upsertEntityImageAssignmentDualWrite({
       entityType: 'city_person',
       entityId: parsedPerson.id,
@@ -496,12 +521,25 @@ export const saveCityPerson = async (
         imageUrl,
         storageBucket: parsedStorage?.storageBucket ?? 'public-media',
         storagePath: parsedStorage?.storagePath ?? null,
-        originType: 'admin',
+        originType,
       },
     });
   }
 
   invalidateCityCache(cityId);
+
+  if (person.imageOriginType === 'ai' && imageUrl.length > 0) {
+    return {
+      ...parsedPerson,
+      imageAsset: {
+        url: parsedPerson.imageUrl ?? imageUrl,
+        mediaStatus: parsedPerson.imageAsset?.mediaStatus ?? 'real',
+        generatedByAi: true,
+        originType: 'ai',
+      },
+    };
+  }
+
   return parsedPerson;
 };
 

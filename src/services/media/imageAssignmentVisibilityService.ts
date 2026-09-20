@@ -1,9 +1,12 @@
+import { isPublicUsableImageAssetStatus, parseImageAssetStatusDb } from '@/constants/governance';
+import { fetchMediaAssetsByIds } from '@/services/media/mediaAssetService';
 import { mf2EntityImageAssignmentsTable } from '@/services/reports/mf2DbClient';
 import type { FamousPerson, PointOfInterest } from '@/types/index';
 
 type PrimaryAssignmentVisibilityRow = {
   id: string;
   entity_id: string;
+  media_asset_id: string;
   assignment_status: string;
   assignment_role: string;
   source_image_url: string | null;
@@ -12,16 +15,66 @@ type PrimaryAssignmentVisibilityRow = {
 
 type PatronGalleryAssignmentVisibilityRow = {
   id: string;
+  media_asset_id: string;
   assignment_status: string;
   source_image_url: string | null;
   source_storage_path: string | null;
 };
 
-const NON_VISIBLE_ASSIGNMENT_STATUSES = new Set(['suspended', 'removed', 'replaced']);
+function isPrimaryAssignmentVisibilityRow(value: unknown): value is PrimaryAssignmentVisibilityRow {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === 'string' &&
+    typeof row.entity_id === 'string' &&
+    typeof row.media_asset_id === 'string' &&
+    typeof row.assignment_status === 'string' &&
+    typeof row.assignment_role === 'string' &&
+    (row.source_image_url === null || typeof row.source_image_url === 'string') &&
+    (row.source_storage_path === null || typeof row.source_storage_path === 'string')
+  );
+}
 
+function isPatronGalleryAssignmentVisibilityRow(
+  value: unknown,
+): value is PatronGalleryAssignmentVisibilityRow {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === 'string' &&
+    typeof row.media_asset_id === 'string' &&
+    typeof row.assignment_status === 'string' &&
+    (row.source_image_url === null || typeof row.source_image_url === 'string') &&
+    (row.source_storage_path === null || typeof row.source_storage_path === 'string')
+  );
+}
+
+/** D86: con assignment corrente, legacy visibile solo se assignment_status === active (vocabolario MF3). */
 function isAssignmentBlockingLegacyImage(row: { assignment_status: string } | undefined): boolean {
   if (!row) return false;
-  return NON_VISIBLE_ASSIGNMENT_STATUSES.has(row.assignment_status);
+  return row.assignment_status !== 'active';
+}
+
+function isAssetBlockingPublicImage(
+  assetStatus: string | null | undefined,
+  hasAssignment: boolean,
+): boolean {
+  if (!hasAssignment) return false;
+  if (!assetStatus) return true;
+  try {
+    return !isPublicUsableImageAssetStatus(parseImageAssetStatusDb(assetStatus));
+  } catch {
+    return true;
+  }
+}
+
+function isGalleryAssignmentPubliclyVisible(
+  row: PatronGalleryAssignmentVisibilityRow,
+  assetStatus: string | null | undefined,
+): boolean {
+  if (isAssignmentBlockingLegacyImage(row)) return false;
+  if (!row.media_asset_id?.trim()) return false;
+  return !isAssetBlockingPublicImage(assetStatus, true);
 }
 
 async function fetchPrimaryAssignments(
@@ -35,7 +88,7 @@ async function fetchPrimaryAssignments(
 
   const { data, error } = await mf2EntityImageAssignmentsTable()
     .select(
-      'id, entity_id, assignment_status, assignment_role, source_image_url, source_storage_path',
+      'id, entity_id, media_asset_id, assignment_status, assignment_role, source_image_url, source_storage_path',
     )
     .eq('entity_type', entityType)
     .eq('city_id', cityId)
@@ -47,9 +100,28 @@ async function fetchPrimaryAssignments(
     throw new Error(`Lettura assignment visibilità fallita: ${error.message}`);
   }
 
-  for (const row of (data ?? []) as unknown as PrimaryAssignmentVisibilityRow[]) {
+  for (const row of data ?? []) {
+    if (!isPrimaryAssignmentVisibilityRow(row)) {
+      throw new Error(
+        `Record assignment primario corrente non valido per la visibilità D86 (${entityType}, city_id=${cityId}).`,
+      );
+    }
     result.set(row.entity_id, row);
   }
+
+  const assetIds = [...result.values()].map((r) => r.media_asset_id).filter((id) => id?.trim());
+  const assets = await fetchMediaAssetsByIds(assetIds);
+
+  for (const [entityId, row] of result) {
+    const asset = assets.get(row.media_asset_id);
+    if (
+      isAssetBlockingPublicImage(asset?.asset_status ?? null, true) ||
+      isAssignmentBlockingLegacyImage(row)
+    ) {
+      result.set(entityId, { ...row, assignment_status: 'suspended' });
+    }
+  }
+
   return result;
 }
 
@@ -123,7 +195,7 @@ export async function filterPatronGalleryByAssignmentVisibility<
   if (photos.length === 0) return photos;
 
   const { data, error } = await mf2EntityImageAssignmentsTable()
-    .select('id, assignment_status, source_image_url, source_storage_path')
+    .select('id, media_asset_id, assignment_status, source_image_url, source_storage_path')
     .eq('entity_type', 'patron')
     .eq('entity_id', cityId)
     .eq('city_id', cityId)
@@ -134,11 +206,22 @@ export async function filterPatronGalleryByAssignmentVisibility<
     throw new Error(`Lettura assignment galleria Patrono fallita: ${error.message}`);
   }
 
-  const rows = (data ?? []) as unknown as PatronGalleryAssignmentVisibilityRow[];
+  const rows: PatronGalleryAssignmentVisibilityRow[] = [];
+  for (const row of data ?? []) {
+    if (!isPatronGalleryAssignmentVisibilityRow(row)) {
+      throw new Error(
+        `Record assignment gallery Patrono corrente non valido per la visibilità D86 (city_id=${cityId}).`,
+      );
+    }
+    rows.push(row);
+  }
   const rowsById = new Map<string, PatronGalleryAssignmentVisibilityRow>();
   for (const row of rows) {
     rowsById.set(row.id, row);
   }
+
+  const assetIds = rows.map((r) => r.media_asset_id).filter((id) => id?.trim());
+  const assets = await fetchMediaAssetsByIds(assetIds);
 
   return photos.filter((photo) => {
     const assignmentId = photo.assignmentId?.trim() ?? '';
@@ -147,7 +230,8 @@ export async function filterPatronGalleryByAssignmentVisibility<
       if (!byId) {
         return false;
       }
-      return !isAssignmentBlockingLegacyImage(byId);
+      const assetStatus = assets.get(byId.media_asset_id)?.asset_status ?? null;
+      return isGalleryAssignmentPubliclyVisible(byId, assetStatus);
     }
 
     const url = photo.imageUrl.trim();
@@ -159,6 +243,7 @@ export async function filterPatronGalleryByAssignmentVisibility<
     });
 
     if (!matching) return true;
-    return !isAssignmentBlockingLegacyImage(matching);
+    const assetStatus = assets.get(matching.media_asset_id)?.asset_status ?? null;
+    return isGalleryAssignmentPubliclyVisible(matching, assetStatus);
   });
 }

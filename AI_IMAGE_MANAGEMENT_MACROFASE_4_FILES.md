@@ -83,6 +83,17 @@
 
 ---
 
+## Note architetturali — Provenienza ≠ verifica
+
+**Wikimedia** è una sorgente/provenienza dell'immagine, ma `origin_type = wikimedia` **non** costituisce da solo prova di foto reale verificata. La classificazione come foto reale verificata avviene solo dopo il processo MF4 previsto per Wikidata/Commons (Wikidata → proposta → conferma Admin → Commons → verifica licenza/provenenza → import/gestione dell'asset), con verifica della provenienza/licenza e conferma Admin dove richiesta.
+
+- **MF3** prepara e conserva la provenienza strutturata su `media_assets`; **MF3 non** deve considerare automaticamente Wikimedia come `verified real`.
+- **MF4** completa il processo di verifica Wikimedia; dopo la verifica MF4 l'immagine può partecipare al publish/resolver flow delle immagini ufficiali delle entità secondo il Master Plan.
+
+**Foto Community:** upload utenti per superfici Community. La moderazione/approvazione della foto Community **non** equivale a verifica di provenienza, copyright o licenza e **non** trasforma l'immagine in una «foto reale verificata» del resolver delle entità. Le segnalazioni di abuso sulle foto Community seguono il flusso Segnala abuso già definito in MF2. Le Community photo restano un flusso autonomo: non confonderle con la pipeline Wikimedia né con il tier «foto reale verificata».
+
+---
+
 ## Dipendenze
 
 - MF3 stati + provenance + verify queue

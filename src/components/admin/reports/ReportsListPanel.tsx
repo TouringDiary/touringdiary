@@ -7,7 +7,10 @@ import {
   type ContentReportSourceContext,
   type ContentReportStatusDb,
 } from '@/constants/governance';
-import { getReportsByGroupId, listContentReportsForAdmin } from '@/services/reports/contentReportService';
+import {
+  getReportsByGroupId,
+  listContentReportsForAdmin,
+} from '@/services/reports/contentReportService';
 import type { ContentReport } from '@/types/models/contentReport';
 import { ReportAdminDetailPanel } from './ReportAdminDetailPanel';
 

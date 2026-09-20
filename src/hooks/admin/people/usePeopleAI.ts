@@ -11,6 +11,12 @@ import {
 import { buildLifespanDisplay } from '@/domain/city/famousPersonDates';
 import { enrichPersonData, suggestCityPeople } from '../../../services/ai';
 import { isAiProviderQuotaExhaustedError } from '../../../services/ai/aiEdgeErrors';
+import {
+  AI_IMAGE_STEP_MODAL_COPY,
+  type AiImageStepChoice,
+  getDefaultAiImageStepForEntity,
+  isAiImageGenerationAllowed,
+} from '../../../services/ai/aiImageStepConfig';
 import { generateHistoricalPortrait } from '../../../services/ai/aiVision';
 import { validateAiSpecificSlugs } from '../../../services/ai/generators/peopleCategoryValidation';
 import {
@@ -112,6 +118,9 @@ export const usePeopleAI = ({
     field: FamousPersonRequiredField | 'dates';
   } | null>(null);
   const activeDiscoveryRequestIdRef = useRef(0);
+  const [aiImageStepChoice, setAiImageStepChoice] = useState<AiImageStepChoice>(
+    getDefaultAiImageStepForEntity('city_person'),
+  );
 
   useEffect(() => {
     if (!cityId) return;
@@ -166,12 +175,14 @@ export const usePeopleAI = ({
       // Reuse cross-città per nome (ilike): pattern architetturale condiviso con Magic/Complete city.
       // L'identità FamousPerson in discovery è il nome; non esiste ancora un personId persistito.
       let seedImage: string | undefined = (await findExistingPortrait(person.name)) ?? undefined;
+      let portraitFromAi = false;
       let skipImageAiRecovery = false;
-      if (!seedImage) {
+      if (!seedImage && isAiImageGenerationAllowed('city_person', aiImageStepChoice)) {
         const categoryLabel = categoryLabelFromSlugs(person.specificCategorySlugs, activeSpecifics);
         try {
           seedImage =
             (await generateHistoricalPortrait(person.name, categoryLabel, cityName)) ?? undefined;
+          portraitFromAi = Boolean(seedImage);
         } catch (e) {
           if (isAiProviderQuotaExhaustedError(e)) {
             skipImageAiRecovery = true;
@@ -204,6 +215,7 @@ export const usePeopleAI = ({
         name: present.name,
         bio: present.bio ?? null,
         imageUrl: present.imageUrl ?? null,
+        ...(portraitFromAi ? { imageOriginType: 'ai' as const } : {}),
         specificCategoryIds: present.specificCategoryIds ?? slugValidation.ids,
         birthYear: present.birthYear ?? person.birthYear ?? null,
         birthDate: present.birthDate ?? person.birthDate ?? null,
@@ -355,8 +367,23 @@ export const usePeopleAI = ({
     try {
       const newImageUrl = await generateHistoricalPortrait(person.name, categoryLabel, cityName);
       if (newImageUrl) {
-        const updated = { ...person, imageUrl: newImageUrl };
-        await saveCityPerson(cityId, toSaveCityPersonInput(updated));
+        const updated: FamousPerson = {
+          ...person,
+          imageUrl: newImageUrl,
+          ...(person.imageAsset
+            ? {
+                imageAsset: {
+                  ...person.imageAsset,
+                  url: newImageUrl,
+                  generatedByAi: true,
+                },
+              }
+            : {}),
+        };
+        await saveCityPerson(cityId, {
+          ...toSaveCityPersonInput(updated),
+          imageOriginType: 'ai',
+        });
         setPeopleList((prev) => prev.map((p) => (p.id === person.id ? updated : p)));
         return true;
       }
@@ -536,6 +563,9 @@ export const usePeopleAI = ({
     isBulkProcessing,
     discoveryResults,
     fieldGenerating,
+    aiImageStepChoice,
+    setAiImageStepChoice,
+    aiImageStepModalCopy: AI_IMAGE_STEP_MODAL_COPY,
     runDiscovery,
     importDiscoveryPerson,
     removeDiscoveryResult,

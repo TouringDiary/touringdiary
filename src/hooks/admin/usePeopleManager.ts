@@ -27,6 +27,9 @@ export const usePeopleManager = (cityId: string, cityName: string) => {
     isBulkProcessing: aiLogic.isBulkProcessing,
     discoveryResults: aiLogic.discoveryResults,
     fieldGenerating: aiLogic.fieldGenerating,
+    aiImageStepChoice: aiLogic.aiImageStepChoice,
+    setAiImageStepChoice: aiLogic.setAiImageStepChoice,
+    aiImageStepModalCopy: aiLogic.aiImageStepModalCopy,
 
     toggleSelection: dataLogic.toggleSelection,
     toggleAll: dataLogic.toggleAll,

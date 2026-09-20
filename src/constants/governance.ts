@@ -82,11 +82,18 @@ export type PatronOrdinaryEditorialStatus =
 /** Stati gestiti esclusivamente dal workflow Segnalazioni → Santo Patrono. */
 export const PATRON_MODERATION_EDITORIAL_STATUS_VALUES = ['SUSPENDED', 'CANCELED'] as const;
 
+const DB_STATUS_BY_CANONICAL: Record<EditorialStatusCanonical, EditorialStatusDb> = {
+  DRAFT: 'draft',
+  PUBLISHED: 'published',
+  SUSPENDED: 'suspended',
+  CANCELED: 'canceled',
+};
+
 export function toEditorialStatusDb(
   status: EditorialStatusCanonical | null | undefined,
 ): EditorialStatusDb {
   if (!status) return 'published';
-  return status.toLowerCase() as EditorialStatusDb;
+  return DB_STATUS_BY_CANONICAL[status];
 }
 
 export function fromEditorialStatusDb(
@@ -418,3 +425,95 @@ export function isAssignmentStatusDb(value: string): value is AssignmentStatusDb
 export function isPersonStatusDb(value: string): value is PersonStatusDb {
   return (PERSON_STATUS_VALUES as readonly string[]).includes(value);
 }
+
+/**
+ * IMAGE ASSET LIFECYCLE (MF3 — D40)
+ * Contratto DB: media_assets.asset_status (enum image_asset_status)
+ * Distinto da MEDIA_STATUS_VALUES (legacy entità) e assignment_status.
+ */
+export const IMAGE_ASSET_STATUS_DB_VALUES = [
+  'active',
+  'suspended',
+  'restored',
+  'replaced',
+  'removed',
+  'verify_ai_image',
+] as const;
+
+export type ImageAssetStatusDb = (typeof IMAGE_ASSET_STATUS_DB_VALUES)[number];
+
+export const IMAGE_ASSET_STATUS_LABELS: Record<ImageAssetStatusDb, string> = {
+  active: 'ATTIVO',
+  suspended: 'SOSPESO',
+  restored: 'RIPRISTINATO',
+  replaced: 'SOSTITUITO',
+  removed: 'RIMOSSO',
+  verify_ai_image: 'VERIFICARE IMMAGINE AI',
+};
+
+/** Asset utilizzabili in resolver pubblico (D86 — immagine non utilizzabile → non mostrata). */
+export const PUBLIC_USABLE_IMAGE_ASSET_STATUSES: readonly ImageAssetStatusDb[] = [
+  'active',
+  'restored',
+] as const;
+
+export const MEDIA_ORIGIN_TYPE_DB_VALUES = [
+  'admin',
+  'admin_upload',
+  'ai',
+  'ai_generated',
+  'wikimedia',
+  'community',
+  'placeholder',
+  'verified_real',
+] as const;
+
+export type MediaOriginTypeDb = (typeof MEDIA_ORIGIN_TYPE_DB_VALUES)[number];
+
+export const IMAGE_VERIFICATION_STEP_OUTCOME_DB_VALUES = [
+  'verified',
+  'unverified',
+  'doubt',
+  'blocked',
+  'not_applicable',
+] as const;
+
+export type ImageVerificationStepOutcomeDb =
+  (typeof IMAGE_VERIFICATION_STEP_OUTCOME_DB_VALUES)[number];
+
+export const IMAGE_VERIFICATION_STEP_OUTCOME_LABELS: Record<
+  ImageVerificationStepOutcomeDb,
+  string
+> = {
+  verified: 'VERIFICATO',
+  unverified: 'NON VERIFICATO',
+  doubt: 'DUBBIO',
+  blocked: 'BLOCCATO',
+  not_applicable: 'NON APPLICABILE',
+};
+
+export function isImageAssetStatusDb(value: string): value is ImageAssetStatusDb {
+  return (IMAGE_ASSET_STATUS_DB_VALUES as readonly string[]).includes(value);
+}
+
+export function parseImageAssetStatusDb(value: string | null | undefined): ImageAssetStatusDb {
+  if (value && isImageAssetStatusDb(value)) return value;
+  throw new Error(`media_assets.asset_status non valido: ${value ?? '(null)'}`);
+}
+
+export function isPublicUsableImageAssetStatus(status: ImageAssetStatusDb): boolean {
+  return PUBLIC_USABLE_IMAGE_ASSET_STATUSES.some((usable) => usable === status);
+}
+
+/**
+ * MEDIA_STATUS vs asset_status — nota allineamento MF3:
+ * - media_status (enum legacy su entità) descrive tipo/contenuto editoriale (real/ai_generated/placeholder/…)
+ * - asset_status descrive lifecycle dell'asset canonico su media_assets
+ */
+/** Hint tipo/contenuto legacy → provenance (non verifica MF3; real ≠ verified_real). */
+export const MEDIA_STATUS_TO_ORIGIN_HINT: Partial<
+  Record<(typeof MEDIA_STATUS_VALUES)[number], MediaOriginTypeDb>
+> = {
+  ai_generated: 'ai',
+  placeholder: 'placeholder',
+};

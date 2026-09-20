@@ -3,6 +3,10 @@ import type { MediaStatus } from '@/types/models/Media';
 /**
  * Photograph domain contract.
  *
+ * MF3 boundary: lifecycle/provenance canonici su `media_assets` + `entity_image_assignments`
+ * (servizi `mediaAssetService` / `provenanceService`). Questo modulo resta il gate del dominio
+ * Photograph (`photo_submissions`) — non deduce origine AI da URL Storage.
+ *
  * Business rule:
  * - Photographs = content uploaded as photographs only:
  *   City Photographic Gallery, Community uploads, Admin photo moderation.
@@ -31,7 +35,7 @@ export function isPhotograph(
   if (fields == null) return false;
 
   if (typeof fields === 'string') {
-    return fields === PHOTOGRAPH_MEDIA_STATUS;
+    return false;
   }
 
   if (!fields.url?.trim()) return false;

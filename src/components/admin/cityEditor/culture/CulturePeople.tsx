@@ -1,6 +1,6 @@
 import { CheckSquare, Eye, Info, Loader2, Plus, Square, Tags, Users, Wand2, X } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 import { useCityEditor } from '@/context/CityEditorContext';
 import {
   type FamousPersonPublishGap,
@@ -25,12 +25,62 @@ import { CulturePersonCard } from './CulturePersonCard';
 interface CulturePeopleProps {
   cityId: string;
   cityName: string;
+  /** Compatibilità chiamanti — non utilizzato dal componente. */
   currentUser?: User;
 }
 
 function getPersistedPersonId(person: FamousPerson): string | null {
   const { id } = person;
   return typeof id === 'string' && id.trim().length > 0 ? id : null;
+}
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+}
+
+/** Focus trap modale categorie (Tab/Shift+Tab); ESC e restore focus via useGlobalModalEscape. */
+function useCategoriesDialogFocusTrap(
+  active: boolean,
+  dialogRef: RefObject<HTMLDivElement | null>,
+  initialFocusRef: RefObject<HTMLButtonElement | null>,
+): void {
+  useEffect(() => {
+    if (!active) return;
+    const dialog = dialogRef.current;
+    const focusRaf = requestAnimationFrame(() => {
+      initialFocusRef.current?.focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !dialog) return;
+      const focusable = getFocusableElements(dialog);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeEl = document.activeElement;
+      if (event.shiftKey && (activeEl === first || activeEl === dialog)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeEl === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    dialog?.addEventListener('keydown', handleKeyDown);
+    return () => {
+      cancelAnimationFrame(focusRaf);
+      dialog?.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [active, dialogRef, initialFocusRef]);
 }
 
 export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }) => {
@@ -64,6 +114,9 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
     runDiscovery,
     importDiscoveryPerson,
     removeDiscoveryResult,
+    aiImageStepChoice,
+    setAiImageStepChoice,
+    aiImageStepModalCopy,
   } = usePeopleManager(cityId, cityName);
 
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
@@ -89,8 +142,20 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewInitialId, setPreviewInitialId] = useState<string | undefined>(undefined);
   const [isCategoriesOverlayOpen, setIsCategoriesOverlayOpen] = useState(false);
+  const categoriesOpenButtonRef = useRef<HTMLButtonElement>(null);
+  const categoriesCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const categoriesDialogRef = useRef<HTMLDivElement>(null);
 
-  useGlobalModalEscape(isCategoriesOverlayOpen, () => setIsCategoriesOverlayOpen(false));
+  useGlobalModalEscape(isCategoriesOverlayOpen, () => {
+    setIsCategoriesOverlayOpen(false);
+    queueMicrotask(() => categoriesOpenButtonRef.current?.focus());
+  });
+
+  useCategoriesDialogFocusTrap(
+    isCategoriesOverlayOpen,
+    categoriesDialogRef,
+    categoriesCloseButtonRef,
+  );
 
   const [masters, setMasters] = useState<FamousPersonMasterDto[]>([]);
   const [specifics, setSpecifics] = useState<FamousPersonSpecificDto[]>([]);
@@ -336,10 +401,12 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
 
       {isCategoriesOverlayOpen ? (
         <div
+          ref={categoriesDialogRef}
           className="fixed inset-0 z-admin-modal bg-black/90 backdrop-blur-sm flex flex-col animate-in fade-in"
           role="dialog"
           aria-modal="true"
           aria-labelledby="culture-people-categories-title"
+          tabIndex={-1}
         >
           <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#0f172a] shrink-0">
             <div className="flex items-center gap-3 min-w-0">
@@ -359,8 +426,12 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
               </div>
             </div>
             <button
+              ref={categoriesCloseButtonRef}
               type="button"
-              onClick={() => setIsCategoriesOverlayOpen(false)}
+              onClick={() => {
+                setIsCategoriesOverlayOpen(false);
+                queueMicrotask(() => categoriesOpenButtonRef.current?.focus());
+              }}
               className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 shrink-0"
               aria-label="Chiudi gestione categorie Personaggio"
             >
@@ -390,7 +461,8 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-4 md:mb-6 border-b border-slate-800 pb-4 gap-4">
         <div className="flex items-center gap-3">
           <h3 className="text-lg md:text-2xl font-bold text-white flex items-center gap-2">
-            <Users className="w-5 h-5 md:w-6 md:h-6 text-indigo-500" /> Personaggi Famosi
+            <Users className="w-5 h-5 md:w-6 md:h-6 text-indigo-500" aria-hidden /> Personaggi
+            Famosi
           </h3>
           <span className="text-xs bg-slate-950 px-2 py-1 rounded text-slate-500 font-mono border border-slate-800">
             {peopleList.length} totali
@@ -407,9 +479,9 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
               title={isSelectionActive ? 'Riscrivi selezionati' : 'Riscrivi e correggi TUTTI'}
             >
               {isBulkProcessing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
               ) : (
-                <Wand2 className="w-4 h-4" />
+                <Wand2 className="w-4 h-4" aria-hidden />
               )}
               {isBulkProcessing
                 ? 'Bonifica in corso...'
@@ -420,6 +492,7 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
           )}
 
           <button
+            ref={categoriesOpenButtonRef}
             type="button"
             onClick={() => setIsCategoriesOverlayOpen(true)}
             className="bg-slate-800 hover:bg-violet-600 text-slate-400 hover:text-white px-3 py-2.5 min-h-11 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 border border-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50"
@@ -437,20 +510,20 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
             title="Anteprima Lista"
             aria-label="Anteprima lista"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4" aria-hidden />
           </button>
           <button
             type="button"
             onClick={handleAddManual}
             className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 min-h-11 rounded-lg text-[10px] md:text-sm font-bold flex items-center gap-1"
           >
-            <Plus className="w-4 h-4" /> <span className="hidden md:inline">Nuovo</span>
+            <Plus className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">Nuovo</span>
           </button>
         </div>
       </div>
 
       <div className="mb-4 flex items-start gap-3 bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl">
-        <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+        <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" aria-hidden />
         <p className="text-xs text-blue-200 leading-relaxed">
           <strong>Nota Legale:</strong> I ritratti storici generati dall'AI sono interpretazioni
           artistiche a scopo illustrativo. Non costituiscono documentazione storica fotografica
@@ -470,9 +543,9 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
             aria-pressed={allSelected}
           >
             {allSelected ? (
-              <CheckSquare className="w-5 h-5 text-indigo-500" />
+              <CheckSquare className="w-5 h-5 text-indigo-500" aria-hidden />
             ) : (
-              <Square className="w-5 h-5" />
+              <Square className="w-5 h-5" aria-hidden />
             )}
           </button>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -488,7 +561,7 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
               disabled={isBulkProcessing}
               className="flex items-center gap-1.5 bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400 px-3 py-1.5 min-h-11 rounded-lg text-[10px] font-bold uppercase transition-colors border border-emerald-500/30"
             >
-              <Eye className="w-3.5 h-3.5" /> Pubblica
+              <Eye className="w-3.5 h-3.5" aria-hidden /> Pubblica
             </button>
             <button
               type="button"
@@ -496,7 +569,7 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
               disabled={isBulkProcessing}
               className="flex items-center gap-1.5 bg-amber-900/30 hover:bg-amber-900/50 text-amber-400 px-3 py-1.5 min-h-11 rounded-lg text-[10px] font-bold uppercase transition-colors border border-amber-500/30"
             >
-              <Eye className="w-3.5 h-3.5" /> Bozza
+              <Eye className="w-3.5 h-3.5" aria-hidden /> Bozza
             </button>
           </div>
         )}
@@ -515,12 +588,15 @@ export const CulturePeople: React.FC<CulturePeopleProps> = ({ cityId, cityName }
         aiBlocked={aiBlocked}
         blockMessage={blockMessage}
         guardAiAction={guardAiAction}
+        aiImageStepChoice={aiImageStepChoice}
+        setAiImageStepChoice={setAiImageStepChoice}
+        aiImageStepModalCopy={aiImageStepModalCopy}
       />
 
       <div className="space-y-4 md:max-h-[min(600px,70vh)] md:overflow-y-auto custom-scrollbar md:pr-1">
         {isLoading ? (
           <div className="text-center py-4">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-500" />
+            <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-500" aria-hidden />
           </div>
         ) : (
           peopleList.map((p, idx) => {

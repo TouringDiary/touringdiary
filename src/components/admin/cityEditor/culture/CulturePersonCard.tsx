@@ -187,8 +187,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
     );
   }, [specifics, pickerMasterId, categories]);
 
-  // Logical correction: isLiving semantics (undefined is not silently converted to true)
-  const isLiving = person.isLiving === true;
+  const aiBlockMessageId = `person-ai-block-${domId}`;
 
   const applyDateFields = useCallback(
     (
@@ -264,7 +263,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
   const lifespanPreview = buildLifespanDisplay({
     birthYear: person.birthYear,
     birthDate: person.birthDate,
-    isLiving,
+    isLiving: person.isLiving === true,
     deathYear: person.deathYear,
     deathDate: person.deathDate,
   });
@@ -566,6 +565,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
                 onClick={() => void handleRecoverDates()}
                 disabled={aiBlocked || recoveringDates}
                 title={aiBlocked ? blockMessage : 'Recupera date con AI'}
+                aria-describedby={aiBlocked && blockMessage ? aiBlockMessageId : undefined}
                 className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase disabled:opacity-50"
                 aria-label={`Recupera date con AI per ${person.name}`}
               >
@@ -693,6 +693,11 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
               Anteprima lifespan:{' '}
               <span className="text-white font-medium">{lifespanPreview || '—'}</span>
             </p>
+            {aiBlocked && blockMessage ? (
+              <p id={aiBlockMessageId} className="text-[11px] text-amber-400" role="status">
+                {blockMessage}
+              </p>
+            ) : null}
           </div>
 
           <div>
@@ -720,11 +725,17 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
                 disabled={aiBlocked}
                 className="inline-flex items-center justify-center min-h-11 min-w-11 bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded border border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 title={aiBlocked ? blockMessage : 'Genera Ritratto AI'}
+                aria-describedby={aiBlocked && blockMessage ? aiBlockMessageId : undefined}
                 aria-label={`Genera ritratto AI per ${person.name}`}
               >
                 <ImageIcon className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
+            {person.imageAsset?.generatedByAi ? (
+              <p className="text-[10px] text-violet-300 mt-1" role="status">
+                Provenienza: immagine AI (metadata MF3)
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-1">
@@ -740,6 +751,7 @@ export const CulturePersonCard: React.FC<CulturePersonCardProps> = ({
                   type="button"
                   disabled={aiBlocked || fieldGenerating?.personId === personId}
                   title={aiBlocked ? blockMessage : 'Genera biografia con AI'}
+                  aria-describedby={aiBlocked && blockMessage ? aiBlockMessageId : undefined}
                   onClick={() => {
                     if (!guardAiAction()) return;
                     void completeMissingFieldWithAi(person, 'bio');

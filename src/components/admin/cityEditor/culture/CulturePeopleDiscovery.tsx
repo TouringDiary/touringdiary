@@ -1,5 +1,6 @@
 import { Check, Loader2, Sparkles, Wand2, X } from 'lucide-react';
 import type React from 'react';
+import type { AiImageStepChoice } from '@/services/ai/aiImageStepConfig';
 import type { PersonDiscoveryResult } from '@/services/ai/generators/peopleGenerator';
 
 type PersonDiscoveryResultWithId = PersonDiscoveryResult & { id: string };
@@ -17,6 +18,9 @@ interface CulturePeopleDiscoveryProps {
   aiBlocked: boolean;
   blockMessage?: string;
   guardAiAction: () => boolean;
+  aiImageStepChoice: AiImageStepChoice;
+  setAiImageStepChoice: (choice: AiImageStepChoice) => void;
+  aiImageStepModalCopy: string;
 }
 
 export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
@@ -32,7 +36,12 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
   aiBlocked,
   blockMessage,
   guardAiAction,
+  aiImageStepChoice,
+  setAiImageStepChoice,
+  aiImageStepModalCopy,
 }) => {
+  const discoveryBlockMessageId = 'people-discovery-ai-blocked-message';
+
   return (
     <div className="mb-6 p-4 bg-indigo-950/20 rounded-2xl border border-indigo-500/20">
       <div className="flex flex-col gap-3">
@@ -60,6 +69,7 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
               }}
               disabled={isDiscovering || aiBlocked}
               title={aiBlocked ? blockMessage : undefined}
+              aria-describedby={aiBlocked && blockMessage ? discoveryBlockMessageId : undefined}
               className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 min-h-11 rounded-lg text-[10px] font-black uppercase tracking-wide flex items-center gap-1 disabled:opacity-50 transition-all"
             >
               {isDiscovering ? (
@@ -71,6 +81,41 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
             </button>
           </div>
         </div>
+        {aiBlocked && blockMessage ? (
+          <p
+            id={discoveryBlockMessageId}
+            className="text-[11px] text-amber-400 leading-relaxed"
+            role="status"
+          >
+            {blockMessage}
+          </p>
+        ) : null}
+        <fieldset className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
+          <legend className="text-[10px] font-bold uppercase text-slate-400 px-1">
+            Step AI immagine (Personaggio — default SI)
+          </legend>
+          <p className="text-[11px] text-slate-400 leading-relaxed">{aiImageStepModalCopy}</p>
+          <div className="flex flex-wrap gap-2">
+            {(['yes', 'no'] as const).map((choice) => {
+              const active = aiImageStepChoice === choice;
+              return (
+                <button
+                  key={choice}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setAiImageStepChoice(choice)}
+                  className={`min-h-11 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                    active
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-900 text-slate-300 border border-slate-700'
+                  }`}
+                >
+                  {choice === 'yes' ? 'SI — genera se manca foto' : 'NO — non generare foto AI'}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
         <input
           value={aiContextQuery}
           onChange={(e) => setAiContextQuery(e.target.value)}
@@ -101,7 +146,10 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => importDiscoveryPerson(p)}
+                  onClick={() => {
+                    if (!guardAiAction()) return;
+                    void importDiscoveryPerson(p);
+                  }}
                   disabled={p.isImporting}
                   className="w-full min-h-11 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 mt-auto"
                 >
@@ -110,7 +158,11 @@ export const CulturePeopleDiscovery: React.FC<CulturePeopleDiscoveryProps> = ({
                   ) : (
                     <Check className="w-3 h-3" aria-hidden="true" />
                   )}
-                  {p.isImporting ? 'Creazione Asset...' : 'Importa + Foto'}
+                  {p.isImporting
+                    ? 'Creazione Asset...'
+                    : aiImageStepChoice === 'yes'
+                      ? 'Importa + Foto'
+                      : 'Importa'}
                 </button>
                 <button
                   type="button"

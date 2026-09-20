@@ -159,6 +159,11 @@ export const generateTipIllustration = async (text: string): Promise<string | nu
   }
 };
 
+/**
+ * Genera ritratto AI e carica su Storage (`people_portraits/`).
+ * MF3: provenance `ai` + `generated_by_ai` materializzati al save persona via dual-write
+ * (`saveCityPerson` + `imageOriginType: 'ai'` / `image_status: ai_generated`).
+ */
 export const generateHistoricalPortrait = async (
   personName: string,
   categoryLabel: string,

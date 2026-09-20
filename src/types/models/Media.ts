@@ -1,3 +1,4 @@
+import type { MediaOriginTypeDb } from '@/constants/governance';
 import type { Database } from '../supabase';
 export type MediaStatus = Database['public']['Enums']['media_status'];
 
@@ -6,6 +7,10 @@ export interface MediaAsset {
   mediaStatus: MediaStatus;
   credit?: string;
   license?: 'own' | 'cc' | 'public' | 'copyright';
+  /** MF3 — da media_assets.generated_by_ai / provenance (non euristica URL). */
+  generatedByAi?: boolean;
+  isPlaceholder?: boolean;
+  originType?: MediaOriginTypeDb;
 }
 
 export interface PhotoSubmission {

@@ -1,5 +1,6 @@
 import { ArrowRight, ArrowUpLeft, CheckCircle, Clock, MapPin, Plus, Quote } from 'lucide-react';
 import { type MouseEvent, useId } from 'react';
+import { AiGeneratedImageDisclosure } from '@/components/common/AiGeneratedImageDisclosure';
 import { ImageWithFallback } from '@/components/common/ImageWithFallback';
 import { getPrimarySpecific } from '@/domain/city/famousPersonCategories';
 import type { FamousPerson, PointOfInterest } from '../../types/index';
@@ -46,6 +47,7 @@ export const CulturePersonDetailPanel = ({
   };
 
   const primary = getPrimarySpecific(toSortableCategories(detailPerson));
+  const showAiDisclosure = detailPerson.imageAsset?.generatedByAi === true;
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0b0f1a] overflow-hidden">
@@ -75,6 +77,11 @@ export const CulturePersonDetailPanel = ({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f1a] via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-[#0b0f1a]" />
 
+          {showAiDisclosure ? (
+            <div className="absolute top-4 left-4 right-4 md:left-6 md:right-auto md:max-w-sm z-10">
+              <AiGeneratedImageDisclosure compact className="bg-black/60 rounded-lg p-2 backdrop-blur-sm" />
+            </div>
+          ) : null}
           <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12">
             <h2
               id={detailTitleId}

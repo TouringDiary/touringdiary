@@ -194,6 +194,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
       photosResult,
       patronSaintResult,
       famousPeopleResult,
+      aiVerifyResult,
     ] = await Promise.allSettled([
       getSponsorStats(),
       getPendingSuggestionCount(),
@@ -202,6 +203,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
       getPendingPhotoCount(),
       getPendingPatronSaintAdminCount(),
       getPendingFamousPeopleAdminCount(),
+      import('@/services/media/mediaAssetService').then((m) => m.getAiVerifyQueueCounts()),
     ]);
     if (generation !== refreshGenerationRef.current) return;
 
@@ -249,6 +251,12 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
         next.famousPeople = famousPeopleResult.value;
       } else {
         console.error('Error refreshing famous people counts', famousPeopleResult.reason);
+      }
+
+      if (aiVerifyResult.status === 'fulfilled') {
+        next.suggestions += aiVerifyResult.value.total;
+      } else {
+        console.error('Error refreshing AI verify queue counts', aiVerifyResult.reason);
       }
 
       return next;
