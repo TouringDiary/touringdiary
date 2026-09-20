@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.entity_image_history (
   assignment_id uuid REFERENCES public.entity_image_assignments (id) ON DELETE RESTRICT,
   entity_type text,
   entity_id text,
-  city_id uuid REFERENCES public.cities (id) ON DELETE SET NULL,
+  city_id text REFERENCES public.cities (id) ON DELETE SET NULL,
   previous_assignment_status text,
   new_assignment_status text,
   previous_asset_status public.image_asset_status,
@@ -171,7 +171,7 @@ CREATE OR REPLACE FUNCTION public.append_entity_image_history_trusted(
   p_assignment_id uuid DEFAULT NULL,
   p_entity_type text DEFAULT NULL,
   p_entity_id text DEFAULT NULL,
-  p_city_id uuid DEFAULT NULL,
+  p_city_id text DEFAULT NULL,
   p_previous_assignment_status text DEFAULT NULL,
   p_new_assignment_status text DEFAULT NULL,
   p_previous_asset_status public.image_asset_status DEFAULT NULL,
@@ -264,7 +264,7 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.append_entity_image_history_trusted(
-  text, uuid, uuid, text, text, uuid, text, text,
+  text, uuid, uuid, text, text, text, text, text,
   public.image_asset_status, public.image_asset_status, uuid, text, text, boolean, jsonb
 ) FROM PUBLIC;
 
@@ -277,7 +277,7 @@ CREATE OR REPLACE FUNCTION public.append_entity_image_history(
   p_assignment_id uuid DEFAULT NULL,
   p_entity_type text DEFAULT NULL,
   p_entity_id text DEFAULT NULL,
-  p_city_id uuid DEFAULT NULL,
+  p_city_id text DEFAULT NULL,
   p_previous_assignment_status text DEFAULT NULL,
   p_new_assignment_status text DEFAULT NULL,
   p_previous_asset_status public.image_asset_status DEFAULT NULL,
@@ -330,15 +330,15 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.append_entity_image_history(
-  text, uuid, uuid, text, text, uuid, text, text,
+  text, uuid, uuid, text, text, text, text, text,
   public.image_asset_status, public.image_asset_status, uuid, text, text, boolean, jsonb
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.append_entity_image_history(
-  text, uuid, uuid, text, text, uuid, text, text,
+  text, uuid, uuid, text, text, text, text, text,
   public.image_asset_status, public.image_asset_status, uuid, text, text, boolean, jsonb
 ) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.append_entity_image_history(
-  text, uuid, uuid, text, text, uuid, text, text,
+  text, uuid, uuid, text, text, text, text, text,
   public.image_asset_status, public.image_asset_status, uuid, text, text, boolean, jsonb
 ) TO service_role;
 
