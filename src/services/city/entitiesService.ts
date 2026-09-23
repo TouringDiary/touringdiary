@@ -1,4 +1,3 @@
-import type { MediaOriginTypeDb } from '@/constants/governance';
 import { assertFamousPersonPublishable } from '@/domain/city/famousPersonCompleteness';
 import type {
   Database,
@@ -10,14 +9,11 @@ import type {
 } from '../../types/database';
 import type { CityEvent, CityGuide, CityService, FamousPerson, Review } from '../../types/index';
 import { parseStorageLocationFromPublicUrl } from '../../utils/storagePathFromPublicUrl';
-import type { DualWriteImageOriginType } from '../media/imageAssignmentDualWriteService';
-import { upsertEntityImageAssignmentDualWrite } from '../media/imageAssignmentDualWriteService';
+import { applyPrimaryImageCutoverForCityPeople } from '../media/entityPrimaryImageReadService';
+import { mf2Rpc } from '../reports/mf2DbClient';
 import { supabase } from '../supabaseClient';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
-import {
-  computeLifespanDisplayForSave,
-  replacePersonCategoryLinks,
-} from './famousPersonCategoryService';
+import { computeLifespanDisplayForSave } from './famousPersonCategoryService';
 import {
   type CityPeopleAudience,
   filterFamousPeopleByAudience,
@@ -78,9 +74,18 @@ export type SaveCityGuideInput = Omit<CityGuide, 'id'> & { id?: string };
  * `specificCategoryIds` aggiorna la junction N:M (replace).
  * La pubblicazione (`status: 'published'`) passa dal gate di dominio.
  */
-function toDualWriteImageOriginType(
-  origin: CityPersonDualWriteImageOrigin | undefined,
-): DualWriteImageOriginType {
+/** Provenance ammessa al save D90 — allineata a `toImageAssignmentOriginType()` (verified_real escluso). */
+type CityPersonImageAssignmentOrigin =
+  | 'admin'
+  | 'ai'
+  | 'ai_generated'
+  | 'wikimedia'
+  | 'community'
+  | 'placeholder';
+
+function toImageAssignmentOriginType(
+  origin: CityPersonImageAssignmentOrigin | undefined,
+): 'admin' | 'ai' | 'wikimedia' | 'community' | 'placeholder' {
   switch (origin) {
     case 'ai':
     case 'ai_generated':
@@ -96,16 +101,13 @@ function toDualWriteImageOriginType(
   }
 }
 
-/** Provenance ammessa al dual-write da saveCityPerson (verified_real escluso — esito verifica MF4). */
-type CityPersonDualWriteImageOrigin = Exclude<MediaOriginTypeDb, 'verified_real'>;
-
 export type SaveCityPersonInput = Omit<FamousPerson, 'id' | 'bio' | 'imageUrl' | 'cityId'> & {
   id?: string;
   bio?: string | null;
   imageUrl?: string | null;
   specificCategoryIds?: string[];
-  /** MF3 — origine esplicita per dual-write (default admin; verified_real non ammesso). */
-  imageOriginType?: CityPersonDualWriteImageOrigin;
+  /** MF3 — origine esplicita per assignment (default admin; verified_real non ammesso). */
+  imageOriginType?: CityPersonImageAssignmentOrigin;
 };
 
 // --- ENTITIES FETCHERS ---
@@ -196,7 +198,8 @@ export const getCityPeople = async (
   if (error) throw error;
 
   const parsed = ((data as DatabaseCityPersonRow[]) || []).map(parsePerson);
-  return filterFamousPeopleByAudience(parsed, audience);
+  const filtered = filterFamousPeopleByAudience(parsed, audience);
+  return applyPrimaryImageCutoverForCityPeople(filtered);
 };
 
 /** Batch: personaggi per più città in una sola query (Around Me). Audience pubblica di default. */
@@ -219,7 +222,8 @@ export const getCityPeopleByCityIds = async (
   if (error) throw error;
 
   const parsed = ((data as DatabaseCityPersonRow[]) || []).map(parsePerson);
-  return filterFamousPeopleByAudience(parsed, audience);
+  const filtered = filterFamousPeopleByAudience(parsed, audience);
+  return applyPrimaryImageCutoverForCityPeople(filtered);
 };
 
 // --- SAVE / DELETE METHODS ---
@@ -362,9 +366,6 @@ function resolveOptionalDateField(
   return persistedValue ?? null;
 }
 
-const UPSERT_CITY_PERSON_RPC = 'upsert_city_person_with_category_links';
-const UPSERT_CITY_PERSON_MIGRATION = '20260910180000_upsert_city_person_with_category_links.sql';
-
 function normalizeSpecificCategoryIds(ids: string[]): string[] {
   const normalized = ids
     .map((id) => (typeof id === 'string' ? id.trim() : ''))
@@ -372,28 +373,25 @@ function normalizeSpecificCategoryIds(ids: string[]): string[] {
   return [...new Set(normalized)];
 }
 
-function isUpsertCityPersonRpcMissing(error: { code?: string; message?: string }): boolean {
+const SAVE_CITY_PERSON_WITH_IMAGE_RPC = 'save_city_person_with_image_assignment';
+const SAVE_CITY_PERSON_WITH_IMAGE_MIGRATION =
+  '20260922130000_save_city_person_with_image_assignment.sql';
+
+function isSaveCityPersonWithImageRpcMissing(error: { code?: string; message?: string }): boolean {
   if (error.code !== 'PGRST202') return false;
   const message = error.message ?? '';
-  return message.includes(UPSERT_CITY_PERSON_RPC);
+  return message.includes(SAVE_CITY_PERSON_WITH_IMAGE_RPC);
 }
 
-async function saveCityPersonViaLegacyUpsert(
-  payload: DatabaseCityPersonInsert,
-  specificCategoryIds: string[],
-): Promise<string> {
-  const { data, error } = await supabase.from('city_people').upsert(payload).select('id').single();
-  if (error) throw error;
-  const savedId = (data as { id: string }).id;
-  try {
-    await replacePersonCategoryLinks(savedId, specificCategoryIds);
-  } catch (linksError) {
-    const detail = linksError instanceof Error ? linksError.message : String(linksError);
-    throw new Error(
-      `[saveCityPerson] Fallback non atomico: persona salvata (id=${savedId}) ma aggiornamento categorie fallito. Applicare migration ${UPSERT_CITY_PERSON_MIGRATION}. Dettaglio: ${detail}`,
-    );
-  }
-  return savedId;
+const DELETE_CITY_PERSON_WITH_IMAGE_RPC = 'delete_city_person_with_image_cleanup';
+
+function isDeleteCityPersonWithImageRpcMissing(error: {
+  code?: string;
+  message?: string;
+}): boolean {
+  if (error.code !== 'PGRST202') return false;
+  const message = error.message ?? '';
+  return message.includes(DELETE_CITY_PERSON_WITH_IMAGE_RPC);
 }
 
 export const saveCityPerson = async (
@@ -460,7 +458,7 @@ export const saveCityPerson = async (
     name: person.name.trim(),
     bio: presentOrNull(person.bio),
     full_bio: person.fullBio,
-    image_url: presentOrNull(person.imageUrl),
+    image_url: null,
     quote: person.quote,
     birth_year: birthYear,
     birth_date: birthDate,
@@ -480,28 +478,38 @@ export const saveCityPerson = async (
     payload.id = person.id;
   }
 
-  let savedId: string;
-  const { data: rpcSavedId, error } = await supabase.rpc('upsert_city_person_with_category_links', {
+  const imageUrl = person.imageUrl?.trim() ?? '';
+  const parsedStorage = imageUrl.length > 0 ? parseStorageLocationFromPublicUrl(imageUrl) : null;
+  const originType = toImageAssignmentOriginType(person.imageOriginType);
+
+  const { data: rpcSavedId, error } = await mf2Rpc<string>(SAVE_CITY_PERSON_WITH_IMAGE_RPC, {
     p_person: payload,
     p_specific_category_ids: specificCategoryIds,
+    p_image_url:
+      imageUrl.length > 0 && (parsedStorage?.storagePath || imageUrl.startsWith('http'))
+        ? imageUrl
+        : null,
+    p_storage_bucket: parsedStorage?.storageBucket ?? null,
+    p_storage_path: parsedStorage?.storagePath ?? null,
+    p_origin_type: originType,
   });
 
   if (error) {
-    if (isUpsertCityPersonRpcMissing(error)) {
-      console.warn(
-        `[saveCityPerson] RPC ${UPSERT_CITY_PERSON_RPC} assente sul database; fallback upsert+links (non atomico). Applicare migration ${UPSERT_CITY_PERSON_MIGRATION}.`,
+    if (isSaveCityPersonWithImageRpcMissing(error)) {
+      throw new Error(
+        `[saveCityPerson] RPC ${SAVE_CITY_PERSON_WITH_IMAGE_RPC} assente. Applicare migration ${SAVE_CITY_PERSON_WITH_IMAGE_MIGRATION}.`,
       );
-      savedId = await saveCityPersonViaLegacyUpsert(payload, specificCategoryIds);
-    } else {
-      throw error;
     }
-  } else if (typeof rpcSavedId !== 'string' || rpcSavedId.length === 0) {
-    throw new Error(
-      'upsert_city_person_with_category_links non ha restituito un id persona valido.',
-    );
-  } else {
-    savedId = rpcSavedId;
+    throw error;
   }
+
+  if (typeof rpcSavedId !== 'string' || rpcSavedId.length === 0) {
+    throw new Error(
+      'save_city_person_with_image_assignment non ha restituito un id persona valido.',
+    );
+  }
+
+  const savedId = rpcSavedId;
 
   const { data: full, error: reloadError } = await supabase
     .from('city_people')
@@ -511,58 +519,53 @@ export const saveCityPerson = async (
   if (reloadError) throw reloadError;
 
   const parsedPerson = parsePerson(full);
-  const imageUrl = parsedPerson.imageUrl?.trim() ?? '';
-  if (imageUrl.length > 0) {
-    const parsedStorage = parseStorageLocationFromPublicUrl(imageUrl);
-    const originType = toDualWriteImageOriginType(person.imageOriginType);
-    if (parsedStorage?.storagePath) {
-      await upsertEntityImageAssignmentDualWrite({
-        entityType: 'city_person',
-        entityId: parsedPerson.id,
-        cityId,
-        assignmentRole: 'primary',
-        source: {
-          imageUrl,
-          storageBucket: parsedStorage.storageBucket,
-          storagePath: parsedStorage.storagePath,
-          originType,
-        },
-      });
-    } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      await upsertEntityImageAssignmentDualWrite({
-        entityType: 'city_person',
-        entityId: parsedPerson.id,
-        cityId,
-        assignmentRole: 'primary',
-        source: {
-          imageUrl,
-          storageBucket: null,
-          storagePath: null,
-          originType,
-        },
-      });
-    }
-  }
 
   invalidateCityCache(cityId);
 
-  if (person.imageOriginType === 'ai' && imageUrl.length > 0) {
+  // POST-MF5: solo cutover read (assignment + media_assets); nessun secondo write/assignment.
+  const [cutovered] = await applyPrimaryImageCutoverForCityPeople([parsedPerson]);
+  const resolvedPerson = cutovered ?? parsedPerson;
+
+  if (
+    (person.imageOriginType === 'ai' || person.imageOriginType === 'ai_generated') &&
+    imageUrl.length > 0
+  ) {
     return {
-      ...parsedPerson,
+      ...resolvedPerson,
       imageAsset: {
-        url: parsedPerson.imageUrl ?? imageUrl,
-        mediaStatus: parsedPerson.imageAsset?.mediaStatus ?? 'real',
+        url: resolvedPerson.imageUrl ?? imageUrl,
+        mediaStatus: resolvedPerson.imageAsset?.mediaStatus ?? 'real',
         generatedByAi: true,
         originType: 'ai',
       },
     };
   }
 
-  return parsedPerson;
+  return resolvedPerson;
 };
 
+/**
+ * POST-MF5 / D90 — revoca assignment + history + DELETE person in un'unica RPC server-side.
+ * Non elimina `media_assets` condivisi; non usa dual-write né update client-side su assignment.
+ */
 export const deleteCityPerson = async (id: string) => {
+  const personId = id.trim();
+  if (personId.length === 0) {
+    throw new Error('deleteCityPerson: id persona obbligatorio.');
+  }
+
   clearCacheKey(`city_details_`);
-  const { error } = await supabase.from('city_people').delete().eq('id', id);
-  if (error) throw error;
+
+  const { error } = await mf2Rpc<null>(DELETE_CITY_PERSON_WITH_IMAGE_RPC, {
+    p_person_id: personId,
+  });
+
+  if (error) {
+    if (isDeleteCityPersonWithImageRpcMissing(error)) {
+      throw new Error(
+        `[deleteCityPerson] RPC ${DELETE_CITY_PERSON_WITH_IMAGE_RPC} assente. Applicare migration SQL D90 delete person (MF5).`,
+      );
+    }
+    throw error;
+  }
 };

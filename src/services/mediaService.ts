@@ -1,6 +1,6 @@
+import { resolvePrimaryImagePublicUrlsForCityPeople } from '@/services/media/entityPrimaryImageReadService';
 import { dataURLtoFile } from '../utils/common';
-// FIX: Import diretti per evitare cicli
-import { fetchGlobalCityMediaInfo } from './city/cityReadService';
+import { buildAssetUsageMap } from './media/assetUsageMapService';
 import { supabase } from './supabaseClient';
 
 const PUBLIC_BUCKET = 'public-media';
@@ -79,18 +79,12 @@ function parsePublicMediaStorageObjectPathFromPublicUrl(url: string): string | n
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
 
   const expectedOrigin = getConfiguredSupabaseOrigin();
-  if (expectedOrigin && parsed.origin !== expectedOrigin) return null;
+  if (!expectedOrigin) return null;
+  if (parsed.origin !== expectedOrigin) return null;
 
   const storagePathPrefix = `/storage/v1/object/public/${PUBLIC_BUCKET}/`;
-  let relativePath: string;
-  if (parsed.pathname.startsWith(storagePathPrefix)) {
-    relativePath = parsed.pathname.slice(storagePathPrefix.length);
-  } else {
-    const marker = `/object/public/${PUBLIC_BUCKET}/`;
-    const markerIndex = trimmed.indexOf(marker);
-    if (markerIndex === -1) return null;
-    relativePath = trimmed.slice(markerIndex + marker.length).split('?')[0];
-  }
+  if (!parsed.pathname.startsWith(storagePathPrefix)) return null;
+  const relativePath = parsed.pathname.slice(storagePathPrefix.length);
 
   const path = decodeURIComponent(relativePath.replace(/^\/+/, ''));
   if (!path || !hasSafeObjectPathSegments(path)) return null;
@@ -291,30 +285,94 @@ export const deleteAdminAssetByUrl = async (url: string | null | undefined): Pro
 
 // FUNZIONI DI LIKE RIMOSSE -> SPOSTATE IN photoService.ts ED ESEGUITE VIA RPC
 
-/**
- * Cerca un ritratto esistente per una persona famosa (recovery legacy URL).
- * Il risultato non attesta verifica licenza/provenance MF4.
- */
-export const findExistingPortrait = async (personName: string): Promise<string | null> => {
-  try {
-    // Cerca nella tabella city_people se esiste già un record per questa persona con una foto valida
-    const { data } = await supabase
-      .from('city_people')
-      .select('image_url')
-      .ilike('name', personName)
-      .neq('image_url', '')
-      .not('image_url', 'is', null)
-      .limit(1);
+type PortraitCandidateRow = {
+  name: string;
+  order_index: number | null;
+  id: string;
+};
 
-    if (data && data.length > 0) {
-      const url = data[0].image_url;
-      // Filtra placeholder noti e avatar di default generici se non si vuole riusarli
-      if (url && !url.includes('ui-avatars')) {
-        return url;
-      }
+function escapeIlikeExactLiteral(value: string): string {
+  return value.replace(/[%_\\]/g, (char) => `\\${char}`);
+}
+
+function portraitUrlQualityScore(publicUrl: string): number {
+  let score = 0;
+  if (publicUrl.includes('people_portraits/')) score += 4;
+  if (publicUrl.includes('/object/public/public-media/')) score += 2;
+  if (!publicUrl.includes('ui-avatars.com')) score += 1;
+  return score;
+}
+
+function isPortraitCandidateRow(value: unknown): value is PortraitCandidateRow {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === 'string' &&
+    typeof row.name === 'string' &&
+    (row.order_index === null || typeof row.order_index === 'number')
+  );
+}
+
+/**
+ * Cerca un ritratto esistente per persona **nella stessa città** (MF5 §36.8 / Appendice C A5).
+ * Ordine deterministico: qualità URL → order_index asc → id asc (match esatto nome, stessa città).
+ * Non attesta verifica licenza/provenance MF4.
+ */
+export const findExistingPortrait = async (
+  personName: string,
+  cityId: string,
+): Promise<string | null> => {
+  const trimmedName = personName.trim();
+  const trimmedCityId = cityId.trim();
+  if (!trimmedName || !trimmedCityId) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('city_people')
+      .select('name, order_index, id')
+      .eq('city_id', trimmedCityId)
+      .ilike('name', escapeIlikeExactLiteral(trimmedName))
+      .order('order_index', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(25);
+
+    if (error) throw error;
+
+    const normalizedName = trimmedName.toLowerCase();
+    const candidates: PortraitCandidateRow[] = [];
+    for (const row of data ?? []) {
+      if (!isPortraitCandidateRow(row)) continue;
+      if (row.name.trim().toLowerCase() !== normalizedName) continue;
+      candidates.push(row);
     }
 
-    return null;
+    if (candidates.length === 0) return null;
+
+    const urlByEntityId = await resolvePrimaryImagePublicUrlsForCityPeople(
+      trimmedCityId,
+      candidates.map((c) => c.id),
+    );
+
+    const withUrls = candidates
+      .map((row) => {
+        const url = urlByEntityId.get(row.id)?.trim() ?? '';
+        if (!url || url.includes('ui-avatars.com')) return null;
+        return { row, url };
+      })
+      .filter((entry): entry is { row: PortraitCandidateRow; url: string } => entry !== null);
+
+    if (withUrls.length === 0) return null;
+
+    withUrls.sort((a, b) => {
+      const scoreDiff = portraitUrlQualityScore(b.url) - portraitUrlQualityScore(a.url);
+      if (scoreDiff !== 0) return scoreDiff;
+      const aOrder = typeof a.row.order_index === 'number' ? a.row.order_index : 0;
+      const bOrder = typeof b.row.order_index === 'number' ? b.row.order_index : 0;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.row.id.localeCompare(b.row.id);
+    });
+
+    return withUrls[0].url;
   } catch (e) {
     console.error('Error finding existing portrait:', e);
     return null;
@@ -322,71 +380,9 @@ export const findExistingPortrait = async (personName: string): Promise<string |
 };
 
 /**
- * Costruisce una mappa di utilizzo degli asset (immagini) nel database.
- * Chiave: URL immagine (normalizzato) -> Valore: Array di stringhe che descrivono dove è usata.
- *
- * @deprecated Preferire `mediaCatalogService.listMediaCatalogPage` + assignment drill-down (MF4).
- * Resta per overlay tab Storage legacy e compatibilità URL-only fino a cutover MF5.
- * Non è una garanzia transazionale di usage/lifecycle MF4 (solo best-effort URL matching).
+ * Mappa utilizzo asset: assignment-based (POST-MF5 SoT).
+ * Preferire `mediaCatalogService` per catalogo paginato MF4.
  */
 export const getAssetUsageMap = async (): Promise<Record<string, string[]>> => {
-  const usageMap: Record<string, string[]> = {};
-
-  const addToMap = (url: string | null | undefined, context: string) => {
-    if (!url) return;
-    const cleanUrl = url.split('?')[0].trim();
-    if (!usageMap[cleanUrl]) usageMap[cleanUrl] = [];
-    if (!usageMap[cleanUrl].includes(context)) usageMap[cleanUrl].push(context);
-  };
-
-  try {
-    // 1. Cities (Hero, Card, Gallery) - BOUNDARY RECOVERY
-    const cityMediaInfos = await fetchGlobalCityMediaInfo();
-    for (const info of cityMediaInfos) {
-      addToMap(info.imageUrl, `City Card: ${info.name}`);
-      addToMap(info.heroImage, `City Hero: ${info.name}`);
-      for (const asset of info.gallery) {
-        addToMap(asset.url, `City Gallery: ${info.name}`);
-      }
-    }
-
-    // 2. POIs
-    const { data: pois } = await supabase.from('pois').select('name, image_url');
-    for (const poi of pois ?? []) {
-      addToMap(poi.image_url, `POI: ${poi.name}`);
-    }
-
-    // 3. People
-    const { data: people } = await supabase.from('city_people').select('name, image_url');
-    for (const person of people ?? []) {
-      addToMap(person.image_url, `Person: ${person.name}`);
-    }
-
-    // 4. Shops
-    const { data: shops } = await supabase.from('shops').select('name, image_url');
-    for (const shop of shops ?? []) {
-      addToMap(shop.image_url, `Shop: ${shop.name}`);
-    }
-
-    // 5. Events & Guides
-    const { data: events } = await supabase.from('city_events').select('name, image_url');
-    for (const event of events ?? []) {
-      addToMap(event.image_url, `Event: ${event.name}`);
-    }
-
-    const { data: guides } = await supabase.from('city_guides').select('name, image_url');
-    for (const guide of guides ?? []) {
-      addToMap(guide.image_url, `Guide: ${guide.name}`);
-    }
-
-    // 6. Social Templates
-    const { data: templates } = await supabase.from('social_templates').select('name, bg_url');
-    for (const template of templates ?? []) {
-      addToMap(template.bg_url, `Template: ${template.name}`);
-    }
-  } catch (e) {
-    console.error('Error building asset usage map:', e);
-  }
-
-  return usageMap;
+  return buildAssetUsageMap();
 };

@@ -14,7 +14,10 @@ export async function mf2Rpc<T>(
     | 'transition_report_status'
     | 'get_report_admin_context'
     | 'capture_report_evidence'
-    | 'upsert_entity_image_assignment_dual_write',
+    | 'save_city_person_with_image_assignment'
+    | 'delete_city_person_with_image_cleanup'
+    | 'save_poi_with_image_assignment'
+    | 'delete_poi_with_image_cleanup',
   args: Record<string, unknown>,
 ): Promise<RpcResult<T>> {
   const client = supabase as unknown as {
@@ -37,4 +40,30 @@ export function mf2EntityImageAssignmentsTable() {
     from: (table: 'entity_image_assignments') => ReturnType<typeof supabase.from>;
   };
   return client.from('entity_image_assignments');
+}
+
+export type Mf2EntityImageAssignmentRemovedUpdate = {
+  assignment_status: 'removed';
+  removed_at: string;
+  updated_at: string;
+};
+
+/** Update condizionato su entity_image_assignments (boundary MF2/MF5 fino a tipi Supabase). */
+export type Mf2EntityImageAssignmentConditionalUpdateChain = {
+  eq: (column: string, value: string | boolean) => Mf2EntityImageAssignmentConditionalUpdateChain;
+  select: (columns: string) => Promise<{
+    data: unknown;
+    error: PostgrestError | null;
+  }>;
+};
+
+export function mf2EntityImageAssignmentsUpdate(values: Mf2EntityImageAssignmentRemovedUpdate) {
+  const client = supabase as unknown as {
+    from: (table: 'entity_image_assignments') => {
+      update: (
+        payload: Mf2EntityImageAssignmentRemovedUpdate,
+      ) => Mf2EntityImageAssignmentConditionalUpdateChain;
+    };
+  };
+  return client.from('entity_image_assignments').update(values);
 }

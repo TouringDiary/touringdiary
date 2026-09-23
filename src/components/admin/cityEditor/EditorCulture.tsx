@@ -5,7 +5,7 @@ import { useCityEditor } from '@/context/CityEditorContext';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 import { mergePatronDetailsFromAi } from '../../../services/city/parsers/content/mergePatronDetailsFromAi';
 import { appendGenerationLogs } from '../../../services/city/parsers/content/parseLogs';
-import { deleteCityPerson, saveCityDetails } from '../../../services/cityService';
+import { saveCityDetails } from '../../../services/cityService';
 import type { User } from '../../../types/users';
 import { DeleteConfirmationModal } from '../../common/DeleteConfirmationModal';
 import { CultureHistory } from './culture/CultureHistory';
@@ -17,7 +17,19 @@ import {
   isPeopleReplacePartialCleanupError,
   prepareCompletePeople,
   removeCityPeopleByIds,
+  rollbackCreatedCityPeopleIds,
 } from './culture/editorCultureRegeneration';
+
+async function reloadCityPreservingPrimaryError(
+  reload: () => Promise<void>,
+  context: string,
+): Promise<void> {
+  try {
+    await reload();
+  } catch (reloadError: unknown) {
+    console.error(`[EditorCulture] reloadCurrentCity fallito (${context})`, reloadError);
+  }
+}
 
 export const EditorCulture = ({ currentUser }: { currentUser?: User }) => {
   const { city, updateDetailField, setCityDirectly, reloadCurrentCity, triggerPreview } =
@@ -56,6 +68,7 @@ export const EditorCulture = ({ currentUser }: { currentUser?: User }) => {
 
       const { prepared, incompleteCount } = await prepareCompletePeople(
         peopleSuggestions ?? [],
+        city.id,
         city.name,
       );
 
@@ -85,10 +98,15 @@ export const EditorCulture = ({ currentUser }: { currentUser?: User }) => {
           existingIds = inserted.existingIds;
         } catch (peopleError: unknown) {
           console.error('[EditorCulture] people insert failed', peopleError);
-          await reloadCurrentCity();
+          await reloadCityPreservingPrimaryError(reloadCurrentCity, 'insert personaggi');
           const detail = peopleError instanceof Error ? peopleError.message : String(peopleError);
+          const rollbackNote =
+            isPeopleReplacePartialCleanupError(peopleError) &&
+            peopleError.scenario === 'insert_rollback'
+              ? `${peopleError.message}\nVerifica in admin quali record sono ancora presenti.\n`
+              : 'Eventuali insert parziali sono stati annullati.\n';
           alert(
-            `Inserimento personaggi non riuscito.\nStoria/Patrono NON aggiornati.\nI personaggi precedenti risultano preservati (eventuali insert parziali sono stati annullati).\n${detail}`,
+            `Inserimento personaggi non riuscito.\nStoria/Patrono NON aggiornati.\nI personaggi precedenti risultano preservati.\n${rollbackNote}${detail}`,
           );
           return;
         }
@@ -97,12 +115,21 @@ export const EditorCulture = ({ currentUser }: { currentUser?: User }) => {
           await saveCityDetails(updatedCity);
         } catch (detailsError: unknown) {
           console.error('[EditorCulture] saveCityDetails failed — rollback nuovi', detailsError);
-          await Promise.allSettled(createdIds.map((id) => deleteCityPerson(id)));
-          await reloadCurrentCity();
+          const failedRollbackIds = await rollbackCreatedCityPeopleIds(createdIds);
+          await reloadCityPreservingPrimaryError(
+            reloadCurrentCity,
+            'saveCityDetails con personaggi',
+          );
           const detail =
             detailsError instanceof Error ? detailsError.message : String(detailsError);
+          const rollbackNote =
+            failedRollbackIds.length > 0
+              ? `ATTENZIONE: rollback parziale — ${failedRollbackIds.length} nuovo/i personaggio/i potrebbe/rrano essere ancora presenti (id: ${failedRollbackIds.join(', ')}).\n`
+              : createdIds.length > 0
+                ? 'I nuovi personaggi inseriti sono stati rimossi.\n'
+                : '';
           alert(
-            `Salvataggio Storia/Patrono fallito.\nI nuovi personaggi inseriti sono stati annullati; i personaggi precedenti risultano preservati.\n${detail}`,
+            `Salvataggio Storia/Patrono fallito.\nStoria e Patrono NON sono stati aggiornati.\n${rollbackNote}I personaggi precedenti risultano preservati.\n${detail}`,
           );
           return;
         }
@@ -111,7 +138,10 @@ export const EditorCulture = ({ currentUser }: { currentUser?: User }) => {
           await removeCityPeopleByIds(existingIds);
         } catch (cleanupError: unknown) {
           console.error('[EditorCulture] people cleanup failed', cleanupError);
-          await reloadCurrentCity();
+          await reloadCityPreservingPrimaryError(
+            reloadCurrentCity,
+            'cleanup personaggi precedenti',
+          );
           if (isPeopleReplacePartialCleanupError(cleanupError)) {
             alert(
               `Storia/Patrono e nuovi personaggi salvati, ma cleanup parziale dei precedenti.\n${cleanupError.message}`,
@@ -130,7 +160,10 @@ export const EditorCulture = ({ currentUser }: { currentUser?: User }) => {
           await saveCityDetails(updatedCity);
         } catch (detailsError: unknown) {
           console.error('[EditorCulture] saveCityDetails failed', detailsError);
-          await reloadCurrentCity();
+          await reloadCityPreservingPrimaryError(
+            reloadCurrentCity,
+            'saveCityDetails senza personaggi',
+          );
           const detail =
             detailsError instanceof Error ? detailsError.message : String(detailsError);
           alert(`Salvataggio Storia/Patrono fallito.\n${detail}`);
@@ -139,7 +172,7 @@ export const EditorCulture = ({ currentUser }: { currentUser?: User }) => {
       }
 
       setCityDirectly(updatedCity);
-      await reloadCurrentCity();
+      await reloadCityPreservingPrimaryError(reloadCurrentCity, 'reload finale rigenerazione');
 
       if (prepared.length === 0) {
         alert(

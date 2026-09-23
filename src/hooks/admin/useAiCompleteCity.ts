@@ -244,9 +244,25 @@ function buildIncrementalUpdatePayload(
         ? existing.awards
         : (recovered.person.awards ?? aiSuggestion.awards),
     careerStats: existing.careerStats ?? recovered.person.careerStats ?? aiSuggestion.careerStats,
+    collaborations:
+      existing.collaborations && existing.collaborations.length > 0
+        ? existing.collaborations
+        : (recovered.person.collaborations ?? aiSuggestion.collaborations),
     status: existing.status,
     orderIndex: existing.orderIndex,
   };
+}
+
+async function rollbackInsertedCityPeopleIds(ids: string[]): Promise<string[]> {
+  const failedIds: string[] = [];
+  for (const id of ids) {
+    try {
+      await deleteCityPerson(id);
+    } catch {
+      failedIds.push(id);
+    }
+  }
+  return failedIds;
 }
 
 async function insertNewCityPeopleWithRollback(
@@ -281,7 +297,14 @@ async function insertNewCityPeopleWithRollback(
       }
     }
   } catch (error) {
-    await Promise.allSettled(createdIds.map((id) => deleteCityPerson(id)));
+    const failedRollbackIds = await rollbackInsertedCityPeopleIds(createdIds);
+    if (failedRollbackIds.length > 0) {
+      const original = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `[useAiCompleteCity] Insert personaggi fallito e rollback incompleto. IDs non rimossi: ${failedRollbackIds.join(', ')}. Errore originale: ${original}`,
+        { cause: error instanceof Error ? error : undefined },
+      );
+    }
     throw error;
   }
   return createdIds.length;
@@ -482,7 +505,7 @@ export const useAiCompleteCity = (
               const categoryIdsForRecovery =
                 existingCats.length > 0 ? existingCats : validatedCategoryIds;
 
-              const existingUrl = await findExistingPortrait(existingMatch.name);
+              const existingUrl = await findExistingPortrait(existingMatch.name, cityId);
               const recovered = await ensureFamousPersonCompletenessWithAi(
                 {
                   ...existingMatch,
@@ -535,7 +558,7 @@ export const useAiCompleteCity = (
               continue;
             }
 
-            const existingUrl = await findExistingPortrait(p.name);
+            const existingUrl = await findExistingPortrait(p.name, cityId);
             const recovered = await ensureFamousPersonCompletenessWithAi(
               {
                 ...p,
@@ -564,6 +587,7 @@ export const useAiCompleteCity = (
               fullBio: recovered.person.fullBio ?? p.fullBio,
               privateLife: recovered.person.privateLife ?? p.privateLife,
               awards: recovered.person.awards ?? p.awards,
+              collaborations: recovered.person.collaborations ?? p.collaborations,
               careerStats: recovered.person.careerStats ?? p.careerStats,
               status: 'draft',
               orderIndex: nextOrderIndex++,

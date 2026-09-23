@@ -329,7 +329,7 @@ export const useAiMagicCity = (
                   );
                   continue;
                 }
-                const existingUrl = await findExistingPortrait(p.name);
+                const existingUrl = await findExistingPortrait(p.name, cityId);
                 const recovered = await ensureFamousPersonCompletenessWithAi(
                   {
                     ...p,
@@ -544,6 +544,14 @@ export const useAiMagicCity = (
                   console.warn(`[useAiMagicCity] Enrichment senza nome per ${person.name}`);
                   continue;
                 }
+                const resolvedIsLiving =
+                  typeof present.isLiving === 'boolean'
+                    ? present.isLiving
+                    : typeof person.isLiving === 'boolean'
+                      ? person.isLiving
+                      : typeof enrichedData.isLiving === 'boolean'
+                        ? enrichedData.isLiving
+                        : undefined;
                 await saveCityPerson(cityId, {
                   ...person,
                   ...enrichedData,
@@ -553,9 +561,15 @@ export const useAiMagicCity = (
                   specificCategoryIds: present.specificCategoryIds ?? specificCategoryIds,
                   birthYear: present.birthYear ?? null,
                   birthDate: present.birthDate ?? null,
-                  isLiving: present.isLiving ?? true,
-                  deathYear: present.deathYear ?? null,
-                  deathDate: present.deathDate ?? null,
+                  ...(typeof resolvedIsLiving === 'boolean' ? { isLiving: resolvedIsLiving } : {}),
+                  deathYear:
+                    resolvedIsLiving === true
+                      ? null
+                      : (present.deathYear ?? person.deathYear ?? null),
+                  deathDate:
+                    resolvedIsLiving === true
+                      ? null
+                      : (present.deathDate ?? person.deathDate ?? null),
                   fullBio: recovered.person.fullBio ?? enrichedData.fullBio ?? person.fullBio,
                   status: required && canPublishFamousPerson(required) ? 'published' : 'draft',
                 });

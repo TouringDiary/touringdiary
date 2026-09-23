@@ -188,9 +188,9 @@ export const usePeopleAI = ({
         throw new Error(`Categorie AI non valide per «${person.name}»: ${invalidList}`);
       }
 
-      // Reuse cross-città per nome (ilike): pattern architetturale condiviso con Magic/Complete city.
-      // L'identità FamousPerson in discovery è il nome; non esiste ancora un personId persistito.
-      let seedImage: string | undefined = (await findExistingPortrait(person.name)) ?? undefined;
+      // Reuse nella stessa città (MF5 §36.8): persona + city_id, deterministico.
+      let seedImage: string | undefined =
+        (await findExistingPortrait(person.name, cityId)) ?? undefined;
       let portraitFromAi = false;
       let skipImageAiRecovery = false;
       if (!seedImage && isAiImageGenerationAllowed('city_person', aiImageStepChoice)) {
@@ -294,7 +294,10 @@ export const usePeopleAI = ({
       );
       const technical = e instanceof Error ? e.message : String(e);
       if (technical.includes('Categorie AI non valide')) {
-        const detail = technical.replace(/^Categorie AI non valide per «[^»]*»:\s*/, '').trim();
+        const detailMarker = '»: ';
+        const markerIndex = technical.indexOf(detailMarker);
+        const detail =
+          markerIndex >= 0 ? technical.slice(markerIndex + detailMarker.length).trim() : '';
         alert(
           `Importazione non riuscita per «${person.name}».\n\n` +
             `Le categorie proposte dall'AI non corrispondono allo standard attivo del progetto` +

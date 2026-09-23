@@ -2228,6 +2228,53 @@ Enum outcome allineato a D80. UI Admin mostra griglia step (es. §6 esempio conc
 
 **Evidenza di riferimento (Audit §41):** `saveCityDetails` → `callCityAdminApi` → `server/services/cityAdminService.persistCityDetails`; MF2 dual-write separato in `cityWriteService` / `imageAssignmentDualWriteService`.
 
+### 42.17 DISMISSIONE DEFINITIVA DEL SISTEMA LEGACY (POST-MF5 / POST-MACROFASI)
+
+> **Classificazione:** attività **POST-MF5 / POST-MACROFASI** — **NON** appartiene alle Macrofasi 1–5. **NON** anticiparla durante MF1–MF5.
+
+**Obiettivo:** al termine del completamento e della verifica end-to-end delle Macrofasi 1–5, il **nuovo** sistema immagini (`media_assets`, `entity_image_assignments`, lifecycle, governance) deve diventare l’**unica** fonte autorevole per:
+
+- media asset;
+- assegnazioni immagine alle entità (primary, gallery, …);
+- immagine primaria e gallery;
+- stato e visibilità delle assegnazioni (`active` / `suspended` / `removed`);
+- riferimenti Storage;
+- governance e tracciabilità.
+
+Il sistema **legacy** (colonne URL/path su entità, fallback read, dual-write transitorio §42.15) **non** deve restare indefinitamente come secondo sistema parallelo o fallback architetturale permanente.
+
+**Prerequisiti obbligatori (verifica completa prima di ogni rimozione):**
+
+1. funzionamento end-to-end del nuovo sistema;
+2. letture pubbliche e admin;
+3. assegnazioni primary/gallery;
+4. stati active/suspended/removed;
+5. importazione e aggiornamento;
+6. report/abuse;
+7. comportamento in assenza di assegnazione;
+8. assenza di dipendenze **funzionali** dal legacy;
+9. inventario completo (vedi sotto).
+
+**Inventario obbligatorio prima della dismissione:**
+
+- codice legacy ancora utilizzato;
+- colonne legacy ancora lette/scritte;
+- fallback legacy e dual-write transitorio;
+- Storage legacy (namespace/bucket);
+- RPC, view, trigger, policy/RLS dipendenti dal legacy;
+- test dipendenti dal legacy;
+- migration necessarie per DROP controllati.
+
+**Solo dopo l’inventario e la verifica** è consentito procedere con: eliminazione fallback/scritture legacy non più necessarie; rimozione codice applicativo e workaround di transizione; aggiornamento read/write service; eventuale DROP colonne/tabelle/RPC/view/policy; eventuale pulizia Storage legacy; aggiornamento tipi, parser, mapper, servizi, test e documentazione.
+
+**Database:** nessun DROP alla cieca — verificare **tutte** le dipendenze effettive (codice, RPC, viste, trigger, RLS, script, Edge Functions).
+
+**Storage:** le immagini attualmente presenti sono **immagini di test**; la loro eventuale perdita in fase POST-MF5 è **accettabile**. Ciò **non** autorizza cancellazioni premature durante MF1–MF5 (orphan cleanup, script distruttivi, ecc. restano vincolati alle policy MF5).
+
+**Vincoli durante MF1–MF5:** non eliminare fallback necessari alla transizione; non rimuovere colonne legacy; non cancellare Storage “per pulizia”; non introdurre la dismissione dentro le Macrofasi.
+
+**Criterio di chiusura POST-MF5:** il nuovo sistema immagini funziona **autonomamente** e il legacy non è più necessario per leggere, scrivere, visualizzare, governare o mantenere le immagini.
+
 ---
 
 ## Appendice A — Correzioni applicative già verificate (contesto)

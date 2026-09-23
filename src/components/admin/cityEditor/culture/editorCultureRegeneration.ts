@@ -13,16 +13,22 @@ import { findExistingPortrait } from '../../../../services/mediaService';
 export type PreparedPerson = SaveCityPersonInput;
 
 /** Cleanup parziale dei personaggi precedenti dopo insert+details riusciti (duplicati possibili). */
+export type PeoplePartialCleanupScenario = 'replace_cleanup' | 'insert_rollback';
+
 export class PeopleReplacePartialCleanupError extends Error {
   readonly code = 'PEOPLE_REPLACE_PARTIAL_CLEANUP' as const;
   readonly failedIds: string[];
+  readonly scenario: PeoplePartialCleanupScenario;
 
-  constructor(failedIds: string[]) {
-    super(
-      `Nuovi personaggi e Storia/Patrono persistiti, ma ${failedIds.length} personaggi precedenti non sono stati rimossi (id: ${failedIds.join(', ')}). Possibili duplicati.`,
-    );
+  constructor(failedIds: string[], scenario: PeoplePartialCleanupScenario = 'replace_cleanup') {
+    const message =
+      scenario === 'insert_rollback'
+        ? `Rollback parziale dopo inserimento fallito: ${failedIds.length} personaggio/i non rimosso/i (id: ${failedIds.join(', ')}).`
+        : `Nuovi personaggi e Storia/Patrono persistiti, ma ${failedIds.length} personaggi precedenti non sono stati rimossi (id: ${failedIds.join(', ')}). Possibili duplicati.`;
+    super(message);
     this.name = 'PeopleReplacePartialCleanupError';
     this.failedIds = failedIds;
+    this.scenario = scenario;
   }
 }
 
@@ -32,8 +38,22 @@ export function isPeopleReplacePartialCleanupError(
   return error instanceof PeopleReplacePartialCleanupError;
 }
 
+/** Rollback compensativo: ritorna gli id non rimossi (nessuna scrittura se ids vuoto). */
+export async function rollbackCreatedCityPeopleIds(ids: string[]): Promise<string[]> {
+  const failedIds: string[] = [];
+  for (const id of ids) {
+    try {
+      await deleteCityPerson(id);
+    } catch {
+      failedIds.push(id);
+    }
+  }
+  return failedIds;
+}
+
 export async function prepareCompletePeople(
   suggestions: PersonDiscoveryResult[],
+  cityId: string,
   cityName: string,
 ): Promise<{ prepared: PreparedPerson[]; incompleteCount: number }> {
   const prepared: PreparedPerson[] = [];
@@ -52,7 +72,7 @@ export async function prepareCompletePeople(
       continue;
     }
 
-    const existingUrl = await findExistingPortrait(p.name);
+    const existingUrl = await findExistingPortrait(p.name, cityId);
     const recovered = await ensureFamousPersonCompletenessWithAi(
       {
         ...p,
@@ -109,7 +129,17 @@ export async function insertNewCityPeopleKeepingExisting(
       createdIds.push(saved.id);
     }
   } catch (error) {
-    await Promise.allSettled(createdIds.map((id) => deleteCityPerson(id)));
+    const failedRollbackIds = await rollbackCreatedCityPeopleIds(createdIds);
+    if (failedRollbackIds.length > 0) {
+      const cleanupError = new PeopleReplacePartialCleanupError(
+        failedRollbackIds,
+        'insert_rollback',
+      );
+      if (error instanceof Error) {
+        cleanupError.cause = error;
+      }
+      throw cleanupError;
+    }
     throw error;
   }
 
@@ -117,14 +147,7 @@ export async function insertNewCityPeopleKeepingExisting(
 }
 
 export async function removeCityPeopleByIds(ids: string[]): Promise<void> {
-  const deleteFailures: string[] = [];
-  for (const id of ids) {
-    try {
-      await deleteCityPerson(id);
-    } catch {
-      deleteFailures.push(id);
-    }
-  }
+  const deleteFailures = await rollbackCreatedCityPeopleIds(ids);
   if (deleteFailures.length > 0) {
     throw new PeopleReplacePartialCleanupError(deleteFailures);
   }

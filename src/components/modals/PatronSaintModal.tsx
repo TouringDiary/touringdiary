@@ -10,10 +10,8 @@ import {
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { isPatronPublicContentHidden } from '@/constants/governance';
 import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
-import { resolvePatronDisplayImageUrl } from '@/domain/patron/resolvePatronDisplayImageUrl';
 import { useCityPatronGallery } from '@/hooks/patron/useCityPatronGallery';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
-import { usePatronMasterImageUrl } from '@/hooks/usePatronMasterImageUrl';
 import { resolvePatronPrimaryImageUrl } from '@/services/media/imageAssignmentVisibilityService';
 import type { CityPatronGalleryPhoto } from '@/types/models/patronGallery';
 import type { User } from '@/types/users';
@@ -117,23 +115,21 @@ export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Pr
   const patron = city.details.patronDetails;
   const patronEditorialStatus = city.details.patronEditorialStatus;
   const isPatronGateActive = isPatronPublicContentHidden(patronEditorialStatus);
-  const masterPatronUrl = usePatronMasterImageUrl();
-  const displayImageUrl = resolvePatronDisplayImageUrl(patron, masterPatronUrl);
   const [visibleHeroImageUrl, setVisibleHeroImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen || isPatronGateActive || !displayImageUrl) {
+    if (!isOpen || isPatronGateActive) {
       setVisibleHeroImageUrl(null);
       return;
     }
     let cancelled = false;
-    void resolvePatronPrimaryImageUrl(city.id, displayImageUrl).then((url) => {
+    void resolvePatronPrimaryImageUrl(city.id).then((url) => {
       if (!cancelled) setVisibleHeroImageUrl(url);
     });
     return () => {
       cancelled = true;
     };
-  }, [isOpen, isPatronGateActive, city.id, displayImageUrl]);
+  }, [isOpen, isPatronGateActive, city.id]);
 
   const { photos, isLoading, reload } = useCityPatronGallery(
     city.id,

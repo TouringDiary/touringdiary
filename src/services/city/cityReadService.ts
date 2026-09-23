@@ -25,9 +25,9 @@ import type { Json } from '../../types/supabase';
 import { sanitizeMediaStatus } from '../../utils/media';
 import { calculateDistance } from '../geo';
 import {
-  maskSuspendedPrimaryImagesForPeople,
-  maskSuspendedPrimaryImagesForPois,
-} from '../media/imageAssignmentVisibilityService';
+  applyPrimaryImageCutoverForCityPeople,
+  applyPrimaryImageCutoverForPoisList,
+} from '../media/entityPrimaryImageReadService';
 import { supabase } from '../supabaseClient';
 import { getFromCache, LONG_CACHE_TTL, setInCache } from './cityCache';
 import {
@@ -412,6 +412,16 @@ const mapDbCityToDetails = (
   };
 };
 
+const GLOBAL_READ_PAGE_SIZE = 1000;
+
+function isAbortLikeError(error: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true;
+  if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
+    return error.name === 'AbortError';
+  }
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 export const getFullManifestAsync = async (
   onlyPublished = true,
   options?: { bypassCache?: boolean },
@@ -440,16 +450,25 @@ export const getFullManifestAsync = async (
   }
 
   if (dbData.length === 0) {
-    let query = supabase.from('seo_city_routes').select('*');
-    if (onlyPublished) {
-      query = query.eq('status', 'published');
+    let offset = 0;
+    for (;;) {
+      let query = supabase.from('seo_city_routes').select('*');
+      if (onlyPublished) {
+        query = query.eq('status', 'published');
+      }
+      const { data, error } = await query
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(offset, offset + GLOBAL_READ_PAGE_SIZE - 1);
+      if (error) {
+        console.error('DB Error manifest fallback (seo_city_routes):', error);
+        return [];
+      }
+      const batch = (data ?? []) as DatabaseCityRouteView[];
+      dbData.push(...batch);
+      if (batch.length < GLOBAL_READ_PAGE_SIZE) break;
+      offset += batch.length;
     }
-    const { data, error } = await query.order('updated_at', { ascending: false });
-    if (error) {
-      console.error('DB Error manifest fallback (seo_city_routes):', error);
-      return [];
-    }
-    dbData = (data || []) as DatabaseCityRouteView[];
   }
 
   // Caricamento e costruzione mappa zone turistiche per risoluzione dei nomi basati su ID
@@ -518,11 +537,9 @@ export const getCityDetails = async (
           peopleAudience,
         ).sort((a: FamousPerson, b: FamousPerson) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
-        let visiblePois = pois;
-        if (peopleAudience === 'public') {
-          people = await maskSuspendedPrimaryImagesForPeople(people, cityId);
-          visiblePois = await maskSuspendedPrimaryImagesForPois(pois, cityId);
-        }
+        people = await applyPrimaryImageCutoverForCityPeople(people);
+
+        const visiblePois = await applyPrimaryImageCutoverForPoisList(pois);
 
         let result: CityDetails | null = null;
 
@@ -547,10 +564,17 @@ export const getCityDetails = async (
       }
     }
   } catch (apiError) {
+    if (isAbortLikeError(apiError, signal)) {
+      throw apiError;
+    }
     console.warn(
       `[CityReadService] API locale fallita per ${cityId}, uso fallback Supabase`,
       apiError,
     );
+  }
+
+  if (signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
   }
 
   // 2. FALLBACK SUPABASE — stessa sorgente dell'API (tabella `cities`).
@@ -575,14 +599,11 @@ export const getCityDetails = async (
     getCityTourOperators(cityId),
     getCityPeople(cityId, peopleAudience),
   ]);
-  let sortedPeople = people.sort(
+  const sortedPeople = people.sort(
     (a: FamousPerson, b: FamousPerson) => (a.orderIndex || 0) - (b.orderIndex || 0),
   );
-  let visiblePois = pois;
-  if (peopleAudience === 'public') {
-    sortedPeople = await maskSuspendedPrimaryImagesForPeople(sortedPeople, cityId);
-    visiblePois = await maskSuspendedPrimaryImagesForPois(pois, cityId);
-  }
+  const cutoveredPeople = await applyPrimaryImageCutoverForCityPeople(sortedPeople);
+  const visiblePois = await applyPrimaryImageCutoverForPoisList(pois);
 
   const result = mapDbCityToDetails(
     dbCity,
@@ -592,7 +613,7 @@ export const getCityDetails = async (
       services,
       guides,
       tourOperators,
-      famousPeople: sortedPeople,
+      famousPeople: cutoveredPeople,
     },
     zoneMap,
     readCityRowJsonFields(cityData),
@@ -774,36 +795,85 @@ export const getSeasonalRanking = async (
 export const fetchGlobalCityMediaInfo = async (): Promise<
   { name: string; imageUrl: string; heroImage: string; gallery: MediaAsset[] }[]
 > => {
-  const { data } = await supabase.from('cities').select('name, image_url, hero_image, gallery');
-  if (!data) return [];
+  const out: { name: string; imageUrl: string; heroImage: string; gallery: MediaAsset[] }[] = [];
+  let offset = 0;
 
-  return data.map((c) => ({
-    name: c.name,
-    imageUrl: c.image_url || '',
-    heroImage: c.hero_image || '',
-    gallery: parseGallery(c.gallery), // Normalizzazione automatica (Legacy Compat)
-  }));
+  for (;;) {
+    const { data, error } = await supabase
+      .from('cities')
+      .select('name, image_url, hero_image, gallery')
+      .order('id', { ascending: true })
+      .range(offset, offset + GLOBAL_READ_PAGE_SIZE - 1);
+
+    if (error) {
+      console.error('[fetchGlobalCityMediaInfo] paginated read failed:', error.message);
+      return [];
+    }
+
+    const batch = data ?? [];
+    for (const c of batch) {
+      out.push({
+        name: c.name,
+        imageUrl: c.image_url || '',
+        heroImage: c.hero_image || '',
+        gallery: parseGallery(c.gallery),
+      });
+    }
+
+    if (batch.length < GLOBAL_READ_PAGE_SIZE) break;
+    offset += batch.length;
+  }
+
+  return out;
 };
 
 /**
  * AUTHORITATIVE IDENTITY RESOLVER
- * Centralizza la logica di risoluzione di una città partendo da un input testuale (nome o slug).
- * Questa è l'unica funzione autorizzata a eseguire lookup d'identità per il dominio City.
+ * Risolve una città da slug (match esatto) o da nome (match case-insensitive esatto).
  */
 export const resolveCityIdentity = async (input: string): Promise<CityIdentity | null> => {
-  if (!input?.trim()) return null;
+  const trimmed = input?.trim() ?? '';
+  if (!trimmed) return null;
 
+  const bySlug = await supabase
+    .from('cities')
+    .select('id, slug, name')
+    .eq('slug', trimmed.toLowerCase())
+    .maybeSingle();
+
+  if (bySlug.error) {
+    console.error('[resolveCityIdentity] slug lookup failed:', bySlug.error.message);
+    return null;
+  }
+
+  if (bySlug.data?.slug) {
+    return {
+      id: bySlug.data.id,
+      slug: bySlug.data.slug,
+      name: bySlug.data.name,
+    };
+  }
+
+  const escapedName = trimmed.replace(/[%_\\]/g, (char) => `\\${char}`);
   const { data, error } = await supabase
     .from('cities')
     .select('id, slug, name')
-    .ilike('name', input.trim())
-    .maybeSingle();
+    .ilike('name', escapedName)
+    .limit(5);
 
-  if (error || !data?.slug) return null;
+  if (error || !data?.length) return null;
+
+  const exactMatches = data.filter(
+    (row) =>
+      typeof row.name === 'string' && row.name.trim().toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (exactMatches.length !== 1) return null;
+  const match = exactMatches[0];
+  if (!match?.slug) return null;
 
   return {
-    id: data.id,
-    slug: data.slug,
-    name: data.name,
+    id: match.id,
+    slug: match.slug,
+    name: match.name,
   };
 };
