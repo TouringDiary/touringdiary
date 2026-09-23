@@ -31,6 +31,10 @@ const REASON_LABELS: Record<ContentReportReason, string> = {
   suggestion: 'Suggerimento',
 };
 
+/** Focus ring dialog — stesso token dei modali Foundation (SaveAs / Share / DeleteConfirm). */
+const MODAL_DIALOG_FOCUS =
+  'outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900';
+
 export type ReportAbuseModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -162,7 +166,7 @@ export const ReportAbuseModal = ({
       />
       <div
         ref={dialogRef}
-        className={`${containerShell} max-w-lg outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50`}
+        className={`${containerShell} max-w-lg ${MODAL_DIALOG_FOCUS}`}
         style={{ zIndex: Z_MODAL }}
         role="dialog"
         aria-modal="true"
@@ -170,25 +174,31 @@ export const ReportAbuseModal = ({
         aria-describedby={error || isSuccess ? statusId : undefined}
         tabIndex={-1}
       >
-        <div className={`${headerShell} relative`}>
-          <div className={closeOffsetShell}>
-            <CloseButton onClose={isSubmitting ? () => {} : onClose} withEscape={false} />
-          </div>
-          <div className="flex items-start gap-3 pr-10">
+        <CloseButton
+          onClose={isSubmitting ? () => {} : onClose}
+          variant="primary"
+          size="md"
+          position="static"
+          withEscape={false}
+          className={`absolute ${closeOffsetShell} z-local-overlay`}
+        />
+
+        <header className={headerShell}>
+          <div className="flex items-center gap-3 pr-10 min-w-0">
             <div className={headerIconBox}>
               <Flag className={headerIconGlyph} aria-hidden />
             </div>
-            <div>
-              <h2 id={titleId} className={modalTitleShell}>
+            <div className="min-w-0">
+              <h2 id={titleId} className={`${modalTitleShell} mb-0.5`}>
                 Segnala abuso
               </h2>
-              <p className={modalSubtitleShell}>
+              <p className={`${modalSubtitleShell} truncate`}>
                 {target.entityName}
                 {subtitle ? ` · ${subtitle}` : ''}
               </p>
             </div>
           </div>
-        </div>
+        </header>
 
         <div className={bodyShell}>
           {isSuccess ? (
@@ -358,11 +368,11 @@ export const ReportAbuseModal = ({
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden />
+                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                       Invio…
                     </>
                   ) : (
-                    'Invia segnalazione'
+                    'Invia'
                   )}
                 </button>
               )}

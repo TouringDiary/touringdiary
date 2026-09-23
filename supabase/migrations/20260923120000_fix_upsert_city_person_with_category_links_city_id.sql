@@ -1,7 +1,6 @@
--- =============================================================================
--- Atomic upsert: city_people + replace city_person_category_links (single txn)
--- Pattern: promote_staging_poi_to_live / famous_person moderation RPCs
--- =============================================================================
+-- Correttiva remota: upsert_city_person_with_category_links (city_id text/slug, UPDATE immutabile).
+-- 20260910180000 già applicata sul DB target con body legacy (city_id ::uuid).
+-- Allinea la funzione live al body verificato in repo senza modificare la migration storica.
 
 CREATE OR REPLACE FUNCTION public.upsert_city_person_with_category_links(
   p_person jsonb,
