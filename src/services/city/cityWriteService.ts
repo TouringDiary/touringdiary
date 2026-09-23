@@ -7,7 +7,7 @@
 
 import type { CityDetails } from '../../types/index';
 import { parseStorageLocationFromPublicUrl } from '../../utils/storagePathFromPublicUrl';
-import { upsertEntityImageAssignmentDualWrite } from '../media/imageAssignmentDualWriteService';
+import { upsertEntityImageAssignmentFromSource } from '../media/entityImageAssignmentWriteService';
 import { mf2EntityImageAssignmentsTable } from '../reports/mf2DbClient';
 import { callCityAdminApi } from './cityAdminApi';
 import { clearCacheKey, invalidateCityCache } from './cityCache';
@@ -98,7 +98,7 @@ export const saveCityDetails = async (
   const patronImageUrl = city.details.patronDetails?.imageUrl?.trim() ?? '';
   if (patronImageUrl.length > 0) {
     const parsedStorage = parseStorageLocationFromPublicUrl(patronImageUrl);
-    await upsertEntityImageAssignmentDualWrite({
+    await upsertEntityImageAssignmentFromSource({
       entityType: 'patron',
       entityId: city.id,
       cityId: city.id,

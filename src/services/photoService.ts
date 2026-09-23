@@ -25,12 +25,21 @@ import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFla
 import { dataURLtoFile } from '../utils/common';
 import { parseStorageLocationFromPublicUrl } from '../utils/storagePathFromPublicUrl';
 import { getCityDetails, getFullManifestAsync, resolveCityIdentity } from './city/cityReadService';
-import { upsertEntityImageAssignmentDualWrite } from './media/imageAssignmentDualWriteService';
+import { upsertEntityImageAssignmentFromSource } from './media/entityImageAssignmentWriteService';
 import { mapDbPhotoSubmission } from './photoMapper';
 import { mf2EntityImageAssignmentsTable } from './reports/mf2DbClient';
 import { getPlatformPlaceholderRegistryAsync } from './settingsService';
 
 const BUCKET_NAME = 'community-photos';
+
+/** Bare URL (no Markdown) — fallback hero città dopo rimozione foto community collegata. */
+const PROPAGATE_PHOTO_REMOVAL_HERO_FALLBACK_URL =
+  'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1000';
+
+/** Revoca + compensazione assignment fallite: non eseguire rollback legacy submission. */
+class PhotoSubmissionAssignmentInconsistentError extends Error {
+  override readonly name = 'PhotoSubmissionAssignmentInconsistentError';
+}
 
 function attachStorageMeta(photo: PhotoSubmission): PhotoSubmission {
   if (photo.storageBucket?.trim() && photo.storagePath?.trim()) return photo;
@@ -43,7 +52,7 @@ function attachStorageMeta(photo: PhotoSubmission): PhotoSubmission {
   };
 }
 
-async function dualWritePhotoSubmissionAssignment(
+async function materializePhotoSubmissionAssignment(
   photo: PhotoSubmission,
   storagePath: string | null,
 ): Promise<PhotoSubmission> {
@@ -57,7 +66,7 @@ async function dualWritePhotoSubmissionAssignment(
   });
 
   try {
-    const assignmentId = await upsertEntityImageAssignmentDualWrite({
+    const assignmentId = await upsertEntityImageAssignmentFromSource({
       entityType: 'photo_submission',
       entityId: photo.id,
       cityId,
@@ -71,8 +80,8 @@ async function dualWritePhotoSubmissionAssignment(
     });
     return { ...withStorage, assignmentId };
   } catch (err) {
-    console.error('[photoService] dual-write photo_submission assignment failed:', err);
-    throw err instanceof Error ? err : new Error('Dual-write foto Community fallito.');
+    console.error('[photoService] materialize photo_submission assignment failed:', err);
+    throw err instanceof Error ? err : new Error('Assignment foto Community fallito.');
   }
 }
 
@@ -102,7 +111,7 @@ type PhotoSubmissionAssignmentRow = {
 
 /**
  * Arricchisce le photo_submission con l'assignment MF2 corrente e filtra quelle non pubblicabili.
- * - Nessun assignment corrente → legacy dual-write: visibile, assignmentId null.
+ * - Nessun assignment corrente → submission visibile (legacy community read), assignmentId null.
  * - Assignment corrente active → visibile, assignmentId reale.
  * - Assignment corrente suspended/removed/replaced → esclusa dalla lista pubblica.
  */
@@ -142,7 +151,7 @@ async function attachPhotoSubmissionAssignmentIds(
   return enriched;
 }
 
-/** entity_image_assignments.id corrente e attivo per entità MF2 (dual-write §42.15). */
+/** entity_image_assignments.id corrente e attivo per entità MF2 (assignment SoT). */
 export async function getCurrentImageAssignmentId(
   entityType: 'city_person' | 'poi' | 'patron' | 'photo_submission',
   entityId: string,
@@ -273,9 +282,8 @@ export const propagatePhotoRemoval = async (
       if (!city) continue;
       let changed = false;
       if (isHeroContext || city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {
-        city.details.heroImage =
-          'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1000';
-        city.imageUrl = city.details.heroImage;
+        city.details.heroImage = PROPAGATE_PHOTO_REMOVAL_HERO_FALLBACK_URL;
+        city.imageUrl = PROPAGATE_PHOTO_REMOVAL_HERO_FALLBACK_URL;
         city.imageCredit = '';
         changed = true;
       }
@@ -454,21 +462,21 @@ export const uploadCommunityPhoto = async (
     }
 
     try {
-      return await dualWritePhotoSubmissionAssignment(mapped, filePath);
-    } catch (dualWriteErr) {
+      return await materializePhotoSubmissionAssignment(mapped, filePath);
+    } catch (assignmentErr) {
       await supabase.from('photo_submissions').delete().eq('id', mapped.id);
       const { error: storageCleanupError } = await supabase.storage
         .from(BUCKET_NAME)
         .remove([filePath]);
       if (storageCleanupError) {
         console.error(
-          '[uploadCommunityPhoto] dual-write fallito e cleanup Storage non riuscito:',
+          '[uploadCommunityPhoto] materialize assignment fallito e cleanup Storage non riuscito:',
           filePath,
           storageCleanupError,
-          dualWriteErr,
+          assignmentErr,
         );
       }
-      throw dualWriteErr;
+      throw assignmentErr;
     }
   } catch (e) {
     console.error('[photoService] Error in uploadCommunityPhoto:', e);
@@ -554,10 +562,10 @@ export const getOrCreatePhotoSubmissionForUrl = async (
     const mapped = attachStorageMeta(mapDbPhotoSubmission(created));
     const parsed = parseStorageLocationFromPublicUrl(mapped.url);
     try {
-      return await dualWritePhotoSubmissionAssignment(mapped, parsed?.storagePath ?? null);
-    } catch (dualWriteErr) {
+      return await materializePhotoSubmissionAssignment(mapped, parsed?.storagePath ?? null);
+    } catch (assignmentErr) {
       await supabase.from('photo_submissions').delete().eq('id', mapped.id);
-      throw dualWriteErr;
+      throw assignmentErr;
     }
   } catch (e) {
     console.error('[photoService] Errore in getOrCreatePhotoSubmissionForUrl:', e);
@@ -718,8 +726,8 @@ export const updatePhotoStatusInDb = async (
       const mapped = attachStorageMeta(mapDbPhotoSubmission(updatedRow));
       const parsed = parseStorageLocationFromPublicUrl(mapped.url);
       try {
-        await dualWritePhotoSubmissionAssignment(mapped, parsed?.storagePath ?? null);
-      } catch (dualWriteErr) {
+        await materializePhotoSubmissionAssignment(mapped, parsed?.storagePath ?? null);
+      } catch (assignmentErr) {
         const { error: rollbackError } = await supabase
           .from('photo_submissions')
           .update({
@@ -730,12 +738,12 @@ export const updatePhotoStatusInDb = async (
           .eq('id', id);
         if (rollbackError) {
           console.error(
-            '[photoService] dual-write approvazione fallito e rollback stato submission non riuscito:',
+            '[photoService] materialize assignment approvazione fallito e rollback stato submission non riuscito:',
             rollbackError,
-            dualWriteErr,
+            assignmentErr,
           );
         }
-        throw dualWriteErr;
+        throw assignmentErr;
       }
     }
   } catch (err) {
@@ -833,11 +841,11 @@ export const updatePhotoData = async (
           };
           const mapped = attachStorageMeta(mapDbPhotoSubmission(updatedRow));
           const parsed = parseStorageLocationFromPublicUrl(mapped.url);
-          const dualWritten = await dualWritePhotoSubmissionAssignment(
+          const materialized = await materializePhotoSubmissionAssignment(
             mapped,
             parsed?.storagePath ?? null,
           );
-          newAssignmentId = dualWritten.assignmentId ?? null;
+          newAssignmentId = materialized.assignmentId ?? null;
         }
 
         if (cityChanged && oldCityId.length > 0) {
@@ -854,18 +862,44 @@ export const updatePhotoData = async (
                 try {
                   await revokePhotoSubmissionAssignment(id, newCityId, newAssignmentId);
                 } catch (compensateErr) {
+                  const revokeMsg =
+                    revokeOldErr instanceof Error ? revokeOldErr.message : String(revokeOldErr);
+                  const compensateMsg =
+                    compensateErr instanceof Error ? compensateErr.message : String(compensateErr);
                   console.error(
                     '[photoService] revoca assignment vecchia fallita e compensazione nuova assignment non riuscita:',
                     compensateErr,
                     revokeOldErr,
                   );
+                  throw new PhotoSubmissionAssignmentInconsistentError(
+                    `Stato assignment photo_submission inconsistente: revoca vecchia fallita (${revokeMsg}); compensazione nuova fallita (${compensateMsg}).`,
+                  );
                 }
+              }
+              const rollbackPayload: DatabasePhotoSubmissionUpdate = {
+                updated_at: existing.updated_at,
+              };
+              if (urlChanged) rollbackPayload.image_url = existing.image_url;
+              if (cityChanged) rollbackPayload.city_id = existing.city_id;
+              const { error: rollbackError } = await supabase
+                .from('photo_submissions')
+                .update(rollbackPayload)
+                .eq('id', id);
+              if (rollbackError) {
+                console.error(
+                  '[photoService] revoca assignment vecchia fallita e rollback submission non riuscito:',
+                  rollbackError,
+                  revokeOldErr,
+                );
               }
               throw revokeOldErr;
             }
           }
         }
-      } catch (dualWriteErr) {
+      } catch (assignmentErr) {
+        if (assignmentErr instanceof PhotoSubmissionAssignmentInconsistentError) {
+          throw assignmentErr;
+        }
         const rollbackPayload: DatabasePhotoSubmissionUpdate = {
           updated_at: existing.updated_at,
         };
@@ -877,12 +911,12 @@ export const updatePhotoData = async (
           .eq('id', id);
         if (rollbackError) {
           console.error(
-            '[photoService] dual-write updatePhotoData fallito e rollback submission non riuscito:',
+            '[photoService] materialize assignment updatePhotoData fallito e rollback submission non riuscito:',
             rollbackError,
-            dualWriteErr,
+            assignmentErr,
           );
         }
-        throw dualWriteErr;
+        throw assignmentErr;
       }
     }
 

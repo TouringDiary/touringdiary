@@ -1,6 +1,6 @@
 import type { Database } from '@/types/database';
 import type { CityPatronGalleryPhoto } from '@/types/models/patronGallery';
-import { upsertEntityImageAssignmentDualWrite } from '../media/imageAssignmentDualWriteService';
+import { upsertEntityImageAssignmentFromSource } from '../media/entityImageAssignmentWriteService';
 import { filterPatronGalleryByAssignmentVisibility } from '../media/imageAssignmentVisibilityService';
 import {
   copyPublicMediaToFolder,
@@ -27,6 +27,11 @@ type Mf2AssignmentConditionalUpdateBuilder = {
     error: { message: string } | null;
   }>;
 };
+
+/** Revoca + compensazione assignment fallite: non eseguire rollback legacy (stato già incoerente). */
+class PatronGalleryAssignmentInconsistentError extends Error {
+  override readonly name = 'PatronGalleryAssignmentInconsistentError';
+}
 
 export type ListCityPatronGalleryOptions = {
   /** Nasconde foto con assignment sospeso/rimosso (read path pubblico D86). */
@@ -84,11 +89,11 @@ async function attachPatronGalleryAssignmentIds(
   });
 }
 
-async function dualWritePatronGalleryAssignment(
+async function materializePatronGalleryAssignment(
   cityId: string,
   photo: Pick<CityPatronGalleryPhoto, 'imageUrl' | 'storagePath'>,
 ): Promise<string> {
-  return upsertEntityImageAssignmentDualWrite({
+  return upsertEntityImageAssignmentFromSource({
     entityType: 'patron',
     entityId: cityId,
     cityId,
@@ -233,7 +238,7 @@ export const addCityPatronGalleryPhoto = async (
   }
 
   try {
-    const assignmentId = await dualWritePatronGalleryAssignment(cityId, {
+    const assignmentId = await materializePatronGalleryAssignment(cityId, {
       imageUrl: uploaded.publicUrl,
       storagePath: uploaded.storagePath,
     });
@@ -253,27 +258,27 @@ export const addCityPatronGalleryPhoto = async (
       },
       assignmentId,
     );
-  } catch (dualWriteErr) {
+  } catch (assignmentErr) {
     const { error: legacyCleanupError } = await supabase
       .from('city_patron_gallery')
       .delete()
       .eq('id', id);
     if (legacyCleanupError) {
       console.error(
-        '[addCityPatronGalleryPhoto] dual-write fallito e cleanup legacy non riuscito:',
+        '[addCityPatronGalleryPhoto] materialize assignment fallito e cleanup legacy non riuscito:',
         legacyCleanupError,
-        dualWriteErr,
+        assignmentErr,
       );
     }
     const removed = await deletePublicMediaByStoragePath(uploaded.storagePath);
     if (!removed) {
       console.error(
-        '[addCityPatronGalleryPhoto] dual-write fallito e cleanup Storage non riuscito; possibile file orfano:',
+        '[addCityPatronGalleryPhoto] materialize assignment fallito e cleanup Storage non riuscito; possibile file orfano:',
         uploaded.storagePath,
-        dualWriteErr,
+        assignmentErr,
       );
     }
-    throw dualWriteErr;
+    throw assignmentErr;
   }
 };
 
@@ -328,7 +333,7 @@ export const addCityPatronGalleryPhotoFromApprovedSuggestion = async (
   }
 
   try {
-    const assignmentId = await dualWritePatronGalleryAssignment(cityId, {
+    const assignmentId = await materializePatronGalleryAssignment(cityId, {
       imageUrl: copied.publicUrl,
       storagePath: copied.storagePath,
     });
@@ -348,27 +353,27 @@ export const addCityPatronGalleryPhotoFromApprovedSuggestion = async (
       },
       assignmentId,
     );
-  } catch (dualWriteErr) {
+  } catch (assignmentErr) {
     const { error: legacyCleanupError } = await supabase
       .from('city_patron_gallery')
       .delete()
       .eq('id', id);
     if (legacyCleanupError) {
       console.error(
-        '[addCityPatronGalleryPhotoFromApprovedSuggestion] dual-write fallito e cleanup legacy non riuscito:',
+        '[addCityPatronGalleryPhotoFromApprovedSuggestion] materialize assignment fallito e cleanup legacy non riuscito:',
         legacyCleanupError,
-        dualWriteErr,
+        assignmentErr,
       );
     }
     const removed = await deletePublicMediaByStoragePath(copied.storagePath);
     if (!removed) {
       console.error(
-        '[addCityPatronGalleryPhotoFromApprovedSuggestion] dual-write fallito e cleanup Storage non riuscito; possibile file orfano:',
+        '[addCityPatronGalleryPhotoFromApprovedSuggestion] materialize assignment fallito e cleanup Storage non riuscito; possibile file orfano:',
         copied.storagePath,
-        dualWriteErr,
+        assignmentErr,
       );
     }
-    throw dualWriteErr;
+    throw assignmentErr;
   }
 };
 
@@ -467,7 +472,7 @@ export const updateCityPatronGalleryPhotoUrl = async (
 
   let newAssignmentId: string | null = null;
   try {
-    newAssignmentId = await dualWritePatronGalleryAssignment(existing.city_id, {
+    newAssignmentId = await materializePatronGalleryAssignment(existing.city_id, {
       imageUrl,
       storagePath,
     });
@@ -487,10 +492,17 @@ export const updateCityPatronGalleryPhotoUrl = async (
               assignmentId: newAssignmentId,
             });
           } catch (compensateErr) {
+            const revokeMsg =
+              revokeOldErr instanceof Error ? revokeOldErr.message : String(revokeOldErr);
+            const compensateMsg =
+              compensateErr instanceof Error ? compensateErr.message : String(compensateErr);
             console.error(
               '[updateCityPatronGalleryPhotoUrl] revoca vecchia assignment fallita e compensazione nuova assignment non riuscita:',
               compensateErr,
               revokeOldErr,
+            );
+            throw new PatronGalleryAssignmentInconsistentError(
+              `Stato assignment galleria Patrono inconsistente: revoca vecchia fallita (${revokeMsg}); compensazione nuova fallita (${compensateMsg}).`,
             );
           }
         }
@@ -512,7 +524,10 @@ export const updateCityPatronGalleryPhotoUrl = async (
       }
     }
     return { ...row, assignmentId: newAssignmentId };
-  } catch (dualWriteErr) {
+  } catch (assignmentErr) {
+    if (assignmentErr instanceof PatronGalleryAssignmentInconsistentError) {
+      throw assignmentErr;
+    }
     const { error: rollbackError } = await supabase
       .from('city_patron_gallery')
       .update({
@@ -522,11 +537,11 @@ export const updateCityPatronGalleryPhotoUrl = async (
       .eq('id', photoId);
     if (rollbackError) {
       console.error(
-        '[updateCityPatronGalleryPhotoUrl] dual-write fallito e rollback legacy non riuscito:',
+        '[updateCityPatronGalleryPhotoUrl] materialize assignment fallito e rollback legacy non riuscito:',
         rollbackError,
-        dualWriteErr,
+        assignmentErr,
       );
     }
-    throw dualWriteErr;
+    throw assignmentErr;
   }
 };

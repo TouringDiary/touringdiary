@@ -1,5 +1,5 @@
 import { IMAGE_VERIFICATION_STEP_DEFINITIONS } from '@/constants/imageVerificationSteps';
-import { upsertEntityImageAssignmentDualWrite } from '@/services/media/imageAssignmentDualWriteService';
+import { upsertEntityImageAssignmentFromSource } from '@/services/media/entityImageAssignmentWriteService';
 import {
   type MediaAssetProvenancePatch,
   patchMediaAssetProvenance,
@@ -415,7 +415,7 @@ export async function runCommonsDownloadPipeline(
         );
       }
 
-      assignmentId = await upsertEntityImageAssignmentDualWrite({
+      assignmentId = await upsertEntityImageAssignmentFromSource({
         entityType: input.entity.entityType,
         entityId: input.entity.entityId,
         cityId: input.entity.cityId,

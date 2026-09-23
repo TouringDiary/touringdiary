@@ -7,7 +7,7 @@ import {
 } from '@/constants/governance';
 import { mf2EntityImageAssignmentsTable } from '@/services/reports/mf2DbClient';
 import { parseStorageLocationFromPublicUrl } from '@/utils/storagePathFromPublicUrl';
-import { upsertEntityImageAssignmentDualWrite } from './imageAssignmentDualWriteService';
+import { upsertEntityImageAssignmentFromSource } from './entityImageAssignmentWriteService';
 import { mf3MediaAssetsTable, mf3Rpc } from './mf3DbClient';
 
 /** Bucket ammesso per portrait AI registrati via registerAiGeneratedPortraitAsset. */
@@ -71,7 +71,7 @@ function isAssignmentMediaAssetIdRow(value: unknown): value is AssignmentMediaAs
 }
 
 /**
- * Lookup post dual-write: `entity_image_assignments` non è nel Database Supabase generato
+ * Lookup post RPC assignment: `entity_image_assignments` non è nel Database Supabase generato
  * (`src/types/supabase.ts`); `mf2EntityImageAssignmentsTable()` espone solo un bridge runtime
  * (`mf2DbClient.ts`). Il typing del client può restringere `data` a `never` — correzione a monte
  * (schema/tipi), non cast locali (`as any` / `as unknown as …`) in questo servizio.
@@ -104,7 +104,7 @@ export async function registerAiGeneratedPortraitAsset(
       `registerAiGeneratedPortraitAsset: bucket non ammesso (${parsed.storageBucket}); atteso ${AI_PORTRAIT_PUBLIC_BUCKET}.`,
     );
   }
-  const assignmentId = await upsertEntityImageAssignmentDualWrite({
+  const assignmentId = await upsertEntityImageAssignmentFromSource({
     entityType: input.entityType,
     entityId: input.entityId,
     cityId: input.cityId,
@@ -124,12 +124,12 @@ export async function registerAiGeneratedPortraitAsset(
       .maybeSingle();
 
   if (assignmentLookupError) {
-    throw new Error(`Lookup assignment post dual-write fallito: ${assignmentLookupError.message}`);
+    throw new Error(`Lookup assignment post RPC fallito: ${assignmentLookupError.message}`);
   }
 
   const mediaAssetId = readAssignmentMediaAssetId(assignmentRow);
   if (!mediaAssetId) {
-    throw new Error('media_asset_id assente sull assignment dopo dual-write AI.');
+    throw new Error('media_asset_id assente sull assignment dopo RPC AI.');
   }
 
   const patch: Record<string, unknown> = {
