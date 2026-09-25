@@ -116,16 +116,29 @@ export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Pr
   const patronEditorialStatus = city.details.patronEditorialStatus;
   const isPatronGateActive = isPatronPublicContentHidden(patronEditorialStatus);
   const [visibleHeroImageUrl, setVisibleHeroImageUrl] = useState<string | null>(null);
+  const [heroImageLoading, setHeroImageLoading] = useState(false);
 
   useEffect(() => {
     if (!isOpen || isPatronGateActive) {
       setVisibleHeroImageUrl(null);
+      setHeroImageLoading(false);
       return;
     }
     let cancelled = false;
-    void resolvePatronPrimaryImageUrl(city.id).then((url) => {
-      if (!cancelled) setVisibleHeroImageUrl(url);
-    });
+    setHeroImageLoading(true);
+    void resolvePatronPrimaryImageUrl(city.id)
+      .then((url) => {
+        if (cancelled) return;
+        const trimmed = url?.trim() ?? '';
+        setVisibleHeroImageUrl(trimmed.length > 0 ? trimmed : null);
+      })
+      .catch((err: unknown) => {
+        console.warn('[PatronSaintModal] risoluzione foto primaria Patrono fallita:', err);
+        if (!cancelled) setVisibleHeroImageUrl(null);
+      })
+      .finally(() => {
+        if (!cancelled) setHeroImageLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -241,12 +254,16 @@ export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Pr
 
                 <div className="max-w-3xl mx-auto relative z-floating-panel space-y-8">
                   <div className="relative aspect-[16/9] md:aspect-[21/9] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-black">
-                    <ImageWithFallback
-                      src={visibleHeroImageUrl || undefined}
-                      alt={patronDisplayName}
-                      objectFit="cover"
-                      className="absolute inset-0 h-full w-full"
-                    />
+                    {heroImageLoading ? (
+                      <div className="absolute inset-0 bg-slate-900 animate-pulse" aria-hidden />
+                    ) : (
+                      <ImageWithFallback
+                        src={visibleHeroImageUrl ?? undefined}
+                        alt={patronDisplayName}
+                        objectFit="cover"
+                        className="absolute inset-0 h-full w-full"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
                     <div className="absolute bottom-6 left-6 text-white pointer-events-none">
                       <div className="flex items-center gap-3 mb-1">

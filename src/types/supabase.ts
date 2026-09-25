@@ -6302,6 +6302,14 @@ export type Database = {
         }[];
       };
       get_observatory_stats: { Args: never; Returns: Json };
+      merge_pois_observatory_atomic: {
+        Args: {
+          p_enrichment?: Json;
+          p_survivor_id: string;
+          p_victim_id: string;
+        };
+        Returns: undefined;
+      };
       get_used_images_report: {
         Args: never;
         Returns: {

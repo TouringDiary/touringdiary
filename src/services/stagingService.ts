@@ -9,7 +9,6 @@ import type { Json } from '../types/supabase';
 import { getSimilarity } from '../utils/stringUtils';
 import { enrichStagingPoi } from './ai/generators/poiGenerator';
 import type { RatedPoiResult } from './ai/generators/qualityGenerator';
-import { getCachedSetting } from './settingsService';
 import { supabase } from './supabaseClient';
 
 function escapeLikePattern(str: string): string {
@@ -608,9 +607,7 @@ export const promoteToLive = async (
       useSearch,
     );
 
-    // 2. Determinazione Placeholder
     const category = enriched.category || 'discovery';
-    const placeholderImg = category ? getCachedSetting<string>(category) : null;
 
     // 3. Costruzione Oggetto POI Finale (Type Safe)
     const finalAddress = enriched.address ?? stagingItem.address ?? null;
@@ -639,7 +636,6 @@ export const promoteToLive = async (
       tourism_interest: stagingInterest,
       ai_reliability: useSearch ? 'high' : 'medium',
 
-      image_url: placeholderImg || '',
       rating: 0,
       votes: 0,
       status: finalStatus, // Forced Draft
@@ -674,7 +670,6 @@ export const promoteToLive = async (
       price_level: newPoi.price_level,
       tourism_interest: newPoi.tourism_interest,
       ai_reliability: newPoi.ai_reliability,
-      image_url: newPoi.image_url,
       rating: newPoi.rating,
       votes: newPoi.votes,
       status: newPoi.status,

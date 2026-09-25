@@ -80,9 +80,6 @@ const AdminAssetLibrary = React.lazy(() =>
 const AdminPatronSaintManager = React.lazy(() =>
   import('./AdminPatronSaintManager').then((m) => ({ default: m.AdminPatronSaintManager })),
 );
-const AdminFamousPeopleManager = React.lazy(() =>
-  import('./AdminFamousPeopleManager').then((m) => ({ default: m.AdminFamousPeopleManager })),
-);
 const AiLimitsControlCenter = React.lazy(() =>
   import('./AiLimitsControlCenter').then((m) => ({ default: m.AiLimitsControlCenter })),
 );
@@ -119,7 +116,6 @@ const ADMIN_SECTIONS = [
   'osm_import',
   'events_global',
   'patron_saint',
-  'famous_people',
   'users',
   'sponsors',
   'photos',
@@ -180,7 +176,6 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     reviews: 0,
     photos: 0,
     patronSaint: 0,
-    famousPeople: 0,
   });
   const refreshGenerationRef = useRef(0);
 
@@ -248,7 +243,7 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
       }
 
       if (famousPeopleResult.status === 'fulfilled') {
-        next.famousPeople = famousPeopleResult.value;
+        next.suggestions += famousPeopleResult.value;
       } else {
         console.error('Error refreshing famous people counts', famousPeopleResult.reason);
       }
@@ -300,7 +295,6 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
     osm_import: 'Import OSM',
     events_global: 'Eventi Globali',
     patron_saint: 'Santo Patrono',
-    famous_people: 'Personaggi Famosi',
     users: 'Utenti',
     sponsors: 'Sponsor',
     photos: 'Foto',
@@ -366,8 +360,6 @@ export const AdminDashboard = ({ onBack, currentUser, onUserUpdate }: AdminDashb
         return <GlobalEventsManager />;
       case 'patron_saint':
         return <AdminPatronSaintManager />;
-      case 'famous_people':
-        return <AdminFamousPeopleManager />;
       case 'itineraries':
         return <ItineraryManager />;
       case 'gamification':

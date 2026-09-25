@@ -3,7 +3,10 @@ import { supabase } from '../supabaseClient';
 
 type RpcResult<T> = { data: T | null; error: PostgrestError | null };
 
-export type Mf4RpcName = 'safe_archive_media_asset' | 'append_entity_image_history';
+export type Mf4RpcName =
+  | 'safe_archive_media_asset'
+  | 'append_entity_image_history'
+  | 'reconcile_poi_image_assignments_for_merge';
 
 export async function mf4Rpc<T>(
   fn: Mf4RpcName,

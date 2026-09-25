@@ -15,9 +15,6 @@ type PrimaryAssignmentRow = {
   city_id: string;
   media_asset_id: string;
   assignment_status: string;
-  source_image_url: string | null;
-  source_storage_bucket: string | null;
-  source_storage_path: string | null;
 };
 
 function isPrimaryAssignmentRow(value: unknown): value is PrimaryAssignmentRow {
@@ -28,14 +25,11 @@ function isPrimaryAssignmentRow(value: unknown): value is PrimaryAssignmentRow {
     typeof row.entity_id === 'string' &&
     typeof row.city_id === 'string' &&
     typeof row.media_asset_id === 'string' &&
-    typeof row.assignment_status === 'string' &&
-    (row.source_image_url === null || typeof row.source_image_url === 'string') &&
-    (row.source_storage_bucket === null || typeof row.source_storage_bucket === 'string') &&
-    (row.source_storage_path === null || typeof row.source_storage_path === 'string')
+    typeof row.assignment_status === 'string'
   );
 }
 
-/** POST-MF5 SoT: solo media_assets pubblicabile con storage valido (no snapshot assignment). */
+/** POST-MF5 SoT: solo media_assets pubblicabile con storage valido (fail-closed). */
 function resolveAssignmentPublicUrl(
   asset: { storage_bucket: string; storage_path: string; asset_status: string } | undefined,
 ): string | null {
@@ -55,20 +49,6 @@ function resolveAssignmentPublicUrl(
   }
 
   return buildPublicStorageUrl(assetBucket, assetPath);
-}
-
-/** Assignment corrente non pubblicabile → nessuna immagine (fail-closed). */
-function isAssignmentBlockingDisplay(
-  row: PrimaryAssignmentRow,
-  assetStatus: string | null,
-): boolean {
-  if (row.assignment_status !== 'active') return true;
-  if (!assetStatus) return true;
-  try {
-    return !isPublicUsableImageAssetStatus(parseImageAssetStatusDb(assetStatus));
-  } catch {
-    return true;
-  }
 }
 
 function entityAssignmentKey(cityId: string, entityId: string): string {
@@ -101,32 +81,41 @@ async function loadPrimaryAssignmentIndex(
   ) {
     const entityChunk = uniqueEntityIds.slice(offset, offset + PRIMARY_ASSIGNMENT_IN_CHUNK_SIZE);
 
-    const { data, error } = await mf2EntityImageAssignmentsTable()
-      .select(
-        'id, entity_id, city_id, media_asset_id, assignment_status, source_image_url, source_storage_bucket, source_storage_path',
-      )
-      .eq('entity_type', entityType)
-      .eq('assignment_role', 'primary')
-      .eq('is_current', true)
-      .in('entity_id', entityChunk)
-      .in('city_id', uniqueCityIds);
+    for (
+      let cityOffset = 0;
+      cityOffset < uniqueCityIds.length;
+      cityOffset += PRIMARY_ASSIGNMENT_IN_CHUNK_SIZE
+    ) {
+      const cityChunk = uniqueCityIds.slice(
+        cityOffset,
+        cityOffset + PRIMARY_ASSIGNMENT_IN_CHUNK_SIZE,
+      );
 
-    if (error) {
-      throw new Error(`Cutover read ${entityType} fallito: ${error.message}`);
-    }
+      const { data, error } = await mf2EntityImageAssignmentsTable()
+        .select('id, entity_id, city_id, media_asset_id, assignment_status')
+        .eq('entity_type', entityType)
+        .eq('assignment_role', 'primary')
+        .eq('is_current', true)
+        .in('entity_id', entityChunk)
+        .in('city_id', cityChunk);
 
-    for (const raw of data ?? []) {
-      if (!isPrimaryAssignmentRow(raw)) {
-        throw new Error(
-          `Record assignment primario non valido durante cutover read (${entityType}).`,
-        );
+      if (error) {
+        throw new Error(`Cutover read ${entityType} fallito: ${error.message}`);
       }
-      const key = entityAssignmentKey(raw.city_id, raw.entity_id);
-      if (assignmentByKey.has(key)) {
-        duplicateKeys.add(key);
-        continue;
+
+      for (const raw of data ?? []) {
+        if (!isPrimaryAssignmentRow(raw)) {
+          throw new Error(
+            `Record assignment primario non valido durante cutover read (${entityType}).`,
+          );
+        }
+        const key = entityAssignmentKey(raw.city_id, raw.entity_id);
+        if (assignmentByKey.has(key)) {
+          duplicateKeys.add(key);
+          continue;
+        }
+        assignmentByKey.set(key, raw);
       }
-      assignmentByKey.set(key, raw);
     }
   }
 
@@ -155,16 +144,9 @@ function resolvePublicUrlFromIndex(
   }
 
   const assignment = assignmentByKey.get(key);
-  if (!assignment) return '';
+  if (assignment?.assignment_status !== 'active') return '';
 
-  const asset = assets.get(assignment.media_asset_id);
-  const assetStatus = asset?.asset_status ?? null;
-
-  if (isAssignmentBlockingDisplay(assignment, assetStatus)) {
-    return '';
-  }
-
-  const resolved = resolveAssignmentPublicUrl(asset);
+  const resolved = resolveAssignmentPublicUrl(assets.get(assignment.media_asset_id));
   return resolved?.trim() ?? '';
 }
 
@@ -297,7 +279,7 @@ export async function applyPrimaryImageCutoverForPois(
   });
 }
 
-/** POST-MF5 — immagine primaria Patrono (entity_id = city_id). */
+/** POST-MF5 — immagine primaria Patrono (entity_id = city_id). Read-only. */
 export async function resolvePatronPrimaryImagePublicUrl(cityId: string): Promise<string | null> {
   const trimmedCityId = cityId.trim();
   if (!trimmedCityId) return null;

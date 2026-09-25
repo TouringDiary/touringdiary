@@ -7,8 +7,8 @@ const COMMUNITY_MICRO_TABS = [
   { id: 'places', label: 'Luoghi suggeriti' },
   { id: 'errors', label: 'Errori segnalati' },
   { id: 'poi_abuse', label: 'Abuso POI' },
-  { id: 'photo_live', label: 'Foto Live' },
-  { id: 'photo_gallery', label: 'Foto Galleria' },
+  { id: 'photo_live', label: 'Abusi Foto Live' },
+  { id: 'photo_gallery', label: 'Abusi Foto Galleria' },
 ] as const;
 
 type CommunityMicroTabId = (typeof COMMUNITY_MICRO_TABS)[number]['id'];

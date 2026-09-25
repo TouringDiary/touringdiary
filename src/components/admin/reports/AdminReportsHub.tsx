@@ -25,9 +25,13 @@ const renderTabPanel = (tabId: AdminReportsTabId, onAiQueueChanged?: () => void)
   }
 };
 
+type AdminReportsHubProps = {
+  initialTab?: AdminReportsTabId;
+};
+
 /** Hub centralizzato segnalazioni e suggerimenti (MF2). */
-export const AdminReportsHub = () => {
-  const [activeTab, setActiveTab] = useState<AdminReportsTabId>('community');
+export const AdminReportsHub = ({ initialTab = 'community' }: AdminReportsHubProps) => {
+  const [activeTab, setActiveTab] = useState<AdminReportsTabId>(initialTab);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { counts: reportCounts, refresh: refreshReportCounts } = useReportNotificationCounts(true);
 

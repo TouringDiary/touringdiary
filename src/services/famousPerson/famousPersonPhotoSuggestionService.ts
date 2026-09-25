@@ -191,9 +191,8 @@ export const rejectFamousPersonPhotoSuggestion = async (
 };
 
 /**
- * Accetta foto → diventa unica foto ufficiale su city_people.
- * Sostituzione atomica gestita a livello database via RPC PostgreSQL.
- * La foto precedente viene rimossa da Storage se `image_storage_path` è noto (best effort).
+ * Accetta foto → primary assignment POST-MF5 (RPC `accept_famous_person_photo_suggestion`).
+ * Nessuna cancellazione Storage client-side del media precedente (asset potenzialmente condiviso).
  */
 export const acceptFamousPersonPhotoSuggestion = async (
   suggestionId: string,
@@ -216,23 +215,5 @@ export const acceptFamousPersonPhotoSuggestion = async (
 
   if (!isObject(data) || data.ok !== true) {
     throw new Error('La risposta RPC di accettazione foto non è valida.');
-  }
-
-  const previousStoragePath =
-    typeof data.previous_storage_path === 'string'
-      ? data.previous_storage_path
-      : null;
-
-  // Fase 3: Rimozione della fotografia precedente (Best effort, non deve fare rollback se fallisce)
-  if (previousStoragePath) {
-    try {
-      await deletePublicMediaByStoragePath(previousStoragePath);
-    } catch (cleanupErr) {
-      console.error(
-        '[acceptFamousPersonPhotoSuggestion] previous official photo cleanup failed:',
-        previousStoragePath,
-        cleanupErr,
-      );
-    }
   }
 };
