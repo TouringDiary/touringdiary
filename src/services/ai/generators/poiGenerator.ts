@@ -7,9 +7,33 @@ import {
 } from '../../../data/ai/prompts';
 import { type Schema, Type } from '../../../types/ai';
 import type { AuditPoiResult, PoiCategory, PointOfInterest } from '../../../types/index';
+import { CANONICAL_POI_OPENING_DAYS } from '../../../types/write/poiForm';
 import { calculateDistance } from '../../geo';
 import { cleanJsonOutput, withRetry } from '../aiUtils';
 import { generateAllowedCategoriesPromptString, getCorrectCategory } from '../utils/taxonomyUtils';
+
+function isFiniteGeoCoord(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+function isValidCityCenter(coords: { lat: number; lng: number }): boolean {
+  return isFiniteGeoCoord(coords.lat, coords.lng);
+}
+
+function openingDaysMatchCanonical(openingDays: string[] | undefined): boolean {
+  if (!openingDays || openingDays.length !== CANONICAL_POI_OPENING_DAYS.length) return false;
+  for (const day of CANONICAL_POI_OPENING_DAYS) {
+    if (!openingDays.includes(day)) return false;
+  }
+  return true;
+}
 
 export interface EnrichedPoiData {
   description: string;
@@ -22,6 +46,11 @@ export interface EnrichedPoiData {
   address?: string;
   status?: 'published' | 'needs_check';
   tourismInterest: 'high' | 'medium' | 'low';
+  /** Fascia oraria principale (stesso contratto di verifyPoisBatch / form POI). */
+  openingHours?: string;
+  /** Giorni LUN–DOM (vocabolario Lun, Mar, Mer, Gio, Ven, Sab, Dom). */
+  openingDays?: string[];
+  isEstimated?: boolean;
 }
 
 /** Draft POI da Flash / Magic / Targeted. */
@@ -170,6 +199,9 @@ const isEnrichedPoiPayload = (
   tourismInterest: 'high' | 'medium' | 'low';
   status?: 'published' | 'needs_check';
   address?: string;
+  openingHours?: string;
+  openingDays?: string[];
+  isEstimated?: boolean;
 } => {
   if (!isRecord(value)) return false;
   if (typeof value.description !== 'string') return false;
@@ -193,6 +225,16 @@ const isEnrichedPoiPayload = (
     return false;
   }
   if (value.address !== undefined && typeof value.address !== 'string') return false;
+  if (value.openingHours !== undefined && typeof value.openingHours !== 'string') return false;
+  if (value.isEstimated !== undefined && typeof value.isEstimated !== 'boolean') return false;
+  if (value.openingDays !== undefined) {
+    if (!Array.isArray(value.openingDays)) return false;
+    if (value.openingDays.length !== CANONICAL_POI_OPENING_DAYS.length) return false;
+    for (const day of value.openingDays) {
+      if (typeof day !== 'string') return false;
+    }
+    if (!openingDaysMatchCanonical(value.openingDays)) return false;
+  }
   return true;
 };
 
@@ -275,6 +317,23 @@ const ENRICHMENT_SCHEMA: Schema = {
     address: { type: Type.STRING, description: 'Indirizzo formattato' },
     status: { type: Type.STRING, enum: ['published', 'needs_check'] },
     tourismInterest: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+    openingHours: {
+      type: Type.STRING,
+      description:
+        "Orari di apertura verificabili (es. '09:00 - 13:00, 15:00 - 19:00'). Non inventare se sconosciuti.",
+    },
+    openingDays: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.STRING,
+        enum: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
+      },
+      description: 'Tutti e 7 i giorni Lun–Dom quando il POI ha orari noti.',
+    },
+    isEstimated: {
+      type: Type.BOOLEAN,
+      description: 'true se gli orari sono stimati/non verificati al 100%.',
+    },
   },
   required: [
     'description',
@@ -284,6 +343,8 @@ const ENRICHMENT_SCHEMA: Schema = {
     'priceLevel',
     'status',
     'tourismInterest',
+    'openingHours',
+    'openingDays',
   ],
 };
 
@@ -325,7 +386,7 @@ export const performCityAudit = async (
         const itemLat = item.lat;
         const itemLng = item.lng;
         const geoMatch = existingPois.find((p) => {
-          if (!p.coords || p.coords.lat === 0) return false;
+          if (!p.coords || !isFiniteGeoCoord(p.coords.lat, p.coords.lng)) return false;
           const dist = calculateDistance(itemLat, itemLng, p.coords.lat, p.coords.lng);
           return dist < 0.1;
         });
@@ -395,11 +456,32 @@ function applyGeoInvalidation<T extends VerifiedPoiFields>(
   results: T[],
   cityCenterCoords: { lat: number; lng: number },
 ): T[] {
+  const centerValid = isValidCityCenter(cityCenterCoords);
   return results.map((r) => {
-    if (cityCenterCoords.lat !== 0 && typeof r.lat === 'number' && typeof r.lng === 'number') {
-      const dist = calculateDistance(cityCenterCoords.lat, cityCenterCoords.lng, r.lat, r.lng);
-      if (dist > 30) {
-        return { ...r, status: 'invalid', reason: 'Fuori zona (>30km dal centro)' };
+    const latRaw = r.lat;
+    const lngRaw = r.lng;
+    if (latRaw !== undefined || lngRaw !== undefined) {
+      if (typeof latRaw !== 'number' || typeof lngRaw !== 'number') {
+        return {
+          ...r,
+          status: 'invalid',
+          reason: 'Coordinate AI non valide (coppia lat/lng incompleta)',
+        };
+      }
+      const lat = latRaw;
+      const lng = lngRaw;
+      if (!isFiniteGeoCoord(lat, lng)) {
+        return {
+          ...r,
+          status: 'invalid',
+          reason: 'Coordinate AI non valide (fuori range o non finite)',
+        };
+      }
+      if (centerValid) {
+        const dist = calculateDistance(cityCenterCoords.lat, cityCenterCoords.lng, lat, lng);
+        if (dist > 30) {
+          return { ...r, status: 'invalid', reason: 'Fuori zona (>30km dal centro)' };
+        }
       }
     }
     return r;
@@ -559,20 +641,14 @@ export const enrichStagingPoi = async (
         ...(parsed.status !== undefined ? { status: parsed.status } : {}),
         tourismInterest: parsed.tourismInterest,
         ...(parsed.address !== undefined ? { address: parsed.address } : {}),
+        ...(parsed.openingHours !== undefined ? { openingHours: parsed.openingHours } : {}),
+        ...(parsed.openingDays !== undefined ? { openingDays: parsed.openingDays } : {}),
+        ...(parsed.isEstimated !== undefined ? { isEstimated: parsed.isEstimated } : {}),
       };
-    } catch {
+    } catch (parseErr) {
       console.warn(`[AI Enrichment] Fallito il parsing JSON per "${poiName}". Testo grezzo:`, text);
-      json = {
-        description: `Luogo di interesse a ${cityName}. (Generazione AI fallita, richiede revisione)`,
-        category: 'discovery',
-        rawSubCategory: rawCategory || 'generic',
-        visitDuration: '1h',
-        priceLevel: 1,
-        status: 'needs_check',
-        address: '',
-        tourismInterest: 'medium',
-      };
-      json.category = getCorrectCategory(json.rawSubCategory || '', json.category, poiName);
+      const detail = parseErr instanceof Error ? parseErr.message : 'invalid payload';
+      throw new Error(`[AI Enrichment] enrichment failed for "${poiName}": ${detail}`);
     }
 
     const normalizedSubCategory = json.rawSubCategory?.toLowerCase().trim().replace(/\s+/g, '_');

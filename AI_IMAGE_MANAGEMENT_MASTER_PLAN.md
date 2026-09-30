@@ -3,7 +3,7 @@
 > **Documento di riferimento permanente** per la gestione immagini di Personaggi famosi e POI in Touring Diary.  
 > **Tipo:** decisioni approvate, obiettivi futuri, policy progettuali.  
 > **Non descrive** lo stato implementativo del codice — per quello vedere `AI_IMAGE_MANAGEMENT_AUDIT.md`.  
-> **Ultimo aggiornamento:** 2026-09-16 (D78 §23; §27 titolo; coerenza decisioni chiuse)
+> **Ultimo aggiornamento:** 2026-09-28 (D-CONS-36 — verifica Supabase `submit_community_poi` chiusa)
 
 > ## ⚠️ REGOLA OBBLIGATORIA — LETTURA CONGIUNTA
 >
@@ -12,6 +12,7 @@
 > 1. `AI_IMAGE_MANAGEMENT_MASTER_PLAN.md`
 > 2. `AI_IMAGE_MANAGEMENT_AUDIT.md`
 > 3. Il file **`AI_IMAGE_MANAGEMENT_MACROFASE_N_FILES.md`** della macrofase corrente
+> 4. **`AI_IMAGE_MANAGEMENT_CONSOLIDATION_EXECUTION_ANALYSIS_2026-09-27.md`** + **`AI_IMAGE_MANAGEMENT_CONSOLIDATION_DEEP_ANALYSIS_2026-09-27_v5.md`** (decisioni consolidate post-MF5 — **Appendice G**)
 >
 > I tre documenti devono essere **interpretati congiuntamente**.
 > - Il **Master Plan** definisce decisioni e obiettivi approvati.
@@ -1081,6 +1082,42 @@ L'Admin deve poter:
 | D88 | **Segnalazioni:** canale **unico** = modale **Segnala abuso**; **nessuna** email pubblica/contatto esterno/configurabile Admin (§31.10); guest: email **nel modale** + OTP = identificazione segnalante (**D85**) | ✅ Chiusa — 2026-09-16 |
 | D89 | **Placeholder Personaggi (Q9):** decisione funzionale **chiusa** — estendere **Asset Globali** (placeholder esistenti **invariati** + categoria + Personaggio Generico); materiale grafico = sviluppo MF1 (§13) | ✅ Chiusa — 2026-09-16 |
 | D90 | **Atomicità end-to-end** aggiornamento entità + associazioni immagine nella **stessa operazione applicativa** — requisito architetturale definitivo; **≠** dual-write §42.15; soluzione **post-MF5** salvo approvazione esplicita di anticipo (§42.16) | ✅ Chiusa (requisito) — 2026-09-19 |
+| D-CONS-01 | **Magic Add** resta; **non** assegna foto città; **non** usa `global_settings.hero_image` | ✅ Chiusa — Appendice G / Execution §35.1 — 2026-09-27 |
+| D-CONS-02 | **Applica Header** decommission; `hero_image` globale rimosso solo dopo zero consumer | ✅ Chiusa — Appendice G §G.2 — 2026-09-27 |
+| D-CONS-03 | **Notifica Sponsor** sospensione: testo definitivo + anteprime + 1 notifica/operazione | ✅ Chiusa — Appendice G §G.4 — 2026-09-27 |
+| D-CONS-04 | **INT-13** (`registerAiGeneratedPortraitAsset`) approvato per rimozione | ✅ Chiusa — Appendice G §G.5 — 2026-09-27 |
+| D-CONS-05 | **Safe-Art** autonomo; recupero 7 chiavi DB → 4 stili; **no** DELETE storico | ✅ Chiusa — Appendice G §G.6 — 2026-09-27 |
+| D-CONS-06 | **D-22 POI** cascata Sponsor → Admin → Real/Wikimedia → Community → AI → Placeholder | ✅ Chiusa (consolidamento) — Appendice G §G.3 — 2026-09-27 |
+| D-CONS-07 | **City delete CONSERVA ORFANO** — immagini/contenuti conservati con `city_id`; relink stesso ID | ✅ Chiusa — Appendice H §H.1 — 2026-09-27 |
+| D-CONS-08 | **Legacy photo reports** (test) — eliminazione completa; `content_reports` SoT | ✅ Chiusa — Appendice H §H.2 |
+| D-CONS-09 | **Patron save** — dati OK se foto fallisce; messaggio Admin; cascata D-22 | ✅ Chiusa — Appendice H §H.3 |
+| D-CONS-10 | **Wikimedia POI + Patrono** — stesso percorso sicurezza Personaggi | ✅ Chiusa — Appendice H §H.4 |
+| D-CONS-11 | **POI discovery foto reale** automatica (Wikidata/Commons, no AI search) | ✅ Chiusa — Appendice H §H.5 |
+| D-CONS-12 | **Sospensione foto** — cascata automatica D-22 + notifica Sponsor | ✅ Chiusa — Appendice H §H.6 |
+| D-CONS-13 | **Link fonte Wikimedia** — `source_url` + UI Admin | ✅ Chiusa — Appendice H §H.7 |
+| D-CONS-14 | **POI** — discovery foto reale (batch + manuale `API WIKIMEDIA`), orchestratore unico | ✅ Chiusa — Appendice I §I.1 |
+| D-CONS-15 | **POI** — toggle Wikimedia default OFF; foto in sistema ≠ foto pubblica | ✅ Chiusa — Appendice I §I.2 |
+| D-CONS-16 | **POI auto-discovery** — superati tutti i controlli → salvataggio automatico; **non** foto pubblica senza toggle ON + D-22 | ✅ Chiusa — Appendice J §J.1 — 2026-09-27 |
+| D-CONS-17 | **API WIKIMEDIA** — proposta «migliore» da criteri pipeline (score, licenza, confidence); import solo post-scelta Admin | ✅ Chiusa — Appendice J §J.2 |
+| D-CONS-18 | **Trigger discovery POI** — A nascita, B `SEND TO DB (BOZZE)`, C Bonifica; D manuale; **NO** Osservatorio | ✅ Chiusa — Appendice J §J.3 |
+| D-CONS-19 | **Pipeline Wikimedia POI** — quattro attivazioni, un orchestratore, stesso percorso sicurezza Personaggi | ✅ Chiusa — Appendice J §J.4 |
+| D-CONS-20 | **City delete Personaggi** — CONSERVA ORFANO **oppure** CANCELLA (non più sempre cancellati) | ✅ Chiusa — Appendice J §J.5 |
+| D-CONS-21 | **Copertina Hero città** — discovery Wikimedia (auto + manuale), **stessa pipeline** sicurezza POI/Persona | ✅ Chiusa — Appendice K §K.1 — 2026-09-27 |
+| D-CONS-22 | **Toggle Wikimedia Hero città** — per-città, default OFF; meccanismo analogo POI §37.2 (non toggle globale) | ✅ Chiusa — Appendice K §K.2 |
+| D-CONS-23 | **Reset Img** — **NON** trigger discovery Wikimedia POI | ✅ Chiusa — Appendice L §L.1 — 2026-09-27 |
+| D-CONS-24 | **+ Città Manuale** — **NON** trigger auto Wikimedia Hero | ✅ Chiusa — Appendice L §L.2 |
+| D-CONS-25 | **Gerarchia Hero città** — ADMIN → REAL/WIKIMEDIA → COMMUNITY → AI → PLACEHOLDER (**no Sponsor**) | ✅ Chiusa — Appendice L §L.3 |
+| D-CONS-26 | **Toggle Hero ON** = Wikimedia in gerarchia; **no** pulsante «Usa come copertina» | ✅ Chiusa — Appendice L §L.4 |
+| D-CONS-27 | **Città Wikimedia** — `media_assets` + `entity_image_assignments` con `entity_type=city`; **nessuna** architettura parallela candidate-only | ✅ Chiusa (PO) — Appendice N §N.1 — 2026-09-27 |
+| D-CONS-28 | **Salva modifica POI** — **NON** attiva discovery Wikimedia automatica | ✅ Chiusa (PO) — Appendice O §O.1 — 2026-09-27 |
+| D-CONS-29 | **Auto-Fix Tax** — **NON** attiva discovery Wikimedia automatica | ✅ Chiusa (PO) — Appendice O §O.1 |
+| D-CONS-30 | **Pubblica / Bozza** (bulk status) — **NON** attiva discovery Wikimedia automatica | ✅ Chiusa (PO) — Appendice O §O.1 |
+| D-CONS-31 | **Flash AI Discovery** — **DEVE** attivare discovery Wikimedia su **ogni nuovo POI** creato | ✅ Chiusa (PO) — Appendice O §O.2 |
+| D-CONS-32 | **Analisi Regionale AI** — **DEVE** attivare discovery Wikimedia su **ogni nuovo POI** creato | ✅ Chiusa (PO) — Appendice O §O.2 |
+| D-CONS-33 | **Magic Add** — **DEVE** attivare discovery Wikimedia su **ogni nuovo POI** creato dal flusso | ✅ Chiusa (PO) — Appendice O §O.2 |
+| D-CONS-34 | **Ricerca mirata** (`useAiTargetedSearch`) — **DA ELIMINARE** (sostituita da Flash AI Discovery) | ✅ Chiusa (audit) — Appendice O §O.3 |
+| D-CONS-35 | **Rigenerazione massiva POI** (`RegenerateConfirmModal`) — **DA ELIMINARE** (dead UI, non implementata) | ✅ Chiusa (audit) — Appendice O §O.3 |
+| D-CONS-36 | **`public.submit_community_poi`** — **DA RIMUOVERE** (verifica DB remoto 2026-09-28; flusso Community = `suggestions`; incompatibile con `pois_staging` attuale) | ✅ **Chiusa definitivamente** — Appendice O §O.5 + Execution §44 |
 
 ---
 
@@ -2297,6 +2334,8 @@ Verifiche completate: TypeScript, Biome, gestione image-only, MIME, Base64, quot
 | Documento | Contenuto |
 |-----------|-----------|
 | `AI_IMAGE_MANAGEMENT_AUDIT.md` | Stato attuale verificato nel repository |
+| `AI_IMAGE_MANAGEMENT_CONSOLIDATION_EXECUTION_ANALYSIS_2026-09-27.md` | Audit consolidamento — esecuzione, INT, §35 chiusura decisionale |
+| `AI_IMAGE_MANAGEMENT_CONSOLIDATION_DEEP_ANALYSIS_2026-09-27_v5.md` | Deep analysis allineata — stesso perimetro decisionale |
 | `AI_CONTEXT/16_CITY_MEDIA_MANAGEMENT.md` | Architettura media città (Presentation vs Photograph) |
 | `AI_DEV_WORKFLOW/WORKFLOWS/WF_02_PHOTO_DOMAIN_REFACTORING.md` | Refactoring dominio foto |
 
@@ -2485,4 +2524,475 @@ Per il report strutturato **A–I** (Libreria Media, Personaggi, Prompt AI, POI,
 ---
 
 *Fine Appendice F — revisione 2026-09-15*
-Aggiornato al 19.09.2026
+
+---
+
+## Appendice G — Consolidamento Image Management (Audit VII–VIII, chiusura 2026-09-27)
+
+> **Scopo:** allineare il Master Plan alle **decisioni definitive** documentate in `AI_IMAGE_MANAGEMENT_CONSOLIDATION_EXECUTION_ANALYSIS_2026-09-27.md` (§32–§35) e deep `_v5`.  
+> **Stato:** **fase decisionale CHIUSA** — pronta per sviluppo INT; **nessuna** voce sotto è «da decidere».  
+> **Implementazione:** **non** ancora eseguita (codice, migration, DB, UI).
+
+### G.1 Magic Add (Admin — Nuova Città AI)
+
+| Aspetto | Decisione approvata |
+|---------|---------------------|
+| **Permanenza** | Magic Add **resta** — crea, completa e arricchisce la città (contenuti, POI draft, personaggi, servizi, ecc.) secondo l’architettura attuale. |
+| **Fotografia città** | Magic Add **non** assegna più automaticamente una fotografia. Se non esiste foto valida → città **senza** immagine (nessun placeholder/fallback automatico). |
+| **`global_settings.hero_image`** | Magic Add **non** deve più leggere né usare il hero globale. |
+| **Foto successiva** | Admin o altri flussi dedicati (media città) — **non** Magic Add. |
+| **Sviluppo** | **INT-MAGIC-ADD-DECOUPLE-01** — `useAiMagicCity.ts` (percorso `CitiesManager` → `CityGeneratorModal` → `useCityGenerator`). |
+
+### G.2 Applica Header e hero piattaforma
+
+| Aspetto | Decisione approvata |
+|---------|---------------------|
+| **Decommission** | Pulsante/percorso **Applica Header** (vecchio hero Home piattaforma) — **rimuovere** dopo scollegamento Magic Add. |
+| **Home pubblica** | **Non** consumer del hero globale (background già rimosso — verificato audit). |
+| **`hero_image` setting** | Eliminare chiave/registry/save **solo** quando **zero** consumer legittimi (sequenza Execution §35.2). |
+| **Safe-Art** | **Autonomo** — preview/generazione in Asset Globali; **non** dipendente da Applica Header; **non** cancellare le 7 configurazioni storiche `safe_art_*` in DB. |
+| **Sviluppo** | **INT-APPLY-HEADER-DECOM-01** + **INT-SAFE-ART-RESTORE-01** (ordine: decouple Magic Add → header decom → Safe-Art UI restore). |
+
+### G.3 Priorità immagini POI — D-22 (consolidamento)
+
+> **Nota su §15 e §24.1:** la gerarchia generica «Admin → foto reale → AI → placeholder» resta valida per **Personaggi** e baseline POI. Per **POI con Sponsor**, la cascata approvata in consolidamento (**DECISIONE CHIUSA**) è:
+
+**Sponsor → Admin → Real/Wikimedia → Community → AI → Placeholder**
+
+- Cascata **deterministica** per ordine di caricamento Sponsor dove applicabile (Execution §32.2–32.3).
+- Quote min/max foto Sponsor e lifecycle — **decise**, da implementare (INT-SPONSOR-*).
+- **Sviluppo:** **INT-01**, **INT-01b** — non contraddire D16 moderazione (§3.6.B).
+
+### G.4 Notifica Sponsor — foto sospese
+
+| Aspetto | Decisione approvata |
+|---------|---------------------|
+| **Canale** | Notifiche esterne utente Sponsor (`notifications` + template `system_messages`). |
+| **Chiave template** | `sponsor_photo_suspended` (`type = external`) — modificabile Admin → Comunicazioni → Standard → Notifiche Esterne. |
+| **Testo** | **DEFINITIVO APPROVATO** — titolo «Foto Sponsor non più attiva»; corpo conformità Execution §35.3 (**non** hard-coded). |
+| **Anteprime** | **Obbligatorie** — l’utente deve vedere le foto sospese nella notifica (`link_data.suspendedPreviews`). |
+| **Raggruppamento** | **Stessa operazione** Admin di sospensione → **una** notifica con tutte le anteprime; **operazioni diverse** → notifiche separate; dedup via `suspensionOperationId`. |
+| **Sviluppo** | **INT-SPONSOR-NOTIF-01** + **INT-SUSP-ADMIN-01** (handler sospensione). |
+
+### G.5 INT-13 (codice morto portrait register)
+
+- **`registerAiGeneratedPortraitAsset`:** **approvato per rimozione** (zero caller, zero dati storici INT-13).
+- **Flusso reale portrait:** `generateHistoricalPortrait` → `people_portraits/` → `saveCityPerson` — **invariato**.
+- **Sviluppo:** **INT-13-REMOVE-01** — **non** confondere con Safe-Art né Applica Header.
+
+### G.6 Safe-Art — quattro stili prodotto
+
+- **Recupero first:** 7 chiavi `safe_art_*` in `ai_configs` — **non** DELETE righe storiche.
+- **Mapping UI:** Realistico · Cinematografico · Fumetto · Paesaggistico (dettaglio mapping chiavi Execution §34.3).
+- Admin: selezione stile carica istruzioni corrispondenti; modifica/aggiunta/rimozione/salvataggio contenuto previsto.
+- **Sviluppo:** **INT-SAFE-ART-RESTORE-01**.
+
+### G.7 Altre decisioni consolidate (non riaprire)
+
+Merge POI immagini **survivor-only** (**INT-MERGE-IMG-01**); Wikimedia **unica pipeline** `commonsDownloadPipeline` fail-closed CC BY 4.0; Community **invariata**; Patrono **partial save**; segnalazioni **`content_reports`**; coda **verify_ai_image** separata; cancellazione città **solo admin_all**; configurazione AI **per-sezione** (**INT-AI-CONFIG-01**).
+
+### G.8 Riferimento operativo
+
+Per ogni INT: **COSA · PERCHÉ · COME · DOVE · DIPENDENZE · RISCHI · TEST · CRITERIO DI CHIUSURA** in Execution §32–§35. Tabella stato finale Execution §35.8.
+
+---
+
+**FASE DECISIONALE CHIUSA — DOCUMENTAZIONE ALLINEATA — PRONTA PER SVILUPPO**
+
+*Fine Appendice G — 2026-09-27*
+
+---
+
+## Appendice H — Audit di chiusura sviluppo (2026-09-27)
+
+> **Dettaglio operativo completo:** `AI_IMAGE_MANAGEMENT_CONSOLIDATION_EXECUTION_ANALYSIS_2026-09-27.md` **§36**.  
+> **Stato:** decisioni funzionali **chiuse**; gap tecnici documentati con INT; **nessuna implementazione** in questa fase.
+
+### H.1 City delete — CONSERVA ORFANO (immagini)
+
+- **Principio:** categorie in CONSERVA **non** distruggono immagini/media; mantengono **`city_id`**, storico e metadati; orfani fino a ricreazione città con **stesso ID** → relink (`reclaimOrphanedItems` esteso).
+- **Perimetro immagine:** oltre galleria città — Community (`photo_submissions`), assignments POI/Persona/Patrono, `city_patron_gallery`, `media_assets` referenziati, **`content_reports` mai cancellati**.
+- **Gap DB critico:** `entity_image_assignments` e `content_reports` oggi **CASCADE** su delete `cities` — **incompatibile** con CONSERVA (migration + RPC atomica **INT-09**).
+- **Oggi:** `deleteCity` client non atomico; modale non collegata; `photo_submissions` azzera `city_id` (da correggere).
+
+### H.2 Legacy segnalazioni foto (test)
+
+- **Eliminare:** `famous_person_photo_reports`, `patron_photo_reports`, servizi e badge associati, RPC legacy, dati test.
+- **Mantenere:** `content_reports` e hub MF2.
+- **INT:** INT-REP-DECOM-01 (ordine in Execution §36.2).
+
+### H.3 Patrono — foto fallisce, dati salvati
+
+- Salvataggio dati **non** bloccato da fallimento foto; primary precedente o placeholder D-22; messaggio **«Dati salvati, foto non aggiornata»**.
+- **Gap:** `saveCityDetails` oggi silenzioso + possibile disallineamento JSON/RPC (**INT-PATRON-SAVE-02**).
+
+### H.4 Wikimedia POI e Patrono
+
+- **Stesso** stack Personaggi: `lookupWikidataP18Proposal` → `WikidataConfirmModal` → `runCommonsDownloadPipeline` → D90 assignment.
+- **Supera** vecchia nota «Patrono Wikimedia non richiesto» (Execution §24.2 storico).
+
+### H.5 POI — ricerca automatica foto reale
+
+- **Non-AI:** Wikidata P18 + pipeline Commons; **AI solo** per generazione esplicita.
+- **Spec:** orchestratore `poiRealImageDiscoveryService` (proposto), trigger Admin minimo + batch osservatorio opzionale; guard D-22 (**INT-01**).
+- **Riuso obbligatorio:** nessuna seconda pipeline.
+
+### H.6 Sospensione — cascata automatica
+
+- Admin **non** sceglie manualmente la sostituta; resolver **D-22** + Sponsor deterministico + notifica Sponsor §35.3.
+- **Gap:** solo suspend MF2 report oggi; cascade read assente (**INT-04**, **INT-01b**, **INT-SUSP-ADMIN-01**).
+
+### H.7 Link Wikimedia originale
+
+- **Requisito:** Admin apre pagina Commons della foto importata.
+- **Stato:** **`media_assets.source_url`** popolato da pipeline; Libreria Media link OK; **manca** link in tab Media entità (**INT-WM-SOURCE-LINK-UI-01**).
+
+---
+
+*Fine Appendice H — audit chiusura sviluppo 2026-09-27*
+
+---
+
+## Appendice I — Bibbia operativa pre-sviluppo (Execution §37)
+
+> **SoT operativa completa:** `AI_IMAGE_MANAGEMENT_CONSOLIDATION_EXECUTION_ANALYSIS_2026-09-27.md` **§37–§38**.  
+> Deep mirror: `AI_IMAGE_MANAGEMENT_CONSOLIDATION_DEEP_ANALYSIS_2026-09-27_v5.md` (addendum §38).
+
+### I.1 POI REAL IMAGE DISCOVERY
+
+- **Un orchestratore:** `poiRealImageDiscoveryService.ts` (**da creare**).
+- **Trigger:** nascita POI (A), **`SEND TO DB (BOZZE)`** (B), Bonifica (C), manuale **`API WIKIMEDIA`** (D) — dettaglio §38.3–38.4.
+- **Stessa modale:** `AdminPoiModal` da città pubblica (matita) e da Manager POI-DB — **già unificata** in codice.
+- **Pipeline:** `wikidataLookupService` → `WikidataConfirmModal` → `commonsDownloadPipeline` → D90 — **nessun secondo sistema**.
+- **Sicurezza:** identica Personaggi (`adminConfirmedQid`, quarantena, no auto-primary non verificata).
+- **INT:** INT-POI-REAL-DISCOVERY-01.
+
+### I.2 Toggle Wikimedia POI
+
+- **`pois.wikimedia_public_enabled`** default **`false`** (migration **da creare**).
+- Asset/candidate può esistere; **foto pubblica** solo con toggle ON + D-22 (INT-01b).
+- **Esempio ufficiale D-22:** POI nuovo → placeholder pubblico nonostante file Wikimedia in pancia.
+
+### I.3 WIKIMEDIA SOURCE LINK (tab Media)
+
+- **`source_url`** già in DB; Libreria OK.
+- Componente condiviso **`WikimediaSourceLink.tsx`** (**da creare**) in POI, Persona, Patrono tab Media.
+- **INT:** INT-WM-SOURCE-LINK-UI-01.
+
+### I.4 CITY DELETE — specifica tecnica
+
+- RPC atomica **`delete_city_admin`** + soft-delete `cities`; **no CASCADE** su `entity_image_assignments` / `content_reports`.
+- **`city_id` conservato** su CONSERVA; reclaim su recreate stesso ID (`reclaimOrphanedItems` + `relink_orphaned_city_content`).
+- Matrice FK, categorie modale, ordine implementazione: Execution **§37.4**.
+- **INT:** INT-09 (ampliato).
+
+### I.5 PRONTO PER SVILUPPO
+
+Le voci I.1–I.4 hanno **specifica tecnica definitiva** in Execution §37 — non richiedono ulteriore audit architetturale prima del prompt di sviluppo (salvo prerequisito INT-01b per D-22 completa).
+
+---
+
+*Fine Appendice I — 2026-09-27*
+
+---
+
+## Appendice J — Passaggio documentale pre-sviluppo (Execution §38)
+
+### J.1 Auto-save vs verificato vs pubblico (D-CONS-16)
+
+- **Salvata:** asset + Storage dopo pipeline OK; auto **senza** modale se non ambiguo e controlli passano.
+- **Verificata:** auto-path CC BY → `active` + verification run.
+- **Pubblica:** solo toggle ON + D-22; assignment **gallery** (POI auto) finché toggle OFF.
+- **Gap repo:** Persona collassa su primary; POI richiede policy assignment + colonna toggle.
+- **Spec completa:** Execution **§38.1** (COSA SVILUPPARE / FILE / TEST / E2E).
+
+### J.2 API WIKIMEDIA e ranking (D-CONS-17)
+
+- Pulsante tab Media; modale multi-proposta; **migliore** = `matchScore` + licenza Commons prefetch + confidence.
+- **Gap:** modale oggi singola proposal; licenza post-confirm only.
+- **Spec:** Execution **§38.2**.
+
+### J.3 Trigger (D-CONS-18)
+
+| Id | Evento audit repo |
+|----|-------------------|
+| A | `saveSinglePoi`, promote, Flash AI, Nuovo POI |
+| B | **`SEND TO DB (BOZZE)`** (`ImportActionToolbar`) |
+| C | Bonifica Pro Daily, Bonifica (N), Validazione Pro, Magic Add/Complete City bonifica step |
+| D | API WIKIMEDIA |
+| **Escluso** | Osservatorio (duplicati, anomalie) |
+
+Idempotenza promote: flag `suppressDiscovery` + job `mass_import`. **§38.3–38.4**.
+
+### J.4 Pipeline unica (D-CONS-19)
+
+Quattro attivazioni → `poiRealImageDiscoveryService` → stessi servizi Personaggi. **§38.5**.
+
+### J.5 City delete Personaggi (D-CONS-20)
+
+CONSERVA/CANCELLA in modale; RPC bulk delete people solo se CANCELLA; soft-delete city per CONSERVA. UI oggi «sempre cancella» — **§38.6** + §37.4.
+
+### J.6 Domanda aperta
+
+**Reset Img bulk** — auto-discovery sì/no? Execution **§38.12**. Fino a risposta: non dichiarare fase decisionale chiusa al 100%.
+
+---
+
+*Fine Appendice J — 2026-09-27*
+
+---
+
+## Appendice K — Hero città Wikimedia + audit UI (Execution §39)
+
+> **SoT operativa:** Execution **§39** (Reset Img, Magic Add UI, + Città vs Completa, Hero Wikimedia).
+
+### K.1 Copertina Hero — Wikimedia (D-CONS-21)
+
+- Ricerca reale Wikimedia per **città** oltre che POI; **un solo** motore `wikidataLookupService` + `commonsDownloadPipeline`.
+- UI futura: tab **Media** → **Copertina Hero** — proposta Wikimedia + metadati + controlli.
+- Manuale: pulsante **`API WIKIMEDIA`** (label SoT §37.1, non alternativa).
+- Auto: hook su Magic Add (post `saveCityDetails`), Complete City (hero assente), con **skip** hero Admin e idempotenza.
+- **Non** sostituire decisioni §35 (Magic Add no auto-foto) — discovery ≠ assegnazione hero pubblica.
+
+### K.2 Toggle Hero città (D-CONS-22)
+
+- Colonna proposta **`cities.wikimedia_hero_public_enabled`** default **false**.
+- OFF = asset/proposta in pancia; ON = uso pubblico copertina secondo regole licenza/verify.
+- **Separato** da `pois.wikimedia_public_enabled` (una città, un POI — stati indipendenti).
+
+### K.3 Audit Reset Img (domanda aperta)
+
+- Percorso: **Manager POI - DB → Edit City → Edit città → tab Punti Interesse → Reset Img** (multi-selezione POI).
+- Oggi: revoca **primary** via RPC; **non** cancella `media_assets`; **non** Wikimedia.
+- **Chiuso D-CONS-23:** **no** auto-discovery dopo reset (§40 / Appendice L).
+
+### K.4 Magic Add vs UI
+
+| Label Admin | Funzione codice |
+|-------------|-----------------|
+| **`+ Città (AI)`** + modale **`Nuova Città AI`** | `executeMagicAdd` (Magic Add) |
+| **`COMPLETA CITTÀ (AI)`** (tab Edit City, 1 selezionata) | `executeCompleteCity` |
+| **`COMPLETA CITTÀ (AI)`** su mappa città MANCANTE | **Errore UX:** chiama Magic Add (`ZoneCard`) |
+
+### K.5 Domande §39
+
+**Chiuse in Appendice L / Execution §40** (D-CONS-23…26).
+
+---
+
+*Fine Appendice K — 2026-09-27*
+
+---
+
+## Appendice L — Chiusura decisioni §40
+
+### L.1 Reset Img (D-CONS-23)
+
+- **NON** trigger Wikimedia. Audit §39.1 invariato.
+- Sviluppo: orchestratore POI **senza** hook post-`bulkResetImages`.
+
+### L.2 + Città Manuale (D-CONS-24)
+
+- **NON** auto-discovery Hero. Wikimedia città: Magic Add, Complete City (hero vuota), **API WIKIMEDIA** manuale.
+
+### L.3 Gerarchia Hero città (D-CONS-25)
+
+- **ADMIN → REAL/WIKIMEDIA → COMMUNITY → AI → PLACEHOLDER**
+- **POI** resta con **Sponsor** in testa (D-22). **Non** mescolare i due modelli.
+
+### L.4 Toggle e selezione (D-CONS-26)
+
+- OFF: candidate salvata, **non** in cascata pubblica.
+- ON: Wikimedia **eleggibile**; Admin vince se presente (esempi §40.3).
+- **Nessun** «Usa come copertina».
+- Passaggi: discovery → save asset → toggle → **resolver** gerarchia (**INT-CITY-HERO-RESOLVER-01**).
+
+### L.5 Audit oggi vs target
+
+- Oggi: `cityHeaderImageUrl` (hero poi imageUrl) — **no** gerarchia.
+- Target: un resolver; file Execution **§40.5**.
+
+### L.6 Nota UI ZoneCard
+
+- «COMPLETA CITTÀ (AI)» su mappa MANCANTE = Magic Add — **da riesaminare post-sviluppo**, no fix ora.
+
+### L.7 Stato decisionale
+
+**Domande funzionali:** chiuse §37–§40, Appendice N, **Appendice O** (trigger WM POI + legacy). Prossimo passo: implementazione INT §41–§43 (senza rimuovere legacy fino a wave decom dedicata).
+
+---
+
+*Fine Appendice L — 2026-09-27*
+
+---
+
+## Appendice M — FINAL PRE-DEVELOPMENT TECHNICAL AUDIT (2026-09-27)
+
+> **Piano esecutivo completo:** `AI_IMAGE_MANAGEMENT_CONSOLIDATION_EXECUTION_ANALYSIS_2026-09-27.md` — sezione **«FINAL PRE-DEVELOPMENT TECHNICAL AUDIT» (§41)**.  
+> **Deep evidence:** `AI_IMAGE_MANAGEMENT_CONSOLIDATION_DEEP_ANALYSIS_2026-09-27_v5.md` — addendum audit finale.
+
+### M.1 Avvio sviluppo
+
+- **Blocca assoluto Fase 1:** **no**
+- **Blocca INT-09 prod:** sì, finché FK CASCADE non migrata (§41.9)
+- **Domande funzionali:** **zero** (Appendice O — 2026-09-27)
+
+### M.2 INT / deliverable principali
+
+| ID | Deliverable |
+|----|-------------|
+| INT-POI-REAL-DISCOVERY-01 | Orchestratore POI + UI API WIKIMEDIA + toggle |
+| INT-CITY-HERO-RESOLVER-01 | Resolver Hero + city discovery + toggle |
+| INT-01 / INT-01b | D-22 POI + toggle guard |
+| INT-09 | City delete RPC + modale CONSERVA estesa |
+| INT-WM-SOURCE-LINK-UI-01 | Link Commons tab Media |
+| INT-MERGE-IMG-01 | Merge survivor-only immagini |
+| §35 decom | Magic Add hero, Applica Header, INT-13 |
+
+### M.3 Ordine (sintesi)
+
+DB toggle + FK → RPC delete (wave 2 ok) → pipeline policy → orchestrators → resolvers → UI Admin → UI pub → decom → test/E2E.
+
+---
+
+*Fine Appendice M — audit finale pre-sviluppo*
+
+---
+
+## Appendice N — City nel sistema unificato + audit flussi batch POI (2026-09-27)
+
+> **Dettaglio esecutivo:** `AI_IMAGE_MANAGEMENT_CONSOLIDATION_EXECUTION_ANALYSIS_2026-09-27.md` — **§42**.  
+> **Evidenze repo:** `AI_IMAGE_MANAGEMENT_CONSOLIDATION_DEEP_ANALYSIS_2026-09-27_v5.md` — addendum §42.
+
+### N.1 D-CONS-27 — Città Wikimedia (chiuso)
+
+- Entrata nel sistema **`media_assets` + `entity_image_assignments`** con **`entity_type = 'city'`**, `entity_id = city_id`.
+- Candidato Hero Wikimedia = assignment **`gallery`** + pipeline Commons **unica** (POI/Persona/City).
+- Toggle per-città **`wikimedia_hero_public_enabled`** (default OFF); gerarchia Hero **D-CONS-25** invariata.
+- DB oggi: CHECK assignments **non** include `city` → migration + estensione RPC dual-write (**Execution §42.2**).
+
+### N.2 Flussi POI — copertura trigger (D-CONS-18)
+
+| Trigger | Esempi repo |
+|---------|-------------|
+| **A Nascita** | Nuovo POI Admin, Flash Discovery, Magic Add POI, City Audit (`CERCA POI`), Regional import POI |
+| **B Import bozze** | Pulsante **`SEND TO DB (BOZZE)`** → `runPublishingService` / `promoteToLive` |
+| **C Bonifica** | Bonifica selezione, Validazione Pro massiva, Bonifica Pro (Daily) |
+| **D Manuale** | **`API WIKIMEDIA`** (UI prevista) |
+| **Esclusi** | Reset Img (D-CONS-23), Osservatorio (D-CONS-18), + Città Manuale auto Hero (D-CONS-24) |
+
+### N.3 Flussi batch POI — **superato da Appendice O**
+
+Le voci §N.3 (2026-09-27 mattina) sono **chiuse** in **Appendice O** (trigger WM + decommission legacy). Non usare §N.3 come elenco «da decidere».
+
+### N.4 Bloccanti tecnici documentati
+
+- Estensione CHECK/RPC per `entity_type=city` prima di persistere assignment Hero WM.
+- Orchestratore `poiRealImageDiscoveryService` e colonne toggle — da implementare (piano §41–§42).
+- INT-09 FK CASCADE — blocca delete città CONSERVA in prod, indipendente da WM.
+
+### N.5 Pronto per sviluppo
+
+**Punto 1 (City unificato):** chiuso a livello analisi. **Punto 2:** chiuso in Appendice O.
+
+---
+
+*Fine Appendice N — 2026-09-27*
+
+---
+
+## Appendice O — Trigger Wikimedia POI + audit legacy (2026-09-27)
+
+> **Piano esecutivo:** `AI_IMAGE_MANAGEMENT_CONSOLIDATION_EXECUTION_ANALYSIS_2026-09-27.md` — **§43**.  
+> **Evidenze:** Deep `_v5` addendum §43.
+
+### O.1 Flussi che **NON** attivano Wikimedia (motivo funzionale)
+
+| Flusso | Motivo (PO) |
+|--------|-------------|
+| **Salva modifica POI** | Aggiornamento scheda esistente; la foto si gestisce con upload Admin / toggle / API manuale — nessuna «nascita» POI. |
+| **Auto-Fix Tax** | Corregge solo **categoria**; non cambia identità del luogo né richiede nuova immagine automatica. |
+| **Pubblica / Bozza** | Cambia **visibilità**, non crea POI né bonifica contenuti; WM resta su asset già in sistema. |
+
+### O.2 Flussi che **DEVONO** attivare Wikimedia (su nuovi POI creati)
+
+| Flusso | Motivo (PO) |
+|--------|-------------|
+| **Flash AI Discovery** | Crea **nuovi** POI in bozza → stesso criterio «nascita POI» (D-CONS-18 A). |
+| **Analisi Regionale AI** | Import POI top-tier = **nascita** in città importate. |
+| **Magic Add** | Step POI = **nascita**; discovery WM **solo** sugli insert POI, non su hero città (D-CONS-01/24). |
+
+**Community + Nuovo Luogo:** `INVIA SEGNALAZIONE` → tabella **`suggestions`** — **non** crea POI live → **nessuna** WM automatica all’invio. WM solo se/quando un POI viene **effettivamente creato** in DB (azione Admin futura/esplicita = trigger nascita).
+
+### O.3 Legacy — **DA ELIMINARE** (audit repo, wave decom futura)
+
+| Voce | Sostituto / motivo |
+|------|---------------------|
+| **Ricerca mirata** | **Flash AI Discovery** (`NUOVO POI (AI)` → `Avvia Ricerca Flash`); zero caller UI a `generateTargetedPois`. |
+| **Rigenerazione massiva POI** | Bonifica / Flash / Magic / Regional coprono i flussi massivi reali; modale mai aperta (`setShowRegenModal(true)` assente). |
+| **`submit_community_poi`** | Sostituito da **`addSuggestion`** → `suggestions`. RPC DB legacy — vedi **§O.5** (verifica remota chiusa). |
+
+### O.4 Prossimo sviluppo (solo documentato)
+
+Vedi Execution **§43.6** — orchestratore allowlist, decom file legacy app (D-CONS-34…35).  
+Drop RPC **`submit_community_poi`:** Execution **§44.3** (D-CONS-36).
+
+### O.5 D-CONS-36 — Verifica Supabase remota (2026-09-28) — **CHIUSA**
+
+**Funzione:** `public.submit_community_poi` — PL/pgSQL `SECURITY DEFINER`; args `p_city_id`, `p_city_name`, `p_poi_name`, `p_category`, `p_details jsonb`; returns `uuid`. Privilegi `EXECUTE` (inclusi `authenticated`, `anon`).
+
+**Dipendenze DB (verifica SQL PO):** nessuna funzione/trigger/view/MV/RLS policy la richiama; nessun commento incrociato.
+
+**Incompatibilità schema:** tentava insert su `public.pois_staging` con colonne (`user_id`, `city_name`, `poi_id`, `type`, `status`, `details_json`) **assenti** nello schema attuale (`osm_id`, `name`, `raw_category`, `coords_lat`/`coords_lng`, `processing_status`, …).
+
+**Staging — NON toccare in decom D-CONS-36:**
+
+| Oggetto | Stato verificato |
+|---------|------------------|
+| `public.pois_staging` | **1.423** record (`new` 508, `ready` 363, `discarded` 294, `imported` 258); `source` NULL; range 2026-02-03 — 2026-06-01 |
+| `public.promote_staging_poi_to_live(p_staging_id, p_poi jsonb)` | Flusso promozione **vigente** — **conservare** |
+
+**Decisione:** rimuovere **solo** `public.submit_community_poi` in futura migration Consolidation (no `DROP CASCADE`; no alter dati staging).
+
+**Checklist implementazione futura:** Execution §44.3 (A–G).
+
+---
+
+*Fine Appendice O — aggiornato 2026-09-28*
+
+---
+
+## Appendice P — City Delete / Orphan / Relink / visibilità globale (DEFERRED)
+
+> **Stato:** pianificazione e audit — **non** implementazione  
+> **Data registrazione:** 2026-09-30  
+> **SoT operativa:** [`AI_IMAGE_MANAGEMENT_CITY_DELETE_ORPHAN_VISIBILITY_PLAN.md`](./AI_IMAGE_MANAGEMENT_CITY_DELETE_ORPHAN_VISIBILITY_PLAN.md)
+
+### P.1 Separazione di processo
+
+- La **validazione** dei deliverable Fase 2 già sviluppati (INT-09 migration/RPC, UI delete, Wikimedia, ecc.) procede **senza** essere sostituita da questo tema.
+- L’**implementazione** di visibilità globale / modale CONSERVA+CANCELLA estesa / ONLINE ON-OFF è **DEFERRED** fino a: chiusura validazione Fase 2 → test → E2E → decisioni prodotto documentate nel piano §32.
+
+### P.2 Problema registrato
+
+- Stato contenuto (es. `photo_submissions.city_deleted`) oggi mescola moderazione/orfanità; relink non ripristina stati; **manca** un gate pubblico uniforme per città `draft` / `deleted_orphan` (deep link, API city details, ecc.).
+- Direzione **in valutazione:** separare stato editoriale/moderativo, visibilità per categoria (ONLINE ON/OFF), contesto città, Image Management e MF2 — vedi piano §7.
+
+### P.3 Decisioni già chiuse (non riaprire qui)
+
+- D-CONS-07, MF2 `content_reports`, append-only IM, D90 su CANCELLA, DL-022 sponsor detach/relink, INT-09 `admin_all`, CONSERVA `city_id`, relink città → **`draft`** (no auto-publish).
+- **2026-09-30:** città **`draft`** e **`deleted_orphan`** = **non pubblicamente raggiungibili** (inclusi deep link) — obbligo da implementare in fase dedicata; **non** assume che il codebase lo rispetti già ovunque.
+
+### P.4 Decisioni / proposte aperte
+
+- Modale CONSERVA/CANCELLA + ONLINE ON/OFF per categoria; CONSERVA eventi/servizi/guide/operatori vs DELETE INT-09 attuale; abbandono `city_deleted`; storage URL; precedenza MF2 vs visibilità — elenco completo nel **piano §32**.
+
+### P.5 Azione al rientro post–Fase 2
+
+1. Leggere **integralmente** `AI_IMAGE_MANAGEMENT_CITY_DELETE_ORPHAN_VISIBILITY_PLAN.md`.  
+2. Chiudere decisioni §32.  
+3. Solo allora: RFC implementativo (city public gate, visibility layer) — **senza** anticipare su file Fase 2 in validazione.
+
+---
+
+*Fine Appendice P — 2026-09-30*

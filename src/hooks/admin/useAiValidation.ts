@@ -1,6 +1,6 @@
-import { GEO_CONFIG } from '../../constants/geoConfig';
 import { POI_SUBCATEGORY_VALUES } from '../../constants/governance';
 import { verifyPoisBatch } from '../../services/ai';
+import type { VerifiedPoiResult } from '../../services/ai/generators/poiGenerator';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import {
   deleteSinglePoi,
@@ -8,7 +8,8 @@ import {
   getPoisByCityId,
   saveSinglePoi,
 } from '../../services/cityService';
-import type { PointOfInterest, PoiSubCategory, User } from '../../types/index';
+import type { OpeningHours, PointOfInterest, PoiSubCategory, User } from '../../types/index';
+import { hasRequiredOpeningHours, type OpeningHoursGateInput } from '../../types/write/poiForm';
 import type { useAiTaskRunner } from './useAiTaskRunner';
 
 export interface ValidationOptions {
@@ -23,6 +24,56 @@ export type VerifyDraftsBatchFn = (
   targetIds?: string[],
   options?: ValidationOptions,
 ) => Promise<number>;
+
+function parseGeoCoords(
+  input: { lat: number; lng: number } | undefined,
+): { lat: number; lng: number } | null {
+  if (!input) return null;
+  const { lat, lng } = input;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function parseVerifiedCoords(verified: VerifiedPoiResult): { lat: number; lng: number } | null {
+  if (verified.coords) {
+    const fromCoords = parseGeoCoords(verified.coords);
+    if (fromCoords) return fromCoords;
+  }
+  if (typeof verified.lat === 'number' && typeof verified.lng === 'number') {
+    return parseGeoCoords({ lat: verified.lat, lng: verified.lng });
+  }
+  return null;
+}
+
+function openingHoursFromAi(
+  verified: VerifiedPoiResult,
+  existing: OpeningHours | null | undefined,
+): OpeningHours | null | undefined {
+  const days = verified.openingDays;
+  const morning = verified.openingHours?.trim() ?? '';
+  const candidate: OpeningHoursGateInput = {
+    days: Array.isArray(days) ? days : [],
+    morning,
+    afternoon: '',
+    evening: '',
+    isEstimated: verified.isEstimated ?? false,
+  };
+  if (!hasRequiredOpeningHours(candidate)) {
+    return existing ?? null;
+  }
+  return {
+    days: candidate.days,
+    morning: morning || null,
+    afternoon: existing?.afternoon ?? null,
+    evening: existing?.evening ?? null,
+    isEstimated: verified.isEstimated ?? existing?.isEstimated ?? false,
+  };
+}
+
+function isTourismInterest(value: unknown): value is PointOfInterest['tourismInterest'] {
+  return value === 'high' || value === 'medium' || value === 'low';
+}
 
 export const useAiValidation = (runner: ReturnType<typeof useAiTaskRunner>) => {
   const { performStep, addLog, resetRunner, stopRunner } = runner;
@@ -41,6 +92,11 @@ export const useAiValidation = (runner: ReturnType<typeof useAiTaskRunner>) => {
         ? `Validazione Selezione (${targetIds.length})`
         : 'Validazione Pro Massiva';
 
+    if (targetIds !== undefined && targetIds.length === 0) {
+      addLog('⚠️ Nessun POI selezionato per la validazione.');
+      return 0;
+    }
+
     if (!options.keepLogs) {
       if (!categoryFilter && !targetIds) {
         resetRunner([
@@ -55,16 +111,25 @@ export const useAiValidation = (runner: ReturnType<typeof useAiTaskRunner>) => {
     addLog(`🚀 AVVIO VALIDAZIONE PRO: ${cityName}`);
 
     try {
-      let cityCenterCoords = GEO_CONFIG.DEFAULT_CENTER;
+      let cityCenterCoords: { lat: number; lng: number } | null = null;
       try {
         const cityDetails = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
         if (cityDetails) {
-          cityCenterCoords = cityDetails.coords;
-          if (!categoryFilter)
+          cityCenterCoords = parseGeoCoords(cityDetails.coords);
+          if (cityCenterCoords && !categoryFilter) {
             addLog(`📍 Centro città riferimento: ${cityCenterCoords.lat}, ${cityCenterCoords.lng}`);
+          }
         }
-      } catch {
-        console.warn('Could not fetch city center coords, using defaults.');
+      } catch (err: unknown) {
+        console.warn('Could not fetch city center coords for validation.', err);
+      }
+
+      if (!cityCenterCoords) {
+        addLog(
+          '❌ Centro città non disponibile o coordinate non valide: validazione Pro non eseguita (fail-closed).',
+        );
+        if (!categoryFilter && !options.keepLogs) stopRunner();
+        return 0;
       }
 
       let draftsToVerify: PointOfInterest[] = [];
@@ -77,7 +142,7 @@ export const useAiValidation = (runner: ReturnType<typeof useAiTaskRunner>) => {
           const isDraft =
             p.status === 'draft' ||
             p.aiReliability === 'low' ||
-            (!p.coords || (p.coords.lat === 0 && p.coords.lng === 0));
+            !parseGeoCoords(p.coords ?? undefined);
           const isCategoryMatch = categoryFilter ? p.category === categoryFilter : true;
           return isDraft && isCategoryMatch;
         });
@@ -102,14 +167,26 @@ export const useAiValidation = (runner: ReturnType<typeof useAiTaskRunner>) => {
 
           const verifiedResults = await verifyPoisBatch(inputList, cityName, cityCenterCoords);
 
+          const verifiedById = new Map<string, VerifiedPoiResult>();
+          for (const row of verifiedResults) {
+            if ('id' in row && typeof row.id === 'string') {
+              verifiedById.set(row.id, row);
+            }
+          }
+
           let successCount = 0;
           let deletedCount = 0;
           let lowQualityCount = 0;
           let invalidCount = 0;
+          let missingAiCount = 0;
 
-          for (const verified of verifiedResults) {
-            const originalPoi = draftsToVerify.find((d) => d.id === verified.id);
-            if (!originalPoi) continue;
+          for (const originalPoi of draftsToVerify) {
+            const verified = verifiedById.get(originalPoi.id);
+            if (!verified) {
+              addLog(`⚠️ Nessun esito AI per: ${originalPoi.name}`);
+              missingAiCount++;
+              continue;
+            }
 
             if (verified.aiReliability === 'duplicate') {
               addLog(`🗑️ Duplicato rimosso: ${originalPoi.name}`);
@@ -124,97 +201,101 @@ export const useAiValidation = (runner: ReturnType<typeof useAiTaskRunner>) => {
                   ...originalPoi,
                   status: 'needs_check',
                   aiReliability: 'invalidated',
-                  description: `[AI INVALIDATO] ${verified.description || 'Fuori Zona o Inesistente.'}`,
+                  description: `[AI INVALIDATO] ${verified.description ?? 'Fuori Zona o Inesistente.'}`,
                 },
                 cityId,
+                undefined,
+                { primaryImage: 'preserve_assignment' },
               );
               invalidCount++;
               continue;
             }
 
-            const verifiedCoords =
-              verified.coords && typeof verified.coords.lat === 'number'
-                ? verified.coords
-                : typeof verified.lat === 'number' && typeof verified.lng === 'number'
-                  ? { lat: verified.lat, lng: verified.lng }
-                  : undefined;
+            const verifiedCoords = parseVerifiedCoords(verified);
 
-            if (verifiedCoords && verifiedCoords.lat !== 0) {
-              let finalOpeningDays = verified.openingDays;
-              let isEstimated = verified.isEstimated;
-              if (
-                !finalOpeningDays ||
-                !Array.isArray(finalOpeningDays) ||
-                finalOpeningDays.length === 0
-              ) {
-                finalOpeningDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-                isEstimated = true;
-              } else if (isEstimated === undefined) {
-                isEstimated = true;
-              }
-
-              let finalOpeningTime = verified.openingHours;
-              if (!finalOpeningTime || finalOpeningTime === '') {
-                finalOpeningTime = '09:00 - 20:00';
-                isEstimated = true;
-              }
-
-              const verifiedSubCategory: PoiSubCategory | undefined =
-                typeof verified.subCategory === 'string' &&
-                (POI_SUBCATEGORY_VALUES as readonly string[]).includes(verified.subCategory)
-                  ? (verified.subCategory as PoiSubCategory)
-                  : undefined;
-
-              const updatedPoi: PointOfInterest = {
-                ...originalPoi,
-                name: verified.name ?? originalPoi.name,
-                address: verified.address,
-                coords: verifiedCoords,
-                category: getCorrectCategory(
-                  verified.subCategory || '',
-                  verified.category || originalPoi.category,
-                  verified.name || originalPoi.name,
-                ),
-                subCategory: verifiedSubCategory,
-                description: verified.description ?? originalPoi.description,
-                visitDuration: verified.visitDuration,
-                priceLevel: verified.priceLevel,
-                openingHours: {
-                  days: finalOpeningDays,
-                  morning: finalOpeningTime,
-                  afternoon: '',
-                  isEstimated: isEstimated,
-                },
-                status: 'draft',
-                aiReliability: 'high',
-                tourismInterest: verified.tourismInterest || 'medium',
-                updatedAt: new Date().toISOString(),
-                lastVerified: new Date().toISOString(),
-              };
-              await saveSinglePoi(updatedPoi, cityId);
-              successCount++;
-            } else {
+            if (!verifiedCoords) {
               await saveSinglePoi(
                 {
                   ...originalPoi,
-                  status: 'draft',
                   aiReliability: 'low',
-                  description: `[NO GPS] ${verified.description || 'Dati insufficienti o non trovati.'}`,
+                  description:
+                    verified.description ??
+                    originalPoi.description ??
+                    '[NO GPS] Dati insufficienti o coordinate non valide.',
+                  updatedAt: new Date().toISOString(),
                 },
                 cityId,
+                undefined,
+                { primaryImage: 'preserve_assignment' },
               );
               lowQualityCount++;
+              continue;
             }
+
+            const verifiedSubCategory: PoiSubCategory | undefined =
+              typeof verified.subCategory === 'string' &&
+              (POI_SUBCATEGORY_VALUES as readonly string[]).includes(verified.subCategory)
+                ? (verified.subCategory as PoiSubCategory)
+                : undefined;
+
+            const tourismInterest = isTourismInterest(verified.tourismInterest)
+              ? verified.tourismInterest
+              : originalPoi.tourismInterest;
+
+            const updatedPoi: PointOfInterest = {
+              ...originalPoi,
+              name: verified.name ?? originalPoi.name,
+              address:
+                typeof verified.address === 'string' && verified.address.trim().length > 0
+                  ? verified.address
+                  : originalPoi.address,
+              coords: verifiedCoords,
+              category: getCorrectCategory(
+                verified.subCategory || '',
+                verified.category || originalPoi.category,
+                verified.name || originalPoi.name,
+              ),
+              subCategory: verifiedSubCategory ?? originalPoi.subCategory,
+              description: verified.description ?? originalPoi.description,
+              visitDuration:
+                typeof verified.visitDuration === 'string' &&
+                verified.visitDuration.trim().length > 0
+                  ? verified.visitDuration
+                  : originalPoi.visitDuration,
+              priceLevel:
+                verified.priceLevel === 1 ||
+                verified.priceLevel === 2 ||
+                verified.priceLevel === 3 ||
+                verified.priceLevel === 4
+                  ? verified.priceLevel
+                  : originalPoi.priceLevel,
+              openingHours: openingHoursFromAi(verified, originalPoi.openingHours),
+              status: originalPoi.status,
+              aiReliability: 'high',
+              tourismInterest,
+              updatedAt: new Date().toISOString(),
+              lastVerified: new Date().toISOString(),
+            };
+
+            await saveSinglePoi(updatedPoi, cityId, undefined, {
+              primaryImage: 'preserve_assignment',
+            });
+            const { schedulePoiRealImageDiscovery } = await import(
+              '../../services/poi/poiRealImageDiscoveryService'
+            );
+            schedulePoiRealImageDiscovery(updatedPoi.id, cityId, 'bonifica');
+            successCount++;
           }
 
           if (deletedCount > 0) addLog(`🗑️ Rimossi ${deletedCount} duplicati.`);
           if (invalidCount > 0) addLog(`🚫 Invalidati ${invalidCount} elementi.`);
+          if (missingAiCount > 0) addLog(`⚠️ ${missingAiCount} POI senza esito AI.`);
           if (lowQualityCount > 0)
-            addLog(`⚠️ ${lowQualityCount} elementi rimasti in bozza con affidabilità bassa.`);
+            addLog(`⚠️ ${lowQualityCount} elementi con coordinate AI assenti/non valide.`);
 
           return {
             success: successCount,
-            discarded: deletedCount + invalidCount + lowQualityCount,
+            discarded: deletedCount + invalidCount + lowQualityCount + missingAiCount,
             total: draftsToVerify.length,
           };
         },

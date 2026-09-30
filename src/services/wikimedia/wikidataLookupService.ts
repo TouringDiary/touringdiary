@@ -274,7 +274,6 @@ export async function lookupWikidataP18Proposal(
     let qDescription = subject.description ?? null;
     const notes: string[] = [];
     let confidence: WikidataP18Proposal['confidence'] = 'medium';
-    const requiresAdminConfirm = true;
 
     if (qid) {
       if (!isValidWikidataQid(qid)) {
@@ -342,6 +341,10 @@ export async function lookupWikidataP18Proposal(
     const commonsFileTitle = p18.title;
     const commonsFileUrl = await resolveCommonsFileUrl(commonsFileTitle);
     notes.push(`P18: ${commonsFileTitle}`);
+
+    // Q-id scelto/fornito esplicitamente (manual_api / modale) → conferma Admin obbligatoria.
+    // Discovery unambiguous (search, no knownQid) → orchestrator auto §38.1; pipeline Commons invariata.
+    const requiresAdminConfirm = Boolean(subject.knownQid?.trim());
 
     return {
       status: 'proposal',

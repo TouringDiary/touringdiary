@@ -1,5 +1,8 @@
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { MediaOriginTypeDb } from '@/constants/governance';
+import type {
+  AssignmentEntityType,
+  DeclarableMediaOriginType,
+} from '@/constants/governance';
 import { supabase } from '../supabaseClient';
 
 type RpcResult<T> = { data: T | null; error: PostgrestError | null };
@@ -7,12 +10,10 @@ type RpcResult<T> = { data: T | null; error: PostgrestError | null };
 /** RPC transitoria MF5 (non in `mf2DbClient` union — decommission STEP 10). */
 const TRANSITORY_ASSIGNMENT_RPC = 'upsert_entity_image_assignment_dual_write';
 
-export type EntityImageAssignmentEntityType = 'city_person' | 'poi' | 'patron' | 'photo_submission';
-
 export type EntityImageAssignmentRole = 'primary' | 'gallery';
 
 export type UpsertEntityImageAssignmentFromSourceInput = {
-  entityType: EntityImageAssignmentEntityType;
+  entityType: AssignmentEntityType;
   entityId: string;
   cityId: string;
   assignmentRole?: EntityImageAssignmentRole;
@@ -20,19 +21,19 @@ export type UpsertEntityImageAssignmentFromSourceInput = {
     imageUrl: string | null;
     storageBucket: string | null;
     storagePath: string | null;
-    originType: MediaOriginTypeDb;
+    originType: DeclarableMediaOriginType;
   };
 };
 
 type TransitoryAssignmentRpcArgs = {
-  p_entity_type: EntityImageAssignmentEntityType;
+  p_entity_type: AssignmentEntityType;
   p_entity_id: string;
   p_city_id: string;
   p_image_url: string | null;
   p_storage_bucket: string | null;
   p_storage_path: string | null;
   p_assignment_role: EntityImageAssignmentRole;
-  p_origin_type: MediaOriginTypeDb;
+  p_origin_type: DeclarableMediaOriginType;
 };
 
 /** Client Supabase minimo: RPC transitoria assente da `src/types/supabase.ts` (STEP 10 MF5). */
@@ -65,6 +66,9 @@ export async function upsertEntityImageAssignmentFromSource(
   }
   if (input.entityType === 'patron' && entityId !== cityId) {
     throw new Error('Patrono: entity_id deve coincidere con city_id.');
+  }
+  if (input.entityType === 'city' && entityId !== cityId) {
+    throw new Error('City hero: entity_id deve coincidere con city_id.');
   }
 
   const imageUrl = input.source.imageUrl?.trim() ? input.source.imageUrl.trim() : null;

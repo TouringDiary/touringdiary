@@ -1,6 +1,6 @@
 import { isPublicUsableImageAssetStatus, parseImageAssetStatusDb } from '@/constants/governance';
 import { fetchMediaAssetsByIds } from '@/services/media/mediaAssetService';
-import { mf2EntityImageAssignmentsTable } from '@/services/reports/mf2DbClient';
+import { entityImageAssignmentsQuery } from '@/services/media/entityImageAssignmentsQuery';
 import type { FamousPerson, PointOfInterest } from '@/types/index';
 import { buildPublicStorageUrl } from '@/utils/storagePathFromPublicUrl';
 
@@ -91,7 +91,7 @@ async function loadPrimaryAssignmentIndex(
         cityOffset + PRIMARY_ASSIGNMENT_IN_CHUNK_SIZE,
       );
 
-      const { data, error } = await mf2EntityImageAssignmentsTable()
+      const { data, error } = await entityImageAssignmentsQuery()
         .select('id, entity_id, city_id, media_asset_id, assignment_status')
         .eq('entity_type', entityType)
         .eq('assignment_role', 'primary')

@@ -410,6 +410,7 @@ export const ASSIGNMENT_ENTITY_TYPE_VALUES = [
   'poi',
   'patron',
   'photo_submission',
+  'city',
 ] as const;
 
 export type AssignmentEntityType = (typeof ASSIGNMENT_ENTITY_TYPE_VALUES)[number];
@@ -466,9 +467,33 @@ export const MEDIA_ORIGIN_TYPE_DB_VALUES = [
   'community',
   'placeholder',
   'verified_real',
+  'sponsor',
 ] as const;
 
 export type MediaOriginTypeDb = (typeof MEDIA_ORIGIN_TYPE_DB_VALUES)[number];
+
+/** Origin dichiarabili in input RPC/pipeline (escluso verified_real — solo provenance post-verifica). */
+export const DECLARABLE_MEDIA_ORIGIN_TYPE_VALUES = [
+  'admin',
+  'admin_upload',
+  'ai',
+  'ai_generated',
+  'wikimedia',
+  'community',
+  'placeholder',
+  'sponsor',
+] as const;
+
+export type DeclarableMediaOriginType = (typeof DECLARABLE_MEDIA_ORIGIN_TYPE_VALUES)[number];
+
+export function isDeclarableMediaOriginType(value: string): value is DeclarableMediaOriginType {
+  return (DECLARABLE_MEDIA_ORIGIN_TYPE_VALUES as readonly string[]).includes(value);
+}
+
+export function parseDeclarableMediaOriginType(value: string): DeclarableMediaOriginType {
+  if (isDeclarableMediaOriginType(value)) return value;
+  throw new Error(`origin_type dichiarabile non valido: ${value ?? '(null)'}`);
+}
 
 export const IMAGE_VERIFICATION_STEP_OUTCOME_DB_VALUES = [
   'verified',

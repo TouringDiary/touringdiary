@@ -17,7 +17,8 @@ import type {
   CreateReportGroupResult,
   SubmitContentReportInput,
 } from '@/types/models/contentReport';
-import { mf2ContentReportsTable, mf2EntityImageAssignmentsTable, mf2Rpc } from './mf2DbClient';
+import { entityImageAssignmentsQuery } from '@/services/media/entityImageAssignmentsQuery';
+import { mf2ContentReportsTable, mf2Rpc } from './mf2DbClient';
 
 type ContentReportRow = {
   id: string;
@@ -258,7 +259,7 @@ export async function listContentReportsForMediaAsset(
   const path =
     assetRecord && typeof assetRecord.storage_path === 'string' ? assetRecord.storage_path : null;
 
-  const { data: assignmentRows, error: assignmentError } = await mf2EntityImageAssignmentsTable()
+  const { data: assignmentRows, error: assignmentError } = await entityImageAssignmentsQuery()
     .select('id')
     .eq('media_asset_id', mediaAssetId);
 

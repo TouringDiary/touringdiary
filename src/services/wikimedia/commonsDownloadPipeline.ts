@@ -1,3 +1,4 @@
+import type { AssignmentEntityType } from '@/constants/governance';
 import { IMAGE_VERIFICATION_STEP_DEFINITIONS } from '@/constants/imageVerificationSteps';
 import { upsertEntityImageAssignmentFromSource } from '@/services/media/entityImageAssignmentWriteService';
 import {
@@ -16,7 +17,7 @@ const MAX_DOWNLOAD_BYTES = 12 * 1024 * 1024;
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 export type CommonsDownloadEntityTarget = {
-  entityType: 'city_person' | 'poi';
+  entityType: 'city_person' | 'poi' | 'patron' | 'city';
   entityId: string;
   cityId: string;
 };
@@ -24,8 +25,19 @@ export type CommonsDownloadEntityTarget = {
 export type CommonsDownloadPipelineInput = {
   proposal: WikidataP18Proposal;
   entity: CommonsDownloadEntityTarget;
-  adminConfirmedQid: boolean;
+  /** Conferma esplicita Admin nel flusso manuale (WikidataConfirmModal). */
+  adminConfirmedQid?: boolean;
+  /**
+   * Proposta validata dal percorso automatico (lookup + criteri prodotto).
+   * Mutuamente esclusivo con adminConfirmedQid nel gate di ingresso.
+   */
+  autoValidatedProposal?: boolean;
   assignToEntity?: boolean;
+  /**
+   * Override ruolo solo per entità che ammettono primary (city_person/patron).
+   * POI/City: policy pipeline impone sempre gallery.
+   */
+  assignmentRole?: 'primary' | 'gallery';
 };
 
 export type CommonsDownloadPipelineResult =
@@ -143,17 +155,77 @@ function isAllowedCommonsDirectImageUrl(url: string): boolean {
   }
 }
 
+const MAX_REDIRECT_HOPS = 5;
+
 async function downloadCommonsImage(url: string): Promise<DownloadEvidence | null> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(20_000), redirect: 'follow' });
-  if (!response.ok) return null;
-  if (!isAllowedCommonsDirectImageUrl(response.url)) return null;
+  try {
+    return await downloadCommonsImageInner(url);
+  } catch {
+    return null;
+  }
+}
+
+async function downloadCommonsImageInner(url: string): Promise<DownloadEvidence | null> {
+  let currentUrl = url;
+  let response: Response | null = null;
+
+  for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop += 1) {
+    if (!isAllowedCommonsDirectImageUrl(currentUrl)) return null;
+    response = await fetch(currentUrl, {
+      signal: AbortSignal.timeout(20_000),
+      redirect: 'manual',
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) return null;
+      let nextUrl: string;
+      try {
+        nextUrl = new URL(location, currentUrl).href;
+      } catch {
+        return null;
+      }
+      if (!isAllowedCommonsDirectImageUrl(nextUrl)) return null;
+      currentUrl = nextUrl;
+      continue;
+    }
+    break;
+  }
+
+  if (!response?.ok) return null;
+  if (!isAllowedCommonsDirectImageUrl(currentUrl)) return null;
   const declaredMime = (response.headers.get('content-type') ?? '')
     .split(';')[0]
     ?.trim()
     .toLowerCase();
   if (!declaredMime || !ALLOWED_MIME.has(declaredMime)) return null;
-  const buffer = await response.arrayBuffer();
-  if (buffer.byteLength === 0 || buffer.byteLength > MAX_DOWNLOAD_BYTES) return null;
+  const contentLengthHeader = response.headers.get('content-length');
+  if (contentLengthHeader) {
+    const contentLength = Number.parseInt(contentLengthHeader, 10);
+    if (Number.isFinite(contentLength) && contentLength > MAX_DOWNLOAD_BYTES) return null;
+  }
+  const body = response.body;
+  if (!body) return null;
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value || value.byteLength === 0) continue;
+    total += value.byteLength;
+    if (total > MAX_DOWNLOAD_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  if (total === 0) return null;
+  const buffer = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    buffer.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
   const magicMime = sniffImageMime(buffer);
   const mime = magicMime ?? declaredMime;
   if (!ALLOWED_MIME.has(mime)) return null;
@@ -181,31 +253,95 @@ function extensionForMime(mime: string): string {
 }
 
 async function removeStoragePathQuiet(path: string): Promise<void> {
-  await supabase.storage.from(PUBLIC_BUCKET).remove([path]);
+  const trimmed = path.trim();
+  if (!trimmed) {
+    throw new Error('Rimozione Storage: path vuoto.');
+  }
+  const { error } = await supabase.storage.from(PUBLIC_BUCKET).remove([trimmed]);
+  if (error) {
+    throw new Error(`Rimozione Storage fallita (${trimmed}): ${error.message}`);
+  }
 }
 
-function commonsFileDescriptionPageUrl(fileTitle: string): string {
+type MaterializedMediaAsset = { id: string; createdThisRun: boolean };
+
+async function removeMediaAssetQuiet(mediaAssetId: string): Promise<void> {
+  const { data, error } = await mf3MediaAssetsTable().delete().eq('id', mediaAssetId).select('id');
+  if (error) {
+    throw new Error(`Rimozione media_assets fallita: ${error.message}`);
+  }
+  const rows = (data ?? []) as { id: string }[];
+  if (rows.length === 0) {
+    throw new Error(`Rimozione media_assets: nessuna riga eliminata (${mediaAssetId}).`);
+  }
+}
+
+function isStorageObjectAlreadyExistsError(error: {
+  message?: string;
+  statusCode?: string | number;
+}): boolean {
+  const message = (error.message ?? '').toLowerCase();
+  if (message.includes('already exists') || message.includes('duplicate')) {
+    return true;
+  }
+  return String(error.statusCode ?? '') === '409';
+}
+
+/** Errori di compensazione dopo fallimento operazione primaria (stringhe già contestualizzate). */
+async function rollbackWikimediaPersistence(args: {
+  storagePath: string;
+  mediaAssetId: string | null;
+  deleteMediaAsset: boolean;
+  deleteStorage: boolean;
+}): Promise<string[]> {
+  const errors: string[] = [];
+  if (!args.deleteMediaAsset && !args.deleteStorage) {
+    return errors;
+  }
+  if (args.deleteMediaAsset && args.mediaAssetId) {
+    try {
+      await removeMediaAssetQuiet(args.mediaAssetId);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      errors.push(`media_assets (${args.mediaAssetId}): ${detail}`);
+    }
+  }
+  if (args.deleteStorage) {
+    try {
+      await removeStoragePathQuiet(args.storagePath);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      errors.push(`storage (${args.storagePath}): ${detail}`);
+    }
+  }
+  return errors;
+}
+
+/** URL HTTPS pagina descrittiva Commons (wiki/File:…), senza Markdown. */
+export function buildCommonsFileDescriptionPageUrl(fileTitle: string): string {
   const trimmed = fileTitle.trim();
   const withPrefix = trimmed.startsWith('File:') ? trimmed : `File:${trimmed}`;
   const wikiPathTitle = withPrefix.replace(/ /g, '_');
   if (wikiPathTitle.includes('[') || wikiPathTitle.includes('](')) {
     throw new Error('Titolo file Commons non valido (Markdown rilevato).');
   }
-  const parsed = new URL(`/wiki/${wikiPathTitle}`, 'https://commons.wikimedia.org');
+  const parsed = new URL(
+    `/wiki/${encodeURIComponent(wikiPathTitle)}`,
+    'https://commons.wikimedia.org',
+  );
   if (parsed.protocol !== 'https:' || parsed.hostname !== 'commons.wikimedia.org') {
     throw new Error('URL pagina descrittiva Commons non valida.');
   }
-  const href = parsed.href;
-  if (href.includes('[') || href.includes('](')) {
+  if (parsed.href.includes('[') || parsed.href.includes('](')) {
     throw new Error('URL pagina descrittiva Commons contiene Markdown.');
   }
-  return href;
+  return parsed.href;
 }
 
 async function materializeMediaAssetForPath(
   storagePath: string,
   assetStatus: 'active' | 'suspended',
-): Promise<string> {
+): Promise<MaterializedMediaAsset> {
   const { data: existing, error: existingError } = await mf3MediaAssetsTable()
     .select('id')
     .eq('storage_bucket', PUBLIC_BUCKET)
@@ -213,27 +349,44 @@ async function materializeMediaAssetForPath(
     .maybeSingle();
   if (existingError) throw new Error(existingError.message);
   const existingRecord = existing as { id?: string } | null;
-  if (existingRecord?.id) return existingRecord.id;
+  if (existingRecord?.id) {
+    return { id: existingRecord.id, createdThisRun: false };
+  }
 
-  const insertPayload: Record<string, unknown> = {
+  const insertPayload = {
     storage_bucket: PUBLIC_BUCKET,
     storage_path: storagePath,
     origin_type: 'wikimedia',
     generated_by_ai: false,
     is_placeholder: false,
     asset_status: assetStatus,
-  };
+  } as const;
   const { data: inserted, error: insertError } = await mf3MediaAssetsTable()
     .insert(insertPayload)
     .select('id')
     .single();
 
-  if (insertError) throw new Error(insertError.message);
+  if (insertError) {
+    const code = (insertError as { code?: string }).code;
+    if (code === '23505') {
+      const { data: raced, error: raceError } = await mf3MediaAssetsTable()
+        .select('id')
+        .eq('storage_bucket', PUBLIC_BUCKET)
+        .eq('storage_path', storagePath)
+        .maybeSingle();
+      if (raceError) throw new Error(raceError.message);
+      const racedRecord = raced as { id?: string } | null;
+      if (racedRecord?.id) {
+        return { id: racedRecord.id, createdThisRun: false };
+      }
+    }
+    throw new Error(insertError.message);
+  }
   const insertedRecord = inserted as { id?: string } | null;
   if (!insertedRecord?.id) {
     throw new Error('Inserimento media_assets Wikimedia senza id.');
   }
-  return insertedRecord.id;
+  return { id: insertedRecord.id, createdThisRun: true };
 }
 
 /**
@@ -242,11 +395,15 @@ async function materializeMediaAssetForPath(
 export async function runCommonsDownloadPipeline(
   input: CommonsDownloadPipelineInput,
 ): Promise<CommonsDownloadPipelineResult> {
-  if (!input.adminConfirmedQid) {
+  const adminConfirmed = input.adminConfirmedQid === true;
+  const autoValidated = input.autoValidatedProposal === true;
+  if (adminConfirmed === autoValidated) {
     return {
       ok: false,
-      stage: 'admin_confirm',
-      message: 'Conferma Admin Wikidata obbligatoria prima del download.',
+      stage: 'import_authorization',
+      message: adminConfirmed
+        ? 'Specificare solo adminConfirmedQid oppure autoValidatedProposal, non entrambi.'
+        : 'Autorizzazione import obbligatoria: conferma Admin Wikidata o proposta auto-validata.',
     };
   }
 
@@ -268,7 +425,7 @@ export async function runCommonsDownloadPipeline(
 
   let commonsPageUrl: string;
   try {
-    commonsPageUrl = commonsFileDescriptionPageUrl(proposal.commonsFileTitle);
+    commonsPageUrl = buildCommonsFileDescriptionPageUrl(proposal.commonsFileTitle);
   } catch (err) {
     return {
       ok: false,
@@ -319,8 +476,9 @@ export async function runCommonsDownloadPipeline(
 
   const autoPath = license.isCcBy40AutoPathEligible && downloaded.formatConsistent;
   const storageFolder = autoPath ? WIKIMEDIA_VERIFIED_FOLDER : WIKIMEDIA_QUARANTINE_FOLDER;
-  const storagePath = `${storageFolder}/${safeQid}_${Date.now()}_${safeFile}.${ext}`;
+  const storagePath = `${storageFolder}/${safeQid}/${contentHash.slice(0, 32)}_${safeFile}.${ext}`;
 
+  let storageCreatedByThisRun = false;
   const { error: uploadError } = await supabase.storage
     .from(PUBLIC_BUCKET)
     .upload(storagePath, downloaded.blob, {
@@ -330,11 +488,17 @@ export async function runCommonsDownloadPipeline(
     });
 
   if (uploadError) {
-    return {
-      ok: false,
-      stage: 'storage_upload',
-      message: uploadError.message,
-    };
+    if (isStorageObjectAlreadyExistsError(uploadError)) {
+      storageCreatedByThisRun = false;
+    } else {
+      return {
+        ok: false,
+        stage: 'storage_upload',
+        message: uploadError.message,
+      };
+    }
+  } else {
+    storageCreatedByThisRun = true;
   }
 
   const {
@@ -342,17 +506,20 @@ export async function runCommonsDownloadPipeline(
   } = supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(storagePath);
 
   if (!publicUrl) {
-    await removeStoragePathQuiet(storagePath);
+    if (storageCreatedByThisRun) {
+      await removeStoragePathQuiet(storagePath);
+    }
     return { ok: false, stage: 'storage_url', message: 'URL pubblico Storage non generato.' };
   }
 
   let assignmentId: string | null = null;
   let mediaAssetId: string | null = null;
-  let dbMaterialized = false;
+  let createdMediaAssetThisRun = false;
 
   try {
-    mediaAssetId = await materializeMediaAssetForPath(storagePath, 'suspended');
-    dbMaterialized = true;
+    const materialized = await materializeMediaAssetForPath(storagePath, 'suspended');
+    mediaAssetId = materialized.id;
+    createdMediaAssetThisRun = materialized.createdThisRun;
 
     const provenancePatch: MediaAssetProvenancePatch = {
       sourceRef: proposal.qid,
@@ -415,11 +582,18 @@ export async function runCommonsDownloadPipeline(
         );
       }
 
+      const entityTypeForAssignment: AssignmentEntityType = input.entity.entityType;
+
+      const assignmentRole: 'primary' | 'gallery' =
+        entityTypeForAssignment === 'poi' || entityTypeForAssignment === 'city'
+          ? 'gallery'
+          : (input.assignmentRole ?? 'primary');
+
       assignmentId = await upsertEntityImageAssignmentFromSource({
-        entityType: input.entity.entityType,
+        entityType: entityTypeForAssignment,
         entityId: input.entity.entityId,
         cityId: input.entity.cityId,
-        assignmentRole: 'primary',
+        assignmentRole,
         source: {
           imageUrl: publicUrl,
           storageBucket: PUBLIC_BUCKET,
@@ -443,13 +617,25 @@ export async function runCommonsDownloadPipeline(
         : 'Foto CC BY 4.0 verificata importata e associata.',
     };
   } catch (err) {
-    if (!dbMaterialized) {
-      await removeStoragePathQuiet(storagePath);
+    const primaryMessage =
+      err instanceof Error ? err.message : 'Persistenza asset Wikimedia fallita.';
+    const rollbackErrors = await rollbackWikimediaPersistence({
+      storagePath,
+      mediaAssetId,
+      deleteMediaAsset: createdMediaAssetThisRun,
+      deleteStorage: storageCreatedByThisRun && createdMediaAssetThisRun,
+    });
+    const message =
+      rollbackErrors.length > 0
+        ? `Operazione primaria fallita: ${primaryMessage} | Compensazione rollback incompleta: ${rollbackErrors.join('; ')}`
+        : primaryMessage;
+    if (rollbackErrors.length > 0) {
+      console.error('[commonsDownloadPipeline] rollback parziale:', rollbackErrors);
     }
     return {
       ok: false,
       stage: 'persistence',
-      message: err instanceof Error ? err.message : 'Persistenza asset Wikimedia fallita.',
+      message,
     };
   }
 }

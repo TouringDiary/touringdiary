@@ -1,5 +1,5 @@
 import { parseGallery } from '@/services/city/parsers/media/parseGallery';
-import { mf2EntityImageAssignmentsTable } from '@/services/reports/mf2DbClient';
+import { entityImageAssignmentsQuery } from '@/services/media/entityImageAssignmentsQuery';
 import { supabase } from '@/services/supabaseClient';
 import { buildPublicStorageUrl } from '@/utils/storagePathFromPublicUrl';
 import { fetchMediaAssetsByIds } from './mediaAssetService';
@@ -92,7 +92,7 @@ async function fetchEntityLabelsByIdChunked(
 async function fetchCurrentAssignmentPage(
   offset: number,
 ): Promise<{ rows: AssignmentUsageRow[]; fetchedCount: number }> {
-  const { data, error } = await mf2EntityImageAssignmentsTable()
+  const { data, error } = await entityImageAssignmentsQuery()
     .select(
       'id, entity_type, entity_id, city_id, media_asset_id, assignment_role, source_image_url, source_storage_bucket, source_storage_path',
     )

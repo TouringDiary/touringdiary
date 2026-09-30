@@ -75,6 +75,8 @@ export interface PointOfInterest {
 
   // Advanced Taxonomy Fields
   isSponsored?: boolean;
+  /** FASE 1: Wikimedia in cascata D-22 solo se true (default OFF in DB). */
+  wikimediaPublicEnabled?: boolean;
   tier?: SponsorTier;
   planType?: PlanType;
   showcaseExpiry?: string;
@@ -143,6 +145,8 @@ export interface CitySummary {
   heroImage?: string;
   hero_status?: MediaStatus;
   heroAsset?: MediaAsset;
+  /** FASE 1: gate pubblico Wikimedia Hero (colonna cities.wikimedia_hero_public_enabled). */
+  wikimediaHeroPublicEnabled?: boolean;
 
   rating: number;
   visitors: number;

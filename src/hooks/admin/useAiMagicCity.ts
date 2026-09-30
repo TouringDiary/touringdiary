@@ -1,6 +1,4 @@
-import { useConfig } from '@/context/ConfigContext';
 import { canPublishFamousPerson } from '@/domain/city/famousPersonCompleteness';
-import { GEO_CONFIG } from '../../constants/geoConfig';
 import { POI_SUBCATEGORY_VALUES } from '../../constants/governance';
 import {
   enrichPersonData,
@@ -13,12 +11,12 @@ import {
   suggestCityPeople,
   suggestNewPois,
 } from '../../services/ai';
+import { validateAiSpecificSlugs } from '../../services/ai/generators/peopleCategoryValidation';
 import {
   ensureFamousPersonCompletenessWithAi,
   toCompleteFamousPersonRequiredFields,
   toDraftFamousPersonSaveFields,
 } from '../../services/ai/generators/peopleCompletenessPipeline';
-import { validateAiSpecificSlugs } from '../../services/ai/generators/peopleCategoryValidation';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import { getRegistryCitySlugById, resolveCanonicalCityId } from '../../services/city/cityIdService';
 import type {
@@ -56,6 +54,27 @@ import { getSafeEventCategory, getSafeServiceType, toTitleCase } from '../../uti
 import type { StepReport, useAiTaskRunner } from './useAiTaskRunner';
 import type { VerifyDraftsBatchFn } from './useAiValidation';
 
+function parseFiniteGeoCoords(
+  lat: unknown,
+  lng: unknown,
+): { lat: number; lng: number } | undefined {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return undefined;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return undefined;
+  return { lat, lng };
+}
+
+function resolveOptionalCityCoords(
+  lat?: number,
+  lng?: number,
+  existing?: { lat: number; lng: number },
+): { lat: number; lng: number } | undefined {
+  const fromPayload = parseFiniteGeoCoords(lat, lng);
+  if (fromPayload) return fromPayload;
+  if (existing) return parseFiniteGeoCoords(existing.lat, existing.lng);
+  return undefined;
+}
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const useAiMagicCity = (
@@ -64,16 +83,6 @@ export const useAiMagicCity = (
 ) => {
   // Usiamo il runner passato dal parent, così i log sono visibili nell'UI principale
   const { performStep, addLog, resetRunner, stopRunner, getAccumulatedLogs } = runner;
-  const { configs } = useConfig();
-
-  // Recupera l'immagine default una volta sola (fuori dal loop)
-  const defaultHero =
-    typeof configs.hero_image === 'string'
-      ? configs.hero_image
-      : typeof configs.HERO_IMAGE === 'string'
-        ? configs.HERO_IMAGE
-        : '';
-
   const executeMagicAdd = async (
     rawCityName: string,
     poiCount: number = 10,
@@ -120,8 +129,6 @@ export const useAiMagicCity = (
 
     try {
       let cityId = existingCityId || '';
-      let cityCenterCoords = GEO_CONFIG.DEFAULT_CENTER;
-
       let existingPoiNames: string[] = [];
       let isTrueDraft = false;
 
@@ -134,7 +141,6 @@ export const useAiMagicCity = (
             peopleAudience: 'admin',
           });
           if (cityDetails) {
-            if (cityDetails.coords.lat !== 0) cityCenterCoords = cityDetails.coords;
             if (
               cityDetails.description &&
               cityDetails.description.length > 50 &&
@@ -175,7 +181,7 @@ export const useAiMagicCity = (
               addLog(
                 `📍 ID Canonico risolto: ${cityId} ${currentRegion ? `(${currentRegion})` : ''}`,
               );
-            } catch (err: unknown) {
+            } catch (_err: unknown) {
               addLog(
                 `❌ ERRORE: La città "${cityName}" ${currentRegion ? `in ${currentRegion}` : ''} non è presente nel registro ufficiale (cities_registry).`,
               );
@@ -235,27 +241,28 @@ export const useAiMagicCity = (
 
           const citySlug = existingCityData?.slug ?? (await getRegistryCitySlugById(cityId));
 
-          // CLEANUP: Usa il default globale invece di Unsplash hardcoded
-          const cityPayload: CityDetails = {
+          const resolvedCityCoords = resolveOptionalCityCoords(
+            generalData.lat,
+            generalData.lng,
+            existingCityData?.coords,
+          );
+
+          const cityPayload = {
             id: cityId,
             slug: citySlug,
             name: cityName,
-            zone: generalData.zone || existingCityData?.zone || GEO_CONFIG.DEFAULT_REGION,
+            zone: generalData.zone?.trim() || existingCityData?.zone?.trim() || '',
             adminRegion:
-              generalData.adminRegion || existingCityData?.adminRegion || GEO_CONFIG.DEFAULT_REGION,
-            nation: generalData.nation || existingCityData?.nation || GEO_CONFIG.DEFAULT_NATION,
-            continent:
-              generalData.continent || existingCityData?.continent || GEO_CONFIG.DEFAULT_CONTINENT,
+              generalData.adminRegion?.trim() || existingCityData?.adminRegion?.trim() || '',
+            nation: generalData.nation?.trim() || existingCityData?.nation?.trim() || '',
+            continent: generalData.continent?.trim() || existingCityData?.continent?.trim() || '',
             description:
               generalData.description || existingCityData?.description || 'Generazione in corso...',
             imageUrl:
               existingCityData?.imageUrl && !existingCityData.imageUrl.includes('unsplash')
                 ? existingCityData.imageUrl
-                : defaultHero,
-            coords:
-              generalData.lat && generalData.lng && generalData.lat !== 0
-                ? { lat: generalData.lat, lng: generalData.lng }
-                : existingCityData?.coords || { lat: 0, lng: 0 },
+                : '',
+            ...(resolvedCityCoords ? { coords: resolvedCityCoords } : {}),
             rating: existingCityData?.rating || 0,
             visitors: statsData.visitorsEstimate || existingCityData?.visitors || 0,
             isFeatured: existingCityData?.isFeatured || false,
@@ -267,7 +274,7 @@ export const useAiMagicCity = (
                 existingCityData?.details?.heroImage &&
                 !existingCityData.details.heroImage.includes('unsplash')
                   ? existingCityData.details.heroImage
-                  : defaultHero,
+                  : '',
               historySnippet:
                 historyData.historySnippet || existingCityData?.details?.historySnippet || '',
               historyFull: historyData.historyFull || existingCityData?.details?.historyFull || '',
@@ -286,8 +293,9 @@ export const useAiMagicCity = (
               seasonalVisitors:
                 statsData.seasonalVisitors || existingCityData?.details?.seasonalVisitors,
               generationLogs: existingCityData?.details?.generationLogs ?? [],
-              // Update: preserva collection esistenti (saveCityDetails persiste gallery nel payload;
-              // people/guides/events/services/POI restano su tabelle dedicate ma non vanno azzerati qui).
+              // Update: preserva collection esistenti (saveCityDetails riscrive anche details.gallery se presente nel payload).
+              // Galleria fotografica operativa MF4: entity_image_assignments (TabMedia / cityPhotographicGalleryService).
+              // gallery JSON: persistenza legacy ancora passata qui solo per non azzerarla al save — non è writer MF4 (D-MC-05).
               famousPeople: existingCityData?.details?.famousPeople ?? [],
               services: existingCityData?.details?.services ?? [],
               events: existingCityData?.details?.events ?? [],
@@ -303,11 +311,14 @@ export const useAiMagicCity = (
               historyGallery: existingCityData?.details?.historyGallery ?? [],
               tourOperators: existingCityData?.details?.tourOperators ?? [],
             },
-          };
+          } as CityDetails;
 
-          if (cityPayload.coords.lat !== 0) cityCenterCoords = cityPayload.coords;
           if (cityPayload.zone) await ensureZoneExists(cityPayload.zone, cityPayload.adminRegion);
           await saveCityDetails(cityPayload);
+          const { scheduleCityHeroWikimediaDiscovery } = await import(
+            '../../services/city/cityRealImageDiscoveryService'
+          );
+          scheduleCityHeroWikimediaDiscovery(cityId, cityName, 'magic_add');
 
           if (Array.isArray(people)) {
             let orderIdx = 1;
@@ -317,7 +328,7 @@ export const useAiMagicCity = (
               id: s.id,
             }));
             for (const p of people) {
-              if (p && p.name) {
+              if (p?.name) {
                 const slugValidation = validateAiSpecificSlugs(
                   p.specificCategorySlugs ?? [],
                   activeSpecifics,
@@ -395,29 +406,20 @@ export const useAiMagicCity = (
                   (POI_SUBCATEGORY_VALUES as readonly string[]).includes(pData.subCategory)
                     ? (pData.subCategory as PoiSubCategory)
                     : undefined;
+                const trimmedAddress = pData.address?.trim();
                 const newPoi: PointOfInterest = {
                   id: `draft_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
                   name: pData.name,
                   category: correctCategory,
                   subCategory: draftSubCategory,
-                  description: pData.description || 'Bozza da validare',
+                  description: pData.description?.trim() || 'Bozza da validare',
                   imageUrl: '',
-                  coords: { lat: 0, lng: 0 },
-                  rating: 0,
-                  votes: 0,
-                  address: pData.address || `${cityName}, Italia`,
                   cityId: cityId,
                   status: 'draft',
                   dateAdded: new Date().toISOString(),
                   aiReliability: 'low',
                   tourismInterest: pData.tourismInterest || 'medium',
-                  lastVerified: new Date().toISOString(),
-                  openingHours: {
-                    days: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
-                    morning: '09:00 - 20:00',
-                    afternoon: '',
-                    isEstimated: true,
-                  },
+                  ...(trimmedAddress ? { address: trimmedAddress } : {}),
                 };
                 await saveSinglePoi(newPoi, cityId);
                 existingPoiNames.push(pData.name);
@@ -443,7 +445,7 @@ export const useAiMagicCity = (
           });
         if (refinedData.events)
           refinedData.events.forEach((e: SuggestedCityItem, i: number) => {
-            if (e && e.name) {
+            if (e?.name) {
               const safeCat = getSafeEventCategory(String(e.category ?? ''));
               const metadata = {
                 rating: e.rating || 0,

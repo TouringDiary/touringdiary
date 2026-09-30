@@ -47,7 +47,6 @@ export const useAdminHeaderManager = () => {
   // UI State
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [mode, setMode] = useState<'upload' | 'generate'>('upload');
-  const [isSavingHero, setIsSavingHero] = useState(false);
   const [isSavingPatron, setIsSavingPatron] = useState(false);
   const [isSavingExtra, setIsSavingExtra] = useState(false);
   const [isSavingFavicon, setIsSavingFavicon] = useState(false);
@@ -56,8 +55,6 @@ export const useAdminHeaderManager = () => {
   const [imageToEdit, setImageToEdit] = useState('');
   const [editTarget, setEditTarget] = useState<AssetUploadTarget>('hero');
   const [editPlaceholderCat, setEditPlaceholderCat] = useState<string>('');
-  const [heroNote, setHeroNote] = useState('');
-
   // DELETE CONFIRMATION STATE
   const [showDeleteHeroConfirm, setShowDeleteHeroConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -200,6 +197,28 @@ export const useAdminHeaderManager = () => {
     toastSettingsUpdated(params.successMessage, cleanup);
   };
 
+  const persistHeroAsset = async (
+    imageUrl: string | null,
+    options?: { successMessage?: string },
+  ) => {
+    try {
+      const valToSave = !imageUrl || imageUrl === GLOBAL_ASSET_DEFAULTS.hero ? '' : imageUrl;
+      const previousStored = readConfigString(configs[SETTINGS_KEYS.HERO_IMAGE]);
+      const replaced = Boolean(previousStored && previousStored !== valToSave);
+      await commitAssetSettingChange({
+        settingKey: SETTINGS_KEYS.HERO_IMAGE,
+        value: valToSave,
+        retireUrls: replaced ? [previousStored] : undefined,
+        cleanupUrl: replaced ? previousStored : undefined,
+        successMessage: options?.successMessage ?? 'Header salvato in Asset Globali.',
+      });
+    } catch (err) {
+      console.error(err);
+      showToast('Errore salvataggio header.', 'error');
+      throw err;
+    }
+  };
+
   /** Updates local state (or persists placeholders). Returns whether a save toast already fired. */
   const applyUploadedImage = async (
     target: AssetUploadTarget,
@@ -208,7 +227,8 @@ export const useAdminHeaderManager = () => {
   ): Promise<'local' | 'persisted'> => {
     if (target === 'hero') {
       setPreviewImage(publicUrl);
-      return 'local';
+      await persistHeroAsset(publicUrl);
+      return 'persisted';
     }
     if (target === 'patron') {
       setPatronImage(publicUrl);
@@ -286,29 +306,6 @@ export const useAdminHeaderManager = () => {
       if (socialInputRef.current) socialInputRef.current.value = '';
       if (aiBgInputRef.current) aiBgInputRef.current.value = '';
       if (faviconInputRef.current) faviconInputRef.current.value = '';
-    }
-  };
-
-  const handleSaveHero = async () => {
-    setIsSavingHero(true);
-    try {
-      const valToSave = previewImage === GLOBAL_ASSET_DEFAULTS.hero ? '' : previewImage;
-      const previousStored = readConfigString(configs[SETTINGS_KEYS.HERO_IMAGE]);
-      const replaced = Boolean(previousStored && previousStored !== valToSave);
-      await commitAssetSettingChange({
-        settingKey: SETTINGS_KEYS.HERO_IMAGE,
-        value: valToSave,
-        retireUrls: replaced ? [previousStored] : undefined,
-        // Asset Globali: sostituzione admin_assets → cleanup best-effort (come favicon/extra).
-        cleanupUrl: replaced ? previousStored : undefined,
-        successMessage: 'Header salvato!',
-      });
-      setHeroNote('');
-    } catch (err) {
-      console.error(err);
-      showToast('Errore salvataggio header.', 'error');
-    } finally {
-      setIsSavingHero(false);
     }
   };
 
@@ -664,7 +661,7 @@ export const useAdminHeaderManager = () => {
     const newImageUrl = data.image;
     if (editTarget === 'hero') {
       setPreviewImage(newImageUrl);
-      setHeroNote('Immagine modificata pronta per il salvataggio.');
+      await persistHeroAsset(newImageUrl);
     } else if (editTarget === 'patron') {
       setPatronImage(newImageUrl);
     } else if (editTarget === 'auth') {
@@ -710,17 +707,22 @@ export const useAdminHeaderManager = () => {
     famousPersonGeneralInputRef.current?.click();
   };
 
-  const handleSafeArtSuccess = (url: string) => {
+  const handleSafeArtSuccess = async (url: string) => {
     setPreviewImage(url);
     setMode('upload');
-    showToast('Safe-Art Generata con successo!', 'success');
+    try {
+      await persistHeroAsset(url, {
+        successMessage: 'Safe-Art generata e salvata in Asset Globali.',
+      });
+    } catch {
+      // Errore già segnalato da persistHeroAsset.
+    }
   };
 
   return {
     previewImage,
     mode,
     setMode,
-    isSavingHero,
     patronImage,
     isSavingPatron,
     placeholders,
@@ -740,7 +742,6 @@ export const useAdminHeaderManager = () => {
     imageToEdit,
     editTarget,
     editPlaceholderCat,
-    heroNote,
     showDeleteHeroConfirm,
     setShowDeleteHeroConfirm,
     showResetConfirm,
@@ -761,7 +762,6 @@ export const useAdminHeaderManager = () => {
     faviconInputRef,
     showToast,
     handleFileUpload,
-    handleSaveHero,
     handleRemoveHeroRequest,
     confirmRemoveHero,
     handleRemoveAssetRequest,

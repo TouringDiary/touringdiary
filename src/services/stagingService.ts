@@ -3,9 +3,11 @@ import type {
   DatabasePoiInsert,
   DatabasePoiStaging,
   DatabasePoiStagingInsert,
-  DatabasePoiStagingUpdate,
 } from '../types/database'; // Usa Insert type per scrittura
+import type { OpeningHours } from '../types/index';
 import type { Json } from '../types/supabase';
+import { CANONICAL_POI_OPENING_DAYS } from '../types/write/poiForm';
+import { serializeOpeningHours } from '../utils/jsonSerialization';
 import { getSimilarity } from '../utils/stringUtils';
 import { enrichStagingPoi } from './ai/generators/poiGenerator';
 import type { RatedPoiResult } from './ai/generators/qualityGenerator';
@@ -46,6 +48,103 @@ export interface StagingIngestDTO {
   ai_rating?: 'high' | 'medium' | 'low';
 }
 
+const STAGING_SORT_COLUMNS = [
+  'created_at',
+  'updated_at',
+  'name',
+  'ai_rating',
+  'raw_category',
+  'processing_status',
+  'coords_lat',
+  'address',
+  'osm_id',
+] as const;
+
+type StagingSortColumn = (typeof STAGING_SORT_COLUMNS)[number];
+
+const STAGING_MAX_PAGE_SIZE = 200;
+
+const STAGING_ITEMS_BY_IDS_CHUNK = 50;
+const STAGING_ITEMS_BY_IDS_CONCURRENCY = 4;
+
+/** Tutti e 7 i giorni canonici, senza espansione o normalizzazione Lun–Dom. */
+function enrichmentOpeningDaysAreComplete(days: string[]): boolean {
+  if (days.length !== CANONICAL_POI_OPENING_DAYS.length) return false;
+  for (const day of CANONICAL_POI_OPENING_DAYS) {
+    if (!days.includes(day)) return false;
+  }
+  return true;
+}
+
+/**
+ * Opening hours da enrichment (openingDays + openingHours).
+ * Giorni mancanti/incompleti o fascia oraria assente → errore esplicito (no null, no placeholder).
+ */
+function requireOpeningHoursFromEnrichment(
+  poiName: string,
+  openingDays: string[] | undefined,
+  openingHours: string | undefined,
+  isEstimated: boolean | undefined,
+): OpeningHours {
+  if (!Array.isArray(openingDays) || openingDays.length === 0) {
+    throw new Error(
+      `[Staging] Promote blocked: opening days missing for "${poiName}" (all canonical days Lun–Dom required).`,
+    );
+  }
+  if (!enrichmentOpeningDaysAreComplete(openingDays)) {
+    throw new Error(
+      `[Staging] Promote blocked: opening days incomplete for "${poiName}" (expected exactly ${CANONICAL_POI_OPENING_DAYS.length} days: ${CANONICAL_POI_OPENING_DAYS.join(', ')}).`,
+    );
+  }
+
+  const morning = openingHours?.trim() ?? '';
+  if (morning.length === 0) {
+    throw new Error(
+      `[Staging] Promote blocked: opening hours time slot missing for "${poiName}" (openingHours string required).`,
+    );
+  }
+
+  return {
+    days: [...openingDays],
+    morning,
+    afternoon: null,
+    evening: null,
+    isEstimated: isEstimated ?? false,
+  };
+}
+
+/** ID POI deterministico e collision-safe (osm_id distinti → id distinti). */
+function buildPoiIdFromOsmId(osmId: string): string {
+  const trimmed = osmId.trim();
+  const encoded = trimmed.replace(/[^A-Za-z0-9_-]/g, (ch) => {
+    const code = ch.codePointAt(0);
+    return code === undefined ? '_' : `_x${code.toString(16)}x_`;
+  });
+  const id = `osm_${encoded}`;
+  if (id.length <= 200) return id;
+  let hash = 0;
+  for (let i = 0; i < trimmed.length; i += 1) {
+    hash = (hash * 31 + trimmed.charCodeAt(i)) >>> 0;
+  }
+  return `osm_h_${hash.toString(16)}_${encoded.slice(0, 120)}`;
+}
+
+function assertFiniteStagingCoords(lat: number, lng: number, stagingId: string): void {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error(`[Staging] Coordinate non valide per staging ${stagingId}`);
+  }
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    throw new Error(`[Staging] Coordinate fuori range per staging ${stagingId}`);
+  }
+}
+
+function resolveStagingSortColumn(sortBy: string | undefined): StagingSortColumn {
+  if (sortBy && (STAGING_SORT_COLUMNS as readonly string[]).includes(sortBy)) {
+    return sortBy as StagingSortColumn;
+  }
+  return 'created_at';
+}
+
 // Colonne leggere per la lista
 const LIGHTWEIGHT_COLS =
   'id, city_id, osm_id, name, raw_category, coords_lat, coords_lng, address, ai_rating, processing_status, created_at, updated_at';
@@ -53,7 +152,7 @@ const LIGHTWEIGHT_COLS =
 /** Sottoinsieme di pois_staging restituito dalle query LIGHTWEIGHT_COLS. */
 export type StagingPoiLightweight = {
   id: string;
-  city_id: string | null;
+  city_id: string;
   osm_id: string;
   name: string;
   raw_category: string | null;
@@ -69,8 +168,12 @@ export type StagingPoiLightweight = {
 function describeStagingPoiLightweightRowIssue(value: unknown): string | null {
   if (!value || typeof value !== 'object') return 'expected an object';
   if (!('id' in value) || typeof value.id !== 'string') return 'id must be a string';
-  if (!('city_id' in value) || (typeof value.city_id !== 'string' && value.city_id !== null))
-    return 'city_id must be a string or null';
+  if (
+    !('city_id' in value) ||
+    typeof value.city_id !== 'string' ||
+    value.city_id.trim().length === 0
+  )
+    return 'city_id must be a non-empty string';
   if (!('osm_id' in value) || typeof value.osm_id !== 'string') return 'osm_id must be a string';
   if (!('name' in value) || typeof value.name !== 'string') return 'name must be a string';
   if (
@@ -153,6 +256,13 @@ export const getStagingPois = async ({
   sortBy = 'created_at',
   sortDir = 'desc',
 }: StagingFilter) => {
+  const safePage = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
+  const safePageSize =
+    Number.isFinite(pageSize) && pageSize > 0
+      ? Math.min(Math.floor(pageSize), STAGING_MAX_PAGE_SIZE)
+      : 50;
+  const orderColumn = resolveStagingSortColumn(sortBy);
+
   let query = supabase
     .from('pois_staging')
     .select(LIGHTWEIGHT_COLS, { count: 'exact' }) // USO COLONNE LEGGERE
@@ -175,11 +285,12 @@ export const getStagingPois = async ({
     query = query.in('raw_category', rawCategories);
   }
 
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
 
   const { data, count, error } = await query
-    .order(sortBy, { ascending: sortDir === 'asc' })
+    .order(orderColumn, { ascending: sortDir === 'asc' })
+    .order('id', { ascending: true })
     .range(from, to);
 
   if (error) {
@@ -260,7 +371,9 @@ export const getAllStagingIds = async ({
   let hasMore = true;
 
   while (hasMore) {
-    const { data, error } = await queryBase.range(from, from + PAGE_SIZE - 1);
+    const { data, error } = await queryBase
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
 
     if (error) {
       console.error('Error fetching all staging IDs:', error);
@@ -286,31 +399,26 @@ export const getAllStagingIds = async ({
 export const getStagingItemsByIds = async (ids: string[]): Promise<DatabasePoiStaging[]> => {
   if (ids.length === 0) return [];
 
-  // Divide in chunk da 50 per stare sicuri nei limiti URL
-  const CHUNK_SIZE = 50;
-  const chunks = [];
-  for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-    chunks.push(ids.slice(i, i + CHUNK_SIZE));
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += STAGING_ITEMS_BY_IDS_CHUNK) {
+    chunks.push(ids.slice(i, i + STAGING_ITEMS_BY_IDS_CHUNK));
   }
 
   let allData: DatabasePoiStaging[] = [];
 
-  // Esegue le chiamate in parallelo per velocità
-  const promises = chunks.map((chunk) =>
-    supabase
-      .from('pois_staging')
-      .select('*') // Qui scarichiamo tutto perché serve per il processamento AI/Publish
-      .in('id', chunk),
-  );
+  for (let i = 0; i < chunks.length; i += STAGING_ITEMS_BY_IDS_CONCURRENCY) {
+    const batch = chunks.slice(i, i + STAGING_ITEMS_BY_IDS_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((chunk) => supabase.from('pois_staging').select('*').in('id', chunk)),
+    );
 
-  const results = await Promise.all(promises);
-
-  for (const result of results) {
-    if (result.error) {
-      throw new Error(`[Staging] getStagingItemsByIds chunk failed: ${result.error.message}`);
-    }
-    if (result.data) {
-      allData = [...allData, ...result.data];
+    for (const result of results) {
+      if (result.error) {
+        throw new Error(`[Staging] getStagingItemsByIds chunk failed: ${result.error.message}`);
+      }
+      if (result.data) {
+        allData = [...allData, ...result.data];
+      }
     }
   }
 
@@ -318,7 +426,7 @@ export const getStagingItemsByIds = async (ids: string[]): Promise<DatabasePoiSt
 };
 
 export const saveStagingBatch = async (cityId: string, rawItems: StagingIngestDTO[]) => {
-  if (rawItems.length === 0) return { inserted: 0, error: null };
+  if (rawItems.length === 0) return { processed: 0, error: null };
 
   const payload: DatabasePoiStagingInsert[] = rawItems.map((item) => ({
     city_id: cityId,
@@ -339,12 +447,13 @@ export const saveStagingBatch = async (cityId: string, rawItems: StagingIngestDT
 
   if (error) {
     console.error('Batch save error:', error);
-    return { inserted: 0, error };
+    return { processed: 0, error };
   }
 
-  return { inserted: rawItems.length, error: null };
+  return { processed: rawItems.length, error: null };
 };
 
+/** Unico caller: importAutomationService (batch max 25 elementi per invocazione). */
 export const updateStagingAiRatings = async (results: RatedPoiResult[]) => {
   if (results.length === 0) return;
   const updates = results.map((item) => {
@@ -398,10 +507,8 @@ export const clearCityStaging = async (cityId: string): Promise<number> => {
 
 // --- GESTIONE ORFANI SICURA (TAGGING) ---
 
-// 1. Marca gli item come orfani con il nome della città (colonna dedicata)
-// 2. Rimuove city_id
+// Marca gli item con il nome città (identificazione reclaim). city_id resta valorizzato (NOT NULL in DB).
 export const orphanCityStaging = async (cityId: string, cityName: string): Promise<void> => {
-  // Step 1: Tagga con il nome città (Safe Identification)
   const { error: tagError } = await supabase
     .from('pois_staging')
     .update({ orphan_city_tag: cityName })
@@ -409,33 +516,31 @@ export const orphanCityStaging = async (cityId: string, cityName: string): Promi
   if (tagError) {
     throw new Error(`[Staging] Tagging pois_staging failed: ${tagError.message}`);
   }
-
-  // Step 2: Rendi orfani (city_id = null)
-  const orphanUpdate: DatabasePoiStagingUpdate = { city_id: null };
-  const { error: orphanError } = await supabase
-    .from('pois_staging')
-    .update(orphanUpdate)
-    .eq('city_id', cityId);
-  if (orphanError) {
-    throw new Error(`[Staging] Orphaning pois_staging failed: ${orphanError.message}`);
-  }
 };
 
-// Recupera gli orfani basandosi sul tag esatto, non sull'indirizzo vago
+/**
+ * Reclaim staging tagged by orphanCityStaging (orphan_city_tag).
+ * city_id resta NOT NULL: si riassegna newCityId alle righe con tag impostato.
+ * Limite: omonimia di cityName può includere tag di città omonime diverse (debt preesistente).
+ */
 export const reclaimStagingByCityName = async (
   cityName: string,
   newCityId: string,
 ): Promise<number> => {
-  const escapedCityName = escapeLikePattern(cityName.trim());
-  // Cerca per tag esatto (Case insensitive per sicurezza)
+  const trimmedCityId = newCityId.trim();
+  const trimmedName = cityName.trim();
+  if (!trimmedCityId || !trimmedName) return 0;
+
+  const escapedCityName = escapeLikePattern(trimmedName);
   const { data, error } = await supabase
     .from('pois_staging')
     .update({
-      city_id: newCityId,
-      orphan_city_tag: null, // Pulisce il tag
+      city_id: trimmedCityId,
+      orphan_city_tag: null,
     })
-    .is('city_id', null)
+    .not('orphan_city_tag', 'is', null)
     .ilike('orphan_city_tag', escapedCityName)
+    .neq('city_id', trimmedCityId)
     .select('*');
 
   if (error) {
@@ -552,8 +657,11 @@ export const deduplicateStagingData = async (cityId: string): Promise<number> =>
         // Abbiamo un gruppo di duplicati. Troviamo il "Vincitore"
         const group = [current, ...duplicates];
 
-        // Ordina per punteggio ricchezza decrescente
-        group.sort((a, b) => getDataScore(b) - getDataScore(a));
+        group.sort((a, b) => {
+          const scoreDiff = getDataScore(b) - getDataScore(a);
+          if (scoreDiff !== 0) return scoreDiff;
+          return a.id.localeCompare(b.id);
+        });
 
         // Il primo è il vincitore, gli altri si cancellano
 
@@ -590,9 +698,13 @@ export const promoteToLive = async (
   cityName: string,
   useSearch: boolean = false,
 ): Promise<boolean> => {
+  let cityId = '';
+  let poiId = '';
+
   try {
-    if (!stagingItem.city_id) {
-      throw new Error(`[Staging] Cannot promote orphaned staging item ${stagingItem.id}`);
+    cityId = stagingItem.city_id.trim();
+    if (cityId.length === 0) {
+      throw new Error(`[Staging] Cannot promote staging item ${stagingItem.id} without city_id`);
     }
 
     if (typeof stagingItem.osm_id !== 'string' || stagingItem.osm_id.trim().length === 0) {
@@ -607,31 +719,60 @@ export const promoteToLive = async (
       useSearch,
     );
 
+    if (enriched.description?.includes('Generazione AI fallita') || !enriched.description?.trim()) {
+      throw new Error(
+        `[Staging] Promote blocked: enrichment incomplete for "${stagingItem.name}" (description required).`,
+      );
+    }
+
+    const openingHoursDomain = requireOpeningHoursFromEnrichment(
+      stagingItem.name,
+      enriched.openingDays,
+      enriched.openingHours,
+      enriched.isEstimated,
+    );
+    const openingHoursJson = serializeOpeningHours(openingHoursDomain);
+    if (openingHoursJson === null) {
+      throw new Error(
+        `[Staging] Promote blocked: opening hours serialization failed for "${stagingItem.name}".`,
+      );
+    }
+
+    assertFiniteStagingCoords(stagingItem.coords_lat, stagingItem.coords_lng, stagingItem.id);
+
     const category = enriched.category || 'discovery';
 
-    // 3. Costruzione Oggetto POI Finale (Type Safe)
     const finalAddress = enriched.address ?? stagingItem.address ?? null;
     const finalStatus = 'draft';
     const stagingInterest = stagingItem.ai_rating || 'medium';
 
-    const safeOsmId = stagingItem.osm_id.replace(/[^A-Za-z0-9_-]/g, '_');
+    poiId = buildPoiIdFromOsmId(stagingItem.osm_id);
+
+    const visitDuration = enriched.visitDuration?.trim() || null;
+    const priceLevel =
+      enriched.priceLevel === 1 ||
+      enriched.priceLevel === 2 ||
+      enriched.priceLevel === 3 ||
+      enriched.priceLevel === 4
+        ? enriched.priceLevel
+        : null;
 
     const newPoi: DatabasePoiInsert = {
-      id: `osm_${safeOsmId}`,
-      city_id: stagingItem.city_id,
+      id: poiId,
+      city_id: cityId,
       name: stagingItem.name,
 
       category: category,
       sub_category: enriched.rawSubCategory || stagingItem.raw_category || 'generic',
 
-      description: enriched.description || `Luogo di interesse a ${cityName}.`,
+      description: enriched.description.trim(),
 
       coords_lat: stagingItem.coords_lat,
       coords_lng: stagingItem.coords_lng,
       address: finalAddress,
 
-      visit_duration: enriched.visitDuration || '1h',
-      price_level: enriched.priceLevel || 1,
+      visit_duration: visitDuration,
+      price_level: priceLevel,
 
       tourism_interest: stagingInterest,
       ai_reliability: useSearch ? 'high' : 'medium',
@@ -645,7 +786,7 @@ export const promoteToLive = async (
 
       is_sponsored: false,
       tier: null,
-      opening_hours: null,
+      opening_hours: openingHoursJson,
       affiliate: null,
       link_metadata: null,
       showcase_expiry: null,
@@ -695,10 +836,22 @@ export const promoteToLive = async (
     if (rpcError) {
       throw new Error(`[Staging] Atomic promote failed for ${stagingItem.id}: ${rpcError.message}`);
     }
-
-    return true;
   } catch (e) {
     console.error(`Failed to promote item ${stagingItem.name}:`, e);
     return false;
   }
+
+  try {
+    const { schedulePoiRealImageDiscovery } = await import('./poi/poiRealImageDiscoveryService');
+    schedulePoiRealImageDiscovery(poiId, cityId, 'mass_import', cityName);
+  } catch (postPromoteErr: unknown) {
+    const detail =
+      postPromoteErr instanceof Error ? postPromoteErr.message : String(postPromoteErr);
+    console.error(
+      `[Staging] Post-promote image discovery scheduling failed for staging ${stagingItem.id} / poi ${poiId}: ${detail}`,
+      postPromoteErr,
+    );
+  }
+
+  return true;
 };

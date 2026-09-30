@@ -24,12 +24,11 @@ import type {
 import type { Json } from '../../types/supabase';
 import { sanitizeMediaStatus } from '../../utils/media';
 import { calculateDistance } from '../geo';
-import {
-  applyPrimaryImageCutoverForCityPeople,
-  applyPrimaryImageCutoverForPoisList,
-} from '../media/entityPrimaryImageReadService';
+import { applyPrimaryImageCutoverForCityPeople } from '../media/entityPrimaryImageReadService';
+import { applyPoiD22PublicDisplayImages } from '../poi/poiImageReadService';
 import { supabase } from '../supabaseClient';
 import { getFromCache, LONG_CACHE_TTL, setInCache } from './cityCache';
+import { applyCityHeroD22ToDetails, applyCityHeroD22ToSummaries } from './cityHeroReadService';
 import {
   type CityPeopleAudience,
   getCityEvents,
@@ -174,6 +173,7 @@ type CityDetailsApiRowFields = Pick<
   | 'image_license'
   | 'ratings'
   | 'gallery'
+  | 'wikimedia_hero_public_enabled'
 >;
 
 /**
@@ -266,6 +266,7 @@ function cityRowToRouteView(row: CityDetailsApiRow): DatabaseCityRouteView {
     hero_status: row.hero_status,
     image_credit: row.image_credit ?? undefined,
     image_license: row.image_license ?? undefined,
+    wikimedia_hero_public_enabled: row.wikimedia_hero_public_enabled ?? undefined,
   };
 }
 
@@ -332,6 +333,7 @@ const mapDbCityToSummary = (
       db.classification_explainability,
     ),
     hasGeneratedContent: hasContent,
+    wikimediaHeroPublicEnabled: db.wikimedia_hero_public_enabled === true,
     continent_slug: db.continent_slug || undefined,
     nation_slug: db.nation_slug || undefined,
     region_slug: db.region_slug || undefined,
@@ -375,13 +377,13 @@ const mapDbCityToDetails = (
     ...summary,
     details: {
       subtitle: db.subtitle || '',
-      heroImage: db.hero_image || db.image_url || '',
+      heroImage: db.hero_image || '',
       hero_status: db.hero_status ?? 'missing',
       historySnippet: db.history_snippet || db.description || '',
       historyFull: db.history_full || '',
       officialWebsite: db.official_website,
       heroAsset: parseMediaAsset(
-        db.hero_image || db.image_url || '',
+        db.hero_image || '',
         db.hero_status ?? 'missing',
         db.image_credit,
         db.image_license,
@@ -420,6 +422,38 @@ function isAbortLikeError(error: unknown, signal?: AbortSignal): boolean {
     return error.name === 'AbortError';
   }
   return error instanceof Error && error.name === 'AbortError';
+}
+
+/** Toggle Hero Wikimedia: SoT colonna `cities` (manifest API/view può ometterlo). */
+async function hydrateWikimediaHeroToggleFromCities(
+  summaries: CitySummary[],
+): Promise<CitySummary[]> {
+  if (summaries.length === 0) return summaries;
+
+  const ids = [...new Set(summaries.map((city) => city.id.trim()).filter(Boolean))];
+  const { data, error } = await supabase
+    .from('cities')
+    .select('id, wikimedia_hero_public_enabled')
+    .in('id', ids);
+
+  if (error) {
+    throw new Error(
+      `[CityReadService] Lettura wikimedia_hero_public_enabled fallita: ${error.message}`,
+    );
+  }
+
+  const toggleByCityId = new Map<string, boolean>();
+  for (const row of data ?? []) {
+    const id = typeof row.id === 'string' ? row.id.trim() : '';
+    if (!id) continue;
+    toggleByCityId.set(id, row.wikimedia_hero_public_enabled === true);
+  }
+
+  return summaries.map((city) => {
+    const cityId = city.id.trim();
+    if (!toggleByCityId.has(cityId)) return city;
+    return { ...city, wikimediaHeroPublicEnabled: toggleByCityId.get(cityId) === true };
+  });
 }
 
 export const getFullManifestAsync = async (
@@ -480,8 +514,11 @@ export const getFullManifestAsync = async (
     });
   }
 
+  // Escludi deleted_orphan sul valore DB grezzo (parseCityStatusFromDb non mappa deleted_orphan).
+  const manifestRows = dbData.filter((db) => String(db.status) !== 'deleted_orphan');
+
   // Normalizzazione dati tramite mapper canonico
-  let result = dbData
+  let result = manifestRows
     .map((db) => mapDbCityToSummary(db, zoneMap))
     .filter((c): c is CitySummary => c !== null);
 
@@ -489,8 +526,10 @@ export const getFullManifestAsync = async (
     result = result.filter((c) => c.status === 'published');
   }
 
-  setInCache(CACHE_KEY, result, LONG_CACHE_TTL);
-  return result;
+  result = await hydrateWikimediaHeroToggleFromCities(result);
+  const withResolvedHero = await applyCityHeroD22ToSummaries(result);
+  setInCache(CACHE_KEY, withResolvedHero, LONG_CACHE_TTL);
+  return withResolvedHero;
 };
 
 export type { CityPeopleAudience };
@@ -539,7 +578,7 @@ export const getCityDetails = async (
 
         people = await applyPrimaryImageCutoverForCityPeople(people);
 
-        const visiblePois = await applyPrimaryImageCutoverForPoisList(pois);
+        const visiblePois = await applyPoiD22PublicDisplayImages(pois);
 
         let result: CityDetails | null = null;
 
@@ -559,8 +598,9 @@ export const getCityDetails = async (
 
         if (!result) return null;
 
-        setInCache(CACHE_KEY, result);
-        return result;
+        const withHero = await applyCityHeroD22ToDetails(result);
+        setInCache(CACHE_KEY, withHero);
+        return withHero;
       }
     }
   } catch (apiError) {
@@ -591,7 +631,7 @@ export const getCityDetails = async (
   if (cityErr || !cityData) return null;
   const dbCity = cityRowToRouteView(cityData);
 
-  const [pois, events, services, guides, tourOperators, people] = await Promise.all([
+  const [poisRaw, events, services, guides, tourOperators, people] = await Promise.all([
     getPoisByCityId(cityId),
     getCityEvents(cityId),
     getCityServices(cityId),
@@ -599,16 +639,15 @@ export const getCityDetails = async (
     getCityTourOperators(cityId),
     getCityPeople(cityId, peopleAudience),
   ]);
+  const pois = await applyPoiD22PublicDisplayImages(poisRaw);
   const sortedPeople = people.sort(
     (a: FamousPerson, b: FamousPerson) => (a.orderIndex || 0) - (b.orderIndex || 0),
   );
   const cutoveredPeople = await applyPrimaryImageCutoverForCityPeople(sortedPeople);
-  const visiblePois = await applyPrimaryImageCutoverForPoisList(pois);
-
   const result = mapDbCityToDetails(
     dbCity,
     {
-      pois: visiblePois,
+      pois,
       events,
       services,
       guides,
@@ -621,8 +660,9 @@ export const getCityDetails = async (
 
   if (!result) return null;
 
-  setInCache(CACHE_KEY, result);
-  return result;
+  const withHero = await applyCityHeroD22ToDetails(result);
+  setInCache(CACHE_KEY, withHero);
+  return withHero;
 };
 
 export const buildVirtualCity = async (
@@ -684,6 +724,28 @@ export const buildVirtualCity = async (
 
     const aggregatedCities = nearbyCities.map((c) => ({ id: c.id, name: c.name }));
 
+    const virtualHeroFromNearby = (() => {
+      const first = nearbyCities[0];
+      if (!first) {
+        return { heroUrl: '', heroStatus: sanitizeMediaStatus('missing') };
+      }
+      const resolvedHero = first.heroImage?.trim() ?? '';
+      if (resolvedHero.length > 0) {
+        return {
+          heroUrl: resolvedHero,
+          heroStatus: sanitizeMediaStatus(first.hero_status ?? 'real'),
+        };
+      }
+      const cardUrl = first.imageUrl?.trim() ?? '';
+      if (cardUrl.length > 0) {
+        return {
+          heroUrl: cardUrl,
+          heroStatus: sanitizeMediaStatus(first.image_status ?? first.hero_status ?? 'real'),
+        };
+      }
+      return { heroUrl: '', heroStatus: sanitizeMediaStatus('missing') };
+    })();
+
     // Narrowing reale: ramo merge solo con baseCity definito.
     // Spread da baseCity: nuovi campi CityDetails/details restano ereditati;
     // sotto solo le override richieste dalla virtualizzazione merge.
@@ -731,8 +793,8 @@ export const buildVirtualCity = async (
       description: `Esplorazione territoriale personalizzata. Include ${nearbyCities.length} località nel raggio di ${radiusKm}km dalla tua posizione.`,
       imageUrl: nearbyCities[0]?.imageUrl || '',
       image_status: nearbyCities[0]?.image_status ?? 'missing',
-      heroImage: nearbyCities[0]?.imageUrl || '',
-      hero_status: nearbyCities[0]?.image_status ?? 'missing',
+      heroImage: virtualHeroFromNearby.heroUrl,
+      hero_status: virtualHeroFromNearby.heroStatus,
       rating: 0,
       visitors: 0,
       isFeatured: false,
@@ -745,8 +807,8 @@ export const buildVirtualCity = async (
       aggregatedCities,
       details: {
         subtitle: `${nearbyCities.length} Città vicine`,
-        heroImage: nearbyCities[0]?.imageUrl || '',
-        hero_status: nearbyCities[0]?.image_status ?? 'missing',
+        heroImage: virtualHeroFromNearby.heroUrl,
+        hero_status: virtualHeroFromNearby.heroStatus,
         historySnippet: `Esplorazione libera del territorio.`,
         historyFull: '',
         ...sharedDetails,

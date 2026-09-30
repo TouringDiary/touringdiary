@@ -1,7 +1,7 @@
 import { AI_RELIABILITY_VALUES, TOURISM_INTEREST_VALUES } from '@/constants/governance';
 import type { DatabasePoi } from '../../../types/database';
 import type { PointOfInterest } from '../../../types/index';
-import { applyPrimaryImageCutoverForPoisList } from '../../media/entityPrimaryImageReadService';
+import { applyPoiD22PublicDisplayImages } from '../../poi/poiImageReadService';
 import { supabase } from '../../supabaseClient';
 import { mapDbPoiToApp } from './poiMapper';
 
@@ -277,7 +277,7 @@ export const getPoisPaginated = async (params: PoiFilterParams): Promise<Paginat
 
     const mapped = (data as DatabasePoi[]).map(mapDbPoiToApp);
     return {
-      data: await applyPrimaryImageCutoverForPoisList(mapped),
+      data: await applyPoiD22PublicDisplayImages(mapped),
       count: count || 0,
     };
   } catch (e: unknown) {
@@ -304,24 +304,24 @@ export const getPoisForDeepScan = async (
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  return applyPrimaryImageCutoverForPoisList(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
+  return applyPoiD22PublicDisplayImages(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
 };
 
 export const getPoisByCityId = async (cityId: string): Promise<PointOfInterest[]> => {
   const { data } = await supabase.from('pois').select('*').eq('city_id', cityId);
-  return applyPrimaryImageCutoverForPoisList(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
+  return applyPoiD22PublicDisplayImages(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
 };
 
 export const getAllPoisGlobal = async (): Promise<PointOfInterest[]> => {
   const { data, error } = await supabase.from('pois').select('*');
   if (error) return [];
-  return applyPrimaryImageCutoverForPoisList(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
+  return applyPoiD22PublicDisplayImages(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
 };
 
 export const getPoisByCityIds = async (cityIds: string[]): Promise<PointOfInterest[]> => {
   if (cityIds.length === 0) return [];
   const { data } = await supabase.from('pois').select('*').in('city_id', cityIds);
-  return applyPrimaryImageCutoverForPoisList(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
+  return applyPoiD22PublicDisplayImages(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
 };
 
 /** Recupera POI per id (singola query `.in('id', ids)`; chunking non implementato). */
@@ -335,5 +335,5 @@ export const getPoisByIds = async (ids: string[]): Promise<PointOfInterest[]> =>
     return [];
   }
 
-  return applyPrimaryImageCutoverForPoisList(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
+  return applyPoiD22PublicDisplayImages(((data as DatabasePoi[]) || []).map(mapDbPoiToApp));
 };

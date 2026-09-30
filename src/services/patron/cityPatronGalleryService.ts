@@ -1,5 +1,6 @@
 import type { Database } from '@/types/database';
 import type { CityPatronGalleryPhoto } from '@/types/models/patronGallery';
+import { entityImageAssignmentsQuery } from '../media/entityImageAssignmentsQuery';
 import { filterPatronGalleryByAssignmentVisibility } from '../media/imageAssignmentVisibilityService';
 import { safeArchiveMediaAsset } from '../media/mediaCatalogService';
 import {
@@ -7,7 +8,6 @@ import {
   deletePublicMediaByStoragePath,
   uploadPublicMediaDetailed,
 } from '../mediaService';
-import { mf2EntityImageAssignmentsTable } from '../reports/mf2DbClient';
 import { supabase } from '../supabaseClient';
 import {
   assignmentMatchesGalleryRow,
@@ -63,7 +63,7 @@ async function attachPatronGalleryAssignmentIds(
 ): Promise<CityPatronGalleryPhoto[]> {
   if (photos.length === 0) return photos;
 
-  const { data, error } = await mf2EntityImageAssignmentsTable()
+  const { data, error } = await entityImageAssignmentsQuery()
     .select(
       'id, media_asset_id, source_image_url, source_storage_path, source_storage_bucket, assignment_status',
     )
@@ -78,7 +78,33 @@ async function attachPatronGalleryAssignmentIds(
     throw new Error(`Lettura assignment galleria Patrono fallita: ${error.message}`);
   }
 
-  const rows = (data ?? []) as unknown as PatronGalleryAssignmentRow[];
+  const rows: PatronGalleryAssignmentRow[] = [];
+  for (const raw of data ?? []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const row = raw as Record<string, unknown>;
+    const id = typeof row.id === 'string' ? row.id.trim() : '';
+    const mediaAssetId = typeof row.media_asset_id === 'string' ? row.media_asset_id.trim() : '';
+    const assignmentStatus =
+      typeof row.assignment_status === 'string' ? row.assignment_status.trim() : '';
+    if (!id || !mediaAssetId || !assignmentStatus) continue;
+    rows.push({
+      id,
+      media_asset_id: mediaAssetId,
+      source_image_url:
+        row.source_image_url === null || typeof row.source_image_url === 'string'
+          ? row.source_image_url
+          : null,
+      source_storage_path:
+        row.source_storage_path === null || typeof row.source_storage_path === 'string'
+          ? row.source_storage_path
+          : null,
+      source_storage_bucket:
+        row.source_storage_bucket === null || typeof row.source_storage_bucket === 'string'
+          ? row.source_storage_bucket
+          : null,
+      assignment_status: assignmentStatus,
+    });
+  }
 
   return photos.map((photo) => {
     const imageUrl = photo.imageUrl.trim();
@@ -128,23 +154,28 @@ export const addCityPatronGalleryPhoto = async (
   file: File,
   caption?: string | null,
 ): Promise<CityPatronGalleryPhoto | null> => {
-  const folder = `city_patron_gallery/${cityId}`;
+  const trimmedCityId = cityId.trim();
+  if (!trimmedCityId) return null;
+
+  const folder = `city_patron_gallery/${trimmedCityId}`;
   const uploaded = await uploadPublicMediaDetailed(file, folder);
   if (!uploaded) return null;
 
   const normalizedCaption = normalizeCaption(caption);
 
   const id = crypto.randomUUID();
+  let rpcPersisted = false;
 
   try {
     const assignmentId = await insertCityPatronGalleryPhotoWithAssignmentRpc({
-      cityId,
+      cityId: trimmedCityId,
       galleryPhotoId: id,
       imageUrl: uploaded.publicUrl,
       storagePath: uploaded.storagePath,
       caption: normalizedCaption,
       originType: 'admin',
     });
+    rpcPersisted = true;
 
     const { data, error } = await supabase
       .from('city_patron_gallery')
@@ -158,13 +189,15 @@ export const addCityPatronGalleryPhoto = async (
 
     return mapRow(data, assignmentId);
   } catch (insertErr) {
-    const removed = await deletePublicMediaByStoragePath(uploaded.storagePath);
-    if (!removed) {
-      console.error(
-        '[addCityPatronGalleryPhoto] insert atomico fallito e cleanup Storage non riuscito; possibile file orfano:',
-        uploaded.storagePath,
-        insertErr,
-      );
+    if (!rpcPersisted) {
+      const removed = await deletePublicMediaByStoragePath(uploaded.storagePath);
+      if (!removed) {
+        console.error(
+          '[addCityPatronGalleryPhoto] insert atomico fallito e cleanup Storage non riuscito; possibile file orfano:',
+          uploaded.storagePath,
+          insertErr,
+        );
+      }
     }
     throw insertErr;
   }
@@ -181,7 +214,12 @@ export const addCityPatronGalleryPhotoFromApprovedSuggestion = async (
   sourceItem: ApprovedSuggestionGalleryItem,
   _approvedByUserId: string,
 ): Promise<CityPatronGalleryPhoto> => {
-  const destFolder = `city_patron_gallery/${cityId}`;
+  const trimmedCityId = cityId.trim();
+  if (!trimmedCityId) {
+    throw new Error('[cityPatronGallery] cityId obbligatorio.');
+  }
+
+  const destFolder = `city_patron_gallery/${trimmedCityId}`;
   const copied = await copyPublicMediaToFolder(sourceItem.storagePath, destFolder);
   if (!copied) {
     throw new Error('Impossibile copiare la fotografia nella gallery ufficiale.');
@@ -191,11 +229,12 @@ export const addCityPatronGalleryPhotoFromApprovedSuggestion = async (
   const normalizedCaption = normalizeCaption(sourceItem.caption);
 
   const id = crypto.randomUUID();
+  let rpcPersisted = false;
 
   try {
     // approved_by/approved_at: server-authoritative (SQL auth.uid()); _approvedByUserId solo compat API.
     const assignmentId = await insertCityPatronGalleryPhotoWithAssignmentRpc({
-      cityId,
+      cityId: trimmedCityId,
       galleryPhotoId: id,
       imageUrl: copied.publicUrl,
       storagePath: copied.storagePath,
@@ -203,6 +242,7 @@ export const addCityPatronGalleryPhotoFromApprovedSuggestion = async (
       sourceSuggestionItemId: sourceItem.id,
       originType: 'community',
     });
+    rpcPersisted = true;
 
     const { data, error } = await supabase
       .from('city_patron_gallery')
@@ -216,13 +256,15 @@ export const addCityPatronGalleryPhotoFromApprovedSuggestion = async (
 
     return mapRow(data, assignmentId);
   } catch (insertErr) {
-    const removed = await deletePublicMediaByStoragePath(copied.storagePath);
-    if (!removed) {
-      console.error(
-        '[addCityPatronGalleryPhotoFromApprovedSuggestion] insert atomico fallito e cleanup Storage non riuscito; possibile file orfano:',
-        copied.storagePath,
-        insertErr,
-      );
+    if (!rpcPersisted) {
+      const removed = await deletePublicMediaByStoragePath(copied.storagePath);
+      if (!removed) {
+        console.error(
+          '[addCityPatronGalleryPhotoFromApprovedSuggestion] insert atomico fallito e cleanup Storage non riuscito; possibile file orfano:',
+          copied.storagePath,
+          insertErr,
+        );
+      }
     }
     throw insertErr;
   }
@@ -255,16 +297,54 @@ export const reorderCityPatronGallery = async (
   cityId: string,
   orderedPhotoIds: string[],
 ): Promise<void> => {
-  const updates = orderedPhotoIds.map((id, index) =>
-    supabase
+  const trimmedCityId = cityId.trim();
+  if (!trimmedCityId) {
+    throw new Error('[cityPatronGallery] reorder: cityId obbligatorio.');
+  }
+  const uniqueIds = [...new Set(orderedPhotoIds.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length !== orderedPhotoIds.length) {
+    throw new Error('[cityPatronGallery] reorder: ID duplicati o vuoti non consentiti.');
+  }
+
+  const { data: galleryRows, error: galleryLoadError } = await supabase
+    .from('city_patron_gallery')
+    .select('id')
+    .eq('city_id', trimmedCityId);
+  if (galleryLoadError) throw galleryLoadError;
+
+  const galleryIds = (galleryRows ?? [])
+    .map((row) => (typeof row.id === 'string' ? row.id.trim() : ''))
+    .filter(Boolean)
+    .sort();
+  const requestedIds = [...uniqueIds].sort();
+
+  if (galleryIds.length !== requestedIds.length) {
+    throw new Error(
+      "[cityPatronGallery] reorder: l'elenco deve contenere tutte le foto della gallery (né più né meno).",
+    );
+  }
+  for (let index = 0; index < galleryIds.length; index += 1) {
+    if (galleryIds[index] !== requestedIds[index]) {
+      throw new Error(
+        "[cityPatronGallery] reorder: l'elenco deve coincidere esattamente con le foto della gallery.",
+      );
+    }
+  }
+
+  for (let index = 0; index < uniqueIds.length; index += 1) {
+    const id = uniqueIds[index];
+    const { data: updated, error } = await supabase
       .from('city_patron_gallery')
       .update({ sort_order: index })
       .eq('id', id)
-      .eq('city_id', cityId),
-  );
-  const results = await Promise.all(updates);
-  for (const { error } of results) {
+      .eq('city_id', trimmedCityId)
+      .select('id');
     if (error) throw error;
+    if (!updated?.length) {
+      throw new Error(
+        `[cityPatronGallery] reorder: nessuna riga aggiornata per foto ${id} (city_id=${trimmedCityId}).`,
+      );
+    }
   }
 };
 

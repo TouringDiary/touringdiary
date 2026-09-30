@@ -1,7 +1,7 @@
 import { isPublicUsableImageAssetStatus, parseImageAssetStatusDb } from '@/constants/governance';
 import { resolvePatronPrimaryImagePublicUrl } from '@/services/media/entityPrimaryImageReadService';
 import { fetchMediaAssetsByIds } from '@/services/media/mediaAssetService';
-import { mf2EntityImageAssignmentsTable } from '@/services/reports/mf2DbClient';
+import { entityImageAssignmentsQuery } from '@/services/media/entityImageAssignmentsQuery';
 
 type PatronGalleryAssignmentVisibilityRow = {
   id: string;
@@ -52,7 +52,7 @@ export async function filterPatronGalleryByAssignmentVisibility<
 >(cityId: string, photos: T[]): Promise<T[]> {
   if (photos.length === 0) return photos;
 
-  const { data, error } = await mf2EntityImageAssignmentsTable()
+  const { data, error } = await entityImageAssignmentsQuery()
     .select('id, media_asset_id, assignment_status')
     .eq('entity_type', 'patron')
     .eq('entity_id', cityId)

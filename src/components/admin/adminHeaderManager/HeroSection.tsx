@@ -1,4 +1,4 @@
-import { Crop, Image as ImageIcon, Loader2, Save, Trash2, Upload } from 'lucide-react';
+import { Crop, Image as ImageIcon, Trash2, Upload } from 'lucide-react';
 import type React from 'react';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { SafeArtPanel } from '../design/SafeArtPanel';
@@ -9,8 +9,7 @@ type HeroSectionProps = {
   mode: 'upload' | 'generate';
   setMode: (mode: 'upload' | 'generate') => void;
   previewImage: string | null;
-  isSavingHero: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  fileInputRef: React.RefObject<HTMLInputElement>;
   openEditor: (url: string, target: AssetUploadTarget, cat?: string) => void;
   handleRemoveHeroRequest: () => void;
   handleFileUpload: (
@@ -20,21 +19,18 @@ type HeroSectionProps = {
   ) => void;
   handleSafeArtSuccess: (url: string) => void;
   showToast: (message: string, type: 'success' | 'error') => void;
-  handleSaveHero: () => void;
 };
 
 export const HeroSection = ({
   mode,
   setMode,
   previewImage,
-  isSavingHero,
   fileInputRef,
   openEditor,
   handleRemoveHeroRequest,
   handleFileUpload,
   handleSafeArtSuccess,
   showToast,
-  handleSaveHero,
 }: HeroSectionProps) => (
   <div className="flex flex-col gap-6">
     <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
@@ -67,16 +63,19 @@ export const HeroSection = ({
           onClick={() => openEditor(previewImage || GLOBAL_ASSET_DEFAULTS.hero, 'hero')}
           className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2.5 sm:py-2 rounded-lg shadow-lg border border-white/20 transition-colors flex items-center gap-2 text-[10px] font-bold uppercase shrink-0 touch-manipulation"
           title="Modifica e Ritaglia"
+          aria-label="Ritaglia o applica effetti all'immagine hero"
         >
-          <Crop className="w-4 h-4" /> <span className="hidden lg:inline">Ritaglia / Effetti</span>
+          <Crop className="w-4 h-4" aria-hidden="true" />{' '}
+          <span className="hidden lg:inline">Ritaglia / Effetti</span>
         </button>
         <button
           type="button"
           onClick={handleRemoveHeroRequest}
           className="bg-red-600 hover:bg-red-500 text-white p-2.5 sm:p-2 rounded-lg shadow-lg border border-white/20 transition-colors shrink-0 touch-manipulation"
           title="Rimuovi Immagine"
+          aria-label="Rimuovi immagine hero"
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -105,14 +104,9 @@ export const HeroSection = ({
       />
     )}
 
-    <button
-      type="button"
-      onClick={handleSaveHero}
-      disabled={isSavingHero}
-      className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-4 rounded-xl font-bold text-base shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 mt-4"
-    >
-      {isSavingHero ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-      Applica Header (DB)
-    </button>
+    <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+      L&apos;header globale viene salvato automaticamente in Asset Globali dopo upload, ritaglio o
+      Safe-Art (INT-APPLY-HEADER-DECOM-01).
+    </p>
   </div>
 );

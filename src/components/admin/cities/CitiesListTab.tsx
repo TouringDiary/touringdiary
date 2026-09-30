@@ -17,13 +17,16 @@ import {
   Square,
   Target,
   X,
+  Trash2,
   Zap,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useCityGenerator } from '../../../hooks/useCityGenerator';
 import type { useCityList } from '../../../hooks/useCityList';
+import { deleteCity } from '../../../services/city/cityLifecycleService';
 import { updateCityBadge, updateCityHomeOrder } from '../../../services/city/cityUpdateService';
-import type { BadgeType, CitySummary, User } from '../../../types/index';
+import type { BadgeType, CityDeleteOptions, CitySummary, User } from '../../../types/index';
+import { DeleteCityOptionsModal } from './DeleteCityOptionsModal';
 import { PaginationControls } from '../../common/PaginationControls';
 import { CityGeneratorModal } from './CityGeneratorModal';
 import { CompleteCityModal } from './CompleteCityModal';
@@ -114,6 +117,12 @@ const AdminLegend = () => (
 );
 
 export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps) => {
+  const isSuperAdmin = currentUser?.role === 'admin_all';
+  const [deleteTarget, setDeleteTarget] = useState<CitySummary | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteToast, setDeleteToast] = useState<{ message: string; type: 'success' | 'error' } | null>(
+    null,
+  );
   // GENERATOR HOOK
   const generator = useCityGenerator(list.forceReload);
 
@@ -123,6 +132,25 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [processingCityName, setProcessingCityName] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const confirmDeleteCity = async (options: CityDeleteOptions) => {
+    if (!deleteTarget || deleteBusy) return;
+    const targetName = deleteTarget.name;
+    setDeleteBusy(true);
+    try {
+      await deleteCity(deleteTarget.id, options, targetName);
+      list.forceReload();
+      setDeleteTarget(null);
+      setDeleteToast({ message: `Città "${targetName}" eliminata.`, type: 'success' });
+    } catch (err) {
+      setDeleteToast({
+        message: err instanceof Error ? err.message : 'Eliminazione fallita.',
+        type: 'error',
+      });
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   // NEW FILTER STATES - UNIFIED
   const [listTab, setListTab] = useState<'all' | 'published' | 'draft' | 'missing'>('all');
@@ -637,6 +665,18 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
                         >
                           Edit
                         </button>
+                        {isSuperAdmin ?
+                          <button
+                            type="button"
+                            disabled={deleteBusy}
+                            onClick={() => setDeleteTarget(city)}
+                            className="bg-red-950 hover:bg-red-700 text-red-200 px-2 py-0.5 rounded-xl text-[10px] font-black border border-red-900 uppercase transition-all shadow-md inline-flex items-center gap-1"
+                            title="Elimina città (admin_all)"
+                          >
+                            <Trash2 className="w-3 h-3" aria-hidden />
+                            Del
+                          </button>
+                        : null}
                       </div>
                     </td>
                   </tr>
@@ -656,6 +696,25 @@ export const CitiesListTab = ({ list, onEdit, currentUser }: CitiesListTabProps)
       />
 
       <AdminLegend />
+
+      {deleteTarget ?
+        <DeleteCityOptionsModal
+          isOpen={Boolean(deleteTarget)}
+          cityName={deleteTarget.name}
+          onClose={() => {
+            if (!deleteBusy) setDeleteTarget(null);
+          }}
+          onConfirm={(options) => void confirmDeleteCity(options)}
+        />
+      : null}
+
+      {deleteToast ?
+        <AdminToast
+          message={deleteToast.message}
+          type={deleteToast.type}
+          onClose={() => setDeleteToast(null)}
+        />
+      : null}
     </div>
   );
 };

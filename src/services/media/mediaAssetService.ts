@@ -5,13 +5,7 @@ import {
   type MediaOriginTypeDb,
   parseImageAssetStatusDb,
 } from '@/constants/governance';
-import { mf2EntityImageAssignmentsTable } from '@/services/reports/mf2DbClient';
-import { parseStorageLocationFromPublicUrl } from '@/utils/storagePathFromPublicUrl';
-import { upsertEntityImageAssignmentFromSource } from './entityImageAssignmentWriteService';
 import { mf3MediaAssetsTable, mf3Rpc } from './mf3DbClient';
-
-/** Bucket ammesso per portrait AI registrati via registerAiGeneratedPortraitAsset. */
-const AI_PORTRAIT_PUBLIC_BUCKET = 'public-media';
 
 export type MediaAssetProvenancePatch = {
   sourceRef?: string | null;
@@ -27,16 +21,17 @@ export type MediaAssetProvenancePatch = {
   metadata?: Record<string, unknown>;
 };
 
-export type RegisterAiPortraitAssetInput = {
-  publicUrl: string;
-  entityType: 'city_person' | 'poi' | 'patron';
-  entityId: string;
-  cityId: string;
-  sourceRef?: string | null;
-};
+/** Provenance runtime: valore DB canonico oppure null se assente/non riconosciuto. */
+export type MediaAssetOriginRuntime = MediaOriginTypeDb | null;
 
-/** Provenance runtime: valori DB canonici/legacy o assenza/non riconoscimento (≠ colonna DB). */
-type MediaAssetOriginRuntime = MediaOriginTypeDb | 'unknown';
+/**
+ * Boundary D-22 / City Hero: solo origin nel vocabolario governance entrano nel resolver.
+ */
+export function mediaAssetOriginForImageResolver(
+  origin: MediaAssetOriginRuntime,
+): MediaOriginTypeDb | null {
+  return origin;
+}
 
 type MediaAssetRow = {
   id: string;
@@ -51,101 +46,13 @@ type MediaAssetRow = {
 };
 
 function normalizeMediaAssetOriginRuntime(raw: unknown): MediaAssetOriginRuntime {
-  if (typeof raw !== 'string') return 'unknown';
+  if (typeof raw !== 'string') return null;
   const normalized = raw.trim().toLowerCase();
-  if (!normalized) return 'unknown';
+  if (!normalized) return null;
   if ((MEDIA_ORIGIN_TYPE_DB_VALUES as readonly string[]).includes(normalized)) {
     return normalized as MediaOriginTypeDb;
   }
-  return 'unknown';
-}
-
-type AssignmentMediaAssetIdRow = {
-  media_asset_id: string | null;
-};
-
-function isAssignmentMediaAssetIdRow(value: unknown): value is AssignmentMediaAssetIdRow {
-  if (!value || typeof value !== 'object') return false;
-  const row = value as Record<string, unknown>;
-  return row.media_asset_id === null || typeof row.media_asset_id === 'string';
-}
-
-/**
- * Lookup post RPC assignment: `entity_image_assignments` non è nel Database Supabase generato
- * (`src/types/supabase.ts`); `mf2EntityImageAssignmentsTable()` espone solo un bridge runtime
- * (`mf2DbClient.ts`). Il typing del client può restringere `data` a `never` — correzione a monte
- * (schema/tipi), non cast locali (`as any` / `as unknown as …`) in questo servizio.
- */
-function readAssignmentMediaAssetId(value: unknown): string {
-  if (!isAssignmentMediaAssetIdRow(value)) return '';
-  return typeof value.media_asset_id === 'string' ? value.media_asset_id.trim() : '';
-}
-
-/**
- * Registra metadata AI su media_assets + assignment (post-upload Storage).
- * Fail-closed: errori propagati; nessun asset orfano silenzioso oltre il file Storage già caricato.
- */
-export async function registerAiGeneratedPortraitAsset(
-  input: RegisterAiPortraitAssetInput,
-): Promise<{ mediaAssetId: string; assignmentId: string }> {
-  const url = input.publicUrl.trim();
-  if (!url) {
-    throw new Error('registerAiGeneratedPortraitAsset: URL pubblico assente.');
-  }
-
-  const parsed = parseStorageLocationFromPublicUrl(url);
-  if (!parsed?.storageBucket || !parsed.storagePath) {
-    throw new Error(
-      'registerAiGeneratedPortraitAsset: impossibile ricavare bucket/path public-media dalla URL.',
-    );
-  }
-  if (parsed.storageBucket !== AI_PORTRAIT_PUBLIC_BUCKET) {
-    throw new Error(
-      `registerAiGeneratedPortraitAsset: bucket non ammesso (${parsed.storageBucket}); atteso ${AI_PORTRAIT_PUBLIC_BUCKET}.`,
-    );
-  }
-  const assignmentId = await upsertEntityImageAssignmentFromSource({
-    entityType: input.entityType,
-    entityId: input.entityId,
-    cityId: input.cityId,
-    assignmentRole: 'primary',
-    source: {
-      imageUrl: url,
-      storageBucket: parsed.storageBucket,
-      storagePath: parsed.storagePath,
-      originType: 'ai',
-    },
-  });
-
-  const { data: assignmentRow, error: assignmentLookupError } =
-    await mf2EntityImageAssignmentsTable()
-      .select('media_asset_id')
-      .eq('id', assignmentId)
-      .maybeSingle();
-
-  if (assignmentLookupError) {
-    throw new Error(`Lookup assignment post RPC fallito: ${assignmentLookupError.message}`);
-  }
-
-  const mediaAssetId = readAssignmentMediaAssetId(assignmentRow);
-  if (!mediaAssetId) {
-    throw new Error('media_asset_id assente sull assignment dopo RPC AI.');
-  }
-
-  const patch: Record<string, unknown> = {
-    generated_by_ai: true,
-    origin_type: 'ai',
-    is_placeholder: false,
-    source_ref: input.sourceRef?.trim() ?? null,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error: updateError } = await mf3MediaAssetsTable().update(patch).eq('id', mediaAssetId);
-  if (updateError) {
-    throw new Error(`Aggiornamento provenance AI fallito: ${updateError.message}`);
-  }
-
-  return { mediaAssetId, assignmentId };
+  return null;
 }
 
 export async function patchMediaAssetProvenance(
@@ -167,33 +74,55 @@ export async function patchMediaAssetProvenance(
     payload.metadata = patch.metadata;
   }
 
-  const { error } = await mf3MediaAssetsTable().update(payload).eq('id', mediaAssetId);
+  const { data, error } = await mf3MediaAssetsTable()
+    .update(payload)
+    .eq('id', mediaAssetId)
+    .select('id');
   if (error) {
     throw new Error(`Patch provenance media_asset fallita: ${error.message}`);
   }
+  const updated = (data ?? []) as { id: string }[];
+  if (updated.length !== 1 || updated[0]?.id !== mediaAssetId) {
+    throw new Error(
+      `Patch provenance media_asset: nessuna riga aggiornata per id ${mediaAssetId}.`,
+    );
+  }
 }
+
+const MEDIA_ASSETS_BY_IDS_CHUNK = 80;
+const MEDIA_ASSETS_BY_IDS_CONCURRENCY = 4;
 
 export async function fetchMediaAssetsByIds(ids: string[]): Promise<Map<string, MediaAssetRow>> {
   const unique = [...new Set(ids.filter((id) => id.trim().length > 0))];
   const result = new Map<string, MediaAssetRow>();
   if (unique.length === 0) return result;
 
-  const { data, error } = await mf3MediaAssetsTable()
-    .select(
-      'id, storage_bucket, storage_path, origin_type, generated_by_ai, is_placeholder, asset_status, license_code, license_verified_at',
-    )
-    .in('id', unique);
+  const selectCols =
+    'id, storage_bucket, storage_path, origin_type, generated_by_ai, is_placeholder, asset_status, license_code, license_verified_at';
 
-  if (error) {
-    throw new Error(`Lettura media_assets fallita: ${error.message}`);
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += MEDIA_ASSETS_BY_IDS_CHUNK) {
+    chunks.push(unique.slice(i, i + MEDIA_ASSETS_BY_IDS_CHUNK));
   }
 
-  for (const row of data ?? []) {
-    const parsed = parseMediaAssetRow(row);
-    if (parsed) {
-      result.set(parsed.id, parsed);
-    }
+  for (let i = 0; i < chunks.length; i += MEDIA_ASSETS_BY_IDS_CONCURRENCY) {
+    const slice = chunks.slice(i, i + MEDIA_ASSETS_BY_IDS_CONCURRENCY);
+    await Promise.all(
+      slice.map(async (batch) => {
+        const { data, error } = await mf3MediaAssetsTable().select(selectCols).in('id', batch);
+        if (error) {
+          throw new Error(`Lettura media_assets fallita: ${error.message}`);
+        }
+        for (const row of data ?? []) {
+          const parsed = parseMediaAssetRow(row);
+          if (parsed) {
+            result.set(parsed.id, parsed);
+          }
+        }
+      }),
+    );
   }
+
   return result;
 }
 
@@ -316,6 +245,63 @@ function parseCurrentAssignments(raw: unknown): AiVerifyQueueAssignmentUsage[] {
   return usages;
 }
 
+function parseAiVerifyQueueRowDb(value: unknown): AiVerifyQueueRowDb | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const mediaAssetId = typeof row.media_asset_id === 'string' ? row.media_asset_id.trim() : '';
+  const storageBucket = typeof row.storage_bucket === 'string' ? row.storage_bucket.trim() : '';
+  const storagePath = typeof row.storage_path === 'string' ? row.storage_path.trim() : '';
+  const originType = typeof row.origin_type === 'string' ? row.origin_type.trim() : '';
+  const entityType = typeof row.entity_type === 'string' ? row.entity_type.trim() : '';
+  const entityId = typeof row.entity_id === 'string' ? row.entity_id.trim() : '';
+  const cityId = typeof row.city_id === 'string' ? row.city_id.trim() : '';
+  const cityName = typeof row.city_name === 'string' ? row.city_name : '';
+  if (
+    !mediaAssetId ||
+    !storageBucket ||
+    !storagePath ||
+    !originType ||
+    !entityType ||
+    !entityId ||
+    !cityId ||
+    !cityName
+  ) {
+    return null;
+  }
+  if (typeof row.generated_by_ai !== 'boolean' || typeof row.is_placeholder !== 'boolean') {
+    return null;
+  }
+  const assetStatusRaw = typeof row.asset_status === 'string' ? row.asset_status : '';
+  if (!isImageAssetStatusDb(assetStatusRaw)) return null;
+  const assetStatus = parseImageAssetStatusDb(assetStatusRaw);
+  return {
+    media_asset_id: mediaAssetId,
+    storage_bucket: storageBucket,
+    storage_path: storagePath,
+    origin_type: originType,
+    generated_by_ai: row.generated_by_ai,
+    is_placeholder: row.is_placeholder,
+    asset_status: assetStatus,
+    license_code:
+      row.license_code === null || typeof row.license_code === 'string' ? row.license_code : null,
+    source_url:
+      row.source_url === null || typeof row.source_url === 'string' ? row.source_url : null,
+    entity_type: entityType,
+    entity_id: entityId,
+    city_id: cityId,
+    city_name: cityName,
+    continent: typeof row.continent === 'string' ? row.continent : null,
+    nation: typeof row.nation === 'string' ? row.nation : null,
+    admin_region: typeof row.admin_region === 'string' ? row.admin_region : null,
+    zone: typeof row.zone === 'string' ? row.zone : null,
+    entity_label: typeof row.entity_label === 'string' ? row.entity_label : null,
+    latest_run_id: typeof row.latest_run_id === 'string' ? row.latest_run_id : null,
+    latest_ai_summary: typeof row.latest_ai_summary === 'string' ? row.latest_ai_summary : null,
+    blocking_step_code: typeof row.blocking_step_code === 'string' ? row.blocking_step_code : null,
+    current_assignments: row.current_assignments,
+  };
+}
+
 function mapQueueRow(row: AiVerifyQueueRowDb): AiVerifyQueueRow {
   return {
     mediaAssetId: row.media_asset_id,
@@ -364,7 +350,13 @@ export async function listAiVerifyQueue(input: {
   if (error) {
     throw new Error(`Lista coda verify AI fallita: ${error.message}`);
   }
-  return (data ?? []).map(mapQueueRow);
+  const rows: AiVerifyQueueRow[] = [];
+  for (const raw of data ?? []) {
+    const parsed = parseAiVerifyQueueRowDb(raw);
+    if (!parsed) continue;
+    rows.push(mapQueueRow(parsed));
+  }
+  return rows;
 }
 
 export async function getAiVerifyQueueCounts(): Promise<{
@@ -379,9 +371,23 @@ export async function getAiVerifyQueueCounts(): Promise<{
     throw new Error(`Conteggio coda verify AI fallito: ${error.message}`);
   }
   const payload = data ?? { total: 0, by_entity_type: {} };
+  const totalRaw = payload.total;
+  const total =
+    typeof totalRaw === 'number' && Number.isFinite(totalRaw) ? totalRaw : Number(totalRaw ?? 0);
+  const safeTotal = Number.isFinite(total) ? total : 0;
+  const byEntityType: Record<string, number> = {};
+  const rawByType = payload.by_entity_type;
+  if (rawByType && typeof rawByType === 'object') {
+    for (const [key, value] of Object.entries(rawByType as Record<string, unknown>)) {
+      const n = typeof value === 'number' ? value : Number(value);
+      if (Number.isFinite(n)) {
+        byEntityType[key] = n;
+      }
+    }
+  }
   return {
-    total: Number(payload.total ?? 0),
-    byEntityType: payload.by_entity_type ?? {},
+    total: safeTotal,
+    byEntityType,
   };
 }
 

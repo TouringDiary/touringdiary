@@ -1,3 +1,4 @@
+import { resolveCityPresentation } from '@/domain/city/resolveCityHeroDisplayUrl';
 import type { CitySummary } from '@/types';
 
 /** Lookup dominio: CitySummary dal manifest (nessun parsing dell'id). */
@@ -9,10 +10,10 @@ export function findCityInManifest(
   return manifest.find((c) => String(c.id) === String(cityId));
 }
 
-/** Header/cover città: hero se presente, altrimenti imageUrl di catalogo. */
+/** Header/cover città — usa hero risolto se presente nel summary. */
 export function cityHeaderImageUrl(city: CitySummary): string | null {
-  const hero = city.heroImage?.trim();
-  if (hero) return hero;
-  const image = city.imageUrl?.trim();
-  return image || null;
+  const { headerImageUrl } = resolveCityPresentation({
+    resolvedHeroUrl: city.heroImage,
+  });
+  return headerImageUrl;
 }

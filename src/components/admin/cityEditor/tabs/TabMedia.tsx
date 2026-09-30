@@ -9,18 +9,28 @@ import {
   Trash2,
 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
+import { WikidataConfirmModal } from '@/components/admin/wikimedia/WikidataConfirmModal';
 import { useCityEditor } from '@/context/CityEditorContext';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
-import type { CityDetails, MediaAsset, MediaStatus } from '@/types';
+import {
+  importConfirmedCityHeroWikimedia,
+  lookupCityHeroWikimediaProposal,
+} from '@/services/city/cityRealImageDiscoveryService';
+import { updateCityWikimediaHeroPublicEnabled } from '@/services/city/cityWikimediaSettingsService';
+import type { WikidataP18Proposal } from '@/services/wikimedia/wikidataLookupService';
+import type { CityDetails, MediaStatus } from '@/types';
 import { generateCitySection } from '../../../../services/ai';
+import {
+  addCityPhotographicGalleryImageFromUrl,
+  type CityPhotographicGalleryItem,
+  listCityPhotographicGalleryItems,
+  removeCityPhotographicGalleryByAssignmentId,
+  replaceCityPhotographicGalleryByAssignmentId,
+} from '../../../../services/city/cityPhotographicGalleryService';
 import { appendGenerationLogs } from '../../../../services/city/parsers/content/parseLogs';
 import { saveCityDetails } from '../../../../services/cityService';
-import {
-  createMediaAssetFromUrl,
-  dedupeGalleryAssets,
-  mediaAssetUrl,
-} from '../../../../utils/media';
+import { mediaAssetUrl } from '../../../../utils/media';
 import { CityCard } from '../../../city/CityCard';
 import { DeleteConfirmationModal } from '../../../common/DeleteConfirmationModal';
 import { AdminImageInput } from '../../AdminImageInput';
@@ -31,43 +41,109 @@ export const TabMedia = () => {
   const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
 
-  const [imageToEdit, setImageToEdit] = useState<{ url: string; galleryUrl: string | null }>({
+  const [imageToEdit, setImageToEdit] = useState<{
+    url: string;
+    galleryAssignmentId: string | null;
+  }>({
     url: '',
-    galleryUrl: null,
+    galleryAssignmentId: null,
   });
   const [editingTarget, setEditingTarget] = useState<'hero' | 'card' | 'gallery'>('hero');
 
   const [generating, setGenerating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     type: 'hero' | 'card' | 'gallery';
-    galleryUrl?: string;
+    galleryAssignmentId?: string;
   } | null>(null);
   const [showConfirmRegen, setShowConfirmRegen] = useState(false);
+  const [wmHeroEnabled, setWmHeroEnabled] = useState(city?.wikimediaHeroPublicEnabled === true);
+  const [wmBusy, setWmBusy] = useState(false);
+  const [wmMessage, setWmMessage] = useState<string | null>(null);
+  const [wmModalOpen, setWmModalOpen] = useState(false);
+  const [wmModalProposal, setWmModalProposal] = useState<WikidataP18Proposal | null>(null);
+  const [wmModalProcessing, setWmModalProcessing] = useState(false);
+  const [mediaFeedback, setMediaFeedback] = useState<{
+    kind: 'error' | 'success' | 'info';
+    text: string;
+  } | null>(null);
+  const [galleryItems, setGalleryItems] = useState<CityPhotographicGalleryItem[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryBusy, setGalleryBusy] = useState(false);
+  const [addGalleryOpen, setAddGalleryOpen] = useState(false);
+  const [addGalleryUrlDraft, setAddGalleryUrlDraft] = useState('');
+  const wmToggleId = useId();
+  const addGalleryUrlInputId = useId();
+
+  const reloadPhotographicGallery = useCallback(async () => {
+    if (!city?.id) {
+      setGalleryItems([]);
+      return;
+    }
+    setGalleryLoading(true);
+    try {
+      const items = await listCityPhotographicGalleryItems(city.id);
+      setGalleryItems(items);
+    } catch (err) {
+      setMediaFeedback({
+        kind: 'error',
+        text: err instanceof Error ? err.message : 'Caricamento galleria MF4 fallito.',
+      });
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, [city?.id]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: realign toggle when city identity changes
+  useEffect(() => {
+    setWmHeroEnabled(city?.wikimediaHeroPublicEnabled === true);
+  }, [city?.id, city?.wikimediaHeroPublicEnabled]);
+
+  useEffect(() => {
+    void reloadPhotographicGallery();
+  }, [reloadPhotographicGallery]);
 
   if (!city) return null;
 
-  const handleDeleteRequest = (type: 'hero' | 'card' | 'gallery', galleryUrl?: string) => {
+  const handleDeleteRequest = (type: 'hero' | 'card' | 'gallery', galleryAssignmentId?: string) => {
     if (type === 'hero' && !city.details.heroImage) return;
     if (type === 'card' && !city.imageUrl) return;
-    if (type === 'gallery' && !galleryUrl) return;
-    setDeleteTarget({ type, galleryUrl });
+    if (type === 'gallery' && !galleryAssignmentId?.trim()) return;
+    setDeleteTarget({ type, galleryAssignmentId });
   };
 
   const confirmDelete = () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || galleryBusy) return;
     if (deleteTarget.type === 'hero') {
       clearHeroState();
-    } else if (deleteTarget.type === 'card') {
+      setDeleteTarget(null);
+      return;
+    }
+    if (deleteTarget.type === 'card') {
       updateCardState('', 'missing');
-    } else if (deleteTarget.type === 'gallery' && deleteTarget.galleryUrl) {
-      const currentGallery = city.details.gallery || [];
-      const stillPresent = currentGallery.some((asset) => asset.url === deleteTarget.galleryUrl);
-      if (stillPresent) {
-        updateDetailField(
-          'gallery',
-          currentGallery.filter((asset) => asset.url !== deleteTarget.galleryUrl),
-        );
-      }
+      setDeleteTarget(null);
+      return;
+    }
+    if (deleteTarget.type === 'gallery' && deleteTarget.galleryAssignmentId) {
+      void (async () => {
+        setGalleryBusy(true);
+        try {
+          await removeCityPhotographicGalleryByAssignmentId(
+            city.id,
+            deleteTarget.galleryAssignmentId ?? '',
+          );
+          await reloadPhotographicGallery();
+          setMediaFeedback({ kind: 'success', text: 'Foto rimossa dalla galleria (MF4).' });
+        } catch (err) {
+          setMediaFeedback({
+            kind: 'error',
+            text: err instanceof Error ? err.message : 'Eliminazione galleria fallita.',
+          });
+        } finally {
+          setGalleryBusy(false);
+          setDeleteTarget(null);
+        }
+      })();
+      return;
     }
     setDeleteTarget(null);
   };
@@ -77,7 +153,7 @@ export const TabMedia = () => {
     if (!guardAiAction()) return;
 
     if (!city.name) {
-      alert('Inserisci il nome della città!');
+      setMediaFeedback({ kind: 'error', text: 'Inserisci il nome della città!' });
       return;
     }
     setShowConfirmRegen(true);
@@ -109,13 +185,14 @@ export const TabMedia = () => {
       await saveCityDetails(updatedCity);
       await reloadCurrentCity();
 
-      alert(
-        'Metadati Media aggiornati.\nLa Hero e la galleria non sono state modificate: non esiste un generatore Hero automatico. Usa Upload o Photo Inspector per cambiare le immagini.',
-      );
+      setMediaFeedback({
+        kind: 'success',
+        text: 'Metadati Media aggiornati. Hero e galleria invariate (nessun generatore Hero automatico).',
+      });
     } catch (e: unknown) {
       console.error(e);
       const msg = e instanceof Error ? e.message : 'Errore tecnico durante la rigenerazione.';
-      alert(`Errore rigenerazione: ${msg}`);
+      setMediaFeedback({ kind: 'error', text: `Errore rigenerazione: ${msg}` });
     } finally {
       setGenerating(false);
     }
@@ -174,17 +251,26 @@ export const TabMedia = () => {
       );
     } else if (editingTarget === 'card') {
       updateCardState(data.image, data.image ? 'real' : 'missing');
-    } else if (editingTarget === 'gallery' && imageToEdit.galleryUrl) {
-      const currentGallery = [...(city.details.gallery || [])];
-      const idx = currentGallery.findIndex((asset) => asset.url === imageToEdit.galleryUrl);
-      if (idx >= 0) {
-        currentGallery[idx] = {
-          ...currentGallery[idx],
-          url: data.image,
-          mediaStatus: data.image ? 'real' : 'missing',
-        };
-        updateDetailField('gallery', dedupeGalleryAssets(currentGallery));
-      }
+    } else if (editingTarget === 'gallery' && imageToEdit.galleryAssignmentId && data.image) {
+      void (async () => {
+        setGalleryBusy(true);
+        try {
+          await replaceCityPhotographicGalleryByAssignmentId(
+            city.id,
+            imageToEdit.galleryAssignmentId ?? '',
+            data.image,
+          );
+          await reloadPhotographicGallery();
+          setMediaFeedback({ kind: 'success', text: 'Galleria aggiornata (MF4).' });
+        } catch (err) {
+          setMediaFeedback({
+            kind: 'error',
+            text: err instanceof Error ? err.message : 'Aggiornamento galleria fallito.',
+          });
+        } finally {
+          setGalleryBusy(false);
+        }
+      })();
     }
     setIsInspectorOpen(false);
   };
@@ -192,35 +278,100 @@ export const TabMedia = () => {
   const openInspector = (
     url: string,
     target: 'hero' | 'card' | 'gallery',
-    galleryUrl: string | null = null,
+    galleryAssignmentId: string | null = null,
   ) => {
     if (!url) return;
-    setImageToEdit({ url, galleryUrl });
+    setImageToEdit({ url, galleryAssignmentId });
     setEditingTarget(target);
     setIsInspectorOpen(true);
   };
 
-  const addImageToGallery = () => {
-    const raw = prompt('Inserisci URL immagine:');
-    if (!raw) return;
-    const url = raw.trim();
-    if (!url) return;
+  const openAddGalleryModal = () => {
+    if (galleryBusy) return;
+    setAddGalleryUrlDraft('');
+    setAddGalleryOpen(true);
+  };
+
+  const confirmAddGallery = () => {
+    const url = addGalleryUrlDraft.trim();
+    if (!url || galleryBusy) return;
     if (url === city.details.heroImage) {
-      alert(
-        'Questa immagine è già impostata come Copertina. Non è necessario aggiungerla alla galleria.',
-      );
+      setMediaFeedback({
+        kind: 'info',
+        text: 'Questa immagine è già la Copertina: non serve aggiungerla alla galleria.',
+      });
+      setAddGalleryOpen(false);
       return;
     }
-    const currentGallery = city.details.gallery || [];
-    const newGallery: MediaAsset[] = [...currentGallery, createMediaAssetFromUrl(url)];
-    updateDetailField('gallery', dedupeGalleryAssets(newGallery));
+    void (async () => {
+      setGalleryBusy(true);
+      try {
+        await addCityPhotographicGalleryImageFromUrl(city.id, url);
+        await reloadPhotographicGallery();
+        setMediaFeedback({ kind: 'success', text: 'Immagine aggiunta alla galleria (MF4).' });
+        setAddGalleryOpen(false);
+        setAddGalleryUrlDraft('');
+      } catch (err) {
+        setMediaFeedback({
+          kind: 'error',
+          text: err instanceof Error ? err.message : 'Aggiunta galleria fallita.',
+        });
+      } finally {
+        setGalleryBusy(false);
+      }
+    })();
   };
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in relative">
+      {mediaFeedback ? (
+        <p
+          className={`text-sm rounded-md px-3 py-2 ${
+            mediaFeedback.kind === 'error'
+              ? 'text-destructive bg-destructive/10'
+              : mediaFeedback.kind === 'success'
+                ? 'text-foreground bg-muted'
+                : 'text-muted-foreground bg-muted/50'
+          }`}
+          role={mediaFeedback.kind === 'error' ? 'alert' : 'status'}
+        >
+          {mediaFeedback.text}
+        </p>
+      ) : null}
+      <DeleteConfirmationModal
+        isOpen={addGalleryOpen}
+        onClose={() => {
+          if (!galleryBusy) setAddGalleryOpen(false);
+        }}
+        onConfirm={confirmAddGallery}
+        title="Aggiungi immagine alla galleria"
+        message="URL pubblico dell'immagine (es. HTTPS). Validazione e persistenza MF4 nel servizio."
+        confirmLabel="Aggiungi"
+        variant="info"
+        isDeleting={galleryBusy}
+        confirmDisabled={!addGalleryUrlDraft.trim() || galleryBusy}
+        loadingLabel="Caricamento…"
+      >
+        <label htmlFor={addGalleryUrlInputId} className="sr-only">
+          URL immagine galleria
+        </label>
+        <input
+          id={addGalleryUrlInputId}
+          type="url"
+          inputMode="url"
+          autoComplete="url"
+          placeholder="https://…"
+          value={addGalleryUrlDraft}
+          onChange={(e) => setAddGalleryUrlDraft(e.target.value)}
+          disabled={galleryBusy}
+          className="mt-3 w-full min-h-11 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
+        />
+      </DeleteConfirmationModal>
       <DeleteConfirmationModal
         isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
+        onClose={() => {
+          if (!galleryBusy) setDeleteTarget(null);
+        }}
         onConfirm={confirmDelete}
         title={
           deleteTarget?.type === 'hero'
@@ -236,7 +387,8 @@ export const TabMedia = () => {
               ? "Rimuovi l'immagine per le liste e le card."
               : 'Elimina questa foto dalla galleria.'
         }
-        isDeleting={false}
+        isDeleting={deleteTarget?.type === 'gallery' && galleryBusy}
+        confirmDisabled={deleteTarget?.type === 'gallery' && galleryBusy}
       />
       <DeleteConfirmationModal
         isOpen={showConfirmRegen}
@@ -321,6 +473,86 @@ export const TabMedia = () => {
                 onChange={handleHeroUpload}
               />
             </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-4 space-y-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase">
+                  Wikimedia Hero (D-22)
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500" aria-live="polite">
+                    {wmHeroEnabled ? 'ON' : 'OFF'}
+                  </span>
+                  <button
+                    id={wmToggleId}
+                    type="button"
+                    role="switch"
+                    aria-checked={wmHeroEnabled}
+                    aria-label="Abilita Wikimedia nel read Hero pubblico"
+                    disabled={wmBusy}
+                    onClick={async () => {
+                      setWmBusy(true);
+                      setWmMessage(null);
+                      try {
+                        const next = !wmHeroEnabled;
+                        await updateCityWikimediaHeroPublicEnabled(city.id, next);
+                        setWmHeroEnabled(next);
+                        updateField('wikimediaHeroPublicEnabled', next);
+                      } catch (err) {
+                        setWmMessage(err instanceof Error ? err.message : 'Toggle fallito.');
+                      } finally {
+                        setWmBusy(false);
+                      }
+                    }}
+                    className={`relative inline-flex h-8 w-14 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
+                      wmHeroEnabled ? 'bg-indigo-600' : 'bg-slate-600'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow transition ${
+                        wmHeroEnabled ? 'translate-x-6' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={wmBusy}
+                onClick={async () => {
+                  setWmBusy(true);
+                  setWmMessage(null);
+                  try {
+                    const result = await lookupCityHeroWikimediaProposal(city.id, city.name);
+                    if (result.status === 'lookup' && result.lookup.status === 'proposal') {
+                      setWmModalProposal(result.lookup.proposal);
+                      setWmModalOpen(true);
+                      return;
+                    }
+                    if (result.status === 'failed') {
+                      setWmMessage(result.message);
+                    } else if (result.status === 'lookup') {
+                      setWmMessage(result.message);
+                    } else if (result.status === 'skipped') {
+                      setWmMessage(result.reason);
+                    }
+                  } catch (err) {
+                    setWmMessage(
+                      err instanceof Error ? err.message : 'Lookup Wikimedia Hero fallito.',
+                    );
+                  } finally {
+                    setWmBusy(false);
+                  }
+                }}
+                className="w-full min-h-11 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold uppercase tracking-wide disabled:opacity-50"
+              >
+                API WIKIMEDIA (Hero)
+              </button>
+              {wmMessage ? (
+                <p className="text-xs text-slate-400" role="status">
+                  {wmMessage}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -393,49 +625,105 @@ export const TabMedia = () => {
           <ImageIcon className="w-5 h-5 text-indigo-500" /> Galleria Fotografica
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {city.details.gallery?.map((asset, i) => (
-            <div
-              key={asset.url}
-              className="aspect-square relative group rounded-xl overflow-hidden border border-slate-700 shadow-md"
-            >
-              <img
-                src={mediaAssetUrl(asset)}
-                className="w-full h-full object-cover"
-                alt={`Foto galleria ${i + 1}`}
-              />
+          {galleryLoading ? (
+            <p className="col-span-full text-sm text-muted-foreground">Caricamento galleria…</p>
+          ) : null}
+          {galleryItems.map((asset, i) => {
+            const galleryAssetUrl = mediaAssetUrl(asset);
+            return (
+              <div
+                key={asset.assignmentId}
+                className="aspect-square relative group rounded-xl overflow-hidden border border-slate-700 shadow-md"
+              >
+                <img
+                  src={galleryAssetUrl}
+                  className="w-full h-full object-cover"
+                  alt={`Foto galleria ${i + 1}`}
+                />
 
-              <div className="absolute inset-0 bg-black/60 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openInspector(mediaAssetUrl(asset), 'gallery', asset.url)}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 min-h-11 min-w-11 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110"
-                  title="Modifica / Ritaglia"
-                  aria-label={`Ritaglia foto galleria ${i + 1}`}
-                >
-                  <Crop className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteRequest('gallery', asset.url)}
-                  className="bg-red-600 hover:bg-red-500 text-white p-2.5 min-h-11 min-w-11 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110"
-                  title="Elimina Foto"
-                  aria-label={`Elimina foto galleria ${i + 1}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="absolute inset-0 bg-black/60 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openInspector(galleryAssetUrl, 'gallery', asset.assignmentId)}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 min-h-11 min-w-11 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110"
+                    title="Modifica / Ritaglia"
+                    aria-label={`Ritaglia foto galleria ${i + 1}`}
+                  >
+                    <Crop className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRequest('gallery', asset.assignmentId)}
+                    className="bg-red-600 hover:bg-red-500 text-white p-2.5 min-h-11 min-w-11 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110"
+                    title="Elimina Foto"
+                    aria-label={`Elimina foto galleria ${i + 1}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <button
             type="button"
-            className="aspect-square rounded-xl border-2 border-dashed border-slate-700 flex flex-col items-center justify-center text-slate-500 hover:text-white cursor-pointer transition-colors bg-slate-950/50 hover:bg-slate-900 hover:border-indigo-500"
-            onClick={addImageToGallery}
+            className="aspect-square rounded-xl border-2 border-dashed border-slate-700 flex flex-col items-center justify-center text-slate-500 hover:text-white cursor-pointer transition-colors bg-slate-950/50 hover:bg-slate-900 hover:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={openAddGalleryModal}
+            disabled={galleryBusy}
+            aria-label="Aggiungi immagine alla galleria fotografica"
           >
             <Plus className="w-8 h-8 mb-1" />
             <span className="text-[10px] font-bold uppercase">Aggiungi</span>
           </button>
         </div>
       </div>
+
+      {wmModalOpen && wmModalProposal ? (
+        <WikidataConfirmModal
+          isOpen={wmModalOpen}
+          subjectLabel={city.name}
+          proposal={wmModalProposal}
+          isProcessing={wmModalProcessing}
+          onClose={() => {
+            setWmModalOpen(false);
+            setWmModalProposal(null);
+          }}
+          onSkip={() => {
+            setWmModalOpen(false);
+            setWmModalProposal(null);
+          }}
+          onConfirm={async (proposal) => {
+            setWmModalProcessing(true);
+            setWmMessage(null);
+            try {
+              const imported = await importConfirmedCityHeroWikimedia(
+                city.id,
+                city.name,
+                proposal,
+                {
+                  activation: 'manual_api',
+                  adminConfirmed: true,
+                },
+              );
+              if (imported.status === 'imported') {
+                setWmMessage(imported.message);
+                setWmModalOpen(false);
+                setWmModalProposal(null);
+                await reloadCurrentCity();
+              } else if (imported.status === 'failed') {
+                setWmMessage(imported.message);
+              } else if (imported.status === 'skipped') {
+                setWmMessage(imported.reason);
+              } else if (imported.status === 'lookup') {
+                setWmMessage(imported.message);
+              }
+            } catch (err) {
+              setWmMessage(err instanceof Error ? err.message : 'Import Wikimedia Hero fallito.');
+            } finally {
+              setWmModalProcessing(false);
+            }
+          }}
+        />
+      ) : null}
 
       {isInspectorOpen && (
         <AdminPhotoInspector

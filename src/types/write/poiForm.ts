@@ -77,6 +77,11 @@ export interface PoiFormData {
   readonly reviews?: PointOfInterest['reviews'];
   readonly linkMetadata?: PointOfInterest['linkMetadata'];
   readonly cityId?: string;
+  wikimediaPublicEnabled?: boolean;
+  readonly contactPhone?: string | null;
+  readonly contactWhatsapp?: string | null;
+  readonly contactEmail?: string | null;
+  readonly dateAdded?: string;
 }
 
 const isPoiSubCategory = (value: string): value is PoiSubCategory => {
@@ -119,12 +124,34 @@ const isSponsorTier = (value: string): value is SponsorTier => {
 const isPriceLevel = (value: number): value is 1 | 2 | 3 | 4 =>
   value === 1 || value === 2 || value === 3 || value === 4;
 
+/** Vocabolario canonico LUN–DOM (allineato al form di creazione POI). */
+export const CANONICAL_POI_OPENING_DAYS = [
+  'Lun',
+  'Mar',
+  'Mer',
+  'Gio',
+  'Ven',
+  'Sab',
+  'Dom',
+] as const;
+
 /**
- * Opening hours di dominio: giorni obbligatori + almeno una fascia oraria.
+ * Opening hours di dominio: tutti i giorni LUN–DOM + almeno una fascia oraria valida.
  * Non inventa default (es. Lun-Dom).
  */
-export const hasRequiredOpeningHours = (oh: PoiFormData['openingHours']): boolean => {
-  if (!oh.days || oh.days.length === 0) return false;
+export type OpeningHoursGateInput = {
+  days: string[];
+  morning?: string | null;
+  afternoon?: string | null;
+  evening?: string | null;
+  isEstimated?: boolean | null;
+};
+
+export const hasRequiredOpeningHours = (oh: OpeningHoursGateInput): boolean => {
+  if (!oh.days || oh.days.length !== CANONICAL_POI_OPENING_DAYS.length) return false;
+  for (const day of CANONICAL_POI_OPENING_DAYS) {
+    if (!oh.days.includes(day)) return false;
+  }
   const morning = oh.morning?.trim() ?? '';
   const afternoon = oh.afternoon?.trim() ?? '';
   const evening = oh.evening?.trim() ?? '';
@@ -216,10 +243,12 @@ export const normalizePoiFormData = (formData: PoiFormData): PointOfInterest => 
 
     contactInfo: {
       website: formData.website.trim() || null,
-      phone: null,
-      whatsapp: null,
-      email: null,
+      phone: formData.contactPhone ?? null,
+      whatsapp: formData.contactWhatsapp ?? null,
+      email: formData.contactEmail ?? null,
     },
+
+    wikimediaPublicEnabled: formData.wikimediaPublicEnabled ?? false,
 
     // Preservazione dati storici (assenza = undefined/null, mai valori inventati)
     votes: formData.votes,
@@ -232,6 +261,7 @@ export const normalizePoiFormData = (formData: PoiFormData): PointOfInterest => 
     updatedAt: formData.updatedAt,
     updatedBy: formData.updatedBy,
     cityId: formData.cityId,
+    dateAdded: formData.dateAdded,
   };
 
   return poi;
@@ -275,6 +305,7 @@ export const mapPoiToFormData = (poi: PointOfInterest | null): PoiFormData => {
       reviews: null,
       linkMetadata: null,
       cityId: undefined,
+      wikimediaPublicEnabled: false,
     };
   }
 
@@ -332,5 +363,10 @@ export const mapPoiToFormData = (poi: PointOfInterest | null): PoiFormData => {
     reviews: poi.reviews,
     linkMetadata: poi.linkMetadata,
     cityId: poi.cityId,
+    wikimediaPublicEnabled: poi.wikimediaPublicEnabled ?? false,
+    contactPhone: poi.contactInfo?.phone ?? null,
+    contactWhatsapp: poi.contactInfo?.whatsapp ?? null,
+    contactEmail: poi.contactInfo?.email ?? null,
+    dateAdded: poi.dateAdded,
   };
 };

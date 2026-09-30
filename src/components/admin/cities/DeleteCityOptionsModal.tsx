@@ -13,6 +13,7 @@ interface Props {
 const DEFAULT_OPTIONS = {
   keepUserPhotos: true,
   keepPOIs: false,
+  keepPeople: true,
 };
 
 function getFocusableElements(root: HTMLElement): HTMLElement[] {
@@ -177,7 +178,8 @@ export const DeleteCityOptionsModal = ({ isOpen, onClose, onConfirm, cityName }:
             <p className="text-xs text-indigo-200 leading-relaxed">
               <strong>Nota Dati Staging (OSM):</strong> Gli elementi presenti nell'area di
               Importazione (Staging) non vengono cancellati ma <strong>diventano orfani</strong>.
-              Potrai recuperarli e riassegnarli se ricrei la città con lo stesso nome.
+              Potrai recuperarli e riassegnarli se ricrei la città con lo stesso nome.{' '}
+              <strong>Segnalazioni (content_reports)</strong> non vengono mai eliminate.
             </p>
           </div>
 
@@ -240,27 +242,35 @@ export const DeleteCityOptionsModal = ({ isOpen, onClose, onConfirm, cityName }:
               </div>
             </div>
 
-            {/* OPTION: PEOPLE — always deleted (cityId obbligatorio, no orphan) */}
-            <div
-              className="w-full text-left p-4 rounded-xl border bg-slate-950 border-slate-800 flex items-center justify-between gap-3 opacity-90"
-              role="note"
-              aria-label="Personaggi famosi sempre eliminati con la città"
+            <button
+              type="button"
+              onClick={() => toggleOption('keepPeople')}
+              aria-pressed={options.keepPeople}
+              className={`w-full text-left p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 group ${options.keepPeople ? 'bg-emerald-900/10 border-emerald-500/50' : 'bg-slate-950 border-slate-800 hover:border-red-500/30'}`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 rounded-lg shrink-0 bg-slate-900 text-slate-500">
+                <div
+                  className={`p-2 rounded-lg shrink-0 ${options.keepPeople ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-900 text-slate-500'}`}
+                >
                   <Users className="w-5 h-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-bold text-slate-400">Personaggi Famosi</div>
+                  <div
+                    className={`text-sm font-bold ${options.keepPeople ? 'text-white' : 'text-slate-400'}`}
+                  >
+                    Personaggi Famosi
+                  </div>
                   <div className="text-[10px] text-slate-500">
-                    I personaggi famosi vengono sempre eliminati con la città (cityId obbligatorio).
+                    CONSERVA mantiene city_id, assignment e storico immagini.
                   </div>
                 </div>
               </div>
-              <div className="text-[10px] font-black uppercase px-2 py-1 rounded shrink-0 bg-slate-800 text-slate-500">
-                SEMPRE CANCELLA
+              <div
+                className={`text-[10px] font-black uppercase px-2 py-1 rounded shrink-0 ${options.keepPeople ? 'bg-emerald-500 text-black' : 'bg-slate-800 text-slate-500'}`}
+              >
+                {options.keepPeople ? 'MANTIENI' : 'CANCELLA'}
               </div>
-            </div>
+            </button>
 
             {/* OPTION: POI (DANGEROUS) */}
             <button

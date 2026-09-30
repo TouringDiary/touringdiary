@@ -131,9 +131,9 @@ export interface PoiUpsertPayload {
   image_credit: string | null;
   image_license: ImageLicense | null;
 
-  // Coordinate
-  coords_lat: number;
-  coords_lng: number;
+  // Coordinate (null = assenti; non usare 0,0 sintetico)
+  coords_lat: number | null;
+  coords_lng: number | null;
 
   // Metriche
   rating: number;

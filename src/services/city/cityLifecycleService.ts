@@ -12,11 +12,34 @@ const throwOnError = (error: { message: string } | null | undefined, context: st
   }
 };
 
+type CityLifecycleRpcName = 'delete_city_admin' | 'relink_orphaned_city_content';
+
+function cityLifecycleRpc(name: CityLifecycleRpcName, args: Record<string, unknown>) {
+  const client = supabase as unknown as {
+    rpc: (rpcName: string, params: Record<string, unknown>) => ReturnType<(typeof supabase)['rpc']>;
+  };
+  return client.rpc(name, args);
+}
+
 function escapeLikePattern(str: string): string {
   return str.replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&');
 }
 
 export const reclaimOrphanedItems = async (cityId: string, cityName: string) => {
+  const { data: cityMeta, error: cityMetaError } = await supabase
+    .from('cities')
+    .select('status')
+    .eq('id', cityId)
+    .maybeSingle();
+  throwOnError(cityMetaError, 'select city for reclaim failed');
+
+  if (cityMeta?.status === 'deleted_orphan') {
+    const { error: relinkCityError } = await cityLifecycleRpc('relink_orphaned_city_content', {
+      p_city_id: cityId,
+    });
+    throwOnError(relinkCityError, 'relink_orphaned_city_content failed');
+  }
+
   // 0. RECLAIM STAGING OSM
   await reclaimStagingByCityName(cityName, cityId);
 
@@ -57,177 +80,13 @@ export const deleteCity = async (
   options: CityDeleteOptions,
   cityName: string,
 ): Promise<void> => {
-  // Non-atomic client cascade: no DB RPC for full city delete exists.
-  // Steps run sequentially; a mid-flight failure leaves prior deletions applied.
-  // Callers must treat thrown errors as partial-delete and retry/reconcile.
-
-  // PRE-CLEANUP (Staging Orphans con Tagging Sicuro) — mandatory pre-condition to avoid FK violations
   await orphanCityStaging(cityId, cityName);
 
-  // 1. MEDIA
-  if (options.keepUserPhotos) {
-    const { error } = await supabase
-      .from('photo_submissions')
-      .update({ city_id: null, status: 'city_deleted', updated_at: new Date().toISOString() })
-      .eq('city_id', cityId);
-    throwOnError(error, 'orphan photo_submissions failed');
-  } else {
-    const { error } = await supabase.from('photo_submissions').delete().eq('city_id', cityId);
-    throwOnError(error, 'delete photo_submissions failed');
-  }
-
-  // 2. BUSINESS — SPONSORS & NO ACTION FK NULLING
-  // Fetch IDs of guides, operators, POIs, and shops belonging to this city
-  const [guidesRes, operatorsRes, poisRes, shopsRes] = await Promise.all([
-    supabase.from('city_guides').select('id').eq('city_id', cityId),
-    supabase.from('city_tour_operators').select('id').eq('city_id', cityId),
-    supabase.from('pois').select('id').eq('city_id', cityId),
-    supabase.from('shops').select('id').eq('city_id', cityId),
-  ]);
-
-  throwOnError(guidesRes.error, 'select city_guides failed');
-  throwOnError(operatorsRes.error, 'select city_tour_operators failed');
-  throwOnError(poisRes.error, 'select pois failed');
-  throwOnError(shopsRes.error, 'select shops failed');
-
-  const guideIds = (guidesRes.data || []).map((x) => x.id);
-  const operatorIds = (operatorsRes.data || []).map((x) => x.id);
-  const poiIds = (poisRes.data || []).map((x) => x.id);
-  const shopIds = (shopsRes.data || []).map((x) => x.id);
-
-  // Nullify FKs on sponsors linked to this city's guides, operators, POIs, or shops
-  // to avoid ON DELETE NO ACTION violations on sponsors.guide_id, sponsors.operator_id, etc.
-  const { error: sponsorsNullError } = await supabase
-    .from('sponsors')
-    .update({
-      guide_id: null,
-      operator_id: null,
-      poi_id: null,
-      shop_id: null,
-    })
-    .eq('city_id', cityId);
-  throwOnError(sponsorsNullError, 'nulling sponsors FKs by city_id failed');
-
-  if (guideIds.length > 0) {
-    const { error } = await supabase
-      .from('sponsors')
-      .update({ guide_id: null })
-      .in('guide_id', guideIds);
-    throwOnError(error, 'nulling sponsors guide_id failed');
-  }
-
-  if (operatorIds.length > 0) {
-    const { error } = await supabase
-      .from('sponsors')
-      .update({ operator_id: null })
-      .in('operator_id', operatorIds);
-    throwOnError(error, 'nulling sponsors operator_id failed');
-  }
-
-  if (poiIds.length > 0) {
-    const { error } = await supabase.from('sponsors').update({ poi_id: null }).in('poi_id', poiIds);
-    throwOnError(error, 'nulling sponsors poi_id failed');
-  }
-
-  if (shopIds.length > 0) {
-    const { error } = await supabase
-      .from('sponsors')
-      .update({ shop_id: null })
-      .in('shop_id', shopIds);
-    throwOnError(error, 'nulling sponsors shop_id failed');
-  }
-
-  // Detach sponsors from the city via the SECURITY DEFINER RPC (DL-022)
-  // This transitions active sponsors of this city to 'Da ricollegare' by setting city_id = null and last_city_id = city_id.
-  const { error: sponsorDetachError } = await supabase.rpc('handle_city_deleted_for_sponsors', {
+  const { error } = await cityLifecycleRpc('delete_city_admin', {
     p_city_id: cityId,
+    p_options: options,
   });
-  throwOnError(sponsorDetachError, 'handle_city_deleted_for_sponsors failed');
-
-  // Always delete shops because shops.city_id is NOT NULL (cannot be orphaned).
-  // Associated shop_products are automatically deleted via DB ON DELETE CASCADE.
-  const { error: shopsDeleteError } = await supabase.from('shops').delete().eq('city_id', cityId);
-  throwOnError(shopsDeleteError, 'delete shops failed');
-
-  // 3. PEOPLE — city_id NOT NULL: always DELETE (no keepPeople / no orphan).
-  // Delete photo reports, photo suggestions, and person suggestions first to prevent ON DELETE RESTRICT violations on person_id.
-  const { error: photoReportsDeleteError } = await supabase
-    .from('famous_person_photo_reports')
-    .delete()
-    .eq('city_id', cityId);
-  throwOnError(photoReportsDeleteError, 'delete famous_person_photo_reports failed');
-
-  const { error: photoSuggestionsDeleteError } = await supabase
-    .from('famous_person_photo_suggestions')
-    .delete()
-    .eq('city_id', cityId);
-  throwOnError(photoSuggestionsDeleteError, 'delete famous_person_photo_suggestions failed');
-
-  const { error: personSuggestionsDeleteError } = await supabase
-    .from('famous_person_suggestions')
-    .delete()
-    .eq('city_id', cityId);
-  throwOnError(personSuggestionsDeleteError, 'delete famous_person_suggestions failed');
-
-  const { error: peopleError } = await supabase.from('city_people').delete().eq('city_id', cityId);
-  if (peopleError) {
-    throw new Error(
-      `[CityLifecycle] Impossibile eliminare i personaggi della città (${cityId}): ${peopleError.message}.`,
-    );
-  }
-
-  // 4. POI
-  const { data: pois, error: poisSelectError } = await supabase
-    .from('pois')
-    .select('id')
-    .eq('city_id', cityId);
-  throwOnError(poisSelectError, 'select pois failed');
-
-  if (pois && pois.length > 0) {
-    const poiIds = pois.map((p) => p.id);
-
-    if (options.keepPOIs) {
-      const { error } = await supabase.from('pois').update({ city_id: null }).eq('city_id', cityId);
-      throwOnError(error, 'orphan pois failed');
-    } else {
-      const { error: reviewsError } = await supabase.from('reviews').delete().in('poi_id', poiIds);
-      throwOnError(reviewsError, 'delete reviews failed');
-
-      const { error: suggestionsError } = await supabase
-        .from('suggestions')
-        .delete()
-        .in('poi_id', poiIds);
-      throwOnError(suggestionsError, 'delete suggestions failed');
-
-      const { error: poisDeleteError } = await supabase.from('pois').delete().eq('city_id', cityId);
-      throwOnError(poisDeleteError, 'delete pois failed');
-    }
-  }
-
-  // 5. DIPENDENZE SEMPLICI
-  const { error: eventsError } = await supabase.from('city_events').delete().eq('city_id', cityId);
-  throwOnError(eventsError, 'delete city_events failed');
-
-  const { error: servicesError } = await supabase
-    .from('city_services')
-    .delete()
-    .eq('city_id', cityId);
-  throwOnError(servicesError, 'delete city_services failed');
-
-  const { error: guidesError } = await supabase.from('city_guides').delete().eq('city_id', cityId);
-  throwOnError(guidesError, 'delete city_guides failed');
-
-  const { error: operatorsError } = await supabase
-    .from('city_tour_operators')
-    .delete()
-    .eq('city_id', cityId);
-  throwOnError(operatorsError, 'delete city_tour_operators failed');
-
-  // 6. CANCELLAZIONE CITTÀ (cache solo dopo successo)
-  const { error } = await supabase.from('cities').delete().eq('id', cityId);
-  if (error) {
-    throw error;
-  }
+  throwOnError(error, 'delete_city_admin failed');
 
   clearCacheKey('manifest');
   invalidateCityCache(cityId);

@@ -13,7 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_OVERLAY } from '@/constants/zIndex';
 import { usePoiForm } from '../../hooks/usePoiForm';
@@ -64,6 +64,9 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const dialogTitleId = useId();
+  const validationDialogTitleId = useId();
+  const confirmCloseDialogTitleId = useId();
 
   useEffect(() => {
     if (isOpen) {
@@ -144,11 +147,18 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
 
       {validationError && (
         <div className="absolute inset-0 z-floating-panel flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
-          <div className="bg-slate-900 border border-red-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={validationDialogTitleId}
+            className="bg-slate-900 border border-red-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95"
+          >
             <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)] mx-auto mb-6">
               <AlertTriangle className="w-8 h-8 text-red-500 animate-pulse" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Errore Validazione</h3>
+            <h3 id={validationDialogTitleId} className="text-xl font-bold text-white mb-2">
+              Errore Validazione
+            </h3>
             <p className="text-slate-300 text-sm mb-6 font-bold">{validationError}</p>
             <button
               type="button"
@@ -163,9 +173,16 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
 
       {showConfirmClose && (
         <div className="absolute inset-0 z-floating-panel flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-2xl max-w-sm w-full text-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={confirmCloseDialogTitleId}
+            className="bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-2xl max-w-sm w-full text-center"
+          >
             <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-            <h3 className="text-lg font-bold text-white mb-1">Modifiche non salvate</h3>
+            <h3 id={confirmCloseDialogTitleId} className="text-lg font-bold text-white mb-1">
+              Modifiche non salvate
+            </h3>
             <div className="flex gap-3 w-full mt-4">
               <button
                 type="button"
@@ -195,13 +212,21 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
         isDeleting={isDeleting}
       />
 
-      <div className="relative bg-slate-900 w-full max-w-5xl h-full md:h-auto md:max-h-[85vh] rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-[#0f172a]">
-          <h3 className="text-2xl font-bold text-white font-display">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={dialogTitleId}
+        className="relative bg-slate-900 w-full max-w-5xl h-full md:h-auto md:max-h-[85vh] rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-4 sm:px-6 py-4 border-b border-slate-800 bg-[#0f172a]">
+          <h3
+            id={dialogTitleId}
+            className="text-xl sm:text-2xl font-bold text-white font-display min-w-0"
+          >
             {poi ? 'Modifica POI' : 'Nuovo POI'}
           </h3>
-          <div className="flex items-center gap-3">
-            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 shrink-0">
+            <div className="flex flex-wrap bg-slate-950 p-1 rounded-lg border border-slate-800 max-w-full">
               <button
                 type="button"
                 onClick={() => updateField('status', 'published')}
@@ -276,6 +301,7 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
           {activeTab === 'media' && (
             <PoiMediaTab
               formData={formData}
+              cityName={cityName}
               updateField={updateField}
               setIsImageValid={setIsImageValid}
             />

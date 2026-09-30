@@ -1,6 +1,6 @@
 import type { ImageAssetStatusDb, MediaOriginTypeDb } from '@/constants/governance';
-import { isImageAssetStatusDb } from '@/constants/governance';
-import { mf2EntityImageAssignmentsTable } from '@/services/reports/mf2DbClient';
+import { isAssignmentStatusDb, isImageAssetStatusDb } from '@/constants/governance';
+import { entityImageAssignmentsQuery } from '@/services/media/entityImageAssignmentsQuery';
 import { supabase } from '../supabaseClient';
 import { mf4EntityImageHistoryTable, mf4MediaCatalogView, mf4Rpc } from './mf4DbClient';
 
@@ -211,7 +211,7 @@ export async function getMediaCatalogAssetById(assetId: string): Promise<MediaCa
 export async function listMediaAssetAssignments(
   mediaAssetId: string,
 ): Promise<MediaAssetAssignmentUsage[]> {
-  const { data, error } = await mf2EntityImageAssignmentsTable()
+  const { data, error } = await entityImageAssignmentsQuery()
     .select('id, entity_type, entity_id, city_id, assignment_role, assignment_status, is_current')
     .eq('media_asset_id', mediaAssetId)
     .order('updated_at', { ascending: false });
@@ -238,14 +238,17 @@ export async function listMediaAssetAssignments(
     const entityId = typeof row.entity_id === 'string' ? row.entity_id : '';
     const cityId = typeof row.city_id === 'string' ? row.city_id : '';
     if (!assignmentId || !entityType || !entityId || !cityId) continue;
+    const roleRaw = typeof row.assignment_role === 'string' ? row.assignment_role.trim() : '';
+    if (roleRaw !== 'primary' && roleRaw !== 'gallery') continue;
+    const statusRaw = typeof row.assignment_status === 'string' ? row.assignment_status.trim() : '';
+    if (!isAssignmentStatusDb(statusRaw)) continue;
     parsed.push({
       assignmentId,
       entityType,
       entityId,
       cityId,
-      assignmentRole: typeof row.assignment_role === 'string' ? row.assignment_role : 'primary',
-      assignmentStatus:
-        typeof row.assignment_status === 'string' ? row.assignment_status : 'active',
+      assignmentRole: roleRaw,
+      assignmentStatus: statusRaw,
       isCurrent: Boolean(row.is_current),
     });
   }
@@ -332,42 +335,83 @@ export async function listMediaAssetHistory(
 
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as unknown[]).map((raw) => {
+  const entries: MediaAssetHistoryEntry[] = [];
+  for (const raw of (data ?? []) as unknown[]) {
+    if (!raw || typeof raw !== 'object') continue;
     const row = raw as Record<string, unknown>;
+    const id = typeof row.id === 'string' ? row.id.trim() : '';
+    const eventType = typeof row.event_type === 'string' ? row.event_type.trim() : '';
+    const createdAt = typeof row.created_at === 'string' ? row.created_at.trim() : '';
+    if (!id || !eventType || !createdAt) continue;
+
+    const prevAssign =
+      row.previous_assignment_status === null
+        ? null
+        : typeof row.previous_assignment_status === 'string'
+          ? row.previous_assignment_status.trim()
+          : undefined;
+    if (prevAssign === undefined) continue;
+    const newAssign =
+      row.new_assignment_status === null
+        ? null
+        : typeof row.new_assignment_status === 'string'
+          ? row.new_assignment_status.trim()
+          : undefined;
+    if (newAssign === undefined) continue;
+    if (prevAssign !== null && !isAssignmentStatusDb(prevAssign)) continue;
+    if (newAssign !== null && !isAssignmentStatusDb(newAssign)) continue;
+
+    const prevAsset =
+      row.previous_asset_status === null
+        ? null
+        : typeof row.previous_asset_status === 'string'
+          ? row.previous_asset_status.trim()
+          : undefined;
+    if (prevAsset === undefined) continue;
+    const newAsset =
+      row.new_asset_status === null
+        ? null
+        : typeof row.new_asset_status === 'string'
+          ? row.new_asset_status.trim()
+          : undefined;
+    if (newAsset === undefined) continue;
+    if (prevAsset !== null && !isImageAssetStatusDb(prevAsset)) continue;
+    if (newAsset !== null && !isImageAssetStatusDb(newAsset)) continue;
+
+    const adminRationale =
+      row.admin_rationale === null
+        ? null
+        : typeof row.admin_rationale === 'string'
+          ? row.admin_rationale.trim()
+          : undefined;
+    if (adminRationale === undefined) continue;
+    const aiRationale =
+      row.ai_rationale === null
+        ? null
+        : typeof row.ai_rationale === 'string'
+          ? row.ai_rationale.trim()
+          : undefined;
+    if (aiRationale === undefined) continue;
+
     const metadata =
       row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
         ? (row.metadata as Record<string, unknown>)
         : {};
-    return {
-      id: String(row.id ?? ''),
-      eventType: String(row.event_type ?? ''),
-      createdAt: String(row.created_at ?? ''),
-      previousAssignmentStatus:
-        row.previous_assignment_status === null ||
-        typeof row.previous_assignment_status === 'string'
-          ? row.previous_assignment_status
-          : null,
-      newAssignmentStatus:
-        row.new_assignment_status === null || typeof row.new_assignment_status === 'string'
-          ? row.new_assignment_status
-          : null,
-      previousAssetStatus:
-        row.previous_asset_status === null || typeof row.previous_asset_status === 'string'
-          ? row.previous_asset_status
-          : null,
-      newAssetStatus:
-        row.new_asset_status === null || typeof row.new_asset_status === 'string'
-          ? row.new_asset_status
-          : null,
-      adminRationale:
-        row.admin_rationale === null || typeof row.admin_rationale === 'string'
-          ? row.admin_rationale
-          : null,
-      aiRationale:
-        row.ai_rationale === null || typeof row.ai_rationale === 'string' ? row.ai_rationale : null,
+
+    entries.push({
+      id,
+      eventType,
+      createdAt,
+      previousAssignmentStatus: prevAssign,
+      newAssignmentStatus: newAssign,
+      previousAssetStatus: prevAsset,
+      newAssetStatus: newAsset,
+      adminRationale,
+      aiRationale,
       metadata,
-    };
-  });
+    });
+  }
+  return entries;
 }
 
 type SafeArchiveRpcPayload = {

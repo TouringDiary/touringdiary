@@ -24,21 +24,24 @@ import {
 import { evaluateCachedFeatureFlag } from '../domain/platformControl/platformFlagCache';
 import { dataURLtoFile } from '../utils/common';
 import { parseStorageLocationFromPublicUrl } from '../utils/storagePathFromPublicUrl';
-import { getCityDetails, getFullManifestAsync, resolveCityIdentity } from './city/cityReadService';
+import { resolveCityIdentity } from './city/cityReadService';
+import { entityImageAssignmentsQuery } from './media/entityImageAssignmentsQuery';
 import { upsertEntityImageAssignmentFromSource } from './media/entityImageAssignmentWriteService';
 import { mapDbPhotoSubmission } from './photoMapper';
-import { mf2EntityImageAssignmentsTable } from './reports/mf2DbClient';
 import { getPlatformPlaceholderRegistryAsync } from './settingsService';
 
 const BUCKET_NAME = 'community-photos';
 
-/** Bare URL (no Markdown) — fallback hero città dopo rimozione foto community collegata. */
-const PROPAGATE_PHOTO_REMOVAL_HERO_FALLBACK_URL =
-  'https://images.unsplash.com/photo-1596825205486-3c36957b9fba?q=80&w=1000';
-
 /** Revoca + compensazione assignment fallite: non eseguire rollback legacy submission. */
 class PhotoSubmissionAssignmentInconsistentError extends Error {
   override readonly name = 'PhotoSubmissionAssignmentInconsistentError';
+}
+
+/** Assignment MF4 photo_submission: RPC richiede status approved; active = pubblicabile. */
+function photoSubmissionAllowsActiveAssignment(
+  status: string | null | undefined,
+): status is 'approved' {
+  return status === 'approved';
 }
 
 function attachStorageMeta(photo: PhotoSubmission): PhotoSubmission {
@@ -56,6 +59,12 @@ async function materializePhotoSubmissionAssignment(
   photo: PhotoSubmission,
   storagePath: string | null,
 ): Promise<PhotoSubmission> {
+  if (!photoSubmissionAllowsActiveAssignment(photo.status)) {
+    throw new Error(
+      'Materializzazione assignment photo_submission consentita solo per submission approved.',
+    );
+  }
+
   const cityId = photo.cityId?.trim();
   if (!cityId) return photo;
 
@@ -121,10 +130,11 @@ async function attachPhotoSubmissionAssignmentIds(
   if (photos.length === 0) return photos;
 
   const entityIds = [...new Set(photos.map((p) => p.id))];
-  const { data, error } = await mf2EntityImageAssignmentsTable()
+  const { data, error } = await entityImageAssignmentsQuery()
     .select('id, entity_id, assignment_status')
     .eq('entity_type', 'photo_submission')
     .in('entity_id', entityIds)
+    .eq('assignment_role', 'primary')
     .eq('is_current', true);
 
   if (error) {
@@ -133,6 +143,11 @@ async function attachPhotoSubmissionAssignmentIds(
 
   const assignmentByEntityId = new Map<string, PhotoSubmissionAssignmentRow>();
   for (const row of (data ?? []) as unknown as PhotoSubmissionAssignmentRow[]) {
+    if (assignmentByEntityId.has(row.entity_id)) {
+      throw new Error(
+        `Incoerenza assignment: più righe current per photo_submission ${row.entity_id}.`,
+      );
+    }
     assignmentByEntityId.set(row.entity_id, row);
   }
 
@@ -158,7 +173,7 @@ export async function getCurrentImageAssignmentId(
   cityId: string,
   assignmentRole: 'primary' | 'gallery' = 'primary',
 ): Promise<string | null> {
-  const { data, error } = await mf2EntityImageAssignmentsTable()
+  const { data, error } = await entityImageAssignmentsQuery()
     .select('id')
     .eq('entity_type', entityType)
     .eq('entity_id', entityId)
@@ -259,77 +274,12 @@ export const propagatePhotoRemoval = async (
   locationName: string,
   description?: string,
 ): Promise<boolean> => {
-  try {
-    // Deterministic City Resolution (Boundary Recovery)
-    let targetCityIds: string[] = [];
-    if (locationName) {
-      const identity = await resolveCityIdentity(locationName);
-      if (identity) targetCityIds = [identity.id];
-    }
-
-    // Fallback: Se non c'è locationName o non è risolvibile, manteniamo il comportamento di scansione globale
-    // (legacy/safety) ma mappato su ID.
-    if (targetCityIds.length === 0 && !locationName) {
-      const manifest = await getFullManifestAsync();
-      targetCityIds = manifest.map((c) => c.id);
-    }
-
-    let globalChanged = false;
-    const isHeroContext = description?.includes('[HERO]');
-
-    for (const cityId of targetCityIds) {
-      const city = await getCityDetails(cityId, undefined, { peopleAudience: 'admin' });
-      if (!city) continue;
-      let changed = false;
-      if (isHeroContext || city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {
-        city.details.heroImage = PROPAGATE_PHOTO_REMOVAL_HERO_FALLBACK_URL;
-        city.imageUrl = PROPAGATE_PHOTO_REMOVAL_HERO_FALLBACK_URL;
-        city.imageCredit = '';
-        changed = true;
-      }
-      if (city.details.patronDetails?.imageUrl === photoUrl) {
-        city.details.patronDetails.imageUrl = '';
-        changed = true;
-      }
-      if (city.details.gallery?.some((asset) => asset.url === photoUrl)) {
-        city.details.gallery = city.details.gallery.filter((asset) => asset.url !== photoUrl);
-
-        changed = true;
-      }
-      if (changed) {
-        // MP-03 STEP-1: dynamic import intenzionale — evita cityWrite/lifecycle/staging nel bootstrap Home.
-        const { saveCityDetails } = await import('./city/cityWriteService');
-        await saveCityDetails(city);
-        globalChanged = true;
-      }
-    }
-    return globalChanged;
-  } catch {
-    return false;
-  }
-};
-
-export const syncPhotoDescriptionToCity = async (
-  photoUrl: string,
-  newDescription: string,
-  locationName: string,
-) => {
-  try {
-    const identity = await resolveCityIdentity(locationName);
-    if (!identity) return;
-    const city = await getCityDetails(identity.id, undefined, { peopleAudience: 'admin' });
-    if (!city) return;
-    let changed = false;
-    if (city.details.heroImage === photoUrl || city.imageUrl === photoUrl) {
-      city.imageCredit = newDescription;
-      changed = true;
-    }
-    if (changed) {
-      // MP-03 STEP-1: dynamic import intenzionale — evita cityWrite/lifecycle/staging nel bootstrap Home.
-      const { saveCityDetails } = await import('./city/cityWriteService');
-      await saveCityDetails(city);
-    }
-  } catch {}
+  // MF4/MF5: revoca assignment e lifecycle avvengono in deletePhotoSubmissionInDb / updatePhotoStatusInDb.
+  // Non sostituire Hero/Card con URL artificiali né mutare gallery legacy come SoT.
+  void photoUrl;
+  void locationName;
+  void description;
+  return false;
 };
 
 // --------------------------------------------------
@@ -337,28 +287,85 @@ export const syncPhotoDescriptionToCity = async (
 // --------------------------------------------------
 
 export const flagPhotosAsCityDeleted = async (cityName: string): Promise<void> => {
+  const revokedInThisRun: {
+    submissionId: string;
+    cityId: string;
+    assignmentId: string;
+  }[] = [];
+
   try {
-    // Resolve identity for SSoT update
     const identity = await resolveCityIdentity(cityName);
 
-    let query = supabase.from('photo_submissions').update({
+    let selectQuery = supabase.from('photo_submissions').select('id, city_id');
+
+    if (identity) {
+      selectQuery = selectQuery.or(
+        `city_id.eq.${identity.id},location_name.ilike.${identity.name}`,
+      );
+    } else {
+      selectQuery = selectQuery.ilike('location_name', cityName.trim());
+    }
+
+    const { data: rows, error: selectError } = await selectQuery;
+    if (selectError) throw selectError;
+
+    const revokeFailures: { submissionId: string; message: string }[] = [];
+    for (const row of rows ?? []) {
+      const cityId = row.city_id?.trim() ?? '';
+      if (!cityId) continue;
+      try {
+        const assignmentId = await getCurrentImageAssignmentId('photo_submission', row.id, cityId);
+        if (!assignmentId) continue;
+        try {
+          await revokePhotoSubmissionAssignment(row.id, cityId, assignmentId);
+          revokedInThisRun.push({ submissionId: row.id, cityId, assignmentId });
+        } catch (revokeErr) {
+          const message = revokeErr instanceof Error ? revokeErr.message : String(revokeErr);
+          revokeFailures.push({ submissionId: row.id, message });
+        }
+      } catch (perRowErr) {
+        await restoreRevokedPhotoSubmissionAssignments(
+          revokedInThisRun,
+          `flagPhotosAsCityDeleted: errore durante elaborazione submission ${row.id}`,
+        );
+        throw perRowErr;
+      }
+    }
+
+    if (revokeFailures.length > 0) {
+      await restoreRevokedPhotoSubmissionAssignments(
+        revokedInThisRun,
+        'flagPhotosAsCityDeleted: revoca assignment MF4 fallita',
+      );
+      throw new Error(
+        `flagPhotosAsCityDeleted: revoca assignment MF4 fallita per ${revokeFailures.length} submission; status city_deleted non applicato. Primo id=${revokeFailures[0]?.submissionId}: ${revokeFailures[0]?.message}`,
+      );
+    }
+
+    let updateQuery = supabase.from('photo_submissions').update({
       status: 'city_deleted',
       updated_at: new Date().toISOString(),
     });
 
     if (identity) {
-      // SSoT: Update by ID or normalized name for maximum safety/compat
-      query = query.or(`city_id.eq.${identity.id},location_name.ilike.${identity.name}`);
+      updateQuery = updateQuery.or(
+        `city_id.eq.${identity.id},location_name.ilike.${identity.name}`,
+      );
     } else {
-      // Fallback legacy (Identity lookup failed)
-      query = query.ilike('location_name', cityName.trim());
+      updateQuery = updateQuery.ilike('location_name', cityName.trim());
     }
 
-    const { error } = await query;
-
-    if (error) throw error;
+    const { error: updateError } = await updateQuery;
+    if (updateError) {
+      await restoreRevokedPhotoSubmissionAssignments(
+        revokedInThisRun,
+        `flagPhotosAsCityDeleted: update status fallito (${updateError.message})`,
+      );
+      throw updateError;
+    }
   } catch (e) {
     console.error('Error flagging photos as deleted:', e);
+    throw e;
   }
 };
 
@@ -395,6 +402,9 @@ export const uploadCommunityPhoto = async (
     );
   }
 
+  let storageCreatedThisRun = false;
+  let uploadedFilePath: string | null = null;
+
   try {
     // 1. Resolve cityId if not provided (Refactored: Service Boundary Recovery)
     let resolvedCityId = cityId;
@@ -415,15 +425,18 @@ export const uploadCommunityPhoto = async (
 
     const fileName = `${userId}_${Date.now()}_${safeName}`;
 
-    const filePath = `${locationName}/${fileName}`;
+    uploadedFilePath = `${locationName}/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file);
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(uploadedFilePath, file);
 
     if (uploadError) throw uploadError;
+    storageCreatedThisRun = true;
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+    } = supabase.storage.from(BUCKET_NAME).getPublicUrl(uploadedFilePath);
 
     // Write-boundary: solo Fotografie entrano in photo_submissions.
     const placeholderRegistry = await getPlatformPlaceholderRegistryAsync();
@@ -455,30 +468,56 @@ export const uploadCommunityPhoto = async (
       .single();
 
     if (dbError) throw dbError;
+    storageCreatedThisRun = false;
 
     const mapped = attachStorageMeta(mapDbPhotoSubmission(data));
-    if (!resolvedCityId) {
+    if (!resolvedCityId || !photoSubmissionAllowsActiveAssignment(mapped.status)) {
       return mapped;
     }
 
     try {
-      return await materializePhotoSubmissionAssignment(mapped, filePath);
+      return await materializePhotoSubmissionAssignment(mapped, uploadedFilePath);
     } catch (assignmentErr) {
-      await supabase.from('photo_submissions').delete().eq('id', mapped.id);
+      const { error: deleteError } = await supabase
+        .from('photo_submissions')
+        .delete()
+        .eq('id', mapped.id);
+      if (deleteError) {
+        const assignMsg =
+          assignmentErr instanceof Error ? assignmentErr.message : String(assignmentErr);
+        throw new PhotoSubmissionAssignmentInconsistentError(
+          `uploadCommunityPhoto: materialize fallito (${assignMsg}) e delete submission fallito (${deleteError.message}). submission=${mapped.id}.`,
+        );
+      }
       const { error: storageCleanupError } = await supabase.storage
         .from(BUCKET_NAME)
-        .remove([filePath]);
+        .remove([uploadedFilePath]);
       if (storageCleanupError) {
-        console.error(
-          '[uploadCommunityPhoto] materialize assignment fallito e cleanup Storage non riuscito:',
-          filePath,
-          storageCleanupError,
-          assignmentErr,
+        const assignMsg =
+          assignmentErr instanceof Error ? assignmentErr.message : String(assignmentErr);
+        throw new PhotoSubmissionAssignmentInconsistentError(
+          `uploadCommunityPhoto: materialize fallito (${assignMsg}) e cleanup Storage fallito (${storageCleanupError.message}). submission=${mapped.id}, path=${uploadedFilePath}.`,
         );
       }
       throw assignmentErr;
     }
   } catch (e) {
+    if (e instanceof PhotoSubmissionAssignmentInconsistentError) {
+      throw e;
+    }
+    if (storageCreatedThisRun && uploadedFilePath) {
+      const { error: storageCleanupError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .remove([uploadedFilePath]);
+      if (storageCleanupError) {
+        console.error(
+          '[uploadCommunityPhoto] write fallita e cleanup Storage non riuscito:',
+          uploadedFilePath,
+          storageCleanupError,
+          e,
+        );
+      }
+    }
     console.error('[photoService] Error in uploadCommunityPhoto:', e);
     return null;
   }
@@ -564,10 +603,23 @@ export const getOrCreatePhotoSubmissionForUrl = async (
     try {
       return await materializePhotoSubmissionAssignment(mapped, parsed?.storagePath ?? null);
     } catch (assignmentErr) {
-      await supabase.from('photo_submissions').delete().eq('id', mapped.id);
+      const { error: deleteError } = await supabase
+        .from('photo_submissions')
+        .delete()
+        .eq('id', mapped.id);
+      if (deleteError) {
+        const assignMsg =
+          assignmentErr instanceof Error ? assignmentErr.message : String(assignmentErr);
+        throw new PhotoSubmissionAssignmentInconsistentError(
+          `getOrCreatePhotoSubmissionForUrl: materialize fallito (${assignMsg}) e delete submission fallito (${deleteError.message}). submission=${mapped.id}.`,
+        );
+      }
       throw assignmentErr;
     }
   } catch (e) {
+    if (e instanceof PhotoSubmissionAssignmentInconsistentError) {
+      throw e;
+    }
     console.error('[photoService] Errore in getOrCreatePhotoSubmissionForUrl:', e);
     return null;
   }
@@ -700,6 +752,8 @@ export const updatePhotoStatusInDb = async (
 
   if (status === 'approved') {
     updates.published_at = new Date().toISOString();
+  } else {
+    updates.published_at = null;
   }
 
   try {
@@ -709,41 +763,137 @@ export const updatePhotoStatusInDb = async (
       .eq('id', id)
       .maybeSingle();
     if (fetchError) throw fetchError;
+    if (!existing) {
+      throw new Error('photo_submission non trovata.');
+    }
 
-    const { error: updateError } = await supabase
-      .from('photo_submissions')
-      .update(updates)
-      .eq('id', id);
-    if (updateError) throw updateError;
+    const previousStatus = existing.status;
 
-    if (status === 'approved' && existing) {
-      const updatedRow = {
+    let priorAssignmentId: string | null = null;
+    let materializedAssignmentId: string | null = null;
+    if (status === 'approved') {
+      const cityIdForMaterialize = existing.city_id?.trim() ?? '';
+      if (cityIdForMaterialize.length > 0) {
+        priorAssignmentId = await getCurrentImageAssignmentId(
+          'photo_submission',
+          id,
+          cityIdForMaterialize,
+        );
+      }
+      const previewRow = {
         ...existing,
         status,
         published_at: updates.published_at ?? existing.published_at ?? null,
         updated_at: updates.updated_at ?? existing.updated_at ?? null,
       };
-      const mapped = attachStorageMeta(mapDbPhotoSubmission(updatedRow));
+      const mapped = attachStorageMeta(mapDbPhotoSubmission(previewRow));
       const parsed = parseStorageLocationFromPublicUrl(mapped.url);
-      try {
-        await materializePhotoSubmissionAssignment(mapped, parsed?.storagePath ?? null);
-      } catch (assignmentErr) {
-        const { error: rollbackError } = await supabase
-          .from('photo_submissions')
-          .update({
-            status: existing.status,
-            published_at: existing.published_at,
-            updated_at: existing.updated_at,
-          })
-          .eq('id', id);
-        if (rollbackError) {
-          console.error(
-            '[photoService] materialize assignment approvazione fallito e rollback stato submission non riuscito:',
-            rollbackError,
-            assignmentErr,
-          );
+      const materialized = await materializePhotoSubmissionAssignment(
+        mapped,
+        parsed?.storagePath ?? null,
+      );
+      materializedAssignmentId = materialized.assignmentId ?? null;
+    }
+
+    const { error: updateError } = await supabase
+      .from('photo_submissions')
+      .update(updates)
+      .eq('id', id);
+    if (updateError) {
+      if (status === 'approved') {
+        const cityId = existing.city_id?.trim() ?? '';
+        if (cityId.length > 0) {
+          try {
+            await compensatePhotoSubmissionUpsertIntroducedByRun(
+              id,
+              cityId,
+              priorAssignmentId,
+              materializedAssignmentId,
+            );
+          } catch (compensateErr) {
+            const updateMsg = updateError.message;
+            const compensateMsg =
+              compensateErr instanceof Error ? compensateErr.message : String(compensateErr);
+            console.error(
+              '[photoService] approvazione: update submission fallito dopo materialize e compensazione fallita:',
+              compensateErr,
+              updateError,
+            );
+            throw new PhotoSubmissionAssignmentInconsistentError(
+              `Incoerenza photo_submission ↔ assignment: materialize riuscito ma update submission fallito (${updateMsg}) e compensazione fallita (${compensateMsg}). submission=${id}.`,
+            );
+          }
         }
-        throw assignmentErr;
+      }
+      throw updateError;
+    }
+
+    if (status !== 'approved') {
+      const cityId = existing.city_id?.trim() ?? '';
+      if (cityId.length > 0) {
+        const rollbackSubmissionToPreviousStatus = async (
+          primaryFailureMessage: string,
+        ): Promise<void> => {
+          const rollback: DatabasePhotoSubmissionUpdate = {
+            status: previousStatus,
+            updated_at: new Date().toISOString(),
+          };
+          if (previousStatus === 'approved' && existing.published_at) {
+            rollback.published_at = existing.published_at;
+          }
+          const { error: rollbackError } = await supabase
+            .from('photo_submissions')
+            .update(rollback)
+            .eq('id', id);
+          if (rollbackError) {
+            throw new PhotoSubmissionAssignmentInconsistentError(
+              `Incoerenza photo_submission ↔ assignment: submission aggiornata a ${status} ma ${primaryFailureMessage} e rollback submission fallito (${rollbackError.message}). Verificare manualmente submission ${id}.`,
+            );
+          }
+        };
+
+        let assignmentId: string | null;
+        try {
+          assignmentId = await getCurrentImageAssignmentId('photo_submission', id, cityId);
+        } catch (lookupErr) {
+          const lookupMsg = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
+          try {
+            await rollbackSubmissionToPreviousStatus(
+              `lettura assignment corrente fallita (${lookupMsg})`,
+            );
+          } catch (rollbackOutcome) {
+            console.error(
+              '[photoService] unpublish: lettura assignment fallita e rollback submission non riuscito:',
+              rollbackOutcome,
+              lookupErr,
+            );
+            throw rollbackOutcome;
+          }
+          throw lookupErr instanceof Error
+            ? lookupErr
+            : new Error('Lettura assignment corrente dopo unpublish fallita.');
+        }
+
+        if (assignmentId) {
+          try {
+            await revokePhotoSubmissionAssignment(id, cityId, assignmentId);
+          } catch (revokeErr) {
+            const revokeMsg = revokeErr instanceof Error ? revokeErr.message : String(revokeErr);
+            try {
+              await rollbackSubmissionToPreviousStatus(`revoca assignment fallita (${revokeMsg})`);
+            } catch (rollbackOutcome) {
+              console.error(
+                '[photoService] unpublish: revoca assignment fallita e rollback submission non riuscito:',
+                rollbackOutcome,
+                revokeErr,
+              );
+              throw rollbackOutcome;
+            }
+            throw revokeErr instanceof Error
+              ? revokeErr
+              : new Error('Revoca assignment dopo unpublish fallita.');
+          }
+        }
       }
     }
   } catch (err) {
@@ -831,8 +981,40 @@ export const updatePhotoData = async (
       const oldCityId = existing.city_id?.trim() ?? '';
       const newCityId = cityChanged ? (nextCityId ?? '') : oldCityId;
       let newAssignmentId: string | null = null;
+      let priorAssignmentIdForUpsert: string | null = null;
+      const revokedDuringInactiveSync: RevokedPhotoSubmissionAssignment[] = [];
       try {
-        if (newCityId.length > 0) {
+        if (!photoSubmissionAllowsActiveAssignment(existing.status)) {
+          const citiesToRevoke = [...new Set([oldCityId, newCityId].filter((c) => c.length > 0))];
+          for (const revokeCityId of citiesToRevoke) {
+            try {
+              const staleAssignmentId = await getCurrentImageAssignmentId(
+                'photo_submission',
+                id,
+                revokeCityId,
+              );
+              if (staleAssignmentId) {
+                await revokePhotoSubmissionAssignment(id, revokeCityId, staleAssignmentId);
+                revokedDuringInactiveSync.push({
+                  submissionId: id,
+                  cityId: revokeCityId,
+                  assignmentId: staleAssignmentId,
+                });
+              }
+            } catch (revokeErr) {
+              await restoreRevokedPhotoSubmissionAssignments(
+                revokedDuringInactiveSync,
+                `updatePhotoData: revoca assignment stale fallita (submission ${id}, city ${revokeCityId})`,
+              );
+              throw revokeErr;
+            }
+          }
+        } else if (newCityId.length > 0) {
+          priorAssignmentIdForUpsert = await getCurrentImageAssignmentId(
+            'photo_submission',
+            id,
+            newCityId,
+          );
           const updatedRow = {
             ...existing,
             image_url: urlChanged ? nextUrl : existing.image_url,
@@ -846,59 +1028,103 @@ export const updatePhotoData = async (
             parsed?.storagePath ?? null,
           );
           newAssignmentId = materialized.assignmentId ?? null;
-        }
 
-        if (cityChanged && oldCityId.length > 0) {
-          const oldAssignmentId = await getCurrentImageAssignmentId(
-            'photo_submission',
-            id,
-            oldCityId,
-          );
-          if (oldAssignmentId) {
-            try {
-              await revokePhotoSubmissionAssignment(id, oldCityId, oldAssignmentId);
-            } catch (revokeOldErr) {
-              if (newAssignmentId && newCityId.length > 0) {
-                try {
-                  await revokePhotoSubmissionAssignment(id, newCityId, newAssignmentId);
-                } catch (compensateErr) {
-                  const revokeMsg =
-                    revokeOldErr instanceof Error ? revokeOldErr.message : String(revokeOldErr);
-                  const compensateMsg =
-                    compensateErr instanceof Error ? compensateErr.message : String(compensateErr);
+          if (cityChanged && oldCityId.length > 0) {
+            const oldAssignmentId = await getCurrentImageAssignmentId(
+              'photo_submission',
+              id,
+              oldCityId,
+            );
+            if (oldAssignmentId) {
+              try {
+                await revokePhotoSubmissionAssignment(id, oldCityId, oldAssignmentId);
+              } catch (revokeOldErr) {
+                if (newAssignmentId && newCityId.length > 0) {
+                  try {
+                    await compensatePhotoSubmissionUpsertIntroducedByRun(
+                      id,
+                      newCityId,
+                      priorAssignmentIdForUpsert,
+                      newAssignmentId,
+                    );
+                  } catch (compensateErr) {
+                    const revokeMsg =
+                      revokeOldErr instanceof Error ? revokeOldErr.message : String(revokeOldErr);
+                    const compensateMsg =
+                      compensateErr instanceof Error
+                        ? compensateErr.message
+                        : String(compensateErr);
+                    console.error(
+                      '[photoService] revoca assignment vecchia fallita e compensazione upsert non riuscita:',
+                      compensateErr,
+                      revokeOldErr,
+                    );
+                    throw new PhotoSubmissionAssignmentInconsistentError(
+                      `Stato assignment photo_submission inconsistente: revoca vecchia fallita (${revokeMsg}); compensazione upsert fallita (${compensateMsg}).`,
+                    );
+                  }
+                }
+                const rollbackPayload: DatabasePhotoSubmissionUpdate = {
+                  updated_at: existing.updated_at,
+                };
+                if (urlChanged) rollbackPayload.image_url = existing.image_url;
+                if (cityChanged) rollbackPayload.city_id = existing.city_id;
+                const { error: rollbackError } = await supabase
+                  .from('photo_submissions')
+                  .update(rollbackPayload)
+                  .eq('id', id);
+                if (rollbackError) {
                   console.error(
-                    '[photoService] revoca assignment vecchia fallita e compensazione nuova assignment non riuscita:',
-                    compensateErr,
+                    '[photoService] revoca assignment vecchia fallita e rollback submission non riuscito:',
+                    rollbackError,
                     revokeOldErr,
                   );
                   throw new PhotoSubmissionAssignmentInconsistentError(
-                    `Stato assignment photo_submission inconsistente: revoca vecchia fallita (${revokeMsg}); compensazione nuova fallita (${compensateMsg}).`,
+                    `Incoerenza photo_submission ↔ assignment: rollback submission fallito dopo revoca vecchia fallita (submission ${id}).`,
                   );
                 }
+                throw revokeOldErr;
               }
-              const rollbackPayload: DatabasePhotoSubmissionUpdate = {
-                updated_at: existing.updated_at,
-              };
-              if (urlChanged) rollbackPayload.image_url = existing.image_url;
-              if (cityChanged) rollbackPayload.city_id = existing.city_id;
-              const { error: rollbackError } = await supabase
-                .from('photo_submissions')
-                .update(rollbackPayload)
-                .eq('id', id);
-              if (rollbackError) {
-                console.error(
-                  '[photoService] revoca assignment vecchia fallita e rollback submission non riuscito:',
-                  rollbackError,
-                  revokeOldErr,
-                );
-              }
-              throw revokeOldErr;
             }
           }
         }
       } catch (assignmentErr) {
         if (assignmentErr instanceof PhotoSubmissionAssignmentInconsistentError) {
           throw assignmentErr;
+        }
+        if (revokedDuringInactiveSync.length > 0) {
+          try {
+            await restoreRevokedPhotoSubmissionAssignments(
+              revokedDuringInactiveSync,
+              `updatePhotoData: errore sync assignment (submission ${id})`,
+            );
+          } catch (restoreErr) {
+            const assignMsg =
+              assignmentErr instanceof Error ? assignmentErr.message : String(assignmentErr);
+            const restoreMsg =
+              restoreErr instanceof Error ? restoreErr.message : String(restoreErr);
+            throw new PhotoSubmissionAssignmentInconsistentError(
+              `Incoerenza photo_submission ↔ assignment: sync fallita (${assignMsg}); ripristino revoche stale fallito (${restoreMsg}). submission=${id}, assignments=${revokedDuringInactiveSync.map((r) => r.assignmentId).join(',')}.`,
+            );
+          }
+        }
+        if (newAssignmentId && newCityId.length > 0) {
+          try {
+            await compensatePhotoSubmissionUpsertIntroducedByRun(
+              id,
+              newCityId,
+              priorAssignmentIdForUpsert,
+              newAssignmentId,
+            );
+          } catch (compensateErr) {
+            const compensateMsg =
+              compensateErr instanceof Error ? compensateErr.message : String(compensateErr);
+            const assignMsg =
+              assignmentErr instanceof Error ? assignmentErr.message : String(assignmentErr);
+            throw new PhotoSubmissionAssignmentInconsistentError(
+              `Incoerenza photo_submission ↔ assignment: sync fallita (${assignMsg}) e compensazione upsert fallita (${compensateMsg}). submission=${id}, assignment=${newAssignmentId}.`,
+            );
+          }
         }
         const rollbackPayload: DatabasePhotoSubmissionUpdate = {
           updated_at: existing.updated_at,
@@ -909,19 +1135,17 @@ export const updatePhotoData = async (
           .from('photo_submissions')
           .update(rollbackPayload)
           .eq('id', id);
+        const assignMsg =
+          assignmentErr instanceof Error ? assignmentErr.message : String(assignmentErr);
         if (rollbackError) {
-          console.error(
-            '[photoService] materialize assignment updatePhotoData fallito e rollback submission non riuscito:',
-            rollbackError,
-            assignmentErr,
+          throw new PhotoSubmissionAssignmentInconsistentError(
+            `Incoerenza photo_submission ↔ assignment: materialize fallito (${assignMsg}); rollback submission fallito (${rollbackError.message}). submission=${id}.`,
           );
         }
-        throw assignmentErr;
+        throw assignmentErr instanceof Error
+          ? assignmentErr
+          : new Error(`Materializzazione assignment fallita: ${assignMsg}`);
       }
-    }
-
-    if (data.description && data.locationName && data.url) {
-      await syncPhotoDescriptionToCity(data.url, data.description, data.locationName);
     }
   } catch (err) {
     console.error('[photoService] Error updating photo data:', err);
@@ -933,13 +1157,127 @@ export const updatePhotoData = async (
 // DELETE PHOTO SUBMISSION
 // --------------------------------------------------
 
-type Mf2AssignmentConditionalUpdateBuilder = {
-  eq: (column: string, value: string | boolean) => Mf2AssignmentConditionalUpdateBuilder;
-  select: (columns: string) => Promise<{
-    data: unknown;
-    error: { message: string } | null;
-  }>;
+type RevokedPhotoSubmissionAssignment = {
+  submissionId: string;
+  cityId: string;
+  assignmentId: string;
 };
+
+async function restoreRevokedPhotoSubmissionAssignments(
+  revoked: RevokedPhotoSubmissionAssignment[],
+  context: string,
+): Promise<void> {
+  if (revoked.length === 0) return;
+  const compensateErrors: string[] = [];
+  for (const entry of revoked) {
+    try {
+      await restorePhotoSubmissionAssignment(entry.submissionId, entry.cityId, entry.assignmentId);
+    } catch (restoreErr) {
+      const message = restoreErr instanceof Error ? restoreErr.message : String(restoreErr);
+      compensateErrors.push(`${entry.submissionId}/${entry.assignmentId}: ${message}`);
+    }
+  }
+  if (compensateErrors.length > 0) {
+    throw new PhotoSubmissionAssignmentInconsistentError(
+      `${context}; compensazione revoche fallita (${compensateErrors.length}). Primo: ${compensateErrors[0]}`,
+    );
+  }
+}
+
+/** Ripristina primary `replaced` dopo rollback di un upsert che ha creato `replacedByAssignmentId`. */
+async function restoreReplacedPhotoSubmissionAssignment(
+  priorAssignmentId: string,
+  replacedByAssignmentId: string,
+  submissionId: string,
+  cityId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { data: updatedRows, error: updateError } = await entityImageAssignmentsQuery()
+    .update({
+      assignment_status: 'active',
+      is_current: true,
+      replaced_by_assignment_id: null,
+      updated_at: now,
+    })
+    .eq('id', priorAssignmentId)
+    .eq('entity_type', 'photo_submission')
+    .eq('entity_id', submissionId)
+    .eq('city_id', cityId)
+    .eq('assignment_role', 'primary')
+    .eq('assignment_status', 'replaced')
+    .eq('replaced_by_assignment_id', replacedByAssignmentId)
+    .select('id');
+
+  if (updateError) {
+    throw new Error(
+      `Ripristino assignment sostituita photo_submission fallito: ${updateError.message}`,
+    );
+  }
+  if (!updatedRows?.length) {
+    throw new Error(
+      `Ripristino assignment sostituita photo_submission: nessuna riga aggiornata (${priorAssignmentId}).`,
+    );
+  }
+}
+
+/**
+ * Compensa un upsert RPC riuscito quando l'operazione caller fallisce dopo.
+ * Idempotente (stesso id): nessuna azione. Nuovo id senza prior: revoca. Sostituzione: revoca nuovo + ripristina prior.
+ */
+async function compensatePhotoSubmissionUpsertIntroducedByRun(
+  submissionId: string,
+  cityId: string,
+  priorAssignmentId: string | null,
+  upsertResultAssignmentId: string | null,
+): Promise<void> {
+  if (!upsertResultAssignmentId) return;
+  if (upsertResultAssignmentId === priorAssignmentId) return;
+
+  if (priorAssignmentId === null) {
+    await revokePhotoSubmissionAssignment(submissionId, cityId, upsertResultAssignmentId);
+    return;
+  }
+
+  await revokePhotoSubmissionAssignment(submissionId, cityId, upsertResultAssignmentId);
+  await restoreReplacedPhotoSubmissionAssignment(
+    priorAssignmentId,
+    upsertResultAssignmentId,
+    submissionId,
+    cityId,
+  );
+}
+
+async function restorePhotoSubmissionAssignment(
+  submissionId: string,
+  cityId: string,
+  assignmentId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { data: updatedRows, error: updateError } = await entityImageAssignmentsQuery()
+    .update({
+      assignment_status: 'active',
+      is_current: true,
+      removed_at: null,
+      updated_at: now,
+    })
+    .eq('id', assignmentId)
+    .eq('entity_type', 'photo_submission')
+    .eq('entity_id', submissionId)
+    .eq('city_id', cityId)
+    .eq('assignment_role', 'primary')
+    .eq('assignment_status', 'removed')
+    .eq('is_current', false)
+    .select('id');
+
+  if (updateError) {
+    throw new Error(`Ripristino assignment photo_submission fallito: ${updateError.message}`);
+  }
+  if (!updatedRows?.length) {
+    throw new Error(
+      `Ripristino assignment photo_submission: nessuna riga aggiornata (${assignmentId}).`,
+    );
+  }
+}
 
 async function revokePhotoSubmissionAssignment(
   submissionId: string,
@@ -947,17 +1285,10 @@ async function revokePhotoSubmissionAssignment(
   assignmentId: string,
 ): Promise<void> {
   const now = new Date().toISOString();
-  const updateClient = mf2EntityImageAssignmentsTable() as unknown as {
-    update: (values: {
-      assignment_status: 'removed';
-      removed_at: string;
-      updated_at: string;
-    }) => Mf2AssignmentConditionalUpdateBuilder;
-  };
-
-  const { data: updatedRows, error: updateError } = await updateClient
+  const { data: updatedRows, error: updateError } = await entityImageAssignmentsQuery()
     .update({
       assignment_status: 'removed',
+      is_current: false,
       removed_at: now,
       updated_at: now,
     })
@@ -994,15 +1325,27 @@ export const deletePhotoSubmissionInDb = async (id: string): Promise<void> => {
   if (!existing) return;
 
   const cityId = existing.city_id?.trim() ?? '';
+  let revokedAssignmentId: string | null = null;
   if (cityId.length > 0) {
     const assignmentId = await getCurrentImageAssignmentId('photo_submission', existing.id, cityId);
     if (assignmentId) {
       await revokePhotoSubmissionAssignment(existing.id, cityId, assignmentId);
+      revokedAssignmentId = assignmentId;
     }
   }
 
   const { error: deleteError } = await supabase.from('photo_submissions').delete().eq('id', id);
   if (deleteError) {
+    if (revokedAssignmentId) {
+      try {
+        await restorePhotoSubmissionAssignment(existing.id, cityId, revokedAssignmentId);
+      } catch (restoreErr) {
+        const restoreMsg = restoreErr instanceof Error ? restoreErr.message : String(restoreErr);
+        throw new PhotoSubmissionAssignmentInconsistentError(
+          `Incoerenza photo_submission ↔ assignment: delete submission fallito (${deleteError.message}); ripristino assignment fallito (${restoreMsg}). submission=${id}, assignment=${revokedAssignmentId}.`,
+        );
+      }
+    }
     throw new Error(`Eliminazione photo_submission fallita: ${deleteError.message}`);
   }
 };

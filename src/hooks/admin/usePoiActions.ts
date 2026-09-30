@@ -1,5 +1,9 @@
 import { useRef, useState } from 'react';
-import { POI_SUBCATEGORY_VALUES, VERIFIED_RELIABILITY_MAP } from '../../constants/governance';
+import {
+  POI_STATUS_VALUES,
+  POI_SUBCATEGORY_VALUES,
+  VERIFIED_RELIABILITY_MAP,
+} from '../../constants/governance';
 import { enrichStagingPoi } from '../../services/ai/generators/poiGenerator';
 import { getCorrectCategory } from '../../services/ai/utils/taxonomyUtils';
 import {
@@ -15,6 +19,35 @@ interface UsePoiActionsProps {
   refreshData: () => Promise<void>;
   selectedIds: Set<string>;
   setSelectedIds: (ids: Set<string>) => void;
+}
+
+const BULK_POI_RPC_CONCURRENCY = 4;
+
+function isPoiUiStatus(value: string): value is NonNullable<PointOfInterest['status']> {
+  return (POI_STATUS_VALUES as readonly string[]).includes(value);
+}
+
+async function runPoiBulkWithConcurrency(
+  ids: string[],
+  concurrency: number,
+  task: (id: string) => Promise<void>,
+): Promise<{ succeeded: string[]; failed: string[] }> {
+  const succeeded: string[] = [];
+  const failed: string[] = [];
+  for (let i = 0; i < ids.length; i += concurrency) {
+    const batch = ids.slice(i, i + concurrency);
+    await Promise.all(
+      batch.map(async (id) => {
+        try {
+          await task(id);
+          succeeded.push(id);
+        } catch {
+          failed.push(id);
+        }
+      }),
+    );
+  }
+  return { succeeded, failed };
 }
 
 export const usePoiActions = ({
@@ -53,7 +86,6 @@ export const usePoiActions = ({
     setIsDeleting(true);
     try {
       await deleteSinglePoi(id);
-      await new Promise((r) => setTimeout(r, 200)); // Delay per propagazione
       await refreshData();
       return true;
     } catch (e: unknown) {
@@ -72,12 +104,22 @@ export const usePoiActions = ({
     setIsBulkProcessing(true);
     try {
       const targets = Array.from(selectedIds);
-      // Esegui in parallelo (o chunked se troppi)
-      await Promise.all(targets.map((id) => deleteSinglePoi(id)));
+      const { succeeded, failed } = await runPoiBulkWithConcurrency(
+        targets,
+        BULK_POI_RPC_CONCURRENCY,
+        (id) => deleteSinglePoi(id),
+      );
 
-      setSelectedIds(new Set());
+      const nextSelection = new Set(selectedIds);
+      for (const id of succeeded) nextSelection.delete(id);
+      setSelectedIds(nextSelection);
       await refreshData();
-    } catch (e: unknown) {
+      if (failed.length > 0) {
+        alert(
+          `Eliminazione multipla parziale: ${succeeded.length} ok, ${failed.length} falliti. Selezionati aggiornati.`,
+        );
+      }
+    } catch (_e: unknown) {
       alert('Errore eliminazione multipla.');
     } finally {
       setIsBulkProcessing(false);
@@ -93,17 +135,30 @@ export const usePoiActions = ({
     setIsBulkProcessing(true);
     try {
       const targets = Array.from(selectedIds);
-      await Promise.all(
-        targets.map((id) => {
+      const { succeeded, failed } = await runPoiBulkWithConcurrency(
+        targets,
+        BULK_POI_RPC_CONCURRENCY,
+        async (id) => {
           const poi = getPoiById(id);
-          if (poi) return saveSinglePoi({ ...poi, status: targetStatus }, cityId, currentUser);
-          return Promise.resolve();
-        }),
+          if (!poi) {
+            throw new Error(`POI non trovato: ${id}`);
+          }
+          await saveSinglePoi({ ...poi, status: targetStatus }, cityId, currentUser, {
+            primaryImage: 'preserve_assignment',
+          });
+        },
       );
 
-      setSelectedIds(new Set());
+      const nextSelection = new Set(selectedIds);
+      for (const id of succeeded) nextSelection.delete(id);
+      setSelectedIds(nextSelection);
       await refreshData();
-    } catch (e) {
+      if (failed.length > 0) {
+        alert(
+          `Cambio stato parziale: ${succeeded.length} ok, ${failed.length} falliti. Selezione aggiornata.`,
+        );
+      }
+    } catch (_e) {
       alert('Errore cambio stato multiplo.');
     } finally {
       setIsBulkProcessing(false);
@@ -119,16 +174,29 @@ export const usePoiActions = ({
     setGenStatus('Reset immagini...');
     try {
       const targets = Array.from(selectedIds);
-      await Promise.all(
-        targets.map(async (id) => {
+      const { succeeded, failed } = await runPoiBulkWithConcurrency(
+        targets,
+        BULK_POI_RPC_CONCURRENCY,
+        async (id) => {
           const poi = getPoiById(id);
-          if (poi) {
-            await saveSinglePoi({ ...poi, imageUrl: '' }, cityId, currentUser);
+          if (!poi) {
+            throw new Error(`POI non trovato: ${id}`);
           }
-        }),
+          await saveSinglePoi({ ...poi, imageUrl: '' }, cityId, currentUser, {
+            primaryImage: 'revoke_if_cleared',
+          });
+        },
       );
+      const nextSelection = new Set(selectedIds);
+      for (const id of succeeded) nextSelection.delete(id);
+      setSelectedIds(nextSelection);
       await refreshData();
-    } catch (e: unknown) {
+      if (failed.length > 0) {
+        alert(
+          `Reset immagini parziale: ${succeeded.length} ok, ${failed.length} falliti. Selezione aggiornata.`,
+        );
+      }
+    } catch (_e: unknown) {
       alert('Errore reset immagini.');
     } finally {
       setIsBulkProcessing(false);
@@ -146,7 +214,9 @@ export const usePoiActions = ({
       for (const p of allPois) {
         const correctCat = getCorrectCategory(p.subCategory || '', p.category, p.name);
         if (correctCat !== p.category) {
-          await saveSinglePoi({ ...p, category: correctCat }, cityId);
+          await saveSinglePoi({ ...p, category: correctCat }, cityId, undefined, {
+            primaryImage: 'preserve_assignment',
+          });
           fixedCount++;
         }
       }
@@ -176,6 +246,9 @@ export const usePoiActions = ({
     let quotaExceeded = false;
 
     try {
+      const { schedulePoiRealImageDiscovery } = await import(
+        '../../services/poi/poiRealImageDiscoveryService'
+      );
       // Ciclo a blocchi di 5 per non saturare subito se la quota è bassa
       while (!stopSignalRef.current && !quotaExceeded) {
         // 1. Fetch batch di POI che NON hanno il flag "+"
@@ -204,15 +277,17 @@ export const usePoiActions = ({
             const newReliability: PointOfInterest['aiReliability'] =
               VERIFIED_RELIABILITY_MAP[rawInterest];
 
-            let finalStatus: PointOfInterest['status'] = enriched.status ?? 'published';
+            let finalStatus: PointOfInterest['status'] | undefined = poi.status;
+            const enrichedStatusRaw =
+              typeof enriched.status === 'string' ? enriched.status.trim().toLowerCase() : '';
+            if (isPoiUiStatus(enrichedStatusRaw)) {
+              finalStatus = enrichedStatusRaw;
+            }
             let finalReliability = newReliability;
 
             if (finalStatus === 'needs_check') {
-              // Se Pro ha dubbi seri, non mettiamo il +, ma lo mettiamo in check o invalidated
-              // Però per "uscire dalla lista", dobbiamo comunque marcarlo in qualche modo.
-              // Usiamo 'low+' se vogliamo che sia "verificato come scarso/dubbio" e non più processato.
+              // Bonificato ma resta needs_check: low+ esce dalla coda getPoisForDeepScan (ai_reliability NOT LIKE '%+%').
               finalReliability = 'low+';
-              finalStatus = 'needs_check';
             }
 
             // 4. Update POI con i nuovi dati e il flag
@@ -237,12 +312,14 @@ export const usePoiActions = ({
 
               updatedBy: 'Daily Deep Scan (Pro)',
               updatedAt: new Date().toISOString(),
-              lastVerified: new Date().toISOString(),
 
               status: finalStatus,
             };
 
-            await saveSinglePoi(updatedPoi, cityId, currentUser);
+            await saveSinglePoi(updatedPoi, cityId, currentUser, {
+              primaryImage: 'preserve_assignment',
+            });
+            schedulePoiRealImageDiscovery(updatedPoi.id, cityId, 'bonifica', cityName);
             processedCount++;
 
             // Piccola pausa per cortesia API

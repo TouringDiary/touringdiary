@@ -330,6 +330,7 @@ export interface DatabaseCityRouteView {
   description?: string;
   image_url?: string;
   hero_image?: string;
+  wikimedia_hero_public_enabled?: boolean;
   rating?: number;
   visitors?: number;
   is_featured?: boolean;

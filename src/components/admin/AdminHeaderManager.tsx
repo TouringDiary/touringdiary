@@ -1,4 +1,4 @@
-import { MessageSquare, Monitor, RefreshCw, Trash2 } from 'lucide-react';
+import { Monitor, RefreshCw, Trash2 } from 'lucide-react';
 import { useAdminHeaderManager } from '@/hooks/admin/useAdminHeaderManager';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { AdminPhotoInspector } from './AdminPhotoInspector';
@@ -16,7 +16,6 @@ export const AdminHeaderManager = () => {
     previewImage,
     mode,
     setMode,
-    isSavingHero,
     patronImage,
     isSavingPatron,
     placeholders,
@@ -36,7 +35,6 @@ export const AdminHeaderManager = () => {
     imageToEdit,
     editTarget,
     editPlaceholderCat,
-    heroNote,
     showDeleteHeroConfirm,
     setShowDeleteHeroConfirm,
     showResetConfirm,
@@ -57,7 +55,6 @@ export const AdminHeaderManager = () => {
     faviconInputRef,
     showToast,
     handleFileUpload,
-    handleSaveHero,
     handleRemoveHeroRequest,
     confirmRemoveHero,
     handleRemoveAssetRequest,
@@ -153,14 +150,12 @@ export const AdminHeaderManager = () => {
             mode={mode}
             setMode={setMode}
             previewImage={previewImage}
-            isSavingHero={isSavingHero}
             fileInputRef={fileInputRef}
             openEditor={openEditor}
             handleRemoveHeroRequest={handleRemoveHeroRequest}
             handleFileUpload={handleFileUpload}
             handleSafeArtSuccess={handleSafeArtSuccess}
             showToast={showToast}
-            handleSaveHero={handleSaveHero}
           />
 
           <div className="flex flex-col gap-6">
@@ -226,15 +221,6 @@ export const AdminHeaderManager = () => {
         handleFileUpload={handleFileUpload}
         openEditor={openEditor}
       />
-
-      {heroNote && (
-        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 animate-in fade-in">
-          <h4 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-purple-500" /> Nota
-          </h4>
-          <p className="text-sm text-slate-300 italic">"{heroNote}"</p>
-        </div>
-      )}
 
       {inspectorOpen && (
         <AdminPhotoInspector

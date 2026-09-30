@@ -21,22 +21,13 @@ export async function mf3Rpc<T>(
 }
 
 export function mf3MediaAssetsTable() {
-  const client = supabase as unknown as {
-    from: (table: 'media_assets') => ReturnType<typeof supabase.from>;
-  };
-  return client.from('media_assets');
+  return supabase.from('media_assets');
 }
 
 export function mf3ImageVerificationRunsTable() {
-  const client = supabase as unknown as {
-    from: (table: 'image_verification_runs') => ReturnType<typeof supabase.from>;
-  };
-  return client.from('image_verification_runs');
+  return supabase.from('image_verification_runs');
 }
 
 export function mf3ImageVerificationStepsTable() {
-  const client = supabase as unknown as {
-    from: (table: 'image_verification_steps') => ReturnType<typeof supabase.from>;
-  };
-  return client.from('image_verification_steps');
+  return supabase.from('image_verification_steps');
 }
