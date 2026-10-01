@@ -1,8 +1,6 @@
 import {
   AI_RELIABILITY_VALUES,
-  POI_CATEGORY_VALUES,
   POI_STATUS_VALUES,
-  POI_SUBCATEGORY_VALUES,
   TOURISM_INTEREST_VALUES,
 } from '../../../constants/governance';
 import { SPONSOR_TIER_VALUES, type SponsorTier } from '../../../constants/planTypes';
@@ -51,10 +49,6 @@ export const getDefaultDuration = (category: string, subCategory?: string | null
   return '1h';
 };
 
-// Helper per determinare resourceType
-const isPoiCategory = (value: string): value is PoiCategory =>
-  (POI_CATEGORY_VALUES as readonly string[]).includes(value) && value !== 'all';
-
 const parseOpeningHoursFromDb = (raw: unknown): OpeningHours | undefined => {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const record = raw as Record<string, unknown>;
@@ -78,6 +72,7 @@ const parseOpeningHoursFromDb = (raw: unknown): OpeningHours | undefined => {
   };
 };
 
+// Helper per determinare resourceType
 const inferResourceType = (sub: string | null): 'guide' | 'operator' | 'service' | undefined => {
   const s = (sub || '').toLowerCase();
 
@@ -118,9 +113,6 @@ const isTourismInterest = (value: unknown): value is TourismInterest =>
 
 const isSponsorTier = (value: unknown): value is SponsorTier =>
   typeof value === 'string' && (SPONSOR_TIER_VALUES as readonly string[]).includes(value);
-
-const isPoiSubCategory = (value: unknown): value is PoiSubCategory =>
-  typeof value === 'string' && (POI_SUBCATEGORY_VALUES as readonly string[]).includes(value);
 
 function parsePoiStatusFromDb(
   raw: string | null | undefined,
@@ -212,19 +204,8 @@ const toOptional = <T>(value: T | null | undefined): T | undefined => value ?? u
 // --- MAPPING HELPERS (Strict Typing) ---
 export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
   try {
-    const rawCategory = db.category?.trim() ?? '';
-    if (!isPoiCategory(rawCategory)) {
-      throw new Error(`Invalid POI category "${String(db.category)}" for id ${db.id}`);
-    }
-    const cat = rawCategory;
-    const subRaw = db.sub_category?.trim() ?? '';
-    let subCat: PoiSubCategory | undefined;
-    if (subRaw) {
-      if (!isPoiSubCategory(subRaw)) {
-        throw new Error(`Invalid POI sub_category "${db.sub_category}" for id ${db.id}`);
-      }
-      subCat = subRaw;
-    }
+    const cat = (db.category as PoiCategory) || 'monument';
+    const subCat = toOptional(db.sub_category as PoiSubCategory | null);
 
     const contactInfo = parseContactInfoFromDb(db.website, db.phone, db.contact_info);
     const affiliate = parseAffiliateLinksFromDb(db.affiliate);
