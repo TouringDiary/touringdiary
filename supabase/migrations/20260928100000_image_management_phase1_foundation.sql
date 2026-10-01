@@ -101,7 +101,7 @@ DECLARE
   v_role text;
   v_origin_raw text;
 BEGIN
-  v_role := pg_catalog.coalesce(pg_catalog.nullif(pg_catalog.btrim(p_assignment_role), ''), 'primary');
+  v_role := COALESCE(NULLIF(pg_catalog.btrim(p_assignment_role), ''), 'primary');
 
   IF p_entity_type NOT IN ('city_person', 'poi', 'patron', 'photo_submission', 'city') THEN
     RAISE EXCEPTION 'entity_type non valido: %', p_entity_type;
@@ -111,13 +111,13 @@ BEGIN
     RAISE EXCEPTION 'City Hero Wikimedia: solo assignment_role gallery consentito (D-CONS-25).';
   END IF;
 
-  v_origin_raw := pg_catalog.lower(pg_catalog.btrim(pg_catalog.coalesce(p_origin_type, '')));
+  v_origin_raw := pg_catalog.lower(pg_catalog.btrim(COALESCE(p_origin_type, '')));
   IF v_origin_raw = 'sponsor' THEN
     RAISE EXCEPTION
       'Dual-write: origin sponsor non consentito; usare la pipeline Sponsor canonica (D-22), non p_origin_type dichiarativo.';
   END IF;
 
-  IF pg_catalog.char_length(pg_catalog.btrim(pg_catalog.coalesce(p_city_id, ''))) = 0 THEN
+  IF pg_catalog.char_length(pg_catalog.btrim(COALESCE(p_city_id, ''))) = 0 THEN
     RAISE EXCEPTION 'city_id obbligatorio.';
   END IF;
 END;
@@ -132,7 +132,7 @@ AS $$
 DECLARE
   v_raw text;
 BEGIN
-  v_raw := pg_catalog.lower(pg_catalog.btrim(pg_catalog.coalesce(p_origin_type, '')));
+  v_raw := pg_catalog.lower(pg_catalog.btrim(COALESCE(p_origin_type, '')));
 
   IF v_raw = 'verified_real' THEN
     RAISE EXCEPTION
@@ -201,7 +201,7 @@ BEGIN
     RAISE EXCEPTION 'entity_id e city_id obbligatori.';
   END IF;
 
-  v_role := pg_catalog.coalesce(pg_catalog.nullif(pg_catalog.btrim(p_assignment_role), ''), 'primary');
+  v_role := COALESCE(NULLIF(pg_catalog.btrim(p_assignment_role), ''), 'primary');
   IF v_role NOT IN ('primary', 'gallery') THEN
     RAISE EXCEPTION 'assignment_role non valido: %', v_role;
   END IF;
@@ -213,9 +213,9 @@ BEGIN
     p_city_id
   );
 
-  v_url := pg_catalog.nullif(pg_catalog.btrim(p_image_url), '');
-  v_bucket := pg_catalog.nullif(pg_catalog.btrim(p_storage_bucket), '');
-  v_path := pg_catalog.nullif(pg_catalog.btrim(p_storage_path), '');
+  v_url := NULLIF(pg_catalog.btrim(p_image_url), '');
+  v_bucket := NULLIF(pg_catalog.btrim(p_storage_bucket), '');
+  v_path := NULLIF(pg_catalog.btrim(p_storage_path), '');
 
   IF v_url IS NULL AND v_path IS NULL THEN
     RAISE EXCEPTION 'Immagine obbligatoria (URL o storage path).';
@@ -231,10 +231,10 @@ BEGIN
 
   IF p_entity_type = 'photo_submission' THEN
     SELECT
-      pg_catalog.nullif(pg_catalog.btrim(ps.image_url), ''),
+      NULLIF(pg_catalog.btrim(ps.image_url), ''),
       ps.status,
       CASE
-        WHEN ps.status = 'approved' THEN pg_catalog.coalesce(ps.published_at, pg_catalog.now())
+        WHEN ps.status = 'approved' THEN COALESCE(ps.published_at, pg_catalog.now())
         ELSE NULL
       END
     INTO v_canonical_url, v_photo_status, v_published_at
@@ -335,7 +335,7 @@ BEGIN
     END IF;
 
     SELECT CASE
-      WHEN pg_catalog.coalesce(p.status, 'published') = 'published' THEN pg_catalog.now()
+      WHEN COALESCE(p.status, 'published') = 'published' THEN pg_catalog.now()
       ELSE NULL
     END
     INTO v_published_at
@@ -357,7 +357,7 @@ BEGIN
     END IF;
 
     SELECT CASE
-      WHEN pg_catalog.coalesce(c.patron_editorial_status, 'published') = 'published' THEN pg_catalog.now()
+      WHEN COALESCE(c.patron_editorial_status, 'published') = 'published' THEN pg_catalog.now()
       ELSE NULL
     END
     INTO v_published_at
@@ -378,7 +378,7 @@ BEGIN
     END IF;
 
     SELECT CASE
-      WHEN pg_catalog.coalesce(c.status, 'published') = 'published' THEN pg_catalog.now()
+      WHEN COALESCE(c.status, 'published') = 'published' THEN pg_catalog.now()
       ELSE NULL
     END
     INTO v_published_at
@@ -396,7 +396,7 @@ BEGIN
     v_origin_type := 'community';
   ELSE
     v_origin_type := public.normalize_canonical_media_origin_type(
-      pg_catalog.coalesce(pg_catalog.nullif(pg_catalog.btrim(p_origin_type), ''), 'admin')
+      COALESCE(NULLIF(pg_catalog.btrim(p_origin_type), ''), 'admin')
     );
   END IF;
 
