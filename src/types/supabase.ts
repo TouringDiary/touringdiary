@@ -7587,6 +7587,14 @@ export type Database = {
         }
         Returns: string
       }
+      set_poi_wikimedia_public_enabled: {
+        Args: {
+          p_poi_id: string
+          p_city_id: string
+          p_enabled: boolean
+        }
+        Returns: undefined
+      }
       search_pois: {
         Args: {
           filter_category?: string

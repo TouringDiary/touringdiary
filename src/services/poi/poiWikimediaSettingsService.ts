@@ -11,18 +11,13 @@ export async function updatePoiWikimediaPublicEnabled(
     throw new Error('poiId e cityId obbligatori per aggiornare il toggle Wikimedia POI.');
   }
 
-  const { data, error } = await supabase
-    .from('pois')
-    .update({ wikimedia_public_enabled: enabled })
-    .eq('id', trimmedPoiId)
-    .eq('city_id', trimmedCityId)
-    .select('id')
-    .maybeSingle();
+  const { error } = await supabase.rpc('set_poi_wikimedia_public_enabled', {
+    p_poi_id: trimmedPoiId,
+    p_city_id: trimmedCityId,
+    p_enabled: enabled,
+  });
 
   if (error) {
     throw new Error(error.message);
-  }
-  if (!data?.id) {
-    throw new Error('Aggiornamento toggle Wikimedia POI: POI non trovato o non autorizzato.');
   }
 }
